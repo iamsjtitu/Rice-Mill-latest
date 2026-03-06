@@ -920,78 +920,93 @@ const Payments = ({ filters, user }) => {
           <CardHeader className="pb-2">
             <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
               <Users className="w-5 h-5" />
-              Agent Payments (Commission)
+              Agent/Mandi Payments (Target Based)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-slate-600">
-                    <TableHead className="text-slate-300">Agent Name</TableHead>
-                    <TableHead className="text-slate-300 text-right">Total QNTL</TableHead>
-                    <TableHead className="text-slate-300 text-right">Rate</TableHead>
-                    <TableHead className="text-slate-300 text-right">Total Amount</TableHead>
-                    <TableHead className="text-slate-300 text-right">Paid</TableHead>
-                    <TableHead className="text-slate-300 text-right">Balance</TableHead>
-                    <TableHead className="text-slate-300">Status</TableHead>
-                    {user.role === 'admin' && <TableHead className="text-slate-300">Actions</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {agentPayments.map((payment, idx) => (
-                    <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
-                      <TableCell className="text-white font-semibold">{payment.agent_name}</TableCell>
-                      <TableCell className="text-amber-400 text-right font-semibold">{payment.total_final_qntl}</TableCell>
-                      <TableCell className="text-right">
-                        <span className="text-blue-400">₹{payment.rate_per_qntl}</span>
-                      </TableCell>
-                      <TableCell className="text-right text-white font-semibold">₹{payment.total_amount}</TableCell>
-                      <TableCell className="text-right text-emerald-400">₹{payment.paid_amount}</TableCell>
-                      <TableCell className="text-right text-red-400 font-semibold">₹{payment.balance_amount}</TableCell>
-                      <TableCell>{getStatusBadge(payment.status)}</TableCell>
-                      {user.role === 'admin' && (
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => { setSelectedItem(payment); setNewRate(payment.rate_per_qntl.toString()); setShowRateDialog(true); }}
-                              className="h-7 px-2 text-blue-400 hover:bg-blue-900/30"
-                              title="Set Rate"
-                            >
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            {payment.status !== 'paid' && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => { setSelectedItem(payment); setShowPaymentDialog(true); }}
-                                  className="h-7 px-2 text-emerald-400 hover:bg-emerald-900/30"
-                                  title="Make Payment"
-                                >
-                                  <IndianRupee className="w-3 h-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleMarkPaid(payment)}
-                                  className="h-7 px-2 text-amber-400 hover:bg-amber-900/30"
-                                  title="Mark Paid"
-                                >
-                                  <CheckCircle className="w-3 h-3" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      )}
+            {agentPayments.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-slate-600">
+                      <TableHead className="text-slate-300">Mandi</TableHead>
+                      <TableHead className="text-slate-300">Agent</TableHead>
+                      <TableHead className="text-slate-300 text-right">Target</TableHead>
+                      <TableHead className="text-slate-300 text-right">Cutting</TableHead>
+                      <TableHead className="text-slate-300 text-right">Rates</TableHead>
+                      <TableHead className="text-slate-300 text-right">Total Amount</TableHead>
+                      <TableHead className="text-slate-300 text-right">Achieved</TableHead>
+                      <TableHead className="text-slate-300 text-right">Paid</TableHead>
+                      <TableHead className="text-slate-300 text-right">Balance</TableHead>
+                      <TableHead className="text-slate-300">Status</TableHead>
+                      {user.role === 'admin' && <TableHead className="text-slate-300">Actions</TableHead>}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {agentPayments.map((payment, idx) => (
+                      <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
+                        <TableCell className="text-white font-semibold">{payment.mandi_name}</TableCell>
+                        <TableCell className="text-slate-300 text-xs">{payment.agent_name}</TableCell>
+                        <TableCell className="text-amber-400 text-right">{payment.target_qntl} QNTL</TableCell>
+                        <TableCell className="text-right text-xs">
+                          <span className="text-slate-400">{payment.cutting_qntl} QNTL</span>
+                          <span className="text-slate-500 ml-1">({payment.cutting_percent}%)</span>
+                        </TableCell>
+                        <TableCell className="text-right text-xs">
+                          <span className="text-blue-400">₹{payment.base_rate}</span>
+                          <span className="text-slate-500"> + </span>
+                          <span className="text-purple-400">₹{payment.cutting_rate}</span>
+                        </TableCell>
+                        <TableCell className="text-right text-white font-semibold">₹{payment.total_amount}</TableCell>
+                        <TableCell className="text-right">
+                          <span className={payment.is_target_complete ? 'text-emerald-400' : 'text-amber-400'}>
+                            {payment.achieved_qntl} QNTL
+                          </span>
+                          {payment.is_target_complete && <CheckCircle className="w-3 h-3 inline ml-1 text-emerald-400" />}
+                        </TableCell>
+                        <TableCell className="text-right text-emerald-400">₹{payment.paid_amount}</TableCell>
+                        <TableCell className="text-right text-red-400 font-semibold">₹{payment.balance_amount}</TableCell>
+                        <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                        {user.role === 'admin' && (
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {payment.status !== 'paid' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => { setSelectedItem(payment); setShowPaymentDialog(true); }}
+                                    className="h-7 px-2 text-emerald-400 hover:bg-emerald-900/30"
+                                    title="Make Payment"
+                                  >
+                                    <IndianRupee className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleMarkPaid(payment)}
+                                    className="h-7 px-2 text-amber-400 hover:bg-amber-900/30"
+                                    title="Mark Paid"
+                                  >
+                                    <CheckCircle className="w-3 h-3" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-400">
+                <Target className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Koi mandi target set nahi hai</p>
+                <p className="text-xs mt-1">Pehle Dashboard mein Mandi Target set karein</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
