@@ -740,7 +740,7 @@ const Payments = ({ filters, user }) => {
         );
       } else {
         await axios.post(
-          `${API}/agent-payments/${encodeURIComponent(item.mandi_name)}/undo-paid?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`
+          `${API}/agent-payments/${encodeURIComponent(item.mandi_name)}/undo-paid?kms_year=${item.kms_year}&season=${item.season}&username=${user.username}&role=${user.role}`
         );
       }
       toast.success("Payment undo ho gaya!");
@@ -758,7 +758,7 @@ const Payments = ({ filters, user }) => {
         res = await axios.get(`${API}/truck-payments/${item.entry_id}/history`);
       } else {
         res = await axios.get(
-          `${API}/agent-payments/${encodeURIComponent(item.mandi_name)}/history?kms_year=${filters.kms_year}&season=${filters.season}`
+          `${API}/agent-payments/${encodeURIComponent(item.mandi_name)}/history?kms_year=${item.kms_year}&season=${item.season}`
         );
       }
       setPaymentHistory(res.data.history || []);
