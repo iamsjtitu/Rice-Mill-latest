@@ -300,8 +300,8 @@ const Dashboard = ({ filters, user }) => {
       mandi_name: target.mandi_name,
       target_qntl: target.target_qntl.toString(),
       cutting_percent: target.cutting_percent.toString(),
-      base_rate: (target.base_rate || 10).toString(),
-      cutting_rate: (target.cutting_rate || 5).toString(),
+      base_rate: (target.base_rate ?? 10).toString(),
+      cutting_rate: (target.cutting_rate ?? 5).toString(),
       kms_year: target.kms_year,
       season: target.season
     });
