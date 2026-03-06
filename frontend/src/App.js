@@ -1069,6 +1069,16 @@ function MainApp({ user, onLogout }) {
                         />
                       </div>
                       <div>
+                        <Label className="text-purple-400 font-semibold">Cutting QNTL (Auto)</Label>
+                        <Input
+                          value={`${calculatedFields.cutting_qntl} QNTL`}
+                          readOnly
+                          className="bg-purple-900/30 border-purple-700 text-purple-400 font-bold"
+                          data-testid="calculated-cutting"
+                        />
+                        <span className="text-xs text-slate-400">Mill W × {formData.cutting_percent || 0}%</span>
+                      </div>
+                      <div>
                         <Label className="text-yellow-400">Moisture %</Label>
                         <Input
                           type="number"
@@ -1083,14 +1093,14 @@ function MainApp({ user, onLogout }) {
                         <span className="text-xs text-slate-400">17% tak no cut</span>
                       </div>
                       <div>
-                        <Label className="text-yellow-400 font-semibold">Moisture Cut (Auto)</Label>
+                        <Label className="text-yellow-400 font-semibold">Moisture Cut QNTL (Auto)</Label>
                         <Input
-                          value={`${calculatedFields.moisture_cut} kg (${calculatedFields.moisture_cut_percent}%)`}
+                          value={`${calculatedFields.moisture_cut_qntl} QNTL (${calculatedFields.moisture_cut_percent}%)`}
                           readOnly
                           className="bg-yellow-900/30 border-yellow-700 text-yellow-400 font-bold"
                           data-testid="calculated-moisture-cut"
                         />
-                        <span className="text-xs text-slate-400">{formData.moisture > 17 ? `${formData.moisture}-17 = ${calculatedFields.moisture_cut_percent}% cut` : 'No cut'}</span>
+                        <span className="text-xs text-slate-400">{formData.moisture > 17 ? `Mill W × ${calculatedFields.moisture_cut_percent}%` : 'No cut'}</span>
                       </div>
                       <div>
                         <Label className="text-slate-300">Disc/Dust/Poll (kg)</Label>
