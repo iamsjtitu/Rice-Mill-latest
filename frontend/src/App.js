@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Edit, Plus, Calculator, RefreshCw, Filter, X, FileSpreadsheet, FileText, LogOut, User, Lock } from "lucide-react";
+import { Trash2, Edit, Plus, Calculator, RefreshCw, Filter, X, FileSpreadsheet, FileText, LogOut, User, Lock, Key } from "lucide-react";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
