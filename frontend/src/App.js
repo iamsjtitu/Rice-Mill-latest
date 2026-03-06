@@ -1048,7 +1048,31 @@ function MainApp({ user, onLogout }) {
                         />
                       </div>
                       <div>
-                        <Label className="text-slate-300">Disc/Dust/Poll</Label>
+                        <Label className="text-yellow-400">Moisture %</Label>
+                        <Input
+                          type="number"
+                          name="moisture"
+                          value={formData.moisture}
+                          onChange={handleInputChange}
+                          placeholder="17, 18..."
+                          step="0.1"
+                          className="bg-yellow-900/30 border-yellow-700 text-yellow-400"
+                          data-testid="input-moisture"
+                        />
+                        <span className="text-xs text-slate-400">17% tak no cut</span>
+                      </div>
+                      <div>
+                        <Label className="text-yellow-400 font-semibold">Moisture Cut (Auto)</Label>
+                        <Input
+                          value={`${calculatedFields.moisture_cut} kg (${calculatedFields.moisture_cut_percent}%)`}
+                          readOnly
+                          className="bg-yellow-900/30 border-yellow-700 text-yellow-400 font-bold"
+                          data-testid="calculated-moisture-cut"
+                        />
+                        <span className="text-xs text-slate-400">{formData.moisture > 17 ? `${formData.moisture}-17 = ${calculatedFields.moisture_cut_percent}% cut` : 'No cut'}</span>
+                      </div>
+                      <div>
+                        <Label className="text-slate-300">Disc/Dust/Poll (kg)</Label>
                         <Input
                           type="number"
                           name="disc_dust_poll"
