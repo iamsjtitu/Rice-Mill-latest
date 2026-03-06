@@ -643,6 +643,7 @@ const Payments = ({ filters, user }) => {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
   const [newRate, setNewRate] = useState("");
+  const [truckSearchFilter, setTruckSearchFilter] = useState("");
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -669,6 +670,32 @@ const Payments = ({ filters, user }) => {
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
+
+  // Filter truck payments by search
+  const filteredTruckPayments = truckSearchFilter
+    ? truckPayments.filter(p => 
+        p.truck_no.toLowerCase().includes(truckSearchFilter.toLowerCase()) ||
+        p.mandi_name.toLowerCase().includes(truckSearchFilter.toLowerCase())
+      )
+    : truckPayments;
+
+  // Export truck payments to Excel
+  const handleExportTruckExcel = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    if (truckSearchFilter) params.append('truck_no', truckSearchFilter);
+    window.open(`${API}/export/truck-payments-excel?${params.toString()}`, '_blank');
+  };
+
+  // Export truck payments to PDF
+  const handleExportTruckPDF = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    if (truckSearchFilter) params.append('truck_no', truckSearchFilter);
+    window.open(`${API}/export/truck-payments-pdf?${params.toString()}`, '_blank');
+  };
 
   const handleSetRate = async () => {
     if (!newRate || !selectedItem) return;
