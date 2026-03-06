@@ -923,7 +923,7 @@ function App() {
                     <TableHead className="text-purple-400 text-right">Cut %</TableHead>
                     <TableHead className="text-purple-400 text-right">Cutting</TableHead>
                     <TableHead className="text-amber-400 text-right">Final W.</TableHead>
-                    <TableHead className="text-slate-300 text-right">F.C</TableHead>
+                    <TableHead className="text-slate-300 text-right">Cash</TableHead>
                     <TableHead className="text-slate-300 text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -970,7 +970,7 @@ function App() {
                           {entry.final_w?.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-white text-right font-mono">
-                          {entry.fc?.toLocaleString()}
+                          {entry.cash_paid?.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex gap-1 justify-center">
