@@ -1938,6 +1938,8 @@ function MainApp({ user, onLogout }) {
       setLoading(true);
       const params = new URLSearchParams();
       if (filters.truck_no) params.append('truck_no', filters.truck_no);
+      if (filters.rst_no) params.append('rst_no', filters.rst_no);
+      if (filters.tp_no) params.append('tp_no', filters.tp_no);
       if (filters.agent_name) params.append('agent_name', filters.agent_name);
       if (filters.mandi_name) params.append('mandi_name', filters.mandi_name);
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
