@@ -842,7 +842,7 @@ function App() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               <div className="bg-slate-700/50 p-3 rounded-lg">
                 <p className="text-slate-400 text-xs">Total KG</p>
                 <p className="text-white text-lg font-bold" data-testid="total-kg">
@@ -867,22 +867,16 @@ function App() {
                   {totals.total_mill_w?.toLocaleString() || 0}
                 </p>
               </div>
-              <div className="bg-pink-900/30 p-3 rounded-lg border border-pink-700">
-                <p className="text-pink-400 text-xs">P.Pkt Cut</p>
-                <p className="text-pink-400 text-lg font-bold" data-testid="total-p-pkt-cut">
-                  {totals.total_p_pkt_cut?.toFixed(2) || 0}
-                </p>
-              </div>
-              <div className="bg-purple-900/30 p-3 rounded-lg border border-purple-700">
-                <p className="text-purple-400 text-xs">Total Cutting</p>
-                <p className="text-purple-400 text-lg font-bold" data-testid="total-cutting">
-                  {totals.total_cutting?.toFixed(2) || 0}
-                </p>
-              </div>
               <div className="bg-amber-900/30 p-3 rounded-lg border border-amber-700">
                 <p className="text-amber-400 text-xs">Total Final W.</p>
                 <p className="text-amber-400 text-lg font-bold" data-testid="total-final-w">
                   {totals.total_final_w?.toLocaleString() || 0}
+                </p>
+              </div>
+              <div className="bg-cyan-900/30 p-3 rounded-lg border border-cyan-700">
+                <p className="text-cyan-400 text-xs">Total G.Issued</p>
+                <p className="text-cyan-400 text-lg font-bold" data-testid="total-g-issued">
+                  {totals.total_g_issued?.toLocaleString() || 0}
                 </p>
               </div>
             </div>
