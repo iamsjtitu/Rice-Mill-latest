@@ -1,0 +1,16 @@
+{
+  "name": "mill-entry-local-server",
+  "version": "1.0.0",
+  "description": "Mill Entry System - Local Server (Windows/Mac/Linux)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "setup": "node setup.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.0",
+    "open": "^8.4.2"
+  }
+}

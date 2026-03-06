@@ -277,13 +277,28 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 ## Files Structure
 ```
 /app/backend/
-  server.py - All APIs, models, calculations, exports
+  server.py - All APIs, models, calculations, exports (MongoDB)
   tests/ - pytest test files
 
 /app/frontend/src/
   App.js - Full React frontend with Dashboard & Payments
   App.css - Custom styles
   components/ui/ - Shadcn components
+
+/app/local-server/
+  server.js - Standalone local Express server (JSON DB, all APIs, static serving)
+  setup.bat - Windows first-time setup
+  start.bat - Windows start script
+  start.sh - Linux/Mac start script
+  SETUP.md - Hindi instructions
+  data/ - JSON database files
+  public/ - React build
+
+/app/desktop-app/
+  main.js - Electron desktop app + Express API + JSON DB
+  preload.js - Electron context bridge
+  package.json - Build config (electron-builder)
+  SETUP_GUIDE.md - Build instructions
 ```
 
 ## Database Collections
