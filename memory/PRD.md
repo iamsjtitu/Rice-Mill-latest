@@ -70,6 +70,15 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
   - Esc: Close Dialogs
   - Keyboard shortcuts help dialog in header
 
+### Phase 7 - UI Cleanup & Print Invoice ✅ (Mar 2026)
+- **Agent-wise Chart Removed:** Removed bar chart from Dashboard as per user request
+- **Print Invoice Feature:** Added printable receipt for Truck Payments
+  - Professional Hindi+English bilingual format
+  - Shows: Trip details, Weight, Rate, Gross/Deductions/Net amounts
+  - Status badge (Paid/Partial/Pending)
+  - Signature sections for Driver and Admin
+  - Print button in browser opens ready-to-print receipt
+
 ## Mandi Target Feature
 **Example**: Badkutru target 5000 QNTL + 5% cutting
 - Expected Total: 5000 + 250 = **5250 QNTL**
