@@ -2209,6 +2209,8 @@ function MainApp({ user, onLogout }) {
       <main className="max-w-7xl mx-auto px-4 py-6">
         {activeTab === "dashboard" ? (
           <Dashboard filters={filters} user={user} />
+        ) : activeTab === "payments" ? (
+          <Payments filters={filters} user={user} />
         ) : (
           <>
             {/* Totals Summary */}
