@@ -664,10 +664,16 @@ function MainApp({ user, onLogout }) {
   };
 
   const clearFilters = () => {
-    setFilters({ truck_no: "", agent_name: "", mandi_name: "", kms_year: "", season: "" });
+    setFilters({ 
+      truck_no: "", 
+      agent_name: "", 
+      mandi_name: "", 
+      kms_year: KMS_YEARS[KMS_YEARS.length - 2], // Keep current year
+      season: "" 
+    });
   };
 
-  const hasActiveFilters = filters.truck_no || filters.agent_name || filters.mandi_name || filters.kms_year || filters.season;
+  const hasActiveFilters = filters.truck_no || filters.agent_name || filters.mandi_name || filters.season;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
