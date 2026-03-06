@@ -165,12 +165,14 @@ function App() {
     });
   }, [formData.kg, formData.gbw_cut, formData.disc_dust_poll, formData.plastic_bag, formData.cutting_percent]);
 
-  // Auto-fill G.Deposite when BAG changes
+  // Auto-fill G.Deposite and GBW Cut when BAG changes
   useEffect(() => {
-    if (formData.bag && !formData.g_deposite) {
+    if (formData.bag) {
+      const bagCount = parseInt(formData.bag) || 0;
       setFormData(prev => ({
         ...prev,
-        g_deposite: prev.bag
+        g_deposite: prev.g_deposite || bagCount.toString(),
+        gbw_cut: bagCount.toString()  // 1 kg per bag auto cut
       }));
     }
   }, [formData.bag]);
