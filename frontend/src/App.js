@@ -38,14 +38,12 @@ const initialFormState = {
   gbw_cut: "",
   plastic_bag: "",
   cutting_percent: "",
-  total_wt: "",
   g_issued: "",
   moisture: "",
   disc_dust_poll: "",
   cash_paid: "",
   diesel_paid: "",
   remark: "",
-  fc: "",
 };
 
 // Auto-suggest Dropdown Component
@@ -705,17 +703,6 @@ function App() {
                     {/* Other Fields */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <Label className="text-slate-300">Total WT.</Label>
-                        <Input
-                          type="number"
-                          name="total_wt"
-                          value={formData.total_wt}
-                          onChange={handleInputChange}
-                          className="bg-slate-700 border-slate-600 text-white"
-                          data-testid="input-total-wt"
-                        />
-                      </div>
-                      <div>
                         <Label className="text-slate-300">G.Issued</Label>
                         <Input
                           type="number"
@@ -757,17 +744,6 @@ function App() {
                           onChange={handleInputChange}
                           className="bg-slate-700 border-slate-600 text-white"
                           data-testid="input-diesel-paid"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-slate-300">F.C (Final Cost)</Label>
-                        <Input
-                          type="number"
-                          name="fc"
-                          value={formData.fc}
-                          onChange={handleInputChange}
-                          className="bg-slate-700 border-slate-600 text-white"
-                          data-testid="input-fc"
                         />
                       </div>
                       <div className="col-span-2">
