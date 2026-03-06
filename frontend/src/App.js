@@ -1744,8 +1744,12 @@ function MainApp({ user, onLogout }) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Totals Summary */}
-        <Card className="bg-slate-800/50 border-slate-700 mb-6">
+        {activeTab === "dashboard" ? (
+          <Dashboard filters={filters} user={user} />
+        ) : (
+          <>
+            {/* Totals Summary */}
+            <Card className="bg-slate-800/50 border-slate-700 mb-6">
           <CardHeader>
             <CardTitle className="text-amber-400 flex items-center justify-between">
               <span>Total Summary</span>
