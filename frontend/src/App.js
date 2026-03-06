@@ -1242,6 +1242,34 @@ function MainApp({ user, onLogout }) {
             </DialogContent>
           </Dialog>
 
+          {/* Tab Navigation */}
+          <div className="flex gap-2 mt-4 border-b border-slate-700 pb-2">
+            <Button
+              onClick={() => setActiveTab("entries")}
+              variant={activeTab === "entries" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "entries" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-entries"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-1" />
+              Entries
+            </Button>
+            <Button
+              onClick={() => setActiveTab("dashboard")}
+              variant={activeTab === "dashboard" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "dashboard" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-dashboard"
+            >
+              <BarChart3 className="w-4 h-4 mr-1" />
+              Dashboard & Targets
+            </Button>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex gap-2 flex-wrap mt-3">
             <Button
