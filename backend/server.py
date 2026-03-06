@@ -456,6 +456,8 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
 @api_router.get("/entries", response_model=List[MillEntry])
 async def get_entries(
     truck_no: Optional[str] = None,
+    rst_no: Optional[str] = None,
+    tp_no: Optional[str] = None,
     agent_name: Optional[str] = None,
     mandi_name: Optional[str] = None,
     kms_year: Optional[str] = None,
@@ -467,6 +469,10 @@ async def get_entries(
     
     if truck_no:
         query["truck_no"] = {"$regex": truck_no, "$options": "i"}
+    if rst_no:
+        query["rst_no"] = {"$regex": rst_no, "$options": "i"}
+    if tp_no:
+        query["tp_no"] = {"$regex": tp_no, "$options": "i"}
     if agent_name:
         query["agent_name"] = {"$regex": agent_name, "$options": "i"}
     if mandi_name:
