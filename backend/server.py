@@ -1445,71 +1445,81 @@ async def mark_truck_paid(entry_id: str, username: str = "", role: str = ""):
 
 @api_router.get("/agent-payments", response_model=List[AgentPaymentStatus])
 async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[str] = None):
-    """Get all agent payments with their status"""
-    match_query = {}
+    """Get all agent payments based on mandi targets (not achieved)"""
+    query = {}
     if kms_year:
-        match_query["kms_year"] = kms_year
+        query["kms_year"] = kms_year
     if season:
-        match_query["season"] = season
+        query["season"] = season
     
-    # Aggregate by agent
-    pipeline = []
-    if match_query:
-        pipeline.append({"$match": match_query})
-    
-    pipeline.extend([
-        {
-            "$group": {
-                "_id": "$agent_name",
-                "total_final_w_kg": {"$sum": "$final_w"},
-                "total_entries": {"$sum": 1},
-                "kms_year": {"$first": "$kms_year"},
-                "season": {"$first": "$season"}
-            }
-        },
-        {"$sort": {"_id": 1}}
-    ])
-    
-    results = await db.mill_entries.aggregate(pipeline).to_list(100)
+    # Get all mandi targets
+    targets = await db.mandi_targets.find(query, {"_id": 0}).to_list(100)
     
     payments = []
-    for r in results:
-        agent_name = r["_id"]
-        if not agent_name:
-            continue
+    for target in targets:
+        mandi_name = target["mandi_name"]
+        target_qntl = target["target_qntl"]
+        cutting_percent = target["cutting_percent"]
+        cutting_qntl = round(target_qntl * cutting_percent / 100, 2)
+        expected_total = target["expected_total"]
+        base_rate = target.get("base_rate", 10)
+        cutting_rate = target.get("cutting_rate", 5)
         
-        # Get agent rate
-        rate_doc = await db.agent_rates.find_one({
-            "agent_name": agent_name,
-            "kms_year": kms_year or r.get("kms_year"),
-            "season": season or r.get("season")
-        }, {"_id": 0})
-        rate = rate_doc.get("rate_per_qntl", 10) if rate_doc else 10
+        # Calculate amounts
+        target_amount = round(target_qntl * base_rate, 2)
+        cutting_amount = round(cutting_qntl * cutting_rate, 2)
+        total_amount = round(target_amount + cutting_amount, 2)
+        
+        # Get achieved for this mandi
+        entry_query = {
+            "mandi_name": mandi_name,
+            "kms_year": target["kms_year"],
+            "season": target["season"]
+        }
+        pipeline = [
+            {"$match": entry_query},
+            {"$group": {
+                "_id": None, 
+                "total_final_w": {"$sum": "$final_w"},
+                "agent_name": {"$first": "$agent_name"}
+            }}
+        ]
+        result = await db.mill_entries.aggregate(pipeline).to_list(1)
+        achieved_kg = result[0]["total_final_w"] if result else 0
+        achieved_qntl = round(achieved_kg / 100, 2)
+        agent_name = result[0]["agent_name"] if result else mandi_name
+        
+        is_target_complete = achieved_qntl >= expected_total
         
         # Get payment record
         payment_doc = await db.agent_payments.find_one({
-            "agent_name": agent_name,
-            "kms_year": kms_year or r.get("kms_year"),
-            "season": season or r.get("season")
+            "mandi_name": mandi_name,
+            "kms_year": target["kms_year"],
+            "season": target["season"]
         }, {"_id": 0})
         paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
         
-        total_final_qntl = round(r["total_final_w_kg"] / 100, 2)
-        total_amount = round(total_final_qntl * rate, 2)
         balance = round(total_amount - paid_amount, 2)
         status = "paid" if balance <= 0 else ("partial" if paid_amount > 0 else "pending")
         
         payments.append(AgentPaymentStatus(
+            mandi_name=mandi_name,
             agent_name=agent_name,
-            total_final_qntl=total_final_qntl,
-            rate_per_qntl=rate,
+            target_qntl=target_qntl,
+            cutting_percent=cutting_percent,
+            cutting_qntl=cutting_qntl,
+            base_rate=base_rate,
+            cutting_rate=cutting_rate,
+            target_amount=target_amount,
+            cutting_amount=cutting_amount,
             total_amount=total_amount,
+            achieved_qntl=achieved_qntl,
+            is_target_complete=is_target_complete,
             paid_amount=paid_amount,
             balance_amount=max(0, balance),
             status=status,
-            kms_year=kms_year or r.get("kms_year", ""),
-            season=season or r.get("season", ""),
-            total_entries=r["total_entries"]
+            kms_year=target["kms_year"],
+            season=target["season"]
         ))
     
     return payments
