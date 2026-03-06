@@ -82,12 +82,14 @@ class MillEntry(BaseModel):
     mill_w: float = 0  # Auto calculated: kg - gbw_cut
     plastic_bag: int = 0  # P.Pkt - Plastic packet count
     p_pkt_cut: float = 0  # Auto calculated: plastic_bag * 0.5
+    moisture: float = 0  # Moisture percentage
+    moisture_cut: float = 0  # Auto calculated moisture cut
+    moisture_cut_percent: float = 0  # Moisture cut percentage (moisture - 17 if > 17)
     cutting_percent: float = 0  # Cutting percentage (5%, 5.26% etc)
     cutting: float = 0  # Auto calculated from percentage
     disc_dust_poll: float = 0
     final_w: float = 0  # Auto calculated
     g_issued: float = 0
-    moisture: float = 0
     cash_paid: float = 0
     diesel_paid: float = 0
     remark: str = ""
