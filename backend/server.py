@@ -1637,32 +1637,6 @@ async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
     )
     
     return {"success": True, "message": "Agent/Mandi payment cleared"}
-        "kms_year": kms_year,
-        "season": season
-    }, {"_id": 0})
-    payments_history = payment_doc.get("payments_history", []) if payment_doc else []
-    payments_history.append({
-        "amount": total_amount,
-        "date": datetime.now(timezone.utc).isoformat(),
-        "note": "Full payment - marked as paid",
-        "by": username
-    })
-    
-    await db.agent_payments.update_one(
-        {"agent_name": agent_name, "kms_year": kms_year, "season": season},
-        {"$set": {
-            "agent_name": agent_name,
-            "kms_year": kms_year,
-            "season": season,
-            "paid_amount": total_amount,
-            "payments_history": payments_history,
-            "status": "paid",
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }},
-        upsert=True
-    )
-    
-    return {"success": True, "message": "Agent payment cleared"}
 
 
 # Include the router in the main app
