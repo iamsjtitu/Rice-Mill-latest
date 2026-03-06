@@ -576,7 +576,7 @@ function MainApp({ user, onLogout }) {
             h1 { color: #d97706; text-align: center; }
             .info { text-align: center; margin-bottom: 20px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ccc; padding: 6px; text-align: left; font-size: 10px; }
+            th, td { border: 1px solid #ccc; padding: 4px; text-align: left; font-size: 9px; }
             th { background-color: #1e293b; color: white; }
             .totals { background-color: #fef3c7; font-weight: bold; }
           </style>
@@ -584,23 +584,23 @@ function MainApp({ user, onLogout }) {
         <body>
           <h1>NAVKAR AGRO - Mill Entries</h1>
           <div class="info">
-            <p>Date: ${new Date().toLocaleDateString()}</p>
-            ${filters.kms_year ? `<p>KMS Year: ${filters.kms_year}</p>` : ''}
-            ${filters.season ? `<p>Season: ${filters.season}</p>` : ''}
+            <p>Date: ${new Date().toLocaleDateString()} | KMS Year: ${filters.kms_year || "All"} ${filters.season ? `| Season: ${filters.season}` : ''}</p>
           </div>
           <table>
             <thead>
               <tr>
                 <th>Date</th>
-                <th>KMS</th>
-                <th>Season</th>
                 <th>Truck</th>
                 <th>Agent</th>
                 <th>Mandi</th>
                 <th>QNTL</th>
                 <th>BAG</th>
+                <th>GBW Cut</th>
                 <th>Mill W</th>
+                <th>Moist %</th>
+                <th>Moist Cut</th>
                 <th>Cut %</th>
+                <th>Disc/Dust</th>
                 <th>Final W</th>
                 <th>G.Issued</th>
                 <th>Cash</th>
@@ -611,31 +611,37 @@ function MainApp({ user, onLogout }) {
               ${entries.map(entry => `
                 <tr>
                   <td>${entry.date}</td>
-                  <td>${entry.kms_year || ''}</td>
-                  <td>${entry.season || ''}</td>
                   <td>${entry.truck_no}</td>
                   <td>${entry.agent_name}</td>
                   <td>${entry.mandi_name}</td>
                   <td>${entry.qntl?.toFixed(2)}</td>
                   <td>${entry.bag}</td>
+                  <td>${entry.gbw_cut?.toFixed(2)}</td>
                   <td>${(entry.mill_w / 100)?.toFixed(2)}</td>
+                  <td>${entry.moisture || 0}%</td>
+                  <td>${entry.moisture_cut?.toFixed(2) || 0}</td>
                   <td>${entry.cutting_percent}%</td>
+                  <td>${entry.disc_dust_poll || 0}</td>
                   <td>${(entry.final_w / 100)?.toFixed(2)}</td>
-                  <td>${entry.g_issued?.toLocaleString() || 0}</td>
-                  <td>${entry.cash_paid?.toLocaleString() || 0}</td>
-                  <td>${entry.diesel_paid?.toLocaleString() || 0}</td>
+                  <td>${entry.g_issued || 0}</td>
+                  <td>${entry.cash_paid || 0}</td>
+                  <td>${entry.diesel_paid || 0}</td>
                 </tr>
               `).join('')}
               <tr class="totals">
-                <td colspan="6">TOTAL</td>
+                <td colspan="4">TOTAL</td>
                 <td>${totals.total_qntl?.toFixed(2)}</td>
                 <td>${totals.total_bag}</td>
+                <td>${totals.total_gbw_cut?.toFixed(2)}</td>
                 <td>${(totals.total_mill_w / 100)?.toFixed(2)}</td>
                 <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>${totals.total_disc_dust_poll || 0}</td>
                 <td>${(totals.total_final_w / 100)?.toFixed(2)}</td>
-                <td>${totals.total_g_issued?.toLocaleString() || 0}</td>
-                <td>${totals.total_cash_paid?.toLocaleString() || 0}</td>
-                <td>${totals.total_diesel_paid?.toLocaleString() || 0}</td>
+                <td>${totals.total_g_issued || 0}</td>
+                <td>${totals.total_cash_paid || 0}</td>
+                <td>${totals.total_diesel_paid || 0}</td>
               </tr>
             </tbody>
           </table>
