@@ -2675,6 +2675,20 @@ function MainApp({ user, onLogout }) {
               <IndianRupee className="w-4 h-4 mr-1" />
               Payments
             </Button>
+            {user.role === 'admin' && (
+              <Button
+                onClick={() => setActiveTab("settings")}
+                variant={activeTab === "settings" ? "default" : "ghost"}
+                size="sm"
+                className={activeTab === "settings" 
+                  ? "bg-purple-500 hover:bg-purple-600 text-white" 
+                  : "text-slate-300 hover:bg-slate-700"}
+                data-testid="tab-settings"
+              >
+                <Key className="w-4 h-4 mr-1" />
+                Settings
+              </Button>
+            )}
           </div>
 
           {/* Action Buttons */}
