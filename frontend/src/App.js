@@ -498,7 +498,6 @@ function MainApp({ user, onLogout }) {
             th, td { border: 1px solid #ccc; padding: 6px; text-align: left; font-size: 10px; }
             th { background-color: #1e293b; color: white; }
             .totals { background-color: #fef3c7; font-weight: bold; }
-            @media print { body { -webkit-print-color-adjust: exact; } }
           </style>
         </head>
         <body>
@@ -517,7 +516,6 @@ function MainApp({ user, onLogout }) {
                 <th>Truck</th>
                 <th>Agent</th>
                 <th>Mandi</th>
-                <th>KG</th>
                 <th>QNTL</th>
                 <th>BAG</th>
                 <th>Mill W</th>
@@ -537,12 +535,11 @@ function MainApp({ user, onLogout }) {
                   <td>${entry.truck_no}</td>
                   <td>${entry.agent_name}</td>
                   <td>${entry.mandi_name}</td>
-                  <td>${entry.kg?.toLocaleString()}</td>
                   <td>${entry.qntl?.toFixed(2)}</td>
                   <td>${entry.bag}</td>
-                  <td>${entry.mill_w?.toLocaleString()}</td>
+                  <td>${(entry.mill_w / 100)?.toFixed(2)}</td>
                   <td>${entry.cutting_percent}%</td>
-                  <td>${entry.final_w?.toLocaleString()}</td>
+                  <td>${(entry.final_w / 100)?.toFixed(2)}</td>
                   <td>${entry.g_issued?.toLocaleString() || 0}</td>
                   <td>${entry.cash_paid?.toLocaleString() || 0}</td>
                   <td>${entry.diesel_paid?.toLocaleString() || 0}</td>
@@ -550,12 +547,11 @@ function MainApp({ user, onLogout }) {
               `).join('')}
               <tr class="totals">
                 <td colspan="6">TOTAL</td>
-                <td>${totals.total_kg?.toLocaleString()}</td>
                 <td>${totals.total_qntl?.toFixed(2)}</td>
                 <td>${totals.total_bag}</td>
-                <td>${totals.total_mill_w?.toLocaleString()}</td>
+                <td>${(totals.total_mill_w / 100)?.toFixed(2)}</td>
                 <td>-</td>
-                <td>${totals.total_final_w?.toLocaleString()}</td>
+                <td>${(totals.total_final_w / 100)?.toFixed(2)}</td>
                 <td>${totals.total_g_issued?.toLocaleString() || 0}</td>
                 <td>${totals.total_cash_paid?.toLocaleString() || 0}</td>
                 <td>${totals.total_diesel_paid?.toLocaleString() || 0}</td>
@@ -568,6 +564,32 @@ function MainApp({ user, onLogout }) {
     printWindow.document.close();
     printWindow.print();
     toast.success("PDF generate ho raha hai!");
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("New password aur confirm password match nahi kar rahe");
+      return;
+    }
+    if (passwordData.newPassword.length < 4) {
+      toast.error("Password kam se kam 4 characters ka hona chahiye");
+      return;
+    }
+    try {
+      const response = await axios.post(`${API}/auth/change-password`, {
+        username: user.username,
+        current_password: passwordData.currentPassword,
+        new_password: passwordData.newPassword
+      });
+      if (response.data.success) {
+        toast.success("Password change ho gaya!");
+        setIsPasswordDialogOpen(false);
+        setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Password change mein error");
+    }
   };
 
   const clearFilters = () => {
