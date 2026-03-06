@@ -1602,8 +1602,8 @@ function MainApp({ user, onLogout }) {
       if (e.altKey && e.key === 'n') {
         e.preventDefault();
         setActiveTab("entries");
-        setShowForm(true);
-        setEditingEntry(null);
+        setIsDialogOpen(true);
+        setEditingId(null);
         setFormData(initialFormState);
         toast.info("New Entry Form (Alt+N)");
       }
