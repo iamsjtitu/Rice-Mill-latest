@@ -1158,6 +1158,26 @@ const Payments = ({ filters, user }) => {
                                   </Button>
                                 </>
                               )}
+                              {payment.status === 'paid' && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleUndoPaid(payment)}
+                                  className="h-7 px-2 text-red-400 hover:bg-red-900/30"
+                                  title="Undo Paid"
+                                >
+                                  <Undo2 className="w-3 h-3" />
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleViewHistory(payment)}
+                                className="h-7 px-2 text-purple-400 hover:bg-purple-900/30"
+                                title="Payment History"
+                              >
+                                <History className="w-3 h-3" />
+                              </Button>
                             </div>
                           </TableCell>
                         )}
@@ -1176,6 +1196,56 @@ const Payments = ({ filters, user }) => {
           </CardContent>
         </Card>
       )}
+
+      {/* History Dialog */}
+      <Dialog open={showHistoryDialog} onOpenChange={setShowHistoryDialog}>
+        <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Payment History
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-slate-300 text-sm border-b border-slate-600 pb-2">
+              {activePaymentTab === "truck" 
+                ? `Truck: ${selectedItem?.truck_no}` 
+                : `Mandi: ${selectedItem?.mandi_name}`}
+            </p>
+            {paymentHistory.length > 0 ? (
+              <div className="max-h-[300px] overflow-y-auto space-y-2">
+                {paymentHistory.map((record, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`p-3 rounded-lg border ${
+                      record.amount < 0 
+                        ? 'bg-red-900/20 border-red-600/50' 
+                        : 'bg-slate-700/50 border-slate-600'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className={`font-bold ${record.amount < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                          {record.amount < 0 ? '' : '+'}₹{Math.abs(record.amount).toLocaleString()}
+                        </p>
+                        <p className="text-slate-400 text-xs">{record.note || 'Payment'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-slate-400 text-xs">
+                          {new Date(record.date).toLocaleDateString('hi-IN')}
+                        </p>
+                        <p className="text-slate-500 text-xs">by {record.by}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-center py-4">Koi payment record nahi hai</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Rate Dialog */}
       <Dialog open={showRateDialog} onOpenChange={setShowRateDialog}>
