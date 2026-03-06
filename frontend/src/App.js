@@ -845,7 +845,7 @@ function App() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
               <div className="bg-slate-700/50 p-3 rounded-lg">
                 <p className="text-slate-400 text-xs">Total KG</p>
                 <p className="text-white text-lg font-bold" data-testid="total-kg">
@@ -886,12 +886,6 @@ function App() {
                 <p className="text-amber-400 text-xs">Total Final W.</p>
                 <p className="text-amber-400 text-lg font-bold" data-testid="total-final-w">
                   {totals.total_final_w?.toLocaleString() || 0}
-                </p>
-              </div>
-              <div className="bg-slate-700/50 p-3 rounded-lg">
-                <p className="text-slate-400 text-xs">Total F.C</p>
-                <p className="text-white text-lg font-bold" data-testid="total-fc">
-                  {totals.total_fc?.toLocaleString() || 0}
                 </p>
               </div>
             </div>
