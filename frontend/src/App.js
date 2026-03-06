@@ -1554,6 +1554,119 @@ const Payments = ({ filters, user }) => {
         </Card>
       )}
 
+      {/* Truck Owner Consolidated Payments */}
+      {activePaymentTab === "consolidated" && (
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg text-cyan-400 flex items-center gap-2">
+              <Truck className="w-5 h-5" />
+              Truck Owner Consolidated Payments (ट्रक मालिक समेकित भुगतान)
+            </CardTitle>
+            <p className="text-slate-400 text-xs mt-1">
+              Ek truck ke saare trips ka total - sab cut karke final amount
+            </p>
+          </CardHeader>
+          <CardContent>
+            {consolidatedTruckList.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-slate-600">
+                      <TableHead className="text-slate-300">Truck No</TableHead>
+                      <TableHead className="text-slate-300 text-center">Trips</TableHead>
+                      <TableHead className="text-slate-300 text-right">Total QNTL</TableHead>
+                      <TableHead className="text-slate-300 text-right">Gross Amount</TableHead>
+                      <TableHead className="text-slate-300 text-right">Deductions</TableHead>
+                      <TableHead className="text-slate-300 text-right">Net Payable</TableHead>
+                      <TableHead className="text-slate-300 text-right">Paid</TableHead>
+                      <TableHead className="text-slate-300 text-right">Balance</TableHead>
+                      <TableHead className="text-slate-300">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {consolidatedTruckList.map((truckData, idx) => (
+                      <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
+                        <TableCell className="text-white font-bold text-lg">{truckData.truck_no}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="bg-slate-600 px-2 py-1 rounded-full text-xs text-white">
+                            {truckData.trips.length} trips
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-amber-400 text-right font-semibold">
+                          {truckData.total_final_qntl.toFixed(2)} QNTL
+                        </TableCell>
+                        <TableCell className="text-slate-300 text-right">
+                          ₹{truckData.total_gross.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-red-400 text-right">
+                          -₹{truckData.total_deductions.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-white text-right font-bold text-lg">
+                          ₹{truckData.total_net.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-emerald-400 text-right">
+                          ₹{truckData.total_paid.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className={`font-bold ${truckData.total_balance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                            ₹{truckData.total_balance.toLocaleString()}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handlePrintConsolidatedInvoice(truckData)}
+                            className="h-8 px-3 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600"
+                            title="Print Consolidated Receipt"
+                          >
+                            <Printer className="w-4 h-4 mr-1" />
+                            Print
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                
+                {/* Consolidated Total Summary */}
+                <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
+                  <div className="grid grid-cols-4 gap-4 text-center">
+                    <div>
+                      <p className="text-slate-400 text-xs">Total Trucks</p>
+                      <p className="text-white font-bold text-xl">{consolidatedTruckList.length}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs">Total Net Payable</p>
+                      <p className="text-white font-bold text-xl">
+                        ₹{consolidatedTruckList.reduce((sum, t) => sum + t.total_net, 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs">Total Paid</p>
+                      <p className="text-emerald-400 font-bold text-xl">
+                        ₹{consolidatedTruckList.reduce((sum, t) => sum + t.total_paid, 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs">Total Balance</p>
+                      <p className="text-red-400 font-bold text-xl">
+                        ₹{consolidatedTruckList.reduce((sum, t) => sum + t.total_balance, 0).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-400">
+                <Truck className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Koi truck payment nahi hai</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Agent Payments Table */}
       {activePaymentTab === "agent" && (
         <Card className="bg-slate-800 border-slate-700">
