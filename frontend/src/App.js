@@ -1811,7 +1811,11 @@ function MainApp({ user, onLogout }) {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("entries"); // "entries" or "dashboard"
+  const [activeTab, setActiveTab] = useState("entries"); // "entries", "dashboard", "payments", "settings"
+
+  // Branding state
+  const [branding, setBranding] = useState({ company_name: "NAVKAR AGRO", tagline: "Mill Entry System" });
+  const [brandingForm, setBrandingForm] = useState({ company_name: "", tagline: "" });
 
   // Suggestions state
   const [truckSuggestions, setTruckSuggestions] = useState([]);
