@@ -587,19 +587,59 @@ function MainApp({ user, onLogout }) {
         <head>
           <title>Navkar Agro - Mill Entries</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #d97706; text-align: center; }
-            .info { text-align: center; margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ccc; padding: 4px; text-align: left; font-size: 9px; }
-            th { background-color: #1e293b; color: white; }
-            .totals { background-color: #fef3c7; font-weight: bold; }
+            @page { size: A4 landscape; margin: 10mm; }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: Arial, sans-serif; 
+              font-size: 8px;
+              padding: 5mm;
+              width: 100%;
+            }
+            h1 { 
+              color: #d97706; 
+              text-align: center; 
+              font-size: 14px;
+              margin-bottom: 3px;
+            }
+            .info { 
+              text-align: center; 
+              margin-bottom: 5px;
+              font-size: 9px;
+              color: #666;
+            }
+            table { 
+              width: 100%; 
+              border-collapse: collapse;
+              font-size: 7px;
+            }
+            th { 
+              background-color: #1e293b; 
+              color: white; 
+              padding: 3px 2px;
+              font-weight: bold;
+              font-size: 7px;
+              white-space: nowrap;
+            }
+            td { 
+              padding: 2px;
+              border: 1px solid #ddd;
+              white-space: nowrap;
+            }
+            tr:nth-child(even) { background-color: #f8f9fa; }
+            .totals { 
+              background-color: #fef3c7 !important; 
+              font-weight: bold;
+              font-size: 8px;
+            }
+            .qntl { background-color: #d1fae5; }
+            .final { background-color: #fde68a; font-weight: bold; }
+            .right { text-align: right; }
           </style>
         </head>
         <body>
-          <h1>NAVKAR AGRO - Mill Entries</h1>
+          <h1>NAVKAR AGRO - JOLKO, KESINGA</h1>
           <div class="info">
-            <p>Date: ${new Date().toLocaleDateString()} | KMS Year: ${filters.kms_year || "All"} ${filters.season ? `| Season: ${filters.season}` : ''}</p>
+            KMS: ${filters.kms_year || "All"} | ${filters.season || "All Seasons"} | Date: ${new Date().toLocaleDateString()}
           </div>
           <table>
             <thead>
@@ -610,14 +650,14 @@ function MainApp({ user, onLogout }) {
                 <th>Mandi</th>
                 <th>QNTL</th>
                 <th>BAG</th>
-                <th>GBW Cut</th>
+                <th>GBW</th>
                 <th>Mill W</th>
-                <th>Moist %</th>
-                <th>Moist Cut</th>
-                <th>Cut %</th>
-                <th>Disc/Dust</th>
+                <th>M%</th>
+                <th>M.Cut</th>
+                <th>C%</th>
+                <th>D/D/P</th>
                 <th>Final W</th>
-                <th>G.Issued</th>
+                <th>G.Iss</th>
                 <th>Cash</th>
                 <th>Diesel</th>
               </tr>
@@ -625,38 +665,38 @@ function MainApp({ user, onLogout }) {
             <tbody>
               ${entries.map(entry => `
                 <tr>
-                  <td>${entry.date}</td>
+                  <td>${entry.date?.substring(5) || ''}</td>
                   <td>${entry.truck_no}</td>
                   <td>${entry.agent_name}</td>
                   <td>${entry.mandi_name}</td>
-                  <td>${entry.qntl?.toFixed(2)}</td>
-                  <td>${entry.bag}</td>
-                  <td>${entry.gbw_cut?.toFixed(2)}</td>
-                  <td>${(entry.mill_w / 100)?.toFixed(2)}</td>
-                  <td>${entry.moisture || 0}%</td>
-                  <td>${entry.moisture_cut?.toFixed(2) || 0}</td>
-                  <td>${entry.cutting_percent}%</td>
-                  <td>${entry.disc_dust_poll || 0}</td>
-                  <td>${(entry.final_w / 100)?.toFixed(2)}</td>
-                  <td>${entry.g_issued || 0}</td>
-                  <td>${entry.cash_paid || 0}</td>
-                  <td>${entry.diesel_paid || 0}</td>
+                  <td class="qntl right">${entry.qntl?.toFixed(2)}</td>
+                  <td class="right">${entry.bag}</td>
+                  <td class="right">${entry.gbw_cut?.toFixed(0)}</td>
+                  <td class="right">${(entry.mill_w / 100)?.toFixed(2)}</td>
+                  <td class="right">${entry.moisture || 0}</td>
+                  <td class="right">${((entry.moisture_cut || 0) / 100)?.toFixed(2)}</td>
+                  <td class="right">${entry.cutting_percent}</td>
+                  <td class="right">${entry.disc_dust_poll || 0}</td>
+                  <td class="final right">${(entry.final_w / 100)?.toFixed(2)}</td>
+                  <td class="right">${entry.g_issued || 0}</td>
+                  <td class="right">${entry.cash_paid || 0}</td>
+                  <td class="right">${entry.diesel_paid || 0}</td>
                 </tr>
               `).join('')}
               <tr class="totals">
-                <td colspan="4">TOTAL</td>
-                <td>${totals.total_qntl?.toFixed(2)}</td>
-                <td>${totals.total_bag}</td>
-                <td>${totals.total_gbw_cut?.toFixed(2)}</td>
-                <td>${(totals.total_mill_w / 100)?.toFixed(2)}</td>
+                <td colspan="4"><strong>TOTAL</strong></td>
+                <td class="right">${totals.total_qntl?.toFixed(2)}</td>
+                <td class="right">${totals.total_bag}</td>
+                <td class="right">${totals.total_gbw_cut?.toFixed(0)}</td>
+                <td class="right">${(totals.total_mill_w / 100)?.toFixed(2)}</td>
                 <td>-</td>
                 <td>-</td>
                 <td>-</td>
-                <td>${totals.total_disc_dust_poll || 0}</td>
-                <td>${(totals.total_final_w / 100)?.toFixed(2)}</td>
-                <td>${totals.total_g_issued || 0}</td>
-                <td>${totals.total_cash_paid || 0}</td>
-                <td>${totals.total_diesel_paid || 0}</td>
+                <td class="right">${totals.total_disc_dust_poll || 0}</td>
+                <td class="right">${(totals.total_final_w / 100)?.toFixed(2)}</td>
+                <td class="right">${totals.total_g_issued || 0}</td>
+                <td class="right">${totals.total_cash_paid || 0}</td>
+                <td class="right">${totals.total_diesel_paid || 0}</td>
               </tr>
             </tbody>
           </table>
@@ -664,7 +704,7 @@ function MainApp({ user, onLogout }) {
       </html>
     `);
     printWindow.document.close();
-    printWindow.print();
+    setTimeout(() => printWindow.print(), 500);
     toast.success("PDF generate ho raha hai!");
   };
 
