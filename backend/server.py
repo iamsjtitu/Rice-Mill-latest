@@ -542,7 +542,9 @@ async def get_totals(
     agent_name: Optional[str] = None,
     mandi_name: Optional[str] = None,
     kms_year: Optional[str] = None,
-    season: Optional[str] = None
+    season: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None
 ):
     match_query = {}
     
@@ -556,6 +558,16 @@ async def get_totals(
         match_query["kms_year"] = kms_year
     if season:
         match_query["season"] = season
+    
+    # Date range filter
+    if date_from or date_to:
+        date_query = {}
+        if date_from:
+            date_query["$gte"] = date_from
+        if date_to:
+            date_query["$lte"] = date_to
+        if date_query:
+            match_query["date"] = date_query
     
     pipeline = []
     if match_query:
