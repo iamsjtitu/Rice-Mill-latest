@@ -912,16 +912,17 @@ function App() {
                     <TableHead className="text-blue-400 text-right">Mill W.</TableHead>
                     <TableHead className="text-pink-400 text-right">P.Pkt</TableHead>
                     <TableHead className="text-purple-400 text-right">Cut %</TableHead>
-                    <TableHead className="text-purple-400 text-right">Cutting</TableHead>
                     <TableHead className="text-amber-400 text-right">Final W.</TableHead>
+                    <TableHead className="text-cyan-400 text-right">G.Issued</TableHead>
                     <TableHead className="text-slate-300 text-right">Cash</TableHead>
+                    <TableHead className="text-slate-300 text-right">Diesel</TableHead>
                     <TableHead className="text-slate-300 text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={14} className="text-center text-slate-400 py-8">
+                      <TableCell colSpan={15} className="text-center text-slate-400 py-8">
                         Koi entry nahi hai. "Nayi Entry" button click karein.
                       </TableCell>
                     </TableRow>
@@ -954,14 +955,17 @@ function App() {
                         <TableCell className="text-purple-400 text-right font-mono">
                           {entry.cutting_percent}%
                         </TableCell>
-                        <TableCell className="text-purple-400 text-right font-mono font-bold">
-                          {entry.cutting?.toFixed(2)}
-                        </TableCell>
                         <TableCell className="text-amber-400 text-right font-mono font-bold">
                           {entry.final_w?.toLocaleString()}
                         </TableCell>
+                        <TableCell className="text-cyan-400 text-right font-mono">
+                          {entry.g_issued?.toLocaleString() || 0}
+                        </TableCell>
                         <TableCell className="text-white text-right font-mono">
                           {entry.cash_paid?.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-white text-right font-mono">
+                          {entry.diesel_paid?.toLocaleString() || 0}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex gap-1 justify-center">
