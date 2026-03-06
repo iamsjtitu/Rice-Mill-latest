@@ -1991,6 +1991,36 @@ function MainApp({ user, onLogout }) {
     setSelectAll(false);
   }, [entries]);
 
+  // Fetch branding on mount
+  useEffect(() => {
+    const fetchBranding = async () => {
+      try {
+        const response = await axios.get(`${API}/branding`);
+        setBranding(response.data);
+        setBrandingForm(response.data);
+      } catch (error) {
+        console.error("Branding fetch error:", error);
+      }
+    };
+    fetchBranding();
+  }, []);
+
+  // Update branding
+  const handleUpdateBranding = async () => {
+    try {
+      const response = await axios.put(
+        `${API}/branding?username=${user.username}&role=${user.role}`,
+        brandingForm
+      );
+      if (response.data.success) {
+        setBranding(brandingForm);
+        toast.success("Branding update ho gaya!");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Branding update mein error");
+    }
+  };
+
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
