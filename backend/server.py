@@ -191,6 +191,7 @@ class MandiTargetUpdate(BaseModel):
 
 
 class MandiTargetSummary(BaseModel):
+    id: str  # Target ID for edit/delete
     mandi_name: str
     target_qntl: float
     cutting_percent: float
