@@ -75,6 +75,8 @@ class MillEntry(BaseModel):
     kms_year: str = ""  # e.g., "2025-2026"
     season: str = ""  # "Kharif" or "Rabi"
     truck_no: str = ""
+    rst_no: str = ""  # RST Number
+    tp_no: str = ""   # TP Number
     agent_name: str = ""
     mandi_name: str = ""
     kg: float = 0
@@ -106,6 +108,8 @@ class MillEntryCreate(BaseModel):
     kms_year: str = ""
     season: str = ""
     truck_no: str = ""
+    rst_no: str = ""  # RST Number
+    tp_no: str = ""   # TP Number
     agent_name: str = ""
     mandi_name: str = ""
     kg: float = 0
