@@ -212,6 +212,20 @@ async def login(request: LoginRequest):
     username = request.username
     password = request.password
     
+    # Check from database first (for changed passwords)
+    user_doc = await db.users.find_one({"username": username}, {"_id": 0})
+    
+    if user_doc:
+        if user_doc.get("password") == password:
+            return LoginResponse(
+                success=True,
+                username=username,
+                role=user_doc.get("role"),
+                message="Login successful"
+            )
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    # Fallback to default users
     if username in USERS and USERS[username]["password"] == password:
         return LoginResponse(
             success=True,
