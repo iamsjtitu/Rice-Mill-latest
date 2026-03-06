@@ -372,57 +372,6 @@ const Dashboard = ({ filters, user }) => {
         </CardContent>
       </Card>
 
-      {/* Monthly Trend Chart */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
-              Monthly Trend (Final Weight QNTL)
-            </CardTitle>
-            <Button
-              onClick={() => {
-                const params = new URLSearchParams();
-                if (filters.kms_year) params.append('kms_year', filters.kms_year);
-                if (filters.season) params.append('season', filters.season);
-                window.open(`${API}/export/summary-report-pdf?${params.toString()}`, '_blank');
-              }}
-              size="sm"
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <FileText className="w-4 h-4 mr-1" />
-              Summary Report PDF
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {monthlyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis 
-                  dataKey="month" 
-                  stroke="#9ca3af" 
-                  tick={{ fill: '#9ca3af', fontSize: 10 }}
-                  angle={-45}
-                  textAnchor="end"
-                />
-                <YAxis stroke="#9ca3af" tick={{ fill: '#9ca3af' }} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px' }}
-                  labelStyle={{ color: '#f59e0b' }}
-                  itemStyle={{ color: '#fff' }}
-                  formatter={(value) => [`${value} QNTL`, 'Final Weight']}
-                />
-                <Bar dataKey="total_final_w" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <p className="text-slate-400 text-center py-8">Koi monthly data nahi hai</p>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Mandi Target Section */}
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader className="pb-2">
