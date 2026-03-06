@@ -669,7 +669,7 @@ function MainApp({ user, onLogout }) {
       truck_no: "", 
       agent_name: "", 
       mandi_name: "", 
-      kms_year: KMS_YEARS[KMS_YEARS.length - 2], // Keep current year
+      kms_year: CURRENT_KMS_YEAR,
       season: "" 
     });
   };
