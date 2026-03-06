@@ -254,10 +254,10 @@ function MainApp({ user, onLogout }) {
 
     setCalculatedFields({
       qntl: (kg / 100).toFixed(2),
-      mill_w: (kg - gbw_cut).toFixed(2),
+      mill_w: ((kg - gbw_cut) / 100).toFixed(2),  // Show in QNTL
       p_pkt_cut: p_pkt_cut.toFixed(2),
       cutting: cutting.toFixed(2),
-      final_w: (kg - gbw_cut - p_pkt_cut - cutting - disc_dust_poll).toFixed(2),
+      final_w: ((kg - gbw_cut - p_pkt_cut - cutting - disc_dust_poll) / 100).toFixed(2),  // Show in QNTL
     });
   }, [formData.kg, formData.gbw_cut, formData.disc_dust_poll, formData.plastic_bag, formData.cutting_percent]);
 
@@ -828,7 +828,7 @@ function MainApp({ user, onLogout }) {
                         <span className="text-xs text-slate-400">G.Dep: 0.5kg | Empty: 1kg/bag</span>
                       </div>
                       <div>
-                        <Label className="text-blue-400 font-semibold">Mill W. (Auto)</Label>
+                        <Label className="text-blue-400 font-semibold">Mill W. QNTL (Auto)</Label>
                         <Input
                           value={calculatedFields.mill_w}
                           readOnly
@@ -883,7 +883,7 @@ function MainApp({ user, onLogout }) {
                         />
                       </div>
                       <div className="col-span-2">
-                        <Label className="text-amber-400 font-semibold">Final W. (Auto)</Label>
+                        <Label className="text-amber-400 font-semibold">Final W. QNTL (Auto)</Label>
                         <Input
                           value={calculatedFields.final_w}
                           readOnly
