@@ -553,6 +553,12 @@ const Dashboard = ({ filters, user }) => {
                         Target: {target.target_qntl} QNTL + {target.cutting_percent}% = 
                         <span className="text-amber-400 font-semibold ml-1">{target.expected_total} QNTL</span>
                       </p>
+                      <p className="text-blue-400 text-xs">
+                        Agent Payment: ₹{target.total_agent_amount || 0} 
+                        <span className="text-slate-500 ml-1">
+                          ({target.target_qntl}×₹{target.base_rate || 10} + {target.cutting_qntl || 0}×₹{target.cutting_rate || 5})
+                        </span>
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className={`text-lg font-bold ${target.progress_percent >= 100 ? 'text-emerald-400' : 'text-amber-400'}`}>
