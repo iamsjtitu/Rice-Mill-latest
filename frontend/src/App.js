@@ -64,6 +64,8 @@ const initialFormState = {
   kms_year: CURRENT_KMS_YEAR,
   season: "Kharif",
   truck_no: "",
+  rst_no: "",
+  tp_no: "",
   agent_name: "",
   mandi_name: "",
   kg: "",
