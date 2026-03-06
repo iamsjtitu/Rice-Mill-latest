@@ -383,7 +383,6 @@ function App() {
                   <th>Cutting</th>
                   <th>Final W</th>
                   <th>Cash</th>
-                  <th>F.C</th>
                 </tr>
               </thead>
               <tbody>
@@ -402,7 +401,6 @@ function App() {
                     <td>${entry.cutting?.toFixed(2)}</td>
                     <td>${entry.final_w?.toLocaleString()}</td>
                     <td>${entry.cash_paid?.toLocaleString()}</td>
-                    <td>${entry.fc?.toLocaleString()}</td>
                   </tr>
                 `).join('')}
                 <tr class="totals">
@@ -416,7 +414,6 @@ function App() {
                   <td>${totals.total_cutting?.toFixed(2)}</td>
                   <td>${totals.total_final_w?.toLocaleString()}</td>
                   <td>${totals.total_cash_paid?.toLocaleString()}</td>
-                  <td>${totals.total_fc?.toLocaleString()}</td>
                 </tr>
               </tbody>
             </table>
