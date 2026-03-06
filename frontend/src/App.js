@@ -1719,6 +1719,18 @@ function MainApp({ user, onLogout }) {
               <BarChart3 className="w-4 h-4 mr-1" />
               Dashboard & Targets
             </Button>
+            <Button
+              onClick={() => setActiveTab("payments")}
+              variant={activeTab === "payments" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "payments" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-payments"
+            >
+              <IndianRupee className="w-4 h-4 mr-1" />
+              Payments
+            </Button>
           </div>
 
           {/* Action Buttons */}
