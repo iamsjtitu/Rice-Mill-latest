@@ -1223,6 +1223,15 @@ const Payments = ({ filters, user }) => {
                             >
                               <History className="w-3 h-3" />
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handlePrintInvoice(payment)}
+                              className="h-7 px-2 text-cyan-400 hover:bg-cyan-900/30"
+                              title="Print Receipt"
+                            >
+                              <Printer className="w-3 h-3" />
+                            </Button>
                           </div>
                         </TableCell>
                       )}
