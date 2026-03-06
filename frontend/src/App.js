@@ -703,7 +703,7 @@ const Payments = ({ filters, user }) => {
         );
       } else {
         await axios.post(
-          `${API}/agent-payments/${encodeURIComponent(selectedItem.agent_name)}/pay?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`,
+          `${API}/agent-payments/${encodeURIComponent(selectedItem.mandi_name)}/pay?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`,
           { amount: parseFloat(paymentAmount), note: paymentNote }
         );
       }
@@ -726,7 +726,7 @@ const Payments = ({ filters, user }) => {
         );
       } else {
         await axios.post(
-          `${API}/agent-payments/${encodeURIComponent(item.agent_name)}/mark-paid?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`
+          `${API}/agent-payments/${encodeURIComponent(item.mandi_name)}/mark-paid?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`
         );
       }
       toast.success("Payment cleared!");
