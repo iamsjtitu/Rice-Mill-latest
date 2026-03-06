@@ -196,11 +196,6 @@ const LoginPage = ({ onLogin }) => {
               {loading ? "Logging in..." : "Login"}
             </Button>
           </form>
-          <div className="mt-6 p-4 bg-slate-700/50 rounded-lg">
-            <p className="text-slate-400 text-sm mb-2">Demo Credentials:</p>
-            <p className="text-slate-300 text-xs"><strong>Admin:</strong> admin / admin123</p>
-            <p className="text-slate-300 text-xs"><strong>Staff:</strong> staff / staff123</p>
-          </div>
         </CardContent>
       </Card>
     </div>
