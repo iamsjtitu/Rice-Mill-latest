@@ -5,8 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "build:frontend": "cd ../frontend && REACT_APP_BACKEND_URL=http://127.0.0.1:9876 yarn build && cp -r build ../desktop-app/frontend-build",
     "build": "npm run build:frontend && electron-builder --win",
-    "build:frontend": "cd ../frontend && npm run build && cp -r build ../desktop-app/frontend-build",
     "build:win": "electron-builder --win --x64",
     "pack": "electron-builder --dir"
   },

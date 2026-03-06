@@ -42,7 +42,7 @@ import {
 import LoginPage from "@/components/LoginPage";
 import AutoSuggest from "@/components/common/AutoSuggest";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 // Generate KMS years

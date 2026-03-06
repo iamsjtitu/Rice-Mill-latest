@@ -16,7 +16,7 @@ let splashWindow = null;
 let dataPath = null;
 let db = null;
 let server = null;
-let serverPort = null;
+const DESKTOP_API_PORT = 9876;
 
 // Config file location
 const configPath = path.join(app.getPath('userData'), 'mill-entry-config.json');
@@ -178,11 +178,16 @@ class JsonDatabase {
     const p_pkt_cut = Math.round(plastic_bag * 0.5 * 100) / 100;
 
     const moisture_cut_percent = Math.max(0, moisture - 17);
-    const moisture_cut = Math.round((mill_w_qntl * moisture_cut_percent / 100) * 100 * 100) / 100;
+    const moisture_cut_qntl = Math.round((mill_w_qntl * moisture_cut_percent / 100) * 100) / 100;
+    const moisture_cut = Math.round(moisture_cut_qntl * 100 * 100) / 100;
 
-    const cutting = Math.round((mill_w_qntl * cutting_percent / 100) * 100 * 100) / 100;
+    const cutting_qntl = Math.round((mill_w_qntl * cutting_percent / 100) * 100) / 100;
+    const cutting = Math.round(cutting_qntl * 100 * 100) / 100;
 
-    const final_w = Math.round((mill_w - p_pkt_cut - moisture_cut - cutting - disc_dust_poll) * 100) / 100;
+    const p_pkt_cut_qntl = p_pkt_cut / 100;
+    const disc_dust_poll_qntl = disc_dust_poll / 100;
+    const final_w_qntl = mill_w_qntl - p_pkt_cut_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl;
+    const final_w = Math.round(final_w_qntl * 100 * 100) / 100;
 
     return {
       qntl,
@@ -190,7 +195,9 @@ class JsonDatabase {
       p_pkt_cut,
       moisture_cut,
       moisture_cut_percent,
+      moisture_cut_qntl,
       cutting,
+      cutting_qntl,
       final_w
     };
   }
@@ -399,15 +406,34 @@ function createApiServer(database) {
 
   // ===== SUGGESTIONS =====
   apiApp.get('/api/suggestions/trucks', (req, res) => {
-    res.json(database.getSuggestions('truck_no'));
+    let suggestions = database.getSuggestions('truck_no');
+    const q = req.query.q || '';
+    if (q) suggestions = suggestions.filter(s => s.toLowerCase().includes(q.toLowerCase()));
+    res.json({ suggestions });
   });
 
   apiApp.get('/api/suggestions/agents', (req, res) => {
-    res.json(database.getSuggestions('agent_name'));
+    let suggestions = database.getSuggestions('agent_name');
+    const q = req.query.q || '';
+    if (q) suggestions = suggestions.filter(s => s.toLowerCase().includes(q.toLowerCase()));
+    res.json({ suggestions });
   });
 
   apiApp.get('/api/suggestions/mandis', (req, res) => {
-    res.json(database.getSuggestions('mandi_name'));
+    let suggestions = database.getSuggestions('mandi_name');
+    const q = req.query.q || '';
+    const agent_name = req.query.agent_name || '';
+    if (q) suggestions = suggestions.filter(s => s.toLowerCase().includes(q.toLowerCase()));
+    if (agent_name) {
+      const agentMandis = new Set();
+      database.data.entries.filter(e => e.agent_name === agent_name).forEach(e => { if (e.mandi_name) agentMandis.add(e.mandi_name); });
+      suggestions = suggestions.filter(s => agentMandis.has(s));
+    }
+    res.json({ suggestions });
+  });
+
+  apiApp.get('/api/suggestions/kms_years', (req, res) => {
+    res.json({ suggestions: database.getSuggestions('kms_year') });
   });
 
   // ===== MANDI TARGETS =====
@@ -461,17 +487,70 @@ function createApiServer(database) {
     const agentMap = {};
     
     entries.forEach(e => {
+      if (!e.agent_name) return;
       if (!agentMap[e.agent_name]) {
-        agentMap[e.agent_name] = { agent_name: e.agent_name, total_final_w: 0, entry_count: 0 };
+        agentMap[e.agent_name] = { agent_name: e.agent_name, total_qntl: 0, total_final_w: 0, total_entries: 0, total_bag: 0 };
       }
+      agentMap[e.agent_name].total_qntl += (e.qntl || 0);
       agentMap[e.agent_name].total_final_w += (e.final_w || 0) / 100;
-      agentMap[e.agent_name].entry_count += 1;
+      agentMap[e.agent_name].total_entries += 1;
+      agentMap[e.agent_name].total_bag += (e.bag || 0);
     });
     
-    res.json(Object.values(agentMap).map(a => ({
+    const agent_totals = Object.values(agentMap).map(a => ({
       ...a,
+      total_qntl: Math.round(a.total_qntl * 100) / 100,
       total_final_w: Math.round(a.total_final_w * 100) / 100
-    })));
+    })).sort((a, b) => b.total_final_w - a.total_final_w);
+    
+    res.json({ agent_totals });
+  });
+
+  apiApp.get('/api/dashboard/date-range-totals', (req, res) => {
+    const entries = database.getEntries(req.query);
+    const totals = entries.reduce((acc, e) => ({
+      total_kg: acc.total_kg + (e.kg || 0),
+      total_qntl: acc.total_qntl + (e.qntl || 0),
+      total_bag: acc.total_bag + (e.bag || 0),
+      total_final_w: acc.total_final_w + (e.final_w || 0) / 100,
+      total_entries: acc.total_entries + 1
+    }), { total_kg: 0, total_qntl: 0, total_bag: 0, total_final_w: 0, total_entries: 0 });
+    
+    res.json({
+      ...totals,
+      total_kg: Math.round(totals.total_kg * 100) / 100,
+      total_qntl: Math.round(totals.total_qntl * 100) / 100,
+      total_final_w: Math.round(totals.total_final_w * 100) / 100,
+      start_date: req.query.start_date || null,
+      end_date: req.query.end_date || null
+    });
+  });
+
+  apiApp.get('/api/dashboard/monthly-trend', (req, res) => {
+    const entries = database.getEntries(req.query);
+    const monthMap = {};
+    
+    entries.forEach(e => {
+      const month = (e.date || '').substring(0, 7);
+      if (!month) return;
+      if (!monthMap[month]) {
+        monthMap[month] = { month, total_qntl: 0, total_final_w: 0, total_entries: 0, total_bag: 0 };
+      }
+      monthMap[month].total_qntl += (e.qntl || 0);
+      monthMap[month].total_final_w += (e.final_w || 0) / 100;
+      monthMap[month].total_entries += 1;
+      monthMap[month].total_bag += (e.bag || 0);
+    });
+    
+    const monthly_data = Object.values(monthMap)
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .map(m => ({
+        ...m,
+        total_qntl: Math.round(m.total_qntl * 100) / 100,
+        total_final_w: Math.round(m.total_final_w * 100) / 100
+      }));
+    
+    res.json({ monthly_data });
   });
 
   // ===== TRUCK PAYMENTS =====
@@ -655,27 +734,162 @@ function createApiServer(database) {
   });
 
   // ===== PAYMENT HISTORY =====
-  apiApp.get('/api/payment-history/:type/:id', (req, res) => {
-    const { type, id } = req.params;
-    
-    if (type === 'truck') {
-      const payment = database.getTruckPayment(id);
-      res.json(payment.payment_history || []);
-    } else if (type === 'agent') {
-      const { kms_year, season } = req.query;
-      const payment = database.getAgentPayment(decodeURIComponent(id), kms_year, season);
-      res.json(payment.payment_history || []);
+  apiApp.get('/api/truck-payments/:entryId/history', (req, res) => {
+    const payment = database.getTruckPayment(req.params.entryId);
+    res.json({ history: payment.payment_history || [], total_paid: payment.paid_amount || 0 });
+  });
+
+  apiApp.get('/api/agent-payments/:mandiName/history', (req, res) => {
+    const { kms_year, season } = req.query;
+    const payment = database.getAgentPayment(decodeURIComponent(req.params.mandiName), kms_year, season);
+    res.json({ history: payment.payment_history || [], total_paid: payment.paid_amount || 0 });
+  });
+
+  // ===== AUTH VERIFY =====
+  apiApp.get('/api/auth/verify', (req, res) => {
+    const { username, role } = req.query;
+    const user = database.getUser(username);
+    if (user && user.role === role) {
+      res.json({ valid: true, username, role });
     } else {
-      res.json([]);
+      res.json({ valid: false });
     }
   });
 
-  // Start server
-  return new Promise((resolve) => {
-    server = apiApp.listen(0, '127.0.0.1', () => {
-      const port = server.address().port;
-      console.log(`API Server started on port ${port}`);
-      resolve(port);
+  // ===== EXPORT ENDPOINTS =====
+  apiApp.get('/api/export/excel', (req, res) => {
+    try {
+      const entries = database.getEntries(req.query);
+      const branding = database.getBranding();
+      const csvHeader = 'Date,Truck No,RST No,TP No,Agent,Mandi,QNTL,BAG,G.Dep,GBW Cut,Mill W,Moist%,M.Cut,Cut%,D/D/P,Final W,G.Issued,Cash,Diesel\\n';
+      let csv = csvHeader;
+      entries.forEach(e => {
+        csv += `${e.date || ''},${e.truck_no || ''},${e.rst_no || ''},${e.tp_no || ''},${e.agent_name || ''},${e.mandi_name || ''},${(e.qntl || 0).toFixed(2)},${e.bag || 0},${e.g_deposite || 0},${(e.gbw_cut || 0).toFixed(2)},${((e.mill_w || 0) / 100).toFixed(2)},${e.moisture || 0},${((e.moisture_cut || 0) / 100).toFixed(2)},${e.cutting_percent || 0},${e.disc_dust_poll || 0},${((e.final_w || 0) / 100).toFixed(2)},${e.g_issued || 0},${e.cash_paid || 0},${e.diesel_paid || 0}\\n`;
+      });
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.csv`);
+      res.send(csv);
+    } catch (err) {
+      res.status(500).json({ detail: 'Export failed: ' + err.message });
+    }
+  });
+
+  apiApp.get('/api/export/pdf', (req, res) => {
+    res.status(501).json({ detail: 'PDF export - Desktop version mein Print button use karein' });
+  });
+
+  apiApp.get('/api/export/truck-payments-excel', (req, res) => {
+    try {
+      const entries = database.getEntries(req.query);
+      let csv = 'Date,Truck No,Mandi,Final QNTL,Rate,Gross,Cash,Diesel,Deductions,Net Amount,Paid,Balance,Status\\n';
+      entries.forEach(entry => {
+        const payment = database.getTruckPayment(entry.id);
+        const final_qntl = ((entry.final_w || 0) / 100).toFixed(2);
+        const gross = (final_qntl * payment.rate_per_qntl).toFixed(2);
+        const deductions = ((entry.cash_paid || 0) + (entry.diesel_paid || 0)).toFixed(2);
+        const net = (gross - deductions).toFixed(2);
+        const balance = Math.max(0, net - payment.paid_amount).toFixed(2);
+        const status = balance < 0.10 ? 'Paid' : (payment.paid_amount > 0 ? 'Partial' : 'Pending');
+        csv += `${entry.date || ''},${entry.truck_no || ''},${entry.mandi_name || ''},${final_qntl},${payment.rate_per_qntl},${gross},${entry.cash_paid || 0},${entry.diesel_paid || 0},${deductions},${net},${payment.paid_amount},${balance},${status}\\n`;
+      });
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.csv`);
+      res.send(csv);
+    } catch (err) {
+      res.status(500).json({ detail: 'Export failed: ' + err.message });
+    }
+  });
+
+  apiApp.get('/api/export/truck-payments-pdf', (req, res) => {
+    res.status(501).json({ detail: 'PDF export - Print button use karein' });
+  });
+
+  apiApp.get('/api/export/agent-payments-excel', (req, res) => {
+    try {
+      const targets = database.getMandiTargets(req.query);
+      const entries = database.getEntries(req.query);
+      let csv = 'Mandi,Agent,Target QNTL,Cutting QNTL,Base Rate,Cut Rate,Total Amount,Achieved,Paid,Balance,Status\\n';
+      targets.forEach(target => {
+        const mandiEntries = entries.filter(e => e.mandi_name === target.mandi_name);
+        const achieved = mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0);
+        const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
+        const total_amount = (target.target_qntl * (target.base_rate || 10)) + (cutting_qntl * (target.cutting_rate || 5));
+        const payment = database.getAgentPayment(target.mandi_name, target.kms_year, target.season);
+        const balance = Math.max(0, total_amount - payment.paid_amount);
+        const status = balance < 0.01 ? 'Paid' : (payment.paid_amount > 0 ? 'Partial' : 'Pending');
+        csv += `${target.mandi_name},${target.agent_name || ''},${target.target_qntl},${cutting_qntl.toFixed(2)},${target.base_rate || 10},${target.cutting_rate || 5},${total_amount.toFixed(2)},${achieved.toFixed(2)},${payment.paid_amount},${balance.toFixed(2)},${status}\\n`;
+      });
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.csv`);
+      res.send(csv);
+    } catch (err) {
+      res.status(500).json({ detail: 'Export failed: ' + err.message });
+    }
+  });
+
+  apiApp.get('/api/export/agent-payments-pdf', (req, res) => {
+    res.status(501).json({ detail: 'PDF export - Print button use karein' });
+  });
+
+  apiApp.get('/api/export/summary-report-pdf', (req, res) => {
+    res.status(501).json({ detail: 'Summary report - Print button use karein' });
+  });
+
+  apiApp.get('/api/export/truck-owner-excel', (req, res) => {
+    try {
+      const entries = database.getEntries(req.query);
+      const truckData = {};
+      entries.forEach(entry => {
+        const truck_no = entry.truck_no || 'Unknown';
+        const payment = database.getTruckPayment(entry.id);
+        const final_qntl = (entry.final_w || 0) / 100;
+        const gross = final_qntl * payment.rate_per_qntl;
+        const deductions = (entry.cash_paid || 0) + (entry.diesel_paid || 0);
+        const net = gross - deductions;
+        const balance = Math.max(0, net - payment.paid_amount);
+        if (!truckData[truck_no]) truckData[truck_no] = { truck_no, trips: 0, total_qntl: 0, total_gross: 0, total_deductions: 0, total_net: 0, total_paid: 0, total_balance: 0 };
+        truckData[truck_no].trips += 1;
+        truckData[truck_no].total_qntl += final_qntl;
+        truckData[truck_no].total_gross += gross;
+        truckData[truck_no].total_deductions += deductions;
+        truckData[truck_no].total_net += net;
+        truckData[truck_no].total_paid += payment.paid_amount;
+        truckData[truck_no].total_balance += balance;
+      });
+      let csv = 'Truck No,Trips,Total QNTL,Gross,Deductions,Net Payable,Paid,Balance,Status\\n';
+      Object.values(truckData).forEach(t => {
+        const status = t.total_balance < 0.10 ? 'Paid' : (t.total_paid > 0 ? 'Partial' : 'Pending');
+        csv += `${t.truck_no},${t.trips},${t.total_qntl.toFixed(2)},${t.total_gross.toFixed(2)},${t.total_deductions.toFixed(2)},${t.total_net.toFixed(2)},${t.total_paid.toFixed(2)},${t.total_balance.toFixed(2)},${status}\\n`;
+      });
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename=truck_owner_${Date.now()}.csv`);
+      res.send(csv);
+    } catch (err) {
+      res.status(500).json({ detail: 'Export failed: ' + err.message });
+    }
+  });
+
+  apiApp.get('/api/export/truck-owner-pdf', (req, res) => {
+    res.status(501).json({ detail: 'PDF export - Print button use karein' });
+  });
+
+  // Start server on fixed port
+  return new Promise((resolve, reject) => {
+    server = apiApp.listen(DESKTOP_API_PORT, '127.0.0.1', () => {
+      console.log(`API Server started on port ${DESKTOP_API_PORT}`);
+      resolve(DESKTOP_API_PORT);
+    });
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`Port ${DESKTOP_API_PORT} busy, trying random port...`);
+        server = apiApp.listen(0, '127.0.0.1', () => {
+          const port = server.address().port;
+          console.log(`API Server started on fallback port ${port}`);
+          resolve(port);
+        });
+      } else {
+        reject(err);
+      }
     });
   });
 }
@@ -935,6 +1149,7 @@ async function createMainWindow(port) {
   // Inject API URL when page loads
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.executeJavaScript(`
+      window.ELECTRON_API_URL = 'http://127.0.0.1:${port}';
       window.REACT_APP_BACKEND_URL = 'http://127.0.0.1:${port}';
       if (window.localStorage) {
         window.localStorage.setItem('ELECTRON_API_URL', 'http://127.0.0.1:${port}');
@@ -1009,7 +1224,7 @@ async function startApplication(folderPath) {
   db = new JsonDatabase(folderPath);
   
   // Start API server
-  serverPort = await createApiServer(db);
+  const port = await createApiServer(db);
 
   // Close splash and open main window
   if (splashWindow) {
@@ -1017,7 +1232,7 @@ async function startApplication(folderPath) {
     splashWindow = null;
   }
 
-  await createMainWindow(serverPort);
+  await createMainWindow(port);
 }
 
 // ============ APP LIFECYCLE ============
