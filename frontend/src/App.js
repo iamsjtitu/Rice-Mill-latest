@@ -1341,6 +1341,17 @@ const Payments = ({ filters, user }) => {
           Truck Payments ({filteredTruckPayments.length})
         </Button>
         <Button
+          onClick={() => setActivePaymentTab("consolidated")}
+          variant={activePaymentTab === "consolidated" ? "default" : "ghost"}
+          size="sm"
+          className={activePaymentTab === "consolidated" 
+            ? "bg-cyan-500 hover:bg-cyan-600 text-slate-900" 
+            : "text-slate-300 hover:bg-slate-700"}
+        >
+          <Truck className="w-4 h-4 mr-1" />
+          Truck Owner ({consolidatedTruckList.length})
+        </Button>
+        <Button
           onClick={() => setActivePaymentTab("agent")}
           variant={activePaymentTab === "agent" ? "default" : "ghost"}
           size="sm"
