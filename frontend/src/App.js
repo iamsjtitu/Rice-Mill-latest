@@ -265,13 +265,11 @@ function App() {
         gbw_cut: parseFloat(formData.gbw_cut) || 0,
         plastic_bag: parseInt(formData.plastic_bag) || 0,
         cutting_percent: parseFloat(formData.cutting_percent) || 0,
-        total_wt: parseFloat(formData.total_wt) || 0,
         g_issued: parseFloat(formData.g_issued) || 0,
         moisture: parseFloat(formData.moisture) || 0,
         disc_dust_poll: parseFloat(formData.disc_dust_poll) || 0,
         cash_paid: parseFloat(formData.cash_paid) || 0,
         diesel_paid: parseFloat(formData.diesel_paid) || 0,
-        fc: parseFloat(formData.fc) || 0,
       };
 
       if (editingId) {
@@ -306,14 +304,12 @@ function App() {
       gbw_cut: entry.gbw_cut?.toString() || "",
       plastic_bag: entry.plastic_bag?.toString() || "",
       cutting_percent: entry.cutting_percent?.toString() || "",
-      total_wt: entry.total_wt?.toString() || "",
       g_issued: entry.g_issued?.toString() || "",
       moisture: entry.moisture?.toString() || "",
       disc_dust_poll: entry.disc_dust_poll?.toString() || "",
       cash_paid: entry.cash_paid?.toString() || "",
       diesel_paid: entry.diesel_paid?.toString() || "",
       remark: entry.remark || "",
-      fc: entry.fc?.toString() || "",
     });
     setEditingId(entry.id);
     setIsDialogOpen(true);
