@@ -623,6 +623,16 @@ function MainApp({ user, onLogout }) {
                 </span>
               </div>
               <Button
+                onClick={() => setIsPasswordDialogOpen(true)}
+                variant="outline"
+                size="sm"
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                data-testid="change-password-btn"
+              >
+                <Key className="w-4 h-4 mr-1" />
+                Password
+              </Button>
+              <Button
                 onClick={onLogout}
                 variant="outline"
                 size="sm"
@@ -634,6 +644,66 @@ function MainApp({ user, onLogout }) {
               </Button>
             </div>
           </div>
+
+          {/* Password Change Dialog */}
+          <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+            <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white">
+              <DialogHeader>
+                <DialogTitle className="text-amber-400">Password Change Karein</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                <div>
+                  <Label className="text-slate-300">Current Password</Label>
+                  <Input
+                    type="password"
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                    placeholder="Current password"
+                    className="bg-slate-700 border-slate-600 text-white"
+                    data-testid="current-password"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300">New Password</Label>
+                  <Input
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                    placeholder="New password"
+                    className="bg-slate-700 border-slate-600 text-white"
+                    data-testid="new-password"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300">Confirm New Password</Label>
+                  <Input
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                    placeholder="Confirm new password"
+                    className="bg-slate-700 border-slate-600 text-white"
+                    data-testid="confirm-password"
+                  />
+                </div>
+                <div className="flex gap-3 justify-end pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsPasswordDialogOpen(false)}
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit"
+                    className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"
+                  >
+                    Change Password
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
 
           {/* Action Buttons */}
           <div className="flex gap-2 flex-wrap mt-3">
