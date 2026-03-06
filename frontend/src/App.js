@@ -2070,6 +2070,16 @@ function MainApp({ user, onLogout }) {
                 Password
               </Button>
               <Button
+                onClick={() => setShowShortcuts(true)}
+                variant="outline"
+                size="sm"
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                data-testid="shortcuts-btn"
+                title="Keyboard Shortcuts (Press '?' for help)"
+              >
+                <Keyboard className="w-4 h-4" />
+              </Button>
+              <Button
                 onClick={onLogout}
                 variant="outline"
                 size="sm"
@@ -2081,6 +2091,56 @@ function MainApp({ user, onLogout }) {
               </Button>
             </div>
           </div>
+
+          {/* Keyboard Shortcuts Dialog */}
+          <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
+            <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white">
+              <DialogHeader>
+                <DialogTitle className="text-amber-400 flex items-center gap-2">
+                  <Keyboard className="w-5 h-5" />
+                  Keyboard Shortcuts
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + N</kbd>
+                    <span className="text-slate-300">New Entry</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + E</kbd>
+                    <span className="text-slate-300">Entries Tab</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + D</kbd>
+                    <span className="text-slate-300">Dashboard</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + P</kbd>
+                    <span className="text-slate-300">Payments</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + R</kbd>
+                    <span className="text-slate-300">Refresh Data</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + F</kbd>
+                    <span className="text-slate-300">Open Filters</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Esc</kbd>
+                    <span className="text-slate-300">Close Dialogs</span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-slate-700">
+                  <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <Info className="w-3 h-3" />
+                    Autocomplete fields mein Arrow keys aur Enter use karein
+                  </p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Password Change Dialog */}
           <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
