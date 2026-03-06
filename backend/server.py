@@ -142,10 +142,17 @@ def calculate_auto_fields(data: dict) -> dict:
     disc_dust_poll = data.get('disc_dust_poll', 0) or 0
     plastic_bag = data.get('plastic_bag', 0) or 0
     cutting_percent = data.get('cutting_percent', 0) or 0
+    bag = data.get('bag', 0) or 0
+    g_deposite = data.get('g_deposite', 0) or 0
     
     # P.Pkt cut calculation (0.5 kg per plastic bag)
     p_pkt_cut = round(plastic_bag * 0.5, 2)
     data['p_pkt_cut'] = p_pkt_cut
+    
+    # BAG cutting rate logic:
+    # If G.Deposite is manually set (different from 0 and entered by user) → 0.50 kg/bag
+    # If G.Deposite is empty or equals bag → 1 kg/bag
+    # This is represented by GBW cut field
     
     # Weight after GBW cut for cutting calculation
     weight_for_cutting = kg - gbw_cut - p_pkt_cut
