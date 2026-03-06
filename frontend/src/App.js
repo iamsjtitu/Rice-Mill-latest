@@ -2764,6 +2764,30 @@ function MainApp({ user, onLogout }) {
                     />
                   </div>
 
+                  {/* RST No. & TP No. */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-slate-300">RST No.</Label>
+                      <Input
+                        value={formData.rst_no}
+                        onChange={(e) => setFormData(prev => ({ ...prev, rst_no: e.target.value }))}
+                        placeholder="RST Number"
+                        className="bg-slate-700 border-slate-600 text-white"
+                        data-testid="input-rst-no"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-300">TP No.</Label>
+                      <Input
+                        value={formData.tp_no}
+                        onChange={(e) => setFormData(prev => ({ ...prev, tp_no: e.target.value }))}
+                        placeholder="TP Number"
+                        className="bg-slate-700 border-slate-600 text-white"
+                        data-testid="input-tp-no"
+                      />
+                    </div>
+                  </div>
+
                   {/* Agent & Mandi */}
                   <div className="grid grid-cols-2 gap-4">
                     <AutoSuggest
