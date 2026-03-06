@@ -1884,6 +1884,353 @@ async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
     return {"success": True, "message": "Agent/Mandi payment cleared"}
 
 
+@api_router.post("/truck-payments/{entry_id}/undo-paid")
+async def undo_truck_paid(entry_id: str, username: str = "", role: str = ""):
+    """Undo paid status - reset payment to 0 (Admin only)"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin undo kar sakta hai")
+    
+    payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+    if not payment_doc:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    
+    payments_history = payment_doc.get("payments_history", [])
+    payments_history.append({
+        "amount": -payment_doc.get("paid_amount", 0),
+        "date": datetime.now(timezone.utc).isoformat(),
+        "note": "UNDO - Payment reversed",
+        "by": username
+    })
+    
+    await db.truck_payments.update_one(
+        {"entry_id": entry_id},
+        {"$set": {
+            "paid_amount": 0,
+            "payments_history": payments_history,
+            "status": "pending",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"success": True, "message": "Payment undo ho gaya - status reset to pending"}
+
+
+@api_router.post("/agent-payments/{mandi_name}/undo-paid")
+async def undo_agent_paid(mandi_name: str, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
+    """Undo paid status - reset agent payment to 0 (Admin only)"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin undo kar sakta hai")
+    
+    payment_doc = await db.agent_payments.find_one({
+        "mandi_name": mandi_name,
+        "kms_year": kms_year,
+        "season": season
+    }, {"_id": 0})
+    
+    if not payment_doc:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    
+    payments_history = payment_doc.get("payments_history", [])
+    payments_history.append({
+        "amount": -payment_doc.get("paid_amount", 0),
+        "date": datetime.now(timezone.utc).isoformat(),
+        "note": "UNDO - Payment reversed",
+        "by": username
+    })
+    
+    await db.agent_payments.update_one(
+        {"mandi_name": mandi_name, "kms_year": kms_year, "season": season},
+        {"$set": {
+            "paid_amount": 0,
+            "payments_history": payments_history,
+            "status": "pending",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"success": True, "message": "Payment undo ho gaya - status reset to pending"}
+
+
+@api_router.get("/truck-payments/{entry_id}/history")
+async def get_truck_payment_history(entry_id: str):
+    """Get payment history for a truck entry"""
+    payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+    if not payment_doc:
+        return {"history": [], "total_paid": 0}
+    
+    return {
+        "history": payment_doc.get("payments_history", []),
+        "total_paid": payment_doc.get("paid_amount", 0)
+    }
+
+
+@api_router.get("/agent-payments/{mandi_name}/history")
+async def get_agent_payment_history(mandi_name: str, kms_year: str = "", season: str = ""):
+    """Get payment history for an agent/mandi"""
+    payment_doc = await db.agent_payments.find_one({
+        "mandi_name": mandi_name,
+        "kms_year": kms_year,
+        "season": season
+    }, {"_id": 0})
+    
+    if not payment_doc:
+        return {"history": [], "total_paid": 0}
+    
+    return {
+        "history": payment_doc.get("payments_history", []),
+        "total_paid": payment_doc.get("paid_amount", 0)
+    }
+
+
+@api_router.get("/export/agent-payments-excel")
+async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Export agent/mandi payments to styled Excel file"""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    targets = await db.mandi_targets.find(query, {"_id": 0}).to_list(100)
+    
+    payments_data = []
+    total_amount_sum = 0
+    total_paid_sum = 0
+    total_balance_sum = 0
+    
+    for target in targets:
+        mandi_name = target["mandi_name"]
+        target_qntl = target["target_qntl"]
+        cutting_qntl = round(target_qntl * target["cutting_percent"] / 100, 2)
+        base_rate = target.get("base_rate", 10)
+        cutting_rate = target.get("cutting_rate", 5)
+        
+        target_amount = round(target_qntl * base_rate, 2)
+        cutting_amount = round(cutting_qntl * cutting_rate, 2)
+        total_amount = round(target_amount + cutting_amount, 2)
+        
+        # Get achieved
+        entry_query = {"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}
+        pipeline = [{"$match": entry_query}, {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}, "agent_name": {"$first": "$agent_name"}}}]
+        result = await db.mill_entries.aggregate(pipeline).to_list(1)
+        achieved_qntl = round(result[0]["total_final_w"] / 100, 2) if result else 0
+        agent_name = result[0]["agent_name"] if result else mandi_name
+        
+        # Get payment
+        payment_doc = await db.agent_payments.find_one({"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}, {"_id": 0})
+        paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        balance = round(max(0, total_amount - paid_amount), 2)
+        status = "Paid" if balance <= 0 else ("Partial" if paid_amount > 0 else "Pending")
+        
+        total_amount_sum += total_amount
+        total_paid_sum += paid_amount
+        total_balance_sum += balance
+        
+        payments_data.append({
+            "mandi_name": mandi_name,
+            "agent_name": agent_name,
+            "target_qntl": target_qntl,
+            "cutting_qntl": cutting_qntl,
+            "base_rate": base_rate,
+            "cutting_rate": cutting_rate,
+            "target_amount": target_amount,
+            "cutting_amount": cutting_amount,
+            "total_amount": total_amount,
+            "achieved_qntl": achieved_qntl,
+            "paid": paid_amount,
+            "balance": balance,
+            "status": status
+        })
+    
+    # Create Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Agent Payments"
+    
+    header_fill = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    total_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    paid_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+    pending_fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
+    
+    ws.merge_cells('A1:M1')
+    ws['A1'] = f"AGENT/MANDI PAYMENTS - NAVKAR AGRO | KMS: {kms_year or 'All'} | {season or 'All'}"
+    ws['A1'].font = Font(bold=True, size=14, color="D97706")
+    ws['A1'].alignment = Alignment(horizontal='center')
+    
+    headers = ["Mandi", "Agent", "Target QNTL", "Cutting QNTL", "Base Rate", "Cut Rate", "Target Amt", "Cut Amt", "Total Amt", "Achieved", "Paid", "Balance", "Status"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+    
+    for row_idx, p in enumerate(payments_data, 4):
+        ws.cell(row=row_idx, column=1, value=p["mandi_name"]).font = Font(bold=True)
+        ws.cell(row=row_idx, column=2, value=p["agent_name"])
+        ws.cell(row=row_idx, column=3, value=p["target_qntl"])
+        ws.cell(row=row_idx, column=4, value=p["cutting_qntl"])
+        ws.cell(row=row_idx, column=5, value=f"₹{p['base_rate']}")
+        ws.cell(row=row_idx, column=6, value=f"₹{p['cutting_rate']}")
+        ws.cell(row=row_idx, column=7, value=p["target_amount"])
+        ws.cell(row=row_idx, column=8, value=p["cutting_amount"])
+        ws.cell(row=row_idx, column=9, value=p["total_amount"]).font = Font(bold=True)
+        ws.cell(row=row_idx, column=10, value=p["achieved_qntl"])
+        ws.cell(row=row_idx, column=11, value=p["paid"])
+        ws.cell(row=row_idx, column=12, value=p["balance"]).font = Font(bold=True, color="DC2626" if p["balance"] > 0 else "059669")
+        status_cell = ws.cell(row=row_idx, column=13, value=p["status"])
+        if p["status"] == "Paid":
+            status_cell.fill = paid_fill
+        elif p["status"] == "Pending":
+            status_cell.fill = pending_fill
+    
+    total_row = len(payments_data) + 4
+    ws.cell(row=total_row, column=1, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=total_row, column=9, value=round(total_amount_sum, 2)).font = Font(bold=True)
+    ws.cell(row=total_row, column=11, value=round(total_paid_sum, 2)).font = Font(bold=True)
+    ws.cell(row=total_row, column=12, value=round(total_balance_sum, 2)).font = Font(bold=True, color="DC2626")
+    for col in range(1, 14):
+        ws.cell(row=total_row, column=col).fill = total_fill
+    
+    col_widths = [14, 12, 12, 12, 10, 10, 12, 10, 12, 10, 10, 12, 10]
+    for i, width in enumerate(col_widths, 1):
+        ws.column_dimensions[chr(64 + i)].width = width
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    filename = f"agent_payments_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return Response(
+        content=output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@api_router.get("/export/agent-payments-pdf")
+async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Export agent/mandi payments to PDF"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+    from reportlab.lib.enums import TA_CENTER
+    
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    targets = await db.mandi_targets.find(query, {"_id": 0}).to_list(100)
+    
+    payments_data = []
+    total_amount_sum = 0
+    total_paid_sum = 0
+    total_balance_sum = 0
+    
+    for target in targets:
+        mandi_name = target["mandi_name"]
+        target_qntl = target["target_qntl"]
+        cutting_qntl = round(target_qntl * target["cutting_percent"] / 100, 2)
+        base_rate = target.get("base_rate", 10)
+        cutting_rate = target.get("cutting_rate", 5)
+        
+        target_amount = round(target_qntl * base_rate, 2)
+        cutting_amount = round(cutting_qntl * cutting_rate, 2)
+        total_amount = round(target_amount + cutting_amount, 2)
+        
+        entry_query = {"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}
+        pipeline = [{"$match": entry_query}, {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}, "agent_name": {"$first": "$agent_name"}}}]
+        result = await db.mill_entries.aggregate(pipeline).to_list(1)
+        achieved_qntl = round(result[0]["total_final_w"] / 100, 2) if result else 0
+        
+        payment_doc = await db.agent_payments.find_one({"mandi_name": mandi_name, "kms_year": target["kms_year"], "season": target["season"]}, {"_id": 0})
+        paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        balance = round(max(0, total_amount - paid_amount), 2)
+        status = "Paid" if balance <= 0 else ("Partial" if paid_amount > 0 else "Pending")
+        
+        total_amount_sum += total_amount
+        total_paid_sum += paid_amount
+        total_balance_sum += balance
+        
+        payments_data.append([
+            mandi_name[:12],
+            f"{target_qntl}",
+            f"{cutting_qntl}",
+            f"₹{base_rate}+₹{cutting_rate}",
+            f"₹{total_amount}",
+            f"{achieved_qntl}",
+            f"₹{paid_amount}",
+            f"₹{balance}",
+            status
+        ])
+    
+    buffer = io.BytesIO()
+    page_width, page_height = landscape(A4)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)
+    title_data = [[Paragraph(f"<b>AGENT/MANDI PAYMENTS - NAVKAR AGRO | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
+    title_table = Table(title_data, colWidths=[page_width - 20*mm])
+    title_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(title_table)
+    elements.append(Table([[""]], colWidths=[page_width], rowHeights=[5*mm]))
+    
+    headers = ["Mandi", "Target", "Cutting", "Rates", "Total Amt", "Achieved", "Paid", "Balance", "Status"]
+    table_data = [headers] + payments_data
+    table_data.append(["TOTAL", "", "", "", f"₹{round(total_amount_sum, 2)}", "", f"₹{round(total_paid_sum, 2)}", f"₹{round(total_balance_sum, 2)}", ""])
+    
+    col_widths = [30*mm, 20*mm, 18*mm, 25*mm, 25*mm, 20*mm, 22*mm, 22*mm, 18*mm]
+    main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    
+    style_commands = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+    ]
+    
+    for i in range(1, len(table_data) - 1):
+        if i % 2 == 0:
+            style_commands.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8FAFC')))
+        if payments_data[i-1][-1] == "Paid":
+            style_commands.append(('BACKGROUND', (-1, i), (-1, i), colors.HexColor('#D1FAE5')))
+        elif payments_data[i-1][-1] == "Pending":
+            style_commands.append(('BACKGROUND', (-1, i), (-1, i), colors.HexColor('#FEE2E2')))
+    
+    main_table.setStyle(TableStyle(style_commands))
+    elements.append(main_table)
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"agent_payments_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
