@@ -754,6 +754,21 @@ const Payments = ({ filters, user }) => {
     window.open(`${API}/export/agent-payments-pdf?${params.toString()}`, '_blank');
   };
 
+  // Export Truck Owner Consolidated
+  const handleExportTruckOwnerExcel = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    window.open(`${API}/export/truck-owner-excel?${params.toString()}`, '_blank');
+  };
+
+  const handleExportTruckOwnerPDF = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    window.open(`${API}/export/truck-owner-pdf?${params.toString()}`, '_blank');
+  };
+
   // Undo paid
   const handleUndoPaid = async (item) => {
     if (!window.confirm("Kya aap is payment ko undo karna chahte hain? Paid amount 0 ho jayega.")) return;
