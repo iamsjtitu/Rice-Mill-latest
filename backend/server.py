@@ -203,6 +203,58 @@ class MandiTargetSummary(BaseModel):
     season: str
 
 
+# ============ PAYMENT MODELS ============
+
+class PaymentRecord(BaseModel):
+    amount: float
+    date: str
+    note: str = ""
+
+
+class TruckPaymentStatus(BaseModel):
+    entry_id: str
+    truck_no: str
+    date: str
+    total_qntl: float
+    total_bag: int
+    final_qntl: float
+    cash_taken: float
+    diesel_taken: float
+    rate_per_qntl: float
+    gross_amount: float  # final_qntl × rate
+    deductions: float  # cash + diesel
+    net_amount: float  # gross - deductions
+    paid_amount: float
+    balance_amount: float
+    status: str  # pending, partial, paid
+    kms_year: str
+    season: str
+    agent_name: str
+    mandi_name: str
+
+
+class AgentPaymentStatus(BaseModel):
+    agent_name: str
+    total_final_qntl: float
+    rate_per_qntl: float
+    total_amount: float
+    paid_amount: float
+    balance_amount: float
+    status: str  # pending, partial, paid
+    kms_year: str
+    season: str
+    total_entries: int
+
+
+class SetRateRequest(BaseModel):
+    rate_per_qntl: float
+
+
+class MakePaymentRequest(BaseModel):
+    amount: float
+    note: str = ""
+
+
 def calculate_auto_fields(data: dict) -> dict:
     """Calculate automatic fields based on input data"""
     kg = data.get('kg', 0) or 0
