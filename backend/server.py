@@ -950,6 +950,242 @@ async def bulk_delete_entries(entry_ids: List[str], username: str = "", role: st
     return {"message": f"{result.deleted_count} entries deleted successfully", "deleted_count": result.deleted_count}
 
 
+# ============ MANDI TARGET ENDPOINTS ============
+
+@api_router.get("/mandi-targets", response_model=List[MandiTarget])
+async def get_mandi_targets(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Get all mandi targets"""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    targets = await db.mandi_targets.find(query, {"_id": 0}).sort("mandi_name", 1).to_list(100)
+    return targets
+
+
+@api_router.post("/mandi-targets", response_model=MandiTarget)
+async def create_mandi_target(input: MandiTargetCreate, username: str = "", role: str = ""):
+    """Create a new mandi target (Admin only)"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin target set kar sakta hai")
+    
+    # Check if target already exists for this mandi + kms_year + season
+    existing = await db.mandi_targets.find_one({
+        "mandi_name": input.mandi_name,
+        "kms_year": input.kms_year,
+        "season": input.season
+    }, {"_id": 0})
+    
+    if existing:
+        raise HTTPException(status_code=400, detail=f"{input.mandi_name} ka target already set hai is KMS Year aur Season ke liye")
+    
+    # Calculate expected total
+    expected_total = round(input.target_qntl + (input.target_qntl * input.cutting_percent / 100), 2)
+    
+    target_obj = MandiTarget(
+        mandi_name=input.mandi_name,
+        target_qntl=input.target_qntl,
+        cutting_percent=input.cutting_percent,
+        expected_total=expected_total,
+        kms_year=input.kms_year,
+        season=input.season,
+        created_by=username
+    )
+    
+    doc = target_obj.model_dump()
+    await db.mandi_targets.insert_one(doc)
+    return target_obj
+
+
+@api_router.put("/mandi-targets/{target_id}", response_model=MandiTarget)
+async def update_mandi_target(target_id: str, input: MandiTargetUpdate, username: str = "", role: str = ""):
+    """Update a mandi target (Admin only)"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin target update kar sakta hai")
+    
+    existing = await db.mandi_targets.find_one({"id": target_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Target not found")
+    
+    update_data = {k: v for k, v in input.model_dump().items() if v is not None}
+    merged = {**existing, **update_data}
+    
+    # Recalculate expected total
+    merged["expected_total"] = round(merged["target_qntl"] + (merged["target_qntl"] * merged["cutting_percent"] / 100), 2)
+    
+    await db.mandi_targets.update_one({"id": target_id}, {"$set": merged})
+    updated = await db.mandi_targets.find_one({"id": target_id}, {"_id": 0})
+    return updated
+
+
+@api_router.delete("/mandi-targets/{target_id}")
+async def delete_mandi_target(target_id: str, username: str = "", role: str = ""):
+    """Delete a mandi target (Admin only)"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin target delete kar sakta hai")
+    
+    result = await db.mandi_targets.delete_one({"id": target_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Target not found")
+    return {"message": "Target deleted successfully"}
+
+
+@api_router.get("/mandi-targets/summary", response_model=List[MandiTargetSummary])
+async def get_mandi_target_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Get mandi target vs achieved summary for dashboard"""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    targets = await db.mandi_targets.find(query, {"_id": 0}).to_list(100)
+    
+    summaries = []
+    for target in targets:
+        # Get achieved sum for this mandi
+        entry_query = {
+            "mandi_name": target["mandi_name"],
+            "kms_year": target["kms_year"],
+            "season": target["season"]
+        }
+        
+        pipeline = [
+            {"$match": entry_query},
+            {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}}}
+        ]
+        
+        result = await db.mill_entries.aggregate(pipeline).to_list(1)
+        achieved_kg = result[0]["total_final_w"] if result else 0
+        achieved_qntl = round(achieved_kg / 100, 2)
+        
+        expected_total = target["expected_total"]
+        pending_qntl = round(max(0, expected_total - achieved_qntl), 2)
+        progress_percent = round((achieved_qntl / expected_total * 100) if expected_total > 0 else 0, 1)
+        
+        summaries.append(MandiTargetSummary(
+            mandi_name=target["mandi_name"],
+            target_qntl=target["target_qntl"],
+            cutting_percent=target["cutting_percent"],
+            expected_total=expected_total,
+            achieved_qntl=achieved_qntl,
+            pending_qntl=pending_qntl,
+            progress_percent=progress_percent,
+            kms_year=target["kms_year"],
+            season=target["season"]
+        ))
+    
+    return summaries
+
+
+# ============ DASHBOARD ENDPOINTS ============
+
+@api_router.get("/dashboard/agent-totals")
+async def get_agent_totals(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Get agent-wise totals for bar chart"""
+    match_query = {}
+    if kms_year:
+        match_query["kms_year"] = kms_year
+    if season:
+        match_query["season"] = season
+    
+    pipeline = []
+    if match_query:
+        pipeline.append({"$match": match_query})
+    
+    pipeline.extend([
+        {
+            "$group": {
+                "_id": "$agent_name",
+                "total_qntl": {"$sum": "$qntl"},
+                "total_final_w_kg": {"$sum": "$final_w"},
+                "total_entries": {"$sum": 1},
+                "total_bag": {"$sum": "$bag"}
+            }
+        },
+        {"$sort": {"total_final_w_kg": -1}}
+    ])
+    
+    results = await db.mill_entries.aggregate(pipeline).to_list(50)
+    
+    agent_totals = []
+    for r in results:
+        if r["_id"]:  # Skip empty agent names
+            agent_totals.append({
+                "agent_name": r["_id"],
+                "total_qntl": round(r["total_qntl"], 2),
+                "total_final_w": round(r["total_final_w_kg"] / 100, 2),
+                "total_entries": r["total_entries"],
+                "total_bag": r["total_bag"]
+            })
+    
+    return {"agent_totals": agent_totals}
+
+
+@api_router.get("/dashboard/date-range-totals")
+async def get_date_range_totals(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
+):
+    """Get totals for a date range (for date filter reporting)"""
+    match_query = {}
+    
+    if start_date and end_date:
+        match_query["date"] = {"$gte": start_date, "$lte": end_date}
+    elif start_date:
+        match_query["date"] = {"$gte": start_date}
+    elif end_date:
+        match_query["date"] = {"$lte": end_date}
+    
+    if kms_year:
+        match_query["kms_year"] = kms_year
+    if season:
+        match_query["season"] = season
+    
+    pipeline = []
+    if match_query:
+        pipeline.append({"$match": match_query})
+    
+    pipeline.append({
+        "$group": {
+            "_id": None,
+            "total_kg": {"$sum": "$kg"},
+            "total_qntl": {"$sum": "$qntl"},
+            "total_bag": {"$sum": "$bag"},
+            "total_final_w": {"$sum": "$final_w"},
+            "total_entries": {"$sum": 1}
+        }
+    })
+    
+    result = await db.mill_entries.aggregate(pipeline).to_list(1)
+    
+    if result:
+        data = result[0]
+        return {
+            "total_kg": round(data["total_kg"], 2),
+            "total_qntl": round(data["total_qntl"], 2),
+            "total_bag": data["total_bag"],
+            "total_final_w": round(data["total_final_w"] / 100, 2),
+            "total_entries": data["total_entries"],
+            "start_date": start_date,
+            "end_date": end_date
+        }
+    
+    return {
+        "total_kg": 0,
+        "total_qntl": 0,
+        "total_bag": 0,
+        "total_final_w": 0,
+        "total_entries": 0,
+        "start_date": start_date,
+        "end_date": end_date
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
