@@ -115,10 +115,13 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 ### P0 (Critical) - DONE ✅
 - Auto calculations
 - Role-based authentication
-- Styled exports
+- Styled exports (PDF with Rs. instead of ₹ symbol)
 - Dashboard with charts
 - Mandi Target tracking
 - Truck & Agent Payment tracking
+- Undo Paid feature
+- Payment History
+- Summary Report PDF
 
 ### P1 (High Priority)
 - [ ] Code refactoring: Break App.js into components
