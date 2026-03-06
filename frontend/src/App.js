@@ -70,11 +70,13 @@ const initialFormState = {
   remark: "",
 };
 
-// Auto-suggest Dropdown Component
+// Auto-suggest Dropdown Component with Keyboard Support
 const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, label, testId }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState([]);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     if (value && suggestions.length > 0) {
@@ -85,17 +87,70 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, labe
     } else {
       setFilteredSuggestions(suggestions);
     }
+    setActiveIndex(-1); // Reset active index when suggestions change
   }, [value, suggestions]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
         setShowSuggestions(false);
+        setActiveIndex(-1);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Scroll active item into view
+  useEffect(() => {
+    if (activeIndex >= 0 && listRef.current) {
+      const activeElement = listRef.current.children[activeIndex];
+      if (activeElement) {
+        activeElement.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [activeIndex]);
+
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || filteredSuggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setActiveIndex(prev => 
+          prev < filteredSuggestions.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setActiveIndex(prev => 
+          prev > 0 ? prev - 1 : filteredSuggestions.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
+          onSelect(filteredSuggestions[activeIndex]);
+          setShowSuggestions(false);
+          setActiveIndex(-1);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setActiveIndex(-1);
+        break;
+      case 'Tab':
+        // Allow tab to select if there's an active suggestion
+        if (activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
+          onSelect(filteredSuggestions[activeIndex]);
+        }
+        setShowSuggestions(false);
+        setActiveIndex(-1);
+        break;
+      default:
+        break;
+    }
+  };
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -107,20 +162,30 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, labe
           setShowSuggestions(true);
         }}
         onFocus={() => setShowSuggestions(true)}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className="bg-slate-700 border-slate-600 text-white"
         data-testid={testId}
       />
       {showSuggestions && filteredSuggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+        <div 
+          ref={listRef}
+          className="absolute z-50 w-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg max-h-48 overflow-y-auto"
+        >
           {filteredSuggestions.map((suggestion, index) => (
             <div
               key={index}
-              className="px-3 py-2 cursor-pointer hover:bg-slate-600 text-white text-sm"
+              className={`px-3 py-2 cursor-pointer text-white text-sm transition-colors ${
+                index === activeIndex 
+                  ? 'bg-amber-600 text-white' 
+                  : 'hover:bg-slate-600'
+              }`}
               onClick={() => {
                 onSelect(suggestion);
                 setShowSuggestions(false);
+                setActiveIndex(-1);
               }}
+              onMouseEnter={() => setActiveIndex(index)}
             >
               {suggestion}
             </div>
@@ -825,7 +890,7 @@ const Payments = ({ filters, user }) => {
         );
       } else {
         await axios.post(
-          `${API}/agent-payments/${encodeURIComponent(item.mandi_name)}/mark-paid?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`
+          `${API}/agent-payments/${encodeURIComponent(item.mandi_name)}/mark-paid?kms_year=${item.kms_year}&season=${item.season}&username=${user.username}&role=${user.role}`
         );
       }
       toast.success("Payment cleared!");
