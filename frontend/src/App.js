@@ -597,15 +597,17 @@ function App() {
                           />
                         </div>
                         <div>
-                          <Label className="text-cyan-400">G.Deposite (Auto from BAG)</Label>
+                          <Label className="text-cyan-400">G.Deposite (Gunny Bag)</Label>
                           <Input
                             type="number"
                             name="g_deposite"
                             value={formData.g_deposite}
                             onChange={handleInputChange}
+                            placeholder="Gunny bags deposited"
                             className="bg-cyan-900/30 border-cyan-700 text-cyan-400"
                             data-testid="input-g-deposite"
                           />
+                          <span className="text-xs text-slate-400">Fill karo → 0.5kg cut | Empty → 1kg cut</span>
                         </div>
                         <div>
                           <Label className="text-orange-400">GBW Cut (Auto)</Label>
