@@ -1051,8 +1051,8 @@ const Payments = ({ filters, user }) => {
       <body>
         <div class="invoice">
           <div class="header">
-            <h1>NAVKAR AGRO</h1>
-            <p>JOLKO, KESINGA - Mill Entry System</p>
+            <h1>${branding.company_name}</h1>
+            <p>${branding.tagline}</p>
           </div>
           
           <div class="receipt-title">
