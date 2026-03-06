@@ -57,6 +57,12 @@ class LoginResponse(BaseModel):
     message: str
 
 
+class PasswordChangeRequest(BaseModel):
+    username: str
+    current_password: str
+    new_password: str
+
+
 # Define Models
 class MillEntry(BaseModel):
     model_config = ConfigDict(extra="ignore")
