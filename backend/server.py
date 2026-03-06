@@ -1067,6 +1067,7 @@ async def get_mandi_target_summary(kms_year: Optional[str] = None, season: Optio
         progress_percent = round((achieved_qntl / expected_total * 100) if expected_total > 0 else 0, 1)
         
         summaries.append(MandiTargetSummary(
+            id=target["id"],
             mandi_name=target["mandi_name"],
             target_qntl=target["target_qntl"],
             cutting_percent=target["cutting_percent"],
