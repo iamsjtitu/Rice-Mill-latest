@@ -2160,11 +2160,11 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
             mandi_name[:12],
             f"{target_qntl}",
             f"{cutting_qntl}",
-            f"₹{base_rate}+₹{cutting_rate}",
-            f"₹{total_amount}",
+            f"Rs.{base_rate}+Rs.{cutting_rate}",
+            f"Rs.{total_amount}",
             f"{achieved_qntl}",
-            f"₹{paid_amount}",
-            f"₹{balance}",
+            f"Rs.{paid_amount}",
+            f"Rs.{balance}",
             status
         ])
     
