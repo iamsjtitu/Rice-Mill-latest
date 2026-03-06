@@ -1005,6 +1005,305 @@ const Payments = ({ filters, user }) => {
     invoiceWindow.document.close();
   };
 
+  // Print Invoice for Agent Payment
+  const handlePrintAgentInvoice = (payment) => {
+    const invoiceWindow = window.open('', '_blank', 'width=800,height=600');
+    const invoiceContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Agent Payment Receipt - ${payment.mandi_name}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+          .invoice { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          .header { text-align: center; border-bottom: 2px solid #f59e0b; padding-bottom: 20px; margin-bottom: 20px; }
+          .header h1 { color: #f59e0b; font-size: 28px; margin-bottom: 5px; }
+          .header p { color: #666; font-size: 14px; }
+          .receipt-title { text-align: center; background: #7c3aed; color: white; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 18px; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+          .info-item { padding: 10px; background: #f8fafc; border-radius: 4px; }
+          .info-item label { display: block; font-size: 11px; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
+          .info-item span { font-size: 16px; font-weight: 600; color: #1e293b; }
+          .amount-section { background: #ede9fe; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+          .amount-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #a78bfa; }
+          .amount-row:last-child { border-bottom: none; }
+          .amount-row.total { font-size: 20px; font-weight: bold; color: #1e293b; border-top: 2px solid #7c3aed; margin-top: 10px; padding-top: 15px; }
+          .amount-row.paid { color: #059669; }
+          .status-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+          .status-paid { background: #d1fae5; color: #059669; }
+          .status-partial { background: #fef3c7; color: #d97706; }
+          .status-pending { background: #fee2e2; color: #dc2626; }
+          .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+          .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
+          .signature-box { text-align: center; }
+          .signature-line { border-top: 1px solid #1e293b; margin-top: 50px; padding-top: 5px; font-size: 12px; color: #64748b; }
+          .print-note { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 20px; }
+          .target-info { background: #fef3c7; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+          .target-info h4 { color: #92400e; margin-bottom: 8px; font-size: 14px; }
+          .target-info p { font-size: 13px; color: #78350f; }
+          @media print {
+            body { background: white; padding: 0; }
+            .invoice { box-shadow: none; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="invoice">
+          <div class="header">
+            <h1>NAVKAR AGRO</h1>
+            <p>JOLKO, KESINGA - Mill Entry System</p>
+          </div>
+          
+          <div class="receipt-title">
+            AGENT PAYMENT RECEIPT / एजेंट भुगतान रसीद
+          </div>
+          
+          <div class="info-grid">
+            <div class="info-item">
+              <label>Receipt Date / रसीद दिनांक</label>
+              <span>${new Date().toLocaleDateString('en-IN')}</span>
+            </div>
+            <div class="info-item">
+              <label>KMS Year / Season</label>
+              <span>${payment.kms_year} - ${payment.season}</span>
+            </div>
+            <div class="info-item">
+              <label>Mandi Name / मंडी</label>
+              <span>${payment.mandi_name}</span>
+            </div>
+            <div class="info-item">
+              <label>Agent Name / एजेंट</label>
+              <span>${payment.agent_name}</span>
+            </div>
+          </div>
+          
+          <div class="target-info">
+            <h4>Target Details / लक्ष्य विवरण</h4>
+            <p>Target: ${payment.target_qntl} QNTL + Cutting ${payment.cutting_percent}% = ${(payment.target_qntl + payment.cutting_qntl).toFixed(2)} QNTL</p>
+            <p>Achieved: ${payment.achieved_qntl} QNTL ${payment.is_target_complete ? '✅ Complete' : '⏳ In Progress'}</p>
+          </div>
+          
+          <div class="amount-section">
+            <div class="amount-row">
+              <span>Target Amount / लक्ष्य राशि (${payment.target_qntl} × Rs.${payment.base_rate})</span>
+              <span>Rs. ${(payment.target_qntl * payment.base_rate).toLocaleString('en-IN')}</span>
+            </div>
+            <div class="amount-row">
+              <span>Cutting Amount / कटिंग राशि (${payment.cutting_qntl} × Rs.${payment.cutting_rate})</span>
+              <span>Rs. ${(payment.cutting_qntl * payment.cutting_rate).toLocaleString('en-IN')}</span>
+            </div>
+            <div class="amount-row total">
+              <span>Total Amount / कुल राशि</span>
+              <span>Rs. ${payment.total_amount.toLocaleString('en-IN')}</span>
+            </div>
+            <div class="amount-row paid">
+              <span>Amount Paid / भुगतान किया</span>
+              <span>Rs. ${payment.paid_amount.toLocaleString('en-IN')}</span>
+            </div>
+            <div class="amount-row">
+              <span>Balance / बाकी</span>
+              <span>Rs. ${payment.balance_amount.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+          
+          <div style="text-align: center; margin: 15px 0;">
+            <span class="status-badge status-${payment.status}">${payment.status === 'paid' ? 'PAID / भुगतान हो गया' : payment.status === 'partial' ? 'PARTIAL / आंशिक' : 'PENDING / बाकी'}</span>
+          </div>
+          
+          <div class="footer">
+            <div class="signature-section">
+              <div class="signature-box">
+                <div class="signature-line">Agent Signature / एजेंट हस्ताक्षर</div>
+              </div>
+              <div class="signature-box">
+                <div class="signature-line">Authorized Signature / अधिकृत हस्ताक्षर</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="print-note">
+            This is a computer generated receipt / यह कंप्यूटर जनित रसीद है
+          </div>
+        </div>
+        
+        <div class="no-print" style="text-align: center; margin-top: 20px;">
+          <button onclick="window.print()" style="background: #7c3aed; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">
+            🖨️ Print Receipt
+          </button>
+        </div>
+      </body>
+      </html>
+    `;
+    invoiceWindow.document.write(invoiceContent);
+    invoiceWindow.document.close();
+  };
+
+  // Calculate Truck-wise consolidated payments (group by truck_no)
+  const truckWiseConsolidated = filteredTruckPayments.reduce((acc, payment) => {
+    const truckNo = payment.truck_no;
+    if (!acc[truckNo]) {
+      acc[truckNo] = {
+        truck_no: truckNo,
+        trips: [],
+        total_final_qntl: 0,
+        total_gross: 0,
+        total_deductions: 0,
+        total_net: 0,
+        total_paid: 0,
+        total_balance: 0
+      };
+    }
+    acc[truckNo].trips.push(payment);
+    acc[truckNo].total_final_qntl += payment.final_qntl;
+    acc[truckNo].total_gross += payment.gross_amount;
+    acc[truckNo].total_deductions += payment.deductions;
+    acc[truckNo].total_net += payment.net_amount;
+    acc[truckNo].total_paid += payment.paid_amount;
+    acc[truckNo].total_balance += payment.balance_amount;
+    return acc;
+  }, {});
+
+  const consolidatedTruckList = Object.values(truckWiseConsolidated);
+
+  // Print Consolidated Truck Invoice
+  const handlePrintConsolidatedInvoice = (truckData) => {
+    const tripsHtml = truckData.trips.map(t => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${t.date}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${t.mandi_name}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">${t.final_qntl}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">Rs.${t.rate_per_qntl}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right;">Rs.${t.gross_amount.toLocaleString('en-IN')}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; color: #dc2626;">-Rs.${t.deductions.toLocaleString('en-IN')}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold;">Rs.${t.net_amount.toLocaleString('en-IN')}</td>
+      </tr>
+    `).join('');
+
+    const invoiceWindow = window.open('', '_blank', 'width=900,height=700');
+    const invoiceContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Truck Owner Payment - ${truckData.truck_no}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+          .invoice { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+          .header { text-align: center; border-bottom: 2px solid #f59e0b; padding-bottom: 20px; margin-bottom: 20px; }
+          .header h1 { color: #f59e0b; font-size: 28px; margin-bottom: 5px; }
+          .header p { color: #666; font-size: 14px; }
+          .receipt-title { text-align: center; background: #0891b2; color: white; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 18px; }
+          .truck-info { background: #ecfeff; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+          .truck-info h2 { color: #0e7490; font-size: 24px; }
+          .truck-info p { color: #155e75; margin-top: 5px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+          th { background: #1e293b; color: white; padding: 10px; text-align: left; }
+          th:nth-child(n+3) { text-align: right; }
+          .summary { background: #fef3c7; padding: 20px; border-radius: 8px; margin-top: 20px; }
+          .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #fbbf24; }
+          .summary-row:last-child { border-bottom: none; }
+          .summary-row.total { font-size: 22px; font-weight: bold; color: #1e293b; border-top: 2px solid #f59e0b; margin-top: 10px; padding-top: 15px; }
+          .summary-row.paid { color: #059669; }
+          .summary-row.balance { color: #dc2626; }
+          .signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
+          .signature-box { text-align: center; }
+          .signature-line { border-top: 1px solid #1e293b; margin-top: 50px; padding-top: 5px; font-size: 12px; color: #64748b; }
+          .print-note { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 20px; }
+          @media print {
+            body { background: white; padding: 0; }
+            .invoice { box-shadow: none; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="invoice">
+          <div class="header">
+            <h1>NAVKAR AGRO</h1>
+            <p>JOLKO, KESINGA - Mill Entry System</p>
+          </div>
+          
+          <div class="receipt-title">
+            TRUCK OWNER CONSOLIDATED PAYMENT / ट्रक मालिक समेकित भुगतान
+          </div>
+          
+          <div class="truck-info">
+            <h2>🚛 ${truckData.truck_no}</h2>
+            <p>Total Trips: ${truckData.trips.length} | Receipt Date: ${new Date().toLocaleDateString('en-IN')}</p>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Mandi</th>
+                <th>QNTL</th>
+                <th>Rate</th>
+                <th>Gross</th>
+                <th>Deductions</th>
+                <th>Net</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tripsHtml}
+            </tbody>
+          </table>
+          
+          <div class="summary">
+            <div class="summary-row">
+              <span>Total Weight / कुल वजन</span>
+              <span>${truckData.total_final_qntl.toFixed(2)} QNTL</span>
+            </div>
+            <div class="summary-row">
+              <span>Total Gross / कुल राशि</span>
+              <span>Rs. ${truckData.total_gross.toLocaleString('en-IN')}</span>
+            </div>
+            <div class="summary-row" style="color: #dc2626;">
+              <span>Total Deductions / कुल कटौती (Cash + Diesel)</span>
+              <span>- Rs. ${truckData.total_deductions.toLocaleString('en-IN')}</span>
+            </div>
+            <div class="summary-row total">
+              <span>Net Payable / देय राशि</span>
+              <span>Rs. ${truckData.total_net.toLocaleString('en-IN')}</span>
+            </div>
+            <div class="summary-row paid">
+              <span>Already Paid / पहले से भुगतान</span>
+              <span>Rs. ${truckData.total_paid.toLocaleString('en-IN')}</span>
+            </div>
+            <div class="summary-row balance">
+              <span>Balance Due / बकाया राशि</span>
+              <span>Rs. ${truckData.total_balance.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+          
+          <div class="signature-section">
+            <div class="signature-box">
+              <div class="signature-line">Truck Owner Signature / ट्रक मालिक हस्ताक्षर</div>
+            </div>
+            <div class="signature-box">
+              <div class="signature-line">Authorized Signature / अधिकृत हस्ताक्षर</div>
+            </div>
+          </div>
+          
+          <div class="print-note">
+            This is a computer generated receipt / यह कंप्यूटर जनित रसीद है
+          </div>
+        </div>
+        
+        <div class="no-print" style="text-align: center; margin-top: 20px;">
+          <button onclick="window.print()" style="background: #0891b2; color: white; border: none; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold;">
+            🖨️ Print Receipt
+          </button>
+        </div>
+      </body>
+      </html>
+    `;
+    invoiceWindow.document.write(invoiceContent);
+    invoiceWindow.document.close();
+  };
+
   // Calculate totals for filtered truck payments
   const truckTotals = {
     netAmount: filteredTruckPayments.reduce((sum, p) => sum + p.net_amount, 0),
