@@ -1236,7 +1236,7 @@ async def export_truck_payments_pdf(
     table_data = [headers] + payments_data
     
     # Totals
-    table_data.append(["TOTAL", "", "", "", "", "", "", f"₹{round(total_net, 2)}", f"₹{round(total_paid, 2)}", f"₹{round(total_balance, 2)}", ""])
+    table_data.append(["TOTAL", "", "", "", "", "", "", f"Rs.{round(total_net, 2)}", f"Rs.{round(total_paid, 2)}", f"Rs.{round(total_balance, 2)}", ""])
     
     col_widths = [18*mm, 22*mm, 22*mm, 14*mm, 12*mm, 16*mm, 16*mm, 18*mm, 16*mm, 18*mm, 14*mm]
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
