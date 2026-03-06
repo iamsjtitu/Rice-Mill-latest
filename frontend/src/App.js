@@ -386,6 +386,8 @@ const Dashboard = ({ filters, user }) => {
                     mandi_name: "",
                     target_qntl: "",
                     cutting_percent: "5",
+                    base_rate: "10",
+                    cutting_rate: "5",
                     kms_year: filters.kms_year || CURRENT_KMS_YEAR,
                     season: filters.season || "Kharif"
                   });
@@ -404,7 +406,7 @@ const Dashboard = ({ filters, user }) => {
           {/* Target Form */}
           {showTargetForm && user.role === 'admin' && (
             <form onSubmit={handleCreateTarget} className="mb-6 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
                 <div>
                   <Label className="text-slate-300 text-xs">Mandi Name</Label>
                   <Input
