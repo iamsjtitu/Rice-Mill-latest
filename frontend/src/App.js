@@ -313,9 +313,9 @@ const Dashboard = ({ filters, user }) => {
     (parseFloat(targetForm.target_qntl || 0) * parseFloat(targetForm.cutting_percent || 0) / 100);
   
   // Agent payment calculation preview
-  const targetAmount = parseFloat(targetForm.target_qntl || 0) * parseFloat(targetForm.base_rate || 10);
+  const targetAmount = parseFloat(targetForm.target_qntl || 0) * parseFloat(targetForm.base_rate ?? 10);
   const cuttingQntl = parseFloat(targetForm.target_qntl || 0) * parseFloat(targetForm.cutting_percent || 0) / 100;
-  const cuttingAmount = cuttingQntl * parseFloat(targetForm.cutting_rate || 5);
+  const cuttingAmount = cuttingQntl * parseFloat(targetForm.cutting_rate ?? 5);
   const totalAgentAmount = targetAmount + cuttingAmount;
 
   if (loading) {
