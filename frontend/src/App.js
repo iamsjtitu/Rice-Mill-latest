@@ -3233,6 +3233,67 @@ function MainApp({ user, onLogout }) {
           <Dashboard filters={filters} user={user} />
         ) : activeTab === "payments" ? (
           <Payments filters={filters} user={user} />
+        ) : activeTab === "settings" ? (
+          /* Settings Page - Branding */
+          <Card className="bg-slate-800 border-slate-700 max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle className="text-purple-400 flex items-center gap-2">
+                <Key className="w-5 h-5" />
+                Settings - Branding
+              </CardTitle>
+              <p className="text-slate-400 text-sm">
+                Yahan se app ka naam aur tagline change karein. Ye header, footer, aur exports mein dikhega.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-slate-300 text-lg">Company Name / कंपनी का नाम</Label>
+                  <Input
+                    value={brandingForm.company_name}
+                    onChange={(e) => setBrandingForm(prev => ({ ...prev, company_name: e.target.value }))}
+                    placeholder="Enter company name"
+                    className="bg-slate-700 border-slate-600 text-white text-xl font-bold mt-2"
+                    data-testid="branding-company-name"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Example: NAVKAR AGRO, XYZ TRADERS, ABC MILL</p>
+                </div>
+                
+                <div>
+                  <Label className="text-slate-300 text-lg">Tagline / विवरण</Label>
+                  <Input
+                    value={brandingForm.tagline}
+                    onChange={(e) => setBrandingForm(prev => ({ ...prev, tagline: e.target.value }))}
+                    placeholder="Enter tagline"
+                    className="bg-slate-700 border-slate-600 text-white mt-2"
+                    data-testid="branding-tagline"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Example: JOLKO, KESINGA - Mill Entry System</p>
+                </div>
+              </div>
+              
+              {/* Preview */}
+              <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
+                <p className="text-xs text-slate-400 mb-2">Preview / झलक:</p>
+                <div className="text-center">
+                  <h2 className="text-2xl font-bold text-amber-400">{brandingForm.company_name || "Company Name"}</h2>
+                  <p className="text-slate-400">{brandingForm.tagline || "Tagline"}</p>
+                </div>
+              </div>
+              
+              <Button
+                onClick={handleUpdateBranding}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+                data-testid="save-branding-btn"
+              >
+                Save Branding / ब्रांडिंग सेव करें
+              </Button>
+              
+              <div className="text-center text-slate-500 text-xs">
+                <p>⚠️ Changes सभी जगह apply होंगे - Header, Print Receipts, Excel/PDF Exports</p>
+              </div>
+            </CardContent>
+          </Card>
         ) : (
           <>
             {/* Totals Summary */}
