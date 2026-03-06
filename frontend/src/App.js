@@ -1934,6 +1934,8 @@ function MainApp({ user, onLogout }) {
             </div>
           </CardContent>
         </Card>
+          </>
+        )}
       </main>
 
       {/* Footer */}
