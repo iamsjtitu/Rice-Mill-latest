@@ -246,16 +246,24 @@ class TruckPaymentStatus(BaseModel):
 
 
 class AgentPaymentStatus(BaseModel):
+    """Agent payment based on Mandi Target (not achieved)"""
+    mandi_name: str
     agent_name: str
-    total_final_qntl: float
-    rate_per_qntl: float
-    total_amount: float
+    target_qntl: float
+    cutting_percent: float
+    cutting_qntl: float  # target × cutting%
+    base_rate: float
+    cutting_rate: float
+    target_amount: float  # target_qntl × base_rate
+    cutting_amount: float  # cutting_qntl × cutting_rate
+    total_amount: float  # target_amount + cutting_amount
+    achieved_qntl: float  # Actual achieved for reference
+    is_target_complete: bool  # achieved >= expected_total
     paid_amount: float
     balance_amount: float
     status: str  # pending, partial, paid
     kms_year: str
     season: str
-    total_entries: int
 
 
 class SetRateRequest(BaseModel):
