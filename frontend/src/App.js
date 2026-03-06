@@ -1640,7 +1640,7 @@ function MainApp({ user, onLogout }) {
       }
       // Escape: Close form/dialogs
       if (e.key === 'Escape') {
-        setShowForm(false);
+        setIsDialogOpen(false);
         setShowFilters(false);
       }
     };
