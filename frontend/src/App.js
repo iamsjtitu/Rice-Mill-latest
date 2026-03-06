@@ -639,11 +639,13 @@ const Payments = ({ filters, user }) => {
   const [activePaymentTab, setActivePaymentTab] = useState("truck");
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showRateDialog, setShowRateDialog] = useState(false);
+  const [showHistoryDialog, setShowHistoryDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
   const [newRate, setNewRate] = useState("");
   const [truckSearchFilter, setTruckSearchFilter] = useState("");
+  const [paymentHistory, setPaymentHistory] = useState([]);
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -695,6 +697,60 @@ const Payments = ({ filters, user }) => {
     if (filters.season) params.append('season', filters.season);
     if (truckSearchFilter) params.append('truck_no', truckSearchFilter);
     window.open(`${API}/export/truck-payments-pdf?${params.toString()}`, '_blank');
+  };
+
+  // Export agent payments
+  const handleExportAgentExcel = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    window.open(`${API}/export/agent-payments-excel?${params.toString()}`, '_blank');
+  };
+
+  const handleExportAgentPDF = () => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    window.open(`${API}/export/agent-payments-pdf?${params.toString()}`, '_blank');
+  };
+
+  // Undo paid
+  const handleUndoPaid = async (item) => {
+    if (!window.confirm("Kya aap is payment ko undo karna chahte hain? Paid amount 0 ho jayega.")) return;
+    try {
+      if (activePaymentTab === "truck") {
+        await axios.post(
+          `${API}/truck-payments/${item.entry_id}/undo-paid?username=${user.username}&role=${user.role}`
+        );
+      } else {
+        await axios.post(
+          `${API}/agent-payments/${encodeURIComponent(item.mandi_name)}/undo-paid?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`
+        );
+      }
+      toast.success("Payment undo ho gaya!");
+      fetchPayments();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Undo karne mein error");
+    }
+  };
+
+  // View payment history
+  const handleViewHistory = async (item) => {
+    try {
+      let res;
+      if (activePaymentTab === "truck") {
+        res = await axios.get(`${API}/truck-payments/${item.entry_id}/history`);
+      } else {
+        res = await axios.get(
+          `${API}/agent-payments/${encodeURIComponent(item.mandi_name)}/history?kms_year=${filters.kms_year}&season=${filters.season}`
+        );
+      }
+      setPaymentHistory(res.data.history || []);
+      setSelectedItem(item);
+      setShowHistoryDialog(true);
+    } catch (error) {
+      toast.error("History load karne mein error");
+    }
   };
 
   const handleSetRate = async () => {
