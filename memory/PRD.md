@@ -140,29 +140,46 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - **White Label Ready:** App can be sold to different clients by changing branding
 - **Note:** "Made with Emergent" badge is platform-level (only in preview, not in production/local deploy)
 
-### Phase 13 - Windows Desktop App (Tally-style) ✅ (Mar 2026)
+### Phase 13 - Windows Desktop App (Tally-style) - UPDATED Dec 2025
 - **Electron Desktop Application:**
-  - Tally जैसा Data Folder Selection screen
-  - Recent folders list
-  - Create new data folder option
-  - Select existing folder option
+  - Tally jaisa Data Folder Selection screen (Splash Window)
+  - Recent folders list with click-to-open
+  - Create new data folder / Open existing folder options
+  - Dark themed professional UI
   
-- **Local Database:**
-  - SQLite database (no MongoDB required)
-  - Data stored in user-selected folder
-  - Single file database: `millentry.db`
+- **Local JSON Database (JsonDatabase class):**
+  - Data stored in user-selected folder as `millentry-data.json`
+  - All CRUD operations: entries, mandi targets, payments
+  - Auto-calculation of fields (matching backend exactly)
+  - No MongoDB required - fully offline
   
-- **Features:**
-  - Offline mode (no internet required)
-  - Multiple company support (different folders)
-  - Easy backup (just copy folder)
-  - Portable version available
+- **Express API Server (mirrors FastAPI):**
+  - All 45+ API endpoints implemented in JavaScript
+  - Auth: login, verify, change-password
+  - Entries: CRUD, bulk-delete, totals
+  - Suggestions: trucks, agents, mandis, kms_years (correct format)
+  - Dashboard: agent-totals, date-range-totals, monthly-trend
+  - Mandi Targets: CRUD, summary
+  - Truck Payments: list, rate, pay, mark-paid, undo-paid, history
+  - Agent Payments: list, pay, mark-paid, undo-paid, history
+  - Export: Excel (CSV format), PDF (print redirect)
+  - Branding settings
   
-- **Files Created:**
-  - `/app/desktop-app/main.js` - Electron main process
-  - `/app/desktop-app/package.json` - Build configuration
-  - `/app/desktop-app/README.md` - Usage guide
-  - `/app/desktop-app/SETUP_GUIDE.md` - Windows setup instructions
+- **Fixed Port Architecture:**
+  - Desktop API runs on port 9876 (with fallback to random)
+  - Frontend built with `REACT_APP_BACKEND_URL=http://127.0.0.1:9876`
+  - Frontend also supports `window.ELECTRON_API_URL` for dynamic detection
+  
+- **Build Configuration:**
+  - NSIS installer for Windows (standard install)
+  - Portable .exe (no install needed)
+  - electron-builder config with proper file inclusion
+  
+- **Files:**
+  - `/app/desktop-app/main.js` - Complete Electron + Express + JSON DB
+  - `/app/desktop-app/preload.js` - Secure context bridge
+  - `/app/desktop-app/package.json` - Dependencies + build config
+  - `/app/desktop-app/SETUP_GUIDE.md` - Hindi/English setup guide
 
 ## Mandi Target Feature
 **Example**: Badkutru target 5000 QNTL + 5% cutting
@@ -255,6 +272,7 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - /app/test_reports/iteration_3.json
 - /app/test_reports/iteration_4.json
 - /app/test_reports/iteration_5.json (Bug fixes - 100% PASS)
+- /app/test_reports/iteration_6.json (Desktop app + API verification - 100% PASS)
 
 ## Files Structure
 ```
