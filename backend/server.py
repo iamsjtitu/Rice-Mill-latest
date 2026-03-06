@@ -768,7 +768,8 @@ async def export_excel(
     
     # Title
     ws.merge_cells('A1:Q1')
-    ws['A1'] = f"NAVKAR AGRO - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
+    company_name, tagline = await get_company_name()
+    ws['A1'] = f"{company_name} - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
     ws['A1'].fill = title_fill
     ws['A1'].font = title_font
     ws['A1'].alignment = center_align
@@ -965,7 +966,8 @@ async def export_pdf(
     )
     
     # Title table with orange background
-    title_text = f"NAVKAR AGRO - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
+    company_name, tagline = await get_company_name()
+    title_text = f"{company_name} - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
     title_data = [[Paragraph(f"<b>{title_text}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 16*mm])
     title_table.setStyle(TableStyle([
@@ -1181,7 +1183,8 @@ async def export_truck_payments_excel(
     
     # Title
     ws.merge_cells('A1:M1')
-    ws['A1'] = f"TRUCK PAYMENTS - NAVKAR AGRO | KMS: {kms_year or 'All'} | {season or 'All'}"
+    company_name, tagline = await get_company_name()
+    ws['A1'] = f"TRUCK PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}"
     ws['A1'].font = Font(bold=True, size=14, color="D97706")
     ws['A1'].alignment = Alignment(horizontal='center')
     
@@ -1314,7 +1317,8 @@ async def export_truck_payments_pdf(
     
     # Title
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)
-    title_data = [[Paragraph(f"<b>TRUCK PAYMENTS - NAVKAR AGRO | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
+    company_name, tagline = await get_company_name()
+    title_data = [[Paragraph(f"<b>TRUCK PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 20*mm])
     title_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
@@ -2148,7 +2152,8 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
     pending_fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
     
     ws.merge_cells('A1:M1')
-    ws['A1'] = f"AGENT/MANDI PAYMENTS - NAVKAR AGRO | KMS: {kms_year or 'All'} | {season or 'All'}"
+    company_name, tagline = await get_company_name()
+    ws['A1'] = f"AGENT/MANDI PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}"
     ws['A1'].font = Font(bold=True, size=14, color="D97706")
     ws['A1'].alignment = Alignment(horizontal='center')
     
@@ -2270,7 +2275,8 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     styles = getSampleStyleSheet()
     
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)
-    title_data = [[Paragraph(f"<b>AGENT/MANDI PAYMENTS - NAVKAR AGRO | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
+    company_name, tagline = await get_company_name()
+    title_data = [[Paragraph(f"<b>AGENT/MANDI PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 20*mm])
     title_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
@@ -2677,7 +2683,8 @@ async def export_truck_owner_excel(
     
     # Title
     ws.merge_cells('A1:I1')
-    ws['A1'] = f"TRUCK OWNER CONSOLIDATED PAYMENTS - NAVKAR AGRO | KMS: {kms_year or 'All'} | {season or 'All'}"
+    company_name, tagline = await get_company_name()
+    ws['A1'] = f"TRUCK OWNER CONSOLIDATED PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}"
     ws['A1'].font = Font(bold=True, size=14, color="0891B2")
     ws['A1'].alignment = Alignment(horizontal='center')
     
@@ -2812,8 +2819,9 @@ async def export_truck_owner_pdf(
     
     # Title
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#0891B2'), alignment=1)
-    elements.append(Paragraph("TRUCK OWNER CONSOLIDATED PAYMENTS", title_style))
-    elements.append(Paragraph("NAVKAR AGRO - JOLKO, KESINGA", ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=10, alignment=1)))
+    company_name, tagline = await get_company_name()
+    elements.append(Paragraph(f"TRUCK OWNER CONSOLIDATED PAYMENTS - {company_name}", title_style))
+    elements.append(Paragraph(f"{company_name} - {tagline}", ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=10, alignment=1)))
     elements.append(Paragraph(f"KMS Year: {kms_year or 'All'} | Season: {season or 'All'} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", ParagraphStyle('Info', parent=styles['Normal'], fontSize=9, alignment=1, textColor=colors.gray)))
     elements.append(Spacer(1, 20))
     
