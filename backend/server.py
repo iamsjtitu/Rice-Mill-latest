@@ -2305,7 +2305,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#D97706'), alignment=TA_LEFT, spaceBefore=10, spaceAfter=5)
     
     # Main Title
-    title_data = [[Paragraph(f"<b>NAVKAR AGRO - COMPLETE SUMMARY REPORT</b>", title_style)]]
+    title_data = [[Paragraph("<b>NAVKAR AGRO - COMPLETE SUMMARY REPORT</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 20*mm])
     title_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
