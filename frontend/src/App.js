@@ -1216,8 +1216,9 @@ function MainApp({ user, onLogout }) {
                     <TableHead className="text-slate-300">Mandi</TableHead>
                     <TableHead className="text-green-400 text-right">QNTL</TableHead>
                     <TableHead className="text-slate-300 text-right">BAG</TableHead>
+                    <TableHead className="text-blue-400 text-right">Mill W</TableHead>
                     <TableHead className="text-purple-400 text-right">Cut %</TableHead>
-                    <TableHead className="text-amber-400 text-right">Final W.</TableHead>
+                    <TableHead className="text-amber-400 text-right">Final W</TableHead>
                     <TableHead className="text-cyan-400 text-right">G.Issued</TableHead>
                     <TableHead className="text-slate-300 text-right">Cash</TableHead>
                     <TableHead className="text-slate-300 text-right">Diesel</TableHead>
