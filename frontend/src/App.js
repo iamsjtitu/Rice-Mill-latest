@@ -3493,7 +3493,7 @@ function MainApp({ user, onLogout }) {
       {/* Footer */}
       <footer className="bg-slate-800/50 border-t border-slate-700 py-4 mt-8">
         <div className="max-w-7xl mx-auto px-4 text-center text-slate-400 text-sm">
-          <p>Navkar Agro Mill Entry System</p>
+          <p>{branding.company_name} - {branding.tagline}</p>
           <p className="text-xs mt-1">1 Quintal = 100 KG | P.Pkt = 0.50 kg/bag</p>
         </div>
       </footer>
