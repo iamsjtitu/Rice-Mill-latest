@@ -2423,6 +2423,8 @@ function MainApp({ user, onLogout }) {
   const clearFilters = () => {
     setFilters({ 
       truck_no: "", 
+      rst_no: "",
+      tp_no: "",
       agent_name: "", 
       mandi_name: "", 
       kms_year: CURRENT_KMS_YEAR,
@@ -2432,7 +2434,7 @@ function MainApp({ user, onLogout }) {
     });
   };
 
-  const hasActiveFilters = filters.truck_no || filters.agent_name || filters.mandi_name || filters.season || filters.date_from || filters.date_to;
+  const hasActiveFilters = filters.truck_no || filters.rst_no || filters.tp_no || filters.agent_name || filters.mandi_name || filters.season || filters.date_from || filters.date_to;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
