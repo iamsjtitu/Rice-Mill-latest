@@ -1140,15 +1140,30 @@ async def get_mandi_target_summary(kms_year: Optional[str] = None, season: Optio
         pending_qntl = round(max(0, expected_total - achieved_qntl), 2)
         progress_percent = round((achieved_qntl / expected_total * 100) if expected_total > 0 else 0, 1)
         
+        # Calculate agent payment amounts
+        target_qntl = target["target_qntl"]
+        cutting_qntl = round(target_qntl * target["cutting_percent"] / 100, 2)
+        base_rate = target.get("base_rate", 10)
+        cutting_rate = target.get("cutting_rate", 5)
+        target_amount = round(target_qntl * base_rate, 2)
+        cutting_amount = round(cutting_qntl * cutting_rate, 2)
+        total_agent_amount = round(target_amount + cutting_amount, 2)
+        
         summaries.append(MandiTargetSummary(
             id=target["id"],
             mandi_name=target["mandi_name"],
-            target_qntl=target["target_qntl"],
+            target_qntl=target_qntl,
             cutting_percent=target["cutting_percent"],
             expected_total=expected_total,
             achieved_qntl=achieved_qntl,
             pending_qntl=pending_qntl,
             progress_percent=progress_percent,
+            base_rate=base_rate,
+            cutting_rate=cutting_rate,
+            target_amount=target_amount,
+            cutting_qntl=cutting_qntl,
+            cutting_amount=cutting_amount,
+            total_agent_amount=total_agent_amount,
             kms_year=target["kms_year"],
             season=target["season"]
         ))
