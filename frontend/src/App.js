@@ -611,15 +611,17 @@ function App() {
                           />
                         </div>
                         <div>
-                          <Label className="text-slate-300">GBW Cut</Label>
+                          <Label className="text-orange-400">GBW Cut (Auto: 1kg/bag)</Label>
                           <Input
                             type="number"
                             name="gbw_cut"
                             value={formData.gbw_cut}
                             onChange={handleInputChange}
-                            className="bg-slate-600 border-slate-500 text-white"
+                            placeholder="Auto from BAG"
+                            className="bg-orange-900/30 border-orange-700 text-orange-400"
                             data-testid="input-gbw-cut"
                           />
+                          <span className="text-xs text-slate-400">BAG × 1 kg</span>
                         </div>
                         <div>
                           <Label className="text-blue-400 font-semibold">Mill W. (Auto)</Label>
