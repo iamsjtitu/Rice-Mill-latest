@@ -1,16 +1,16 @@
 # Navkar Agro - Mill Entry System PRD
 
 ## Original Problem Statement
-Mill Entry application for grain tracking with auto-calculations, role-based authentication, exports, and mandi target tracking.
+Mill Entry application for grain tracking with auto-calculations, role-based authentication, exports, mandi target tracking, and payment management for trucks and agents.
 
 ## Architecture
 - **Backend**: FastAPI + MongoDB
 - **Frontend**: React.js + Tailwind CSS + Recharts
-- **Database**: MongoDB (mill_entries, users, mandi_targets collections)
+- **Database**: MongoDB (mill_entries, users, mandi_targets, truck_payments, agent_payments)
 - **Exports**: openpyxl (Excel), reportlab (PDF)
 
 ## User Personas
-1. **Admin** - Full CRUD access, target management, user management
+1. **Admin** - Full CRUD access, target management, payment management
 2. **Staff** - Create entries, edit own entries within 5 mins only
 
 ## What's Been Implemented
@@ -37,21 +37,31 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - Styled PDF export (reportlab + frontend print)
 
 ### Phase 4 - Dashboard & Targets ✅ (Mar 2026)
-- **Dashboard Tab** with Agent-wise bar chart (Recharts)
-- **Mandi Target Management**:
-  - Admin sets targets per mandi (target QNTL + cutting %)
-  - Expected Total = Target + Cutting % excess
-  - Progress bars showing achieved vs expected
-  - Pending amount calculation
-  - Color-coded progress (red/blue/amber/green)
-- Date range totals API
+- Dashboard Tab with Agent-wise bar chart (Recharts)
+- Mandi Target Management with Base Rate + Cutting Rate
+- Progress bars showing achieved vs expected
+- Color-coded progress (red/blue/amber/green)
+
+### Phase 5 - Payment Tracking ✅ (Mar 2026)
+- **Truck Payments (Bhada):**
+  - Per trip tracking
+  - Rate × Final QNTL - Cash - Diesel = Net Amount
+  - Admin sets rate per trip (default ₹32/QNTL)
+  - Partial payment support
+  - Mark as Paid to clear account
+
+- **Agent/Mandi Payments:**
+  - Based on Mandi Target (NOT achieved)
+  - Calculation: (Target QNTL × Base Rate) + (Cutting QNTL × Cutting Rate)
+  - Each mandi has different rates set by admin
+  - Example: Badkutru 5000×₹10 + 250×₹5 = ₹51,250
+  - Partial payment support
 
 ## Mandi Target Feature
 **Example**: Badkutru target 5000 QNTL + 5% cutting
 - Expected Total: 5000 + 250 = **5250 QNTL**
-- Achieved: 278.11 QNTL (from entries)
-- Pending: 4971.89 QNTL
-- Progress: 5.3%
+- Base Rate: ₹10/QNTL, Cutting Rate: ₹5/QNTL
+- Agent Payment: (5000×10) + (250×5) = **₹51,250**
 
 ## API Endpoints
 
@@ -66,7 +76,7 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - POST /api/entries/bulk-delete
 - GET /api/totals
 
-### Mandi Targets (Admin only for CUD)
+### Mandi Targets
 - GET /api/mandi-targets
 - POST /api/mandi-targets
 - PUT /api/mandi-targets/{id}
@@ -77,11 +87,16 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - GET /api/dashboard/agent-totals
 - GET /api/dashboard/date-range-totals
 
-### Suggestions
-- GET /api/suggestions/trucks
-- GET /api/suggestions/agents
-- GET /api/suggestions/mandis
-- GET /api/suggestions/kms_years
+### Truck Payments
+- GET /api/truck-payments
+- PUT /api/truck-payments/{entry_id}/rate
+- POST /api/truck-payments/{entry_id}/pay
+- POST /api/truck-payments/{entry_id}/mark-paid
+
+### Agent Payments
+- GET /api/agent-payments
+- POST /api/agent-payments/{mandi_name}/pay
+- POST /api/agent-payments/{mandi_name}/mark-paid
 
 ### Exports
 - GET /api/export/excel
@@ -95,15 +110,16 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - Styled exports
 - Dashboard with charts
 - Mandi Target tracking
+- Truck & Agent Payment tracking
 
 ### P1 (High Priority)
 - [ ] Code refactoring: Break App.js into components
 - [ ] Code refactoring: Break server.py into modules
 
 ### P2 (Medium Priority)
-- [ ] Agent-wise performance reports
 - [ ] Monthly/weekly comparison charts
 - [ ] Print invoice format
+- [ ] Payment history view
 
 ### P3 (Low Priority)
 - [ ] Audit trail for entry changes
@@ -116,7 +132,8 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 ## Test Reports
 - /app/test_reports/iteration_1.json
 - /app/test_reports/iteration_2.json
-- /app/test_reports/iteration_3.json (Dashboard & Targets - 22 tests PASS)
+- /app/test_reports/iteration_3.json
+- /app/test_reports/iteration_4.json (Payments - 21/22 tests PASS)
 
 ## Files Structure
 ```
@@ -125,10 +142,17 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
   tests/ - pytest test files
 
 /app/frontend/src/
-  App.js - Full React frontend with Dashboard
+  App.js - Full React frontend with Dashboard & Payments
   App.css - Custom styles
   components/ui/ - Shadcn components
 ```
+
+## Database Collections
+- **mill_entries**: Entry records
+- **users**: User accounts
+- **mandi_targets**: Target with rates
+- **truck_payments**: Truck payment records
+- **agent_payments**: Agent/mandi payment records
 
 ## Notes
 - Database: MongoDB (MONGO_URL from .env)
