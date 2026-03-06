@@ -584,6 +584,7 @@ function MainApp({ user, onLogout }) {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("entries"); // "entries" or "dashboard"
 
   // Suggestions state
   const [truckSuggestions, setTruckSuggestions] = useState([]);
