@@ -1013,6 +1013,271 @@ async def export_pdf(
     )
 
 
+@api_router.get("/export/truck-payments-excel")
+async def export_truck_payments_excel(
+    truck_no: Optional[str] = None,
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
+):
+    """Export truck payments to styled Excel file"""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    if truck_no:
+        query["truck_no"] = {"$regex": truck_no, "$options": "i"}
+    
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    
+    # Build payment data
+    payments_data = []
+    total_net = 0
+    total_paid = 0
+    total_balance = 0
+    
+    for entry in entries:
+        entry_id = entry.get("id")
+        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        
+        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        
+        final_qntl = round(entry.get("final_w", 0) / 100, 2)
+        cash_taken = entry.get("cash_paid", 0) or 0
+        diesel_taken = entry.get("diesel_paid", 0) or 0
+        
+        gross_amount = round(final_qntl * rate, 2)
+        deductions = cash_taken + diesel_taken
+        net_amount = round(gross_amount - deductions, 2)
+        balance = round(max(0, net_amount - paid_amount), 2)
+        status = "Paid" if balance < 0.10 else ("Partial" if paid_amount > 0 else "Pending")
+        
+        total_net += net_amount
+        total_paid += paid_amount
+        total_balance += balance
+        
+        payments_data.append({
+            "date": entry.get("date", ""),
+            "truck_no": entry.get("truck_no", ""),
+            "mandi_name": entry.get("mandi_name", ""),
+            "final_qntl": final_qntl,
+            "rate": rate,
+            "gross": gross_amount,
+            "cash": cash_taken,
+            "diesel": diesel_taken,
+            "deductions": deductions,
+            "net": net_amount,
+            "paid": paid_amount,
+            "balance": balance,
+            "status": status
+        })
+    
+    # Create Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Truck Payments"
+    
+    # Styles
+    header_fill = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    total_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    paid_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+    pending_fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
+    
+    # Title
+    ws.merge_cells('A1:M1')
+    ws['A1'] = f"TRUCK PAYMENTS - NAVKAR AGRO | KMS: {kms_year or 'All'} | {season or 'All'}"
+    ws['A1'].font = Font(bold=True, size=14, color="D97706")
+    ws['A1'].alignment = Alignment(horizontal='center')
+    
+    # Headers
+    headers = ["Date", "Truck No", "Mandi", "Final QNTL", "Rate", "Gross", "Cash", "Diesel", "Deductions", "Net Amount", "Paid", "Balance", "Status"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data rows
+    for row_idx, p in enumerate(payments_data, 4):
+        ws.cell(row=row_idx, column=1, value=p["date"])
+        ws.cell(row=row_idx, column=2, value=p["truck_no"]).font = Font(bold=True)
+        ws.cell(row=row_idx, column=3, value=p["mandi_name"])
+        ws.cell(row=row_idx, column=4, value=p["final_qntl"])
+        ws.cell(row=row_idx, column=5, value=f"₹{p['rate']}")
+        ws.cell(row=row_idx, column=6, value=p["gross"])
+        ws.cell(row=row_idx, column=7, value=p["cash"])
+        ws.cell(row=row_idx, column=8, value=p["diesel"])
+        ws.cell(row=row_idx, column=9, value=p["deductions"])
+        ws.cell(row=row_idx, column=10, value=p["net"]).font = Font(bold=True)
+        ws.cell(row=row_idx, column=11, value=p["paid"])
+        ws.cell(row=row_idx, column=12, value=p["balance"]).font = Font(bold=True, color="DC2626" if p["balance"] > 0 else "059669")
+        status_cell = ws.cell(row=row_idx, column=13, value=p["status"])
+        if p["status"] == "Paid":
+            status_cell.fill = paid_fill
+        elif p["status"] == "Pending":
+            status_cell.fill = pending_fill
+    
+    # Totals row
+    total_row = len(payments_data) + 4
+    ws.cell(row=total_row, column=1, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=total_row, column=10, value=round(total_net, 2)).font = Font(bold=True)
+    ws.cell(row=total_row, column=11, value=round(total_paid, 2)).font = Font(bold=True)
+    ws.cell(row=total_row, column=12, value=round(total_balance, 2)).font = Font(bold=True, color="DC2626")
+    for col in range(1, 14):
+        ws.cell(row=total_row, column=col).fill = total_fill
+    
+    # Column widths
+    col_widths = [12, 14, 14, 12, 8, 10, 8, 8, 10, 12, 10, 12, 10]
+    for i, width in enumerate(col_widths, 1):
+        ws.column_dimensions[chr(64 + i)].width = width
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    filename = f"truck_payments_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return Response(
+        content=output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@api_router.get("/export/truck-payments-pdf")
+async def export_truck_payments_pdf(
+    truck_no: Optional[str] = None,
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
+):
+    """Export truck payments to PDF"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+    from reportlab.lib.enums import TA_CENTER
+    
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    if truck_no:
+        query["truck_no"] = {"$regex": truck_no, "$options": "i"}
+    
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    
+    # Build payment data
+    payments_data = []
+    total_net = 0
+    total_paid = 0
+    total_balance = 0
+    
+    for entry in entries:
+        entry_id = entry.get("id")
+        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        
+        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        
+        final_qntl = round(entry.get("final_w", 0) / 100, 2)
+        cash_taken = entry.get("cash_paid", 0) or 0
+        diesel_taken = entry.get("diesel_paid", 0) or 0
+        
+        gross_amount = round(final_qntl * rate, 2)
+        deductions = cash_taken + diesel_taken
+        net_amount = round(gross_amount - deductions, 2)
+        balance = round(max(0, net_amount - paid_amount), 2)
+        status = "Paid" if balance < 0.10 else ("Partial" if paid_amount > 0 else "Pending")
+        
+        total_net += net_amount
+        total_paid += paid_amount
+        total_balance += balance
+        
+        payments_data.append([
+            entry.get("date", "")[:10],
+            entry.get("truck_no", "")[:12],
+            entry.get("mandi_name", "")[:12],
+            f"{final_qntl}",
+            f"₹{rate}",
+            f"₹{gross_amount}",
+            f"-₹{deductions}",
+            f"₹{net_amount}",
+            f"₹{paid_amount}",
+            f"₹{balance}",
+            status
+        ])
+    
+    # Create PDF
+    buffer = io.BytesIO()
+    page_width, page_height = landscape(A4)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Title
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)
+    title_data = [[Paragraph(f"<b>TRUCK PAYMENTS - NAVKAR AGRO | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
+    title_table = Table(title_data, colWidths=[page_width - 20*mm])
+    title_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(title_table)
+    elements.append(Table([[""]], colWidths=[page_width], rowHeights=[5*mm]))
+    
+    # Headers
+    headers = ["Date", "Truck No", "Mandi", "QNTL", "Rate", "Gross", "Deduct", "Net", "Paid", "Balance", "Status"]
+    table_data = [headers] + payments_data
+    
+    # Totals
+    table_data.append(["TOTAL", "", "", "", "", "", "", f"₹{round(total_net, 2)}", f"₹{round(total_paid, 2)}", f"₹{round(total_balance, 2)}", ""])
+    
+    col_widths = [18*mm, 22*mm, 22*mm, 14*mm, 12*mm, 16*mm, 16*mm, 18*mm, 16*mm, 18*mm, 14*mm]
+    main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    
+    style_commands = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('ALIGN', (3, 1), (-1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+    ]
+    
+    # Alternating rows and status colors
+    for i in range(1, len(table_data) - 1):
+        if i % 2 == 0:
+            style_commands.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8FAFC')))
+        if payments_data[i-1][-1] == "Paid":
+            style_commands.append(('BACKGROUND', (-1, i), (-1, i), colors.HexColor('#D1FAE5')))
+        elif payments_data[i-1][-1] == "Pending":
+            style_commands.append(('BACKGROUND', (-1, i), (-1, i), colors.HexColor('#FEE2E2')))
+    
+    main_table.setStyle(TableStyle(style_commands))
+    elements.append(main_table)
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"truck_payments_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
 @api_router.post("/entries/bulk-delete")
 async def bulk_delete_entries(entry_ids: List[str], username: str = "", role: str = ""):
     """Bulk delete entries"""
