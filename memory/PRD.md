@@ -140,6 +140,30 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - **White Label Ready:** App can be sold to different clients by changing branding
 - **Note:** "Made with Emergent" badge is platform-level (only in preview, not in production/local deploy)
 
+### Phase 13 - Windows Desktop App (Tally-style) ✅ (Mar 2026)
+- **Electron Desktop Application:**
+  - Tally जैसा Data Folder Selection screen
+  - Recent folders list
+  - Create new data folder option
+  - Select existing folder option
+  
+- **Local Database:**
+  - SQLite database (no MongoDB required)
+  - Data stored in user-selected folder
+  - Single file database: `millentry.db`
+  
+- **Features:**
+  - Offline mode (no internet required)
+  - Multiple company support (different folders)
+  - Easy backup (just copy folder)
+  - Portable version available
+  
+- **Files Created:**
+  - `/app/desktop-app/main.js` - Electron main process
+  - `/app/desktop-app/package.json` - Build configuration
+  - `/app/desktop-app/README.md` - Usage guide
+  - `/app/desktop-app/SETUP_GUIDE.md` - Windows setup instructions
+
 ## Mandi Target Feature
 **Example**: Badkutru target 5000 QNTL + 5% cutting
 - Expected Total: 5000 + 250 = **5250 QNTL**
