@@ -1201,12 +1201,12 @@ async def export_truck_payments_pdf(
             entry.get("truck_no", "")[:12],
             entry.get("mandi_name", "")[:12],
             f"{final_qntl}",
-            f"₹{rate}",
-            f"₹{gross_amount}",
-            f"-₹{deductions}",
-            f"₹{net_amount}",
-            f"₹{paid_amount}",
-            f"₹{balance}",
+            f"Rs.{rate}",
+            f"Rs.{gross_amount}",
+            f"-Rs.{deductions}",
+            f"Rs.{net_amount}",
+            f"Rs.{paid_amount}",
+            f"Rs.{balance}",
             status
         ])
     
