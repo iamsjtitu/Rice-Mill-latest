@@ -2354,7 +2354,7 @@ function MainApp({ user, onLogout }) {
         <body>
           <div class="container">
             <div class="header">
-              <h1>NAVKAR AGRO - JOLKO, KESINGA</h1>
+              <h1>${branding.company_name} - ${branding.tagline}</h1>
               <p>KMS: ${filters.kms_year || "All"} | ${filters.season || "All Seasons"} | Generated: ${new Date().toLocaleDateString('en-IN')}</p>
             </div>
             <table>
