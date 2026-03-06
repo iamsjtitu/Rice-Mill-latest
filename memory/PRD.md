@@ -92,6 +92,8 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - PUT /api/truck-payments/{entry_id}/rate
 - POST /api/truck-payments/{entry_id}/pay
 - POST /api/truck-payments/{entry_id}/mark-paid
+- POST /api/truck-payments/{entry_id}/undo-paid
+- GET /api/truck-payments/{entry_id}/history
 - GET /api/export/truck-payments-excel (with truck_no filter)
 - GET /api/export/truck-payments-pdf (with truck_no filter)
 
@@ -99,6 +101,10 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - GET /api/agent-payments
 - POST /api/agent-payments/{mandi_name}/pay
 - POST /api/agent-payments/{mandi_name}/mark-paid
+- POST /api/agent-payments/{mandi_name}/undo-paid
+- GET /api/agent-payments/{mandi_name}/history
+- GET /api/export/agent-payments-excel
+- GET /api/export/agent-payments-pdf
 
 ### Exports
 - GET /api/export/excel
