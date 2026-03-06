@@ -131,6 +131,8 @@ class MillEntryUpdate(BaseModel):
     kms_year: Optional[str] = None
     season: Optional[str] = None
     truck_no: Optional[str] = None
+    rst_no: Optional[str] = None  # RST Number
+    tp_no: Optional[str] = None   # TP Number
     agent_name: Optional[str] = None
     mandi_name: Optional[str] = None
     kg: Optional[float] = None
