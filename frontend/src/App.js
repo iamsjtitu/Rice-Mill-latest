@@ -204,6 +204,376 @@ const LoginPage = ({ onLogin }) => {
   );
 };
 
+// Dashboard Component
+const Dashboard = ({ filters, user }) => {
+  const [agentTotals, setAgentTotals] = useState([]);
+  const [mandiTargets, setMandiTargets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showTargetForm, setShowTargetForm] = useState(false);
+  const [targetForm, setTargetForm] = useState({
+    mandi_name: "",
+    target_qntl: "",
+    cutting_percent: "5",
+    kms_year: filters.kms_year || CURRENT_KMS_YEAR,
+    season: filters.season || "Kharif"
+  });
+  const [editingTargetId, setEditingTargetId] = useState(null);
+
+  const CHART_COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899'];
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append('kms_year', filters.kms_year);
+      if (filters.season) params.append('season', filters.season);
+
+      const [agentRes, targetRes] = await Promise.all([
+        axios.get(`${API}/dashboard/agent-totals?${params.toString()}`),
+        axios.get(`${API}/mandi-targets/summary?${params.toString()}`)
+      ]);
+
+      setAgentTotals(agentRes.data.agent_totals || []);
+      setMandiTargets(targetRes.data || []);
+    } catch (error) {
+      console.error("Dashboard fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [filters.kms_year, filters.season]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  const handleCreateTarget = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        ...targetForm,
+        target_qntl: parseFloat(targetForm.target_qntl),
+        cutting_percent: parseFloat(targetForm.cutting_percent)
+      };
+
+      if (editingTargetId) {
+        await axios.put(`${API}/mandi-targets/${editingTargetId}?username=${user.username}&role=${user.role}`, payload);
+        toast.success("Target update ho gaya!");
+      } else {
+        await axios.post(`${API}/mandi-targets?username=${user.username}&role=${user.role}`, payload);
+        toast.success("Target set ho gaya!");
+      }
+      
+      setShowTargetForm(false);
+      setEditingTargetId(null);
+      setTargetForm({
+        mandi_name: "",
+        target_qntl: "",
+        cutting_percent: "5",
+        kms_year: filters.kms_year || CURRENT_KMS_YEAR,
+        season: filters.season || "Kharif"
+      });
+      fetchDashboardData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Target save karne mein error");
+    }
+  };
+
+  const handleDeleteTarget = async (targetId) => {
+    if (!window.confirm("Kya aap ye target delete karna chahte hain?")) return;
+    try {
+      await axios.delete(`${API}/mandi-targets/${targetId}?username=${user.username}&role=${user.role}`);
+      toast.success("Target delete ho gaya!");
+      fetchDashboardData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Delete karne mein error");
+    }
+  };
+
+  const handleEditTarget = (target) => {
+    setTargetForm({
+      mandi_name: target.mandi_name,
+      target_qntl: target.target_qntl.toString(),
+      cutting_percent: target.cutting_percent.toString(),
+      kms_year: target.kms_year,
+      season: target.season
+    });
+    setEditingTargetId(target.id);
+    setShowTargetForm(true);
+  };
+
+  const expectedTotal = parseFloat(targetForm.target_qntl || 0) + 
+    (parseFloat(targetForm.target_qntl || 0) * parseFloat(targetForm.cutting_percent || 0) / 100);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Agent-wise Bar Chart */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Agent-wise Final Weight (QNTL)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {agentTotals.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={agentTotals} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis 
+                  dataKey="agent_name" 
+                  stroke="#9ca3af" 
+                  tick={{ fill: '#9ca3af', fontSize: 11 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis stroke="#9ca3af" tick={{ fill: '#9ca3af' }} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px' }}
+                  labelStyle={{ color: '#f59e0b' }}
+                  itemStyle={{ color: '#fff' }}
+                  formatter={(value, name) => [`${value} QNTL`, 'Final Weight']}
+                />
+                <Bar dataKey="total_final_w" radius={[4, 4, 0, 0]}>
+                  {agentTotals.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-slate-400 text-center py-8">Koi data nahi hai</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Mandi Target Section */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
+              <Target className="w-5 h-5" />
+              Mandi Target vs Achieved
+            </CardTitle>
+            {user.role === 'admin' && (
+              <Button
+                onClick={() => {
+                  setShowTargetForm(!showTargetForm);
+                  setEditingTargetId(null);
+                  setTargetForm({
+                    mandi_name: "",
+                    target_qntl: "",
+                    cutting_percent: "5",
+                    kms_year: filters.kms_year || CURRENT_KMS_YEAR,
+                    season: filters.season || "Kharif"
+                  });
+                }}
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-600 text-slate-900"
+                data-testid="add-target-btn"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Naya Target
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Target Form */}
+          {showTargetForm && user.role === 'admin' && (
+            <form onSubmit={handleCreateTarget} className="mb-6 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                <div>
+                  <Label className="text-slate-300 text-xs">Mandi Name</Label>
+                  <Input
+                    value={targetForm.mandi_name}
+                    onChange={(e) => setTargetForm(prev => ({ ...prev, mandi_name: e.target.value }))}
+                    placeholder="Badkutru"
+                    className="bg-slate-700 border-slate-600 text-white text-sm"
+                    required
+                    data-testid="target-mandi-name"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-xs">Target (QNTL)</Label>
+                  <Input
+                    type="number"
+                    value={targetForm.target_qntl}
+                    onChange={(e) => setTargetForm(prev => ({ ...prev, target_qntl: e.target.value }))}
+                    placeholder="5000"
+                    className="bg-slate-700 border-slate-600 text-white text-sm"
+                    required
+                    data-testid="target-qntl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-xs">Cutting %</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={targetForm.cutting_percent}
+                    onChange={(e) => setTargetForm(prev => ({ ...prev, cutting_percent: e.target.value }))}
+                    placeholder="5"
+                    className="bg-slate-700 border-slate-600 text-white text-sm"
+                    required
+                    data-testid="target-cutting"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-xs">KMS Year</Label>
+                  <Select
+                    value={targetForm.kms_year}
+                    onValueChange={(value) => setTargetForm(prev => ({ ...prev, kms_year: value }))}
+                  >
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-700 border-slate-600">
+                      {KMS_YEARS.map(year => (
+                        <SelectItem key={year} value={year} className="text-white">{year}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-xs">Season</Label>
+                  <Select
+                    value={targetForm.season}
+                    onValueChange={(value) => setTargetForm(prev => ({ ...prev, season: value }))}
+                  >
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-700 border-slate-600">
+                      {SEASONS.map(s => (
+                        <SelectItem key={s} value={s} className="text-white">{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              {/* Expected Total Preview */}
+              {targetForm.target_qntl && (
+                <div className="mb-4 p-3 bg-emerald-900/30 border border-emerald-600/50 rounded-lg">
+                  <p className="text-emerald-400 text-sm">
+                    <TrendingUp className="w-4 h-4 inline mr-1" />
+                    Expected Total: <strong>{expectedTotal.toFixed(2)} QNTL</strong>
+                    <span className="text-slate-400 ml-2">
+                      ({targetForm.target_qntl} + {targetForm.cutting_percent}% excess)
+                    </span>
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="save-target-btn">
+                  {editingTargetId ? "Update" : "Save"} Target
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowTargetForm(false)}
+                  className="border-slate-600 text-slate-300"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Target Progress Bars */}
+          {mandiTargets.length > 0 ? (
+            <div className="space-y-4">
+              {mandiTargets.map((target, idx) => (
+                <div key={idx} className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h4 className="text-white font-semibold">{target.mandi_name}</h4>
+                      <p className="text-slate-400 text-xs">
+                        Target: {target.target_qntl} QNTL + {target.cutting_percent}% = 
+                        <span className="text-amber-400 font-semibold ml-1">{target.expected_total} QNTL</span>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-lg font-bold ${target.progress_percent >= 100 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {target.progress_percent}%
+                      </p>
+                      {user.role === 'admin' && (
+                        <div className="flex gap-1 mt-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditTarget({ ...target, id: target.id || mandiTargets[idx].id })}
+                            className="h-6 w-6 p-0 text-blue-400 hover:bg-blue-900/30"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteTarget(target.id || mandiTargets[idx].id)}
+                            className="h-6 w-6 p-0 text-red-400 hover:bg-red-900/30"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="relative h-6 bg-slate-600 rounded-full overflow-hidden">
+                    <div
+                      className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${
+                        target.progress_percent >= 100 ? 'bg-emerald-500' : 
+                        target.progress_percent >= 75 ? 'bg-amber-500' : 
+                        target.progress_percent >= 50 ? 'bg-blue-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${Math.min(target.progress_percent, 100)}%` }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-semibold text-white drop-shadow">
+                        {target.achieved_qntl} / {target.expected_total} QNTL
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Status */}
+                  <div className="flex justify-between mt-2 text-xs">
+                    <span className="text-emerald-400">
+                      Achieved: {target.achieved_qntl} QNTL
+                    </span>
+                    <span className={target.pending_qntl > 0 ? 'text-red-400' : 'text-emerald-400'}>
+                      {target.pending_qntl > 0 ? `Pending: ${target.pending_qntl} QNTL` : 'Target Complete! ✓'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-400">
+              <Target className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>Koi target set nahi hai</p>
+              {user.role === 'admin' && (
+                <p className="text-xs mt-1">Naya target add karne ke liye button click karein</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
 // Main App Component
 function MainApp({ user, onLogout }) {
   const [entries, setEntries] = useState([]);
