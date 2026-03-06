@@ -300,6 +300,8 @@ const Dashboard = ({ filters, user }) => {
       mandi_name: target.mandi_name,
       target_qntl: target.target_qntl.toString(),
       cutting_percent: target.cutting_percent.toString(),
+      base_rate: (target.base_rate || 10).toString(),
+      cutting_rate: (target.cutting_rate || 5).toString(),
       kms_year: target.kms_year,
       season: target.season
     });
@@ -309,6 +311,12 @@ const Dashboard = ({ filters, user }) => {
 
   const expectedTotal = parseFloat(targetForm.target_qntl || 0) + 
     (parseFloat(targetForm.target_qntl || 0) * parseFloat(targetForm.cutting_percent || 0) / 100);
+  
+  // Agent payment calculation preview
+  const targetAmount = parseFloat(targetForm.target_qntl || 0) * parseFloat(targetForm.base_rate || 10);
+  const cuttingQntl = parseFloat(targetForm.target_qntl || 0) * parseFloat(targetForm.cutting_percent || 0) / 100;
+  const cuttingAmount = cuttingQntl * parseFloat(targetForm.cutting_rate || 5);
+  const totalAgentAmount = targetAmount + cuttingAmount;
 
   if (loading) {
     return (
