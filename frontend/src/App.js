@@ -30,7 +30,8 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Trash2, Edit, Plus, Calculator, RefreshCw, Filter, X, FileSpreadsheet, FileText, LogOut, User, Lock, Key, Target, BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, Info, Printer } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart3, TrendingUp } from 'lucide-react';
+// Note: BarChart from recharts removed as Agent-wise chart was removed
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
