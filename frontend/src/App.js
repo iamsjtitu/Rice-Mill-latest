@@ -3134,6 +3134,26 @@ function MainApp({ user, onLogout }) {
                   />
                 </div>
                 <div>
+                  <Label className="text-slate-300 text-sm">RST No.</Label>
+                  <Input
+                    value={filters.rst_no}
+                    onChange={(e) => setFilters(prev => ({ ...prev, rst_no: e.target.value }))}
+                    placeholder="Filter by RST..."
+                    className="bg-slate-600 border-slate-500 text-white"
+                    data-testid="filter-rst-no"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-sm">TP No.</Label>
+                  <Input
+                    value={filters.tp_no}
+                    onChange={(e) => setFilters(prev => ({ ...prev, tp_no: e.target.value }))}
+                    placeholder="Filter by TP..."
+                    className="bg-slate-600 border-slate-500 text-white"
+                    data-testid="filter-tp-no"
+                  />
+                </div>
+                <div>
                   <Label className="text-slate-300 text-sm">Agent Name</Label>
                   <Input
                     value={filters.agent_name}
