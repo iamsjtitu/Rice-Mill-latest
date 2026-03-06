@@ -533,16 +533,18 @@ async def export_excel(
     
     # Styles
     header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=10)
+    header_font = Font(bold=True, color="FFFFFF", size=9)
     
     title_fill = PatternFill(start_color="D97706", end_color="D97706", fill_type="solid")
     title_font = Font(bold=True, color="FFFFFF", size=14)
     
     total_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
-    total_font = Font(bold=True, size=10)
+    total_font = Font(bold=True, size=9)
     
     qntl_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
     final_fill = PatternFill(start_color="FDE68A", end_color="FDE68A", fill_type="solid")
+    gunny_fill = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")
+    cash_fill = PatternFill(start_color="FCE7F3", end_color="FCE7F3", fill_type="solid")
     
     thin_border = Border(
         left=Side(style='thin'),
@@ -555,7 +557,7 @@ async def export_excel(
     right_align = Alignment(horizontal='right', vertical='center')
     
     # Title
-    ws.merge_cells('A1:N1')
+    ws.merge_cells('A1:Q1')
     ws['A1'] = f"NAVKAR AGRO - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
     ws['A1'].fill = title_fill
     ws['A1'].font = title_font
@@ -563,16 +565,16 @@ async def export_excel(
     ws.row_dimensions[1].height = 30
     
     # Date row
-    ws.merge_cells('A2:N2')
+    ws.merge_cells('A2:Q2')
     ws['A2'] = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
     ws['A2'].alignment = center_align
     ws.row_dimensions[2].height = 20
     
     # Headers
     headers = [
-        "Date", "Truck No", "Agent", "Mandi", "QNTL", "BAG", 
-        "GBW Cut", "Mill W", "Moist%", "Moist Cut", "Cut%", 
-        "Disc/Dust", "Final W", "G.Issued"
+        "Date", "Truck No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
+        "GBW Cut", "Mill W", "Moist%", "M.Cut", "Cut%", 
+        "D/D/P", "Final W", "G.Issued", "Cash", "Diesel"
     ]
     
     for col, header in enumerate(headers, 1):
@@ -581,7 +583,7 @@ async def export_excel(
         cell.font = header_font
         cell.border = thin_border
         cell.alignment = center_align
-    ws.row_dimensions[3].height = 25
+    ws.row_dimensions[3].height = 22
     
     # Data rows
     row_num = 4
@@ -595,21 +597,23 @@ async def export_excel(
             entry.get('mandi_name', ''),
             round(entry.get('qntl', 0), 2),
             entry.get('bag', 0),
+            entry.get('g_deposite', 0),
             round(entry.get('gbw_cut', 0), 2),
-            round(entry.get('mill_w', 0) / 100, 2),  # Mill W in QNTL
+            round(entry.get('mill_w', 0) / 100, 2),
             entry.get('moisture', 0),
-            round(entry.get('moisture_cut', 0) / 100, 2) if entry.get('moisture_cut') else 0,  # Moisture cut in QNTL
+            round(entry.get('moisture_cut', 0) / 100, 2) if entry.get('moisture_cut') else 0,
             entry.get('cutting_percent', 0),
             entry.get('disc_dust_poll', 0),
-            round(entry.get('final_w', 0) / 100, 2),  # Final W in QNTL
-            entry.get('g_issued', 0)
+            round(entry.get('final_w', 0) / 100, 2),
+            entry.get('g_issued', 0),
+            entry.get('cash_paid', 0),
+            entry.get('diesel_paid', 0)
         ]
         
         for col, value in enumerate(row_data, 1):
             cell = ws.cell(row=row_num, column=col, value=value)
             cell.border = thin_border
             
-            # Alternate row colors
             if idx % 2 == 1:
                 cell.fill = alt_fill
             
@@ -617,11 +621,20 @@ async def export_excel(
             if col == 5:  # QNTL
                 cell.fill = qntl_fill
                 cell.alignment = right_align
-            elif col == 13:  # Final W
+            elif col == 7:  # G.Deposite
+                cell.fill = gunny_fill
+                cell.alignment = right_align
+            elif col == 14:  # Final W
                 cell.fill = final_fill
                 cell.font = Font(bold=True)
                 cell.alignment = right_align
-            elif col in [6, 7, 8, 10, 12, 14]:  # Numeric columns
+            elif col == 16:  # Cash
+                cell.fill = cash_fill
+                cell.alignment = right_align
+            elif col == 17:  # Diesel
+                cell.fill = cash_fill
+                cell.alignment = right_align
+            elif col in [6, 8, 9, 10, 11, 12, 13, 15]:
                 cell.alignment = right_align
         
         row_num += 1
@@ -632,6 +645,7 @@ async def export_excel(
         "TOTAL", "", "", "",
         round(totals.total_qntl, 2),
         totals.total_bag,
+        totals.total_g_deposite,
         round(totals.total_gbw_cut, 2),
         round(totals.total_mill_w / 100, 2),
         "-",
@@ -639,7 +653,9 @@ async def export_excel(
         "-",
         totals.total_disc_dust_poll,
         round(totals.total_final_w / 100, 2),
-        totals.total_g_issued
+        totals.total_g_issued,
+        totals.total_cash_paid,
+        totals.total_diesel_paid
     ]
     
     for col, value in enumerate(totals_data, 1):
@@ -651,7 +667,7 @@ async def export_excel(
             cell.alignment = right_align
     
     # Column widths
-    col_widths = [12, 14, 15, 15, 10, 8, 10, 10, 8, 10, 8, 10, 10, 10]
+    col_widths = [10, 12, 12, 12, 8, 6, 6, 8, 8, 6, 6, 6, 6, 8, 8, 8, 8]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     
