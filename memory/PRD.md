@@ -79,6 +79,18 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
   - Signature sections for Driver and Admin
   - Print button in browser opens ready-to-print receipt
 
+### Phase 8 - Agent Print & Truck Owner Consolidated ✅ (Mar 2026)
+- **Agent Payment Print Invoice:** Similar bilingual receipt for agent/mandi payments
+  - Shows: Target details, Achieved, Base+Cutting rates, Total/Paid/Balance
+  - Purple themed receipt with signature sections
+  
+- **Truck Owner Consolidated View:** NEW TAB in Payments
+  - Groups all trips by truck number
+  - Shows: Total trips, Total QNTL, Gross, Deductions, Net Payable, Paid, Balance
+  - **Use Case:** Single truck owner with multiple trips gets one consolidated receipt
+  - Print consolidated receipt with all trips detailed
+  - Summary row at bottom with totals
+
 ## Mandi Target Feature
 **Example**: Badkutru target 5000 QNTL + 5% cutting
 - Expected Total: 5000 + 250 = **5250 QNTL**
