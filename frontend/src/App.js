@@ -910,7 +910,7 @@ const Payments = ({ filters, user }) => {
                   <TableRow className="border-slate-600">
                     <TableHead className="text-slate-300">Date</TableHead>
                     <TableHead className="text-slate-300">Truck No</TableHead>
-                    <TableHead className="text-slate-300">Agent</TableHead>
+                    <TableHead className="text-slate-300">Mandi</TableHead>
                     <TableHead className="text-slate-300 text-right">Final QNTL</TableHead>
                     <TableHead className="text-slate-300 text-right">Rate</TableHead>
                     <TableHead className="text-slate-300 text-right">Gross</TableHead>
@@ -923,11 +923,11 @@ const Payments = ({ filters, user }) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {truckPayments.map((payment, idx) => (
+                  {filteredTruckPayments.map((payment, idx) => (
                     <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
                       <TableCell className="text-white text-xs">{payment.date}</TableCell>
                       <TableCell className="text-white font-semibold">{payment.truck_no}</TableCell>
-                      <TableCell className="text-slate-300 text-xs">{payment.agent_name}</TableCell>
+                      <TableCell className="text-slate-300 text-xs">{payment.mandi_name}</TableCell>
                       <TableCell className="text-amber-400 text-right font-semibold">{payment.final_qntl}</TableCell>
                       <TableCell className="text-right">
                         <span className="text-blue-400">₹{payment.rate_per_qntl}</span>
