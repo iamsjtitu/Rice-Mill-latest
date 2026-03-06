@@ -1028,6 +1028,26 @@ const Payments = ({ filters, user }) => {
                                 </Button>
                               </>
                             )}
+                            {payment.status === 'paid' && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleUndoPaid(payment)}
+                                className="h-7 px-2 text-red-400 hover:bg-red-900/30"
+                                title="Undo Paid"
+                              >
+                                <Undo2 className="w-3 h-3" />
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleViewHistory(payment)}
+                              className="h-7 px-2 text-purple-400 hover:bg-purple-900/30"
+                              title="Payment History"
+                            >
+                              <History className="w-3 h-3" />
+                            </Button>
                           </div>
                         </TableCell>
                       )}
@@ -1044,10 +1064,30 @@ const Payments = ({ filters, user }) => {
       {activePaymentTab === "agent" && (
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Agent/Mandi Payments (Target Based)
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Agent/Mandi Payments (Target Based)
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleExportAgentExcel}
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <FileSpreadsheet className="w-4 h-4 mr-1" />
+                  Excel
+                </Button>
+                <Button
+                  onClick={handleExportAgentPDF}
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <FileText className="w-4 h-4 mr-1" />
+                  PDF
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {agentPayments.length > 0 ? (
