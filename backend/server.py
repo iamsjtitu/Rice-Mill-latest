@@ -685,6 +685,228 @@ async def export_excel(
     )
 
 
+@api_router.get("/export/pdf")
+async def export_pdf(
+    truck_no: Optional[str] = None,
+    agent_name: Optional[str] = None,
+    mandi_name: Optional[str] = None,
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
+):
+    """Export entries to styled PDF file (A4 Landscape)"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    
+    query = {}
+    
+    if truck_no:
+        query["truck_no"] = {"$regex": truck_no, "$options": "i"}
+    if agent_name:
+        query["agent_name"] = {"$regex": agent_name, "$options": "i"}
+    if mandi_name:
+        query["mandi_name"] = {"$regex": mandi_name, "$options": "i"}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season)
+    
+    # Create PDF buffer
+    buffer = io.BytesIO()
+    
+    # A4 Landscape
+    page_width, page_height = landscape(A4)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=8*mm,
+        rightMargin=8*mm,
+        topMargin=8*mm,
+        bottomMargin=8*mm
+    )
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Title style
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=14,
+        textColor=colors.white,
+        alignment=TA_CENTER,
+        spaceAfter=2*mm
+    )
+    
+    # Subtitle style
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#475569'),
+        alignment=TA_CENTER,
+        spaceAfter=3*mm
+    )
+    
+    # Title table with orange background
+    title_text = f"NAVKAR AGRO - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
+    title_data = [[Paragraph(f"<b>{title_text}</b>", title_style)]]
+    title_table = Table(title_data, colWidths=[page_width - 16*mm])
+    title_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(title_table)
+    
+    # Date
+    date_text = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+    elements.append(Paragraph(date_text, subtitle_style))
+    
+    # Table headers
+    headers = [
+        "Date", "Truck No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
+        "GBW Cut", "Mill W", "Moist%", "M.Cut", "Cut%", 
+        "D/D/P", "Final W", "G.Issued", "Cash", "Diesel"
+    ]
+    
+    # Build data rows
+    table_data = [headers]
+    
+    for entry in entries:
+        row = [
+            entry.get('date', '')[:10] if entry.get('date') else '',
+            entry.get('truck_no', '')[:10] if entry.get('truck_no') else '',
+            entry.get('agent_name', '')[:10] if entry.get('agent_name') else '',
+            entry.get('mandi_name', '')[:10] if entry.get('mandi_name') else '',
+            f"{entry.get('qntl', 0):.2f}",
+            str(entry.get('bag', 0)),
+            str(entry.get('g_deposite', 0)),
+            f"{entry.get('gbw_cut', 0):.1f}",
+            f"{entry.get('mill_w', 0) / 100:.2f}",
+            f"{entry.get('moisture', 0):.0f}",
+            f"{(entry.get('moisture_cut', 0) / 100):.2f}" if entry.get('moisture_cut') else "0",
+            f"{entry.get('cutting_percent', 0):.1f}",
+            str(entry.get('disc_dust_poll', 0)),
+            f"{entry.get('final_w', 0) / 100:.2f}",
+            str(entry.get('g_issued', 0)),
+            str(entry.get('cash_paid', 0)),
+            str(entry.get('diesel_paid', 0))
+        ]
+        table_data.append(row)
+    
+    # Totals row
+    totals_row = [
+        "TOTAL", "", "", "",
+        f"{totals.total_qntl:.2f}",
+        str(totals.total_bag),
+        str(int(totals.total_g_deposite)),
+        f"{totals.total_gbw_cut:.1f}",
+        f"{totals.total_mill_w / 100:.2f}",
+        "-",
+        "-",
+        "-",
+        str(int(totals.total_disc_dust_poll)),
+        f"{totals.total_final_w / 100:.2f}",
+        str(int(totals.total_g_issued)),
+        str(int(totals.total_cash_paid)),
+        str(int(totals.total_diesel_paid))
+    ]
+    table_data.append(totals_row)
+    
+    # Column widths (total ~265mm for A4 landscape with margins)
+    col_widths = [14*mm, 16*mm, 16*mm, 16*mm, 12*mm, 10*mm, 10*mm, 12*mm, 12*mm, 
+                  10*mm, 10*mm, 10*mm, 10*mm, 14*mm, 14*mm, 12*mm, 12*mm]
+    
+    # Create table
+    main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    
+    # Define colors
+    header_bg = colors.HexColor('#1E293B')
+    alt_row_bg = colors.HexColor('#F8FAFC')
+    qntl_bg = colors.HexColor('#D1FAE5')
+    gunny_bg = colors.HexColor('#DBEAFE')
+    final_bg = colors.HexColor('#FDE68A')
+    cash_bg = colors.HexColor('#FCE7F3')
+    total_bg = colors.HexColor('#FEF3C7')
+    
+    # Table styles
+    style_commands = [
+        # Header row
+        ('BACKGROUND', (0, 0), (-1, 0), header_bg),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 6),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        
+        # All cells
+        ('FONTSIZE', (0, 1), (-1, -1), 6),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+        
+        # Right align numeric columns
+        ('ALIGN', (4, 1), (-1, -1), 'RIGHT'),
+        
+        # Totals row (last row)
+        ('BACKGROUND', (0, -1), (-1, -1), total_bg),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, -1), (-1, -1), 6),
+    ]
+    
+    # Add alternating row colors for data rows
+    for i in range(1, len(table_data) - 1):  # Exclude header and totals
+        if i % 2 == 0:
+            style_commands.append(('BACKGROUND', (0, i), (-1, i), alt_row_bg))
+    
+    # Highlight special columns for all data rows
+    for i in range(1, len(table_data) - 1):
+        style_commands.append(('BACKGROUND', (4, i), (4, i), qntl_bg))  # QNTL
+        style_commands.append(('BACKGROUND', (6, i), (6, i), gunny_bg))  # G.Dep
+        style_commands.append(('BACKGROUND', (13, i), (13, i), final_bg))  # Final W
+        style_commands.append(('BACKGROUND', (15, i), (16, i), cash_bg))  # Cash, Diesel
+    
+    # Bold Final W column
+    style_commands.append(('FONTNAME', (13, 1), (13, -1), 'Helvetica-Bold'))
+    
+    main_table.setStyle(TableStyle(style_commands))
+    elements.append(main_table)
+    
+    # Build PDF
+    doc.build(elements)
+    
+    buffer.seek(0)
+    filename = f"mill_entries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@api_router.post("/entries/bulk-delete")
+async def bulk_delete_entries(entry_ids: List[str], username: str = "", role: str = ""):
+    """Bulk delete entries"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Only admin can bulk delete")
+    
+    result = await db.mill_entries.delete_many({"id": {"$in": entry_ids}})
+    return {"message": f"{result.deleted_count} entries deleted successfully", "deleted_count": result.deleted_count}
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
