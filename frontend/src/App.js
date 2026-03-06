@@ -1147,16 +1147,16 @@ function MainApp({ user, onLogout }) {
                 <div>
                   <Label className="text-slate-300 text-sm">KMS Year</Label>
                   <Select
-                    value={filters.kms_year}
-                    onValueChange={(value) => setFilters(prev => ({ ...prev, kms_year: value }))}
+                    value={filters.kms_year || "all"}
+                    onValueChange={(value) => setFilters(prev => ({ ...prev, kms_year: value === "all" ? "" : value }))}
                   >
-                    <SelectTrigger className="bg-slate-600 border-slate-500 text-white">
+                    <SelectTrigger className="bg-slate-600 border-slate-500 text-white" data-testid="filter-kms-year">
                       <SelectValue placeholder="All Years" />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-700 border-slate-600">
-                      <SelectItem value="" className="text-white">All Years</SelectItem>
+                      <SelectItem value="all" className="text-white hover:bg-slate-600">All Years</SelectItem>
                       {KMS_YEARS.map(year => (
-                        <SelectItem key={year} value={year} className="text-white">{year}</SelectItem>
+                        <SelectItem key={year} value={year} className="text-white hover:bg-slate-600">{year}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1164,16 +1164,16 @@ function MainApp({ user, onLogout }) {
                 <div>
                   <Label className="text-slate-300 text-sm">Season</Label>
                   <Select
-                    value={filters.season}
-                    onValueChange={(value) => setFilters(prev => ({ ...prev, season: value }))}
+                    value={filters.season || "all"}
+                    onValueChange={(value) => setFilters(prev => ({ ...prev, season: value === "all" ? "" : value }))}
                   >
-                    <SelectTrigger className="bg-slate-600 border-slate-500 text-white">
+                    <SelectTrigger className="bg-slate-600 border-slate-500 text-white" data-testid="filter-season">
                       <SelectValue placeholder="All Seasons" />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-700 border-slate-600">
-                      <SelectItem value="" className="text-white">All Seasons</SelectItem>
+                      <SelectItem value="all" className="text-white hover:bg-slate-600">All Seasons</SelectItem>
                       {SEASONS.map(s => (
-                        <SelectItem key={s} value={s} className="text-white">{s}</SelectItem>
+                        <SelectItem key={s} value={s} className="text-white hover:bg-slate-600">{s}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
