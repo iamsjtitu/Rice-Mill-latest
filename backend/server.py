@@ -169,24 +169,37 @@ def calculate_auto_fields(data: dict) -> dict:
     p_pkt_cut = round(plastic_bag * 0.5, 2)
     data['p_pkt_cut'] = p_pkt_cut
     
-    # Moisture cut: 17% tak no cut, uske upar (moisture - 17)% cut
+    # Mill W in KG and QNTL
+    mill_w_kg = kg - gbw_cut
+    mill_w_qntl = mill_w_kg / 100
+    
+    # Moisture cut: 17% tak no cut, uske upar (moisture - 17)% cut from Mill W QNTL
     moisture_cut_percent = max(0, moisture - 17)
-    weight_after_gbw = kg - gbw_cut - p_pkt_cut
-    moisture_cut = round((weight_after_gbw * moisture_cut_percent) / 100, 2)
-    data['moisture_cut'] = moisture_cut
+    moisture_cut_qntl = round((mill_w_qntl * moisture_cut_percent) / 100, 2)
+    moisture_cut_kg = round(moisture_cut_qntl * 100, 2)
+    data['moisture_cut'] = moisture_cut_kg
+    data['moisture_cut_qntl'] = moisture_cut_qntl
     data['moisture_cut_percent'] = moisture_cut_percent
     
-    # Weight for cutting calculation (after moisture cut)
-    weight_for_cutting = weight_after_gbw - moisture_cut
+    # Cutting from Mill W QNTL
+    cutting_qntl = round((mill_w_qntl * cutting_percent) / 100, 2)
+    cutting_kg = round(cutting_qntl * 100, 2)
+    data['cutting'] = cutting_kg
+    data['cutting_qntl'] = cutting_qntl
     
-    # Cutting calculation based on percentage
-    cutting = round((weight_for_cutting * cutting_percent) / 100, 2)
-    data['cutting'] = cutting
+    # P.Pkt cut in QNTL
+    p_pkt_cut_qntl = p_pkt_cut / 100
+    
+    # Disc/Dust/Poll in QNTL
+    disc_dust_poll_qntl = disc_dust_poll / 100
     
     # Auto calculations
     data['qntl'] = round(kg / 100, 2)  # KG to Quintals
-    data['mill_w'] = round(kg - gbw_cut, 2)  # Mill Weight
-    data['final_w'] = round(kg - gbw_cut - p_pkt_cut - moisture_cut - cutting - disc_dust_poll, 2)  # Final Weight
+    data['mill_w'] = mill_w_kg  # Mill Weight in KG (stored)
+    
+    # Final W = Mill W QNTL - P.Pkt QNTL - Moisture Cut QNTL - Cutting QNTL - Disc/Dust QNTL
+    final_w_qntl = mill_w_qntl - p_pkt_cut_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl
+    data['final_w'] = round(final_w_qntl * 100, 2)  # Store in KG for compatibility
     
     return data
 
