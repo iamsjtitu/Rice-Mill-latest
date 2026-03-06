@@ -574,6 +574,457 @@ const Dashboard = ({ filters, user }) => {
   );
 };
 
+// Payments Component
+const Payments = ({ filters, user }) => {
+  const [truckPayments, setTruckPayments] = useState([]);
+  const [agentPayments, setAgentPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activePaymentTab, setActivePaymentTab] = useState("truck");
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [showRateDialog, setShowRateDialog] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentNote, setPaymentNote] = useState("");
+  const [newRate, setNewRate] = useState("");
+
+  const fetchPayments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append('kms_year', filters.kms_year);
+      if (filters.season) params.append('season', filters.season);
+
+      const [truckRes, agentRes] = await Promise.all([
+        axios.get(`${API}/truck-payments?${params.toString()}`),
+        axios.get(`${API}/agent-payments?${params.toString()}`)
+      ]);
+
+      setTruckPayments(truckRes.data || []);
+      setAgentPayments(agentRes.data || []);
+    } catch (error) {
+      console.error("Payments fetch error:", error);
+      toast.error("Payments load karne mein error");
+    } finally {
+      setLoading(false);
+    }
+  }, [filters.kms_year, filters.season]);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
+
+  const handleSetRate = async () => {
+    if (!newRate || !selectedItem) return;
+    try {
+      if (activePaymentTab === "truck") {
+        await axios.put(
+          `${API}/truck-payments/${selectedItem.entry_id}/rate?username=${user.username}&role=${user.role}`,
+          { rate_per_qntl: parseFloat(newRate) }
+        );
+      } else {
+        await axios.put(
+          `${API}/agent-rates/${encodeURIComponent(selectedItem.agent_name)}?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`,
+          { rate_per_qntl: parseFloat(newRate) }
+        );
+      }
+      toast.success("Rate set ho gaya!");
+      setShowRateDialog(false);
+      setNewRate("");
+      fetchPayments();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Rate set karne mein error");
+    }
+  };
+
+  const handleMakePayment = async () => {
+    if (!paymentAmount || !selectedItem) return;
+    try {
+      if (activePaymentTab === "truck") {
+        await axios.post(
+          `${API}/truck-payments/${selectedItem.entry_id}/pay?username=${user.username}&role=${user.role}`,
+          { amount: parseFloat(paymentAmount), note: paymentNote }
+        );
+      } else {
+        await axios.post(
+          `${API}/agent-payments/${encodeURIComponent(selectedItem.agent_name)}/pay?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`,
+          { amount: parseFloat(paymentAmount), note: paymentNote }
+        );
+      }
+      toast.success("Payment recorded!");
+      setShowPaymentDialog(false);
+      setPaymentAmount("");
+      setPaymentNote("");
+      fetchPayments();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Payment karne mein error");
+    }
+  };
+
+  const handleMarkPaid = async (item) => {
+    if (!window.confirm("Kya aap isko fully paid mark karna chahte hain?")) return;
+    try {
+      if (activePaymentTab === "truck") {
+        await axios.post(
+          `${API}/truck-payments/${item.entry_id}/mark-paid?username=${user.username}&role=${user.role}`
+        );
+      } else {
+        await axios.post(
+          `${API}/agent-payments/${encodeURIComponent(item.agent_name)}/mark-paid?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`
+        );
+      }
+      toast.success("Payment cleared!");
+      fetchPayments();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Mark paid mein error");
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'paid':
+        return <span className="px-2 py-1 text-xs rounded-full bg-emerald-900/50 text-emerald-400 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Paid</span>;
+      case 'partial':
+        return <span className="px-2 py-1 text-xs rounded-full bg-amber-900/50 text-amber-400 flex items-center gap-1"><Clock className="w-3 h-3" /> Partial</span>;
+      default:
+        return <span className="px-2 py-1 text-xs rounded-full bg-red-900/50 text-red-400 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Pending</span>;
+    }
+  };
+
+  // Calculate totals
+  const truckTotals = {
+    netAmount: truckPayments.reduce((sum, p) => sum + p.net_amount, 0),
+    paid: truckPayments.reduce((sum, p) => sum + p.paid_amount, 0),
+    balance: truckPayments.reduce((sum, p) => sum + p.balance_amount, 0)
+  };
+
+  const agentTotals = {
+    totalAmount: agentPayments.reduce((sum, p) => sum + p.total_amount, 0),
+    paid: agentPayments.reduce((sum, p) => sum + p.paid_amount, 0),
+    balance: agentPayments.reduce((sum, p) => sum + p.balance_amount, 0)
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Payment Tabs */}
+      <div className="flex gap-2 border-b border-slate-700 pb-2">
+        <Button
+          onClick={() => setActivePaymentTab("truck")}
+          variant={activePaymentTab === "truck" ? "default" : "ghost"}
+          size="sm"
+          className={activePaymentTab === "truck" 
+            ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+            : "text-slate-300 hover:bg-slate-700"}
+        >
+          <Truck className="w-4 h-4 mr-1" />
+          Truck Payments ({truckPayments.length})
+        </Button>
+        <Button
+          onClick={() => setActivePaymentTab("agent")}
+          variant={activePaymentTab === "agent" ? "default" : "ghost"}
+          size="sm"
+          className={activePaymentTab === "agent" 
+            ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+            : "text-slate-300 hover:bg-slate-700"}
+        >
+          <Users className="w-4 h-4 mr-1" />
+          Agent Payments ({agentPayments.length})
+        </Button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="bg-slate-700/50 border-slate-600">
+          <CardContent className="p-4">
+            <p className="text-slate-400 text-xs">Total Amount</p>
+            <p className="text-white text-xl font-bold">
+              ₹{(activePaymentTab === "truck" ? truckTotals.netAmount : agentTotals.totalAmount).toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-emerald-900/30 border-emerald-600/50">
+          <CardContent className="p-4">
+            <p className="text-emerald-400 text-xs">Paid</p>
+            <p className="text-emerald-400 text-xl font-bold">
+              ₹{(activePaymentTab === "truck" ? truckTotals.paid : agentTotals.paid).toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-red-900/30 border-red-600/50">
+          <CardContent className="p-4">
+            <p className="text-red-400 text-xs">Balance</p>
+            <p className="text-red-400 text-xl font-bold">
+              ₹{(activePaymentTab === "truck" ? truckTotals.balance : agentTotals.balance).toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Truck Payments Table */}
+      {activePaymentTab === "truck" && (
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
+              <Truck className="w-5 h-5" />
+              Truck Payments (Bhada)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-600">
+                    <TableHead className="text-slate-300">Date</TableHead>
+                    <TableHead className="text-slate-300">Truck No</TableHead>
+                    <TableHead className="text-slate-300">Agent</TableHead>
+                    <TableHead className="text-slate-300 text-right">Final QNTL</TableHead>
+                    <TableHead className="text-slate-300 text-right">Rate</TableHead>
+                    <TableHead className="text-slate-300 text-right">Gross</TableHead>
+                    <TableHead className="text-slate-300 text-right">Cash+Diesel</TableHead>
+                    <TableHead className="text-slate-300 text-right">Net</TableHead>
+                    <TableHead className="text-slate-300 text-right">Paid</TableHead>
+                    <TableHead className="text-slate-300 text-right">Balance</TableHead>
+                    <TableHead className="text-slate-300">Status</TableHead>
+                    {user.role === 'admin' && <TableHead className="text-slate-300">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {truckPayments.map((payment, idx) => (
+                    <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
+                      <TableCell className="text-white text-xs">{payment.date}</TableCell>
+                      <TableCell className="text-white font-semibold">{payment.truck_no}</TableCell>
+                      <TableCell className="text-slate-300 text-xs">{payment.agent_name}</TableCell>
+                      <TableCell className="text-amber-400 text-right font-semibold">{payment.final_qntl}</TableCell>
+                      <TableCell className="text-right">
+                        <span className="text-blue-400">₹{payment.rate_per_qntl}</span>
+                      </TableCell>
+                      <TableCell className="text-right text-slate-300">₹{payment.gross_amount}</TableCell>
+                      <TableCell className="text-right text-red-400">-₹{payment.deductions}</TableCell>
+                      <TableCell className="text-right text-white font-semibold">₹{payment.net_amount}</TableCell>
+                      <TableCell className="text-right text-emerald-400">₹{payment.paid_amount}</TableCell>
+                      <TableCell className="text-right text-red-400 font-semibold">₹{payment.balance_amount}</TableCell>
+                      <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                      {user.role === 'admin' && (
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => { setSelectedItem(payment); setNewRate(payment.rate_per_qntl.toString()); setShowRateDialog(true); }}
+                              className="h-7 px-2 text-blue-400 hover:bg-blue-900/30"
+                              title="Set Rate"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            {payment.status !== 'paid' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => { setSelectedItem(payment); setShowPaymentDialog(true); }}
+                                  className="h-7 px-2 text-emerald-400 hover:bg-emerald-900/30"
+                                  title="Make Payment"
+                                >
+                                  <IndianRupee className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleMarkPaid(payment)}
+                                  className="h-7 px-2 text-amber-400 hover:bg-amber-900/30"
+                                  title="Mark Paid"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Agent Payments Table */}
+      {activePaymentTab === "agent" && (
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg text-amber-400 flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Agent Payments (Commission)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-600">
+                    <TableHead className="text-slate-300">Agent Name</TableHead>
+                    <TableHead className="text-slate-300 text-right">Total QNTL</TableHead>
+                    <TableHead className="text-slate-300 text-right">Rate</TableHead>
+                    <TableHead className="text-slate-300 text-right">Total Amount</TableHead>
+                    <TableHead className="text-slate-300 text-right">Paid</TableHead>
+                    <TableHead className="text-slate-300 text-right">Balance</TableHead>
+                    <TableHead className="text-slate-300">Status</TableHead>
+                    {user.role === 'admin' && <TableHead className="text-slate-300">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {agentPayments.map((payment, idx) => (
+                    <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
+                      <TableCell className="text-white font-semibold">{payment.agent_name}</TableCell>
+                      <TableCell className="text-amber-400 text-right font-semibold">{payment.total_final_qntl}</TableCell>
+                      <TableCell className="text-right">
+                        <span className="text-blue-400">₹{payment.rate_per_qntl}</span>
+                      </TableCell>
+                      <TableCell className="text-right text-white font-semibold">₹{payment.total_amount}</TableCell>
+                      <TableCell className="text-right text-emerald-400">₹{payment.paid_amount}</TableCell>
+                      <TableCell className="text-right text-red-400 font-semibold">₹{payment.balance_amount}</TableCell>
+                      <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                      {user.role === 'admin' && (
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => { setSelectedItem(payment); setNewRate(payment.rate_per_qntl.toString()); setShowRateDialog(true); }}
+                              className="h-7 px-2 text-blue-400 hover:bg-blue-900/30"
+                              title="Set Rate"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            {payment.status !== 'paid' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => { setSelectedItem(payment); setShowPaymentDialog(true); }}
+                                  className="h-7 px-2 text-emerald-400 hover:bg-emerald-900/30"
+                                  title="Make Payment"
+                                >
+                                  <IndianRupee className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleMarkPaid(payment)}
+                                  className="h-7 px-2 text-amber-400 hover:bg-amber-900/30"
+                                  title="Mark Paid"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Rate Dialog */}
+      <Dialog open={showRateDialog} onOpenChange={setShowRateDialog}>
+        <DialogContent className="max-w-sm bg-slate-800 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400">Rate Set Karein</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-slate-300 text-sm">
+              {activePaymentTab === "truck" 
+                ? `Truck: ${selectedItem?.truck_no}` 
+                : `Agent: ${selectedItem?.agent_name}`}
+            </p>
+            <div>
+              <Label className="text-slate-300">Rate per QNTL (₹)</Label>
+              <Input
+                type="number"
+                value={newRate}
+                onChange={(e) => setNewRate(e.target.value)}
+                placeholder="32"
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowRateDialog(false)} className="border-slate-600 text-slate-300">
+                Cancel
+              </Button>
+              <Button onClick={handleSetRate} className="bg-amber-500 hover:bg-amber-600 text-slate-900">
+                Save Rate
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="max-w-sm bg-slate-800 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400">Payment Karein</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-3 bg-slate-700/50 rounded-lg">
+              <p className="text-slate-300 text-sm">
+                {activePaymentTab === "truck" 
+                  ? `Truck: ${selectedItem?.truck_no}` 
+                  : `Agent: ${selectedItem?.agent_name}`}
+              </p>
+              <p className="text-white font-semibold">
+                Balance: ₹{selectedItem?.balance_amount || 0}
+              </p>
+            </div>
+            <div>
+              <Label className="text-slate-300">Payment Amount (₹)</Label>
+              <Input
+                type="number"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="Enter amount"
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div>
+              <Label className="text-slate-300">Note (Optional)</Label>
+              <Input
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                placeholder="Payment note..."
+                className="bg-slate-700 border-slate-600 text-white"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowPaymentDialog(false)} className="border-slate-600 text-slate-300">
+                Cancel
+              </Button>
+              <Button onClick={handleMakePayment} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <IndianRupee className="w-4 h-4 mr-1" />
+                Pay
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
 // Main App Component
 function MainApp({ user, onLogout }) {
   const [entries, setEntries] = useState([]);
