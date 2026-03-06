@@ -131,6 +131,15 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
   - RST No. and TP No. columns added in entries table
   - Shows "-" if field is empty
 
+### Phase 12 - White Label / Branding Settings ✅ (Mar 2026)
+- **Admin Settings Panel:** New "Settings" tab for Admin only
+- **Dynamic Branding:**
+  - Company Name (header, login, print receipts, exports)
+  - Tagline (subtitle everywhere)
+  - Live Preview before saving
+- **White Label Ready:** App can be sold to different clients by changing branding
+- **Note:** "Made with Emergent" badge is platform-level (only in preview, not in production/local deploy)
+
 ## Mandi Target Feature
 **Example**: Badkutru target 5000 QNTL + 5% cutting
 - Expected Total: 5000 + 250 = **5250 QNTL**
