@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Edit, Plus, Calculator, RefreshCw, Filter, X, FileSpreadsheet, FileText, LogOut, User, Lock, Key, Target, BarChart3, TrendingUp, Calendar } from "lucide-react";
+import { Trash2, Edit, Plus, Calculator, RefreshCw, Filter, X, FileSpreadsheet, FileText, LogOut, User, Lock, Key, Target, BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
