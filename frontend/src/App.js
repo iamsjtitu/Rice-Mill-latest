@@ -3275,6 +3275,8 @@ function MainApp({ user, onLogout }) {
                     <TableHead className="text-slate-300">Date</TableHead>
                     <TableHead className="text-slate-300">Season</TableHead>
                     <TableHead className="text-slate-300">Truck</TableHead>
+                    <TableHead className="text-slate-300">RST No.</TableHead>
+                    <TableHead className="text-slate-300">TP No.</TableHead>
                     <TableHead className="text-slate-300">Agent</TableHead>
                     <TableHead className="text-slate-300">Mandi</TableHead>
                     <TableHead className="text-green-400 text-right">QNTL</TableHead>
