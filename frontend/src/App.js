@@ -3036,7 +3036,7 @@ function MainApp({ user, onLogout }) {
                   </Button>
                 )}
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                 <div>
                   <Label className="text-slate-300 text-sm">KMS Year</Label>
                   <Select
@@ -3070,6 +3070,26 @@ function MainApp({ user, onLogout }) {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-sm">Date From</Label>
+                  <Input
+                    type="date"
+                    value={filters.date_from}
+                    onChange={(e) => setFilters(prev => ({ ...prev, date_from: e.target.value }))}
+                    className="bg-slate-600 border-slate-500 text-white"
+                    data-testid="filter-date-from"
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-sm">Date To</Label>
+                  <Input
+                    type="date"
+                    value={filters.date_to}
+                    onChange={(e) => setFilters(prev => ({ ...prev, date_to: e.target.value }))}
+                    className="bg-slate-600 border-slate-500 text-white"
+                    data-testid="filter-date-to"
+                  />
                 </div>
                 <div>
                   <Label className="text-slate-300 text-sm">Truck No.</Label>
