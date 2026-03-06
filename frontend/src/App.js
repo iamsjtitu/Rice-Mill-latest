@@ -2480,9 +2480,9 @@ function MainApp({ user, onLogout }) {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold text-amber-400" data-testid="app-title">
-                NAVKAR AGRO
+                {branding.company_name}
               </h1>
-              <p className="text-slate-400 text-sm">JOLKO, KESINGA - Mill Entry System</p>
+              <p className="text-slate-400 text-sm">{branding.tagline}</p>
             </div>
             
             {/* User Info & Logout */}
