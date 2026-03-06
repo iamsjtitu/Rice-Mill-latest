@@ -1589,6 +1589,65 @@ function MainApp({ user, onLogout }) {
     setSelectAll(false);
   }, [entries]);
 
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Don't trigger shortcuts when typing in input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+        return;
+      }
+
+      // Alt + N: New Entry (open form)
+      if (e.altKey && e.key === 'n') {
+        e.preventDefault();
+        setActiveTab("entries");
+        setShowForm(true);
+        setEditingEntry(null);
+        setFormData(initialFormState);
+        toast.info("New Entry Form (Alt+N)");
+      }
+      // Alt + E: Go to Entries tab
+      if (e.altKey && e.key === 'e') {
+        e.preventDefault();
+        setActiveTab("entries");
+        toast.info("Entries Tab (Alt+E)");
+      }
+      // Alt + D: Go to Dashboard tab
+      if (e.altKey && e.key === 'd') {
+        e.preventDefault();
+        setActiveTab("dashboard");
+        toast.info("Dashboard Tab (Alt+D)");
+      }
+      // Alt + P: Go to Payments tab
+      if (e.altKey && e.key === 'p') {
+        e.preventDefault();
+        setActiveTab("payments");
+        toast.info("Payments Tab (Alt+P)");
+      }
+      // Alt + R: Refresh data
+      if (e.altKey && e.key === 'r') {
+        e.preventDefault();
+        fetchEntries();
+        fetchTotals();
+        toast.info("Data Refreshed (Alt+R)");
+      }
+      // Alt + F: Focus on filter
+      if (e.altKey && e.key === 'f') {
+        e.preventDefault();
+        setShowFilters(true);
+        toast.info("Filters Open (Alt+F)");
+      }
+      // Escape: Close form/dialogs
+      if (e.key === 'Escape') {
+        setShowForm(false);
+        setShowFilters(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [fetchEntries, fetchTotals]);
+
   // Handle select all
   const handleSelectAll = () => {
     if (selectAll) {
