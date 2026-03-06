@@ -459,6 +459,34 @@ const Dashboard = ({ filters, user }) => {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              
+              {/* Rates Row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                <div>
+                  <Label className="text-slate-300 text-xs">Base Rate (₹/QNTL)</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    value={targetForm.base_rate}
+                    onChange={(e) => setTargetForm(prev => ({ ...prev, base_rate: e.target.value }))}
+                    placeholder="10"
+                    className="bg-slate-700 border-slate-600 text-white text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-xs">Cutting Rate (₹/QNTL)</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    value={targetForm.cutting_rate}
+                    onChange={(e) => setTargetForm(prev => ({ ...prev, cutting_rate: e.target.value }))}
+                    placeholder="5"
+                    className="bg-slate-700 border-slate-600 text-white text-sm"
+                    required
+                  />
+                </div>
                 <div>
                   <Label className="text-slate-300 text-xs">Season</Label>
                   <Select
@@ -477,14 +505,21 @@ const Dashboard = ({ filters, user }) => {
                 </div>
               </div>
               
-              {/* Expected Total Preview */}
+              {/* Expected Total & Agent Payment Preview */}
               {targetForm.target_qntl && (
-                <div className="mb-4 p-3 bg-emerald-900/30 border border-emerald-600/50 rounded-lg">
+                <div className="mb-4 p-3 bg-slate-600/30 border border-slate-500/50 rounded-lg space-y-2">
                   <p className="text-emerald-400 text-sm">
                     <TrendingUp className="w-4 h-4 inline mr-1" />
                     Expected Total: <strong>{expectedTotal.toFixed(2)} QNTL</strong>
                     <span className="text-slate-400 ml-2">
                       ({targetForm.target_qntl} + {targetForm.cutting_percent}% excess)
+                    </span>
+                  </p>
+                  <p className="text-amber-400 text-sm">
+                    <IndianRupee className="w-4 h-4 inline mr-1" />
+                    Agent Payment: <strong>₹{totalAgentAmount.toFixed(2)}</strong>
+                    <span className="text-slate-400 ml-2">
+                      ({targetForm.target_qntl}×₹{targetForm.base_rate} + {cuttingQntl.toFixed(2)}×₹{targetForm.cutting_rate})
                     </span>
                   </p>
                 </div>
