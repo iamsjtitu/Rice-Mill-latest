@@ -90,6 +90,8 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
   - **Use Case:** Single truck owner with multiple trips gets one consolidated receipt
   - Print consolidated receipt with all trips detailed
   - Summary row at bottom with totals
+  - **Excel Export:** Styled spreadsheet with all truck owners
+  - **PDF Export:** Professional PDF report with grand totals
 
 ## Mandi Target Feature
 **Example**: Badkutru target 5000 QNTL + 5% cutting
