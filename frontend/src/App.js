@@ -1573,13 +1573,35 @@ const Payments = ({ filters, user }) => {
       {activePaymentTab === "consolidated" && (
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-cyan-400 flex items-center gap-2">
-              <Truck className="w-5 h-5" />
-              Truck Owner Consolidated Payments (ट्रक मालिक समेकित भुगतान)
-            </CardTitle>
-            <p className="text-slate-400 text-xs mt-1">
-              Ek truck ke saare trips ka total - sab cut karke final amount
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg text-cyan-400 flex items-center gap-2">
+                  <Truck className="w-5 h-5" />
+                  Truck Owner Consolidated Payments (ट्रक मालिक समेकित भुगतान)
+                </CardTitle>
+                <p className="text-slate-400 text-xs mt-1">
+                  Ek truck ke saare trips ka total - sab cut karke final amount
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleExportTruckOwnerExcel}
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <FileSpreadsheet className="w-4 h-4 mr-1" />
+                  Excel
+                </Button>
+                <Button
+                  onClick={handleExportTruckOwnerPDF}
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <FileText className="w-4 h-4 mr-1" />
+                  PDF
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {consolidatedTruckList.length > 0 ? (
