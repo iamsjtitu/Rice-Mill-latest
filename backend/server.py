@@ -515,7 +515,8 @@ async def export_excel(
     headers = [
         "Date", "KMS Year", "Season", "Truck No", "Agent Name", "Mandi Name", 
         "KG", "QNTL", "BAG", "G.Deposite", "GBW Cut", "Mill W", 
-        "P.Pkt (Bags)", "P.Pkt Cut", "Cutting %", "Final W", 
+        "P.Pkt (Bags)", "P.Pkt Cut", "Moisture %", "Moisture Cut", 
+        "Cutting %", "Disc/Dust/Poll", "Final W", 
         "G.Issued", "Cash Paid", "Diesel Paid", "Remark"
     ]
     
@@ -538,7 +539,10 @@ async def export_excel(
             entry.get('mill_w', 0),
             entry.get('plastic_bag', 0),
             entry.get('p_pkt_cut', 0),
+            entry.get('moisture', 0),
+            entry.get('moisture_cut', 0),
             entry.get('cutting_percent', 0),
+            entry.get('disc_dust_poll', 0),
             entry.get('final_w', 0),
             entry.get('g_issued', 0),
             entry.get('cash_paid', 0),
@@ -552,7 +556,7 @@ async def export_excel(
         "TOTAL", "", "", "", "", "",
         totals.total_kg, totals.total_qntl, totals.total_bag, totals.total_g_deposite,
         totals.total_gbw_cut, totals.total_mill_w, "", totals.total_p_pkt_cut,
-        "", totals.total_final_w, totals.total_g_issued,
+        "", "", "", totals.total_disc_dust_poll, totals.total_final_w, totals.total_g_issued,
         totals.total_cash_paid, totals.total_diesel_paid, ""
     ]
     writer.writerow(totals_row)
