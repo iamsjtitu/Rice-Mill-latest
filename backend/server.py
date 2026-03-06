@@ -2189,7 +2189,7 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     
     headers = ["Mandi", "Target", "Cutting", "Rates", "Total Amt", "Achieved", "Paid", "Balance", "Status"]
     table_data = [headers] + payments_data
-    table_data.append(["TOTAL", "", "", "", f"₹{round(total_amount_sum, 2)}", "", f"₹{round(total_paid_sum, 2)}", f"₹{round(total_balance_sum, 2)}", ""])
+    table_data.append(["TOTAL", "", "", "", f"Rs.{round(total_amount_sum, 2)}", "", f"Rs.{round(total_paid_sum, 2)}", f"Rs.{round(total_balance_sum, 2)}", ""])
     
     col_widths = [30*mm, 20*mm, 18*mm, 25*mm, 25*mm, 20*mm, 22*mm, 22*mm, 18*mm]
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
