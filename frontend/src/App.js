@@ -3293,7 +3293,7 @@ function MainApp({ user, onLogout }) {
                 <TableBody>
                   {entries.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={15} className="text-center text-slate-400 py-8">
+                      <TableCell colSpan={17} className="text-center text-slate-400 py-8">
                         Koi entry nahi hai. "Nayi Entry" button click karein.
                       </TableCell>
                     </TableRow>
