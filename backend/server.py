@@ -225,9 +225,50 @@ async def login(request: LoginRequest):
 
 @api_router.get("/auth/verify")
 async def verify_user(username: str, role: str):
+    # Check from database first
+    user_doc = await db.users.find_one({"username": username}, {"_id": 0})
+    if user_doc and user_doc.get("role") == role:
+        return {"valid": True, "username": username, "role": role}
+    # Fallback to default users
     if username in USERS and USERS[username]["role"] == role:
         return {"valid": True, "username": username, "role": role}
     return {"valid": False}
+
+
+@api_router.post("/auth/change-password")
+async def change_password(request: PasswordChangeRequest):
+    username = request.username
+    current_password = request.current_password
+    new_password = request.new_password
+    
+    # Check from database first
+    user_doc = await db.users.find_one({"username": username}, {"_id": 0})
+    
+    if user_doc:
+        # User exists in database
+        if user_doc.get("password") != current_password:
+            raise HTTPException(status_code=401, detail="Current password galat hai")
+        
+        await db.users.update_one(
+            {"username": username},
+            {"$set": {"password": new_password}}
+        )
+        return {"success": True, "message": "Password changed successfully"}
+    
+    # Check default users
+    if username in USERS:
+        if USERS[username]["password"] != current_password:
+            raise HTTPException(status_code=401, detail="Current password galat hai")
+        
+        # Create user in database with new password
+        await db.users.insert_one({
+            "username": username,
+            "password": new_password,
+            "role": USERS[username]["role"]
+        })
+        return {"success": True, "message": "Password changed successfully"}
+    
+    raise HTTPException(status_code=404, detail="User not found")
 
 
 # ============ MILL ENTRIES CRUD ============
