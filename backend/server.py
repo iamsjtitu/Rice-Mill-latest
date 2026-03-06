@@ -161,13 +161,21 @@ def calculate_auto_fields(data: dict) -> dict:
     disc_dust_poll = data.get('disc_dust_poll', 0) or 0
     plastic_bag = data.get('plastic_bag', 0) or 0
     cutting_percent = data.get('cutting_percent', 0) or 0
+    moisture = data.get('moisture', 0) or 0
     
     # P.Pkt cut calculation (0.5 kg per plastic bag)
     p_pkt_cut = round(plastic_bag * 0.5, 2)
     data['p_pkt_cut'] = p_pkt_cut
     
-    # Weight after GBW cut for cutting calculation
-    weight_for_cutting = kg - gbw_cut - p_pkt_cut
+    # Moisture cut: 17% tak no cut, uske upar (moisture - 17)% cut
+    moisture_cut_percent = max(0, moisture - 17)
+    weight_after_gbw = kg - gbw_cut - p_pkt_cut
+    moisture_cut = round((weight_after_gbw * moisture_cut_percent) / 100, 2)
+    data['moisture_cut'] = moisture_cut
+    data['moisture_cut_percent'] = moisture_cut_percent
+    
+    # Weight for cutting calculation (after moisture cut)
+    weight_for_cutting = weight_after_gbw - moisture_cut
     
     # Cutting calculation based on percentage
     cutting = round((weight_for_cutting * cutting_percent) / 100, 2)
@@ -176,7 +184,7 @@ def calculate_auto_fields(data: dict) -> dict:
     # Auto calculations
     data['qntl'] = round(kg / 100, 2)  # KG to Quintals
     data['mill_w'] = round(kg - gbw_cut, 2)  # Mill Weight
-    data['final_w'] = round(kg - gbw_cut - p_pkt_cut - cutting - disc_dust_poll, 2)  # Final Weight
+    data['final_w'] = round(kg - gbw_cut - p_pkt_cut - moisture_cut - cutting - disc_dust_poll, 2)  # Final Weight
     
     return data
 
