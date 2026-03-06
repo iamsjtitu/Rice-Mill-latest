@@ -3317,6 +3317,8 @@ function MainApp({ user, onLogout }) {
                         <TableCell className="text-white">{entry.date}</TableCell>
                         <TableCell className="text-white text-xs">{entry.season}</TableCell>
                         <TableCell className="text-white font-mono text-sm">{entry.truck_no}</TableCell>
+                        <TableCell className="text-slate-300 text-sm">{entry.rst_no || '-'}</TableCell>
+                        <TableCell className="text-slate-300 text-sm">{entry.tp_no || '-'}</TableCell>
                         <TableCell className="text-white">{entry.agent_name}</TableCell>
                         <TableCell className="text-white">{entry.mandi_name}</TableCell>
                         <TableCell className="text-green-400 text-right font-mono font-bold">
