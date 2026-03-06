@@ -2516,6 +2516,276 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     )
 
 
+@api_router.get("/export/truck-owner-excel")
+async def export_truck_owner_excel(
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
+):
+    """Export truck owner consolidated payments to Excel"""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    
+    # Group by truck_no
+    truck_data = {}
+    for entry in entries:
+        truck_no = entry.get("truck_no", "Unknown")
+        entry_id = entry.get("id")
+        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        
+        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        
+        final_qntl = round(entry.get("final_w", 0) / 100, 2)
+        cash_taken = entry.get("cash_paid", 0) or 0
+        diesel_taken = entry.get("diesel_paid", 0) or 0
+        
+        gross_amount = round(final_qntl * rate, 2)
+        deductions = cash_taken + diesel_taken
+        net_amount = round(gross_amount - deductions, 2)
+        balance = round(max(0, net_amount - paid_amount), 2)
+        
+        if truck_no not in truck_data:
+            truck_data[truck_no] = {
+                "truck_no": truck_no,
+                "trips": 0,
+                "total_qntl": 0,
+                "total_gross": 0,
+                "total_deductions": 0,
+                "total_net": 0,
+                "total_paid": 0,
+                "total_balance": 0
+            }
+        
+        truck_data[truck_no]["trips"] += 1
+        truck_data[truck_no]["total_qntl"] += final_qntl
+        truck_data[truck_no]["total_gross"] += gross_amount
+        truck_data[truck_no]["total_deductions"] += deductions
+        truck_data[truck_no]["total_net"] += net_amount
+        truck_data[truck_no]["total_paid"] += paid_amount
+        truck_data[truck_no]["total_balance"] += balance
+    
+    consolidated = list(truck_data.values())
+    
+    # Create Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Truck Owner Payments"
+    
+    # Styles
+    header_fill = PatternFill(start_color="0891B2", end_color="0891B2", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    total_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    
+    # Title
+    ws.merge_cells('A1:I1')
+    ws['A1'] = f"TRUCK OWNER CONSOLIDATED PAYMENTS - NAVKAR AGRO | KMS: {kms_year or 'All'} | {season or 'All'}"
+    ws['A1'].font = Font(bold=True, size=14, color="0891B2")
+    ws['A1'].alignment = Alignment(horizontal='center')
+    
+    ws.merge_cells('A2:I2')
+    ws['A2'] = "Ek truck ke saare trips ka combined payment"
+    ws['A2'].font = Font(size=10, color="666666")
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    # Headers
+    headers = ["Truck No", "Total Trips", "Total QNTL", "Gross Amount", "Deductions", "Net Payable", "Paid", "Balance", "Status"]
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data rows
+    grand_net = 0
+    grand_paid = 0
+    grand_balance = 0
+    
+    for row_idx, t in enumerate(consolidated, 5):
+        status = "Paid" if t["total_balance"] < 0.10 else ("Partial" if t["total_paid"] > 0 else "Pending")
+        
+        ws.cell(row=row_idx, column=1, value=t["truck_no"]).font = Font(bold=True, size=11)
+        ws.cell(row=row_idx, column=2, value=t["trips"]).alignment = Alignment(horizontal='center')
+        ws.cell(row=row_idx, column=3, value=round(t["total_qntl"], 2))
+        ws.cell(row=row_idx, column=4, value=round(t["total_gross"], 2))
+        ws.cell(row=row_idx, column=5, value=round(t["total_deductions"], 2))
+        ws.cell(row=row_idx, column=6, value=round(t["total_net"], 2)).font = Font(bold=True)
+        ws.cell(row=row_idx, column=7, value=round(t["total_paid"], 2))
+        ws.cell(row=row_idx, column=8, value=round(t["total_balance"], 2)).font = Font(bold=True, color="DC2626" if t["total_balance"] > 0 else "059669")
+        ws.cell(row=row_idx, column=9, value=status)
+        
+        grand_net += t["total_net"]
+        grand_paid += t["total_paid"]
+        grand_balance += t["total_balance"]
+    
+    # Grand Total row
+    total_row = len(consolidated) + 5
+    ws.cell(row=total_row, column=1, value="GRAND TOTAL").font = Font(bold=True)
+    ws.cell(row=total_row, column=2, value=len(consolidated)).alignment = Alignment(horizontal='center')
+    ws.cell(row=total_row, column=6, value=round(grand_net, 2)).font = Font(bold=True)
+    ws.cell(row=total_row, column=7, value=round(grand_paid, 2)).font = Font(bold=True, color="059669")
+    ws.cell(row=total_row, column=8, value=round(grand_balance, 2)).font = Font(bold=True, color="DC2626")
+    
+    for col in range(1, 10):
+        ws.cell(row=total_row, column=col).fill = total_fill
+    
+    # Column widths
+    widths = [15, 12, 12, 14, 12, 14, 12, 12, 10]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    
+    filename = f"truck_owner_consolidated_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@api_router.get("/export/truck-owner-pdf")
+async def export_truck_owner_pdf(
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
+):
+    """Export truck owner consolidated payments to PDF"""
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    
+    # Group by truck_no
+    truck_data = {}
+    for entry in entries:
+        truck_no = entry.get("truck_no", "Unknown")
+        entry_id = entry.get("id")
+        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        
+        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        
+        final_qntl = round(entry.get("final_w", 0) / 100, 2)
+        cash_taken = entry.get("cash_paid", 0) or 0
+        diesel_taken = entry.get("diesel_paid", 0) or 0
+        
+        gross_amount = round(final_qntl * rate, 2)
+        deductions = cash_taken + diesel_taken
+        net_amount = round(gross_amount - deductions, 2)
+        balance = round(max(0, net_amount - paid_amount), 2)
+        
+        if truck_no not in truck_data:
+            truck_data[truck_no] = {
+                "truck_no": truck_no,
+                "trips": 0,
+                "total_qntl": 0,
+                "total_gross": 0,
+                "total_deductions": 0,
+                "total_net": 0,
+                "total_paid": 0,
+                "total_balance": 0
+            }
+        
+        truck_data[truck_no]["trips"] += 1
+        truck_data[truck_no]["total_qntl"] += final_qntl
+        truck_data[truck_no]["total_gross"] += gross_amount
+        truck_data[truck_no]["total_deductions"] += deductions
+        truck_data[truck_no]["total_net"] += net_amount
+        truck_data[truck_no]["total_paid"] += paid_amount
+        truck_data[truck_no]["total_balance"] += balance
+    
+    consolidated = list(truck_data.values())
+    
+    # Create PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=30, bottomMargin=30)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Title
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#0891B2'), alignment=1)
+    elements.append(Paragraph("TRUCK OWNER CONSOLIDATED PAYMENTS", title_style))
+    elements.append(Paragraph("NAVKAR AGRO - JOLKO, KESINGA", ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=10, alignment=1)))
+    elements.append(Paragraph(f"KMS Year: {kms_year or 'All'} | Season: {season or 'All'} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", ParagraphStyle('Info', parent=styles['Normal'], fontSize=9, alignment=1, textColor=colors.gray)))
+    elements.append(Spacer(1, 20))
+    
+    # Table
+    table_data = [["Truck No", "Trips", "Total QNTL", "Gross", "Deductions", "Net Payable", "Paid", "Balance", "Status"]]
+    
+    grand_net = 0
+    grand_paid = 0
+    grand_balance = 0
+    
+    for t in consolidated:
+        status = "PAID" if t["total_balance"] < 0.10 else ("PARTIAL" if t["total_paid"] > 0 else "PENDING")
+        table_data.append([
+            t["truck_no"],
+            str(t["trips"]),
+            f"{t['total_qntl']:.2f}",
+            f"Rs.{t['total_gross']:.0f}",
+            f"Rs.{t['total_deductions']:.0f}",
+            f"Rs.{t['total_net']:.0f}",
+            f"Rs.{t['total_paid']:.0f}",
+            f"Rs.{t['total_balance']:.0f}",
+            status
+        ])
+        grand_net += t["total_net"]
+        grand_paid += t["total_paid"]
+        grand_balance += t["total_balance"]
+    
+    # Grand Total
+    table_data.append([
+        "GRAND TOTAL",
+        str(len(consolidated)),
+        "",
+        "",
+        "",
+        f"Rs.{grand_net:.0f}",
+        f"Rs.{grand_paid:.0f}",
+        f"Rs.{grand_balance:.0f}",
+        ""
+    ])
+    
+    table = Table(table_data, colWidths=[80, 50, 70, 70, 70, 80, 70, 70, 60])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0891B2')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+    ]))
+    elements.append(table)
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"truck_owner_consolidated_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
