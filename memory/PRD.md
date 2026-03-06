@@ -111,6 +111,13 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
   └── App.js                     # Main app with Dashboard, Payments, Entries
   ```
 
+### Phase 10 - Date Filter ✅ (Mar 2026)
+- **Date Range Filter Added:**
+  - "Date From" and "Date To" inputs in filter panel
+  - Filter entries by specific date or date range
+  - Works with existing filters (KMS Year, Season, Truck, Agent, Mandi)
+  - Totals also update based on date filter
+
 ## Mandi Target Feature
 **Example**: Badkutru target 5000 QNTL + 5% cutting
 - Expected Total: 5000 + 250 = **5250 QNTL**
