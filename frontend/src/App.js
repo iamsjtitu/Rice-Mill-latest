@@ -1822,7 +1822,9 @@ function MainApp({ user, onLogout }) {
     agent_name: "",
     mandi_name: "",
     kms_year: CURRENT_KMS_YEAR,
-    season: ""
+    season: "",
+    date_from: "",
+    date_to: ""
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
