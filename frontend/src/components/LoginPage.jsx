@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,26 @@ import { User, Lock } from "lucide-react";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 /**
- * LoginPage - Authentication component
+ * LoginPage - Authentication component with dynamic branding
  */
 const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [branding, setBranding] = useState({ company_name: "Mill Entry System", tagline: "" });
+
+  // Fetch branding on mount
+  useEffect(() => {
+    const fetchBranding = async () => {
+      try {
+        const response = await axios.get(`${API}/branding`);
+        setBranding(response.data);
+      } catch (error) {
+        console.error("Branding fetch error:", error);
+      }
+    };
+    fetchBranding();
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -37,8 +51,8 @@ const LoginPage = ({ onLogin }) => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md bg-slate-800 border-slate-700">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl text-amber-400">NAVKAR AGRO</CardTitle>
-          <p className="text-slate-400">JOLKO, KESINGA - Mill Entry System</p>
+          <CardTitle className="text-2xl text-amber-400">{branding.company_name}</CardTitle>
+          <p className="text-slate-400">{branding.tagline}</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
