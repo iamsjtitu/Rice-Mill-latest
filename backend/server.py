@@ -1240,6 +1240,365 @@ async def get_date_range_totals(
     }
 
 
+# ============ TRUCK PAYMENT ENDPOINTS ============
+
+@api_router.get("/truck-payments", response_model=List[TruckPaymentStatus])
+async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Get all truck payments with their status"""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    
+    payments = []
+    for entry in entries:
+        entry_id = entry.get("id")
+        
+        # Get payment record if exists
+        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        
+        # Default rate 32, or from payment doc
+        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        
+        final_qntl = round(entry.get("final_w", 0) / 100, 2)
+        cash_taken = entry.get("cash_paid", 0) or 0
+        diesel_taken = entry.get("diesel_paid", 0) or 0
+        
+        gross_amount = round(final_qntl * rate, 2)
+        deductions = cash_taken + diesel_taken
+        net_amount = round(gross_amount - deductions, 2)
+        balance = round(net_amount - paid_amount, 2)
+        
+        status = "paid" if balance <= 0 else ("partial" if paid_amount > 0 else "pending")
+        
+        payments.append(TruckPaymentStatus(
+            entry_id=entry_id,
+            truck_no=entry.get("truck_no", ""),
+            date=entry.get("date", ""),
+            total_qntl=round(entry.get("qntl", 0), 2),
+            total_bag=entry.get("bag", 0),
+            final_qntl=final_qntl,
+            cash_taken=cash_taken,
+            diesel_taken=diesel_taken,
+            rate_per_qntl=rate,
+            gross_amount=gross_amount,
+            deductions=deductions,
+            net_amount=net_amount,
+            paid_amount=paid_amount,
+            balance_amount=max(0, balance),
+            status=status,
+            kms_year=entry.get("kms_year", ""),
+            season=entry.get("season", ""),
+            agent_name=entry.get("agent_name", ""),
+            mandi_name=entry.get("mandi_name", "")
+        ))
+    
+    return payments
+
+
+@api_router.put("/truck-payments/{entry_id}/rate")
+async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str = "", role: str = ""):
+    """Set rate for a specific truck entry (Admin only)"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin rate set kar sakta hai")
+    
+    # Check entry exists
+    entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    
+    # Upsert payment record
+    await db.truck_payments.update_one(
+        {"entry_id": entry_id},
+        {"$set": {
+            "entry_id": entry_id,
+            "rate_per_qntl": request.rate_per_qntl,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {"success": True, "message": f"Rate set to ₹{request.rate_per_qntl}/QNTL"}
+
+
+@api_router.post("/truck-payments/{entry_id}/pay")
+async def make_truck_payment(entry_id: str, request: MakePaymentRequest, username: str = "", role: str = ""):
+    """Record a payment for truck (partial or full)"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin payment kar sakta hai")
+    
+    # Check entry exists
+    entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    
+    # Get or create payment record
+    payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+    current_paid = payment_doc.get("paid_amount", 0) if payment_doc else 0
+    payments_history = payment_doc.get("payments_history", []) if payment_doc else []
+    
+    new_paid = current_paid + request.amount
+    payments_history.append({
+        "amount": request.amount,
+        "date": datetime.now(timezone.utc).isoformat(),
+        "note": request.note,
+        "by": username
+    })
+    
+    await db.truck_payments.update_one(
+        {"entry_id": entry_id},
+        {"$set": {
+            "entry_id": entry_id,
+            "paid_amount": new_paid,
+            "payments_history": payments_history,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {"success": True, "message": f"₹{request.amount} payment recorded", "total_paid": new_paid}
+
+
+@api_router.post("/truck-payments/{entry_id}/mark-paid")
+async def mark_truck_paid(entry_id: str, username: str = "", role: str = ""):
+    """Mark truck payment as fully paid"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin paid mark kar sakta hai")
+    
+    entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    
+    payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+    rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+    
+    final_qntl = entry.get("final_w", 0) / 100
+    cash_taken = entry.get("cash_paid", 0) or 0
+    diesel_taken = entry.get("diesel_paid", 0) or 0
+    net_amount = (final_qntl * rate) - cash_taken - diesel_taken
+    
+    payments_history = payment_doc.get("payments_history", []) if payment_doc else []
+    payments_history.append({
+        "amount": net_amount,
+        "date": datetime.now(timezone.utc).isoformat(),
+        "note": "Full payment - marked as paid",
+        "by": username
+    })
+    
+    await db.truck_payments.update_one(
+        {"entry_id": entry_id},
+        {"$set": {
+            "entry_id": entry_id,
+            "paid_amount": net_amount,
+            "payments_history": payments_history,
+            "status": "paid",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {"success": True, "message": "Truck payment cleared"}
+
+
+# ============ AGENT PAYMENT ENDPOINTS ============
+
+@api_router.get("/agent-payments", response_model=List[AgentPaymentStatus])
+async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Get all agent payments with their status"""
+    match_query = {}
+    if kms_year:
+        match_query["kms_year"] = kms_year
+    if season:
+        match_query["season"] = season
+    
+    # Aggregate by agent
+    pipeline = []
+    if match_query:
+        pipeline.append({"$match": match_query})
+    
+    pipeline.extend([
+        {
+            "$group": {
+                "_id": "$agent_name",
+                "total_final_w_kg": {"$sum": "$final_w"},
+                "total_entries": {"$sum": 1},
+                "kms_year": {"$first": "$kms_year"},
+                "season": {"$first": "$season"}
+            }
+        },
+        {"$sort": {"_id": 1}}
+    ])
+    
+    results = await db.mill_entries.aggregate(pipeline).to_list(100)
+    
+    payments = []
+    for r in results:
+        agent_name = r["_id"]
+        if not agent_name:
+            continue
+        
+        # Get agent rate
+        rate_doc = await db.agent_rates.find_one({
+            "agent_name": agent_name,
+            "kms_year": kms_year or r.get("kms_year"),
+            "season": season or r.get("season")
+        }, {"_id": 0})
+        rate = rate_doc.get("rate_per_qntl", 10) if rate_doc else 10
+        
+        # Get payment record
+        payment_doc = await db.agent_payments.find_one({
+            "agent_name": agent_name,
+            "kms_year": kms_year or r.get("kms_year"),
+            "season": season or r.get("season")
+        }, {"_id": 0})
+        paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        
+        total_final_qntl = round(r["total_final_w_kg"] / 100, 2)
+        total_amount = round(total_final_qntl * rate, 2)
+        balance = round(total_amount - paid_amount, 2)
+        status = "paid" if balance <= 0 else ("partial" if paid_amount > 0 else "pending")
+        
+        payments.append(AgentPaymentStatus(
+            agent_name=agent_name,
+            total_final_qntl=total_final_qntl,
+            rate_per_qntl=rate,
+            total_amount=total_amount,
+            paid_amount=paid_amount,
+            balance_amount=max(0, balance),
+            status=status,
+            kms_year=kms_year or r.get("kms_year", ""),
+            season=season or r.get("season", ""),
+            total_entries=r["total_entries"]
+        ))
+    
+    return payments
+
+
+@api_router.put("/agent-rates/{agent_name}")
+async def set_agent_rate(agent_name: str, request: SetRateRequest, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
+    """Set rate for a specific agent (Admin only)"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin rate set kar sakta hai")
+    
+    await db.agent_rates.update_one(
+        {"agent_name": agent_name, "kms_year": kms_year, "season": season},
+        {"$set": {
+            "agent_name": agent_name,
+            "rate_per_qntl": request.rate_per_qntl,
+            "kms_year": kms_year,
+            "season": season,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {"success": True, "message": f"Agent rate set to ₹{request.rate_per_qntl}/QNTL"}
+
+
+@api_router.post("/agent-payments/{agent_name}/pay")
+async def make_agent_payment(agent_name: str, request: MakePaymentRequest, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
+    """Record a payment for agent (partial or full)"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin payment kar sakta hai")
+    
+    # Get or create payment record
+    payment_doc = await db.agent_payments.find_one({
+        "agent_name": agent_name,
+        "kms_year": kms_year,
+        "season": season
+    }, {"_id": 0})
+    
+    current_paid = payment_doc.get("paid_amount", 0) if payment_doc else 0
+    payments_history = payment_doc.get("payments_history", []) if payment_doc else []
+    
+    new_paid = current_paid + request.amount
+    payments_history.append({
+        "amount": request.amount,
+        "date": datetime.now(timezone.utc).isoformat(),
+        "note": request.note,
+        "by": username
+    })
+    
+    await db.agent_payments.update_one(
+        {"agent_name": agent_name, "kms_year": kms_year, "season": season},
+        {"$set": {
+            "agent_name": agent_name,
+            "kms_year": kms_year,
+            "season": season,
+            "paid_amount": new_paid,
+            "payments_history": payments_history,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {"success": True, "message": f"₹{request.amount} payment recorded", "total_paid": new_paid}
+
+
+@api_router.post("/agent-payments/{agent_name}/mark-paid")
+async def mark_agent_paid(agent_name: str, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
+    """Mark agent payment as fully paid"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin paid mark kar sakta hai")
+    
+    # Calculate total amount
+    match_query = {"agent_name": agent_name}
+    if kms_year:
+        match_query["kms_year"] = kms_year
+    if season:
+        match_query["season"] = season
+    
+    pipeline = [
+        {"$match": match_query},
+        {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}}}
+    ]
+    result = await db.mill_entries.aggregate(pipeline).to_list(1)
+    total_final_qntl = result[0]["total_final_w"] / 100 if result else 0
+    
+    # Get rate
+    rate_doc = await db.agent_rates.find_one({
+        "agent_name": agent_name,
+        "kms_year": kms_year,
+        "season": season
+    }, {"_id": 0})
+    rate = rate_doc.get("rate_per_qntl", 10) if rate_doc else 10
+    
+    total_amount = total_final_qntl * rate
+    
+    payment_doc = await db.agent_payments.find_one({
+        "agent_name": agent_name,
+        "kms_year": kms_year,
+        "season": season
+    }, {"_id": 0})
+    payments_history = payment_doc.get("payments_history", []) if payment_doc else []
+    payments_history.append({
+        "amount": total_amount,
+        "date": datetime.now(timezone.utc).isoformat(),
+        "note": "Full payment - marked as paid",
+        "by": username
+    })
+    
+    await db.agent_payments.update_one(
+        {"agent_name": agent_name, "kms_year": kms_year, "season": season},
+        {"$set": {
+            "agent_name": agent_name,
+            "kms_year": kms_year,
+            "season": season,
+            "paid_amount": total_amount,
+            "payments_history": payments_history,
+            "status": "paid",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {"success": True, "message": "Agent payment cleared"}
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
