@@ -28,7 +28,7 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - Cutting % and Moisture Cut calculations
 - KMS Year + Season filtering
 
-### Phase 3 - Auth & Export ✅ (Mar 2026)
+### Phase 3 - Auth & Export ✅
 - Admin/Staff role-based authentication
 - Staff 5-minute edit window restriction
 - Password change feature
@@ -36,13 +36,13 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - Styled Excel export (openpyxl)
 - Styled PDF export (reportlab + frontend print)
 
-### Phase 4 - Dashboard & Targets ✅ (Mar 2026)
+### Phase 4 - Dashboard & Targets ✅
 - Dashboard Tab with Agent-wise bar chart (Recharts)
 - Mandi Target Management with Base Rate + Cutting Rate
 - Progress bars showing achieved vs expected
 - Color-coded progress (red/blue/amber/green)
 
-### Phase 5 - Payment Tracking ✅ (Mar 2026)
+### Phase 5 - Payment Tracking ✅
 - **Truck Payments (Bhada):**
   - Per trip tracking
   - Rate × Final QNTL - Cash - Diesel = Net Amount
@@ -54,8 +54,21 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
   - Based on Mandi Target (NOT achieved)
   - Calculation: (Target QNTL × Base Rate) + (Cutting QNTL × Cutting Rate)
   - Each mandi has different rates set by admin
-  - Example: Badkutru 5000×₹10 + 250×₹5 = ₹51,250
   - Partial payment support
+
+### Phase 6 - Bug Fixes & Keyboard Shortcuts ✅ (Mar 2026)
+- **Bug Fix 1:** Agent Payment Mark Paid/Undo Paid - Fixed API parameter passing
+- **Bug Fix 2:** Autocomplete keyboard navigation - Arrow keys + Enter selection
+- **Bug Fix 3:** Total Amount display verification
+- **Keyboard Shortcuts Added:**
+  - Alt+N: New Entry
+  - Alt+E: Entries Tab
+  - Alt+D: Dashboard Tab
+  - Alt+P: Payments Tab
+  - Alt+R: Refresh Data
+  - Alt+F: Open Filters
+  - Esc: Close Dialogs
+  - Keyboard shortcuts help dialog in header
 
 ## Mandi Target Feature
 **Example**: Badkutru target 5000 QNTL + 5% cutting
@@ -94,8 +107,8 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - POST /api/truck-payments/{entry_id}/mark-paid
 - POST /api/truck-payments/{entry_id}/undo-paid
 - GET /api/truck-payments/{entry_id}/history
-- GET /api/export/truck-payments-excel (with truck_no filter)
-- GET /api/export/truck-payments-pdf (with truck_no filter)
+- GET /api/export/truck-payments-excel
+- GET /api/export/truck-payments-pdf
 
 ### Agent Payments
 - GET /api/agent-payments
@@ -109,10 +122,11 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 ### Exports
 - GET /api/export/excel
 - GET /api/export/pdf
+- GET /api/export/summary-report
 
 ## Prioritized Backlog
 
-### P0 (Critical) - DONE ✅
+### P0 (Critical) - ALL DONE ✅
 - Auto calculations
 - Role-based authentication
 - Styled exports (PDF with Rs. instead of ₹ symbol)
@@ -122,6 +136,8 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - Undo Paid feature
 - Payment History
 - Summary Report PDF
+- Keyboard shortcuts
+- Autocomplete keyboard navigation
 
 ### P1 (High Priority)
 - [ ] Code refactoring: Break App.js into components
@@ -130,7 +146,6 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 ### P2 (Medium Priority)
 - [ ] Monthly/weekly comparison charts
 - [ ] Print invoice format
-- [ ] Payment history view
 
 ### P3 (Low Priority)
 - [ ] Audit trail for entry changes
@@ -144,7 +159,8 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - /app/test_reports/iteration_1.json
 - /app/test_reports/iteration_2.json
 - /app/test_reports/iteration_3.json
-- /app/test_reports/iteration_4.json (Payments - 21/22 tests PASS)
+- /app/test_reports/iteration_4.json
+- /app/test_reports/iteration_5.json (Bug fixes - 100% PASS)
 
 ## Files Structure
 ```
@@ -167,4 +183,4 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 
 ## Notes
 - Database: MongoDB (MONGO_URL from .env)
-- "Made with Emergent" badge is platform-level feature
+- "Made with Emergent" badge is platform-level feature (cannot be removed)
