@@ -358,7 +358,7 @@ function App() {
               body { font-family: Arial, sans-serif; padding: 20px; }
               h1 { color: #d97706; text-align: center; }
               table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              th, td { border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 12px; }
+              th, td { border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 11px; }
               th { background-color: #1e293b; color: white; }
               .totals { background-color: #fef3c7; font-weight: bold; }
               @media print { body { -webkit-print-color-adjust: exact; } }
@@ -378,11 +378,11 @@ function App() {
                   <th>QNTL</th>
                   <th>BAG</th>
                   <th>Mill W</th>
-                  <th>P.Pkt Cut</th>
-                  <th>Cutting %</th>
-                  <th>Cutting</th>
+                  <th>Cut %</th>
                   <th>Final W</th>
-                  <th>Cash</th>
+                  <th>G.Issued</th>
+                  <th>Cash Paid</th>
+                  <th>Diesel Paid</th>
                 </tr>
               </thead>
               <tbody>
@@ -396,11 +396,11 @@ function App() {
                     <td>${entry.qntl?.toFixed(2)}</td>
                     <td>${entry.bag}</td>
                     <td>${entry.mill_w?.toLocaleString()}</td>
-                    <td>${entry.p_pkt_cut?.toFixed(2)}</td>
                     <td>${entry.cutting_percent}%</td>
-                    <td>${entry.cutting?.toFixed(2)}</td>
                     <td>${entry.final_w?.toLocaleString()}</td>
-                    <td>${entry.cash_paid?.toLocaleString()}</td>
+                    <td>${entry.g_issued?.toLocaleString() || 0}</td>
+                    <td>${entry.cash_paid?.toLocaleString() || 0}</td>
+                    <td>${entry.diesel_paid?.toLocaleString() || 0}</td>
                   </tr>
                 `).join('')}
                 <tr class="totals">
@@ -409,11 +409,11 @@ function App() {
                   <td>${totals.total_qntl?.toFixed(2)}</td>
                   <td>${totals.total_bag}</td>
                   <td>${totals.total_mill_w?.toLocaleString()}</td>
-                  <td>${totals.total_p_pkt_cut?.toFixed(2)}</td>
                   <td>-</td>
-                  <td>${totals.total_cutting?.toFixed(2)}</td>
                   <td>${totals.total_final_w?.toLocaleString()}</td>
-                  <td>${totals.total_cash_paid?.toLocaleString()}</td>
+                  <td>${totals.total_g_issued?.toLocaleString() || 0}</td>
+                  <td>${totals.total_cash_paid?.toLocaleString() || 0}</td>
+                  <td>${totals.total_diesel_paid?.toLocaleString() || 0}</td>
                 </tr>
               </tbody>
             </table>
