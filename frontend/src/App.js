@@ -218,15 +218,19 @@ function MainApp({ user, onLogout }) {
   const [agentSuggestions, setAgentSuggestions] = useState([]);
   const [mandiSuggestions, setMandiSuggestions] = useState([]);
 
-  // Filter state
+  // Filter state - default to current KMS year
   const [filters, setFilters] = useState({
     truck_no: "",
     agent_name: "",
     mandi_name: "",
-    kms_year: "",
+    kms_year: KMS_YEARS[KMS_YEARS.length - 2], // Current year by default
     season: ""
   });
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Selection state for bulk delete
+  const [selectedEntries, setSelectedEntries] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
 
   // Calculated fields
   const [calculatedFields, setCalculatedFields] = useState({
