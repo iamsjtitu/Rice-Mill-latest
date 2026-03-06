@@ -214,6 +214,8 @@ const Dashboard = ({ filters, user }) => {
     mandi_name: "",
     target_qntl: "",
     cutting_percent: "5",
+    base_rate: "10",
+    cutting_rate: "5",
     kms_year: filters.kms_year || CURRENT_KMS_YEAR,
     season: filters.season || "Kharif"
   });
@@ -252,7 +254,9 @@ const Dashboard = ({ filters, user }) => {
       const payload = {
         ...targetForm,
         target_qntl: parseFloat(targetForm.target_qntl),
-        cutting_percent: parseFloat(targetForm.cutting_percent)
+        cutting_percent: parseFloat(targetForm.cutting_percent),
+        base_rate: parseFloat(targetForm.base_rate),
+        cutting_rate: parseFloat(targetForm.cutting_rate)
       };
 
       if (editingTargetId) {
@@ -269,6 +273,8 @@ const Dashboard = ({ filters, user }) => {
         mandi_name: "",
         target_qntl: "",
         cutting_percent: "5",
+        base_rate: "10",
+        cutting_rate: "5",
         kms_year: filters.kms_year || CURRENT_KMS_YEAR,
         season: filters.season || "Kharif"
       });
