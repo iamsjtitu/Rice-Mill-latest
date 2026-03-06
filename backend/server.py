@@ -446,6 +446,51 @@ async def change_password(request: PasswordChangeRequest):
     raise HTTPException(status_code=404, detail="User not found")
 
 
+# ============ BRANDING SETTINGS ============
+
+@api_router.get("/branding")
+async def get_branding():
+    """Get current branding settings"""
+    branding = await db.branding.find_one({}, {"_id": 0})
+    if not branding:
+        # Return default branding
+        return {
+            "company_name": "NAVKAR AGRO",
+            "tagline": "JOLKO, KESINGA - Mill Entry System"
+        }
+    return branding
+
+
+@api_router.put("/branding")
+async def update_branding(request: BrandingUpdateRequest, username: str = "", role: str = ""):
+    """Update branding settings (Admin only)"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf Admin branding update kar sakta hai")
+    
+    branding_data = {
+        "company_name": request.company_name,
+        "tagline": request.tagline,
+        "updated_by": username,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.branding.update_one(
+        {},
+        {"$set": branding_data},
+        upsert=True
+    )
+    
+    return {"success": True, "message": "Branding update ho gaya", "branding": branding_data}
+
+
+# Helper function to get branding for exports
+async def get_company_name():
+    branding = await db.branding.find_one({}, {"_id": 0})
+    if branding:
+        return branding.get("company_name", "NAVKAR AGRO"), branding.get("tagline", "")
+    return "NAVKAR AGRO", "JOLKO, KESINGA"
+
+
 # ============ MILL ENTRIES CRUD ============
 
 @api_router.get("/")
