@@ -168,6 +168,8 @@ class MandiTarget(BaseModel):
     target_qntl: float  # Base target in QNTL
     cutting_percent: float  # Expected cutting % (5%, 5.26% etc)
     expected_total: float = 0  # Auto: target_qntl + (target_qntl * cutting_percent / 100)
+    base_rate: float = 10.0  # Rate per QNTL for target (e.g., ₹10)
+    cutting_rate: float = 5.0  # Rate per QNTL for cutting excess (e.g., ₹5)
     kms_year: str  # e.g., "2025-2026"
     season: str  # "Kharif" or "Rabi"
     created_by: str = ""
@@ -178,6 +180,8 @@ class MandiTargetCreate(BaseModel):
     mandi_name: str
     target_qntl: float
     cutting_percent: float = 5.0
+    base_rate: float = 10.0
+    cutting_rate: float = 5.0
     kms_year: str
     season: str
 
@@ -186,6 +190,8 @@ class MandiTargetUpdate(BaseModel):
     mandi_name: Optional[str] = None
     target_qntl: Optional[float] = None
     cutting_percent: Optional[float] = None
+    base_rate: Optional[float] = None
+    cutting_rate: Optional[float] = None
     kms_year: Optional[str] = None
     season: Optional[str] = None
 
@@ -199,6 +205,12 @@ class MandiTargetSummary(BaseModel):
     achieved_qntl: float  # Sum of final_w for this mandi
     pending_qntl: float  # expected_total - achieved_qntl
     progress_percent: float  # (achieved / expected) * 100
+    base_rate: float
+    cutting_rate: float
+    target_amount: float  # target_qntl × base_rate
+    cutting_qntl: float  # cutting excess QNTL
+    cutting_amount: float  # cutting_qntl × cutting_rate
+    total_agent_amount: float  # target_amount + cutting_amount
     kms_year: str
     season: str
 
