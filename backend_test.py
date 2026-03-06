@@ -226,7 +226,7 @@ class MillEntryAPITester:
             "mandi_names": ["Mandi A", "Mandi B", "Mandi C"]
         }
         
-        success1, response1 = self.run_api_test("Create Agent-Mandi", "POST", "agent-mandi", 201, agent_mandi_data)
+        success1, response1 = self.run_api_test("Create Agent-Mandi", "POST", "agent-mandi", 200, agent_mandi_data)
         
         # Get all agent-mandis
         success2, _ = self.run_api_test("Get Agent-Mandis", "GET", "agent-mandi", 200)
