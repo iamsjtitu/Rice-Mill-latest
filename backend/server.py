@@ -453,7 +453,9 @@ async def get_entries(
     agent_name: Optional[str] = None,
     mandi_name: Optional[str] = None,
     kms_year: Optional[str] = None,
-    season: Optional[str] = None
+    season: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None
 ):
     query = {}
     
@@ -467,6 +469,16 @@ async def get_entries(
         query["kms_year"] = kms_year
     if season:
         query["season"] = season
+    
+    # Date range filter
+    if date_from or date_to:
+        date_query = {}
+        if date_from:
+            date_query["$gte"] = date_from
+        if date_to:
+            date_query["$lte"] = date_to
+        if date_query:
+            query["date"] = date_query
     
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return entries
