@@ -50,7 +50,7 @@ const SEASONS = ["Kharif", "Rabi"];
 
 const initialFormState = {
   date: new Date().toISOString().split("T")[0],
-  kms_year: KMS_YEARS[KMS_YEARS.length - 2], // Current year
+  kms_year: CURRENT_KMS_YEAR,
   season: "Kharif",
   truck_no: "",
   agent_name: "",
