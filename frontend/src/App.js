@@ -253,22 +253,37 @@ function MainApp({ user, onLogout }) {
 
     const p_pkt_cut = plastic_bag * 0.5;
     
-    // Moisture cut: 17% tak no cut, uske upar (moisture - 17)% cut
-    const moisture_cut_percent = moisture > 17 ? (moisture - 17) : 0;
-    const weight_after_gbw = kg - gbw_cut - p_pkt_cut;
-    const moisture_cut = (weight_after_gbw * moisture_cut_percent) / 100;
+    // Mill W in QNTL (base for cutting and moisture calculations)
+    const mill_w_kg = kg - gbw_cut;
+    const mill_w_qntl = mill_w_kg / 100;
     
-    const weight_for_cutting = weight_after_gbw - moisture_cut;
-    const cutting = (weight_for_cutting * cutting_percent) / 100;
+    // Moisture cut: 17% tak no cut, uske upar (moisture - 17)% cut from Mill W QNTL
+    const moisture_cut_percent = moisture > 17 ? (moisture - 17) : 0;
+    const moisture_cut_qntl = (mill_w_qntl * moisture_cut_percent) / 100;
+    
+    // Cutting from Mill W QNTL
+    const cutting_qntl = (mill_w_qntl * cutting_percent) / 100;
+    
+    // P.Pkt cut in QNTL
+    const p_pkt_cut_qntl = p_pkt_cut / 100;
+    
+    // Disc/Dust/Poll in QNTL
+    const disc_dust_poll_qntl = disc_dust_poll / 100;
+
+    // Final W = Mill W - P.Pkt - Moisture Cut - Cutting - Disc/Dust
+    const final_w_qntl = mill_w_qntl - p_pkt_cut_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl;
 
     setCalculatedFields({
       qntl: (kg / 100).toFixed(2),
-      mill_w: ((kg - gbw_cut) / 100).toFixed(2),
+      mill_w: mill_w_qntl.toFixed(2),
       p_pkt_cut: p_pkt_cut.toFixed(2),
-      moisture_cut: moisture_cut.toFixed(2),
+      p_pkt_cut_qntl: p_pkt_cut_qntl.toFixed(2),
+      moisture_cut: (moisture_cut_qntl * 100).toFixed(2), // Show in KG for reference
+      moisture_cut_qntl: moisture_cut_qntl.toFixed(2),
       moisture_cut_percent: moisture_cut_percent.toFixed(2),
-      cutting: cutting.toFixed(2),
-      final_w: ((kg - gbw_cut - p_pkt_cut - moisture_cut - cutting - disc_dust_poll) / 100).toFixed(2),
+      cutting: (cutting_qntl * 100).toFixed(2), // Show in KG for reference
+      cutting_qntl: cutting_qntl.toFixed(2),
+      final_w: final_w_qntl.toFixed(2),
     });
   }, [formData.kg, formData.gbw_cut, formData.disc_dust_poll, formData.plastic_bag, formData.cutting_percent, formData.moisture]);
 
