@@ -281,6 +281,19 @@ class MakePaymentRequest(BaseModel):
     note: str = ""
 
 
+# Branding Settings Model
+class BrandingSettings(BaseModel):
+    company_name: str = "NAVKAR AGRO"
+    tagline: str = "JOLKO, KESINGA - Mill Entry System"
+    updated_by: str = ""
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class BrandingUpdateRequest(BaseModel):
+    company_name: str
+    tagline: str
+
+
 def calculate_auto_fields(data: dict) -> dict:
     """Calculate automatic fields based on input data"""
     kg = data.get('kg', 0) or 0
