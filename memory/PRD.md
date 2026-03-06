@@ -1,124 +1,135 @@
 # Navkar Agro - Mill Entry System PRD
 
 ## Original Problem Statement
-User ne quintals edit kiye par wo automatic ab kg mai nahi le raha and automatic calculations b nahi kar paa raha hai. KG to Quintals auto calculate hona chahiye. Subsequently, user requested complete rebuild with role-based auth, advanced calculations, and styled exports.
+Mill Entry application for grain tracking with auto-calculations, role-based authentication, exports, and mandi target tracking.
 
 ## Architecture
 - **Backend**: FastAPI + MongoDB
-- **Frontend**: React.js with Tailwind CSS
-- **Database**: MongoDB (mill_entries, users collections)
+- **Frontend**: React.js + Tailwind CSS + Recharts
+- **Database**: MongoDB (mill_entries, users, mandi_targets collections)
 - **Exports**: openpyxl (Excel), reportlab (PDF)
 
 ## User Personas
-1. **Admin** - Full CRUD access, user management
+1. **Admin** - Full CRUD access, target management, user management
 2. **Staff** - Create entries, edit own entries within 5 mins only
-3. **Accountant** - Reports dekhta hai, export karta hai
-
-## Core Requirements (Static)
-
-### Authentication
-- Admin/Staff roles with JWT-based login
-- Staff: 5-minute edit window on own entries only
-- Password change feature for all users
-
-### Weight Calculations
-- KG to QNTL: KG / 100
-- GBW Cut: If G.Deposite filled = BAG × 0.50kg, else BAG × 1kg
-- Mill W = KG - GBW Cut
-- Moisture Cut: >17% moisture = (moisture - 17)% cut from Mill W QNTL
-- Cutting %: Percentage cut from Mill W QNTL
-- P.Pkt: 0.50kg per plastic bag
-- Final W = Mill W - Moisture Cut - Cutting - P.Pkt - Disc/Dust/Poll
-
-### Data Management
-- KMS Year (e.g., "2025-2026") and Season (Kharif/Rabi)
-- Default filter: Current KMS Year
-- Filters: Truck No, Agent Name, Mandi Name, KMS Year, Season
-- Select All & Bulk Delete functionality
-
-### Exports
-- Styled Excel (.xlsx) with colorful formatting
-- Styled PDF (A4 Landscape) with gradient header, color-coded columns
-- Both exports include: G.Deposite, Cash, Diesel Paid, GBW Cut, Moisture
 
 ## What's Been Implemented
 
-### Phase 1 - Core Features ✅ (Jan 2026)
-- [x] KG to QNTL auto conversion
-- [x] Mill W auto calculation (KG - GBW Cut)
-- [x] Final W auto calculation
-- [x] CRUD operations
-- [x] Totals summary
+### Phase 1 - Core Features ✅
+- KG to QNTL auto conversion (1 QNTL = 100 KG)
+- Mill W auto calculation (KG - GBW Cut)
+- Final W auto calculation
+- CRUD operations with totals summary
 
-### Phase 2 - Enhanced Features ✅ (Jan 2026)
-- [x] Truck No. auto-suggest
-- [x] Agent Name auto-suggest
-- [x] Mandi Name auto-suggest
-- [x] BAG → G.Deposite auto-fill
-- [x] P.Pkt (Plastic Bag) 0.50kg/bag deduction
-- [x] Cutting % based calculation
-- [x] Moisture Cut calculation (>17% logic)
-- [x] Filters with default KMS Year
+### Phase 2 - Enhanced Features ✅
+- Auto-suggest for Truck/Agent/Mandi
+- BAG → G.Deposite auto-fill
+- P.Pkt deduction (0.50kg/bag)
+- Cutting % and Moisture Cut calculations
+- KMS Year + Season filtering
 
 ### Phase 3 - Auth & Export ✅ (Mar 2026)
-- [x] Admin/Staff role-based authentication
-- [x] Staff 5-minute edit window restriction
-- [x] Password change feature
-- [x] Select All & Bulk Delete
-- [x] Styled Excel export with colors (openpyxl)
-- [x] Styled PDF export (frontend print + backend reportlab)
-- [x] All columns in exports: G.Dep, Cash, Diesel, GBW Cut, Moisture
+- Admin/Staff role-based authentication
+- Staff 5-minute edit window restriction
+- Password change feature
+- Select All & Bulk Delete
+- Styled Excel export (openpyxl)
+- Styled PDF export (reportlab + frontend print)
+
+### Phase 4 - Dashboard & Targets ✅ (Mar 2026)
+- **Dashboard Tab** with Agent-wise bar chart (Recharts)
+- **Mandi Target Management**:
+  - Admin sets targets per mandi (target QNTL + cutting %)
+  - Expected Total = Target + Cutting % excess
+  - Progress bars showing achieved vs expected
+  - Pending amount calculation
+  - Color-coded progress (red/blue/amber/green)
+- Date range totals API
+
+## Mandi Target Feature
+**Example**: Badkutru target 5000 QNTL + 5% cutting
+- Expected Total: 5000 + 250 = **5250 QNTL**
+- Achieved: 278.11 QNTL (from entries)
+- Pending: 4971.89 QNTL
+- Progress: 5.3%
 
 ## API Endpoints
-- POST /api/auth/login - User login
-- POST /api/auth/change-password - Change password
-- GET /api/auth/verify - Verify user session
-- GET /api/entries - List entries (with filters)
-- POST /api/entries - Create entry
-- PUT /api/entries/{id} - Update entry
-- DELETE /api/entries/{id} - Delete entry
-- POST /api/entries/bulk-delete - Bulk delete entries
-- GET /api/totals - Get totals (with filters)
-- GET /api/suggestions/trucks - Truck auto-suggest
-- GET /api/suggestions/agents - Agent auto-suggest
-- GET /api/suggestions/mandis - Mandi auto-suggest
-- GET /api/suggestions/kms_years - KMS year list
-- GET /api/export/excel - Styled Excel export
-- GET /api/export/pdf - Styled PDF export (reportlab)
+
+### Authentication
+- POST /api/auth/login
+- POST /api/auth/change-password
+- GET /api/auth/verify
+
+### Mill Entries
+- GET/POST /api/entries
+- PUT/DELETE /api/entries/{id}
+- POST /api/entries/bulk-delete
+- GET /api/totals
+
+### Mandi Targets (Admin only for CUD)
+- GET /api/mandi-targets
+- POST /api/mandi-targets
+- PUT /api/mandi-targets/{id}
+- DELETE /api/mandi-targets/{id}
+- GET /api/mandi-targets/summary
+
+### Dashboard
+- GET /api/dashboard/agent-totals
+- GET /api/dashboard/date-range-totals
+
+### Suggestions
+- GET /api/suggestions/trucks
+- GET /api/suggestions/agents
+- GET /api/suggestions/mandis
+- GET /api/suggestions/kms_years
+
+### Exports
+- GET /api/export/excel
+- GET /api/export/pdf
 
 ## Prioritized Backlog
 
 ### P0 (Critical) - DONE ✅
-- [x] Auto calculations fix
-- [x] CRUD operations
-- [x] Role-based authentication
-- [x] Styled exports with all columns
+- Auto calculations
+- Role-based authentication
+- Styled exports
+- Dashboard with charts
+- Mandi Target tracking
 
 ### P1 (High Priority)
-- [ ] Migrate from MongoDB collections to persistent storage best practices
-- [ ] Code refactoring: Break monolithic App.js and server.py into modules
+- [ ] Code refactoring: Break App.js into components
+- [ ] Code refactoring: Break server.py into modules
 
 ### P2 (Medium Priority)
-- [ ] Dashboard with charts
 - [ ] Agent-wise performance reports
-- [ ] Date range filter for reporting
-- [ ] Bulk import from Excel
+- [ ] Monthly/weekly comparison charts
+- [ ] Print invoice format
 
 ### P3 (Low Priority)
 - [ ] Audit trail for entry changes
 - [ ] Mobile responsive improvements
-- [ ] Agent-Mandi category management UI
 
 ## Test Credentials
 - Admin: admin / admin123
 - Staff: staff / staff123
 
+## Test Reports
+- /app/test_reports/iteration_1.json
+- /app/test_reports/iteration_2.json
+- /app/test_reports/iteration_3.json (Dashboard & Targets - 22 tests PASS)
+
 ## Files Structure
-- /app/backend/server.py - All backend logic, API endpoints, exports
-- /app/frontend/src/App.js - Full React frontend
-- /app/frontend/src/App.css - Custom styles
-- /app/test_reports/ - Test results
+```
+/app/backend/
+  server.py - All APIs, models, calculations, exports
+  tests/ - pytest test files
+
+/app/frontend/src/
+  App.js - Full React frontend with Dashboard
+  App.css - Custom styles
+  components/ui/ - Shadcn components
+```
 
 ## Notes
-- "Made with Emergent" badge is platform-level (cannot remove)
 - Database: MongoDB (MONGO_URL from .env)
+- "Made with Emergent" badge is platform-level feature
