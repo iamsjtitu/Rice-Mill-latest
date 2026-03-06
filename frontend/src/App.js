@@ -346,6 +346,73 @@ function MainApp({ user, onLogout }) {
     fetchSuggestions();
   }, [fetchEntries, fetchTotals, fetchSuggestions]);
 
+  // Reset selection when entries change
+  useEffect(() => {
+    setSelectedEntries([]);
+    setSelectAll(false);
+  }, [entries]);
+
+  // Handle select all
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedEntries([]);
+    } else {
+      const editableEntries = entries.filter(e => canEditEntry(e)).map(e => e.id);
+      setSelectedEntries(editableEntries);
+    }
+    setSelectAll(!selectAll);
+  };
+
+  // Handle single selection
+  const handleSelectEntry = (entryId) => {
+    setSelectedEntries(prev => {
+      if (prev.includes(entryId)) {
+        return prev.filter(id => id !== entryId);
+      } else {
+        return [...prev, entryId];
+      }
+    });
+  };
+
+  // Bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedEntries.length === 0) {
+      toast.error("Koi entry select nahi ki");
+      return;
+    }
+    
+    if (window.confirm(`Kya aap ${selectedEntries.length} entries delete karna chahte hain?`)) {
+      try {
+        const params = `?username=${user.username}&role=${user.role}`;
+        let deleted = 0;
+        let failed = 0;
+        
+        for (const entryId of selectedEntries) {
+          try {
+            await axios.delete(`${API}/entries/${entryId}${params}`);
+            deleted++;
+          } catch (error) {
+            failed++;
+          }
+        }
+        
+        if (deleted > 0) {
+          toast.success(`${deleted} entries delete ho gayi!`);
+        }
+        if (failed > 0) {
+          toast.error(`${failed} entries delete nahi hui (permission issue)`);
+        }
+        
+        setSelectedEntries([]);
+        setSelectAll(false);
+        fetchEntries();
+        fetchTotals();
+      } catch (error) {
+        toast.error("Delete karne mein error");
+      }
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
