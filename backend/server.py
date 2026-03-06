@@ -1525,27 +1525,6 @@ async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[st
     return payments
 
 
-@api_router.put("/agent-rates/{agent_name}")
-async def set_agent_rate(agent_name: str, request: SetRateRequest, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
-    """Set rate for a specific agent (Admin only)"""
-    if role != "admin":
-        raise HTTPException(status_code=403, detail="Sirf admin rate set kar sakta hai")
-    
-    await db.agent_rates.update_one(
-        {"agent_name": agent_name, "kms_year": kms_year, "season": season},
-        {"$set": {
-            "agent_name": agent_name,
-            "rate_per_qntl": request.rate_per_qntl,
-            "kms_year": kms_year,
-            "season": season,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }},
-        upsert=True
-    )
-    
-    return {"success": True, "message": f"Agent rate set to ₹{request.rate_per_qntl}/QNTL"}
-
-
 @api_router.post("/agent-payments/{mandi_name}/pay")
 async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
     """Record a payment for agent/mandi (partial or full)"""
