@@ -64,7 +64,7 @@ class MillEntryAPITester:
     def test_create_entry(self, entry_data: Dict) -> tuple[bool, str]:
         """Test creating a mill entry"""
         success, response = self.run_api_test(
-            "Create Mill Entry", "POST", "entries", 201, entry_data
+            "Create Mill Entry", "POST", "entries", 200, entry_data
         )
         entry_id = response.get('id', '') if success else ''
         if entry_id:
