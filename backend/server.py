@@ -1310,7 +1310,8 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
         net_amount = round(gross_amount - deductions, 2)
         balance = round(net_amount - paid_amount, 2)
         
-        status = "paid" if balance <= 0 else ("partial" if paid_amount > 0 else "pending")
+        # Use tolerance for floating-point precision (₹0.10 tolerance)
+        status = "paid" if balance < 0.10 else ("partial" if paid_amount > 0 else "pending")
         
         payments.append(TruckPaymentStatus(
             entry_id=entry_id,
