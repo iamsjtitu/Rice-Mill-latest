@@ -510,7 +510,7 @@ async def export_excel(
     kms_year: Optional[str] = None,
     season: Optional[str] = None
 ):
-    """Export entries to CSV (Excel compatible)"""
+    """Export entries to styled Excel file"""
     query = {}
     
     if truck_no:
@@ -526,64 +526,145 @@ async def export_excel(
     
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
-    output = io.StringIO()
+    # Create workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Mill Entries"
     
+    # Styles
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    
+    title_fill = PatternFill(start_color="D97706", end_color="D97706", fill_type="solid")
+    title_font = Font(bold=True, color="FFFFFF", size=14)
+    
+    total_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    total_font = Font(bold=True, size=10)
+    
+    qntl_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+    final_fill = PatternFill(start_color="FDE68A", end_color="FDE68A", fill_type="solid")
+    
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    center_align = Alignment(horizontal='center', vertical='center')
+    right_align = Alignment(horizontal='right', vertical='center')
+    
+    # Title
+    ws.merge_cells('A1:N1')
+    ws['A1'] = f"NAVKAR AGRO - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
+    ws['A1'].fill = title_fill
+    ws['A1'].font = title_font
+    ws['A1'].alignment = center_align
+    ws.row_dimensions[1].height = 30
+    
+    # Date row
+    ws.merge_cells('A2:N2')
+    ws['A2'] = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+    ws['A2'].alignment = center_align
+    ws.row_dimensions[2].height = 20
+    
+    # Headers
     headers = [
-        "Date", "KMS Year", "Season", "Truck No", "Agent Name", "Mandi Name", 
-        "KG", "QNTL", "BAG", "G.Deposite", "GBW Cut", "Mill W", 
-        "P.Pkt (Bags)", "P.Pkt Cut", "Moisture %", "Moisture Cut", 
-        "Cutting %", "Disc/Dust/Poll", "Final W", 
-        "G.Issued", "Cash Paid", "Diesel Paid", "Remark"
+        "Date", "Truck No", "Agent", "Mandi", "QNTL", "BAG", 
+        "GBW Cut", "Mill W", "Moist%", "Moist Cut", "Cut%", 
+        "Disc/Dust", "Final W", "G.Issued"
     ]
     
-    writer = csv.writer(output)
-    writer.writerow(headers)
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
+        cell.alignment = center_align
+    ws.row_dimensions[3].height = 25
     
-    for entry in entries:
-        row = [
+    # Data rows
+    row_num = 4
+    alt_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+    
+    for idx, entry in enumerate(entries):
+        row_data = [
             entry.get('date', ''),
-            entry.get('kms_year', ''),
-            entry.get('season', ''),
             entry.get('truck_no', ''),
             entry.get('agent_name', ''),
             entry.get('mandi_name', ''),
-            entry.get('kg', 0),
-            entry.get('qntl', 0),
+            round(entry.get('qntl', 0), 2),
             entry.get('bag', 0),
-            entry.get('g_deposite', 0),
-            entry.get('gbw_cut', 0),
-            entry.get('mill_w', 0),
-            entry.get('plastic_bag', 0),
-            entry.get('p_pkt_cut', 0),
+            round(entry.get('gbw_cut', 0), 2),
+            round(entry.get('mill_w', 0) / 100, 2),  # Mill W in QNTL
             entry.get('moisture', 0),
-            entry.get('moisture_cut', 0),
+            round(entry.get('moisture_cut', 0) / 100, 2) if entry.get('moisture_cut') else 0,  # Moisture cut in QNTL
             entry.get('cutting_percent', 0),
             entry.get('disc_dust_poll', 0),
-            entry.get('final_w', 0),
-            entry.get('g_issued', 0),
-            entry.get('cash_paid', 0),
-            entry.get('diesel_paid', 0),
-            entry.get('remark', '')
+            round(entry.get('final_w', 0) / 100, 2),  # Final W in QNTL
+            entry.get('g_issued', 0)
         ]
-        writer.writerow(row)
+        
+        for col, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col, value=value)
+            cell.border = thin_border
+            
+            # Alternate row colors
+            if idx % 2 == 1:
+                cell.fill = alt_fill
+            
+            # Special column colors
+            if col == 5:  # QNTL
+                cell.fill = qntl_fill
+                cell.alignment = right_align
+            elif col == 13:  # Final W
+                cell.fill = final_fill
+                cell.font = Font(bold=True)
+                cell.alignment = right_align
+            elif col in [6, 7, 8, 10, 12, 14]:  # Numeric columns
+                cell.alignment = right_align
+        
+        row_num += 1
     
+    # Totals row
     totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season)
-    totals_row = [
-        "TOTAL", "", "", "", "", "",
-        totals.total_kg, totals.total_qntl, totals.total_bag, totals.total_g_deposite,
-        totals.total_gbw_cut, totals.total_mill_w, "", totals.total_p_pkt_cut,
-        "", "", "", totals.total_disc_dust_poll, totals.total_final_w, totals.total_g_issued,
-        totals.total_cash_paid, totals.total_diesel_paid, ""
+    totals_data = [
+        "TOTAL", "", "", "",
+        round(totals.total_qntl, 2),
+        totals.total_bag,
+        round(totals.total_gbw_cut, 2),
+        round(totals.total_mill_w / 100, 2),
+        "-",
+        "-",
+        "-",
+        totals.total_disc_dust_poll,
+        round(totals.total_final_w / 100, 2),
+        totals.total_g_issued
     ]
-    writer.writerow(totals_row)
     
+    for col, value in enumerate(totals_data, 1):
+        cell = ws.cell(row=row_num, column=col, value=value)
+        cell.fill = total_fill
+        cell.font = total_font
+        cell.border = thin_border
+        if col >= 5:
+            cell.alignment = right_align
+    
+    # Column widths
+    col_widths = [12, 14, 15, 15, 10, 8, 10, 10, 8, 10, 8, 10, 10, 10]
+    for i, width in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+    
+    # Save to bytes
+    output = io.BytesIO()
+    wb.save(output)
     output.seek(0)
     
-    filename = f"mill_entries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"mill_entries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
+    return Response(
+        content=output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
