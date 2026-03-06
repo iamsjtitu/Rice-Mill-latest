@@ -1546,15 +1546,15 @@ async def set_agent_rate(agent_name: str, request: SetRateRequest, kms_year: str
     return {"success": True, "message": f"Agent rate set to ₹{request.rate_per_qntl}/QNTL"}
 
 
-@api_router.post("/agent-payments/{agent_name}/pay")
-async def make_agent_payment(agent_name: str, request: MakePaymentRequest, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
-    """Record a payment for agent (partial or full)"""
+@api_router.post("/agent-payments/{mandi_name}/pay")
+async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
+    """Record a payment for agent/mandi (partial or full)"""
     if role != "admin":
         raise HTTPException(status_code=403, detail="Sirf admin payment kar sakta hai")
     
     # Get or create payment record
     payment_doc = await db.agent_payments.find_one({
-        "agent_name": agent_name,
+        "mandi_name": mandi_name,
         "kms_year": kms_year,
         "season": season
     }, {"_id": 0})
@@ -1571,9 +1571,9 @@ async def make_agent_payment(agent_name: str, request: MakePaymentRequest, kms_y
     })
     
     await db.agent_payments.update_one(
-        {"agent_name": agent_name, "kms_year": kms_year, "season": season},
+        {"mandi_name": mandi_name, "kms_year": kms_year, "season": season},
         {"$set": {
-            "agent_name": agent_name,
+            "mandi_name": mandi_name,
             "kms_year": kms_year,
             "season": season,
             "paid_amount": new_paid,
@@ -1586,38 +1586,57 @@ async def make_agent_payment(agent_name: str, request: MakePaymentRequest, kms_y
     return {"success": True, "message": f"₹{request.amount} payment recorded", "total_paid": new_paid}
 
 
-@api_router.post("/agent-payments/{agent_name}/mark-paid")
-async def mark_agent_paid(agent_name: str, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
-    """Mark agent payment as fully paid"""
+@api_router.post("/agent-payments/{mandi_name}/mark-paid")
+async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
+    """Mark agent/mandi payment as fully paid"""
     if role != "admin":
         raise HTTPException(status_code=403, detail="Sirf admin paid mark kar sakta hai")
     
-    # Calculate total amount
-    match_query = {"agent_name": agent_name}
-    if kms_year:
-        match_query["kms_year"] = kms_year
-    if season:
-        match_query["season"] = season
-    
-    pipeline = [
-        {"$match": match_query},
-        {"$group": {"_id": None, "total_final_w": {"$sum": "$final_w"}}}
-    ]
-    result = await db.mill_entries.aggregate(pipeline).to_list(1)
-    total_final_qntl = result[0]["total_final_w"] / 100 if result else 0
-    
-    # Get rate
-    rate_doc = await db.agent_rates.find_one({
-        "agent_name": agent_name,
+    # Get target for this mandi
+    target = await db.mandi_targets.find_one({
+        "mandi_name": mandi_name,
         "kms_year": kms_year,
         "season": season
     }, {"_id": 0})
-    rate = rate_doc.get("rate_per_qntl", 10) if rate_doc else 10
     
-    total_amount = total_final_qntl * rate
+    if not target:
+        raise HTTPException(status_code=404, detail="Mandi target not found")
+    
+    # Calculate total amount based on target
+    target_qntl = target["target_qntl"]
+    cutting_qntl = target_qntl * target["cutting_percent"] / 100
+    base_rate = target.get("base_rate", 10)
+    cutting_rate = target.get("cutting_rate", 5)
+    total_amount = (target_qntl * base_rate) + (cutting_qntl * cutting_rate)
     
     payment_doc = await db.agent_payments.find_one({
-        "agent_name": agent_name,
+        "mandi_name": mandi_name,
+        "kms_year": kms_year,
+        "season": season
+    }, {"_id": 0})
+    payments_history = payment_doc.get("payments_history", []) if payment_doc else []
+    payments_history.append({
+        "amount": total_amount,
+        "date": datetime.now(timezone.utc).isoformat(),
+        "note": "Full payment - marked as paid",
+        "by": username
+    })
+    
+    await db.agent_payments.update_one(
+        {"mandi_name": mandi_name, "kms_year": kms_year, "season": season},
+        {"$set": {
+            "mandi_name": mandi_name,
+            "kms_year": kms_year,
+            "season": season,
+            "paid_amount": total_amount,
+            "payments_history": payments_history,
+            "status": "paid",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    
+    return {"success": True, "message": "Agent/Mandi payment cleared"}
         "kms_year": kms_year,
         "season": season
     }, {"_id": 0})
