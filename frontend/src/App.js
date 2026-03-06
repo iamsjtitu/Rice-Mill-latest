@@ -774,11 +774,11 @@ const Payments = ({ filters, user }) => {
     }
   };
 
-  // Calculate totals
+  // Calculate totals for filtered truck payments
   const truckTotals = {
-    netAmount: truckPayments.reduce((sum, p) => sum + p.net_amount, 0),
-    paid: truckPayments.reduce((sum, p) => sum + p.paid_amount, 0),
-    balance: truckPayments.reduce((sum, p) => sum + p.balance_amount, 0)
+    netAmount: filteredTruckPayments.reduce((sum, p) => sum + p.net_amount, 0),
+    paid: filteredTruckPayments.reduce((sum, p) => sum + p.paid_amount, 0),
+    balance: filteredTruckPayments.reduce((sum, p) => sum + p.balance_amount, 0)
   };
 
   const agentTotals = {
@@ -808,7 +808,7 @@ const Payments = ({ filters, user }) => {
             : "text-slate-300 hover:bg-slate-700"}
         >
           <Truck className="w-4 h-4 mr-1" />
-          Truck Payments ({truckPayments.length})
+          Truck Payments ({filteredTruckPayments.length})
         </Button>
         <Button
           onClick={() => setActivePaymentTab("agent")}
@@ -822,6 +822,49 @@ const Payments = ({ filters, user }) => {
           Agent Payments ({agentPayments.length})
         </Button>
       </div>
+
+      {/* Truck Filter & Export - Only for Truck Tab */}
+      {activePaymentTab === "truck" && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[200px] max-w-[300px]">
+            <Input
+              placeholder="Truck No. ya Mandi search karein..."
+              value={truckSearchFilter}
+              onChange={(e) => setTruckSearchFilter(e.target.value)}
+              className="bg-slate-700 border-slate-600 text-white text-sm"
+            />
+          </div>
+          {truckSearchFilter && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTruckSearchFilter("")}
+              className="text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Clear
+            </Button>
+          )}
+          <div className="flex gap-2 ml-auto">
+            <Button
+              onClick={handleExportTruckExcel}
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-1" />
+              Excel
+            </Button>
+            <Button
+              onClick={handleExportTruckPDF}
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              <FileText className="w-4 h-4 mr-1" />
+              PDF
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
