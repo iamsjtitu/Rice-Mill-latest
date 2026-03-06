@@ -1270,8 +1270,21 @@ function MainApp({ user, onLogout }) {
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-amber-400 flex items-center justify-between">
-              <span>Mill Entries ({entries.length})</span>
-              {loading && <RefreshCw className="w-5 h-5 animate-spin text-slate-400" />}
+              <span>Mill Entries ({entries.length}) - KMS: {filters.kms_year || "All"}</span>
+              <div className="flex items-center gap-3">
+                {selectedEntries.length > 0 && (
+                  <Button
+                    onClick={handleBulkDelete}
+                    size="sm"
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    data-testid="bulk-delete-btn"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete ({selectedEntries.length})
+                  </Button>
+                )}
+                {loading && <RefreshCw className="w-5 h-5 animate-spin text-slate-400" />}
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -1279,8 +1292,16 @@ function MainApp({ user, onLogout }) {
               <Table>
                 <TableHeader>
                   <TableRow className="border-slate-700 hover:bg-slate-700/50">
+                    <TableHead className="text-slate-300 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectAll}
+                        onChange={handleSelectAll}
+                        className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500"
+                        data-testid="select-all-checkbox"
+                      />
+                    </TableHead>
                     <TableHead className="text-slate-300">Date</TableHead>
-                    <TableHead className="text-slate-300">KMS</TableHead>
                     <TableHead className="text-slate-300">Season</TableHead>
                     <TableHead className="text-slate-300">Truck</TableHead>
                     <TableHead className="text-slate-300">Agent</TableHead>
@@ -1299,7 +1320,7 @@ function MainApp({ user, onLogout }) {
                 <TableBody>
                   {entries.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={14} className="text-center text-slate-400 py-8">
+                      <TableCell colSpan={15} className="text-center text-slate-400 py-8">
                         Koi entry nahi hai. "Nayi Entry" button click karein.
                       </TableCell>
                     </TableRow>
@@ -1307,11 +1328,20 @@ function MainApp({ user, onLogout }) {
                     entries.map((entry) => (
                       <TableRow 
                         key={entry.id} 
-                        className="border-slate-700 hover:bg-slate-700/30"
+                        className={`border-slate-700 hover:bg-slate-700/30 ${selectedEntries.includes(entry.id) ? 'bg-amber-900/20' : ''}`}
                         data-testid={`entry-row-${entry.id}`}
                       >
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedEntries.includes(entry.id)}
+                            onChange={() => handleSelectEntry(entry.id)}
+                            disabled={!canEditEntry(entry)}
+                            className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500 disabled:opacity-50"
+                            data-testid={`select-${entry.id}`}
+                          />
+                        </TableCell>
                         <TableCell className="text-white">{entry.date}</TableCell>
-                        <TableCell className="text-white text-xs">{entry.kms_year}</TableCell>
                         <TableCell className="text-white text-xs">{entry.season}</TableCell>
                         <TableCell className="text-white font-mono text-sm">{entry.truck_no}</TableCell>
                         <TableCell className="text-white">{entry.agent_name}</TableCell>
