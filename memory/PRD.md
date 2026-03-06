@@ -118,6 +118,19 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
   - Works with existing filters (KMS Year, Season, Truck, Agent, Mandi)
   - Totals also update based on date filter
 
+### Phase 11 - RST No. & TP No. Fields ✅ (Mar 2026)
+- **New Entry Fields Added:**
+  - RST No. - RST Number field in entry form (after Truck No.)
+  - TP No. - TP Number field in entry form (after RST No.)
+  
+- **Filter Support:**
+  - RST No. filter - search entries by RST number
+  - TP No. filter - search entries by TP number
+  
+- **Table Display:**
+  - RST No. and TP No. columns added in entries table
+  - Shows "-" if field is empty
+
 ## Mandi Target Feature
 **Example**: Badkutru target 5000 QNTL + 5% cutting
 - Expected Total: 5000 + 250 = **5250 QNTL**
