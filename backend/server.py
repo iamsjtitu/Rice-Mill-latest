@@ -159,6 +159,49 @@ class TotalsResponse(BaseModel):
     total_diesel_paid: float = 0
 
 
+# Mandi Target Models
+class MandiTarget(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    mandi_name: str
+    target_qntl: float  # Base target in QNTL
+    cutting_percent: float  # Expected cutting % (5%, 5.26% etc)
+    expected_total: float = 0  # Auto: target_qntl + (target_qntl * cutting_percent / 100)
+    kms_year: str  # e.g., "2025-2026"
+    season: str  # "Kharif" or "Rabi"
+    created_by: str = ""
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class MandiTargetCreate(BaseModel):
+    mandi_name: str
+    target_qntl: float
+    cutting_percent: float = 5.0
+    kms_year: str
+    season: str
+
+
+class MandiTargetUpdate(BaseModel):
+    mandi_name: Optional[str] = None
+    target_qntl: Optional[float] = None
+    cutting_percent: Optional[float] = None
+    kms_year: Optional[str] = None
+    season: Optional[str] = None
+
+
+class MandiTargetSummary(BaseModel):
+    mandi_name: str
+    target_qntl: float
+    cutting_percent: float
+    expected_total: float
+    achieved_qntl: float  # Sum of final_w for this mandi
+    pending_qntl: float  # expected_total - achieved_qntl
+    progress_percent: float  # (achieved / expected) * 100
+    kms_year: str
+    season: str
+
+
 def calculate_auto_fields(data: dict) -> dict:
     """Calculate automatic fields based on input data"""
     kg = data.get('kg', 0) or 0
