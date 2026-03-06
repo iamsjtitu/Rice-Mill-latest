@@ -1938,6 +1938,8 @@ function MainApp({ user, onLogout }) {
       if (filters.mandi_name) params.append('mandi_name', filters.mandi_name);
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
+      if (filters.date_from) params.append('date_from', filters.date_from);
+      if (filters.date_to) params.append('date_to', filters.date_to);
       
       const response = await axios.get(`${API}/entries?${params.toString()}`);
       setEntries(response.data);
@@ -1957,6 +1959,8 @@ function MainApp({ user, onLogout }) {
       if (filters.mandi_name) params.append('mandi_name', filters.mandi_name);
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
+      if (filters.date_from) params.append('date_from', filters.date_from);
+      if (filters.date_to) params.append('date_to', filters.date_to);
       
       const response = await axios.get(`${API}/totals?${params.toString()}`);
       setTotals(response.data);
