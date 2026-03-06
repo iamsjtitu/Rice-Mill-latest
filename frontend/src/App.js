@@ -328,6 +328,22 @@ const Dashboard = ({ filters, user }) => {
 
   return (
     <div className="space-y-6">
+      {/* Summary Report Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => {
+            const params = new URLSearchParams();
+            if (filters.kms_year) params.append('kms_year', filters.kms_year);
+            if (filters.season) params.append('season', filters.season);
+            window.open(`${API}/export/summary-report-pdf?${params.toString()}`, '_blank');
+          }}
+          className="bg-purple-600 hover:bg-purple-700 text-white"
+        >
+          <FileText className="w-4 h-4 mr-2" />
+          Summary Report PDF
+        </Button>
+      </div>
+
       {/* Agent-wise Bar Chart */}
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader className="pb-2">
