@@ -208,6 +208,7 @@ const LoginPage = ({ onLogin }) => {
 const Dashboard = ({ filters, user }) => {
   const [agentTotals, setAgentTotals] = useState([]);
   const [mandiTargets, setMandiTargets] = useState([]);
+  const [monthlyData, setMonthlyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showTargetForm, setShowTargetForm] = useState(false);
   const [targetForm, setTargetForm] = useState({
@@ -230,13 +231,15 @@ const Dashboard = ({ filters, user }) => {
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
 
-      const [agentRes, targetRes] = await Promise.all([
+      const [agentRes, targetRes, monthlyRes] = await Promise.all([
         axios.get(`${API}/dashboard/agent-totals?${params.toString()}`),
-        axios.get(`${API}/mandi-targets/summary?${params.toString()}`)
+        axios.get(`${API}/mandi-targets/summary?${params.toString()}`),
+        axios.get(`${API}/dashboard/monthly-trend?${params.toString()}`)
       ]);
 
       setAgentTotals(agentRes.data.agent_totals || []);
       setMandiTargets(targetRes.data || []);
+      setMonthlyData(monthlyRes.data.monthly_data || []);
     } catch (error) {
       console.error("Dashboard fetch error:", error);
     } finally {
