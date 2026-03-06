@@ -249,19 +249,28 @@ function MainApp({ user, onLogout }) {
     const disc_dust_poll = parseFloat(formData.disc_dust_poll) || 0;
     const plastic_bag = parseInt(formData.plastic_bag) || 0;
     const cutting_percent = parseFloat(formData.cutting_percent) || 0;
+    const moisture = parseFloat(formData.moisture) || 0;
 
     const p_pkt_cut = plastic_bag * 0.5;
-    const weight_for_cutting = kg - gbw_cut - p_pkt_cut;
+    
+    // Moisture cut: 17% tak no cut, uske upar (moisture - 17)% cut
+    const moisture_cut_percent = moisture > 17 ? (moisture - 17) : 0;
+    const weight_after_gbw = kg - gbw_cut - p_pkt_cut;
+    const moisture_cut = (weight_after_gbw * moisture_cut_percent) / 100;
+    
+    const weight_for_cutting = weight_after_gbw - moisture_cut;
     const cutting = (weight_for_cutting * cutting_percent) / 100;
 
     setCalculatedFields({
       qntl: (kg / 100).toFixed(2),
-      mill_w: ((kg - gbw_cut) / 100).toFixed(2),  // Show in QNTL
+      mill_w: ((kg - gbw_cut) / 100).toFixed(2),
       p_pkt_cut: p_pkt_cut.toFixed(2),
+      moisture_cut: moisture_cut.toFixed(2),
+      moisture_cut_percent: moisture_cut_percent.toFixed(2),
       cutting: cutting.toFixed(2),
-      final_w: ((kg - gbw_cut - p_pkt_cut - cutting - disc_dust_poll) / 100).toFixed(2),  // Show in QNTL
+      final_w: ((kg - gbw_cut - p_pkt_cut - moisture_cut - cutting - disc_dust_poll) / 100).toFixed(2),
     });
-  }, [formData.kg, formData.gbw_cut, formData.disc_dust_poll, formData.plastic_bag, formData.cutting_percent]);
+  }, [formData.kg, formData.gbw_cut, formData.disc_dust_poll, formData.plastic_bag, formData.cutting_percent, formData.moisture]);
 
   // Auto-calculate GBW Cut based on G.Deposite
   useEffect(() => {
