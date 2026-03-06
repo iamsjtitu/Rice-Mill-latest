@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -9,9 +10,10 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import io
 import csv
+import secrets
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -27,6 +29,33 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Security
+security = HTTPBasic()
+
+# Default credentials (in production, store hashed in DB)
+USERS = {
+    "admin": {"password": "admin123", "role": "admin"},
+    "staff": {"password": "staff123", "role": "staff"}
+}
+
+
+# User Models
+class User(BaseModel):
+    username: str
+    role: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    success: bool
+    username: str
+    role: str
+    message: str
+
 
 # Define Models
 class MillEntry(BaseModel):
@@ -34,6 +63,8 @@ class MillEntry(BaseModel):
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     date: str
+    kms_year: str = ""  # e.g., "2025-2026"
+    season: str = ""  # "Kharif" or "Rabi"
     truck_no: str = ""
     agent_name: str = ""
     mandi_name: str = ""
@@ -47,21 +78,22 @@ class MillEntry(BaseModel):
     p_pkt_cut: float = 0  # Auto calculated: plastic_bag * 0.5
     cutting_percent: float = 0  # Cutting percentage (5%, 5.26% etc)
     cutting: float = 0  # Auto calculated from percentage
-    total_wt: float = 0
-    g_issued: float = 0
-    moisture: float = 0
     disc_dust_poll: float = 0
     final_w: float = 0  # Auto calculated
+    g_issued: float = 0
+    moisture: float = 0
     cash_paid: float = 0
     diesel_paid: float = 0
     remark: str = ""
-    fc: float = 0  # Final Cost
+    created_by: str = ""  # Username who created
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class MillEntryCreate(BaseModel):
     date: str
+    kms_year: str = ""
+    season: str = ""
     truck_no: str = ""
     agent_name: str = ""
     mandi_name: str = ""
@@ -71,18 +103,18 @@ class MillEntryCreate(BaseModel):
     gbw_cut: float = 0
     plastic_bag: int = 0
     cutting_percent: float = 0
-    total_wt: float = 0
+    disc_dust_poll: float = 0
     g_issued: float = 0
     moisture: float = 0
-    disc_dust_poll: float = 0
     cash_paid: float = 0
     diesel_paid: float = 0
     remark: str = ""
-    fc: float = 0
 
 
 class MillEntryUpdate(BaseModel):
     date: Optional[str] = None
+    kms_year: Optional[str] = None
+    season: Optional[str] = None
     truck_no: Optional[str] = None
     agent_name: Optional[str] = None
     mandi_name: Optional[str] = None
@@ -92,14 +124,12 @@ class MillEntryUpdate(BaseModel):
     gbw_cut: Optional[float] = None
     plastic_bag: Optional[int] = None
     cutting_percent: Optional[float] = None
-    total_wt: Optional[float] = None
+    disc_dust_poll: Optional[float] = None
     g_issued: Optional[float] = None
     moisture: Optional[float] = None
-    disc_dust_poll: Optional[float] = None
     cash_paid: Optional[float] = None
     diesel_paid: Optional[float] = None
     remark: Optional[str] = None
-    fc: Optional[float] = None
 
 
 class TotalsResponse(BaseModel):
@@ -111,28 +141,11 @@ class TotalsResponse(BaseModel):
     total_mill_w: float = 0
     total_p_pkt_cut: float = 0
     total_cutting: float = 0
-    total_wt: float = 0
-    total_g_issued: float = 0
     total_disc_dust_poll: float = 0
     total_final_w: float = 0
+    total_g_issued: float = 0
     total_cash_paid: float = 0
     total_diesel_paid: float = 0
-    total_fc: float = 0
-
-
-# Agent-Mandi Category Models
-class AgentMandi(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    agent_name: str
-    mandi_names: List[str] = []
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-
-class AgentMandiCreate(BaseModel):
-    agent_name: str
-    mandi_names: List[str] = []
 
 
 def calculate_auto_fields(data: dict) -> dict:
@@ -142,17 +155,10 @@ def calculate_auto_fields(data: dict) -> dict:
     disc_dust_poll = data.get('disc_dust_poll', 0) or 0
     plastic_bag = data.get('plastic_bag', 0) or 0
     cutting_percent = data.get('cutting_percent', 0) or 0
-    bag = data.get('bag', 0) or 0
-    g_deposite = data.get('g_deposite', 0) or 0
     
     # P.Pkt cut calculation (0.5 kg per plastic bag)
     p_pkt_cut = round(plastic_bag * 0.5, 2)
     data['p_pkt_cut'] = p_pkt_cut
-    
-    # BAG cutting rate logic:
-    # If G.Deposite is manually set (different from 0 and entered by user) → 0.50 kg/bag
-    # If G.Deposite is empty or equals bag → 1 kg/bag
-    # This is represented by GBW cut field
     
     # Weight after GBW cut for cutting calculation
     weight_for_cutting = kg - gbw_cut - p_pkt_cut
@@ -169,18 +175,67 @@ def calculate_auto_fields(data: dict) -> dict:
     return data
 
 
-# Add your routes to the router
+def can_edit_entry(entry: dict, username: str, role: str) -> tuple:
+    """Check if user can edit/delete entry"""
+    if role == "admin":
+        return True, "Admin access"
+    
+    # Staff can only edit their own entries within 5 minutes
+    if entry.get('created_by') != username:
+        return False, "Aap sirf apni entry edit kar sakte hain"
+    
+    created_at = entry.get('created_at', '')
+    if created_at:
+        try:
+            created_time = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            now = datetime.now(timezone.utc)
+            time_diff = now - created_time
+            
+            if time_diff > timedelta(minutes=5):
+                return False, "5 minute se zyada ho gaye, ab edit nahi ho sakta"
+        except:
+            pass
+    
+    return True, "Edit allowed"
+
+
+# ============ AUTH ENDPOINTS ============
+
+@api_router.post("/auth/login", response_model=LoginResponse)
+async def login(request: LoginRequest):
+    username = request.username
+    password = request.password
+    
+    if username in USERS and USERS[username]["password"] == password:
+        return LoginResponse(
+            success=True,
+            username=username,
+            role=USERS[username]["role"],
+            message="Login successful"
+        )
+    
+    raise HTTPException(status_code=401, detail="Invalid username or password")
+
+
+@api_router.get("/auth/verify")
+async def verify_user(username: str, role: str):
+    if username in USERS and USERS[username]["role"] == role:
+        return {"valid": True, "username": username, "role": role}
+    return {"valid": False}
+
+
+# ============ MILL ENTRIES CRUD ============
+
 @api_router.get("/")
 async def root():
     return {"message": "Mill Entry API - Navkar Agro"}
 
 
-# ============ MILL ENTRIES CRUD ============
-
 @api_router.post("/entries", response_model=MillEntry)
-async def create_entry(input: MillEntryCreate):
+async def create_entry(input: MillEntryCreate, username: str = "", role: str = ""):
     entry_dict = input.model_dump()
     entry_dict = calculate_auto_fields(entry_dict)
+    entry_dict['created_by'] = username
     
     entry_obj = MillEntry(**entry_dict)
     doc = entry_obj.model_dump()
@@ -193,7 +248,9 @@ async def create_entry(input: MillEntryCreate):
 async def get_entries(
     truck_no: Optional[str] = None,
     agent_name: Optional[str] = None,
-    mandi_name: Optional[str] = None
+    mandi_name: Optional[str] = None,
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
 ):
     query = {}
     
@@ -203,6 +260,10 @@ async def get_entries(
         query["agent_name"] = {"$regex": agent_name, "$options": "i"}
     if mandi_name:
         query["mandi_name"] = {"$regex": mandi_name, "$options": "i"}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
     
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return entries
@@ -217,10 +278,15 @@ async def get_entry(entry_id: str):
 
 
 @api_router.put("/entries/{entry_id}", response_model=MillEntry)
-async def update_entry(entry_id: str, input: MillEntryUpdate):
+async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = "", role: str = ""):
     existing = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     if not existing:
         raise HTTPException(status_code=404, detail="Entry not found")
+    
+    # Check permission
+    can_edit, message = can_edit_entry(existing, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
     
     update_data = {k: v for k, v in input.model_dump().items() if v is not None}
     
@@ -239,7 +305,16 @@ async def update_entry(entry_id: str, input: MillEntryUpdate):
 
 
 @api_router.delete("/entries/{entry_id}")
-async def delete_entry(entry_id: str):
+async def delete_entry(entry_id: str, username: str = "", role: str = ""):
+    existing = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    
+    # Check permission
+    can_edit, message = can_edit_entry(existing, username, role)
+    if not can_edit:
+        raise HTTPException(status_code=403, detail=message)
+    
     result = await db.mill_entries.delete_one({"id": entry_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -250,7 +325,9 @@ async def delete_entry(entry_id: str):
 async def get_totals(
     truck_no: Optional[str] = None,
     agent_name: Optional[str] = None,
-    mandi_name: Optional[str] = None
+    mandi_name: Optional[str] = None,
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
 ):
     match_query = {}
     
@@ -260,6 +337,10 @@ async def get_totals(
         match_query["agent_name"] = {"$regex": agent_name, "$options": "i"}
     if mandi_name:
         match_query["mandi_name"] = {"$regex": mandi_name, "$options": "i"}
+    if kms_year:
+        match_query["kms_year"] = kms_year
+    if season:
+        match_query["season"] = season
     
     pipeline = []
     if match_query:
@@ -276,13 +357,11 @@ async def get_totals(
             "total_mill_w": {"$sum": "$mill_w"},
             "total_p_pkt_cut": {"$sum": "$p_pkt_cut"},
             "total_cutting": {"$sum": "$cutting"},
-            "total_wt": {"$sum": "$total_wt"},
-            "total_g_issued": {"$sum": "$g_issued"},
             "total_disc_dust_poll": {"$sum": "$disc_dust_poll"},
             "total_final_w": {"$sum": "$final_w"},
+            "total_g_issued": {"$sum": "$g_issued"},
             "total_cash_paid": {"$sum": "$cash_paid"},
-            "total_diesel_paid": {"$sum": "$diesel_paid"},
-            "total_fc": {"$sum": "$fc"}
+            "total_diesel_paid": {"$sum": "$diesel_paid"}
         }
     })
     
@@ -300,29 +379,24 @@ async def get_totals(
 
 @api_router.get("/suggestions/trucks")
 async def get_truck_suggestions(q: str = ""):
-    """Get unique truck numbers for auto-suggest"""
     if len(q) < 1:
         trucks = await db.mill_entries.distinct("truck_no")
     else:
         trucks = await db.mill_entries.distinct("truck_no", {"truck_no": {"$regex": q, "$options": "i"}})
-    
     return {"suggestions": [t for t in trucks if t]}
 
 
 @api_router.get("/suggestions/agents")
 async def get_agent_suggestions(q: str = ""):
-    """Get unique agent names for auto-suggest"""
     if len(q) < 1:
         agents = await db.mill_entries.distinct("agent_name")
     else:
         agents = await db.mill_entries.distinct("agent_name", {"agent_name": {"$regex": q, "$options": "i"}})
-    
     return {"suggestions": [a for a in agents if a]}
 
 
 @api_router.get("/suggestions/mandis")
 async def get_mandi_suggestions(q: str = "", agent_name: str = ""):
-    """Get unique mandi names for auto-suggest, optionally filtered by agent"""
     query = {}
     if q:
         query["mandi_name"] = {"$regex": q, "$options": "i"}
@@ -330,56 +404,13 @@ async def get_mandi_suggestions(q: str = "", agent_name: str = ""):
         query["agent_name"] = agent_name
     
     mandis = await db.mill_entries.distinct("mandi_name", query if query else None)
-    
     return {"suggestions": [m for m in mandis if m]}
 
 
-# ============ AGENT-MANDI CATEGORY MANAGEMENT ============
-
-@api_router.post("/agent-mandi", response_model=AgentMandi)
-async def create_agent_mandi(input: AgentMandiCreate):
-    # Check if agent already exists
-    existing = await db.agent_mandis.find_one({"agent_name": input.agent_name}, {"_id": 0})
-    if existing:
-        # Update mandi list
-        new_mandis = list(set(existing.get('mandi_names', []) + input.mandi_names))
-        await db.agent_mandis.update_one(
-            {"agent_name": input.agent_name},
-            {"$set": {"mandi_names": new_mandis}}
-        )
-        updated = await db.agent_mandis.find_one({"agent_name": input.agent_name}, {"_id": 0})
-        return AgentMandi(**updated)
-    
-    agent_mandi = AgentMandi(**input.model_dump())
-    doc = agent_mandi.model_dump()
-    await db.agent_mandis.insert_one(doc)
-    return agent_mandi
-
-
-@api_router.get("/agent-mandi", response_model=List[AgentMandi])
-async def get_agent_mandis():
-    agent_mandis = await db.agent_mandis.find({}, {"_id": 0}).to_list(100)
-    return agent_mandis
-
-
-@api_router.get("/agent-mandi/{agent_name}/mandis")
-async def get_mandis_for_agent(agent_name: str):
-    """Get mandi names for a specific agent"""
-    agent = await db.agent_mandis.find_one({"agent_name": {"$regex": f"^{agent_name}$", "$options": "i"}}, {"_id": 0})
-    if agent:
-        return {"mandis": agent.get('mandi_names', [])}
-    
-    # Fallback: get from entries
-    mandis = await db.mill_entries.distinct("mandi_name", {"agent_name": agent_name})
-    return {"mandis": [m for m in mandis if m]}
-
-
-@api_router.delete("/agent-mandi/{agent_id}")
-async def delete_agent_mandi(agent_id: str):
-    result = await db.agent_mandis.delete_one({"id": agent_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Agent-Mandi not found")
-    return {"message": "Agent-Mandi deleted successfully"}
+@api_router.get("/suggestions/kms_years")
+async def get_kms_year_suggestions():
+    years = await db.mill_entries.distinct("kms_year")
+    return {"suggestions": [y for y in years if y]}
 
 
 # ============ EXPORT ENDPOINTS ============
@@ -388,7 +419,9 @@ async def delete_agent_mandi(agent_id: str):
 async def export_excel(
     truck_no: Optional[str] = None,
     agent_name: Optional[str] = None,
-    mandi_name: Optional[str] = None
+    mandi_name: Optional[str] = None,
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
 ):
     """Export entries to CSV (Excel compatible)"""
     query = {}
@@ -399,16 +432,20 @@ async def export_excel(
         query["agent_name"] = {"$regex": agent_name, "$options": "i"}
     if mandi_name:
         query["mandi_name"] = {"$regex": mandi_name, "$options": "i"}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
     
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
-    # Create CSV
     output = io.StringIO()
     
     headers = [
-        "Date", "Truck No", "Agent Name", "Mandi Name", "KG", "QNTL", 
-        "BAG", "G.Deposite", "GBW Cut", "Mill W", "P.Pkt (Bags)", "P.Pkt Cut",
-        "Cutting %", "Final W", "G.Issued", "Cash Paid", "Diesel Paid", "Remark"
+        "Date", "KMS Year", "Season", "Truck No", "Agent Name", "Mandi Name", 
+        "KG", "QNTL", "BAG", "G.Deposite", "GBW Cut", "Mill W", 
+        "P.Pkt (Bags)", "P.Pkt Cut", "Cutting %", "Final W", 
+        "G.Issued", "Cash Paid", "Diesel Paid", "Remark"
     ]
     
     writer = csv.writer(output)
@@ -417,6 +454,8 @@ async def export_excel(
     for entry in entries:
         row = [
             entry.get('date', ''),
+            entry.get('kms_year', ''),
+            entry.get('season', ''),
             entry.get('truck_no', ''),
             entry.get('agent_name', ''),
             entry.get('mandi_name', ''),
@@ -437,10 +476,9 @@ async def export_excel(
         ]
         writer.writerow(row)
     
-    # Add totals row
-    totals = await get_totals(truck_no, agent_name, mandi_name)
+    totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season)
     totals_row = [
-        "TOTAL", "", "", "", 
+        "TOTAL", "", "", "", "", "",
         totals.total_kg, totals.total_qntl, totals.total_bag, totals.total_g_deposite,
         totals.total_gbw_cut, totals.total_mill_w, "", totals.total_p_pkt_cut,
         "", totals.total_final_w, totals.total_g_issued,
