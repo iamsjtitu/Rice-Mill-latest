@@ -1440,6 +1440,7 @@ function MainApp({ user, onLogout }) {
     season: ""
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   
   // Selection state for bulk delete
   const [selectedEntries, setSelectedEntries] = useState([]);
