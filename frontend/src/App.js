@@ -1251,11 +1251,14 @@ function MainApp({ user, onLogout }) {
                         <TableCell className="text-white text-right font-mono">
                           {entry.bag}
                         </TableCell>
+                        <TableCell className="text-blue-400 text-right font-mono font-bold">
+                          {(entry.mill_w / 100)?.toFixed(2)}
+                        </TableCell>
                         <TableCell className="text-purple-400 text-right font-mono">
                           {entry.cutting_percent}%
                         </TableCell>
                         <TableCell className="text-amber-400 text-right font-mono font-bold">
-                          {entry.final_w?.toLocaleString()}
+                          {(entry.final_w / 100)?.toFixed(2)}
                         </TableCell>
                         <TableCell className="text-cyan-400 text-right font-mono">
                           {entry.g_issued?.toLocaleString() || 0}
