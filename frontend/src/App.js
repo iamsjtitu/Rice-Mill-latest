@@ -1821,6 +1821,8 @@ function MainApp({ user, onLogout }) {
   // Filter state - default to current KMS year
   const [filters, setFilters] = useState({
     truck_no: "",
+    rst_no: "",
+    tp_no: "",
     agent_name: "",
     mandi_name: "",
     kms_year: CURRENT_KMS_YEAR,
