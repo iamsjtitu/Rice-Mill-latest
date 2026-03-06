@@ -38,13 +38,14 @@ const API = `${BACKEND_URL}/api`;
 const generateKMSYears = () => {
   const currentYear = new Date().getFullYear();
   const years = [];
-  for (let i = currentYear - 2; i <= currentYear + 1; i++) {
+  for (let i = currentYear - 3; i <= currentYear; i++) {
     years.push(`${i}-${i + 1}`);
   }
   return years;
 };
 
 const KMS_YEARS = generateKMSYears();
+const CURRENT_KMS_YEAR = `${new Date().getFullYear() - 1}-${new Date().getFullYear()}`; // 2025-2026
 const SEASONS = ["Kharif", "Rabi"];
 
 const initialFormState = {
