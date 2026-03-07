@@ -1,6 +1,6 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi.responses import StreamingResponse, Response
+from fastapi.responses import StreamingResponse, Response, HTMLResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -31,6 +31,24 @@ app = FastAPI()
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
+
+# Print page storage (server-side print for Electron compatibility)
+print_pages = {}
+
+@api_router.post("/print")
+async def create_print_page(request: Request):
+    data = await request.json()
+    import uuid as _uuid
+    page_id = str(_uuid.uuid4())
+    print_pages[page_id] = data.get('html', '')
+    return {"id": page_id, "url": f"/api/print/{page_id}"}
+
+@api_router.get("/print/{page_id}")
+async def get_print_page(page_id: str):
+    html = print_pages.pop(page_id, None)
+    if not html:
+        return HTMLResponse("<h1>Page expired. Please try again.</h1>", status_code=404)
+    return HTMLResponse(html)
 
 # Security
 security = HTTPBasic()

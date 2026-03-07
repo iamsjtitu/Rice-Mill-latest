@@ -383,7 +383,22 @@ setInterval(() => {
 // ============ EXPRESS APP ============
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
+
+// ============ PRINT PAGE (Server-side for Electron/browser compatibility) ============
+const printPages = {};
+app.post('/api/print', (req, res) => {
+  const id = require('uuid').v4();
+  printPages[id] = req.body.html;
+  setTimeout(() => delete printPages[id], 300000);
+  res.json({ id, url: `/api/print/${id}` });
+});
+app.get('/api/print/:id', (req, res) => {
+  const html = printPages[req.params.id];
+  if (!html) return res.status(404).send('<h1>Page expired. Please try again.</h1>');
+  delete printPages[req.params.id];
+  res.type('html').send(html);
+});
 
 // ============ AUTH ENDPOINTS ============
 app.post('/api/auth/login', (req, res) => {
@@ -848,6 +863,8 @@ function styleExcelHeader(sheet) {
     };
   });
   sheet.columns.forEach(col => { col.width = Math.max(col.width || 14, 14); });
+  // A4 page setup for printing
+  sheet.pageSetup = { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, horizontalCentered: true, margins: { left: 0.3, right: 0.3, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 } };
 }
 
 function styleExcelData(sheet, startRow) {
