@@ -13,8 +13,8 @@
   "author": "Mill Entry System",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "electron": "28.0.0",
+    "electron-builder": "24.9.1"
   },
   "dependencies": {
     "express": "^4.18.2",
