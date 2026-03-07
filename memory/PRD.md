@@ -50,6 +50,14 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - **Agent Payment Calculation**: Verified formula matches Python backend exactly: `(target_qntl × base_rate) + (cutting_qntl × cutting_rate)`
 - **About Section**: Added to Settings tab - "Developed by Host9x Team, Version 1.1"
 
+### Phase 19 - Dark/Light Theme Toggle (Mar 2026) ✅
+- CSS-based theme switching using `[data-theme="light"]` selectors
+- Theme toggle button (Sun/Moon icon) in header and login page
+- Persists in localStorage (`mill_theme` key)
+- Light mode: white/gray backgrounds, dark text, card shadows
+- Smooth 0.3s transitions on theme switch
+- All tabs, cards, tables, dialogs support both themes
+
 ## API Endpoints
 ### Authentication
 - POST /api/auth/login, POST /api/auth/change-password, GET /api/auth/verify
