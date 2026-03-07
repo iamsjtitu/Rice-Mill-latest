@@ -4,11 +4,11 @@
   "description": "Mill Entry Management System - Windows Desktop Application",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "npx electron .",
     "setup": "node setup-desktop.js",
-    "build": "node setup-desktop.js && electron-builder --win",
-    "build:win": "electron-builder --win --x64",
-    "pack": "electron-builder --dir"
+    "build": "node setup-desktop.js && npx electron-builder --win",
+    "build:win": "npx electron-builder --win --x64",
+    "pack": "npx electron-builder --dir"
   },
   "author": "Mill Entry System",
   "license": "MIT",
