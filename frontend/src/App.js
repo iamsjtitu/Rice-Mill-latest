@@ -35,7 +35,7 @@ import {
   FileSpreadsheet, FileText, LogOut, User, Lock, Key, Target, 
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
-  Info, Printer, HardDrive, Download, RotateCcw, Shield
+  Info, Printer, HardDrive, Download, RotateCcw, Shield, Sun, Moon
 } from "lucide-react";
 
 // Import extracted components
@@ -1833,6 +1833,14 @@ function MainApp({ user, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("entries"); // "entries", "dashboard", "payments", "settings"
 
+  // Theme state
+  const [theme, setTheme] = useState(() => localStorage.getItem('mill_theme') || 'dark');
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('mill_theme', newTheme);
+  };
+
   // Branding state
   const [branding, setBranding] = useState({ company_name: "NAVKAR AGRO", tagline: "Mill Entry System" });
   const [brandingForm, setBrandingForm] = useState({ company_name: "", tagline: "" });
@@ -2559,7 +2567,7 @@ function MainApp({ user, onLogout }) {
   const hasActiveFilters = filters.truck_no || filters.rst_no || filters.tp_no || filters.agent_name || filters.mandi_name || filters.season || filters.date_from || filters.date_to;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" data-theme={theme}>
       <Toaster position="top-right" richColors />
       
       {/* Header */}
@@ -2582,6 +2590,16 @@ function MainApp({ user, onLogout }) {
                   {user.role.toUpperCase()}
                 </span>
               </div>
+              <Button
+                onClick={toggleTheme}
+                variant="outline"
+                size="sm"
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                data-testid="theme-toggle-btn"
+                title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              >
+                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </Button>
               <Button
                 onClick={() => setIsPasswordDialogOpen(true)}
                 variant="outline"

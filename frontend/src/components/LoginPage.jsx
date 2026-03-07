@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { User, Lock } from "lucide-react";
+import { User, Lock, Sun, Moon } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -17,6 +17,13 @@ const LoginPage = ({ onLogin }) => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [branding, setBranding] = useState({ company_name: "Mill Entry System", tagline: "" });
+  const [theme, setTheme] = useState(() => localStorage.getItem('mill_theme') || 'dark');
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    localStorage.setItem('mill_theme', newTheme);
+  };
 
   // Fetch branding on mount
   useEffect(() => {
@@ -48,7 +55,16 @@ const LoginPage = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4" data-theme={theme}>
+      <Button
+        onClick={toggleTheme}
+        variant="outline"
+        size="sm"
+        className="fixed top-4 right-4 border-slate-600 text-slate-300 hover:bg-slate-700 z-20"
+        data-testid="login-theme-toggle"
+      >
+        {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+      </Button>
       <Card className="w-full max-w-md bg-slate-800 border-slate-700">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl text-amber-400">{branding.company_name}</CardTitle>
