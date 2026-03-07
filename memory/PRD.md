@@ -44,26 +44,24 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - ExcelJS + PDFKit exports
 - 49+ API endpoints mirrored from Python backend
 
-### Phase 18 - Bug Fixes (Mar 2026) ✅
-- **Print Fix**: Replaced `window.open + document.write` with Blob URL approach (`safePrintHTML`) for reliability in both Electron and browser
-- **Truck Payment Edit**: Fixed missing default values (rate_per_qntl, paid_amount, status) in `updateTruckPayment` for both desktop-app and local-server
-- **Agent Payment Calculation**: Fixed `|| 5` / `|| 10` → `?? 5` / `?? 10` (nullish coalescing). JavaScript `||` treats 0 as falsy, so cutting_rate=0 was defaulting to 5. Now uses `??` which only defaults for null/undefined.
-- **About Section**: Added to Settings tab - "Developed by Host9x Team, Version 1.1"
+### Phase 18-20 - Bug Fixes, Theme, Electron Fixes ✅
+- Print fix, Agent Payment Calculation fix, Dark/Light theme toggle
+- Excel styling, Download fix, About section updates
 
-### Phase 19 - Dark/Light Theme Toggle (Mar 2026) ✅
-- CSS-based theme switching using `[data-theme="light"]` selectors
-- Theme toggle button (Sun/Moon icon) in header and login page
-- Persists in localStorage (`mill_theme` key)
-- Light mode: white/gray backgrounds, dark text, card shadows
-- Smooth 0.3s transitions on theme switch
-- All tabs, cards, tables, dialogs support both themes
-
-### Phase 20 - Electron Desktop Fixes (Mar 2026) ✅
-- **Download fix**: Export URLs (PDF/Excel) now trigger direct save dialog - no blank window
-- **Print fix**: Iframe overlay approach for Electron (blob URLs don't work in Electron windows)
-- **Help Menu**: Custom Electron menu with Help > About showing "Developed by 9x.Design, Contact: +917205930002"
-- **Excel Styling**: Colorful headers (dark blue), alternating row colors (light blue/white), status highlighting (green=Paid, red=Pending, amber=Partial), borders, branded title rows with amber accent
-- **About section**: Updated to "Developed by 9x.Design" + Contact info
+### Phase 21 - CMR Module Phase 1: Milling & Conversion Tracker ✅ (Mar 2026)
+- **Milling Entry CRUD** - Track milling sessions (parboiled/raw)
+  - Paddy input from available stock (Mill W. QNTL from mill entries)
+  - Output: Rice%, Bran%, Kunda%, Broken%, Kanki% (QNTL auto-calculated)
+  - Husk% auto-calculated as remainder (100 - sum of others)
+  - FRK purchased separately (qty + rate, NOT from paddy)
+  - CMR Delivery = Rice QNTL + FRK QNTL (auto)
+  - Outturn Ratio = CMR / Paddy * 100 (auto)
+- **Paddy Stock Dashboard** - Available stock from Mill W. QNTL minus used in milling
+- **By-Product Stock Register** - Auto stock from milling output (Bran, Kunda, Broken, Kanki, Husk)
+- **By-Product Sales** - Sell by-products with qty, rate, buyer tracking
+- **Sub-tabs**: Milling Entries | By-Products Stock & Sales
+- **All 3 backends updated**: Python/FastAPI, Node.js local-server, Electron desktop-app
+- **Testing**: 100% pass (20/20 backend, all frontend)
 
 ## API Endpoints
 ### Authentication
@@ -81,6 +79,13 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 ### Truck & Agent Payments
 - Full CRUD + rate/pay/mark-paid/undo-paid/history endpoints
 
+### Milling (CMR) - NEW
+- CRUD: /api/milling-entries
+- GET /api/paddy-stock (available paddy from Mill W.)
+- GET /api/milling-summary (aggregated stats + parboiled/raw breakdown)
+- GET /api/byproduct-stock (produced/sold/available per product)
+- CRUD: /api/byproduct-sales
+
 ### Exports
 - Excel and PDF for entries, truck payments, agent payments
 
@@ -89,13 +94,13 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - Staff: staff / staff123
 
 ## Test Reports
-- /app/test_reports/iteration_1.json through iteration_7.json (previous)
-- /app/test_reports/iteration_8.json - Bug fixes (100% PASS - 14/14 backend, 100% frontend)
+- /app/test_reports/iteration_11.json - CMR Module Phase 1 (100% PASS)
 
 ## Files Structure
 ```
 /app/backend/server.py - FastAPI backend (MongoDB)
 /app/frontend/src/App.js - Main React frontend
+/app/frontend/src/components/MillingTracker.jsx - CMR Milling component
 /app/frontend/src/components/ - LoginPage, AutoSuggest, UI components
 /app/desktop-app/main.js - Electron + Express + JSON DB
 /app/local-server/server.js - Standalone Express + JSON DB
@@ -105,15 +110,21 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 
 ### P0 (Critical) - ALL DONE ✅
 - All core features, payments, exports, printing, branding, desktop app
+- CMR Module Phase 1: Milling, Paddy Stock, By-Product Stock & Sales
 
-### P1 (High Priority)
-- [ ] Code refactoring: Break App.js into components (Dashboard, Payments, Entries)
-- [ ] Code refactoring: Modularize main.js and server.js into routers
+### P1 (High Priority) - UPCOMING
+- [ ] **Phase 2: DO & Delivery Management** - Track government Delivery Orders (DO number, quantity, deadline) and deliveries against each DO
+- [ ] **Phase 3: Stock & Payment Tracking** - MSP payment tracking from government
+- [ ] **Private Paddy Trading** - Buy paddy from outside, mill, sell rice + by-products
+- [ ] **Gunny Bag Tracking** - New bags from government (free), old bags purchased from market
 
 ### P2 (Medium Priority)
-- [ ] Monthly/weekly comparison charts
-- [ ] Improved print invoice formatting
+- [ ] Phase 4: Reporting - Milling Report, CMR Delivery vs DO, Season P&L
+- [ ] Phase 5: Consolidated Ledgers - Outstanding Report, Party Ledger
+- [ ] Code refactoring: Break App.js into components
+- [ ] Code refactoring: Modularize main.js and server.js
 
 ### P3 (Low Priority)
 - [ ] Audit trail for entry changes
 - [ ] Mobile responsive improvements
+- [ ] macOS build
