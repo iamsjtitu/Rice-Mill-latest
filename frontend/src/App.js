@@ -45,6 +45,32 @@ import AutoSuggest from "@/components/common/AutoSuggest";
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// Safe print helper - works in both Electron and browser environments
+const safePrintHTML = (htmlContent) => {
+  try {
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const printWindow = window.open(url, '_blank', 'width=800,height=600');
+    if (printWindow) {
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+    } else {
+      // Fallback: iframe-based printing
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
+      document.body.appendChild(iframe);
+      iframe.src = url;
+      iframe.onload = () => {
+        iframe.contentWindow.print();
+        setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url); }, 10000);
+      };
+    }
+  } catch (e) {
+    // Last resort: document.write
+    const w = window.open('', '_blank');
+    if (w) { w.document.open(); w.document.write(htmlContent); w.document.close(); }
+  }
+};
+
 // Generate KMS years
 const generateKMSYears = () => {
   const currentYear = new Date().getFullYear();
@@ -702,7 +728,6 @@ const Payments = ({ filters, user }) => {
 
   // Print Invoice for Truck Payment
   const handlePrintInvoice = (payment) => {
-    const invoiceWindow = window.open('', '_blank', 'width=800,height=600');
     const invoiceContent = `
       <!DOCTYPE html>
       <html>
@@ -831,13 +856,11 @@ const Payments = ({ filters, user }) => {
       </body>
       </html>
     `;
-    invoiceWindow.document.write(invoiceContent);
-    invoiceWindow.document.close();
+    safePrintHTML(invoiceContent);
   };
 
   // Print Invoice for Agent Payment
   const handlePrintAgentInvoice = (payment) => {
-    const invoiceWindow = window.open('', '_blank', 'width=800,height=600');
     const invoiceContent = `
       <!DOCTYPE html>
       <html>
@@ -966,8 +989,7 @@ const Payments = ({ filters, user }) => {
       </body>
       </html>
     `;
-    invoiceWindow.document.write(invoiceContent);
-    invoiceWindow.document.close();
+    safePrintHTML(invoiceContent);
   };
 
   // Calculate Truck-wise consolidated payments (group by truck_no)
@@ -1011,7 +1033,6 @@ const Payments = ({ filters, user }) => {
       </tr>
     `).join('');
 
-    const invoiceWindow = window.open('', '_blank', 'width=900,height=700');
     const invoiceContent = `
       <!DOCTYPE html>
       <html>
@@ -1130,8 +1151,7 @@ const Payments = ({ filters, user }) => {
       </body>
       </html>
     `;
-    invoiceWindow.document.write(invoiceContent);
-    invoiceWindow.document.close();
+    safePrintHTML(invoiceContent);
   };
 
   // Calculate totals for filtered truck payments
@@ -2354,8 +2374,7 @@ function MainApp({ user, onLogout }) {
   };
 
   const handleExportPDF = () => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
+    const pdfContent = `
       <html>
         <head>
           <title>Navkar Agro - Mill Entries</title>
@@ -2492,9 +2511,8 @@ function MainApp({ user, onLogout }) {
           </div>
         </body>
       </html>
-    `);
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 500);
+    `;
+    safePrintHTML(pdfContent);
     toast.success("PDF generate ho raha hai!");
   };
 
@@ -3483,6 +3501,26 @@ function MainApp({ user, onLogout }) {
 
                 <div className="text-center text-slate-500 text-xs">
                   <p>Backups location: data/backups/ folder mein save hote hain</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* About Section */}
+            <Card className="bg-slate-800 border-slate-700" data-testid="about-section">
+              <CardHeader>
+                <CardTitle className="text-cyan-400 flex items-center gap-2">
+                  <Info className="w-5 h-5" />
+                  About / जानकारी
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center space-y-3 py-4">
+                  <h3 className="text-2xl font-bold text-amber-400">{branding.company_name}</h3>
+                  <p className="text-slate-400">{branding.tagline}</p>
+                  <div className="border-t border-slate-700 pt-4 mt-4">
+                    <p className="text-slate-300 text-sm font-semibold" data-testid="about-developer">Developed by Host9x Team</p>
+                    <p className="text-slate-500 text-xs mt-1" data-testid="about-version">Version 1.1</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>

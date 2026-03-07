@@ -250,7 +250,11 @@ class JsonDatabase {
 
   // ---- Truck Payments ----
   getTruckPayment(entryId) {
-    return this.data.truck_payments.find(p => p.entry_id === entryId) || {
+    const found = this.data.truck_payments.find(p => p.entry_id === entryId);
+    if (found) {
+      return { rate_per_qntl: 32, paid_amount: 0, status: 'pending', payments_history: [], ...found };
+    }
+    return {
       entry_id: entryId, rate_per_qntl: 32, paid_amount: 0, status: 'pending', payments_history: []
     };
   }

@@ -279,7 +279,11 @@ class JsonDatabase {
 
   // Truck Payments
   getTruckPayment(entryId) {
-    return this.data.truck_payments.find(p => p.entry_id === entryId) || {
+    const found = this.data.truck_payments.find(p => p.entry_id === entryId);
+    if (found) {
+      return { rate_per_qntl: 32, paid_amount: 0, status: 'pending', payment_history: [], ...found };
+    }
+    return {
       entry_id: entryId,
       rate_per_qntl: 32,
       paid_amount: 0,
@@ -293,7 +297,7 @@ class JsonDatabase {
     if (index !== -1) {
       this.data.truck_payments[index] = { ...this.data.truck_payments[index], ...payment };
     } else {
-      this.data.truck_payments.push({ entry_id: entryId, ...payment });
+      this.data.truck_payments.push({ entry_id: entryId, rate_per_qntl: 32, paid_amount: 0, status: 'pending', payment_history: [], ...payment });
     }
     this.save();
     return this.getTruckPayment(entryId);
@@ -1295,6 +1299,11 @@ async function createMainWindow(port) {
 
   // Load frontend from Express server
   mainWindow.loadURL(`http://127.0.0.1:${port}`);
+
+  // Allow popup windows for printing
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    return { action: 'allow' };
+  });
 
   // Inject API URL when page loads
   mainWindow.webContents.on('did-finish-load', () => {
