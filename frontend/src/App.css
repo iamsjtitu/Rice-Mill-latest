@@ -327,3 +327,14 @@ input:focus, button:focus {
 [data-theme="dark"] {
   transition: background-color 0.3s ease, color 0.2s ease;
 }
+
+/* Hide Made with Emergent badge */
+iframe[src*="emergent"],
+div[id*="emergent-badge"],
+a[href*="emergentagent.com"] > div,
+div[style*="z-index: 2147483647"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

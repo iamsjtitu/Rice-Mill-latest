@@ -3536,7 +3536,8 @@ function MainApp({ user, onLogout }) {
                   <h3 className="text-2xl font-bold text-amber-400">{branding.company_name}</h3>
                   <p className="text-slate-400">{branding.tagline}</p>
                   <div className="border-t border-slate-700 pt-4 mt-4">
-                    <p className="text-slate-300 text-sm font-semibold" data-testid="about-developer">Developed by Host9x Team</p>
+                    <p className="text-slate-300 text-sm font-semibold" data-testid="about-developer">Developed by 9x.Design</p>
+                    <p className="text-slate-400 text-sm mt-2" data-testid="about-contact">Contact Us: +917205930002</p>
                     <p className="text-slate-500 text-xs mt-1" data-testid="about-version">Version 1.1</p>
                   </div>
                 </div>
