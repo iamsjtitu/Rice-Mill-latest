@@ -1,66 +1,88 @@
-# Navkar Agro - Mill Entry System PRD
+# Mill Entry System - Product Requirements Document
 
 ## Original Problem Statement
-Mill Entry application for grain tracking with auto-calculations, role-based auth, exports, mandi target tracking, payment management. 3 versions: web preview (React+FastAPI), Desktop (Electron), Local server (Node.js).
+The user requested a comprehensive Mill Entry System for managing paddy-to-rice conversion (Custom Milled Rice - CMR) for government supply. The system needs to track:
+- Paddy entries, milling sessions, DC management, payments, stock registers
+- Consolidated financial ledgers for all parties
+
+## User Personas
+- **Admin (mill owner):** Full access - entries, payments, settings, targets, exports
+- **Staff:** Can create entries (limited edit window), view data, export
+
+## Core Requirements & Implementation Status
+
+### Phase 1: Paddy Entry + Milling Tracker (DONE)
+- Paddy custody register with auto-calculations
+- Milling sessions: paddy → rice + by-products
+- FRK purchase tracking
+- By-product sales tracking
+- Excel/PDF exports for all
+
+### Phase 2: DC Management (DONE)
+- DC (Delivery Challan) numbers with allotted quantity
+- Track deliveries against each DC
+- DC summary with pending deliveries
+
+### Phase 3: Stock & Payment Tracking (DONE)
+- MSP payments from government
+- Gunny Bag inventory (paddy bags + government bags)
+- Truck payments (bhada) with rate, deductions, mark-paid
+- Agent payments based on mandi targets
+
+### Phase 4: Reporting (DONE)
+- CMR vs DC comparison report
+- Season P&L analysis
+- Excel/PDF exports
+
+### Phase 5: Consolidated Ledgers (DONE - 2026-03-07)
+- **Outstanding Report:** DC pending deliveries, MSP payment pending, truck summary, agent summary, FRK party summary
+- **Party Ledger:** All transactions for any party (Agent, Truck, FRK Seller, Buyer) with debit/credit
+- Party type and party name filters
+- Excel/PDF exports for both reports
+- Integrated as "Ledgers" tab in main navigation
+- Keyboard shortcut: Alt+L
+- Ported to both Node.js backends (local-server, desktop-app)
+
+### Cash Book Module (DONE)
+- Cash and bank transaction tracking
+- Custom user-defined categories
+- Summary with running balance
+- Excel/PDF exports
 
 ## Architecture
-- **Web Preview**: React + FastAPI + MongoDB
-- **Desktop App**: Electron + Express.js + JSON file DB
-- **Local Server**: Node.js/Express + JSON file DB
-
-## What's Been Implemented
-
-### Core Features (Phase 1-20)
-- KG to QNTL auto conversion, Mill W, Final W, printing, exports, auth, dashboard
-- Truck & Agent payments, keyboard shortcuts, branding, dark/light theme
-- Desktop .exe app, local server, auto-backup
-
-### CMR Module Phase 1: Milling & Conversion Tracker
-- Milling Entry CRUD, FRK Purchase, By-Product Stock & Sales
-- Paddy Custody Register (label: "Released" not "Issued")
-- Export for ALL tabs (Excel + PDF)
-
-### Cash Book / Daily Cash & Bank Register
-- Cash in Hand + Bank Balance tracking (Jama/Nikasi)
-- Custom Category Management, Summary Cards, Filters
-- Excel + PDF Export, Alt+B shortcut
-
-### Phase 2: DC (Delivery Challan) & Payment Management
-- DC Management (auto-status: pending→partial→completed), expandable delivery rows
-- MSP Payment Tracking (linked to DCs, mode/ref/bank)
-- Gunny Bags (बोरी): New(govt)/Old(market) + **Paddy Receive Bags + P.Pkt from truck entries**
-- **Govt bags NOT in total** (Total = Old + Paddy bags + P.Pkt)
-- Excel + PDF Export for all
-
-### Phase 4: Reporting
-- **CMR vs DC Report** - Milling output vs DC allotment vs deliveries, surplus/deficit, by-product revenue
-- **Season P&L** - Income (MSP, By-Products, Cash Jama) vs Expenses (FRK, Gunny, Cash Nikasi, Truck, Agent)
-- Excel + PDF Export for both reports
+```
+/app
+├── backend/server.py          # Python/FastAPI (web preview)
+├── local-server/server.js     # Node.js/Express (standalone)
+├── desktop-app/main.js        # Electron + Express (desktop)
+└── frontend/src/
+    ├── App.js                 # Main router/layout
+    ├── components/
+    │   ├── Ledgers.jsx        # Phase 5: Outstanding + Party Ledger
+    │   ├── MillingTracker.js  # Phase 1: Milling
+    │   ├── CashBook.jsx       # Cash Book
+    │   ├── DCTracker.jsx      # DC, MSP, Gunny Bags
+    │   └── Reports.jsx        # CMR vs DC, Season P&L
+    └── ...
+```
 
 ## Key API Endpoints
-- CMR: milling-entries, frk-purchases, byproduct-sales, paddy-custody-register (CRUD + exports)
-- Cash Book: cash-book, cash-book/categories, cash-book/summary (CRUD + exports)
-- DC: dc-entries, dc-deliveries, dc-summary, msp-payments (CRUD + exports)
-- Gunny: gunny-bags, gunny-bags/summary (CRUD + exports)
-- Reports: reports/cmr-vs-dc, reports/season-pnl (GET + exports)
-
-## Test Reports
-- iteration_13: CMR Exports (100%), iteration_14: Cash Book (100%)
-- iteration_15: DC/MSP/Gunny (100%), iteration_16: Gunny Update + Reports (100%)
+- `/api/reports/outstanding` - Outstanding report
+- `/api/reports/party-ledger` - Party ledger with filters
+- `/api/reports/outstanding/excel|pdf` - Exports
+- `/api/reports/party-ledger/excel|pdf` - Exports
+- `/api/dcs`, `/api/dc-deliveries` - DC CRUD
+- `/api/msp-payments` - MSP CRUD
+- `/api/gunny-bags` - Gunny Bag CRUD
+- `/api/cash-transactions`, `/api/cash-categories` - Cash Book
+- `/api/entries` - Paddy entries CRUD
+- `/api/mandi-targets` - Target management
+- `/api/truck-payments`, `/api/agent-payments` - Payments
 
 ## Credentials
-- Admin: admin / admin123 | Staff: staff / staff123
+- Admin: `admin` / `admin123`
+- Staff: `staff` / `staff123`
 
 ## Prioritized Backlog
-
-### P1 (High)
-- [ ] Phase 5: Consolidated Ledgers (Outstanding Report, Party Ledger)
-- [ ] DC/MSP/Gunny Export endpoints in Node.js backends
-
-### P2 (Medium)
-- [ ] Code refactoring: Break monolithic files into modules
-- [ ] Opening Balance for Cash Book
-- [ ] Reports module in Node.js backends
-
-### P3 (Low)
-- [ ] Audit trail, Mobile responsive, macOS build
+- **P2:** macOS desktop build
+- **P2:** Code refactoring (split monolithic files into modules)
