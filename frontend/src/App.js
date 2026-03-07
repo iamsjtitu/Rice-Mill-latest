@@ -46,6 +46,7 @@ import MillingTracker from "@/components/MillingTracker";
 import CashBook from "@/components/CashBook";
 import DCTracker from "@/components/DCTracker";
 import Reports from "@/components/Reports";
+import Ledgers from "@/components/Ledgers";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -2201,6 +2202,12 @@ function MainApp({ user, onLogout }) {
         setActiveTab("cashbook");
         toast.info("Cash Book Tab (Alt+B)");
       }
+      // Alt + L: Go to Ledgers tab
+      if (e.altKey && e.key === 'l') {
+        e.preventDefault();
+        setActiveTab("ledgers");
+        toast.info("Ledgers Tab (Alt+L)");
+      }
       // Alt + R: Refresh data
       if (e.altKey && e.key === 'r') {
         e.preventDefault();
@@ -2912,6 +2919,18 @@ function MainApp({ user, onLogout }) {
               <BarChart3 className="w-4 h-4 mr-1" />
               Reports
             </Button>
+            <Button
+              onClick={() => setActiveTab("ledgers")}
+              variant={activeTab === "ledgers" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "ledgers" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-ledgers"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-1" />
+              Ledgers
+            </Button>
             {user.role === 'admin' && (
               <Button
                 onClick={() => { setActiveTab("settings"); fetchBackups(); }}
@@ -3478,6 +3497,8 @@ function MainApp({ user, onLogout }) {
           <DCTracker filters={filters} user={user} />
         ) : activeTab === "reports" ? (
           <Reports filters={filters} user={user} />
+        ) : activeTab === "ledgers" ? (
+          <Ledgers filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">
