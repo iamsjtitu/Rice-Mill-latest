@@ -273,6 +273,7 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - /app/test_reports/iteration_4.json
 - /app/test_reports/iteration_5.json (Bug fixes - 100% PASS)
 - /app/test_reports/iteration_6.json (Desktop app + API verification - 100% PASS)
+- /app/test_reports/iteration_7.json (Backup + Export features - 100% PASS)
 
 ## Files Structure
 ```
@@ -300,6 +301,19 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
   package.json - Build config (electron-builder)
   SETUP_GUIDE.md - Build instructions
 ```
+
+### Phase 15 - Auto-Backup System (Tally-style) - Dec 2025
+- Auto-backup on startup + daily check (max 7 kept)
+- Backup reminder dialog on login
+- Backup section in Settings (create, list, restore, delete)
+- Safety backup created before restore
+- API: /api/backups, /api/backups/status, /api/backups/restore
+
+### Phase 16 - Excel/PDF Export (ExcelJS + PDFKit) - Dec 2025
+- Proper .xlsx exports with styled headers and branding
+- PDF exports with company header, tabular data, pagination
+- Covers: Entries, Truck Payments, Agent Payments, Truck Owner, Summary Report
+
 
 ## Database Collections
 - **mill_entries**: Entry records
