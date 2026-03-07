@@ -301,26 +301,28 @@ class JsonDatabase {
   calculateMillingFields(data) {
     const paddy = data.paddy_input_qntl || 0;
     const ricePct = data.rice_percent || 0;
-    const frkPct = data.frk_percent || 0;
     const branPct = data.bran_percent || 0;
     const kundaPct = data.kunda_percent || 0;
     const brokenPct = data.broken_percent || 0;
     const kankiPct = data.kanki_percent || 0;
-    const usedPct = ricePct + frkPct + branPct + kundaPct + brokenPct + kankiPct;
+    const usedPct = ricePct + branPct + kundaPct + brokenPct + kankiPct;
     const huskPct = Math.max(0, +(100 - usedPct).toFixed(2));
+    const frkQty = data.frk_purchased_qntl || 0;
+    const frkRate = data.frk_purchase_rate || 0;
+    const riceQntl = +(paddy * ricePct / 100).toFixed(2);
 
     return {
       ...data,
       husk_percent: huskPct,
-      rice_qntl: +(paddy * ricePct / 100).toFixed(2),
-      frk_qntl: +(paddy * frkPct / 100).toFixed(2),
+      rice_qntl: riceQntl,
       bran_qntl: +(paddy * branPct / 100).toFixed(2),
       kunda_qntl: +(paddy * kundaPct / 100).toFixed(2),
       broken_qntl: +(paddy * brokenPct / 100).toFixed(2),
       kanki_qntl: +(paddy * kankiPct / 100).toFixed(2),
       husk_qntl: +(paddy * huskPct / 100).toFixed(2),
-      cmr_delivery_qntl: +(paddy * (ricePct + frkPct) / 100).toFixed(2),
-      outturn_ratio: paddy > 0 ? +(ricePct + frkPct).toFixed(2) : 0
+      frk_total_cost: +(frkQty * frkRate).toFixed(2),
+      cmr_delivery_qntl: +(riceQntl + frkQty).toFixed(2),
+      outturn_ratio: paddy > 0 ? +((riceQntl + frkQty) / paddy * 100).toFixed(2) : 0
     };
   }
 
@@ -343,13 +345,16 @@ class JsonDatabase {
       date: calculated.date || new Date().toISOString().split('T')[0],
       rice_type: calculated.rice_type || 'parboiled',
       paddy_input_qntl: calculated.paddy_input_qntl || 0,
-      rice_percent: calculated.rice_percent || 0, frk_percent: calculated.frk_percent || 0,
+      rice_percent: calculated.rice_percent || 0,
       bran_percent: calculated.bran_percent || 0, kunda_percent: calculated.kunda_percent || 0,
       broken_percent: calculated.broken_percent || 0, kanki_percent: calculated.kanki_percent || 0,
       husk_percent: calculated.husk_percent, rice_qntl: calculated.rice_qntl,
-      frk_qntl: calculated.frk_qntl, bran_qntl: calculated.bran_qntl,
+      bran_qntl: calculated.bran_qntl,
       kunda_qntl: calculated.kunda_qntl, broken_qntl: calculated.broken_qntl,
       kanki_qntl: calculated.kanki_qntl, husk_qntl: calculated.husk_qntl,
+      frk_purchased_qntl: calculated.frk_purchased_qntl || 0,
+      frk_purchase_rate: calculated.frk_purchase_rate || 0,
+      frk_total_cost: calculated.frk_total_cost || 0,
       cmr_delivery_qntl: calculated.cmr_delivery_qntl, outturn_ratio: calculated.outturn_ratio,
       kms_year: calculated.kms_year || '', season: calculated.season || '',
       note: calculated.note || '', created_by: calculated.created_by || '',
@@ -385,22 +390,24 @@ class JsonDatabase {
     const entries = this.getMillingEntries(filters);
     const totalPaddy = entries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0);
     const totalRice = entries.reduce((s, e) => s + (e.rice_qntl || 0), 0);
-    const totalFrk = entries.reduce((s, e) => s + (e.frk_qntl || 0), 0);
+    const totalFrk = entries.reduce((s, e) => s + (e.frk_purchased_qntl || 0), 0);
     const totalBran = entries.reduce((s, e) => s + (e.bran_qntl || 0), 0);
     const totalKunda = entries.reduce((s, e) => s + (e.kunda_qntl || 0), 0);
     const totalBroken = entries.reduce((s, e) => s + (e.broken_qntl || 0), 0);
     const totalKanki = entries.reduce((s, e) => s + (e.kanki_qntl || 0), 0);
     const totalHusk = entries.reduce((s, e) => s + (e.husk_qntl || 0), 0);
     const totalCmr = entries.reduce((s, e) => s + (e.cmr_delivery_qntl || 0), 0);
-    const avgOutturn = totalPaddy > 0 ? +((totalRice + totalFrk) / totalPaddy * 100).toFixed(2) : 0;
+    const totalFrkCost = entries.reduce((s, e) => s + (e.frk_total_cost || 0), 0);
+    const avgOutturn = totalPaddy > 0 ? +((totalCmr) / totalPaddy * 100).toFixed(2) : 0;
 
     const typeSummary = (list) => {
       const tp = list.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0);
       const tr = list.reduce((s, e) => s + (e.rice_qntl || 0), 0);
-      const tf = list.reduce((s, e) => s + (e.frk_qntl || 0), 0);
+      const tf = list.reduce((s, e) => s + (e.frk_purchased_qntl || 0), 0);
+      const tc = list.reduce((s, e) => s + (e.cmr_delivery_qntl || 0), 0);
       return { count: list.length, total_paddy_qntl: +tp.toFixed(2), total_rice_qntl: +tr.toFixed(2),
-        total_frk_qntl: +tf.toFixed(2), total_cmr_qntl: +(tr + tf).toFixed(2),
-        avg_outturn: tp > 0 ? +((tr + tf) / tp * 100).toFixed(2) : 0 };
+        total_frk_qntl: +tf.toFixed(2), total_cmr_qntl: +tc.toFixed(2),
+        avg_outturn: tp > 0 ? +(tc / tp * 100).toFixed(2) : 0 };
     };
 
     return {
@@ -409,6 +416,7 @@ class JsonDatabase {
       total_bran_qntl: +totalBran.toFixed(2), total_kunda_qntl: +totalKunda.toFixed(2),
       total_broken_qntl: +totalBroken.toFixed(2), total_kanki_qntl: +totalKanki.toFixed(2),
       total_husk_qntl: +totalHusk.toFixed(2), total_cmr_qntl: +totalCmr.toFixed(2),
+      total_frk_cost: +totalFrkCost.toFixed(2),
       avg_outturn_ratio: avgOutturn,
       parboiled: typeSummary(entries.filter(e => e.rice_type === 'parboiled')),
       raw: typeSummary(entries.filter(e => e.rice_type === 'raw'))
@@ -966,6 +974,65 @@ app.delete('/api/milling-entries/:id', (req, res) => {
   const deleted = database.deleteMillingEntry(req.params.id);
   if (!deleted) return res.status(404).json({ detail: 'Milling entry not found' });
   res.json({ message: 'Milling entry deleted', id: req.params.id });
+});
+
+app.get('/api/paddy-stock', (req, res) => {
+  const filters = req.query;
+  let entries = [...database.data.entries];
+  if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
+  if (filters.season) entries = entries.filter(e => e.season === filters.season);
+  const totalIn = +(entries.reduce((s, e) => s + (e.mill_w || 0), 0) / 100).toFixed(2);
+  const millingEntries = database.getMillingEntries(filters);
+  const totalUsed = +millingEntries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0).toFixed(2);
+  res.json({ total_paddy_in_qntl: totalIn, total_paddy_used_qntl: totalUsed, available_paddy_qntl: +(totalIn - totalUsed).toFixed(2) });
+});
+
+app.get('/api/byproduct-stock', (req, res) => {
+  if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
+  const millingEntries = database.getMillingEntries(req.query);
+  let sales = [...database.data.byproduct_sales];
+  if (req.query.kms_year) sales = sales.filter(s => s.kms_year === req.query.kms_year);
+  if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
+  const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+  const stock = {};
+  products.forEach(p => {
+    const produced = +millingEntries.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0).toFixed(2);
+    const pSales = sales.filter(s => s.product === p);
+    const sold = +pSales.reduce((s, e) => s + (e.quantity_qntl || 0), 0).toFixed(2);
+    const revenue = +pSales.reduce((s, e) => s + (e.total_amount || 0), 0).toFixed(2);
+    stock[p] = { produced_qntl: produced, sold_qntl: sold, available_qntl: +(produced - sold).toFixed(2), total_revenue: revenue };
+  });
+  res.json(stock);
+});
+
+app.post('/api/byproduct-sales', (req, res) => {
+  if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
+  const sale = {
+    id: uuidv4(), ...req.body,
+    total_amount: +((req.body.quantity_qntl || 0) * (req.body.rate_per_qntl || 0)).toFixed(2),
+    created_by: req.query.username || '',
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+  };
+  database.data.byproduct_sales.push(sale);
+  database.save();
+  res.json(sale);
+});
+
+app.get('/api/byproduct-sales', (req, res) => {
+  if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
+  let sales = [...database.data.byproduct_sales];
+  if (req.query.product) sales = sales.filter(s => s.product === req.query.product);
+  if (req.query.kms_year) sales = sales.filter(s => s.kms_year === req.query.kms_year);
+  if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
+  res.json(sales.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+});
+
+app.delete('/api/byproduct-sales/:id', (req, res) => {
+  if (!database.data.byproduct_sales) return res.status(404).json({ detail: 'Sale not found' });
+  const len = database.data.byproduct_sales.length;
+  database.data.byproduct_sales = database.data.byproduct_sales.filter(s => s.id !== req.params.id);
+  if (database.data.byproduct_sales.length < len) { database.save(); return res.json({ message: 'Sale deleted', id: req.params.id }); }
+  res.status(404).json({ detail: 'Sale not found' });
 });
 
 // ============ BACKUP ENDPOINTS ============

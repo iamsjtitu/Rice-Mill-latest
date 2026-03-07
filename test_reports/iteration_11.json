@@ -1,0 +1,62 @@
+{
+  "summary": "CMR (Custom Milled Rice) Milling Module Phase 1 - Complete testing. All backend APIs working correctly: milling-entries CRUD, paddy-stock, milling-summary, byproduct-stock, byproduct-sales. Frontend UI fully functional with correct data-testid attributes. Auto-calculations verified: husk% = 100 - (rice% + bran% + kunda% + broken% + kanki%), CMR = rice + FRK, outturn = CMR/paddy*100. FRK is correctly treated as purchased separately (not percentage-based).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Milling Form Dialog", "issues": ["Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent} - accessibility improvement recommended"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cmr_milling_module.py",
+    "/app/test_reports/pytest/pytest_results_cmr_milling.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_cmr_milling_module.py"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20 tests passed)",
+    "frontend": "100% (all UI elements found and functional)"
+  },
+  "seed_data_creation": "Test entries created and deleted during testing - no residual test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "CMR Milling Module Phase 1 fully tested. Key APIs: POST/GET/PUT/DELETE /api/milling-entries, GET /api/paddy-stock, GET /api/milling-summary, GET /api/byproduct-stock, POST/GET/DELETE /api/byproduct-sales. FRK is purchased separately (frk_purchased_qntl, frk_purchase_rate), NOT percentage-based. Auto-calculations work correctly. Frontend uses data-testid attributes: tab-milling, subtab-milling, subtab-byproducts, milling-add-btn, milling-form-dialog, milling-form-paddy, milling-form-rice-pct, milling-form-frk-qty, milling-form-frk-rate, byproduct-stock-{product}, byproduct-sell-{product}, byproduct-add-sale, sale-form-dialog.",
+  "test_data_used": {
+    "milling_entry": {
+      "paddy_input_qntl": 100,
+      "rice_percent": 52,
+      "bran_percent": 5,
+      "kunda_percent": 3,
+      "broken_percent": 2,
+      "kanki_percent": 1,
+      "frk_purchased_qntl": 15,
+      "frk_purchase_rate": 2500,
+      "expected_husk_percent": 37,
+      "expected_cmr_delivery_qntl": 67,
+      "expected_outturn_ratio": 67,
+      "expected_frk_total_cost": 37500
+    },
+    "byproduct_sale": {
+      "product": "bran",
+      "quantity_qntl": 2,
+      "rate_per_qntl": 1500,
+      "expected_total_amount": 3000
+    }
+  },
+  "verified_business_logic": {
+    "husk_calculation": "husk% = 100 - (rice% + bran% + kunda% + broken% + kanki%)",
+    "cmr_calculation": "cmr_delivery_qntl = rice_qntl + frk_purchased_qntl",
+    "outturn_calculation": "outturn_ratio = cmr_delivery_qntl / paddy_input_qntl * 100",
+    "frk_cost_calculation": "frk_total_cost = frk_purchased_qntl * frk_purchase_rate",
+    "frk_treatment": "FRK is purchased separately, NOT percentage-based",
+    "paddy_stock": "available = total_paddy_in_qntl (from mill_entries mill_w) - total_paddy_used_qntl (from milling_entries)",
+    "byproduct_stock": "available = produced (from milling_entries) - sold (from byproduct_sales)"
+  }
+}

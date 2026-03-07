@@ -227,29 +227,32 @@ class MillingEntry(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     date: str
     rice_type: str = "parboiled"  # "parboiled" or "raw"
-    paddy_input_qntl: float = 0
+    paddy_input_qntl: float = 0  # from available paddy stock (Mill W. QNTL)
     
-    # Output percentages (user enters)
+    # Output percentages from paddy (user enters)
     rice_percent: float = 0
-    frk_percent: float = 0
     bran_percent: float = 0
     kunda_percent: float = 0
     broken_percent: float = 0
     kanki_percent: float = 0
     husk_percent: float = 0  # auto-calculated as remainder
     
-    # Auto-calculated QNTL
+    # Auto-calculated QNTL from paddy
     rice_qntl: float = 0
-    frk_qntl: float = 0
     bran_qntl: float = 0
     kunda_qntl: float = 0
     broken_qntl: float = 0
     kanki_qntl: float = 0
     husk_qntl: float = 0
     
+    # FRK - purchased from outside
+    frk_purchased_qntl: float = 0
+    frk_purchase_rate: float = 0  # ₹ per QNTL
+    frk_total_cost: float = 0     # auto: qty * rate
+    
     # CMR
-    cmr_delivery_qntl: float = 0  # rice + frk
-    outturn_ratio: float = 0      # (rice + frk) / paddy * 100
+    cmr_delivery_qntl: float = 0  # rice_qntl + frk_purchased_qntl
+    outturn_ratio: float = 0      # cmr / paddy * 100
     
     # Meta
     kms_year: str = ""
@@ -265,14 +268,45 @@ class MillingEntryCreate(BaseModel):
     rice_type: str = "parboiled"
     paddy_input_qntl: float = 0
     rice_percent: float = 0
-    frk_percent: float = 0
     bran_percent: float = 0
     kunda_percent: float = 0
     broken_percent: float = 0
     kanki_percent: float = 0
+    frk_purchased_qntl: float = 0
+    frk_purchase_rate: float = 0
     kms_year: str = ""
     season: str = ""
     note: str = ""
+
+
+# ============ BY-PRODUCT STOCK MODELS ============
+class ByProductSale(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    date: str
+    product: str  # bran, kunda, broken, kanki, husk
+    quantity_qntl: float = 0
+    rate_per_qntl: float = 0
+    total_amount: float = 0  # auto: qty * rate
+    buyer_name: str = ""
+    note: str = ""
+    kms_year: str = ""
+    season: str = ""
+    created_by: str = ""
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class ByProductSaleCreate(BaseModel):
+    date: str
+    product: str
+    quantity_qntl: float = 0
+    rate_per_qntl: float = 0
+    buyer_name: str = ""
+    note: str = ""
+    kms_year: str = ""
+    season: str = ""
 
 
 class MandiTargetSummary(BaseModel):
@@ -2975,33 +3009,36 @@ async def export_truck_owner_pdf(
 # ============ MILLING ENTRY CRUD APIs ============
 
 def calculate_milling_fields(data: dict) -> dict:
-    """Auto-calculate QNTL values from percentages and paddy input"""
+    """Auto-calculate QNTL values from percentages and paddy input. FRK is purchased separately."""
     paddy = data.get('paddy_input_qntl', 0) or 0
     
     rice_pct = data.get('rice_percent', 0) or 0
-    frk_pct = data.get('frk_percent', 0) or 0
     bran_pct = data.get('bran_percent', 0) or 0
     kunda_pct = data.get('kunda_percent', 0) or 0
     broken_pct = data.get('broken_percent', 0) or 0
     kanki_pct = data.get('kanki_percent', 0) or 0
     
-    # Husk = remainder
-    used_pct = rice_pct + frk_pct + bran_pct + kunda_pct + broken_pct + kanki_pct
-    husk_pct = max(0, 100 - used_pct)
+    # Husk = remainder (no FRK in paddy output)
+    used_pct = rice_pct + bran_pct + kunda_pct + broken_pct + kanki_pct
+    husk_pct = max(0, round(100 - used_pct, 2))
     
-    data['husk_percent'] = round(husk_pct, 2)
+    data['husk_percent'] = husk_pct
     data['rice_qntl'] = round(paddy * rice_pct / 100, 2)
-    data['frk_qntl'] = round(paddy * frk_pct / 100, 2)
     data['bran_qntl'] = round(paddy * bran_pct / 100, 2)
     data['kunda_qntl'] = round(paddy * kunda_pct / 100, 2)
     data['broken_qntl'] = round(paddy * broken_pct / 100, 2)
     data['kanki_qntl'] = round(paddy * kanki_pct / 100, 2)
     data['husk_qntl'] = round(paddy * husk_pct / 100, 2)
     
-    # CMR delivery = rice + frk
-    data['cmr_delivery_qntl'] = round(data['rice_qntl'] + data['frk_qntl'], 2)
-    # Outturn ratio
-    data['outturn_ratio'] = round((rice_pct + frk_pct), 2) if paddy > 0 else 0
+    # FRK is purchased from outside
+    frk_qty = data.get('frk_purchased_qntl', 0) or 0
+    frk_rate = data.get('frk_purchase_rate', 0) or 0
+    data['frk_total_cost'] = round(frk_qty * frk_rate, 2)
+    
+    # CMR delivery = rice (from paddy) + FRK (purchased)
+    data['cmr_delivery_qntl'] = round(data['rice_qntl'] + frk_qty, 2)
+    # Outturn ratio = CMR / paddy * 100
+    data['outturn_ratio'] = round(data['cmr_delivery_qntl'] / paddy * 100, 2) if paddy > 0 else 0
     
     return data
 
@@ -3078,11 +3115,32 @@ async def delete_milling_entry(entry_id: str, username: str = "", role: str = ""
     return {"message": "Milling entry deleted", "id": entry_id}
 
 
+@api_router.get("/paddy-stock")
+async def get_paddy_stock(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Paddy stock = total Mill W. QNTL from entries - total paddy used in milling"""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    # Total paddy in from mill entries (mill_w is in KG, convert to QNTL)
+    mill_entries = await db.mill_entries.find(query, {"mill_w": 1, "_id": 0}).to_list(10000)
+    total_paddy_in = round(sum(e.get('mill_w', 0) for e in mill_entries) / 100, 2)
+    
+    # Total paddy used in milling
+    milling_entries = await db.milling_entries.find(query, {"paddy_input_qntl": 1, "_id": 0}).to_list(10000)
+    total_paddy_used = round(sum(e.get('paddy_input_qntl', 0) for e in milling_entries), 2)
+    
+    return {
+        "total_paddy_in_qntl": total_paddy_in,
+        "total_paddy_used_qntl": total_paddy_used,
+        "available_paddy_qntl": round(total_paddy_in - total_paddy_used, 2)
+    }
+
+
 @api_router.get("/milling-summary")
-async def get_milling_summary(
-    kms_year: Optional[str] = None,
-    season: Optional[str] = None
-):
+async def get_milling_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
@@ -3093,31 +3151,32 @@ async def get_milling_summary(
     
     total_paddy = sum(e.get('paddy_input_qntl', 0) for e in entries)
     total_rice = sum(e.get('rice_qntl', 0) for e in entries)
-    total_frk = sum(e.get('frk_qntl', 0) for e in entries)
+    total_frk = sum(e.get('frk_purchased_qntl', 0) for e in entries)
     total_bran = sum(e.get('bran_qntl', 0) for e in entries)
     total_kunda = sum(e.get('kunda_qntl', 0) for e in entries)
     total_broken = sum(e.get('broken_qntl', 0) for e in entries)
     total_kanki = sum(e.get('kanki_qntl', 0) for e in entries)
     total_husk = sum(e.get('husk_qntl', 0) for e in entries)
     total_cmr = sum(e.get('cmr_delivery_qntl', 0) for e in entries)
+    total_frk_cost = sum(e.get('frk_total_cost', 0) for e in entries)
     
-    avg_outturn = round((total_rice + total_frk) / total_paddy * 100, 2) if total_paddy > 0 else 0
+    avg_outturn = round(total_cmr / total_paddy * 100, 2) if total_paddy > 0 else 0
     
-    # Breakdown by rice_type
     parboiled = [e for e in entries if e.get('rice_type') == 'parboiled']
     raw = [e for e in entries if e.get('rice_type') == 'raw']
     
     def type_summary(elist):
         tp = sum(e.get('paddy_input_qntl', 0) for e in elist)
         tr = sum(e.get('rice_qntl', 0) for e in elist)
-        tf = sum(e.get('frk_qntl', 0) for e in elist)
+        tf = sum(e.get('frk_purchased_qntl', 0) for e in elist)
+        tc = sum(e.get('cmr_delivery_qntl', 0) for e in elist)
         return {
             "count": len(elist),
             "total_paddy_qntl": round(tp, 2),
             "total_rice_qntl": round(tr, 2),
             "total_frk_qntl": round(tf, 2),
-            "total_cmr_qntl": round(tr + tf, 2),
-            "avg_outturn": round((tr + tf) / tp * 100, 2) if tp > 0 else 0
+            "total_cmr_qntl": round(tc, 2),
+            "avg_outturn": round(tc / tp * 100, 2) if tp > 0 else 0
         }
     
     return {
@@ -3131,10 +3190,79 @@ async def get_milling_summary(
         "total_kanki_qntl": round(total_kanki, 2),
         "total_husk_qntl": round(total_husk, 2),
         "total_cmr_qntl": round(total_cmr, 2),
+        "total_frk_cost": round(total_frk_cost, 2),
         "avg_outturn_ratio": avg_outturn,
         "parboiled": type_summary(parboiled),
         "raw": type_summary(raw)
     }
+
+
+# ============ BY-PRODUCT STOCK & SALE APIs ============
+
+@api_router.get("/byproduct-stock")
+async def get_byproduct_stock(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """By-product stock = milling output - sales"""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    milling_entries = await db.milling_entries.find(query, {"_id": 0}).to_list(1000)
+    sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(1000)
+    
+    products = ["bran", "kunda", "broken", "kanki", "husk"]
+    stock = {}
+    for p in products:
+        produced = round(sum(e.get(f'{p}_qntl', 0) for e in milling_entries), 2)
+        sold = round(sum(s.get('quantity_qntl', 0) for s in sales if s.get('product') == p), 2)
+        revenue = round(sum(s.get('total_amount', 0) for s in sales if s.get('product') == p), 2)
+        stock[p] = {
+            "produced_qntl": produced,
+            "sold_qntl": sold,
+            "available_qntl": round(produced - sold, 2),
+            "total_revenue": revenue
+        }
+    
+    return stock
+
+
+@api_router.post("/byproduct-sales")
+async def create_byproduct_sale(input: ByProductSaleCreate, username: str = "", role: str = ""):
+    sale_dict = input.model_dump()
+    sale_dict['total_amount'] = round((sale_dict.get('quantity_qntl', 0) or 0) * (sale_dict.get('rate_per_qntl', 0) or 0), 2)
+    sale_dict['created_by'] = username
+    sale_obj = ByProductSale(**sale_dict)
+    doc = sale_obj.model_dump()
+    await db.byproduct_sales.insert_one(doc)
+    doc.pop('_id', None)
+    return doc
+
+
+@api_router.get("/byproduct-sales")
+async def get_byproduct_sales(
+    product: Optional[str] = None,
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
+):
+    query = {}
+    if product:
+        query["product"] = product
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    sales = await db.byproduct_sales.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return sales
+
+
+@api_router.delete("/byproduct-sales/{sale_id}")
+async def delete_byproduct_sale(sale_id: str, username: str = "", role: str = ""):
+    existing = await db.byproduct_sales.find_one({"id": sale_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Sale entry not found")
+    await db.byproduct_sales.delete_one({"id": sale_id})
+    return {"message": "Sale entry deleted", "id": sale_id}
 
 
 # Include the router in the main app
