@@ -1224,9 +1224,24 @@ function createSplashWindow() {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 450px;
+      max-width: 400px;
+      flex: 1;
     }
     .recent-item .arrow { color: #f59e0b; font-size: 18px; }
+    .recent-item .delete-btn {
+      color: #ef4444;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 2px 8px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: all 0.2s ease;
+    }
+    .recent-item:hover .delete-btn { opacity: 1; }
+    .recent-item .delete-btn:hover {
+      background: rgba(239,68,68,0.2);
+      color: #f87171;
+    }
     
     .btn-group { display: flex; gap: 12px; margin-top: 20px; }
     .btn {
@@ -1298,6 +1313,7 @@ function createSplashWindow() {
         ? config.recentPaths.map(p => `
           <div class="recent-item" onclick="openRecent('${p.replace(/\\/g, '\\\\')}')">
             <span class="path">${p}</span>
+            <span class="delete-btn" onclick="event.stopPropagation(); removeRecent(event, '${p.replace(/\\/g, '\\\\')}')">✕</span>
             <span class="arrow">→</span>
           </div>
         `).join('')
@@ -1337,6 +1353,14 @@ function createSplashWindow() {
     
     function openRecent(path) {
       ipcRenderer.send('open-recent', path);
+    }
+    
+    function removeRecent(evt, path) {
+      ipcRenderer.send('remove-recent', path);
+      evt.target.closest('.recent-item').remove();
+      if (document.querySelectorAll('.recent-item').length === 0) {
+        document.querySelector('.recent-section').innerHTML = '<p style="color:#94a3b8;text-align:center;padding:20px;">Koi recent location nahi hai</p>';
+      }
     }
     
     function closeApp() {
@@ -1477,6 +1501,14 @@ ipcMain.on('open-recent', async (event, folderPath) => {
     dialog.showErrorBox('Error', `Folder not found:\n${folderPath}`);
   }
 });
+
+ipcMain.on('remove-recent', (event, folderPath) => {
+  const config = loadConfig();
+  config.recentPaths = config.recentPaths.filter(p => p !== folderPath);
+  if (config.lastPath === folderPath) config.lastPath = config.recentPaths[0] || null;
+  saveConfig(config);
+});
+
 
 ipcMain.on('close-app', () => {
   app.quit();
