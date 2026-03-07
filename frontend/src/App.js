@@ -35,7 +35,7 @@ import {
   FileSpreadsheet, FileText, LogOut, User, Lock, Key, Target, 
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
-  Info, Printer 
+  Info, Printer, HardDrive, Download, RotateCcw, Shield
 } from "lucide-react";
 
 // Import extracted components
@@ -1817,6 +1817,12 @@ function MainApp({ user, onLogout }) {
   const [branding, setBranding] = useState({ company_name: "NAVKAR AGRO", tagline: "Mill Entry System" });
   const [brandingForm, setBrandingForm] = useState({ company_name: "", tagline: "" });
 
+  // Backup state
+  const [backups, setBackups] = useState([]);
+  const [backupStatus, setBackupStatus] = useState(null);
+  const [showBackupReminder, setShowBackupReminder] = useState(false);
+  const [backupLoading, setBackupLoading] = useState(false);
+
   // Suggestions state
   const [truckSuggestions, setTruckSuggestions] = useState([]);
   const [agentSuggestions, setAgentSuggestions] = useState([]);
@@ -2018,6 +2024,70 @@ function MainApp({ user, onLogout }) {
       }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Branding update mein error");
+    }
+  };
+
+  // ---- BACKUP FUNCTIONS ----
+  const fetchBackups = async () => {
+    try {
+      const res = await axios.get(`${API}/backups`);
+      setBackups(res.data.backups || []);
+      setBackupStatus(res.data);
+    } catch (e) {
+      // Backup API not available (web version) - silently ignore
+      setBackupStatus(null);
+    }
+  };
+
+  const checkBackupReminder = async () => {
+    try {
+      const res = await axios.get(`${API}/backups/status`);
+      if (!res.data.has_today_backup && res.data.total_backups > 0) {
+        setShowBackupReminder(true);
+      }
+    } catch (e) {
+      // Not on local server
+    }
+  };
+
+  useEffect(() => {
+    if (user) checkBackupReminder();
+  }, [user]);
+
+  const handleCreateBackup = async () => {
+    setBackupLoading(true);
+    try {
+      const res = await axios.post(`${API}/backups`);
+      toast.success(res.data.message || "Backup ban gaya!");
+      fetchBackups();
+      setShowBackupReminder(false);
+    } catch (e) {
+      toast.error("Backup mein error: " + (e.response?.data?.detail || e.message));
+    }
+    setBackupLoading(false);
+  };
+
+  const handleRestoreBackup = async (filename) => {
+    if (!window.confirm(`Kya aap "${filename}" se data restore karna chahte hain? Current data replace ho jaayega.`)) return;
+    setBackupLoading(true);
+    try {
+      const res = await axios.post(`${API}/backups/restore`, { filename });
+      toast.success(res.data.message || "Restore ho gaya!");
+      window.location.reload();
+    } catch (e) {
+      toast.error("Restore mein error: " + (e.response?.data?.detail || e.message));
+    }
+    setBackupLoading(false);
+  };
+
+  const handleDeleteBackup = async (filename) => {
+    if (!window.confirm(`Kya aap "${filename}" backup delete karna chahte hain?`)) return;
+    try {
+      await axios.delete(`${API}/backups/${filename}`);
+      toast.success("Backup delete ho gaya");
+      fetchBackups();
+    } catch (e) {
+      toast.error("Delete mein error");
     }
   };
 
@@ -2577,6 +2647,42 @@ function MainApp({ user, onLogout }) {
             </DialogContent>
           </Dialog>
 
+          {/* Backup Reminder Dialog */}
+          <Dialog open={showBackupReminder} onOpenChange={setShowBackupReminder}>
+            <DialogContent className="max-w-sm bg-slate-800 border-amber-700 text-white">
+              <DialogHeader>
+                <DialogTitle className="text-amber-400 flex items-center gap-2">
+                  <Shield className="w-5 h-5" />
+                  Backup Reminder
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-slate-300 text-sm">
+                  Aaj ka backup nahi liya hai. Data ki suraksha ke liye backup lein.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleCreateBackup}
+                    disabled={backupLoading}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    data-testid="backup-reminder-yes"
+                  >
+                    <HardDrive className="w-4 h-4 mr-2" />
+                    {backupLoading ? 'Ho raha hai...' : 'Backup Lein'}
+                  </Button>
+                  <Button
+                    onClick={() => setShowBackupReminder(false)}
+                    variant="outline"
+                    className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
+                    data-testid="backup-reminder-skip"
+                  >
+                    Baad Mein
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {/* Password Change Dialog */}
           <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
             <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white">
@@ -2677,7 +2783,7 @@ function MainApp({ user, onLogout }) {
             </Button>
             {user.role === 'admin' && (
               <Button
-                onClick={() => setActiveTab("settings")}
+                onClick={() => { setActiveTab("settings"); fetchBackups(); }}
                 variant={activeTab === "settings" ? "default" : "ghost"}
                 size="sm"
                 className={activeTab === "settings" 
@@ -3234,66 +3340,153 @@ function MainApp({ user, onLogout }) {
         ) : activeTab === "payments" ? (
           <Payments filters={filters} user={user} />
         ) : activeTab === "settings" ? (
-          /* Settings Page - Branding */
-          <Card className="bg-slate-800 border-slate-700 max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle className="text-purple-400 flex items-center gap-2">
-                <Key className="w-5 h-5" />
-                Settings - Branding
-              </CardTitle>
-              <p className="text-slate-400 text-sm">
-                Yahan se app ka naam aur tagline change karein. Ye header, footer, aur exports mein dikhega.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-slate-300 text-lg">Company Name / कंपनी का नाम</Label>
-                  <Input
-                    value={brandingForm.company_name}
-                    onChange={(e) => setBrandingForm(prev => ({ ...prev, company_name: e.target.value }))}
-                    placeholder="Enter company name"
-                    className="bg-slate-700 border-slate-600 text-white text-xl font-bold mt-2"
-                    data-testid="branding-company-name"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Example: NAVKAR AGRO, XYZ TRADERS, ABC MILL</p>
+          /* Settings Page */
+          <div className="space-y-6 max-w-2xl mx-auto">
+            {/* Branding Section */}
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-purple-400 flex items-center gap-2">
+                  <Key className="w-5 h-5" />
+                  Settings - Branding
+                </CardTitle>
+                <p className="text-slate-400 text-sm">
+                  Yahan se app ka naam aur tagline change karein. Ye header, footer, aur exports mein dikhega.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-slate-300 text-lg">Company Name / कंपनी का नाम</Label>
+                    <Input
+                      value={brandingForm.company_name}
+                      onChange={(e) => setBrandingForm(prev => ({ ...prev, company_name: e.target.value }))}
+                      placeholder="Enter company name"
+                      className="bg-slate-700 border-slate-600 text-white text-xl font-bold mt-2"
+                      data-testid="branding-company-name"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Example: NAVKAR AGRO, XYZ TRADERS, ABC MILL</p>
+                  </div>
+                  <div>
+                    <Label className="text-slate-300 text-lg">Tagline / विवरण</Label>
+                    <Input
+                      value={brandingForm.tagline}
+                      onChange={(e) => setBrandingForm(prev => ({ ...prev, tagline: e.target.value }))}
+                      placeholder="Enter tagline"
+                      className="bg-slate-700 border-slate-600 text-white mt-2"
+                      data-testid="branding-tagline"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Example: JOLKO, KESINGA - Mill Entry System</p>
+                  </div>
                 </div>
-                
-                <div>
-                  <Label className="text-slate-300 text-lg">Tagline / विवरण</Label>
-                  <Input
-                    value={brandingForm.tagline}
-                    onChange={(e) => setBrandingForm(prev => ({ ...prev, tagline: e.target.value }))}
-                    placeholder="Enter tagline"
-                    className="bg-slate-700 border-slate-600 text-white mt-2"
-                    data-testid="branding-tagline"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Example: JOLKO, KESINGA - Mill Entry System</p>
+                <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
+                  <p className="text-xs text-slate-400 mb-2">Preview / झलक:</p>
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold text-amber-400">{brandingForm.company_name || "Company Name"}</h2>
+                    <p className="text-slate-400">{brandingForm.tagline || "Tagline"}</p>
+                  </div>
                 </div>
-              </div>
-              
-              {/* Preview */}
-              <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
-                <p className="text-xs text-slate-400 mb-2">Preview / झलक:</p>
-                <div className="text-center">
-                  <h2 className="text-2xl font-bold text-amber-400">{brandingForm.company_name || "Company Name"}</h2>
-                  <p className="text-slate-400">{brandingForm.tagline || "Tagline"}</p>
+                <Button
+                  onClick={handleUpdateBranding}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+                  data-testid="save-branding-btn"
+                >
+                  Save Branding / ब्रांडिंग सेव करें
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Backup Section */}
+            <Card className="bg-slate-800 border-slate-700" data-testid="backup-section">
+              <CardHeader>
+                <CardTitle className="text-green-400 flex items-center gap-2">
+                  <HardDrive className="w-5 h-5" />
+                  Data Backup / डेटा बैकअप
+                </CardTitle>
+                <p className="text-slate-400 text-sm">
+                  Apne data ka backup lein. Last 7 backups automatically save hote hain.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Backup Status */}
+                {backupStatus && (
+                  <div className={`p-3 rounded-lg border ${backupStatus.has_today_backup ? 'bg-green-900/30 border-green-700' : 'bg-amber-900/30 border-amber-700'}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className={`font-semibold ${backupStatus.has_today_backup ? 'text-green-400' : 'text-amber-400'}`}>
+                          {backupStatus.has_today_backup ? 'Aaj ka backup hai' : 'Aaj ka backup nahi liya!'}
+                        </p>
+                        {backupStatus.backups?.length > 0 && (
+                          <p className="text-slate-400 text-xs mt-1">
+                            Last backup: {new Date(backupStatus.backups[0].created_at).toLocaleString('en-IN')} ({backupStatus.backups[0].size_readable})
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-slate-400 text-sm">{backupStatus.backups?.length || 0} / {backupStatus.max_backups} backups</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Create Backup Button */}
+                <Button
+                  onClick={handleCreateBackup}
+                  disabled={backupLoading}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
+                  data-testid="create-backup-btn"
+                >
+                  {backupLoading ? 'Backup ho raha hai...' : 'Backup Now / अभी बैकअप लें'}
+                </Button>
+
+                {/* Backup List */}
+                {backups.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-slate-300 text-sm font-semibold">Saved Backups:</p>
+                    {backups.map((b) => (
+                      <div key={b.filename} className="flex items-center justify-between bg-slate-700/50 p-3 rounded-lg border border-slate-600" data-testid={`backup-item-${b.filename}`}>
+                        <div>
+                          <p className="text-white text-sm font-mono">{b.filename}</p>
+                          <p className="text-slate-400 text-xs">
+                            {new Date(b.created_at).toLocaleString('en-IN')} | {b.size_readable}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRestoreBackup(b.filename)}
+                            disabled={backupLoading}
+                            className="text-blue-400 border-blue-600 hover:bg-blue-900/30 text-xs"
+                            data-testid={`restore-btn-${b.filename}`}
+                          >
+                            Restore
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteBackup(b.filename)}
+                            className="text-red-400 border-red-600 hover:bg-red-900/30 text-xs"
+                            data-testid={`delete-backup-btn-${b.filename}`}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!backupStatus && (
+                  <div className="text-center text-slate-500 text-sm p-4">
+                    <p>Backup feature sirf Local Server version mein available hai.</p>
+                    <p className="text-xs mt-1">Web version mein MongoDB automatically data save karta hai.</p>
+                  </div>
+                )}
+
+                <div className="text-center text-slate-500 text-xs">
+                  <p>Backups location: data/backups/ folder mein save hote hain</p>
                 </div>
-              </div>
-              
-              <Button
-                onClick={handleUpdateBranding}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold"
-                data-testid="save-branding-btn"
-              >
-                Save Branding / ब्रांडिंग सेव करें
-              </Button>
-              
-              <div className="text-center text-slate-500 text-xs">
-                <p>⚠️ Changes सभी जगह apply होंगे - Header, Print Receipts, Excel/PDF Exports</p>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         ) : (
           <>
             {/* Totals Summary */}
