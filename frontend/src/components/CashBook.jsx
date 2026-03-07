@@ -45,7 +45,7 @@ const CashBook = ({ filters, user }) => {
     category: "", description: "", amount: "", reference: "",
     kms_year: CURRENT_KMS_YEAR, season: "Kharif",
   });
-  const [txnFilters, setTxnFilters] = useState({ account: "", date_from: "", date_to: "" });
+  const [txnFilters, setTxnFilters] = useState({ account: "", txn_type: "", category: "", date_from: "", date_to: "" });
   const [showFilters, setShowFilters] = useState(false);
 
   const fetchCategories = useCallback(async () => {
@@ -62,6 +62,8 @@ const CashBook = ({ filters, user }) => {
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
       if (txnFilters.account) params.append('account', txnFilters.account);
+      if (txnFilters.txn_type) params.append('txn_type', txnFilters.txn_type);
+      if (txnFilters.category) params.append('category', txnFilters.category);
       if (txnFilters.date_from) params.append('date_from', txnFilters.date_from);
       if (txnFilters.date_to) params.append('date_to', txnFilters.date_to);
       const [txnRes, sumRes] = await Promise.all([
@@ -228,11 +230,34 @@ const CashBook = ({ filters, user }) => {
             <div>
               <Label className="text-xs text-slate-400">Account</Label>
               <Select value={txnFilters.account || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, account: v === "all" ? "" : v }))}>
-                <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-account"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="cash">Cash</SelectItem>
                   <SelectItem value="bank">Bank</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-400">Type</Label>
+              <Select value={txnFilters.txn_type || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, txn_type: v === "all" ? "" : v }))}>
+                <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="jama">Jama (In)</SelectItem>
+                  <SelectItem value="nikasi">Nikasi (Out)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-400">Category</Label>
+              <Select value={txnFilters.category || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, category: v === "all" ? "" : v }))}>
+                <SelectTrigger className="w-44 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-category"><SelectValue /></SelectTrigger>
+                <SelectContent className="max-h-60">
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {[...new Set(txns.map(t => t.category).filter(Boolean))].sort().map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -244,7 +269,7 @@ const CashBook = ({ filters, user }) => {
               <Label className="text-xs text-slate-400">To</Label>
               <Input type="date" value={txnFilters.date_to} onChange={(e) => setTxnFilters(p => ({ ...p, date_to: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-36" />
             </div>
-            <Button onClick={() => setTxnFilters({ account: "", date_from: "", date_to: "" })} variant="ghost" size="sm" className="text-slate-400 h-8"><X className="w-3 h-3 mr-1" /> Clear</Button>
+            <Button onClick={() => setTxnFilters({ account: "", txn_type: "", category: "", date_from: "", date_to: "" })} variant="ghost" size="sm" className="text-slate-400 h-8" data-testid="cashbook-filter-clear"><X className="w-3 h-3 mr-1" /> Clear</Button>
           </div>
         </CardContent></Card>
       )}

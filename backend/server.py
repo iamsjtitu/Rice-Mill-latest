@@ -3750,12 +3750,15 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
 
 @api_router.get("/cash-book")
 async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional[str] = None,
-                                 account: Optional[str] = None, date_from: Optional[str] = None,
+                                 account: Optional[str] = None, txn_type: Optional[str] = None,
+                                 category: Optional[str] = None, date_from: Optional[str] = None,
                                  date_to: Optional[str] = None):
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if account: query["account"] = account
+    if txn_type: query["txn_type"] = txn_type
+    if category: query["category"] = category
     if date_from or date_to:
         date_q = {}
         if date_from: date_q["$gte"] = date_from

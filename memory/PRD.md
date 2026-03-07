@@ -47,6 +47,7 @@ The user requested a comprehensive Mill Entry System for managing paddy-to-rice 
 - Cash and bank transaction tracking
 - Custom user-defined categories
 - Summary with running balance
+- **Filters: Account, Type (Jama/Nikasi), Category, Date range** (added 2026-03-07)
 - Excel/PDF exports
 
 ## Architecture
