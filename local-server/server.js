@@ -547,8 +547,8 @@ app.get('/api/mandi-targets/summary', (req, res) => {
     const mandiEntries = entries.filter(e => e.mandi_name === target.mandi_name);
     const achieved_qntl = Math.round(mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0) * 100) / 100;
     const cutting_qntl = Math.round(target.target_qntl * target.cutting_percent / 100 * 100) / 100;
-    const base_rate = target.base_rate || 10;
-    const cutting_rate = target.cutting_rate || 5;
+    const base_rate = target.base_rate ?? 10;
+    const cutting_rate = target.cutting_rate ?? 5;
     const target_amount = Math.round(target.target_qntl * base_rate * 100) / 100;
     const cutting_amount = Math.round(cutting_qntl * cutting_rate * 100) / 100;
     
@@ -715,8 +715,8 @@ app.get('/api/agent-payments', (req, res) => {
     const mandiEntries = entries.filter(e => e.mandi_name === target.mandi_name);
     const achieved_qntl = Math.round(mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0) * 100) / 100;
     const cutting_qntl = Math.round(target.target_qntl * target.cutting_percent / 100 * 100) / 100;
-    const base_rate = target.base_rate || 10;
-    const cutting_rate = target.cutting_rate || 5;
+    const base_rate = target.base_rate ?? 10;
+    const cutting_rate = target.cutting_rate ?? 5;
     const target_amount = Math.round(target.target_qntl * base_rate * 100) / 100;
     const cutting_amount = Math.round(cutting_qntl * cutting_rate * 100) / 100;
     const total_amount = Math.round((target_amount + cutting_amount) * 100) / 100;
@@ -760,7 +760,7 @@ app.post('/api/agent-payments/:mandiName/mark-paid', (req, res) => {
   if (!target) return res.status(404).json({ detail: 'Mandi target not found' });
   
   const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
-  const total_amount = (target.target_qntl * (target.base_rate || 10)) + (cutting_qntl * (target.cutting_rate || 5));
+  const total_amount = (target.target_qntl * (target.base_rate ?? 10)) + (cutting_qntl * (target.cutting_rate ?? 5));
   const current = database.getAgentPayment(mandiName, kms_year, season);
   const history = current.payments_history || [];
   history.push({ amount: total_amount, date: new Date().toISOString(), note: 'Full payment - marked as paid', by: req.query.username || 'admin' });
@@ -1093,14 +1093,14 @@ app.get('/api/export/agent-payments-excel', async (req, res) => {
       const me = entries.filter(e => e.mandi_name === target.mandi_name);
       const achieved = me.reduce((s, e) => s + (e.final_w || 0) / 100, 0);
       const cq = target.target_qntl * target.cutting_percent / 100;
-      const total = (target.target_qntl * (target.base_rate || 10)) + (cq * (target.cutting_rate || 5));
+      const total = (target.target_qntl * (target.base_rate ?? 10)) + (cq * (target.cutting_rate ?? 5));
       const p = database.getAgentPayment(target.mandi_name, target.kms_year, target.season);
       const bal = Math.max(0, total - p.paid_amount);
       const ae = me.find(e => e.agent_name);
       ws.addRow({
         mandi: target.mandi_name, agent: ae ? ae.agent_name : '',
         target: target.target_qntl, cutting: +cq.toFixed(2),
-        base_rate: target.base_rate || 10, cut_rate: target.cutting_rate || 5,
+        base_rate: target.base_rate ?? 10, cut_rate: target.cutting_rate ?? 5,
         total: +total.toFixed(2), achieved: +achieved.toFixed(2),
         paid: p.paid_amount, balance: +bal.toFixed(2),
         status: bal < 0.01 ? 'Paid' : (p.paid_amount > 0 ? 'Partial' : 'Pending')
@@ -1135,11 +1135,11 @@ app.get('/api/export/agent-payments-pdf', (req, res) => {
       const me = entries.filter(e => e.mandi_name === t.mandi_name);
       const ach = me.reduce((s, e) => s + (e.final_w || 0) / 100, 0);
       const cq = t.target_qntl * t.cutting_percent / 100;
-      const tot = (t.target_qntl * (t.base_rate || 10)) + (cq * (t.cutting_rate || 5));
+      const tot = (t.target_qntl * (t.base_rate ?? 10)) + (cq * (t.cutting_rate ?? 5));
       const p = database.getAgentPayment(t.mandi_name, t.kms_year, t.season);
       const bal = Math.max(0, tot - p.paid_amount);
       const ae = me.find(e => e.agent_name);
-      return [t.mandi_name, ae ? ae.agent_name : '', t.target_qntl, cq.toFixed(2), t.base_rate || 10, t.cutting_rate || 5, tot.toFixed(2), ach.toFixed(2), p.paid_amount, bal.toFixed(2), bal < 0.01 ? 'Paid' : (p.paid_amount > 0 ? 'Partial' : 'Pending')];
+      return [t.mandi_name, ae ? ae.agent_name : '', t.target_qntl, cq.toFixed(2), t.base_rate ?? 10, t.cutting_rate ?? 5, tot.toFixed(2), ach.toFixed(2), p.paid_amount, bal.toFixed(2), bal < 0.01 ? 'Paid' : (p.paid_amount > 0 ? 'Partial' : 'Pending')];
     });
     addPdfTable(doc, headers, rows, [55, 55, 40, 40, 35, 35, 50, 45, 45, 50, 40]);
     doc.end();

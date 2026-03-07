@@ -47,7 +47,7 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 ### Phase 18 - Bug Fixes (Mar 2026) ✅
 - **Print Fix**: Replaced `window.open + document.write` with Blob URL approach (`safePrintHTML`) for reliability in both Electron and browser
 - **Truck Payment Edit**: Fixed missing default values (rate_per_qntl, paid_amount, status) in `updateTruckPayment` for both desktop-app and local-server
-- **Agent Payment Calculation**: Verified formula matches Python backend exactly: `(target_qntl × base_rate) + (cutting_qntl × cutting_rate)`
+- **Agent Payment Calculation**: Fixed `|| 5` / `|| 10` → `?? 5` / `?? 10` (nullish coalescing). JavaScript `||` treats 0 as falsy, so cutting_rate=0 was defaulting to 5. Now uses `??` which only defaults for null/undefined.
 - **About Section**: Added to Settings tab - "Developed by Host9x Team, Version 1.1"
 
 ### Phase 19 - Dark/Light Theme Toggle (Mar 2026) ✅

@@ -437,7 +437,7 @@ const Dashboard = ({ filters, user }) => {
                       <p className="text-blue-400 text-xs">
                         Agent Payment: ₹{target.total_agent_amount || 0} 
                         <span className="text-slate-500 ml-1">
-                          ({target.target_qntl}×₹{target.base_rate || 10} + {target.cutting_qntl || 0}×₹{target.cutting_rate || 5})
+                          ({target.target_qntl}×₹{target.base_rate ?? 10} + {target.cutting_qntl || 0}×₹{target.cutting_rate ?? 5})
                         </span>
                       </p>
                     </div>

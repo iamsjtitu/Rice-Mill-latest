@@ -585,9 +585,9 @@ function createApiServer(database) {
         pending_qntl: Math.max(0, target.expected_total - achieved_qntl),
         progress_percent: Math.min(100, (achieved_qntl / target.expected_total) * 100),
         cutting_qntl,
-        target_amount: target.target_qntl * (target.base_rate || 10),
-        cutting_amount: cutting_qntl * (target.cutting_rate || 5),
-        total_agent_amount: (target.target_qntl * (target.base_rate || 10)) + (cutting_qntl * (target.cutting_rate || 5))
+        target_amount: target.target_qntl * (target.base_rate ?? 10),
+        cutting_amount: cutting_qntl * (target.cutting_rate ?? 5),
+        total_agent_amount: (target.target_qntl * (target.base_rate ?? 10)) + (cutting_qntl * (target.cutting_rate ?? 5))
       };
     });
     
@@ -767,8 +767,8 @@ function createApiServer(database) {
       const mandiEntries = entries.filter(e => e.mandi_name === target.mandi_name);
       const achieved_qntl = mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0);
       const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
-      const target_amount = target.target_qntl * (target.base_rate || 10);
-      const cutting_amount = cutting_qntl * (target.cutting_rate || 5);
+      const target_amount = target.target_qntl * (target.base_rate ?? 10);
+      const cutting_amount = cutting_qntl * (target.cutting_rate ?? 5);
       const total_amount = target_amount + cutting_amount;
       const balance_amount = Math.max(0, total_amount - payment.paid_amount);
       
@@ -782,8 +782,8 @@ function createApiServer(database) {
         target_qntl: target.target_qntl,
         cutting_percent: target.cutting_percent,
         cutting_qntl: Math.round(cutting_qntl * 100) / 100,
-        base_rate: target.base_rate || 10,
-        cutting_rate: target.cutting_rate || 5,
+        base_rate: target.base_rate ?? 10,
+        cutting_rate: target.cutting_rate ?? 5,
         target_amount: Math.round(target_amount * 100) / 100,
         cutting_amount: Math.round(cutting_amount * 100) / 100,
         total_amount: Math.round(total_amount * 100) / 100,
@@ -827,7 +827,7 @@ function createApiServer(database) {
     if (!target) return res.status(404).json({ detail: 'Mandi target not found' });
     
     const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
-    const total_amount = (target.target_qntl * (target.base_rate || 10)) + (cutting_qntl * (target.cutting_rate || 5));
+    const total_amount = (target.target_qntl * (target.base_rate ?? 10)) + (cutting_qntl * (target.cutting_rate ?? 5));
     
     database.updateAgentPayment(req.params.mandiName, kms_year, season, {
       paid_amount: total_amount,
@@ -965,7 +965,7 @@ function createApiServer(database) {
       const targets = database.getMandiTargets(req.query); const entries = database.getEntries(req.query);
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Agent Payments');
       ws.columns = [{header:'Mandi',key:'mandi',width:14},{header:'Agent',key:'agent',width:14},{header:'Target',key:'target',width:12},{header:'Cutting',key:'cutting',width:12},{header:'B.Rate',key:'br',width:10},{header:'C.Rate',key:'cr',width:10},{header:'Total',key:'total',width:12},{header:'Achieved',key:'ach',width:10},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
-      targets.forEach(t => { const me=entries.filter(e=>e.mandi_name===t.mandi_name); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const cq=t.target_qntl*t.cutting_percent/100; const tot=(t.target_qntl*(t.base_rate||10))+(cq*(t.cutting_rate||5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); ws.addRow({mandi:t.mandi_name,agent:ae?ae.agent_name:'',target:t.target_qntl,cutting:+cq.toFixed(2),br:t.base_rate||10,cr:t.cutting_rate||5,total:+tot.toFixed(2),ach:+ach.toFixed(2),paid:p.paid_amount,bal:+bal.toFixed(2),status:bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
+      targets.forEach(t => { const me=entries.filter(e=>e.mandi_name===t.mandi_name); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const cq=t.target_qntl*t.cutting_percent/100; const tot=(t.target_qntl*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); ws.addRow({mandi:t.mandi_name,agent:ae?ae.agent_name:'',target:t.target_qntl,cutting:+cq.toFixed(2),br:t.base_rate??10,cr:t.cutting_rate??5,total:+tot.toFixed(2),ach:+ach.toFixed(2),paid:p.paid_amount,bal:+bal.toFixed(2),status:bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
       addExcelTitle(ws, 'Agent Payments', 11); styleExcelHeader(ws);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.xlsx`);
@@ -980,7 +980,7 @@ function createApiServer(database) {
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Agent Payments Report');
       const h = ['Mandi','Agent','Target','Cutting','B.Rate','C.Rate','Total','Achieved','Paid','Balance','Status'];
-      const rows = targets.map(t => { const me=entries.filter(e=>e.mandi_name===t.mandi_name); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const cq=t.target_qntl*t.cutting_percent/100; const tot=(t.target_qntl*(t.base_rate||10))+(cq*(t.cutting_rate||5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); return [t.mandi_name,ae?ae.agent_name:'',t.target_qntl,cq.toFixed(2),t.base_rate||10,t.cutting_rate||5,tot.toFixed(2),ach.toFixed(2),p.paid_amount,bal.toFixed(2),bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
+      const rows = targets.map(t => { const me=entries.filter(e=>e.mandi_name===t.mandi_name); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const cq=t.target_qntl*t.cutting_percent/100; const tot=(t.target_qntl*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); return [t.mandi_name,ae?ae.agent_name:'',t.target_qntl,cq.toFixed(2),t.base_rate??10,t.cutting_rate??5,tot.toFixed(2),ach.toFixed(2),p.paid_amount,bal.toFixed(2),bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
       addPdfTable(doc, h, rows, [55,55,40,40,35,35,50,45,45,50,40]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   });
