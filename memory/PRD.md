@@ -58,6 +58,13 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - Smooth 0.3s transitions on theme switch
 - All tabs, cards, tables, dialogs support both themes
 
+### Phase 20 - Electron Desktop Fixes (Mar 2026) ✅
+- **Download fix**: Export URLs (PDF/Excel) now trigger direct save dialog - no blank window
+- **Print fix**: Iframe overlay approach for Electron (blob URLs don't work in Electron windows)
+- **Help Menu**: Custom Electron menu with Help > About showing "Developed by 9x.Design, Contact: +917205930002"
+- **Excel Styling**: Colorful headers (dark blue), alternating row colors (light blue/white), status highlighting (green=Paid, red=Pending, amber=Partial), borders, branded title rows with amber accent
+- **About section**: Updated to "Developed by 9x.Design" + Contact info
+
 ## API Endpoints
 ### Authentication
 - POST /api/auth/login, POST /api/auth/change-password, GET /api/auth/verify

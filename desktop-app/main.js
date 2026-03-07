@@ -3,7 +3,7 @@
  * Tally-style Data Folder Selection + Local JSON Database
  */
 
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
@@ -401,18 +401,69 @@ function hasTodayBackup() {
 function styleExcelHeader(sheet) {
   const headerRow = sheet.getRow(1);
   headerRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
-  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
-  headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
-  headerRow.height = 28;
-  sheet.columns.forEach(col => { col.width = Math.max(col.width || 12, 12); });
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+  headerRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  headerRow.height = 30;
+  headerRow.eachCell((cell) => {
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FF0D3B66' } },
+      bottom: { style: 'thin', color: { argb: 'FF0D3B66' } },
+      left: { style: 'thin', color: { argb: 'FF0D3B66' } },
+      right: { style: 'thin', color: { argb: 'FF0D3B66' } }
+    };
+  });
+  sheet.columns.forEach(col => { col.width = Math.max(col.width || 14, 14); });
+}
+
+function styleExcelData(sheet, startRow) {
+  const lastRow = sheet.rowCount;
+  const colCount = sheet.columnCount;
+  for (let r = startRow; r <= lastRow; r++) {
+    const row = sheet.getRow(r);
+    const isEven = (r - startRow) % 2 === 0;
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      if (colNumber <= colCount) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFF0F7FF' : 'FFFFFFFF' } };
+        cell.border = {
+          top: { style: 'hair', color: { argb: 'FFD0D5DD' } },
+          bottom: { style: 'hair', color: { argb: 'FFD0D5DD' } },
+          left: { style: 'hair', color: { argb: 'FFD0D5DD' } },
+          right: { style: 'hair', color: { argb: 'FFD0D5DD' } }
+        };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.font = { size: 10 };
+      }
+    });
+    // Highlight status cells
+    row.eachCell((cell) => {
+      if (cell.value === 'Paid') {
+        cell.font = { bold: true, size: 10, color: { argb: 'FF16A34A' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+      } else if (cell.value === 'Pending') {
+        cell.font = { bold: true, size: 10, color: { argb: 'FFDC2626' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+      } else if (cell.value === 'Partial') {
+        cell.font = { bold: true, size: 10, color: { argb: 'FFD97706' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+      }
+    });
+  }
 }
 
 function addExcelTitle(sheet, title, colCount) {
   const branding = db ? db.getBranding() : { company_name: 'Mill Entry', tagline: '' };
-  sheet.insertRow(1, []); sheet.insertRow(1, []);
-  sheet.mergeCells(1, 1, 1, colCount); sheet.mergeCells(2, 1, 2, colCount);
-  const tc = sheet.getCell('A1'); tc.value = branding.company_name; tc.font = { bold: true, size: 16, color: { argb: 'FF1E3A5F' } }; tc.alignment = { horizontal: 'center' };
-  const sc = sheet.getCell('A2'); sc.value = `${branding.tagline} | ${title} | ${new Date().toLocaleDateString('en-IN')}`; sc.font = { size: 10, color: { argb: 'FF666666' } }; sc.alignment = { horizontal: 'center' };
+  sheet.insertRow(1, []); sheet.insertRow(1, []); sheet.insertRow(1, []);
+  sheet.mergeCells(1, 1, 1, colCount); sheet.mergeCells(2, 1, 2, colCount); sheet.mergeCells(3, 1, 3, colCount);
+  const tc = sheet.getCell('A1'); tc.value = branding.company_name;
+  tc.font = { bold: true, size: 18, color: { argb: 'FF1B4F72' } }; tc.alignment = { horizontal: 'center', vertical: 'middle' };
+  tc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+  sheet.getRow(1).height = 32;
+  const sc = sheet.getCell('A2'); sc.value = branding.tagline;
+  sc.font = { size: 10, italic: true, color: { argb: 'FF666666' } }; sc.alignment = { horizontal: 'center' };
+  const dc = sheet.getCell('A3'); dc.value = `${title} | ${new Date().toLocaleDateString('en-IN')}`;
+  dc.font = { bold: true, size: 12, color: { argb: 'FFD97706' } }; dc.alignment = { horizontal: 'center' };
+  dc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } };
+  sheet.getRow(3).height = 24;
 }
 
 function addPdfHeader(doc, title) {
@@ -915,7 +966,7 @@ function createApiServer(database) {
         { header: 'Diesel', key: 'diesel_paid', width: 10 }
       ];
       entries.forEach(e => ws.addRow({ date: e.date, truck_no: e.truck_no, rst_no: e.rst_no || '', tp_no: e.tp_no || '', agent_name: e.agent_name, mandi_name: e.mandi_name, qntl: +(e.qntl||0).toFixed(2), bag: e.bag||0, g_deposite: e.g_deposite||0, gbw_cut: +(e.gbw_cut||0).toFixed(2), mill_w: +((e.mill_w||0)/100).toFixed(2), moisture: e.moisture||0, moisture_cut: +((e.moisture_cut||0)/100).toFixed(2), cutting_percent: e.cutting_percent||0, disc_dust_poll: e.disc_dust_poll||0, final_w: +((e.final_w||0)/100).toFixed(2), g_issued: e.g_issued||0, cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0 }));
-      addExcelTitle(ws, 'Mill Entries Report', 19); styleExcelHeader(ws);
+      addExcelTitle(ws, 'Mill Entries Report', 19); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -941,7 +992,7 @@ function createApiServer(database) {
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Truck Payments');
       ws.columns = [{header:'Date',key:'date',width:12},{header:'Truck No',key:'truck_no',width:14},{header:'Mandi',key:'mandi',width:14},{header:'Final QNTL',key:'fq',width:12},{header:'Rate',key:'rate',width:8},{header:'Gross',key:'gross',width:12},{header:'Cash',key:'cash',width:10},{header:'Diesel',key:'diesel',width:10},{header:'Deductions',key:'ded',width:12},{header:'Net',key:'net',width:12},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
       entries.forEach(e => { const p=database.getTruckPayment(e.id); const fq=(e.final_w||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); ws.addRow({date:e.date,truck_no:e.truck_no,mandi:e.mandi_name,fq:+fq.toFixed(2),rate:p.rate_per_qntl,gross:+g.toFixed(2),cash:e.cash_paid||0,diesel:e.diesel_paid||0,ded:+d.toFixed(2),net:+n.toFixed(2),paid:p.paid_amount,bal:+b.toFixed(2),status:b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
-      addExcelTitle(ws, 'Truck Payments', 13); styleExcelHeader(ws);
+      addExcelTitle(ws, 'Truck Payments', 13); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -966,7 +1017,7 @@ function createApiServer(database) {
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Agent Payments');
       ws.columns = [{header:'Mandi',key:'mandi',width:14},{header:'Agent',key:'agent',width:14},{header:'Target',key:'target',width:12},{header:'Cutting',key:'cutting',width:12},{header:'B.Rate',key:'br',width:10},{header:'C.Rate',key:'cr',width:10},{header:'Total',key:'total',width:12},{header:'Achieved',key:'ach',width:10},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
       targets.forEach(t => { const me=entries.filter(e=>e.mandi_name===t.mandi_name); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const cq=t.target_qntl*t.cutting_percent/100; const tot=(t.target_qntl*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); ws.addRow({mandi:t.mandi_name,agent:ae?ae.agent_name:'',target:t.target_qntl,cutting:+cq.toFixed(2),br:t.base_rate??10,cr:t.cutting_rate??5,total:+tot.toFixed(2),ach:+ach.toFixed(2),paid:p.paid_amount,bal:+bal.toFixed(2),status:bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
-      addExcelTitle(ws, 'Agent Payments', 11); styleExcelHeader(ws);
+      addExcelTitle(ws, 'Agent Payments', 11); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -1004,7 +1055,7 @@ function createApiServer(database) {
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Truck Owner');
       ws.columns = [{header:'Truck No',key:'t',width:14},{header:'Trips',key:'tr',width:8},{header:'Total QNTL',key:'q',width:12},{header:'Gross',key:'g',width:12},{header:'Deductions',key:'d',width:12},{header:'Net',key:'n',width:12},{header:'Paid',key:'p',width:12},{header:'Balance',key:'b',width:12},{header:'Status',key:'s',width:10}];
       Object.values(td).forEach(t => ws.addRow({t:t.truck_no,tr:t.trips,q:+t.tq.toFixed(2),g:+t.tg.toFixed(2),d:+t.tded.toFixed(2),n:+t.tn2.toFixed(2),p:+t.tp.toFixed(2),b:+t.tb.toFixed(2),s:t.tb<0.10?'Paid':(t.tp>0?'Partial':'Pending')}));
-      addExcelTitle(ws, 'Truck Owner Report', 9); styleExcelHeader(ws);
+      addExcelTitle(ws, 'Truck Owner Report', 9); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=truck_owner_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -1300,10 +1351,55 @@ async function createMainWindow(port) {
   // Load frontend from Express server
   mainWindow.loadURL(`http://127.0.0.1:${port}`);
 
-  // Allow popup windows for printing
+  // Handle window.open - downloads vs printing
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // Export/download URLs - trigger direct download, no blank window
+    if (url.includes('/api/export/')) {
+      mainWindow.webContents.downloadURL(url);
+      return { action: 'deny' };
+    }
+    // Allow other windows (printing overlays, etc.)
     return { action: 'allow' };
   });
+
+  // Handle file downloads - show save dialog directly
+  mainWindow.webContents.session.on('will-download', (event, item) => {
+    item.once('done', (event, state) => {
+      if (state === 'completed') {
+        console.log('Download complete:', item.getFilename());
+      }
+    });
+  });
+
+  // Set application menu with Help > About
+  const menuTemplate = [
+    { label: 'File', submenu: [
+      { label: 'Refresh', accelerator: 'F5', click: () => mainWindow.reload() },
+      { type: 'separator' },
+      { label: 'Exit', accelerator: 'Alt+F4', click: () => app.quit() }
+    ]},
+    { label: 'Edit', submenu: [
+      { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
+      { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }
+    ]},
+    { label: 'View', submenu: [
+      { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'resetZoom' },
+      { type: 'separator' }, { role: 'togglefullscreen' }
+    ]},
+    { label: 'Help', submenu: [
+      { label: 'About', click: () => {
+        dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'About - Mill Entry System',
+          message: 'Mill Entry System',
+          detail: 'Version 1.1\n\nDeveloped by 9x.Design\nContact Us: +917205930002',
+          buttons: ['OK']
+        });
+      }}
+    ]}
+  ];
+  const menu = Menu.buildFromTemplate(menuTemplate);
+  Menu.setApplicationMenu(menu);
 
   // Inject API URL when page loads
   mainWindow.webContents.on('did-finish-load', () => {

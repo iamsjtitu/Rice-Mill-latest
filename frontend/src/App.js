@@ -47,27 +47,58 @@ const API = `${BACKEND_URL}/api`;
 
 // Safe print helper - works in both Electron and browser environments
 const safePrintHTML = (htmlContent) => {
-  try {
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const printWindow = window.open(url, '_blank', 'width=800,height=600');
-    if (printWindow) {
-      setTimeout(() => URL.revokeObjectURL(url), 120000);
-    } else {
-      // Fallback: iframe-based printing
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
-      document.body.appendChild(iframe);
-      iframe.src = url;
-      iframe.onload = () => {
-        iframe.contentWindow.print();
-        setTimeout(() => { document.body.removeChild(iframe); URL.revokeObjectURL(url); }, 10000);
-      };
-    }
-  } catch (e) {
-    // Last resort: document.write
-    const w = window.open('', '_blank');
-    if (w) { w.document.open(); w.document.write(htmlContent); w.document.close(); }
+  const isElectron = /electron/i.test(navigator.userAgent);
+
+  if (isElectron) {
+    // Electron: Use full-page iframe overlay (blob URLs don't work in Electron windows)
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:99999;border:none;background:white;';
+    document.body.appendChild(iframe);
+
+    // Replace window.close() calls with postMessage for iframe communication
+    const modifiedContent = htmlContent.replace(/window\.close\(\)/g, "parent.postMessage('close-print','*')");
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(modifiedContent);
+    iframe.contentDocument.close();
+
+    // Listen for close message from iframe
+    const msgHandler = (e) => {
+      if (e.data === 'close-print') {
+        try { document.body.removeChild(iframe); } catch(ex){}
+        window.removeEventListener('message', msgHandler);
+        window.removeEventListener('keydown', escHandler);
+      }
+    };
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        try { document.body.removeChild(iframe); } catch(ex){}
+        window.removeEventListener('message', msgHandler);
+        window.removeEventListener('keydown', escHandler);
+      }
+    };
+    window.addEventListener('message', msgHandler);
+    window.addEventListener('keydown', escHandler);
+  } else {
+    // Browser: Use blob URL approach
+    try {
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const printWindow = window.open(url, '_blank', 'width=800,height=600');
+      if (printWindow) {
+        setTimeout(() => URL.revokeObjectURL(url), 120000);
+        return;
+      }
+    } catch (e) {}
+    // Fallback: iframe printing
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
+    document.body.appendChild(iframe);
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(htmlContent);
+    iframe.contentDocument.close();
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+    setTimeout(() => document.body.removeChild(iframe), 10000);
   }
 };
 
