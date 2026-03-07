@@ -1020,6 +1020,18 @@ function createApiServer(database) {
     } catch (err) { res.status(500).json({ detail: err.message }); }
   });
 
+  // ===== SERVE FRONTEND STATIC FILES =====
+  const frontendDir = path.join(__dirname, 'frontend-build');
+  if (fs.existsSync(frontendDir)) {
+    apiApp.use(express.static(frontendDir));
+    apiApp.get('*', (req, res) => {
+      if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(frontendDir, 'index.html'));
+      }
+    });
+    console.log('Frontend served from: ' + frontendDir);
+  }
+
   // Start server on fixed port
   return new Promise((resolve, reject) => {
     server = apiApp.listen(DESKTOP_API_PORT, '127.0.0.1', () => {
@@ -1281,17 +1293,8 @@ async function createMainWindow(port) {
     }
   });
 
-  // Determine frontend path
-  const frontendBuildPath = path.join(__dirname, 'frontend-build', 'index.html');
-  const devUrl = 'http://localhost:3000';
-  
-  if (fs.existsSync(frontendBuildPath)) {
-    // Production - load from build
-    mainWindow.loadFile(frontendBuildPath);
-  } else {
-    // Development - try to load from dev server
-    mainWindow.loadURL(devUrl);
-  }
+  // Load frontend from Express server
+  mainWindow.loadURL(`http://127.0.0.1:${port}`);
 
   // Inject API URL when page loads
   mainWindow.webContents.on('did-finish-load', () => {
