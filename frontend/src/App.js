@@ -513,7 +513,7 @@ const Dashboard = ({ filters, user }) => {
 };
 
 // Payments Component
-const Payments = ({ filters, user }) => {
+const Payments = ({ filters, user, branding }) => {
   const [truckPayments, setTruckPayments] = useState([]);
   const [agentPayments, setAgentPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1947,6 +1947,27 @@ function MainApp({ user, onLogout }) {
     }
   }, [formData.bag, formData.g_deposite]);
 
+  // Remove external badges (for desktop/local builds)
+  useEffect(() => {
+    const removeBadge = () => {
+      document.querySelectorAll('iframe, a, div').forEach(el => {
+        const src = el.getAttribute('src') || '';
+        const href = el.getAttribute('href') || '';
+        const style = el.getAttribute('style') || '';
+        if (src.includes('emergent') || href.includes('emergent') || 
+            (style.includes('z-index') && style.includes('2147483647')) ||
+            (style.includes('position: fixed') && style.includes('bottom') && el.querySelector && el.querySelector('img[alt*="emergent" i]'))) {
+          el.style.display = 'none';
+          el.remove();
+        }
+      });
+    };
+    removeBadge();
+    const interval = setInterval(removeBadge, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+
   // Fetch suggestions
   const fetchSuggestions = useCallback(async () => {
     try {
@@ -3377,7 +3398,7 @@ function MainApp({ user, onLogout }) {
         {activeTab === "dashboard" ? (
           <Dashboard filters={filters} user={user} />
         ) : activeTab === "payments" ? (
-          <Payments filters={filters} user={user} />
+          <Payments filters={filters} user={user} branding={branding} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">
