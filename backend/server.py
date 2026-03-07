@@ -245,13 +245,11 @@ class MillingEntry(BaseModel):
     kanki_qntl: float = 0
     husk_qntl: float = 0
     
-    # FRK - purchased from outside
-    frk_purchased_qntl: float = 0
-    frk_purchase_rate: float = 0  # ₹ per QNTL
-    frk_total_cost: float = 0     # auto: qty * rate
+    # FRK used from stock for CMR
+    frk_used_qntl: float = 0
     
     # CMR
-    cmr_delivery_qntl: float = 0  # rice_qntl + frk_purchased_qntl
+    cmr_delivery_qntl: float = 0  # rice_qntl + frk_used_qntl
     outturn_ratio: float = 0      # cmr / paddy * 100
     
     # Meta
@@ -272,11 +270,38 @@ class MillingEntryCreate(BaseModel):
     kunda_percent: float = 0
     broken_percent: float = 0
     kanki_percent: float = 0
-    frk_purchased_qntl: float = 0
-    frk_purchase_rate: float = 0
+    frk_used_qntl: float = 0
     kms_year: str = ""
     season: str = ""
     note: str = ""
+
+
+# ============ FRK PURCHASE MODEL ============
+class FrkPurchase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    date: str
+    party_name: str = ""
+    quantity_qntl: float = 0
+    rate_per_qntl: float = 0
+    total_amount: float = 0  # auto: qty * rate
+    note: str = ""
+    kms_year: str = ""
+    season: str = ""
+    created_by: str = ""
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class FrkPurchaseCreate(BaseModel):
+    date: str
+    party_name: str = ""
+    quantity_qntl: float = 0
+    rate_per_qntl: float = 0
+    note: str = ""
+    kms_year: str = ""
+    season: str = ""
 
 
 # ============ BY-PRODUCT STOCK MODELS ============
@@ -3009,7 +3034,7 @@ async def export_truck_owner_pdf(
 # ============ MILLING ENTRY CRUD APIs ============
 
 def calculate_milling_fields(data: dict) -> dict:
-    """Auto-calculate QNTL values from percentages and paddy input. FRK is purchased separately."""
+    """Auto-calculate QNTL values from percentages and paddy input. FRK from stock."""
     paddy = data.get('paddy_input_qntl', 0) or 0
     
     rice_pct = data.get('rice_percent', 0) or 0
@@ -3018,7 +3043,6 @@ def calculate_milling_fields(data: dict) -> dict:
     broken_pct = data.get('broken_percent', 0) or 0
     kanki_pct = data.get('kanki_percent', 0) or 0
     
-    # Husk = remainder (no FRK in paddy output)
     used_pct = rice_pct + bran_pct + kunda_pct + broken_pct + kanki_pct
     husk_pct = max(0, round(100 - used_pct, 2))
     
@@ -3030,14 +3054,8 @@ def calculate_milling_fields(data: dict) -> dict:
     data['kanki_qntl'] = round(paddy * kanki_pct / 100, 2)
     data['husk_qntl'] = round(paddy * husk_pct / 100, 2)
     
-    # FRK is purchased from outside
-    frk_qty = data.get('frk_purchased_qntl', 0) or 0
-    frk_rate = data.get('frk_purchase_rate', 0) or 0
-    data['frk_total_cost'] = round(frk_qty * frk_rate, 2)
-    
-    # CMR delivery = rice (from paddy) + FRK (purchased)
-    data['cmr_delivery_qntl'] = round(data['rice_qntl'] + frk_qty, 2)
-    # Outturn ratio = CMR / paddy * 100
+    frk_used = data.get('frk_used_qntl', 0) or 0
+    data['cmr_delivery_qntl'] = round(data['rice_qntl'] + frk_used, 2)
     data['outturn_ratio'] = round(data['cmr_delivery_qntl'] / paddy * 100, 2) if paddy > 0 else 0
     
     return data
@@ -3057,212 +3075,417 @@ async def create_milling_entry(input: MillingEntryCreate, username: str = "", ro
 
 @api_router.get("/milling-entries")
 async def get_milling_entries(
-    rice_type: Optional[str] = None,
-    kms_year: Optional[str] = None,
-    season: Optional[str] = None,
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None
+    rice_type: Optional[str] = None, kms_year: Optional[str] = None,
+    season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None
 ):
     query = {}
-    if rice_type:
-        query["rice_type"] = rice_type
-    if kms_year:
-        query["kms_year"] = kms_year
-    if season:
-        query["season"] = season
+    if rice_type: query["rice_type"] = rice_type
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
     if date_from or date_to:
-        date_query = {}
-        if date_from:
-            date_query["$gte"] = date_from
-        if date_to:
-            date_query["$lte"] = date_to
-        if date_query:
-            query["date"] = date_query
-    
-    entries = await db.milling_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return entries
+        dq = {}
+        if date_from: dq["$gte"] = date_from
+        if date_to: dq["$lte"] = date_to
+        if dq: query["date"] = dq
+    return await db.milling_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
 
 
 @api_router.get("/milling-entries/{entry_id}")
 async def get_milling_entry(entry_id: str):
     entry = await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
-    if not entry:
-        raise HTTPException(status_code=404, detail="Milling entry not found")
+    if not entry: raise HTTPException(status_code=404, detail="Milling entry not found")
     return entry
 
 
 @api_router.put("/milling-entries/{entry_id}")
 async def update_milling_entry(entry_id: str, input: MillingEntryCreate, username: str = "", role: str = ""):
     existing = await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Milling entry not found")
-    
+    if not existing: raise HTTPException(status_code=404, detail="Milling entry not found")
     update_dict = input.model_dump()
     update_dict = calculate_milling_fields(update_dict)
     update_dict['updated_at'] = datetime.now(timezone.utc).isoformat()
-    
     await db.milling_entries.update_one({"id": entry_id}, {"$set": update_dict})
-    updated = await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
-    return updated
+    return await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
 
 
 @api_router.delete("/milling-entries/{entry_id}")
 async def delete_milling_entry(entry_id: str, username: str = "", role: str = ""):
     existing = await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Milling entry not found")
+    if not existing: raise HTTPException(status_code=404, detail="Milling entry not found")
     await db.milling_entries.delete_one({"id": entry_id})
     return {"message": "Milling entry deleted", "id": entry_id}
 
 
 @api_router.get("/paddy-stock")
 async def get_paddy_stock(kms_year: Optional[str] = None, season: Optional[str] = None):
-    """Paddy stock = total Mill W. QNTL from entries - total paddy used in milling"""
     query = {}
-    if kms_year:
-        query["kms_year"] = kms_year
-    if season:
-        query["season"] = season
-    
-    # Total paddy in from mill entries (mill_w is in KG, convert to QNTL)
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
     mill_entries = await db.mill_entries.find(query, {"mill_w": 1, "_id": 0}).to_list(10000)
     total_paddy_in = round(sum(e.get('mill_w', 0) for e in mill_entries) / 100, 2)
-    
-    # Total paddy used in milling
     milling_entries = await db.milling_entries.find(query, {"paddy_input_qntl": 1, "_id": 0}).to_list(10000)
     total_paddy_used = round(sum(e.get('paddy_input_qntl', 0) for e in milling_entries), 2)
-    
-    return {
-        "total_paddy_in_qntl": total_paddy_in,
-        "total_paddy_used_qntl": total_paddy_used,
-        "available_paddy_qntl": round(total_paddy_in - total_paddy_used, 2)
-    }
+    return {"total_paddy_in_qntl": total_paddy_in, "total_paddy_used_qntl": total_paddy_used, "available_paddy_qntl": round(total_paddy_in - total_paddy_used, 2)}
 
 
 @api_router.get("/milling-summary")
 async def get_milling_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
     query = {}
-    if kms_year:
-        query["kms_year"] = kms_year
-    if season:
-        query["season"] = season
-    
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
     entries = await db.milling_entries.find(query, {"_id": 0}).to_list(1000)
     
     total_paddy = sum(e.get('paddy_input_qntl', 0) for e in entries)
     total_rice = sum(e.get('rice_qntl', 0) for e in entries)
-    total_frk = sum(e.get('frk_purchased_qntl', 0) for e in entries)
+    total_frk = sum(e.get('frk_used_qntl', 0) for e in entries)
     total_bran = sum(e.get('bran_qntl', 0) for e in entries)
     total_kunda = sum(e.get('kunda_qntl', 0) for e in entries)
     total_broken = sum(e.get('broken_qntl', 0) for e in entries)
     total_kanki = sum(e.get('kanki_qntl', 0) for e in entries)
     total_husk = sum(e.get('husk_qntl', 0) for e in entries)
     total_cmr = sum(e.get('cmr_delivery_qntl', 0) for e in entries)
-    total_frk_cost = sum(e.get('frk_total_cost', 0) for e in entries)
-    
     avg_outturn = round(total_cmr / total_paddy * 100, 2) if total_paddy > 0 else 0
-    
-    parboiled = [e for e in entries if e.get('rice_type') == 'parboiled']
-    raw = [e for e in entries if e.get('rice_type') == 'raw']
     
     def type_summary(elist):
         tp = sum(e.get('paddy_input_qntl', 0) for e in elist)
         tr = sum(e.get('rice_qntl', 0) for e in elist)
-        tf = sum(e.get('frk_purchased_qntl', 0) for e in elist)
+        tf = sum(e.get('frk_used_qntl', 0) for e in elist)
         tc = sum(e.get('cmr_delivery_qntl', 0) for e in elist)
-        return {
-            "count": len(elist),
-            "total_paddy_qntl": round(tp, 2),
-            "total_rice_qntl": round(tr, 2),
-            "total_frk_qntl": round(tf, 2),
-            "total_cmr_qntl": round(tc, 2),
-            "avg_outturn": round(tc / tp * 100, 2) if tp > 0 else 0
-        }
+        return {"count": len(elist), "total_paddy_qntl": round(tp, 2), "total_rice_qntl": round(tr, 2),
+            "total_frk_qntl": round(tf, 2), "total_cmr_qntl": round(tc, 2),
+            "avg_outturn": round(tc / tp * 100, 2) if tp > 0 else 0}
     
-    return {
-        "total_entries": len(entries),
-        "total_paddy_qntl": round(total_paddy, 2),
-        "total_rice_qntl": round(total_rice, 2),
-        "total_frk_qntl": round(total_frk, 2),
-        "total_bran_qntl": round(total_bran, 2),
-        "total_kunda_qntl": round(total_kunda, 2),
-        "total_broken_qntl": round(total_broken, 2),
-        "total_kanki_qntl": round(total_kanki, 2),
-        "total_husk_qntl": round(total_husk, 2),
-        "total_cmr_qntl": round(total_cmr, 2),
-        "total_frk_cost": round(total_frk_cost, 2),
+    return {"total_entries": len(entries), "total_paddy_qntl": round(total_paddy, 2),
+        "total_rice_qntl": round(total_rice, 2), "total_frk_qntl": round(total_frk, 2),
+        "total_bran_qntl": round(total_bran, 2), "total_kunda_qntl": round(total_kunda, 2),
+        "total_broken_qntl": round(total_broken, 2), "total_kanki_qntl": round(total_kanki, 2),
+        "total_husk_qntl": round(total_husk, 2), "total_cmr_qntl": round(total_cmr, 2),
         "avg_outturn_ratio": avg_outturn,
-        "parboiled": type_summary(parboiled),
-        "raw": type_summary(raw)
-    }
+        "parboiled": type_summary([e for e in entries if e.get('rice_type') == 'parboiled']),
+        "raw": type_summary([e for e in entries if e.get('rice_type') == 'raw'])}
+
+
+# ============ FRK PURCHASE APIs ============
+
+@api_router.post("/frk-purchases")
+async def create_frk_purchase(input: FrkPurchaseCreate, username: str = "", role: str = ""):
+    d = input.model_dump()
+    d['total_amount'] = round((d.get('quantity_qntl', 0) or 0) * (d.get('rate_per_qntl', 0) or 0), 2)
+    d['created_by'] = username
+    obj = FrkPurchase(**d)
+    doc = obj.model_dump()
+    await db.frk_purchases.insert_one(doc)
+    doc.pop('_id', None)
+    return doc
+
+
+@api_router.get("/frk-purchases")
+async def get_frk_purchases(kms_year: Optional[str] = None, season: Optional[str] = None):
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    return await db.frk_purchases.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+
+
+@api_router.delete("/frk-purchases/{purchase_id}")
+async def delete_frk_purchase(purchase_id: str, username: str = "", role: str = ""):
+    existing = await db.frk_purchases.find_one({"id": purchase_id}, {"_id": 0})
+    if not existing: raise HTTPException(status_code=404, detail="FRK purchase not found")
+    await db.frk_purchases.delete_one({"id": purchase_id})
+    return {"message": "FRK purchase deleted", "id": purchase_id}
+
+
+@api_router.get("/frk-stock")
+async def get_frk_stock(kms_year: Optional[str] = None, season: Optional[str] = None):
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    purchases = await db.frk_purchases.find(query, {"_id": 0}).to_list(1000)
+    total_purchased = round(sum(p.get('quantity_qntl', 0) for p in purchases), 2)
+    total_cost = round(sum(p.get('total_amount', 0) for p in purchases), 2)
+    milling_entries = await db.milling_entries.find(query, {"frk_used_qntl": 1, "_id": 0}).to_list(1000)
+    total_used = round(sum(e.get('frk_used_qntl', 0) for e in milling_entries), 2)
+    return {"total_purchased_qntl": total_purchased, "total_used_qntl": total_used,
+        "available_qntl": round(total_purchased - total_used, 2), "total_cost": total_cost}
 
 
 # ============ BY-PRODUCT STOCK & SALE APIs ============
 
 @api_router.get("/byproduct-stock")
 async def get_byproduct_stock(kms_year: Optional[str] = None, season: Optional[str] = None):
-    """By-product stock = milling output - sales"""
     query = {}
-    if kms_year:
-        query["kms_year"] = kms_year
-    if season:
-        query["season"] = season
-    
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
     milling_entries = await db.milling_entries.find(query, {"_id": 0}).to_list(1000)
     sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(1000)
-    
     products = ["bran", "kunda", "broken", "kanki", "husk"]
     stock = {}
     for p in products:
         produced = round(sum(e.get(f'{p}_qntl', 0) for e in milling_entries), 2)
         sold = round(sum(s.get('quantity_qntl', 0) for s in sales if s.get('product') == p), 2)
         revenue = round(sum(s.get('total_amount', 0) for s in sales if s.get('product') == p), 2)
-        stock[p] = {
-            "produced_qntl": produced,
-            "sold_qntl": sold,
-            "available_qntl": round(produced - sold, 2),
-            "total_revenue": revenue
-        }
-    
+        stock[p] = {"produced_qntl": produced, "sold_qntl": sold, "available_qntl": round(produced - sold, 2), "total_revenue": revenue}
     return stock
 
 
 @api_router.post("/byproduct-sales")
 async def create_byproduct_sale(input: ByProductSaleCreate, username: str = "", role: str = ""):
-    sale_dict = input.model_dump()
-    sale_dict['total_amount'] = round((sale_dict.get('quantity_qntl', 0) or 0) * (sale_dict.get('rate_per_qntl', 0) or 0), 2)
-    sale_dict['created_by'] = username
-    sale_obj = ByProductSale(**sale_dict)
-    doc = sale_obj.model_dump()
+    d = input.model_dump()
+    d['total_amount'] = round((d.get('quantity_qntl', 0) or 0) * (d.get('rate_per_qntl', 0) or 0), 2)
+    d['created_by'] = username
+    obj = ByProductSale(**d)
+    doc = obj.model_dump()
     await db.byproduct_sales.insert_one(doc)
     doc.pop('_id', None)
     return doc
 
 
 @api_router.get("/byproduct-sales")
-async def get_byproduct_sales(
-    product: Optional[str] = None,
-    kms_year: Optional[str] = None,
-    season: Optional[str] = None
-):
+async def get_byproduct_sales(product: Optional[str] = None, kms_year: Optional[str] = None, season: Optional[str] = None):
     query = {}
-    if product:
-        query["product"] = product
-    if kms_year:
-        query["kms_year"] = kms_year
-    if season:
-        query["season"] = season
-    sales = await db.byproduct_sales.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return sales
+    if product: query["product"] = product
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    return await db.byproduct_sales.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
 
 
 @api_router.delete("/byproduct-sales/{sale_id}")
 async def delete_byproduct_sale(sale_id: str, username: str = "", role: str = ""):
     existing = await db.byproduct_sales.find_one({"id": sale_id}, {"_id": 0})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Sale entry not found")
+    if not existing: raise HTTPException(status_code=404, detail="Sale entry not found")
     await db.byproduct_sales.delete_one({"id": sale_id})
     return {"message": "Sale entry deleted", "id": sale_id}
+
+
+# ============ PADDY CUSTODY MAINTENANCE REGISTER ============
+
+@api_router.get("/paddy-custody-register")
+async def get_paddy_custody_register(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Paddy custody register - all movements: received (mill entries) and issued (milling entries)"""
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    
+    # Paddy received from mill entries
+    mill_entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+    # Paddy issued for milling
+    milling_entries = await db.milling_entries.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+    
+    # Build register rows
+    rows = []
+    for e in mill_entries:
+        rows.append({
+            "date": e.get('date', ''),
+            "type": "received",
+            "description": f"Truck: {e.get('truck_no', '')} | Agent: {e.get('agent_name', '')} | Mandi: {e.get('mandi_name', '')}",
+            "received_qntl": round(e.get('mill_w', 0) / 100, 2),
+            "issued_qntl": 0,
+            "source_id": e.get('id', '')
+        })
+    for e in milling_entries:
+        rows.append({
+            "date": e.get('date', ''),
+            "type": "issued",
+            "description": f"Milling ({e.get('rice_type', 'parboiled').title()}) | Rice: {e.get('rice_qntl', 0)}Q",
+            "received_qntl": 0,
+            "issued_qntl": e.get('paddy_input_qntl', 0),
+            "source_id": e.get('id', '')
+        })
+    
+    # Sort by date
+    rows.sort(key=lambda x: x['date'])
+    
+    # Add running balance
+    balance = 0
+    for r in rows:
+        balance += r['received_qntl'] - r['issued_qntl']
+        r['balance_qntl'] = round(balance, 2)
+    
+    return {"rows": rows, "total_received": round(sum(r['received_qntl'] for r in rows), 2),
+        "total_issued": round(sum(r['issued_qntl'] for r in rows), 2),
+        "final_balance": round(balance, 2)}
+
+
+# ============ MILLING REPORT EXPORT ============
+
+@api_router.get("/milling-report/excel")
+async def export_milling_report_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from io import BytesIO
+    
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    entries = await db.milling_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Milling Report"
+    
+    # Header
+    header_fill = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    
+    title = f"Milling Report"
+    if kms_year: title += f" - KMS {kms_year}"
+    if season: title += f" ({season})"
+    ws.merge_cells('A1:L1')
+    ws['A1'] = title
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A1'].alignment = Alignment(horizontal='center')
+    
+    headers = ['Date', 'Type', 'Paddy (Q)', 'Rice %', 'Rice (Q)', 'FRK Used (Q)', 'CMR (Q)', 'Outturn %', 'Bran (Q)', 'Kunda (Q)', 'Husk %', 'Note']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal='center')
+    
+    for i, e in enumerate(entries, 4):
+        vals = [e.get('date',''), e.get('rice_type','').title(), e.get('paddy_input_qntl',0), e.get('rice_percent',0),
+            e.get('rice_qntl',0), e.get('frk_used_qntl',0), e.get('cmr_delivery_qntl',0), e.get('outturn_ratio',0),
+            e.get('bran_qntl',0), e.get('kunda_qntl',0), e.get('husk_percent',0), e.get('note','')]
+        for col, v in enumerate(vals, 1):
+            cell = ws.cell(row=i, column=col, value=v)
+            cell.border = thin_border
+            if col >= 3: cell.alignment = Alignment(horizontal='right')
+    
+    # Totals row
+    tr = len(entries) + 4
+    ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True)
+    if entries:
+        for col, key in [(3,'paddy_input_qntl'),(5,'rice_qntl'),(6,'frk_used_qntl'),(7,'cmr_delivery_qntl'),(9,'bran_qntl'),(10,'kunda_qntl')]:
+            ws.cell(row=tr, column=col, value=round(sum(e.get(key,0) for e in entries),2)).font = Font(bold=True)
+    
+    from openpyxl.utils import get_column_letter as gcl
+    for i in range(1, 13):  # 12 columns
+        ws.column_dimensions[gcl(i)].width = 14
+    
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    fn = f"milling_report_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={fn}"})
+
+
+@api_router.get("/milling-report/pdf")
+async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from io import BytesIO
+    
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    entries = await db.milling_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=30, bottomMargin=30)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    title = "Milling Report"
+    if kms_year: title += f" - KMS {kms_year}"
+    if season: title += f" ({season})"
+    elements.append(Paragraph(title, styles['Title']))
+    elements.append(Spacer(1, 12))
+    
+    headers = ['Date', 'Type', 'Paddy(Q)', 'Rice%', 'Rice(Q)', 'FRK(Q)', 'CMR(Q)', 'Outturn%', 'Bran(Q)', 'Kunda(Q)', 'Husk%']
+    data = [headers]
+    tp = tr = tf = tc = tb = tk = 0
+    for e in entries:
+        tp += e.get('paddy_input_qntl',0); tr += e.get('rice_qntl',0); tf += e.get('frk_used_qntl',0)
+        tc += e.get('cmr_delivery_qntl',0); tb += e.get('bran_qntl',0); tk += e.get('kunda_qntl',0)
+        data.append([e.get('date',''), e.get('rice_type','').title()[:3], e.get('paddy_input_qntl',0),
+            f"{e.get('rice_percent',0)}%", e.get('rice_qntl',0), e.get('frk_used_qntl',0),
+            e.get('cmr_delivery_qntl',0), f"{e.get('outturn_ratio',0)}%", e.get('bran_qntl',0), e.get('kunda_qntl',0), f"{e.get('husk_percent',0)}%"])
+    data.append(['TOTAL', '', round(tp,2), '', round(tr,2), round(tf,2), round(tc,2), '', round(tb,2), round(tk,2), ''])
+    
+    col_widths = [65, 35, 55, 40, 50, 45, 50, 55, 45, 50, 40]
+    table = RLTable(data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 7),
+        ('FONTSIZE', (0,0), (-1,0), 8),
+        ('ALIGN', (2,0), (-1,-1), 'RIGHT'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ROWBACKGROUNDS', (0,1), (-1,-2), [colors.white, colors.HexColor('#f8f8f8')]),
+    ]))
+    elements.append(table)
+    
+    doc.build(elements)
+    buffer.seek(0)
+    fn = f"milling_report_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={fn}"})
+
+
+@api_router.get("/paddy-custody-register/excel")
+async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from io import BytesIO
+    
+    register = await get_paddy_custody_register(kms_year=kms_year, season=season)
+    rows = register['rows']
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Paddy Custody Register"
+    
+    header_fill = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    
+    title = "Paddy Custody Maintenance Register"
+    if kms_year: title += f" - KMS {kms_year}"
+    if season: title += f" ({season})"
+    ws.merge_cells('A1:E1')
+    ws['A1'] = title
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A1'].alignment = Alignment(horizontal='center')
+    
+    headers = ['Date', 'Description', 'Received (QNTL)', 'Issued (QNTL)', 'Balance (QNTL)']
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=h)
+        cell.fill = header_fill; cell.font = header_font; cell.border = thin_border
+        cell.alignment = Alignment(horizontal='center')
+    
+    for i, r in enumerate(rows, 4):
+        vals = [r['date'], r['description'], r['received_qntl'] if r['received_qntl'] > 0 else '',
+            r['issued_qntl'] if r['issued_qntl'] > 0 else '', r['balance_qntl']]
+        for col, v in enumerate(vals, 1):
+            cell = ws.cell(row=i, column=col, value=v)
+            cell.border = thin_border
+            if col >= 3: cell.alignment = Alignment(horizontal='right')
+            if r['type'] == 'received': cell.font = Font(color="006600")
+            elif r['type'] == 'issued': cell.font = Font(color="CC0000")
+    
+    tr = len(rows) + 4
+    ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=tr, column=3, value=register['total_received']).font = Font(bold=True)
+    ws.cell(row=tr, column=4, value=register['total_issued']).font = Font(bold=True)
+    ws.cell(row=tr, column=5, value=register['final_balance']).font = Font(bold=True)
+    
+    ws.column_dimensions['A'].width = 14; ws.column_dimensions['B'].width = 50
+    ws.column_dimensions['C'].width = 16; ws.column_dimensions['D'].width = 16; ws.column_dimensions['E'].width = 16
+    
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    fn = f"paddy_custody_register_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={fn}"})
 
 
 # Include the router in the main app

@@ -1,0 +1,57 @@
+{
+  "summary": "CMR Module Phase 2 Testing Complete - FRK Purchase, Paddy Custody Register, Milling Report Exports. All backend APIs working (16/16 tests passed). Fixed critical bug in milling-report/excel endpoint. Frontend UI verified with all 4 sub-tabs functional.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dialog Components", "issues": ["Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent} - accessibility improvement recommended"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_frk_purchase_custody_export.py",
+    "/app/test_reports/pytest/pytest_results_iteration12.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_frk_purchase_custody_export.py",
+    "/app/backend/server.py"
+  ],
+  "success_rate": {
+    "backend": "100% (16/16 tests passed)",
+    "frontend": "100% (all UI elements found and functional)"
+  },
+  "seed_data_creation": "Test data created and cleaned up during testing - no residual test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "CMR Module Phase 2 fully tested. New APIs: POST/GET/DELETE /api/frk-purchases, GET /api/frk-stock, GET /api/paddy-custody-register, GET /api/milling-report/excel, GET /api/milling-report/pdf, GET /api/paddy-custody-register/excel. FRK is now purchased separately (not in milling entry). Milling entries use frk_used_qntl from stock. CMR = rice_qntl + frk_used_qntl. Frontend has 4 sub-tabs: subtab-milling, subtab-frk, subtab-byproducts, subtab-custody. Key data-testid: frk-add-btn, frk-form-dialog, frk-form-party, frk-form-qty, frk-form-rate, milling-form-frk-used, milling-export-excel, milling-export-pdf, custody-export-excel.",
+  "bug_fixed": {
+    "endpoint": "GET /api/milling-report/excel",
+    "issue": "AttributeError: 'MergedCell' object has no attribute 'column_letter'",
+    "fix": "Replaced ws.columns iteration with explicit column range using get_column_letter()",
+    "file_modified": "/app/backend/server.py",
+    "line_changed": "3363-3364"
+  },
+  "verified_business_logic": {
+    "frk_purchase_auto_total": "total_amount = quantity_qntl * rate_per_qntl",
+    "frk_stock_calculation": "available = total_purchased - total_used",
+    "cmr_calculation": "cmr_delivery_qntl = rice_qntl + frk_used_qntl",
+    "outturn_calculation": "outturn_ratio = cmr_delivery_qntl / paddy_input_qntl * 100",
+    "paddy_custody_received": "From mill entries (mill_w / 100)",
+    "paddy_custody_issued": "From milling entries (paddy_input_qntl)",
+    "running_balance": "balance += received - issued for each row"
+  },
+  "test_coverage": {
+    "frk_purchases_api": ["POST create with auto-total", "GET with filter", "DELETE", "DELETE non-existent (404)"],
+    "frk_stock_api": ["GET with purchased/used/available/total_cost"],
+    "milling_entries_api": ["POST with frk_used_qntl, verify CMR calculation"],
+    "paddy_custody_register_api": ["GET structure", "GET with filter", "Running balance calculation"],
+    "milling_report_export": ["Excel export", "Excel with filter", "PDF export", "PDF with filter"],
+    "custody_register_export": ["Excel export", "Excel with filter"],
+    "integration_test": ["Full flow: FRK purchase -> Milling entry -> Stock update -> CMR verification"]
+  }
+}
