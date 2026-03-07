@@ -44,6 +44,7 @@ import LoginPage from "@/components/LoginPage";
 import AutoSuggest from "@/components/common/AutoSuggest";
 import MillingTracker from "@/components/MillingTracker";
 import CashBook from "@/components/CashBook";
+import DCTracker from "@/components/DCTracker";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -2886,6 +2887,18 @@ function MainApp({ user, onLogout }) {
               <Wallet className="w-4 h-4 mr-1" />
               Cash Book
             </Button>
+            <Button
+              onClick={() => setActiveTab("dctracker")}
+              variant={activeTab === "dctracker" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "dctracker" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-dctracker"
+            >
+              <Truck className="w-4 h-4 mr-1" />
+              DC & Payments
+            </Button>
             {user.role === 'admin' && (
               <Button
                 onClick={() => { setActiveTab("settings"); fetchBackups(); }}
@@ -3448,6 +3461,8 @@ function MainApp({ user, onLogout }) {
           <MillingTracker filters={filters} user={user} />
         ) : activeTab === "cashbook" ? (
           <CashBook filters={filters} user={user} />
+        ) : activeTab === "dctracker" ? (
+          <DCTracker filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">
