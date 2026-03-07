@@ -54,7 +54,8 @@ class JsonDatabase {
       entries: [],
       mandi_targets: [],
       truck_payments: [],
-      agent_payments: []
+      agent_payments: [],
+      milling_entries: []
     };
   }
 
@@ -294,6 +295,124 @@ class JsonDatabase {
     }
     this.save();
     return this.getAgentPayment(mandiName, kmsYear, season);
+  }
+
+  // ---- Milling Entries ----
+  calculateMillingFields(data) {
+    const paddy = data.paddy_input_qntl || 0;
+    const ricePct = data.rice_percent || 0;
+    const frkPct = data.frk_percent || 0;
+    const branPct = data.bran_percent || 0;
+    const kundaPct = data.kunda_percent || 0;
+    const brokenPct = data.broken_percent || 0;
+    const kankiPct = data.kanki_percent || 0;
+    const usedPct = ricePct + frkPct + branPct + kundaPct + brokenPct + kankiPct;
+    const huskPct = Math.max(0, +(100 - usedPct).toFixed(2));
+
+    return {
+      ...data,
+      husk_percent: huskPct,
+      rice_qntl: +(paddy * ricePct / 100).toFixed(2),
+      frk_qntl: +(paddy * frkPct / 100).toFixed(2),
+      bran_qntl: +(paddy * branPct / 100).toFixed(2),
+      kunda_qntl: +(paddy * kundaPct / 100).toFixed(2),
+      broken_qntl: +(paddy * brokenPct / 100).toFixed(2),
+      kanki_qntl: +(paddy * kankiPct / 100).toFixed(2),
+      husk_qntl: +(paddy * huskPct / 100).toFixed(2),
+      cmr_delivery_qntl: +(paddy * (ricePct + frkPct) / 100).toFixed(2),
+      outturn_ratio: paddy > 0 ? +(ricePct + frkPct).toFixed(2) : 0
+    };
+  }
+
+  getMillingEntries(filters = {}) {
+    if (!this.data.milling_entries) this.data.milling_entries = [];
+    let entries = [...this.data.milling_entries];
+    if (filters.rice_type) entries = entries.filter(e => e.rice_type === filters.rice_type);
+    if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
+    if (filters.season) entries = entries.filter(e => e.season === filters.season);
+    if (filters.date_from) entries = entries.filter(e => e.date >= filters.date_from);
+    if (filters.date_to) entries = entries.filter(e => e.date <= filters.date_to);
+    return entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }
+
+  createMillingEntry(data) {
+    if (!this.data.milling_entries) this.data.milling_entries = [];
+    const calculated = this.calculateMillingFields(data);
+    const entry = {
+      id: uuidv4(),
+      date: calculated.date || new Date().toISOString().split('T')[0],
+      rice_type: calculated.rice_type || 'parboiled',
+      paddy_input_qntl: calculated.paddy_input_qntl || 0,
+      rice_percent: calculated.rice_percent || 0, frk_percent: calculated.frk_percent || 0,
+      bran_percent: calculated.bran_percent || 0, kunda_percent: calculated.kunda_percent || 0,
+      broken_percent: calculated.broken_percent || 0, kanki_percent: calculated.kanki_percent || 0,
+      husk_percent: calculated.husk_percent, rice_qntl: calculated.rice_qntl,
+      frk_qntl: calculated.frk_qntl, bran_qntl: calculated.bran_qntl,
+      kunda_qntl: calculated.kunda_qntl, broken_qntl: calculated.broken_qntl,
+      kanki_qntl: calculated.kanki_qntl, husk_qntl: calculated.husk_qntl,
+      cmr_delivery_qntl: calculated.cmr_delivery_qntl, outturn_ratio: calculated.outturn_ratio,
+      kms_year: calculated.kms_year || '', season: calculated.season || '',
+      note: calculated.note || '', created_by: calculated.created_by || '',
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    };
+    this.data.milling_entries.push(entry);
+    this.save();
+    return entry;
+  }
+
+  updateMillingEntry(id, data) {
+    if (!this.data.milling_entries) this.data.milling_entries = [];
+    const index = this.data.milling_entries.findIndex(e => e.id === id);
+    if (index === -1) return null;
+    const calculated = this.calculateMillingFields(data);
+    this.data.milling_entries[index] = {
+      ...this.data.milling_entries[index], ...calculated,
+      updated_at: new Date().toISOString()
+    };
+    this.save();
+    return this.data.milling_entries[index];
+  }
+
+  deleteMillingEntry(id) {
+    if (!this.data.milling_entries) this.data.milling_entries = [];
+    const len = this.data.milling_entries.length;
+    this.data.milling_entries = this.data.milling_entries.filter(e => e.id !== id);
+    if (this.data.milling_entries.length < len) { this.save(); return true; }
+    return false;
+  }
+
+  getMillingSummary(filters = {}) {
+    const entries = this.getMillingEntries(filters);
+    const totalPaddy = entries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0);
+    const totalRice = entries.reduce((s, e) => s + (e.rice_qntl || 0), 0);
+    const totalFrk = entries.reduce((s, e) => s + (e.frk_qntl || 0), 0);
+    const totalBran = entries.reduce((s, e) => s + (e.bran_qntl || 0), 0);
+    const totalKunda = entries.reduce((s, e) => s + (e.kunda_qntl || 0), 0);
+    const totalBroken = entries.reduce((s, e) => s + (e.broken_qntl || 0), 0);
+    const totalKanki = entries.reduce((s, e) => s + (e.kanki_qntl || 0), 0);
+    const totalHusk = entries.reduce((s, e) => s + (e.husk_qntl || 0), 0);
+    const totalCmr = entries.reduce((s, e) => s + (e.cmr_delivery_qntl || 0), 0);
+    const avgOutturn = totalPaddy > 0 ? +((totalRice + totalFrk) / totalPaddy * 100).toFixed(2) : 0;
+
+    const typeSummary = (list) => {
+      const tp = list.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0);
+      const tr = list.reduce((s, e) => s + (e.rice_qntl || 0), 0);
+      const tf = list.reduce((s, e) => s + (e.frk_qntl || 0), 0);
+      return { count: list.length, total_paddy_qntl: +tp.toFixed(2), total_rice_qntl: +tr.toFixed(2),
+        total_frk_qntl: +tf.toFixed(2), total_cmr_qntl: +(tr + tf).toFixed(2),
+        avg_outturn: tp > 0 ? +((tr + tf) / tp * 100).toFixed(2) : 0 };
+    };
+
+    return {
+      total_entries: entries.length, total_paddy_qntl: +totalPaddy.toFixed(2),
+      total_rice_qntl: +totalRice.toFixed(2), total_frk_qntl: +totalFrk.toFixed(2),
+      total_bran_qntl: +totalBran.toFixed(2), total_kunda_qntl: +totalKunda.toFixed(2),
+      total_broken_qntl: +totalBroken.toFixed(2), total_kanki_qntl: +totalKanki.toFixed(2),
+      total_husk_qntl: +totalHusk.toFixed(2), total_cmr_qntl: +totalCmr.toFixed(2),
+      avg_outturn_ratio: avgOutturn,
+      parboiled: typeSummary(entries.filter(e => e.rice_type === 'parboiled')),
+      raw: typeSummary(entries.filter(e => e.rice_type === 'raw'))
+    };
   }
 }
 
@@ -813,6 +932,40 @@ app.get('/api/agent-payments/:mandiName/history', (req, res) => {
   const mandiName = decodeURIComponent(req.params.mandiName);
   const payment = database.getAgentPayment(mandiName, kms_year, season);
   res.json({ history: payment.payments_history || [], total_paid: payment.paid_amount || 0 });
+});
+
+// ============ MILLING ENTRIES ============
+app.get('/api/milling-entries', (req, res) => {
+  const entries = database.getMillingEntries(req.query);
+  res.json(entries);
+});
+
+app.get('/api/milling-summary', (req, res) => {
+  res.json(database.getMillingSummary(req.query));
+});
+
+app.post('/api/milling-entries', (req, res) => {
+  const entry = database.createMillingEntry({ ...req.body, created_by: req.query.username || '' });
+  res.json(entry);
+});
+
+app.get('/api/milling-entries/:id', (req, res) => {
+  const entries = database.getMillingEntries({});
+  const entry = entries.find(e => e.id === req.params.id);
+  if (!entry) return res.status(404).json({ detail: 'Milling entry not found' });
+  res.json(entry);
+});
+
+app.put('/api/milling-entries/:id', (req, res) => {
+  const updated = database.updateMillingEntry(req.params.id, req.body);
+  if (!updated) return res.status(404).json({ detail: 'Milling entry not found' });
+  res.json(updated);
+});
+
+app.delete('/api/milling-entries/:id', (req, res) => {
+  const deleted = database.deleteMillingEntry(req.params.id);
+  if (!deleted) return res.status(404).json({ detail: 'Milling entry not found' });
+  res.json({ message: 'Milling entry deleted', id: req.params.id });
 });
 
 // ============ BACKUP ENDPOINTS ============

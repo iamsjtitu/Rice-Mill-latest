@@ -2972,6 +2972,171 @@ async def export_truck_owner_pdf(
     )
 
 
+# ============ MILLING ENTRY CRUD APIs ============
+
+def calculate_milling_fields(data: dict) -> dict:
+    """Auto-calculate QNTL values from percentages and paddy input"""
+    paddy = data.get('paddy_input_qntl', 0) or 0
+    
+    rice_pct = data.get('rice_percent', 0) or 0
+    frk_pct = data.get('frk_percent', 0) or 0
+    bran_pct = data.get('bran_percent', 0) or 0
+    kunda_pct = data.get('kunda_percent', 0) or 0
+    broken_pct = data.get('broken_percent', 0) or 0
+    kanki_pct = data.get('kanki_percent', 0) or 0
+    
+    # Husk = remainder
+    used_pct = rice_pct + frk_pct + bran_pct + kunda_pct + broken_pct + kanki_pct
+    husk_pct = max(0, 100 - used_pct)
+    
+    data['husk_percent'] = round(husk_pct, 2)
+    data['rice_qntl'] = round(paddy * rice_pct / 100, 2)
+    data['frk_qntl'] = round(paddy * frk_pct / 100, 2)
+    data['bran_qntl'] = round(paddy * bran_pct / 100, 2)
+    data['kunda_qntl'] = round(paddy * kunda_pct / 100, 2)
+    data['broken_qntl'] = round(paddy * broken_pct / 100, 2)
+    data['kanki_qntl'] = round(paddy * kanki_pct / 100, 2)
+    data['husk_qntl'] = round(paddy * husk_pct / 100, 2)
+    
+    # CMR delivery = rice + frk
+    data['cmr_delivery_qntl'] = round(data['rice_qntl'] + data['frk_qntl'], 2)
+    # Outturn ratio
+    data['outturn_ratio'] = round((rice_pct + frk_pct), 2) if paddy > 0 else 0
+    
+    return data
+
+
+@api_router.post("/milling-entries")
+async def create_milling_entry(input: MillingEntryCreate, username: str = "", role: str = ""):
+    entry_dict = input.model_dump()
+    entry_dict = calculate_milling_fields(entry_dict)
+    entry_dict['created_by'] = username
+    entry_obj = MillingEntry(**entry_dict)
+    doc = entry_obj.model_dump()
+    await db.milling_entries.insert_one(doc)
+    doc.pop('_id', None)
+    return doc
+
+
+@api_router.get("/milling-entries")
+async def get_milling_entries(
+    rice_type: Optional[str] = None,
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None
+):
+    query = {}
+    if rice_type:
+        query["rice_type"] = rice_type
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    if date_from or date_to:
+        date_query = {}
+        if date_from:
+            date_query["$gte"] = date_from
+        if date_to:
+            date_query["$lte"] = date_to
+        if date_query:
+            query["date"] = date_query
+    
+    entries = await db.milling_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return entries
+
+
+@api_router.get("/milling-entries/{entry_id}")
+async def get_milling_entry(entry_id: str):
+    entry = await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Milling entry not found")
+    return entry
+
+
+@api_router.put("/milling-entries/{entry_id}")
+async def update_milling_entry(entry_id: str, input: MillingEntryCreate, username: str = "", role: str = ""):
+    existing = await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Milling entry not found")
+    
+    update_dict = input.model_dump()
+    update_dict = calculate_milling_fields(update_dict)
+    update_dict['updated_at'] = datetime.now(timezone.utc).isoformat()
+    
+    await db.milling_entries.update_one({"id": entry_id}, {"$set": update_dict})
+    updated = await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
+    return updated
+
+
+@api_router.delete("/milling-entries/{entry_id}")
+async def delete_milling_entry(entry_id: str, username: str = "", role: str = ""):
+    existing = await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Milling entry not found")
+    await db.milling_entries.delete_one({"id": entry_id})
+    return {"message": "Milling entry deleted", "id": entry_id}
+
+
+@api_router.get("/milling-summary")
+async def get_milling_summary(
+    kms_year: Optional[str] = None,
+    season: Optional[str] = None
+):
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    
+    entries = await db.milling_entries.find(query, {"_id": 0}).to_list(1000)
+    
+    total_paddy = sum(e.get('paddy_input_qntl', 0) for e in entries)
+    total_rice = sum(e.get('rice_qntl', 0) for e in entries)
+    total_frk = sum(e.get('frk_qntl', 0) for e in entries)
+    total_bran = sum(e.get('bran_qntl', 0) for e in entries)
+    total_kunda = sum(e.get('kunda_qntl', 0) for e in entries)
+    total_broken = sum(e.get('broken_qntl', 0) for e in entries)
+    total_kanki = sum(e.get('kanki_qntl', 0) for e in entries)
+    total_husk = sum(e.get('husk_qntl', 0) for e in entries)
+    total_cmr = sum(e.get('cmr_delivery_qntl', 0) for e in entries)
+    
+    avg_outturn = round((total_rice + total_frk) / total_paddy * 100, 2) if total_paddy > 0 else 0
+    
+    # Breakdown by rice_type
+    parboiled = [e for e in entries if e.get('rice_type') == 'parboiled']
+    raw = [e for e in entries if e.get('rice_type') == 'raw']
+    
+    def type_summary(elist):
+        tp = sum(e.get('paddy_input_qntl', 0) for e in elist)
+        tr = sum(e.get('rice_qntl', 0) for e in elist)
+        tf = sum(e.get('frk_qntl', 0) for e in elist)
+        return {
+            "count": len(elist),
+            "total_paddy_qntl": round(tp, 2),
+            "total_rice_qntl": round(tr, 2),
+            "total_frk_qntl": round(tf, 2),
+            "total_cmr_qntl": round(tr + tf, 2),
+            "avg_outturn": round((tr + tf) / tp * 100, 2) if tp > 0 else 0
+        }
+    
+    return {
+        "total_entries": len(entries),
+        "total_paddy_qntl": round(total_paddy, 2),
+        "total_rice_qntl": round(total_rice, 2),
+        "total_frk_qntl": round(total_frk, 2),
+        "total_bran_qntl": round(total_bran, 2),
+        "total_kunda_qntl": round(total_kunda, 2),
+        "total_broken_qntl": round(total_broken, 2),
+        "total_kanki_qntl": round(total_kanki, 2),
+        "total_husk_qntl": round(total_husk, 2),
+        "total_cmr_qntl": round(total_cmr, 2),
+        "avg_outturn_ratio": avg_outturn,
+        "parboiled": type_summary(parboiled),
+        "raw": type_summary(raw)
+    }
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
