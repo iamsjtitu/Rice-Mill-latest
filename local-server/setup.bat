@@ -9,11 +9,16 @@ where node >nul 2>nul
 if %errorlevel% neq 0 (
     echo [ERROR] Node.js install nahi hai!
     echo Download karein: https://nodejs.org/
+    echo LTS version install karein.
     pause
     exit /b 1
 )
 
-echo [1/3] Node.js dependencies install ho rahe hain...
+echo [1/2] Node.js version check...
+node --version
+echo.
+
+echo [2/2] Dependencies install ho rahe hain...
 call npm install
 if %errorlevel% neq 0 (
     echo [ERROR] npm install fail hua!
@@ -21,27 +26,31 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo.
-echo [2/3] Frontend build ho raha hai...
-cd ..\frontend
-call npm install
-set REACT_APP_BACKEND_URL=http://localhost:8080
-call npm run build
-if %errorlevel% neq 0 (
-    echo [ERROR] Frontend build fail hua!
+:: Check if public folder exists (pre-built frontend)
+if exist public\index.html (
+    echo.
+    echo [OK] Frontend build already available hai (public folder mein)
+) else (
+    echo.
+    echo [WARNING] Frontend build nahi mila!
+    echo.
+    echo Agar "frontend" folder hai to ye command chalayein:
+    echo   cd ..\frontend
+    echo   npm install
+    echo   set REACT_APP_BACKEND_URL=http://localhost:8080
+    echo   npm run build
+    echo   xcopy /E /I /Q build ..\local-server\public
+    echo.
+    echo Ya phir GitHub se code dobara download karein -
+    echo "public" folder included hona chahiye.
     pause
     exit /b 1
 )
-
-echo.
-echo [3/3] Frontend build copy ho raha hai...
-cd ..\local-server
-if exist public rmdir /s /q public
-xcopy /E /I /Q ..\frontend\build public
 
 echo.
 echo ========================================
 echo   Setup Complete!
 echo   Ab "start.bat" double-click karein
 echo ========================================
+echo.
 pause
