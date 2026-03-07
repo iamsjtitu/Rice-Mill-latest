@@ -312,6 +312,15 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 ### Phase 16 - Excel/PDF Export (ExcelJS + PDFKit) - Dec 2025
 - Proper .xlsx exports with styled headers and branding
 - PDF exports with company header, tabular data, pagination
+
+### Phase 17 - Electron Desktop .exe with Icon - Dec 2025
+- Custom app icon (grain/mill theme) generated - icon.ico + icon.png
+- Electron Builder config: NSIS installer + Portable .exe
+- Desktop app synced with: backup system, ExcelJS exports, PDFKit PDFs
+- 49 API endpoints in Express server matching web version
+- setup-desktop.js for automated frontend build
+- Files: icon.ico, icon.png, icon_512.png, setup-desktop.js, SETUP_GUIDE.md
+
 - Covers: Entries, Truck Payments, Agent Payments, Truck Owner, Summary Report
 
 

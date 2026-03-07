@@ -5,8 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:frontend": "cd ../frontend && REACT_APP_BACKEND_URL=http://127.0.0.1:9876 yarn build && cp -r build ../desktop-app/frontend-build",
-    "build": "npm run build:frontend && electron-builder --win",
+    "setup": "node setup-desktop.js",
+    "build": "node setup-desktop.js && electron-builder --win",
     "build:win": "electron-builder --win --x64",
     "pack": "electron-builder --dir"
   },
@@ -19,27 +19,23 @@
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "exceljs": "^4.4.0",
+    "pdfkit": "^0.13.0"
   },
   "build": {
     "appId": "com.millentry.desktop",
     "productName": "Mill Entry System",
     "directories": {
       "output": "dist",
-      "buildResources": "assets"
+      "buildResources": "."
     },
     "files": [
       "main.js",
       "preload.js",
       "frontend-build/**/*",
-      "package.json"
-    ],
-    "extraFiles": [
-      {
-        "from": "assets",
-        "to": "assets",
-        "filter": ["**/*"]
-      }
+      "package.json",
+      "node_modules/**/*"
     ],
     "win": {
       "target": [
@@ -52,14 +48,16 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "assets/icon.png"
+      "icon": "icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Mill Entry System"
+      "shortcutName": "Mill Entry System",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico"
     },
     "portable": {
       "artifactName": "MillEntrySystem-Portable.exe"
