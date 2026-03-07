@@ -430,20 +430,38 @@ const GunnyBags = ({ filters, user }) => {
   return (
     <div className="space-y-3" data-testid="gunny-bags-tab">
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          <Card className="bg-gradient-to-br from-emerald-900/40 to-slate-800 border-emerald-800/30"><CardContent className="p-3">
-            <p className="text-[10px] text-emerald-400">New Bags (Govt Free)</p>
-            <p className="text-xl font-bold text-emerald-400">{summary.new?.balance || 0} bags</p>
-            <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.new?.total_in || 0}</span><span className="text-red-400">Out: {summary.new?.total_out || 0}</span></div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+          <Card className="bg-gradient-to-br from-blue-900/40 to-slate-800 border-blue-800/30"><CardContent className="p-3">
+            <p className="text-[10px] text-blue-400">Paddy Receive Bags</p>
+            <p className="text-xl font-bold text-blue-400">{summary.paddy_bags?.total || 0}</p>
+            <p className="text-[9px] text-slate-500 mt-1">From truck entries</p>
+          </CardContent></Card>
+          <Card className="bg-gradient-to-br from-purple-900/40 to-slate-800 border-purple-800/30"><CardContent className="p-3">
+            <p className="text-[10px] text-purple-400">P.Pkt (Plastic)</p>
+            <p className="text-xl font-bold text-purple-400">{summary.ppkt?.total || 0}</p>
+            <p className="text-[9px] text-slate-500 mt-1">From truck entries</p>
           </CardContent></Card>
           <Card className="bg-gradient-to-br from-orange-900/30 to-slate-800 border-orange-800/30"><CardContent className="p-3">
             <p className="text-[10px] text-orange-400">Old Bags (Market)</p>
-            <p className="text-xl font-bold text-orange-400">{summary.old?.balance || 0} bags</p>
-            <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.old?.total_in || 0}</span><span className="text-red-400">Out: {summary.old?.total_out || 0}</span><span className="text-amber-400">Cost: ₹{(summary.old?.total_cost || 0).toLocaleString('en-IN')}</span></div>
+            <p className="text-xl font-bold text-orange-400">{summary.old?.balance || 0}</p>
+            <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.old?.total_in || 0}</span><span className="text-red-400">Out: {summary.old?.total_out || 0}</span></div>
+            <p className="text-[9px] text-amber-400">Cost: ₹{(summary.old?.total_cost || 0).toLocaleString('en-IN')}</p>
           </CardContent></Card>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
-            <p className="text-[10px] text-slate-400">Total Available</p>
+            <p className="text-[10px] text-white font-medium">Total (Excl Govt)</p>
             <p className="text-xl font-bold text-white">{summary.grand_total || 0} bags</p>
+            <p className="text-[9px] text-slate-500 mt-1">Paddy + P.Pkt + Old</p>
+          </CardContent></Card>
+          <Card className="bg-gradient-to-br from-emerald-900/40 to-slate-800 border-emerald-800/30"><CardContent className="p-3">
+            <p className="text-[10px] text-emerald-400">Govt Bags (Free)</p>
+            <p className="text-xl font-bold text-emerald-400">{summary.new?.balance || 0}</p>
+            <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.new?.total_in || 0}</span><span className="text-red-400">Out: {summary.new?.total_out || 0}</span></div>
+            <p className="text-[9px] text-slate-500 mt-1">Not in total</p>
+          </CardContent></Card>
+          <Card className="bg-slate-800/50 border-slate-700"><CardContent className="p-3">
+            <p className="text-[10px] text-slate-400">Govt Issued (g)</p>
+            <p className="text-xl font-bold text-slate-400">{summary.g_issued?.total || 0}</p>
+            <p className="text-[9px] text-slate-500 mt-1">From entries</p>
           </CardContent></Card>
         </div>
       )}

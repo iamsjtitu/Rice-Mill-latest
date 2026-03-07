@@ -1,0 +1,80 @@
+{
+  "summary": "Iteration 16 testing complete. All 21 backend API tests passed. Frontend UI verified - Reports tab (data-testid='tab-reports') with CMR vs DC and Season P&L sub-tabs working. Gunny Bags updated UI shows 6 cards including paddy_bags, ppkt, g_issued from truck entries. All export buttons (Excel/PDF) present and functional.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": [
+      {
+        "type": "React key warning",
+        "message": "Encountered two children with the same key in DCTracker.jsx TableBody",
+        "severity": "minor",
+        "impact": "No functional impact, cosmetic React warning"
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_reports_gunny_update.py",
+    "/app/test_reports/pytest/pytest_results_reports_gunny.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "DCTracker.jsx has duplicate React key warning in TableBody - consider using unique keys for DC rows"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (21/21 tests passed)",
+    "frontend": "100%"
+  },
+  "features_tested": {
+    "gunny_bags_summary_updated": {
+      "paddy_bags_field": "PASS - Returns paddy_bags.total from truck entries",
+      "ppkt_field": "PASS - Returns ppkt.total (plastic bags) from truck entries",
+      "g_issued_field": "PASS - Returns g_issued.total from truck entries",
+      "grand_total_excludes_govt": "PASS - grand_total = old.balance + paddy_bags + ppkt (govt NOT included)",
+      "new_and_old_types": "PASS - Still has new (govt) and old (market) bag types",
+      "excel_export": "PASS - GET /api/gunny-bags/excel returns valid xlsx",
+      "pdf_export": "PASS - GET /api/gunny-bags/pdf returns valid pdf"
+    },
+    "reports_cmr_vs_dc": {
+      "milling_section": "PASS - Returns total_paddy_milled, total_rice_produced, total_frk_used, total_cmr_ready, avg_outturn_pct, milling_count",
+      "dc_section": "PASS - Returns total_allotted, total_delivered, total_pending, dc_count, delivery_count",
+      "comparison_section": "PASS - Returns cmr_vs_dc_allotted, cmr_vs_dc_delivered",
+      "byproduct_revenue": "PASS - Returns byproduct_revenue field",
+      "excel_export": "PASS - GET /api/reports/cmr-vs-dc/excel returns valid xlsx",
+      "pdf_export": "PASS - GET /api/reports/cmr-vs-dc/pdf returns valid pdf"
+    },
+    "reports_season_pnl": {
+      "income_section": "PASS - Returns msp_payments, byproduct_sales, cash_book_jama, total",
+      "expenses_section": "PASS - Returns frk_purchases, gunny_bags, cash_book_nikasi, truck_payments, agent_payments, total",
+      "net_pnl": "PASS - Returns net_pnl numeric and profit boolean",
+      "excel_export": "PASS - GET /api/reports/season-pnl/excel returns valid xlsx",
+      "pdf_export": "PASS - GET /api/reports/season-pnl/pdf returns valid pdf"
+    },
+    "ui_navigation": {
+      "reports_tab": "PASS - Reports tab visible (data-testid='tab-reports')",
+      "cmr_dc_subtab": "PASS - CMR vs DC sub-tab (data-testid='report-tab-cmr-dc')",
+      "pnl_subtab": "PASS - Season P&L sub-tab (data-testid='report-tab-pnl')",
+      "gunny_subtab": "PASS - Gunny Bags sub-tab (data-testid='subtab-gunny')"
+    },
+    "gunny_bags_ui_cards": {
+      "paddy_receive_bags": "PASS - Shows Paddy Receive Bags card with total from truck entries",
+      "ppkt_plastic": "PASS - Shows P.Pkt (Plastic) card with total from truck entries",
+      "old_bags_market": "PASS - Shows Old Bags (Market) card with balance",
+      "total_excl_govt": "PASS - Shows Total (Excl Govt) card (paddy + ppkt + old)",
+      "govt_bags_free": "PASS - Shows Govt Bags (Free) card (not in total)",
+      "govt_issued_g": "PASS - Shows Govt Issued (g) card from truck entries"
+    }
+  },
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All features from iteration 16 tested and working: Updated Gunny Bags with paddy_bags/ppkt/g_issued from truck entries, new Reports module with CMR vs DC and Season P&L. Both have Excel/PDF exports. Previous iterations: 13 (CMR exports), 14 (Cash Book), 15 (DC/MSP/Gunny basic)."
+}

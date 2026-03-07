@@ -1577,7 +1577,13 @@ function createApiServer(database) {
     if (req.query.season) entries = entries.filter(e=>e.season===req.query.season);
     const result = {};
     ['new','old'].forEach(bt=>{const items=entries.filter(e=>e.bag_type===bt);result[bt]={total_in:items.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0),total_out:items.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0),balance:0,total_cost:+items.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.amount||0),0).toFixed(2)};result[bt].balance=result[bt].total_in-result[bt].total_out;});
-    result.grand_total=result.new.balance+result.old.balance;
+    let paddyEntries = [...database.data.entries];
+    if (req.query.kms_year) paddyEntries = paddyEntries.filter(e=>e.kms_year===req.query.kms_year);
+    if (req.query.season) paddyEntries = paddyEntries.filter(e=>e.season===req.query.season);
+    result.paddy_bags = { total: paddyEntries.reduce((s,e)=>s+(e.bag||0),0), label: 'Paddy Receive Bags' };
+    result.ppkt = { total: paddyEntries.reduce((s,e)=>s+(e.plastic_bag||0),0), label: 'P.Pkt (Plastic Bags)' };
+    result.g_issued = { total: paddyEntries.reduce((s,e)=>s+(e.g_issued||0),0), label: 'Govt Bags Issued (g)' };
+    result.grand_total = result.old.balance + result.paddy_bags.total + result.ppkt.total;
     res.json(result);
   });
 

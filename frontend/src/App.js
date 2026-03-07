@@ -45,6 +45,7 @@ import AutoSuggest from "@/components/common/AutoSuggest";
 import MillingTracker from "@/components/MillingTracker";
 import CashBook from "@/components/CashBook";
 import DCTracker from "@/components/DCTracker";
+import Reports from "@/components/Reports";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -2899,6 +2900,18 @@ function MainApp({ user, onLogout }) {
               <Truck className="w-4 h-4 mr-1" />
               DC & Payments
             </Button>
+            <Button
+              onClick={() => setActiveTab("reports")}
+              variant={activeTab === "reports" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "reports" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-reports"
+            >
+              <BarChart3 className="w-4 h-4 mr-1" />
+              Reports
+            </Button>
             {user.role === 'admin' && (
               <Button
                 onClick={() => { setActiveTab("settings"); fetchBackups(); }}
@@ -3463,6 +3476,8 @@ function MainApp({ user, onLogout }) {
           <CashBook filters={filters} user={user} />
         ) : activeTab === "dctracker" ? (
           <DCTracker filters={filters} user={user} />
+        ) : activeTab === "reports" ? (
+          <Reports filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">
