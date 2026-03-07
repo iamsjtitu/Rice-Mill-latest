@@ -36,13 +36,14 @@ import {
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
   Info, Printer, HardDrive, Download, RotateCcw, Shield, Sun, Moon,
-  Wheat
+  Wheat, Wallet
 } from "lucide-react";
 
 // Import extracted components
 import LoginPage from "@/components/LoginPage";
 import AutoSuggest from "@/components/common/AutoSuggest";
 import MillingTracker from "@/components/MillingTracker";
+import CashBook from "@/components/CashBook";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -2192,6 +2193,12 @@ function MainApp({ user, onLogout }) {
         setActiveTab("milling");
         toast.info("Milling Tab (Alt+M)");
       }
+      // Alt + B: Go to Cash Book tab
+      if (e.altKey && e.key === 'b') {
+        e.preventDefault();
+        setActiveTab("cashbook");
+        toast.info("Cash Book Tab (Alt+B)");
+      }
       // Alt + R: Refresh data
       if (e.altKey && e.key === 'r') {
         e.preventDefault();
@@ -2867,6 +2874,18 @@ function MainApp({ user, onLogout }) {
               <Wheat className="w-4 h-4 mr-1" />
               Milling (CMR)
             </Button>
+            <Button
+              onClick={() => setActiveTab("cashbook")}
+              variant={activeTab === "cashbook" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "cashbook" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-cashbook"
+            >
+              <Wallet className="w-4 h-4 mr-1" />
+              Cash Book
+            </Button>
             {user.role === 'admin' && (
               <Button
                 onClick={() => { setActiveTab("settings"); fetchBackups(); }}
@@ -3427,6 +3446,8 @@ function MainApp({ user, onLogout }) {
           <Payments filters={filters} user={user} branding={branding} />
         ) : activeTab === "milling" ? (
           <MillingTracker filters={filters} user={user} />
+        ) : activeTab === "cashbook" ? (
+          <CashBook filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">
