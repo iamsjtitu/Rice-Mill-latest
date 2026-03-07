@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -124,7 +124,7 @@ const DCEntries = ({ filters, user }) => {
         <TableBody>
           {loading ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
           : dcs.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Koi DC nahi hai. "New DC" click karein.</TableCell></TableRow>
-          : dcs.map(dc => (<>
+          : dcs.map(dc => (<React.Fragment key={dc.id}>
             <TableRow key={dc.id} className="border-slate-700 cursor-pointer hover:bg-slate-750" onClick={() => handleExpandDC(dc.id)} data-testid={`dc-row-${dc.id}`}>
               <TableCell>{expandedDC === dc.id ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}</TableCell>
               <TableCell className="text-amber-400 font-medium text-xs">{dc.dc_number}</TableCell>
@@ -166,7 +166,7 @@ const DCEntries = ({ filters, user }) => {
                 </TableCell>
               </TableRow>
             )}
-          </>))}
+          </React.Fragment>))}
         </TableBody></Table>
       </div></CardContent></Card>
 

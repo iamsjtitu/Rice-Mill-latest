@@ -15,65 +15,52 @@ Mill Entry application for grain tracking with auto-calculations, role-based aut
 - Truck & Agent payments, keyboard shortcuts, branding, dark/light theme
 - Desktop .exe app, local server, auto-backup
 
-### CMR Module Phase 1: Milling & Conversion Tracker (Mar 2026)
-- Milling Entry CRUD, FRK Purchase Module, By-Product Stock & Sales
-- Paddy Custody Maintenance Register (label: "Released" not "Issued")
-- Export for ALL CMR tabs (Excel + PDF)
+### CMR Module Phase 1: Milling & Conversion Tracker
+- Milling Entry CRUD, FRK Purchase, By-Product Stock & Sales
+- Paddy Custody Register (label: "Released" not "Issued")
+- Export for ALL tabs (Excel + PDF)
 
-### Cash Book / Daily Cash & Bank Register (Mar 2026)
+### Cash Book / Daily Cash & Bank Register
 - Cash in Hand + Bank Balance tracking (Jama/Nikasi)
-- Custom Category Management (create/delete per account+type)
-- Summary Cards, Filters, Excel + PDF Export
-- Keyboard shortcut: Alt+B
+- Custom Category Management, Summary Cards, Filters
+- Excel + PDF Export, Alt+B shortcut
 
-### Phase 2: DC (Delivery Challan) & Payment Management (Mar 2026)
-- **DC Management** - DC number, date, quantity, rice type, godown, deadline
-- **Delivery Tracking** - Multiple deliveries per DC with vehicle/driver/slip info
-- **Auto Status** - pending → partial → completed based on deliveries
-- **Expandable Rows** - Click DC to see/add deliveries inline
-- **MSP Payment Tracking** - Payment received from govt, linked to DCs, with mode/ref/bank
-- **MSP Summary** - Total paid, avg rate, pending payment quantity
-- **Gunny Bag (बोरी) Tracking** - New (govt free) + Old (market purchase), In/Out, auto-cost
-- **Gunny Summary** - Stock balance by type (new/old), grand total
-- **Excel + PDF Export** for all 3 sub-modules
-- **All 3 backends synced**: Python/FastAPI, Node.js local-server, Electron desktop-app
+### Phase 2: DC (Delivery Challan) & Payment Management
+- DC Management (auto-status: pending→partial→completed), expandable delivery rows
+- MSP Payment Tracking (linked to DCs, mode/ref/bank)
+- Gunny Bags (बोरी): New(govt)/Old(market) + **Paddy Receive Bags + P.Pkt from truck entries**
+- **Govt bags NOT in total** (Total = Old + Paddy bags + P.Pkt)
+- Excel + PDF Export for all
 
-## API Endpoints
+### Phase 4: Reporting
+- **CMR vs DC Report** - Milling output vs DC allotment vs deliveries, surplus/deficit, by-product revenue
+- **Season P&L** - Income (MSP, By-Products, Cash Jama) vs Expenses (FRK, Gunny, Cash Nikasi, Truck, Agent)
+- Excel + PDF Export for both reports
 
-### CMR Module
-- CRUD: `/api/milling-entries`, `/api/frk-purchases`, `/api/byproduct-sales`
-- GET: `/api/paddy-stock`, `/api/milling-summary`, `/api/frk-stock`, `/api/byproduct-stock`, `/api/paddy-custody-register`
-- Export: milling-report, frk-purchases, byproduct-sales, paddy-custody-register (excel/pdf)
-
-### Cash Book
-- CRUD: `/api/cash-book`, Categories: `/api/cash-book/categories`
-- Summary: `/api/cash-book/summary`, Export: `/api/cash-book/excel|pdf`
-
-### DC & Payments
-- DC CRUD: `/api/dc-entries`, Deliveries: `/api/dc-deliveries`
-- DC Summary: `/api/dc-summary`, Export: `/api/dc-entries/excel|pdf`
-- MSP CRUD: `/api/msp-payments`, Summary: `/api/msp-payments/summary`, Export: `/api/msp-payments/excel|pdf`
-- Gunny CRUD: `/api/gunny-bags`, Summary: `/api/gunny-bags/summary`, Export: `/api/gunny-bags/excel|pdf`
-
-## Test Credentials
-- Admin: admin / admin123 | Staff: staff / staff123
+## Key API Endpoints
+- CMR: milling-entries, frk-purchases, byproduct-sales, paddy-custody-register (CRUD + exports)
+- Cash Book: cash-book, cash-book/categories, cash-book/summary (CRUD + exports)
+- DC: dc-entries, dc-deliveries, dc-summary, msp-payments (CRUD + exports)
+- Gunny: gunny-bags, gunny-bags/summary (CRUD + exports)
+- Reports: reports/cmr-vs-dc, reports/season-pnl (GET + exports)
 
 ## Test Reports
-- iteration_13: CMR Exports & Label Change (100% PASS)
-- iteration_14: Cash Book (100% PASS - 21/21 backend)
-- iteration_15: DC, MSP, Gunny Bags (100% PASS - 27/27 backend)
+- iteration_13: CMR Exports (100%), iteration_14: Cash Book (100%)
+- iteration_15: DC/MSP/Gunny (100%), iteration_16: Gunny Update + Reports (100%)
+
+## Credentials
+- Admin: admin / admin123 | Staff: staff / staff123
 
 ## Prioritized Backlog
 
-### P1 (High) - UPCOMING
-- [ ] Phase 4: Reporting (CMR vs DC, Season P&L, Milling Report)
+### P1 (High)
 - [ ] Phase 5: Consolidated Ledgers (Outstanding Report, Party Ledger)
+- [ ] DC/MSP/Gunny Export endpoints in Node.js backends
 
 ### P2 (Medium)
 - [ ] Code refactoring: Break monolithic files into modules
-- [ ] DC Export endpoints in Node.js backends (Excel/PDF)
-- [ ] MSP/Gunny Export endpoints in Node.js backends (Excel/PDF)
+- [ ] Opening Balance for Cash Book
+- [ ] Reports module in Node.js backends
 
 ### P3 (Low)
 - [ ] Audit trail, Mobile responsive, macOS build
-- [ ] Opening Balance feature for Cash Book
