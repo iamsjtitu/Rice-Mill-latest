@@ -220,6 +220,61 @@ class MandiTargetUpdate(BaseModel):
     season: Optional[str] = None
 
 
+# ============ MILLING ENTRY MODELS ============
+class MillingEntry(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    date: str
+    rice_type: str = "parboiled"  # "parboiled" or "raw"
+    paddy_input_qntl: float = 0
+    
+    # Output percentages (user enters)
+    rice_percent: float = 0
+    frk_percent: float = 0
+    bran_percent: float = 0
+    kunda_percent: float = 0
+    broken_percent: float = 0
+    kanki_percent: float = 0
+    husk_percent: float = 0  # auto-calculated as remainder
+    
+    # Auto-calculated QNTL
+    rice_qntl: float = 0
+    frk_qntl: float = 0
+    bran_qntl: float = 0
+    kunda_qntl: float = 0
+    broken_qntl: float = 0
+    kanki_qntl: float = 0
+    husk_qntl: float = 0
+    
+    # CMR
+    cmr_delivery_qntl: float = 0  # rice + frk
+    outturn_ratio: float = 0      # (rice + frk) / paddy * 100
+    
+    # Meta
+    kms_year: str = ""
+    season: str = ""
+    note: str = ""
+    created_by: str = ""
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class MillingEntryCreate(BaseModel):
+    date: str
+    rice_type: str = "parboiled"
+    paddy_input_qntl: float = 0
+    rice_percent: float = 0
+    frk_percent: float = 0
+    bran_percent: float = 0
+    kunda_percent: float = 0
+    broken_percent: float = 0
+    kanki_percent: float = 0
+    kms_year: str = ""
+    season: str = ""
+    note: str = ""
+
+
 class MandiTargetSummary(BaseModel):
     id: str  # Target ID for edit/delete
     mandi_name: str
