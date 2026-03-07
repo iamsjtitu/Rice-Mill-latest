@@ -681,8 +681,23 @@ app.get('/api/truck-payments', (req, res) => {
 });
 
 app.put('/api/truck-payments/:entryId/rate', (req, res) => {
-  database.updateTruckPayment(req.params.entryId, { rate_per_qntl: req.body.rate_per_qntl });
-  res.json({ success: true, message: `Rate set to Rs.${req.body.rate_per_qntl}/QNTL` });
+  const entry = database.data.entries.find(e => e.id === req.params.entryId);
+  let updatedCount = 1;
+  
+  if (entry && entry.truck_no && entry.mandi_name) {
+    // Auto-update all entries with same truck_no + same mandi_name
+    const matching = database.data.entries.filter(e => 
+      e.truck_no === entry.truck_no && e.mandi_name === entry.mandi_name
+    );
+    matching.forEach(m => {
+      database.updateTruckPayment(m.id, { rate_per_qntl: req.body.rate_per_qntl });
+    });
+    updatedCount = matching.length;
+  } else {
+    database.updateTruckPayment(req.params.entryId, { rate_per_qntl: req.body.rate_per_qntl });
+  }
+  
+  res.json({ success: true, message: `Rate ₹${req.body.rate_per_qntl}/QNTL set for ${updatedCount} entries`, updated_count: updatedCount, truck_no: entry?.truck_no, mandi_name: entry?.mandi_name });
 });
 
 app.post('/api/truck-payments/:entryId/pay', (req, res) => {

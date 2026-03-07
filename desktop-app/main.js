@@ -776,8 +776,24 @@ function createApiServer(database) {
   });
 
   apiApp.put('/api/truck-payments/:entryId/rate', (req, res) => {
-    const payment = database.updateTruckPayment(req.params.entryId, { rate_per_qntl: req.body.rate_per_qntl });
-    res.json({ success: true, payment });
+    const entry = database.data.entries.find(e => e.id === req.params.entryId);
+    let updatedCount = 1;
+    
+    if (entry && entry.truck_no && entry.mandi_name) {
+      // Auto-update all entries with same truck_no + same mandi_name
+      const matching = database.data.entries.filter(e => 
+        e.truck_no === entry.truck_no && e.mandi_name === entry.mandi_name
+      );
+      matching.forEach(m => {
+        database.updateTruckPayment(m.id, { rate_per_qntl: req.body.rate_per_qntl });
+      });
+      updatedCount = matching.length;
+    } else {
+      database.updateTruckPayment(req.params.entryId, { rate_per_qntl: req.body.rate_per_qntl });
+    }
+    
+    const payment = database.getTruckPayment(req.params.entryId);
+    res.json({ success: true, payment, updated_count: updatedCount, truck_no: entry?.truck_no, mandi_name: entry?.mandi_name });
   });
 
   apiApp.post('/api/truck-payments/:entryId/pay', (req, res) => {

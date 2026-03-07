@@ -1721,27 +1721,38 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
 
 @api_router.put("/truck-payments/{entry_id}/rate")
 async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str = "", role: str = ""):
-    """Set rate for a specific truck entry (Admin only)"""
+    """Set rate for a specific truck entry - auto-updates all entries with same truck_no + mandi_name"""
     if role != "admin":
         raise HTTPException(status_code=403, detail="Sirf admin rate set kar sakta hai")
     
-    # Check entry exists
     entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     
-    # Upsert payment record
-    await db.truck_payments.update_one(
-        {"entry_id": entry_id},
-        {"$set": {
-            "entry_id": entry_id,
-            "rate_per_qntl": request.rate_per_qntl,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }},
-        upsert=True
-    )
+    truck_no = entry.get("truck_no", "")
+    mandi_name = entry.get("mandi_name", "")
+    updated_count = 1
     
-    return {"success": True, "message": f"Rate set to ₹{request.rate_per_qntl}/QNTL"}
+    if truck_no and mandi_name:
+        # Find all entries with same truck_no + mandi_name
+        matching = await db.mill_entries.find(
+            {"truck_no": truck_no, "mandi_name": mandi_name}, {"_id": 0, "id": 1}
+        ).to_list(None)
+        for m in matching:
+            await db.truck_payments.update_one(
+                {"entry_id": m["id"]},
+                {"$set": {"entry_id": m["id"], "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
+                upsert=True
+            )
+        updated_count = len(matching)
+    else:
+        await db.truck_payments.update_one(
+            {"entry_id": entry_id},
+            {"$set": {"entry_id": entry_id, "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True
+        )
+    
+    return {"success": True, "message": f"Rate ₹{request.rate_per_qntl}/QNTL set for {updated_count} entries", "updated_count": updated_count, "truck_no": truck_no, "mandi_name": mandi_name}
 
 
 @api_router.post("/truck-payments/{entry_id}/pay")

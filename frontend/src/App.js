@@ -653,17 +653,23 @@ const Payments = ({ filters, user, branding }) => {
     if (!newRate || !selectedItem) return;
     try {
       if (activePaymentTab === "truck") {
-        await axios.put(
+        const res = await axios.put(
           `${API}/truck-payments/${selectedItem.entry_id}/rate?username=${user.username}&role=${user.role}`,
           { rate_per_qntl: parseFloat(newRate) }
         );
+        const count = res.data?.updated_count || 1;
+        if (count > 1) {
+          toast.success(`Rate ₹${newRate}/QNTL set! ${count} entries update hui (${res.data.truck_no} - ${res.data.mandi_name})`);
+        } else {
+          toast.success("Rate set ho gaya!");
+        }
       } else {
         await axios.put(
           `${API}/agent-rates/${encodeURIComponent(selectedItem.agent_name)}?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`,
           { rate_per_qntl: parseFloat(newRate) }
         );
+        toast.success("Rate set ho gaya!");
       }
-      toast.success("Rate set ho gaya!");
       setShowRateDialog(false);
       setNewRate("");
       fetchPayments();
