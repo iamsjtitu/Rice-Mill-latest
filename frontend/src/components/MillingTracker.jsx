@@ -378,6 +378,10 @@ const FrkPurchaseTab = ({ filters, user, frkStock, onRefresh }) => {
         <Button onClick={() => { setForm({ date: new Date().toISOString().split('T')[0], party_name: "", quantity_qntl: "", rate_per_qntl: "", note: "", kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif" }); setIsDialogOpen(true); }}
           className="bg-cyan-600 hover:bg-cyan-700 text-white" size="sm" data-testid="frk-add-btn"><Plus className="w-4 h-4 mr-1" /> New FRK Purchase</Button>
         <Button onClick={() => { fetch(); onRefresh(); }} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+        <Button onClick={async () => { try { const params = new URLSearchParams(); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const res = await axios.get(`${API}/frk-purchases/excel?${params}`, { responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url; a.download = 'frk_purchases.xlsx'; a.click(); toast.success("Excel export!"); } catch(e) { toast.error("Export failed"); }}}
+          variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="frk-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
+        <Button onClick={async () => { try { const params = new URLSearchParams(); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const res = await axios.get(`${API}/frk-purchases/pdf?${params}`, { responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url; a.download = 'frk_purchases.pdf'; a.click(); toast.success("PDF export!"); } catch(e) { toast.error("Export failed"); }}}
+          variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="frk-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
@@ -479,6 +483,12 @@ const ByProductTab = ({ filters, user, onRefresh }) => {
               size="sm" variant="outline" className="w-full mt-2 h-6 text-xs border-slate-600 text-slate-300 hover:bg-slate-700"><ShoppingCart className="w-3 h-3 mr-1" /> Sell</Button>
           </CardContent></Card>); })}
       </div>}
+      <div className="flex gap-2">
+        <Button onClick={async () => { try { const params = new URLSearchParams(); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const res = await axios.get(`${API}/byproduct-sales/excel?${params}`, { responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url; a.download = 'byproduct_sales.xlsx'; a.click(); toast.success("Excel export!"); } catch(e) { toast.error("Export failed"); }}}
+          variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="byproduct-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
+        <Button onClick={async () => { try { const params = new URLSearchParams(); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const res = await axios.get(`${API}/byproduct-sales/pdf?${params}`, { responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url; a.download = 'byproduct_sales.pdf'; a.click(); toast.success("PDF export!"); } catch(e) { toast.error("Export failed"); }}}
+          variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="byproduct-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+      </div>
       <Card className="bg-slate-800 border-slate-700"><CardHeader className="pb-2 pt-3 px-4"><div className="flex justify-between items-center">
         <CardTitle className="text-sm text-amber-400">Recent Sales</CardTitle>
         <Button onClick={() => { setSaleForm({ date: new Date().toISOString().split('T')[0], product: "bran", quantity_qntl: "", rate_per_qntl: "", buyer_name: "", note: "", kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif" }); setIsSaleDialogOpen(true); }}
@@ -568,7 +578,7 @@ const PaddyCustodyTab = ({ filters }) => {
             <p className="text-xl font-bold text-green-400">{register.total_received} Q</p>
           </CardContent></Card>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
-            <p className="text-xs text-slate-400">Total Issued</p>
+            <p className="text-xs text-slate-400">Total Released</p>
             <p className="text-xl font-bold text-orange-400">{register.total_issued} Q</p>
           </CardContent></Card>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
@@ -579,12 +589,14 @@ const PaddyCustodyTab = ({ filters }) => {
       )}
       <div className="flex gap-2">
         <Button onClick={fetchRegister} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
-        <Button onClick={exportExcel} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="custody-export-excel"><Download className="w-4 h-4 mr-1" /> Excel Export</Button>
+        <Button onClick={exportExcel} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="custody-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
+        <Button onClick={async () => { try { const params = new URLSearchParams(); if (filters.kms_year) params.append('kms_year', filters.kms_year); if (filters.season) params.append('season', filters.season); const res = await axios.get(`${API}/paddy-custody-register/pdf?${params}`, { responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url; a.download = 'paddy_custody_register.pdf'; a.click(); toast.success("PDF export!"); } catch(e) { toast.error("Export failed"); }}}
+          variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="custody-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
-          {['Date','Description','Received (Q)','Issued (Q)','Balance (Q)'].map(h =>
-            <TableHead key={h} className={`text-slate-300 text-xs ${['Received (Q)','Issued (Q)','Balance (Q)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+          {['Date','Description','Received (Q)','Released (Q)','Balance (Q)'].map(h =>
+            <TableHead key={h} className={`text-slate-300 text-xs ${['Received (Q)','Released (Q)','Balance (Q)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
         </TableRow></TableHeader>
         <TableBody>
           {loading ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>

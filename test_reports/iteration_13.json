@@ -1,0 +1,52 @@
+{
+  "summary": "Iteration 13: All requested features verified. 1) Label change from 'Issued' to 'Released' on Paddy Custody Register UI confirmed. 2) All 8 CMR export endpoints (Excel/PDF for Milling Report, FRK Purchases, By-Product Sales, Paddy Custody Register) return HTTP 200. 3) All 4 sub-tabs have working Excel/PDF export buttons.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cmr_exports_iteration13.py",
+    "/app/test_reports/pytest/pytest_results_iteration13.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_cmr_exports_iteration13.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All CMR export endpoints working. Paddy Custody Register shows 'Released' instead of 'Issued'. Export buttons exist on all 4 sub-tabs: subtab-milling, subtab-frk, subtab-byproducts, subtab-custody. Key data-testid for export buttons: milling-export-excel, milling-export-pdf, frk-export-excel, frk-export-pdf, byproduct-export-excel, byproduct-export-pdf, custody-export-excel, custody-export-pdf.",
+  "verified_features": {
+    "label_change": {
+      "total_released_label": "Visible on Paddy Custody Register summary card (was 'Total Issued')",
+      "released_column_header": "Visible in table header as 'Released (Q)' (was 'Issued (Q)')",
+      "frontend_lines": "MillingTracker.jsx lines 581 and 598"
+    },
+    "export_endpoints": [
+      {"endpoint": "/api/milling-report/excel", "status": 200, "content_type": "xlsx"},
+      {"endpoint": "/api/milling-report/pdf", "status": 200, "content_type": "pdf"},
+      {"endpoint": "/api/frk-purchases/excel", "status": 200, "content_type": "xlsx"},
+      {"endpoint": "/api/frk-purchases/pdf", "status": 200, "content_type": "pdf"},
+      {"endpoint": "/api/byproduct-sales/excel", "status": 200, "content_type": "xlsx"},
+      {"endpoint": "/api/byproduct-sales/pdf", "status": 200, "content_type": "pdf"},
+      {"endpoint": "/api/paddy-custody-register/excel", "status": 200, "content_type": "xlsx"},
+      {"endpoint": "/api/paddy-custody-register/pdf", "status": 200, "content_type": "pdf"}
+    ],
+    "ui_export_buttons": {
+      "milling_entries_tab": ["milling-export-excel", "milling-export-pdf"],
+      "frk_purchase_tab": ["frk-export-excel", "frk-export-pdf"],
+      "byproducts_tab": ["byproduct-export-excel", "byproduct-export-pdf"],
+      "custody_register_tab": ["custody-export-excel", "custody-export-pdf"]
+    }
+  }
+}

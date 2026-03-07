@@ -3261,14 +3261,14 @@ async def delete_byproduct_sale(sale_id: str, username: str = "", role: str = ""
 
 @api_router.get("/paddy-custody-register")
 async def get_paddy_custody_register(kms_year: Optional[str] = None, season: Optional[str] = None):
-    """Paddy custody register - all movements: received (mill entries) and issued (milling entries)"""
+    """Paddy custody register - all movements: received (mill entries) and released (milling entries)"""
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     
     # Paddy received from mill entries
     mill_entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
-    # Paddy issued for milling
+    # Paddy released for milling
     milling_entries = await db.milling_entries.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     
     # Build register rows
@@ -3455,7 +3455,7 @@ async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Opt
     ws['A1'].font = Font(bold=True, size=14)
     ws['A1'].alignment = Alignment(horizontal='center')
     
-    headers = ['Date', 'Description', 'Received (QNTL)', 'Issued (QNTL)', 'Balance (QNTL)']
+    headers = ['Date', 'Description', 'Received (QNTL)', 'Released (QNTL)', 'Balance (QNTL)']
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=3, column=col, value=h)
         cell.fill = header_fill; cell.font = header_font; cell.border = thin_border
@@ -3486,6 +3486,237 @@ async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Opt
     fn = f"paddy_custody_register_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={fn}"})
+
+
+@api_router.get("/paddy-custody-register/pdf")
+async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from io import BytesIO
+    
+    register = await get_paddy_custody_register(kms_year=kms_year, season=season)
+    rows = register['rows']
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    title = "Paddy Custody Maintenance Register"
+    if kms_year: title += f" - KMS {kms_year}"
+    if season: title += f" ({season})"
+    elements.append(Paragraph(title, styles['Title']))
+    elements.append(Spacer(1, 12))
+    
+    data = [['Date', 'Description', 'Received (Q)', 'Released (Q)', 'Balance (Q)']]
+    for r in rows:
+        data.append([r['date'], r['description'][:60], r['received_qntl'] if r['received_qntl'] > 0 else '-',
+            r['issued_qntl'] if r['issued_qntl'] > 0 else '-', r['balance_qntl']])
+    data.append(['TOTAL', '', register['total_received'], register['total_issued'], register['final_balance']])
+    
+    table = RLTable(data, colWidths=[65, 300, 70, 70, 70], repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 7), ('FONTSIZE', (0,0), (-1,0), 8),
+        ('ALIGN', (2,0), (-1,-1), 'RIGHT'), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ROWBACKGROUNDS', (0,1), (-1,-2), [colors.white, colors.HexColor('#f8f8f8')]),
+    ]))
+    elements.append(table)
+    doc.build(elements)
+    buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=paddy_custody_{datetime.now().strftime('%Y%m%d')}.pdf"})
+
+
+@api_router.get("/frk-purchases/excel")
+async def export_frk_purchases_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from io import BytesIO
+    
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    purchases = await db.frk_purchases.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    
+    wb = Workbook(); ws = wb.active; ws.title = "FRK Purchases"
+    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
+    hfont = Font(bold=True, color="FFFFFF", size=10)
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    
+    title = "FRK Purchase Register"
+    if kms_year: title += f" - KMS {kms_year}"
+    ws.merge_cells('A1:F1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    
+    for col, h in enumerate(['Date', 'Party Name', 'Qty (QNTL)', 'Rate (₹/Q)', 'Amount (₹)', 'Note'], 1):
+        c = ws.cell(row=3, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
+    
+    for i, p in enumerate(purchases, 4):
+        for col, v in enumerate([p.get('date',''), p.get('party_name',''), p.get('quantity_qntl',0), p.get('rate_per_qntl',0), p.get('total_amount',0), p.get('note','')], 1):
+            c = ws.cell(row=i, column=col, value=v); c.border = tb
+            if col >= 3: c.alignment = Alignment(horizontal='right')
+    
+    tr = len(purchases) + 4
+    ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=tr, column=3, value=round(sum(p.get('quantity_qntl',0) for p in purchases),2)).font = Font(bold=True)
+    ws.cell(row=tr, column=5, value=round(sum(p.get('total_amount',0) for p in purchases),2)).font = Font(bold=True)
+    for letter in ['A','B','C','D','E','F']: ws.column_dimensions[letter].width = 16
+    
+    buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=frk_purchases_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+
+@api_router.get("/frk-purchases/pdf")
+async def export_frk_purchases_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from io import BytesIO
+    
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    purchases = await db.frk_purchases.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+    elements = []; styles = getSampleStyleSheet()
+    title = "FRK Purchase Register"
+    if kms_year: title += f" - KMS {kms_year}"
+    elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
+    
+    data = [['Date', 'Party', 'Qty(Q)', 'Rate(₹)', 'Amount(₹)', 'Note']]
+    tq = ta = 0
+    for p in purchases:
+        tq += p.get('quantity_qntl',0); ta += p.get('total_amount',0)
+        data.append([p.get('date',''), p.get('party_name','')[:25], p.get('quantity_qntl',0), p.get('rate_per_qntl',0), p.get('total_amount',0), p.get('note','')[:20]])
+    data.append(['TOTAL', '', round(tq,2), '', round(ta,2), ''])
+    
+    table = RLTable(data, colWidths=[60, 120, 55, 55, 70, 80], repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 7), ('ALIGN', (2,0), (-1,-1), 'RIGHT'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+    ]))
+    elements.append(table); doc.build(elements); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=frk_purchases_{datetime.now().strftime('%Y%m%d')}.pdf"})
+
+
+@api_router.get("/byproduct-sales/excel")
+async def export_byproduct_sales_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from io import BytesIO
+    
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    sales = await db.byproduct_sales.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    stock_data = await get_byproduct_stock(kms_year=kms_year, season=season)
+    
+    wb = Workbook(); ws = wb.active; ws.title = "By-Product Sales"
+    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
+    hfont = Font(bold=True, color="FFFFFF", size=10)
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    
+    title = "By-Product Stock & Sales Report"
+    if kms_year: title += f" - KMS {kms_year}"
+    ws.merge_cells('A1:G1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    
+    # Stock summary section
+    ws.cell(row=3, column=1, value="Stock Summary").font = Font(bold=True, size=11)
+    for col, h in enumerate(['Product', 'Produced (Q)', 'Sold (Q)', 'Available (Q)', 'Revenue (₹)'], 1):
+        c = ws.cell(row=4, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+    row = 5
+    for prod, label in [('bran','Bran'), ('kunda','Kunda'), ('broken','Broken'), ('kanki','Kanki'), ('husk','Husk')]:
+        s = stock_data.get(prod, {})
+        for col, v in enumerate([label, s.get('produced_qntl',0), s.get('sold_qntl',0), s.get('available_qntl',0), s.get('total_revenue',0)], 1):
+            c = ws.cell(row=row, column=col, value=v); c.border = tb
+            if col >= 2: c.alignment = Alignment(horizontal='right')
+        row += 1
+    
+    # Sales detail section
+    row += 1
+    ws.cell(row=row, column=1, value="Sales Detail").font = Font(bold=True, size=11)
+    row += 1
+    for col, h in enumerate(['Date', 'Product', 'Qty (Q)', 'Rate (₹/Q)', 'Amount (₹)', 'Buyer', 'Note'], 1):
+        c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+    row += 1
+    for s in sales:
+        for col, v in enumerate([s.get('date',''), s.get('product','').title(), s.get('quantity_qntl',0), s.get('rate_per_qntl',0), s.get('total_amount',0), s.get('buyer_name',''), s.get('note','')], 1):
+            c = ws.cell(row=row, column=col, value=v); c.border = tb
+            if col >= 3 and col <= 5: c.alignment = Alignment(horizontal='right')
+        row += 1
+    
+    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=row, column=3, value=round(sum(s.get('quantity_qntl',0) for s in sales),2)).font = Font(bold=True)
+    ws.cell(row=row, column=5, value=round(sum(s.get('total_amount',0) for s in sales),2)).font = Font(bold=True)
+    for letter in ['A','B','C','D','E','F','G']: ws.column_dimensions[letter].width = 16
+    
+    buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=byproduct_sales_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+
+@api_router.get("/byproduct-sales/pdf")
+async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from io import BytesIO
+    
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    sales = await db.byproduct_sales.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    stock_data = await get_byproduct_stock(kms_year=kms_year, season=season)
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+    elements = []; styles = getSampleStyleSheet()
+    title = "By-Product Stock & Sales Report"
+    if kms_year: title += f" - KMS {kms_year}"
+    elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
+    
+    # Stock summary table
+    elements.append(Paragraph("Stock Summary", styles['Heading2'])); elements.append(Spacer(1, 6))
+    sdata = [['Product', 'Produced(Q)', 'Sold(Q)', 'Available(Q)', 'Revenue(₹)']]
+    for prod, label in [('bran','Bran'), ('kunda','Kunda'), ('broken','Broken'), ('kanki','Kanki'), ('husk','Husk')]:
+        s = stock_data.get(prod, {})
+        sdata.append([label, s.get('produced_qntl',0), s.get('sold_qntl',0), s.get('available_qntl',0), s.get('total_revenue',0)])
+    st = RLTable(sdata, colWidths=[70, 70, 60, 70, 70])
+    st.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 8), ('ALIGN', (1,0), (-1,-1), 'RIGHT'), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]))
+    elements.append(st); elements.append(Spacer(1, 15))
+    
+    # Sales table
+    elements.append(Paragraph("Sales Detail", styles['Heading2'])); elements.append(Spacer(1, 6))
+    data = [['Date', 'Product', 'Qty(Q)', 'Rate(₹)', 'Amount(₹)', 'Buyer']]
+    tq = ta = 0
+    for s in sales:
+        tq += s.get('quantity_qntl',0); ta += s.get('total_amount',0)
+        data.append([s.get('date',''), s.get('product','').title(), s.get('quantity_qntl',0), s.get('rate_per_qntl',0), s.get('total_amount',0), s.get('buyer_name','')[:20]])
+    data.append(['TOTAL', '', round(tq,2), '', round(ta,2), ''])
+    
+    table = RLTable(data, colWidths=[55, 55, 45, 50, 60, 90], repeatRows=1)
+    table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 7), ('ALIGN', (2,0), (-1,-1), 'RIGHT'), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]))
+    elements.append(table); doc.build(elements); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=byproduct_sales_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
 
 # Include the router in the main app
