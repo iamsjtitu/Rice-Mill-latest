@@ -23,17 +23,24 @@ console.log('=== Desktop App - Frontend Build ===\n');
 
 if (fs.existsSync(path.join(BUILD_DIR, 'index.html'))) {
   console.log('[OK] frontend-build/ already exists. Skipping build.');
+  console.log('    (Delete frontend-build/ folder to force rebuild)');
   process.exit(0);
 }
 
 if (!fs.existsSync(path.join(FRONTEND_DIR, 'package.json'))) {
   console.error('[ERROR] frontend/ folder not found at: ' + FRONTEND_DIR);
+  console.error('');
+  console.error('Fix: GitHub se poora code download karein (frontend/ folder included hona chahiye)');
+  console.error('Ya manually frontend-build/ folder banayein.');
   process.exit(1);
 }
 
 console.log('Installing frontend deps...');
 try { execSync('yarn install', { cwd: FRONTEND_DIR, stdio: 'inherit' }); } catch(e) {
+  console.log('  yarn not found, using npm...');
+  // Install ajv explicitly to fix Node v24 compatibility
   execSync('npm install --legacy-peer-deps', { cwd: FRONTEND_DIR, stdio: 'inherit' });
+  try { execSync('npm install ajv@8 --legacy-peer-deps', { cwd: FRONTEND_DIR, stdio: 'inherit' }); } catch(e2) {}
 }
 
 console.log('\nBuilding frontend (REACT_APP_BACKEND_URL=http://127.0.0.1:9876)...');
