@@ -307,8 +307,7 @@ class JsonDatabase {
     const kankiPct = data.kanki_percent || 0;
     const usedPct = ricePct + branPct + kundaPct + brokenPct + kankiPct;
     const huskPct = Math.max(0, +(100 - usedPct).toFixed(2));
-    const frkQty = data.frk_purchased_qntl || 0;
-    const frkRate = data.frk_purchase_rate || 0;
+    const frkUsed = data.frk_used_qntl || 0;
     const riceQntl = +(paddy * ricePct / 100).toFixed(2);
 
     return {
@@ -320,9 +319,8 @@ class JsonDatabase {
       broken_qntl: +(paddy * brokenPct / 100).toFixed(2),
       kanki_qntl: +(paddy * kankiPct / 100).toFixed(2),
       husk_qntl: +(paddy * huskPct / 100).toFixed(2),
-      frk_total_cost: +(frkQty * frkRate).toFixed(2),
-      cmr_delivery_qntl: +(riceQntl + frkQty).toFixed(2),
-      outturn_ratio: paddy > 0 ? +((riceQntl + frkQty) / paddy * 100).toFixed(2) : 0
+      cmr_delivery_qntl: +(riceQntl + frkUsed).toFixed(2),
+      outturn_ratio: paddy > 0 ? +((riceQntl + frkUsed) / paddy * 100).toFixed(2) : 0
     };
   }
 
@@ -352,9 +350,7 @@ class JsonDatabase {
       bran_qntl: calculated.bran_qntl,
       kunda_qntl: calculated.kunda_qntl, broken_qntl: calculated.broken_qntl,
       kanki_qntl: calculated.kanki_qntl, husk_qntl: calculated.husk_qntl,
-      frk_purchased_qntl: calculated.frk_purchased_qntl || 0,
-      frk_purchase_rate: calculated.frk_purchase_rate || 0,
-      frk_total_cost: calculated.frk_total_cost || 0,
+      frk_used_qntl: calculated.frk_used_qntl || 0,
       cmr_delivery_qntl: calculated.cmr_delivery_qntl, outturn_ratio: calculated.outturn_ratio,
       kms_year: calculated.kms_year || '', season: calculated.season || '',
       note: calculated.note || '', created_by: calculated.created_by || '',
@@ -390,20 +386,19 @@ class JsonDatabase {
     const entries = this.getMillingEntries(filters);
     const totalPaddy = entries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0);
     const totalRice = entries.reduce((s, e) => s + (e.rice_qntl || 0), 0);
-    const totalFrk = entries.reduce((s, e) => s + (e.frk_purchased_qntl || 0), 0);
+    const totalFrk = entries.reduce((s, e) => s + (e.frk_used_qntl || 0), 0);
     const totalBran = entries.reduce((s, e) => s + (e.bran_qntl || 0), 0);
     const totalKunda = entries.reduce((s, e) => s + (e.kunda_qntl || 0), 0);
     const totalBroken = entries.reduce((s, e) => s + (e.broken_qntl || 0), 0);
     const totalKanki = entries.reduce((s, e) => s + (e.kanki_qntl || 0), 0);
     const totalHusk = entries.reduce((s, e) => s + (e.husk_qntl || 0), 0);
     const totalCmr = entries.reduce((s, e) => s + (e.cmr_delivery_qntl || 0), 0);
-    const totalFrkCost = entries.reduce((s, e) => s + (e.frk_total_cost || 0), 0);
     const avgOutturn = totalPaddy > 0 ? +((totalCmr) / totalPaddy * 100).toFixed(2) : 0;
 
     const typeSummary = (list) => {
       const tp = list.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0);
       const tr = list.reduce((s, e) => s + (e.rice_qntl || 0), 0);
-      const tf = list.reduce((s, e) => s + (e.frk_purchased_qntl || 0), 0);
+      const tf = list.reduce((s, e) => s + (e.frk_used_qntl || 0), 0);
       const tc = list.reduce((s, e) => s + (e.cmr_delivery_qntl || 0), 0);
       return { count: list.length, total_paddy_qntl: +tp.toFixed(2), total_rice_qntl: +tr.toFixed(2),
         total_frk_qntl: +tf.toFixed(2), total_cmr_qntl: +tc.toFixed(2),
@@ -416,7 +411,6 @@ class JsonDatabase {
       total_bran_qntl: +totalBran.toFixed(2), total_kunda_qntl: +totalKunda.toFixed(2),
       total_broken_qntl: +totalBroken.toFixed(2), total_kanki_qntl: +totalKanki.toFixed(2),
       total_husk_qntl: +totalHusk.toFixed(2), total_cmr_qntl: +totalCmr.toFixed(2),
-      total_frk_cost: +totalFrkCost.toFixed(2),
       avg_outturn_ratio: avgOutturn,
       parboiled: typeSummary(entries.filter(e => e.rice_type === 'parboiled')),
       raw: typeSummary(entries.filter(e => e.rice_type === 'raw'))
@@ -1033,6 +1027,55 @@ app.delete('/api/byproduct-sales/:id', (req, res) => {
   database.data.byproduct_sales = database.data.byproduct_sales.filter(s => s.id !== req.params.id);
   if (database.data.byproduct_sales.length < len) { database.save(); return res.json({ message: 'Sale deleted', id: req.params.id }); }
   res.status(404).json({ detail: 'Sale not found' });
+});
+
+// ============ FRK PURCHASES ============
+app.post('/api/frk-purchases', (req, res) => {
+  if (!database.data.frk_purchases) database.data.frk_purchases = [];
+  const d = req.body;
+  const sale = { id: uuidv4(), date: d.date, party_name: d.party_name || '', quantity_qntl: d.quantity_qntl || 0, rate_per_qntl: d.rate_per_qntl || 0, total_amount: +((d.quantity_qntl || 0) * (d.rate_per_qntl || 0)).toFixed(2), note: d.note || '', kms_year: d.kms_year || '', season: d.season || '', created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  database.data.frk_purchases.push(sale); database.save(); res.json(sale);
+});
+app.get('/api/frk-purchases', (req, res) => {
+  if (!database.data.frk_purchases) database.data.frk_purchases = [];
+  let p = [...database.data.frk_purchases];
+  if (req.query.kms_year) p = p.filter(x => x.kms_year === req.query.kms_year);
+  if (req.query.season) p = p.filter(x => x.season === req.query.season);
+  res.json(p.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+});
+app.delete('/api/frk-purchases/:id', (req, res) => {
+  if (!database.data.frk_purchases) return res.status(404).json({ detail: 'Not found' });
+  const len = database.data.frk_purchases.length;
+  database.data.frk_purchases = database.data.frk_purchases.filter(x => x.id !== req.params.id);
+  if (database.data.frk_purchases.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
+  res.status(404).json({ detail: 'Not found' });
+});
+app.get('/api/frk-stock', (req, res) => {
+  if (!database.data.frk_purchases) database.data.frk_purchases = [];
+  let purchases = [...database.data.frk_purchases];
+  if (req.query.kms_year) purchases = purchases.filter(x => x.kms_year === req.query.kms_year);
+  if (req.query.season) purchases = purchases.filter(x => x.season === req.query.season);
+  const totalPurchased = +purchases.reduce((s, p) => s + (p.quantity_qntl || 0), 0).toFixed(2);
+  const totalCost = +purchases.reduce((s, p) => s + (p.total_amount || 0), 0).toFixed(2);
+  const millingEntries = database.getMillingEntries(req.query);
+  const totalUsed = +millingEntries.reduce((s, e) => s + (e.frk_used_qntl || 0), 0).toFixed(2);
+  res.json({ total_purchased_qntl: totalPurchased, total_used_qntl: totalUsed, available_qntl: +(totalPurchased - totalUsed).toFixed(2), total_cost: totalCost });
+});
+
+// ============ PADDY CUSTODY REGISTER ============
+app.get('/api/paddy-custody-register', (req, res) => {
+  const filters = req.query;
+  let entries = [...database.data.entries];
+  if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
+  if (filters.season) entries = entries.filter(e => e.season === filters.season);
+  const millingEntries = database.getMillingEntries(filters);
+  const rows = [];
+  entries.forEach(e => rows.push({ date: e.date || '', type: 'received', description: `Truck: ${e.truck_no || ''} | Agent: ${e.agent_name || ''} | Mandi: ${e.mandi_name || ''}`, received_qntl: +((e.mill_w || 0) / 100).toFixed(2), issued_qntl: 0, source_id: e.id || '' }));
+  millingEntries.forEach(e => rows.push({ date: e.date || '', type: 'issued', description: `Milling (${(e.rice_type || 'parboiled').charAt(0).toUpperCase() + (e.rice_type || '').slice(1)}) | Rice: ${e.rice_qntl || 0}Q`, received_qntl: 0, issued_qntl: e.paddy_input_qntl || 0, source_id: e.id || '' }));
+  rows.sort((a, b) => a.date.localeCompare(b.date));
+  let balance = 0;
+  rows.forEach(r => { balance += r.received_qntl - r.issued_qntl; r.balance_qntl = +balance.toFixed(2); });
+  res.json({ rows, total_received: +rows.reduce((s, r) => s + r.received_qntl, 0).toFixed(2), total_issued: +rows.reduce((s, r) => s + r.issued_qntl, 0).toFixed(2), final_balance: +balance.toFixed(2) });
 });
 
 // ============ BACKUP ENDPOINTS ============
