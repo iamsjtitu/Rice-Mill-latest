@@ -22,7 +22,7 @@ const API = `${BACKEND_URL}/api`;
 const CURRENT_KMS_YEAR = (() => {
   const now = new Date();
   const y = now.getFullYear();
-  return now.getMonth() >= 9 ? `${y}-${(y + 1) % 100}` : `${y - 1}-${y % 100}`;
+  return now.getMonth() >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 })();
 
 const DEFAULT_CATEGORIES = {
