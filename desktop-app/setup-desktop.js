@@ -53,11 +53,15 @@ console.log('\nCopying build to frontend-build/...');
 if (fs.existsSync(BUILD_DIR)) fs.rmSync(BUILD_DIR, { recursive: true, force: true });
 copyDirSync(path.join(FRONTEND_DIR, 'build'), BUILD_DIR);
 
-// Fix title in index.html
+// Fix title and remove tracking scripts from index.html
 const indexPath = path.join(BUILD_DIR, 'index.html');
 let html = fs.readFileSync(indexPath, 'utf8');
 html = html.replace('Emergent | Fullstack App', 'Mill Entry System');
 html = html.replace('A product of emergent.sh', 'Mill Entry System');
+html = html.replace(/<script src="https:\/\/assets\.emergent\.sh\/[^"]*"><\/script>/g, '');
+html = html.replace(/<a id="emergent-badge"[^>]*>.*?<\/a>/g, '');
+html = html.replace(/<script>!function\(e,t\)\{var r,s,o,i;t\.__SV.*?<\/script>/g, '');
+html = html.replace(/<script>window\.addEventListener\("error"[^<]*<\/script>/g, '');
 fs.writeFileSync(indexPath, html);
 
 console.log('\n[OK] Frontend build ready!');

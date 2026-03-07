@@ -26,6 +26,7 @@
   "build": {
     "appId": "com.millentry.desktop",
     "productName": "Mill Entry System",
+    "asar": false,
     "directories": {
       "output": "dist",
       "buildResources": "."
