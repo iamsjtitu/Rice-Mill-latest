@@ -47,6 +47,7 @@ import CashBook from "@/components/CashBook";
 import DCTracker from "@/components/DCTracker";
 import Reports from "@/components/Reports";
 import Ledgers from "@/components/Ledgers";
+import PrivateTrading from "@/components/PrivateTrading";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -2931,6 +2932,18 @@ function MainApp({ user, onLogout }) {
               <FileSpreadsheet className="w-4 h-4 mr-1" />
               Ledgers
             </Button>
+            <Button
+              onClick={() => setActiveTab("private-trading")}
+              variant={activeTab === "private-trading" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "private-trading" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-private-trading"
+            >
+              <Wheat className="w-4 h-4 mr-1" />
+              Pvt Trading
+            </Button>
             {user.role === 'admin' && (
               <Button
                 onClick={() => { setActiveTab("settings"); fetchBackups(); }}
@@ -3499,6 +3512,8 @@ function MainApp({ user, onLogout }) {
           <Reports filters={filters} user={user} />
         ) : activeTab === "ledgers" ? (
           <Ledgers filters={filters} user={user} />
+        ) : activeTab === "private-trading" ? (
+          <PrivateTrading filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">

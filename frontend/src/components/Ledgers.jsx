@@ -302,6 +302,8 @@ const PartyLedger = ({ filters }) => {
             <SelectItem value="truck" className="text-white">Truck</SelectItem>
             <SelectItem value="frk_party" className="text-white">FRK Seller</SelectItem>
             <SelectItem value="buyer" className="text-white">Buyer</SelectItem>
+            <SelectItem value="pvt_paddy" className="text-white">Pvt Paddy</SelectItem>
+            <SelectItem value="rice_buyer" className="text-white">Rice Buyer</SelectItem>
           </SelectContent>
         </Select>
 
@@ -392,6 +394,8 @@ const PartyLedger = ({ filters }) => {
                           item.party_type === 'Agent' ? 'bg-purple-900/50 text-purple-400' :
                           item.party_type === 'Truck' ? 'bg-blue-900/50 text-blue-400' :
                           item.party_type === 'FRK Seller' ? 'bg-cyan-900/50 text-cyan-400' :
+                          item.party_type === 'Pvt Paddy' ? 'bg-orange-900/50 text-orange-400' :
+                          item.party_type === 'Rice Buyer' ? 'bg-emerald-900/50 text-emerald-400' :
                           'bg-amber-900/50 text-amber-400'
                         }`}>
                           {item.party_type}
