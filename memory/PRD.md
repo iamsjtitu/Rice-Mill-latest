@@ -18,14 +18,6 @@ All features, CRUD, exports, and integrations fully implemented across all 3 bac
 - Desktop-app: 155 routes (156 - 1 root)
 - All routes matched. No missing endpoints.
 
-## Missing Endpoints Added (2026-03-08)
-1. GET/PUT /cash-book/opening-balance
-2. GET /dc-entries/excel, /dc-entries/pdf
-3. GET /gunny-bags/excel, /gunny-bags/pdf
-4. GET /msp-payments/excel, /msp-payments/pdf
-5. GET /staff/advance-balance/:staffId
-6. PUT /dc-entries/:id
-
 ## Auto Cash Book Integration
 All payments auto-create cash book entries (Nikasi/Jama). Undo/delete cleans up linked entries.
 
@@ -33,25 +25,32 @@ All payments auto-create cash book entries (Nikasi/Jama). Undo/delete cleans up 
 - Admin: admin / admin123
 - Staff: staff / staff123
 
-## Stability Fix (2026-02-XX)
-### Changes Made:
-1. **Global Error Handlers**: Added `process.on('uncaughtException')` and `process.on('unhandledRejection')` to prevent Node.js process from crashing on errors
-2. **Safe Route Wrappers**: All 131 route handlers in `main.js` and 39 in modular route files wrapped with `safeAsync()` / `safeSync()` to catch errors gracefully
-3. **Express Error Middleware**: Added 4-param error handler as last middleware
-4. **Error Logging**: All errors logged to `mill-entry-error.log` in app data folder
-5. **Atomic Database Save**: Database writes now use temp file + rename to prevent corruption
-6. **Database Recovery**: Auto-recovery from `.bak` backup if main data file is corrupted
-7. **Server Watchdog**: Periodic health check that auto-restarts Express server if it dies
-8. **Health Endpoint**: `/api/health` endpoint for monitoring
+## Stability Fix (2026-02)
+1. Global crash protection: `uncaughtException` + `unhandledRejection` handlers
+2. All 170 route handlers wrapped with `safeAsync()`/`safeSync()`
+3. Express error middleware added
+4. Error logging to `mill-entry-error.log`
+5. Atomic database save (temp file + rename)
+6. Database auto-recovery from `.bak` backup
+7. Server watchdog with auto-restart
+8. `/api/health` endpoint
 
-### Files Modified:
-- `/app/desktop-app/main.js` - All stability fixes
-- `/app/desktop-app/routes/staff.js` - Safe wrappers
-- `/app/desktop-app/routes/daily_report.js` - Safe wrappers
-- `/app/desktop-app/routes/mill_parts.js` - Safe wrappers
-- `/app/desktop-app/routes/reports_pnl.js` - Safe wrappers
-- `/app/desktop-app/routes/safe_handler.js` - NEW shared utility
+## G.Issued Auto-Deduction (2026-02)
+- G.Issued in entries now auto-creates gunny bag "out" entry for Old (Market) bags
+- Tracks agent_name, mandi_name, truck_no in the gunny bag entry
+- Entry update/delete propagates to linked gunny bag entry
+- Gunny bags summary no longer shows separate "Govt Issued (g)" - it's tracked via old.total_out
+- All 3 backends updated (Python, desktop-app, local-server)
+
+## Entry Form Field Reorder (2026-02)
+- P.Pkt (Plastic Bags) and P.Pkt Cut (Auto) now appear BEFORE Mill W. QNTL (Auto)
+
+## Error Log in Settings (2026-02)
+- Error Log section added to Settings page
+- Desktop app: reads actual error log file
+- Web version: shows "not available" message
+- All 3 backends have `/api/error-log` endpoint
 
 ## Prioritized Backlog
-- P0: Stability fix implemented - needs user verification
-- Long-term: Refactor `main.js` (2800+ lines) into modular route files
+- P0: All critical features implemented and tested
+- Long-term: Refactor `main.js` (2900+ lines) into modular route files
