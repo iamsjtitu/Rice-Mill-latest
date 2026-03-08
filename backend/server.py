@@ -36,6 +36,8 @@ from routes.dc_payments import router as dc_payments_router
 from routes.reports import router as reports_router
 from routes.private_trading import router as private_trading_router
 from routes.ledgers import router as ledgers_router
+from routes.mill_parts import router as mill_parts_router
+from routes.daily_report import router as daily_report_router
 
 api_router.include_router(auth_router)
 api_router.include_router(entries_router)
@@ -47,6 +49,8 @@ api_router.include_router(dc_payments_router)
 api_router.include_router(reports_router)
 api_router.include_router(private_trading_router)
 api_router.include_router(ledgers_router)
+api_router.include_router(mill_parts_router)
+api_router.include_router(daily_report_router)
 
 # Include the api_router in the main app
 app.include_router(api_router)
