@@ -592,17 +592,18 @@ function addPdfTable(doc, headers, rows, colWidths) {
   const startX = 40; const pageWidth = doc.page.width - 80;
   const totalW = colWidths.reduce((s, w) => s + w, 0); const scale = pageWidth / totalW;
   const widths = colWidths.map(w => w * scale);
+  const rowH = 15;
   let x = startX; doc.fontSize(7).font('Helvetica-Bold');
-  const headerY = doc.y; doc.rect(startX, headerY - 2, pageWidth, 16).fill('#1E3A5F');
-  headers.forEach((h, i) => { doc.fillColor('#FFFFFF').text(h, x + 2, headerY, { width: widths[i] - 4, align: 'center' }); x += widths[i]; });
-  doc.y = headerY + 16; doc.font('Helvetica').fontSize(7).fillColor('#333333');
+  const headerY = doc.y; doc.rect(startX, headerY - 2, pageWidth, 18).fill('#1E3A5F');
+  headers.forEach((h, i) => { doc.fillColor('#FFFFFF').text(h, x + 2, headerY + 1, { width: widths[i] - 4, align: 'center', lineBreak: false, ellipsis: true }); x += widths[i]; });
+  doc.y = headerY + 18; doc.font('Helvetica').fontSize(7).fillColor('#333333');
   rows.forEach((row, ri) => {
     if (doc.y > doc.page.height - 60) { doc.addPage(); doc.y = 40; }
     x = startX; const rowY = doc.y;
-    if (ri % 2 === 0) doc.rect(startX, rowY - 1, pageWidth, 13).fill('#F0F4F8').fillColor('#333333');
+    if (ri % 2 === 0) doc.rect(startX, rowY - 1, pageWidth, rowH).fill('#F0F4F8').fillColor('#333333');
     else doc.fillColor('#333333');
-    row.forEach((cell, i) => { doc.text(String(cell ?? ''), x + 2, rowY, { width: widths[i] - 4, align: i === 0 ? 'left' : 'right' }); x += widths[i]; });
-    doc.y = rowY + 13;
+    row.forEach((cell, i) => { doc.text(String(cell ?? ''), x + 2, rowY + 1, { width: widths[i] - 4, align: i === 0 ? 'left' : 'right', lineBreak: false, ellipsis: true }); x += widths[i]; });
+    doc.y = rowY + rowH;
   });
 }
 
@@ -2431,14 +2432,20 @@ async function createMainWindow(port) {
     return { action: 'allow' };
   });
 
-  // Handle file downloads - save dialog with proper filename
+  // Handle file downloads - save and auto-open
   mainWindow.webContents.session.on('will-download', (event, item) => {
     const fn = item.getFilename();
     console.log('Downloading:', fn, 'Size:', item.getTotalBytes());
     item.once('done', (event, state) => {
       if (state === 'completed') {
-        console.log('Download complete:', fn);
-        dialog.showMessageBox(mainWindow, { type: 'info', title: 'Download', message: `File saved: ${fn}`, buttons: ['OK'] });
+        const savePath = item.getSavePath();
+        console.log('Download complete:', savePath);
+        // Auto-open the file after download
+        if (savePath) {
+          shell.openPath(savePath).then((err) => {
+            if (err) console.log('Failed to open file:', err);
+          });
+        }
       } else {
         console.log('Download failed:', state);
       }

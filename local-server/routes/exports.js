@@ -98,17 +98,18 @@ function addPdfTable(doc, headers, rows, colWidths) {
   const totalW = colWidths.reduce((s, w) => s + w, 0);
   const scale = pageWidth / totalW;
   const widths = colWidths.map(w => w * scale);
+  const rowH = 15;
   
   // Header
   let x = startX;
   doc.fontSize(7).font('Helvetica-Bold');
   const headerY = doc.y;
-  doc.rect(startX, headerY - 2, pageWidth, 16).fill('#1E3A5F');
+  doc.rect(startX, headerY - 2, pageWidth, 18).fill('#1E3A5F');
   headers.forEach((h, i) => {
-    doc.fillColor('#FFFFFF').text(h, x + 2, headerY, { width: widths[i] - 4, align: 'center' });
+    doc.fillColor('#FFFFFF').text(h, x + 2, headerY + 1, { width: widths[i] - 4, align: 'center', lineBreak: false, ellipsis: true });
     x += widths[i];
   });
-  doc.y = headerY + 16;
+  doc.y = headerY + 18;
   
   // Rows
   doc.font('Helvetica').fontSize(7).fillColor('#333333');
@@ -119,13 +120,13 @@ function addPdfTable(doc, headers, rows, colWidths) {
     }
     x = startX;
     const rowY = doc.y;
-    if (ri % 2 === 0) doc.rect(startX, rowY - 1, pageWidth, 13).fill('#F0F4F8').fillColor('#333333');
+    if (ri % 2 === 0) doc.rect(startX, rowY - 1, pageWidth, rowH).fill('#F0F4F8').fillColor('#333333');
     else doc.fillColor('#333333');
     row.forEach((cell, i) => {
-      doc.text(String(cell ?? ''), x + 2, rowY, { width: widths[i] - 4, align: i === 0 ? 'left' : 'right' });
+      doc.text(String(cell ?? ''), x + 2, rowY + 1, { width: widths[i] - 4, align: i === 0 ? 'left' : 'right', lineBreak: false, ellipsis: true });
       x += widths[i];
     });
-    doc.y = rowY + 13;
+    doc.y = rowY + rowH;
   });
 }
 

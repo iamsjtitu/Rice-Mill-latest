@@ -27,34 +27,33 @@ A comprehensive management tool for a rice mill named "Mill Entry System" (NAVKA
 - Branding
 - Keyboard Shortcuts (17 shortcuts for all tabs and actions)
 
-## What's Been Implemented (All Complete)
-- All features listed above are implemented and functional
-- Python/FastAPI backend: Fully functional (source of truth)
-- Local-server (Node.js): All features ported and working
-- Desktop-app (Electron): All features ported and working
-- Frontend: React SPA with all modules
-
 ## Bug Fixes Applied
 
-### Session 1 (2026-03-08)
+### Session 1 - Route Fixes (2026-03-08)
 1. desktop-app/routes/staff.js: Fixed 11 API path mismatches (hyphens to slashes)
-2. desktop-app/main.js: Fixed fy-settings endpoint (POST->PUT, field names kms_year->active_fy)
-3. local-server/routes/auth.js: Added missing /api/fy-settings (GET + PUT) endpoint
+2. desktop-app/main.js: Fixed fy-settings endpoint (POST->PUT, kms_year->active_fy)
+3. local-server/routes/auth.js: Added missing /api/fy-settings (GET + PUT)
 4. local-server/routes/auth.js: Removed duplicate ExcelJS/PDFDocument imports
 5. local-server/routes/exports.js: Fixed duplicate ExcelJS/PDFDocument declarations
 
-### Session 2 (2026-03-08)
-6. PDF Black Box Fix: Replaced all rupee symbol with Rs. in PDF text across all Node.js backends
-7. Cash Book PDF Column Widths: Increased Description and Category column widths
-8. PDF Helper Functions: Created shared pdf_helpers.js for cashbook and cmr_exports
+### Session 2 - PDF Black Box Fix (2026-03-08)
+6. All ₹ (Rupee symbol) replaced with Rs. in ALL PDF text in both desktop-app and local-server
+   - cashbook.js, cmr_exports.js, ledgers.js, desktop-app/main.js
+7. Cash Book PDF column widths increased: Category 70->90, Description 100->150
+8. Created shared pdf_helpers.js (addPdfHeader, addPdfTable) for cashbook and cmr_exports
 
-### Session 3 (2026-03-08)
-9. Keyboard Shortcuts: Added 7 new shortcuts (DC Tracker, Reports, Private Trading, Mill Parts, Staff, Settings, Show Shortcuts) + updated dialog to show all 17 shortcuts
-10. FY Auto-generate: Extended KMS year range to include next year (currentYear+1) so future FY years are always available
+### Session 3 - PDF Improvements & Auto-Open (2026-03-08)
+9. addPdfTable improved in ALL 3 locations (desktop-app/main.js, local-server exports.js, pdf_helpers.js):
+   - Row height increased 13px -> 15px for better readability
+   - Header height increased 16px -> 18px
+   - Added lineBreak: false and ellipsis: true to prevent text overflow to next row
+10. PDF/Excel Auto-Open: desktop-app will-download handler now uses shell.openPath() to auto-open files after download (removed dialog popup)
+11. Keyboard Shortcuts: 7 new shortcuts added (DC=Alt+T, Reports=Alt+O, Trading=Alt+G, Mill Parts=Alt+K, Staff=Alt+S, Settings=Alt+I, Help=?)
+12. FY Auto-generate: Extended range to currentYear+1 so future FY years always available
 
 ## Credentials
 - Admin: admin / admin123
 - Staff: staff / staff123
 
 ## Prioritized Backlog
-- No pending tasks
+- No pending tasks. User needs to rebuild Windows desktop app to test all fixes.
