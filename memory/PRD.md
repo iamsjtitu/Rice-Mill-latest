@@ -11,19 +11,17 @@ Comprehensive Mill Entry System for managing paddy-to-rice conversion (CMR) for 
 ### Cash Book Module - DONE
 ### Global FY Year Setting - DONE
 ### Code Refactoring - DONE (Python backend + Frontend)
-### New Features (2026-03-08): P&L Summary, Mill Parts Stock, Daily Report - DONE
-### Daily Report Upgrade: Normal/Detail modes, better PDF, Mill Parts section - DONE
+### P&L Summary, Mill Parts Stock, Daily Report - DONE
+### Daily Report Upgrade: Normal/Detail modes, better PDF - DONE
 
 ### Staff Attendance & Payment System - DONE (2026-03-08)
-- **Staff Master**: Add/Edit/Delete staff with Monthly or Weekly(per day) salary type
-- **Attendance**: Daily marking with P(Present)/A(Absent)/H(Half Day)/CH(Holiday-Paid Leave)
-- **Advance**: Track advance payments given to staff with balance auto-calculated
-- **Salary Calculation**:
-  - Monthly: salary/30 × days_worked (always 30-day basis)
-  - Weekly: per_day_rate × days_worked
-  - Days Worked = Present + Holiday + (HalfDay × 0.5)
-- **Payment Settlement**: Advance deduction + Net Payment → auto Cash Book Nikasi entry
-- **Delete**: Payment deletion also removes Cash Book entry
+- Staff Master (Monthly/Weekly salary, CRUD)
+- Attendance: P/A/H/CH (Present/Absent/Half-Day/Holiday-paid)
+- Advance tracking with balance
+- Salary Calculation: Monthly=salary/30×days, Weekly=per_day×days
+- Payment Settlement: advance deduction → auto Cash Book Nikasi
+- **PDF/Excel Exports**: Attendance report (date range, color-coded P/A/H/CH), Payment report
+- **Daily Report Integration**: Staff Attendance section shows who came/absent/half-day/holiday
 
 ## Architecture
 ```
@@ -31,8 +29,14 @@ Comprehensive Mill Entry System for managing paddy-to-rice conversion (CMR) for 
 /app/frontend/src/components/: Dashboard, Payments, Reports, MillPartsStock, StaffManagement, etc.
 ```
 
-## Key Collections
-staff, staff_attendance, staff_advance, staff_payments, mill_entries, milling_entries, cash_transactions, dc_entries, dc_deliveries, private_paddy, rice_sales, private_payments, mill_parts, mill_parts_stock, etc.
+## Key API Endpoints (Staff)
+- `/api/staff` (CRUD)
+- `/api/staff/attendance` (GET/POST), `/api/staff/attendance/bulk` (POST)
+- `/api/staff/advance` (GET/POST/DELETE), `/api/staff/advance-balance/{id}` (GET)
+- `/api/staff/salary-calculate` (GET)
+- `/api/staff/payments` (GET/POST/DELETE)
+- `/api/staff/export/attendance?date_from&date_to&fmt` (GET)
+- `/api/staff/export/payments?fmt` (GET)
 
 ## Credentials
 - Admin: admin / admin123
