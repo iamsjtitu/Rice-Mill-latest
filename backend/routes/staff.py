@@ -349,7 +349,7 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         styles = getSampleStyleSheet()
         elements = []
 
-        elements.append(Paragraph(f"Staff Attendance: {date_from} to {date_to}", ParagraphStyle('t', parent=styles['Title'], fontSize=11, textColor=colors.HexColor('#1a365d'), spaceAfter=4)))
+        elements.append(Paragraph(f"Staff Attendance: {date_from} to {date_to}", ParagraphStyle('t', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#1a365d'), spaceAfter=2, fontName='Helvetica-Bold')))
 
         # Column-wise: dates as rows, staff as columns
         headers = ["Date"] + [s["name"] for s in staff_list]
@@ -387,17 +387,24 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         name_col_w = max(45, min(70, (available_w - 45) // max(n_cols - 1, 1)))
         col_widths = [45] + [name_col_w] * (n_cols - 1)
 
-        t = RTable(rows, colWidths=col_widths, repeatRows=1)
+        # Calculate row height to fit everything on one page
+        # A4 landscape height ~555pt usable (595 - 20 margins - 20 title)
+        total_rows = len(rows)
+        row_h = min(14, max(10, 540 // total_rows))
+
+        t = RTable(rows, colWidths=col_widths, repeatRows=1, rowHeights=[row_h] * total_rows)
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 6),
+            ('FONTSIZE', (0, 0), (-1, -1), 5.5),
             ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cbd5e1')),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 1.5),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ('LEFTPADDING', (0, 0), (-1, -1), 2),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
             ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
         ]
 

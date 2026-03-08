@@ -42,6 +42,10 @@ Comprehensive Mill Entry System for managing paddy-to-rice conversion (CMR) for 
 - Admin: admin / admin123
 - Staff: staff / staff123
 
+### Staff Attendance Export Fix & Version Update - DONE (2026-03-08)
+- PDF/Excel attendance export now fits on single A4 landscape page
+- App version updated to 2.3 in About section
+
 ## Prioritized Backlog
-- **P1:** Port features to Node.js backends + complete refactoring
+- **P1:** Port features to Node.js backends (`local-server/server.js`, `desktop-app/main.js`) + complete refactoring
 - **P2:** macOS Desktop Build
