@@ -8,7 +8,7 @@ import io
 router = APIRouter()
 
 @router.get("/reports/daily")
-async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Optional[str] = None):
+async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Optional[str] = None, mode: str = "normal"):
     q_date = {"date": date}
     q_fy = {}
     if kms_year: q_fy["kms_year"] = kms_year
@@ -70,25 +70,38 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
     parts_txns = await db.mill_parts_stock.find(q_date, {"_id": 0}).to_list(500)
     parts_in = [t for t in parts_txns if t.get("txn_type") == "in"]
     parts_used = [t for t in parts_txns if t.get("txn_type") == "used"]
+    parts_in_amount = sum(t.get("total_amount", 0) for t in parts_in)
 
-    return {
-        "date": date,
+    is_detail = mode == "detail"
+
+    result = {
+        "date": date, "mode": mode,
         "paddy_entries": {
             "count": len(entries), "total_kg": round(total_paddy_kg, 2),
             "total_bags": total_paddy_bags, "total_final_w": round(total_final_w, 2),
             "details": [{"truck_no": e.get("truck_no", ""), "agent": e.get("agent_name", ""),
+                "mandi": e.get("mandi_name", ""), "rst_no": e.get("rst_no", ""),
+                "kg": e.get("kg", 0), "bags": e.get("bag", 0),
+                "moisture": e.get("moisture", 0), "mill_w": e.get("mill_w", 0),
+                "final_w": e.get("final_w", 0)} for e in entries] if is_detail else
+                [{"truck_no": e.get("truck_no", ""), "agent": e.get("agent_name", ""),
                 "kg": e.get("kg", 0), "final_w": e.get("final_w", 0)} for e in entries]
         },
         "pvt_paddy": {
             "count": len(pvt_paddy), "total_kg": round(pvt_paddy_kg, 2),
             "total_amount": round(pvt_paddy_amount, 2),
-            "details": [{"party": p.get("party_name", ""), "kg": p.get("kg", 0),
-                "amount": p.get("total_amount", 0)} for p in pvt_paddy]
+            "details": [{"party": p.get("party_name", ""), "variety": p.get("variety", ""),
+                "kg": p.get("kg", 0), "rate": p.get("rate", 0),
+                "amount": p.get("total_amount", 0), "vehicle": p.get("vehicle_no", "")} for p in pvt_paddy] if is_detail else
+                [{"party": p.get("party_name", ""), "kg": p.get("kg", 0), "amount": p.get("total_amount", 0)} for p in pvt_paddy]
         },
         "rice_sales": {
             "count": len(rice_sales), "total_qntl": round(rice_sale_qntl, 2),
             "total_amount": round(rice_sale_amount, 2),
             "details": [{"party": s.get("party_name", ""), "qntl": s.get("quantity_qntl", 0),
+                "type": s.get("rice_type", ""), "rate": s.get("rate", 0),
+                "amount": s.get("total_amount", 0), "vehicle": s.get("vehicle_no", "")} for s in rice_sales] if is_detail else
+                [{"party": s.get("party_name", ""), "qntl": s.get("quantity_qntl", 0),
                 "type": s.get("rice_type", ""), "amount": s.get("total_amount", 0)} for s in rice_sales]
         },
         "milling": {
@@ -96,159 +109,538 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
             "rice_output_qntl": round(milling_rice_output, 2),
             "frk_used_qntl": round(milling_frk_used, 2),
             "details": [{"paddy_in": m.get("paddy_input_qntl", 0), "rice_out": m.get("rice_qntl", 0),
+                "type": m.get("rice_type", ""), "frk": m.get("frk_used_qntl", 0),
+                "cmr_ready": m.get("cmr_delivery_qntl", 0), "outturn": m.get("outturn_pct", 0)} for m in milling] if is_detail else
+                [{"paddy_in": m.get("paddy_input_qntl", 0), "rice_out": m.get("rice_qntl", 0),
                 "type": m.get("rice_type", "")} for m in milling]
         },
-        "dc_deliveries": {"count": len(dc_deliveries), "total_qntl": round(dc_delivery_qntl, 2)},
+        "dc_deliveries": {
+            "count": len(dc_deliveries), "total_qntl": round(dc_delivery_qntl, 2),
+            "details": [{"dc_no": d.get("dc_no", ""), "godown": d.get("godown", ""),
+                "vehicle": d.get("vehicle_no", ""), "qntl": d.get("quantity_qntl", 0),
+                "bags": d.get("bags", 0)} for d in dc_deliveries] if is_detail else []
+        },
         "cash_flow": {
             "cash_jama": round(cash_jama, 2), "cash_nikasi": round(cash_nikasi, 2),
             "bank_jama": round(bank_jama, 2), "bank_nikasi": round(bank_nikasi, 2),
             "net_cash": round(cash_jama - cash_nikasi, 2),
             "net_bank": round(bank_jama - bank_nikasi, 2),
             "details": [{"desc": t.get("description", ""), "type": t.get("txn_type", ""),
-                "account": t.get("account", ""), "amount": t.get("amount", 0)} for t in cash_txns]
+                "account": t.get("account", ""), "category": t.get("category", ""),
+                "amount": t.get("amount", 0), "party": t.get("party_name", "")} for t in cash_txns]
         },
         "payments": {
             "msp_received": round(msp_amount, 2),
             "pvt_paddy_paid": round(pvt_paid, 2),
             "rice_sale_received": round(pvt_received, 2),
+            "msp_details": [{"agent": p.get("agent_name", ""), "amount": p.get("amount", 0),
+                "mandi": p.get("mandi_name", "")} for p in msp] if is_detail else [],
+            "pvt_payment_details": [{"party": p.get("party_name", ""), "amount": p.get("amount", 0),
+                "ref_type": p.get("ref_type", ""), "mode": p.get("payment_mode", "")} for p in pvt_payments] if is_detail else []
         },
-        "byproducts": {"count": len(bp_sales), "total_amount": round(bp_amount, 2)},
-        "frk": {"count": len(frk), "total_qntl": round(frk_qntl, 2), "total_amount": round(frk_amount, 2)},
+        "byproducts": {
+            "count": len(bp_sales), "total_amount": round(bp_amount, 2),
+            "details": [{"type": s.get("type", ""), "buyer": s.get("buyer_name", ""),
+                "qty": s.get("quantity", 0), "rate": s.get("rate", 0),
+                "amount": s.get("total_amount", 0)} for s in bp_sales] if is_detail else []
+        },
+        "frk": {
+            "count": len(frk), "total_qntl": round(frk_qntl, 2), "total_amount": round(frk_amount, 2),
+            "details": [{"party": f.get("party_name", ""), "qntl": f.get("quantity_qntl", 0),
+                "rate": f.get("rate", 0), "amount": f.get("total_amount", 0)} for f in frk] if is_detail else []
+        },
         "mill_parts": {
             "in_count": len(parts_in), "used_count": len(parts_used),
+            "in_amount": round(parts_in_amount, 2),
             "in_details": [{"part": t.get("part_name", ""), "qty": t.get("quantity", 0),
-                "party": t.get("party_name", ""), "amount": t.get("total_amount", 0)} for t in parts_in],
-            "used_details": [{"part": t.get("part_name", ""), "qty": t.get("quantity", 0)} for t in parts_used]
+                "rate": t.get("rate", 0), "party": t.get("party_name", ""),
+                "bill_no": t.get("bill_no", ""), "amount": t.get("total_amount", 0)} for t in parts_in],
+            "used_details": [{"part": t.get("part_name", ""), "qty": t.get("quantity", 0),
+                "remark": t.get("remark", "")} for t in parts_used]
         }
     }
+    return result
+
+
+def _fmt_amt(val):
+    if val == 0: return "0"
+    return f"{val:,.0f}"
+
 
 @router.get("/reports/daily/pdf")
-async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Optional[str] = None):
-    data = await get_daily_report(date, kms_year, season)
+async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Optional[str] = None, mode: str = "normal"):
+    data = await get_daily_report(date, kms_year, season, mode)
 
-    try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.pdfgen import canvas as pdfcanvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
 
-        buf = io.BytesIO()
-        c = pdfcanvas.Canvas(buf, pagesize=A4)
-        w, h = A4
-        y = h - 40
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=25, rightMargin=25, topMargin=20, bottomMargin=20)
+    styles = getSampleStyleSheet()
+    elements = []
 
-        def write(text, bold=False, size=10):
-            nonlocal y
-            if y < 40:
-                c.showPage(); y = h - 40
-            c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
-            c.drawString(40, y, text)
-            y -= size + 4
+    # Custom styles
+    title_style = ParagraphStyle('CustomTitle', parent=styles['Title'], fontSize=18, textColor=colors.HexColor('#1a365d'), spaceAfter=4)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=9, textColor=colors.grey, spaceAfter=8)
+    section_style = ParagraphStyle('SectionHead', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a365d'),
+        spaceBefore=12, spaceAfter=4, borderWidth=0, leftIndent=0)
 
-        write(f"Daily Report - {date}", bold=True, size=16)
-        y -= 10
+    hdr_bg = colors.HexColor('#1a365d')
+    hdr_font_color = colors.white
+    alt_row = colors.HexColor('#f5f5f5')
+    green = colors.HexColor('#166534')
+    red = colors.HexColor('#991b1b')
+    border_color = colors.HexColor('#cbd5e1')
 
-        p = data["paddy_entries"]
-        write(f"PADDY ENTRIES ({p['count']}): {p['total_kg']} KG, {p['total_bags']} Bags, Final: {p['total_final_w']} KG", bold=True)
-        for d in p["details"]:
-            write(f"  Truck: {d['truck_no']} | Agent: {d['agent']} | KG: {d['kg']} | Final: {d['final_w']}")
+    def make_table(headers, rows, col_widths=None):
+        data_rows = [headers] + rows
+        t = RTable(data_rows, colWidths=col_widths, repeatRows=1)
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), hdr_bg),
+            ('TEXTCOLOR', (0, 0), (-1, 0), hdr_font_color),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('GRID', (0, 0), (-1, -1), 0.5, border_color),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]
+        for i in range(1, len(data_rows)):
+            if i % 2 == 0:
+                style_cmds.append(('BACKGROUND', (0, i), (-1, i), alt_row))
+        t.setStyle(TableStyle(style_cmds))
+        return t
 
-        pp = data["pvt_paddy"]
+    def summary_row(label, value, color_val=None):
+        return [Paragraph(f"<b>{label}</b>", styles['Normal']),
+                Paragraph(f"<b>Rs. {_fmt_amt(value)}</b>", ParagraphStyle('val', parent=styles['Normal'],
+                    textColor=color_val or colors.black, alignment=2))]
+
+    is_detail = mode == "detail"
+    mode_label = "DETAILED" if is_detail else "SUMMARY"
+
+    # Title
+    elements.append(Paragraph(f"Daily Report - {date}", title_style))
+    elements.append(Paragraph(f"Mode: {mode_label} | KMS Year: {kms_year or 'All'} | Season: {season or 'All'}", subtitle_style))
+    elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e2e8f0')))
+    elements.append(Spacer(1, 6))
+
+    # ===== PADDY ENTRIES =====
+    p = data["paddy_entries"]
+    elements.append(Paragraph(f"1. Paddy Entries ({p['count']})", section_style))
+    summary_data = [
+        ['Total KG', 'Total Bags', 'Final Weight (KG)'],
+        [str(p['total_kg']), str(p['total_bags']), str(p['total_final_w'])]
+    ]
+    st = RTable(summary_data, colWidths=[170, 170, 170])
+    st.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0f2fe')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(st)
+    if p["details"]:
+        if is_detail:
+            elements.append(make_table(
+                ['Truck No', 'Agent', 'Mandi', 'RST', 'KG', 'Bags', 'Moisture%', 'Mill W', 'Final W'],
+                [[d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
+                  str(d.get("kg",0)), str(d.get("bags",0)), str(d.get("moisture",0)),
+                  str(d.get("mill_w",0)), str(d.get("final_w",0))] for d in p["details"]],
+                [60, 60, 55, 45, 45, 35, 42, 50, 50]
+            ))
+        else:
+            elements.append(make_table(
+                ['Truck No', 'Agent', 'KG', 'Final W'],
+                [[d["truck_no"], d["agent"], str(d["kg"]), str(d["final_w"])] for d in p["details"]],
+                [120, 150, 100, 100]
+            ))
+    elements.append(Spacer(1, 4))
+
+    # ===== MILLING =====
+    ml = data["milling"]
+    if ml["count"]:
+        elements.append(Paragraph(f"2. Milling ({ml['count']})", section_style))
+        sm = [['Paddy In (Q)', 'Rice Out (Q)', 'FRK Used (Q)'],
+              [str(ml['paddy_input_qntl']), str(ml['rice_output_qntl']), str(ml['frk_used_qntl'])]]
+        st2 = RTable(sm, colWidths=[170, 170, 170])
+        st2.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fef3c7')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(st2)
+        if is_detail and ml["details"]:
+            elements.append(make_table(
+                ['Paddy In (Q)', 'Rice Out (Q)', 'Type', 'FRK (Q)', 'CMR Ready (Q)', 'Outturn%'],
+                [[str(d.get("paddy_in",0)), str(d.get("rice_out",0)), d.get("type",""),
+                  str(d.get("frk",0)), str(d.get("cmr_ready",0)), str(d.get("outturn",0))] for d in ml["details"]],
+                [75, 75, 70, 60, 75, 60]
+            ))
+        elements.append(Spacer(1, 4))
+
+    # ===== PRIVATE TRADING =====
+    pp = data["pvt_paddy"]
+    rs = data["rice_sales"]
+    if pp["count"] or rs["count"]:
+        elements.append(Paragraph("3. Private Trading", section_style))
         if pp["count"]:
-            write(f"PVT PADDY PURCHASE ({pp['count']}): {pp['total_kg']} KG, Amount: Rs.{pp['total_amount']:,.0f}", bold=True)
-
-        rs = data["rice_sales"]
+            elements.append(Paragraph(f"<b>Paddy Purchase ({pp['count']}): {pp['total_kg']} KG | Rs. {_fmt_amt(pp['total_amount'])}</b>",
+                ParagraphStyle('sub', parent=styles['Normal'], fontSize=8, spaceAfter=2)))
+            if is_detail and pp["details"]:
+                elements.append(make_table(
+                    ['Party', 'Variety', 'KG', 'Rate', 'Amount', 'Vehicle'],
+                    [[d.get("party",""), d.get("variety",""), str(d.get("kg",0)), str(d.get("rate",0)),
+                      f"Rs.{_fmt_amt(d.get('amount',0))}", d.get("vehicle","")] for d in pp["details"]],
+                    [90, 60, 55, 55, 75, 65]
+                ))
+            elif pp["details"]:
+                elements.append(make_table(
+                    ['Party', 'KG', 'Amount'],
+                    [[d["party"], str(d["kg"]), f"Rs.{_fmt_amt(d['amount'])}"] for d in pp["details"]],
+                    [200, 100, 120]
+                ))
         if rs["count"]:
-            write(f"RICE SALES ({rs['count']}): {rs['total_qntl']} Q, Amount: Rs.{rs['total_amount']:,.0f}", bold=True)
-            for d in rs["details"]:
-                write(f"  {d['party']} | {d['qntl']}Q ({d['type']}) | Rs.{d['amount']:,.0f}")
+            elements.append(Spacer(1, 4))
+            elements.append(Paragraph(f"<b>Rice Sales ({rs['count']}): {rs['total_qntl']} Q | Rs. {_fmt_amt(rs['total_amount'])}</b>",
+                ParagraphStyle('sub', parent=styles['Normal'], fontSize=8, spaceAfter=2)))
+            if is_detail and rs["details"]:
+                elements.append(make_table(
+                    ['Party', 'Qntl', 'Type', 'Rate', 'Amount', 'Vehicle'],
+                    [[d.get("party",""), str(d.get("qntl",0)), d.get("type",""), str(d.get("rate",0)),
+                      f"Rs.{_fmt_amt(d.get('amount',0))}", d.get("vehicle","")] for d in rs["details"]],
+                    [90, 55, 60, 55, 75, 65]
+                ))
+            elif rs["details"]:
+                elements.append(make_table(
+                    ['Party', 'Qntl', 'Type', 'Amount'],
+                    [[d["party"], str(d["qntl"]), d["type"], f"Rs.{_fmt_amt(d['amount'])}"] for d in rs["details"]],
+                    [150, 80, 90, 100]
+                ))
+        elements.append(Spacer(1, 4))
 
-        ml = data["milling"]
-        if ml["count"]:
-            write(f"MILLING ({ml['count']}): Paddy In: {ml['paddy_input_qntl']}Q, Rice Out: {ml['rice_output_qntl']}Q, FRK: {ml['frk_used_qntl']}Q", bold=True)
+    # ===== CASH FLOW =====
+    cf = data["cash_flow"]
+    elements.append(Paragraph("4. Cash Flow", section_style))
+    cf_sum = [
+        ['', 'Jama (In)', 'Nikasi (Out)', 'Net'],
+        ['Cash', f"Rs.{_fmt_amt(cf['cash_jama'])}", f"Rs.{_fmt_amt(cf['cash_nikasi'])}", f"Rs.{_fmt_amt(cf['net_cash'])}"],
+        ['Bank', f"Rs.{_fmt_amt(cf['bank_jama'])}", f"Rs.{_fmt_amt(cf['bank_nikasi'])}", f"Rs.{_fmt_amt(cf['net_bank'])}"],
+    ]
+    cft = RTable(cf_sum, colWidths=[80, 130, 130, 130])
+    cf_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dcfce7')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+        ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]
+    cft.setStyle(TableStyle(cf_style))
+    elements.append(cft)
+    if cf["details"]:
+        if is_detail:
+            elements.append(make_table(
+                ['Description', 'Party', 'Category', 'Type', 'Account', 'Amount'],
+                [[d.get("desc",""), d.get("party",""), d.get("category",""), d.get("type","").upper(),
+                  d.get("account","").upper(), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in cf["details"]],
+                [120, 70, 55, 45, 45, 70]
+            ))
+        else:
+            elements.append(make_table(
+                ['Description', 'Type', 'Account', 'Amount'],
+                [[d["desc"], d["type"].upper(), d["account"].upper(), f"Rs.{_fmt_amt(d['amount'])}"] for d in cf["details"]],
+                [190, 80, 80, 100]
+            ))
+    elements.append(Spacer(1, 4))
 
-        cf = data["cash_flow"]
-        write(f"CASH FLOW:", bold=True)
-        write(f"  Cash: Jama Rs.{cf['cash_jama']:,.0f} | Nikasi Rs.{cf['cash_nikasi']:,.0f} | Net Rs.{cf['net_cash']:,.0f}")
-        write(f"  Bank: Jama Rs.{cf['bank_jama']:,.0f} | Nikasi Rs.{cf['bank_nikasi']:,.0f} | Net Rs.{cf['net_bank']:,.0f}")
+    # ===== PAYMENTS =====
+    pay = data["payments"]
+    elements.append(Paragraph("5. Payments Summary", section_style))
+    pay_data = [
+        ['MSP Received', 'Pvt Paddy Paid', 'Rice Sale Received'],
+        [f"Rs.{_fmt_amt(pay['msp_received'])}", f"Rs.{_fmt_amt(pay['pvt_paddy_paid'])}", f"Rs.{_fmt_amt(pay['rice_sale_received'])}"]
+    ]
+    pt = RTable(pay_data, colWidths=[170, 170, 170])
+    pt.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e7ff')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(pt)
+    if is_detail:
+        if pay.get("msp_details"):
+            elements.append(Paragraph("<b>MSP Payment Details:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
+            elements.append(make_table(['Agent', 'Mandi', 'Amount'],
+                [[d.get("agent",""), d.get("mandi",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in pay["msp_details"]],
+                [180, 150, 120]))
+        if pay.get("pvt_payment_details"):
+            elements.append(Paragraph("<b>Private Payment Details:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
+            elements.append(make_table(['Party', 'Type', 'Mode', 'Amount'],
+                [[d.get("party",""), d.get("ref_type",""), d.get("mode",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in pay["pvt_payment_details"]],
+                [140, 100, 80, 100]))
+    elements.append(Spacer(1, 4))
 
-        pay = data["payments"]
-        write(f"PAYMENTS: MSP Rs.{pay['msp_received']:,.0f} | Pvt Paid Rs.{pay['pvt_paddy_paid']:,.0f} | Rice Rcvd Rs.{pay['rice_sale_received']:,.0f}", bold=True)
+    # ===== DC DELIVERIES =====
+    dc = data["dc_deliveries"]
+    if dc["count"]:
+        elements.append(Paragraph(f"6. DC Deliveries ({dc['count']}) - {dc['total_qntl']} Q", section_style))
+        if is_detail and dc.get("details"):
+            elements.append(make_table(
+                ['DC No', 'Godown', 'Vehicle', 'Qntl', 'Bags'],
+                [[d.get("dc_no",""), d.get("godown",""), d.get("vehicle",""),
+                  str(d.get("qntl",0)), str(d.get("bags",0))] for d in dc["details"]],
+                [80, 100, 100, 80, 80]
+            ))
 
-        c.save()
-        buf.seek(0)
-        return StreamingResponse(buf, media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=daily_report_{date}.pdf"})
-    except Exception as e:
-        raise
+    # ===== BY-PRODUCTS =====
+    bp = data["byproducts"]
+    if bp["count"]:
+        elements.append(Paragraph(f"7. By-Product Sales ({bp['count']}) - Rs. {_fmt_amt(bp['total_amount'])}", section_style))
+        if is_detail and bp.get("details"):
+            elements.append(make_table(
+                ['Type', 'Buyer', 'Qty', 'Rate', 'Amount'],
+                [[d.get("type",""), d.get("buyer",""), str(d.get("qty",0)),
+                  str(d.get("rate",0)), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in bp["details"]],
+                [90, 110, 70, 70, 90]
+            ))
+
+    # ===== FRK =====
+    fk = data["frk"]
+    if fk["count"]:
+        elements.append(Paragraph(f"8. FRK Purchase ({fk['count']}) - {fk['total_qntl']} Q | Rs. {_fmt_amt(fk['total_amount'])}", section_style))
+        if is_detail and fk.get("details"):
+            elements.append(make_table(
+                ['Party', 'Qntl', 'Rate', 'Amount'],
+                [[d.get("party",""), str(d.get("qntl",0)), str(d.get("rate",0)),
+                  f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in fk["details"]],
+                [150, 90, 90, 100]
+            ))
+
+    # ===== MILL PARTS STOCK =====
+    mp = data["mill_parts"]
+    if mp["in_count"] or mp["used_count"]:
+        elements.append(Paragraph(f"9. Mill Parts Stock (In: {mp['in_count']} | Used: {mp['used_count']}) | Purchase: Rs. {_fmt_amt(mp.get('in_amount',0))}", section_style))
+        if mp["in_details"]:
+            elements.append(Paragraph("<b>Parts Purchased:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=2, spaceAfter=2)))
+            elements.append(make_table(
+                ['Part', 'Qty', 'Rate', 'Party', 'Bill No', 'Amount'],
+                [[d.get("part",""), str(d.get("qty",0)), str(d.get("rate",0)),
+                  d.get("party",""), d.get("bill_no",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in mp["in_details"]],
+                [80, 45, 55, 80, 60, 70]
+            ))
+        if mp["used_details"]:
+            elements.append(Spacer(1, 3))
+            elements.append(Paragraph("<b>Parts Used:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=2, spaceAfter=2)))
+            elements.append(make_table(
+                ['Part', 'Qty', 'Remark'],
+                [[d.get("part",""), str(d.get("qty",0)), d.get("remark","")] for d in mp["used_details"]],
+                [150, 80, 200]
+            ))
+
+    # Build
+    doc.build(elements)
+    buf.seek(0)
+    fn = f"daily_report_{mode}_{date}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={fn}"})
+
 
 @router.get("/reports/daily/excel")
-async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: Optional[str] = None):
+async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: Optional[str] = None, mode: str = "normal"):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
-    data = await get_daily_report(date, kms_year, season)
+    data = await get_daily_report(date, kms_year, season, mode)
+    is_detail = mode == "detail"
     wb = Workbook()
     ws = wb.active
     ws.title = f"Daily Report {date}"
     hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
-    hdr_font = Font(bold=True, color='FFFFFF')
+    hdr_font = Font(bold=True, color='FFFFFF', size=9)
     bold = Font(bold=True)
+    section_font = Font(bold=True, size=11, color='1a365d')
+    sub_font = Font(bold=True, size=9, color='475569')
+    tb = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
+                top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
+    amt_fmt = '#,##0'
+    mode_label = "DETAILED" if is_detail else "SUMMARY"
 
     ws.merge_cells('A1:F1')
-    ws['A1'] = f"Daily Report - {date}"
-    ws['A1'].font = Font(bold=True, size=14)
-    row = 3
+    ws['A1'] = f"Daily Report - {date} ({mode_label})"
+    ws['A1'].font = Font(bold=True, size=14, color='1a365d')
+    ws.merge_cells('A2:F2')
+    ws['A2'] = f"KMS Year: {kms_year or 'All'} | Season: {season or 'All'}"
+    ws['A2'].font = Font(size=9, color='64748b')
+    row = 4
 
-    def section(title, headers_list, rows_data):
+    def write_section(title):
         nonlocal row
-        ws.cell(row=row, column=1, value=title).font = bold
+        ws.cell(row=row, column=1, value=title).font = section_font
         row += 1
+
+    def write_headers(headers_list):
+        nonlocal row
         for i, h in enumerate(headers_list, 1):
             c = ws.cell(row=row, column=i, value=h)
-            c.fill = hdr_fill; c.font = hdr_font
-        row += 1
-        for r in rows_data:
-            for i, v in enumerate(r, 1):
-                ws.cell(row=row, column=i, value=v)
-            row += 1
+            c.fill = hdr_fill; c.font = hdr_font; c.border = tb; c.alignment = Alignment(horizontal='center')
         row += 1
 
+    def write_row(values, bold_row=False):
+        nonlocal row
+        for i, v in enumerate(values, 1):
+            c = ws.cell(row=row, column=i, value=v)
+            c.border = tb; c.font = Font(bold=bold_row, size=9)
+        row += 1
+
+    def write_sub(text):
+        nonlocal row
+        ws.cell(row=row, column=1, value=text).font = sub_font
+        row += 1
+
+    # Paddy Entries
     p = data["paddy_entries"]
-    section(f"Paddy Entries ({p['count']}) - Total KG: {p['total_kg']}, Final: {p['total_final_w']}",
-        ["Truck", "Agent", "KG", "Final W"],
-        [[d["truck_no"], d["agent"], d["kg"], d["final_w"]] for d in p["details"]])
+    write_section(f"1. Paddy Entries ({p['count']})")
+    write_sub(f"Total KG: {p['total_kg']} | Bags: {p['total_bags']} | Final: {p['total_final_w']}")
+    if p["details"]:
+        if is_detail:
+            write_headers(['Truck', 'Agent', 'Mandi', 'RST', 'KG', 'Bags', 'Moisture%', 'Mill W', 'Final W'])
+            for d in p["details"]:
+                write_row([d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
+                    d.get("kg",0), d.get("bags",0), d.get("moisture",0), d.get("mill_w",0), d.get("final_w",0)])
+        else:
+            write_headers(['Truck', 'Agent', 'KG', 'Final W'])
+            for d in p["details"]:
+                write_row([d["truck_no"], d["agent"], d["kg"], d["final_w"]])
+    row += 1
 
+    # Milling
     ml = data["milling"]
     if ml["count"]:
-        section(f"Milling ({ml['count']})", ["Paddy In (Q)", "Rice Out (Q)", "Type"],
-            [[d["paddy_in"], d["rice_out"], d["type"]] for d in ml["details"]])
-
-    rs = data["rice_sales"]
-    if rs["count"]:
-        section(f"Rice Sales ({rs['count']}) - Total: {rs['total_qntl']}Q, Amount: {rs['total_amount']}",
-            ["Party", "Qntl", "Type", "Amount"],
-            [[d["party"], d["qntl"], d["type"], d["amount"]] for d in rs["details"]])
-
-    cf = data["cash_flow"]
-    section("Cash Flow", ["Description", "Type", "Account", "Amount"],
-        [[d["desc"], d["type"], d["account"], d["amount"]] for d in cf["details"]])
-
-    ws.cell(row=row, column=1, value="Summary").font = bold
-    row += 1
-    for label, val in [
-        ("Cash Net", cf["net_cash"]), ("Bank Net", cf["net_bank"]),
-        ("MSP Received", data["payments"]["msp_received"]),
-        ("Pvt Paddy Paid", data["payments"]["pvt_paddy_paid"]),
-        ("Rice Sale Received", data["payments"]["rice_sale_received"]),
-    ]:
-        ws.cell(row=row, column=1, value=label)
-        ws.cell(row=row, column=2, value=val)
+        write_section(f"2. Milling ({ml['count']})")
+        write_sub(f"Paddy In: {ml['paddy_input_qntl']}Q | Rice Out: {ml['rice_output_qntl']}Q | FRK: {ml['frk_used_qntl']}Q")
+        if is_detail and ml["details"]:
+            write_headers(['Paddy In(Q)', 'Rice Out(Q)', 'Type', 'FRK(Q)', 'CMR Ready(Q)', 'Outturn%'])
+            for d in ml["details"]:
+                write_row([d.get("paddy_in",0), d.get("rice_out",0), d.get("type",""),
+                    d.get("frk",0), d.get("cmr_ready",0), d.get("outturn",0)])
         row += 1
 
-    for col in range(1, 7):
-        ws.column_dimensions[chr(64 + col)].width = 20
+    # Private Trading
+    pp = data["pvt_paddy"]
+    rs = data["rice_sales"]
+    if pp["count"] or rs["count"]:
+        write_section("3. Private Trading")
+        if pp["count"]:
+            write_sub(f"Paddy Purchase ({pp['count']}): {pp['total_kg']} KG | Rs. {pp['total_amount']:,.0f}")
+            if pp["details"]:
+                if is_detail:
+                    write_headers(['Party', 'Variety', 'KG', 'Rate', 'Amount', 'Vehicle'])
+                    for d in pp["details"]:
+                        write_row([d.get("party",""), d.get("variety",""), d.get("kg",0),
+                            d.get("rate",0), d.get("amount",0), d.get("vehicle","")])
+                else:
+                    write_headers(['Party', 'KG', 'Amount'])
+                    for d in pp["details"]:
+                        write_row([d["party"], d["kg"], d["amount"]])
+        if rs["count"]:
+            write_sub(f"Rice Sales ({rs['count']}): {rs['total_qntl']}Q | Rs. {rs['total_amount']:,.0f}")
+            if rs["details"]:
+                if is_detail:
+                    write_headers(['Party', 'Qntl', 'Type', 'Rate', 'Amount', 'Vehicle'])
+                    for d in rs["details"]:
+                        write_row([d.get("party",""), d.get("qntl",0), d.get("type",""),
+                            d.get("rate",0), d.get("amount",0), d.get("vehicle","")])
+                else:
+                    write_headers(['Party', 'Qntl', 'Type', 'Amount'])
+                    for d in rs["details"]:
+                        write_row([d["party"], d["qntl"], d["type"], d["amount"]])
+        row += 1
+
+    # Cash Flow
+    cf = data["cash_flow"]
+    write_section("4. Cash Flow")
+    write_headers(['', 'Jama (In)', 'Nikasi (Out)', 'Net'])
+    write_row(['Cash', cf['cash_jama'], cf['cash_nikasi'], cf['net_cash']])
+    write_row(['Bank', cf['bank_jama'], cf['bank_nikasi'], cf['net_bank']])
+    if cf["details"]:
+        row += 1
+        if is_detail:
+            write_headers(['Description', 'Party', 'Category', 'Type', 'Account', 'Amount'])
+            for d in cf["details"]:
+                write_row([d.get("desc",""), d.get("party",""), d.get("category",""),
+                    d["type"].upper(), d["account"].upper(), d["amount"]])
+        else:
+            write_headers(['Description', 'Type', 'Account', 'Amount'])
+            for d in cf["details"]:
+                write_row([d["desc"], d["type"].upper(), d["account"].upper(), d["amount"]])
+    row += 1
+
+    # Payments
+    pay = data["payments"]
+    write_section("5. Payments")
+    write_headers(['MSP Received', 'Pvt Paddy Paid', 'Rice Sale Received'])
+    write_row([pay['msp_received'], pay['pvt_paddy_paid'], pay['rice_sale_received']])
+    if is_detail:
+        if pay.get("msp_details"):
+            write_sub("MSP Details:")
+            write_headers(['Agent', 'Mandi', 'Amount'])
+            for d in pay["msp_details"]:
+                write_row([d.get("agent",""), d.get("mandi",""), d.get("amount",0)])
+        if pay.get("pvt_payment_details"):
+            write_sub("Private Payment Details:")
+            write_headers(['Party', 'Type', 'Mode', 'Amount'])
+            for d in pay["pvt_payment_details"]:
+                write_row([d.get("party",""), d.get("ref_type",""), d.get("mode",""), d.get("amount",0)])
+    row += 1
+
+    # Mill Parts Stock
+    mp = data["mill_parts"]
+    if mp["in_count"] or mp["used_count"]:
+        write_section(f"6. Mill Parts Stock (In: {mp['in_count']} | Used: {mp['used_count']})")
+        if mp["in_details"]:
+            write_sub(f"Parts Purchased - Total: Rs. {mp.get('in_amount',0):,.0f}")
+            write_headers(['Part', 'Qty', 'Rate', 'Party', 'Bill No', 'Amount'])
+            for d in mp["in_details"]:
+                write_row([d.get("part",""), d.get("qty",0), d.get("rate",0),
+                    d.get("party",""), d.get("bill_no",""), d.get("amount",0)])
+        if mp["used_details"]:
+            write_sub("Parts Used:")
+            write_headers(['Part', 'Qty', 'Remark'])
+            for d in mp["used_details"]:
+                write_row([d.get("part",""), d.get("qty",0), d.get("remark","")])
+    row += 1
+
+    # By-products & FRK
+    bp = data["byproducts"]
+    fk = data["frk"]
+    if bp["count"] or fk["count"]:
+        write_section("7. Others")
+        if bp["count"]:
+            write_sub(f"By-Product Sales ({bp['count']}): Rs. {bp['total_amount']:,.0f}")
+            if is_detail and bp.get("details"):
+                write_headers(['Type', 'Buyer', 'Qty', 'Rate', 'Amount'])
+                for d in bp["details"]:
+                    write_row([d.get("type",""), d.get("buyer",""), d.get("qty",0), d.get("rate",0), d.get("amount",0)])
+        if fk["count"]:
+            write_sub(f"FRK Purchase ({fk['count']}): {fk['total_qntl']}Q | Rs. {fk['total_amount']:,.0f}")
+            if is_detail and fk.get("details"):
+                write_headers(['Party', 'Qntl', 'Rate', 'Amount'])
+                for d in fk["details"]:
+                    write_row([d.get("party",""), d.get("qntl",0), d.get("rate",0), d.get("amount",0)])
+
+    for col in range(1, 10):
+        ws.column_dimensions[chr(64 + col)].width = 16
 
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
+    fn = f"daily_report_{mode}_{date}.xlsx"
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=daily_report_{date}.xlsx"})
+        headers={"Content-Disposition": f"attachment; filename={fn}"})

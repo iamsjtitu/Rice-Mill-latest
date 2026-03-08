@@ -1,0 +1,148 @@
+{
+  "summary": "Iteration 21: Comprehensive testing of Daily Report Normal/Detail mode upgrade. All 18 backend API tests passed (100%). All UI features verified - Normal/Detail toggle working correctly, Mill Parts Stock section visible with Parts Purchased/Used tables, PDF/Excel exports functioning with mode parameter.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_daily_report_modes.py",
+    "/app/test_reports/pytest/pytest_results_iteration21.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_daily_report_modes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 tests passed)",
+    "frontend": "100%"
+  },
+  "features_tested": {
+    "1_normal_detail_mode_toggle": {
+      "description": "Normal/Detail mode toggle buttons on Daily Report",
+      "data_testids": ["daily-mode-normal", "daily-mode-detail"],
+      "test_results": {
+        "normal_button_visible": "PASS",
+        "detail_button_visible": "PASS",
+        "toggle_switches_mode": "PASS",
+        "api_mode_param_works": "PASS - /api/reports/daily?mode=normal|detail"
+      },
+      "status": "WORKING"
+    },
+    "2_normal_mode_simplified_tables": {
+      "description": "Normal mode shows simplified table columns",
+      "paddy_columns": "Truck, Agent, KG, Final W",
+      "cash_columns": "Description, Type, Account, Amount",
+      "test_results": {
+        "paddy_table_simplified": "PASS",
+        "cash_table_simplified": "PASS - 4 columns shown"
+      },
+      "status": "WORKING"
+    },
+    "3_detail_mode_expanded_tables": {
+      "description": "Detail mode shows expanded table columns with additional fields",
+      "paddy_columns": "Truck, Agent, Mandi, RST, KG, Bags, Moisture%, Mill W, Final W",
+      "cash_columns": "Description, Party, Category, Type, Account, Amount",
+      "test_results": {
+        "paddy_table_expanded": "PASS",
+        "cash_table_expanded": "PASS - 6 columns shown including Party and Category",
+        "private_payment_details_visible": "PASS - Shows under Payments Summary in Detail mode"
+      },
+      "status": "WORKING"
+    },
+    "4_mill_parts_stock_section": {
+      "description": "Mill Parts Stock section in Daily Report with Parts In, Parts Used, Purchase Amount cards",
+      "test_results": {
+        "mill_parts_section_visible": "PASS",
+        "parts_in_card": "PASS - Shows count 1",
+        "parts_used_card": "PASS - Shows count 1",
+        "purchase_amount_card": "PASS - Shows ₹4,250",
+        "parts_purchased_table": "PASS - Shows Part, Qty, Rate, Party, Bill No, Amount columns",
+        "parts_used_table": "PASS - Shows Part, Qty, Remark columns",
+        "data_correct": "PASS - Belt: 5 purchased at ₹850 from ABC Spares, 2 used"
+      },
+      "status": "WORKING"
+    },
+    "5_api_mode_parameter": {
+      "description": "API mode parameter for /api/reports/daily",
+      "test_results": {
+        "normal_mode_returns_simplified": "PASS - mode:'normal' in response",
+        "detail_mode_returns_expanded": "PASS - mode:'detail' in response with mandi, rst_no, moisture etc"
+      },
+      "status": "WORKING"
+    },
+    "6_pdf_export": {
+      "description": "PDF export with mode parameter",
+      "test_results": {
+        "normal_mode_pdf": "PASS - GET /api/reports/daily/pdf?mode=normal returns 200 with application/pdf",
+        "detail_mode_pdf": "PASS - GET /api/reports/daily/pdf?mode=detail returns 200 with application/pdf",
+        "filename_includes_mode": "PASS - daily_report_detail_2026-03-08.pdf"
+      },
+      "status": "WORKING"
+    },
+    "7_excel_export": {
+      "description": "Excel export with mode parameter",
+      "test_results": {
+        "normal_mode_excel": "PASS - Returns 200 with spreadsheet content-type",
+        "detail_mode_excel": "PASS - Returns 200 with spreadsheet content-type"
+      },
+      "status": "WORKING"
+    },
+    "8_cash_book_data": {
+      "description": "Cash Book data displayed correctly in Daily Report",
+      "test_results": {
+        "bank_jama_shown": "PASS - ₹50,000 Bank Jama from Shyam Traders",
+        "net_bank_calculated": "PASS - ₹50,000",
+        "rice_sale_received": "PASS - ₹50,000 in Payments Summary"
+      },
+      "status": "WORKING"
+    }
+  },
+  "backend_api_tests": {
+    "TestDailyReportModes": {
+      "test_daily_report_normal_mode_returns_correct_mode": "PASS",
+      "test_daily_report_detail_mode_returns_correct_mode": "PASS",
+      "test_normal_mode_paddy_details_simplified": "PASS",
+      "test_detail_mode_paddy_details_expanded": "PASS",
+      "test_normal_mode_cash_flow_simplified": "PASS",
+      "test_detail_mode_cash_flow_expanded": "PASS",
+      "test_detail_mode_has_private_payment_details": "PASS"
+    },
+    "TestMillPartsInDailyReport": {
+      "test_mill_parts_section_exists": "PASS",
+      "test_mill_parts_has_data_for_test_date": "PASS",
+      "test_mill_parts_in_details_structure": "PASS",
+      "test_mill_parts_used_details_structure": "PASS"
+    },
+    "TestDailyReportExports": {
+      "test_pdf_export_normal_mode_returns_200": "PASS",
+      "test_pdf_export_detail_mode_returns_200": "PASS",
+      "test_excel_export_normal_mode_returns_200": "PASS",
+      "test_excel_export_detail_mode_returns_200": "PASS",
+      "test_pdf_filename_includes_mode": "PASS"
+    },
+    "TestCashBookData": {
+      "test_cash_flow_bank_jama_exists": "PASS",
+      "test_payments_rice_sale_received": "PASS"
+    }
+  },
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+  "sample_data_in_db": {
+    "mill_parts_stock": "Belt: 5 in (ABC Spares @ ₹850 = ₹4,250), 2 used",
+    "cash_book": "Bank Jama ₹50,000 (Rice Payment from Shyam Traders)"
+  },
+  "screenshots_taken": [
+    ".screenshots/daily_report_normal_mode.png - Normal mode with simplified tables",
+    ".screenshots/daily_report_detail_mode.png - Detail mode with expanded tables and Private Payment Details"
+  ],
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 21 tested Daily Report Normal/Detail mode upgrade. Normal mode shows 4-column tables (simplified), Detail mode shows 6-column tables (expanded) with Party, Category fields plus Private Payment Details section. Mill Parts Stock section shows Parts In/Used/Purchase Amount cards with Parts Purchased and Parts Used detail tables. All exports (PDF/Excel) work with mode parameter. Test data: Belt 5 in from ABC Spares at ₹850, 2 used. Bank Jama ₹50,000 from Shyam Traders rice payment."
+}

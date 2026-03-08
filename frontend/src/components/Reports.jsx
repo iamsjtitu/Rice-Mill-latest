@@ -174,27 +174,30 @@ const DailyReport = ({ filters }) => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState("normal"); // "normal" or "detail"
 
   const fetchReport = useCallback(async () => {
     try {
       setLoading(true);
-      const p = new URLSearchParams({ date });
+      const p = new URLSearchParams({ date, mode });
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
       const res = await axios.get(`${API}/reports/daily?${p}`);
       setData(res.data);
     } catch { toast.error("Daily report load nahi hua"); }
     finally { setLoading(false); }
-  }, [date, filters.kms_year, filters.season]);
+  }, [date, mode, filters.kms_year, filters.season]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
   const exportData = (format) => {
-    const p = new URLSearchParams({ date });
+    const p = new URLSearchParams({ date, mode });
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
     window.open(`${API}/reports/daily/${format}?${p}`, '_blank');
   };
+
+  const isDetail = mode === "detail";
 
   const Section = ({ title, icon: Icon, color, children, count }) => (
     <Card className="bg-slate-800 border-slate-700">
@@ -207,6 +210,16 @@ const DailyReport = ({ filters }) => {
     </Card>
   );
 
+  const DetailTable = ({ headers, rows, className = "" }) => (
+    <div className={`overflow-x-auto text-xs mt-2 ${className}`}>
+      <table className="w-full"><thead><tr className="border-b border-slate-700 text-slate-400">
+        {headers.map(h => <th key={h.key} className={`py-1.5 px-2 ${h.align === 'right' ? 'text-right' : 'text-left'}`}>{h.label}</th>)}
+      </tr></thead><tbody>
+        {rows.map((r,i) => <tr key={i} className="border-b border-slate-700/50">{r}</tr>)}
+      </tbody></table>
+    </div>
+  );
+
   return (
     <div className="space-y-4" data-testid="daily-report">
       <div className="flex gap-3 items-end flex-wrap">
@@ -214,6 +227,15 @@ const DailyReport = ({ filters }) => {
           <Label className="text-xs text-slate-400">Date / तारीख</Label>
           <Input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="bg-slate-700 border-slate-600 text-white h-9 w-44" data-testid="daily-report-date" />
+        </div>
+        {/* Mode Toggle */}
+        <div className="flex bg-slate-900 rounded-lg border border-slate-700 overflow-hidden h-9">
+          <button onClick={() => setMode("normal")}
+            className={`px-3 text-xs font-medium transition-colors ${mode === "normal" ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white"}`}
+            data-testid="daily-mode-normal">Normal</button>
+          <button onClick={() => setMode("detail")}
+            className={`px-3 text-xs font-medium transition-colors ${mode === "detail" ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white"}`}
+            data-testid="daily-mode-detail">Detail</button>
         </div>
         <Button onClick={fetchReport} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-9"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="daily-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
@@ -234,19 +256,35 @@ const DailyReport = ({ filters }) => {
               ))}
             </div>
             {data.paddy_entries.details.length > 0 && (
-              <div className="overflow-x-auto text-xs">
-                <table className="w-full"><thead><tr className="border-b border-slate-700 text-slate-400">
-                  <th className="text-left py-1 px-2">Truck</th><th className="text-left py-1 px-2">Agent</th>
-                  <th className="text-right py-1 px-2">KG</th><th className="text-right py-1 px-2">Final W</th>
-                </tr></thead><tbody>
-                  {data.paddy_entries.details.map((d,i) => (
-                    <tr key={i} className="border-b border-slate-700/50">
-                      <td className="py-1 px-2 text-white">{d.truck_no}</td><td className="py-1 px-2 text-slate-300">{d.agent}</td>
-                      <td className="py-1 px-2 text-right text-amber-400">{d.kg}</td><td className="py-1 px-2 text-right text-green-400">{d.final_w}</td>
-                    </tr>
-                  ))}
-                </tbody></table>
-              </div>
+              isDetail ? (
+                <DetailTable
+                  headers={[{key:'truck',label:'Truck',align:'left'},{key:'agent',label:'Agent',align:'left'},{key:'mandi',label:'Mandi',align:'left'},
+                    {key:'rst',label:'RST',align:'left'},{key:'kg',label:'KG',align:'right'},{key:'bags',label:'Bags',align:'right'},
+                    {key:'moisture',label:'Moisture%',align:'right'},{key:'mill_w',label:'Mill W',align:'right'},{key:'final',label:'Final W',align:'right'}]}
+                  rows={data.paddy_entries.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white">{d.truck_no}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.agent}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.mandi}</td>
+                    <td className="py-1 px-2 text-slate-400">{d.rst_no}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">{d.kg}</td>
+                    <td className="py-1 px-2 text-right text-slate-300">{d.bags}</td>
+                    <td className="py-1 px-2 text-right text-cyan-400">{d.moisture}%</td>
+                    <td className="py-1 px-2 text-right text-slate-300">{d.mill_w}</td>
+                    <td className="py-1 px-2 text-right text-green-400 font-semibold">{d.final_w}</td>
+                  </>))}
+                />
+              ) : (
+                <DetailTable
+                  headers={[{key:'truck',label:'Truck',align:'left'},{key:'agent',label:'Agent',align:'left'},
+                    {key:'kg',label:'KG',align:'right'},{key:'final',label:'Final W',align:'right'}]}
+                  rows={data.paddy_entries.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white">{d.truck_no}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.agent}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">{d.kg}</td>
+                    <td className="py-1 px-2 text-right text-green-400">{d.final_w}</td>
+                  </>))}
+                />
+              )
             )}
           </Section>
 
@@ -260,28 +298,87 @@ const DailyReport = ({ filters }) => {
                   </div>
                 ))}
               </div>
+              {isDetail && data.milling.details.length > 0 && (
+                <DetailTable
+                  headers={[{key:'pin',label:'Paddy In(Q)',align:'right'},{key:'rout',label:'Rice Out(Q)',align:'right'},
+                    {key:'type',label:'Type',align:'left'},{key:'frk',label:'FRK(Q)',align:'right'},
+                    {key:'cmr',label:'CMR Ready(Q)',align:'right'},{key:'out',label:'Outturn%',align:'right'}]}
+                  rows={data.milling.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-right text-white">{d.paddy_in}</td>
+                    <td className="py-1 px-2 text-right text-green-400">{d.rice_out}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.type}</td>
+                    <td className="py-1 px-2 text-right text-red-400">{d.frk}</td>
+                    <td className="py-1 px-2 text-right text-cyan-400">{d.cmr_ready}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">{d.outturn}%</td>
+                  </>))}
+                />
+              )}
             </Section>
           )}
 
           {/* Private Trading */}
           {(data.pvt_paddy.count > 0 || data.rice_sales.count > 0) && (
             <Section title="Private Trading / निजी व्यापार" icon={Wheat} color="text-purple-400">
-              <div className="grid grid-cols-2 gap-3">
-                {data.pvt_paddy.count > 0 && (
-                  <div className="p-2 bg-slate-900/50 rounded">
-                    <p className="text-[10px] text-slate-400 mb-1">Pvt Paddy Purchase ({data.pvt_paddy.count})</p>
-                    <p className="text-sm text-white">{data.pvt_paddy.total_kg} KG</p>
-                    <p className="text-xs text-amber-400">₹{data.pvt_paddy.total_amount.toLocaleString('en-IN')}</p>
-                  </div>
-                )}
-                {data.rice_sales.count > 0 && (
-                  <div className="p-2 bg-slate-900/50 rounded">
-                    <p className="text-[10px] text-slate-400 mb-1">Rice Sales ({data.rice_sales.count})</p>
-                    <p className="text-sm text-white">{data.rice_sales.total_qntl} Q</p>
-                    <p className="text-xs text-green-400">₹{data.rice_sales.total_amount.toLocaleString('en-IN')}</p>
-                  </div>
-                )}
-              </div>
+              {data.pvt_paddy.count > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs text-slate-400 mb-1 font-semibold">Paddy Purchase ({data.pvt_paddy.count}) - {data.pvt_paddy.total_kg} KG | ₹{data.pvt_paddy.total_amount.toLocaleString('en-IN')}</p>
+                  {isDetail ? (
+                    <DetailTable
+                      headers={[{key:'party',label:'Party',align:'left'},{key:'variety',label:'Variety',align:'left'},
+                        {key:'kg',label:'KG',align:'right'},{key:'rate',label:'Rate',align:'right'},
+                        {key:'amt',label:'Amount',align:'right'},{key:'veh',label:'Vehicle',align:'left'}]}
+                      rows={data.pvt_paddy.details.map((d,i) => (<>
+                        <td className="py-1 px-2 text-white">{d.party}</td>
+                        <td className="py-1 px-2 text-slate-300">{d.variety}</td>
+                        <td className="py-1 px-2 text-right text-amber-400">{d.kg}</td>
+                        <td className="py-1 px-2 text-right text-slate-300">₹{d.rate}</td>
+                        <td className="py-1 px-2 text-right text-red-400 font-semibold">₹{d.amount?.toLocaleString('en-IN')}</td>
+                        <td className="py-1 px-2 text-slate-400">{d.vehicle}</td>
+                      </>))}
+                    />
+                  ) : (
+                    <DetailTable
+                      headers={[{key:'party',label:'Party',align:'left'},{key:'kg',label:'KG',align:'right'},{key:'amt',label:'Amount',align:'right'}]}
+                      rows={data.pvt_paddy.details.map((d,i) => (<>
+                        <td className="py-1 px-2 text-white">{d.party}</td>
+                        <td className="py-1 px-2 text-right text-amber-400">{d.kg}</td>
+                        <td className="py-1 px-2 text-right text-red-400">₹{d.amount?.toLocaleString('en-IN')}</td>
+                      </>))}
+                    />
+                  )}
+                </div>
+              )}
+              {data.rice_sales.count > 0 && (
+                <div>
+                  <p className="text-xs text-slate-400 mb-1 font-semibold">Rice Sales ({data.rice_sales.count}) - {data.rice_sales.total_qntl} Q | ₹{data.rice_sales.total_amount.toLocaleString('en-IN')}</p>
+                  {isDetail ? (
+                    <DetailTable
+                      headers={[{key:'party',label:'Party',align:'left'},{key:'qntl',label:'Qntl',align:'right'},
+                        {key:'type',label:'Type',align:'left'},{key:'rate',label:'Rate',align:'right'},
+                        {key:'amt',label:'Amount',align:'right'},{key:'veh',label:'Vehicle',align:'left'}]}
+                      rows={data.rice_sales.details.map((d,i) => (<>
+                        <td className="py-1 px-2 text-white">{d.party}</td>
+                        <td className="py-1 px-2 text-right text-amber-400">{d.qntl}</td>
+                        <td className="py-1 px-2 text-slate-300">{d.type}</td>
+                        <td className="py-1 px-2 text-right text-slate-300">₹{d.rate}</td>
+                        <td className="py-1 px-2 text-right text-green-400 font-semibold">₹{d.amount?.toLocaleString('en-IN')}</td>
+                        <td className="py-1 px-2 text-slate-400">{d.vehicle}</td>
+                      </>))}
+                    />
+                  ) : (
+                    <DetailTable
+                      headers={[{key:'party',label:'Party',align:'left'},{key:'qntl',label:'Qntl',align:'right'},
+                        {key:'type',label:'Type',align:'left'},{key:'amt',label:'Amount',align:'right'}]}
+                      rows={data.rice_sales.details.map((d,i) => (<>
+                        <td className="py-1 px-2 text-white">{d.party}</td>
+                        <td className="py-1 px-2 text-right text-amber-400">{d.qntl}</td>
+                        <td className="py-1 px-2 text-slate-300">{d.type}</td>
+                        <td className="py-1 px-2 text-right text-green-400">₹{d.amount?.toLocaleString('en-IN')}</td>
+                      </>))}
+                    />
+                  )}
+                </div>
+              )}
             </Section>
           )}
 
@@ -306,6 +403,34 @@ const DailyReport = ({ filters }) => {
                 <p className={`text-lg font-bold ${data.cash_flow.net_bank >= 0 ? 'text-green-400' : 'text-red-400'}`}>₹{data.cash_flow.net_bank.toLocaleString('en-IN')}</p>
               </div>
             </div>
+            {data.cash_flow.details.length > 0 && (
+              isDetail ? (
+                <DetailTable
+                  headers={[{key:'desc',label:'Description',align:'left'},{key:'party',label:'Party',align:'left'},
+                    {key:'cat',label:'Category',align:'left'},{key:'type',label:'Type',align:'left'},
+                    {key:'acc',label:'Account',align:'left'},{key:'amt',label:'Amount',align:'right'}]}
+                  rows={data.cash_flow.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white">{d.desc}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.party}</td>
+                    <td className="py-1 px-2 text-slate-400">{d.category}</td>
+                    <td className="py-1 px-2"><span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${d.type === 'jama' ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>{d.type.toUpperCase()}</span></td>
+                    <td className="py-1 px-2 text-slate-300">{d.account.toUpperCase()}</td>
+                    <td className={`py-1 px-2 text-right font-semibold ${d.type === 'jama' ? 'text-green-400' : 'text-red-400'}`}>₹{d.amount.toLocaleString('en-IN')}</td>
+                  </>))}
+                />
+              ) : (
+                <DetailTable
+                  headers={[{key:'desc',label:'Description',align:'left'},{key:'type',label:'Type',align:'left'},
+                    {key:'acc',label:'Account',align:'left'},{key:'amt',label:'Amount',align:'right'}]}
+                  rows={data.cash_flow.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white">{d.desc}</td>
+                    <td className="py-1 px-2"><span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${d.type === 'jama' ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>{d.type.toUpperCase()}</span></td>
+                    <td className="py-1 px-2 text-slate-300">{d.account.toUpperCase()}</td>
+                    <td className={`py-1 px-2 text-right font-semibold ${d.type === 'jama' ? 'text-green-400' : 'text-red-400'}`}>₹{d.amount.toLocaleString('en-IN')}</td>
+                  </>))}
+                />
+              )
+            )}
           </Section>
 
           {/* Payments Summary */}
@@ -318,28 +443,136 @@ const DailyReport = ({ filters }) => {
                 </div>
               ))}
             </div>
+            {isDetail && data.payments.msp_details && data.payments.msp_details.length > 0 && (
+              <div className="mt-2">
+                <p className="text-[10px] text-slate-500 font-semibold mb-1">MSP Payment Details:</p>
+                <DetailTable
+                  headers={[{key:'agent',label:'Agent',align:'left'},{key:'mandi',label:'Mandi',align:'left'},{key:'amt',label:'Amount',align:'right'}]}
+                  rows={data.payments.msp_details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white">{d.agent}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.mandi}</td>
+                    <td className="py-1 px-2 text-right text-green-400">₹{d.amount?.toLocaleString('en-IN')}</td>
+                  </>))}
+                />
+              </div>
+            )}
+            {isDetail && data.payments.pvt_payment_details && data.payments.pvt_payment_details.length > 0 && (
+              <div className="mt-2">
+                <p className="text-[10px] text-slate-500 font-semibold mb-1">Private Payment Details:</p>
+                <DetailTable
+                  headers={[{key:'party',label:'Party',align:'left'},{key:'type',label:'Type',align:'left'},
+                    {key:'mode',label:'Mode',align:'left'},{key:'amt',label:'Amount',align:'right'}]}
+                  rows={data.payments.pvt_payment_details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white">{d.party}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.ref_type}</td>
+                    <td className="py-1 px-2 text-slate-400">{d.mode}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">₹{d.amount?.toLocaleString('en-IN')}</td>
+                  </>))}
+                />
+              </div>
+            )}
           </Section>
 
-          {/* DC + By-products + FRK + Mill Parts */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* DC Deliveries */}
+          {data.dc_deliveries.count > 0 && (
+            <Section title="DC Deliveries" icon={Truck} color="text-white" count={data.dc_deliveries.count}>
+              <p className="text-sm text-amber-400 font-bold">{data.dc_deliveries.total_qntl} Q delivered</p>
+              {isDetail && data.dc_deliveries.details && data.dc_deliveries.details.length > 0 && (
+                <DetailTable
+                  headers={[{key:'dc',label:'DC No',align:'left'},{key:'godown',label:'Godown',align:'left'},
+                    {key:'veh',label:'Vehicle',align:'left'},{key:'qntl',label:'Qntl',align:'right'},{key:'bags',label:'Bags',align:'right'}]}
+                  rows={data.dc_deliveries.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white">{d.dc_no}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.godown}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.vehicle}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">{d.qntl}</td>
+                    <td className="py-1 px-2 text-right text-slate-300">{d.bags}</td>
+                  </>))}
+                />
+              )}
+            </Section>
+          )}
+
+          {/* Mill Parts Stock - Full Section */}
+          {(data.mill_parts.in_count > 0 || data.mill_parts.used_count > 0) && (
+            <Section title="Mill Parts Stock" icon={Package} color="text-cyan-400">
+              <div className="grid grid-cols-3 gap-3 mb-2">
+                <div className="text-center p-2 bg-slate-900/50 rounded">
+                  <p className="text-[10px] text-slate-400">Parts In</p>
+                  <p className="text-lg font-bold text-emerald-400">{data.mill_parts.in_count}</p>
+                </div>
+                <div className="text-center p-2 bg-slate-900/50 rounded">
+                  <p className="text-[10px] text-slate-400">Parts Used</p>
+                  <p className="text-lg font-bold text-red-400">{data.mill_parts.used_count}</p>
+                </div>
+                <div className="text-center p-2 bg-slate-900/50 rounded">
+                  <p className="text-[10px] text-slate-400">Purchase Amount</p>
+                  <p className="text-lg font-bold text-amber-400">₹{(data.mill_parts.in_amount || 0).toLocaleString('en-IN')}</p>
+                </div>
+              </div>
+              {data.mill_parts.in_details.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-[10px] text-emerald-400 font-semibold mb-1">Parts Purchased:</p>
+                  <DetailTable
+                    headers={[{key:'part',label:'Part',align:'left'},{key:'qty',label:'Qty',align:'right'},
+                      {key:'rate',label:'Rate',align:'right'},{key:'party',label:'Party',align:'left'},
+                      {key:'bill',label:'Bill No',align:'left'},{key:'amt',label:'Amount',align:'right'}]}
+                    rows={data.mill_parts.in_details.map((d,i) => (<>
+                      <td className="py-1 px-2 text-white font-semibold">{d.part}</td>
+                      <td className="py-1 px-2 text-right text-amber-400">{d.qty}</td>
+                      <td className="py-1 px-2 text-right text-slate-300">₹{d.rate}</td>
+                      <td className="py-1 px-2 text-slate-300">{d.party}</td>
+                      <td className="py-1 px-2 text-slate-400">{d.bill_no}</td>
+                      <td className="py-1 px-2 text-right text-emerald-400 font-semibold">₹{d.amount?.toLocaleString('en-IN')}</td>
+                    </>))}
+                  />
+                </div>
+              )}
+              {data.mill_parts.used_details.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-red-400 font-semibold mb-1">Parts Used:</p>
+                  <DetailTable
+                    headers={[{key:'part',label:'Part',align:'left'},{key:'qty',label:'Qty',align:'right'},{key:'remark',label:'Remark',align:'left'}]}
+                    rows={data.mill_parts.used_details.map((d,i) => (<>
+                      <td className="py-1 px-2 text-white font-semibold">{d.part}</td>
+                      <td className="py-1 px-2 text-right text-red-400">{d.qty}</td>
+                      <td className="py-1 px-2 text-slate-400">{d.remark}</td>
+                    </>))}
+                  />
+                </div>
+              )}
+            </Section>
+          )}
+
+          {/* By-products + FRK bottom cards (always show) */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
               <p className="text-[10px] text-slate-400">DC Deliveries</p>
               <p className="text-lg font-bold text-white">{data.dc_deliveries.count}</p>
               <p className="text-xs text-slate-400">{data.dc_deliveries.total_qntl} Q</p>
             </CardContent></Card>
-            <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
-              <p className="text-[10px] text-slate-400">By-Products</p>
-              <p className="text-lg font-bold text-amber-400">₹{data.byproducts.total_amount.toLocaleString('en-IN')}</p>
-              <p className="text-xs text-slate-400">{data.byproducts.count} sales</p>
+            <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
+              <p className="text-[10px] text-slate-400 text-center">By-Products ({data.byproducts.count})</p>
+              <p className="text-lg font-bold text-amber-400 text-center">₹{data.byproducts.total_amount.toLocaleString('en-IN')}</p>
+              {isDetail && data.byproducts.details && data.byproducts.details.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {data.byproducts.details.map((d,i) => (
+                    <p key={i} className="text-[10px] text-slate-400">{d.type} - {d.buyer}: ₹{d.amount?.toLocaleString('en-IN')}</p>
+                  ))}
+                </div>
+              )}
             </CardContent></Card>
-            <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
-              <p className="text-[10px] text-slate-400">FRK Purchase</p>
-              <p className="text-lg font-bold text-red-400">₹{data.frk.total_amount.toLocaleString('en-IN')}</p>
-              <p className="text-xs text-slate-400">{data.frk.total_qntl} Q</p>
-            </CardContent></Card>
-            <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3 text-center">
-              <p className="text-[10px] text-slate-400">Mill Parts</p>
-              <p className="text-lg font-bold text-cyan-400">{data.mill_parts.in_count} in / {data.mill_parts.used_count} used</p>
+            <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
+              <p className="text-[10px] text-slate-400 text-center">FRK Purchase ({data.frk.count})</p>
+              <p className="text-lg font-bold text-red-400 text-center">₹{data.frk.total_amount.toLocaleString('en-IN')}</p>
+              <p className="text-xs text-slate-400 text-center">{data.frk.total_qntl} Q</p>
+              {isDetail && data.frk.details && data.frk.details.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {data.frk.details.map((d,i) => (
+                    <p key={i} className="text-[10px] text-slate-400">{d.party}: {d.qntl}Q @ ₹{d.rate} = ₹{d.amount?.toLocaleString('en-IN')}</p>
+                  ))}
+                </div>
+              )}
             </CardContent></Card>
           </div>
         </div>
