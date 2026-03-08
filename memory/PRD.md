@@ -1,7 +1,7 @@
 # Mill Entry System - PRD
 
 ## Original Problem Statement
-Rice mill management tool ("Mill Entry System") with comprehensive entry tracking, payment management, and reporting. The application supports multiple backends (Python/FastAPI, Node.js local-server, Electron desktop-app) with a React frontend.
+Rice mill management tool ("Mill Entry System") with comprehensive entry tracking, payment management, and reporting. Supports multiple backends (Python/FastAPI, Node.js local-server, Electron desktop-app) with a React frontend.
 
 ## Core Requirements
 - Mill entry management with automated calculations
@@ -11,27 +11,24 @@ Rice mill management tool ("Mill Entry System") with comprehensive entry trackin
 - Staff management
 - Reporting and exports (Excel/PDF)
 - Multi-backend parity (Python, Node.js, Electron)
-
-## User Personas
-- **Admin**: Full access to all features, can add/edit/delete entries, manage staff, settle payments
-- **Staff**: Limited access, can view and add entries
+- Excel import for bulk mill entries
 
 ## Architecture
 ```
 /app
 ├── backend/          # Python/FastAPI (Primary)
-│   ├── routes/       # Modular route files
-│   └── server.py     # Main app
+│   ├── routes/       # local_party.py, entries.py, mill_parts.py, diesel.py, dc_payments.py
+│   └── server.py
 ├── desktop-app/      # Electron backend
-│   ├── routes/       # Modular route files
-│   └── main.js       # Main process
+│   ├── routes/       # local_party.js, import_excel.js, mill_parts.js, safe_handler.js
+│   └── main.js
 ├── local-server/     # Node.js backend
-│   ├── routes/       # Modular route files
-│   └── server.js     # Main app
+│   ├── routes/       # local_party.js, import_excel.js, mill_parts.js
+│   └── server.js
 └── frontend/
     └── src/
-        ├── components/   # UI components
-        └── App.jsx       # Main app
+        ├── components/   # ExcelImport.jsx, payments/LocalPartyAccount.jsx
+        └── App.js
 ```
 
 ## What's Been Implemented
@@ -40,42 +37,49 @@ Rice mill management tool ("Mill Entry System") with comprehensive entry trackin
 1. **Desktop App Stabilization** - Crash protection, error handling, server health monitoring
 2. **Cash Book Automation** - Auto entries from mill entries (cash_paid, diesel_paid)
 3. **Diesel Account System** - Full ledger with settlement, cash book integration, exports
-4. **Local Party Payment System** (Feb 2026) - Complete ledger for local vendor payments
-   - Auto-tracking from Mill Parts purchases (source_type: mill_part)
-   - Auto-tracking from Old Market Gunny Bag purchases (source_type: gunny_bag)
-   - Manual purchase entries (source_type: manual)
+4. **Local Party Payment System** (Feb 2026)
+   - Auto-tracking from Mill Parts, Old Market Gunny Bags, and manual purchases
    - Full/partial settlement with auto Cash Book nikasi entry
    - Party-wise balance summary cards
+   - **Party-wise detailed report with running balance and Print option** (Mar 2026)
    - Excel/PDF export
-   - Implemented across all 3 backends
+   - All 3 backends in sync
+5. **Excel Import for Mill Entries** (Mar 2026)
+   - Upload Excel file, auto-detect columns (DATE, TRUCK, AGENT, MANDI, KG, BAG, etc.)
+   - Preview entries before importing
+   - Auto-creates Cash Book entries for cash_paid
+   - Auto-creates Diesel Account entries for diesel_paid
+   - Handles mixed date formats and cutting percent conversion
+   - All 3 backends in sync
 
 ### P1 Features (Complete)
-1. **G.Issued Logic Correction** - Fixed gunny bag deduction calculation
-2. **Gunny Bag Edit** - Edit feature for gunny bag entries
-3. **Mill Parts Edit** (Feb 2026) - Edit feature for mill parts stock entries with auto local party update
-4. **Error Log Viewer** - Runtime error log display in desktop app Settings
+1. **G.Issued Logic Correction**
+2. **Gunny Bag Edit**
+3. **Mill Parts Edit** - Edit with auto local party update
+4. **Error Log Viewer**
 
 ### Key API Endpoints
-- `/api/local-party/summary` - GET party-wise balances
-- `/api/local-party/transactions` - GET filtered transactions
-- `/api/local-party/manual` - POST manual purchase
-- `/api/local-party/settle` - POST settlement (auto cash book)
-- `/api/local-party/{id}` - DELETE transaction (cascade)
-- `/api/local-party/excel` & `/pdf` - Export reports
-- `/api/mill-parts-stock/{id}` - PUT edit stock entry
-- Full CRUD for diesel pumps, diesel accounts, gunny bags, cash book, etc.
+- `/api/local-party/summary` - Party-wise balances
+- `/api/local-party/transactions` - Filtered transactions
+- `/api/local-party/manual` - Manual purchase
+- `/api/local-party/settle` - Settlement (auto cash book)
+- `/api/local-party/report/{party_name}` - Detailed report with running balance
+- `/api/local-party/{id}` - DELETE (cascade)
+- `/api/local-party/excel` & `/pdf` - Export
+- `/api/entries/import-excel` - Excel import (preview + import)
+- `/api/mill-parts-stock/{id}` - PUT edit
 
 ### DB Collections
-entries, payments, cash_book, cash_transactions, ledgers, staff, gunny_bags, mill_parts_stock, mill_parts, diesel_pumps, diesel_payments, local_party_accounts
+entries, mill_entries, payments, cash_book, cash_transactions, ledgers, staff, gunny_bags, mill_parts_stock, mill_parts, diesel_pumps, diesel_payments, diesel_accounts, local_party_accounts
 
 ## Backlog
-- **P2**: Refactor `desktop-app/main.js` into modular route files (large file)
+- **P2**: Refactor `desktop-app/main.js` into modular route files
 
 ## Credentials
 - Admin: admin / admin123
 - Staff: staff / staff123
 
 ## 3rd Party Libraries
-- **Python**: openpyxl, reportlab (for exports)
-- **Node.js**: exceljs, pdfkit (for exports)
+- **Python**: openpyxl, reportlab, python-multipart
+- **Node.js**: exceljs, pdfkit, multer
 - **Desktop**: electron, electron-builder
