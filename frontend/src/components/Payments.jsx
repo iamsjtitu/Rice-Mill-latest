@@ -832,7 +832,8 @@ export const Payments = ({ filters, user, branding }) => {
         </div>
       )}
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Only for truck and agent tabs */}
+      {(activePaymentTab === "truck" || activePaymentTab === "agent") && (
       <div className="grid grid-cols-3 gap-4">
         <Card className="bg-slate-700/50 border-slate-600">
           <CardContent className="p-4">
@@ -859,6 +860,7 @@ export const Payments = ({ filters, user, branding }) => {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Truck Payments Table */}
       {activePaymentTab === "truck" && (

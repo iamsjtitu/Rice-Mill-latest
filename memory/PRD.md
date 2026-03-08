@@ -26,11 +26,20 @@ Rice mill management tool with comprehensive entry tracking, payment management,
 - After-balance preview with +/- amount indicator
 
 ### Auto Cutting % from Mandi Target
+- Auto-fills cutting % when mandi name is typed or selected (via useEffect watcher)
+- Mandi target names merged into suggestion dropdown
 
 ### Frontend Build Updated
 - **IMPORTANT**: Frontend build must be rebuilt and copied to both `desktop-app/frontend-build/` and `local-server/public/` whenever frontend code changes
 - Build: `cd /app/frontend && REACT_APP_BACKEND_URL="" yarn build`
-- Copy: `cp -r /app/frontend/build/* /app/desktop-app/frontend-build/ && cp -r /app/frontend/build/* /app/local-server/public/`
+- Copy: `cp -r /app/frontend/build /app/desktop-app/frontend-build && cp -r /app/frontend/build /app/local-server/public`
+
+### Bug Fixes (March 2026)
+- Fixed: Diesel Account showing wrong ₹50,000 (agent totals) in summary cards
+- Fixed: Truck Owner tab also showing agent totals instead of own data
+- Fixed: Summary cards now only show for Truck Payments and Agent Payments tabs
+- Fixed: Cutting % auto-fill now works via typing (not just dropdown selection)
+- Fixed: Cutting % null-check improved (supports 0% cutting correctly)
 
 ### Other Complete Features
 - Desktop App Stabilization, Cash Book Automation, Diesel Account System
@@ -42,6 +51,7 @@ Rice mill management tool with comprehensive entry tracking, payment management,
 - `/api/local-party/excel|pdf`
 - `/api/entries/import-excel`
 - `/api/mill-parts-stock/{id}` PUT
+- `/api/mandi-targets` GET/POST/PUT/DELETE
 
 ## DB: test_database
 Collections: mill_entries, cash_transactions, diesel_accounts, local_party_accounts, mill_parts_stock, mill_parts, gunny_bags, diesel_pumps, mandi_targets, ledgers, payments, staff, etc.

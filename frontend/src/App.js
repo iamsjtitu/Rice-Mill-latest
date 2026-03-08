@@ -278,6 +278,24 @@ function MainApp({ user, onLogout }) {
     }
   }, [formData.bag, formData.g_deposite]);
 
+  // Auto-fill cutting % from Mandi Target when mandi name changes
+  useEffect(() => {
+    if (formData.mandi_name && mandiTargets.length > 0 && !editingId) {
+      const target = mandiTargets.find(t => 
+        (t.mandi_name || '').toLowerCase().trim() === formData.mandi_name.toLowerCase().trim()
+      );
+      if (target && target.cutting_percent != null) {
+        setFormData(prev => {
+          // Only auto-fill if cutting_percent is still empty or was auto-set
+          if (!prev.cutting_percent || prev.cutting_percent === '0') {
+            return { ...prev, cutting_percent: String(target.cutting_percent) };
+          }
+          return prev;
+        });
+      }
+    }
+  }, [formData.mandi_name, mandiTargets, editingId]);
+
   // Remove external badges (for desktop/local builds)
   useEffect(() => {
     const removeBadge = () => {
@@ -373,7 +391,18 @@ function MainApp({ user, onLogout }) {
     fetchTotals();
     fetchSuggestions();
     // Fetch mandi targets for auto cutting %
-    axios.get(`${API}/mandi-targets?kms_year=${filters.kms_year || ''}`).then(r => setMandiTargets(r.data || [])).catch(() => {});
+    axios.get(`${API}/mandi-targets?kms_year=${filters.kms_year || ''}`).then(r => {
+      const targets = r.data || [];
+      setMandiTargets(targets);
+      // Add mandi target names to suggestions so they appear in dropdown
+      if (targets.length > 0) {
+        const targetNames = targets.map(t => t.mandi_name).filter(Boolean);
+        setMandiSuggestions(prev => {
+          const combined = [...new Set([...prev, ...targetNames])];
+          return combined.sort();
+        });
+      }
+    }).catch(() => {});
   }, [fetchEntries, fetchTotals, fetchSuggestions]);
 
   // Reset selection when entries change
@@ -1590,11 +1619,11 @@ function MainApp({ user, onLogout }) {
                       suggestions={mandiSuggestions}
                       placeholder="Mandi name"
                       onSelect={(val) => {
-                        const target = mandiTargets.find(t => (t.mandi_name || '').toLowerCase() === val.toLowerCase());
+                        const target = mandiTargets.find(t => (t.mandi_name || '').toLowerCase().trim() === val.toLowerCase().trim());
                         setFormData(prev => ({
                           ...prev,
                           mandi_name: val,
-                          ...(target && target.cutting_percent ? { cutting_percent: String(target.cutting_percent) } : {})
+                          ...(target && target.cutting_percent != null ? { cutting_percent: String(target.cutting_percent) } : {})
                         }));
                       }}
                       label="Mandi Name"
