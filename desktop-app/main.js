@@ -928,6 +928,7 @@ function createApiServer(database) {
   });
 
   apiApp.post('/api/truck-payments/:entryId/pay', (req, res) => {
+    const entry = database.data.entries.find(e => e.id === req.params.entryId);
     const current = database.getTruckPayment(req.params.entryId);
     const newPaidAmount = current.paid_amount + req.body.amount;
     const history = current.payment_history || [];
@@ -943,6 +944,19 @@ function createApiServer(database) {
       payment_history: history
     });
     
+    // Auto Cash Book Nikasi
+    if (req.body.amount > 0 && !database.data.cash_transactions) database.data.cash_transactions = [];
+    if (req.body.amount > 0) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
+        category: 'Truck Payment', description: `Truck Payment: ${entry?.truck_no || ''} - Rs.${req.body.amount}`,
+        amount: Math.round(req.body.amount * 100) / 100, reference: `truck_pay:${req.params.entryId.substring(0,8)}`,
+        kms_year: entry?.kms_year || '', season: entry?.season || '',
+        created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
+        created_at: new Date().toISOString()
+      });
+    }
+    database.save();
     res.json({ success: true, message: 'Payment recorded' });
   });
 
@@ -961,6 +975,19 @@ function createApiServer(database) {
       status: 'paid'
     });
     
+    // Auto Cash Book Nikasi
+    if (net_amount > 0) {
+      if (!database.data.cash_transactions) database.data.cash_transactions = [];
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
+        category: 'Truck Payment', description: `Truck Payment: ${entry.truck_no || ''} (Full - Mark Paid)`,
+        amount: Math.round(net_amount * 100) / 100, reference: `truck_markpaid:${req.params.entryId.substring(0,8)}`,
+        kms_year: entry.kms_year || '', season: entry.season || '',
+        created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
+        created_at: new Date().toISOString()
+      });
+    }
+    database.save();
     res.json({ success: true, message: 'Payment cleared' });
   });
 
@@ -969,6 +996,11 @@ function createApiServer(database) {
       paid_amount: 0,
       status: 'pending'
     });
+    // Delete linked cash book entries
+    if (database.data.cash_transactions) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `truck:${req.params.entryId}`);
+    }
+    database.save();
     res.json({ success: true, message: 'Payment undo ho gaya' });
   });
 
@@ -1017,7 +1049,8 @@ function createApiServer(database) {
 
   apiApp.post('/api/agent-payments/:mandiName/pay', (req, res) => {
     const { kms_year, season } = req.query;
-    const current = database.getAgentPayment(req.params.mandiName, kms_year, season);
+    const mandiName = decodeURIComponent(req.params.mandiName);
+    const current = database.getAgentPayment(mandiName, kms_year, season);
     const newPaidAmount = current.paid_amount + req.body.amount;
     const history = current.payment_history || [];
     history.push({
@@ -1027,37 +1060,70 @@ function createApiServer(database) {
       by: req.query.username || 'admin'
     });
     
-    database.updateAgentPayment(req.params.mandiName, kms_year, season, {
+    database.updateAgentPayment(mandiName, kms_year, season, {
       paid_amount: newPaidAmount,
       payment_history: history
     });
     
+    // Auto Cash Book Nikasi
+    if (req.body.amount > 0) {
+      if (!database.data.cash_transactions) database.data.cash_transactions = [];
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
+        category: 'Agent Payment', description: `Agent Payment: ${mandiName} - Rs.${req.body.amount}`,
+        amount: Math.round(req.body.amount * 100) / 100, reference: `agent_pay:${mandiName.substring(0,10)}`,
+        kms_year: kms_year || '', season: season || '',
+        created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
+        created_at: new Date().toISOString()
+      });
+    }
+    database.save();
     res.json({ success: true, message: 'Payment recorded' });
   });
 
   apiApp.post('/api/agent-payments/:mandiName/mark-paid', (req, res) => {
     const { kms_year, season } = req.query;
-    const target = database.getMandiTargets({ kms_year, season }).find(t => t.mandi_name === req.params.mandiName);
+    const mandiName = decodeURIComponent(req.params.mandiName);
+    const target = database.getMandiTargets({ kms_year, season }).find(t => t.mandi_name === mandiName);
     
     if (!target) return res.status(404).json({ detail: 'Mandi target not found' });
     
     const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
     const total_amount = (target.target_qntl * (target.base_rate ?? 10)) + (cutting_qntl * (target.cutting_rate ?? 5));
     
-    database.updateAgentPayment(req.params.mandiName, kms_year, season, {
+    database.updateAgentPayment(mandiName, kms_year, season, {
       paid_amount: total_amount,
       status: 'paid'
     });
     
+    // Auto Cash Book Nikasi
+    if (total_amount > 0) {
+      if (!database.data.cash_transactions) database.data.cash_transactions = [];
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
+        category: 'Agent Payment', description: `Agent Payment: ${mandiName} (Full - Mark Paid)`,
+        amount: Math.round(total_amount * 100) / 100, reference: `agent_markpaid:${mandiName.substring(0,10)}`,
+        kms_year: kms_year || '', season: season || '',
+        created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
+        created_at: new Date().toISOString()
+      });
+    }
+    database.save();
     res.json({ success: true, message: 'Agent/Mandi payment cleared' });
   });
 
   apiApp.post('/api/agent-payments/:mandiName/undo-paid', (req, res) => {
     const { kms_year, season } = req.query;
-    database.updateAgentPayment(req.params.mandiName, kms_year, season, {
+    const mandiName = decodeURIComponent(req.params.mandiName);
+    database.updateAgentPayment(mandiName, kms_year, season, {
       paid_amount: 0,
       status: 'pending'
     });
+    // Delete linked cash book entries
+    if (database.data.cash_transactions) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `agent:${mandiName}:${kms_year}:${season}`);
+    }
+    database.save();
     res.json({ success: true, message: 'Payment undo ho gaya' });
   });
 
@@ -1539,9 +1605,22 @@ function createApiServer(database) {
   // ===== MSP PAYMENTS =====
   apiApp.post('/api/msp-payments', (req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = req.body;
     const pay = { id: uuidv4(), date: d.date||'', dc_id: d.dc_id||'', amount: +(d.amount||0), quantity_qntl: +(d.quantity_qntl||0), rate_per_qntl: +(d.rate_per_qntl||0), payment_mode: d.payment_mode||'', reference: d.reference||'', bank_name: d.bank_name||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
-    database.data.msp_payments.push(pay); database.save(); res.json(pay);
+    database.data.msp_payments.push(pay);
+    // Auto Cash Book Jama (MSP payment received from govt)
+    if (pay.amount > 0) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: pay.date, account: 'bank', txn_type: 'jama',
+        category: 'MSP Payment', description: `MSP Payment: ${pay.quantity_qntl}Q @ Rs.${pay.rate_per_qntl}/Q`,
+        amount: Math.round(pay.amount * 100) / 100, reference: `msp:${pay.id.substring(0,8)}`,
+        kms_year: pay.kms_year, season: pay.season,
+        created_by: req.query.username || 'system', linked_payment_id: `msp:${pay.id}`,
+        created_at: new Date().toISOString()
+      });
+    }
+    database.save(); res.json(pay);
   });
   apiApp.get('/api/msp-payments', (req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
@@ -1557,7 +1636,13 @@ function createApiServer(database) {
     if (!database.data.msp_payments) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.msp_payments.length;
     database.data.msp_payments = database.data.msp_payments.filter(p=>p.id!==req.params.id);
-    if (database.data.msp_payments.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
+    if (database.data.msp_payments.length < len) {
+      // Delete linked cash book entry
+      if (database.data.cash_transactions) {
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `msp:${req.params.id}`);
+      }
+      database.save(); return res.json({ message: 'Deleted', id: req.params.id });
+    }
     res.status(404).json({ detail: 'Not found' });
   });
   apiApp.get('/api/msp-payments/summary', (req, res) => {

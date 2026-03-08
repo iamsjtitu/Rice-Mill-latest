@@ -74,9 +74,22 @@ router.get('/api/dc-summary', (req, res) => {
 // ============ MSP PAYMENTS ============
 router.post('/api/msp-payments', (req, res) => {
   if (!database.data.msp_payments) database.data.msp_payments = [];
+  if (!database.data.cash_transactions) database.data.cash_transactions = [];
   const d = req.body;
   const pay = { id: uuidv4(), date: d.date||'', dc_id: d.dc_id||'', amount: +(d.amount||0), quantity_qntl: +(d.quantity_qntl||0), rate_per_qntl: +(d.rate_per_qntl||0), payment_mode: d.payment_mode||'', reference: d.reference||'', bank_name: d.bank_name||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
-  database.data.msp_payments.push(pay); database.save(); res.json(pay);
+  database.data.msp_payments.push(pay);
+  // Auto Cash Book Jama (MSP payment received from govt)
+  if (pay.amount > 0) {
+    database.data.cash_transactions.push({
+      id: uuidv4(), date: pay.date, account: 'bank', txn_type: 'jama',
+      category: 'MSP Payment', description: `MSP Payment: ${pay.quantity_qntl}Q @ Rs.${pay.rate_per_qntl}/Q`,
+      amount: Math.round(pay.amount * 100) / 100, reference: `msp:${pay.id.substring(0,8)}`,
+      kms_year: pay.kms_year, season: pay.season,
+      created_by: req.query.username || 'system', linked_payment_id: `msp:${pay.id}`,
+      created_at: new Date().toISOString()
+    });
+  }
+  database.save(); res.json(pay);
 });
 router.get('/api/msp-payments', (req, res) => {
   if (!database.data.msp_payments) database.data.msp_payments = [];
@@ -92,7 +105,13 @@ router.delete('/api/msp-payments/:id', (req, res) => {
   if (!database.data.msp_payments) return res.status(404).json({ detail: 'Not found' });
   const len = database.data.msp_payments.length;
   database.data.msp_payments = database.data.msp_payments.filter(p => p.id !== req.params.id);
-  if (database.data.msp_payments.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
+  if (database.data.msp_payments.length < len) {
+    // Delete linked cash book entry
+    if (database.data.cash_transactions) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `msp:${req.params.id}`);
+    }
+    database.save(); return res.json({ message: 'Deleted', id: req.params.id });
+  }
   res.status(404).json({ detail: 'Not found' });
 });
 router.get('/api/msp-payments/summary', (req, res) => {

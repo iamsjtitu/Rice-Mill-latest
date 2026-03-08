@@ -143,7 +143,31 @@ async def make_truck_payment(entry_id: str, request: MakePaymentRequest, usernam
         upsert=True
     )
     
-    return {"success": True, "message": f"₹{request.amount} payment recorded", "total_paid": new_paid}
+    # Auto-create Cash Book Nikasi entry for truck payment
+    if request.amount > 0:
+        truck_no = entry.get("truck_no", "")
+        kms_year = entry.get("kms_year", "")
+        season = entry.get("season", "")
+        pay_id = str(uuid.uuid4())
+        cb_entry = {
+            "id": pay_id,
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "account": "cash",
+            "txn_type": "nikasi",
+            "category": "Truck Payment",
+            "description": f"Truck Payment: {truck_no} - Rs.{request.amount}",
+            "amount": round(request.amount, 2),
+            "reference": f"truck_pay:{entry_id[:8]}",
+            "kms_year": kms_year,
+            "season": season,
+            "created_by": username or "system",
+            "linked_payment_id": f"truck:{entry_id}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(cb_entry)
+    
+    return {"success": True, "message": f"Rs.{request.amount} payment recorded", "total_paid": new_paid}
 
 
 @router.post("/truck-payments/{entry_id}/mark-paid")
@@ -183,6 +207,29 @@ async def mark_truck_paid(entry_id: str, username: str = "", role: str = ""):
         }},
         upsert=True
     )
+    
+    # Auto-create Cash Book Nikasi entry
+    if net_amount > 0:
+        kms_year = entry.get("kms_year", "")
+        season = entry.get("season", "")
+        truck_no = entry.get("truck_no", "")
+        cb_entry = {
+            "id": str(uuid.uuid4()),
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "account": "cash",
+            "txn_type": "nikasi",
+            "category": "Truck Payment",
+            "description": f"Truck Payment: {truck_no} (Full - Mark Paid)",
+            "amount": round(net_amount, 2),
+            "reference": f"truck_markpaid:{entry_id}",
+            "kms_year": kms_year,
+            "season": season,
+            "created_by": username or "system",
+            "linked_payment_id": f"truck:{entry_id}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(cb_entry)
     
     return {"success": True, "message": "Truck payment cleared"}
 
@@ -308,7 +355,27 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
         upsert=True
     )
     
-    return {"success": True, "message": f"₹{request.amount} payment recorded", "total_paid": new_paid}
+    # Auto-create Cash Book Nikasi entry for agent payment
+    if request.amount > 0:
+        cb_entry = {
+            "id": str(uuid.uuid4()),
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "account": "cash",
+            "txn_type": "nikasi",
+            "category": "Agent Payment",
+            "description": f"Agent Payment: {mandi_name} - Rs.{request.amount}",
+            "amount": round(request.amount, 2),
+            "reference": f"agent_pay:{mandi_name[:10]}",
+            "kms_year": kms_year,
+            "season": season,
+            "created_by": username or "system",
+            "linked_payment_id": f"agent:{mandi_name}:{kms_year}:{season}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(cb_entry)
+    
+    return {"success": True, "message": f"Rs.{request.amount} payment recorded", "total_paid": new_paid}
 
 
 @router.post("/agent-payments/{mandi_name}/mark-paid")
@@ -361,6 +428,26 @@ async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
         upsert=True
     )
     
+    # Auto-create Cash Book Nikasi entry for agent mark-paid
+    if total_amount > 0:
+        cb_entry = {
+            "id": str(uuid.uuid4()),
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "account": "cash",
+            "txn_type": "nikasi",
+            "category": "Agent Payment",
+            "description": f"Agent Payment: {mandi_name} (Full - Mark Paid)",
+            "amount": round(total_amount, 2),
+            "reference": f"agent_markpaid:{mandi_name[:10]}",
+            "kms_year": kms_year,
+            "season": season,
+            "created_by": username or "system",
+            "linked_payment_id": f"agent:{mandi_name}:{kms_year}:{season}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(cb_entry)
+    
     return {"success": True, "message": "Agent/Mandi payment cleared"}
 
 
@@ -391,6 +478,9 @@ async def undo_truck_paid(entry_id: str, username: str = "", role: str = ""):
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
+    
+    # Delete linked cash book entries for this truck
+    await db.cash_transactions.delete_many({"linked_payment_id": f"truck:{entry_id}"})
     
     return {"success": True, "message": "Payment undo ho gaya - status reset to pending"}
 
@@ -427,6 +517,9 @@ async def undo_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
+    
+    # Delete linked cash book entries for this agent
+    await db.cash_transactions.delete_many({"linked_payment_id": f"agent:{mandi_name}:{kms_year}:{season}"})
     
     return {"success": True, "message": "Payment undo ho gaya - status reset to pending"}
 

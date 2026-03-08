@@ -5,6 +5,8 @@ module.exports = function(database) {
   // Helper reference
   const ExcelJS = require('exceljs');
   const PDFDocument = require('pdfkit');
+  const { v4: uuidv4 } = require('uuid');
+  const col = (name) => { if (!database.data[name]) database.data[name] = []; return database.data[name]; };
 
 // ============ TRUCK PAYMENTS ============
 router.get('/api/truck-payments', (req, res) => {
@@ -56,11 +58,24 @@ router.put('/api/truck-payments/:entryId/rate', (req, res) => {
 });
 
 router.post('/api/truck-payments/:entryId/pay', (req, res) => {
+  const entry = database.data.entries.find(e => e.id === req.params.entryId);
   const current = database.getTruckPayment(req.params.entryId);
   const newPaid = current.paid_amount + req.body.amount;
   const history = current.payments_history || [];
   history.push({ amount: req.body.amount, date: new Date().toISOString(), note: req.body.note || '', by: req.query.username || 'admin' });
   database.updateTruckPayment(req.params.entryId, { paid_amount: newPaid, payments_history: history });
+  // Auto Cash Book Nikasi
+  if (req.body.amount > 0) {
+    col('cash_transactions').push({
+      id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
+      category: 'Truck Payment', description: `Truck Payment: ${entry?.truck_no || ''} - Rs.${req.body.amount}`,
+      amount: Math.round(req.body.amount * 100) / 100, reference: `truck_pay:${req.params.entryId.substring(0,8)}`,
+      kms_year: entry?.kms_year || '', season: entry?.season || '',
+      created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
+      created_at: new Date().toISOString()
+    });
+  }
+  database.save();
   res.json({ success: true, message: `Rs.${req.body.amount} payment recorded`, total_paid: newPaid });
 });
 
@@ -74,6 +89,18 @@ router.post('/api/truck-payments/:entryId/mark-paid', (req, res) => {
   const history = current.payments_history || [];
   history.push({ amount: net, date: new Date().toISOString(), note: 'Full payment - marked as paid', by: req.query.username || 'admin' });
   database.updateTruckPayment(req.params.entryId, { paid_amount: net, status: 'paid', payments_history: history });
+  // Auto Cash Book Nikasi
+  if (net > 0) {
+    col('cash_transactions').push({
+      id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
+      category: 'Truck Payment', description: `Truck Payment: ${entry.truck_no || ''} (Full - Mark Paid)`,
+      amount: Math.round(net * 100) / 100, reference: `truck_markpaid:${req.params.entryId.substring(0,8)}`,
+      kms_year: entry.kms_year || '', season: entry.season || '',
+      created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
+      created_at: new Date().toISOString()
+    });
+  }
+  database.save();
   res.json({ success: true, message: 'Truck payment cleared' });
 });
 
@@ -82,6 +109,9 @@ router.post('/api/truck-payments/:entryId/undo-paid', (req, res) => {
   const history = current.payments_history || [];
   history.push({ amount: -(current.paid_amount || 0), date: new Date().toISOString(), note: 'UNDO - Payment reversed', by: req.query.username || 'admin' });
   database.updateTruckPayment(req.params.entryId, { paid_amount: 0, status: 'pending', payments_history: history });
+  // Delete linked cash book entries
+  database.data.cash_transactions = col('cash_transactions').filter(t => t.linked_payment_id !== `truck:${req.params.entryId}`);
+  database.save();
   res.json({ success: true, message: 'Payment undo ho gaya - status reset to pending' });
 });
 
@@ -135,6 +165,18 @@ router.post('/api/agent-payments/:mandiName/pay', (req, res) => {
   const history = current.payments_history || [];
   history.push({ amount: req.body.amount, date: new Date().toISOString(), note: req.body.note || '', by: req.query.username || 'admin' });
   database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: newPaid, payments_history: history });
+  // Auto Cash Book Nikasi
+  if (req.body.amount > 0) {
+    col('cash_transactions').push({
+      id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
+      category: 'Agent Payment', description: `Agent Payment: ${mandiName} - Rs.${req.body.amount}`,
+      amount: Math.round(req.body.amount * 100) / 100, reference: `agent_pay:${mandiName.substring(0,10)}`,
+      kms_year: kms_year || '', season: season || '',
+      created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
+      created_at: new Date().toISOString()
+    });
+  }
+  database.save();
   res.json({ success: true, message: `Rs.${req.body.amount} payment recorded`, total_paid: newPaid });
 });
 
@@ -150,6 +192,18 @@ router.post('/api/agent-payments/:mandiName/mark-paid', (req, res) => {
   const history = current.payments_history || [];
   history.push({ amount: total_amount, date: new Date().toISOString(), note: 'Full payment - marked as paid', by: req.query.username || 'admin' });
   database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: total_amount, status: 'paid', payments_history: history });
+  // Auto Cash Book Nikasi
+  if (total_amount > 0) {
+    col('cash_transactions').push({
+      id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
+      category: 'Agent Payment', description: `Agent Payment: ${mandiName} (Full - Mark Paid)`,
+      amount: Math.round(total_amount * 100) / 100, reference: `agent_markpaid:${mandiName.substring(0,10)}`,
+      kms_year: kms_year || '', season: season || '',
+      created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
+      created_at: new Date().toISOString()
+    });
+  }
+  database.save();
   res.json({ success: true, message: 'Agent/Mandi payment cleared' });
 });
 
@@ -160,6 +214,9 @@ router.post('/api/agent-payments/:mandiName/undo-paid', (req, res) => {
   const history = current.payments_history || [];
   history.push({ amount: -(current.paid_amount || 0), date: new Date().toISOString(), note: 'UNDO - Payment reversed', by: req.query.username || 'admin' });
   database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: 0, status: 'pending', payments_history: history });
+  // Delete linked cash book entries
+  database.data.cash_transactions = col('cash_transactions').filter(t => t.linked_payment_id !== `agent:${mandiName}:${kms_year}:${season}`);
+  database.save();
   res.json({ success: true, message: 'Payment undo ho gaya - status reset to pending' });
 });
 

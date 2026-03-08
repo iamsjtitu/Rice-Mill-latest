@@ -258,6 +258,26 @@ async def add_msp_payment(pay: MSPPayment, username: str = ""):
     d['rate_per_qntl'] = round(d['rate_per_qntl'], 2)
     await db.msp_payments.insert_one(d)
     d.pop('_id', None)
+    # Auto-create Cash Book Jama entry (MSP payment received from govt)
+    if d['amount'] > 0:
+        cb_entry = {
+            "id": str(uuid.uuid4()),
+            "date": d["date"],
+            "account": "bank",
+            "txn_type": "jama",
+            "category": "MSP Payment",
+            "description": f"MSP Payment: {d.get('quantity_qntl', 0)}Q @ Rs.{d.get('rate_per_qntl', 0)}/Q",
+            "amount": round(d['amount'], 2),
+            "reference": f"msp:{d['id'][:8]}",
+            "kms_year": d.get("kms_year", ""),
+            "season": d.get("season", ""),
+            "created_by": username or "system",
+            "linked_payment_id": f"msp:{d['id']}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(cb_entry)
+        cb_entry.pop("_id", None)
     return d
 
 
@@ -283,6 +303,8 @@ async def delete_msp_payment(payment_id: str):
     result = await db.msp_payments.delete_one({"id": payment_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Payment not found")
+    # Delete linked cash book entry
+    await db.cash_transactions.delete_many({"linked_payment_id": f"msp:{payment_id}"})
     return {"message": "Payment deleted", "id": payment_id}
 
 

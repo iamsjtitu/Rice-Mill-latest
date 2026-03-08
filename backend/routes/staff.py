@@ -165,10 +165,30 @@ async def get_advances(staff_id: Optional[str] = None, kms_year: Optional[str] =
     return await db.staff_advance.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
 
 @router.post("/staff/advance")
-async def add_advance(adv: StaffAdvance):
+async def add_advance(adv: StaffAdvance, username: str = ""):
     doc = adv.model_dump()
     await db.staff_advance.insert_one(doc)
     doc.pop("_id", None)
+    # Auto-create Cash Book Nikasi entry
+    if doc["amount"] > 0:
+        cb_entry = {
+            "id": str(uuid.uuid4()),
+            "date": doc["date"],
+            "account": "cash",
+            "txn_type": "nikasi",
+            "category": "Staff Advance",
+            "description": f"Advance: {doc['staff_name']} - {doc.get('description', '')}",
+            "amount": round(doc["amount"], 2),
+            "reference": f"staff_advance:{doc['id']}",
+            "kms_year": doc.get("kms_year", ""),
+            "season": doc.get("season", ""),
+            "created_by": username or "system",
+            "linked_payment_id": doc["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(cb_entry)
+        cb_entry.pop("_id", None)
     return doc
 
 @router.delete("/staff/advance/{adv_id}")
@@ -176,6 +196,9 @@ async def delete_advance(adv_id: str):
     result = await db.staff_advance.delete_one({"id": adv_id})
     if result.deleted_count == 0:
         raise HTTPException(404, "Advance not found")
+    # Delete linked cash book entry
+    await db.cash_transactions.delete_many({"linked_payment_id": adv_id})
+    await db.cash_transactions.delete_many({"reference": f"staff_advance:{adv_id}"})
     return {"message": "Advance deleted"}
 
 @router.get("/staff/advance-balance/{staff_id}")
