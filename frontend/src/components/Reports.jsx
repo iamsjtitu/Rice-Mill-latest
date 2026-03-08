@@ -547,12 +547,13 @@ const DailyReport = ({ filters }) => {
           {/* Staff Attendance */}
           {data.staff_attendance && data.staff_attendance.total > 0 && (
             <Section title="Staff Attendance / हाज़िरी" icon={Users} color="text-violet-400" count={data.staff_attendance.total}>
-              <div className="grid grid-cols-4 gap-3 mb-2">
+              <div className="grid grid-cols-5 gap-2 mb-2">
                 {[
                   ["Present", data.staff_attendance.present, "text-emerald-400 bg-emerald-900/20"],
                   ["Half Day", data.staff_attendance.half_day, "text-amber-400 bg-amber-900/20"],
                   ["Holiday", data.staff_attendance.holiday, "text-blue-400 bg-blue-900/20"],
                   ["Absent", data.staff_attendance.absent, "text-red-400 bg-red-900/20"],
+                  ["Not Marked", data.staff_attendance.not_marked || 0, "text-slate-400 bg-slate-800"],
                 ].map(([l,v,c]) => (
                   <div key={l} className={`text-center p-2 rounded ${c.split(' ').slice(1).join(' ')}`}>
                     <p className="text-[10px] text-slate-400">{l}</p>
@@ -565,7 +566,8 @@ const DailyReport = ({ filters }) => {
                   headers={[{key:'name',label:'Staff Name',align:'left'},{key:'status',label:'Status',align:'left'}]}
                   rows={data.staff_attendance.details.map((d,i) => {
                     const statusMap = {present: ['P - Present','text-emerald-400 bg-emerald-900/40'], absent: ['A - Absent','text-red-400 bg-red-900/40'],
-                      half_day: ['H - Half Day','text-amber-400 bg-amber-900/40'], holiday: ['CH - Holiday','text-blue-400 bg-blue-900/40']};
+                      half_day: ['H - Half Day','text-amber-400 bg-amber-900/40'], holiday: ['CH - Holiday','text-blue-400 bg-blue-900/40'],
+                      not_marked: ['- Not Marked','text-slate-500 bg-slate-800']};
                     const [label, cls] = statusMap[d.status] || [d.status, 'text-slate-400'];
                     return (<>
                       <td className="py-1.5 px-2 text-white font-medium">{d.name}</td>

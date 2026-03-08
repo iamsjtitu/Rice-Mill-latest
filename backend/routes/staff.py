@@ -345,12 +345,11 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
         buf = io.BytesIO()
-        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=15, rightMargin=15, topMargin=15, bottomMargin=15)
+        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10, rightMargin=10, topMargin=10, bottomMargin=10)
         styles = getSampleStyleSheet()
         elements = []
 
-        elements.append(Paragraph(f"Staff Attendance Report: {date_from} to {date_to}", ParagraphStyle('t', parent=styles['Title'], fontSize=14, textColor=colors.HexColor('#1a365d'))))
-        elements.append(Spacer(1, 8))
+        elements.append(Paragraph(f"Staff Attendance: {date_from} to {date_to}", ParagraphStyle('t', parent=styles['Title'], fontSize=11, textColor=colors.HexColor('#1a365d'), spaceAfter=4)))
 
         # Column-wise: dates as rows, staff as columns
         headers = ["Date"] + [s["name"] for s in staff_list]
@@ -383,20 +382,22 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
             rows.append(row)
 
         n_cols = len(headers)
-        col_w = max(35, min(80, 780 // n_cols))
-        col_widths = [50] + [col_w] * (n_cols - 1)
+        # Fit all columns on single A4 landscape (800px usable)
+        available_w = 800
+        name_col_w = max(45, min(70, (available_w - 45) // max(n_cols - 1, 1)))
+        col_widths = [45] + [name_col_w] * (n_cols - 1)
 
         t = RTable(rows, colWidths=col_widths, repeatRows=1)
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 7),
-            ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
+            ('FONTSIZE', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cbd5e1')),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 1.5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1.5),
             ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
         ]
 
@@ -483,10 +484,17 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
                 c.font = Font(bold=True, size=9); c.fill = total_fill; c.border = tb; c.alignment = Alignment(horizontal='center')
             row_num += 1
 
-        ws.column_dimensions['A'].width = 10
+        ws.column_dimensions['A'].width = 8
         for i in range(len(staff_list)):
             col_letter = chr(66 + i) if i < 25 else 'A' + chr(65 + i - 25)
-            ws.column_dimensions[col_letter].width = 14
+            ws.column_dimensions[col_letter].width = 10
+
+        # Set print area to fit on one page
+        ws.sheet_properties.pageSetUpPr = None
+        ws.page_setup.orientation = 'landscape'
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 1
+        ws.sheet_properties.pageSetUpPr = None
 
         buf = io.BytesIO()
         wb.save(buf); buf.seek(0)

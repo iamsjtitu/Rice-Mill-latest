@@ -72,12 +72,20 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
     parts_used = [t for t in parts_txns if t.get("txn_type") == "used"]
     parts_in_amount = sum(t.get("total_amount", 0) for t in parts_in)
 
-    # Staff Attendance
+    # Staff Attendance - always show all active staff
     staff_att = await db.staff_attendance.find(q_date, {"_id": 0}).to_list(500)
-    staff_present = [a for a in staff_att if a.get("status") == "present"]
-    staff_absent = [a for a in staff_att if a.get("status") == "absent"]
-    staff_half = [a for a in staff_att if a.get("status") == "half_day"]
-    staff_holiday = [a for a in staff_att if a.get("status") == "holiday"]
+    all_staff = await db.staff.find({"active": True}, {"_id": 0}).sort("name", 1).to_list(500)
+    att_map_local = {a["staff_id"]: a["status"] for a in staff_att}
+    staff_details = []
+    present_c = absent_c = half_c = holiday_c = not_marked_c = 0
+    for s in all_staff:
+        status = att_map_local.get(s["id"], "not_marked")
+        staff_details.append({"name": s["name"], "status": status})
+        if status == "present": present_c += 1
+        elif status == "absent": absent_c += 1
+        elif status == "half_day": half_c += 1
+        elif status == "holiday": holiday_c += 1
+        else: not_marked_c += 1
 
     is_detail = mode == "detail"
 
@@ -166,10 +174,10 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
                 "remark": t.get("remark", "")} for t in parts_used]
         },
         "staff_attendance": {
-            "total": len(staff_att),
-            "present": len(staff_present), "absent": len(staff_absent),
-            "half_day": len(staff_half), "holiday": len(staff_holiday),
-            "details": [{"name": a.get("staff_name", ""), "status": a.get("status", "")} for a in staff_att]
+            "total": len(all_staff),
+            "present": present_c, "absent": absent_c,
+            "half_day": half_c, "holiday": holiday_c, "not_marked": not_marked_c,
+            "details": staff_details
         }
     }
     return result
@@ -462,10 +470,10 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     if sa.get("total", 0):
         elements.append(Paragraph(f"10. Staff Attendance ({sa['total']})", section_style))
         sa_sum = [
-            ['Present', 'Half Day', 'Holiday (Paid)', 'Absent'],
-            [str(sa.get('present', 0)), str(sa.get('half_day', 0)), str(sa.get('holiday', 0)), str(sa.get('absent', 0))]
+            ['Present', 'Half Day', 'Holiday', 'Absent', 'Not Marked'],
+            [str(sa.get('present', 0)), str(sa.get('half_day', 0)), str(sa.get('holiday', 0)), str(sa.get('absent', 0)), str(sa.get('not_marked', 0))]
         ]
-        sat = RTable(sa_sum, colWidths=[120, 120, 120, 120])
+        sat = RTable(sa_sum, colWidths=[95, 95, 95, 95, 95])
         sat.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dbeafe')),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
@@ -474,7 +482,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         ]))
         elements.append(sat)
         if sa.get("details"):
-            status_map = {"present": "P", "absent": "A", "half_day": "H", "holiday": "CH"}
+            status_map = {"present": "P", "absent": "A", "half_day": "H", "holiday": "CH", "not_marked": "-"}
             elements.append(make_table(
                 ['Staff Name', 'Status'],
                 [[d.get("name",""), status_map.get(d.get("status",""), d.get("status",""))] for d in sa["details"]],
@@ -677,11 +685,11 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     if sa.get("total", 0):
         row += 1
         write_section(f"8. Staff Attendance ({sa['total']})")
-        write_headers(['Present', 'Half Day', 'Holiday (Paid)', 'Absent'])
-        write_row([sa.get('present', 0), sa.get('half_day', 0), sa.get('holiday', 0), sa.get('absent', 0)])
+        write_headers(['Present', 'Half Day', 'Holiday', 'Absent', 'Not Marked'])
+        write_row([sa.get('present', 0), sa.get('half_day', 0), sa.get('holiday', 0), sa.get('absent', 0), sa.get('not_marked', 0)])
         if sa.get("details"):
             row += 1
-            status_map = {"present": "P", "absent": "A", "half_day": "H", "holiday": "CH"}
+            status_map = {"present": "P", "absent": "A", "half_day": "H", "holiday": "CH", "not_marked": "-"}
             write_headers(['Staff Name', 'Status'])
             for d in sa["details"]:
                 write_row([d.get("name",""), status_map.get(d.get("status",""), d.get("status",""))])
