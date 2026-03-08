@@ -514,33 +514,8 @@ app.get('/api/print/:id', (req, res) => {
 
 // Route modules loaded dynamically in startServer() function
 
-// ============ SERVE FRONTEND (Static Files) ============
-if (fs.existsSync(PUBLIC_DIR)) {
-  app.use(express.static(PUBLIC_DIR));
-  // SPA fallback - serve index.html for all non-API routes
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
-    }
-  });
-} else {
-  app.get('/', (req, res) => {
-    res.send(`
-      <html><body style="font-family:Arial;text-align:center;padding:50px;background:#1e293b;color:white">
-        <h1 style="color:#f59e0b">Mill Entry System</h1>
-        <p>Frontend build nahi mila!</p>
-        <p>Setup karein: <code>setup.bat</code> chalayein ya manually:</p>
-        <pre style="background:#0f172a;padding:20px;border-radius:8px;text-align:left;display:inline-block">
-cd ../frontend
-npm install
-set REACT_APP_BACKEND_URL=http://localhost:${PORT}
-npm run build
-xcopy /E /I build ..\\local-server\\public</pre>
-        <p style="color:#64748b;margin-top:20px">API is running at: <a href="/api/" style="color:#f59e0b">/api/</a></p>
-      </body></html>
-    `);
-  });
-}
+// ============ SERVE FRONTEND (Static Files) - MUST be after all API routes ============
+// NOTE: Static serving moved to end of startServer() after route modules are loaded
 
 // ============ START SERVER WITH FOLDER SELECTION ============
 const readline = require('readline');
@@ -620,6 +595,18 @@ async function startServer() {
     app.use(reportsPnlRoutes);
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
+  }
+
+  // ===== SERVE FRONTEND (AFTER all API routes) =====
+  if (fs.existsSync(PUBLIC_DIR)) {
+    app.use(express.static(PUBLIC_DIR));
+    app.get('*', (req, res) => {
+      if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+      } else {
+        res.status(404).json({ detail: 'API endpoint not found' });
+      }
+    });
   }
 
   app.listen(PORT, () => {

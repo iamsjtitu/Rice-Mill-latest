@@ -648,6 +648,18 @@ function createApiServer(database) {
     res.json({ success: true, message: 'Password change ho gaya' });
   });
 
+  // ===== FY SETTINGS =====
+  apiApp.get('/api/fy-settings', (req, res) => {
+    if (!database.data.fy_settings) database.data.fy_settings = { kms_year: '', season: '' };
+    res.json(database.data.fy_settings);
+  });
+
+  apiApp.post('/api/fy-settings', (req, res) => {
+    database.data.fy_settings = { kms_year: req.body.kms_year || '', season: req.body.season || '' };
+    database.save();
+    res.json(database.data.fy_settings);
+  });
+
   // ===== BRANDING =====
   apiApp.get('/api/branding', (req, res) => {
     res.json(database.getBranding());
@@ -2091,19 +2103,7 @@ function createApiServer(database) {
 
 
 
-  // ===== SERVE FRONTEND STATIC FILES =====
-  const frontendDir = path.join(__dirname, 'frontend-build');
-  if (fs.existsSync(frontendDir)) {
-    apiApp.use(express.static(frontendDir));
-    apiApp.get('*', (req, res) => {
-      if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(frontendDir, 'index.html'));
-      }
-    });
-    console.log('Frontend served from: ' + frontendDir);
-  }
-
-  // ===== LOAD MODULAR ROUTE MODULES =====
+  // ===== LOAD MODULAR ROUTE MODULES (BEFORE static/catch-all) =====
   try {
     const millPartsRoutes = require('./routes/mill_parts')(database);
     const staffRoutes = require('./routes/staff')(database);
@@ -2116,6 +2116,20 @@ function createApiServer(database) {
     console.log('[Routes] Mill Parts, Staff, Daily Report, Reports P&L loaded');
   } catch (e) {
     console.error('[Routes] Error loading modules:', e.message);
+  }
+
+  // ===== SERVE FRONTEND STATIC FILES (MUST be after all API routes) =====
+  const frontendDir = path.join(__dirname, 'frontend-build');
+  if (fs.existsSync(frontendDir)) {
+    apiApp.use(express.static(frontendDir));
+    apiApp.get('*', (req, res) => {
+      if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(frontendDir, 'index.html'));
+      } else {
+        res.status(404).json({ detail: 'API endpoint not found' });
+      }
+    });
+    console.log('Frontend served from: ' + frontendDir);
   }
 
   // Start server on fixed port
