@@ -1,36 +1,43 @@
 # Mill Entry System - Product Requirements Document
 
 ## Original Problem Statement
-Comprehensive Mill Entry System for managing paddy-to-rice conversion (Custom Milled Rice - CMR) for government supply, private trading, and complete financial tracking.
+Comprehensive Mill Entry System for managing paddy-to-rice conversion (CMR) for government supply, private trading, complete financial tracking, staff management.
 
 ## Core Requirements & Status
 
 ### Phase 1-4: Paddy Entry, Milling, DC, Stock & Payment, Reporting - DONE
 ### Phase 5: Consolidated Ledgers - DONE
-### Phase 6: Private Trading (Paddy Purchase + Rice Sale) - DONE
-### Cash Book Module - DONE (with filters, auto-linking)
+### Phase 6: Private Trading - DONE
+### Cash Book Module - DONE
 ### Global FY Year Setting - DONE
-### Code Refactoring - DONE (Python backend + Frontend extracted)
+### Code Refactoring - DONE (Python backend + Frontend)
+### New Features (2026-03-08): P&L Summary, Mill Parts Stock, Daily Report - DONE
+### Daily Report Upgrade: Normal/Detail modes, better PDF, Mill Parts section - DONE
 
-### New Features - DONE (2026-03-08)
-1. **P&L Summary Card on Dashboard** - DONE
-2. **Mill Parts Stock Module** - DONE (CRUD + Summary + Export)
-3. **Daily Report** - DONE + UPGRADED (2026-03-08):
-   - Normal/Detail mode toggle
-   - Professional PDF export using reportlab Platypus
-   - Mill Parts Stock section with Parts Purchased + Parts Used tables
-   - Detail mode: expanded columns (Mandi, RST, Moisture, Party, Category, Vehicle, Rate)
-   - Bug fix: collection name `db.entries` → `db.mill_entries` for paddy data
+### Staff Attendance & Payment System - DONE (2026-03-08)
+- **Staff Master**: Add/Edit/Delete staff with Monthly or Weekly(per day) salary type
+- **Attendance**: Daily marking with P(Present)/A(Absent)/H(Half Day)/CH(Holiday-Paid Leave)
+- **Advance**: Track advance payments given to staff with balance auto-calculated
+- **Salary Calculation**:
+  - Monthly: salary/30 × days_worked (always 30-day basis)
+  - Weekly: per_day_rate × days_worked
+  - Days Worked = Present + Holiday + (HalfDay × 0.5)
+- **Payment Settlement**: Advance deduction + Net Payment → auto Cash Book Nikasi entry
+- **Delete**: Payment deletion also removes Cash Book entry
 
 ## Architecture
 ```
-/app
-├── backend/routes/       # 12 route modules
-├── frontend/src/         # React with extracted components
-├── local-server/         # Node.js (needs refactoring + new features)
-├── desktop-app/          # Electron (needs refactoring + new features)
+/app/backend/routes/ (13 modules): auth, entries, payments, exports, milling, cashbook, dc_payments, reports, private_trading, ledgers, mill_parts, daily_report, staff
+/app/frontend/src/components/: Dashboard, Payments, Reports, MillPartsStock, StaffManagement, etc.
 ```
 
+## Key Collections
+staff, staff_attendance, staff_advance, staff_payments, mill_entries, milling_entries, cash_transactions, dc_entries, dc_deliveries, private_paddy, rice_sales, private_payments, mill_parts, mill_parts_stock, etc.
+
+## Credentials
+- Admin: admin / admin123
+- Staff: staff / staff123
+
 ## Prioritized Backlog
-- **P1:** Port new features to Node.js backends + complete refactoring
+- **P1:** Port features to Node.js backends + complete refactoring
 - **P2:** macOS Desktop Build
