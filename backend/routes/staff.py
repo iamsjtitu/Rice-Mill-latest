@@ -443,7 +443,7 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         elements.append(PageBreak())
         elements.append(Paragraph("Monthly Summary / Masik Saransh", ParagraphStyle('ms', parent=styles['Normal'], fontSize=12, textColor=colors.HexColor('#1a365d'), spaceAfter=8, fontName='Helvetica-Bold')))
 
-        ms_headers = ["Staff", "Salary Type", "Rate"] + [f"{month_names.get(m[5:7], m[5:7])} {m[:4]}" for m in sorted_months] + ["Grand Total"]
+        ms_headers = ["Staff", "Sal.Type", "Rate"] + [f"{month_names.get(m[5:7], m[5:7])} {m[:4]}" for m in sorted_months] + ["Total Days", "Est. Salary"]
         ms_rows = [ms_headers]
 
         # Fetch salary info for each staff
@@ -453,6 +453,7 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
             info = staff_salary_map[s["id"]]
             sal_type = "Monthly" if info.get("salary_type") == "monthly" else "Daily"
             sal_amt = info.get("salary_amount", 0)
+            per_day = sal_amt if info.get("salary_type") != "monthly" else sal_amt / 30
             row = [s["name"], sal_type, f"{sal_amt:,.0f}"]
             grand = 0
             for mk in sorted_months:
@@ -460,23 +461,49 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
                 worked = md["P"] + md["CH"] + md["H"] * 0.5
                 grand += worked
                 row.append(f'{worked:.1f}')
+            est_salary = round(grand * per_day, 0)
             row.append(f'{grand:.1f}')
+            row.append(f'Rs.{est_salary:,.0f}')
             ms_rows.append(row)
 
         # Detail breakdown rows per month
         ms_rows.append([""] * len(ms_headers))  # blank row
         ms_rows.append(["Breakdown (P/A/H/CH)"] + [""] * (len(ms_headers) - 1))
         for s in staff_list:
+            info = staff_salary_map[s["id"]]
+            per_day = info.get("salary_amount", 0) if info.get("salary_type") != "monthly" else info.get("salary_amount", 0) / 30
             row = [s["name"], "", ""]
+            grand_sal = 0
             for mk in sorted_months:
                 md = monthly_data[mk][s["id"]]
                 row.append(f'{md["P"]}/{md["A"]}/{md["H"]}/{md["CH"]}')
+                worked = md["P"] + md["CH"] + md["H"] * 0.5
+                grand_sal += worked * per_day
             row.append("")
+            row.append(f'Rs.{round(grand_sal, 0):,.0f}')
+            ms_rows.append(row)
+
+        # Per-month salary estimate row
+        ms_rows.append([""] * len(ms_headers))
+        ms_rows.append(["Month-wise Est. Salary"] + [""] * (len(ms_headers) - 1))
+        for s in staff_list:
+            info = staff_salary_map[s["id"]]
+            per_day = info.get("salary_amount", 0) if info.get("salary_type") != "monthly" else info.get("salary_amount", 0) / 30
+            row = [s["name"], "", ""]
+            grand_sal = 0
+            for mk in sorted_months:
+                md = monthly_data[mk][s["id"]]
+                worked = md["P"] + md["CH"] + md["H"] * 0.5
+                m_sal = round(worked * per_day, 0)
+                grand_sal += m_sal
+                row.append(f'Rs.{m_sal:,.0f}')
+            row.append("")
+            row.append(f'Rs.{round(grand_sal, 0):,.0f}')
             ms_rows.append(row)
 
         n_ms_cols = len(ms_headers)
-        ms_col_w = max(55, min(90, 800 // max(n_ms_cols, 1)))
-        ms_col_widths = [80, 55, 50] + [ms_col_w] * (n_ms_cols - 3)
+        ms_col_w = max(50, min(80, 800 // max(n_ms_cols, 1)))
+        ms_col_widths = [70, 45, 45] + [ms_col_w] * (n_ms_cols - 5) + [50, 65]
         # Adjust to fit 800px
         total_w = sum(ms_col_widths)
         if total_w > 800:
@@ -488,20 +515,23 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#065f46')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('FONTSIZE', (0, 0), (-1, -1), 6.5),
             ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
             ('ALIGN', (2, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
             ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
         ]
-        # Color worked days column
+        # Color worked days & salary columns
         for ri in range(1, 1 + len(staff_list)):
-            ms_style.append(('BACKGROUND', (-1, ri), (-1, ri), colors.HexColor('#d1fae5')))
+            ms_style.append(('BACKGROUND', (-2, ri), (-2, ri), colors.HexColor('#d1fae5')))
+            ms_style.append(('FONTNAME', (-2, ri), (-2, ri), 'Helvetica-Bold'))
+            ms_style.append(('BACKGROUND', (-1, ri), (-1, ri), colors.HexColor('#fef3c7')))
             ms_style.append(('FONTNAME', (-1, ri), (-1, ri), 'Helvetica-Bold'))
+            ms_style.append(('TEXTCOLOR', (-1, ri), (-1, ri), colors.HexColor('#92400e')))
             if ri % 2 == 0:
-                ms_style.append(('BACKGROUND', (0, ri), (-2, ri), colors.HexColor('#f0fdf4')))
+                ms_style.append(('BACKGROUND', (0, ri), (-3, ri), colors.HexColor('#f0fdf4')))
 
         # Breakdown section header
         breakdown_start = 2 + len(staff_list)
@@ -509,6 +539,18 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
             ms_style.append(('BACKGROUND', (0, breakdown_start), (-1, breakdown_start), colors.HexColor('#fef3c7')))
             ms_style.append(('FONTNAME', (0, breakdown_start), (-1, breakdown_start), 'Helvetica-Bold'))
             ms_style.append(('SPAN', (0, breakdown_start), (-1, breakdown_start)))
+
+        # Month-wise salary section header
+        salary_section_start = breakdown_start + 1 + len(staff_list) + 1
+        if salary_section_start < len(ms_rows):
+            ms_style.append(('BACKGROUND', (0, salary_section_start), (-1, salary_section_start), colors.HexColor('#dbeafe')))
+            ms_style.append(('FONTNAME', (0, salary_section_start), (-1, salary_section_start), 'Helvetica-Bold'))
+            ms_style.append(('SPAN', (0, salary_section_start), (-1, salary_section_start)))
+            # Salary rows styling
+            for ri in range(salary_section_start + 1, salary_section_start + 1 + len(staff_list)):
+                if ri < len(ms_rows):
+                    ms_style.append(('BACKGROUND', (-1, ri), (-1, ri), colors.HexColor('#fef3c7')))
+                    ms_style.append(('FONTNAME', (-1, ri), (-1, ri), 'Helvetica-Bold'))
 
         ms_table.setStyle(TableStyle(ms_style))
         elements.append(ms_table)
@@ -603,16 +645,21 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         ws2['A1'] = f"Monthly Summary / Masik Saransh ({date_from} to {date_to})"
         ws2['A1'].font = Font(bold=True, size=12, color='065f46')
 
-        # Headers: Staff | Salary Type | Rate | Month1 | Month2 ... | Grand Total
-        ms_hdrs = ["Staff", "Salary Type", "Rate"] + [f"{month_names.get(m[5:7], m[5:7])} {m[:4]}" for m in sorted_months] + ["Grand Total"]
+        # Headers: Staff | Salary Type | Rate | Month1 | Month2 ... | Total Days | Est. Salary
+        ms_hdrs = ["Staff", "Sal.Type", "Rate"] + [f"{month_names.get(m[5:7], m[5:7])} {m[:4]}" for m in sorted_months] + ["Total Days", "Est. Salary"]
         for i, h in enumerate(ms_hdrs, 1):
             c = ws2.cell(row=3, column=i, value=h)
             c.fill = ms_hdr_fill; c.font = ms_hdr_font; c.border = tb; c.alignment = Alignment(horizontal='center')
+
+        sal_fill = PatternFill(start_color='fef3c7', end_color='fef3c7', fill_type='solid')
+        sal_font = Font(bold=True, size=9, color='92400e')
+        blue_fill = PatternFill(start_color='dbeafe', end_color='dbeafe', fill_type='solid')
 
         r = 4
         for s in staff_list:
             sal_type = "Monthly" if s.get("salary_type") == "monthly" else "Daily"
             sal_amt = s.get("salary_amount", 0)
+            per_day = sal_amt if s.get("salary_type") != "monthly" else sal_amt / 30
             ws2.cell(row=r, column=1, value=s["name"]).font = Font(bold=True, size=9)
             ws2.cell(row=r, column=1).border = tb
             ws2.cell(row=r, column=2, value=sal_type).border = tb
@@ -627,9 +674,16 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
                 grand += worked
                 c = ws2.cell(row=r, column=4 + mi, value=worked)
                 c.border = tb; c.alignment = Alignment(horizontal='center'); c.font = Font(size=9)
+            # Total Days column
             gt_cell = ws2.cell(row=r, column=4 + len(sorted_months), value=grand)
             gt_cell.fill = green_fill; gt_cell.font = Font(bold=True, size=9); gt_cell.border = tb
             gt_cell.alignment = Alignment(horizontal='center')
+            # Est. Salary column
+            est_salary = round(grand * per_day, 0)
+            es_cell = ws2.cell(row=r, column=5 + len(sorted_months), value=est_salary)
+            es_cell.fill = sal_fill; es_cell.font = sal_font; es_cell.border = tb
+            es_cell.alignment = Alignment(horizontal='center')
+            es_cell.number_format = '#,##0'
             r += 1
 
         # Blank row + Breakdown header
@@ -648,11 +702,38 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
                 c.border = tb; c.alignment = Alignment(horizontal='center'); c.font = Font(size=8)
             r += 1
 
+        # Month-wise Estimated Salary section
+        r += 1
+        ws2.merge_cells(start_row=r, start_column=1, end_row=r, end_column=len(ms_hdrs))
+        c = ws2.cell(row=r, column=1, value="Month-wise Estimated Salary / Mahine Ka Anumanit Vetan")
+        c.fill = blue_fill; c.font = Font(bold=True, size=10, color='1e3a8a'); c.border = tb
+        r += 1
+
+        for s in staff_list:
+            per_day = s.get("salary_amount", 0) if s.get("salary_type") != "monthly" else s.get("salary_amount", 0) / 30
+            ws2.cell(row=r, column=1, value=s["name"]).font = Font(bold=True, size=9)
+            ws2.cell(row=r, column=1).border = tb
+            grand_sal = 0
+            for mi, mk in enumerate(sorted_months):
+                md = monthly_data[mk][s["id"]]
+                worked = md["P"] + md["CH"] + md["H"] * 0.5
+                m_sal = round(worked * per_day, 0)
+                grand_sal += m_sal
+                c = ws2.cell(row=r, column=4 + mi, value=m_sal)
+                c.border = tb; c.alignment = Alignment(horizontal='center'); c.font = Font(size=9)
+                c.number_format = '#,##0'
+            # Grand total salary
+            es_cell = ws2.cell(row=r, column=5 + len(sorted_months), value=round(grand_sal, 0))
+            es_cell.fill = sal_fill; es_cell.font = sal_font; es_cell.border = tb
+            es_cell.alignment = Alignment(horizontal='center')
+            es_cell.number_format = '#,##0'
+            r += 1
+
         # Set column widths for summary sheet
         ws2.column_dimensions['A'].width = 14
-        ws2.column_dimensions['B'].width = 10
+        ws2.column_dimensions['B'].width = 8
         ws2.column_dimensions['C'].width = 8
-        for i in range(len(sorted_months) + 1):
+        for i in range(len(sorted_months) + 2):  # +2 for Total Days and Est. Salary
             col_letter = chr(68 + i) if (68 + i) <= 90 else 'A' + chr(65 + (68 + i - 91))
             ws2.column_dimensions[col_letter].width = 12
 

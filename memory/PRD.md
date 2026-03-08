@@ -47,8 +47,9 @@ Comprehensive Mill Entry System for managing paddy-to-rice conversion (CMR) for 
 - App version updated to 2.3 in About section
 
 ### Monthly Summary in Attendance Export - DONE (2026-03-08)
-- PDF: New page with monthly summary table (Staff, Salary Type, Rate, per-month worked days, Grand Total + P/A/H/CH breakdown)
-- Excel: New "Monthly Summary" sheet with same data
+- PDF: New page with monthly summary table (Staff, Salary Type, Rate, per-month worked days, Total Days, Est. Salary + P/A/H/CH breakdown + Month-wise Est. Salary)
+- Excel: New "Monthly Summary" sheet with same data including estimated salary
+- Estimated salary calculated: worked_days × per_day_rate (Monthly=salary/30, Daily=salary_amount)
 - Helps salary settlement with quick monthly overview
 
 ### Data Folder Auto-Load Removed - DONE (2026-03-08)
