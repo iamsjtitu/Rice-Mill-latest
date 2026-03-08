@@ -1,4 +1,5 @@
 const express = require('express');
+const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
@@ -10,7 +11,7 @@ function col(name) {
 }
 
 // ============ STAFF CRUD ============
-router.post('/api/staff', (req, res) => {
+router.post('/api/staff', safeSync((req, res) => {
   const d = req.body;
   const name = (d.name || '').trim();
   if (!name) return res.status(400).json({ detail: 'Staff name required' });
@@ -20,32 +21,32 @@ router.post('/api/staff', (req, res) => {
     created_at: new Date().toISOString()
   };
   col('staff').push(staff); database.save(); res.json(staff);
-});
+}));
 
-router.get('/api/staff', (req, res) => {
+router.get('/api/staff', safeSync((req, res) => {
   let list = col('staff');
   if (req.query.active === 'true') list = list.filter(s => s.active !== false);
   res.json(list.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
-});
+}));
 
-router.put('/api/staff/:id', (req, res) => {
+router.put('/api/staff/:id', safeSync((req, res) => {
   const list = col('staff');
   const idx = list.findIndex(s => s.id === req.params.id);
   if (idx === -1) return res.status(404).json({ detail: 'Not found' });
   list[idx] = { ...list[idx], ...req.body, updated_at: new Date().toISOString() };
   database.save(); res.json(list[idx]);
-});
+}));
 
-router.delete('/api/staff/:id', (req, res) => {
+router.delete('/api/staff/:id', safeSync((req, res) => {
   const list = col('staff');
   const len = list.length;
   database.data.staff = list.filter(s => s.id !== req.params.id);
   if (database.data.staff.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
   res.status(404).json({ detail: 'Not found' });
-});
+}));
 
 // ============ ATTENDANCE ============
-router.post('/api/staff/attendance', (req, res) => {
+router.post('/api/staff/attendance', safeSync((req, res) => {
   const d = req.body;
   const att = col('staff_attendance');
   // Remove existing for same staff+date
@@ -55,9 +56,9 @@ router.post('/api/staff/attendance', (req, res) => {
     status: d.status || 'present', kms_year: d.kms_year || '', season: d.season || ''
   };
   database.data.staff_attendance.push(entry); database.save(); res.json(entry);
-});
+}));
 
-router.post('/api/staff/attendance/bulk', (req, res) => {
+router.post('/api/staff/attendance/bulk', safeSync((req, res) => {
   const items = req.body.items || [];
   const results = [];
   for (const d of items) {
@@ -71,9 +72,9 @@ router.post('/api/staff/attendance/bulk', (req, res) => {
     results.push(entry);
   }
   database.save(); res.json(results);
-});
+}));
 
-router.get('/api/staff/attendance', (req, res) => {
+router.get('/api/staff/attendance', safeSync((req, res) => {
   let list = col('staff_attendance');
   if (req.query.date) list = list.filter(a => a.date === req.query.date);
   if (req.query.staff_id) list = list.filter(a => a.staff_id === req.query.staff_id);
@@ -81,10 +82,10 @@ router.get('/api/staff/attendance', (req, res) => {
   if (req.query.date_from) list = list.filter(a => a.date >= req.query.date_from);
   if (req.query.date_to) list = list.filter(a => a.date <= req.query.date_to);
   res.json(list);
-});
+}));
 
 // ============ STAFF ADVANCES ============
-router.post('/api/staff/advance', (req, res) => {
+router.post('/api/staff/advance', safeSync((req, res) => {
   const d = req.body;
   const adv = {
     id: uuidv4(), staff_id: d.staff_id, staff_name: d.staff_name || '',
@@ -101,16 +102,16 @@ router.post('/api/staff/advance', (req, res) => {
     party_name: adv.staff_name, created_by: d.created_by || '', created_at: new Date().toISOString()
   });
   database.save(); res.json(adv);
-});
+}));
 
-router.get('/api/staff/advance', (req, res) => {
+router.get('/api/staff/advance', safeSync((req, res) => {
   let list = col('staff_advances');
   if (req.query.staff_id) list = list.filter(a => a.staff_id === req.query.staff_id);
   if (req.query.kms_year) list = list.filter(a => a.kms_year === req.query.kms_year);
   res.json(list.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
-});
+}));
 
-router.delete('/api/staff/advance/:id', (req, res) => {
+router.delete('/api/staff/advance/:id', safeSync((req, res) => {
   const list = col('staff_advances');
   const adv = list.find(a => a.id === req.params.id);
   if (!adv) return res.status(404).json({ detail: 'Not found' });
@@ -118,10 +119,10 @@ router.delete('/api/staff/advance/:id', (req, res) => {
   // Remove linked cash transaction
   database.data.cash_transactions = col('cash_transactions').filter(t => t.reference !== req.params.id);
   database.save(); res.json({ message: 'Deleted', id: req.params.id });
-});
+}));
 
 // ============ STAFF ADVANCE BALANCE ============
-router.get('/api/staff/advance-balance/:staffId', (req, res) => {
+router.get('/api/staff/advance-balance/:staffId', safeSync((req, res) => {
   const { kms_year, season } = req.query;
   let advances = col('staff_advances').filter(a => a.staff_id === req.params.staffId);
   if (kms_year) advances = advances.filter(a => a.kms_year === kms_year);
@@ -134,11 +135,11 @@ router.get('/api/staff/advance-balance/:staffId', (req, res) => {
   const totalDeducted = +(payments.reduce((s, p) => s + (p.advance_deducted || 0), 0).toFixed(2));
 
   res.json({ total_advance: totalAdvance, total_deducted: totalDeducted, balance: +(totalAdvance - totalDeducted).toFixed(2) });
-});
+}));
 
 
 // ============ STAFF SALARY CALCULATION ============
-router.get('/api/staff/salary-calculate', (req, res) => {
+router.get('/api/staff/salary-calculate', safeSync((req, res) => {
   const { staff_id, from_date, to_date, kms_year } = req.query;
   const staff = col('staff').find(s => s.id === staff_id);
   if (!staff) return res.status(404).json({ detail: 'Staff not found' });
@@ -182,10 +183,10 @@ router.get('/api/staff/salary-calculate', (req, res) => {
     days_worked: daysWorked, gross_salary: grossSalary, total_advances: totalAdvances,
     already_paid: alreadyPaid, net_payment: netPayment
   });
-});
+}));
 
 // ============ STAFF PAYMENTS ============
-router.post('/api/staff/payments', (req, res) => {
+router.post('/api/staff/payments', safeSync((req, res) => {
   const d = req.body;
   const payment = {
     id: uuidv4(), staff_id: d.staff_id, staff_name: d.staff_name || '',
@@ -204,26 +205,26 @@ router.post('/api/staff/payments', (req, res) => {
     party_name: payment.staff_name, created_by: d.created_by || '', created_at: new Date().toISOString()
   });
   database.save(); res.json(payment);
-});
+}));
 
-router.get('/api/staff/payments', (req, res) => {
+router.get('/api/staff/payments', safeSync((req, res) => {
   let list = col('staff_payments');
   if (req.query.staff_id) list = list.filter(p => p.staff_id === req.query.staff_id);
   if (req.query.kms_year) list = list.filter(p => p.kms_year === req.query.kms_year);
   res.json(list.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')));
-});
+}));
 
-router.delete('/api/staff/payments/:id', (req, res) => {
+router.delete('/api/staff/payments/:id', safeSync((req, res) => {
   const list = col('staff_payments');
   const payment = list.find(p => p.id === req.params.id);
   if (!payment) return res.status(404).json({ detail: 'Not found' });
   database.data.staff_payments = list.filter(p => p.id !== req.params.id);
   database.data.cash_transactions = col('cash_transactions').filter(t => t.reference !== req.params.id);
   database.save(); res.json({ message: 'Deleted', id: req.params.id });
-});
+}));
 
 // ============ ATTENDANCE EXPORT (PDF) ============
-router.get('/api/staff/export/attendance', (req, res) => {
+router.get('/api/staff/export/attendance', safeSync((req, res) => {
   const { date_from, date_to, fmt } = req.query;
   if (!date_from || !date_to) return res.status(400).json({ detail: 'date_from and date_to required' });
 
@@ -448,10 +449,10 @@ router.get('/api/staff/export/attendance', (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.xlsx`);
     wb.xlsx.write(res).then(() => res.end());
   }
-});
+}));
 
 // ============ STAFF PAYMENTS EXPORT (Excel) ============
-router.get('/api/staff/export/payments', async (req, res) => {
+router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
   const list = col('staff_payments');
   const wb = new ExcelJS.Workbook();
@@ -465,7 +466,7 @@ router.get('/api/staff/export/payments', async (req, res) => {
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', 'attachment; filename=staff_payments.xlsx');
   await wb.xlsx.write(res); res.end();
-});
+}));
 
   return router;
 };

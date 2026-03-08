@@ -1,4 +1,5 @@
 const express = require('express');
+const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -10,7 +11,7 @@ function col(name) {
 }
 
 // ============ CMR VS DC REPORT ============
-router.get('/api/reports/cmr-vs-dc', (req, res) => {
+router.get('/api/reports/cmr-vs-dc', safeSync((req, res) => {
   const q = req.query;
   let milling = col('milling_entries');
   let dcs = col('dc_entries');
@@ -32,10 +33,10 @@ router.get('/api/reports/cmr-vs-dc', (req, res) => {
     comparison: { cmr_vs_dc_allotted: +(totalCmr - totalDcAllotted).toFixed(2), cmr_vs_dc_delivered: +(totalCmr - totalDcDelivered).toFixed(2) },
     byproduct_revenue: bpRevenue
   });
-});
+}));
 
 // ============ SEASON P&L ============
-router.get('/api/reports/season-pnl', (req, res) => {
+router.get('/api/reports/season-pnl', safeSync((req, res) => {
   const q = req.query;
   let mspPayments = col('msp_payments');
   let bpSales = col('byproduct_sales');
@@ -61,10 +62,10 @@ router.get('/api/reports/season-pnl', (req, res) => {
     expenses: { frk_purchases: frkCost, gunny_bags: gunnyCost, cash_book_nikasi: cashExpenses, truck_payments: truckPayments, agent_payments: agentPayments, total: totalExpenses },
     net_pnl: netPnl, profit: netPnl >= 0
   });
-});
+}));
 
 // ============ P&L EXCEL EXPORT ============
-router.get('/api/reports/season-pnl/excel', async (req, res) => {
+router.get('/api/reports/season-pnl/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
   // Re-use the pnl logic
   const q = req.query;
@@ -106,10 +107,10 @@ router.get('/api/reports/season-pnl/excel', async (req, res) => {
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', 'attachment; filename=season_pnl.xlsx');
   await wb.xlsx.write(res); res.end();
-});
+}));
 
 // ============ P&L PDF EXPORT ============
-router.get('/api/reports/season-pnl/pdf', (req, res) => {
+router.get('/api/reports/season-pnl/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
   const q = req.query;
   let mspPayments = col('msp_payments'); let bpSales = col('byproduct_sales'); let frkPurchases = col('frk_purchases');
@@ -150,10 +151,10 @@ router.get('/api/reports/season-pnl/pdf', (req, res) => {
   doc.moveDown(2);
   doc.fontSize(14).fillColor(profit ? '#16a34a' : '#dc2626').font('Helvetica-Bold').text(`${profit ? 'NET PROFIT' : 'NET LOSS'}: Rs. ${netPnl.toLocaleString()}`, { align: 'center' });
   doc.end();
-});
+}));
 
 // ============ CMR VS DC EXPORTS ============
-router.get('/api/reports/cmr-vs-dc/excel', async (req, res) => {
+router.get('/api/reports/cmr-vs-dc/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
   const q = req.query;
   let milling = col('milling_entries'); let dcs = col('dc_entries'); let deliveries = col('dc_deliveries'); let bpSales = col('byproduct_sales');
@@ -174,9 +175,9 @@ router.get('/api/reports/cmr-vs-dc/excel', async (req, res) => {
   res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition','attachment; filename=cmr_vs_dc.xlsx');
   await wb.xlsx.write(res); res.end();
-});
+}));
 
-router.get('/api/reports/cmr-vs-dc/pdf', (req, res) => {
+router.get('/api/reports/cmr-vs-dc/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
   const q = req.query;
   let milling = col('milling_entries'); let dcs = col('dc_entries'); let deliveries = col('dc_deliveries');
@@ -195,7 +196,7 @@ router.get('/api/reports/cmr-vs-dc/pdf', (req, res) => {
   doc.text(`DC Allotted: ${dcs.reduce((s,d)=>s+(d.quantity_qntl||0),0).toFixed(2)} Q`);
   doc.text(`DC Delivered: ${deliveries.reduce((s,d)=>s+(d.quantity_qntl||0),0).toFixed(2)} Q`);
   doc.end();
-});
+}));
 
   return router;
 };

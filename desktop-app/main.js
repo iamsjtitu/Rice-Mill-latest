@@ -12,6 +12,50 @@ const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 
+// ============ CRASH PROTECTION & ERROR LOGGING ============
+const errorLogPath = path.join(app.getPath('userData'), 'mill-entry-error.log');
+
+function logError(context, err) {
+  const timestamp = new Date().toISOString();
+  const msg = `[${timestamp}] [${context}] ${err && err.stack ? err.stack : err}\n`;
+  try { fs.appendFileSync(errorLogPath, msg); } catch (_) {}
+  console.error(msg);
+}
+
+process.on('uncaughtException', (err) => {
+  logError('UNCAUGHT_EXCEPTION', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logError('UNHANDLED_REJECTION', reason);
+});
+
+// Wrapper for async Express route handlers - catches errors and sends 500 instead of crashing
+function safeAsync(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch((err) => {
+      logError('ASYNC_ROUTE_ERROR: ' + req.method + ' ' + req.originalUrl, err);
+      if (!res.headersSent) {
+        res.status(500).json({ detail: 'Internal server error' });
+      }
+    });
+  };
+}
+
+// Wrapper for sync Express route handlers
+function safeSync(fn) {
+  return (req, res, next) => {
+    try {
+      fn(req, res, next);
+    } catch (err) {
+      logError('SYNC_ROUTE_ERROR: ' + req.method + ' ' + req.originalUrl, err);
+      if (!res.headersSent) {
+        res.status(500).json({ detail: 'Internal server error' });
+      }
+    }
+  };
+}
+
 // ============ GLOBAL VARIABLES ============
 let mainWindow = null;
 let splashWindow = null;
@@ -58,7 +102,19 @@ class JsonDatabase {
         return JSON.parse(fs.readFileSync(this.dbFile, 'utf8'));
       }
     } catch (e) {
-      console.error('Database load error:', e);
+      logError('DATABASE_LOAD_ERROR', e);
+      // Try to recover from backup
+      const bakFile = this.dbFile + '.bak';
+      try {
+        if (fs.existsSync(bakFile)) {
+          logError('DATABASE_RECOVERY', 'Attempting recovery from backup...');
+          const data = JSON.parse(fs.readFileSync(bakFile, 'utf8'));
+          logError('DATABASE_RECOVERY', 'Recovery from backup successful!');
+          return data;
+        }
+      } catch (e2) {
+        logError('DATABASE_RECOVERY_FAILED', e2);
+      }
     }
     
     // Default data structure
@@ -82,9 +138,18 @@ class JsonDatabase {
 
   save() {
     try {
-      fs.writeFileSync(this.dbFile, JSON.stringify(this.data, null, 2));
+      const jsonStr = JSON.stringify(this.data, null, 2);
+      // Atomic write: write to temp file first, then rename
+      const tmpFile = this.dbFile + '.tmp';
+      fs.writeFileSync(tmpFile, jsonStr);
+      // Keep a last-known-good backup before replacing
+      if (fs.existsSync(this.dbFile)) {
+        const bakFile = this.dbFile + '.bak';
+        try { fs.copyFileSync(this.dbFile, bakFile); } catch (_) {}
+      }
+      fs.renameSync(tmpFile, this.dbFile);
     } catch (e) {
-      console.error('Database save error:', e);
+      logError('DATABASE_SAVE_ERROR', e);
     }
   }
 
@@ -615,21 +680,21 @@ function createApiServer(database) {
 
   // ===== PRINT PAGE (Server-side approach for Electron compatibility) =====
   const printPages = {};
-  apiApp.post('/api/print', (req, res) => {
+  apiApp.post('/api/print', safeSync((req, res) => {
     const id = require('uuid').v4();
     printPages[id] = req.body.html;
     setTimeout(() => delete printPages[id], 300000);
     res.json({ id, url: `/api/print/${id}` });
-  });
-  apiApp.get('/api/print/:id', (req, res) => {
+  }));
+  apiApp.get('/api/print/:id', safeSync((req, res) => {
     const html = printPages[req.params.id];
     if (!html) return res.status(404).send('<h1>Page expired. Please try again.</h1>');
     delete printPages[req.params.id];
     res.type('html').send(html);
-  });
+  }));
 
   // ===== AUTH =====
-  apiApp.post('/api/auth/login', (req, res) => {
+  apiApp.post('/api/auth/login', safeSync((req, res) => {
     const { username, password } = req.body;
     const user = database.getUser(username);
     if (user && user.password === password) {
@@ -637,9 +702,9 @@ function createApiServer(database) {
     } else {
       res.status(401).json({ detail: 'Invalid username or password' });
     }
-  });
+  }));
 
-  apiApp.post('/api/auth/change-password', (req, res) => {
+  apiApp.post('/api/auth/change-password', safeSync((req, res) => {
     const { username, current_password, new_password } = req.body;
     const user = database.getUser(username);
     if (!user || user.password !== current_password) {
@@ -647,10 +712,10 @@ function createApiServer(database) {
     }
     database.updateUserPassword(username, new_password);
     res.json({ success: true, message: 'Password change ho gaya' });
-  });
+  }));
 
   // ===== FY SETTINGS =====
-  apiApp.get('/api/fy-settings', (req, res) => {
+  apiApp.get('/api/fy-settings', safeSync((req, res) => {
     if (!database.data.fy_settings) {
       const now = new Date();
       const y = now.getFullYear();
@@ -658,80 +723,80 @@ function createApiServer(database) {
       database.data.fy_settings = { active_fy: defaultFy, season: '' };
     }
     res.json(database.data.fy_settings);
-  });
+  }));
 
-  apiApp.put('/api/fy-settings', (req, res) => {
+  apiApp.put('/api/fy-settings', safeSync((req, res) => {
     const active_fy = req.body.active_fy || '';
     const season = req.body.season || '';
     if (!active_fy) return res.status(400).json({ detail: 'active_fy is required' });
     database.data.fy_settings = { active_fy, season, updated_at: new Date().toISOString() };
     database.save();
     res.json(database.data.fy_settings);
-  });
+  }));
 
   // ===== BRANDING =====
-  apiApp.get('/api/branding', (req, res) => {
+  apiApp.get('/api/branding', safeSync((req, res) => {
     res.json(database.getBranding());
-  });
+  }));
 
-  apiApp.put('/api/branding', (req, res) => {
+  apiApp.put('/api/branding', safeSync((req, res) => {
     const branding = database.updateBranding(req.body);
     res.json({ success: true, message: 'Branding update ho gaya', branding });
-  });
+  }));
 
   // ===== ENTRIES =====
-  apiApp.get('/api/entries', (req, res) => {
+  apiApp.get('/api/entries', safeSync((req, res) => {
     res.json(database.getEntries(req.query));
-  });
+  }));
 
-  apiApp.get('/api/entries/:id', (req, res) => {
+  apiApp.get('/api/entries/:id', safeSync((req, res) => {
     const entry = database.data.entries.find(e => e.id === req.params.id);
     if (entry) res.json(entry);
     else res.status(404).json({ detail: 'Entry not found' });
-  });
+  }));
 
-  apiApp.post('/api/entries', (req, res) => {
+  apiApp.post('/api/entries', safeSync((req, res) => {
     const entry = database.addEntry({ ...req.body, created_by: req.query.username || 'admin' });
     res.json(entry);
-  });
+  }));
 
-  apiApp.put('/api/entries/:id', (req, res) => {
+  apiApp.put('/api/entries/:id', safeSync((req, res) => {
     const entry = database.updateEntry(req.params.id, req.body);
     if (entry) res.json(entry);
     else res.status(404).json({ detail: 'Entry not found' });
-  });
+  }));
 
-  apiApp.delete('/api/entries/:id', (req, res) => {
+  apiApp.delete('/api/entries/:id', safeSync((req, res) => {
     database.deleteEntry(req.params.id);
     res.json({ success: true });
-  });
+  }));
 
-  apiApp.post('/api/entries/bulk-delete', (req, res) => {
+  apiApp.post('/api/entries/bulk-delete', safeSync((req, res) => {
     database.bulkDeleteEntries(req.body.entry_ids);
     res.json({ success: true, deleted: req.body.entry_ids.length });
-  });
+  }));
 
   // ===== TOTALS =====
-  apiApp.get('/api/totals', (req, res) => {
+  apiApp.get('/api/totals', safeSync((req, res) => {
     res.json(database.getTotals(req.query));
-  });
+  }));
 
   // ===== SUGGESTIONS =====
-  apiApp.get('/api/suggestions/trucks', (req, res) => {
+  apiApp.get('/api/suggestions/trucks', safeSync((req, res) => {
     let suggestions = database.getSuggestions('truck_no');
     const q = req.query.q || '';
     if (q) suggestions = suggestions.filter(s => s.toLowerCase().includes(q.toLowerCase()));
     res.json({ suggestions });
-  });
+  }));
 
-  apiApp.get('/api/suggestions/agents', (req, res) => {
+  apiApp.get('/api/suggestions/agents', safeSync((req, res) => {
     let suggestions = database.getSuggestions('agent_name');
     const q = req.query.q || '';
     if (q) suggestions = suggestions.filter(s => s.toLowerCase().includes(q.toLowerCase()));
     res.json({ suggestions });
-  });
+  }));
 
-  apiApp.get('/api/suggestions/mandis', (req, res) => {
+  apiApp.get('/api/suggestions/mandis', safeSync((req, res) => {
     let suggestions = database.getSuggestions('mandi_name');
     const q = req.query.q || '';
     const agent_name = req.query.agent_name || '';
@@ -742,34 +807,34 @@ function createApiServer(database) {
       suggestions = suggestions.filter(s => agentMandis.has(s));
     }
     res.json({ suggestions });
-  });
+  }));
 
-  apiApp.get('/api/suggestions/kms_years', (req, res) => {
+  apiApp.get('/api/suggestions/kms_years', safeSync((req, res) => {
     res.json({ suggestions: database.getSuggestions('kms_year') });
-  });
+  }));
 
   // ===== MANDI TARGETS =====
-  apiApp.get('/api/mandi-targets', (req, res) => {
+  apiApp.get('/api/mandi-targets', safeSync((req, res) => {
     res.json(database.getMandiTargets(req.query));
-  });
+  }));
 
-  apiApp.post('/api/mandi-targets', (req, res) => {
+  apiApp.post('/api/mandi-targets', safeSync((req, res) => {
     const target = database.addMandiTarget({ ...req.body, created_by: req.query.username || 'admin' });
     res.json(target);
-  });
+  }));
 
-  apiApp.put('/api/mandi-targets/:id', (req, res) => {
+  apiApp.put('/api/mandi-targets/:id', safeSync((req, res) => {
     const target = database.updateMandiTarget(req.params.id, req.body);
     if (target) res.json(target);
     else res.status(404).json({ detail: 'Target not found' });
-  });
+  }));
 
-  apiApp.delete('/api/mandi-targets/:id', (req, res) => {
+  apiApp.delete('/api/mandi-targets/:id', safeSync((req, res) => {
     database.deleteMandiTarget(req.params.id);
     res.json({ success: true });
-  });
+  }));
 
-  apiApp.get('/api/mandi-targets/summary', (req, res) => {
+  apiApp.get('/api/mandi-targets/summary', safeSync((req, res) => {
     const targets = database.getMandiTargets(req.query);
     const entries = database.getEntries(req.query);
     
@@ -791,10 +856,10 @@ function createApiServer(database) {
     });
     
     res.json(summary);
-  });
+  }));
 
   // ===== DASHBOARD =====
-  apiApp.get('/api/dashboard/agent-totals', (req, res) => {
+  apiApp.get('/api/dashboard/agent-totals', safeSync((req, res) => {
     const entries = database.getEntries(req.query);
     const agentMap = {};
     
@@ -816,9 +881,9 @@ function createApiServer(database) {
     })).sort((a, b) => b.total_final_w - a.total_final_w);
     
     res.json({ agent_totals });
-  });
+  }));
 
-  apiApp.get('/api/dashboard/date-range-totals', (req, res) => {
+  apiApp.get('/api/dashboard/date-range-totals', safeSync((req, res) => {
     const entries = database.getEntries(req.query);
     const totals = entries.reduce((acc, e) => ({
       total_kg: acc.total_kg + (e.kg || 0),
@@ -836,9 +901,9 @@ function createApiServer(database) {
       start_date: req.query.start_date || null,
       end_date: req.query.end_date || null
     });
-  });
+  }));
 
-  apiApp.get('/api/dashboard/monthly-trend', (req, res) => {
+  apiApp.get('/api/dashboard/monthly-trend', safeSync((req, res) => {
     const entries = database.getEntries(req.query);
     const monthMap = {};
     
@@ -863,10 +928,10 @@ function createApiServer(database) {
       }));
     
     res.json({ monthly_data });
-  });
+  }));
 
   // ===== TRUCK PAYMENTS =====
-  apiApp.get('/api/truck-payments', (req, res) => {
+  apiApp.get('/api/truck-payments', safeSync((req, res) => {
     const entries = database.getEntries(req.query);
     const payments = entries.map(entry => {
       const payment = database.getTruckPayment(entry.id);
@@ -904,9 +969,9 @@ function createApiServer(database) {
     });
     
     res.json(payments);
-  });
+  }));
 
-  apiApp.put('/api/truck-payments/:entryId/rate', (req, res) => {
+  apiApp.put('/api/truck-payments/:entryId/rate', safeSync((req, res) => {
     const entry = database.data.entries.find(e => e.id === req.params.entryId);
     let updatedCount = 1;
     
@@ -925,9 +990,9 @@ function createApiServer(database) {
     
     const payment = database.getTruckPayment(req.params.entryId);
     res.json({ success: true, payment, updated_count: updatedCount, truck_no: entry?.truck_no, mandi_name: entry?.mandi_name });
-  });
+  }));
 
-  apiApp.post('/api/truck-payments/:entryId/pay', (req, res) => {
+  apiApp.post('/api/truck-payments/:entryId/pay', safeSync((req, res) => {
     const entry = database.data.entries.find(e => e.id === req.params.entryId);
     const current = database.getTruckPayment(req.params.entryId);
     const newPaidAmount = current.paid_amount + req.body.amount;
@@ -958,9 +1023,9 @@ function createApiServer(database) {
     }
     database.save();
     res.json({ success: true, message: 'Payment recorded' });
-  });
+  }));
 
-  apiApp.post('/api/truck-payments/:entryId/mark-paid', (req, res) => {
+  apiApp.post('/api/truck-payments/:entryId/mark-paid', safeSync((req, res) => {
     const entry = database.data.entries.find(e => e.id === req.params.entryId);
     if (!entry) return res.status(404).json({ detail: 'Entry not found' });
     
@@ -989,9 +1054,9 @@ function createApiServer(database) {
     }
     database.save();
     res.json({ success: true, message: 'Payment cleared' });
-  });
+  }));
 
-  apiApp.post('/api/truck-payments/:entryId/undo-paid', (req, res) => {
+  apiApp.post('/api/truck-payments/:entryId/undo-paid', safeSync((req, res) => {
     database.updateTruckPayment(req.params.entryId, {
       paid_amount: 0,
       status: 'pending'
@@ -1002,10 +1067,10 @@ function createApiServer(database) {
     }
     database.save();
     res.json({ success: true, message: 'Payment undo ho gaya' });
-  });
+  }));
 
   // ===== AGENT PAYMENTS =====
-  apiApp.get('/api/agent-payments', (req, res) => {
+  apiApp.get('/api/agent-payments', safeSync((req, res) => {
     const targets = database.getMandiTargets(req.query);
     const entries = database.getEntries(req.query);
     
@@ -1045,9 +1110,9 @@ function createApiServer(database) {
     });
     
     res.json(payments);
-  });
+  }));
 
-  apiApp.post('/api/agent-payments/:mandiName/pay', (req, res) => {
+  apiApp.post('/api/agent-payments/:mandiName/pay', safeSync((req, res) => {
     const { kms_year, season } = req.query;
     const mandiName = decodeURIComponent(req.params.mandiName);
     const current = database.getAgentPayment(mandiName, kms_year, season);
@@ -1079,9 +1144,9 @@ function createApiServer(database) {
     }
     database.save();
     res.json({ success: true, message: 'Payment recorded' });
-  });
+  }));
 
-  apiApp.post('/api/agent-payments/:mandiName/mark-paid', (req, res) => {
+  apiApp.post('/api/agent-payments/:mandiName/mark-paid', safeSync((req, res) => {
     const { kms_year, season } = req.query;
     const mandiName = decodeURIComponent(req.params.mandiName);
     const target = database.getMandiTargets({ kms_year, season }).find(t => t.mandi_name === mandiName);
@@ -1110,9 +1175,9 @@ function createApiServer(database) {
     }
     database.save();
     res.json({ success: true, message: 'Agent/Mandi payment cleared' });
-  });
+  }));
 
-  apiApp.post('/api/agent-payments/:mandiName/undo-paid', (req, res) => {
+  apiApp.post('/api/agent-payments/:mandiName/undo-paid', safeSync((req, res) => {
     const { kms_year, season } = req.query;
     const mandiName = decodeURIComponent(req.params.mandiName);
     database.updateAgentPayment(mandiName, kms_year, season, {
@@ -1125,22 +1190,22 @@ function createApiServer(database) {
     }
     database.save();
     res.json({ success: true, message: 'Payment undo ho gaya' });
-  });
+  }));
 
   // ===== PAYMENT HISTORY =====
-  apiApp.get('/api/truck-payments/:entryId/history', (req, res) => {
+  apiApp.get('/api/truck-payments/:entryId/history', safeSync((req, res) => {
     const payment = database.getTruckPayment(req.params.entryId);
     res.json({ history: payment.payment_history || [], total_paid: payment.paid_amount || 0 });
-  });
+  }));
 
-  apiApp.get('/api/agent-payments/:mandiName/history', (req, res) => {
+  apiApp.get('/api/agent-payments/:mandiName/history', safeSync((req, res) => {
     const { kms_year, season } = req.query;
     const payment = database.getAgentPayment(decodeURIComponent(req.params.mandiName), kms_year, season);
     res.json({ history: payment.payment_history || [], total_paid: payment.paid_amount || 0 });
-  });
+  }));
 
   // ===== AUTH VERIFY =====
-  apiApp.get('/api/auth/verify', (req, res) => {
+  apiApp.get('/api/auth/verify', safeSync((req, res) => {
     const { username, role } = req.query;
     const user = database.getUser(username);
     if (user && user.role === role) {
@@ -1148,35 +1213,35 @@ function createApiServer(database) {
     } else {
       res.json({ valid: false });
     }
-  });
+  }));
 
   // ===== MILLING ENTRIES =====
-  apiApp.get('/api/milling-entries', (req, res) => {
+  apiApp.get('/api/milling-entries', safeSync((req, res) => {
     res.json(database.getMillingEntries(req.query));
-  });
-  apiApp.get('/api/milling-summary', (req, res) => {
+  }));
+  apiApp.get('/api/milling-summary', safeSync((req, res) => {
     res.json(database.getMillingSummary(req.query));
-  });
-  apiApp.post('/api/milling-entries', (req, res) => {
+  }));
+  apiApp.post('/api/milling-entries', safeSync((req, res) => {
     res.json(database.createMillingEntry({ ...req.body, created_by: req.query.username || '' }));
-  });
-  apiApp.get('/api/milling-entries/:id', (req, res) => {
+  }));
+  apiApp.get('/api/milling-entries/:id', safeSync((req, res) => {
     const entries = database.getMillingEntries({});
     const entry = entries.find(e => e.id === req.params.id);
     if (!entry) return res.status(404).json({ detail: 'Milling entry not found' });
     res.json(entry);
-  });
-  apiApp.put('/api/milling-entries/:id', (req, res) => {
+  }));
+  apiApp.put('/api/milling-entries/:id', safeSync((req, res) => {
     const updated = database.updateMillingEntry(req.params.id, req.body);
     if (!updated) return res.status(404).json({ detail: 'Milling entry not found' });
     res.json(updated);
-  });
-  apiApp.delete('/api/milling-entries/:id', (req, res) => {
+  }));
+  apiApp.delete('/api/milling-entries/:id', safeSync((req, res) => {
     if (!database.deleteMillingEntry(req.params.id)) return res.status(404).json({ detail: 'Milling entry not found' });
     res.json({ message: 'Milling entry deleted', id: req.params.id });
-  });
+  }));
 
-  apiApp.get('/api/paddy-stock', (req, res) => {
+  apiApp.get('/api/paddy-stock', safeSync((req, res) => {
     const filters = req.query;
     let entries = [...database.data.entries];
     if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
@@ -1185,9 +1250,9 @@ function createApiServer(database) {
     const millingEntries = database.getMillingEntries(filters);
     const totalUsed = +millingEntries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0).toFixed(2);
     res.json({ total_paddy_in_qntl: totalIn, total_paddy_used_qntl: totalUsed, available_paddy_qntl: +(totalIn - totalUsed).toFixed(2) });
-  });
+  }));
 
-  apiApp.get('/api/byproduct-stock', (req, res) => {
+  apiApp.get('/api/byproduct-stock', safeSync((req, res) => {
     if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
     const millingEntries = database.getMillingEntries(req.query);
     let sales = [...database.data.byproduct_sales];
@@ -1203,55 +1268,55 @@ function createApiServer(database) {
       stock[p] = { produced_qntl: produced, sold_qntl: sold, available_qntl: +(produced - sold).toFixed(2), total_revenue: revenue };
     });
     res.json(stock);
-  });
+  }));
 
-  apiApp.post('/api/byproduct-sales', (req, res) => {
+  apiApp.post('/api/byproduct-sales', safeSync((req, res) => {
     if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
     const sale = { id: uuidv4(), ...req.body, total_amount: +((req.body.quantity_qntl || 0) * (req.body.rate_per_qntl || 0)).toFixed(2), created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     database.data.byproduct_sales.push(sale);
     database.save();
     res.json(sale);
-  });
+  }));
 
-  apiApp.get('/api/byproduct-sales', (req, res) => {
+  apiApp.get('/api/byproduct-sales', safeSync((req, res) => {
     if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
     let sales = [...database.data.byproduct_sales];
     if (req.query.product) sales = sales.filter(s => s.product === req.query.product);
     if (req.query.kms_year) sales = sales.filter(s => s.kms_year === req.query.kms_year);
     if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
     res.json(sales.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
-  });
+  }));
 
-  apiApp.delete('/api/byproduct-sales/:id', (req, res) => {
+  apiApp.delete('/api/byproduct-sales/:id', safeSync((req, res) => {
     if (!database.data.byproduct_sales) return res.status(404).json({ detail: 'Sale not found' });
     const len = database.data.byproduct_sales.length;
     database.data.byproduct_sales = database.data.byproduct_sales.filter(s => s.id !== req.params.id);
     if (database.data.byproduct_sales.length < len) { database.save(); return res.json({ message: 'Sale deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Sale not found' });
-  });
+  }));
 
   // ===== FRK PURCHASES =====
-  apiApp.post('/api/frk-purchases', (req, res) => {
+  apiApp.post('/api/frk-purchases', safeSync((req, res) => {
     if (!database.data.frk_purchases) database.data.frk_purchases = [];
     const d = req.body;
     const p = { id: uuidv4(), date: d.date, party_name: d.party_name || '', quantity_qntl: d.quantity_qntl || 0, rate_per_qntl: d.rate_per_qntl || 0, total_amount: +((d.quantity_qntl || 0) * (d.rate_per_qntl || 0)).toFixed(2), note: d.note || '', kms_year: d.kms_year || '', season: d.season || '', created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     database.data.frk_purchases.push(p); database.save(); res.json(p);
-  });
-  apiApp.get('/api/frk-purchases', (req, res) => {
+  }));
+  apiApp.get('/api/frk-purchases', safeSync((req, res) => {
     if (!database.data.frk_purchases) database.data.frk_purchases = [];
     let p = [...database.data.frk_purchases];
     if (req.query.kms_year) p = p.filter(x => x.kms_year === req.query.kms_year);
     if (req.query.season) p = p.filter(x => x.season === req.query.season);
     res.json(p.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
-  });
-  apiApp.delete('/api/frk-purchases/:id', (req, res) => {
+  }));
+  apiApp.delete('/api/frk-purchases/:id', safeSync((req, res) => {
     if (!database.data.frk_purchases) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.frk_purchases.length;
     database.data.frk_purchases = database.data.frk_purchases.filter(x => x.id !== req.params.id);
     if (database.data.frk_purchases.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
-  });
-  apiApp.get('/api/frk-stock', (req, res) => {
+  }));
+  apiApp.get('/api/frk-stock', safeSync((req, res) => {
     if (!database.data.frk_purchases) database.data.frk_purchases = [];
     let purchases = [...database.data.frk_purchases];
     if (req.query.kms_year) purchases = purchases.filter(x => x.kms_year === req.query.kms_year);
@@ -1261,10 +1326,10 @@ function createApiServer(database) {
     const millingEntries = database.getMillingEntries(req.query);
     const totalUsed = +millingEntries.reduce((s, e) => s + (e.frk_used_qntl || 0), 0).toFixed(2);
     res.json({ total_purchased_qntl: totalPurchased, total_used_qntl: totalUsed, available_qntl: +(totalPurchased - totalUsed).toFixed(2), total_cost: totalCost });
-  });
+  }));
 
   // ===== PADDY CUSTODY REGISTER =====
-  apiApp.get('/api/paddy-custody-register', (req, res) => {
+  apiApp.get('/api/paddy-custody-register', safeSync((req, res) => {
     const filters = req.query;
     let entries = [...database.data.entries];
     if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
@@ -1277,38 +1342,38 @@ function createApiServer(database) {
     let balance = 0;
     rows.forEach(r => { balance += r.received_qntl - r.issued_qntl; r.balance_qntl = +balance.toFixed(2); });
     res.json({ rows, total_received: +rows.reduce((s, r) => s + r.received_qntl, 0).toFixed(2), total_issued: +rows.reduce((s, r) => s + r.issued_qntl, 0).toFixed(2), final_balance: +balance.toFixed(2) });
-  });
+  }));
 
   // ===== BACKUP ENDPOINTS =====
-  apiApp.get('/api/backups', (req, res) => {
+  apiApp.get('/api/backups', safeSync((req, res) => {
     const backups = getBackupsList();
     const today = new Date().toISOString().substring(0, 10);
     res.json({ backups, has_today_backup: backups.some(b => b.created_at.substring(0, 10) === today), max_backups: MAX_BACKUPS });
-  });
-  apiApp.post('/api/backups', (req, res) => {
+  }));
+  apiApp.post('/api/backups', safeSync((req, res) => {
     const result = createBackup(database, 'manual');
     if (result.success) return res.json({ success: true, message: 'Backup ban gaya!', backup: result });
     res.status(500).json({ detail: result.error });
-  });
-  apiApp.post('/api/backups/restore', (req, res) => {
+  }));
+  apiApp.post('/api/backups/restore', safeSync((req, res) => {
     const result = restoreBackup(database, req.body.filename);
     if (result.success) return res.json(result);
     res.status(400).json({ detail: result.error });
-  });
-  apiApp.delete('/api/backups/:filename', (req, res) => {
+  }));
+  apiApp.delete('/api/backups/:filename', safeSync((req, res) => {
     const dir = getBackupDir();
     const fp = path.join(dir, req.params.filename);
     if (!fs.existsSync(fp)) return res.status(404).json({ detail: 'Not found' });
     try { fs.unlinkSync(fp); res.json({ success: true }); } catch(e) { res.status(500).json({ detail: e.message }); }
-  });
-  apiApp.get('/api/backups/status', (req, res) => {
+  }));
+  apiApp.get('/api/backups/status', safeSync((req, res) => {
     const backups = getBackupsList();
     const today = new Date().toISOString().substring(0, 10);
     res.json({ has_today_backup: backups.some(b => b.created_at.substring(0, 10) === today), last_backup: backups[0] || null, total_backups: backups.length });
-  });
+  }));
 
   // ===== EXPORT ENDPOINTS (Excel & PDF) =====
-  apiApp.get('/api/export/excel', async (req, res) => {
+  apiApp.get('/api/export/excel', safeAsync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Mill Entries');
@@ -1330,9 +1395,9 @@ function createApiServer(database) {
       res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/export/pdf', (req, res) => {
+  apiApp.get('/api/export/pdf', safeSync((req, res) => {
     try {
       const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
@@ -1343,9 +1408,9 @@ function createApiServer(database) {
       const rows = entries.map(e => [e.date||'',e.truck_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,((e.mill_w||0)/100).toFixed(2),e.cutting_percent||0,((e.final_w||0)/100).toFixed(2),e.cash_paid||0,e.diesel_paid||0]);
       addPdfTable(doc, h, rows, [55,60,60,60,40,35,45,35,50,45,45]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/export/truck-payments-excel', async (req, res) => {
+  apiApp.get('/api/export/truck-payments-excel', safeAsync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Truck Payments');
@@ -1356,9 +1421,9 @@ function createApiServer(database) {
       res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/export/truck-payments-pdf', (req, res) => {
+  apiApp.get('/api/export/truck-payments-pdf', safeSync((req, res) => {
     try {
       const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
@@ -1368,9 +1433,9 @@ function createApiServer(database) {
       const rows = entries.map(e => { const p=database.getTruckPayment(e.id); const fq=(e.final_w||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); return [e.date,e.truck_no,e.mandi_name,fq.toFixed(2),p.rate_per_qntl,g.toFixed(2),d.toFixed(2),n.toFixed(2),p.paid_amount,b.toFixed(2),b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
       addPdfTable(doc, h, rows, [50,55,55,45,35,50,50,50,45,50,40]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/export/agent-payments-excel', async (req, res) => {
+  apiApp.get('/api/export/agent-payments-excel', safeAsync(async (req, res) => {
     try {
       const targets = database.getMandiTargets(req.query); const entries = database.getEntries(req.query);
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Agent Payments');
@@ -1381,9 +1446,9 @@ function createApiServer(database) {
       res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/export/agent-payments-pdf', (req, res) => {
+  apiApp.get('/api/export/agent-payments-pdf', safeSync((req, res) => {
     try {
       const targets = database.getMandiTargets(req.query); const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
@@ -1393,9 +1458,9 @@ function createApiServer(database) {
       const rows = targets.map(t => { const me=entries.filter(e=>e.mandi_name===t.mandi_name); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const cq=t.target_qntl*t.cutting_percent/100; const tot=(t.target_qntl*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); return [t.mandi_name,ae?ae.agent_name:'',t.target_qntl,cq.toFixed(2),t.base_rate??10,t.cutting_rate??5,tot.toFixed(2),ach.toFixed(2),p.paid_amount,bal.toFixed(2),bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
       addPdfTable(doc, h, rows, [55,55,40,40,35,35,50,45,45,50,40]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/export/summary-report-pdf', (req, res) => {
+  apiApp.get('/api/export/summary-report-pdf', safeSync((req, res) => {
     try {
       const entries = database.getEntries(req.query); const totals = database.getTotals ? database.getTotals(req.query) : {};
       const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -1405,9 +1470,9 @@ function createApiServer(database) {
       doc.text(`Total Entries: ${entries.length}`); doc.text(`Total QNTL: ${(totals.total_qntl||0).toFixed?.(2)||0}`); doc.text(`Total Final W: ${((totals.total_final_w||0)/100).toFixed?.(2)||0}`);
       doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/export/truck-owner-excel', async (req, res) => {
+  apiApp.get('/api/export/truck-owner-excel', safeAsync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query); const td = {};
       entries.forEach(e => { const tn=e.truck_no||'Unknown'; const p=database.getTruckPayment(e.id); const fq=(e.final_w||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); if(!td[tn])td[tn]={truck_no:tn,trips:0,tq:0,tg:0,tded:0,tn2:0,tp:0,tb:0}; td[tn].trips++;td[tn].tq+=fq;td[tn].tg+=g;td[tn].tded+=d;td[tn].tn2+=n;td[tn].tp+=p.paid_amount;td[tn].tb+=b; });
@@ -1419,9 +1484,9 @@ function createApiServer(database) {
       res.setHeader('Content-Disposition', `attachment; filename=truck_owner_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/export/truck-owner-pdf', (req, res) => {
+  apiApp.get('/api/export/truck-owner-pdf', safeSync((req, res) => {
     try {
       const entries = database.getEntries(req.query); const td = {};
       entries.forEach(e => { const tn=e.truck_no||'Unknown'; const p=database.getTruckPayment(e.id); const fq=(e.final_w||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); if(!td[tn])td[tn]={truck_no:tn,trips:0,tq:0,tg:0,tded:0,tn2:0,tp:0,tb:0}; td[tn].trips++;td[tn].tq+=fq;td[tn].tg+=g;td[tn].tded+=d;td[tn].tn2+=n;td[tn].tp+=p.paid_amount;td[tn].tb+=b; });
@@ -1432,10 +1497,10 @@ function createApiServer(database) {
       const rows = Object.values(td).map(t => [t.truck_no,t.trips,t.tq.toFixed(2),t.tg.toFixed(2),t.tded.toFixed(2),t.tn2.toFixed(2),t.tp.toFixed(2),t.tb.toFixed(2),t.tb<0.10?'Paid':(t.tp>0?'Partial':'Pending')]);
       addPdfTable(doc, h, rows, [55,35,50,50,50,55,50,50,40]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
+  }));
 
   // ===== CASH BOOK =====
-  apiApp.post('/api/cash-book', (req, res) => {
+  apiApp.post('/api/cash-book', safeSync((req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = req.body;
     const txn = { id: uuidv4(), date: d.date, account: d.account || 'cash', txn_type: d.txn_type || 'jama',
@@ -1443,8 +1508,8 @@ function createApiServer(database) {
       reference: d.reference || '', kms_year: d.kms_year || '', season: d.season || '',
       created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     database.data.cash_transactions.push(txn); database.save(); res.json(txn);
-  });
-  apiApp.get('/api/cash-book', (req, res) => {
+  }));
+  apiApp.get('/api/cash-book', safeSync((req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     let txns = [...database.data.cash_transactions];
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
@@ -1453,19 +1518,19 @@ function createApiServer(database) {
     if (req.query.date_from) txns = txns.filter(t => t.date >= req.query.date_from);
     if (req.query.date_to) txns = txns.filter(t => t.date <= req.query.date_to);
     res.json(txns.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
-  });
-  apiApp.delete('/api/cash-book/:id', (req, res) => {
+  }));
+  apiApp.delete('/api/cash-book/:id', safeSync((req, res) => {
     if (!database.data.cash_transactions) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.cash_transactions.length;
     database.data.cash_transactions = database.data.cash_transactions.filter(t => t.id !== req.params.id);
     if (database.data.cash_transactions.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
-  });
-  apiApp.get('/api/cash-book/categories', (req, res) => {
+  }));
+  apiApp.get('/api/cash-book/categories', safeSync((req, res) => {
     if (!database.data.cash_book_categories) database.data.cash_book_categories = [];
     res.json([...database.data.cash_book_categories]);
-  });
-  apiApp.post('/api/cash-book/categories', (req, res) => {
+  }));
+  apiApp.post('/api/cash-book/categories', safeSync((req, res) => {
     if (!database.data.cash_book_categories) database.data.cash_book_categories = [];
     const name = (req.body.name || '').trim();
     const type = req.body.type || '';
@@ -1473,15 +1538,15 @@ function createApiServer(database) {
     if (database.data.cash_book_categories.find(c => c.name === name && c.type === type)) return res.status(400).json({ detail: 'Category already exists' });
     const cat = { id: uuidv4(), name, type, created_at: new Date().toISOString() };
     database.data.cash_book_categories.push(cat); database.save(); res.json(cat);
-  });
-  apiApp.delete('/api/cash-book/categories/:id', (req, res) => {
+  }));
+  apiApp.delete('/api/cash-book/categories/:id', safeSync((req, res) => {
     if (!database.data.cash_book_categories) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.cash_book_categories.length;
     database.data.cash_book_categories = database.data.cash_book_categories.filter(c => c.id !== req.params.id);
     if (database.data.cash_book_categories.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
-  });
-  apiApp.get('/api/cash-book/summary', (req, res) => {
+  }));
+  apiApp.get('/api/cash-book/summary', safeSync((req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     let txns = [...database.data.cash_transactions];
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
@@ -1493,8 +1558,8 @@ function createApiServer(database) {
     res.json({ cash_in: cashIn, cash_out: cashOut, cash_balance: +(cashIn - cashOut).toFixed(2),
       bank_in: bankIn, bank_out: bankOut, bank_balance: +(bankIn - bankOut).toFixed(2),
       total_balance: +((cashIn - cashOut) + (bankIn - bankOut)).toFixed(2), total_transactions: txns.length });
-  });
-  apiApp.get('/api/cash-book/excel', async (req, res) => {
+  }));
+  apiApp.get('/api/cash-book/excel', safeAsync(async (req, res) => {
     try {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
       let txns = [...database.data.cash_transactions];
@@ -1520,8 +1585,8 @@ function createApiServer(database) {
       res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
-  apiApp.get('/api/cash-book/pdf', (req, res) => {
+  }));
+  apiApp.get('/api/cash-book/pdf', safeSync((req, res) => {
     try {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
       let txns = [...database.data.cash_transactions];
@@ -1542,11 +1607,11 @@ function createApiServer(database) {
       rows.push(['TOTAL','','','','',tj,tn,'']);
       addPdfTable(doc, headers, rows, [55,45,40,90,150,60,60,55]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
-  });
+  }));
 
 
   // ===== CASH BOOK OPENING BALANCE =====
-  apiApp.get('/api/cash-book/opening-balance', (req, res) => {
+  apiApp.get('/api/cash-book/opening-balance', safeSync((req, res) => {
     const kms_year = req.query.kms_year || '';
     if (!database.data.opening_balances) database.data.opening_balances = [];
     const saved = database.data.opening_balances.find(ob => ob.kms_year === kms_year);
@@ -1567,9 +1632,9 @@ function createApiServer(database) {
       } catch(e) {}
     }
     res.json({ cash: 0, bank: 0, source: 'none' });
-  });
+  }));
 
-  apiApp.put('/api/cash-book/opening-balance', (req, res) => {
+  apiApp.put('/api/cash-book/opening-balance', safeSync((req, res) => {
     const { kms_year, cash, bank } = req.body;
     if (!kms_year) return res.status(400).json({ detail: 'kms_year is required' });
     if (!database.data.opening_balances) database.data.opening_balances = [];
@@ -1579,17 +1644,17 @@ function createApiServer(database) {
     else database.data.opening_balances.push(doc);
     database.save();
     res.json(doc);
-  });
+  }));
 
 
   // ===== DC MANAGEMENT =====
-  apiApp.post('/api/dc-entries', (req, res) => {
+  apiApp.post('/api/dc-entries', safeSync((req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     const d = req.body;
     const entry = { id: uuidv4(), dc_number: d.dc_number||'', date: d.date||'', quantity_qntl: +(d.quantity_qntl||0), rice_type: d.rice_type||'parboiled', godown_name: d.godown_name||'', deadline: d.deadline||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
     database.data.dc_entries.push(entry); database.save(); res.json(entry);
-  });
-  apiApp.get('/api/dc-entries', (req, res) => {
+  }));
+  apiApp.get('/api/dc-entries', safeSync((req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     let entries = [...database.data.dc_entries];
@@ -1598,8 +1663,8 @@ function createApiServer(database) {
     entries.sort((a,b) => (b.date||'').localeCompare(a.date||''));
     entries.forEach(e => { const dels = database.data.dc_deliveries.filter(d => d.dc_id === e.id); const delivered = +dels.reduce((s,d)=>s+(d.quantity_qntl||0),0).toFixed(2); e.delivered_qntl = delivered; e.pending_qntl = +(e.quantity_qntl-delivered).toFixed(2); e.delivery_count = dels.length; e.status = delivered >= e.quantity_qntl ? 'completed' : (delivered > 0 ? 'partial' : 'pending'); });
     res.json(entries);
-  });
-  apiApp.delete('/api/dc-entries/:id', (req, res) => {
+  }));
+  apiApp.delete('/api/dc-entries/:id', safeSync((req, res) => {
     if (!database.data.dc_entries) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.dc_entries.length;
     database.data.dc_entries = database.data.dc_entries.filter(e => e.id !== req.params.id);
@@ -1607,15 +1672,15 @@ function createApiServer(database) {
     database.data.dc_deliveries = database.data.dc_deliveries.filter(d => d.dc_id !== req.params.id);
     if (database.data.dc_entries.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
-  });
-  apiApp.put('/api/dc-entries/:id', (req, res) => {
+  }));
+  apiApp.put('/api/dc-entries/:id', safeSync((req, res) => {
     if (!database.data.dc_entries) return res.status(404).json({ detail: 'Not found' });
     const idx = database.data.dc_entries.findIndex(e => e.id === req.params.id);
     if (idx < 0) return res.status(404).json({ detail: 'DC entry not found' });
     database.data.dc_entries[idx] = { ...database.data.dc_entries[idx], ...req.body, updated_at: new Date().toISOString() };
     database.save(); res.json(database.data.dc_entries[idx]);
-  });
-  apiApp.get('/api/dc-entries/excel', async (req, res) => {
+  }));
+  apiApp.get('/api/dc-entries/excel', safeAsync(async (req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     let entries = [...database.data.dc_entries];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
@@ -1625,8 +1690,8 @@ function createApiServer(database) {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=dc_entries.xlsx');
     await wb.xlsx.write(res); res.end();
-  });
-  apiApp.get('/api/dc-entries/pdf', (req, res) => {
+  }));
+  apiApp.get('/api/dc-entries/pdf', safeSync((req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     let entries = [...database.data.dc_entries];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
@@ -1636,30 +1701,30 @@ function createApiServer(database) {
     const headers = ['Date', 'DC No', 'Qty(Q)', 'Rice Type', 'Godown', 'Deadline', 'Notes'];
     const rows = entries.map(e => [e.date||'', e.dc_number||'', e.quantity_qntl||0, e.rice_type||'', e.godown_name||'', e.deadline||'', (e.notes||'').substring(0,25)]);
     addPdfTable(doc, headers, rows, [60, 60, 50, 60, 80, 60, 100]); doc.end();
-  });
+  }));
 
-  apiApp.post('/api/dc-deliveries', (req, res) => {
+  apiApp.post('/api/dc-deliveries', safeSync((req, res) => {
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     const d = req.body;
     const del = { id: uuidv4(), dc_id: d.dc_id||'', date: d.date||'', quantity_qntl: +(d.quantity_qntl||0), vehicle_no: d.vehicle_no||'', driver_name: d.driver_name||'', slip_no: d.slip_no||'', godown_name: d.godown_name||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
     database.data.dc_deliveries.push(del); database.save(); res.json(del);
-  });
-  apiApp.get('/api/dc-deliveries', (req, res) => {
+  }));
+  apiApp.get('/api/dc-deliveries', safeSync((req, res) => {
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     let dels = [...database.data.dc_deliveries];
     if (req.query.dc_id) dels = dels.filter(d => d.dc_id === req.query.dc_id);
     if (req.query.kms_year) dels = dels.filter(d => d.kms_year === req.query.kms_year);
     if (req.query.season) dels = dels.filter(d => d.season === req.query.season);
     res.json(dels.sort((a,b) => (b.date||'').localeCompare(a.date||'')));
-  });
-  apiApp.delete('/api/dc-deliveries/:id', (req, res) => {
+  }));
+  apiApp.delete('/api/dc-deliveries/:id', safeSync((req, res) => {
     if (!database.data.dc_deliveries) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.dc_deliveries.length;
     database.data.dc_deliveries = database.data.dc_deliveries.filter(d => d.id !== req.params.id);
     if (database.data.dc_deliveries.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
-  });
-  apiApp.get('/api/dc-summary', (req, res) => {
+  }));
+  apiApp.get('/api/dc-summary', safeSync((req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     let dcs = [...database.data.dc_entries]; let dels = [...database.data.dc_deliveries];
@@ -1669,9 +1734,9 @@ function createApiServer(database) {
     let comp=0,part=0,pend=0;
     dcs.forEach(dc=>{const d=dels.filter(x=>x.dc_id===dc.id).reduce((s,x)=>s+(x.quantity_qntl||0),0);if(d>=dc.quantity_qntl)comp++;else if(d>0)part++;else pend++;});
     res.json({total_dc:dcs.length,total_allotted_qntl:ta,total_delivered_qntl:td,total_pending_qntl:+(ta-td).toFixed(2),completed:comp,partial:part,pending:pend,total_deliveries:dels.length});
-  });
+  }));
   // ===== MSP PAYMENTS =====
-  apiApp.post('/api/msp-payments', (req, res) => {
+  apiApp.post('/api/msp-payments', safeSync((req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = req.body;
@@ -1689,8 +1754,8 @@ function createApiServer(database) {
       });
     }
     database.save(); res.json(pay);
-  });
-  apiApp.get('/api/msp-payments', (req, res) => {
+  }));
+  apiApp.get('/api/msp-payments', safeSync((req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     if (!database.data.dc_entries) database.data.dc_entries = [];
     let pays = [...database.data.msp_payments];
@@ -1699,8 +1764,8 @@ function createApiServer(database) {
     const dcMap = Object.fromEntries(database.data.dc_entries.map(d=>[d.id,d.dc_number||'']));
     pays.forEach(p=>{p.dc_number=dcMap[p.dc_id]||'';});
     res.json(pays.sort((a,b)=>(b.date||'').localeCompare(a.date||'')));
-  });
-  apiApp.delete('/api/msp-payments/:id', (req, res) => {
+  }));
+  apiApp.delete('/api/msp-payments/:id', safeSync((req, res) => {
     if (!database.data.msp_payments) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.msp_payments.length;
     database.data.msp_payments = database.data.msp_payments.filter(p=>p.id!==req.params.id);
@@ -1712,8 +1777,8 @@ function createApiServer(database) {
       database.save(); return res.json({ message: 'Deleted', id: req.params.id });
     }
     res.status(404).json({ detail: 'Not found' });
-  });
-  apiApp.get('/api/msp-payments/summary', (req, res) => {
+  }));
+  apiApp.get('/api/msp-payments/summary', safeSync((req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     let pays=[...database.data.msp_payments]; let dels=[...database.data.dc_deliveries];
@@ -1721,8 +1786,8 @@ function createApiServer(database) {
     if (req.query.season) { pays=pays.filter(p=>p.season===req.query.season); dels=dels.filter(d=>d.season===req.query.season); }
     const tpa=+pays.reduce((s,p)=>s+(p.amount||0),0).toFixed(2); const tpq=+pays.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2); const tdq=+dels.reduce((s,d)=>s+(d.quantity_qntl||0),0).toFixed(2);
     res.json({total_payments:pays.length,total_paid_amount:tpa,total_paid_qty:tpq,avg_rate:tpq>0?+(tpa/tpq).toFixed(2):0,total_delivered_qntl:tdq,pending_payment_qty:+(tdq-tpq).toFixed(2)});
-  });
-  apiApp.get('/api/msp-payments/excel', async (req, res) => {
+  }));
+  apiApp.get('/api/msp-payments/excel', safeAsync(async (req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     let payments = [...database.data.msp_payments];
     if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
@@ -1732,8 +1797,8 @@ function createApiServer(database) {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=msp_payments.xlsx');
     await wb.xlsx.write(res); res.end();
-  });
-  apiApp.get('/api/msp-payments/pdf', (req, res) => {
+  }));
+  apiApp.get('/api/msp-payments/pdf', safeSync((req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     let payments = [...database.data.msp_payments];
     if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
@@ -1743,31 +1808,31 @@ function createApiServer(database) {
     const headers = ['Date', 'Qty(Q)', 'Rate(Rs./Q)', 'Amount(Rs.)', 'Mode', 'Reference', 'Bank'];
     const rows = payments.map(p => [p.date||'', p.quantity_qntl||0, p.rate_per_qntl||0, p.amount||0, p.payment_mode||'', (p.reference||'').substring(0,15), (p.bank_name||'').substring(0,15)]);
     addPdfTable(doc, headers, rows, [60, 50, 60, 70, 50, 80, 80]); doc.end();
-  });
+  }));
 
   // ===== GUNNY BAGS =====
-  apiApp.post('/api/gunny-bags', (req, res) => {
+  apiApp.post('/api/gunny-bags', safeSync((req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     const d = req.body;
     const entry = { id: uuidv4(), date: d.date||'', bag_type: d.bag_type||'new', txn_type: d.txn_type||'in', quantity: +(d.quantity||0), source: d.source||'', rate: +(d.rate||0), amount: +((d.quantity||0)*(d.rate||0)).toFixed(2), reference: d.reference||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
     database.data.gunny_bags.push(entry); database.save(); res.json(entry);
-  });
-  apiApp.get('/api/gunny-bags', (req, res) => {
+  }));
+  apiApp.get('/api/gunny-bags', safeSync((req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     let entries = [...database.data.gunny_bags];
     if (req.query.kms_year) entries = entries.filter(e=>e.kms_year===req.query.kms_year);
     if (req.query.season) entries = entries.filter(e=>e.season===req.query.season);
     if (req.query.bag_type) entries = entries.filter(e=>e.bag_type===req.query.bag_type);
     res.json(entries.sort((a,b)=>(b.date||'').localeCompare(a.date||'')));
-  });
-  apiApp.delete('/api/gunny-bags/:id', (req, res) => {
+  }));
+  apiApp.delete('/api/gunny-bags/:id', safeSync((req, res) => {
     if (!database.data.gunny_bags) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.gunny_bags.length;
     database.data.gunny_bags = database.data.gunny_bags.filter(e=>e.id!==req.params.id);
     if (database.data.gunny_bags.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
-  });
-  apiApp.get('/api/gunny-bags/summary', (req, res) => {
+  }));
+  apiApp.get('/api/gunny-bags/summary', safeSync((req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     let entries = [...database.data.gunny_bags];
     if (req.query.kms_year) entries = entries.filter(e=>e.kms_year===req.query.kms_year);
@@ -1782,8 +1847,8 @@ function createApiServer(database) {
     result.g_issued = { total: paddyEntries.reduce((s,e)=>s+(e.g_issued||0),0), label: 'Govt Bags Issued (g)' };
     result.grand_total = result.old.balance + result.paddy_bags.total + result.ppkt.total;
     res.json(result);
-  });
-  apiApp.get('/api/gunny-bags/excel', async (req, res) => {
+  }));
+  apiApp.get('/api/gunny-bags/excel', safeAsync(async (req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     let entries = [...database.data.gunny_bags];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
@@ -1793,8 +1858,8 @@ function createApiServer(database) {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=gunny_bags.xlsx');
     await wb.xlsx.write(res); res.end();
-  });
-  apiApp.get('/api/gunny-bags/pdf', (req, res) => {
+  }));
+  apiApp.get('/api/gunny-bags/pdf', safeSync((req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     let entries = [...database.data.gunny_bags];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
@@ -1804,13 +1869,13 @@ function createApiServer(database) {
     const headers = ['Date', 'Bag Type', 'In/Out', 'Quantity', 'Rate(Rs.)', 'Amount(Rs.)', 'Notes'];
     const rows = entries.map(e => [e.date||'', e.bag_type||'', e.txn_type||'', e.quantity||0, e.rate||0, e.amount||0, (e.notes||'').substring(0,20)]);
     addPdfTable(doc, headers, rows, [60, 50, 40, 50, 50, 60, 100]); doc.end();
-  });
+  }));
 
 
   // ===== CMR EXPORT ENDPOINTS =====
 
   // ---- MILLING REPORT EXCEL ----
-  apiApp.get('/api/milling-report/excel', async (req, res) => {
+  apiApp.get('/api/milling-report/excel', safeAsync(async (req, res) => {
     try {
       const entries = database.getMillingEntries(req.query);
       const wb = new ExcelJS.Workbook();
@@ -1836,10 +1901,10 @@ function createApiServer(database) {
       res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
-  });
+  }));
 
   // ---- MILLING REPORT PDF ----
-  apiApp.get('/api/milling-report/pdf', (req, res) => {
+  apiApp.get('/api/milling-report/pdf', safeSync((req, res) => {
     try {
       const entries = database.getMillingEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
@@ -1854,10 +1919,10 @@ function createApiServer(database) {
       addPdfTable(doc, headers, rows, [50,45,45,35,40,35,40,40,35,35,60]);
       doc.end();
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
-  });
+  }));
 
   // ---- FRK PURCHASES EXCEL ----
-  apiApp.get('/api/frk-purchases/excel', async (req, res) => {
+  apiApp.get('/api/frk-purchases/excel', safeAsync(async (req, res) => {
     try {
       if (!database.data.frk_purchases) database.data.frk_purchases = [];
       let purchases = [...database.data.frk_purchases];
@@ -1881,10 +1946,10 @@ function createApiServer(database) {
       res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
-  });
+  }));
 
   // ---- FRK PURCHASES PDF ----
-  apiApp.get('/api/frk-purchases/pdf', (req, res) => {
+  apiApp.get('/api/frk-purchases/pdf', safeSync((req, res) => {
     try {
       if (!database.data.frk_purchases) database.data.frk_purchases = [];
       let purchases = [...database.data.frk_purchases];
@@ -1904,10 +1969,10 @@ function createApiServer(database) {
       addPdfTable(doc, headers, rows, [60, 120, 55, 55, 70, 80]);
       doc.end();
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
-  });
+  }));
 
   // ---- BYPRODUCT SALES EXCEL ----
-  apiApp.get('/api/byproduct-sales/excel', async (req, res) => {
+  apiApp.get('/api/byproduct-sales/excel', safeAsync(async (req, res) => {
     try {
       if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
       let sales = [...database.data.byproduct_sales];
@@ -1943,10 +2008,10 @@ function createApiServer(database) {
       res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
-  });
+  }));
 
   // ---- BYPRODUCT SALES PDF ----
-  apiApp.get('/api/byproduct-sales/pdf', (req, res) => {
+  apiApp.get('/api/byproduct-sales/pdf', safeSync((req, res) => {
     try {
       if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
       let sales = [...database.data.byproduct_sales];
@@ -1980,10 +2045,10 @@ function createApiServer(database) {
       addPdfTable(doc, headers, rows, [55, 55, 45, 50, 60, 90]);
       doc.end();
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
-  });
+  }));
 
   // ---- PADDY CUSTODY REGISTER EXCEL ----
-  apiApp.get('/api/paddy-custody-register/excel', async (req, res) => {
+  apiApp.get('/api/paddy-custody-register/excel', safeAsync(async (req, res) => {
     try {
       const filters = req.query;
       let entries = [...database.data.entries];
@@ -2013,10 +2078,10 @@ function createApiServer(database) {
       res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
-  });
+  }));
 
   // ---- PADDY CUSTODY REGISTER PDF ----
-  apiApp.get('/api/paddy-custody-register/pdf', (req, res) => {
+  apiApp.get('/api/paddy-custody-register/pdf', safeSync((req, res) => {
     try {
       const filters = req.query;
       let entries = [...database.data.entries];
@@ -2040,7 +2105,7 @@ function createApiServer(database) {
       addPdfTable(doc, headers, pdfRows, [50, 180, 60, 60, 60]);
       doc.end();
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
-  });
+  }));
 
 
   // ============ PRIVATE TRADING: Paddy Purchase & Rice Sale ============
@@ -2062,16 +2127,16 @@ function createApiServer(database) {
     return d;
   }
 
-  apiApp.post('/api/private-paddy', (req, res) => {
+  apiApp.post('/api/private-paddy', safeSync((req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     ['kg','bag','rate_per_qntl','g_deposite','plastic_bag','moisture','cutting_percent','disc_dust_poll','paid_amount'].forEach(f => { d[f] = parseFloat(d[f]) || 0; });
     d.bag = parseInt(d.bag) || 0; d.plastic_bag = parseInt(d.plastic_bag) || 0;
     calcPaddyAutoDesktop(d);
     database.data.private_paddy.push(d); database.save(); res.json(d);
-  });
+  }));
 
-  apiApp.get('/api/private-paddy', (req, res) => {
+  apiApp.get('/api/private-paddy', safeSync((req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const { kms_year, season, party_name } = req.query;
     let items = [...database.data.private_paddy];
@@ -2080,9 +2145,9 @@ function createApiServer(database) {
     if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
     items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     res.json(items);
-  });
+  }));
 
-  apiApp.put('/api/private-paddy/:id', (req, res) => {
+  apiApp.put('/api/private-paddy/:id', safeSync((req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -2091,16 +2156,16 @@ function createApiServer(database) {
     merged.bag = parseInt(merged.bag) || 0; merged.plastic_bag = parseInt(merged.plastic_bag) || 0;
     calcPaddyAutoDesktop(merged);
     database.data.private_paddy[idx] = merged; database.save(); res.json(merged);
-  });
+  }));
 
-  apiApp.delete('/api/private-paddy/:id', (req, res) => {
+  apiApp.delete('/api/private-paddy/:id', safeSync((req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     database.data.private_paddy.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
-  });
+  }));
 
-  apiApp.post('/api/rice-sales', (req, res) => {
+  apiApp.post('/api/rice-sales', safeSync((req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     d.quantity_qntl = parseFloat(d.quantity_qntl) || 0; d.rate_per_qntl = parseFloat(d.rate_per_qntl) || 0;
@@ -2108,9 +2173,9 @@ function createApiServer(database) {
     d.total_amount = Math.round(d.quantity_qntl * d.rate_per_qntl * 100) / 100;
     d.balance = Math.round(d.total_amount - d.paid_amount, 2);
     database.data.rice_sales.push(d); database.save(); res.json(d);
-  });
+  }));
 
-  apiApp.get('/api/rice-sales', (req, res) => {
+  apiApp.get('/api/rice-sales', safeSync((req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, party_name } = req.query;
     let items = [...database.data.rice_sales];
@@ -2119,9 +2184,9 @@ function createApiServer(database) {
     if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
     items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     res.json(items);
-  });
+  }));
 
-  apiApp.put('/api/rice-sales/:id', (req, res) => {
+  apiApp.put('/api/rice-sales/:id', safeSync((req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -2131,16 +2196,16 @@ function createApiServer(database) {
     merged.total_amount = Math.round(merged.quantity_qntl * merged.rate_per_qntl * 100) / 100;
     merged.balance = Math.round(merged.total_amount - merged.paid_amount, 2);
     database.data.rice_sales[idx] = merged; database.save(); res.json(merged);
-  });
+  }));
 
-  apiApp.delete('/api/rice-sales/:id', (req, res) => {
+  apiApp.delete('/api/rice-sales/:id', safeSync((req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     database.data.rice_sales.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
-  });
+  }));
 
-  apiApp.post('/api/private-payments', (req, res) => {
+  apiApp.post('/api/private-payments', safeSync((req, res) => {
     if (!database.data.private_payments) database.data.private_payments = [];
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
@@ -2165,9 +2230,9 @@ function createApiServer(database) {
     };
     database.data.cash_transactions.push(cbTxn);
     database.save(); res.json(d);
-  });
+  }));
 
-  apiApp.get('/api/private-payments', (req, res) => {
+  apiApp.get('/api/private-payments', safeSync((req, res) => {
     if (!database.data.private_payments) database.data.private_payments = [];
     const { party_name, ref_type, ref_id, kms_year, season } = req.query;
     let items = [...database.data.private_payments];
@@ -2178,9 +2243,9 @@ function createApiServer(database) {
     if (season) items = items.filter(i => i.season === season);
     items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     res.json(items);
-  });
+  }));
 
-  apiApp.delete('/api/private-payments/:id', (req, res) => {
+  apiApp.delete('/api/private-payments/:id', safeSync((req, res) => {
     if (!database.data.private_payments) database.data.private_payments = [];
     const idx = database.data.private_payments.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -2196,11 +2261,11 @@ function createApiServer(database) {
       database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== pay.id);
     }
     database.data.private_payments.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
-  });
+  }));
 
   // ============ PHASE 5: CONSOLIDATED LEDGERS ============
 
-  apiApp.get('/api/reports/outstanding', (req, res) => {
+  apiApp.get('/api/reports/outstanding', safeSync((req, res) => {
     const { kms_year, season } = req.query;
     const dcEntries = (database.data.dc_entries || []).filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     const allDels = (database.data.dc_deliveries || []).filter(d => (!kms_year || d.kms_year === kms_year) && (!season || d.season === season));
@@ -2225,9 +2290,9 @@ function createApiServer(database) {
     const frkPartyMap = {};
     for (const p of frkPurchases) { const n = p.party_name || 'Unknown'; if (!frkPartyMap[n]) frkPartyMap[n] = { party_name: n, total_qty: 0, total_amount: 0 }; frkPartyMap[n].total_qty = Math.round((frkPartyMap[n].total_qty + (p.quantity_qntl || 0)) * 100) / 100; frkPartyMap[n].total_amount = Math.round((frkPartyMap[n].total_amount + (p.total_amount || 0)) * 100) / 100; }
     res.json({ dc_outstanding: { items: dcOutstanding, total_pending_qntl: dcPendingTotal, count: dcOutstanding.length }, msp_outstanding: { total_delivered_qntl: totalDeliveredQntl, total_paid_qty: totalMspPaidQty, total_paid_amount: totalMspPaidAmt, pending_qty: mspPendingQty }, trucks: Object.values(truckMap), agents: Object.values(agentMap), frk_parties: Object.values(frkPartyMap) });
-  });
+  }));
 
-  apiApp.get('/api/reports/party-ledger', (req, res) => {
+  apiApp.get('/api/reports/party-ledger', safeSync((req, res) => {
     const { party_name, party_type, kms_year, season } = req.query;
     const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     const ledger = [];
@@ -2245,9 +2310,9 @@ function createApiServer(database) {
     const partySet = new Set(); for (const item of ledger) partySet.add(JSON.stringify({ name: item.party_name, type: item.party_type }));
     const partyList = [...partySet].map(s => JSON.parse(s)).sort((a, b) => a.name.localeCompare(b.name));
     res.json({ ledger, party_list: partyList, total_debit: Math.round(ledger.reduce((s, l) => s + l.debit, 0) * 100) / 100, total_credit: Math.round(ledger.reduce((s, l) => s + l.credit, 0) * 100) / 100 });
-  });
+  }));
 
-  apiApp.get('/api/reports/outstanding/excel', async (req, res) => {
+  apiApp.get('/api/reports/outstanding/excel', safeAsync(async (req, res) => {
     try {
       const { kms_year, season } = req.query;
       const dcEntries = (database.data.dc_entries || []).filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
@@ -2262,9 +2327,9 @@ function createApiServer(database) {
       const buf = await wb.xlsx.writeBuffer();
       res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=outstanding_${Date.now()}.xlsx` }); res.send(Buffer.from(buf));
     } catch (err) { res.status(500).json({ detail: 'Excel export failed: ' + err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/reports/outstanding/pdf', (req, res) => {
+  apiApp.get('/api/reports/outstanding/pdf', safeSync((req, res) => {
     try {
       const { kms_year, season } = req.query;
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
@@ -2276,9 +2341,9 @@ function createApiServer(database) {
       for (const dc of dcEntries) { const delivered = Math.round(allDels.filter(d => d.dc_id === dc.id).reduce((s, d) => s + (d.quantity_qntl||0), 0)*100)/100; const pending = Math.round((dc.quantity_qntl - delivered)*100)/100; if (pending > 0) doc.fontSize(9).text(`${dc.dc_number||'-'} | Allotted: ${dc.quantity_qntl}Q | Delivered: ${delivered}Q | Pending: ${pending}Q`); }
       doc.end();
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/reports/party-ledger/excel', async (req, res) => {
+  apiApp.get('/api/reports/party-ledger/excel', safeAsync(async (req, res) => {
     try {
       const { party_name, party_type, kms_year, season } = req.query;
       const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
@@ -2292,9 +2357,9 @@ function createApiServer(database) {
       const buf = await wb.xlsx.writeBuffer();
       res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=party_ledger_${Date.now()}.xlsx` }); res.send(Buffer.from(buf));
     } catch (err) { res.status(500).json({ detail: 'Excel export failed: ' + err.message }); }
-  });
+  }));
 
-  apiApp.get('/api/reports/party-ledger/pdf', (req, res) => {
+  apiApp.get('/api/reports/party-ledger/pdf', safeSync((req, res) => {
     try {
       const { party_name, party_type, kms_year, season } = req.query;
       const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
@@ -2307,7 +2372,7 @@ function createApiServer(database) {
       for (const l of ledger) doc.fontSize(8).text(`${l.date} | ${l.party_name} (${l.party_type}) | ${l.description} | Dr:Rs.${l.debit} | Cr:Rs.${l.credit}`);
       doc.end();
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
-  });
+  }));
 
 
 
@@ -2326,17 +2391,30 @@ function createApiServer(database) {
     console.error('[Routes] Error loading modules:', e.message);
   }
 
+  // ===== HEALTH CHECK =====
+  apiApp.get('/api/health', safeSync((req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+  }));
+
+  // ===== EXPRESS ERROR MIDDLEWARE (catches sync errors from routes) =====
+  apiApp.use((err, req, res, next) => {
+    logError('EXPRESS_ERROR: ' + req.method + ' ' + req.originalUrl, err);
+    if (!res.headersSent) {
+      res.status(500).json({ detail: 'Internal server error' });
+    }
+  });
+
   // ===== SERVE FRONTEND STATIC FILES (MUST be after all API routes) =====
   const frontendDir = path.join(__dirname, 'frontend-build');
   if (fs.existsSync(frontendDir)) {
     apiApp.use(express.static(frontendDir));
-    apiApp.get('*', (req, res) => {
+    apiApp.get('*', safeSync((req, res) => {
       if (!req.path.startsWith('/api')) {
         res.sendFile(path.join(frontendDir, 'index.html'));
       } else {
         res.status(404).json({ detail: 'API endpoint not found' });
       }
-    });
+    }));
     console.log('Frontend served from: ' + frontendDir);
   }
 
@@ -2776,6 +2854,29 @@ async function startApplication(folderPath) {
 
   // Start API server
   const port = await createApiServer(db);
+
+  // Monitor server health - restart if it dies
+  const http = require('http');
+  setInterval(() => {
+    if (!server || !server.listening) {
+      logError('SERVER_WATCHDOG', 'Server not listening! Attempting restart...');
+      createApiServer(db).then((newPort) => {
+        logError('SERVER_WATCHDOG', 'Server restarted on port ' + newPort);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.loadURL(`http://127.0.0.1:${newPort}`);
+        }
+      }).catch((restartErr) => {
+        logError('SERVER_WATCHDOG_RESTART_FAILED', restartErr);
+      });
+      return;
+    }
+    // Quick health ping
+    http.get(`http://127.0.0.1:${server.address().port}/api/health`, (res) => {
+      // Server is alive
+    }).on('error', (err) => {
+      logError('SERVER_WATCHDOG_PING_FAIL', err.message);
+    });
+  }, 30000); // Check every 30 seconds
 
   // Close splash and open main window
   if (splashWindow) {

@@ -1,4 +1,5 @@
 const express = require('express');
+const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -143,12 +144,12 @@ function getDailyReportData(query) {
   };
 }
 
-router.get('/api/reports/daily', (req, res) => {
+router.get('/api/reports/daily', safeSync((req, res) => {
   res.json(getDailyReportData(req.query));
-});
+}));
 
 // ============ DAILY REPORT PDF ============
-router.get('/api/reports/daily/pdf', (req, res) => {
+router.get('/api/reports/daily/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
   const data = getDailyReportData(req.query);
   const isDetail = data.mode === 'detail';
@@ -225,10 +226,10 @@ router.get('/api/reports/daily/pdf', (req, res) => {
   }
 
   doc.end();
-});
+}));
 
 // ============ DAILY REPORT EXCEL ============
-router.get('/api/reports/daily/excel', async (req, res) => {
+router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
   const data = getDailyReportData(req.query);
   const isDetail = data.mode === 'detail';
@@ -289,7 +290,7 @@ router.get('/api/reports/daily/excel', async (req, res) => {
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.xlsx`);
   await wb.xlsx.write(res); res.end();
-});
+}));
 
   return router;
 };

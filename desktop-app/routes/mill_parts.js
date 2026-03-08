@@ -1,11 +1,12 @@
 const express = require('express');
+const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
 module.exports = function(database) {
 
 // ============ MILL PARTS MASTER ============
-router.post('/api/mill-parts', (req, res) => {
+router.post('/api/mill-parts', safeSync((req, res) => {
   if (!database.data.mill_parts) database.data.mill_parts = [];
   const d = req.body;
   const name = (d.name || '').trim();
@@ -17,24 +18,24 @@ router.post('/api/mill-parts', (req, res) => {
     min_stock: parseFloat(d.min_stock) || 0, created_at: new Date().toISOString()
   };
   database.data.mill_parts.push(doc); database.save(); res.json(doc);
-});
+}));
 
-router.get('/api/mill-parts', (req, res) => {
+router.get('/api/mill-parts', safeSync((req, res) => {
   if (!database.data.mill_parts) database.data.mill_parts = [];
   const items = [...database.data.mill_parts].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   res.json(items);
-});
+}));
 
-router.delete('/api/mill-parts/:id', (req, res) => {
+router.delete('/api/mill-parts/:id', safeSync((req, res) => {
   if (!database.data.mill_parts) return res.status(404).json({ detail: 'Not found' });
   const len = database.data.mill_parts.length;
   database.data.mill_parts = database.data.mill_parts.filter(p => p.id !== req.params.id);
   if (database.data.mill_parts.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
   res.status(404).json({ detail: 'Not found' });
-});
+}));
 
 // ============ MILL PARTS STOCK TRANSACTIONS ============
-router.post('/api/mill-parts-stock', (req, res) => {
+router.post('/api/mill-parts-stock', safeSync((req, res) => {
   if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
   const d = req.body;
   const qty = parseFloat(d.quantity) || 0;
@@ -48,9 +49,9 @@ router.post('/api/mill-parts-stock', (req, res) => {
     created_by: d.created_by || '', created_at: new Date().toISOString()
   };
   database.data.mill_parts_stock.push(doc); database.save(); res.json(doc);
-});
+}));
 
-router.get('/api/mill-parts-stock', (req, res) => {
+router.get('/api/mill-parts-stock', safeSync((req, res) => {
   if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
   let items = [...database.data.mill_parts_stock];
   if (req.query.part_name) items = items.filter(t => t.part_name === req.query.part_name);
@@ -59,15 +60,15 @@ router.get('/api/mill-parts-stock', (req, res) => {
   if (req.query.season) items = items.filter(t => t.season === req.query.season);
   if (req.query.party_name) items = items.filter(t => (t.party_name || '').toLowerCase().includes(req.query.party_name.toLowerCase()));
   res.json(items.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
-});
+}));
 
-router.delete('/api/mill-parts-stock/:id', (req, res) => {
+router.delete('/api/mill-parts-stock/:id', safeSync((req, res) => {
   if (!database.data.mill_parts_stock) return res.status(404).json({ detail: 'Not found' });
   const len = database.data.mill_parts_stock.length;
   database.data.mill_parts_stock = database.data.mill_parts_stock.filter(t => t.id !== req.params.id);
   if (database.data.mill_parts_stock.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
   res.status(404).json({ detail: 'Not found' });
-});
+}));
 
 // ============ STOCK SUMMARY ============
 function getStockSummary(query) {
@@ -114,12 +115,12 @@ function getStockSummary(query) {
   return result;
 }
 
-router.get('/api/mill-parts/summary', (req, res) => {
+router.get('/api/mill-parts/summary', safeSync((req, res) => {
   res.json(getStockSummary(req.query));
-});
+}));
 
 // ============ STOCK EXPORT (Excel) ============
-router.get('/api/mill-parts/summary/excel', async (req, res) => {
+router.get('/api/mill-parts/summary/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
   const summary = getStockSummary(req.query);
   const wb = new ExcelJS.Workbook();
@@ -137,10 +138,10 @@ router.get('/api/mill-parts/summary/excel', async (req, res) => {
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename=mill_parts_stock.xlsx`);
   await wb.xlsx.write(res); res.end();
-});
+}));
 
 // ============ STOCK EXPORT (PDF) ============
-router.get('/api/mill-parts/summary/pdf', (req, res) => {
+router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
   const summary = getStockSummary(req.query);
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
@@ -162,7 +163,7 @@ router.get('/api/mill-parts/summary/pdf', (req, res) => {
     vals.forEach((v, i) => { doc.text(String(v), x, y, { width: colW[i] }); x += colW[i]; });
   }
   doc.end();
-});
+}));
 
   return router;
 };
