@@ -2103,6 +2103,21 @@ function createApiServer(database) {
     console.log('Frontend served from: ' + frontendDir);
   }
 
+  // ===== LOAD MODULAR ROUTE MODULES =====
+  try {
+    const millPartsRoutes = require('./routes/mill_parts')(database);
+    const staffRoutes = require('./routes/staff')(database);
+    const dailyReportRoutes = require('./routes/daily_report')(database);
+    const reportsPnlRoutes = require('./routes/reports_pnl')(database);
+    apiApp.use(millPartsRoutes);
+    apiApp.use(staffRoutes);
+    apiApp.use(dailyReportRoutes);
+    apiApp.use(reportsPnlRoutes);
+    console.log('[Routes] Mill Parts, Staff, Daily Report, Reports P&L loaded');
+  } catch (e) {
+    console.error('[Routes] Error loading modules:', e.message);
+  }
+
   // Start server on fixed port
   return new Promise((resolve, reject) => {
     server = apiApp.listen(DESKTOP_API_PORT, '127.0.0.1', () => {

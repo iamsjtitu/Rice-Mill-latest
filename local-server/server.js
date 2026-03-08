@@ -587,7 +587,7 @@ async function startServer() {
     createBackup('startup');
   }
 
-  // Setup routes (re-require with new database)
+  // Setup routes
   try {
     const authRoutes = require('./routes/auth')(database);
     const entriesRoutes = require('./routes/entries')(database);
@@ -599,19 +599,27 @@ async function startServer() {
     const cmrExportsRoutes = require('./routes/cmr_exports')(database);
     const privateTradingRoutes = require('./routes/private_trading')(database);
     const ledgersRoutes = require('./routes/ledgers')(database);
+    const millPartsRoutes = require('./routes/mill_parts')(database);
+    const staffRoutes = require('./routes/staff')(database);
+    const dailyReportRoutes = require('./routes/daily_report')(database);
+    const reportsPnlRoutes = require('./routes/reports_pnl')(database);
 
-    app.use('/api/auth', authRoutes);
-    app.use('/api', entriesRoutes);
-    app.use('/api', dashboardRoutes);
-    app.use('/api', paymentsRoutes);
-    app.use('/api', exportsRoutes);
-    app.use('/api', cashbookRoutes);
-    app.use('/api', dcPaymentsRoutes);
-    app.use('/api', cmrExportsRoutes);
-    app.use('/api', privateTradingRoutes);
-    app.use('/api', ledgersRoutes);
+    app.use(authRoutes);
+    app.use(entriesRoutes);
+    app.use(dashboardRoutes);
+    app.use(paymentsRoutes);
+    app.use(exportsRoutes);
+    app.use(cashbookRoutes);
+    app.use(dcPaymentsRoutes);
+    app.use(cmrExportsRoutes);
+    app.use(privateTradingRoutes);
+    app.use(ledgersRoutes);
+    app.use(millPartsRoutes);
+    app.use(staffRoutes);
+    app.use(dailyReportRoutes);
+    app.use(reportsPnlRoutes);
   } catch (e) {
-    console.log('  [Note] Some route modules not found, using inline routes');
+    console.log('  [Note] Some route modules not found:', e.message);
   }
 
   app.listen(PORT, () => {

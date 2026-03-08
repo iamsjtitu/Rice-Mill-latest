@@ -57,6 +57,15 @@ Comprehensive Mill Entry System for managing paddy-to-rice conversion (CMR) for 
 - Local server: Added startup prompt for data folder selection (supports --data-dir CLI arg)
 - User must manually select data folder every time app opens
 
+### Node.js Feature Porting + Modular Refactoring - DONE (2026-03-08)
+- Created 4 new route modules for both `local-server/routes/` and `desktop-app/routes/`:
+  - `mill_parts.js` (9 routes) - Parts CRUD, Stock transactions, Summary, Excel/PDF exports
+  - `staff.js` (16 routes) - Staff CRUD, Attendance (single/bulk), Advances, Salary calc, Payments, Attendance export with monthly summary + est. salary
+  - `daily_report.js` (3 routes) - Daily Report data, PDF, Excel with all 9 sections
+  - `reports_pnl.js` (6 routes) - Season P&L, CMR vs DC, Excel/PDF exports
+- Fixed route mounting in `local-server/server.js` (was using `/api` prefix causing double-prefix)
+- Registered all 4 new modules in both `local-server/server.js` and `desktop-app/main.js`
+- All 34 routes verified via Node.js module loading test
+
 ## Prioritized Backlog
-- **P1:** Port features to Node.js backends (`local-server/server.js`, `desktop-app/main.js`) + complete refactoring
 - **P2:** macOS Desktop Build
