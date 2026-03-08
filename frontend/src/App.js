@@ -36,7 +36,7 @@ import {
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
   Info, Printer, HardDrive, Download, RotateCcw, Shield, Sun, Moon,
-  Wheat, Wallet
+  Wheat, Wallet, Package
 } from "lucide-react";
 
 // Import extracted components
@@ -50,6 +50,7 @@ import DCTracker from "@/components/DCTracker";
 import Reports from "@/components/Reports";
 import Ledgers from "@/components/Ledgers";
 import PrivateTrading from "@/components/PrivateTrading";
+import MillPartsStock from "@/components/MillPartsStock";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1277,6 +1278,18 @@ function MainApp({ user, onLogout }) {
               <Wheat className="w-4 h-4 mr-1" />
               Pvt Trading
             </Button>
+            <Button
+              onClick={() => setActiveTab("mill-parts")}
+              variant={activeTab === "mill-parts" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "mill-parts" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-mill-parts"
+            >
+              <Package className="w-4 h-4 mr-1" />
+              Mill Parts
+            </Button>
             {user.role === 'admin' && (
               <Button
                 onClick={() => { setActiveTab("settings"); fetchBackups(); }}
@@ -1847,6 +1860,8 @@ function MainApp({ user, onLogout }) {
           <Ledgers filters={filters} user={user} />
         ) : activeTab === "private-trading" ? (
           <PrivateTrading filters={filters} user={user} />
+        ) : activeTab === "mill-parts" ? (
+          <MillPartsStock filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">
