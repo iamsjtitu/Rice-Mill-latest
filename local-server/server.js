@@ -629,6 +629,73 @@ async function startServer() {
     }
   });
 
+  // ===== DIESEL PUMPS & ACCOUNTS =====
+  app.get('/api/diesel-pumps', (req, res) => { res.json(database.data.diesel_pumps || []); });
+  app.post('/api/diesel-pumps', (req, res) => {
+    if (!database.data.diesel_pumps) database.data.diesel_pumps = [];
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ detail: 'Name required' });
+    if (database.data.diesel_pumps.find(p => p.name === name)) return res.status(400).json({ detail: 'Pump exists' });
+    if (req.body.is_default) database.data.diesel_pumps.forEach(p => p.is_default = false);
+    const pump = { id: uuidv4(), name, is_default: !!req.body.is_default || database.data.diesel_pumps.length === 0, created_at: new Date().toISOString() };
+    database.data.diesel_pumps.push(pump); database.save(); res.json(pump);
+  });
+  app.put('/api/diesel-pumps/:id/set-default', (req, res) => {
+    if (!database.data.diesel_pumps) return res.status(404).json({ detail: 'Not found' });
+    database.data.diesel_pumps.forEach(p => p.is_default = (p.id === req.params.id));
+    database.save(); res.json({ message: 'Default set' });
+  });
+  app.delete('/api/diesel-pumps/:id', (req, res) => {
+    if (!database.data.diesel_pumps) return res.status(404).json({ detail: 'Not found' });
+    const len = database.data.diesel_pumps.length;
+    database.data.diesel_pumps = database.data.diesel_pumps.filter(p => p.id !== req.params.id);
+    if (database.data.diesel_pumps.length < len) { database.save(); return res.json({ message: 'Deleted' }); }
+    res.status(404).json({ detail: 'Not found' });
+  });
+  app.get('/api/diesel-accounts', (req, res) => {
+    let txns = database.data.diesel_accounts || [];
+    if (req.query.pump_id) txns = txns.filter(t => t.pump_id === req.query.pump_id);
+    if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+    if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+    res.json(txns.sort((a,b) => (b.date||'').localeCompare(a.date||'')));
+  });
+  app.get('/api/diesel-accounts/summary', (req, res) => {
+    let txns = database.data.diesel_accounts || [];
+    if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+    if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+    const pumps = (database.data.diesel_pumps || []).map(p => {
+      const pt = txns.filter(t => t.pump_id === p.id);
+      const td = pt.filter(t=>t.txn_type==='debit').reduce((s,t)=>s+t.amount,0);
+      const tp = pt.filter(t=>t.txn_type==='payment').reduce((s,t)=>s+t.amount,0);
+      return { pump_id:p.id, pump_name:p.name, is_default:p.is_default||false, total_diesel:+td.toFixed(2), total_paid:+tp.toFixed(2), balance:+(td-tp).toFixed(2), txn_count:pt.filter(t=>t.txn_type==='debit').length };
+    });
+    res.json({ pumps, grand_total_diesel:+pumps.reduce((s,p)=>s+p.total_diesel,0).toFixed(2), grand_total_paid:+pumps.reduce((s,p)=>s+p.total_paid,0).toFixed(2), grand_balance:+pumps.reduce((s,p)=>s+p.balance,0).toFixed(2) });
+  });
+  app.post('/api/diesel-accounts/pay', (req, res) => {
+    const { pump_id, amount, date, kms_year, season, notes } = req.body;
+    const amt = parseFloat(amount) || 0;
+    if (!pump_id || amt <= 0) return res.status(400).json({ detail: 'pump_id and amount required' });
+    const pump = (database.data.diesel_pumps||[]).find(p=>p.id===pump_id);
+    if (!pump) return res.status(404).json({ detail: 'Pump not found' });
+    if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    const txn = { id:uuidv4(), date:date||new Date().toISOString().split('T')[0], pump_id, pump_name:pump.name, truck_no:'', agent_name:'', amount:+amt.toFixed(2), txn_type:'payment', description:`Payment to ${pump.name}${notes?' - '+notes:''}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', created_at:new Date().toISOString() };
+    database.data.diesel_accounts.push(txn);
+    database.data.cash_transactions.push({ id:uuidv4(), date:txn.date, account:'cash', txn_type:'nikasi', category:'Diesel Payment', description:`Diesel Payment: ${pump.name} - Rs.${amt}${notes?' ('+notes+')':''}`, amount:+amt.toFixed(2), reference:`diesel_pay:${txn.id.slice(0,8)}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', linked_diesel_payment_id:txn.id, created_at:new Date().toISOString() });
+    database.save();
+    res.json({ success:true, message:`Rs.${amt} payment to ${pump.name} recorded`, txn_id:txn.id });
+  });
+  app.delete('/api/diesel-accounts/:id', (req, res) => {
+    if (!database.data.diesel_accounts) return res.status(404).json({ detail: 'Not found' });
+    const txn = database.data.diesel_accounts.find(t=>t.id===req.params.id);
+    if (!txn) return res.status(404).json({ detail: 'Not found' });
+    if (txn.txn_type === 'payment' && database.data.cash_transactions) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t=>t.linked_diesel_payment_id!==txn.id);
+    }
+    database.data.diesel_accounts = database.data.diesel_accounts.filter(t=>t.id!==req.params.id);
+    database.save(); res.json({ message:'Deleted', id:req.params.id });
+  });
+
   // ===== SERVE FRONTEND (AFTER all API routes) =====
   if (fs.existsSync(PUBLIC_DIR)) {
     app.use(express.static(PUBLIC_DIR));
