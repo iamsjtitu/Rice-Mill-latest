@@ -36,7 +36,7 @@ import {
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
   Info, Printer, HardDrive, Download, RotateCcw, Shield, Sun, Moon,
-  Wheat, Wallet, Package
+  Wheat, Wallet, Package, UserCheck
 } from "lucide-react";
 
 // Import extracted components
@@ -51,6 +51,7 @@ import Reports from "@/components/Reports";
 import Ledgers from "@/components/Ledgers";
 import PrivateTrading from "@/components/PrivateTrading";
 import MillPartsStock from "@/components/MillPartsStock";
+import StaffManagement from "@/components/StaffManagement";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1290,6 +1291,18 @@ function MainApp({ user, onLogout }) {
               <Package className="w-4 h-4 mr-1" />
               Mill Parts
             </Button>
+            <Button
+              onClick={() => setActiveTab("staff")}
+              variant={activeTab === "staff" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "staff" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-staff"
+            >
+              <UserCheck className="w-4 h-4 mr-1" />
+              Staff
+            </Button>
             {user.role === 'admin' && (
               <Button
                 onClick={() => { setActiveTab("settings"); fetchBackups(); }}
@@ -1862,6 +1875,8 @@ function MainApp({ user, onLogout }) {
           <PrivateTrading filters={filters} user={user} />
         ) : activeTab === "mill-parts" ? (
           <MillPartsStock filters={filters} user={user} />
+        ) : activeTab === "staff" ? (
+          <StaffManagement filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">

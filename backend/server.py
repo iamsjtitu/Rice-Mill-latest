@@ -38,6 +38,7 @@ from routes.private_trading import router as private_trading_router
 from routes.ledgers import router as ledgers_router
 from routes.mill_parts import router as mill_parts_router
 from routes.daily_report import router as daily_report_router
+from routes.staff import router as staff_router
 
 api_router.include_router(auth_router)
 api_router.include_router(entries_router)
@@ -51,6 +52,7 @@ api_router.include_router(private_trading_router)
 api_router.include_router(ledgers_router)
 api_router.include_router(mill_parts_router)
 api_router.include_router(daily_report_router)
+api_router.include_router(staff_router)
 
 # Include the api_router in the main app
 app.include_router(api_router)
