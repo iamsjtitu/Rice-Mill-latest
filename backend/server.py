@@ -18,7 +18,7 @@ async def create_print_page(request: Request):
     data = await request.json()
     page_id = secrets.token_urlsafe(16)
     print_pages[page_id] = data.get("html", "")
-    return {"page_id": page_id}
+    return {"page_id": page_id, "url": f"/api/print/{page_id}"}
 
 @api_router.get("/print/{page_id}", response_class=HTMLResponse)
 async def get_print_page(page_id: str):
