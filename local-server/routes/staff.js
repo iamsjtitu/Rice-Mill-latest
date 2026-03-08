@@ -120,6 +120,23 @@ router.delete('/api/staff/advance/:id', (req, res) => {
   database.save(); res.json({ message: 'Deleted', id: req.params.id });
 });
 
+// ============ STAFF ADVANCE BALANCE ============
+router.get('/api/staff/advance-balance/:staffId', (req, res) => {
+  const { kms_year, season } = req.query;
+  let advances = col('staff_advances').filter(a => a.staff_id === req.params.staffId);
+  if (kms_year) advances = advances.filter(a => a.kms_year === kms_year);
+  if (season) advances = advances.filter(a => a.season === season);
+  const totalAdvance = +(advances.reduce((s, a) => s + (a.amount || 0), 0).toFixed(2));
+
+  let payments = col('staff_payments').filter(p => p.staff_id === req.params.staffId);
+  if (kms_year) payments = payments.filter(p => p.kms_year === kms_year);
+  if (season) payments = payments.filter(p => p.season === season);
+  const totalDeducted = +(payments.reduce((s, p) => s + (p.advance_deducted || 0), 0).toFixed(2));
+
+  res.json({ total_advance: totalAdvance, total_deducted: totalDeducted, balance: +(totalAdvance - totalDeducted).toFixed(2) });
+});
+
+
 // ============ STAFF SALARY CALCULATION ============
 router.get('/api/staff/salary-calculate', (req, res) => {
   const { staff_id, from_date, to_date, kms_year } = req.query;

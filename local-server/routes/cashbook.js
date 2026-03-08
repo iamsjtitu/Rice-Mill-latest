@@ -142,6 +142,43 @@ router.get('/api/cash-book/pdf', (req, res) => {
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });
 
+// ============ OPENING BALANCE ============
+router.get('/api/cash-book/opening-balance', (req, res) => {
+  const kms_year = req.query.kms_year || '';
+  if (!database.data.opening_balances) database.data.opening_balances = [];
+  const saved = database.data.opening_balances.find(ob => ob.kms_year === kms_year);
+  if (saved) return res.json({ cash: saved.cash || 0, bank: saved.bank || 0, source: 'manual' });
+  // Auto-compute from previous FY
+  const parts = kms_year.split('-');
+  if (parts.length === 2) {
+    try {
+      const prevFy = `${parseInt(parts[0])-1}-${parseInt(parts[1])-1}`;
+      const prevTxns = (database.data.cash_transactions || []).filter(t => t.kms_year === prevFy);
+      const prevCashIn = prevTxns.filter(t => t.account==='cash' && t.txn_type==='jama').reduce((s,t) => s+(t.amount||0), 0);
+      const prevCashOut = prevTxns.filter(t => t.account==='cash' && t.txn_type==='nikasi').reduce((s,t) => s+(t.amount||0), 0);
+      const prevBankIn = prevTxns.filter(t => t.account==='bank' && t.txn_type==='jama').reduce((s,t) => s+(t.amount||0), 0);
+      const prevBankOut = prevTxns.filter(t => t.account==='bank' && t.txn_type==='nikasi').reduce((s,t) => s+(t.amount||0), 0);
+      const prevOb = database.data.opening_balances.find(ob => ob.kms_year === prevFy);
+      const obCash = prevOb ? (prevOb.cash || 0) : 0;
+      const obBank = prevOb ? (prevOb.bank || 0) : 0;
+      return res.json({ cash: +(obCash + prevCashIn - prevCashOut).toFixed(2), bank: +(obBank + prevBankIn - prevBankOut).toFixed(2), source: 'auto' });
+    } catch(e) {}
+  }
+  res.json({ cash: 0, bank: 0, source: 'none' });
+});
+
+router.put('/api/cash-book/opening-balance', (req, res) => {
+  const { kms_year, cash, bank } = req.body;
+  if (!kms_year) return res.status(400).json({ detail: 'kms_year is required' });
+  if (!database.data.opening_balances) database.data.opening_balances = [];
+  const idx = database.data.opening_balances.findIndex(ob => ob.kms_year === kms_year);
+  const doc = { kms_year, cash: +(cash || 0), bank: +(bank || 0), updated_at: new Date().toISOString() };
+  if (idx >= 0) database.data.opening_balances[idx] = doc;
+  else database.data.opening_balances.push(doc);
+  database.save();
+  res.json(doc);
+});
+
 
 
   return router;

@@ -1544,6 +1544,44 @@ function createApiServer(database) {
     } catch (err) { res.status(500).json({ detail: err.message }); }
   });
 
+
+  // ===== CASH BOOK OPENING BALANCE =====
+  apiApp.get('/api/cash-book/opening-balance', (req, res) => {
+    const kms_year = req.query.kms_year || '';
+    if (!database.data.opening_balances) database.data.opening_balances = [];
+    const saved = database.data.opening_balances.find(ob => ob.kms_year === kms_year);
+    if (saved) return res.json({ cash: saved.cash || 0, bank: saved.bank || 0, source: 'manual' });
+    const parts = kms_year.split('-');
+    if (parts.length === 2) {
+      try {
+        const prevFy = `${parseInt(parts[0])-1}-${parseInt(parts[1])-1}`;
+        const prevTxns = (database.data.cash_transactions || []).filter(t => t.kms_year === prevFy);
+        const prevCashIn = prevTxns.filter(t => t.account==='cash' && t.txn_type==='jama').reduce((s,t) => s+(t.amount||0), 0);
+        const prevCashOut = prevTxns.filter(t => t.account==='cash' && t.txn_type==='nikasi').reduce((s,t) => s+(t.amount||0), 0);
+        const prevBankIn = prevTxns.filter(t => t.account==='bank' && t.txn_type==='jama').reduce((s,t) => s+(t.amount||0), 0);
+        const prevBankOut = prevTxns.filter(t => t.account==='bank' && t.txn_type==='nikasi').reduce((s,t) => s+(t.amount||0), 0);
+        const prevOb = database.data.opening_balances.find(ob => ob.kms_year === prevFy);
+        const obCash = prevOb ? (prevOb.cash || 0) : 0;
+        const obBank = prevOb ? (prevOb.bank || 0) : 0;
+        return res.json({ cash: +(obCash + prevCashIn - prevCashOut).toFixed(2), bank: +(obBank + prevBankIn - prevBankOut).toFixed(2), source: 'auto' });
+      } catch(e) {}
+    }
+    res.json({ cash: 0, bank: 0, source: 'none' });
+  });
+
+  apiApp.put('/api/cash-book/opening-balance', (req, res) => {
+    const { kms_year, cash, bank } = req.body;
+    if (!kms_year) return res.status(400).json({ detail: 'kms_year is required' });
+    if (!database.data.opening_balances) database.data.opening_balances = [];
+    const idx = database.data.opening_balances.findIndex(ob => ob.kms_year === kms_year);
+    const doc = { kms_year, cash: +(cash || 0), bank: +(bank || 0), updated_at: new Date().toISOString() };
+    if (idx >= 0) database.data.opening_balances[idx] = doc;
+    else database.data.opening_balances.push(doc);
+    database.save();
+    res.json(doc);
+  });
+
+
   // ===== DC MANAGEMENT =====
   apiApp.post('/api/dc-entries', (req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
@@ -1570,6 +1608,36 @@ function createApiServer(database) {
     if (database.data.dc_entries.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
   });
+  apiApp.put('/api/dc-entries/:id', (req, res) => {
+    if (!database.data.dc_entries) return res.status(404).json({ detail: 'Not found' });
+    const idx = database.data.dc_entries.findIndex(e => e.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ detail: 'DC entry not found' });
+    database.data.dc_entries[idx] = { ...database.data.dc_entries[idx], ...req.body, updated_at: new Date().toISOString() };
+    database.save(); res.json(database.data.dc_entries[idx]);
+  });
+  apiApp.get('/api/dc-entries/excel', async (req, res) => {
+    if (!database.data.dc_entries) database.data.dc_entries = [];
+    let entries = [...database.data.dc_entries];
+    if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+    const ExcelJS = require('exceljs'); const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('DC Entries');
+    ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'DC No', key: 'dc_number', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rice Type', key: 'rice_type', width: 12 }, { header: 'Godown', key: 'godown_name', width: 15 }, { header: 'Deadline', key: 'deadline', width: 12 }];
+    entries.forEach(e => ws.addRow(e));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=dc_entries.xlsx');
+    await wb.xlsx.write(res); res.end();
+  });
+  apiApp.get('/api/dc-entries/pdf', (req, res) => {
+    if (!database.data.dc_entries) database.data.dc_entries = [];
+    let entries = [...database.data.dc_entries];
+    if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+    const PDFDocument = require('pdfkit'); const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'attachment; filename=dc_entries.pdf');
+    doc.pipe(res); addPdfHeader(doc, 'DC Entries Report');
+    const headers = ['Date', 'DC No', 'Qty(Q)', 'Rice Type', 'Godown', 'Deadline', 'Notes'];
+    const rows = entries.map(e => [e.date||'', e.dc_number||'', e.quantity_qntl||0, e.rice_type||'', e.godown_name||'', e.deadline||'', (e.notes||'').substring(0,25)]);
+    addPdfTable(doc, headers, rows, [60, 60, 50, 60, 80, 60, 100]); doc.end();
+  });
+
   apiApp.post('/api/dc-deliveries', (req, res) => {
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     const d = req.body;
@@ -1654,6 +1722,29 @@ function createApiServer(database) {
     const tpa=+pays.reduce((s,p)=>s+(p.amount||0),0).toFixed(2); const tpq=+pays.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2); const tdq=+dels.reduce((s,d)=>s+(d.quantity_qntl||0),0).toFixed(2);
     res.json({total_payments:pays.length,total_paid_amount:tpa,total_paid_qty:tpq,avg_rate:tpq>0?+(tpa/tpq).toFixed(2):0,total_delivered_qntl:tdq,pending_payment_qty:+(tdq-tpq).toFixed(2)});
   });
+  apiApp.get('/api/msp-payments/excel', async (req, res) => {
+    if (!database.data.msp_payments) database.data.msp_payments = [];
+    let payments = [...database.data.msp_payments];
+    if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
+    const ExcelJS = require('exceljs'); const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('MSP Payments');
+    ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rate/Q', key: 'rate_per_qntl', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Mode', key: 'payment_mode', width: 10 }, { header: 'Reference', key: 'reference', width: 15 }, { header: 'Bank', key: 'bank_name', width: 15 }];
+    payments.forEach(p => ws.addRow(p));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=msp_payments.xlsx');
+    await wb.xlsx.write(res); res.end();
+  });
+  apiApp.get('/api/msp-payments/pdf', (req, res) => {
+    if (!database.data.msp_payments) database.data.msp_payments = [];
+    let payments = [...database.data.msp_payments];
+    if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
+    const PDFDocument = require('pdfkit'); const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'attachment; filename=msp_payments.pdf');
+    doc.pipe(res); addPdfHeader(doc, 'MSP Payments Report');
+    const headers = ['Date', 'Qty(Q)', 'Rate(Rs./Q)', 'Amount(Rs.)', 'Mode', 'Reference', 'Bank'];
+    const rows = payments.map(p => [p.date||'', p.quantity_qntl||0, p.rate_per_qntl||0, p.amount||0, p.payment_mode||'', (p.reference||'').substring(0,15), (p.bank_name||'').substring(0,15)]);
+    addPdfTable(doc, headers, rows, [60, 50, 60, 70, 50, 80, 80]); doc.end();
+  });
+
   // ===== GUNNY BAGS =====
   apiApp.post('/api/gunny-bags', (req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
@@ -1692,6 +1783,29 @@ function createApiServer(database) {
     result.grand_total = result.old.balance + result.paddy_bags.total + result.ppkt.total;
     res.json(result);
   });
+  apiApp.get('/api/gunny-bags/excel', async (req, res) => {
+    if (!database.data.gunny_bags) database.data.gunny_bags = [];
+    let entries = [...database.data.gunny_bags];
+    if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+    const ExcelJS = require('exceljs'); const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Gunny Bags');
+    ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Bag Type', key: 'bag_type', width: 10 }, { header: 'In/Out', key: 'txn_type', width: 8 }, { header: 'Quantity', key: 'quantity', width: 10 }, { header: 'Rate', key: 'rate', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }];
+    entries.forEach(e => ws.addRow(e));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=gunny_bags.xlsx');
+    await wb.xlsx.write(res); res.end();
+  });
+  apiApp.get('/api/gunny-bags/pdf', (req, res) => {
+    if (!database.data.gunny_bags) database.data.gunny_bags = [];
+    let entries = [...database.data.gunny_bags];
+    if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+    const PDFDocument = require('pdfkit'); const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'attachment; filename=gunny_bags.pdf');
+    doc.pipe(res); addPdfHeader(doc, 'Gunny Bags Report');
+    const headers = ['Date', 'Bag Type', 'In/Out', 'Quantity', 'Rate(Rs.)', 'Amount(Rs.)', 'Notes'];
+    const rows = entries.map(e => [e.date||'', e.bag_type||'', e.txn_type||'', e.quantity||0, e.rate||0, e.amount||0, (e.notes||'').substring(0,20)]);
+    addPdfTable(doc, headers, rows, [60, 50, 40, 50, 50, 60, 100]); doc.end();
+  });
+
 
   // ===== CMR EXPORT ENDPOINTS =====
 

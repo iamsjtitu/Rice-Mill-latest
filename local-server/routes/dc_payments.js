@@ -5,6 +5,9 @@ module.exports = function(database) {
   // Helper reference
   const ExcelJS = require('exceljs');
   const PDFDocument = require('pdfkit');
+  const { v4: uuidv4 } = require('uuid');
+  const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+  const addPdfHeader = (doc, title) => _addPdfHeader(doc, title, database.getBranding());
 
 // ============ DC MANAGEMENT ============
 router.post('/api/dc-entries', (req, res) => {
@@ -168,6 +171,106 @@ router.get('/api/gunny-bags/summary', (req, res) => {
   result.g_issued = { total: paddyEntries.reduce((s,e)=>s+(e.g_issued||0),0), label: 'Govt Bags Issued (g)' };
   result.grand_total = result.old.balance + result.paddy_bags.total + result.ppkt.total;
   res.json(result);
+});
+
+// ============ DC ENTRIES UPDATE ============
+router.put('/api/dc-entries/:id', (req, res) => {
+  if (!database.data.dc_entries) return res.status(404).json({ detail: 'Not found' });
+  const idx = database.data.dc_entries.findIndex(e => e.id === req.params.id);
+  if (idx < 0) return res.status(404).json({ detail: 'DC entry not found' });
+  database.data.dc_entries[idx] = { ...database.data.dc_entries[idx], ...req.body, updated_at: new Date().toISOString() };
+  database.save();
+  res.json(database.data.dc_entries[idx]);
+});
+
+// ============ DC ENTRIES EXPORT ============
+router.get('/api/dc-entries/excel', async (req, res) => {
+  if (!database.data.dc_entries) database.data.dc_entries = [];
+  let entries = [...database.data.dc_entries];
+  if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+  if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+  const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('DC Entries');
+  ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'DC No', key: 'dc_number', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rice Type', key: 'rice_type', width: 12 }, { header: 'Godown', key: 'godown_name', width: 15 }, { header: 'Deadline', key: 'deadline', width: 12 }, { header: 'Notes', key: 'notes', width: 20 }];
+  entries.forEach(e => ws.addRow(e));
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=dc_entries.xlsx');
+  await wb.xlsx.write(res); res.end();
+});
+
+router.get('/api/dc-entries/pdf', (req, res) => {
+  if (!database.data.dc_entries) database.data.dc_entries = [];
+  let entries = [...database.data.dc_entries];
+  if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+  if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename=dc_entries.pdf');
+  doc.pipe(res);
+  addPdfHeader(doc, 'DC Entries Report');
+  const headers = ['Date', 'DC No', 'Qty(Q)', 'Rice Type', 'Godown', 'Deadline', 'Notes'];
+  const rows = entries.map(e => [e.date||'', e.dc_number||'', e.quantity_qntl||0, e.rice_type||'', e.godown_name||'', e.deadline||'', (e.notes||'').substring(0,25)]);
+  addPdfTable(doc, headers, rows, [60, 60, 50, 60, 80, 60, 100]);
+  doc.end();
+});
+
+// ============ GUNNY BAGS EXPORT ============
+router.get('/api/gunny-bags/excel', async (req, res) => {
+  if (!database.data.gunny_bags) database.data.gunny_bags = [];
+  let entries = [...database.data.gunny_bags];
+  if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+  if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+  const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Gunny Bags');
+  ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Bag Type', key: 'bag_type', width: 10 }, { header: 'Txn Type', key: 'txn_type', width: 8 }, { header: 'Quantity', key: 'quantity', width: 10 }, { header: 'Rate', key: 'rate', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Notes', key: 'notes', width: 20 }];
+  entries.forEach(e => ws.addRow(e));
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=gunny_bags.xlsx');
+  await wb.xlsx.write(res); res.end();
+});
+
+router.get('/api/gunny-bags/pdf', (req, res) => {
+  if (!database.data.gunny_bags) database.data.gunny_bags = [];
+  let entries = [...database.data.gunny_bags];
+  if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+  if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename=gunny_bags.pdf');
+  doc.pipe(res);
+  addPdfHeader(doc, 'Gunny Bags Report');
+  const headers = ['Date', 'Bag Type', 'In/Out', 'Quantity', 'Rate(Rs.)', 'Amount(Rs.)', 'Notes'];
+  const rows = entries.map(e => [e.date||'', e.bag_type||'', e.txn_type||'', e.quantity||0, e.rate||0, e.amount||0, (e.notes||'').substring(0,20)]);
+  addPdfTable(doc, headers, rows, [60, 50, 40, 50, 50, 60, 100]);
+  doc.end();
+});
+
+// ============ MSP PAYMENTS EXPORT ============
+router.get('/api/msp-payments/excel', async (req, res) => {
+  if (!database.data.msp_payments) database.data.msp_payments = [];
+  let payments = [...database.data.msp_payments];
+  if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
+  if (req.query.season) payments = payments.filter(p => p.season === req.query.season);
+  const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('MSP Payments');
+  ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rate/Q', key: 'rate_per_qntl', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Mode', key: 'payment_mode', width: 10 }, { header: 'Reference', key: 'reference', width: 15 }, { header: 'Bank', key: 'bank_name', width: 15 }, { header: 'Notes', key: 'notes', width: 20 }];
+  payments.forEach(p => ws.addRow(p));
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=msp_payments.xlsx');
+  await wb.xlsx.write(res); res.end();
+});
+
+router.get('/api/msp-payments/pdf', (req, res) => {
+  if (!database.data.msp_payments) database.data.msp_payments = [];
+  let payments = [...database.data.msp_payments];
+  if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
+  if (req.query.season) payments = payments.filter(p => p.season === req.query.season);
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename=msp_payments.pdf');
+  doc.pipe(res);
+  addPdfHeader(doc, 'MSP Payments Report');
+  const headers = ['Date', 'Qty(Q)', 'Rate(Rs./Q)', 'Amount(Rs.)', 'Mode', 'Reference', 'Bank'];
+  const rows = payments.map(p => [p.date||'', p.quantity_qntl||0, p.rate_per_qntl||0, p.amount||0, p.payment_mode||'', (p.reference||'').substring(0,15), (p.bank_name||'').substring(0,15)]);
+  addPdfTable(doc, headers, rows, [60, 50, 60, 70, 50, 80, 80]);
+  doc.end();
 });
 
 

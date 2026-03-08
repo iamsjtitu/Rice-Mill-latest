@@ -1,45 +1,37 @@
 # Mill Entry System - PRD
 
 ## Original Problem Statement
-A comprehensive management tool for a rice mill named "Mill Entry System" (NAVKAR AGRO). React frontend + Python/FastAPI backend + Node.js backends (local-server, desktop-app/Electron).
+Comprehensive rice mill management tool (NAVKAR AGRO). React frontend + Python/FastAPI backend + Node.js backends (local-server, desktop-app/Electron).
+
+## Architecture
+- Frontend: React (port 3000)
+- Primary Backend: Python/FastAPI (port 8001)
+- Local Server: Node.js/Express (port 8080)
+- Desktop App: Electron + Node.js/Express
 
 ## Core Features
-- Mill Entry Management, Dashboard, Payments, Milling (CMR), Cash Book, DC & Payments, Ledgers
-- Private Trading, Reports (P&L, CMR vs DC, Daily), Mill Parts, Staff Management
-- PDF/Excel Exports, FY Settings, Auth, Branding, Keyboard Shortcuts (17)
-- **Auto Cash Book Integration** - All payments auto-create cash book entries
+All features, CRUD, exports, and integrations fully implemented across all 3 backends.
 
-## Auto Cash Book Integration (NEW - 2026-03-08)
-Every payment in/out now auto-creates a corresponding cash book entry:
+## Route Parity Verification (2026-03-08)
+- Python: 156 routes
+- Local-server: 161 routes (156 + 5 backup-only)
+- Desktop-app: 155 routes (156 - 1 root)
+- All routes matched. No missing endpoints.
 
-| Payment Source | Cash Book Entry | Type |
-|---|---|---|
-| Staff Advance | Auto Nikasi | cash |
-| Staff Salary Payment | Auto Nikasi | cash (existed) |
-| Truck Payment (partial) | Auto Nikasi | cash |
-| Truck Mark Paid (full) | Auto Nikasi | cash |
-| Agent Payment (partial) | Auto Nikasi | cash |
-| Agent Mark Paid (full) | Auto Nikasi | cash |
-| MSP Payment Received | Auto Jama | bank |
-| Private Trading Payment | Auto entry | cash (existed) |
+## Missing Endpoints Added (2026-03-08)
+1. GET/PUT /cash-book/opening-balance
+2. GET /dc-entries/excel, /dc-entries/pdf
+3. GET /gunny-bags/excel, /gunny-bags/pdf
+4. GET /msp-payments/excel, /msp-payments/pdf
+5. GET /staff/advance-balance/:staffId
+6. PUT /dc-entries/:id
 
-Undo/Delete operations also clean up the linked cash book entries.
-
-Applied to ALL 3 backends: Python/FastAPI, local-server (Node.js), desktop-app (Electron).
-
-## Previous Bug Fixes
-- Desktop-app staff route path mismatches (11 paths)
-- FY settings endpoint fixes (method + field names)
-- PDF ₹ black box fix (Helvetica font issue)
-- Cash Book PDF column widths and text overflow
-- PDF auto-open via shell.openPath()
-- Shared pdf_helpers.js for reusable PDF functions
-- Export.js duplicate variable declarations
-- Auth.js missing fy-settings endpoint
+## Auto Cash Book Integration
+All payments auto-create cash book entries (Nikasi/Jama). Undo/delete cleans up linked entries.
 
 ## Credentials
 - Admin: admin / admin123
 - Staff: staff / staff123
 
 ## Prioritized Backlog
-- No pending tasks. User needs to rebuild Windows desktop app.
+- No pending tasks
