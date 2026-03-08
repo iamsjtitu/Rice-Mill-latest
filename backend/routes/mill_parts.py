@@ -80,10 +80,48 @@ async def get_stock_entries(part_name: Optional[str] = None, txn_type: Optional[
 
 @router.delete("/mill-parts-stock/{entry_id}")
 async def delete_stock_entry(entry_id: str):
+    # Also remove linked local party entry
+    await db.local_party_accounts.delete_many({"linked_stock_id": entry_id})
     result = await db.mill_parts_stock.delete_one({"id": entry_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Not found")
     return {"message": "Deleted", "id": entry_id}
+
+@router.put("/mill-parts-stock/{entry_id}")
+async def update_stock_entry(entry_id: str, data: dict):
+    existing = await db.mill_parts_stock.find_one({"id": entry_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Not found")
+    update = {
+        "date": data.get("date", existing.get("date", "")),
+        "part_name": data.get("part_name", existing.get("part_name", "")),
+        "txn_type": data.get("txn_type", existing.get("txn_type", "in")),
+        "quantity": float(data.get("quantity", existing.get("quantity", 0))),
+        "rate": float(data.get("rate", existing.get("rate", 0))),
+        "party_name": data.get("party_name", existing.get("party_name", "")),
+        "bill_no": data.get("bill_no", existing.get("bill_no", "")),
+        "remark": data.get("remark", existing.get("remark", "")),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    update["total_amount"] = round(update["quantity"] * update["rate"], 2)
+    await db.mill_parts_stock.update_one({"id": entry_id}, {"$set": update})
+    # Update linked local party entry
+    await db.local_party_accounts.delete_many({"linked_stock_id": entry_id})
+    if update["txn_type"] == "in" and update["party_name"] and update["total_amount"] > 0:
+        lp = {
+            "id": str(uuid.uuid4()), "date": update["date"],
+            "party_name": update["party_name"], "txn_type": "debit",
+            "amount": update["total_amount"],
+            "description": f"{update['part_name']} x{update['quantity']} @ Rs.{update['rate']}",
+            "reference": f"mill_part:{entry_id[:8]}",
+            "kms_year": data.get("kms_year", existing.get("kms_year", "")),
+            "season": data.get("season", existing.get("season", "")),
+            "created_by": data.get("created_by", "system"), "linked_stock_id": entry_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.local_party_accounts.insert_one(lp)
+    updated = await db.mill_parts_stock.find_one({"id": entry_id}, {"_id": 0})
+    return updated
 
 # ============ STOCK SUMMARY ============
 
