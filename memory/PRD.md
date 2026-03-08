@@ -15,18 +15,18 @@ Comprehensive Mill Entry System for managing paddy-to-rice conversion (Custom Mi
 ### New Features - DONE (2026-03-08)
 1. **P&L Summary Card on Dashboard** - DONE
 2. **Mill Parts Stock Module** - DONE (CRUD + Summary + Export)
-3. **Daily Report** - DONE, then UPGRADED (2026-03-08):
+3. **Daily Report** - DONE + UPGRADED (2026-03-08):
    - Normal/Detail mode toggle
-   - Professional PDF export using reportlab Platypus (tables, colored headers, sections)
+   - Professional PDF export using reportlab Platypus
    - Mill Parts Stock section with Parts Purchased + Parts Used tables
-   - Detail mode: expanded columns (Mandi, RST, Moisture, Party, Category, Vehicle, Rate, etc.)
-   - Normal mode: simplified summary columns
+   - Detail mode: expanded columns (Mandi, RST, Moisture, Party, Category, Vehicle, Rate)
+   - Bug fix: collection name `db.entries` → `db.mill_entries` for paddy data
 
 ## Architecture
 ```
 /app
-├── backend/routes/       # 12 route modules (auth, entries, payments, exports, milling, cashbook, dc_payments, reports, private_trading, ledgers, mill_parts, daily_report)
-├── frontend/src/         # React with extracted components (Dashboard, Payments, Reports, MillPartsStock, etc.)
+├── backend/routes/       # 12 route modules
+├── frontend/src/         # React with extracted components
 ├── local-server/         # Node.js (needs refactoring + new features)
 ├── desktop-app/          # Electron (needs refactoring + new features)
 ```

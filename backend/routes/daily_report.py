@@ -16,7 +16,7 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
     q = {**q_date, **q_fy}
 
     # Paddy Entries
-    entries = await db.entries.find(q, {"_id": 0}).to_list(500)
+    entries = await db.mill_entries.find(q, {"_id": 0}).to_list(500)
     total_paddy_kg = sum(e.get("kg", 0) for e in entries)
     total_paddy_bags = sum(e.get("bag", 0) for e in entries)
     total_final_w = sum(e.get("final_w", 0) for e in entries)
