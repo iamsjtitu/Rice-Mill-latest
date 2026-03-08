@@ -190,11 +190,12 @@ const DailyReport = ({ filters }) => {
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
-  const exportData = (format) => {
+  const exportData = async (format) => {
     const p = new URLSearchParams({ date, mode });
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
-    window.open(`${API}/reports/daily/${format}?${p}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/reports/daily/${format}?${p}`, `daily_report_${mode}_${date}.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
   const isDetail = mode === "detail";

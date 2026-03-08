@@ -2393,22 +2393,32 @@ async function createMainWindow(port) {
   // Load frontend from Express server
   mainWindow.loadURL(`http://127.0.0.1:${port}`);
 
-  // Handle window.open - downloads vs printing
+  // Handle window.open - convert ALL API URLs to downloads
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Export/download URLs - trigger direct download, no blank window
-    if (url.includes('/api/export/')) {
+    // Any API URL with export/pdf/excel should download
+    if (url.includes('/api/') && (url.includes('export') || url.includes('pdf') || url.includes('excel') || url.includes('/summary/'))) {
       mainWindow.webContents.downloadURL(url);
       return { action: 'deny' };
     }
-    // Allow other windows (printing overlays, etc.)
+    // Print URLs - open in system browser
+    if (url.includes('/print/') || url.includes('print-')) {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    // Allow other windows
     return { action: 'allow' };
   });
 
-  // Handle file downloads - show save dialog directly
+  // Handle file downloads - save dialog with proper filename
   mainWindow.webContents.session.on('will-download', (event, item) => {
+    const fn = item.getFilename();
+    console.log('Downloading:', fn, 'Size:', item.getTotalBytes());
     item.once('done', (event, state) => {
       if (state === 'completed') {
-        console.log('Download complete:', item.getFilename());
+        console.log('Download complete:', fn);
+        dialog.showMessageBox(mainWindow, { type: 'info', title: 'Download', message: `File saved: ${fn}`, buttons: ['OK'] });
+      } else {
+        console.log('Download failed:', state);
       }
     });
   });

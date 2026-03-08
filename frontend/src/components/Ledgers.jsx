@@ -36,11 +36,12 @@ const OutstandingReport = ({ filters }) => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const exportData = (format) => {
+  const exportData = async (format) => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
-    window.open(`${API}/reports/outstanding/${format}?${p}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/reports/outstanding/${format}?${p}`, `outstanding.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
   if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;
@@ -274,13 +275,14 @@ const PartyLedger = ({ filters }) => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const exportData = (format) => {
+  const exportData = async (format) => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
     if (selectedParty) p.append('party_name', selectedParty);
     if (selectedType) p.append('party_type', selectedType);
-    window.open(`${API}/reports/party-ledger/${format}?${p}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/reports/party-ledger/${format}?${p}`, `party_ledger.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
   if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;

@@ -56,30 +56,28 @@ import StaffManagement from "@/components/StaffManagement";
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// Safe print helper - uses server-side approach (works in Electron + browser)
+// Safe print helper - uses iframe approach (works in Electron + browser)
 const safePrintHTML = (htmlContent) => {
-  // Server-side: POST HTML to backend, get a URL, open that URL
-  fetch(`${API}/print`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ html: htmlContent })
-  })
-  .then(res => res.json())
-  .then(data => {
-    const baseUrl = BACKEND_URL || '';
-    window.open(`${baseUrl}${data.url}`, '_blank', 'width=800,height=600');
-  })
-  .catch(() => {
-    // Fallback: blob URL (works in regular browsers)
-    try {
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'width=800,height=600');
-    } catch(e) {
-      const w = window.open('', '_blank');
-      if (w) { w.document.open(); w.document.write(htmlContent); w.document.close(); }
-    }
-  });
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(htmlContent);
+    iframe.contentDocument.close();
+    setTimeout(() => {
+      iframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 500);
+  } catch(e) {
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'print.html';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 };
 
 // Generate KMS years
@@ -736,7 +734,7 @@ function MainApp({ user, onLogout }) {
     setIsDialogOpen(true);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const params = new URLSearchParams();
     if (filters.truck_no) params.append('truck_no', filters.truck_no);
     if (filters.agent_name) params.append('agent_name', filters.agent_name);
@@ -744,7 +742,8 @@ function MainApp({ user, onLogout }) {
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
     
-    window.open(`${API}/export/excel?${params.toString()}`, '_blank');
+    const { downloadFile } = await import('./utils/download');
+    downloadFile(`/api/export/excel?${params.toString()}`, 'entries.xlsx');
     toast.success("Excel download ho raha hai!");
   };
 

@@ -22,28 +22,30 @@ import {
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-// Safe print helper - uses server-side approach (works in Electron + browser)
+// Safe print helper - uses iframe approach (works in Electron + browser)
 const safePrintHTML = (htmlContent) => {
-  fetch(`${API}/print`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ html: htmlContent })
-  })
-  .then(res => res.json())
-  .then(data => {
-    const baseUrl = BACKEND_URL || '';
-    window.open(`${baseUrl}${data.url}`, '_blank', 'width=800,height=600');
-  })
-  .catch(() => {
-    try {
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'width=800,height=600');
-    } catch(e) {
-      const w = window.open('', '_blank');
-      if (w) { w.document.open(); w.document.write(htmlContent); w.document.close(); }
-    }
-  });
+  try {
+    // Create hidden iframe for printing
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(htmlContent);
+    iframe.contentDocument.close();
+    setTimeout(() => {
+      iframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 500);
+  } catch(e) {
+    // Fallback: blob download as HTML
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'print.html';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 };
 
 export const Payments = ({ filters, user, branding }) => {
@@ -96,51 +98,57 @@ export const Payments = ({ filters, user, branding }) => {
     : truckPayments;
 
   // Export truck payments to Excel
-  const handleExportTruckExcel = () => {
+  const handleExportTruckExcel = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
     if (truckSearchFilter) params.append('truck_no', truckSearchFilter);
-    window.open(`${API}/export/truck-payments-excel?${params.toString()}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/export/truck-payments-excel?${params.toString()}`, 'truck_payments.xlsx');
   };
 
   // Export truck payments to PDF
-  const handleExportTruckPDF = () => {
+  const handleExportTruckPDF = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
     if (truckSearchFilter) params.append('truck_no', truckSearchFilter);
-    window.open(`${API}/export/truck-payments-pdf?${params.toString()}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/export/truck-payments-pdf?${params.toString()}`, 'truck_payments.pdf');
   };
 
   // Export agent payments
-  const handleExportAgentExcel = () => {
+  const handleExportAgentExcel = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
-    window.open(`${API}/export/agent-payments-excel?${params.toString()}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/export/agent-payments-excel?${params.toString()}`, 'agent_payments.xlsx');
   };
 
-  const handleExportAgentPDF = () => {
+  const handleExportAgentPDF = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
-    window.open(`${API}/export/agent-payments-pdf?${params.toString()}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/export/agent-payments-pdf?${params.toString()}`, 'agent_payments.pdf');
   };
 
   // Export Truck Owner Consolidated
-  const handleExportTruckOwnerExcel = () => {
+  const handleExportTruckOwnerExcel = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
-    window.open(`${API}/export/truck-owner-excel?${params.toString()}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/export/truck-owner-excel?${params.toString()}`, 'truck_owner.xlsx');
   };
 
-  const handleExportTruckOwnerPDF = () => {
+  const handleExportTruckOwnerPDF = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
-    window.open(`${API}/export/truck-owner-pdf?${params.toString()}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/export/truck-owner-pdf?${params.toString()}`, 'truck_owner.pdf');
   };
 
   // Undo paid

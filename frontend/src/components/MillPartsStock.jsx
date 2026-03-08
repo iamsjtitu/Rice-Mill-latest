@@ -81,11 +81,12 @@ export default function MillPartsStock({ filters, user }) {
     catch { toast.error("Delete nahi hua"); }
   };
 
-  const exportData = (format) => {
+  const exportData = async (format) => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
-    window.open(`${API}/mill-parts/summary/${format}?${p}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/mill-parts/summary/${format}?${p}`, `mill_parts_stock.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
   const lowStockParts = useMemo(() => summary.filter(s => s.min_stock > 0 && s.current_stock < s.min_stock), [summary]);

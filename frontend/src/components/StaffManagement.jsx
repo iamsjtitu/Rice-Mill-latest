@@ -133,13 +133,14 @@ const Attendance = ({ staff, filters }) => {
     } catch { toast.error("Save failed"); }
   };
 
-  const exportAtt = (fmt) => {
+  const exportAtt = async (fmt) => {
     const month = date.substring(0, 7);
     const from = `${month}-01`;
     const d = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0);
     const to = `${month}-${String(d.getDate()).padStart(2,'0')}`;
     const p = new URLSearchParams({ date_from: from, date_to: to, fmt });
-    window.open(`${API}/staff/export/attendance?${p}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/staff/export/attendance?${p}`, `staff_attendance_${from}_to_${to}.${fmt === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
   const statusConfig = {
@@ -340,11 +341,12 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
     toast.success("Payment deleted"); fetchPayments();
   };
 
-  const exportPayments = (fmt) => {
+  const exportPayments = async (fmt) => {
     const p = new URLSearchParams({ fmt });
     if (filters.kms_year) p.append("kms_year", filters.kms_year);
     if (filters.season) p.append("season", filters.season);
-    window.open(`${API}/staff/export/payments?${p}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/staff/export/payments?${p}`, `staff_payments.${fmt === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
   return (

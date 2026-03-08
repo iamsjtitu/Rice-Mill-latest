@@ -176,11 +176,12 @@ export const Dashboard = ({ filters, user }) => {
       {/* Summary Report Button */}
       <div className="flex justify-end">
         <Button
-          onClick={() => {
+          onClick={async () => {
             const params = new URLSearchParams();
             if (filters.kms_year) params.append('kms_year', filters.kms_year);
             if (filters.season) params.append('season', filters.season);
-            window.open(`${API}/export/summary-report-pdf?${params.toString()}`, '_blank');
+            const { downloadFile } = await import('../utils/download');
+            downloadFile(`/api/export/summary-report-pdf?${params.toString()}`, 'summary_report.pdf');
           }}
           className="bg-purple-600 hover:bg-purple-700 text-white"
         >
