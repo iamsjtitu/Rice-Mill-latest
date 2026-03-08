@@ -40,6 +40,9 @@ function calculateAutoFields(data) {
 
 function parseDate(val) {
   if (!val) return null;
+  // Handle ExcelJS formula objects
+  if (typeof val === 'object' && val !== null && 'result' in val) val = val.result;
+  if (!val) return null;
   if (val instanceof Date) return val.toISOString().split('T')[0];
   const s = String(val).trim();
   if (!s || s === '-') return null;
@@ -51,15 +54,44 @@ function parseDate(val) {
   return null;
 }
 
+// Extract actual value from ExcelJS cell (handles formulas, rich text, etc.)
+function getCellRawValue(cell) {
+  const v = cell.value;
+  if (v == null) return null;
+  // ExcelJS formula cells: { formula: '...', result: value }
+  if (typeof v === 'object' && v !== null && !Array.isArray(v) && !(v instanceof Date)) {
+    if ('result' in v) return v.result;
+    if ('richText' in v) return v.richText.map(r => r.text || '').join('');
+    if ('text' in v) return v.text;
+    if ('hyperlink' in v) return v.text || v.hyperlink;
+    return null;
+  }
+  return v;
+}
+
 function safeFloat(val) {
+  if (val == null) return 0;
+  // Handle ExcelJS formula objects directly
+  if (typeof val === 'object' && val !== null && 'result' in val) val = val.result;
   if (val == null || String(val).trim() === '' || String(val).trim() === '-') return 0;
   const n = parseFloat(val);
   return isNaN(n) ? 0 : n;
 }
 function safeInt(val) {
+  if (val == null) return 0;
+  // Handle ExcelJS formula objects directly
+  if (typeof val === 'object' && val !== null && 'result' in val) val = val.result;
   if (val == null || String(val).trim() === '' || String(val).trim() === '-') return 0;
   const n = parseInt(val, 10);
   return isNaN(n) ? 0 : n;
+}
+function safeString(val) {
+  if (val == null) return '';
+  // Handle ExcelJS formula objects
+  if (typeof val === 'object' && val !== null && 'result' in val) val = val.result;
+  if (typeof val === 'object' && val !== null && 'richText' in val) return val.richText.map(r => r.text || '').join('');
+  if (val == null) return '';
+  return String(val).trim();
 }
 
 router.post('/api/entries/import-excel', upload.single('file'), async (req, res) => {
@@ -79,7 +111,7 @@ router.post('/api/entries/import-excel', upload.single('file'), async (req, res)
     let headerRow = null;
     for (let r = 1; r <= Math.min(5, ws.rowCount); r++) {
       for (let c = 1; c <= Math.min(5, ws.columnCount); c++) {
-        const v = String(ws.getCell(r, c).value || '').toUpperCase().trim();
+        const v = safeString(ws.getCell(r, c).value).toUpperCase();
         if (v === 'DATE') { headerRow = r; break; }
       }
       if (headerRow) break;
@@ -89,7 +121,7 @@ router.post('/api/entries/import-excel', upload.single('file'), async (req, res)
     // Build column map
     const colMap = {};
     for (let c = 1; c <= ws.columnCount; c++) {
-      const v = String(ws.getCell(headerRow, c).value || '').toUpperCase().trim();
+      const v = safeString(ws.getCell(headerRow, c).value).toUpperCase();
       if (v.includes('DATE')) colMap.date = c;
       else if (v.includes('TRUCK')) colMap.truck_no = c;
       else if (v.includes('AGENT')) colMap.agent_name = c;
@@ -110,9 +142,8 @@ router.post('/api/entries/import-excel', upload.single('file'), async (req, res)
     const entries = [];
     let skipped = 0;
     for (let r = headerRow + 1; r <= ws.rowCount; r++) {
-      const dateVal = ws.getCell(r, colMap.date || 1).value;
-      const dateStr = parseDate(dateVal);
-      const truckVal = String(ws.getCell(r, colMap.truck_no || 2).value || '').trim();
+      const dateStr = parseDate(getCellRawValue(ws.getCell(r, colMap.date || 1)));
+      const truckVal = safeString(ws.getCell(r, colMap.truck_no || 2).value);
       if (!dateStr || !truckVal) { skipped++; continue; }
 
       let cuttingRaw = safeFloat(ws.getCell(r, colMap.cutting_percent || 10).value);
@@ -120,8 +151,8 @@ router.post('/api/entries/import-excel', upload.single('file'), async (req, res)
 
       entries.push({
         date: dateStr, kms_year: kmsYear, season: season, truck_no: truckVal,
-        agent_name: String(ws.getCell(r, colMap.agent_name || 3).value || '').trim(),
-        mandi_name: String(ws.getCell(r, colMap.mandi_name || 4).value || '').trim(),
+        agent_name: safeString(ws.getCell(r, colMap.agent_name || 3).value),
+        mandi_name: safeString(ws.getCell(r, colMap.mandi_name || 4).value),
         kg: safeFloat(ws.getCell(r, colMap.kg || 5).value),
         bag: safeInt(ws.getCell(r, colMap.bag || 6).value),
         g_deposite: safeFloat(ws.getCell(r, colMap.g_deposite || 7).value),
@@ -132,7 +163,7 @@ router.post('/api/entries/import-excel', upload.single('file'), async (req, res)
         disc_dust_poll: safeFloat(ws.getCell(r, colMap.disc_dust_poll || 14).value),
         cash_paid: safeFloat(ws.getCell(r, colMap.cash_paid || 16).value),
         diesel_paid: safeFloat(ws.getCell(r, colMap.diesel_paid || 17).value),
-        remark: String(ws.getCell(r, colMap.remark || 18).value || '').trim(),
+        remark: safeString(ws.getCell(r, colMap.remark || 18).value),
       });
     }
 
