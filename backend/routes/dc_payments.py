@@ -427,6 +427,26 @@ async def add_gunny_bag_entry(entry: GunnyBagEntry, username: str = ""):
     d['amount'] = round(d.get('quantity', 0) * d.get('rate', 0), 2)
     await db.gunny_bags.insert_one(d)
     d.pop('_id', None)
+
+    # Auto-create local party entry for old (market) bag purchases with a source (party)
+    if d.get("bag_type") == "old" and d.get("txn_type") == "in" and d.get("source") and d["amount"] > 0:
+        lp = {
+            "id": str(uuid.uuid4()),
+            "date": d.get("date", ""),
+            "party_name": d["source"],
+            "txn_type": "debit",
+            "amount": d["amount"],
+            "description": f"Gunny Bags (Old) x{d['quantity']} @ Rs.{d['rate']}",
+            "source_type": "gunny_bag",
+            "reference": f"gunny:{d['id'][:8]}",
+            "kms_year": d.get("kms_year", ""),
+            "season": d.get("season", ""),
+            "created_by": username or "system",
+            "linked_gunny_id": d["id"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.local_party_accounts.insert_one(lp)
+
     return d
 
 
@@ -441,6 +461,8 @@ async def get_gunny_bag_entries(kms_year: Optional[str] = None, season: Optional
 
 @router.delete("/gunny-bags/{entry_id}")
 async def delete_gunny_bag_entry(entry_id: str):
+    # Also remove linked local party entry
+    await db.local_party_accounts.delete_many({"linked_gunny_id": entry_id})
     result = await db.gunny_bags.delete_one({"id": entry_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -457,6 +479,27 @@ async def update_gunny_bag_entry(entry_id: str, entry: GunnyBagEntry, username: 
     d["amount"] = round(d.get("quantity", 0) * d.get("rate", 0), 2)
     d["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.gunny_bags.update_one({"id": entry_id}, {"$set": d})
+
+    # Update linked local party entry for old market bags
+    await db.local_party_accounts.delete_many({"linked_gunny_id": entry_id})
+    if d.get("bag_type") == "old" and d.get("txn_type") == "in" and d.get("source") and d["amount"] > 0:
+        lp = {
+            "id": str(uuid.uuid4()),
+            "date": d.get("date", ""),
+            "party_name": d["source"],
+            "txn_type": "debit",
+            "amount": d["amount"],
+            "description": f"Gunny Bags (Old) x{d['quantity']} @ Rs.{d['rate']}",
+            "source_type": "gunny_bag",
+            "reference": f"gunny:{entry_id[:8]}",
+            "kms_year": d.get("kms_year", existing.get("kms_year", "")),
+            "season": d.get("season", existing.get("season", "")),
+            "created_by": username or "system",
+            "linked_gunny_id": entry_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.local_party_accounts.insert_one(lp)
+
     updated = await db.gunny_bags.find_one({"id": entry_id}, {"_id": 0})
     return updated
 

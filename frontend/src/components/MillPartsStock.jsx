@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -26,6 +26,8 @@ export default function MillPartsStock({ filters, user }) {
     date: new Date().toISOString().split('T')[0], part_name: "", txn_type: "in",
     quantity: "", rate: "", party_name: "", bill_no: "", remark: "",
   });
+  const [editingStock, setEditingStock] = useState(null);
+  const [editDialog, setEditDialog] = useState(false);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -79,6 +81,29 @@ export default function MillPartsStock({ filters, user }) {
     if (!window.confirm("Entry delete karein?")) return;
     try { await axios.delete(`${API}/mill-parts-stock/${id}`); toast.success("Deleted!"); fetchAll(); }
     catch { toast.error("Delete nahi hua"); }
+  };
+
+  const openEditStock = (t) => {
+    setEditingStock({
+      id: t.id, date: t.date, part_name: t.part_name, txn_type: t.txn_type,
+      quantity: String(t.quantity), rate: String(t.rate || ""), party_name: t.party_name || "",
+      bill_no: t.bill_no || "", remark: t.remark || "",
+    });
+    setEditDialog(true);
+  };
+
+  const handleEditStock = async (e) => {
+    e.preventDefault();
+    if (!editingStock) return;
+    try {
+      await axios.put(`${API}/mill-parts-stock/${editingStock.id}`, {
+        ...editingStock, kms_year: filters.kms_year, season: filters.season, created_by: user.username
+      });
+      toast.success("Entry update ho gaya!");
+      setEditDialog(false);
+      setEditingStock(null);
+      fetchAll();
+    } catch (err) { toast.error(err.response?.data?.detail || "Update nahi hua"); }
   };
 
   const exportData = async (format) => {
@@ -202,7 +227,7 @@ export default function MillPartsStock({ filters, user }) {
                     <TableCell className="text-white">{t.total_amount ? `₹${t.total_amount.toLocaleString()}` : '-'}</TableCell>
                     <TableCell className="text-slate-300 text-xs">{t.party_name || '-'}</TableCell>
                     <TableCell className="text-slate-400 text-xs">{t.bill_no || '-'}</TableCell>
-                    <TableCell>{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDeleteStock(t.id)}><Trash2 className="w-3 h-3" /></Button>}</TableCell>
+                    <TableCell>{user.role === 'admin' && <div className="flex gap-1"><Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => openEditStock(t)} data-testid={`edit-stock-${t.id}`}><Edit className="w-3 h-3" /></Button><Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDeleteStock(t.id)}><Trash2 className="w-3 h-3" /></Button></div>}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -296,6 +321,41 @@ export default function MillPartsStock({ filters, user }) {
               <Button type="submit" className={`flex-1 ${stockForm.txn_type === 'in' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'} text-white`} data-testid="stock-save-btn">Save</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Stock Dialog */}
+      <Dialog open={editDialog} onOpenChange={setEditDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md" data-testid="edit-stock-dialog">
+          <DialogHeader><DialogTitle className="text-blue-400">Edit Stock Entry</DialogTitle></DialogHeader>
+          {editingStock && (
+            <form onSubmit={handleEditStock} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs text-slate-400">Date</Label><Input type="date" value={editingStock.date} onChange={e => setEditingStock(p => ({ ...p, date: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
+                <div><Label className="text-xs text-slate-400">Part</Label>
+                  <Select value={editingStock.part_name} onValueChange={v => setEditingStock(p => ({ ...p, part_name: v }))}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-60">{parts.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs text-slate-400">Quantity</Label><Input type="number" step="0.01" value={editingStock.quantity} onChange={e => setEditingStock(p => ({ ...p, quantity: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required /></div>
+                {editingStock.txn_type === 'in' && <div><Label className="text-xs text-slate-400">Rate (Rs.)</Label><Input type="number" step="0.01" value={editingStock.rate} onChange={e => setEditingStock(p => ({ ...p, rate: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>}
+              </div>
+              {editingStock.txn_type === 'in' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label className="text-xs text-slate-400">Party Name</Label><Input value={editingStock.party_name} onChange={e => setEditingStock(p => ({ ...p, party_name: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
+                  <div><Label className="text-xs text-slate-400">Bill No.</Label><Input value={editingStock.bill_no} onChange={e => setEditingStock(p => ({ ...p, bill_no: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
+                </div>
+              )}
+              <div><Label className="text-xs text-slate-400">Remark</Label><Input value={editingStock.remark} onChange={e => setEditingStock(p => ({ ...p, remark: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
+              <div className="flex gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setEditDialog(false)} className="border-slate-600 text-slate-300 flex-1">Cancel</Button>
+                <Button type="submit" className="bg-blue-500 hover:bg-blue-600 text-white flex-1" data-testid="edit-stock-save-btn">Update</Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>

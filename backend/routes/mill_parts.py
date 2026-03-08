@@ -63,6 +63,26 @@ async def create_stock_entry(data: dict):
         raise HTTPException(status_code=400, detail="Part name and quantity required")
     await db.mill_parts_stock.insert_one(doc)
     doc.pop("_id", None)
+
+    # Auto-create local party account entry for purchases (txn_type=in) with party
+    if doc["txn_type"] == "in" and doc["party_name"] and doc["total_amount"] > 0:
+        lp = {
+            "id": str(uuid.uuid4()),
+            "date": doc["date"],
+            "party_name": doc["party_name"],
+            "txn_type": "debit",
+            "amount": doc["total_amount"],
+            "description": f"{doc['part_name']} x{doc['quantity']} @ Rs.{doc['rate']}",
+            "source_type": "mill_part",
+            "reference": f"mill_part:{doc['id'][:8]}",
+            "kms_year": doc.get("kms_year", ""),
+            "season": doc.get("season", ""),
+            "created_by": doc.get("created_by", "system"),
+            "linked_stock_id": doc["id"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.local_party_accounts.insert_one(lp)
+
     return doc
 
 @router.get("/mill-parts-stock")
@@ -113,6 +133,7 @@ async def update_stock_entry(entry_id: str, data: dict):
             "party_name": update["party_name"], "txn_type": "debit",
             "amount": update["total_amount"],
             "description": f"{update['part_name']} x{update['quantity']} @ Rs.{update['rate']}",
+            "source_type": "mill_part",
             "reference": f"mill_part:{entry_id[:8]}",
             "kms_year": data.get("kms_year", existing.get("kms_year", "")),
             "season": data.get("season", existing.get("season", "")),

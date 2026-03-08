@@ -48,7 +48,21 @@ router.post('/api/mill-parts-stock', safeSync((req, res) => {
     kms_year: d.kms_year || '', season: d.season || '',
     created_by: d.created_by || '', created_at: new Date().toISOString()
   };
-  database.data.mill_parts_stock.push(doc); database.save(); res.json(doc);
+  database.data.mill_parts_stock.push(doc);
+
+  // Auto-create local party entry for purchases with party
+  if (doc.txn_type === 'in' && doc.party_name && doc.total_amount > 0) {
+    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+    database.data.local_party_accounts.push({
+      id: uuidv4(), date: doc.date, party_name: doc.party_name, txn_type: 'debit',
+      amount: doc.total_amount, description: `${doc.part_name} x${doc.quantity} @ Rs.${doc.rate}`,
+      source_type: 'mill_part', reference: `mill_part:${doc.id.slice(0,8)}`,
+      kms_year: doc.kms_year, season: doc.season, created_by: doc.created_by || 'system',
+      linked_stock_id: doc.id, created_at: new Date().toISOString()
+    });
+  }
+
+  database.save(); res.json(doc);
 }));
 
 router.get('/api/mill-parts-stock', safeSync((req, res) => {
@@ -64,10 +78,53 @@ router.get('/api/mill-parts-stock', safeSync((req, res) => {
 
 router.delete('/api/mill-parts-stock/:id', safeSync((req, res) => {
   if (!database.data.mill_parts_stock) return res.status(404).json({ detail: 'Not found' });
+  // Remove linked local party entry
+  if (database.data.local_party_accounts) {
+    database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.linked_stock_id !== req.params.id);
+  }
   const len = database.data.mill_parts_stock.length;
   database.data.mill_parts_stock = database.data.mill_parts_stock.filter(t => t.id !== req.params.id);
   if (database.data.mill_parts_stock.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
   res.status(404).json({ detail: 'Not found' });
+}));
+
+// PUT - Edit stock entry
+router.put('/api/mill-parts-stock/:id', safeSync((req, res) => {
+  if (!database.data.mill_parts_stock) return res.status(404).json({ detail: 'Not found' });
+  const idx = database.data.mill_parts_stock.findIndex(t => t.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+  const existing = database.data.mill_parts_stock[idx];
+  const d = req.body;
+  const qty = parseFloat(d.quantity) || existing.quantity || 0;
+  const rate = parseFloat(d.rate) || existing.rate || 0;
+  const update = {
+    ...existing,
+    date: d.date || existing.date, part_name: d.part_name || existing.part_name,
+    txn_type: d.txn_type || existing.txn_type, quantity: qty, rate,
+    total_amount: Math.round(qty * rate * 100) / 100,
+    party_name: d.party_name !== undefined ? d.party_name : existing.party_name,
+    bill_no: d.bill_no !== undefined ? d.bill_no : existing.bill_no,
+    remark: d.remark !== undefined ? d.remark : existing.remark,
+    updated_at: new Date().toISOString()
+  };
+  database.data.mill_parts_stock[idx] = update;
+
+  // Update linked local party entry
+  if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+  database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.linked_stock_id !== req.params.id);
+  if (update.txn_type === 'in' && update.party_name && update.total_amount > 0) {
+    database.data.local_party_accounts.push({
+      id: uuidv4(), date: update.date, party_name: update.party_name, txn_type: 'debit',
+      amount: update.total_amount, description: `${update.part_name} x${update.quantity} @ Rs.${update.rate}`,
+      source_type: 'mill_part', reference: `mill_part:${req.params.id.slice(0,8)}`,
+      kms_year: d.kms_year || existing.kms_year || '', season: d.season || existing.season || '',
+      created_by: d.created_by || 'system', linked_stock_id: req.params.id,
+      created_at: new Date().toISOString()
+    });
+  }
+
+  database.save();
+  res.json(update);
 }));
 
 // ============ STOCK SUMMARY ============

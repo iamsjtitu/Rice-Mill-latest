@@ -44,6 +44,7 @@ from routes.mill_parts import router as mill_parts_router
 from routes.daily_report import router as daily_report_router
 from routes.staff import router as staff_router
 from routes.diesel import router as diesel_router
+from routes.local_party import router as local_party_router
 
 api_router.include_router(auth_router)
 api_router.include_router(entries_router)
@@ -59,6 +60,7 @@ api_router.include_router(mill_parts_router)
 api_router.include_router(daily_report_router)
 api_router.include_router(staff_router)
 api_router.include_router(diesel_router)
+api_router.include_router(local_party_router)
 
 # Include the api_router in the main app
 app.include_router(api_router)

@@ -595,6 +595,7 @@ async function startServer() {
     const staffRoutes = require('./routes/staff')(database);
     const dailyReportRoutes = require('./routes/daily_report')(database);
     const reportsPnlRoutes = require('./routes/reports_pnl')(database);
+    const localPartyRoutes = require('./routes/local_party')(database);
 
     app.use(authRoutes);
     app.use(entriesRoutes);
@@ -610,6 +611,7 @@ async function startServer() {
     app.use(staffRoutes);
     app.use(dailyReportRoutes);
     app.use(reportsPnlRoutes);
+    app.use(localPartyRoutes);
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
   }

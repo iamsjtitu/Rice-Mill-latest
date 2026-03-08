@@ -134,7 +134,19 @@ router.post('/api/gunny-bags', (req, res) => {
   if (!database.data.gunny_bags) database.data.gunny_bags = [];
   const d = req.body;
   const entry = { id: uuidv4(), date: d.date||'', bag_type: d.bag_type||'new', txn_type: d.txn_type||'in', quantity: +(d.quantity||0), source: d.source||'', rate: +(d.rate||0), amount: +((d.quantity||0)*(d.rate||0)).toFixed(2), reference: d.reference||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
-  database.data.gunny_bags.push(entry); database.save(); res.json(entry);
+  database.data.gunny_bags.push(entry);
+  // Auto-create local party entry for old market bag purchases
+  if (entry.bag_type === 'old' && entry.txn_type === 'in' && entry.source && entry.amount > 0) {
+    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+    database.data.local_party_accounts.push({
+      id: uuidv4(), date: entry.date, party_name: entry.source, txn_type: 'debit',
+      amount: entry.amount, description: `Gunny Bags (Old) x${entry.quantity} @ Rs.${entry.rate}`,
+      source_type: 'gunny_bag', reference: `gunny:${entry.id.slice(0,8)}`,
+      kms_year: entry.kms_year, season: entry.season, created_by: entry.created_by || 'system',
+      linked_gunny_id: entry.id, created_at: new Date().toISOString()
+    });
+  }
+  database.save(); res.json(entry);
 });
 router.get('/api/gunny-bags', (req, res) => {
   if (!database.data.gunny_bags) database.data.gunny_bags = [];
@@ -146,6 +158,10 @@ router.get('/api/gunny-bags', (req, res) => {
 });
 router.delete('/api/gunny-bags/:id', (req, res) => {
   if (!database.data.gunny_bags) return res.status(404).json({ detail: 'Not found' });
+  // Remove linked local party entry
+  if (database.data.local_party_accounts) {
+    database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.linked_gunny_id !== req.params.id);
+  }
   const len = database.data.gunny_bags.length;
   database.data.gunny_bags = database.data.gunny_bags.filter(e => e.id !== req.params.id);
   if (database.data.gunny_bags.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
@@ -159,8 +175,22 @@ router.put('/api/gunny-bags/:id', (req, res) => {
   const qty = parseInt(d.quantity) || 0;
   const rate = parseFloat(d.rate) || 0;
   database.data.gunny_bags[idx] = { ...database.data.gunny_bags[idx], date: d.date || database.data.gunny_bags[idx].date, bag_type: d.bag_type || database.data.gunny_bags[idx].bag_type, txn_type: d.txn_type || database.data.gunny_bags[idx].txn_type, quantity: qty, rate: rate, amount: +(qty * rate).toFixed(2), source: d.source ?? database.data.gunny_bags[idx].source, reference: d.reference ?? database.data.gunny_bags[idx].reference, notes: d.notes ?? database.data.gunny_bags[idx].notes, updated_at: new Date().toISOString() };
+  // Update linked local party entry
+  const updated = database.data.gunny_bags[idx];
+  if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+  database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.linked_gunny_id !== req.params.id);
+  if (updated.bag_type === 'old' && updated.txn_type === 'in' && updated.source && updated.amount > 0) {
+    database.data.local_party_accounts.push({
+      id: uuidv4(), date: updated.date, party_name: updated.source, txn_type: 'debit',
+      amount: updated.amount, description: `Gunny Bags (Old) x${updated.quantity} @ Rs.${updated.rate}`,
+      source_type: 'gunny_bag', reference: `gunny:${req.params.id.slice(0,8)}`,
+      kms_year: updated.kms_year || '', season: updated.season || '',
+      created_by: req.query.username || 'system', linked_gunny_id: req.params.id,
+      created_at: new Date().toISOString()
+    });
+  }
   database.save();
-  res.json(database.data.gunny_bags[idx]);
+  res.json(updated);
 });
 router.get('/api/gunny-bags/summary', (req, res) => {
   if (!database.data.gunny_bags) database.data.gunny_bags = [];
