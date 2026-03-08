@@ -13,7 +13,7 @@ A comprehensive management tool for a rice mill named "Mill Entry System" (NAVKA
 - Mill Entry Management (Paddy entries, RST tracking)
 - Dashboard & Targets
 - Payments (MSP, Private)
-- Milling (CMR) 
+- Milling (CMR)
 - Cash Book (Jama/Nikasi)
 - DC & Payments
 - Ledgers
@@ -33,27 +33,25 @@ A comprehensive management tool for a rice mill named "Mill Entry System" (NAVKA
 - Desktop-app (Electron): All features ported and working
 - Frontend: React SPA with all modules
 
-## Bug Fixes Applied (2026-03-08)
-1. **desktop-app/routes/staff.js**: Fixed 11 API path mismatches (hyphens → slashes to match frontend expectations)
-   - `/api/staff-attendance` → `/api/staff/attendance`
-   - `/api/staff-attendance/bulk` → `/api/staff/attendance/bulk`
-   - `/api/staff-advances` → `/api/staff/advance`
-   - `/api/staff-advances/:id` → `/api/staff/advance/:id`
-   - `/api/staff-salary/calculate` → `/api/staff/salary-calculate`
-   - `/api/staff-payments` → `/api/staff/payments`
-   - `/api/staff-payments/:id` → `/api/staff/payments/:id`
-   - `/api/staff-payments/export` → `/api/staff/export/payments`
-2. **desktop-app/main.js**: Fixed fy-settings endpoint (POST→PUT, field names `kms_year`→`active_fy`)
-3. **local-server/routes/auth.js**: Added missing `/api/fy-settings` (GET + PUT) endpoint
+## Bug Fixes Applied
+
+### Session 1 (2026-03-08)
+1. **desktop-app/routes/staff.js**: Fixed 11 API path mismatches (hyphens to slashes)
+2. **desktop-app/main.js**: Fixed fy-settings endpoint (POST->PUT, field names kms_year->active_fy)
+3. **local-server/routes/auth.js**: Added missing /api/fy-settings (GET + PUT) endpoint
 4. **local-server/routes/auth.js**: Removed duplicate ExcelJS/PDFDocument imports
 5. **local-server/routes/exports.js**: Fixed duplicate ExcelJS/PDFDocument declarations
-6. **Frontend rebuilt** and copied to both local-server/public and desktop-app/frontend-build
+6. Frontend rebuilt and copied to both local-server/public and desktop-app/frontend-build
 
-## Testing Done
-- All 32+ API endpoints tested on local-server
-- All 11 PDF/Excel export endpoints verified (HTTP 200, valid file sizes)
-- Frontend login and dashboard verified via screenshot
-- All Node.js route modules load without errors
+### Session 2 (2026-03-08)
+7. **PDF Black Box Fix**: Replaced all ₹ (Rupee symbol) with Rs. in PDF text across all Node.js backends. PDFKit's Helvetica font doesn't support ₹, causing black boxes. Files fixed:
+   - local-server/routes/cashbook.js (PDF headers)
+   - local-server/routes/cmr_exports.js (PDF headers)
+   - local-server/routes/ledgers.js (descriptions + PDF text)
+   - desktop-app/main.js (all corresponding areas)
+8. **Cash Book PDF Column Widths**: Increased Description (100->150) and Category (70->90) column widths to prevent text wrapping/overflow
+9. **Cash Book Text Truncation**: Increased substring limits for category (15->25) and description (20->35)
+10. **PDF Helper Functions**: Created shared pdf_helpers.js with addPdfHeader/addPdfTable since cashbook.js and cmr_exports.js were calling undefined functions (causing 500 errors)
 
 ## Credentials
 - Admin: admin / admin123

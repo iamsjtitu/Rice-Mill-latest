@@ -1466,14 +1466,14 @@ function createApiServer(database) {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Daily Cash Book');
-      const headers = ['Date','Account','Type','Category','Description','Jama(₹)','Nikasi(₹)','Ref'];
+      const headers = ['Date','Account','Type','Category','Description','Jama(Rs.)','Nikasi(Rs.)','Ref'];
       const rows = txns.map(t => [t.date||'', t.account==='cash'?'Cash':'Bank', t.txn_type==='jama'?'Jama':'Nikasi',
-        (t.category||'').substring(0,15), (t.description||'').substring(0,20),
+        (t.category||'').substring(0,25), (t.description||'').substring(0,35),
         t.txn_type==='jama'?t.amount:'-', t.txn_type==='nikasi'?t.amount:'-', (t.reference||'').substring(0,12)]);
       const tj = +txns.filter(t => t.txn_type==='jama').reduce((s,t)=>s+(t.amount||0),0).toFixed(2);
       const tn = +txns.filter(t => t.txn_type==='nikasi').reduce((s,t)=>s+(t.amount||0),0).toFixed(2);
       rows.push(['TOTAL','','','','',tj,tn,'']);
-      addPdfTable(doc, headers, rows, [50,45,40,70,100,55,55,60]); doc.end();
+      addPdfTable(doc, headers, rows, [55,45,40,90,150,60,60,55]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   });
 
@@ -1698,7 +1698,7 @@ function createApiServer(database) {
       addPdfHeader(doc, 'FRK Purchase Register');
       const tq = +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2);
       const ta = +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2);
-      const headers = ['Date','Party','Qty(Q)','Rate(₹)','Amount(₹)','Note'];
+      const headers = ['Date','Party','Qty(Q)','Rate(Rs.)','Amount(Rs.)','Note'];
       const rows = purchases.map(p => [p.date||'', (p.party_name||'').substring(0,25), p.quantity_qntl||0, p.rate_per_qntl||0, p.total_amount||0, (p.note||'').substring(0,20)]);
       rows.push(['TOTAL', '', tq, '', ta, '']);
       addPdfTable(doc, headers, rows, [60, 120, 55, 55, 70, 80]);
@@ -1760,7 +1760,7 @@ function createApiServer(database) {
       res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.pdf`);
       doc.pipe(res);
       addPdfHeader(doc, 'By-Product Stock & Sales Report');
-      const sHeaders = ['Product','Produced(Q)','Sold(Q)','Available(Q)','Revenue(₹)'];
+      const sHeaders = ['Product','Produced(Q)','Sold(Q)','Available(Q)','Revenue(Rs.)'];
       const sRows = products.map(p => {
         const produced = +millingEntries.reduce((s,e)=>s+(e[`${p}_qntl`]||0),0).toFixed(2);
         const pSales = sales.filter(s => s.product === p);
@@ -1772,7 +1772,7 @@ function createApiServer(database) {
       doc.moveDown(1);
       doc.fontSize(11).font('Helvetica-Bold').text('Sales Detail', { align: 'left' });
       doc.moveDown(0.3);
-      const headers = ['Date','Product','Qty(Q)','Rate(₹)','Amount(₹)','Buyer'];
+      const headers = ['Date','Product','Qty(Q)','Rate(Rs.)','Amount(Rs.)','Buyer'];
       const tq = +sales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2);
       const ta = +sales.reduce((s,e)=>s+(e.total_amount||0),0).toFixed(2);
       const rows = sales.map(s => [s.date||'', (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), s.quantity_qntl||0, s.rate_per_qntl||0, s.total_amount||0, (s.buyer_name||'').substring(0,20)]);
@@ -2033,14 +2033,14 @@ function createApiServer(database) {
     const ledger = [];
     if (!party_type || party_type === 'agent') { for (const e of entries) { const a = e.agent_name || ''; if (!a) continue; if (party_name && a.toLowerCase() !== party_name.toLowerCase()) continue; ledger.push({ date: e.date || '', party_name: a, party_type: 'Agent', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q | Truck: ${e.truck_no||''}`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100, ref: (e.id||'').substring(0,8) }); } }
     if (!party_type || party_type === 'truck') { for (const e of entries) { const t = e.truck_no || ''; if (!t) continue; if (party_name && t.toLowerCase() !== party_name.toLowerCase()) continue; ledger.push({ date: e.date || '', party_name: t, party_type: 'Truck', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q | Agent: ${e.agent_name||''}`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100, ref: (e.id||'').substring(0,8) }); } }
-    if (!party_type || party_type === 'frk_party') { (database.data.frk_purchases||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(p => { const n = p.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: p.date||'', party_name: n, party_type: 'FRK Seller', description: `FRK: ${p.quantity_qntl||0}Q @ ₹${p.rate_per_qntl||0}/Q`, debit: Math.round((p.total_amount||0)*100)/100, credit: 0, ref: (p.id||'').substring(0,8) }); }); }
+    if (!party_type || party_type === 'frk_party') { (database.data.frk_purchases||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(p => { const n = p.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: p.date||'', party_name: n, party_type: 'FRK Seller', description: `FRK: ${p.quantity_qntl||0}Q @ Rs.${p.rate_per_qntl||0}/Q`, debit: Math.round((p.total_amount||0)*100)/100, credit: 0, ref: (p.id||'').substring(0,8) }); }); }
     if (!party_type || party_type === 'buyer') { (database.data.byproduct_sales||[]).filter(s => (!kms_year||s.kms_year===kms_year) && (!season||s.season===season)).forEach(s => { const b = s.buyer_name||''; if (!b) return; if (party_name && b.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: s.date||'', party_name: b, party_type: 'Buyer', description: `${(s.product||'')}`, debit: 0, credit: Math.round((s.total_amount||0)*100)/100, ref: (s.id||'').substring(0,8) }); }); }
     // Private Paddy Purchase
-    if (!party_type || party_type === 'pvt_paddy') { (database.data.private_paddy||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(p => { const n = p.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: p.date||'', party_name: n, party_type: 'Pvt Paddy', description: `Paddy Purchase: ${p.final_qntl||0}Q @ ₹${p.rate_per_qntl||0}/Q = ₹${p.total_amount||0}`, debit: Math.round((p.total_amount||0)*100)/100, credit: 0, ref: (p.id||'').substring(0,8) }); }); }
+    if (!party_type || party_type === 'pvt_paddy') { (database.data.private_paddy||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(p => { const n = p.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: p.date||'', party_name: n, party_type: 'Pvt Paddy', description: `Paddy Purchase: ${p.final_qntl||0}Q @ Rs.${p.rate_per_qntl||0}/Q = Rs.${p.total_amount||0}`, debit: Math.round((p.total_amount||0)*100)/100, credit: 0, ref: (p.id||'').substring(0,8) }); }); }
     // Rice Sale
-    if (!party_type || party_type === 'rice_buyer') { (database.data.rice_sales||[]).filter(s => (!kms_year||s.kms_year===kms_year) && (!season||s.season===season)).forEach(s => { const n = s.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: s.date||'', party_name: n, party_type: 'Rice Buyer', description: `Rice Sale: ${s.quantity_qntl||0}Q (${s.rice_type||''}) @ ₹${s.rate_per_qntl||0}/Q = ₹${s.total_amount||0}`, debit: 0, credit: Math.round((s.total_amount||0)*100)/100, ref: (s.id||'').substring(0,8) }); }); }
+    if (!party_type || party_type === 'rice_buyer') { (database.data.rice_sales||[]).filter(s => (!kms_year||s.kms_year===kms_year) && (!season||s.season===season)).forEach(s => { const n = s.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: s.date||'', party_name: n, party_type: 'Rice Buyer', description: `Rice Sale: ${s.quantity_qntl||0}Q (${s.rice_type||''}) @ Rs.${s.rate_per_qntl||0}/Q = Rs.${s.total_amount||0}`, debit: 0, credit: Math.round((s.total_amount||0)*100)/100, ref: (s.id||'').substring(0,8) }); }); }
     // Private Payments
-    if (!party_type || ['pvt_paddy','rice_buyer','pvt_payment'].includes(party_type)) { (database.data.private_payments||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(pay => { const pn = pay.party_name||''; if (!pn) return; if (party_name && pn.toLowerCase()!==party_name.toLowerCase()) return; if (pay.ref_type==='paddy_purchase') { if (party_type && !['pvt_paddy','pvt_payment'].includes(party_type)) return; ledger.push({ date: pay.date||'', party_name: pn, party_type: 'Pvt Paddy', description: `Payment: ₹${pay.amount||0} (${pay.mode||'cash'})`, debit: 0, credit: Math.round((pay.amount||0)*100)/100, ref: (pay.id||'').substring(0,8) }); } else if (pay.ref_type==='rice_sale') { if (party_type && !['rice_buyer','pvt_payment'].includes(party_type)) return; ledger.push({ date: pay.date||'', party_name: pn, party_type: 'Rice Buyer', description: `Payment Received: ₹${pay.amount||0} (${pay.mode||'cash'})`, debit: Math.round((pay.amount||0)*100)/100, credit: 0, ref: (pay.id||'').substring(0,8) }); } }); }
+    if (!party_type || ['pvt_paddy','rice_buyer','pvt_payment'].includes(party_type)) { (database.data.private_payments||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(pay => { const pn = pay.party_name||''; if (!pn) return; if (party_name && pn.toLowerCase()!==party_name.toLowerCase()) return; if (pay.ref_type==='paddy_purchase') { if (party_type && !['pvt_paddy','pvt_payment'].includes(party_type)) return; ledger.push({ date: pay.date||'', party_name: pn, party_type: 'Pvt Paddy', description: `Payment: Rs.${pay.amount||0} (${pay.mode||'cash'})`, debit: 0, credit: Math.round((pay.amount||0)*100)/100, ref: (pay.id||'').substring(0,8) }); } else if (pay.ref_type==='rice_sale') { if (party_type && !['rice_buyer','pvt_payment'].includes(party_type)) return; ledger.push({ date: pay.date||'', party_name: pn, party_type: 'Rice Buyer', description: `Payment Received: Rs.${pay.amount||0} (${pay.mode||'cash'})`, debit: Math.round((pay.amount||0)*100)/100, credit: 0, ref: (pay.id||'').substring(0,8) }); } }); }
     ledger.sort((a, b) => (b.date||'').localeCompare(a.date||''));
     const partySet = new Set(); for (const item of ledger) partySet.add(JSON.stringify({ name: item.party_name, type: item.party_type }));
     const partyList = [...partySet].map(s => JSON.parse(s)).sort((a, b) => a.name.localeCompare(b.name));
@@ -2104,7 +2104,7 @@ function createApiServer(database) {
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`); doc.pipe(res);
       doc.fontSize(18).text(`Party Ledger${party_name?' - '+party_name:''}`, { align: 'center' }); doc.moveDown();
-      for (const l of ledger) doc.fontSize(8).text(`${l.date} | ${l.party_name} (${l.party_type}) | ${l.description} | Dr:₹${l.debit} | Cr:₹${l.credit}`);
+      for (const l of ledger) doc.fontSize(8).text(`${l.date} | ${l.party_name} (${l.party_type}) | ${l.description} | Dr:Rs.${l.debit} | Cr:Rs.${l.credit}`);
       doc.end();
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
   });

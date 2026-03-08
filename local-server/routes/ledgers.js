@@ -100,7 +100,7 @@ router.get('/api/reports/party-ledger', (req, res) => {
       const party = p.party_name || ''; if (!party) continue;
       if (party_name && party.toLowerCase() !== party_name.toLowerCase()) continue;
       ledger.push({ date: p.date || '', party_name: party, party_type: 'FRK Seller',
-        description: `FRK: ${p.quantity_qntl || 0}Q @ ₹${p.rate_per_qntl || 0}/Q`,
+        description: `FRK: ${p.quantity_qntl || 0}Q @ Rs.${p.rate_per_qntl || 0}/Q`,
         debit: Math.round((p.total_amount || 0) * 100) / 100, credit: 0, ref: (p.id || '').substring(0, 8) });
     }
   }
@@ -111,7 +111,7 @@ router.get('/api/reports/party-ledger', (req, res) => {
       const buyer = s.buyer_name || ''; if (!buyer) continue;
       if (party_name && buyer.toLowerCase() !== party_name.toLowerCase()) continue;
       ledger.push({ date: s.date || '', party_name: buyer, party_type: 'Buyer',
-        description: `${(s.product || '').charAt(0).toUpperCase() + (s.product || '').slice(1)}: ${s.quantity_qntl || 0}Q @ ₹${s.rate_per_qntl || 0}/Q`,
+        description: `${(s.product || '').charAt(0).toUpperCase() + (s.product || '').slice(1)}: ${s.quantity_qntl || 0}Q @ Rs.${s.rate_per_qntl || 0}/Q`,
         debit: 0, credit: Math.round((s.total_amount || 0) * 100) / 100, ref: (s.id || '').substring(0, 8) });
     }
   }
@@ -122,7 +122,7 @@ router.get('/api/reports/party-ledger', (req, res) => {
       const party = p.party_name || ''; if (!party) continue;
       if (party_name && party.toLowerCase() !== party_name.toLowerCase()) continue;
       ledger.push({ date: p.date || '', party_name: party, party_type: 'Pvt Paddy',
-        description: `Paddy Purchase: ${p.final_qntl || 0}Q @ ₹${p.rate_per_qntl || 0}/Q = ₹${p.total_amount || 0}`,
+        description: `Paddy Purchase: ${p.final_qntl || 0}Q @ Rs.${p.rate_per_qntl || 0}/Q = Rs.${p.total_amount || 0}`,
         debit: Math.round((p.total_amount || 0) * 100) / 100, credit: 0, ref: (p.id || '').substring(0, 8) });
     }
   }
@@ -133,7 +133,7 @@ router.get('/api/reports/party-ledger', (req, res) => {
       const party = s.party_name || ''; if (!party) continue;
       if (party_name && party.toLowerCase() !== party_name.toLowerCase()) continue;
       ledger.push({ date: s.date || '', party_name: party, party_type: 'Rice Buyer',
-        description: `Rice Sale: ${s.quantity_qntl || 0}Q (${s.rice_type || ''}) @ ₹${s.rate_per_qntl || 0}/Q = ₹${s.total_amount || 0}`,
+        description: `Rice Sale: ${s.quantity_qntl || 0}Q (${s.rice_type || ''}) @ Rs.${s.rate_per_qntl || 0}/Q = Rs.${s.total_amount || 0}`,
         debit: 0, credit: Math.round((s.total_amount || 0) * 100) / 100, ref: (s.id || '').substring(0, 8) });
     }
   }
@@ -146,12 +146,12 @@ router.get('/api/reports/party-ledger', (req, res) => {
       if (pay.ref_type === 'paddy_purchase') {
         if (party_type && !['pvt_paddy', 'pvt_payment'].includes(party_type)) continue;
         ledger.push({ date: pay.date || '', party_name: pn, party_type: 'Pvt Paddy',
-          description: `Payment: ₹${pay.amount || 0} (${pay.mode || 'cash'})`,
+          description: `Payment: Rs.${pay.amount || 0} (${pay.mode || 'cash'})`,
           debit: 0, credit: Math.round((pay.amount || 0) * 100) / 100, ref: (pay.id || '').substring(0, 8) });
       } else if (pay.ref_type === 'rice_sale') {
         if (party_type && !['rice_buyer', 'pvt_payment'].includes(party_type)) continue;
         ledger.push({ date: pay.date || '', party_name: pn, party_type: 'Rice Buyer',
-          description: `Payment Received: ₹${pay.amount || 0} (${pay.mode || 'cash'})`,
+          description: `Payment Received: Rs.${pay.amount || 0} (${pay.mode || 'cash'})`,
           debit: Math.round((pay.amount || 0) * 100) / 100, credit: 0, ref: (pay.id || '').substring(0, 8) });
       }
     }
@@ -248,7 +248,7 @@ router.get('/api/reports/party-ledger/pdf', (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`);
     doc.pipe(res);
     doc.fontSize(18).text(`Party Ledger${party_name ? ' - ' + party_name : ''}`, { align: 'center' }); doc.moveDown();
-    for (const l of ledger) doc.fontSize(8).text(`${l.date} | ${l.party_name} (${l.party_type}) | ${l.description} | Dr:₹${l.debit} | Cr:₹${l.credit}`);
+    for (const l of ledger) doc.fontSize(8).text(`${l.date} | ${l.party_name} (${l.party_type}) | ${l.description} | Dr:Rs.${l.debit} | Cr:Rs.${l.credit}`);
     doc.end();
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });

@@ -5,6 +5,8 @@ module.exports = function(database) {
   // Helper reference
   const ExcelJS = require('exceljs');
   const PDFDocument = require('pdfkit');
+  const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+  const addPdfHeader = (doc, title) => _addPdfHeader(doc, title, database.getBranding());
 
 // ============ CMR EXPORT ENDPOINTS (continued) ============
 
@@ -97,7 +99,7 @@ router.get('/api/frk-purchases/pdf', (req, res) => {
     addPdfHeader(doc, 'FRK Purchase Register');
     const tq = +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2);
     const ta = +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2);
-    const headers = ['Date','Party','Qty(Q)','Rate(₹)','Amount(₹)','Note'];
+    const headers = ['Date','Party','Qty(Q)','Rate(Rs.)','Amount(Rs.)','Note'];
     const rows = purchases.map(p => [p.date||'', (p.party_name||'').substring(0,25), p.quantity_qntl||0, p.rate_per_qntl||0, p.total_amount||0, (p.note||'').substring(0,20)]);
     rows.push(['TOTAL', '', tq, '', ta, '']);
     addPdfTable(doc, headers, rows, [60, 120, 55, 55, 70, 80]);
@@ -162,7 +164,7 @@ router.get('/api/byproduct-sales/pdf', (req, res) => {
     doc.pipe(res);
     addPdfHeader(doc, 'By-Product Stock & Sales Report');
     // Stock summary
-    const sHeaders = ['Product','Produced(Q)','Sold(Q)','Available(Q)','Revenue(₹)'];
+    const sHeaders = ['Product','Produced(Q)','Sold(Q)','Available(Q)','Revenue(Rs.)'];
     const sRows = products.map(p => {
       const produced = +millingEntries.reduce((s,e)=>s+(e[`${p}_qntl`]||0),0).toFixed(2);
       const pSales = sales.filter(s => s.product === p);
@@ -175,7 +177,7 @@ router.get('/api/byproduct-sales/pdf', (req, res) => {
     // Sales detail
     doc.fontSize(11).font('Helvetica-Bold').text('Sales Detail', { align: 'left' });
     doc.moveDown(0.3);
-    const headers = ['Date','Product','Qty(Q)','Rate(₹)','Amount(₹)','Buyer'];
+    const headers = ['Date','Product','Qty(Q)','Rate(Rs.)','Amount(Rs.)','Buyer'];
     const tq = +sales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2);
     const ta = +sales.reduce((s,e)=>s+(e.total_amount||0),0).toFixed(2);
     const rows = sales.map(s => [s.date||'', (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), s.quantity_qntl||0, s.rate_per_qntl||0, s.total_amount||0, (s.buyer_name||'').substring(0,20)]);

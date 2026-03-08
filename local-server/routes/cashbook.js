@@ -5,6 +5,8 @@ module.exports = function(database) {
   // Helper reference
   const ExcelJS = require('exceljs');
   const PDFDocument = require('pdfkit');
+  const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+  const addPdfHeader = (doc, title) => _addPdfHeader(doc, title, database.getBranding());
 
 // ============ CASH BOOK ============
 router.post('/api/cash-book', (req, res) => {
@@ -126,16 +128,16 @@ router.get('/api/cash-book/pdf', (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
     doc.pipe(res);
     addPdfHeader(doc, 'Daily Cash Book');
-    const headers = ['Date', 'Account', 'Type', 'Category', 'Description', 'Jama(₹)', 'Nikasi(₹)', 'Ref'];
+    const headers = ['Date', 'Account', 'Type', 'Category', 'Description', 'Jama(Rs.)', 'Nikasi(Rs.)', 'Ref'];
     const rows = txns.map(t => [t.date || '', t.account === 'cash' ? 'Cash' : 'Bank',
-      t.txn_type === 'jama' ? 'Jama' : 'Nikasi', (t.category || '').substring(0, 15),
-      (t.description || '').substring(0, 20),
+      t.txn_type === 'jama' ? 'Jama' : 'Nikasi', (t.category || '').substring(0, 25),
+      (t.description || '').substring(0, 35),
       t.txn_type === 'jama' ? t.amount : '-', t.txn_type === 'nikasi' ? t.amount : '-',
       (t.reference || '').substring(0, 12)]);
     const tj = +txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
     const tn = +txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
     rows.push(['TOTAL', '', '', '', '', tj, tn, '']);
-    addPdfTable(doc, headers, rows, [50, 45, 40, 70, 100, 55, 55, 60]);
+    addPdfTable(doc, headers, rows, [55, 45, 40, 90, 150, 60, 60, 55]);
     doc.end();
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });
