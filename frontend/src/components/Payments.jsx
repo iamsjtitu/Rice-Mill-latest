@@ -1529,7 +1529,7 @@ const DieselAccount = ({ filters, user }) => {
       )}
 
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
         <Select value={selectedPump} onValueChange={setSelectedPump}>
           <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="diesel-pump-filter">
@@ -1540,6 +1540,8 @@ const DieselAccount = ({ filters, user }) => {
             {pumps.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button onClick={async () => { try { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); const res = await axios.get(`${API}/diesel-accounts/excel?${p}`, { responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url; a.download = 'diesel_account.xlsx'; a.click(); } catch (e) { toast.error("Excel export failed"); } }} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="diesel-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
+        <Button onClick={async () => { try { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); const res = await axios.get(`${API}/diesel-accounts/pdf?${p}`, { responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url; a.download = 'diesel_account.pdf'; a.click(); } catch (e) { toast.error("PDF export failed"); } }} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="diesel-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
       </div>
 
       {/* Transactions Table */}

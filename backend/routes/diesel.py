@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import Response
 from typing import Optional
 from datetime import datetime, timezone
 from database import db
@@ -153,3 +154,113 @@ async def delete_diesel_transaction(txn_id: str):
     
     await db.diesel_accounts.delete_one({"id": txn_id})
     return {"message": "Deleted", "id": txn_id}
+
+
+@router.get("/diesel-accounts/excel")
+async def export_diesel_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from io import BytesIO
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    txns = await db.diesel_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+    summary = await get_diesel_summary(kms_year=kms_year, season=season)
+
+    wb = Workbook(); ws = wb.active; ws.title = "Diesel Account"
+    hf = PatternFill(start_color="7c2d12", end_color="7c2d12", fill_type="solid")
+    hfont = Font(bold=True, color="FFFFFF", size=10)
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+    ws.merge_cells('A1:G1'); ws['A1'] = "Diesel Account / डीजल खाता"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+
+    # Summary
+    ws.cell(row=3, column=1, value="Pump Summary").font = Font(bold=True, size=11)
+    for col, h in enumerate(['Pump Name', 'Total Diesel (Rs.)', 'Total Paid (Rs.)', 'Balance (Rs.)', 'Entries'], 1):
+        c = ws.cell(row=4, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+    row = 5
+    for p in summary.get("pumps", []):
+        for col, v in enumerate([p["pump_name"] + (" (Default)" if p.get("is_default") else ""), p["total_diesel"], p["total_paid"], p["balance"], p["txn_count"]], 1):
+            ws.cell(row=row, column=col, value=v).border = tb
+        row += 1
+    ws.cell(row=row, column=1, value="GRAND TOTAL").font = Font(bold=True)
+    ws.cell(row=row, column=2, value=summary.get("grand_total_diesel", 0)).font = Font(bold=True); ws.cell(row=row, column=2).border = tb
+    ws.cell(row=row, column=3, value=summary.get("grand_total_paid", 0)).font = Font(bold=True); ws.cell(row=row, column=3).border = tb
+    ws.cell(row=row, column=4, value=summary.get("grand_balance", 0)).font = Font(bold=True, color="FF0000"); ws.cell(row=row, column=4).border = tb
+    row += 2
+
+    # Transactions
+    ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11); row += 1
+    for col, h in enumerate(['Date', 'Pump', 'Type', 'Truck No', 'Agent', 'Amount (Rs.)', 'Description'], 1):
+        c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+    row += 1
+    for t in txns:
+        vals = [t.get("date",""), t.get("pump_name",""), "Payment" if t.get("txn_type")=="payment" else "Diesel",
+                t.get("truck_no",""), t.get("agent_name",""), t.get("amount",0), t.get("description","")]
+        for col, v in enumerate(vals, 1):
+            ws.cell(row=row, column=col, value=v).border = tb
+        row += 1
+
+    for letter in ['A','B','C','D','E','F','G']: ws.column_dimensions[letter].width = 18
+    buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=diesel_account_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+
+@router.get("/diesel-accounts/pdf")
+async def export_diesel_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from io import BytesIO
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    txns = await db.diesel_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+    summary = await get_diesel_summary(kms_year=kms_year, season=season)
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("Diesel Account / डीजल खाता", styles['Title']))
+    elements.append(Spacer(1, 12))
+
+    # Summary table
+    sum_data = [['Pump Name', 'Total Diesel', 'Total Paid', 'Balance', 'Entries']]
+    for p in summary.get("pumps", []):
+        sum_data.append([p["pump_name"] + (" *" if p.get("is_default") else ""),
+                         f"Rs.{p['total_diesel']}", f"Rs.{p['total_paid']}", f"Rs.{p['balance']}", str(p["txn_count"])])
+    sum_data.append(['GRAND TOTAL', f"Rs.{summary.get('grand_total_diesel',0)}", f"Rs.{summary.get('grand_total_paid',0)}", f"Rs.{summary.get('grand_balance',0)}", ''])
+    st = Table(sum_data, colWidths=[180, 100, 100, 100, 60])
+    st.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#7c2d12')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 9), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (3,-1), (3,-1), colors.red),
+    ]))
+    elements.append(st)
+    elements.append(Spacer(1, 20))
+
+    # Transaction table
+    elements.append(Paragraph("Transactions", styles['Heading2']))
+    t_data = [['Date', 'Pump', 'Type', 'Truck', 'Agent', 'Amount', 'Description']]
+    for t in txns:
+        t_data.append([t.get("date",""), t.get("pump_name","")[:15],
+                       "Payment" if t.get("txn_type")=="payment" else "Diesel",
+                       t.get("truck_no",""), t.get("agent_name","")[:12],
+                       f"Rs.{t.get('amount',0)}", t.get("description","")[:30]])
+    tt = Table(t_data, colWidths=[70, 100, 55, 80, 80, 70, 180])
+    tt.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#7c2d12')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 8), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#fff7ed')]),
+    ]))
+    elements.append(tt)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=diesel_account_{datetime.now().strftime('%Y%m%d')}.pdf"})

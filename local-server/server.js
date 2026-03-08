@@ -9,6 +9,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const { addPdfHeader, addPdfTable } = require('./routes/pdf_helpers');
 
 const PORT = 8080;
 let DATA_DIR = null;  // Will be set after user input
@@ -694,6 +695,55 @@ async function startServer() {
     }
     database.data.diesel_accounts = database.data.diesel_accounts.filter(t=>t.id!==req.params.id);
     database.save(); res.json({ message:'Deleted', id:req.params.id });
+  });
+
+  app.get('/api/diesel-accounts/excel', async (req, res) => {
+    try {
+      let txns = database.data.diesel_accounts || [];
+      if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+      if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+      const pumps = database.data.diesel_pumps || [];
+      const pumpSums = pumps.map(p => {
+        const pt = txns.filter(t => t.pump_id === p.id);
+        const td = pt.filter(t=>t.txn_type==='debit').reduce((s,t)=>s+t.amount,0);
+        const tp = pt.filter(t=>t.txn_type==='payment').reduce((s,t)=>s+t.amount,0);
+        return { name:p.name, is_default:p.is_default, td, tp, bal:td-tp, cnt:pt.filter(t=>t.txn_type==='debit').length };
+      });
+      const ExcelJS = require('exceljs'); const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Diesel Account');
+      ws.mergeCells('A1:G1'); ws.getCell('A1').value = 'Diesel Account'; ws.getCell('A1').font = { bold: true, size: 14 };
+      ws.getCell('A3').value = 'Pump Summary'; ws.getCell('A3').font = { bold: true };
+      ['Pump','Diesel(Rs.)','Paid(Rs.)','Balance(Rs.)','Entries'].forEach((h,i) => { const c = ws.getCell(4,i+1); c.value = h; c.font = { bold:true, color:{argb:'FFFFFF'} }; c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'7c2d12'} }; });
+      let row = 5;
+      pumpSums.forEach(p => { ws.getCell(row,1).value=p.name+(p.is_default?' (Default)':''); ws.getCell(row,2).value=p.td; ws.getCell(row,3).value=p.tp; ws.getCell(row,4).value=p.bal; ws.getCell(row,5).value=p.cnt; row++; });
+      row += 2;
+      ws.getCell(row,1).value = 'Transactions'; ws.getCell(row,1).font = { bold:true }; row++;
+      ['Date','Pump','Type','Truck','Agent','Amount(Rs.)','Description'].forEach((h,i) => { const c = ws.getCell(row,i+1); c.value = h; c.font = { bold:true, color:{argb:'FFFFFF'} }; c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'7c2d12'} }; }); row++;
+      txns.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(t => { ws.getCell(row,1).value=t.date||''; ws.getCell(row,2).value=t.pump_name||''; ws.getCell(row,3).value=t.txn_type==='payment'?'Payment':'Diesel'; ws.getCell(row,4).value=t.truck_no||''; ws.getCell(row,5).value=t.agent_name||''; ws.getCell(row,6).value=t.amount||0; ws.getCell(row,7).value=t.description||''; row++; });
+      ['A','B','C','D','E','F','G'].forEach(l => ws.getColumn(l).width = 18);
+      res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition','attachment; filename=diesel_account.xlsx');
+      await wb.xlsx.write(res); res.end();
+    } catch(err) { res.status(500).json({ detail: 'Export failed: '+err.message }); }
+  });
+
+  app.get('/api/diesel-accounts/pdf', (req, res) => {
+    try {
+      let txns = database.data.diesel_accounts || [];
+      if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+      if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+      const pumps = database.data.diesel_pumps || [];
+      const PDFDocument = require('pdfkit'); const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      res.setHeader('Content-Type','application/pdf'); res.setHeader('Content-Disposition','attachment; filename=diesel_account.pdf');
+      doc.pipe(res);
+      addPdfHeader(doc, 'Diesel Account / Diesel Khata');
+      const sumH = ['Pump Name','Total Diesel','Total Paid','Balance','Entries'];
+      const sumR = pumps.map(p => { const pt = txns.filter(t=>t.pump_id===p.id); const td=pt.filter(t=>t.txn_type==='debit').reduce((s,t)=>s+t.amount,0); const tp=pt.filter(t=>t.txn_type==='payment').reduce((s,t)=>s+t.amount,0); return [p.name+(p.is_default?' *':''),'Rs.'+td,'Rs.'+tp,'Rs.'+(td-tp),pt.filter(t=>t.txn_type==='debit').length.toString()]; });
+      addPdfTable(doc, sumH, sumR, [150,80,80,80,50]); doc.moveDown();
+      doc.fontSize(12).text('Transactions',{underline:true}); doc.moveDown(0.5);
+      const tH = ['Date','Pump','Type','Truck','Agent','Amount','Desc'];
+      const tR = txns.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(t=>[t.date||'',(t.pump_name||'').substring(0,15),t.txn_type==='payment'?'Payment':'Diesel',t.truck_no||'',(t.agent_name||'').substring(0,12),'Rs.'+(t.amount||0),(t.description||'').substring(0,25)]);
+      addPdfTable(doc, tH, tR, [60,90,50,70,70,60,150]); doc.end();
+    } catch(err) { res.status(500).json({ detail: 'Export failed: '+err.message }); }
   });
 
   // ===== SERVE FRONTEND (AFTER all API routes) =====
