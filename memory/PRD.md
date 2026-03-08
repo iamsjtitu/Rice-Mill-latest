@@ -48,6 +48,7 @@ The user requested a comprehensive Mill Entry System for managing paddy-to-rice 
 - Custom user-defined categories
 - Summary with running balance
 - **Filters: Account, Type (Jama/Nikasi), Category, Date range** (added 2026-03-07)
+- **Auto-linked with Private Trading payments** (added 2026-03-08)
 - Excel/PDF exports
 
 ### Phase 6: Private Trading (DONE - 2026-03-08)

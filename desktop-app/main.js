@@ -1822,6 +1822,162 @@ function createApiServer(database) {
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
   });
 
+
+  // ============ PRIVATE TRADING: Paddy Purchase & Rice Sale ============
+
+  function calcPaddyAutoDesktop(d) {
+    d.qntl = Math.round((d.kg || 0) / 100 * 100) / 100;
+    d.gbw_cut = d.g_deposite > 0 ? Math.round(d.g_deposite * 0.5 * 100) / 100 : Math.round((d.bag || 0) * 1 * 100) / 100;
+    d.mill_w = Math.round(((d.kg || 0) - d.gbw_cut) * 100) / 100;
+    d.p_pkt_cut = Math.round((d.plastic_bag || 0) * 0.5 * 100) / 100;
+    const moistPct = (d.moisture || 0) > 17 ? Math.round(((d.moisture || 0) - 17) * 100) / 100 : 0;
+    d.moisture_cut_percent = moistPct;
+    d.moisture_cut = Math.round(d.mill_w * moistPct / 100 * 100) / 100;
+    const afterM = d.mill_w - d.moisture_cut;
+    d.cutting = Math.round(afterM * (d.cutting_percent || 0) / 100 * 100) / 100;
+    d.final_w = Math.round((afterM - d.cutting - d.p_pkt_cut - (d.disc_dust_poll || 0)) * 100) / 100;
+    d.final_qntl = Math.round(d.final_w / 100 * 100) / 100;
+    d.total_amount = Math.round(d.final_qntl * (d.rate_per_qntl || 0) * 100) / 100;
+    d.balance = Math.round(d.total_amount - (d.paid_amount || 0), 2);
+    return d;
+  }
+
+  apiApp.post('/api/private-paddy', (req, res) => {
+    if (!database.data.private_paddy) database.data.private_paddy = [];
+    const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    ['kg','bag','rate_per_qntl','g_deposite','plastic_bag','moisture','cutting_percent','disc_dust_poll','paid_amount'].forEach(f => { d[f] = parseFloat(d[f]) || 0; });
+    d.bag = parseInt(d.bag) || 0; d.plastic_bag = parseInt(d.plastic_bag) || 0;
+    calcPaddyAutoDesktop(d);
+    database.data.private_paddy.push(d); database.save(); res.json(d);
+  });
+
+  apiApp.get('/api/private-paddy', (req, res) => {
+    if (!database.data.private_paddy) database.data.private_paddy = [];
+    const { kms_year, season, party_name } = req.query;
+    let items = [...database.data.private_paddy];
+    if (kms_year) items = items.filter(i => i.kms_year === kms_year);
+    if (season) items = items.filter(i => i.season === season);
+    if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
+    items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    res.json(items);
+  });
+
+  apiApp.put('/api/private-paddy/:id', (req, res) => {
+    if (!database.data.private_paddy) database.data.private_paddy = [];
+    const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+    const merged = { ...database.data.private_paddy[idx], ...req.body, updated_at: new Date().toISOString() };
+    ['kg','bag','rate_per_qntl','g_deposite','plastic_bag','moisture','cutting_percent','disc_dust_poll','paid_amount'].forEach(f => { merged[f] = parseFloat(merged[f]) || 0; });
+    merged.bag = parseInt(merged.bag) || 0; merged.plastic_bag = parseInt(merged.plastic_bag) || 0;
+    calcPaddyAutoDesktop(merged);
+    database.data.private_paddy[idx] = merged; database.save(); res.json(merged);
+  });
+
+  apiApp.delete('/api/private-paddy/:id', (req, res) => {
+    if (!database.data.private_paddy) database.data.private_paddy = [];
+    const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+    database.data.private_paddy.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
+  });
+
+  apiApp.post('/api/rice-sales', (req, res) => {
+    if (!database.data.rice_sales) database.data.rice_sales = [];
+    const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    d.quantity_qntl = parseFloat(d.quantity_qntl) || 0; d.rate_per_qntl = parseFloat(d.rate_per_qntl) || 0;
+    d.bags = parseInt(d.bags) || 0; d.paid_amount = parseFloat(d.paid_amount) || 0;
+    d.total_amount = Math.round(d.quantity_qntl * d.rate_per_qntl * 100) / 100;
+    d.balance = Math.round(d.total_amount - d.paid_amount, 2);
+    database.data.rice_sales.push(d); database.save(); res.json(d);
+  });
+
+  apiApp.get('/api/rice-sales', (req, res) => {
+    if (!database.data.rice_sales) database.data.rice_sales = [];
+    const { kms_year, season, party_name } = req.query;
+    let items = [...database.data.rice_sales];
+    if (kms_year) items = items.filter(i => i.kms_year === kms_year);
+    if (season) items = items.filter(i => i.season === season);
+    if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
+    items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    res.json(items);
+  });
+
+  apiApp.put('/api/rice-sales/:id', (req, res) => {
+    if (!database.data.rice_sales) database.data.rice_sales = [];
+    const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+    const merged = { ...database.data.rice_sales[idx], ...req.body, updated_at: new Date().toISOString() };
+    merged.quantity_qntl = parseFloat(merged.quantity_qntl) || 0; merged.rate_per_qntl = parseFloat(merged.rate_per_qntl) || 0;
+    merged.bags = parseInt(merged.bags) || 0; merged.paid_amount = parseFloat(merged.paid_amount) || 0;
+    merged.total_amount = Math.round(merged.quantity_qntl * merged.rate_per_qntl * 100) / 100;
+    merged.balance = Math.round(merged.total_amount - merged.paid_amount, 2);
+    database.data.rice_sales[idx] = merged; database.save(); res.json(merged);
+  });
+
+  apiApp.delete('/api/rice-sales/:id', (req, res) => {
+    if (!database.data.rice_sales) database.data.rice_sales = [];
+    const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+    database.data.rice_sales.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
+  });
+
+  apiApp.post('/api/private-payments', (req, res) => {
+    if (!database.data.private_payments) database.data.private_payments = [];
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
+    d.amount = parseFloat(d.amount) || 0;
+    database.data.private_payments.push(d);
+    if (d.ref_type === 'paddy_purchase' && d.ref_id) {
+      const entry = (database.data.private_paddy || []).find(e => e.id === d.ref_id);
+      if (entry) { entry.paid_amount = Math.round((entry.paid_amount || 0) + d.amount * 100) / 100; entry.balance = Math.round(entry.total_amount - entry.paid_amount * 100) / 100; }
+    } else if (d.ref_type === 'rice_sale' && d.ref_id) {
+      const entry = (database.data.rice_sales || []).find(e => e.id === d.ref_id);
+      if (entry) { entry.paid_amount = Math.round((entry.paid_amount || 0) + d.amount * 100) / 100; entry.balance = Math.round(entry.total_amount - entry.paid_amount * 100) / 100; }
+    }
+    const account = d.mode === 'bank' ? 'bank' : 'cash';
+    const cbTxn = {
+      id: require('crypto').randomUUID(), date: d.date, account,
+      txn_type: d.ref_type === 'paddy_purchase' ? 'nikasi' : 'jama',
+      category: d.ref_type === 'paddy_purchase' ? 'Pvt Paddy Payment' : 'Rice Sale Payment',
+      description: d.ref_type === 'paddy_purchase' ? `Paddy Payment: ${d.party_name}` : `Rice Payment Received: ${d.party_name}`,
+      amount: d.amount, reference: d.reference || d.id.substring(0, 8),
+      kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by,
+      linked_payment_id: d.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    };
+    database.data.cash_transactions.push(cbTxn);
+    database.save(); res.json(d);
+  });
+
+  apiApp.get('/api/private-payments', (req, res) => {
+    if (!database.data.private_payments) database.data.private_payments = [];
+    const { party_name, ref_type, ref_id, kms_year, season } = req.query;
+    let items = [...database.data.private_payments];
+    if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
+    if (ref_type) items = items.filter(i => i.ref_type === ref_type);
+    if (ref_id) items = items.filter(i => i.ref_id === ref_id);
+    if (kms_year) items = items.filter(i => i.kms_year === kms_year);
+    if (season) items = items.filter(i => i.season === season);
+    items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    res.json(items);
+  });
+
+  apiApp.delete('/api/private-payments/:id', (req, res) => {
+    if (!database.data.private_payments) database.data.private_payments = [];
+    const idx = database.data.private_payments.findIndex(i => i.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+    const pay = database.data.private_payments[idx];
+    if (pay.ref_type === 'paddy_purchase' && pay.ref_id) {
+      const entry = (database.data.private_paddy || []).find(e => e.id === pay.ref_id);
+      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - pay.amount) * 100) / 100; entry.balance = Math.round(entry.total_amount - entry.paid_amount * 100) / 100; }
+    } else if (pay.ref_type === 'rice_sale' && pay.ref_id) {
+      const entry = (database.data.rice_sales || []).find(e => e.id === pay.ref_id);
+      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - pay.amount) * 100) / 100; entry.balance = Math.round(entry.total_amount - entry.paid_amount * 100) / 100; }
+    }
+    if (database.data.cash_transactions) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== pay.id);
+    }
+    database.data.private_payments.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
+  });
+
   // ============ PHASE 5: CONSOLIDATED LEDGERS ============
 
   apiApp.get('/api/reports/outstanding', (req, res) => {
@@ -1859,6 +2015,12 @@ function createApiServer(database) {
     if (!party_type || party_type === 'truck') { for (const e of entries) { const t = e.truck_no || ''; if (!t) continue; if (party_name && t.toLowerCase() !== party_name.toLowerCase()) continue; ledger.push({ date: e.date || '', party_name: t, party_type: 'Truck', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q | Agent: ${e.agent_name||''}`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100, ref: (e.id||'').substring(0,8) }); } }
     if (!party_type || party_type === 'frk_party') { (database.data.frk_purchases||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(p => { const n = p.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: p.date||'', party_name: n, party_type: 'FRK Seller', description: `FRK: ${p.quantity_qntl||0}Q @ ₹${p.rate_per_qntl||0}/Q`, debit: Math.round((p.total_amount||0)*100)/100, credit: 0, ref: (p.id||'').substring(0,8) }); }); }
     if (!party_type || party_type === 'buyer') { (database.data.byproduct_sales||[]).filter(s => (!kms_year||s.kms_year===kms_year) && (!season||s.season===season)).forEach(s => { const b = s.buyer_name||''; if (!b) return; if (party_name && b.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: s.date||'', party_name: b, party_type: 'Buyer', description: `${(s.product||'')}`, debit: 0, credit: Math.round((s.total_amount||0)*100)/100, ref: (s.id||'').substring(0,8) }); }); }
+    // Private Paddy Purchase
+    if (!party_type || party_type === 'pvt_paddy') { (database.data.private_paddy||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(p => { const n = p.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: p.date||'', party_name: n, party_type: 'Pvt Paddy', description: `Paddy Purchase: ${p.final_qntl||0}Q @ ₹${p.rate_per_qntl||0}/Q = ₹${p.total_amount||0}`, debit: Math.round((p.total_amount||0)*100)/100, credit: 0, ref: (p.id||'').substring(0,8) }); }); }
+    // Rice Sale
+    if (!party_type || party_type === 'rice_buyer') { (database.data.rice_sales||[]).filter(s => (!kms_year||s.kms_year===kms_year) && (!season||s.season===season)).forEach(s => { const n = s.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: s.date||'', party_name: n, party_type: 'Rice Buyer', description: `Rice Sale: ${s.quantity_qntl||0}Q (${s.rice_type||''}) @ ₹${s.rate_per_qntl||0}/Q = ₹${s.total_amount||0}`, debit: 0, credit: Math.round((s.total_amount||0)*100)/100, ref: (s.id||'').substring(0,8) }); }); }
+    // Private Payments
+    if (!party_type || ['pvt_paddy','rice_buyer','pvt_payment'].includes(party_type)) { (database.data.private_payments||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(pay => { const pn = pay.party_name||''; if (!pn) return; if (party_name && pn.toLowerCase()!==party_name.toLowerCase()) return; if (pay.ref_type==='paddy_purchase') { if (party_type && !['pvt_paddy','pvt_payment'].includes(party_type)) return; ledger.push({ date: pay.date||'', party_name: pn, party_type: 'Pvt Paddy', description: `Payment: ₹${pay.amount||0} (${pay.mode||'cash'})`, debit: 0, credit: Math.round((pay.amount||0)*100)/100, ref: (pay.id||'').substring(0,8) }); } else if (pay.ref_type==='rice_sale') { if (party_type && !['rice_buyer','pvt_payment'].includes(party_type)) return; ledger.push({ date: pay.date||'', party_name: pn, party_type: 'Rice Buyer', description: `Payment Received: ₹${pay.amount||0} (${pay.mode||'cash'})`, debit: Math.round((pay.amount||0)*100)/100, credit: 0, ref: (pay.id||'').substring(0,8) }); } }); }
     ledger.sort((a, b) => (b.date||'').localeCompare(a.date||''));
     const partySet = new Set(); for (const item of ledger) partySet.add(JSON.stringify({ name: item.party_name, type: item.party_type }));
     const partyList = [...partySet].map(s => JSON.parse(s)).sort((a, b) => a.name.localeCompare(b.name));
