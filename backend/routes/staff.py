@@ -352,68 +352,67 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         elements.append(Paragraph(f"Staff Attendance Report: {date_from} to {date_to}", ParagraphStyle('t', parent=styles['Title'], fontSize=14, textColor=colors.HexColor('#1a365d'))))
         elements.append(Spacer(1, 8))
 
-        # Build table
-        headers = ["Staff"] + [d[-5:] for d in dates] + ["P", "H", "CH", "A", "Total"]
+        # Column-wise: dates as rows, staff as columns
+        headers = ["Date"] + [s["name"] for s in staff_list]
         rows = [headers]
-        for s in staff_list:
-            row = [s["name"]]
-            p_cnt = h_cnt = ch_cnt = a_cnt = 0
-            for d in dates:
+
+        bg_map = {"P": colors.HexColor('#bbf7d0'), "A": colors.HexColor('#fecaca'),
+                  "H": colors.HexColor('#fde68a'), "CH": colors.HexColor('#bfdbfe')}
+        tx_map = {"P": colors.HexColor('#14532d'), "A": colors.HexColor('#7f1d1d'),
+                  "H": colors.HexColor('#78350f'), "CH": colors.HexColor('#1e3a8a')}
+
+        staff_totals = {s["id"]: {"P": 0, "H": 0, "CH": 0, "A": 0} for s in staff_list}
+
+        for d in dates:
+            row = [d[-5:]]
+            for s in staff_list:
                 st = att_map.get(s["id"], {}).get(d, "-")
-                row.append(status_short.get(st, "-"))
-                if st == "present": p_cnt += 1
-                elif st == "half_day": h_cnt += 1
-                elif st == "holiday": ch_cnt += 1
-                elif st == "absent": a_cnt += 1
-            total = p_cnt + ch_cnt + (h_cnt * 0.5)
-            row += [str(p_cnt), str(h_cnt), str(ch_cnt), str(a_cnt), str(total)]
+                val = status_short.get(st, "-")
+                row.append(val)
+                if val in staff_totals[s["id"]]: staff_totals[s["id"]][val] += 1
+            rows.append(row)
+
+        for label in ["P", "H", "CH", "A", "Total"]:
+            row = [label]
+            for s in staff_list:
+                if label == "Total":
+                    t = staff_totals[s["id"]]
+                    row.append(str(t["P"] + t["CH"] + t["H"] * 0.5))
+                else:
+                    row.append(str(staff_totals[s["id"]].get(label, 0)))
             rows.append(row)
 
         n_cols = len(headers)
-        col_w = max(18, min(30, 780 // n_cols))
-        col_widths = [80] + [col_w] * (n_cols - 6) + [25, 25, 25, 25, 35]
+        col_w = max(35, min(80, 780 // n_cols))
+        col_widths = [50] + [col_w] * (n_cols - 1)
 
         t = RTable(rows, colWidths=col_widths, repeatRows=1)
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 6),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
             ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
-            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
         ]
-        # Color code statuses - background fill + bold text
-        bg_p = colors.HexColor('#bbf7d0')    # green bg
-        bg_a = colors.HexColor('#fecaca')    # red bg
-        bg_h = colors.HexColor('#fde68a')    # amber bg
-        bg_ch = colors.HexColor('#bfdbfe')   # blue bg
-        tx_p = colors.HexColor('#14532d')
-        tx_a = colors.HexColor('#7f1d1d')
-        tx_h = colors.HexColor('#78350f')
-        tx_ch = colors.HexColor('#1e3a8a')
 
-        for ri in range(1, len(rows)):
-            for ci in range(1, n_cols - 5):
+        n_date_rows = len(dates)
+        for ri in range(1, 1 + n_date_rows):
+            for ci in range(1, n_cols):
                 val = rows[ri][ci]
-                if val == "P":
-                    style_cmds.append(('BACKGROUND', (ci, ri), (ci, ri), bg_p))
-                    style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), tx_p))
+                if val in bg_map:
+                    style_cmds.append(('BACKGROUND', (ci, ri), (ci, ri), bg_map[val]))
+                    style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), tx_map[val]))
                     style_cmds.append(('FONTNAME', (ci, ri), (ci, ri), 'Helvetica-Bold'))
-                elif val == "A":
-                    style_cmds.append(('BACKGROUND', (ci, ri), (ci, ri), bg_a))
-                    style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), tx_a))
-                    style_cmds.append(('FONTNAME', (ci, ri), (ci, ri), 'Helvetica-Bold'))
-                elif val == "H":
-                    style_cmds.append(('BACKGROUND', (ci, ri), (ci, ri), bg_h))
-                    style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), tx_h))
-                    style_cmds.append(('FONTNAME', (ci, ri), (ci, ri), 'Helvetica-Bold'))
-                elif val == "CH":
-                    style_cmds.append(('BACKGROUND', (ci, ri), (ci, ri), bg_ch))
-                    style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), tx_ch))
-                    style_cmds.append(('FONTNAME', (ci, ri), (ci, ri), 'Helvetica-Bold'))
+
+        total_start = 1 + n_date_rows
+        style_cmds.append(('BACKGROUND', (0, total_start), (-1, -1), colors.HexColor('#e0e7ff')))
+        style_cmds.append(('FONTNAME', (0, total_start), (-1, -1), 'Helvetica-Bold'))
+
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
 
@@ -430,54 +429,64 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         ws = wb.active
         ws.title = "Attendance"
         hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
-        hdr_font = Font(bold=True, color='FFFFFF', size=8)
+        hdr_font = Font(bold=True, color='FFFFFF', size=9)
         tb = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
                     top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
-        # Status fills - colored backgrounds
         fill_p = PatternFill(start_color='bbf7d0', end_color='bbf7d0', fill_type='solid')
         fill_a = PatternFill(start_color='fecaca', end_color='fecaca', fill_type='solid')
         fill_h = PatternFill(start_color='fde68a', end_color='fde68a', fill_type='solid')
         fill_ch = PatternFill(start_color='bfdbfe', end_color='bfdbfe', fill_type='solid')
-        font_p = Font(color='14532d', size=8, bold=True)
-        font_a = Font(color='7f1d1d', size=8, bold=True)
-        font_h = Font(color='78350f', size=8, bold=True)
-        font_ch = Font(color='1e3a8a', size=8, bold=True)
+        font_p = Font(color='14532d', size=9, bold=True)
+        font_a = Font(color='7f1d1d', size=9, bold=True)
+        font_h = Font(color='78350f', size=9, bold=True)
+        font_ch = Font(color='1e3a8a', size=9, bold=True)
+        fill_map = {"P": (fill_p, font_p), "A": (fill_a, font_a), "H": (fill_h, font_h), "CH": (fill_ch, font_ch)}
+        total_fill = PatternFill(start_color='e0e7ff', end_color='e0e7ff', fill_type='solid')
 
-        ws.merge_cells('A1:F1')
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=1+len(staff_list))
         ws['A1'] = f"Staff Attendance: {date_from} to {date_to}"
         ws['A1'].font = Font(bold=True, size=12, color='1a365d')
 
-        headers = ["Staff"] + [d[-5:] for d in dates] + ["P", "H", "CH", "A", "Total"]
+        # Column-wise: Date col + staff name cols
+        headers = ["Date"] + [s["name"] for s in staff_list]
         for i, h in enumerate(headers, 1):
             c = ws.cell(row=3, column=i, value=h)
             c.fill = hdr_fill; c.font = hdr_font; c.border = tb; c.alignment = Alignment(horizontal='center')
 
+        staff_totals = {s["id"]: {"P": 0, "H": 0, "CH": 0, "A": 0} for s in staff_list}
+
         row_num = 4
-        for s in staff_list:
-            ws.cell(row=row_num, column=1, value=s["name"]).border = tb
-            p_cnt = h_cnt = ch_cnt = a_cnt = 0
-            for di, d in enumerate(dates):
+        for d in dates:
+            ws.cell(row=row_num, column=1, value=d[-5:]).border = tb
+            ws.cell(row=row_num, column=1).font = Font(bold=True, size=9)
+            ws.cell(row=row_num, column=1).alignment = Alignment(horizontal='center')
+            for si, s in enumerate(staff_list):
                 st = att_map.get(s["id"], {}).get(d, "-")
                 val = status_short.get(st, "-")
-                c = ws.cell(row=row_num, column=2+di, value=val)
+                c = ws.cell(row=row_num, column=2+si, value=val)
                 c.border = tb; c.alignment = Alignment(horizontal='center')
-                if val == "P": c.font = font_p; c.fill = fill_p
-                elif val == "A": c.font = font_a; c.fill = fill_a
-                elif val == "H": c.font = font_h; c.fill = fill_h
-                elif val == "CH": c.font = font_ch; c.fill = fill_ch
-                if st == "present": p_cnt += 1
-                elif st == "half_day": h_cnt += 1
-                elif st == "holiday": ch_cnt += 1
-                elif st == "absent": a_cnt += 1
-            base_col = 2 + len(dates)
-            for ci, v in enumerate([p_cnt, h_cnt, ch_cnt, a_cnt, p_cnt + ch_cnt + (h_cnt * 0.5)]):
-                c = ws.cell(row=row_num, column=base_col+ci, value=v)
-                c.border = tb; c.alignment = Alignment(horizontal='center'); c.font = Font(bold=True, size=8)
+                if val in fill_map:
+                    c.fill, c.font = fill_map[val]
+                if val in staff_totals[s["id"]]: staff_totals[s["id"]][val] += 1
             row_num += 1
 
-        ws.column_dimensions['A'].width = 16
-        for i in range(2, 2+len(dates)+5):
-            ws.column_dimensions[chr(64+i) if i <= 26 else 'A' + chr(64+i-26)].width = 6
+        for label in ["P", "H", "CH", "A", "Total"]:
+            c = ws.cell(row=row_num, column=1, value=label)
+            c.font = Font(bold=True, size=9); c.fill = total_fill; c.border = tb; c.alignment = Alignment(horizontal='center')
+            for si, s in enumerate(staff_list):
+                if label == "Total":
+                    t = staff_totals[s["id"]]
+                    v = t["P"] + t["CH"] + t["H"] * 0.5
+                else:
+                    v = staff_totals[s["id"]].get(label, 0)
+                c = ws.cell(row=row_num, column=2+si, value=v)
+                c.font = Font(bold=True, size=9); c.fill = total_fill; c.border = tb; c.alignment = Alignment(horizontal='center')
+            row_num += 1
+
+        ws.column_dimensions['A'].width = 10
+        for i in range(len(staff_list)):
+            col_letter = chr(66 + i) if i < 25 else 'A' + chr(65 + i - 25)
+            ws.column_dimensions[col_letter].width = 14
 
         buf = io.BytesIO()
         wb.save(buf); buf.seek(0)

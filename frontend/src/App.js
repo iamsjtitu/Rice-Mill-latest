@@ -1319,7 +1319,8 @@ function MainApp({ user, onLogout }) {
             )}
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons - Only on Entries tab */}
+          {activeTab === "entries" && (
           <div className="flex gap-2 flex-wrap mt-3">
             <Button
               onClick={() => { fetchEntries(); fetchTotals(); }}
@@ -1724,9 +1725,10 @@ function MainApp({ user, onLogout }) {
               </DialogContent>
             </Dialog>
           </div>
+          )}
 
           {/* Filter Panel */}
-          {showFilters && (
+          {activeTab === "entries" && showFilters && (
             <div className="mt-4 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-white font-semibold flex items-center gap-2">
