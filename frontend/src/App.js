@@ -83,8 +83,10 @@ const safePrintHTML = (htmlContent) => {
 // Generate KMS years
 const generateKMSYears = () => {
   const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth(); // 0-indexed
   const years = [];
-  for (let i = currentYear - 3; i <= currentYear; i++) {
+  // KMS year typically starts in October. Generate past 3 years + current + next year
+  for (let i = currentYear - 3; i <= currentYear + 1; i++) {
     years.push(`${i}-${i + 1}`);
   }
   return years;
@@ -511,13 +513,49 @@ function MainApp({ user, onLogout }) {
       if (e.altKey && e.key === 'b') {
         e.preventDefault();
         setActiveTab("cashbook");
-        toast.info("Cash Book Tab (Alt+B)");
+        toast.info("Cash Book (Alt+B)");
+      }
+      // Alt + T: Go to DC Tracker tab
+      if (e.altKey && e.key === 't') {
+        e.preventDefault();
+        setActiveTab("dctracker");
+        toast.info("DC Tracker (Alt+T)");
       }
       // Alt + L: Go to Ledgers tab
       if (e.altKey && e.key === 'l') {
         e.preventDefault();
         setActiveTab("ledgers");
         toast.info("Ledgers Tab (Alt+L)");
+      }
+      // Alt + O: Go to Reports tab
+      if (e.altKey && e.key === 'o') {
+        e.preventDefault();
+        setActiveTab("reports");
+        toast.info("Reports (Alt+O)");
+      }
+      // Alt + G: Go to Private Trading tab
+      if (e.altKey && e.key === 'g') {
+        e.preventDefault();
+        setActiveTab("private-trading");
+        toast.info("Private Trading (Alt+G)");
+      }
+      // Alt + K: Go to Mill Parts tab
+      if (e.altKey && e.key === 'k') {
+        e.preventDefault();
+        setActiveTab("mill-parts");
+        toast.info("Mill Parts (Alt+K)");
+      }
+      // Alt + S: Go to Staff tab
+      if (e.altKey && e.key === 's') {
+        e.preventDefault();
+        setActiveTab("staff");
+        toast.info("Staff (Alt+S)");
+      }
+      // Alt + I: Go to Settings tab
+      if (e.altKey && e.key === 'i') {
+        e.preventDefault();
+        setActiveTab("settings");
+        toast.info("Settings (Alt+I)");
       }
       // Alt + R: Refresh data
       if (e.altKey && e.key === 'r') {
@@ -536,6 +574,11 @@ function MainApp({ user, onLogout }) {
       if (e.key === 'Escape') {
         setIsDialogOpen(false);
         setShowFilters(false);
+      }
+      // ?: Show shortcuts help
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShowShortcuts(true);
       }
     };
 
@@ -1024,7 +1067,7 @@ function MainApp({ user, onLogout }) {
 
           {/* Keyboard Shortcuts Dialog */}
           <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
-            <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white">
+            <DialogContent className="max-w-lg bg-slate-800 border-slate-700 text-white">
               <DialogHeader>
                 <DialogTitle className="text-amber-400 flex items-center gap-2">
                   <Keyboard className="w-5 h-5" />
@@ -1032,34 +1075,78 @@ function MainApp({ user, onLogout }) {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
+                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Navigation</p>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + N</kbd>
-                    <span className="text-slate-300">New Entry</span>
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+E</kbd>
+                    <span className="text-slate-300">Entries</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + E</kbd>
-                    <span className="text-slate-300">Entries Tab</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + D</kbd>
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+D</kbd>
                     <span className="text-slate-300">Dashboard</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + P</kbd>
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+P</kbd>
                     <span className="text-slate-300">Payments</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + R</kbd>
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+M</kbd>
+                    <span className="text-slate-300">Milling</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+B</kbd>
+                    <span className="text-slate-300">Cash Book</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+T</kbd>
+                    <span className="text-slate-300">DC Tracker</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+O</kbd>
+                    <span className="text-slate-300">Reports</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+L</kbd>
+                    <span className="text-slate-300">Ledgers</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+G</kbd>
+                    <span className="text-slate-300">Private Trading</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+K</kbd>
+                    <span className="text-slate-300">Mill Parts</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+S</kbd>
+                    <span className="text-slate-300">Staff</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+I</kbd>
+                    <span className="text-slate-300">Settings</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider pt-2 border-t border-slate-700">Actions</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+N</kbd>
+                    <span className="text-slate-300">New Entry</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+R</kbd>
                     <span className="text-slate-300">Refresh Data</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt + F</kbd>
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+F</kbd>
                     <span className="text-slate-300">Open Filters</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Esc</kbd>
                     <span className="text-slate-300">Close Dialogs</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">?</kbd>
+                    <span className="text-slate-300">Show Shortcuts</span>
                   </div>
                 </div>
                 <div className="pt-2 border-t border-slate-700">

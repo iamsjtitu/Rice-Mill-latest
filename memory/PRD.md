@@ -22,9 +22,10 @@ A comprehensive management tool for a rice mill named "Mill Entry System" (NAVKA
 - Mill Parts Stock Management
 - Staff Management (Attendance, Advance, Salary, Payments)
 - PDF/Excel Export for all reports
-- FY Settings (KMS Year, Season)
+- FY Settings (KMS Year auto-generated, Season)
 - Auth (Admin/Staff roles)
 - Branding
+- Keyboard Shortcuts (17 shortcuts for all tabs and actions)
 
 ## What's Been Implemented (All Complete)
 - All features listed above are implemented and functional
@@ -36,22 +37,20 @@ A comprehensive management tool for a rice mill named "Mill Entry System" (NAVKA
 ## Bug Fixes Applied
 
 ### Session 1 (2026-03-08)
-1. **desktop-app/routes/staff.js**: Fixed 11 API path mismatches (hyphens to slashes)
-2. **desktop-app/main.js**: Fixed fy-settings endpoint (POST->PUT, field names kms_year->active_fy)
-3. **local-server/routes/auth.js**: Added missing /api/fy-settings (GET + PUT) endpoint
-4. **local-server/routes/auth.js**: Removed duplicate ExcelJS/PDFDocument imports
-5. **local-server/routes/exports.js**: Fixed duplicate ExcelJS/PDFDocument declarations
-6. Frontend rebuilt and copied to both local-server/public and desktop-app/frontend-build
+1. desktop-app/routes/staff.js: Fixed 11 API path mismatches (hyphens to slashes)
+2. desktop-app/main.js: Fixed fy-settings endpoint (POST->PUT, field names kms_year->active_fy)
+3. local-server/routes/auth.js: Added missing /api/fy-settings (GET + PUT) endpoint
+4. local-server/routes/auth.js: Removed duplicate ExcelJS/PDFDocument imports
+5. local-server/routes/exports.js: Fixed duplicate ExcelJS/PDFDocument declarations
 
 ### Session 2 (2026-03-08)
-7. **PDF Black Box Fix**: Replaced all ₹ (Rupee symbol) with Rs. in PDF text across all Node.js backends. PDFKit's Helvetica font doesn't support ₹, causing black boxes. Files fixed:
-   - local-server/routes/cashbook.js (PDF headers)
-   - local-server/routes/cmr_exports.js (PDF headers)
-   - local-server/routes/ledgers.js (descriptions + PDF text)
-   - desktop-app/main.js (all corresponding areas)
-8. **Cash Book PDF Column Widths**: Increased Description (100->150) and Category (70->90) column widths to prevent text wrapping/overflow
-9. **Cash Book Text Truncation**: Increased substring limits for category (15->25) and description (20->35)
-10. **PDF Helper Functions**: Created shared pdf_helpers.js with addPdfHeader/addPdfTable since cashbook.js and cmr_exports.js were calling undefined functions (causing 500 errors)
+6. PDF Black Box Fix: Replaced all rupee symbol with Rs. in PDF text across all Node.js backends
+7. Cash Book PDF Column Widths: Increased Description and Category column widths
+8. PDF Helper Functions: Created shared pdf_helpers.js for cashbook and cmr_exports
+
+### Session 3 (2026-03-08)
+9. Keyboard Shortcuts: Added 7 new shortcuts (DC Tracker, Reports, Private Trading, Mill Parts, Staff, Settings, Show Shortcuts) + updated dialog to show all 17 shortcuts
+10. FY Auto-generate: Extended KMS year range to include next year (currentYear+1) so future FY years are always available
 
 ## Credentials
 - Admin: admin / admin123
