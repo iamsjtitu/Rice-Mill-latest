@@ -159,6 +159,7 @@ function MainApp({ user, onLogout }) {
   const [truckSuggestions, setTruckSuggestions] = useState([]);
   const [agentSuggestions, setAgentSuggestions] = useState([]);
   const [mandiSuggestions, setMandiSuggestions] = useState([]);
+  const [mandiTargets, setMandiTargets] = useState([]);
 
   // Filter state - default to current KMS year
   const [filters, setFilters] = useState({
@@ -371,6 +372,8 @@ function MainApp({ user, onLogout }) {
     fetchEntries();
     fetchTotals();
     fetchSuggestions();
+    // Fetch mandi targets for auto cutting %
+    axios.get(`${API}/mandi-targets?kms_year=${filters.kms_year || ''}`).then(r => setMandiTargets(r.data || [])).catch(() => {});
   }, [fetchEntries, fetchTotals, fetchSuggestions]);
 
   // Reset selection when entries change
@@ -1586,7 +1589,14 @@ function MainApp({ user, onLogout }) {
                       onChange={(e) => setFormData(prev => ({ ...prev, mandi_name: e.target.value }))}
                       suggestions={mandiSuggestions}
                       placeholder="Mandi name"
-                      onSelect={(val) => setFormData(prev => ({ ...prev, mandi_name: val }))}
+                      onSelect={(val) => {
+                        const target = mandiTargets.find(t => (t.mandi_name || '').toLowerCase() === val.toLowerCase());
+                        setFormData(prev => ({
+                          ...prev,
+                          mandi_name: val,
+                          ...(target && target.cutting_percent ? { cutting_percent: String(target.cutting_percent) } : {})
+                        }));
+                      }}
                       label="Mandi Name"
                       testId="input-mandi-name"
                     />

@@ -36,6 +36,8 @@ const LocalPartyAccount = ({ filters, user }) => {
     party_name: "", amount: "", date: new Date().toISOString().split('T')[0], description: ""
   });
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -43,11 +45,13 @@ const LocalPartyAccount = ({ filters, user }) => {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
+      if (dateFrom) p.append('date_from', dateFrom);
+      if (dateTo) p.append('date_to', dateTo);
       const res = await axios.get(`${API}/local-party/summary?${p}`);
       setSummary(res.data);
     } catch (e) { toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year, filters.season, dateFrom, dateTo]);
 
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
@@ -58,11 +62,13 @@ const LocalPartyAccount = ({ filters, user }) => {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
+      if (dateFrom) p.append('date_from', dateFrom);
+      if (dateTo) p.append('date_to', dateTo);
       const res = await axios.get(`${API}/local-party/report/${encodeURIComponent(partyName)}?${p}`);
       setReportData(res.data);
     } catch (e) { toast.error("Report load nahi hua"); }
     finally { setReportLoading(false); }
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year, filters.season, dateFrom, dateTo]);
 
   const handleSelectParty = (val) => {
     setSelectedParty(val);
@@ -197,6 +203,23 @@ const LocalPartyAccount = ({ filters, user }) => {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Date Range Filter */}
+        <div className="flex items-end gap-1.5">
+          <div>
+            <Label className="text-[10px] text-slate-500 mb-1 block">From</Label>
+            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              className="bg-slate-700 border-slate-600 text-white h-9 text-xs w-[130px]" data-testid="local-party-date-from" />
+          </div>
+          <div>
+            <Label className="text-[10px] text-slate-500 mb-1 block">To</Label>
+            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className="bg-slate-700 border-slate-600 text-white h-9 text-xs w-[130px]" data-testid="local-party-date-to" />
+          </div>
+          {(dateFrom || dateTo) && (
+            <Button onClick={() => { setDateFrom(""); setDateTo(""); }} variant="ghost" size="sm" className="text-slate-400 h-9 px-2 text-xs">Clear</Button>
+          )}
         </div>
 
         {/* Action buttons */}

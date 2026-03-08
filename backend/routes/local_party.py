@@ -10,11 +10,16 @@ router = APIRouter()
 # ============ LOCAL PARTY ACCOUNTS ============
 
 @router.get("/local-party/summary")
-async def get_local_party_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
+async def get_local_party_summary(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
     """Party-wise summary: total debit, total paid, balance"""
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        query["date"] = date_q
     txns = await db.local_party_accounts.find(query, {"_id": 0}).to_list(10000)
 
     party_map = {}
@@ -50,22 +55,32 @@ async def get_local_party_summary(kms_year: Optional[str] = None, season: Option
 
 
 @router.get("/local-party/transactions")
-async def get_local_party_transactions(party_name: Optional[str] = None, kms_year: Optional[str] = None, season: Optional[str] = None):
+async def get_local_party_transactions(party_name: Optional[str] = None, kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
     """Get all transactions, optionally filtered by party"""
     query = {}
     if party_name: query["party_name"] = {"$regex": f"^{party_name}$", "$options": "i"}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        query["date"] = date_q
     txns = await db.local_party_accounts.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
     return txns
 
 
 @router.get("/local-party/report/{party_name}")
-async def get_party_report(party_name: str, kms_year: Optional[str] = None, season: Optional[str] = None):
+async def get_party_report(party_name: str, kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
     """Detailed party-wise report with running balance for printing"""
     query = {"party_name": {"$regex": f"^{party_name}$", "$options": "i"}}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        query["date"] = date_q
     txns = await db.local_party_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
 
     running_balance = 0

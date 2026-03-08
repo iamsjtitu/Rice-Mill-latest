@@ -14,6 +14,8 @@ router.get('/api/local-party/summary', (req, res) => {
   let txns = [...database.data.local_party_accounts];
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+  if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
+  if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
 
   const partyMap = {};
   for (const t of txns) {
@@ -52,6 +54,8 @@ router.get('/api/local-party/transactions', (req, res) => {
   }
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+  if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
+  if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
   txns.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   res.json(txns);
 });
@@ -63,6 +67,8 @@ router.get('/api/local-party/report/:partyName', (req, res) => {
   let txns = database.data.local_party_accounts.filter(t => (t.party_name || '').toLowerCase() === pn);
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+  if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
+  if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
   txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   let runBal = 0;
   const rows = txns.map(t => {

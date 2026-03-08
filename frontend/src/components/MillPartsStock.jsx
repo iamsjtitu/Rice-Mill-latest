@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -28,6 +28,7 @@ export default function MillPartsStock({ filters, user }) {
   });
   const [editingStock, setEditingStock] = useState(null);
   const [editDialog, setEditDialog] = useState(false);
+  const [searchPart, setSearchPart] = useState("");
 
   const fetchAll = useCallback(async () => {
     try {
@@ -116,6 +117,16 @@ export default function MillPartsStock({ filters, user }) {
 
   const lowStockParts = useMemo(() => summary.filter(s => s.min_stock > 0 && s.current_stock < s.min_stock), [summary]);
   const totalPurchase = useMemo(() => summary.reduce((s, p) => s + p.total_purchase_amount, 0), [summary]);
+  const filteredStock = useMemo(() => {
+    if (!searchPart.trim()) return stockEntries;
+    const q = searchPart.toLowerCase();
+    return stockEntries.filter(t => (t.part_name || '').toLowerCase().includes(q) || (t.party_name || '').toLowerCase().includes(q));
+  }, [stockEntries, searchPart]);
+  const filteredSummary = useMemo(() => {
+    if (!searchPart.trim()) return summary;
+    const q = searchPart.toLowerCase();
+    return summary.filter(s => (s.part_name || '').toLowerCase().includes(q));
+  }, [summary, searchPart]);
 
   return (
     <div className="space-y-4" data-testid="mill-parts-page">
@@ -134,6 +145,18 @@ export default function MillPartsStock({ filters, user }) {
           </Button>
         ))}
       </div>
+
+      {/* Search bar */}
+      {(activeTab === "summary" || activeTab === "transactions") && (
+        <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 max-w-xs">
+          <Search className="w-4 h-4 text-slate-400" />
+          <input value={searchPart} onChange={e => setSearchPart(e.target.value)}
+            placeholder="Part name search karein..."
+            className="bg-transparent border-none text-white text-sm w-full outline-none placeholder-slate-500"
+            data-testid="mill-parts-search" />
+          {searchPart && <button onClick={() => setSearchPart("")} className="text-slate-400 hover:text-white text-xs">x</button>}
+        </div>
+      )}
 
       {/* ===== SUMMARY TAB ===== */}
       {activeTab === "summary" && (
@@ -184,7 +207,7 @@ export default function MillPartsStock({ filters, user }) {
               <TableBody>
                 {loading ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
                 : summary.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-8">Parts Master se pehle parts add karein</TableCell></TableRow>
-                : summary.map(s => (
+                : filteredSummary.map(s => (
                   <TableRow key={s.part_name} className={`border-slate-700 ${s.min_stock > 0 && s.current_stock < s.min_stock ? 'bg-red-900/10' : ''}`} data-testid={`stock-row-${s.part_name}`}>
                     <TableCell className="text-white font-semibold">{s.part_name} {s.min_stock > 0 && s.current_stock < s.min_stock && <AlertTriangle className="w-3 h-3 text-red-400 inline ml-1" />}</TableCell>
                     <TableCell className="text-slate-400 text-xs">{s.category}</TableCell>
@@ -216,8 +239,8 @@ export default function MillPartsStock({ filters, user }) {
                   <TableHead key={h} className="text-slate-300 text-xs">{h}</TableHead>)}
               </TableRow></TableHeader>
               <TableBody>
-                {stockEntries.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Koi transaction nahi</TableCell></TableRow>
-                : stockEntries.map(t => (
+                {filteredStock.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Koi transaction nahi{searchPart ? ` "${searchPart}" ke liye` : ''}</TableCell></TableRow>
+                : filteredStock.map(t => (
                   <TableRow key={t.id} className="border-slate-700">
                     <TableCell className="text-white text-xs">{t.date}</TableCell>
                     <TableCell className="text-white font-semibold">{t.part_name}</TableCell>
