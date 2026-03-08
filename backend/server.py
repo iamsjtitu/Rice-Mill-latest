@@ -25,6 +25,10 @@ async def get_print_page(page_id: str):
     html = print_pages.get(page_id, "<h1>Page not found</h1>")
     return HTMLResponse(content=html)
 
+@api_router.get("/error-log")
+async def get_error_log():
+    return {"content": "Error log sirf Desktop App version mein available hai.\nWeb version mein yeh feature applicable nahi hai.", "available": False}
+
 # Import and include all route modules
 from routes.auth import router as auth_router
 from routes.entries import router as entries_router

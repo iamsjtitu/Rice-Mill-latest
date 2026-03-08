@@ -459,9 +459,9 @@ const GunnyBags = ({ filters, user }) => {
             <p className="text-[9px] text-slate-500 mt-1">Not in total</p>
           </CardContent></Card>
           <Card className="bg-slate-800/50 border-slate-700"><CardContent className="p-3">
-            <p className="text-[10px] text-slate-400">Govt Issued (g)</p>
-            <p className="text-xl font-bold text-slate-400">{summary.g_issued?.total || 0}</p>
-            <p className="text-[9px] text-slate-500 mt-1">From entries</p>
+            <p className="text-[10px] text-slate-400">G.Issued (Old Bags)</p>
+            <p className="text-xl font-bold text-orange-300">{summary.old?.total_out || 0}</p>
+            <p className="text-[9px] text-slate-500 mt-1">Auto from entries</p>
           </CardContent></Card>
         </div>
       )}

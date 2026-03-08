@@ -1,0 +1,107 @@
+{
+  "summary": "Iteration 24: All tests PASSED. Tested G.Issued auto-deduction, Entry form field reorder, Error Log section. Backend: 8/8 tests passed (100%). Frontend: All features working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": [
+      {"warning": "React key warning: Encountered two children with the same key", "component": "DCTracker", "priority": "LOW - cosmetic issue, doesn't affect functionality"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration24_gunny_g_issued.py",
+    "/app/test_reports/pytest/pytest_results_iteration24.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration24_gunny_g_issued.py"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 tests passed)",
+    "frontend": "100%"
+  },
+  "features_tested": {
+    "1_login": {
+      "description": "Admin login with admin/admin123",
+      "status": "WORKING"
+    },
+    "2_entry_form_field_order": {
+      "description": "Entry form shows: GBW Cut → P.Pkt (Plastic Bags) → P.Pkt Cut (Auto) → Mill W. QNTL (Auto)",
+      "expected_order": ["GBW Cut (Auto)", "P.Pkt (Plastic Bags)", "P.Pkt Cut (Auto)", "Mill W. QNTL (Auto)"],
+      "status": "WORKING - Fields appear in correct order"
+    },
+    "3_g_issued_auto_creates_gunny_entry": {
+      "description": "Creating entry with g_issued > 0 auto-creates gunny bag 'out' entry for 'old' (market) bags",
+      "endpoint": "POST /api/entries",
+      "verified_behavior": "Creates gunny_bags entry with bag_type='old', txn_type='out', linked_entry_id set",
+      "status": "WORKING"
+    },
+    "4_g_issued_update_entry": {
+      "description": "Updating entry's g_issued updates linked gunny bag entry",
+      "endpoint": "PUT /api/entries/{id}",
+      "status": "WORKING - Old gunny entry deleted and new one created with updated quantity"
+    },
+    "5_g_issued_delete_entry": {
+      "description": "Deleting entry removes linked gunny bag entry",
+      "endpoint": "DELETE /api/entries/{id}",
+      "status": "WORKING"
+    },
+    "6_gunny_summary_no_g_issued_key": {
+      "description": "/api/gunny-bags/summary does NOT return separate g_issued key",
+      "endpoint": "GET /api/gunny-bags/summary",
+      "verified_keys": ["old", "new", "paddy_bags", "ppkt", "grand_total"],
+      "status": "WORKING - g_issued tracked via old.total_out"
+    },
+    "7_gunny_bags_ui_g_issued_card": {
+      "description": "Gunny Bags page shows 'G.Issued (Old Bags)' card instead of 'Govt Issued (g)'",
+      "location": "DC & Payments > Gunny Bags tab",
+      "status": "WORKING - Card shows 'G.Issued (Old Bags)' with value from old bags total_out"
+    },
+    "8_error_log_section": {
+      "description": "Settings page has Error Log section with Refresh Log button",
+      "data_testids": ["error-log-section", "refresh-error-log-btn", "error-log-content"],
+      "status": "WORKING"
+    },
+    "9_error_log_endpoint": {
+      "description": "/api/error-log returns content and available fields",
+      "endpoint": "GET /api/error-log",
+      "response": {"content": "string", "available": "boolean (false for web version)"},
+      "status": "WORKING"
+    }
+  },
+  "backend_api_tests": {
+    "TestGIssueAutoDeduction": {
+      "test_create_entry_with_g_issued_creates_gunny_out": "PASS",
+      "test_create_entry_without_g_issued_no_gunny_entry": "PASS"
+    },
+    "TestGIssueUpdateAndDelete": {
+      "test_update_entry_g_issued_updates_gunny_entry": "PASS",
+      "test_delete_entry_removes_linked_gunny_entry": "PASS"
+    },
+    "TestGunnySummaryNoGIssued": {
+      "test_gunny_summary_no_g_issued_key": "PASS"
+    },
+    "TestErrorLogEndpoint": {
+      "test_error_log_returns_proper_response": "PASS"
+    },
+    "TestLogin": {
+      "test_admin_login": "PASS",
+      "test_staff_login": "PASS"
+    }
+  },
+  "screenshots_taken": [
+    ".screenshots/02_after_login.png - Login successful",
+    ".screenshots/03_entry_form_dialog.png - Entry form with field order verified",
+    ".screenshots/04_gunny_bags_tab.png - Gunny Bags tab with G.Issued (Old Bags) card",
+    ".screenshots/05_settings_tab.png - Settings page with Error Log section",
+    ".screenshots/06_settings_scrolled.png - Error Log section with Refresh button visible"
+  ],
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 24 tested 3 new features: (1) G.Issued auto-deduction - when entry has g_issued > 0, it auto-creates gunny_bags 'out' entry for 'old' bags with linked_entry_id. Update/delete propagates to linked entry. (2) Entry form field order: GBW Cut → P.Pkt → P.Pkt Cut → Mill W. QNTL confirmed correct. (3) Error Log section in Settings with Refresh button works. Gunny summary no longer has separate g_issued key - it's tracked via old.total_out."
+}

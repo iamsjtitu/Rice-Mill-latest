@@ -168,7 +168,6 @@ router.get('/api/gunny-bags/summary', (req, res) => {
   if (req.query.season) paddyEntries = paddyEntries.filter(e => e.season === req.query.season);
   result.paddy_bags = { total: paddyEntries.reduce((s,e)=>s+(e.bag||0),0), label: 'Paddy Receive Bags' };
   result.ppkt = { total: paddyEntries.reduce((s,e)=>s+(e.plastic_bag||0),0), label: 'P.Pkt (Plastic Bags)' };
-  result.g_issued = { total: paddyEntries.reduce((s,e)=>s+(e.g_issued||0),0), label: 'Govt Bags Issued (g)' };
   result.grand_total = result.old.balance + result.paddy_bags.total + result.ppkt.total;
   res.json(result);
 });

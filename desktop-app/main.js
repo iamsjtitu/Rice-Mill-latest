@@ -204,6 +204,30 @@ class JsonDatabase {
       updated_at: new Date().toISOString()
     };
     this.data.entries.push(newEntry);
+    
+    // Auto-create gunny bag "out" entry for Old Bags when g_issued > 0
+    const gIssued = parseInt(newEntry.g_issued) || 0;
+    if (gIssued > 0) {
+      if (!this.data.gunny_bags) this.data.gunny_bags = [];
+      this.data.gunny_bags.push({
+        id: uuidv4(),
+        date: newEntry.date || new Date().toISOString().split('T')[0],
+        bag_type: "old",
+        txn_type: "out",
+        quantity: gIssued,
+        rate: 0,
+        amount: 0,
+        source: [newEntry.agent_name, newEntry.mandi_name, newEntry.truck_no].filter(Boolean).join(' | '),
+        reference: `Auto: Entry ${newEntry.id}`,
+        notes: `G.Issued - Agent: ${newEntry.agent_name || ''}, Mandi: ${newEntry.mandi_name || ''}, Truck: ${newEntry.truck_no || ''}`,
+        kms_year: newEntry.kms_year || "",
+        season: newEntry.season || "",
+        created_by: newEntry.created_by || "admin",
+        created_at: new Date().toISOString(),
+        linked_entry_id: newEntry.id
+      });
+    }
+    
     this.save();
     return newEntry;
   }
@@ -217,14 +241,44 @@ class JsonDatabase {
         ...this.calculateFields(entry),
         updated_at: new Date().toISOString()
       };
+      const updated = this.data.entries[index];
+      
+      // Update linked gunny bag entry
+      if (!this.data.gunny_bags) this.data.gunny_bags = [];
+      this.data.gunny_bags = this.data.gunny_bags.filter(e => e.linked_entry_id !== id);
+      const gIssued = parseInt(updated.g_issued) || 0;
+      if (gIssued > 0) {
+        this.data.gunny_bags.push({
+          id: uuidv4(),
+          date: updated.date || new Date().toISOString().split('T')[0],
+          bag_type: "old",
+          txn_type: "out",
+          quantity: gIssued,
+          rate: 0,
+          amount: 0,
+          source: [updated.agent_name, updated.mandi_name, updated.truck_no].filter(Boolean).join(' | '),
+          reference: `Auto: Entry ${id}`,
+          notes: `G.Issued - Agent: ${updated.agent_name || ''}, Mandi: ${updated.mandi_name || ''}, Truck: ${updated.truck_no || ''}`,
+          kms_year: updated.kms_year || "",
+          season: updated.season || "",
+          created_by: updated.created_by || "admin",
+          created_at: new Date().toISOString(),
+          linked_entry_id: id
+        });
+      }
+      
       this.save();
-      return this.data.entries[index];
+      return updated;
     }
     return null;
   }
 
   deleteEntry(id) {
     this.data.entries = this.data.entries.filter(e => e.id !== id);
+    // Remove linked gunny bag entry
+    if (this.data.gunny_bags) {
+      this.data.gunny_bags = this.data.gunny_bags.filter(e => e.linked_entry_id !== id);
+    }
     this.save();
   }
 
@@ -1844,7 +1898,6 @@ function createApiServer(database) {
     if (req.query.season) paddyEntries = paddyEntries.filter(e=>e.season===req.query.season);
     result.paddy_bags = { total: paddyEntries.reduce((s,e)=>s+(e.bag||0),0), label: 'Paddy Receive Bags' };
     result.ppkt = { total: paddyEntries.reduce((s,e)=>s+(e.plastic_bag||0),0), label: 'P.Pkt (Plastic Bags)' };
-    result.g_issued = { total: paddyEntries.reduce((s,e)=>s+(e.g_issued||0),0), label: 'Govt Bags Issued (g)' };
     result.grand_total = result.old.balance + result.paddy_bags.total + result.ppkt.total;
     res.json(result);
   }));
@@ -2394,6 +2447,23 @@ function createApiServer(database) {
   // ===== HEALTH CHECK =====
   apiApp.get('/api/health', safeSync((req, res) => {
     res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+  }));
+
+  // ===== ERROR LOG =====
+  apiApp.get('/api/error-log', safeSync((req, res) => {
+    try {
+      if (fs.existsSync(errorLogPath)) {
+        const content = fs.readFileSync(errorLogPath, 'utf8');
+        // Return last 200 lines
+        const lines = content.split('\n');
+        const lastLines = lines.slice(-200).join('\n');
+        res.json({ content: lastLines || "Koi error nahi hai.", available: true });
+      } else {
+        res.json({ content: "Koi error log nahi hai. Sab sahi chal raha hai!", available: true });
+      }
+    } catch (err) {
+      res.json({ content: "Error log read nahi ho paya: " + err.message, available: true });
+    }
   }));
 
   // ===== EXPRESS ERROR MIDDLEWARE (catches sync errors from routes) =====

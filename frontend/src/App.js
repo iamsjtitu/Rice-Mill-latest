@@ -150,6 +150,10 @@ function MainApp({ user, onLogout }) {
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   const [backupLoading, setBackupLoading] = useState(false);
 
+  // Error log state
+  const [errorLog, setErrorLog] = useState("");
+  const [errorLogAvailable, setErrorLogAvailable] = useState(false);
+
   // Suggestions state
   const [truckSuggestions, setTruckSuggestions] = useState([]);
   const [agentSuggestions, setAgentSuggestions] = useState([]);
@@ -413,6 +417,17 @@ function MainApp({ user, onLogout }) {
     } catch (e) {
       // Backup API not available (web version) - silently ignore
       setBackupStatus(null);
+    }
+  };
+
+  const fetchErrorLog = async () => {
+    try {
+      const res = await axios.get(`${API}/error-log`);
+      setErrorLog(res.data.content || "");
+      setErrorLogAvailable(res.data.available !== false);
+    } catch (e) {
+      setErrorLog("");
+      setErrorLogAvailable(false);
     }
   };
 
@@ -1391,7 +1406,7 @@ function MainApp({ user, onLogout }) {
             </Button>
             {user.role === 'admin' && (
               <Button
-                onClick={() => { setActiveTab("settings"); fetchBackups(); }}
+                onClick={() => { setActiveTab("settings"); fetchBackups(); fetchErrorLog(); }}
                 variant={activeTab === "settings" ? "default" : "ghost"}
                 size="sm"
                 className={activeTab === "settings" 
@@ -1642,15 +1657,6 @@ function MainApp({ user, onLogout }) {
                         <span className="text-xs text-slate-400">G.Dep: 0.5kg | Empty: 1kg/bag</span>
                       </div>
                       <div>
-                        <Label className="text-blue-400 font-semibold">Mill W. QNTL (Auto)</Label>
-                        <Input
-                          value={calculatedFields.mill_w}
-                          readOnly
-                          className="bg-blue-900/30 border-blue-700 text-blue-400 text-lg font-bold"
-                          data-testid="calculated-mill-w"
-                        />
-                      </div>
-                      <div>
                         <Label className="text-pink-400">P.Pkt (Plastic Bags)</Label>
                         <Input
                           type="number"
@@ -1671,6 +1677,15 @@ function MainApp({ user, onLogout }) {
                           data-testid="calculated-p-pkt-cut"
                         />
                         <span className="text-xs text-slate-400">0.50 kg × Bags</span>
+                      </div>
+                      <div>
+                        <Label className="text-blue-400 font-semibold">Mill W. QNTL (Auto)</Label>
+                        <Input
+                          value={calculatedFields.mill_w}
+                          readOnly
+                          className="bg-blue-900/30 border-blue-700 text-blue-400 text-lg font-bold"
+                          data-testid="calculated-mill-w"
+                        />
                       </div>
                       <div>
                         <Label className="text-purple-400">Cutting %</Label>
@@ -2130,6 +2145,35 @@ function MainApp({ user, onLogout }) {
                     <p className="text-slate-400 text-sm mt-2" data-testid="about-contact">Contact Us: +917205930002</p>
                     <p className="text-slate-500 text-xs mt-1" data-testid="about-version">Version 2.3</p>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Error Log Section */}
+            <Card className="bg-slate-800 border-slate-700" data-testid="error-log-section">
+              <CardHeader>
+                <CardTitle className="text-red-400 flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  Error Log / त्रुटि लॉग
+                </CardTitle>
+                <p className="text-slate-400 text-sm">
+                  App ke errors yahan dikhte hain. Ye Desktop version mein kaam karta hai.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  onClick={fetchErrorLog}
+                  variant="outline"
+                  size="sm"
+                  className="border-red-600 text-red-400 hover:bg-red-900/30"
+                  data-testid="refresh-error-log-btn"
+                >
+                  <RefreshCw className="w-4 h-4 mr-1" /> Refresh Log
+                </Button>
+                <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 max-h-64 overflow-y-auto">
+                  <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono" data-testid="error-log-content">
+                    {errorLog || "Koi error log nahi hai."}
+                  </pre>
                 </div>
               </CardContent>
             </Card>

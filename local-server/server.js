@@ -117,6 +117,30 @@ class JsonDatabase {
       updated_at: new Date().toISOString()
     };
     this.data.entries.push(newEntry);
+    
+    // Auto-create gunny bag "out" entry for Old Bags when g_issued > 0
+    const gIssued = parseInt(newEntry.g_issued) || 0;
+    if (gIssued > 0) {
+      if (!this.data.gunny_bags) this.data.gunny_bags = [];
+      this.data.gunny_bags.push({
+        id: uuidv4(),
+        date: newEntry.date || new Date().toISOString().split('T')[0],
+        bag_type: "old",
+        txn_type: "out",
+        quantity: gIssued,
+        rate: 0,
+        amount: 0,
+        source: [newEntry.agent_name, newEntry.mandi_name, newEntry.truck_no].filter(Boolean).join(' | '),
+        reference: `Auto: Entry ${newEntry.id}`,
+        notes: `G.Issued - Agent: ${newEntry.agent_name || ''}, Mandi: ${newEntry.mandi_name || ''}, Truck: ${newEntry.truck_no || ''}`,
+        kms_year: newEntry.kms_year || "",
+        season: newEntry.season || "",
+        created_by: newEntry.created_by || "admin",
+        created_at: new Date().toISOString(),
+        linked_entry_id: newEntry.id
+      });
+    }
+    
     this.save();
     return newEntry;
   }
@@ -132,13 +156,43 @@ class JsonDatabase {
       ...calculated,
       updated_at: new Date().toISOString()
     };
+    const updated = this.data.entries[index];
+    
+    // Update linked gunny bag entry
+    if (!this.data.gunny_bags) this.data.gunny_bags = [];
+    this.data.gunny_bags = this.data.gunny_bags.filter(e => e.linked_entry_id !== id);
+    const gIssued = parseInt(updated.g_issued) || 0;
+    if (gIssued > 0) {
+      this.data.gunny_bags.push({
+        id: uuidv4(),
+        date: updated.date || new Date().toISOString().split('T')[0],
+        bag_type: "old",
+        txn_type: "out",
+        quantity: gIssued,
+        rate: 0,
+        amount: 0,
+        source: [updated.agent_name, updated.mandi_name, updated.truck_no].filter(Boolean).join(' | '),
+        reference: `Auto: Entry ${id}`,
+        notes: `G.Issued - Agent: ${updated.agent_name || ''}, Mandi: ${updated.mandi_name || ''}, Truck: ${updated.truck_no || ''}`,
+        kms_year: updated.kms_year || "",
+        season: updated.season || "",
+        created_by: updated.created_by || "admin",
+        created_at: new Date().toISOString(),
+        linked_entry_id: id
+      });
+    }
+    
     this.save();
-    return this.data.entries[index];
+    return updated;
   }
 
   deleteEntry(id) {
     const len = this.data.entries.length;
     this.data.entries = this.data.entries.filter(e => e.id !== id);
+    // Remove linked gunny bag entry
+    if (this.data.gunny_bags) {
+      this.data.gunny_bags = this.data.gunny_bags.filter(e => e.linked_entry_id !== id);
+    }
     if (this.data.entries.length < len) { this.save(); return true; }
     return false;
   }
@@ -596,6 +650,22 @@ async function startServer() {
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
   }
+
+  // ===== ERROR LOG =====
+  app.get('/api/error-log', (req, res) => {
+    const logPath = path.join(DATA_DIR, 'error.log');
+    try {
+      if (fs.existsSync(logPath)) {
+        const content = fs.readFileSync(logPath, 'utf8');
+        const lines = content.split('\n').slice(-200).join('\n');
+        res.json({ content: lines || "Koi error nahi hai.", available: true });
+      } else {
+        res.json({ content: "Koi error log nahi hai. Sab sahi chal raha hai!", available: true });
+      }
+    } catch (err) {
+      res.json({ content: "Error log read nahi ho paya: " + err.message, available: true });
+    }
+  });
 
   // ===== SERVE FRONTEND (AFTER all API routes) =====
   if (fs.existsSync(PUBLIC_DIR)) {

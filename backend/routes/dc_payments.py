@@ -462,13 +462,12 @@ async def get_gunny_bag_summary(kms_year: Optional[str] = None, season: Optional
         total_cost = round(sum(e.get("amount",0) for e in items if e.get("txn_type") == "in"), 2)
         result[bt] = {"total_in": total_in, "total_out": total_out, "balance": total_in - total_out, "total_cost": total_cost}
     # Paddy-received bags from truck entries (auto-calculated)
-    paddy_entries = await db.mill_entries.find(query, {"_id": 0, "bag": 1, "plastic_bag": 1, "g_issued": 1}).to_list(10000)
+    paddy_entries = await db.mill_entries.find(query, {"_id": 0, "bag": 1, "plastic_bag": 1}).to_list(10000)
     paddy_bags = sum(e.get("bag", 0) for e in paddy_entries)
     paddy_ppkt = sum(e.get("plastic_bag", 0) for e in paddy_entries)
-    paddy_g_issued = sum(e.get("g_issued", 0) for e in paddy_entries)
     result["paddy_bags"] = {"total": paddy_bags, "label": "Paddy Receive Bags"}
     result["ppkt"] = {"total": paddy_ppkt, "label": "P.Pkt (Plastic Bags)"}
-    result["g_issued"] = {"total": paddy_g_issued, "label": "Govt Bags Issued (g)"}
+    # G.Issued is now auto-deducted from Old Bags via linked gunny_bags entries (no separate "Govt Issued" display)
     # Grand total: old bags + paddy bags + P.Pkt (govt bags NOT included)
     result["grand_total"] = result["old"]["balance"] + paddy_bags + paddy_ppkt
     return result
@@ -502,8 +501,8 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     ws.cell(row=7, column=4, value=summary.get("paddy_bags",{}).get("total",0)).border = tb
     ws.cell(row=8, column=1, value="P.Pkt (Plastic)").border = tb
     ws.cell(row=8, column=4, value=summary.get("ppkt",{}).get("total",0)).border = tb
-    ws.cell(row=9, column=1, value="Govt Issued (g)").border = tb
-    ws.cell(row=9, column=4, value=summary.get("g_issued",{}).get("total",0)).border = tb
+    ws.cell(row=9, column=1, value="G.Issued (Old Bags Out)").border = tb
+    ws.cell(row=9, column=4, value=summary.get("old",{}).get("total_out",0)).border = tb
     ws.cell(row=10, column=1, value="Total (Excl Govt)").font = Font(bold=True)
     ws.cell(row=10, column=4, value=summary.get("grand_total",0)).font = Font(bold=True)
     # Transactions

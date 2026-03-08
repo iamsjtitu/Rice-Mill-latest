@@ -35,6 +35,29 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
     doc = entry_obj.model_dump()
     
     await db.mill_entries.insert_one(doc)
+    
+    # Auto-create gunny bag "out" entry for Old Bags (Market) when g_issued > 0
+    g_issued = doc.get("g_issued", 0)
+    if g_issued and g_issued > 0:
+        gunny_doc = {
+            "id": str(uuid.uuid4()),
+            "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "bag_type": "old",
+            "txn_type": "out",
+            "quantity": int(g_issued),
+            "rate": 0,
+            "amount": 0,
+            "source": f"{doc.get('agent_name', '')} | {doc.get('mandi_name', '')} | {doc.get('truck_no', '')}".strip(" |"),
+            "reference": f"Auto: Entry {doc['id']}",
+            "notes": f"G.Issued - Agent: {doc.get('agent_name','')}, Mandi: {doc.get('mandi_name','')}, Truck: {doc.get('truck_no','')}",
+            "kms_year": doc.get("kms_year", ""),
+            "season": doc.get("season", ""),
+            "created_by": username,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "linked_entry_id": doc["id"]
+        }
+        await db.gunny_bags.insert_one(gunny_doc)
+    
     return entry_obj
 
 
@@ -112,6 +135,31 @@ async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = ""
         {"$set": merged_data}
     )
     
+    # Update linked gunny bag entry for g_issued
+    new_g_issued = int(merged_data.get("g_issued", 0) or 0)
+    # Remove old linked gunny bag entry
+    await db.gunny_bags.delete_many({"linked_entry_id": entry_id})
+    # Create new one if g_issued > 0
+    if new_g_issued > 0:
+        gunny_doc = {
+            "id": str(uuid.uuid4()),
+            "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "bag_type": "old",
+            "txn_type": "out",
+            "quantity": new_g_issued,
+            "rate": 0,
+            "amount": 0,
+            "source": f"{merged_data.get('agent_name', '')} | {merged_data.get('mandi_name', '')} | {merged_data.get('truck_no', '')}".strip(" |"),
+            "reference": f"Auto: Entry {entry_id}",
+            "notes": f"G.Issued - Agent: {merged_data.get('agent_name','')}, Mandi: {merged_data.get('mandi_name','')}, Truck: {merged_data.get('truck_no','')}",
+            "kms_year": merged_data.get("kms_year", ""),
+            "season": merged_data.get("season", ""),
+            "created_by": username,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "linked_entry_id": entry_id
+        }
+        await db.gunny_bags.insert_one(gunny_doc)
+    
     updated = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     return updated
 
@@ -130,6 +178,10 @@ async def delete_entry(entry_id: str, username: str = "", role: str = ""):
     result = await db.mill_entries.delete_one({"id": entry_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Entry not found")
+    
+    # Remove linked gunny bag entry
+    await db.gunny_bags.delete_many({"linked_entry_id": entry_id})
+    
     return {"message": "Entry deleted successfully"}
 
 
