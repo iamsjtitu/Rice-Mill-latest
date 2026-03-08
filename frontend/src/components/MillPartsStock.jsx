@@ -323,6 +323,30 @@ export default function MillPartsStock({ filters, user }) {
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="stock-part-select"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent className="max-h-60">{parts.map(p => <SelectItem key={p.id} value={p.name} className="text-white">{p.name}</SelectItem>)}</SelectContent>
                 </Select>
+                {stockForm.part_name && (() => {
+                  const ps = summary.find(s => s.part_name === stockForm.part_name);
+                  const stock = ps ? ps.current_stock : 0;
+                  const unit = ps ? ps.unit : 'Pcs';
+                  return (
+                    <p className="text-[10px] mt-1 font-medium" data-testid="stock-current-info">
+                      Current Stock: <span className={`font-bold ${stock > 0 ? 'text-cyan-400' : 'text-red-400'}`}>{stock} {unit}</span>
+                      {stockForm.txn_type === 'used' && stockForm.quantity && parseFloat(stockForm.quantity) > 0 && (
+                        <span className="ml-2">
+                          After: <span className={`font-bold ${(stock - parseFloat(stockForm.quantity)) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {(stock - parseFloat(stockForm.quantity)).toFixed(1)} {unit}
+                          </span>
+                          <span className="text-red-400 ml-1">(-{stockForm.quantity})</span>
+                        </span>
+                      )}
+                      {stockForm.txn_type === 'in' && stockForm.quantity && parseFloat(stockForm.quantity) > 0 && (
+                        <span className="ml-2">
+                          After: <span className="font-bold text-emerald-400">{(stock + parseFloat(stockForm.quantity)).toFixed(1)} {unit}</span>
+                          <span className="text-emerald-400 ml-1">(+{stockForm.quantity})</span>
+                        </span>
+                      )}
+                    </p>
+                  );
+                })()}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

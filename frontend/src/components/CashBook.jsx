@@ -356,6 +356,13 @@ const CashBook = ({ filters, user }) => {
                     <SelectItem value="bank">Bank (बैंक)</SelectItem>
                   </SelectContent>
                 </Select>
+                {summary && (
+                  <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-balance">
+                    Balance: <span className={`${(form.account === 'cash' ? summary.cash_balance : summary.bank_balance) >= 0 ? 'text-emerald-600' : 'text-red-600'} font-bold`}>
+                      ₹{(form.account === 'cash' ? summary.cash_balance : summary.bank_balance)?.toLocaleString('en-IN')}
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -374,6 +381,19 @@ const CashBook = ({ filters, user }) => {
                 <Input type="number" step="0.01" value={form.amount}
                   onChange={(e) => setForm(p => ({ ...p, amount: e.target.value }))}
                   placeholder="0.00" className="border-slate-300 h-8 text-sm" required data-testid="cashbook-form-amount" />
+                {summary && form.amount && parseFloat(form.amount) > 0 && (
+                  <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-new-balance">
+                    After: <span className={`font-bold ${
+                      ((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)) >= 0
+                        ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      ₹{((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)).toLocaleString('en-IN')}
+                    </span>
+                    <span className={`ml-1 ${form.txn_type === 'jama' ? 'text-emerald-600' : 'text-red-600'}`}>
+                      ({form.txn_type === 'jama' ? '+' : '-'}₹{parseFloat(form.amount).toLocaleString('en-IN')})
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
             <div>
