@@ -67,5 +67,12 @@ Comprehensive Mill Entry System for managing paddy-to-rice conversion (CMR) for 
 - Registered all 4 new modules in both `local-server/server.js` and `desktop-app/main.js`
 - All 34 routes verified via Node.js module loading test
 
+### macOS Desktop Build Configuration - DONE (2026-03-08)
+- Added macOS build config in `desktop-app/package.json` (DMG + PKG, Apple Silicon arm64)
+- No code signing (identity: null) - local use only
+- Build commands: `yarn build:mac-all` (both), `yarn build:mac-dmg`, `yarn build:mac-pkg`
+- Created `MAC_BUILD_GUIDE.md` with step-by-step instructions
+- Version updated to 2.3.0, routes/** included in build files
+
 ## Prioritized Backlog
-- **P2:** macOS Desktop Build
+- No pending tasks

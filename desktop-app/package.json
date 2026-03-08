@@ -1,13 +1,17 @@
 {
   "name": "mill-entry-system",
-  "version": "1.0.0",
-  "description": "Mill Entry Management System - Windows Desktop Application",
+  "version": "2.3.0",
+  "description": "Mill Entry Management System - Desktop Application",
   "main": "main.js",
   "scripts": {
     "start": "npx electron .",
     "setup": "node setup-desktop.js",
     "build": "node setup-desktop.js && npx electron-builder --win",
     "build:win": "npx electron-builder --win --x64",
+    "build:mac": "npx electron-builder --mac --arm64",
+    "build:mac-dmg": "npx electron-builder --mac dmg --arm64",
+    "build:mac-pkg": "npx electron-builder --mac pkg --arm64",
+    "build:mac-all": "npx electron-builder --mac dmg pkg --arm64",
     "pack": "npx electron-builder --dir"
   },
   "author": "Mill Entry System",
@@ -34,6 +38,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "routes/**/*",
       "frontend-build/**/*",
       "package.json",
       "node_modules/**/*"
@@ -50,6 +55,34 @@
         }
       ],
       "icon": "icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64"]
+        },
+        {
+          "target": "pkg",
+          "arch": ["arm64"]
+        }
+      ],
+      "icon": "icon.icns",
+      "category": "public.app-category.business",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "Mill Entry System",
+      "artifactName": "MillEntrySystem-${version}-mac.dmg",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "pkg": {
+      "artifactName": "MillEntrySystem-${version}-mac.pkg"
     },
     "nsis": {
       "oneClick": false,
