@@ -1,105 +1,73 @@
 # Mill Entry System - Product Requirements Document
 
 ## Original Problem Statement
-The user requested a comprehensive Mill Entry System for managing paddy-to-rice conversion (Custom Milled Rice - CMR) for government supply. The system needs to track:
-- Paddy entries, milling sessions, DC management, payments, stock registers
-- Consolidated financial ledgers for all parties
+Comprehensive Mill Entry System for managing paddy-to-rice conversion (Custom Milled Rice - CMR) for government supply, private trading, and complete financial tracking.
 
-## User Personas
-- **Admin (mill owner):** Full access - entries, payments, settings, targets, exports
-- **Staff:** Can create entries (limited edit window), view data, export
+## Core Requirements & Status
 
-## Core Requirements & Implementation Status
+### Phase 1: Paddy Entry + Milling Tracker - DONE
+### Phase 2: DC Management - DONE
+### Phase 3: Stock & Payment Tracking - DONE
+### Phase 4: Reporting (CMR vs DC, Season P&L) - DONE
+### Phase 5: Consolidated Ledgers - DONE
+### Phase 6: Private Trading (Paddy Purchase + Rice Sale) - DONE
+### Cash Book Module - DONE (with Type/Category filters, auto-linking with Private Trading payments)
+### Global FY Year Setting - DONE (2026-03-08)
+- Global FY selector in header (persists across sessions via /api/fy-settings)
+- Season filter (Kharif/Rabi/All) alongside FY year
+- Opening balance carry-forward: Previous FY closing → New FY opening (auto-computed)
+- Manual opening balance override supported via /api/cash-book/opening-balance
+- Summary cards show Opening + In - Out = Balance
 
-### Phase 1: Paddy Entry + Milling Tracker (DONE)
-- Paddy custody register with auto-calculations
-- Milling sessions: paddy → rice + by-products
-- FRK purchase tracking
-- By-product sales tracking
-- Excel/PDF exports for all
-
-### Phase 2: DC Management (DONE)
-- DC (Delivery Challan) numbers with allotted quantity
-- Track deliveries against each DC
-- DC summary with pending deliveries
-
-### Phase 3: Stock & Payment Tracking (DONE)
-- MSP payments from government
-- Gunny Bag inventory (paddy bags + government bags)
-- Truck payments (bhada) with rate, deductions, mark-paid
-- Agent payments based on mandi targets
-
-### Phase 4: Reporting (DONE)
-- CMR vs DC comparison report
-- Season P&L analysis
-- Excel/PDF exports
-
-### Phase 5: Consolidated Ledgers (DONE - 2026-03-07)
-- **Outstanding Report:** DC pending deliveries, MSP payment pending, truck summary, agent summary, FRK party summary
-- **Party Ledger:** All transactions for any party (Agent, Truck, FRK Seller, Buyer) with debit/credit
-- Party type and party name filters
-- Excel/PDF exports for both reports
-- Integrated as "Ledgers" tab in main navigation
-- Keyboard shortcut: Alt+L
-- Ported to both Node.js backends (local-server, desktop-app)
-
-### Cash Book Module (DONE)
-- Cash and bank transaction tracking
-- Custom user-defined categories
-- Summary with running balance
-- **Filters: Account, Type (Jama/Nikasi), Category, Date range** (added 2026-03-07)
-- **Auto-linked with Private Trading payments** (added 2026-03-08)
-- Excel/PDF exports
-
-### Phase 6: Private Trading (DONE - 2026-03-08)
-- **Private Paddy Purchase:** Same entry form as regular paddy entry (without TP No) + rate/qntl
-  - Auto-calculations: qntl, gbw_cut, mill_w, p_pkt_cut, moisture_cut, cutting, final_w, total_amount
-  - Partial payment tracking with payment history
-  - Party Ledger integration (party_type: pvt_paddy)
-- **Rice Sale:** Party, quantity, rate, rice type (Usna/Raw/Boiled), bags, truck
-  - Payment received tracking with partial payments
-  - Party Ledger integration (party_type: rice_buyer)
-- **Private Payments:** Payment recording against paddy purchase and rice sale entries
-  - Auto-updates balance on referenced entry
-  - Payment reversal on delete
+### Code Refactoring - DONE (2026-03-08)
+- **Python backend**: 5249 lines → ~70 line server.py + 10 route modules
+  - routes/auth.py, entries.py, payments.py, exports.py, milling.py
+  - routes/cashbook.py, dc_payments.py, reports.py, private_trading.py, ledgers.py
+  - database.py (DB connection), models.py (all Pydantic models)
+- **Frontend**: App.js 3920 → 2230 lines
+  - Extracted Dashboard.jsx (~400 lines), Payments.jsx (~1318 lines)
+  - Created common/constants.js
+- **Node.js backends**: Route extraction started (local-server/routes/, desktop-app/routes/)
 
 ## Architecture
 ```
 /app
-├── backend/server.py          # Python/FastAPI (web preview)
-├── local-server/server.js     # Node.js/Express (standalone)
-├── desktop-app/main.js        # Electron + Express (desktop)
+├── backend/
+│   ├── server.py          # Slim orchestrator (~70 lines)
+│   ├── database.py        # DB connection + shared state
+│   ├── models.py          # All Pydantic models
+│   └── routes/            # 10 route modules
+│       ├── auth.py, entries.py, payments.py, exports.py
+│       ├── milling.py, cashbook.py, dc_payments.py
+│       ├── reports.py, private_trading.py, ledgers.py
+├── local-server/
+│   ├── server.js          # Slim (~600 lines)
+│   └── routes/            # 10 route modules
+├── desktop-app/
+│   ├── main.js
+│   └── routes/
 └── frontend/src/
-    ├── App.js                 # Main router/layout
-    ├── components/
-    │   ├── Ledgers.jsx        # Phase 5: Outstanding + Party Ledger
-    │   ├── MillingTracker.js  # Phase 1: Milling
-    │   ├── CashBook.jsx       # Cash Book
-    │   ├── DCTracker.jsx      # DC, MSP, Gunny Bags
-    │   └── Reports.jsx        # CMR vs DC, Season P&L
-    └── ...
+    ├── App.js             # Slim main (~2230 lines)
+    └── components/
+        ├── Dashboard.jsx, Payments.jsx, MillingTracker.js
+        ├── CashBook.jsx, DCTracker.jsx, Reports.jsx
+        ├── Ledgers.jsx, PrivateTrading.jsx
+        └── common/constants.js
 ```
 
 ## Key API Endpoints
-- `/api/private-paddy` (CRUD) - Private paddy purchases
-- `/api/rice-sales` (CRUD) - Rice sales
-- `/api/private-payments` (CRUD) - Payments for paddy/rice entries
-- `/api/reports/outstanding` - Outstanding report
-- `/api/reports/party-ledger` - Party ledger with filters
-- `/api/reports/outstanding/excel|pdf` - Exports
-- `/api/reports/party-ledger/excel|pdf` - Exports
-- `/api/dcs`, `/api/dc-deliveries` - DC CRUD
-- `/api/msp-payments` - MSP CRUD
-- `/api/gunny-bags` - Gunny Bag CRUD
-- `/api/cash-transactions`, `/api/cash-categories` - Cash Book
-- `/api/entries` - Paddy entries CRUD
-- `/api/mandi-targets` - Target management
-- `/api/truck-payments`, `/api/agent-payments` - Payments
+- `/api/fy-settings` (GET/PUT) - Global FY year setting
+- `/api/cash-book/opening-balance` (GET/PUT) - Opening balance management
+- `/api/cash-book/summary` (GET) - Summary with opening balance
+- `/api/private-paddy` (CRUD), `/api/rice-sales` (CRUD)
+- `/api/private-payments` (CRUD) - Auto-links to Cash Book
+- `/api/reports/outstanding`, `/api/reports/party-ledger`
+- All CRUD endpoints for entries, DC, MSP, gunny bags, milling, etc.
 
 ## Credentials
 - Admin: `admin` / `admin123`
 - Staff: `staff` / `staff123`
 
 ## Prioritized Backlog
-- **P2:** macOS desktop build
-- **P2:** Code refactoring (split monolithic files into modules)
+- **P2:** macOS Desktop Build
+- **P2:** Complete Node.js route module refactoring for desktop-app
