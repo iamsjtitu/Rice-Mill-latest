@@ -47,6 +47,7 @@ const CashBook = ({ filters, user }) => {
   });
   const [txnFilters, setTxnFilters] = useState({ account: "", txn_type: "", category: "", date_from: "", date_to: "" });
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -100,8 +101,26 @@ const CashBook = ({ filters, user }) => {
     if (!window.confirm("Kya aap ye transaction delete karna chahte hain?")) return;
     try {
       await axios.delete(`${API}/cash-book/${id}`);
-      toast.success("Deleted!"); fetchData();
+      toast.success("Deleted!"); setSelectedIds(prev => prev.filter(x => x !== id)); fetchData();
     } catch (e) { toast.error("Delete nahi hua"); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Kya aap ${selectedIds.length} transactions delete karna chahte hain?`)) return;
+    try {
+      await axios.post(`${API}/cash-book/delete-bulk`, { ids: selectedIds });
+      toast.success(`${selectedIds.length} transactions deleted!`);
+      setSelectedIds([]);
+      fetchData();
+    } catch (e) { toast.error("Bulk delete nahi hua"); }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => prev.length === txns.length ? [] : txns.map(t => t.id));
   };
 
   const exportData = async (format) => {
@@ -290,19 +309,37 @@ const CashBook = ({ filters, user }) => {
       {/* Transactions Table */}
       <Card className="bg-white border-slate-200 shadow-sm">
         <CardHeader className="pb-2 pt-3 px-4">
-          <CardTitle className="text-sm text-amber-700 font-semibold">Transactions / लेन-देन</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm text-amber-700 font-semibold">Transactions / लेन-देन</CardTitle>
+            {user.role === 'admin' && selectedIds.length > 0 && (
+              <Button onClick={handleBulkDelete} variant="destructive" size="sm" className="h-7 text-xs" data-testid="cashbook-bulk-delete">
+                <Trash2 className="w-3 h-3 mr-1" /> Delete Selected ({selectedIds.length})
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-0"><div className="overflow-x-auto">
           <Table><TableHeader><TableRow className="border-slate-200 hover:bg-transparent">
+            {user.role === 'admin' && (
+              <TableHead className="w-8">
+                <input type="checkbox" checked={txns.length > 0 && selectedIds.length === txns.length} onChange={toggleSelectAll}
+                  className="rounded border-slate-300" data-testid="cashbook-select-all" />
+              </TableHead>
+            )}
             {['Date', 'Account', 'Type', 'Category', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Reference', ''].map(h =>
               <TableHead key={h} className={`text-slate-600 text-xs ${['Jama (₹)', 'Nikasi (₹)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
           </TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={9} className="text-center text-slate-500 py-8">Loading...</TableCell></TableRow>
-            : txns.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-slate-500 py-8">Koi transaction nahi hai. "New Transaction" click karein.</TableCell></TableRow>
+            {loading ? <TableRow><TableCell colSpan={10} className="text-center text-slate-500 py-8">Loading...</TableCell></TableRow>
+            : txns.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-500 py-8">Koi transaction nahi hai. "New Transaction" click karein.</TableCell></TableRow>
             : txns.map(t => (
-              <TableRow key={t.id} className={`border-slate-100 ${t.txn_type === 'jama' ? 'bg-green-50/50' : 'bg-red-50/50'}`} data-testid={`txn-row-${t.id}`}>
-                <TableCell className="text-slate-800 text-xs font-medium">{t.date}</TableCell>
+              <TableRow key={t.id} className={`border-slate-100 ${t.txn_type === 'jama' ? 'bg-green-50/50' : 'bg-red-50/50'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`} data-testid={`txn-row-${t.id}`}>
+                {user.role === 'admin' && (
+                  <TableCell className="w-8">
+                    <input type="checkbox" checked={selectedIds.includes(t.id)} onChange={() => toggleSelect(t.id)}
+                      className="rounded border-slate-300" data-testid={`txn-select-${t.id}`} />
+                  </TableCell>
+                )}                <TableCell className="text-slate-800 text-xs font-medium">{t.date}</TableCell>
                 <TableCell className="text-xs">
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${t.account === 'cash' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                     {t.account === 'cash' ? 'Cash' : 'Bank'}

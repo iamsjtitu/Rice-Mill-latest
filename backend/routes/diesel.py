@@ -156,6 +156,20 @@ async def delete_diesel_transaction(txn_id: str):
     return {"message": "Deleted", "id": txn_id}
 
 
+@router.post("/diesel-accounts/delete-bulk")
+async def delete_diesel_transactions_bulk(request: Request):
+    body = await request.json()
+    ids = body.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="No ids provided")
+    # Also delete linked cash book entries for payment transactions
+    payment_txns = await db.diesel_accounts.find({"id": {"$in": ids}, "txn_type": "payment"}, {"_id": 0}).to_list(1000)
+    for pt in payment_txns:
+        await db.cash_transactions.delete_many({"linked_diesel_payment_id": pt["id"]})
+    result = await db.diesel_accounts.delete_many({"id": {"$in": ids}})
+    return {"message": f"{result.deleted_count} transactions deleted", "deleted": result.deleted_count}
+
+
 @router.get("/diesel-accounts/excel")
 async def export_diesel_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from openpyxl import Workbook

@@ -249,7 +249,7 @@ const DailyReport = ({ filters }) => {
           {/* Paddy Entries */}
           <Section title="Paddy Entries / धान" icon={Truck} color="text-blue-400" count={data.paddy_entries.count}>
             <div className="grid grid-cols-3 gap-3 mb-2">
-              {[["Total KG", data.paddy_entries.total_kg, "text-white"], ["Total Bags", data.paddy_entries.total_bags, "text-amber-400"], ["Final Weight", data.paddy_entries.total_final_w, "text-green-400"]].map(([l,v,c]) => (
+              {[["Total QNTL", (data.paddy_entries.total_kg / 100).toFixed(2), "text-white"], ["Total Bags", data.paddy_entries.total_bags, "text-amber-400"], ["Final Weight", data.paddy_entries.total_final_w, "text-green-400"]].map(([l,v,c]) => (
                 <div key={l} className="text-center p-2 bg-slate-900/50 rounded">
                   <p className="text-[10px] text-slate-400">{l}</p>
                   <p className={`text-lg font-bold ${c}`}>{v}</p>
@@ -260,14 +260,14 @@ const DailyReport = ({ filters }) => {
               isDetail ? (
                 <DetailTable
                   headers={[{key:'truck',label:'Truck',align:'left'},{key:'agent',label:'Agent',align:'left'},{key:'mandi',label:'Mandi',align:'left'},
-                    {key:'rst',label:'RST',align:'left'},{key:'kg',label:'KG',align:'right'},{key:'bags',label:'Bags',align:'right'},
+                    {key:'rst',label:'RST',align:'left'},{key:'qntl',label:'QNTL',align:'right'},{key:'bags',label:'Bags',align:'right'},
                     {key:'moisture',label:'Moisture%',align:'right'},{key:'mill_w',label:'Mill W',align:'right'},{key:'final',label:'Final W',align:'right'}]}
                   rows={data.paddy_entries.details.map((d,i) => (<>
                     <td className="py-1 px-2 text-white">{d.truck_no}</td>
                     <td className="py-1 px-2 text-slate-300">{d.agent}</td>
                     <td className="py-1 px-2 text-slate-300">{d.mandi}</td>
                     <td className="py-1 px-2 text-slate-400">{d.rst_no}</td>
-                    <td className="py-1 px-2 text-right text-amber-400">{d.kg}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">{(d.kg / 100).toFixed(2)}</td>
                     <td className="py-1 px-2 text-right text-slate-300">{d.bags}</td>
                     <td className="py-1 px-2 text-right text-cyan-400">{d.moisture}%</td>
                     <td className="py-1 px-2 text-right text-slate-300">{d.mill_w}</td>
@@ -277,11 +277,11 @@ const DailyReport = ({ filters }) => {
               ) : (
                 <DetailTable
                   headers={[{key:'truck',label:'Truck',align:'left'},{key:'agent',label:'Agent',align:'left'},
-                    {key:'kg',label:'KG',align:'right'},{key:'final',label:'Final W',align:'right'}]}
+                    {key:'qntl',label:'QNTL',align:'right'},{key:'final',label:'Final W',align:'right'}]}
                   rows={data.paddy_entries.details.map((d,i) => (<>
                     <td className="py-1 px-2 text-white">{d.truck_no}</td>
                     <td className="py-1 px-2 text-slate-300">{d.agent}</td>
-                    <td className="py-1 px-2 text-right text-amber-400">{d.kg}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">{(d.kg / 100).toFixed(2)}</td>
                     <td className="py-1 px-2 text-right text-green-400">{d.final_w}</td>
                   </>))}
                 />

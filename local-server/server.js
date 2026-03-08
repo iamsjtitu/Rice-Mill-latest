@@ -700,6 +700,21 @@ async function startServer() {
     database.data.diesel_accounts = database.data.diesel_accounts.filter(t=>t.id!==req.params.id);
     database.save(); res.json({ message:'Deleted', id:req.params.id });
   });
+  app.post('/api/diesel-accounts/delete-bulk', (req, res) => {
+    const ids = req.body.ids || [];
+    if (!ids.length) return res.status(400).json({ detail: 'No ids provided' });
+    if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
+    const paymentTxns = database.data.diesel_accounts.filter(t => ids.includes(t.id) && t.txn_type === 'payment');
+    if (paymentTxns.length > 0 && database.data.cash_transactions) {
+      const payIds = paymentTxns.map(t => t.id);
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => !payIds.includes(t.linked_diesel_payment_id));
+    }
+    const before = database.data.diesel_accounts.length;
+    database.data.diesel_accounts = database.data.diesel_accounts.filter(t => !ids.includes(t.id));
+    const deleted = before - database.data.diesel_accounts.length;
+    if (deleted > 0) database.save();
+    res.json({ message: `${deleted} transactions deleted`, deleted });
+  });
 
   app.get('/api/diesel-accounts/excel', async (req, res) => {
     try {

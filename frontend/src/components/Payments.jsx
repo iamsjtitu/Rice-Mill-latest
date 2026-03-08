@@ -1474,8 +1474,26 @@ const DieselAccount = ({ filters, user }) => {
 
   const handleDeleteTxn = async (id) => {
     if (!window.confirm("Transaction delete karein?")) return;
-    try { await axios.delete(`${API}/diesel-accounts/${id}`); toast.success("Deleted"); fetchData(); }
+    try { await axios.delete(`${API}/diesel-accounts/${id}`); toast.success("Deleted"); setDieselSelectedIds(prev => prev.filter(x => x !== id)); fetchData(); }
     catch (e) { toast.error("Error"); }
+  };
+
+  const [dieselSelectedIds, setDieselSelectedIds] = useState([]);
+  const handleDieselBulkDelete = async () => {
+    if (dieselSelectedIds.length === 0) return;
+    if (!window.confirm(`Kya aap ${dieselSelectedIds.length} transactions delete karna chahte hain?`)) return;
+    try {
+      await axios.post(`${API}/diesel-accounts/delete-bulk`, { ids: dieselSelectedIds });
+      toast.success(`${dieselSelectedIds.length} transactions deleted!`);
+      setDieselSelectedIds([]);
+      fetchData();
+    } catch (e) { toast.error("Bulk delete nahi hua"); }
+  };
+  const toggleDieselSelect = (id) => {
+    setDieselSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const toggleDieselSelectAll = () => {
+    setDieselSelectedIds(prev => prev.length === txns.length ? [] : txns.map(t => t.id));
   };
 
   return (
@@ -1561,17 +1579,36 @@ const DieselAccount = ({ filters, user }) => {
       </div>
 
       {/* Transactions Table */}
-      <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
+      <Card className="bg-slate-800 border-slate-700">
+        {user.role === 'admin' && dieselSelectedIds.length > 0 && (
+          <div className="px-4 pt-3">
+            <Button onClick={handleDieselBulkDelete} variant="destructive" size="sm" className="h-7 text-xs" data-testid="diesel-bulk-delete">
+              <Trash2 className="w-3 h-3 mr-1" /> Delete Selected ({dieselSelectedIds.length})
+            </Button>
+          </div>
+        )}
+        <CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
+          {user.role === 'admin' && (
+            <TableHead className="w-8">
+              <input type="checkbox" checked={txns.length > 0 && dieselSelectedIds.length === txns.length} onChange={toggleDieselSelectAll}
+                className="rounded border-slate-600" data-testid="diesel-select-all" />
+            </TableHead>
+          )}
           {['Date','Pump','Type','Truck No','Agent','Amount (Rs.)','Description',''].map(h =>
             <TableHead key={h} className={`text-slate-300 text-xs ${h === 'Amount (Rs.)' ? 'text-right' : ''}`}>{h}</TableHead>)}
         </TableRow></TableHeader>
         <TableBody>
-          {loading ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-          : txns.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-8">Koi transaction nahi hai.</TableCell></TableRow>
+          {loading ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+          : txns.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Koi transaction nahi hai.</TableCell></TableRow>
           : txns.map(t => (
-            <TableRow key={t.id} className={`border-slate-700 ${t.txn_type === 'payment' ? 'bg-green-900/10' : 'bg-orange-900/5'}`} data-testid={`diesel-row-${t.id}`}>
-              <TableCell className="text-white text-xs">{t.date}</TableCell>
+            <TableRow key={t.id} className={`border-slate-700 ${t.txn_type === 'payment' ? 'bg-green-900/10' : 'bg-orange-900/5'} ${dieselSelectedIds.includes(t.id) ? 'ring-1 ring-orange-400' : ''}`} data-testid={`diesel-row-${t.id}`}>
+              {user.role === 'admin' && (
+                <TableCell className="w-8">
+                  <input type="checkbox" checked={dieselSelectedIds.includes(t.id)} onChange={() => toggleDieselSelect(t.id)}
+                    className="rounded border-slate-600" data-testid={`diesel-select-${t.id}`} />
+                </TableCell>
+              )}              <TableCell className="text-white text-xs">{t.date}</TableCell>
               <TableCell className="text-slate-300 text-xs">{t.pump_name}</TableCell>
               <TableCell className="text-xs"><span className={t.txn_type === 'payment' ? 'text-green-400 font-medium' : 'text-orange-400'}>{t.txn_type === 'payment' ? 'PAYMENT' : 'DIESEL'}</span></TableCell>
               <TableCell className="text-slate-300 text-xs">{t.truck_no || '-'}</TableCell>

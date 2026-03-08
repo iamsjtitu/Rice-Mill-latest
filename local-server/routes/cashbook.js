@@ -39,6 +39,16 @@ router.delete('/api/cash-book/:id', (req, res) => {
   if (database.data.cash_transactions.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
   res.status(404).json({ detail: 'Not found' });
 });
+router.post('/api/cash-book/delete-bulk', (req, res) => {
+  const ids = req.body.ids || [];
+  if (!ids.length) return res.status(400).json({ detail: 'No ids provided' });
+  if (!database.data.cash_transactions) database.data.cash_transactions = [];
+  const before = database.data.cash_transactions.length;
+  database.data.cash_transactions = database.data.cash_transactions.filter(t => !ids.includes(t.id));
+  const deleted = before - database.data.cash_transactions.length;
+  if (deleted > 0) database.save();
+  res.json({ message: `${deleted} transactions deleted`, deleted });
+});
 
 router.get('/api/cash-book/categories', (req, res) => {
   if (!database.data.cash_book_categories) database.data.cash_book_categories = [];

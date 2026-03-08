@@ -68,6 +68,16 @@ async def delete_cash_transaction(txn_id: str):
     return {"message": "Transaction deleted", "id": txn_id}
 
 
+@router.post("/cash-book/delete-bulk")
+async def delete_cash_transactions_bulk(request: Request):
+    body = await request.json()
+    ids = body.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="No ids provided")
+    result = await db.cash_transactions.delete_many({"id": {"$in": ids}})
+    return {"message": f"{result.deleted_count} transactions deleted", "deleted": result.deleted_count}
+
+
 @router.get("/cash-book/summary")
 async def get_cash_book_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
     query = {}

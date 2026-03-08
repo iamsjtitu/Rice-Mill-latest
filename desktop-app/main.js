@@ -1579,6 +1579,16 @@ function createApiServer(database) {
     if (database.data.cash_transactions.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
   }));
+  apiApp.post('/api/cash-book/delete-bulk', safeSync((req, res) => {
+    const ids = req.body.ids || [];
+    if (!ids.length) return res.status(400).json({ detail: 'No ids provided' });
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    const before = database.data.cash_transactions.length;
+    database.data.cash_transactions = database.data.cash_transactions.filter(t => !ids.includes(t.id));
+    const deleted = before - database.data.cash_transactions.length;
+    if (deleted > 0) database.save();
+    res.json({ message: `${deleted} transactions deleted`, deleted });
+  }));
   apiApp.get('/api/cash-book/categories', safeSync((req, res) => {
     if (!database.data.cash_book_categories) database.data.cash_book_categories = [];
     res.json([...database.data.cash_book_categories]);
@@ -2557,6 +2567,22 @@ function createApiServer(database) {
     }
     database.data.diesel_accounts = database.data.diesel_accounts.filter(t=>t.id!==req.params.id);
     database.save(); res.json({ message:'Deleted', id:req.params.id });
+  }));
+  apiApp.post('/api/diesel-accounts/delete-bulk', safeSync((req, res) => {
+    const ids = req.body.ids || [];
+    if (!ids.length) return res.status(400).json({ detail: 'No ids provided' });
+    if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
+    // Delete linked cash book entries for payments
+    const paymentTxns = database.data.diesel_accounts.filter(t => ids.includes(t.id) && t.txn_type === 'payment');
+    if (paymentTxns.length > 0 && database.data.cash_transactions) {
+      const payIds = paymentTxns.map(t => t.id);
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => !payIds.includes(t.linked_diesel_payment_id));
+    }
+    const before = database.data.diesel_accounts.length;
+    database.data.diesel_accounts = database.data.diesel_accounts.filter(t => !ids.includes(t.id));
+    const deleted = before - database.data.diesel_accounts.length;
+    if (deleted > 0) database.save();
+    res.json({ message: `${deleted} transactions deleted`, deleted });
   }));
 
   apiApp.get('/api/diesel-accounts/excel', safeAsync(async (req, res) => {

@@ -280,21 +280,20 @@ function MainApp({ user, onLogout }) {
 
   // Auto-fill cutting % from Mandi Target when mandi name changes
   useEffect(() => {
-    if (formData.mandi_name && mandiTargets.length > 0 && !editingId) {
+    if (formData.mandi_name && mandiTargets.length > 0) {
       const target = mandiTargets.find(t => 
         (t.mandi_name || '').toLowerCase().trim() === formData.mandi_name.toLowerCase().trim()
       );
       if (target && target.cutting_percent != null) {
         setFormData(prev => {
-          // Only auto-fill if cutting_percent is still empty or was auto-set
-          if (!prev.cutting_percent || prev.cutting_percent === '0') {
+          if (!prev.cutting_percent || prev.cutting_percent === '' || prev.cutting_percent === '0') {
             return { ...prev, cutting_percent: String(target.cutting_percent) };
           }
           return prev;
         });
       }
     }
-  }, [formData.mandi_name, mandiTargets, editingId]);
+  }, [formData.mandi_name, mandiTargets]);
 
   // Remove external badges (for desktop/local builds)
   useEffect(() => {
@@ -403,7 +402,7 @@ function MainApp({ user, onLogout }) {
         });
       }
     }).catch(() => {});
-  }, [fetchEntries, fetchTotals, fetchSuggestions]);
+  }, [fetchEntries, fetchTotals, fetchSuggestions, filters.kms_year]);
 
   // Reset selection when entries change
   useEffect(() => {

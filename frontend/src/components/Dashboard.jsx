@@ -190,65 +190,6 @@ export const Dashboard = ({ filters, user }) => {
         </Button>
       </div>
 
-      {/* P&L Summary Card */}
-      <Card className={`border-2 ${plData && plData.profit ? 'border-green-700/50 bg-gradient-to-br from-green-900/20 to-slate-800' : 'border-red-700/50 bg-gradient-to-br from-red-900/20 to-slate-800'}`} data-testid="pl-summary-card">
-        <CardHeader className="pb-2 pt-3 px-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm text-amber-400 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" /> Profit & Loss Summary
-            </CardTitle>
-            <Button onClick={fetchPLSummary} variant="ghost" size="sm" className="h-6 px-2 text-slate-400 hover:text-white">
-              <RefreshCw className="w-3 h-3" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
-          {plLoading ? (
-            <div className="text-center py-4 text-slate-400 text-sm">Loading P&L...</div>
-          ) : !plData ? (
-            <div className="text-center py-4 text-slate-500 text-sm">P&L data load nahi hua</div>
-          ) : (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-3 rounded-lg bg-green-900/20 border border-green-800/30">
-                <p className="text-[10px] text-slate-400 mb-1">Total Income / आय</p>
-                <p className="text-xl font-bold text-green-400" data-testid="pl-income">
-                  <TrendingUp className="w-4 h-4 inline mr-1" />
-                  ₹{plData.income.total.toLocaleString('en-IN')}
-                </p>
-                <div className="mt-2 space-y-0.5 text-left">
-                  <p className="text-[10px] text-slate-500">MSP: ₹{plData.income.msp_payments.toLocaleString('en-IN')}</p>
-                  <p className="text-[10px] text-slate-500">By-Product: ₹{plData.income.byproduct_sales.toLocaleString('en-IN')}</p>
-                  <p className="text-[10px] text-slate-500">Cash Jama: ₹{plData.income.cash_book_jama.toLocaleString('en-IN')}</p>
-                </div>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-red-900/20 border border-red-800/30">
-                <p className="text-[10px] text-slate-400 mb-1">Total Expenses / खर्चा</p>
-                <p className="text-xl font-bold text-red-400" data-testid="pl-expenses">
-                  <TrendingDown className="w-4 h-4 inline mr-1" />
-                  ₹{plData.expenses.total.toLocaleString('en-IN')}
-                </p>
-                <div className="mt-2 space-y-0.5 text-left">
-                  <p className="text-[10px] text-slate-500">FRK: ₹{plData.expenses.frk_purchases.toLocaleString('en-IN')}</p>
-                  <p className="text-[10px] text-slate-500">Gunny: ₹{plData.expenses.gunny_bags.toLocaleString('en-IN')}</p>
-                  <p className="text-[10px] text-slate-500">Cash Nikasi: ₹{plData.expenses.cash_book_nikasi.toLocaleString('en-IN')}</p>
-                </div>
-              </div>
-              <div className={`text-center p-3 rounded-lg ${plData.profit ? 'bg-emerald-900/30 border border-emerald-600/40' : 'bg-red-900/30 border border-red-600/40'}`}>
-                <p className="text-[10px] text-slate-400 mb-1">{plData.profit ? 'NET PROFIT / लाभ' : 'NET LOSS / हानि'}</p>
-                <p className={`text-2xl font-bold ${plData.profit ? 'text-emerald-400' : 'text-red-400'}`} data-testid="pl-net">
-                  {plData.profit ? <TrendingUp className="w-5 h-5 inline mr-1" /> : <TrendingDown className="w-5 h-5 inline mr-1" />}
-                  ₹{Math.abs(plData.net_pnl).toLocaleString('en-IN')}
-                </p>
-                <div className="mt-2 space-y-0.5 text-left">
-                  <p className="text-[10px] text-slate-500">Truck Pay: ₹{plData.expenses.truck_payments.toLocaleString('en-IN')}</p>
-                  <p className="text-[10px] text-slate-500">Agent Pay: ₹{plData.expenses.agent_payments.toLocaleString('en-IN')}</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Mandi Target Section */}
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader className="pb-2">
