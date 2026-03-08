@@ -150,7 +150,20 @@ const CashBook = ({ filters, user }) => {
     <div className="space-y-4" data-testid="cash-book">
       {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {/* Opening Balance Card */}
+          <Card className="bg-gradient-to-br from-purple-900/30 to-slate-800 border-purple-800/30" data-testid="opening-balance-card">
+            <CardContent className="p-4">
+              <p className="text-xs text-purple-400 font-medium mb-1">Opening Balance / शुरुआती</p>
+              <p className="text-lg font-bold text-purple-400">
+                ₹{((summary.opening_cash || 0) + (summary.opening_bank || 0)).toLocaleString('en-IN')}
+              </p>
+              <div className="flex gap-3 mt-1 text-[10px]">
+                <span className="text-green-500">Cash: ₹{(summary.opening_cash || 0).toLocaleString('en-IN')}</span>
+                <span className="text-blue-400">Bank: ₹{(summary.opening_bank || 0).toLocaleString('en-IN')}</span>
+              </div>
+            </CardContent>
+          </Card>
           <Card className="bg-gradient-to-br from-green-900/40 to-slate-800 border-green-800/30" data-testid="cash-balance-card">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-1">
