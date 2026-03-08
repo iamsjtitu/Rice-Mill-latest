@@ -2306,25 +2306,12 @@ function createSplashWindow() {
   </div>
   
   <div class="content">
-    <div class="section-title">📂 Recent Data Locations</div>
-    <div class="recent-list" id="recentList">
-      ${config.recentPaths.length > 0 
-        ? config.recentPaths.map(p => `
-          <div class="recent-item" onclick="openRecent('${p.replace(/\\/g, '\\\\')}')">
-            <span class="path">${p}</span>
-            <span class="delete-btn" onclick="event.stopPropagation(); removeRecent(event, '${p.replace(/\\/g, '\\\\')}')">✕</span>
-            <span class="arrow">→</span>
-          </div>
-        `).join('')
-        : `<div class="empty-state">
-            <div class="icon">📁</div>
-            <p>Koi recent data folder nahi hai</p>
-            <p style="font-size: 12px; margin-top: 5px;">Neeche se folder select ya create karein</p>
-          </div>`
-      }
-    </div>
-    
     <div class="section-title">📁 Data Folder Select Karein</div>
+    <div style="text-align:center; padding: 30px 20px; color: #94a3b8; background: rgba(0,0,0,0.2); border-radius: 10px; border: 1px dashed #475569; margin-bottom: 20px;">
+      <div style="font-size: 40px; margin-bottom: 10px;">📂</div>
+      <p>Har bar apna data folder manually select karein</p>
+      <p style="font-size: 12px; margin-top: 5px; color: #64748b;">Neeche se folder select ya create karein</p>
+    </div>
     <div class="btn-group">
       <button class="btn btn-primary" onclick="selectFolder()">
         📂 Open Existing Folder
@@ -2432,7 +2419,7 @@ async function createMainWindow(port) {
           type: 'info',
           title: 'About - Mill Entry System',
           message: 'Mill Entry System',
-          detail: 'Version 1.1\n\nDeveloped by 9x.Design\nContact Us: +917205930002',
+          detail: 'Version 2.3\n\nDeveloped by 9x.Design\nContact Us: +917205930002',
           buttons: ['OK']
         });
       }}
@@ -2517,10 +2504,10 @@ ipcMain.on('close-app', () => {
 async function startApplication(folderPath) {
   dataPath = folderPath;
   
-  // Update config with recent path
+  // Update config - only keep recentPaths for reference, do NOT save lastPath for auto-load
   const config = loadConfig();
   config.recentPaths = [folderPath, ...config.recentPaths.filter(p => p !== folderPath)].slice(0, 5);
-  config.lastPath = folderPath;
+  config.lastPath = null;  // Never auto-load last folder
   saveConfig(config);
 
   // Initialize database

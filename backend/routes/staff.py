@@ -338,10 +338,28 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
 
     status_short = {"present": "P", "absent": "A", "half_day": "H", "holiday": "CH"}
 
+    # Build monthly summary data
+    from collections import defaultdict
+    monthly_data = {}  # {month_key: {staff_id: {P:0, A:0, H:0, CH:0}}}
+    month_names = {
+        "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "May", "06": "Jun",
+        "07": "Jul", "08": "Aug", "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"
+    }
+    for d in dates:
+        mk = d[:7]  # YYYY-MM
+        if mk not in monthly_data:
+            monthly_data[mk] = {s["id"]: {"P": 0, "A": 0, "H": 0, "CH": 0} for s in staff_list}
+        for s in staff_list:
+            st = att_map.get(s["id"], {}).get(d, "-")
+            val = status_short.get(st, "-")
+            if val in monthly_data[mk][s["id"]]:
+                monthly_data[mk][s["id"]][val] += 1
+    sorted_months = sorted(monthly_data.keys())
+
     if fmt == "pdf":
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib import colors
-        from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+        from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer, PageBreak
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
         buf = io.BytesIO()
@@ -382,13 +400,10 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
             rows.append(row)
 
         n_cols = len(headers)
-        # Fit all columns on single A4 landscape (800px usable)
         available_w = 800
         name_col_w = max(45, min(70, (available_w - 45) // max(n_cols - 1, 1)))
         col_widths = [45] + [name_col_w] * (n_cols - 1)
 
-        # Calculate row height to fit everything on one page
-        # A4 landscape height ~555pt usable (595 - 20 margins - 20 title)
         total_rows = len(rows)
         row_h = min(14, max(10, 540 // total_rows))
 
@@ -423,6 +438,80 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
 
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
+
+        # ---- PAGE 2: MONTHLY SUMMARY ----
+        elements.append(PageBreak())
+        elements.append(Paragraph("Monthly Summary / Masik Saransh", ParagraphStyle('ms', parent=styles['Normal'], fontSize=12, textColor=colors.HexColor('#1a365d'), spaceAfter=8, fontName='Helvetica-Bold')))
+
+        ms_headers = ["Staff", "Salary Type", "Rate"] + [f"{month_names.get(m[5:7], m[5:7])} {m[:4]}" for m in sorted_months] + ["Grand Total"]
+        ms_rows = [ms_headers]
+
+        # Fetch salary info for each staff
+        staff_salary_map = {s["id"]: s for s in staff_list}
+
+        for s in staff_list:
+            info = staff_salary_map[s["id"]]
+            sal_type = "Monthly" if info.get("salary_type") == "monthly" else "Daily"
+            sal_amt = info.get("salary_amount", 0)
+            row = [s["name"], sal_type, f"{sal_amt:,.0f}"]
+            grand = 0
+            for mk in sorted_months:
+                md = monthly_data[mk][s["id"]]
+                worked = md["P"] + md["CH"] + md["H"] * 0.5
+                grand += worked
+                row.append(f'{worked:.1f}')
+            row.append(f'{grand:.1f}')
+            ms_rows.append(row)
+
+        # Detail breakdown rows per month
+        ms_rows.append([""] * len(ms_headers))  # blank row
+        ms_rows.append(["Breakdown (P/A/H/CH)"] + [""] * (len(ms_headers) - 1))
+        for s in staff_list:
+            row = [s["name"], "", ""]
+            for mk in sorted_months:
+                md = monthly_data[mk][s["id"]]
+                row.append(f'{md["P"]}/{md["A"]}/{md["H"]}/{md["CH"]}')
+            row.append("")
+            ms_rows.append(row)
+
+        n_ms_cols = len(ms_headers)
+        ms_col_w = max(55, min(90, 800 // max(n_ms_cols, 1)))
+        ms_col_widths = [80, 55, 50] + [ms_col_w] * (n_ms_cols - 3)
+        # Adjust to fit 800px
+        total_w = sum(ms_col_widths)
+        if total_w > 800:
+            scale = 800 / total_w
+            ms_col_widths = [w * scale for w in ms_col_widths]
+
+        ms_table = RTable(ms_rows, colWidths=ms_col_widths, repeatRows=1)
+        ms_style = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#065f46')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
+            ('ALIGN', (2, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ]
+        # Color worked days column
+        for ri in range(1, 1 + len(staff_list)):
+            ms_style.append(('BACKGROUND', (-1, ri), (-1, ri), colors.HexColor('#d1fae5')))
+            ms_style.append(('FONTNAME', (-1, ri), (-1, ri), 'Helvetica-Bold'))
+            if ri % 2 == 0:
+                ms_style.append(('BACKGROUND', (0, ri), (-2, ri), colors.HexColor('#f0fdf4')))
+
+        # Breakdown section header
+        breakdown_start = 2 + len(staff_list)
+        if breakdown_start < len(ms_rows):
+            ms_style.append(('BACKGROUND', (0, breakdown_start), (-1, breakdown_start), colors.HexColor('#fef3c7')))
+            ms_style.append(('FONTNAME', (0, breakdown_start), (-1, breakdown_start), 'Helvetica-Bold'))
+            ms_style.append(('SPAN', (0, breakdown_start), (-1, breakdown_start)))
+
+        ms_table.setStyle(TableStyle(ms_style))
+        elements.append(ms_table)
 
         doc.build(elements)
         buf.seek(0)
@@ -502,6 +591,74 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         ws.page_setup.fitToWidth = 1
         ws.page_setup.fitToHeight = 1
         ws.sheet_properties.pageSetUpPr = None
+
+        # ---- SHEET 2: MONTHLY SUMMARY ----
+        ws2 = wb.create_sheet("Monthly Summary")
+        ms_hdr_fill = PatternFill(start_color='065f46', end_color='065f46', fill_type='solid')
+        ms_hdr_font = Font(bold=True, color='FFFFFF', size=9)
+        green_fill = PatternFill(start_color='d1fae5', end_color='d1fae5', fill_type='solid')
+        yellow_fill = PatternFill(start_color='fef3c7', end_color='fef3c7', fill_type='solid')
+
+        ws2.merge_cells(start_row=1, start_column=1, end_row=1, end_column=4 + len(sorted_months))
+        ws2['A1'] = f"Monthly Summary / Masik Saransh ({date_from} to {date_to})"
+        ws2['A1'].font = Font(bold=True, size=12, color='065f46')
+
+        # Headers: Staff | Salary Type | Rate | Month1 | Month2 ... | Grand Total
+        ms_hdrs = ["Staff", "Salary Type", "Rate"] + [f"{month_names.get(m[5:7], m[5:7])} {m[:4]}" for m in sorted_months] + ["Grand Total"]
+        for i, h in enumerate(ms_hdrs, 1):
+            c = ws2.cell(row=3, column=i, value=h)
+            c.fill = ms_hdr_fill; c.font = ms_hdr_font; c.border = tb; c.alignment = Alignment(horizontal='center')
+
+        r = 4
+        for s in staff_list:
+            sal_type = "Monthly" if s.get("salary_type") == "monthly" else "Daily"
+            sal_amt = s.get("salary_amount", 0)
+            ws2.cell(row=r, column=1, value=s["name"]).font = Font(bold=True, size=9)
+            ws2.cell(row=r, column=1).border = tb
+            ws2.cell(row=r, column=2, value=sal_type).border = tb
+            ws2.cell(row=r, column=2).alignment = Alignment(horizontal='center')
+            ws2.cell(row=r, column=3, value=sal_amt).border = tb
+            ws2.cell(row=r, column=3).alignment = Alignment(horizontal='center')
+            ws2.cell(row=r, column=3).font = Font(size=9)
+            grand = 0
+            for mi, mk in enumerate(sorted_months):
+                md = monthly_data[mk][s["id"]]
+                worked = md["P"] + md["CH"] + md["H"] * 0.5
+                grand += worked
+                c = ws2.cell(row=r, column=4 + mi, value=worked)
+                c.border = tb; c.alignment = Alignment(horizontal='center'); c.font = Font(size=9)
+            gt_cell = ws2.cell(row=r, column=4 + len(sorted_months), value=grand)
+            gt_cell.fill = green_fill; gt_cell.font = Font(bold=True, size=9); gt_cell.border = tb
+            gt_cell.alignment = Alignment(horizontal='center')
+            r += 1
+
+        # Blank row + Breakdown header
+        r += 1
+        ws2.merge_cells(start_row=r, start_column=1, end_row=r, end_column=len(ms_hdrs))
+        c = ws2.cell(row=r, column=1, value="Breakdown (P / A / H / CH)")
+        c.fill = yellow_fill; c.font = Font(bold=True, size=10, color='78350f'); c.border = tb
+        r += 1
+
+        for s in staff_list:
+            ws2.cell(row=r, column=1, value=s["name"]).font = Font(bold=True, size=9)
+            ws2.cell(row=r, column=1).border = tb
+            for mi, mk in enumerate(sorted_months):
+                md = monthly_data[mk][s["id"]]
+                c = ws2.cell(row=r, column=4 + mi, value=f'{md["P"]} / {md["A"]} / {md["H"]} / {md["CH"]}')
+                c.border = tb; c.alignment = Alignment(horizontal='center'); c.font = Font(size=8)
+            r += 1
+
+        # Set column widths for summary sheet
+        ws2.column_dimensions['A'].width = 14
+        ws2.column_dimensions['B'].width = 10
+        ws2.column_dimensions['C'].width = 8
+        for i in range(len(sorted_months) + 1):
+            col_letter = chr(68 + i) if (68 + i) <= 90 else 'A' + chr(65 + (68 + i - 91))
+            ws2.column_dimensions[col_letter].width = 12
+
+        ws2.page_setup.orientation = 'landscape'
+        ws2.page_setup.fitToWidth = 1
+        ws2.page_setup.fitToHeight = 1
 
         buf = io.BytesIO()
         wb.save(buf); buf.seek(0)

@@ -46,6 +46,16 @@ Comprehensive Mill Entry System for managing paddy-to-rice conversion (CMR) for 
 - PDF/Excel attendance export now fits on single A4 landscape page
 - App version updated to 2.3 in About section
 
+### Monthly Summary in Attendance Export - DONE (2026-03-08)
+- PDF: New page with monthly summary table (Staff, Salary Type, Rate, per-month worked days, Grand Total + P/A/H/CH breakdown)
+- Excel: New "Monthly Summary" sheet with same data
+- Helps salary settlement with quick monthly overview
+
+### Data Folder Auto-Load Removed - DONE (2026-03-08)
+- Desktop app: Removed recent paths list from splash screen, lastPath no longer saved
+- Local server: Added startup prompt for data folder selection (supports --data-dir CLI arg)
+- User must manually select data folder every time app opens
+
 ## Prioritized Backlog
 - **P1:** Port features to Node.js backends (`local-server/server.js`, `desktop-app/main.js`) + complete refactoring
 - **P2:** macOS Desktop Build

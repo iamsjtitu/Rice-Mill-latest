@@ -11,14 +11,12 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
 const PORT = 8080;
-const DATA_DIR = path.join(__dirname, 'data');
-const BACKUP_DIR = path.join(__dirname, 'data', 'backups');
+let DATA_DIR = null;  // Will be set after user input
+let BACKUP_DIR = null;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MAX_BACKUPS = 7;
 
-// Ensure directories exist
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+// Directories will be created after user selects data folder
 
 // ============ JSON DATABASE CLASS ============
 class JsonDatabase {
@@ -419,7 +417,7 @@ class JsonDatabase {
 }
 
 // ============ CREATE DATABASE ============
-const database = new JsonDatabase(DATA_DIR);
+let database = null;
 
 // ============ BACKUP SYSTEM ============
 function createBackup(label = 'auto') {
@@ -491,15 +489,7 @@ function hasTodayBackup() {
   return backups.some(b => b.created_at.substring(0, 10) === today);
 }
 
-// Auto-backup on startup
-if (!hasTodayBackup() && fs.existsSync(database.dbFile)) {
-  createBackup('startup');
-}
-
-// Daily auto-backup (every 24 hours)
-setInterval(() => {
-  if (!hasTodayBackup()) createBackup('daily');
-}, 60 * 60 * 1000); // Check every hour
+// Auto-backup and route setup moved to startServer() function below
 
 // ============ EXPRESS APP ============
 const app = express();
@@ -522,28 +512,7 @@ app.get('/api/print/:id', (req, res) => {
 });
 
 
-// ============ IMPORT ROUTE MODULES ============
-const authRoutes = require('./routes/auth')(database);
-const entriesRoutes = require('./routes/entries')(database);
-const dashboardRoutes = require('./routes/dashboard')(database);
-const paymentsRoutes = require('./routes/payments')(database);
-const exportsRoutes = require('./routes/exports')(database);
-const cashbookRoutes = require('./routes/cashbook')(database);
-const dcPaymentsRoutes = require('./routes/dc_payments')(database);
-const cmrExportsRoutes = require('./routes/cmr_exports')(database);
-const privateTradingRoutes = require('./routes/private_trading')(database);
-const ledgersRoutes = require('./routes/ledgers')(database);
-
-app.use(authRoutes);
-app.use(entriesRoutes);
-app.use(dashboardRoutes);
-app.use(paymentsRoutes);
-app.use(exportsRoutes);
-app.use(cashbookRoutes);
-app.use(dcPaymentsRoutes);
-app.use(cmrExportsRoutes);
-app.use(privateTradingRoutes);
-app.use(ledgersRoutes);
+// Route modules loaded dynamically in startServer() function
 
 // ============ SERVE FRONTEND (Static Files) ============
 if (fs.existsSync(PUBLIC_DIR)) {
@@ -573,38 +542,112 @@ xcopy /E /I build ..\\local-server\\public</pre>
   });
 }
 
-// ============ START SERVER ============
-app.listen(PORT, () => {
-  console.log('');
-  console.log('========================================');
-  console.log('  Mill Entry System - Local Server');
-  console.log('========================================');
-  console.log(`  URL:  http://localhost:${PORT}`);
-  console.log(`  API:  http://localhost:${PORT}/api/`);
-  console.log(`  Data: ${path.resolve(DATA_DIR)}`);
-  console.log('========================================');
-  console.log('  Band karne ke liye: Ctrl+C');
-  console.log('');
-  
-  // Auto-open browser (only on Windows/Mac, skip on Linux servers)
-  if (process.platform === 'win32' || process.platform === 'darwin') {
-    try {
-      const openModule = require('open');
-      openModule(`http://localhost:${PORT}`);
-    } catch (e) {
-      console.log(`  Browser mein kholein: http://localhost:${PORT}`);
+// ============ START SERVER WITH FOLDER SELECTION ============
+const readline = require('readline');
+
+function askDataFolder() {
+  return new Promise((resolve) => {
+    // Check for --data-dir CLI argument
+    const argIdx = process.argv.indexOf('--data-dir');
+    if (argIdx !== -1 && process.argv[argIdx + 1]) {
+      return resolve(process.argv[argIdx + 1]);
     }
+
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const defaultPath = path.join(__dirname, 'data');
+
+    console.log('');
+    console.log('========================================');
+    console.log('  Mill Entry System - Data Folder');
+    console.log('========================================');
+    console.log('');
+
+    rl.question(`  Data folder path enter karein\n  (Default: ${defaultPath})\n  Path: `, (answer) => {
+      rl.close();
+      const folderPath = answer.trim() || defaultPath;
+      resolve(folderPath);
+    });
+  });
+}
+
+async function startServer() {
+  const folderPath = await askDataFolder();
+  DATA_DIR = folderPath;
+  BACKUP_DIR = path.join(folderPath, 'backups');
+
+  // Ensure directories exist
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+
+  // Initialize database
+  database = new JsonDatabase(DATA_DIR);
+
+  // Auto-backup on startup
+  if (!hasTodayBackup() && fs.existsSync(database.dbFile)) {
+    createBackup('startup');
   }
-});
+
+  // Setup routes (re-require with new database)
+  try {
+    const authRoutes = require('./routes/auth')(database);
+    const entriesRoutes = require('./routes/entries')(database);
+    const dashboardRoutes = require('./routes/dashboard')(database);
+    const paymentsRoutes = require('./routes/payments')(database);
+    const exportsRoutes = require('./routes/exports')(database);
+    const cashbookRoutes = require('./routes/cashbook')(database);
+    const dcPaymentsRoutes = require('./routes/dc_payments')(database);
+    const cmrExportsRoutes = require('./routes/cmr_exports')(database);
+    const privateTradingRoutes = require('./routes/private_trading')(database);
+    const ledgersRoutes = require('./routes/ledgers')(database);
+
+    app.use('/api/auth', authRoutes);
+    app.use('/api', entriesRoutes);
+    app.use('/api', dashboardRoutes);
+    app.use('/api', paymentsRoutes);
+    app.use('/api', exportsRoutes);
+    app.use('/api', cashbookRoutes);
+    app.use('/api', dcPaymentsRoutes);
+    app.use('/api', cmrExportsRoutes);
+    app.use('/api', privateTradingRoutes);
+    app.use('/api', ledgersRoutes);
+  } catch (e) {
+    console.log('  [Note] Some route modules not found, using inline routes');
+  }
+
+  app.listen(PORT, () => {
+    console.log('');
+    console.log('========================================');
+    console.log('  Mill Entry System - Local Server');
+    console.log('========================================');
+    console.log(`  URL:  http://localhost:${PORT}`);
+    console.log(`  API:  http://localhost:${PORT}/api/`);
+    console.log(`  Data: ${path.resolve(DATA_DIR)}`);
+    console.log('========================================');
+    console.log('  Band karne ke liye: Ctrl+C');
+    console.log('');
+
+    // Auto-open browser
+    if (process.platform === 'win32' || process.platform === 'darwin') {
+      try {
+        const openModule = require('open');
+        openModule(`http://localhost:${PORT}`);
+      } catch (e) {
+        console.log(`  Browser mein kholein: http://localhost:${PORT}`);
+      }
+    }
+  });
+}
+
+startServer();
 
 // Graceful shutdown - save data
 process.on('SIGINT', () => {
   console.log('\n[Server] Shutting down... data save ho raha hai...');
-  database.save();
+  if (database) database.save();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  database.save();
+  if (database) database.save();
   process.exit(0);
 });
