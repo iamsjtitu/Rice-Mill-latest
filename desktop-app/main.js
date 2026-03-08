@@ -650,12 +650,20 @@ function createApiServer(database) {
 
   // ===== FY SETTINGS =====
   apiApp.get('/api/fy-settings', (req, res) => {
-    if (!database.data.fy_settings) database.data.fy_settings = { kms_year: '', season: '' };
+    if (!database.data.fy_settings) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const defaultFy = now.getMonth() < 9 ? `${y-1}-${y}` : `${y}-${y+1}`;
+      database.data.fy_settings = { active_fy: defaultFy, season: '' };
+    }
     res.json(database.data.fy_settings);
   });
 
-  apiApp.post('/api/fy-settings', (req, res) => {
-    database.data.fy_settings = { kms_year: req.body.kms_year || '', season: req.body.season || '' };
+  apiApp.put('/api/fy-settings', (req, res) => {
+    const active_fy = req.body.active_fy || '';
+    const season = req.body.season || '';
+    if (!active_fy) return res.status(400).json({ detail: 'active_fy is required' });
+    database.data.fy_settings = { active_fy, season, updated_at: new Date().toISOString() };
     database.save();
     res.json(database.data.fy_settings);
   });

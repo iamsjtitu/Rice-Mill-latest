@@ -2,9 +2,6 @@ const express = require('express');
 const router = express.Router();
 
 module.exports = function(database) {
-  // Helper reference
-  const ExcelJS = require('exceljs');
-  const PDFDocument = require('pdfkit');
 
 // ============ EXPORT ENDPOINTS (Excel & PDF) ============
 const ExcelJS = require('exceljs');

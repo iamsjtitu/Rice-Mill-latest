@@ -88,5 +88,132 @@
   ],
   "mandi_targets": [],
   "truck_payments": [],
-  "agent_payments": []
+  "agent_payments": [],
+  "fy_settings": {
+    "active_fy": "2025-2026",
+    "season": "kharif",
+    "updated_at": "2026-03-08T10:39:34.521Z"
+  },
+  "staff": [
+    {
+      "id": "df61ef7f-78c2-4021-b1c6-45968f64a2b7",
+      "name": "Test Worker",
+      "salary_type": "weekly",
+      "salary_amount": 500,
+      "active": true,
+      "created_at": "2026-03-08T10:39:34.595Z"
+    }
+  ],
+  "staff_attendance": [
+    {
+      "id": "e6efbd8a-c2e3-4260-926a-ec675197621d",
+      "staff_id": "test123",
+      "staff_name": "Test",
+      "date": "2025-01-15",
+      "status": "present",
+      "kms_year": "2025-2026",
+      "season": "kharif"
+    }
+  ],
+  "staff_advances": [
+    {
+      "id": "046fb194-72c8-47ca-8244-d5469989de16",
+      "staff_id": "test123",
+      "staff_name": "Test",
+      "amount": 1000,
+      "date": "2025-01-15",
+      "description": "",
+      "kms_year": "2025-2026",
+      "season": "kharif",
+      "created_at": "2026-03-08T10:39:34.693Z"
+    }
+  ],
+  "cash_transactions": [
+    {
+      "id": "d966baa6-7016-42ff-9992-983374488a4b",
+      "date": "2025-01-15",
+      "account": "cash",
+      "txn_type": "nikasi",
+      "category": "Staff Advance",
+      "description": "Advance: Test - ",
+      "amount": 1000,
+      "reference": "046fb194-72c8-47ca-8244-d5469989de16",
+      "kms_year": "2025-2026",
+      "season": "kharif",
+      "party_name": "Test",
+      "created_by": "",
+      "created_at": "2026-03-08T10:39:34.693Z"
+    },
+    {
+      "id": "d0fcca3d-fee9-4fda-81e7-87fad2ef7915",
+      "date": "2026-03-08",
+      "account": "cash",
+      "txn_type": "nikasi",
+      "category": "Staff Salary",
+      "description": "Salary: Test ( to )",
+      "amount": 4000,
+      "reference": "c4cee6de-2b28-426a-9d61-5ecdc026150a",
+      "kms_year": "2025-2026",
+      "season": "kharif",
+      "party_name": "Test",
+      "created_by": "",
+      "created_at": "2026-03-08T10:39:34.792Z"
+    }
+  ],
+  "staff_payments": [
+    {
+      "id": "c4cee6de-2b28-426a-9d61-5ecdc026150a",
+      "staff_id": "test123",
+      "staff_name": "Test",
+      "salary_type": "",
+      "from_date": "",
+      "to_date": "",
+      "total_days": 0,
+      "days_worked": 0,
+      "gross_salary": 5000,
+      "advance_deducted": 1000,
+      "net_payment": 4000,
+      "kms_year": "2025-2026",
+      "season": "kharif",
+      "created_at": "2026-03-08T10:39:34.792Z"
+    }
+  ],
+  "mill_parts": [
+    {
+      "id": "3edfa3d9-0d18-4de8-98d2-c9aa1d63ea87",
+      "name": "Belt",
+      "category": "General",
+      "unit": "Pcs",
+      "min_stock": 5,
+      "created_at": "2026-03-08T10:39:46.968Z"
+    }
+  ],
+  "mill_parts_stock": [
+    {
+      "id": "f87eddea-f9f3-4ed4-918c-9f6d1afdb9ee",
+      "date": "2025-01-15",
+      "part_name": "Belt",
+      "txn_type": "in",
+      "quantity": 10,
+      "rate": 500,
+      "total_amount": 5000,
+      "party_name": "",
+      "bill_no": "",
+      "remark": "",
+      "kms_year": "2025-2026",
+      "season": "kharif",
+      "created_by": "",
+      "created_at": "2026-03-08T10:39:47.019Z"
+    }
+  ],
+  "msp_payments": [],
+  "byproduct_sales": [],
+  "frk_purchases": [],
+  "gunny_bags": [],
+  "milling_entries": [],
+  "dc_entries": [],
+  "dc_deliveries": [],
+  "private_paddy": [],
+  "rice_sales": [],
+  "private_payments": []
 }

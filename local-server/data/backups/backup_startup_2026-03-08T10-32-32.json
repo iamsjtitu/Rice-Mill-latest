@@ -1,0 +1,92 @@
+{
+  "branding": {
+    "company_name": "NAVKAR AGRO",
+    "tagline": "JOLKO, KESINGA - Mill Entry System",
+    "updated_at": "2026-03-06T19:40:10.288Z"
+  },
+  "users": [
+    {
+      "username": "admin",
+      "password": "admin123",
+      "role": "admin"
+    },
+    {
+      "username": "staff",
+      "password": "staff123",
+      "role": "staff"
+    }
+  ],
+  "entries": [
+    {
+      "id": "6f020548-be44-4da5-8fe5-02927d115fd7",
+      "date": "2025-12-15",
+      "truck_no": "OD01AB1234",
+      "agent_name": "Ramesh",
+      "mandi_name": "Kesinga",
+      "kg": 5000,
+      "gbw_cut": 50,
+      "plastic_bag": 10,
+      "moisture": 20,
+      "cutting_percent": 3,
+      "disc_dust_poll": 5,
+      "g_deposite": 100,
+      "bag": 100,
+      "g_issued": 50,
+      "cash_paid": 1000,
+      "diesel_paid": 500,
+      "kms_year": "2025-2026",
+      "season": "Kharif",
+      "rst_no": "RST001",
+      "tp_no": "TP001",
+      "created_by": "admin",
+      "qntl": 50,
+      "mill_w": 4950,
+      "p_pkt_cut": 5,
+      "moisture_cut": 149,
+      "moisture_cut_percent": 3,
+      "moisture_cut_qntl": 1.49,
+      "cutting": 149,
+      "cutting_qntl": 1.49,
+      "final_w": 4642,
+      "created_at": "2026-03-06T20:06:45.716Z",
+      "updated_at": "2026-03-06T20:06:45.716Z"
+    },
+    {
+      "id": "94406150-29ff-4d97-96d0-6a0fb29693d6",
+      "date": "2025-12-20",
+      "truck_no": "OD02XY9876",
+      "agent_name": "Suresh",
+      "mandi_name": "Bhawanipatna",
+      "kg": 3000,
+      "gbw_cut": 30,
+      "plastic_bag": 6,
+      "moisture": 19,
+      "cutting_percent": 2,
+      "disc_dust_poll": 3,
+      "g_deposite": 60,
+      "bag": 60,
+      "g_issued": 30,
+      "cash_paid": 500,
+      "diesel_paid": 200,
+      "kms_year": "2025-2026",
+      "season": "Kharif",
+      "rst_no": "RST002",
+      "tp_no": "TP002",
+      "created_by": "admin",
+      "qntl": 30,
+      "mill_w": 2970,
+      "p_pkt_cut": 3,
+      "moisture_cut": 59,
+      "moisture_cut_percent": 2,
+      "moisture_cut_qntl": 0.59,
+      "cutting": 59,
+      "cutting_qntl": 0.59,
+      "final_w": 2846,
+      "created_at": "2026-03-07T04:24:10.781Z",
+      "updated_at": "2026-03-07T04:24:10.781Z"
+    }
+  ],
+  "mandi_targets": [],
+  "truck_payments": [],
+  "agent_payments": []
+}

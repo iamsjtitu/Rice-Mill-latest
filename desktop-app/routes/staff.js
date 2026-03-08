@@ -45,7 +45,7 @@ router.delete('/api/staff/:id', (req, res) => {
 });
 
 // ============ ATTENDANCE ============
-router.post('/api/staff-attendance', (req, res) => {
+router.post('/api/staff/attendance', (req, res) => {
   const d = req.body;
   const att = col('staff_attendance');
   // Remove existing for same staff+date
@@ -57,7 +57,7 @@ router.post('/api/staff-attendance', (req, res) => {
   database.data.staff_attendance.push(entry); database.save(); res.json(entry);
 });
 
-router.post('/api/staff-attendance/bulk', (req, res) => {
+router.post('/api/staff/attendance/bulk', (req, res) => {
   const items = req.body.items || [];
   const results = [];
   for (const d of items) {
@@ -73,7 +73,7 @@ router.post('/api/staff-attendance/bulk', (req, res) => {
   database.save(); res.json(results);
 });
 
-router.get('/api/staff-attendance', (req, res) => {
+router.get('/api/staff/attendance', (req, res) => {
   let list = col('staff_attendance');
   if (req.query.date) list = list.filter(a => a.date === req.query.date);
   if (req.query.staff_id) list = list.filter(a => a.staff_id === req.query.staff_id);
@@ -84,7 +84,7 @@ router.get('/api/staff-attendance', (req, res) => {
 });
 
 // ============ STAFF ADVANCES ============
-router.post('/api/staff-advances', (req, res) => {
+router.post('/api/staff/advance', (req, res) => {
   const d = req.body;
   const adv = {
     id: uuidv4(), staff_id: d.staff_id, staff_name: d.staff_name || '',
@@ -103,14 +103,14 @@ router.post('/api/staff-advances', (req, res) => {
   database.save(); res.json(adv);
 });
 
-router.get('/api/staff-advances', (req, res) => {
+router.get('/api/staff/advance', (req, res) => {
   let list = col('staff_advances');
   if (req.query.staff_id) list = list.filter(a => a.staff_id === req.query.staff_id);
   if (req.query.kms_year) list = list.filter(a => a.kms_year === req.query.kms_year);
   res.json(list.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
 });
 
-router.delete('/api/staff-advances/:id', (req, res) => {
+router.delete('/api/staff/advance/:id', (req, res) => {
   const list = col('staff_advances');
   const adv = list.find(a => a.id === req.params.id);
   if (!adv) return res.status(404).json({ detail: 'Not found' });
@@ -121,7 +121,7 @@ router.delete('/api/staff-advances/:id', (req, res) => {
 });
 
 // ============ STAFF SALARY CALCULATION ============
-router.get('/api/staff-salary/calculate', (req, res) => {
+router.get('/api/staff/salary-calculate', (req, res) => {
   const { staff_id, from_date, to_date, kms_year } = req.query;
   const staff = col('staff').find(s => s.id === staff_id);
   if (!staff) return res.status(404).json({ detail: 'Staff not found' });
@@ -168,7 +168,7 @@ router.get('/api/staff-salary/calculate', (req, res) => {
 });
 
 // ============ STAFF PAYMENTS ============
-router.post('/api/staff-payments', (req, res) => {
+router.post('/api/staff/payments', (req, res) => {
   const d = req.body;
   const payment = {
     id: uuidv4(), staff_id: d.staff_id, staff_name: d.staff_name || '',
@@ -189,14 +189,14 @@ router.post('/api/staff-payments', (req, res) => {
   database.save(); res.json(payment);
 });
 
-router.get('/api/staff-payments', (req, res) => {
+router.get('/api/staff/payments', (req, res) => {
   let list = col('staff_payments');
   if (req.query.staff_id) list = list.filter(p => p.staff_id === req.query.staff_id);
   if (req.query.kms_year) list = list.filter(p => p.kms_year === req.query.kms_year);
   res.json(list.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')));
 });
 
-router.delete('/api/staff-payments/:id', (req, res) => {
+router.delete('/api/staff/payments/:id', (req, res) => {
   const list = col('staff_payments');
   const payment = list.find(p => p.id === req.params.id);
   if (!payment) return res.status(404).json({ detail: 'Not found' });
@@ -434,7 +434,7 @@ router.get('/api/staff/export/attendance', (req, res) => {
 });
 
 // ============ STAFF PAYMENTS EXPORT (Excel) ============
-router.get('/api/staff-payments/export', async (req, res) => {
+router.get('/api/staff/export/payments', async (req, res) => {
   const ExcelJS = require('exceljs');
   const list = col('staff_payments');
   const wb = new ExcelJS.Workbook();
