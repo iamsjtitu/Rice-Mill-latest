@@ -4866,6 +4866,25 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
         if entry:
             new_paid = round(entry.get("paid_amount", 0) + doc["amount"], 2)
             await db.rice_sales.update_one({"id": doc["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
+    # Auto-create Cash Book entry
+    account = "bank" if doc["mode"] == "bank" else "cash"
+    if doc["ref_type"] == "paddy_purchase":
+        cb_txn = {
+            "id": str(uuid.uuid4()), "date": doc["date"], "account": account, "txn_type": "nikasi",
+            "category": "Pvt Paddy Payment", "description": f"Paddy Payment: {doc['party_name']}", "amount": doc["amount"],
+            "reference": doc["reference"] or doc["id"][:8], "kms_year": doc["kms_year"], "season": doc["season"],
+            "created_by": username, "linked_payment_id": doc["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    else:
+        cb_txn = {
+            "id": str(uuid.uuid4()), "date": doc["date"], "account": account, "txn_type": "jama",
+            "category": "Rice Sale Payment", "description": f"Rice Payment Received: {doc['party_name']}", "amount": doc["amount"],
+            "reference": doc["reference"] or doc["id"][:8], "kms_year": doc["kms_year"], "season": doc["season"],
+            "created_by": username, "linked_payment_id": doc["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    await db.cash_transactions.insert_one(cb_txn)
     doc.pop("_id", None)
     return doc
 
@@ -4895,6 +4914,8 @@ async def delete_private_payment(pay_id: str):
         if entry:
             new_paid = round(max(0, entry.get("paid_amount", 0) - pay["amount"]), 2)
             await db.rice_sales.update_one({"id": pay["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
+    # Delete linked Cash Book entry
+    await db.cash_transactions.delete_many({"linked_payment_id": pay_id})
     await db.private_payments.delete_one({"id": pay_id})
     return {"message": "Deleted", "id": pay_id}
 
