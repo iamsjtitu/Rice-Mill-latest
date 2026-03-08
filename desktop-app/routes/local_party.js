@@ -57,6 +57,24 @@ router.get('/api/local-party/transactions', safeSync((req, res) => {
   res.json(txns);
 }));
 
+// ============ PARTY-WISE REPORT (PRINT) ============
+router.get('/api/local-party/report/:partyName', safeSync((req, res) => {
+  ensureCollection('local_party_accounts');
+  const pn = req.params.partyName.toLowerCase();
+  let txns = database.data.local_party_accounts.filter(t => (t.party_name || '').toLowerCase() === pn);
+  if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+  if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+  txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  let runBal = 0;
+  const rows = txns.map(t => {
+    runBal += t.txn_type === 'debit' ? (t.amount || 0) : -(t.amount || 0);
+    return { ...t, running_balance: Math.round(runBal * 100) / 100 };
+  });
+  const td = txns.filter(t => t.txn_type === 'debit').reduce((s, t) => s + (t.amount || 0), 0);
+  const tp = txns.filter(t => t.txn_type === 'payment').reduce((s, t) => s + (t.amount || 0), 0);
+  res.json({ party_name: req.params.partyName, transactions: rows, total_debit: Math.round(td * 100) / 100, total_paid: Math.round(tp * 100) / 100, balance: Math.round((td - tp) * 100) / 100, total_entries: txns.length });
+}));
+
 // ============ MANUAL PURCHASE ============
 router.post('/api/local-party/manual', safeSync((req, res) => {
   ensureCollection('local_party_accounts');

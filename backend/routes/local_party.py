@@ -60,6 +60,41 @@ async def get_local_party_transactions(party_name: Optional[str] = None, kms_yea
     return txns
 
 
+@router.get("/local-party/report/{party_name}")
+async def get_party_report(party_name: str, kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Detailed party-wise report with running balance for printing"""
+    query = {"party_name": {"$regex": f"^{party_name}$", "$options": "i"}}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    txns = await db.local_party_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+
+    running_balance = 0
+    report_rows = []
+    for t in txns:
+        if t.get("txn_type") == "debit":
+            running_balance += t.get("amount", 0)
+        elif t.get("txn_type") == "payment":
+            running_balance -= t.get("amount", 0)
+        report_rows.append({
+            **t,
+            "running_balance": round(running_balance, 2)
+        })
+
+    total_debit = sum(t["amount"] for t in txns if t.get("txn_type") == "debit")
+    total_paid = sum(t["amount"] for t in txns if t.get("txn_type") == "payment")
+
+    return {
+        "party_name": party_name,
+        "transactions": report_rows,
+        "total_debit": round(total_debit, 2),
+        "total_paid": round(total_paid, 2),
+        "balance": round(total_debit - total_paid, 2),
+        "total_entries": len(txns)
+    }
+
+
+
+
 @router.post("/local-party/manual")
 async def add_manual_purchase(request: Request):
     """Manually add a purchase (debit) entry for a local party"""

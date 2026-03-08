@@ -52,6 +52,7 @@ import Ledgers from "@/components/Ledgers";
 import PrivateTrading from "@/components/PrivateTrading";
 import MillPartsStock from "@/components/MillPartsStock";
 import StaffManagement from "@/components/StaffManagement";
+import ExcelImport from "@/components/ExcelImport";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1464,6 +1465,9 @@ function MainApp({ user, onLogout }) {
               <FileText className="w-4 h-4 mr-1" />
               PDF
             </Button>
+            {user.role === 'admin' && (
+              <ExcelImport filters={filters} user={user} onImportDone={fetchEntries} />
+            )}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button 

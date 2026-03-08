@@ -596,6 +596,7 @@ async function startServer() {
     const dailyReportRoutes = require('./routes/daily_report')(database);
     const reportsPnlRoutes = require('./routes/reports_pnl')(database);
     const localPartyRoutes = require('./routes/local_party')(database);
+    const importExcelRoutes = require('./routes/import_excel')(database);
 
     app.use(authRoutes);
     app.use(entriesRoutes);
@@ -612,6 +613,7 @@ async function startServer() {
     app.use(dailyReportRoutes);
     app.use(reportsPnlRoutes);
     app.use(localPartyRoutes);
+    app.use(importExcelRoutes);
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
   }

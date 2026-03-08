@@ -21,11 +21,12 @@
     "electron-builder": "24.9.1"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "uuid": "^9.0.0",
     "exceljs": "^4.4.0",
-    "pdfkit": "^0.13.0"
+    "express": "^4.18.2",
+    "multer": "^2.1.1",
+    "pdfkit": "^0.13.0",
+    "uuid": "^9.0.0"
   },
   "build": {
     "appId": "com.millentry.desktop",
@@ -47,11 +48,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "icon.ico"
@@ -60,11 +65,15 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         },
         {
           "target": "pkg",
-          "arch": ["arm64"]
+          "arch": [
+            "arm64"
+          ]
         }
       ],
       "icon": "icon.icns",
@@ -77,8 +86,16 @@
       "title": "Mill Entry System",
       "artifactName": "MillEntrySystem-${version}-mac.dmg",
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "pkg": {

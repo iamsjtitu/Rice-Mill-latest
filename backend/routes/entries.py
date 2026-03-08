@@ -1,11 +1,11 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import StreamingResponse, Response
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
 import uuid, io, csv
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
@@ -70,6 +70,201 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
         await db.diesel_accounts.insert_one(diesel_txn)
     
     return entry_obj
+
+
+
+@router.post("/entries/import-excel")
+async def import_entries_from_excel(
+    file: UploadFile = File(...),
+    kms_year: str = Form(""),
+    season: str = Form(""),
+    username: str = Form("admin"),
+    preview_only: str = Form("false")
+):
+    """Import mill entries from Excel file. Also auto-creates cash book & diesel entries."""
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Sirf Excel file (.xlsx) upload karein")
+
+    content = await file.read()
+    wb = load_workbook(io.BytesIO(content), data_only=True)
+    ws = wb.active
+
+    # Find header row (look for DATE in first 5 rows)
+    header_row = None
+    for r in range(1, min(6, ws.max_row + 1)):
+        for c in range(1, min(5, ws.max_column + 1)):
+            val = str(ws.cell(r, c).value or "").strip().upper()
+            if val == "DATE":
+                header_row = r
+                break
+        if header_row:
+            break
+
+    if not header_row:
+        raise HTTPException(status_code=400, detail="Header row nahi mila. 'DATE' column hona chahiye.")
+
+    # Build column map from header
+    col_map = {}
+    for c in range(1, ws.max_column + 1):
+        val = str(ws.cell(header_row, c).value or "").strip().upper()
+        if "DATE" in val:
+            col_map["date"] = c
+        elif "TRUCK" in val:
+            col_map["truck_no"] = c
+        elif "AGENT" in val:
+            col_map["agent_name"] = c
+        elif "MANDI" in val:
+            col_map["mandi_name"] = c
+        elif "NETT" in val or val == "KG":
+            col_map["kg"] = c
+        elif val == "BAG":
+            col_map["bag"] = c
+        elif "DEPOSITE" in val or "G.DEP" in val:
+            col_map["g_deposite"] = c
+        elif "GBW" in val:
+            col_map["gbw_cut"] = c
+        elif "CUTTING" in val and "QNTL" not in val:
+            col_map["cutting_percent"] = c
+        elif "G.ISSUED" in val or "ISSUED" in val:
+            col_map["g_issued"] = c
+        elif "MOISTURE" in val:
+            col_map["moisture"] = c
+        elif "DISC" in val or "DUST" in val:
+            col_map["disc_dust_poll"] = c
+        elif "CASH" in val:
+            col_map["cash_paid"] = c
+        elif "DIESEL" in val:
+            col_map["diesel_paid"] = c
+        elif "REMARK" in val:
+            col_map["remark"] = c
+
+    def parse_date(val):
+        if val is None:
+            return None
+        if isinstance(val, datetime):
+            return val.strftime("%Y-%m-%d")
+        s = str(val).strip()
+        if not s or s == "-":
+            return None
+        for fmt in ["%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d", "%m-%d-%Y"]:
+            try:
+                return datetime.strptime(s.split(" ")[0], fmt).strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+        return None
+
+    def safe_float(val):
+        if val is None or str(val).strip() in ("", "-", "None"):
+            return 0.0
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return 0.0
+
+    def safe_int(val):
+        if val is None or str(val).strip() in ("", "-", "None"):
+            return 0
+        try:
+            return int(float(val))
+        except (ValueError, TypeError):
+            return 0
+
+    entries = []
+    skipped = 0
+    for r in range(header_row + 1, ws.max_row + 1):
+        date_val = ws.cell(r, col_map.get("date", 1)).value
+        date_str = parse_date(date_val)
+        truck_col = col_map.get("truck_no", 2)
+        truck_val = str(ws.cell(r, truck_col).value or "").strip()
+
+        if not date_str or not truck_val:
+            skipped += 1
+            continue
+
+        cutting_raw = safe_float(ws.cell(r, col_map.get("cutting_percent", 10)).value if "cutting_percent" in col_map else 0)
+        # If cutting is in decimal form (e.g., 0.0526), convert to percent (5.26)
+        cutting_pct = cutting_raw * 100 if 0 < cutting_raw < 1 else cutting_raw
+
+        entry_data = {
+            "date": date_str,
+            "kms_year": kms_year,
+            "season": season,
+            "truck_no": truck_val,
+            "agent_name": str(ws.cell(r, col_map.get("agent_name", 3)).value or "").strip(),
+            "mandi_name": str(ws.cell(r, col_map.get("mandi_name", 4)).value or "").strip(),
+            "kg": safe_float(ws.cell(r, col_map.get("kg", 5)).value if "kg" in col_map else 0),
+            "bag": safe_int(ws.cell(r, col_map.get("bag", 6)).value if "bag" in col_map else 0),
+            "g_deposite": safe_float(ws.cell(r, col_map.get("g_deposite", 7)).value if "g_deposite" in col_map else 0),
+            "gbw_cut": safe_float(ws.cell(r, col_map.get("gbw_cut", 8)).value if "gbw_cut" in col_map else 0),
+            "cutting_percent": cutting_pct,
+            "g_issued": safe_float(ws.cell(r, col_map.get("g_issued", 12)).value if "g_issued" in col_map else 0),
+            "moisture": safe_float(ws.cell(r, col_map.get("moisture", 13)).value if "moisture" in col_map else 0),
+            "disc_dust_poll": safe_float(ws.cell(r, col_map.get("disc_dust_poll", 14)).value if "disc_dust_poll" in col_map else 0),
+            "cash_paid": safe_float(ws.cell(r, col_map.get("cash_paid", 16)).value if "cash_paid" in col_map else 0),
+            "diesel_paid": safe_float(ws.cell(r, col_map.get("diesel_paid", 17)).value if "diesel_paid" in col_map else 0),
+            "remark": str(ws.cell(r, col_map.get("remark", 18)).value or "").strip() if "remark" in col_map else "",
+        }
+        entries.append(entry_data)
+
+    if preview_only == "true":
+        return {"preview": True, "count": len(entries), "skipped": skipped,
+                "sample": entries[:10], "columns_detected": list(col_map.keys())}
+
+    # Import all entries with auto cash book and diesel entries
+    imported = 0
+    cash_count = 0
+    diesel_count = 0
+    default_pump = await db.diesel_pumps.find_one({"is_default": True}, {"_id": 0})
+    pump_name = default_pump["name"] if default_pump else "Default Pump"
+    pump_id = default_pump["id"] if default_pump else "default"
+
+    for entry_data in entries:
+        entry_data = calculate_auto_fields(entry_data)
+        entry_data["created_by"] = username
+        entry_obj = MillEntry(**entry_data)
+        doc = entry_obj.model_dump()
+        await db.mill_entries.insert_one(doc)
+
+        cash_paid = float(doc.get("cash_paid", 0) or 0)
+        if cash_paid > 0:
+            cb = {
+                "id": str(uuid.uuid4()), "date": doc["date"],
+                "account": "cash", "txn_type": "nikasi", "category": "Cash Paid (Entry)",
+                "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Agent {doc.get('agent_name','')} - Rs.{cash_paid}",
+                "amount": round(cash_paid, 2), "reference": f"entry_cash:{doc['id'][:8]}",
+                "kms_year": kms_year, "season": season,
+                "created_by": username, "linked_entry_id": doc["id"],
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(cb)
+            cash_count += 1
+
+        diesel_paid = float(doc.get("diesel_paid", 0) or 0)
+        if diesel_paid > 0:
+            diesel_txn = {
+                "id": str(uuid.uuid4()), "date": doc["date"],
+                "pump_id": pump_id, "pump_name": pump_name,
+                "truck_no": doc.get("truck_no", ""), "agent_name": doc.get("agent_name", ""),
+                "amount": round(diesel_paid, 2), "txn_type": "debit",
+                "description": f"Diesel: Truck {doc.get('truck_no','')} - Agent {doc.get('agent_name','')}",
+                "kms_year": kms_year, "season": season,
+                "created_by": username, "linked_entry_id": doc["id"],
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.diesel_accounts.insert_one(diesel_txn)
+            diesel_count += 1
+
+        imported += 1
+
+    return {
+        "success": True,
+        "imported": imported,
+        "skipped": skipped,
+        "cash_book_entries": cash_count,
+        "diesel_entries": diesel_count,
+        "message": f"{imported} entries import ho gaye! Cash Book: {cash_count}, Diesel: {diesel_count}"
+    }
+
 
 
 @router.get("/entries", response_model=List[MillEntry])

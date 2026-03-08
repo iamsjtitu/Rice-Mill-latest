@@ -2478,11 +2478,13 @@ function createApiServer(database) {
     const dailyReportRoutes = require('./routes/daily_report')(database);
     const reportsPnlRoutes = require('./routes/reports_pnl')(database);
     const localPartyRoutes = require('./routes/local_party')(database);
+    const importExcelRoutes = require('./routes/import_excel')(database);
     apiApp.use(millPartsRoutes);
     apiApp.use(staffRoutes);
     apiApp.use(dailyReportRoutes);
     apiApp.use(reportsPnlRoutes);
     apiApp.use(localPartyRoutes);
+    apiApp.use(importExcelRoutes);
     console.log('[Routes] Mill Parts, Staff, Daily Report, Reports P&L loaded');
   } catch (e) {
     console.error('[Routes] Error loading modules:', e.message);

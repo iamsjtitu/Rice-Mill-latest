@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
-  IndianRupee, RefreshCw, Download, FileText, Plus, Trash2, Handshake, Eye, ArrowLeft,
+  IndianRupee, RefreshCw, Download, FileText, Plus, Trash2, Handshake, Eye, ArrowLeft, Printer,
 } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
@@ -32,6 +32,9 @@ const LocalPartyAccount = ({ filters, user }) => {
   const [manualForm, setManualForm] = useState({
     party_name: "", amount: "", date: new Date().toISOString().split('T')[0], description: ""
   });
+  const [reportParty, setReportParty] = useState(null);
+  const [reportData, setReportData] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -114,6 +117,41 @@ const LocalPartyAccount = ({ filters, user }) => {
     } catch (e) { toast.error(`${format.toUpperCase()} export failed`); }
   };
 
+  const openPartyReport = async (partyName) => {
+    setReportParty(partyName);
+    setReportLoading(true);
+    try {
+      const p = new URLSearchParams();
+      if (filters.kms_year) p.append('kms_year', filters.kms_year);
+      if (filters.season) p.append('season', filters.season);
+      const res = await axios.get(`${API}/local-party/report/${encodeURIComponent(partyName)}?${p}`);
+      setReportData(res.data);
+    } catch (e) { toast.error("Report load nahi hua"); }
+    finally { setReportLoading(false); }
+  };
+
+  const handlePrintReport = () => {
+    const el = document.getElementById('party-report-print');
+    if (!el) return;
+    const w = window.open('', '_blank', 'width=800,height=600');
+    w.document.write(`<html><head><title>Party Report - ${reportParty}</title>
+      <style>body{font-family:Arial,sans-serif;padding:20px;color:#000}
+      h2{text-align:center;margin-bottom:5px}
+      .meta{text-align:center;color:#555;font-size:13px;margin-bottom:15px}
+      table{width:100%;border-collapse:collapse;font-size:12px}
+      th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+      th{background:#065f46;color:#fff;font-weight:bold}
+      .debit{color:#c00}.payment{color:#090}
+      .summary{margin-top:15px;font-size:13px}
+      .summary span{margin-right:20px}
+      @media print{body{margin:0;padding:10px}}</style></head><body>`);
+    w.document.write(el.innerHTML);
+    w.document.write('</body></html>');
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 300);
+  };
+
   return (
     <div className="space-y-4" data-testid="local-party-tab">
       {/* Actions bar */}
@@ -164,6 +202,13 @@ const LocalPartyAccount = ({ filters, user }) => {
                     <Handshake className="w-3 h-3 mr-0.5" /> Settle / Pay
                   </Button>
                 )}
+                <Button
+                  onClick={(e) => { e.stopPropagation(); openPartyReport(p.party_name); }}
+                  size="sm" variant="outline" className="mt-1 h-6 text-[10px] border-slate-600 text-slate-300 w-full"
+                  data-testid={`report-btn-${p.party_name}`}
+                >
+                  <Printer className="w-3 h-3 mr-0.5" /> Report / Print
+                </Button>
               </CardContent>
             </Card>
           ))}
@@ -201,6 +246,10 @@ const LocalPartyAccount = ({ filters, user }) => {
                   <Handshake className="w-4 h-4 mr-1" /> Settle / Pay
                 </Button>
               )}
+              <Button onClick={() => openPartyReport(ps.party_name)}
+                variant="outline" className="border-slate-600 text-slate-300" size="sm">
+                <Printer className="w-4 h-4 mr-1" /> Report / Print
+              </Button>
             </CardContent>
           </Card>
         ) : null;
@@ -342,6 +391,70 @@ const LocalPartyAccount = ({ filters, user }) => {
               <Button variant="outline" onClick={() => setShowManualDialog(false)} className="border-slate-600 text-slate-300">Cancel</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Party Report Dialog */}
+      <Dialog open={!!reportParty} onOpenChange={(open) => { if (!open) { setReportParty(null); setReportData(null); } }}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-3xl max-h-[80vh] overflow-y-auto" data-testid="party-report-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-teal-400 flex items-center justify-between">
+              <span>{reportParty} - Complete Hisaab</span>
+              <Button onClick={handlePrintReport} size="sm" className="bg-teal-600 hover:bg-teal-700 text-white" data-testid="report-print-btn">
+                <Printer className="w-4 h-4 mr-1" /> Print
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          {reportLoading ? (
+            <p className="text-center text-slate-400 py-8">Loading...</p>
+          ) : reportData ? (
+            <div>
+              {/* Print-ready content */}
+              <div id="party-report-print">
+                <h2>{reportData.party_name} - Hisaab / Ledger</h2>
+                <p className="meta">{filters.kms_year ? `KMS Year: ${filters.kms_year}` : ''} {filters.season ? `| Season: ${filters.season}` : ''} | Date: {new Date().toLocaleDateString('en-IN')}</p>
+                <table>
+                  <thead>
+                    <tr><th>#</th><th>Date</th><th>Description</th><th>Source</th><th>Debit (Rs.)</th><th>Payment (Rs.)</th><th>Balance (Rs.)</th></tr>
+                  </thead>
+                  <tbody>
+                    {reportData.transactions.map((t, i) => (
+                      <tr key={t.id}>
+                        <td>{i + 1}</td>
+                        <td>{t.date}</td>
+                        <td>{t.description}</td>
+                        <td>{t.source_type === 'mill_part' ? 'Mill Part' : t.source_type === 'gunny_bag' ? 'Gunny Bag' : t.source_type === 'settlement' ? 'Settlement' : 'Manual'}</td>
+                        <td className="debit">{t.txn_type === 'debit' ? t.amount?.toLocaleString('en-IN') : ''}</td>
+                        <td className="payment">{t.txn_type === 'payment' ? t.amount?.toLocaleString('en-IN') : ''}</td>
+                        <td style={{ fontWeight: 'bold' }}>{t.running_balance?.toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="summary">
+                  <span><b>Total Debit:</b> Rs.{reportData.total_debit?.toLocaleString('en-IN')}</span>
+                  <span><b>Total Paid:</b> Rs.{reportData.total_paid?.toLocaleString('en-IN')}</span>
+                  <span style={{ color: 'red' }}><b>Balance:</b> Rs.{reportData.balance?.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              {/* On-screen styled summary */}
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <Card className="bg-orange-900/20 border-orange-800/30"><CardContent className="p-3 text-center">
+                  <p className="text-[10px] text-orange-400">Total Debit</p>
+                  <p className="text-lg font-bold text-orange-400">Rs.{reportData.total_debit?.toLocaleString('en-IN')}</p>
+                </CardContent></Card>
+                <Card className="bg-green-900/20 border-green-800/30"><CardContent className="p-3 text-center">
+                  <p className="text-[10px] text-green-400">Total Paid</p>
+                  <p className="text-lg font-bold text-green-400">Rs.{reportData.total_paid?.toLocaleString('en-IN')}</p>
+                </CardContent></Card>
+                <Card className="bg-red-900/20 border-red-800/30"><CardContent className="p-3 text-center">
+                  <p className="text-[10px] text-red-400">Balance</p>
+                  <p className="text-lg font-bold text-red-400">Rs.{reportData.balance?.toLocaleString('en-IN')}</p>
+                </CardContent></Card>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
