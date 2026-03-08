@@ -12,45 +12,39 @@ Comprehensive rice mill management tool (NAVKAR AGRO). React frontend + Python/F
 ## Core Features
 All features, CRUD, exports, and integrations fully implemented across all 3 backends.
 
-## Route Parity Verification (2026-03-08)
-- Python: 156 routes
-- Local-server: 161 routes (156 + 5 backup-only)
-- Desktop-app: 155 routes (156 - 1 root)
-- All routes matched. No missing endpoints.
-
-## Auto Cash Book Integration
-All payments auto-create cash book entries (Nikasi/Jama). Undo/delete cleans up linked entries.
-
 ## Credentials
 - Admin: admin / admin123
 - Staff: staff / staff123
 
-## Stability Fix (2026-02)
-1. Global crash protection: `uncaughtException` + `unhandledRejection` handlers
-2. All 170 route handlers wrapped with `safeAsync()`/`safeSync()`
-3. Express error middleware added
-4. Error logging to `mill-entry-error.log`
-5. Atomic database save (temp file + rename)
-6. Database auto-recovery from `.bak` backup
-7. Server watchdog with auto-restart
-8. `/api/health` endpoint
+## Recent Changes
 
-## G.Issued Auto-Deduction (2026-02)
-- G.Issued in entries now auto-creates gunny bag "out" entry for Old (Market) bags
-- Tracks agent_name, mandi_name, truck_no in the gunny bag entry
-- Entry update/delete propagates to linked gunny bag entry
-- Gunny bags summary no longer shows separate "Govt Issued (g)" - it's tracked via old.total_out
-- All 3 backends updated (Python, desktop-app, local-server)
+### Stability Fix (2026-02)
+- Global crash protection (uncaughtException, unhandledRejection)
+- 170 route handlers wrapped with safeAsync/safeSync
+- Express error middleware, error logging, atomic DB save, server watchdog
 
-## Entry Form Field Reorder (2026-02)
-- P.Pkt (Plastic Bags) and P.Pkt Cut (Auto) now appear BEFORE Mill W. QNTL (Auto)
+### G.Issued Auto-Deduction (2026-02)
+- G.Issued in entries auto-creates gunny bag "out" entry for Old (Market) bags
+- Tracks agent_name, mandi_name, truck_no
+- Entry update/delete propagates to linked gunny bag
+- Removed separate "Govt Issued (g)" card - G.Issued reflected in Old Bags Out
 
-## Error Log in Settings (2026-02)
-- Error Log section added to Settings page
-- Desktop app: reads actual error log file
-- Web version: shows "not available" message
-- All 3 backends have `/api/error-log` endpoint
+### Entry Form Field Reorder (2026-02)
+- P.Pkt and P.Pkt Cut now appear BEFORE Mill W. QNTL
+
+### Error Log in Settings (2026-02)
+- Error Log section in Settings page for desktop crash diagnostics
+
+### Gunny Bag Edit Feature (2026-02)
+- Added PUT /api/gunny-bags/:id endpoint (all 3 backends)
+- Edit button with pre-filled dialog form in Gunny Bags table
+- Auto-linked entries (from G.Issued) show "Auto" label and no edit/delete buttons
+
+### Gunny Bags Summary Cleanup (2026-02)
+- Removed redundant "G.Issued (Old Bags)" card
+- G.Issued already counted in Old Bags Out total
+- 5 summary cards: Paddy Bags, P.Pkt, Old Bags, Total (Excl Govt), Govt Bags
 
 ## Prioritized Backlog
 - P0: All critical features implemented and tested
-- Long-term: Refactor `main.js` (2900+ lines) into modular route files
+- Long-term: Refactor desktop-app main.js into modular route files

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package } from "lucide-react";
+import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package, Edit } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -393,7 +393,9 @@ const GunnyBags = ({ filters, user }) => {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], bag_type: "new", txn_type: "in", quantity: "", source: "", rate: "", reference: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
+  const [editingId, setEditingId] = useState(null);
+  const defaultForm = { date: new Date().toISOString().split('T')[0], bag_type: "new", txn_type: "in", quantity: "", source: "", rate: "", reference: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" };
+  const [form, setForm] = useState(defaultForm);
 
   const fetchData = useCallback(async () => {
     try {
@@ -406,14 +408,33 @@ const GunnyBags = ({ filters, user }) => {
   }, [filters.kms_year, filters.season]);
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const openNewForm = () => {
+    setEditingId(null);
+    setForm({ ...defaultForm, kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif" });
+    setShowForm(true);
+  };
+
+  const openEditForm = (entry) => {
+    setEditingId(entry.id);
+    setForm({ date: entry.date || '', bag_type: entry.bag_type || 'new', txn_type: entry.txn_type || 'in', quantity: entry.quantity?.toString() || '', source: entry.source || '', rate: entry.rate?.toString() || '', reference: entry.reference || '', notes: entry.notes || '', kms_year: entry.kms_year || '', season: entry.season || '' });
+    setShowForm(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const qty = parseInt(form.quantity);
     if (!qty || qty <= 0) { toast.error("Quantity 0 se zyada honi chahiye"); return; }
     try {
-      await axios.post(`${API}/gunny-bags?username=${user.username}`, { ...form, quantity: qty, rate: parseFloat(form.rate) || 0 });
-      toast.success("Entry add ho gayi!"); setShowForm(false); fetchData();
-      setForm({ date: new Date().toISOString().split('T')[0], bag_type: "new", txn_type: "in", quantity: "", source: "", rate: "", reference: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif" });
+      const payload = { ...form, quantity: qty, rate: parseFloat(form.rate) || 0 };
+      if (editingId) {
+        await axios.put(`${API}/gunny-bags/${editingId}?username=${user.username}`, payload);
+        toast.success("Entry update ho gayi!");
+      } else {
+        await axios.post(`${API}/gunny-bags?username=${user.username}`, payload);
+        toast.success("Entry add ho gayi!");
+      }
+      setShowForm(false); setEditingId(null); fetchData();
+      setForm(defaultForm);
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
 
@@ -430,7 +451,7 @@ const GunnyBags = ({ filters, user }) => {
   return (
     <div className="space-y-3" data-testid="gunny-bags-tab">
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
           <Card className="bg-gradient-to-br from-blue-900/40 to-slate-800 border-blue-800/30"><CardContent className="p-3">
             <p className="text-[10px] text-blue-400">Paddy Receive Bags</p>
             <p className="text-xl font-bold text-blue-400">{summary.paddy_bags?.total || 0}</p>
@@ -445,7 +466,7 @@ const GunnyBags = ({ filters, user }) => {
             <p className="text-[10px] text-orange-400">Old Bags (Market)</p>
             <p className="text-xl font-bold text-orange-400">{summary.old?.balance || 0}</p>
             <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.old?.total_in || 0}</span><span className="text-red-400">Out: {summary.old?.total_out || 0}</span></div>
-            <p className="text-[9px] text-amber-400">Cost: ₹{(summary.old?.total_cost || 0).toLocaleString('en-IN')}</p>
+            <p className="text-[9px] text-amber-400">Cost: Rs.{(summary.old?.total_cost || 0).toLocaleString('en-IN')}</p>
           </CardContent></Card>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
             <p className="text-[10px] text-white font-medium">Total (Excl Govt)</p>
@@ -458,27 +479,22 @@ const GunnyBags = ({ filters, user }) => {
             <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.new?.total_in || 0}</span><span className="text-red-400">Out: {summary.new?.total_out || 0}</span></div>
             <p className="text-[9px] text-slate-500 mt-1">Not in total</p>
           </CardContent></Card>
-          <Card className="bg-slate-800/50 border-slate-700"><CardContent className="p-3">
-            <p className="text-[10px] text-slate-400">G.Issued (Old Bags)</p>
-            <p className="text-xl font-bold text-orange-300">{summary.old?.total_out || 0}</p>
-            <p className="text-[9px] text-slate-500 mt-1">Auto from entries</p>
-          </CardContent></Card>
         </div>
       )}
       <div className="flex gap-2 flex-wrap">
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
-        <Button onClick={() => setShowForm(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="gunny-add-btn"><Plus className="w-4 h-4 mr-1" /> New Entry</Button>
+        <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="gunny-add-btn"><Plus className="w-4 h-4 mr-1" /> New Entry</Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="gunny-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="gunny-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
-          {['Date','Bag Type','In/Out','Quantity','Source/To','Rate','Amount (₹)','Reference',''].map(h =>
-            <TableHead key={h} className={`text-slate-300 text-xs ${['Quantity','Rate','Amount (₹)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+          {['Date','Bag Type','In/Out','Quantity','Source/To','Rate','Amount (Rs.)','Reference','Notes',''].map(h =>
+            <TableHead key={h} className={`text-slate-300 text-xs ${['Quantity','Rate','Amount (Rs.)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
         </TableRow></TableHeader>
         <TableBody>
-          {loading ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-          : entries.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Koi entry nahi hai.</TableCell></TableRow>
+          {loading ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+          : entries.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi entry nahi hai.</TableCell></TableRow>
           : entries.map(e => (
             <TableRow key={e.id} className={`border-slate-700 ${e.txn_type === 'in' ? 'bg-green-900/5' : 'bg-red-900/5'}`} data-testid={`gunny-row-${e.id}`}>
               <TableCell className="text-white text-xs">{e.date}</TableCell>
@@ -486,18 +502,27 @@ const GunnyBags = ({ filters, user }) => {
               <TableCell className="text-xs"><span className={e.txn_type === 'in' ? 'text-green-400' : 'text-red-400'}>{e.txn_type === 'in' ? 'IN' : 'OUT'}</span></TableCell>
               <TableCell className="text-white text-xs text-right font-medium">{e.quantity}</TableCell>
               <TableCell className="text-slate-300 text-xs">{e.source}</TableCell>
-              <TableCell className="text-slate-400 text-xs text-right">{e.rate > 0 ? `₹${e.rate}` : '-'}</TableCell>
-              <TableCell className="text-slate-400 text-xs text-right">{e.amount > 0 ? `₹${e.amount.toLocaleString('en-IN')}` : '-'}</TableCell>
+              <TableCell className="text-slate-400 text-xs text-right">{e.rate > 0 ? `Rs.${e.rate}` : '-'}</TableCell>
+              <TableCell className="text-slate-400 text-xs text-right">{e.amount > 0 ? `Rs.${e.amount.toLocaleString('en-IN')}` : '-'}</TableCell>
               <TableCell className="text-slate-400 text-xs">{e.reference}</TableCell>
-              <TableCell>{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(e.id)}><Trash2 className="w-3 h-3" /></Button>}</TableCell>
+              <TableCell className="text-slate-500 text-xs max-w-[120px] truncate">{e.notes}</TableCell>
+              <TableCell>
+                {user.role === 'admin' && !e.linked_entry_id && (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEditForm(e)} data-testid={`gunny-edit-${e.id}`}><Edit className="w-3 h-3" /></Button>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(e.id)} data-testid={`gunny-delete-${e.id}`}><Trash2 className="w-3 h-3" /></Button>
+                  </div>
+                )}
+                {e.linked_entry_id && <span className="text-[9px] text-slate-500">Auto</span>}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody></Table>
       </div></CardContent></Card>
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      <Dialog open={showForm} onOpenChange={(open) => { setShowForm(open); if (!open) setEditingId(null); }}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md" data-testid="gunny-form-dialog">
-          <DialogHeader><DialogTitle className="text-amber-400">New Gunny Bag Entry / बोरी</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-amber-400">{editingId ? 'Edit Gunny Bag Entry' : 'New Gunny Bag Entry / बोरी'}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-slate-400">Date</Label>
@@ -516,7 +541,7 @@ const GunnyBags = ({ filters, user }) => {
             <div className="grid grid-cols-3 gap-3">
               <div><Label className="text-xs text-slate-400">Quantity (bags)</Label>
                 <Input type="number" value={form.quantity} onChange={e => setForm(p=>({...p,quantity:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="gunny-form-qty" /></div>
-              <div><Label className="text-xs text-slate-400">Rate (₹/bag)</Label>
+              <div><Label className="text-xs text-slate-400">Rate (Rs./bag)</Label>
                 <Input type="number" step="0.01" value={form.rate} onChange={e => setForm(p=>({...p,rate:e.target.value}))} placeholder="0 for free" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-rate" /></div>
               <div><Label className="text-xs text-slate-400">Source / To</Label>
                 <Input value={form.source} onChange={e => setForm(p=>({...p,source:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-source" /></div>
@@ -528,8 +553,8 @@ const GunnyBags = ({ filters, user }) => {
                 <Input value={form.notes} onChange={e => setForm(p=>({...p,notes:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-notes" /></div>
             </div>
             <div className="flex gap-2 pt-2">
-              <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-slate-900 flex-1" data-testid="gunny-form-submit">Save Entry</Button>
-              <Button type="button" variant="outline" className="border-slate-600 text-slate-300" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-slate-900 flex-1" data-testid="gunny-form-submit">{editingId ? 'Update Entry' : 'Save Entry'}</Button>
+              <Button type="button" variant="outline" className="border-slate-600 text-slate-300" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
             </div>
           </form>
         </DialogContent>

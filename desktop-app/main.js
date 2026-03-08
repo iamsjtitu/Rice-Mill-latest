@@ -1886,6 +1886,17 @@ function createApiServer(database) {
     if (database.data.gunny_bags.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
   }));
+  apiApp.put('/api/gunny-bags/:id', safeSync((req, res) => {
+    if (!database.data.gunny_bags) return res.status(404).json({ detail: 'Not found' });
+    const idx = database.data.gunny_bags.findIndex(e => e.id === req.params.id);
+    if (idx < 0) return res.status(404).json({ detail: 'Not found' });
+    const d = req.body;
+    const qty = parseInt(d.quantity) || 0;
+    const rate = parseFloat(d.rate) || 0;
+    database.data.gunny_bags[idx] = { ...database.data.gunny_bags[idx], date: d.date || database.data.gunny_bags[idx].date, bag_type: d.bag_type || database.data.gunny_bags[idx].bag_type, txn_type: d.txn_type || database.data.gunny_bags[idx].txn_type, quantity: qty, rate: rate, amount: +(qty * rate).toFixed(2), source: d.source ?? database.data.gunny_bags[idx].source, reference: d.reference ?? database.data.gunny_bags[idx].reference, notes: d.notes ?? database.data.gunny_bags[idx].notes, updated_at: new Date().toISOString() };
+    database.save();
+    res.json(database.data.gunny_bags[idx]);
+  }));
   apiApp.get('/api/gunny-bags/summary', safeSync((req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     let entries = [...database.data.gunny_bags];

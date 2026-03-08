@@ -447,6 +447,20 @@ async def delete_gunny_bag_entry(entry_id: str):
     return {"message": "Deleted", "id": entry_id}
 
 
+@router.put("/gunny-bags/{entry_id}")
+async def update_gunny_bag_entry(entry_id: str, entry: GunnyBagEntry, username: str = ""):
+    existing = await db.gunny_bags.find_one({"id": entry_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    d = entry.model_dump()
+    d["id"] = entry_id  # preserve original id
+    d["amount"] = round(d.get("quantity", 0) * d.get("rate", 0), 2)
+    d["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.gunny_bags.update_one({"id": entry_id}, {"$set": d})
+    updated = await db.gunny_bags.find_one({"id": entry_id}, {"_id": 0})
+    return updated
+
+
 @router.get("/gunny-bags/summary")
 async def get_gunny_bag_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
     query = {}
