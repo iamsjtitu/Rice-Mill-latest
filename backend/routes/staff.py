@@ -385,16 +385,35 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
             ('TOPPADDING', (0, 0), (-1, -1), 2),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ]
-        # Color code statuses
+        # Color code statuses - background fill + bold text
+        bg_p = colors.HexColor('#bbf7d0')    # green bg
+        bg_a = colors.HexColor('#fecaca')    # red bg
+        bg_h = colors.HexColor('#fde68a')    # amber bg
+        bg_ch = colors.HexColor('#bfdbfe')   # blue bg
+        tx_p = colors.HexColor('#14532d')
+        tx_a = colors.HexColor('#7f1d1d')
+        tx_h = colors.HexColor('#78350f')
+        tx_ch = colors.HexColor('#1e3a8a')
+
         for ri in range(1, len(rows)):
             for ci in range(1, n_cols - 5):
                 val = rows[ri][ci]
-                if val == "P": style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), colors.HexColor('#166534')))
-                elif val == "A": style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), colors.HexColor('#991b1b')))
-                elif val == "H": style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), colors.HexColor('#b45309')))
-                elif val == "CH": style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), colors.HexColor('#1d4ed8')))
-            if ri % 2 == 0:
-                style_cmds.append(('BACKGROUND', (0, ri), (-1, ri), colors.HexColor('#f5f5f5')))
+                if val == "P":
+                    style_cmds.append(('BACKGROUND', (ci, ri), (ci, ri), bg_p))
+                    style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), tx_p))
+                    style_cmds.append(('FONTNAME', (ci, ri), (ci, ri), 'Helvetica-Bold'))
+                elif val == "A":
+                    style_cmds.append(('BACKGROUND', (ci, ri), (ci, ri), bg_a))
+                    style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), tx_a))
+                    style_cmds.append(('FONTNAME', (ci, ri), (ci, ri), 'Helvetica-Bold'))
+                elif val == "H":
+                    style_cmds.append(('BACKGROUND', (ci, ri), (ci, ri), bg_h))
+                    style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), tx_h))
+                    style_cmds.append(('FONTNAME', (ci, ri), (ci, ri), 'Helvetica-Bold'))
+                elif val == "CH":
+                    style_cmds.append(('BACKGROUND', (ci, ri), (ci, ri), bg_ch))
+                    style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), tx_ch))
+                    style_cmds.append(('FONTNAME', (ci, ri), (ci, ri), 'Helvetica-Bold'))
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
 
@@ -414,10 +433,15 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         hdr_font = Font(bold=True, color='FFFFFF', size=8)
         tb = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
                     top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
-        green_font = Font(color='166534', size=8, bold=True)
-        red_font = Font(color='991b1b', size=8, bold=True)
-        amber_font = Font(color='b45309', size=8, bold=True)
-        blue_font = Font(color='1d4ed8', size=8, bold=True)
+        # Status fills - colored backgrounds
+        fill_p = PatternFill(start_color='bbf7d0', end_color='bbf7d0', fill_type='solid')
+        fill_a = PatternFill(start_color='fecaca', end_color='fecaca', fill_type='solid')
+        fill_h = PatternFill(start_color='fde68a', end_color='fde68a', fill_type='solid')
+        fill_ch = PatternFill(start_color='bfdbfe', end_color='bfdbfe', fill_type='solid')
+        font_p = Font(color='14532d', size=8, bold=True)
+        font_a = Font(color='7f1d1d', size=8, bold=True)
+        font_h = Font(color='78350f', size=8, bold=True)
+        font_ch = Font(color='1e3a8a', size=8, bold=True)
 
         ws.merge_cells('A1:F1')
         ws['A1'] = f"Staff Attendance: {date_from} to {date_to}"
@@ -437,10 +461,10 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
                 val = status_short.get(st, "-")
                 c = ws.cell(row=row_num, column=2+di, value=val)
                 c.border = tb; c.alignment = Alignment(horizontal='center')
-                if val == "P": c.font = green_font
-                elif val == "A": c.font = red_font
-                elif val == "H": c.font = amber_font
-                elif val == "CH": c.font = blue_font
+                if val == "P": c.font = font_p; c.fill = fill_p
+                elif val == "A": c.font = font_a; c.fill = fill_a
+                elif val == "H": c.font = font_h; c.fill = fill_h
+                elif val == "CH": c.font = font_ch; c.fill = fill_ch
                 if st == "present": p_cnt += 1
                 elif st == "half_day": h_cnt += 1
                 elif st == "holiday": ch_cnt += 1
