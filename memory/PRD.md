@@ -50,6 +50,18 @@ The user requested a comprehensive Mill Entry System for managing paddy-to-rice 
 - **Filters: Account, Type (Jama/Nikasi), Category, Date range** (added 2026-03-07)
 - Excel/PDF exports
 
+### Phase 6: Private Trading (DONE - 2026-03-08)
+- **Private Paddy Purchase:** Same entry form as regular paddy entry (without TP No) + rate/qntl
+  - Auto-calculations: qntl, gbw_cut, mill_w, p_pkt_cut, moisture_cut, cutting, final_w, total_amount
+  - Partial payment tracking with payment history
+  - Party Ledger integration (party_type: pvt_paddy)
+- **Rice Sale:** Party, quantity, rate, rice type (Usna/Raw/Boiled), bags, truck
+  - Payment received tracking with partial payments
+  - Party Ledger integration (party_type: rice_buyer)
+- **Private Payments:** Payment recording against paddy purchase and rice sale entries
+  - Auto-updates balance on referenced entry
+  - Payment reversal on delete
+
 ## Architecture
 ```
 /app
@@ -68,6 +80,9 @@ The user requested a comprehensive Mill Entry System for managing paddy-to-rice 
 ```
 
 ## Key API Endpoints
+- `/api/private-paddy` (CRUD) - Private paddy purchases
+- `/api/rice-sales` (CRUD) - Rice sales
+- `/api/private-payments` (CRUD) - Payments for paddy/rice entries
 - `/api/reports/outstanding` - Outstanding report
 - `/api/reports/party-ledger` - Party ledger with filters
 - `/api/reports/outstanding/excel|pdf` - Exports
