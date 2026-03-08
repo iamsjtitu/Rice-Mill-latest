@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package } from "lucide-react";
+import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -540,6 +540,39 @@ const DailyReport = ({ filters }) => {
                     </>))}
                   />
                 </div>
+              )}
+            </Section>
+          )}
+
+          {/* Staff Attendance */}
+          {data.staff_attendance && data.staff_attendance.total > 0 && (
+            <Section title="Staff Attendance / हाज़िरी" icon={Users} color="text-violet-400" count={data.staff_attendance.total}>
+              <div className="grid grid-cols-4 gap-3 mb-2">
+                {[
+                  ["Present", data.staff_attendance.present, "text-emerald-400 bg-emerald-900/20"],
+                  ["Half Day", data.staff_attendance.half_day, "text-amber-400 bg-amber-900/20"],
+                  ["Holiday", data.staff_attendance.holiday, "text-blue-400 bg-blue-900/20"],
+                  ["Absent", data.staff_attendance.absent, "text-red-400 bg-red-900/20"],
+                ].map(([l,v,c]) => (
+                  <div key={l} className={`text-center p-2 rounded ${c.split(' ').slice(1).join(' ')}`}>
+                    <p className="text-[10px] text-slate-400">{l}</p>
+                    <p className={`text-lg font-bold ${c.split(' ')[0]}`}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              {data.staff_attendance.details.length > 0 && (
+                <DetailTable
+                  headers={[{key:'name',label:'Staff Name',align:'left'},{key:'status',label:'Status',align:'left'}]}
+                  rows={data.staff_attendance.details.map((d,i) => {
+                    const statusMap = {present: ['P - Present','text-emerald-400 bg-emerald-900/40'], absent: ['A - Absent','text-red-400 bg-red-900/40'],
+                      half_day: ['H - Half Day','text-amber-400 bg-amber-900/40'], holiday: ['CH - Holiday','text-blue-400 bg-blue-900/40']};
+                    const [label, cls] = statusMap[d.status] || [d.status, 'text-slate-400'];
+                    return (<>
+                      <td className="py-1.5 px-2 text-white font-medium">{d.name}</td>
+                      <td className="py-1.5 px-2"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${cls}`}>{label}</span></td>
+                    </>);
+                  })}
+                />
               )}
             </Section>
           )}

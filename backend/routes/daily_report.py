@@ -72,6 +72,13 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
     parts_used = [t for t in parts_txns if t.get("txn_type") == "used"]
     parts_in_amount = sum(t.get("total_amount", 0) for t in parts_in)
 
+    # Staff Attendance
+    staff_att = await db.staff_attendance.find(q_date, {"_id": 0}).to_list(500)
+    staff_present = [a for a in staff_att if a.get("status") == "present"]
+    staff_absent = [a for a in staff_att if a.get("status") == "absent"]
+    staff_half = [a for a in staff_att if a.get("status") == "half_day"]
+    staff_holiday = [a for a in staff_att if a.get("status") == "holiday"]
+
     is_detail = mode == "detail"
 
     result = {
@@ -157,6 +164,12 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
                 "bill_no": t.get("bill_no", ""), "amount": t.get("total_amount", 0)} for t in parts_in],
             "used_details": [{"part": t.get("part_name", ""), "qty": t.get("quantity", 0),
                 "remark": t.get("remark", "")} for t in parts_used]
+        },
+        "staff_attendance": {
+            "total": len(staff_att),
+            "present": len(staff_present), "absent": len(staff_absent),
+            "half_day": len(staff_half), "holiday": len(staff_holiday),
+            "details": [{"name": a.get("staff_name", ""), "status": a.get("status", "")} for a in staff_att]
         }
     }
     return result
@@ -444,6 +457,30 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 [150, 80, 200]
             ))
 
+    # ===== STAFF ATTENDANCE =====
+    sa = data.get("staff_attendance", {})
+    if sa.get("total", 0):
+        elements.append(Paragraph(f"10. Staff Attendance ({sa['total']})", section_style))
+        sa_sum = [
+            ['Present', 'Half Day', 'Holiday (Paid)', 'Absent'],
+            [str(sa.get('present', 0)), str(sa.get('half_day', 0)), str(sa.get('holiday', 0)), str(sa.get('absent', 0))]
+        ]
+        sat = RTable(sa_sum, colWidths=[120, 120, 120, 120])
+        sat.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dbeafe')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(sat)
+        if sa.get("details"):
+            status_map = {"present": "P", "absent": "A", "half_day": "H", "holiday": "CH"}
+            elements.append(make_table(
+                ['Staff Name', 'Status'],
+                [[d.get("name",""), status_map.get(d.get("status",""), d.get("status",""))] for d in sa["details"]],
+                [250, 100]
+            ))
+
     # Build
     doc.build(elements)
     buf.seek(0)
@@ -634,6 +671,20 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
                 write_headers(['Party', 'Qntl', 'Rate', 'Amount'])
                 for d in fk["details"]:
                     write_row([d.get("party",""), d.get("qntl",0), d.get("rate",0), d.get("amount",0)])
+
+    # Staff Attendance
+    sa = data.get("staff_attendance", {})
+    if sa.get("total", 0):
+        row += 1
+        write_section(f"8. Staff Attendance ({sa['total']})")
+        write_headers(['Present', 'Half Day', 'Holiday (Paid)', 'Absent'])
+        write_row([sa.get('present', 0), sa.get('half_day', 0), sa.get('holiday', 0), sa.get('absent', 0)])
+        if sa.get("details"):
+            row += 1
+            status_map = {"present": "P", "absent": "A", "half_day": "H", "holiday": "CH"}
+            write_headers(['Staff Name', 'Status'])
+            for d in sa["details"]:
+                write_row([d.get("name",""), status_map.get(d.get("status",""), d.get("status",""))])
 
     for col in range(1, 10):
         ws.column_dimensions[chr(64 + col)].width = 16

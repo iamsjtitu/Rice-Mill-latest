@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+import io
 from typing import Optional
 from datetime import datetime, timezone
 from database import db
@@ -307,3 +309,263 @@ async def delete_payment(payment_id: str):
     await db.cash_transactions.delete_one({"reference": f"staff_payment:{payment_id}"})
     await db.staff_payments.delete_one({"id": payment_id})
     return {"message": "Payment deleted and cash book entry removed"}
+
+
+
+# ============ EXPORT: ATTENDANCE REPORT ============
+
+@router.get("/staff/export/attendance")
+async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
+                            kms_year: Optional[str] = None, season: Optional[str] = None):
+    staff_list = await db.staff.find({"active": True}, {"_id": 0}).sort("name", 1).to_list(500)
+    att_q = {"date": {"$gte": date_from, "$lte": date_to}}
+    attendance = await db.staff_attendance.find(att_q, {"_id": 0}).to_list(10000)
+
+    # Build date range
+    from datetime import datetime as dt, timedelta
+    d1 = dt.strptime(date_from, "%Y-%m-%d")
+    d2 = dt.strptime(date_to, "%Y-%m-%d")
+    dates = []
+    cur = d1
+    while cur <= d2:
+        dates.append(cur.strftime("%Y-%m-%d"))
+        cur += timedelta(days=1)
+
+    # Map: staff_id -> date -> status
+    att_map = {}
+    for a in attendance:
+        att_map.setdefault(a["staff_id"], {})[a["date"]] = a["status"]
+
+    status_short = {"present": "P", "absent": "A", "half_day": "H", "holiday": "CH"}
+
+    if fmt == "pdf":
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=15, rightMargin=15, topMargin=15, bottomMargin=15)
+        styles = getSampleStyleSheet()
+        elements = []
+
+        elements.append(Paragraph(f"Staff Attendance Report: {date_from} to {date_to}", ParagraphStyle('t', parent=styles['Title'], fontSize=14, textColor=colors.HexColor('#1a365d'))))
+        elements.append(Spacer(1, 8))
+
+        # Build table
+        headers = ["Staff"] + [d[-5:] for d in dates] + ["P", "H", "CH", "A", "Total"]
+        rows = [headers]
+        for s in staff_list:
+            row = [s["name"]]
+            p_cnt = h_cnt = ch_cnt = a_cnt = 0
+            for d in dates:
+                st = att_map.get(s["id"], {}).get(d, "-")
+                row.append(status_short.get(st, "-"))
+                if st == "present": p_cnt += 1
+                elif st == "half_day": h_cnt += 1
+                elif st == "holiday": ch_cnt += 1
+                elif st == "absent": a_cnt += 1
+            total = p_cnt + ch_cnt + (h_cnt * 0.5)
+            row += [str(p_cnt), str(h_cnt), str(ch_cnt), str(a_cnt), str(total)]
+            rows.append(row)
+
+        n_cols = len(headers)
+        col_w = max(18, min(30, 780 // n_cols))
+        col_widths = [80] + [col_w] * (n_cols - 6) + [25, 25, 25, 25, 35]
+
+        t = RTable(rows, colWidths=col_widths, repeatRows=1)
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
+            ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]
+        # Color code statuses
+        for ri in range(1, len(rows)):
+            for ci in range(1, n_cols - 5):
+                val = rows[ri][ci]
+                if val == "P": style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), colors.HexColor('#166534')))
+                elif val == "A": style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), colors.HexColor('#991b1b')))
+                elif val == "H": style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), colors.HexColor('#b45309')))
+                elif val == "CH": style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), colors.HexColor('#1d4ed8')))
+            if ri % 2 == 0:
+                style_cmds.append(('BACKGROUND', (0, ri), (-1, ri), colors.HexColor('#f5f5f5')))
+        t.setStyle(TableStyle(style_cmds))
+        elements.append(t)
+
+        doc.build(elements)
+        buf.seek(0)
+        return StreamingResponse(buf, media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=staff_attendance_{date_from}_to_{date_to}.pdf"})
+
+    else:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Attendance"
+        hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
+        hdr_font = Font(bold=True, color='FFFFFF', size=8)
+        tb = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
+                    top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
+        green_font = Font(color='166534', size=8, bold=True)
+        red_font = Font(color='991b1b', size=8, bold=True)
+        amber_font = Font(color='b45309', size=8, bold=True)
+        blue_font = Font(color='1d4ed8', size=8, bold=True)
+
+        ws.merge_cells('A1:F1')
+        ws['A1'] = f"Staff Attendance: {date_from} to {date_to}"
+        ws['A1'].font = Font(bold=True, size=12, color='1a365d')
+
+        headers = ["Staff"] + [d[-5:] for d in dates] + ["P", "H", "CH", "A", "Total"]
+        for i, h in enumerate(headers, 1):
+            c = ws.cell(row=3, column=i, value=h)
+            c.fill = hdr_fill; c.font = hdr_font; c.border = tb; c.alignment = Alignment(horizontal='center')
+
+        row_num = 4
+        for s in staff_list:
+            ws.cell(row=row_num, column=1, value=s["name"]).border = tb
+            p_cnt = h_cnt = ch_cnt = a_cnt = 0
+            for di, d in enumerate(dates):
+                st = att_map.get(s["id"], {}).get(d, "-")
+                val = status_short.get(st, "-")
+                c = ws.cell(row=row_num, column=2+di, value=val)
+                c.border = tb; c.alignment = Alignment(horizontal='center')
+                if val == "P": c.font = green_font
+                elif val == "A": c.font = red_font
+                elif val == "H": c.font = amber_font
+                elif val == "CH": c.font = blue_font
+                if st == "present": p_cnt += 1
+                elif st == "half_day": h_cnt += 1
+                elif st == "holiday": ch_cnt += 1
+                elif st == "absent": a_cnt += 1
+            base_col = 2 + len(dates)
+            for ci, v in enumerate([p_cnt, h_cnt, ch_cnt, a_cnt, p_cnt + ch_cnt + (h_cnt * 0.5)]):
+                c = ws.cell(row=row_num, column=base_col+ci, value=v)
+                c.border = tb; c.alignment = Alignment(horizontal='center'); c.font = Font(bold=True, size=8)
+            row_num += 1
+
+        ws.column_dimensions['A'].width = 16
+        for i in range(2, 2+len(dates)+5):
+            ws.column_dimensions[chr(64+i) if i <= 26 else 'A' + chr(64+i-26)].width = 6
+
+        buf = io.BytesIO()
+        wb.save(buf); buf.seek(0)
+        return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename=staff_attendance_{date_from}_to_{date_to}.xlsx"})
+
+
+# ============ EXPORT: PAYMENT REPORT ============
+
+@router.get("/staff/export/payments")
+async def export_payments(fmt: str = "excel", kms_year: Optional[str] = None, season: Optional[str] = None):
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    payments = await db.staff_payments.find(query, {"_id": 0}).sort("created_at", -1).to_list(5000)
+
+    if fmt == "pdf":
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
+        styles = getSampleStyleSheet()
+        elements = []
+
+        elements.append(Paragraph(f"Staff Payment Report", ParagraphStyle('t', parent=styles['Title'], fontSize=14, textColor=colors.HexColor('#1a365d'))))
+        elements.append(Spacer(1, 8))
+
+        headers = ['Date', 'Staff', 'Period', 'Days Worked', 'Gross', 'Adv Deduct', 'Net Paid']
+        rows = [headers]
+        total_gross = total_adv = total_net = 0
+        for p in payments:
+            rows.append([p.get("date",""), p.get("staff_name",""),
+                f"{p.get('period_from','')} to {p.get('period_to','')}",
+                str(p.get("days_worked",0)),
+                f"Rs.{p.get('gross_salary',0):,.0f}",
+                f"Rs.{p.get('advance_deducted',0):,.0f}",
+                f"Rs.{p.get('net_payment',0):,.0f}"])
+            total_gross += p.get("gross_salary", 0)
+            total_adv += p.get("advance_deducted", 0)
+            total_net += p.get("net_payment", 0)
+        rows.append(["", "", "TOTAL", "", f"Rs.{total_gross:,.0f}", f"Rs.{total_adv:,.0f}", f"Rs.{total_net:,.0f}"])
+
+        t = RTable(rows, colWidths=[65, 80, 130, 55, 75, 75, 75], repeatRows=1)
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
+            ('ALIGN', (3, 0), (-1, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0e7ff')),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ]
+        for i in range(1, len(rows)-1):
+            if i % 2 == 0:
+                style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f5f5f5')))
+        t.setStyle(TableStyle(style_cmds))
+        elements.append(t)
+
+        doc.build(elements)
+        buf.seek(0)
+        return StreamingResponse(buf, media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=staff_payments.pdf"})
+
+    else:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+        wb = Workbook()
+        ws = wb.active; ws.title = "Staff Payments"
+        hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
+        hdr_font = Font(bold=True, color='FFFFFF', size=9)
+        tb = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
+                    top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
+
+        ws.merge_cells('A1:G1')
+        ws['A1'] = "Staff Payment Report"
+        ws['A1'].font = Font(bold=True, size=12, color='1a365d')
+
+        headers = ['Date', 'Staff', 'Period', 'Days', 'Gross', 'Adv Deducted', 'Net Paid']
+        for i, h in enumerate(headers, 1):
+            c = ws.cell(row=3, column=i, value=h)
+            c.fill = hdr_fill; c.font = hdr_font; c.border = tb; c.alignment = Alignment(horizontal='center')
+
+        row_n = 4
+        total_gross = total_adv = total_net = 0
+        for p in payments:
+            vals = [p.get("date",""), p.get("staff_name",""),
+                f"{p.get('period_from','')} to {p.get('period_to','')}",
+                p.get("days_worked",0), p.get("gross_salary",0),
+                p.get("advance_deducted",0), p.get("net_payment",0)]
+            for i, v in enumerate(vals, 1):
+                c = ws.cell(row=row_n, column=i, value=v)
+                c.border = tb; c.font = Font(size=9)
+            total_gross += p.get("gross_salary", 0)
+            total_adv += p.get("advance_deducted", 0)
+            total_net += p.get("net_payment", 0)
+            row_n += 1
+        # Total row
+        ws.cell(row=row_n, column=3, value="TOTAL").font = Font(bold=True, size=9)
+        for ci, v in enumerate([total_gross, total_adv, total_net], 5):
+            c = ws.cell(row=row_n, column=ci, value=v)
+            c.font = Font(bold=True, size=9); c.border = tb
+
+        for w, col in [(12,'A'),(16,'B'),(24,'C'),(8,'D'),(12,'E'),(12,'F'),(12,'G')]:
+            ws.column_dimensions[col].width = w
+
+        buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+        return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=staff_payments.xlsx"})

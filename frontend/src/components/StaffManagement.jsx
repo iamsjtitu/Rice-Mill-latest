@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit, Users, Calendar, IndianRupee, RefreshCw, Check, X, Clock, Sun, Calculator } from "lucide-react";
+import { Plus, Trash2, Edit, Users, Calendar, IndianRupee, RefreshCw, Check, X, Clock, Sun, Calculator, Download, FileText } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -133,6 +133,15 @@ const Attendance = ({ staff, filters }) => {
     } catch { toast.error("Save failed"); }
   };
 
+  const exportAtt = (fmt) => {
+    const month = date.substring(0, 7);
+    const from = `${month}-01`;
+    const d = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0);
+    const to = `${month}-${String(d.getDate()).padStart(2,'0')}`;
+    const p = new URLSearchParams({ date_from: from, date_to: to, fmt });
+    window.open(`${API}/staff/export/attendance?${p}`, '_blank');
+  };
+
   const statusConfig = {
     present: { label: "P", color: "bg-emerald-600 text-white", icon: Check },
     absent: { label: "A", color: "bg-red-600 text-white", icon: X },
@@ -150,6 +159,12 @@ const Attendance = ({ staff, filters }) => {
         </div>
         <Button onClick={saveAll} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white h-9" data-testid="save-attendance-btn">
           <Check className="w-4 h-4 mr-1" /> Save Attendance
+        </Button>
+        <Button onClick={() => exportAtt('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="att-export-excel">
+          <Download className="w-4 h-4 mr-1" /> Excel
+        </Button>
+        <Button onClick={() => exportAtt('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="att-export-pdf">
+          <FileText className="w-4 h-4 mr-1" /> PDF
         </Button>
       </div>
       {loading ? <div className="text-slate-400 text-center py-4">Loading...</div> : (
@@ -325,6 +340,13 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
     toast.success("Payment deleted"); fetchPayments();
   };
 
+  const exportPayments = (fmt) => {
+    const p = new URLSearchParams({ fmt });
+    if (filters.kms_year) p.append("kms_year", filters.kms_year);
+    if (filters.season) p.append("season", filters.season);
+    window.open(`${API}/staff/export/payments?${p}`, '_blank');
+  };
+
   return (
     <div className="space-y-4" data-testid="staff-payment">
       {/* Calculate Section */}
@@ -421,7 +443,17 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
       {/* Payment History */}
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader className="pb-2 pt-3 px-4">
-          <CardTitle className="text-sm text-slate-400">Payment History</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm text-slate-400">Payment History</CardTitle>
+            <div className="flex gap-1">
+              <Button onClick={() => exportPayments('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-7 text-xs" data-testid="pay-export-excel">
+                <Download className="w-3 h-3 mr-1" /> Excel
+              </Button>
+              <Button onClick={() => exportPayments('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-7 text-xs" data-testid="pay-export-pdf">
+                <FileText className="w-3 h-3 mr-1" /> PDF
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
