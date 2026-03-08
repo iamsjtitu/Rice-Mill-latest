@@ -35,6 +35,40 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
     doc = entry_obj.model_dump()
     
     await db.mill_entries.insert_one(doc)
+    
+    # Auto Cash Book entry for cash_paid
+    cash_paid = float(doc.get("cash_paid", 0) or 0)
+    if cash_paid > 0:
+        cb = {
+            "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "account": "cash", "txn_type": "nikasi", "category": "Cash Paid (Entry)",
+            "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Agent {doc.get('agent_name','')} - Rs.{cash_paid}",
+            "amount": round(cash_paid, 2), "reference": f"entry_cash:{doc['id'][:8]}",
+            "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+            "created_by": username or "system", "linked_entry_id": doc["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(cb)
+    
+    # Auto Diesel Account entry for diesel_paid
+    diesel_paid = float(doc.get("diesel_paid", 0) or 0)
+    if diesel_paid > 0:
+        # Get default pump
+        default_pump = await db.diesel_pumps.find_one({"is_default": True}, {"_id": 0})
+        pump_name = default_pump["name"] if default_pump else "Default Pump"
+        pump_id = default_pump["id"] if default_pump else "default"
+        diesel_txn = {
+            "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "pump_id": pump_id, "pump_name": pump_name,
+            "truck_no": doc.get("truck_no", ""), "agent_name": doc.get("agent_name", ""),
+            "amount": round(diesel_paid, 2), "txn_type": "debit",
+            "description": f"Diesel: Truck {doc.get('truck_no','')} - Agent {doc.get('agent_name','')}",
+            "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+            "created_by": username or "system", "linked_entry_id": doc["id"],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.diesel_accounts.insert_one(diesel_txn)
+    
     return entry_obj
 
 
@@ -112,6 +146,40 @@ async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = ""
         {"$set": merged_data}
     )
     
+    # Update auto cash book entry for cash_paid
+    await db.cash_transactions.delete_many({"linked_entry_id": entry_id})
+    cash_paid = float(merged_data.get("cash_paid", 0) or 0)
+    if cash_paid > 0:
+        cb = {
+            "id": str(uuid.uuid4()), "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "account": "cash", "txn_type": "nikasi", "category": "Cash Paid (Entry)",
+            "description": f"Cash Paid: Truck {merged_data.get('truck_no','')} - Agent {merged_data.get('agent_name','')} - Rs.{cash_paid}",
+            "amount": round(cash_paid, 2), "reference": f"entry_cash:{entry_id[:8]}",
+            "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
+            "created_by": username or "system", "linked_entry_id": entry_id,
+            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(cb)
+    
+    # Update auto diesel account entry for diesel_paid
+    await db.diesel_accounts.delete_many({"linked_entry_id": entry_id})
+    diesel_paid = float(merged_data.get("diesel_paid", 0) or 0)
+    if diesel_paid > 0:
+        default_pump = await db.diesel_pumps.find_one({"is_default": True}, {"_id": 0})
+        pump_name = default_pump["name"] if default_pump else "Default Pump"
+        pump_id = default_pump["id"] if default_pump else "default"
+        diesel_txn = {
+            "id": str(uuid.uuid4()), "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "pump_id": pump_id, "pump_name": pump_name,
+            "truck_no": merged_data.get("truck_no", ""), "agent_name": merged_data.get("agent_name", ""),
+            "amount": round(diesel_paid, 2), "txn_type": "debit",
+            "description": f"Diesel: Truck {merged_data.get('truck_no','')} - Agent {merged_data.get('agent_name','')}",
+            "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
+            "created_by": username or "system", "linked_entry_id": entry_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.diesel_accounts.insert_one(diesel_txn)
+    
     updated = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     return updated
 
@@ -130,6 +198,10 @@ async def delete_entry(entry_id: str, username: str = "", role: str = ""):
     result = await db.mill_entries.delete_one({"id": entry_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Entry not found")
+    
+    # Clean up linked auto entries
+    await db.cash_transactions.delete_many({"linked_entry_id": entry_id})
+    await db.diesel_accounts.delete_many({"linked_entry_id": entry_id})
     
     return {"message": "Entry deleted successfully"}
 

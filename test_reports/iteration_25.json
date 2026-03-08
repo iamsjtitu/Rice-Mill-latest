@@ -1,0 +1,157 @@
+{
+  "summary": "Iteration 25: All 15 backend tests PASSED. Frontend Diesel Account tab and Cash/Diesel fields verified. New features: (1) Cash Paid auto Cash Book - entry with cash_paid > 0 auto-creates nikasi transaction, (2) Diesel Account System - pump management, auto diesel entries from entry form, pump-wise summary, payment/settlement with auto cash book.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": [
+      {"warning": "Missing Description or aria-describedby for DialogContent", "component": "Dialog", "priority": "LOW - accessibility warning, doesn't affect functionality"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration25_diesel_cashbook.py",
+    "/app/test_reports/pytest/pytest_results_iteration25.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration25_diesel_cashbook.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100%"
+  },
+  "features_tested": {
+    "1_login": {
+      "description": "Admin login with admin/admin123",
+      "status": "WORKING"
+    },
+    "2_diesel_pumps_crud": {
+      "description": "POST/GET/PUT/DELETE /api/diesel-pumps endpoints",
+      "endpoints": [
+        "POST /api/diesel-pumps - creates new pump",
+        "GET /api/diesel-pumps - returns list of pumps",
+        "PUT /api/diesel-pumps/:id/set-default - sets default pump",
+        "DELETE /api/diesel-pumps/:id - deletes pump"
+      ],
+      "status": "WORKING - All CRUD operations verified"
+    },
+    "3_cash_paid_auto_cash_book": {
+      "description": "Creating entry with cash_paid > 0 auto-creates cash book nikasi transaction",
+      "endpoint": "POST /api/entries",
+      "verified_behavior": "Creates cash_transactions entry with txn_type='nikasi', category='Cash Paid (Entry)', linked_entry_id set, description includes truck/agent/amount",
+      "status": "WORKING"
+    },
+    "4_diesel_paid_auto_diesel_account": {
+      "description": "Creating entry with diesel_paid > 0 auto-creates diesel account debit entry linked to default pump",
+      "endpoint": "POST /api/entries",
+      "verified_behavior": "Creates diesel_accounts entry with txn_type='debit', pump_id/pump_name from default pump, linked_entry_id set",
+      "status": "WORKING"
+    },
+    "5_diesel_accounts_api": {
+      "description": "GET /api/diesel-accounts returns diesel transactions",
+      "supports_filters": ["pump_id", "kms_year", "season"],
+      "status": "WORKING"
+    },
+    "6_diesel_summary_api": {
+      "description": "GET /api/diesel-accounts/summary returns pump-wise summary with balance",
+      "response_structure": {
+        "pumps": "[{pump_id, pump_name, is_default, total_diesel, total_paid, balance, txn_count}]",
+        "grand_total_diesel": "number",
+        "grand_total_paid": "number",
+        "grand_balance": "number"
+      },
+      "status": "WORKING"
+    },
+    "7_diesel_payment_auto_cash_book": {
+      "description": "POST /api/diesel-accounts/pay creates payment + auto cash book nikasi entry",
+      "endpoint": "POST /api/diesel-accounts/pay",
+      "verified_behavior": "Creates diesel_accounts 'payment' entry AND cash_transactions 'nikasi' entry with linked_diesel_payment_id",
+      "status": "WORKING"
+    },
+    "8_delete_entry_cleanup": {
+      "description": "Deleting entry removes linked cash book and diesel account entries",
+      "endpoint": "DELETE /api/entries/:id",
+      "verified_behavior": "Calls db.cash_transactions.delete_many and db.diesel_accounts.delete_many for linked_entry_id",
+      "status": "WORKING"
+    },
+    "9_g_issued_in_gunny_summary": {
+      "description": "G.Issued is calculated from entries and shown in gunny-bags/summary",
+      "endpoint": "GET /api/gunny-bags/summary",
+      "verified_behavior": "g_issued total summed from mill_entries, affects grand_total calculation",
+      "status": "WORKING"
+    },
+    "10_diesel_account_ui": {
+      "description": "Diesel Account tab in Payments page shows pumps, summary cards, transactions table",
+      "location": "Payments > Diesel Account (4th sub-tab)",
+      "ui_elements": [
+        "Pumps section with default pump star icon",
+        "Add Pump button (admin only)",
+        "Summary cards per pump showing balance",
+        "Grand Total card",
+        "Pay/Settle buttons per pump",
+        "Pump filter dropdown",
+        "Transactions table"
+      ],
+      "status": "WORKING"
+    },
+    "11_pay_settle_dialog": {
+      "description": "Pay/Settle dialog shows pending balance and allows payment",
+      "dialog_fields": ["Pump dropdown", "Amount", "Date", "Notes", "Pending balance display"],
+      "status": "WORKING"
+    },
+    "12_entry_form_fields": {
+      "description": "Entry form has G.Issued, Cash Paid, Diesel Paid, Remark fields",
+      "location": "Entries > Nayi Entry dialog",
+      "status": "WORKING"
+    }
+  },
+  "backend_api_tests": {
+    "TestLogin": {
+      "test_admin_login": "PASS"
+    },
+    "TestDieselPumps": {
+      "test_create_diesel_pump": "PASS",
+      "test_get_diesel_pumps": "PASS",
+      "test_set_default_pump": "PASS",
+      "test_delete_diesel_pump": "PASS"
+    },
+    "TestCashPaidAutoCashBook": {
+      "test_cash_paid_creates_cash_book_entry": "PASS",
+      "test_no_cash_book_when_zero_cash_paid": "PASS"
+    },
+    "TestDieselPaidAutoDieselAccount": {
+      "test_diesel_paid_creates_diesel_account_entry": "PASS"
+    },
+    "TestDieselAccountAPI": {
+      "test_get_diesel_accounts": "PASS",
+      "test_get_diesel_accounts_with_filters": "PASS",
+      "test_get_diesel_summary": "PASS"
+    },
+    "TestDieselPayment": {
+      "test_diesel_payment_creates_cash_book_entry": "PASS"
+    },
+    "TestDeleteEntryCleanup": {
+      "test_delete_entry_removes_linked_entries": "PASS"
+    },
+    "TestGIssedDeduction": {
+      "test_g_issued_tracked_in_entries_and_summary": "PASS",
+      "test_gunny_summary_structure_with_g_issued": "PASS"
+    }
+  },
+  "screenshots_taken": [
+    ".screenshots/01_dashboard.png - Dashboard after login",
+    ".screenshots/02_payments_page.png - Payments page with tabs",
+    ".screenshots/03_diesel_account_tab.png - Diesel Account tab with pumps and summary",
+    ".screenshots/04_pay_dialog.png - Diesel Payment/Settlement dialog",
+    ".screenshots/08_cashbook_full.png - Cash Book page",
+    ".screenshots/09_entry_form.png - Entry form with Cash Paid, Diesel Paid fields"
+  ],
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 25 tested 2 major new features: (1) Cash Paid auto Cash Book - when entry has cash_paid > 0, auto-creates cash_transactions nikasi with category 'Cash Paid (Entry)' and linked_entry_id. (2) Diesel Account System - new diesel_pumps and diesel_accounts collections, pump management CRUD, auto diesel entries from entry form's diesel_paid field, pump-wise summary with balance, payment/settlement that auto-creates Cash Book nikasi. Delete entry cleans up both linked cash and diesel entries. Collections used: diesel_pumps, diesel_accounts, cash_transactions, mill_entries. Default pump 'HP Petrol Pump Kesinga' exists."
+}

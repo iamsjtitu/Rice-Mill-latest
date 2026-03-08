@@ -117,6 +117,18 @@ class JsonDatabase {
       updated_at: new Date().toISOString()
     };
     this.data.entries.push(newEntry);
+    const cashPaid = parseFloat(newEntry.cash_paid) || 0;
+    if (cashPaid > 0) {
+      if (!this.data.cash_transactions) this.data.cash_transactions = [];
+      this.data.cash_transactions.push({ id: uuidv4(), date: newEntry.date, account: 'cash', txn_type: 'nikasi', category: 'Cash Paid (Entry)', description: `Cash Paid: Truck ${newEntry.truck_no||''} - Agent ${newEntry.agent_name||''} - Rs.${cashPaid}`, amount: cashPaid, reference: `entry_cash:${newEntry.id.slice(0,8)}`, kms_year: newEntry.kms_year||'', season: newEntry.season||'', created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id, created_at: new Date().toISOString() });
+    }
+    const dieselPaid = parseFloat(newEntry.diesel_paid) || 0;
+    if (dieselPaid > 0) {
+      if (!this.data.diesel_accounts) this.data.diesel_accounts = [];
+      if (!this.data.diesel_pumps) this.data.diesel_pumps = [];
+      const defPump = this.data.diesel_pumps.find(p => p.is_default) || this.data.diesel_pumps[0];
+      this.data.diesel_accounts.push({ id: uuidv4(), date: newEntry.date, pump_id: defPump?.id||'default', pump_name: defPump?.name||'Default Pump', truck_no: newEntry.truck_no||'', agent_name: newEntry.agent_name||'', amount: dieselPaid, txn_type: 'debit', description: `Diesel: Truck ${newEntry.truck_no||''} - Agent ${newEntry.agent_name||''}`, kms_year: newEntry.kms_year||'', season: newEntry.season||'', created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id, created_at: new Date().toISOString() });
+    }
     this.save();
     return newEntry;
   }
@@ -124,21 +136,25 @@ class JsonDatabase {
   updateEntry(id, updates) {
     const index = this.data.entries.findIndex(e => e.id === id);
     if (index === -1) return null;
-    
     const merged = { ...this.data.entries[index], ...updates };
     const calculated = this.calculateFields(merged);
-    this.data.entries[index] = {
-      ...merged,
-      ...calculated,
-      updated_at: new Date().toISOString()
-    };
+    this.data.entries[index] = { ...merged, ...calculated, updated_at: new Date().toISOString() };
+    const updated = this.data.entries[index];
+    if (this.data.cash_transactions) this.data.cash_transactions = this.data.cash_transactions.filter(t => t.linked_entry_id !== id);
+    if (this.data.diesel_accounts) this.data.diesel_accounts = this.data.diesel_accounts.filter(t => t.linked_entry_id !== id);
+    const cashPaid = parseFloat(updated.cash_paid) || 0;
+    if (cashPaid > 0) { if (!this.data.cash_transactions) this.data.cash_transactions = []; this.data.cash_transactions.push({ id: uuidv4(), date: updated.date, account: 'cash', txn_type: 'nikasi', category: 'Cash Paid (Entry)', description: `Cash Paid: Truck ${updated.truck_no||''} - Agent ${updated.agent_name||''} - Rs.${cashPaid}`, amount: cashPaid, reference: `entry_cash:${id.slice(0,8)}`, kms_year: updated.kms_year||'', season: updated.season||'', created_by: updated.created_by||'system', linked_entry_id: id, created_at: new Date().toISOString() }); }
+    const dieselPaid = parseFloat(updated.diesel_paid) || 0;
+    if (dieselPaid > 0) { if (!this.data.diesel_accounts) this.data.diesel_accounts = []; if (!this.data.diesel_pumps) this.data.diesel_pumps = []; const defPump = this.data.diesel_pumps.find(p => p.is_default) || this.data.diesel_pumps[0]; this.data.diesel_accounts.push({ id: uuidv4(), date: updated.date, pump_id: defPump?.id||'default', pump_name: defPump?.name||'Default Pump', truck_no: updated.truck_no||'', agent_name: updated.agent_name||'', amount: dieselPaid, txn_type: 'debit', description: `Diesel: Truck ${updated.truck_no||''} - Agent ${updated.agent_name||''}`, kms_year: updated.kms_year||'', season: updated.season||'', created_by: updated.created_by||'system', linked_entry_id: id, created_at: new Date().toISOString() }); }
     this.save();
-    return this.data.entries[index];
+    return updated;
   }
 
   deleteEntry(id) {
     const len = this.data.entries.length;
     this.data.entries = this.data.entries.filter(e => e.id !== id);
+    if (this.data.cash_transactions) this.data.cash_transactions = this.data.cash_transactions.filter(t => t.linked_entry_id !== id);
+    if (this.data.diesel_accounts) this.data.diesel_accounts = this.data.diesel_accounts.filter(t => t.linked_entry_id !== id);
     if (this.data.entries.length < len) { this.save(); return true; }
     return false;
   }

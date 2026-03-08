@@ -16,7 +16,7 @@ import {
 import { Label } from "@/components/ui/label";
 import {
   Truck, Users, IndianRupee, CheckCircle, Clock, AlertCircle, Undo2, History,
-  Target, Download, FileText, FileSpreadsheet, Printer, X, Edit,
+  Target, Download, FileText, FileSpreadsheet, Printer, X, Edit, Fuel, Plus, Trash2, Star, RefreshCw,
 } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
@@ -762,6 +762,18 @@ export const Payments = ({ filters, user, branding }) => {
           <Users className="w-4 h-4 mr-1" />
           Agent Payments ({agentPayments.length})
         </Button>
+        <Button
+          onClick={() => setActivePaymentTab("diesel")}
+          variant={activePaymentTab === "diesel" ? "default" : "ghost"}
+          size="sm"
+          className={activePaymentTab === "diesel" 
+            ? "bg-orange-500 hover:bg-orange-600 text-slate-900" 
+            : "text-slate-300 hover:bg-slate-700"}
+          data-testid="tab-diesel"
+        >
+          <Fuel className="w-4 h-4 mr-1" />
+          Diesel Account
+        </Button>
       </div>
 
       {/* Truck Filter & Export - Only for Truck Tab */}
@@ -1319,6 +1331,8 @@ export const Payments = ({ filters, user, branding }) => {
         </DialogContent>
       </Dialog>
 
+      {activePaymentTab === "diesel" && <DieselAccount filters={filters} user={user} />}
+
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent className="max-w-sm bg-slate-800 border-slate-700 text-white">
@@ -1363,6 +1377,223 @@ export const Payments = ({ filters, user, branding }) => {
                 <IndianRupee className="w-4 h-4 mr-1" />
                 Pay
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+// ============ DIESEL ACCOUNT COMPONENT ============
+const DieselAccount = ({ filters, user }) => {
+  const [pumps, setPumps] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [txns, setTxns] = useState([]);
+  const [selectedPump, setSelectedPump] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [showAddPump, setShowAddPump] = useState(false);
+  const [newPumpName, setNewPumpName] = useState("");
+  const [showPayDialog, setShowPayDialog] = useState(false);
+  const [payPumpId, setPayPumpId] = useState("");
+  const [payAmount, setPayAmount] = useState("");
+  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [payNotes, setPayNotes] = useState("");
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const p = new URLSearchParams();
+      if (filters.kms_year) p.append('kms_year', filters.kms_year);
+      if (filters.season) p.append('season', filters.season);
+      if (selectedPump !== "all") p.append('pump_id', selectedPump);
+      const [pRes, sRes, tRes] = await Promise.all([
+        axios.get(`${API}/diesel-pumps`),
+        axios.get(`${API}/diesel-accounts/summary?${p}`),
+        axios.get(`${API}/diesel-accounts?${p}`)
+      ]);
+      setPumps(pRes.data || []);
+      setSummary(sRes.data);
+      setTxns(tRes.data || []);
+    } catch (e) { toast.error("Diesel data load nahi hua"); }
+    finally { setLoading(false); }
+  }, [filters.kms_year, filters.season, selectedPump]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleAddPump = async () => {
+    if (!newPumpName.trim()) return;
+    try {
+      await axios.post(`${API}/diesel-pumps`, { name: newPumpName.trim(), is_default: pumps.length === 0 });
+      toast.success("Pump add ho gaya!"); setNewPumpName(""); setShowAddPump(false); fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
+  };
+
+  const handleSetDefault = async (pumpId) => {
+    try {
+      await axios.put(`${API}/diesel-pumps/${pumpId}/set-default`);
+      toast.success("Default pump set!"); fetchData();
+    } catch (e) { toast.error("Error"); }
+  };
+
+  const handleDeletePump = async (pumpId) => {
+    if (!window.confirm("Pump delete karein?")) return;
+    try {
+      await axios.delete(`${API}/diesel-pumps/${pumpId}`);
+      toast.success("Pump deleted"); fetchData();
+    } catch (e) { toast.error("Error"); }
+  };
+
+  const handlePay = async () => {
+    const amt = parseFloat(payAmount);
+    if (!payPumpId || !amt || amt <= 0) { toast.error("Pump aur amount bharein"); return; }
+    try {
+      await axios.post(`${API}/diesel-accounts/pay?username=${user.username}`, {
+        pump_id: payPumpId, amount: amt, date: payDate,
+        kms_year: filters.kms_year || "", season: filters.season || "", notes: payNotes
+      });
+      toast.success(`Rs.${amt} payment recorded!`);
+      setShowPayDialog(false); setPayAmount(""); setPayNotes(""); fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
+  };
+
+  const handleDeleteTxn = async (id) => {
+    if (!window.confirm("Transaction delete karein?")) return;
+    try { await axios.delete(`${API}/diesel-accounts/${id}`); toast.success("Deleted"); fetchData(); }
+    catch (e) { toast.error("Error"); }
+  };
+
+  return (
+    <div className="space-y-4" data-testid="diesel-account-tab">
+      {/* Pump Management */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-slate-400 text-sm font-medium">Pumps:</span>
+        {pumps.map(p => (
+          <div key={p.id} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs border ${p.is_default ? 'border-orange-500 bg-orange-900/20 text-orange-300' : 'border-slate-600 bg-slate-800 text-slate-300'}`}>
+            {p.is_default && <Star className="w-3 h-3 text-orange-400 fill-orange-400" />}
+            <span>{p.name}</span>
+            {!p.is_default && user.role === 'admin' && (
+              <button onClick={() => handleSetDefault(p.id)} className="text-[9px] text-slate-500 hover:text-orange-400 ml-1" title="Set as default">Default</button>
+            )}
+            {user.role === 'admin' && (
+              <button onClick={() => handleDeletePump(p.id)} className="text-red-400 hover:text-red-300 ml-1"><Trash2 className="w-3 h-3" /></button>
+            )}
+          </div>
+        ))}
+        {user.role === 'admin' && !showAddPump && (
+          <Button onClick={() => setShowAddPump(true)} variant="outline" size="sm" className="h-7 text-xs border-slate-600 text-slate-400" data-testid="add-pump-btn">
+            <Plus className="w-3 h-3 mr-1" /> Add Pump
+          </Button>
+        )}
+        {showAddPump && (
+          <div className="flex items-center gap-1">
+            <Input value={newPumpName} onChange={e => setNewPumpName(e.target.value)} placeholder="Pump name" className="h-7 w-40 bg-slate-700 border-slate-600 text-white text-xs" data-testid="new-pump-name" onKeyDown={e => e.key === 'Enter' && handleAddPump()} />
+            <Button onClick={handleAddPump} size="sm" className="h-7 text-xs bg-orange-500 text-white">Save</Button>
+            <Button onClick={() => setShowAddPump(false)} variant="ghost" size="sm" className="h-7 text-xs text-slate-400">X</Button>
+          </div>
+        )}
+      </div>
+
+      {/* Summary Cards */}
+      {summary && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {summary.pumps?.map(p => (
+            <Card key={p.pump_id} className={`border-slate-700 ${p.is_default ? 'bg-gradient-to-br from-orange-900/30 to-slate-800 border-orange-800/30' : 'bg-slate-800'}`}>
+              <CardContent className="p-3">
+                <div className="flex items-center gap-1 mb-1">
+                  {p.is_default && <Star className="w-3 h-3 text-orange-400 fill-orange-400" />}
+                  <p className="text-[10px] text-slate-400 truncate">{p.pump_name}</p>
+                </div>
+                <p className="text-lg font-bold text-red-400">Rs.{p.balance.toLocaleString('en-IN')}</p>
+                <div className="flex gap-2 text-[10px] mt-1">
+                  <span className="text-orange-400">Diesel: Rs.{p.total_diesel.toLocaleString('en-IN')}</span>
+                  <span className="text-green-400">Paid: Rs.{p.total_paid.toLocaleString('en-IN')}</span>
+                </div>
+                <p className="text-[9px] text-slate-500">{p.txn_count} entries</p>
+                <Button onClick={() => { setPayPumpId(p.pump_id); setShowPayDialog(true); }} size="sm" className="mt-2 h-6 text-[10px] bg-emerald-600 hover:bg-emerald-700 w-full" data-testid={`pay-pump-${p.pump_id}`}>
+                  <IndianRupee className="w-3 h-3 mr-0.5" /> Pay / Settle
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardContent className="p-3">
+              <p className="text-[10px] text-white font-medium">Grand Total</p>
+              <p className="text-lg font-bold text-white">Rs.{(summary.grand_balance || 0).toLocaleString('en-IN')}</p>
+              <div className="flex gap-2 text-[10px] mt-1">
+                <span className="text-orange-400">Total: Rs.{(summary.grand_total_diesel || 0).toLocaleString('en-IN')}</span>
+                <span className="text-green-400">Paid: Rs.{(summary.grand_total_paid || 0).toLocaleString('en-IN')}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+        <Select value={selectedPump} onValueChange={setSelectedPump}>
+          <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="diesel-pump-filter">
+            <SelectValue placeholder="All Pumps" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Pumps</SelectItem>
+            {pumps.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Transactions Table */}
+      <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
+        <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
+          {['Date','Pump','Type','Truck No','Agent','Amount (Rs.)','Description',''].map(h =>
+            <TableHead key={h} className={`text-slate-300 text-xs ${h === 'Amount (Rs.)' ? 'text-right' : ''}`}>{h}</TableHead>)}
+        </TableRow></TableHeader>
+        <TableBody>
+          {loading ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+          : txns.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-8">Koi transaction nahi hai.</TableCell></TableRow>
+          : txns.map(t => (
+            <TableRow key={t.id} className={`border-slate-700 ${t.txn_type === 'payment' ? 'bg-green-900/10' : 'bg-orange-900/5'}`} data-testid={`diesel-row-${t.id}`}>
+              <TableCell className="text-white text-xs">{t.date}</TableCell>
+              <TableCell className="text-slate-300 text-xs">{t.pump_name}</TableCell>
+              <TableCell className="text-xs"><span className={t.txn_type === 'payment' ? 'text-green-400 font-medium' : 'text-orange-400'}>{t.txn_type === 'payment' ? 'PAYMENT' : 'DIESEL'}</span></TableCell>
+              <TableCell className="text-slate-300 text-xs">{t.truck_no || '-'}</TableCell>
+              <TableCell className="text-slate-300 text-xs">{t.agent_name || '-'}</TableCell>
+              <TableCell className={`text-xs text-right font-medium ${t.txn_type === 'payment' ? 'text-green-400' : 'text-orange-400'}`}>{t.txn_type === 'payment' ? '-' : ''}Rs.{t.amount?.toLocaleString('en-IN')}</TableCell>
+              <TableCell className="text-slate-500 text-xs max-w-[200px] truncate">{t.description}</TableCell>
+              <TableCell>{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDeleteTxn(t.id)}><Trash2 className="w-3 h-3" /></Button>}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody></Table>
+      </div></CardContent></Card>
+
+      {/* Payment Dialog */}
+      <Dialog open={showPayDialog} onOpenChange={setShowPayDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-sm" data-testid="diesel-pay-dialog">
+          <DialogHeader><DialogTitle className="text-emerald-400">Diesel Payment / Settlement</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label className="text-xs text-slate-400">Pump</Label>
+              <Select value={payPumpId} onValueChange={setPayPumpId}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="diesel-pay-pump"><SelectValue placeholder="Select Pump" /></SelectTrigger>
+                <SelectContent>{pumps.map(p => <SelectItem key={p.id} value={p.id}>{p.name} {p.is_default ? '(Default)' : ''}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs text-slate-400">Amount (Rs.)</Label>
+                <Input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="Amount" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="diesel-pay-amount" /></div>
+              <div><Label className="text-xs text-slate-400">Date</Label>
+                <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="diesel-pay-date" /></div>
+            </div>
+            <div><Label className="text-xs text-slate-400">Notes</Label>
+              <Input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Optional notes" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="diesel-pay-notes" /></div>
+            {payPumpId && summary?.pumps && (() => {
+              const ps = summary.pumps.find(p => p.pump_id === payPumpId);
+              return ps ? <p className="text-xs text-slate-400">Pending: <span className="text-red-400 font-bold">Rs.{ps.balance.toLocaleString('en-IN')}</span></p> : null;
+            })()}
+            <div className="flex gap-2">
+              <Button onClick={handlePay} className="bg-emerald-600 hover:bg-emerald-700 text-white flex-1" data-testid="diesel-pay-submit">
+                <IndianRupee className="w-4 h-4 mr-1" /> Pay
+              </Button>
+              <Button variant="outline" onClick={() => setShowPayDialog(false)} className="border-slate-600 text-slate-300">Cancel</Button>
             </div>
           </div>
         </DialogContent>
