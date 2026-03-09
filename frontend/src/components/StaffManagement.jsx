@@ -204,6 +204,190 @@ const Attendance = ({ staff, filters }) => {
 };
 
 
+// ===== QUICK MONTHLY REPORT =====
+const QuickMonthlyReport = ({ staff, filters }) => {
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [staffFilter, setStaffFilter] = useState("all");
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const dateFrom = `${month}-01`;
+  const dateTo = (() => {
+    const [y, m] = month.split('-').map(Number);
+    return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+  })();
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [attRes, staffRes] = await Promise.all([
+        axios.get(`${API}/staff/attendance?date_from=${dateFrom}&date_to=${dateTo}`),
+        axios.get(`${API}/staff?active=true`)
+      ]);
+      const staffList = staffRes.data;
+      const attList = attRes.data;
+
+      // Build summary per staff
+      const dates = [];
+      let d = new Date(dateFrom);
+      const end = new Date(dateTo);
+      while (d <= end) { dates.push(d.toISOString().split('T')[0]); d.setDate(d.getDate() + 1); }
+
+      const attMap = {};
+      attList.forEach(a => { if (!attMap[a.staff_id]) attMap[a.staff_id] = {}; attMap[a.staff_id][a.date] = a.status; });
+
+      const summary = staffList.map(s => {
+        let P = 0, A = 0, H = 0, CH = 0;
+        dates.forEach(dt => {
+          const st = (attMap[s.id] || {})[dt] || '-';
+          if (st === 'present') P++;
+          else if (st === 'absent') A++;
+          else if (st === 'half_day') H++;
+          else if (st === 'holiday') CH++;
+        });
+        const daysWorked = P + CH + H * 0.5;
+        const perDay = s.salary_type === 'monthly' ? s.salary_amount / 30 : s.salary_amount;
+        const estSalary = Math.round(daysWorked * perDay);
+        return { ...s, P, A, H, CH, daysWorked, perDay: Math.round(perDay), estSalary, totalDays: dates.length };
+      });
+      setData(summary);
+    } catch { toast.error("Report load nahi hua"); }
+    finally { setLoading(false); }
+  }, [dateFrom, dateTo]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filtered = staffFilter === "all" ? data : data.filter(s => s.id === staffFilter);
+
+  const totals = filtered.reduce((acc, s) => ({
+    P: acc.P + s.P, A: acc.A + s.A, H: acc.H + s.H, CH: acc.CH + s.CH,
+    daysWorked: acc.daysWorked + s.daysWorked, estSalary: acc.estSalary + s.estSalary
+  }), { P: 0, A: 0, H: 0, CH: 0, daysWorked: 0, estSalary: 0 });
+
+  const exportReport = async (fmt) => {
+    const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, fmt });
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/staff/export/attendance?${p}`, `monthly_report_${month}.${fmt === 'pdf' ? 'pdf' : 'xlsx'}`);
+  };
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const [y, m] = month.split('-').map(Number);
+  const monthLabel = `${monthNames[m - 1]} ${y}`;
+
+  return (
+    <div className="space-y-3" data-testid="quick-monthly-report">
+      <div className="flex gap-3 items-end flex-wrap">
+        <div>
+          <Label className="text-xs text-slate-400">Month / महीना</Label>
+          <Input type="month" value={month} onChange={e => setMonth(e.target.value)}
+            className="bg-slate-700 border-slate-600 text-white h-9 w-44" data-testid="report-month" />
+        </div>
+        <div>
+          <Label className="text-xs text-slate-400">Staff Filter</Label>
+          <Select value={staffFilter} onValueChange={setStaffFilter}>
+            <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-9 w-48" data-testid="report-staff-filter">
+              <SelectValue placeholder="All Staff" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-700 border-slate-600">
+              <SelectItem value="all">All Staff / सभी</SelectItem>
+              {staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={() => fetchData()} variant="outline" size="sm" className="border-slate-600 text-blue-400 h-9" data-testid="report-refresh">
+          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+        </Button>
+        <Button onClick={() => exportReport('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="report-export-excel">
+          <Download className="w-4 h-4 mr-1" /> Excel
+        </Button>
+        <Button onClick={() => exportReport('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="report-export-pdf">
+          <FileText className="w-4 h-4 mr-1" /> PDF
+        </Button>
+      </div>
+
+      {loading ? <div className="text-slate-400 text-center py-8">Loading...</div> : (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+            {[
+              ["Total Staff", filtered.length, "text-white", "bg-slate-800"],
+              ["Present (P)", totals.P, "text-emerald-400", "bg-emerald-900/20 border-emerald-700/30"],
+              ["Half Day (H)", totals.H, "text-amber-400", "bg-amber-900/20 border-amber-700/30"],
+              ["Holiday (CH)", totals.CH, "text-blue-400", "bg-blue-900/20 border-blue-700/30"],
+              ["Absent (A)", totals.A, "text-red-400", "bg-red-900/20 border-red-700/30"],
+              ["Est. Salary", `₹${totals.estSalary.toLocaleString('en-IN')}`, "text-amber-400", "bg-amber-900/20 border-amber-700/30"],
+            ].map(([label, val, color, bg]) => (
+              <div key={label} className={`text-center p-3 rounded-lg border border-slate-700 ${bg}`}>
+                <p className="text-[10px] text-slate-400">{label}</p>
+                <p className={`text-lg font-bold ${color}`}>{val}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Table */}
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader className="pb-1 pt-3 px-4">
+              <CardTitle className="text-sm text-amber-400">{monthLabel} - Staff Attendance Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700 text-slate-400 text-xs">
+                      <th className="text-left py-2 px-3">Staff Name</th>
+                      <th className="text-center py-2 px-3">Type</th>
+                      <th className="text-center py-2 px-3 text-emerald-400">P</th>
+                      <th className="text-center py-2 px-3 text-red-400">A</th>
+                      <th className="text-center py-2 px-3 text-amber-400">H</th>
+                      <th className="text-center py-2 px-3 text-blue-400">CH</th>
+                      <th className="text-center py-2 px-3">Days Worked</th>
+                      <th className="text-right py-2 px-3">Per Day</th>
+                      <th className="text-right py-2 px-3">Est. Salary</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(s => (
+                      <tr key={s.id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                        <td className="py-2 px-3 text-white font-medium">{s.name}</td>
+                        <td className="py-2 px-3 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${s.salary_type === 'monthly' ? 'bg-blue-900/40 text-blue-400' : 'bg-amber-900/40 text-amber-400'}`}>
+                            {s.salary_type === 'monthly' ? 'Mo' : 'Day'}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-center text-emerald-400 font-semibold">{s.P}</td>
+                        <td className="py-2 px-3 text-center text-red-400 font-semibold">{s.A}</td>
+                        <td className="py-2 px-3 text-center text-amber-400 font-semibold">{s.H}</td>
+                        <td className="py-2 px-3 text-center text-blue-400 font-semibold">{s.CH}</td>
+                        <td className="py-2 px-3 text-center text-white font-bold">{s.daysWorked}</td>
+                        <td className="py-2 px-3 text-right text-slate-300">₹{s.perDay?.toLocaleString('en-IN')}</td>
+                        <td className="py-2 px-3 text-right text-amber-400 font-bold">₹{s.estSalary?.toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))}
+                    {filtered.length > 1 && (
+                      <tr className="border-t-2 border-slate-600 bg-slate-900/50">
+                        <td className="py-2 px-3 text-amber-400 font-bold" colSpan={2}>Total</td>
+                        <td className="py-2 px-3 text-center text-emerald-400 font-bold">{totals.P}</td>
+                        <td className="py-2 px-3 text-center text-red-400 font-bold">{totals.A}</td>
+                        <td className="py-2 px-3 text-center text-amber-400 font-bold">{totals.H}</td>
+                        <td className="py-2 px-3 text-center text-blue-400 font-bold">{totals.CH}</td>
+                        <td className="py-2 px-3 text-center text-white font-bold">{totals.daysWorked}</td>
+                        <td className="py-2 px-3 text-right"></td>
+                        <td className="py-2 px-3 text-right text-amber-400 font-bold">₹{totals.estSalary?.toLocaleString('en-IN')}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {filtered.length === 0 && <p className="text-center text-slate-500 py-4 text-sm">Koi data nahi</p>}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+};
+
+
 // ===== ADVANCE =====
 const AdvanceSection = ({ staff, filters, fetchAdvances, advances }) => {
   const [showAdd, setShowAdd] = useState(false);
@@ -526,6 +710,7 @@ const StaffManagement = ({ filters, user }) => {
       <div className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 w-fit">
         {[
           { id: "attendance", label: "Attendance", icon: Calendar },
+          { id: "monthly", label: "Monthly Report", icon: FileText },
           { id: "payments", label: "Salary Payment", icon: IndianRupee },
           { id: "advance", label: "Advance", icon: IndianRupee },
           { id: "master", label: "Staff Master", icon: Users },
@@ -538,6 +723,7 @@ const StaffManagement = ({ filters, user }) => {
         ))}
       </div>
       {tab === "attendance" && <Attendance staff={staff} filters={filters} />}
+      {tab === "monthly" && <QuickMonthlyReport staff={staff} filters={filters} />}
       {tab === "payments" && <SalaryPayment staff={staff} filters={filters} payments={payments} fetchPayments={fetchPayments} />}
       {tab === "advance" && <AdvanceSection staff={staff} filters={filters} advances={advances} fetchAdvances={fetchAdvances} />}
       {tab === "master" && <StaffMaster staff={staff} fetchStaff={fetchStaff} />}

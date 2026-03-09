@@ -34,11 +34,17 @@ Rice mill management tool. 3 backends (Python/FastAPI, Node.js local-server, Ele
 - Agent Payments PDF bug fixed (missing get_company_name)
 - All 44 exports verified passing
 
-### v3.3.1 (2026-03-09) - Critical Fixes
-- Fixed Electron UNHANDLED_REJECTION crash: Added safeExecuteJS wrapper for all auto-updater executeJavaScript calls to prevent crashes when mainWindow is destroyed/not ready
-- Fixed Staff Attendance PDF parity: Added Page 2 (Monthly Summary) to desktop-app and local-server PDF exports with Breakdown (P/A/H/CH) and Month-wise Estimated Salary sections
-- Fixed Staff Attendance Excel parity: Added Breakdown and Month-wise Estimated Salary sections to Excel Sheet 2 in both Node.js backends
-- All 3 backends now produce identical export output
+### v3.3.1 (2026-03-09) - Critical Fixes + Quick Monthly Report
+- Fixed Electron UNHANDLED_REJECTION crash: Added safeExecuteJS wrapper for all auto-updater executeJavaScript calls
+- Fixed Staff Attendance PDF parity: Added Page 2 (Monthly Summary) to desktop-app and local-server PDF exports
+- Fixed Staff Attendance Excel parity: Added Breakdown and Month-wise Estimated Salary sections to Excel Sheet 2
+- **NEW: Quick Monthly Report tab** in Staff section:
+  - Auto-loads current month attendance summary
+  - Staff Name filter dropdown
+  - Summary cards (Total Staff, P, A, H, CH, Est. Salary)
+  - Detailed table with per-staff breakdown
+  - Total row for multi-staff view
+  - Excel and PDF export buttons
 
 ## Build & Release
 ```
