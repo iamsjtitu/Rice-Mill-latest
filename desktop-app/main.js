@@ -3071,7 +3071,7 @@ async function createMainWindow(port) {
           type: 'info',
           title: 'About - Mill Entry System',
           message: 'Mill Entry System',
-          detail: 'Version 2.3\n\nDeveloped by 9x.Design\nContact Us: +917205930002',
+          detail: 'Version ' + app.getVersion() + '\n\nDeveloped by 9x.Design\nContact Us: +917205930002',
           buttons: ['OK']
         });
       }}
