@@ -676,8 +676,8 @@ async def export_excel(
         if col >= 5:
             cell.alignment = right_align
     
-    # Column widths - A4 optimized
-    col_widths = [10, 12, 10, 10, 8, 5, 5, 7, 8, 5, 6, 5, 5, 5, 5, 8, 7, 7, 7]
+    # Column widths - A4 optimized (19 cols)
+    col_widths = [9, 11, 9, 9, 8, 5, 5, 6, 5, 6, 7, 5, 6, 5, 5, 8, 6, 7, 7]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     
@@ -784,9 +784,9 @@ async def export_pdf(
     
     # Table headers
     headers = [
-        "Date", "Truck No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
-        "GBW Cut", "P.Pkt", "P.Pkt Cut", "Mill W", "Moist%", "Cut%", 
-        "D/D/P", "Final W", "G.Issued", "Cash", "Diesel"
+        "Date", "Truck", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
+        "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", 
+        "D/D/P", "Final W", "G.Iss", "Cash", "Diesel"
     ]
     
     # Build data rows
@@ -806,6 +806,7 @@ async def export_pdf(
             f"{entry.get('p_pkt_cut', 0) / 100:.2f}",
             f"{entry.get('mill_w', 0) / 100:.2f}",
             f"{entry.get('moisture', 0):.0f}",
+            f"{(entry.get('moisture_cut', 0) or 0) / 100:.2f}",
             f"{entry.get('cutting_percent', 0):.1f}",
             str(entry.get('disc_dust_poll', 0)),
             f"{entry.get('final_w', 0) / 100:.2f}",
@@ -827,6 +828,7 @@ async def export_pdf(
         f"{totals.total_mill_w / 100:.2f}",
         "-",
         "-",
+        "-",
         str(int(totals.total_disc_dust_poll)),
         f"{totals.total_final_w / 100:.2f}",
         str(int(totals.total_g_issued)),
@@ -836,8 +838,8 @@ async def export_pdf(
     table_data.append(totals_row)
     
     # Column widths (total ~265mm for A4 landscape with margins)
-    col_widths = [13*mm, 14*mm, 14*mm, 14*mm, 12*mm, 8*mm, 8*mm, 10*mm, 
-                  8*mm, 10*mm, 12*mm, 8*mm, 8*mm, 8*mm, 12*mm, 10*mm, 10*mm, 10*mm]
+    col_widths = [12*mm, 13*mm, 13*mm, 13*mm, 11*mm, 7*mm, 7*mm, 8*mm, 
+                  7*mm, 8*mm, 11*mm, 7*mm, 9*mm, 7*mm, 8*mm, 11*mm, 9*mm, 9*mm, 9*mm]
     
     # Create table
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -888,11 +890,11 @@ async def export_pdf(
     for i in range(1, len(table_data) - 1):
         style_commands.append(('BACKGROUND', (4, i), (4, i), qntl_bg))  # QNTL
         style_commands.append(('BACKGROUND', (6, i), (6, i), gunny_bg))  # G.Dep
-        style_commands.append(('BACKGROUND', (14, i), (14, i), final_bg))  # Final W
-        style_commands.append(('BACKGROUND', (16, i), (17, i), cash_bg))  # Cash, Diesel
+        style_commands.append(('BACKGROUND', (15, i), (15, i), final_bg))  # Final W
+        style_commands.append(('BACKGROUND', (17, i), (18, i), cash_bg))  # Cash, Diesel
     
     # Bold Final W column
-    style_commands.append(('FONTNAME', (14, 1), (14, -1), 'Helvetica-Bold'))
+    style_commands.append(('FONTNAME', (15, 1), (15, -1), 'Helvetica-Bold'))
     
     main_table.setStyle(TableStyle(style_commands))
     elements.append(main_table)
