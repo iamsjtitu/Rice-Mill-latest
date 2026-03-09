@@ -144,7 +144,7 @@ function getDailyReportData(query) {
       in_count: partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').length,
       used_count: partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').length,
       in_amount: partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').reduce((s, t) => s + (t.amount || t.total_cost || 0), 0),
-      in_details: isDetail ? partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').map(t => ({ part: t.part_name||'', qty: t.quantity||0, amount: t.amount||t.total_cost||0 })) : [],
+      in_details: isDetail ? partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').map(t => ({ part: t.part_name||'', qty: t.quantity||0, rate: t.rate||0, party: t.party_name||'', bill_no: t.bill_no||'', amount: t.amount||t.total_cost||t.total_amount||0 })) : [],
       used_details: isDetail ? partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').map(t => ({ part: t.part_name||'', qty: t.quantity||0 })) : []
     },
     pump_account: {
@@ -472,9 +472,9 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
     if (mp.in_details.length) {
       subText('Parts Purchased:');
       drawTable(
-        ['Part','Qty','Amount'],
-        mp.in_details.map(d => [d.part, d.qty, `Rs.${fmtAmt(d.amount)}`]),
-        [150, 80, 100]
+        ['Part','Qty','Rate','Party','Bill No','Amount'],
+        mp.in_details.map(d => [d.part, d.qty, d.rate||0, d.party||'', d.bill_no||'', `Rs.${fmtAmt(d.amount)}`]),
+        [80, 45, 55, 80, 60, 70]
       );
     }
     if (mp.used_details.length) {
