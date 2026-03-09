@@ -181,62 +181,123 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.pdf`);
   doc.pipe(res);
 
-  // Title
-  doc.fontSize(14).font('Helvetica-Bold').fillColor('#1a365d').text(`Daily Report - ${data.date}`, { align: 'center' });
-  doc.fontSize(8).font('Helvetica').fillColor('grey').text(`Mode: ${modeLabel} | KMS: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`, { align: 'center' });
-  doc.moveDown(0.4);
+  // Colors
+  const C = {
+    hdrBg: '#1a365d', hdrText: '#ffffff', border: '#cbd5e1',
+    altRow: '#f8fafc', blueBg: '#e0f2fe', greenBg: '#dcfce7',
+    yellowBg: '#fef3c7', purpleBg: '#e0e7ff', orangeBg: '#fff7ed',
+    staffBg: '#dbeafe', section: '#1a365d', sub: '#475569'
+  };
 
-  // Table helper
-  function drawTable(headers, rows, colWidths, fontSize) {
-    const fs = fontSize || 7;
-    const startX = doc.x;
+  // Draw a table with grid borders and colored headers
+  function drawTable(headers, rows, colWidths, opts) {
+    opts = opts || {};
+    const fs = opts.fontSize || 7;
+    const hdrBg = opts.headerBg || C.hdrBg;
+    const hdrTextColor = opts.headerTextColor || C.hdrText;
+    const startX = 25;
     let y = doc.y;
-    const rowH = fs + 6;
+    const rowH = fs + 8;
+    const totalW = colWidths.reduce((a,b) => a+b, 0);
 
-    // Check page space
-    if (y + rowH * (rows.length + 1) + 20 > doc.page.height - 25) { doc.addPage(); y = doc.y; }
+    // Page check
+    if (y + rowH * (rows.length + 1) + 20 > doc.page.height - 25) { doc.addPage(); y = 25; }
 
-    // Header
+    // Header row
     let x = startX;
-    doc.rect(x, y, colWidths.reduce((a,b)=>a+b,0), rowH).fill('#1a365d');
+    doc.rect(x, y, totalW, rowH).fill(hdrBg);
     headers.forEach((h, i) => {
-      doc.fillColor('white').font('Helvetica-Bold').fontSize(fs).text(h, x + 2, y + 2, { width: colWidths[i] - 4, height: rowH, lineBreak: false });
+      doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
+      doc.fillColor(hdrTextColor).font('Helvetica-Bold').fontSize(fs + 0.5)
+        .text(String(h), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: opts.align || 'left' });
       x += colWidths[i];
     });
     y += rowH;
 
     // Data rows
     rows.forEach((row, ri) => {
-      if (y + rowH > doc.page.height - 25) { doc.addPage(); y = doc.y; }
+      if (y + rowH > doc.page.height - 25) { doc.addPage(); y = 25; }
       x = startX;
-      if (ri % 2 === 0) doc.rect(x, y, colWidths.reduce((a,b)=>a+b,0), rowH).fill('#f8fafc');
+      const bgColor = ri % 2 === 0 ? '#ffffff' : C.altRow;
+      doc.rect(x, y, totalW, rowH).fill(bgColor);
       row.forEach((cell, ci) => {
-        doc.fillColor('black').font('Helvetica').fontSize(fs).text(String(cell ?? ''), x + 2, y + 2, { width: colWidths[ci] - 4, height: rowH, lineBreak: false });
+        doc.rect(x, y, colWidths[ci], rowH).stroke(C.border);
+        doc.fillColor('#1e293b').font('Helvetica').fontSize(fs)
+          .text(String(cell ?? ''), x + 3, y + 3, { width: colWidths[ci] - 6, height: rowH - 2, lineBreak: false });
         x += colWidths[ci];
       });
       y += rowH;
     });
-    doc.y = y + 4;
+    doc.y = y + 6;
+    doc.x = startX;
+  }
+
+  // Summary box (colored background, 2 rows)
+  function drawSummaryBox(labels, values, colWidths, bgColor) {
+    const fs = 7; const rowH = 16;
+    const startX = 25;
+    let y = doc.y;
+    const totalW = colWidths.reduce((a,b) => a+b, 0);
+    if (y + rowH * 2 + 10 > doc.page.height - 25) { doc.addPage(); y = 25; }
+
+    // Header
+    let x = startX;
+    doc.rect(x, y, totalW, rowH).fill(bgColor);
+    labels.forEach((l, i) => {
+      doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
+      doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(fs + 0.5)
+        .text(String(l), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: 'center' });
+      x += colWidths[i];
+    });
+    y += rowH;
+
+    // Values
+    x = startX;
+    doc.rect(x, y, totalW, rowH).fill('#ffffff');
+    values.forEach((v, i) => {
+      doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
+      doc.fillColor('#1e293b').font('Helvetica').fontSize(fs)
+        .text(String(v ?? ''), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: 'center' });
+      x += colWidths[i];
+    });
+    doc.y = y + rowH + 2;
     doc.x = startX;
   }
 
   function sectionTitle(num, title) {
     if (doc.y > doc.page.height - 60) doc.addPage();
-    doc.moveDown(0.2);
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#1a365d').text(`${num}. ${title}`);
+    doc.moveDown(0.3);
+    doc.fontSize(11).font('Helvetica-Bold').fillColor(C.section).text(`${num}. ${title}`);
+    doc.moveDown(0.15);
     doc.fillColor('black').font('Helvetica').fontSize(7);
   }
 
-  function summaryLine(text) {
-    doc.fontSize(7).font('Helvetica-Bold').fillColor('#475569').text(text);
-    doc.fillColor('black').font('Helvetica');
+  function subText(text) {
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor(C.sub).text(text);
+    doc.moveDown(0.1);
+    doc.fillColor('black').font('Helvetica').fontSize(7);
   }
 
-  // 1. Paddy Entries
+  // ===== TITLE =====
+  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.section).text(`Daily Report - ${data.date}`, { align: 'center' });
+  doc.fontSize(8.5).font('Helvetica').fillColor('grey').text(`Mode: ${modeLabel} | KMS: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`, { align: 'center' });
+  doc.moveDown(0.2);
+  doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(25, doc.y).lineTo(doc.page.width - 25, doc.y).stroke();
+  doc.moveDown(0.4);
+
+  // ===== 1. PADDY ENTRIES =====
   const p = data.paddy_entries;
   sectionTitle(1, `Paddy Entries (${p.count})`);
-  summaryLine(`Total Mill W (QNTL): ${(p.total_mill_w/100).toFixed(2)} | Total BAG: ${p.total_bags} | Final W QNTL: ${(p.total_final_w/100).toFixed(2)}`);
-  summaryLine(`Total Cash Paid: Rs.${fmtAmt(p.total_cash_paid)} | Total Diesel Paid: Rs.${fmtAmt(p.total_diesel_paid)}`);
+  drawSummaryBox(
+    ['Total Mill W (QNTL)', 'Total BAG', 'Final W QNTL (Auto)', 'Bag Deposite', 'Bag Issued'],
+    [(p.total_mill_w/100).toFixed(2), p.total_bags, (p.total_final_w/100).toFixed(2), p.total_g_deposite||0, p.total_g_issued||0],
+    [100, 90, 100, 80, 80], C.blueBg
+  );
+  drawSummaryBox(
+    ['Total Cash Paid', 'Total Diesel Paid'],
+    [`Rs.${fmtAmt(p.total_cash_paid)}`, `Rs.${fmtAmt(p.total_diesel_paid)}`],
+    [250, 250], C.greenBg
+  );
 
   if (p.details.length) {
     if (isDetail) {
@@ -244,12 +305,12 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
         ['Truck','Agent','Mandi','RST','TP','QNTL','Bags','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss','Cash','Diesel'],
         p.details.map(d => [
           d.truck_no, d.agent, d.mandi, d.rst_no, d.tp_no,
-          (d.kg/100).toFixed(2), d.bags, d.g_deposite, (d.gbw_cut/100).toFixed(2),
-          d.plastic_bag, (d.p_pkt_cut/100).toFixed(2), (d.mill_w/100).toFixed(2),
-          d.moisture, ((d.moisture_cut||0)/100).toFixed(2), `${d.cutting_percent}%`, d.disc_dust_poll,
+          (d.kg/100).toFixed(2), d.bags, d.g_deposite, ((d.gbw_cut||0)/100).toFixed(2),
+          d.plastic_bag, ((d.p_pkt_cut||0)/100).toFixed(2), (d.mill_w/100).toFixed(2),
+          d.moisture, ((d.moisture_cut||0)/100).toFixed(2), `${d.cutting_percent||0}%`, d.disc_dust_poll,
           (d.final_w/100).toFixed(2), d.g_issued, d.cash_paid, d.diesel_paid
         ]),
-        [42,35,38,24,24,30,24,24,28,24,26,30,22,26,24,24,30,24,30,30], 6
+        [42,35,38,24,24,30,24,24,28,24,26,30,22,26,24,24,30,24,30,30], { fontSize: 6 }
       );
     } else {
       drawTable(
@@ -264,38 +325,100 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
     }
   }
 
-  // 4. Cash Flow
+  // ===== 2. MILLING =====
+  const ml = data.milling;
+  if (ml.count) {
+    sectionTitle(2, `Milling (${ml.count})`);
+    drawSummaryBox(
+      ['Paddy In (Q)', 'Rice Out (Q)', 'FRK Used (Q)'],
+      [ml.paddy_input_qntl, ml.rice_output_qntl, ml.frk_used_qntl],
+      [170, 170, 170], C.yellowBg
+    );
+    if (isDetail && ml.details.length) {
+      drawTable(
+        ['Paddy In (Q)', 'Rice Out (Q)', 'Type', 'FRK (Q)', 'CMR Ready (Q)', 'Outturn%'],
+        ml.details.map(d => [d.paddy_in, d.rice_out, d.type, d.frk, d.cmr_ready||0, d.outturn||0]),
+        [75, 75, 70, 60, 75, 60]
+      );
+    }
+  }
+
+  // ===== 3. PRIVATE TRADING =====
+  const pp = data.pvt_paddy;
+  const rs = data.rice_sales;
+  if (pp.count || rs.count) {
+    sectionTitle(3, 'Private Trading');
+    if (pp.count) {
+      subText(`Paddy Purchase (${pp.count}): ${pp.total_kg} KG | Rs. ${fmtAmt(pp.total_amount)}`);
+      if (pp.details.length) {
+        drawTable(
+          isDetail ? ['Party','Variety','KG','Rate','Amount'] : ['Party','KG','Amount'],
+          pp.details.map(d => isDetail
+            ? [d.party, d.type||'', d.kg, d.rate||0, `Rs.${fmtAmt(d.amount)}`]
+            : [d.party, d.kg, `Rs.${fmtAmt(d.amount)}`]),
+          isDetail ? [90,60,55,55,75] : [200,100,120]
+        );
+      }
+    }
+    if (rs.count) {
+      subText(`Rice Sales (${rs.count}): ${rs.total_qntl} Q | Rs. ${fmtAmt(rs.total_amount)}`);
+      if (rs.details.length) {
+        drawTable(
+          isDetail ? ['Buyer','Type','Qntl','Rate','Amount'] : ['Buyer','Qntl','Amount'],
+          rs.details.map(d => isDetail
+            ? [d.buyer, d.type||'', d.qntl, d.rate||0, `Rs.${fmtAmt(d.amount)}`]
+            : [d.buyer, d.qntl, `Rs.${fmtAmt(d.amount)}`]),
+          isDetail ? [90,60,55,55,75] : [200,100,120]
+        );
+      }
+    }
+  }
+
+  // ===== 4. CASH FLOW =====
   const cf = data.cash_flow;
   sectionTitle(4, 'Cash Flow');
+  drawSummaryBox(
+    ['', 'Jama (In)', 'Nikasi (Out)', 'Net'],
+    ['', '', '', ''],
+    [80, 130, 130, 130], C.greenBg
+  );
+  // Overwrite with actual cash/bank rows
+  doc.y -= 2;
   drawTable(
     ['','Jama (In)','Nikasi (Out)','Net'],
     [
       ['Cash', `Rs.${fmtAmt(cf.cash_jama)}`, `Rs.${fmtAmt(cf.cash_nikasi)}`, `Rs.${fmtAmt(cf.net_cash)}`],
       ['Bank', `Rs.${fmtAmt(cf.bank_jama)}`, `Rs.${fmtAmt(cf.bank_nikasi)}`, `Rs.${fmtAmt(cf.net_bank)}`]
     ],
-    [80, 100, 100, 100]
+    [80, 130, 130, 130], { headerBg: C.greenBg, headerTextColor: '#1e293b' }
   );
 
   if (cf.details.length) {
-    const cfHeaders = isDetail ? ['Description','Party','Category','Type','Account','Amount'] : ['Description','Type','Account','Amount'];
-    const cfRows = cf.details.map(d => isDetail
-      ? [d.desc, d.party, d.category, d.type.toUpperCase(), d.account.toUpperCase(), `Rs.${fmtAmt(d.amount)}`]
-      : [d.desc, d.type.toUpperCase(), d.account.toUpperCase(), `Rs.${fmtAmt(d.amount)}`]);
-    const cfWidths = isDetail ? [180,60,60,50,50,60] : [230,60,60,70];
-    drawTable(cfHeaders, cfRows, cfWidths);
+    const cfH = isDetail ? ['Description','Party','Category','Type','Account','Amount'] : ['Description','Type','Account','Amount'];
+    const cfR = cf.details.map(d => isDetail
+      ? [d.desc, d.party, d.category, (d.type||'').toUpperCase(), (d.account||'').toUpperCase(), `Rs.${fmtAmt(d.amount)}`]
+      : [d.desc, (d.type||'').toUpperCase(), (d.account||'').toUpperCase(), `Rs.${fmtAmt(d.amount)}`]);
+    const cfW = isDetail ? [150,60,60,50,50,60] : [230,60,60,70];
+    drawTable(cfH, cfR, cfW);
   }
 
-  // 5. Payments
+  // ===== 5. PAYMENTS =====
   sectionTitle(5, 'Payments Summary');
-  drawTable(['MSP Received','Pvt Paddy Paid','Rice Sale Received'],
-    [[`Rs.${fmtAmt(data.payments.msp_received)}`,`Rs.${fmtAmt(data.payments.pvt_paddy_paid)}`,`Rs.${fmtAmt(data.payments.rice_sale_received)}`]],
-    [120,120,120]);
+  drawSummaryBox(
+    ['MSP Received', 'Pvt Paddy Paid', 'Rice Sale Received'],
+    [`Rs.${fmtAmt(data.payments.msp_received)}`, `Rs.${fmtAmt(data.payments.pvt_paddy_paid)}`, `Rs.${fmtAmt(data.payments.rice_sale_received)}`],
+    [170, 170, 170], C.purpleBg
+  );
 
-  // 6. Pump Account
+  // ===== 6. PUMP ACCOUNT =====
   const pa = data.pump_account;
-  sectionTitle(6, 'Pump Account / Diesel');
-  summaryLine(`Total Diesel: Rs.${fmtAmt(pa.total_diesel)} | Total Paid: Rs.${fmtAmt(pa.total_paid)} | Balance: Rs.${fmtAmt(pa.balance)}`);
   if (pa.details.length) {
+    sectionTitle(6, 'Pump Account / Diesel');
+    drawSummaryBox(
+      ['Total Diesel', 'Total Paid', 'Balance'],
+      [`Rs.${fmtAmt(pa.total_diesel)}`, `Rs.${fmtAmt(pa.total_paid)}`, `Rs.${fmtAmt(pa.balance)}`],
+      [170, 170, 170], C.orangeBg
+    );
     drawTable(
       ['Pump','Type','Truck','Mandi','Description','Amount'],
       pa.details.map(d => [d.pump, d.txn_type === 'payment' || d.txn_type === 'credit' ? 'PAID' : 'DIESEL', d.truck_no, d.mandi, d.desc, `Rs.${fmtAmt(d.amount)}`]),
@@ -303,17 +426,82 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
     );
   }
 
-  // 11. Staff Attendance
+  // ===== 7. DC DELIVERIES =====
+  const dc = data.dc_deliveries;
+  if (dc.count) {
+    sectionTitle(7, `DC Deliveries (${dc.count}) - ${dc.total_qntl} Q`);
+    if (isDetail && dc.details.length) {
+      drawTable(
+        ['DC No','Type','Bags','Qntl','Destination'],
+        dc.details.map(d => [d.dc_no, d.type, d.bags, d.qntl, d.destination]),
+        [80, 100, 80, 80, 100]
+      );
+    }
+  }
+
+  // ===== 8. BY-PRODUCTS =====
+  const bp = data.byproducts;
+  if (bp.count) {
+    sectionTitle(8, `By-Product Sales (${bp.count}) - Rs. ${fmtAmt(bp.total_amount)}`);
+    if (isDetail && bp.details.length) {
+      drawTable(
+        ['Type','Buyer','Amount'],
+        bp.details.map(d => [d.type, d.buyer, `Rs.${fmtAmt(d.amount)}`]),
+        [120, 150, 100]
+      );
+    }
+  }
+
+  // ===== 9. FRK =====
+  const fk = data.frk;
+  if (fk.count) {
+    sectionTitle(9, `FRK Purchase (${fk.count}) - ${fk.total_qntl} Q | Rs. ${fmtAmt(fk.total_amount)}`);
+    if (isDetail && fk.details.length) {
+      drawTable(
+        ['Party','Qntl','Rate','Amount'],
+        fk.details.map(d => [d.party, d.qntl, d.rate, `Rs.${fmtAmt(d.amount)}`]),
+        [150, 90, 90, 100]
+      );
+    }
+  }
+
+  // ===== 10. MILL PARTS =====
+  const mp = data.mill_parts;
+  if (mp.in_count || mp.used_count) {
+    sectionTitle(10, `Mill Parts Stock (In: ${mp.in_count} | Used: ${mp.used_count}) | Purchase: Rs. ${fmtAmt(mp.in_amount)}`);
+    if (mp.in_details.length) {
+      subText('Parts Purchased:');
+      drawTable(
+        ['Part','Qty','Amount'],
+        mp.in_details.map(d => [d.part, d.qty, `Rs.${fmtAmt(d.amount)}`]),
+        [150, 80, 100]
+      );
+    }
+    if (mp.used_details.length) {
+      subText('Parts Used:');
+      drawTable(
+        ['Part','Qty'],
+        mp.used_details.map(d => [d.part, d.qty]),
+        [200, 100]
+      );
+    }
+  }
+
+  // ===== 11. STAFF ATTENDANCE =====
   const sa = data.staff_attendance;
   if (sa.total) {
     sectionTitle(11, `Staff Attendance (${sa.total})`);
-    drawTable(['Present','Half Day','Holiday','Absent','Not Marked'],
-      [[sa.present, sa.half_day, sa.holiday, sa.absent, sa.not_marked]],
-      [60,60,60,60,60]);
-    const statusMap = { present: 'P', absent: 'A', half_day: 'H', holiday: 'CH', not_marked: '-' };
-    drawTable(['Staff Name','Status'],
-      sa.details.map(d => [d.name, statusMap[d.status] || d.status]),
-      [120, 60]);
+    drawSummaryBox(
+      ['Present','Half Day','Holiday','Absent','Not Marked'],
+      [sa.present, sa.half_day, sa.holiday, sa.absent, sa.not_marked],
+      [95, 95, 95, 95, 95], C.staffBg
+    );
+    if (sa.details.length) {
+      const statusMap = { present: 'P', absent: 'A', half_day: 'H', holiday: 'CH', not_marked: '-' };
+      drawTable(['Staff Name','Status'],
+        sa.details.map(d => [d.name, statusMap[d.status] || d.status]),
+        [250, 100]);
+    }
   }
 
   doc.end();
