@@ -16,7 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, RefreshCw, Filter, X, Download, FileText, ArrowDownCircle, ArrowUpCircle, Wallet, Landmark, PlusCircle } from "lucide-react";
+import { Trash2, Plus, RefreshCw, Filter, X, Download, FileText, ArrowDownCircle, ArrowUpCircle, Wallet, Landmark, PlusCircle, Pencil } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -50,6 +50,7 @@ const CashBook = ({ filters, user }) => {
   const [txnFilters, setTxnFilters] = useState({ account: "", txn_type: "", category: "", date_from: "", date_to: "" });
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [editingId, setEditingId] = useState(null);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -87,16 +88,35 @@ const CashBook = ({ filters, user }) => {
     const amt = parseFloat(form.amount);
     if (!amt || amt <= 0) { toast.error("Amount 0 se zyada hona chahiye"); return; }
     try {
-      await axios.post(`${API}/cash-book?username=${user.username}&role=${user.role}`, {
-        ...form, amount: amt,
-      });
-      toast.success("Transaction save ho gayi!");
+      if (editingId) {
+        await axios.put(`${API}/cash-book/${editingId}?username=${user.username}&role=${user.role}`, {
+          ...form, amount: amt,
+        });
+        toast.success("Transaction update ho gayi!");
+      } else {
+        await axios.post(`${API}/cash-book?username=${user.username}&role=${user.role}`, {
+          ...form, amount: amt,
+        });
+        toast.success("Transaction save ho gayi!");
+      }
       setIsDialogOpen(false);
+      setEditingId(null);
       setForm({ date: new Date().toISOString().split('T')[0], account: "cash", txn_type: "jama",
         category: "", description: "", amount: "", reference: "",
         kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif" });
       fetchData();
     } catch (error) { toast.error("Error: " + (error.response?.data?.detail || error.message)); }
+  };
+
+  const handleEdit = (t) => {
+    setEditingId(t.id);
+    setForm({
+      date: t.date || "", account: t.account || "cash", txn_type: t.txn_type || "jama",
+      category: t.category || "", description: t.description || "",
+      amount: String(t.amount || ""), reference: t.reference || "",
+      kms_year: t.kms_year || CURRENT_KMS_YEAR, season: t.season || "Kharif",
+    });
+    setIsDialogOpen(true);
   };
 
   const handleDelete = async (id) => {
@@ -227,6 +247,7 @@ const CashBook = ({ filters, user }) => {
           <Card className="bg-white border-slate-200 shadow-sm">
             <CardContent className="p-4 flex flex-col justify-center items-center gap-2">
               <Button onClick={() => {
+                setEditingId(null);
                 setForm({ date: new Date().toISOString().split('T')[0], account: "cash", txn_type: "jama",
                   category: "", description: "", amount: "", reference: "",
                   kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif" });
@@ -364,9 +385,14 @@ const CashBook = ({ filters, user }) => {
                 <TableCell className="text-slate-500 text-xs max-w-[80px] truncate">{t.reference}</TableCell>
                 <TableCell>
                   {user.role === 'admin' && (
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" onClick={() => handleDelete(t.id)} data-testid={`txn-delete-${t.id}`}>
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
+                    <div className="flex gap-0.5">
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700" onClick={() => handleEdit(t)} data-testid={`txn-edit-${t.id}`}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" onClick={() => handleDelete(t.id)} data-testid={`txn-delete-${t.id}`}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
                   )}
                 </TableCell>
               </TableRow>
@@ -376,9 +402,9 @@ const CashBook = ({ filters, user }) => {
       </Card>
 
       {/* Add Transaction Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingId(null); }}>
         <DialogContent className="bg-white border-slate-200 text-slate-800 max-w-md" data-testid="cashbook-form-dialog">
-          <DialogHeader><DialogTitle className="text-amber-700">New Transaction / नया लेन-देन</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-amber-700">{editingId ? 'Edit Transaction' : 'New Transaction'}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -437,46 +463,20 @@ const CashBook = ({ filters, user }) => {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <Label className="text-xs text-slate-600">Category</Label>
-                <Button type="button" variant="ghost" size="sm" className="h-5 px-1 text-amber-600 hover:text-amber-700 text-[10px]"
-                  onClick={() => setShowAddCategory(!showAddCategory)} data-testid="cashbook-add-category-btn">
-                  <PlusCircle className="w-3 h-3 mr-0.5" /> New Category
-                </Button>
+                <Label className="text-xs text-slate-600 font-semibold">Party / Category (Ledger ke liye zaroori)</Label>
               </div>
-              {showAddCategory && (
-                <div className="flex gap-1 mb-2">
-                  <Input value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="Category name likhein..." className="border-slate-300 h-7 text-xs flex-1"
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); } }}
-                    data-testid="cashbook-new-category-input" />
-                  <Button type="button" onClick={handleAddCategory} size="sm" className="bg-amber-500 hover:bg-amber-600 text-white h-7 text-xs px-2"
-                    data-testid="cashbook-save-category-btn">Save</Button>
-                  <Button type="button" onClick={() => { setShowAddCategory(false); setNewCategoryName(""); }} variant="ghost" size="sm" className="h-7 text-xs px-1 text-slate-500">
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              )}
-              <Select value={form.category || "_none"} onValueChange={(v) => setForm(p => ({ ...p, category: v === "_none" ? "" : v }))}>
-                <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-category"><SelectValue placeholder="Select category" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">-- Select --</SelectItem>
-                  {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {customCats.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {customCats.map(c => (
-                    <span key={c.id} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] bg-slate-100 text-slate-700 border border-slate-200">
-                      {c.name}
-                      {user.role === 'admin' && (
-                        <button type="button" onClick={() => handleDeleteCategory(c.id, c.name)} className="text-red-500 hover:text-red-700 ml-0.5">
-                          <X className="w-2.5 h-2.5" />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              )}
+              <Input
+                list="category-list"
+                value={form.category}
+                onChange={(e) => setForm(p => ({ ...p, category: e.target.value }))}
+                placeholder="Party name likho ya select karo (e.g. Titu, Dimpy)"
+                className="border-slate-300 h-8 text-sm"
+                data-testid="cashbook-form-category"
+              />
+              <datalist id="category-list">
+                {categories.map(c => <option key={c} value={c} />)}
+              </datalist>
+              <p className="text-[9px] text-amber-600 mt-0.5">* Yahan jo name doge wo Party Ledger mein automatically aayega</p>
             </div>
             <div>
               <Label className="text-xs text-slate-600">Description / विवरण</Label>
@@ -494,7 +494,9 @@ const CashBook = ({ filters, user }) => {
               </div>
             )}
             <div className="flex gap-2 pt-2">
-              <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white flex-1" data-testid="cashbook-form-submit">Save Transaction</Button>
+              <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white flex-1" data-testid="cashbook-form-submit">
+                {editingId ? 'Update Transaction' : 'Save Transaction'}
+              </Button>
               <Button type="button" variant="outline" className="border-slate-300 text-slate-600" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
             </div>
           </form>

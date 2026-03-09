@@ -68,6 +68,22 @@ async def delete_cash_transaction(txn_id: str):
     return {"message": "Transaction deleted", "id": txn_id}
 
 
+@router.put("/cash-book/{txn_id}")
+async def update_cash_transaction(txn_id: str, request: Request, username: str = "", role: str = ""):
+    body = await request.json()
+    body.pop("_id", None)
+    body.pop("id", None)
+    body["updated_at"] = datetime.now(timezone.utc).isoformat()
+    body["updated_by"] = username or body.get("updated_by", "")
+    if "amount" in body:
+        body["amount"] = round(float(body["amount"]), 2)
+    result = await db.cash_transactions.update_one({"id": txn_id}, {"$set": body})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    updated = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
+    return updated
+
+
 @router.post("/cash-book/delete-bulk")
 async def delete_cash_transactions_bulk(request: Request):
     body = await request.json()
