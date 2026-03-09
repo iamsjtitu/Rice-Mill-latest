@@ -278,32 +278,54 @@ function MainApp({ user, onLogout }) {
     }
   }, [formData.bag, formData.g_deposite]);
 
-  // Helper: Find cutting % from mandi targets OR from existing entries (case-insensitive)
+  // Helper: Find cutting % from mandi targets, existing entries, OR localStorage (case-insensitive)
   const findMandiCutting = useCallback((mandiName) => {
     if (!mandiName) return null;
     const searchName = mandiName.toLowerCase().trim();
     
-    // Primary: Check mandi targets
+    // Source 1: Check mandi targets (primary)
     if (mandiTargets.length > 0) {
       const target = mandiTargets.find(t => 
         (t.mandi_name || '').toLowerCase().trim() === searchName
       );
-      if (target && target.cutting_percent != null) return target;
+      if (target && target.cutting_percent != null && target.cutting_percent !== 0) return target;
     }
     
-    // Fallback: Check existing entries for the same mandi (use most recent)
+    // Source 2: Check existing entries (fallback)
     if (entries.length > 0) {
       const matchingEntries = entries.filter(e => 
-        (e.mandi_name || '').toLowerCase().trim() === searchName && e.cutting_percent
+        (e.mandi_name || '').toLowerCase().trim() === searchName && e.cutting_percent && e.cutting_percent > 0
       );
       if (matchingEntries.length > 0) {
-        const latest = matchingEntries[0]; // entries are sorted by date desc
+        const latest = matchingEntries[0];
         return { mandi_name: latest.mandi_name, cutting_percent: latest.cutting_percent };
       }
     }
     
+    // Source 3: Check localStorage (permanent memory)
+    try {
+      const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
+      if (saved[searchName]) {
+        return { mandi_name: mandiName, cutting_percent: saved[searchName] };
+      }
+    } catch(e) {}
+    
     return null;
   }, [mandiTargets, entries]);
+
+  // Save mandi→cutting mapping to localStorage whenever cutting % changes with a mandi
+  useEffect(() => {
+    if (formData.mandi_name && formData.cutting_percent && parseFloat(formData.cutting_percent) > 0) {
+      try {
+        const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
+        const key = formData.mandi_name.toLowerCase().trim();
+        if (saved[key] !== parseFloat(formData.cutting_percent)) {
+          saved[key] = parseFloat(formData.cutting_percent);
+          localStorage.setItem('mandi_cutting_map', JSON.stringify(saved));
+        }
+      } catch(e) {}
+    }
+  }, [formData.mandi_name, formData.cutting_percent]);
 
   // Auto-fill cutting % from Mandi Target when mandi name changes (case-insensitive)
   useEffect(() => {
