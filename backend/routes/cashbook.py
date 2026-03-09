@@ -279,7 +279,7 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
-    title = "Daily Cash Book / रोज़नामचा"
+    title = "Daily Cash Book"
     if kms_year: title += f" - KMS {kms_year}"
     elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
     
@@ -291,6 +291,7 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
              ['Total', round(summary['cash_in']+summary['bank_in'],2), round(summary['cash_out']+summary['bank_out'],2), summary['total_balance']]]
     st = RLTable(sdata, colWidths=[80, 80, 80, 80])
     st.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('BACKGROUND', (0,1), (-1,-2), colors.white), ('TEXTCOLOR', (0,1), (-1,-2), colors.black),
         ('FONTSIZE', (0,0), (-1,-1), 8), ('ALIGN', (1,0), (-1,-1), 'RIGHT'), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
         ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0'))]))
@@ -298,7 +299,7 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     
     # Transactions table
     elements.append(Paragraph("Transactions", styles['Heading2'])); elements.append(Spacer(1, 6))
-    data = [['Date', 'Account', 'Type', 'Category', 'Description', 'Jama(₹)', 'Nikasi(₹)', 'Ref']]
+    data = [['Date', 'Account', 'Type', 'Category', 'Description', 'Jama(Rs)', 'Nikasi(Rs)', 'Ref']]
     tj = tn = 0
     for t in txns:
         jama = t['amount'] if t['txn_type'] == 'jama' else 0
@@ -312,6 +313,7 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     table = RLTable(data, colWidths=[55, 45, 40, 70, 100, 55, 55, 60], repeatRows=1)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('BACKGROUND', (0,1), (-1,-2), colors.white), ('TEXTCOLOR', (0,1), (-1,-2), colors.black),
         ('FONTSIZE', (0,0), (-1,-1), 7), ('ALIGN', (5,0), (6,-1), 'RIGHT'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
