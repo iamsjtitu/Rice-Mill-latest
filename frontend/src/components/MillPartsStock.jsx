@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search, Calendar, Filter } from "lucide-react";
+import { downloadFile } from "../utils/download";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -330,68 +331,150 @@ export default function MillPartsStock({ filters, user }) {
       {/* ===== PART-WISE SUMMARY TAB ===== */}
       {activeTab === "partwise" && (
         <div className="space-y-4">
-          {filteredSummary.map(s => (
-            <Card key={s.part_name} className="bg-slate-800 border-slate-700">
-              <CardContent className="p-4">
-                <div className="flex flex-wrap items-center gap-4 mb-3">
-                  <h3 className="text-lg font-bold text-cyan-400">{s.part_name}</h3>
-                  <span className="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-300">{s.category} | {s.unit}</span>
-                  <div className="ml-auto flex gap-4 text-sm">
-                    <span className="text-emerald-400">In: <b>{s.stock_in}</b></span>
-                    <span className="text-red-400">Used: <b>{s.stock_used}</b></span>
-                    <span className="text-yellow-400">Stock: <b>{s.current_stock}</b></span>
-                    <span className="text-blue-400">Purchase: <b>Rs.{(s.total_purchase_amount || 0).toLocaleString()}</b></span>
-                  </div>
-                </div>
-                {/* Party-wise breakdown */}
+          {/* Part Selector */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex-1 max-w-xs">
+              <Select value={searchPart || "none"} onValueChange={v => setSearchPart(v === "none" ? "" : v)}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-9 text-sm" data-testid="partwise-part-select">
+                  <SelectValue placeholder="Part select karein..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  <SelectItem value="none">-- Part Select Karein --</SelectItem>
+                  {parts.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {searchPart && (
+              <div className="flex gap-2">
+                <Button onClick={() => { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); p.append('part_name', searchPart); downloadFile(`/api/mill-parts/part-summary/excel?${p}`, `${searchPart}_summary.xlsx`); }}
+                  variant="outline" size="sm" className="border-emerald-600/50 text-emerald-400 hover:bg-emerald-900/30" data-testid="partwise-export-excel">
+                  <Download className="w-4 h-4 mr-1" /> Excel
+                </Button>
+                <Button onClick={() => { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); p.append('part_name', searchPart); downloadFile(`/api/mill-parts/part-summary/pdf?${p}`, `${searchPart}_summary.pdf`); }}
+                  variant="outline" size="sm" className="border-red-600/50 text-red-400 hover:bg-red-900/30" data-testid="partwise-export-pdf">
+                  <FileText className="w-4 h-4 mr-1" /> PDF
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Empty state */}
+          {!searchPart && (
+            <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+              <Search className="w-12 h-12 mb-3 text-slate-600" />
+              <p className="text-base font-medium">Part select karein summary dekhne ke liye</p>
+              <p className="text-xs mt-1">Upar dropdown se koi part choose karein</p>
+            </div>
+          )}
+
+          {/* Selected Part Summary */}
+          {searchPart && (() => {
+            const s = summary.find(x => x.part_name === searchPart);
+            if (!s) return <p className="text-slate-400 text-center py-8">"{searchPart}" ka data nahi mila</p>;
+            const partTxns = stockEntries.filter(t => t.part_name === s.part_name);
+            return (
+              <div className="space-y-4">
+                {/* Part Header Card */}
+                <Card className="bg-gradient-to-r from-slate-800 to-slate-800/80 border-slate-600/50 overflow-hidden" data-testid="partwise-detail-card">
+                  <CardContent className="p-0">
+                    <div className="p-4 pb-3 border-b border-slate-700/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-cyan-500/15 flex items-center justify-center">
+                          <Package className="w-5 h-5 text-cyan-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-white">{s.part_name}</h3>
+                          <p className="text-xs text-slate-400">{s.category} | {s.unit}</p>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-slate-700/50">
+                      <div className="p-4 text-center">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Stock In</p>
+                        <p className="text-2xl font-bold text-emerald-400">{s.stock_in}</p>
+                        <p className="text-[10px] text-slate-500">{s.unit}</p>
+                      </div>
+                      <div className="p-4 text-center">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Used</p>
+                        <p className="text-2xl font-bold text-red-400">{s.stock_used}</p>
+                        <p className="text-[10px] text-slate-500">{s.unit}</p>
+                      </div>
+                      <div className="p-4 text-center">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Current Stock</p>
+                        <p className={`text-2xl font-bold ${s.current_stock > 0 ? 'text-amber-400' : 'text-red-400'}`}>{s.current_stock}</p>
+                        <p className="text-[10px] text-slate-500">{s.unit}</p>
+                      </div>
+                      <div className="p-4 text-center">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Purchase</p>
+                        <p className="text-2xl font-bold text-blue-400">Rs.{(s.total_purchase_amount || 0).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Party-wise Purchase */}
                 {(s.parties || []).length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-xs text-slate-400 mb-1 font-semibold">Party-wise Purchase:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {s.parties.map((p, pi) => (
-                        <span key={pi} className="text-xs bg-slate-700/50 border border-slate-600 rounded px-2 py-1 text-slate-200">
-                          {p.name}: <b className="text-emerald-400">{p.qty} {s.unit}</b> | <b className="text-blue-400">Rs.{(p.amount || 0).toLocaleString()}</b>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {/* Recent transactions for this part */}
-                {(() => {
-                  const partTxns = stockEntries.filter(t => t.part_name === s.part_name).slice(0, 10);
-                  if (!partTxns.length) return null;
-                  return (
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1 font-semibold">Recent Transactions:</p>
-                      <Table><TableHeader><TableRow className="border-slate-700">
-                        <TableHead className="text-slate-400 text-xs h-7">Date</TableHead>
-                        <TableHead className="text-slate-400 text-xs h-7">Type</TableHead>
-                        <TableHead className="text-slate-400 text-xs h-7">Qty</TableHead>
-                        <TableHead className="text-slate-400 text-xs h-7">Rate</TableHead>
-                        <TableHead className="text-slate-400 text-xs h-7">Amount</TableHead>
-                        <TableHead className="text-slate-400 text-xs h-7">Party</TableHead>
-                        <TableHead className="text-slate-400 text-xs h-7">Bill No</TableHead>
-                      </TableRow></TableHeader>
-                      <TableBody>
-                        {partTxns.map(t => (
-                          <TableRow key={t.id} className="border-slate-700/50">
-                            <TableCell className="text-xs py-1">{t.date}</TableCell>
-                            <TableCell className="py-1"><span className={`text-xs font-semibold ${t.txn_type === 'in' ? 'text-emerald-400' : 'text-red-400'}`}>{t.txn_type === 'in' ? 'IN' : 'USED'}</span></TableCell>
-                            <TableCell className={`text-xs py-1 font-bold ${t.txn_type === 'in' ? 'text-emerald-400' : 'text-red-400'}`}>{t.quantity}</TableCell>
-                            <TableCell className="text-xs py-1">Rs.{t.rate || 0}</TableCell>
-                            <TableCell className="text-xs py-1">Rs.{(t.total_amount || t.total_cost || 0).toLocaleString()}</TableCell>
-                            <TableCell className="text-xs py-1">{t.party_name || '-'}</TableCell>
-                            <TableCell className="text-xs py-1">{t.bill_no || '-'}</TableCell>
-                          </TableRow>
+                  <Card className="bg-slate-800/80 border-slate-700/50">
+                    <CardHeader className="p-3 pb-2">
+                      <CardTitle className="text-sm text-slate-300 font-semibold">Party-wise Purchase</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                        {s.parties.map((p, pi) => (
+                          <div key={pi} className="bg-slate-750 border border-slate-600/40 rounded-lg p-3 hover:border-slate-500/60 transition-colors" data-testid={`party-card-${pi}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-bold text-white truncate">{p.name}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-[10px] text-slate-500 uppercase">Qty</p>
+                                <p className="text-sm font-semibold text-emerald-400">{p.qty} <span className="text-[10px] text-slate-500">{s.unit}</span></p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[10px] text-slate-500 uppercase">Amount</p>
+                                <p className="text-sm font-semibold text-blue-400">Rs.{(p.amount || 0).toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </div>
                         ))}
-                      </TableBody></Table>
-                    </div>
-                  );
-                })()}
-              </CardContent>
-            </Card>
-          ))}
-          {filteredSummary.length === 0 && <p className="text-slate-400 text-center py-8">No parts found</p>}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Recent Transactions */}
+                {partTxns.length > 0 && (
+                  <Card className="bg-slate-800/80 border-slate-700/50">
+                    <CardHeader className="p-3 pb-2">
+                      <CardTitle className="text-sm text-slate-300 font-semibold">Transactions ({partTxns.length})</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0"><div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader><TableRow className="border-slate-700">
+                          {['Date','Type','Qty','Rate','Amount','Party','Bill No'].map(h =>
+                            <TableHead key={h} className="text-slate-400 text-xs h-8">{h}</TableHead>)}
+                        </TableRow></TableHeader>
+                        <TableBody>
+                          {partTxns.map(t => (
+                            <TableRow key={t.id} className="border-slate-700/40">
+                              <TableCell className="text-xs text-white py-1.5">{t.date}</TableCell>
+                              <TableCell className="py-1.5"><span className={`px-2 py-0.5 text-xs rounded-full font-medium ${t.txn_type === 'in' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>{t.txn_type === 'in' ? 'IN' : 'USED'}</span></TableCell>
+                              <TableCell className={`text-xs py-1.5 font-bold ${t.txn_type === 'in' ? 'text-emerald-400' : 'text-red-400'}`}>{t.quantity}</TableCell>
+                              <TableCell className="text-xs py-1.5 text-slate-300">{t.rate ? `Rs.${t.rate}` : '-'}</TableCell>
+                              <TableCell className="text-xs py-1.5 text-white">{t.total_amount ? `Rs.${t.total_amount.toLocaleString()}` : '-'}</TableCell>
+                              <TableCell className="text-xs py-1.5 text-slate-300">{t.party_name || '-'}</TableCell>
+                              <TableCell className="text-xs py-1.5 text-slate-400">{t.bill_no || '-'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div></CardContent>
+                  </Card>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
       {/* ===== PARTS MASTER TAB ===== */}

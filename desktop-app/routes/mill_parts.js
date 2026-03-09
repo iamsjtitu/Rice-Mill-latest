@@ -394,5 +394,153 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
   doc.end();
 }));
 
+
+// ============ SINGLE PART SUMMARY EXPORT ============
+router.get('/api/mill-parts/part-summary/excel', safeAsync(async (req, res) => {
+  const { part_name, kms_year, season } = req.query;
+  if (!part_name) return res.status(400).json({ detail: 'part_name required' });
+  if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
+  if (!database.data.mill_parts) database.data.mill_parts = [];
+  let txns = database.data.mill_parts_stock.filter(t => t.part_name === part_name);
+  if (kms_year) txns = txns.filter(t => t.kms_year === kms_year);
+  if (season) txns = txns.filter(t => t.season === season);
+  txns.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const partInfo = database.data.mill_parts.find(p => p.name === part_name) || {};
+  const unit = partInfo.unit || 'Pcs';
+  const category = partInfo.category || 'General';
+  const stockIn = +txns.filter(t => t.txn_type === 'in').reduce((s, t) => s + (t.quantity || 0), 0).toFixed(2);
+  const stockUsed = +txns.filter(t => t.txn_type !== 'in').reduce((s, t) => s + (t.quantity || 0), 0).toFixed(2);
+  const purchaseAmt = +txns.filter(t => t.txn_type === 'in').reduce((s, t) => s + (t.total_amount || t.total_cost || 0), 0).toFixed(2);
+  const parties = {};
+  txns.filter(t => t.txn_type === 'in' && t.party_name).forEach(t => {
+    if (!parties[t.party_name]) parties[t.party_name] = { qty: 0, amount: 0 };
+    parties[t.party_name].qty += (t.quantity || 0);
+    parties[t.party_name].amount += (t.total_amount || t.total_cost || 0);
+  });
+  const ExcelJS = require('exceljs');
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(part_name + ' Summary');
+  // Title
+  ws.mergeCells('A1:F1'); ws.getCell('A1').value = `${part_name} - Part Summary`;
+  ws.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF1a365d' } };
+  ws.getCell('A1').alignment = { horizontal: 'center' };
+  ws.mergeCells('A2:F2'); ws.getCell('A2').value = `Category: ${category} | Unit: ${unit}`;
+  ws.getCell('A2').font = { size: 10, italic: true, color: { argb: 'FF666666' } };
+  ws.getCell('A2').alignment = { horizontal: 'center' };
+  // Overview
+  ws.getCell('A4').value = 'STOCK OVERVIEW'; ws.getCell('A4').font = { bold: true, size: 12, color: { argb: 'FF1a365d' } };
+  ['Stock In', 'Stock Used', 'Current Stock', 'Total Purchase'].forEach((h, i) => {
+    const c = ws.getCell(5, i + 1); c.value = h;
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
+    c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+    c.alignment = { horizontal: 'center' };
+  });
+  [stockIn, stockUsed, +(stockIn - stockUsed).toFixed(2), `Rs.${purchaseAmt.toLocaleString()}`].forEach((v, i) => {
+    const c = ws.getCell(6, i + 1); c.value = v;
+    c.font = { bold: true, size: 11 }; c.alignment = { horizontal: 'center' };
+  });
+  let row = 8;
+  // Parties
+  const partyKeys = Object.keys(parties).sort();
+  if (partyKeys.length) {
+    ws.getCell(`A${row}`).value = 'PARTY-WISE PURCHASE'; ws.getCell(`A${row}`).font = { bold: true, size: 12, color: { argb: 'FF1a365d' } }; row++;
+    ['Party Name', 'Quantity', 'Amount (Rs.)'].forEach((h, i) => {
+      const c = ws.getCell(row, i + 1); c.value = h;
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+    }); row++;
+    partyKeys.forEach(pn => {
+      ws.getCell(row, 1).value = pn; ws.getCell(row, 1).font = { bold: true, size: 10 };
+      ws.getCell(row, 2).value = +parties[pn].qty.toFixed(2);
+      ws.getCell(row, 3).value = +parties[pn].amount.toFixed(2); row++;
+    });
+    ws.getCell(row, 1).value = 'TOTAL'; ws.getCell(row, 1).font = { bold: true };
+    ws.getCell(row, 2).value = +partyKeys.reduce((s, k) => s + parties[k].qty, 0).toFixed(2); ws.getCell(row, 2).font = { bold: true };
+    ws.getCell(row, 3).value = +partyKeys.reduce((s, k) => s + parties[k].amount, 0).toFixed(2); ws.getCell(row, 3).font = { bold: true };
+    row += 2;
+  }
+  // Transactions
+  ws.getCell(`A${row}`).value = 'ALL TRANSACTIONS'; ws.getCell(`A${row}`).font = { bold: true, size: 12, color: { argb: 'FF1a365d' } }; row++;
+  ['Date', 'Type', 'Qty', 'Rate', 'Amount', 'Party', 'Bill No', 'Remark'].forEach((h, i) => {
+    const c = ws.getCell(row, i + 1); c.value = h;
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
+    c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+  }); row++;
+  txns.forEach(t => {
+    ws.getCell(row, 1).value = t.date || '';
+    ws.getCell(row, 2).value = t.txn_type === 'in' ? 'IN' : 'USED';
+    ws.getCell(row, 3).value = t.quantity || 0;
+    ws.getCell(row, 4).value = t.rate || 0;
+    ws.getCell(row, 5).value = t.total_amount || t.total_cost || 0;
+    ws.getCell(row, 6).value = t.party_name || '';
+    ws.getCell(row, 7).value = t.bill_no || '';
+    ws.getCell(row, 8).value = t.remark || '';
+    for (let ci = 1; ci <= 8; ci++) ws.getCell(row, ci).font = { size: 9 };
+    row++;
+  });
+  [12, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => ws.getColumn(i + 1).width = w);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.xlsx`);
+  await wb.xlsx.write(res); res.end();
+}));
+
+router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
+  const { part_name, kms_year, season } = req.query;
+  if (!part_name) return res.status(400).json({ detail: 'part_name required' });
+  if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
+  if (!database.data.mill_parts) database.data.mill_parts = [];
+  let txns = database.data.mill_parts_stock.filter(t => t.part_name === part_name);
+  if (kms_year) txns = txns.filter(t => t.kms_year === kms_year);
+  if (season) txns = txns.filter(t => t.season === season);
+  txns.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const partInfo = database.data.mill_parts.find(p => p.name === part_name) || {};
+  const unit = partInfo.unit || 'Pcs';
+  const category = partInfo.category || 'General';
+  const stockIn = +txns.filter(t => t.txn_type === 'in').reduce((s, t) => s + (t.quantity || 0), 0).toFixed(2);
+  const stockUsed = +txns.filter(t => t.txn_type !== 'in').reduce((s, t) => s + (t.quantity || 0), 0).toFixed(2);
+  const purchaseAmt = +txns.filter(t => t.txn_type === 'in').reduce((s, t) => s + (t.total_amount || t.total_cost || 0), 0).toFixed(2);
+  const parties = {};
+  txns.filter(t => t.txn_type === 'in' && t.party_name).forEach(t => {
+    if (!parties[t.party_name]) parties[t.party_name] = { qty: 0, amount: 0 };
+    parties[t.party_name].qty += (t.quantity || 0);
+    parties[t.party_name].amount += (t.total_amount || t.total_cost || 0);
+  });
+  const PDFDocument = require('pdfkit');
+  const { addPdfHeader: _addPdfH, addPdfTable } = require('./pdf_helpers');
+  const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.pdf`);
+  doc.pipe(res);
+  _addPdfH(doc, `${part_name} - Part Summary`, branding);
+  doc.fontSize(9).fillColor('#666666').text(`Category: ${category} | Unit: ${unit}`, { align: 'center' });
+  doc.moveDown(0.5);
+  // Overview
+  doc.fontSize(11).fillColor('#1a365d').font('Helvetica-Bold').text('Stock Overview');
+  doc.moveDown(0.3);
+  addPdfTable(doc, ['Stock In', 'Stock Used', 'Current Stock', 'Total Purchase'],
+    [[`${stockIn} ${unit}`, `${stockUsed} ${unit}`, `${+(stockIn - stockUsed).toFixed(2)} ${unit}`, `Rs.${purchaseAmt.toLocaleString()}`]], [130, 130, 130, 150]);
+  doc.moveDown(0.5);
+  // Parties
+  const partyKeys = Object.keys(parties).sort();
+  if (partyKeys.length) {
+    doc.fontSize(11).fillColor('#1a365d').font('Helvetica-Bold').text('Party-wise Purchase');
+    doc.moveDown(0.3);
+    const pRows = partyKeys.map(k => [k, (+parties[k].qty.toFixed(2)).toString(), `Rs.${(+parties[k].amount.toFixed(2)).toLocaleString()}`]);
+    pRows.push(['TOTAL', (+partyKeys.reduce((s, k) => s + parties[k].qty, 0).toFixed(2)).toString(), `Rs.${(+partyKeys.reduce((s, k) => s + parties[k].amount, 0).toFixed(2)).toLocaleString()}`]);
+    addPdfTable(doc, ['Party Name', `Qty (${unit})`, 'Amount (Rs.)'], pRows, [180, 100, 130]);
+    doc.moveDown(0.5);
+  }
+  // Transactions
+  if (txns.length) {
+    doc.fontSize(11).fillColor('#1a365d').font('Helvetica-Bold').text('All Transactions');
+    doc.moveDown(0.3);
+    const tRows = txns.map(t => [t.date||'', t.txn_type==='in'?'IN':'USED', t.quantity||0, t.rate||0,
+      (t.total_amount||t.total_cost||0), t.party_name||'-', t.bill_no||'-']);
+    addPdfTable(doc, ['Date','Type','Qty','Rate','Amount','Party','Bill No'], tRows, [60,40,40,45,60,100,60]);
+  }
+  doc.end();
+}));
+
   return router;
 };

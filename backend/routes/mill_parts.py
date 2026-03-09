@@ -453,3 +453,264 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=mill_parts_transactions_{datetime.now().strftime('%Y%m%d')}.pdf"})
+
+
+# ============ SINGLE PART SUMMARY EXPORT ============
+
+@router.get("/mill-parts/part-summary/excel")
+async def export_part_summary_excel(part_name: str, kms_year: Optional[str] = None, season: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from fastapi.responses import StreamingResponse
+    import io
+
+    if not part_name:
+        raise HTTPException(status_code=400, detail="part_name required")
+
+    query = {"part_name": part_name}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    txns = await db.mill_parts_stock.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    part_info = await db.mill_parts.find_one({"name": part_name}, {"_id": 0})
+
+    stock_in = sum(t.get("quantity", 0) for t in txns if t.get("txn_type") == "in")
+    stock_used = sum(t.get("quantity", 0) for t in txns if t.get("txn_type") != "in")
+    purchase_amt = sum(t.get("total_amount", 0) for t in txns if t.get("txn_type") == "in")
+    unit = (part_info or {}).get("unit", "Pcs")
+    category = (part_info or {}).get("category", "General")
+
+    parties = {}
+    for t in txns:
+        if t.get("txn_type") == "in" and t.get("party_name"):
+            pn = t["party_name"]
+            if pn not in parties:
+                parties[pn] = {"qty": 0, "amount": 0}
+            parties[pn]["qty"] += t.get("quantity", 0)
+            parties[pn]["amount"] += t.get("total_amount", 0)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"{part_name} Summary"
+    thin = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
+                  top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
+    hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
+    hdr_font = Font(bold=True, color='FFFFFF', size=10)
+    alt_fill = PatternFill(start_color='f0f7ff', end_color='f0f7ff', fill_type='solid')
+
+    # Title
+    ws.merge_cells('A1:F1')
+    ws['A1'] = f"{part_name} - Part Summary"
+    ws['A1'].font = Font(bold=True, size=16, color='1a365d')
+    ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A2:F2')
+    ws['A2'] = f"Category: {category} | Unit: {unit} | {kms_year or ''} {season or ''}"
+    ws['A2'].font = Font(size=10, italic=True, color='666666')
+    ws['A2'].alignment = Alignment(horizontal='center')
+
+    # Stock Overview
+    r = 4
+    ws.cell(r, 1, "STOCK OVERVIEW").font = Font(bold=True, size=12, color='1a365d')
+    r = 5
+    for h in ["Stock In", "Stock Used", "Current Stock", "Total Purchase"]:
+        c = ws.cell(r, ["Stock In", "Stock Used", "Current Stock", "Total Purchase"].index(h) + 1, h)
+        c.fill = hdr_fill; c.font = hdr_font; c.border = thin; c.alignment = Alignment(horizontal='center')
+    r = 6
+    for i, v in enumerate([round(stock_in, 2), round(stock_used, 2), round(stock_in - stock_used, 2), f"Rs.{round(purchase_amt, 2):,.2f}"]):
+        c = ws.cell(r, i + 1, v)
+        c.font = Font(bold=True, size=11)
+        c.border = thin
+        c.alignment = Alignment(horizontal='center')
+
+    # Party-wise Purchase
+    if parties:
+        r = 8
+        ws.cell(r, 1, "PARTY-WISE PURCHASE").font = Font(bold=True, size=12, color='1a365d')
+        r = 9
+        for i, h in enumerate(["Party Name", "Quantity", "Amount (Rs.)"]):
+            c = ws.cell(r, i + 1, h)
+            c.fill = hdr_fill; c.font = hdr_font; c.border = thin; c.alignment = Alignment(horizontal='center')
+        r = 10
+        for idx, (pname, pdata) in enumerate(sorted(parties.items())):
+            ws.cell(r, 1, pname).border = thin
+            ws.cell(r, 2, round(pdata["qty"], 2)).border = thin
+            ws.cell(r, 3, round(pdata["amount"], 2)).border = thin
+            if idx % 2 == 1:
+                for ci in range(1, 4):
+                    ws.cell(r, ci).fill = alt_fill
+            ws.cell(r, 1).font = Font(size=10, bold=True)
+            ws.cell(r, 2).font = Font(size=10)
+            ws.cell(r, 3).font = Font(size=10)
+            r += 1
+        # Party total
+        ws.cell(r, 1, "TOTAL").font = Font(bold=True, size=10, color='1a365d')
+        ws.cell(r, 2, round(sum(p["qty"] for p in parties.values()), 2)).font = Font(bold=True, size=10)
+        ws.cell(r, 3, round(sum(p["amount"] for p in parties.values()), 2)).font = Font(bold=True, size=10)
+        for ci in range(1, 4):
+            ws.cell(r, ci).border = thin
+        r += 1
+
+    # Transactions
+    tr = r + 1 if parties else 8
+    ws.cell(tr, 1, "ALL TRANSACTIONS").font = Font(bold=True, size=12, color='1a365d')
+    tr += 1
+    txn_headers = ["Date", "Type", "Qty", "Rate", "Amount (Rs.)", "Party", "Bill No", "Remark"]
+    for i, h in enumerate(txn_headers):
+        c = ws.cell(tr, i + 1, h)
+        c.fill = hdr_fill; c.font = hdr_font; c.border = thin; c.alignment = Alignment(horizontal='center')
+    tr += 1
+    in_fill = PatternFill(start_color='dcfce7', end_color='dcfce7', fill_type='solid')
+    used_fill = PatternFill(start_color='fee2e2', end_color='fee2e2', fill_type='solid')
+    for idx, t in enumerate(txns):
+        typ = "IN" if t.get("txn_type") == "in" else "USED"
+        amt = t.get("total_amount") or 0
+        vals = [t.get("date",""), typ, t.get("quantity",0), t.get("rate",0), amt, t.get("party_name",""), t.get("bill_no",""), t.get("remark","")]
+        for ci, v in enumerate(vals):
+            c = ws.cell(tr, ci + 1, v)
+            c.border = thin
+            c.font = Font(size=9)
+            if ci == 1:
+                c.fill = in_fill if typ == "IN" else used_fill
+        tr += 1
+
+    widths = [12, 8, 8, 10, 14, 18, 12, 18]
+    for i, w in enumerate(widths):
+        ws.column_dimensions[chr(65 + i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = f"{part_name.replace(' ', '_')}_summary_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@router.get("/mill-parts/part-summary/pdf")
+async def export_part_summary_pdf(part_name: str, kms_year: Optional[str] = None, season: Optional[str] = None):
+    from fastapi.responses import StreamingResponse
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    import io
+
+    if not part_name:
+        raise HTTPException(status_code=400, detail="part_name required")
+
+    query = {"part_name": part_name}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    txns = await db.mill_parts_stock.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    part_info = await db.mill_parts.find_one({"name": part_name}, {"_id": 0})
+
+    stock_in = sum(t.get("quantity", 0) for t in txns if t.get("txn_type") == "in")
+    stock_used = sum(t.get("quantity", 0) for t in txns if t.get("txn_type") != "in")
+    purchase_amt = sum(t.get("total_amount", 0) for t in txns if t.get("txn_type") == "in")
+    unit = (part_info or {}).get("unit", "Pcs")
+    category = (part_info or {}).get("category", "General")
+
+    parties = {}
+    for t in txns:
+        if t.get("txn_type") == "in" and t.get("party_name"):
+            pn = t["party_name"]
+            if pn not in parties:
+                parties[pn] = {"qty": 0, "amount": 0}
+            parties[pn]["qty"] += t.get("quantity", 0)
+            parties[pn]["amount"] += t.get("total_amount", 0)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=25, bottomMargin=25)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle('CustomTitle', parent=styles['Title'], fontSize=18, textColor=colors.HexColor('#1a365d'), spaceAfter=4)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#666666'), alignment=1, spaceAfter=10)
+    section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a365d'), spaceBefore=14, spaceAfter=6)
+
+    elements = [
+        Paragraph(f"{part_name} - Part Summary", title_style),
+        Paragraph(f"Category: {category} | Unit: {unit} | {kms_year or ''} {season or ''}", subtitle_style),
+    ]
+
+    # Stock Overview
+    elements.append(Paragraph("Stock Overview", section_style))
+    overview_data = [
+        ["Stock In", "Stock Used", "Current Stock", "Total Purchase"],
+        [f"{round(stock_in, 2)} {unit}", f"{round(stock_used, 2)} {unit}",
+         f"{round(stock_in - stock_used, 2)} {unit}", f"Rs.{round(purchase_amt, 2):,.2f}"],
+    ]
+    ot = RTable(overview_data, colWidths=[130, 130, 130, 150])
+    ot.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (-1, 1), 11),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#f0f7ff')),
+    ]))
+    elements.append(ot)
+
+    # Party-wise Purchase
+    if parties:
+        elements.append(Paragraph("Party-wise Purchase", section_style))
+        party_data = [["Party Name", f"Quantity ({unit})", "Amount (Rs.)"]]
+        for pname in sorted(parties):
+            pdata = parties[pname]
+            party_data.append([pname, round(pdata["qty"], 2), f"Rs.{round(pdata['amount'], 2):,.2f}"])
+        party_data.append(["TOTAL", round(sum(p["qty"] for p in parties.values()), 2),
+                           f"Rs.{round(sum(p['amount'] for p in parties.values()), 2):,.2f}"])
+
+        pt = RTable(party_data, colWidths=[180, 100, 130])
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+            ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ]
+        for i in range(1, len(party_data) - 1):
+            if i % 2 == 0:
+                style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8fafc')))
+        pt.setStyle(TableStyle(style_cmds))
+        elements.append(pt)
+
+    # Transactions
+    if txns:
+        elements.append(Paragraph("All Transactions", section_style))
+        txn_data = [["Date", "Type", "Qty", "Rate", "Amount (Rs.)", "Party", "Bill No", "Remark"]]
+        for t in txns:
+            typ = "IN" if t.get("txn_type") == "in" else "USED"
+            amt = t.get("total_amount") or 0
+            txn_data.append([t.get("date",""), typ, t.get("quantity",0), t.get("rate",0),
+                             f"Rs.{amt:,.0f}" if amt else "-", t.get("party_name",""),
+                             t.get("bill_no",""), (t.get("remark","") or "")[:20]])
+
+        col_widths = [58, 35, 35, 45, 65, 100, 55, 80]
+        tt = RTable(txn_data, colWidths=col_widths, repeatRows=1)
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+            ('ALIGN', (2, 0), (4, -1), 'RIGHT'),
+        ]
+        for i, t in enumerate(txns, 1):
+            bg = colors.HexColor('#f0fdf4') if t.get('txn_type') == 'in' else colors.HexColor('#fef2f2')
+            if i % 2 == 0:
+                bg = colors.HexColor('#dcfce7') if t.get('txn_type') == 'in' else colors.HexColor('#fee2e2')
+            style_cmds.append(('BACKGROUND', (0, i), (-1, i), bg))
+        tt.setStyle(TableStyle(style_cmds))
+        elements.append(tt)
+
+    doc.build(elements)
+    buf.seek(0)
+    fname = f"{part_name.replace(' ', '_')}_summary_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={fname}"})
