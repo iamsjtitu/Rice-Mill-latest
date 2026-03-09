@@ -278,32 +278,36 @@ const DailyReport = ({ filters }) => {
                 <DetailTable
                   headers={[
                     {key:'truck',label:'Truck',align:'left'},{key:'agent',label:'Agent',align:'left'},{key:'mandi',label:'Mandi',align:'left'},
-                    {key:'rst',label:'RST',align:'left'},{key:'tp',label:'TP No',align:'left'},
+                    {key:'rst',label:'RST',align:'left'},{key:'tp',label:'TP',align:'left'},
                     {key:'qntl',label:'QNTL',align:'right'},{key:'bags',label:'Bags',align:'right'},
-                    {key:'gdep',label:'G.Dep',align:'right'},{key:'gbw',label:'GBW Cut',align:'right'},
-                    {key:'ppkt',label:'P.Pkt',align:'right'},{key:'ppkt_cut',label:'P.Pkt Cut',align:'right'},
-                    {key:'mill_w',label:'Mill W',align:'right'},{key:'cut',label:'Cut%',align:'right'},
-                    {key:'final',label:'Final W',align:'right'},
-                    {key:'gissued',label:'G.Issued',align:'right'},{key:'cash',label:'Cash',align:'right'},{key:'diesel',label:'Diesel',align:'right'}
+                    {key:'gdep',label:'G.Dep',align:'right'},{key:'gbw',label:'GBW',align:'right'},
+                    {key:'ppkt',label:'P.Pkt',align:'right'},{key:'ppkt_cut',label:'P.Cut',align:'right'},
+                    {key:'mill_w',label:'Mill W',align:'right'},{key:'moist',label:'M%',align:'right'},
+                    {key:'mcut',label:'M.Cut',align:'right'},{key:'cut',label:'C%',align:'right'},
+                    {key:'ddp',label:'D/D/P',align:'right'},{key:'final',label:'Final W',align:'right'},
+                    {key:'gissued',label:'G.Iss',align:'right'},{key:'cash',label:'Cash',align:'right'},{key:'diesel',label:'Diesel',align:'right'}
                   ]}
                   rows={data.paddy_entries.details.map((d,i) => (<>
-                    <td className="py-1 px-2 text-white">{d.truck_no}</td>
-                    <td className="py-1 px-2 text-slate-300">{d.agent}</td>
-                    <td className="py-1 px-2 text-slate-300">{d.mandi}</td>
-                    <td className="py-1 px-2 text-slate-400">{d.rst_no || '-'}</td>
-                    <td className="py-1 px-2 text-slate-400">{d.tp_no || '-'}</td>
-                    <td className="py-1 px-2 text-right text-green-400 font-semibold">{(d.kg / 100).toFixed(2)}</td>
-                    <td className="py-1 px-2 text-right text-slate-300">{d.bags}</td>
-                    <td className="py-1 px-2 text-right text-cyan-400">{d.g_deposite || 0}</td>
-                    <td className="py-1 px-2 text-right text-slate-400">{((d.gbw_cut || 0) / 100).toFixed(2)}</td>
-                    <td className="py-1 px-2 text-right text-slate-300">{d.plastic_bag || 0}</td>
-                    <td className="py-1 px-2 text-right text-slate-400">{((d.p_pkt_cut || 0) / 100).toFixed(2)}</td>
-                    <td className="py-1 px-2 text-right text-blue-400">{(d.mill_w / 100).toFixed(2)}</td>
-                    <td className="py-1 px-2 text-right text-purple-400">{d.cutting_percent}%</td>
-                    <td className="py-1 px-2 text-right text-amber-400 font-semibold">{(d.final_w / 100).toFixed(2)}</td>
-                    <td className="py-1 px-2 text-right text-cyan-400">{d.g_issued}</td>
-                    <td className="py-1 px-2 text-right text-green-300">{d.cash_paid || 0}</td>
-                    <td className="py-1 px-2 text-right text-orange-400">{d.diesel_paid || 0}</td>
+                    <td className="py-1 px-1.5 text-white whitespace-nowrap">{d.truck_no}</td>
+                    <td className="py-1 px-1.5 text-slate-300 whitespace-nowrap">{d.agent}</td>
+                    <td className="py-1 px-1.5 text-slate-300 whitespace-nowrap">{d.mandi}</td>
+                    <td className="py-1 px-1.5 text-slate-400 whitespace-nowrap">{d.rst_no || '-'}</td>
+                    <td className="py-1 px-1.5 text-slate-400 whitespace-nowrap">{d.tp_no || '-'}</td>
+                    <td className="py-1 px-1.5 text-right text-green-400 font-semibold">{(d.kg / 100).toFixed(2)}</td>
+                    <td className="py-1 px-1.5 text-right text-slate-300">{d.bags}</td>
+                    <td className="py-1 px-1.5 text-right text-cyan-400">{d.g_deposite || 0}</td>
+                    <td className="py-1 px-1.5 text-right text-slate-400">{((d.gbw_cut || 0) / 100).toFixed(2)}</td>
+                    <td className="py-1 px-1.5 text-right text-pink-400">{d.plastic_bag || 0}</td>
+                    <td className="py-1 px-1.5 text-right text-pink-300">{((d.p_pkt_cut || 0) / 100).toFixed(2)}</td>
+                    <td className="py-1 px-1.5 text-right text-blue-400">{(d.mill_w / 100).toFixed(2)}</td>
+                    <td className="py-1 px-1.5 text-right text-orange-400">{d.moisture || 0}</td>
+                    <td className="py-1 px-1.5 text-right text-orange-300">{((d.moisture_cut || 0) / 100).toFixed(2)}</td>
+                    <td className="py-1 px-1.5 text-right text-purple-400">{d.cutting_percent}%</td>
+                    <td className="py-1 px-1.5 text-right text-slate-400">{d.disc_dust_poll || 0}</td>
+                    <td className="py-1 px-1.5 text-right text-amber-400 font-semibold">{(d.final_w / 100).toFixed(2)}</td>
+                    <td className="py-1 px-1.5 text-right text-cyan-400">{d.g_issued}</td>
+                    <td className="py-1 px-1.5 text-right text-green-300">{d.cash_paid || 0}</td>
+                    <td className="py-1 px-1.5 text-right text-orange-400">{d.diesel_paid || 0}</td>
                   </>))}
                 />
               ) : (
