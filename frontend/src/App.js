@@ -841,152 +841,16 @@ function MainApp({ user, onLogout }) {
     toast.success("Excel download ho raha hai!");
   };
 
-  const handleExportPDF = () => {
-    const pdfContent = `
-      <html>
-        <head>
-          <title>Navkar Agro - Mill Entries</title>
-          <style>
-            @page { size: A4 landscape; margin: 8mm; }
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { 
-              font-family: Arial, sans-serif; 
-              font-size: 7px;
-              background: #f8fafc;
-            }
-            .container {
-              background: white;
-              padding: 8px;
-              border-radius: 4px;
-            }
-            .header {
-              background: linear-gradient(135deg, #d97706, #b45309);
-              color: white;
-              padding: 8px 12px;
-              border-radius: 4px 4px 0 0;
-              text-align: center;
-              margin-bottom: 6px;
-            }
-            .header h1 { 
-              font-size: 14px; 
-              margin-bottom: 2px;
-              text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-            }
-            .header p { font-size: 9px; opacity: 0.9; }
-            table { 
-              width: 100%; 
-              border-collapse: collapse;
-              font-size: 6.5px;
-              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            }
-            th { 
-              background: linear-gradient(180deg, #1e293b, #0f172a);
-              color: white; 
-              padding: 4px 2px;
-              font-weight: bold;
-              font-size: 6.5px;
-              text-transform: uppercase;
-              letter-spacing: 0.3px;
-            }
-            td { 
-              padding: 3px 2px;
-              border: 1px solid #e2e8f0;
-            }
-            tr:nth-child(even) { background-color: #f1f5f9; }
-            tr:hover { background-color: #e0f2fe; }
-            .totals { 
-              background: linear-gradient(180deg, #fef3c7, #fde68a) !important; 
-              font-weight: bold;
-              font-size: 7px;
-            }
-            .totals td { border-top: 2px solid #d97706; }
-            .qntl { background-color: #d1fae5 !important; color: #065f46; font-weight: bold; }
-            .gunny { background-color: #dbeafe !important; color: #1e40af; }
-            .final { background-color: #fde68a !important; color: #92400e; font-weight: bold; }
-            .cash { background-color: #fce7f3 !important; color: #9d174d; }
-            .right { text-align: right; }
-            .center { text-align: center; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>${branding.company_name} - ${branding.tagline}</h1>
-              <p>KMS: ${filters.kms_year || "All"} | ${filters.season || "All Seasons"} | Generated: ${new Date().toLocaleDateString('en-IN')}</p>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Truck</th>
-                  <th>Agent</th>
-                  <th>Mandi</th>
-                  <th>QNTL</th>
-                  <th>BAG</th>
-                  <th>G.Dep</th>
-                  <th>GBW</th>
-                  <th>P.Pkt</th>
-                  <th>P.Cut</th>
-                  <th>Mill W</th>
-                  <th>M%</th>
-                  <th>M.Cut</th>
-                  <th>C%</th>
-                  <th>D/D/P</th>
-                  <th>Final W</th>
-                  <th>G.Iss</th>
-                  <th>Cash</th>
-                  <th>Diesel</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${entries.map(entry => `
-                  <tr>
-                    <td>${entry.date?.substring(5) || ''}</td>
-                    <td>${entry.truck_no}</td>
-                    <td>${entry.agent_name}</td>
-                    <td>${entry.mandi_name}</td>
-                    <td class="qntl right">${entry.qntl?.toFixed(2)}</td>
-                    <td class="right">${entry.bag}</td>
-                    <td class="gunny right">${entry.g_deposite || 0}</td>
-                    <td class="right">${(entry.gbw_cut / 100)?.toFixed(2)}</td>
-                    <td class="right">${entry.plastic_bag || 0}</td>
-                    <td class="right">${(entry.p_pkt_cut / 100)?.toFixed(2)}</td>
-                    <td class="right">${(entry.mill_w / 100)?.toFixed(2)}</td>
-                    <td class="center">${entry.moisture || 0}</td>
-                    <td class="right">${((entry.moisture_cut || 0) / 100)?.toFixed(2)}</td>
-                    <td class="center">${entry.cutting_percent}</td>
-                    <td class="right">${entry.disc_dust_poll || 0}</td>
-                    <td class="final right">${(entry.final_w / 100)?.toFixed(2)}</td>
-                    <td class="right">${entry.g_issued || 0}</td>
-                    <td class="cash right">${entry.cash_paid || 0}</td>
-                    <td class="cash right">${entry.diesel_paid || 0}</td>
-                  </tr>
-                `).join('')}
-                <tr class="totals">
-                  <td colspan="4"><strong>TOTAL (${entries.length} entries)</strong></td>
-                  <td class="qntl right">${totals.total_qntl?.toFixed(2)}</td>
-                  <td class="right">${totals.total_bag}</td>
-                  <td class="gunny right">${totals.total_g_deposite || 0}</td>
-                  <td class="right">${(totals.total_gbw_cut / 100)?.toFixed(2)}</td>
-                  <td class="right">-</td>
-                  <td class="right">${((totals.total_p_pkt_cut || 0) / 100)?.toFixed(2)}</td>
-                  <td class="right">${(totals.total_mill_w / 100)?.toFixed(2)}</td>
-                  <td class="center">-</td>
-                  <td class="center">-</td>
-                  <td class="center">-</td>
-                  <td class="right">${totals.total_disc_dust_poll || 0}</td>
-                  <td class="final right">${(totals.total_final_w / 100)?.toFixed(2)}</td>
-                  <td class="right">${totals.total_g_issued || 0}</td>
-                  <td class="cash right">${totals.total_cash_paid || 0}</td>
-                  <td class="cash right">${totals.total_diesel_paid || 0}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </body>
-      </html>
-    `;
-    safePrintHTML(pdfContent);
+  const handleExportPDF = async () => {
+    const params = new URLSearchParams();
+    if (filters.truck_no) params.append('truck_no', filters.truck_no);
+    if (filters.agent_name) params.append('agent_name', filters.agent_name);
+    if (filters.mandi_name) params.append('mandi_name', filters.mandi_name);
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    
+    const { downloadFile } = await import('./utils/download');
+    downloadFile(`/api/export/pdf?${params.toString()}`, 'mill_entries.pdf');
     toast.success("PDF generate ho raha hai!");
   };
 

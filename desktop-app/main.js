@@ -1453,13 +1453,13 @@ function createApiServer(database) {
   apiApp.get('/api/export/pdf', safeSync((req, res) => {
     try {
       const entries = database.getEntries(req.query);
-      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 20 });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Mill Entries Report');
-      const h = ['Date','Truck','Agent','Mandi','QNTL','BAG','Mill W','Cut%','Final W','Cash','Diesel'];
-      const rows = entries.map(e => [e.date||'',e.truck_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,((e.mill_w||0)/100).toFixed(2),e.cutting_percent||0,((e.final_w||0)/100).toFixed(2),e.cash_paid||0,e.diesel_paid||0]);
-      addPdfTable(doc, h, rows, [55,60,60,60,40,35,45,35,50,45,45]); doc.end();
+      const h = ['Date','Truck','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss','Cash','Diesel'];
+      const rows = entries.map(e => [e.date||'',e.truck_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,e.g_deposite||0,((e.gbw_cut||0)/100).toFixed(2),e.plastic_bag||0,((e.p_pkt_cut||0)/100).toFixed(2),((e.mill_w||0)/100).toFixed(2),e.moisture||0,((e.moisture_cut||0)/100).toFixed(2),e.cutting_percent||0,e.disc_dust_poll||0,((e.final_w||0)/100).toFixed(2),e.g_issued||0,e.cash_paid||0,e.diesel_paid||0]);
+      addPdfTable(doc, h, rows, [38,38,38,38,32,24,24,28,24,28,34,22,28,22,24,34,26,30,30]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
