@@ -29,7 +29,7 @@ export default function MillPartsStock({ filters, user }) {
   const [editingStock, setEditingStock] = useState(null);
   const [editDialog, setEditDialog] = useState(false);
   const [searchPart, setSearchPart] = useState("");
-  const [txnFilters, setTxnFilters] = useState({ date_from: "", date_to: "", part_name: "", txn_type: "" });
+  const [txnFilters, setTxnFilters] = useState({ date_from: "", date_to: "", part_name: "", txn_type: "", party_name: "" });
 
   const fetchAll = useCallback(async () => {
     try {
@@ -42,6 +42,7 @@ export default function MillPartsStock({ filters, user }) {
       if (txnFilters.date_to) tp.append('date_to', txnFilters.date_to);
       if (txnFilters.part_name) tp.append('part_name', txnFilters.part_name);
       if (txnFilters.txn_type) tp.append('txn_type', txnFilters.txn_type);
+      if (txnFilters.party_name) tp.append('party_name', txnFilters.party_name);
       const [partsRes, summaryRes, stockRes] = await Promise.all([
         axios.get(`${API}/mill-parts`),
         axios.get(`${API}/mill-parts/summary?${p}`),
@@ -129,6 +130,7 @@ export default function MillPartsStock({ filters, user }) {
     if (txnFilters.date_to) p.append('date_to', txnFilters.date_to);
     if (txnFilters.part_name) p.append('part_name', txnFilters.part_name);
     if (txnFilters.txn_type) p.append('txn_type', txnFilters.txn_type);
+    if (txnFilters.party_name) p.append('party_name', txnFilters.party_name);
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/mill-parts-stock/export/${format}?${p}`, `mill_parts_txns.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
@@ -279,8 +281,13 @@ export default function MillPartsStock({ filters, user }) {
                 </SelectContent>
               </Select>
             </div>
-            {(txnFilters.date_from || txnFilters.date_to || txnFilters.part_name || txnFilters.txn_type) && (
-              <Button variant="ghost" size="sm" className="text-red-400 h-8 text-xs" onClick={() => setTxnFilters({ date_from: "", date_to: "", part_name: "", txn_type: "" })} data-testid="txn-clear-filters">Clear</Button>
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5">Party</label>
+              <Input placeholder="Party name..." value={txnFilters.party_name} onChange={e => setTxnFilters(p => ({ ...p, party_name: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-36" data-testid="txn-party-filter" />
+            </div>
+            {(txnFilters.date_from || txnFilters.date_to || txnFilters.part_name || txnFilters.txn_type || txnFilters.party_name) && (
+              <Button variant="ghost" size="sm" className="text-red-400 h-8 text-xs" onClick={() => setTxnFilters({ date_from: "", date_to: "", part_name: "", txn_type: "", party_name: "" })} data-testid="txn-clear-filters">Clear</Button>
             )}
           </div>
           {/* Action buttons */}
