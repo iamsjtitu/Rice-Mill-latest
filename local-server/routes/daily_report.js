@@ -42,6 +42,9 @@ function getDailyReportData(query) {
   const partsTxns = col('mill_parts_stock').filter(t => t.date === date);
   const staffAtt = col('staff_attendance').filter(a => a.date === date);
   const allStaff = col('staff').filter(s => s.active !== false).sort((a, b) => a.name.localeCompare(b.name));
+  const dieselTxns = filterFy(col('diesel_accounts'));
+  const dieselTotalAmount = dieselTxns.filter(t => t.txn_type === 'diesel').reduce((s, t) => s + (t.amount || 0), 0);
+  const dieselTotalPaid = dieselTxns.filter(t => t.txn_type === 'payment').reduce((s, t) => s + (t.amount || 0), 0);
 
   const totalPaddyKg = entries.reduce((s, e) => s + (e.kg || 0), 0);
   const totalPaddyBags = entries.reduce((s, e) => s + (e.bag || 0), 0);
@@ -87,6 +90,10 @@ function getDailyReportData(query) {
     paddy_entries: {
       count: entries.length, total_kg: +totalPaddyKg.toFixed(2), total_bags: totalPaddyBags, total_final_w: +totalFinalW.toFixed(2),
       total_mill_w: +entries.reduce((s, e) => s + (e.mill_w || 0), 0).toFixed(2),
+      total_g_deposite: entries.reduce((s, e) => s + (e.g_deposite || 0), 0),
+      total_g_issued: entries.reduce((s, e) => s + (e.g_issued || 0), 0),
+      total_cash_paid: +entries.reduce((s, e) => s + (e.cash_paid || 0), 0).toFixed(2),
+      total_diesel_paid: +entries.reduce((s, e) => s + (e.diesel_paid || 0), 0).toFixed(2),
       details: entries.map(e => isDetail
         ? { truck_no: e.truck_no||'', agent: e.agent_name||'', mandi: e.mandi_name||'', rst_no: e.rst_no||'',
             tp_no: e.tp_no||'', season: e.season||'',
@@ -148,6 +155,12 @@ function getDailyReportData(query) {
     staff_attendance: {
       total: allStaff.length, present: presentC, absent: absentC, half_day: halfC, holiday: holidayC, not_marked: notMarkedC,
       details: staffDetails
+    },
+    pump_account: {
+      total_diesel: +dieselTotalAmount.toFixed(2),
+      total_paid: +dieselTotalPaid.toFixed(2),
+      balance: +(dieselTotalAmount - dieselTotalPaid).toFixed(2),
+      details: dieselTxns.map(t => ({ pump: t.pump_name||'', txn_type: t.txn_type||'', amount: t.amount||0, truck_no: t.truck_no||'', agent: t.agent_name||'', desc: t.description||'' }))
     }
   };
 }

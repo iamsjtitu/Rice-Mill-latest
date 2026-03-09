@@ -41,6 +41,11 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
     dc_deliveries = await db.dc_deliveries.find(q_date, {"_id": 0}).to_list(500)
     dc_delivery_qntl = sum(d.get("quantity_qntl", 0) for d in dc_deliveries)
 
+    # Diesel / Pump Account
+    diesel_txns = await db.diesel_accounts.find(q, {"_id": 0}).to_list(500)
+    diesel_total_amount = sum(t.get("amount", 0) for t in diesel_txns if t.get("txn_type") == "diesel")
+    diesel_total_paid = sum(t.get("amount", 0) for t in diesel_txns if t.get("txn_type") == "payment")
+
     # Cash Book
     cash_txns = await db.cash_transactions.find(q, {"_id": 0}).to_list(500)
     cash_jama = sum(t.get("amount", 0) for t in cash_txns if t.get("txn_type") == "jama" and t.get("account") == "cash")
@@ -95,6 +100,10 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
             "count": len(entries), "total_kg": round(total_paddy_kg, 2),
             "total_bags": total_paddy_bags, "total_final_w": round(total_final_w, 2),
             "total_mill_w": round(sum(e.get("mill_w", 0) for e in entries), 2),
+            "total_g_deposite": sum(e.get("g_deposite", 0) for e in entries),
+            "total_g_issued": sum(e.get("g_issued", 0) for e in entries),
+            "total_cash_paid": round(sum(e.get("cash_paid", 0) for e in entries), 2),
+            "total_diesel_paid": round(sum(e.get("diesel_paid", 0) for e in entries), 2),
             "details": [{"truck_no": e.get("truck_no", ""), "agent": e.get("agent_name", ""),
                 "mandi": e.get("mandi_name", ""), "rst_no": e.get("rst_no", ""),
                 "tp_no": e.get("tp_no", ""), "season": e.get("season", ""),
@@ -189,6 +198,14 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
             "present": present_c, "absent": absent_c,
             "half_day": half_c, "holiday": holiday_c, "not_marked": not_marked_c,
             "details": staff_details
+        },
+        "pump_account": {
+            "total_diesel": round(diesel_total_amount, 2),
+            "total_paid": round(diesel_total_paid, 2),
+            "balance": round(diesel_total_amount - diesel_total_paid, 2),
+            "details": [{"pump": t.get("pump_name", ""), "txn_type": t.get("txn_type", ""),
+                "amount": t.get("amount", 0), "truck_no": t.get("truck_no", ""),
+                "agent": t.get("agent_name", ""), "desc": t.get("description", "")} for t in diesel_txns]
         }
     }
     return result

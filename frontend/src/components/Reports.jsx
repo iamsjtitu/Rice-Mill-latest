@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users } from "lucide-react";
+import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -248,8 +248,25 @@ const DailyReport = ({ filters }) => {
         <div className="space-y-3">
           {/* Paddy Entries */}
           <Section title="Paddy Entries / धान" icon={Truck} color="text-blue-400" count={data.paddy_entries.count}>
-            <div className="grid grid-cols-3 gap-3 mb-2">
-              {[["Total Mill W (QNTL)", ((data.paddy_entries.total_mill_w || 0) / 100).toFixed(2), "text-white"], ["Total BAG", data.paddy_entries.total_bags, "text-amber-400"], ["Final W. QNTL (Auto)", (data.paddy_entries.total_final_w / 100).toFixed(2), "text-green-400"]].map(([l,v,c]) => (
+            <div className="grid grid-cols-4 gap-3 mb-2">
+              {[
+                ["Total Mill W (QNTL)", ((data.paddy_entries.total_mill_w || 0) / 100).toFixed(2), "text-white"],
+                ["Total BAG", data.paddy_entries.total_bags, "text-amber-400"],
+                ["Final W. QNTL (Auto)", (data.paddy_entries.total_final_w / 100).toFixed(2), "text-green-400"],
+                ["Total Bag Deposite", data.paddy_entries.total_g_deposite || 0, "text-cyan-400"],
+              ].map(([l,v,c]) => (
+                <div key={l} className="text-center p-2 bg-slate-900/50 rounded">
+                  <p className="text-[10px] text-slate-400">{l}</p>
+                  <p className={`text-lg font-bold ${c}`}>{v}</p>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-4 gap-3 mb-2">
+              {[
+                ["Total Bag Issued", data.paddy_entries.total_g_issued || 0, "text-purple-400"],
+                ["Total Cash Paid", `₹${(data.paddy_entries.total_cash_paid || 0).toLocaleString()}`, "text-green-300"],
+                ["Total Diesel Paid", `₹${(data.paddy_entries.total_diesel_paid || 0).toLocaleString()}`, "text-orange-400"],
+              ].map(([l,v,c]) => (
                 <div key={l} className="text-center p-2 bg-slate-900/50 rounded">
                   <p className="text-[10px] text-slate-400">{l}</p>
                   <p className={`text-lg font-bold ${c}`}>{v}</p>
@@ -263,6 +280,7 @@ const DailyReport = ({ filters }) => {
                     {key:'truck',label:'Truck',align:'left'},{key:'agent',label:'Agent',align:'left'},{key:'mandi',label:'Mandi',align:'left'},
                     {key:'rst',label:'RST',align:'left'},{key:'tp',label:'TP No',align:'left'},
                     {key:'qntl',label:'QNTL',align:'right'},{key:'bags',label:'Bags',align:'right'},
+                    {key:'gdep',label:'G.Dep',align:'right'},{key:'gbw',label:'GBW Cut',align:'right'},
                     {key:'mill_w',label:'Mill W',align:'right'},{key:'cut',label:'Cut%',align:'right'},
                     {key:'ppkt',label:'P.Pkt',align:'right'},{key:'ppkt_cut',label:'P.Pkt Cut',align:'right'},
                     {key:'final',label:'Final W',align:'right'},
@@ -276,6 +294,8 @@ const DailyReport = ({ filters }) => {
                     <td className="py-1 px-2 text-slate-400">{d.tp_no || '-'}</td>
                     <td className="py-1 px-2 text-right text-green-400 font-semibold">{(d.kg / 100).toFixed(2)}</td>
                     <td className="py-1 px-2 text-right text-slate-300">{d.bags}</td>
+                    <td className="py-1 px-2 text-right text-cyan-400">{d.g_deposite || 0}</td>
+                    <td className="py-1 px-2 text-right text-slate-400">{((d.gbw_cut || 0) / 100).toFixed(2)}</td>
                     <td className="py-1 px-2 text-right text-blue-400">{(d.mill_w / 100).toFixed(2)}</td>
                     <td className="py-1 px-2 text-right text-purple-400">{d.cutting_percent}%</td>
                     <td className="py-1 px-2 text-right text-slate-300">{d.plastic_bag || 0}</td>
@@ -485,6 +505,38 @@ const DailyReport = ({ filters }) => {
               </div>
             )}
           </Section>
+
+          {/* Pump Account / Diesel */}
+          {data.pump_account && (data.pump_account.total_diesel > 0 || data.pump_account.total_paid > 0) && (
+            <Section title="Pump Account / डीज़ल" icon={Fuel} color="text-orange-400">
+              <div className="grid grid-cols-3 gap-3 mb-2">
+                {[["Total Diesel", `₹${data.pump_account.total_diesel.toLocaleString('en-IN')}`, "text-orange-400"],
+                  ["Total Paid", `₹${data.pump_account.total_paid.toLocaleString('en-IN')}`, "text-green-400"],
+                  ["Balance", `₹${data.pump_account.balance.toLocaleString('en-IN')}`, "text-red-400"]
+                ].map(([l,v,c]) => (
+                  <div key={l} className="text-center p-2 bg-slate-900/50 rounded">
+                    <p className="text-[10px] text-slate-400">{l}</p>
+                    <p className={`text-sm font-bold ${c}`}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              {data.pump_account.details && data.pump_account.details.length > 0 && (
+                <DetailTable
+                  headers={[{key:'pump',label:'Pump',align:'left'},{key:'type',label:'Type',align:'left'},
+                    {key:'truck',label:'Truck',align:'left'},{key:'agent',label:'Agent',align:'left'},
+                    {key:'desc',label:'Description',align:'left'},{key:'amt',label:'Amount',align:'right'}]}
+                  rows={data.pump_account.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white">{d.pump}</td>
+                    <td className={`py-1 px-2 ${d.txn_type === 'payment' ? 'text-green-400' : 'text-orange-400'}`}>{d.txn_type === 'payment' ? 'PAID' : 'DIESEL'}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.truck_no || '-'}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.agent || '-'}</td>
+                    <td className="py-1 px-2 text-slate-400">{d.desc || '-'}</td>
+                    <td className="py-1 px-2 text-right text-amber-400 font-semibold">₹{d.amount?.toLocaleString('en-IN')}</td>
+                  </>))}
+                />
+              )}
+            </Section>
+          )}
 
           {/* DC Deliveries */}
           {data.dc_deliveries.count > 0 && (
