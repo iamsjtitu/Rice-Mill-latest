@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search, Calendar, Filter } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -29,6 +29,7 @@ export default function MillPartsStock({ filters, user }) {
   const [editingStock, setEditingStock] = useState(null);
   const [editDialog, setEditDialog] = useState(false);
   const [searchPart, setSearchPart] = useState("");
+  const [txnFilters, setTxnFilters] = useState({ date_from: "", date_to: "", part_name: "", txn_type: "" });
 
   const fetchAll = useCallback(async () => {
     try {
@@ -36,17 +37,22 @@ export default function MillPartsStock({ filters, user }) {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
+      const tp = new URLSearchParams(p);
+      if (txnFilters.date_from) tp.append('date_from', txnFilters.date_from);
+      if (txnFilters.date_to) tp.append('date_to', txnFilters.date_to);
+      if (txnFilters.part_name) tp.append('part_name', txnFilters.part_name);
+      if (txnFilters.txn_type) tp.append('txn_type', txnFilters.txn_type);
       const [partsRes, summaryRes, stockRes] = await Promise.all([
         axios.get(`${API}/mill-parts`),
         axios.get(`${API}/mill-parts/summary?${p}`),
-        axios.get(`${API}/mill-parts-stock?${p}`),
+        axios.get(`${API}/mill-parts-stock?${tp}`),
       ]);
       setParts(partsRes.data);
       setSummary(summaryRes.data);
       setStockEntries(stockRes.data);
     } catch { toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year, filters.season, txnFilters]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -113,6 +119,18 @@ export default function MillPartsStock({ filters, user }) {
     if (filters.season) p.append('season', filters.season);
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/mill-parts/summary/${format}?${p}`, `mill_parts_stock.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
+  };
+
+  const exportTxns = async (format) => {
+    const p = new URLSearchParams();
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    if (txnFilters.date_from) p.append('date_from', txnFilters.date_from);
+    if (txnFilters.date_to) p.append('date_to', txnFilters.date_to);
+    if (txnFilters.part_name) p.append('part_name', txnFilters.part_name);
+    if (txnFilters.txn_type) p.append('txn_type', txnFilters.txn_type);
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/mill-parts-stock/export/${format}?${p}`, `mill_parts_txns.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
   const lowStockParts = useMemo(() => summary.filter(s => s.min_stock > 0 && s.current_stock < s.min_stock), [summary]);
@@ -228,9 +246,51 @@ export default function MillPartsStock({ filters, user }) {
       {/* ===== TRANSACTIONS TAB ===== */}
       {activeTab === "transactions" && (
         <div className="space-y-4">
-          <div className="flex gap-2">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2 items-end">
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5"><Calendar className="w-3 h-3 inline mr-1" />From</label>
+              <Input type="date" value={txnFilters.date_from} onChange={e => setTxnFilters(p => ({ ...p, date_from: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-36" data-testid="txn-date-from" />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5">To</label>
+              <Input type="date" value={txnFilters.date_to} onChange={e => setTxnFilters(p => ({ ...p, date_to: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-36" data-testid="txn-date-to" />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5"><Filter className="w-3 h-3 inline mr-1" />Part</label>
+              <Select value={txnFilters.part_name || "all"} onValueChange={v => setTxnFilters(p => ({ ...p, part_name: v === "all" ? "" : v }))}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-40" data-testid="txn-part-filter"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Parts</SelectItem>
+                  {parts.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 block mb-0.5">Type</label>
+              <Select value={txnFilters.txn_type || "all"} onValueChange={v => setTxnFilters(p => ({ ...p, txn_type: v === "all" ? "" : v }))}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-28" data-testid="txn-type-filter"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="in">IN</SelectItem>
+                  <SelectItem value="used">USED</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {(txnFilters.date_from || txnFilters.date_to || txnFilters.part_name || txnFilters.txn_type) && (
+              <Button variant="ghost" size="sm" className="text-red-400 h-8 text-xs" onClick={() => setTxnFilters({ date_from: "", date_to: "", part_name: "", txn_type: "" })} data-testid="txn-clear-filters">Clear</Button>
+            )}
+          </div>
+          {/* Action buttons */}
+          <div className="flex gap-2 flex-wrap">
             <Button onClick={() => { setStockForm(prev => ({ ...prev, txn_type: "in" })); setStockDialog(true); }} className="bg-emerald-500 hover:bg-emerald-600 text-white" size="sm"><ArrowDown className="w-4 h-4 mr-1" /> Stock In</Button>
             <Button onClick={() => { setStockForm(prev => ({ ...prev, txn_type: "used" })); setStockDialog(true); }} className="bg-red-500 hover:bg-red-600 text-white" size="sm"><ArrowUp className="w-4 h-4 mr-1" /> Stock Used</Button>
+            <div className="ml-auto flex gap-2">
+              <Button onClick={() => exportTxns('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="txn-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
+              <Button onClick={() => exportTxns('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="txn-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+            </div>
           </div>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
             <Table>

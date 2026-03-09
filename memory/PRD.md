@@ -21,12 +21,20 @@ Rice mill management tool. 3 backends (Python/FastAPI, Node.js local-server, Ele
 - Silent error handling when no release available
 - Version auto-read from package.json in About dialog
 
-### Bug Fixes (v3.1.0)
+### v3.1.0 Fixes
 - Attendance Save Bug (desktop) - `items` → `records` mismatch
 - Daily Report Blank Page (desktop) - missing API sections added
 - Daily Report PDF redesign with colored summary boxes, grid borders
 - Mill Parts PDF - added Party, Rate, Bill No columns
-- Download progress banner fix (0% → actual percentage)
+
+### v3.2.0 - Mill Parts Export & Filters
+- Date filter (From/To) on Transactions tab
+- Part filter dropdown on Transactions tab
+- Type filter (IN/USED) on Transactions tab
+- Transaction PDF export with colored IN/USED rows
+- Transaction Excel export with professional styling
+- Summary PDF/Excel redesign with professional styling
+- All 3 backends updated
 
 ## Build Process
 ```
@@ -36,10 +44,7 @@ cp -r /app/frontend/build /app/local-server/public
 ```
 
 ## Desktop Build & Release
-```
-cd desktop-app && npm run build:win
-```
-Or via GitHub: Save to GitHub → Create Release (tag vX.Y.Z) → GitHub Actions auto builds
+GitHub: Save to GitHub → Create Release (tag vX.Y.Z) → GitHub Actions auto builds
 
 ## Credentials
 - Admin: admin / admin123 | Staff: staff / staff123

@@ -72,6 +72,8 @@ router.get('/api/mill-parts-stock', (req, res) => {
   if (req.query.kms_year) items = items.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) items = items.filter(t => t.season === req.query.season);
   if (req.query.party_name) items = items.filter(t => (t.party_name || '').toLowerCase().includes(req.query.party_name.toLowerCase()));
+  if (req.query.date_from) items = items.filter(t => (t.date || '') >= req.query.date_from);
+  if (req.query.date_to) items = items.filter(t => (t.date || '') <= req.query.date_to);
   res.json(items.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
 });
 
@@ -176,50 +178,221 @@ router.get('/api/mill-parts/summary', (req, res) => {
 });
 
 // ============ STOCK EXPORT (Excel) ============
-router.get('/api/mill-parts/summary/excel', async (req, res) => {
+router.get('/api/mill-parts/summary/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
   const summary = getStockSummary(req.query);
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Mill Parts Stock');
-  ws.mergeCells('A1:G1');
-  ws.getCell('A1').value = `Mill Parts Stock Summary${req.query.kms_year ? ' - ' + req.query.kms_year : ''}`;
-  ws.getCell('A1').font = { bold: true, size: 14 };
-  const headers = ['Part Name', 'Category', 'Unit', 'Stock In', 'Stock Used', 'Current Stock', 'Purchase Amount'];
-  const hdrRow = ws.addRow([]); ws.addRow(headers);
-  ws.getRow(3).eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }; });
-  for (const s of summary) {
-    ws.addRow([s.part_name, s.category, s.unit, s.stock_in, s.stock_used, s.current_stock, s.total_purchase_amount]);
-  }
-  for (let i = 1; i <= 7; i++) ws.getColumn(i).width = 18;
+  ws.mergeCells('A1:H1');
+  const title = `Mill Parts Stock Summary${req.query.kms_year ? ' - ' + req.query.kms_year : ''}${req.query.season ? ' (' + req.query.season + ')' : ''}`;
+  ws.getCell('A1').value = title;
+  ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1a365d' } };
+  ws.getCell('A1').alignment = { horizontal: 'center' };
+
+  const headers = ['Part Name', 'Category', 'Unit', 'Stock In', 'Stock Used', 'Current Stock', 'Purchase Amount (Rs)', 'Parties'];
+  const hdrRow = ws.addRow([]); const hr = ws.addRow(headers);
+  hr.eachCell(c => {
+    c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
+    c.border = { top: {style:'thin',color:{argb:'FFcbd5e1'}}, bottom: {style:'thin',color:{argb:'FFcbd5e1'}}, left: {style:'thin',color:{argb:'FFcbd5e1'}}, right: {style:'thin',color:{argb:'FFcbd5e1'}} };
+    c.alignment = { horizontal: 'center' };
+  });
+
+  const thinB = { top: {style:'thin',color:{argb:'FFcbd5e1'}}, bottom: {style:'thin',color:{argb:'FFcbd5e1'}}, left: {style:'thin',color:{argb:'FFcbd5e1'}}, right: {style:'thin',color:{argb:'FFcbd5e1'}} };
+  const altFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFf8fafc' } };
+  let totalPurchase = 0;
+  summary.forEach((s, idx) => {
+    totalPurchase += s.total_purchase_amount;
+    const r = ws.addRow([s.part_name, s.category, s.unit, s.stock_in, s.stock_used, s.current_stock, s.total_purchase_amount, (s.parties||[]).map(p => p.name).join(', ')]);
+    r.eachCell(c => { c.border = thinB; c.font = { size: 9 }; if (idx % 2 === 1) c.fill = altFill; });
+  });
+  const tr = ws.addRow(['TOTAL','','','','','',totalPurchase,'']);
+  tr.eachCell(c => { c.border = thinB; c.font = { bold: true, size: 10, color: { argb: 'FF1a365d' } }; });
+
+  [20, 14, 8, 12, 12, 14, 18, 25].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename=mill_parts_stock.xlsx`);
+  res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_stock.xlsx');
   await wb.xlsx.write(res); res.end();
-});
+}));
 
 // ============ STOCK EXPORT (PDF) ============
-router.get('/api/mill-parts/summary/pdf', (req, res) => {
+router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
   const summary = getStockSummary(req.query);
-  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_stock.pdf');
   doc.pipe(res);
-  doc.fontSize(16).text(`Mill Parts Stock Summary${req.query.kms_year ? ' - ' + req.query.kms_year : ''}`, { align: 'center' });
-  doc.moveDown();
-  const headers = ['Part', 'Category', 'Unit', 'In', 'Used', 'Stock', 'Amount'];
-  const colW = [120, 80, 50, 60, 60, 60, 80];
-  let x = 30, y = doc.y;
-  doc.fontSize(8).font('Helvetica-Bold');
-  headers.forEach((h, i) => { doc.text(h, x, y, { width: colW[i] }); x += colW[i]; });
-  doc.font('Helvetica').fontSize(7);
-  for (const s of summary) {
-    y += 14; x = 30;
-    if (y > 550) { doc.addPage(); y = 30; }
-    const vals = [s.part_name, s.category, s.unit, s.stock_in, s.stock_used, s.current_stock, `Rs.${s.total_purchase_amount}`];
-    vals.forEach((v, i) => { doc.text(String(v), x, y, { width: colW[i] }); x += colW[i]; });
-  }
+
+  const C = { hdr: '#1a365d', border: '#cbd5e1', alt: '#f8fafc', blue: '#e0f2fe' };
+  const title = `Mill Parts Stock Summary${req.query.kms_year ? ' - ' + req.query.kms_year : ''}`;
+  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.hdr).text(title, { align: 'center' });
+  doc.moveDown(0.5);
+
+  const headers = ['Part', 'Category', 'Unit', 'In', 'Used', 'Stock', 'Amount (Rs)', 'Parties'];
+  const colW = [90, 65, 40, 50, 50, 55, 80, 120];
+  const startX = 25; let y = doc.y; const rowH = 16;
+  const totalW = colW.reduce((a,b)=>a+b,0);
+
+  // Header
+  let x = startX;
+  doc.rect(x, y, totalW, rowH).fill(C.hdr);
+  headers.forEach((h, i) => {
+    doc.rect(x, y, colW[i], rowH).stroke(C.border);
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(8).text(h, x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+    x += colW[i];
+  });
+  y += rowH;
+
+  let totalPurchase = 0;
+  summary.forEach((s, ri) => {
+    if (y + rowH > doc.page.height - 25) { doc.addPage(); y = 25; }
+    totalPurchase += s.total_purchase_amount;
+    x = startX;
+    doc.rect(x, y, totalW, rowH).fill(ri%2===0?'#ffffff':C.alt);
+    const vals = [s.part_name, s.category, s.unit, s.stock_in, s.stock_used, s.current_stock, `Rs.${Math.round(s.total_purchase_amount).toLocaleString()}`, (s.parties||[]).map(p=>p.name).join(', ')];
+    vals.forEach((v, i) => {
+      doc.rect(x, y, colW[i], rowH).stroke(C.border);
+      doc.fillColor('#1e293b').font('Helvetica').fontSize(7).text(String(v??''), x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+      x += colW[i];
+    });
+    y += rowH;
+  });
+
+  // Totals
+  x = startX;
+  doc.rect(x, y, totalW, rowH).fill(C.blue);
+  ['TOTAL','','','','','',`Rs.${Math.round(totalPurchase).toLocaleString()}`,''].forEach((v,i) => {
+    doc.rect(x, y, colW[i], rowH).stroke(C.border);
+    doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(8).text(String(v), x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+    x += colW[i];
+  });
+
   doc.end();
-});
+}));
+
+// ============ TRANSACTION EXPORT (Excel) ============
+router.get('/api/mill-parts-stock/export/excel', safeAsync(async (req, res) => {
+  const ExcelJS = require('exceljs');
+  let items = [...(database.data.mill_parts_stock || [])];
+  if (req.query.kms_year) items = items.filter(t => t.kms_year === req.query.kms_year);
+  if (req.query.season) items = items.filter(t => t.season === req.query.season);
+  if (req.query.part_name) items = items.filter(t => t.part_name === req.query.part_name);
+  if (req.query.txn_type) items = items.filter(t => t.txn_type === req.query.txn_type);
+  if (req.query.date_from) items = items.filter(t => (t.date||'') >= req.query.date_from);
+  if (req.query.date_to) items = items.filter(t => (t.date||'') <= req.query.date_to);
+  items.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Parts Transactions');
+  let title = 'Mill Parts Transactions';
+  if (req.query.part_name) title += ` - ${req.query.part_name}`;
+  if (req.query.date_from || req.query.date_to) title += ` (${req.query.date_from||'...'} to ${req.query.date_to||'...'})`;
+  ws.mergeCells('A1:I1');
+  ws.getCell('A1').value = title;
+  ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1a365d' } };
+  ws.getCell('A1').alignment = { horizontal: 'center' };
+
+  const headers = ['Date','Part Name','Type','Qty','Rate','Amount (Rs)','Party','Bill No','Remark'];
+  ws.addRow([]); const hr = ws.addRow(headers);
+  hr.eachCell(c => {
+    c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
+    c.border = { top:{style:'thin',color:{argb:'FFcbd5e1'}},bottom:{style:'thin',color:{argb:'FFcbd5e1'}},left:{style:'thin',color:{argb:'FFcbd5e1'}},right:{style:'thin',color:{argb:'FFcbd5e1'}} };
+    c.alignment = { horizontal: 'center' };
+  });
+
+  const thinB = { top:{style:'thin',color:{argb:'FFcbd5e1'}},bottom:{style:'thin',color:{argb:'FFcbd5e1'}},left:{style:'thin',color:{argb:'FFcbd5e1'}},right:{style:'thin',color:{argb:'FFcbd5e1'}} };
+  const inFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFdcfce7' } };
+  const usedFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFfee2e2' } };
+  let totalAmt = 0;
+  items.forEach(t => {
+    const typ = t.txn_type === 'in' ? 'IN' : 'USED';
+    const amt = t.total_amount || t.total_cost || 0;
+    if (t.txn_type === 'in') totalAmt += amt;
+    const r = ws.addRow([t.date, t.part_name, typ, t.quantity, t.rate||0, amt, t.party_name||'', t.bill_no||'', t.remark||'']);
+    r.eachCell((c, ci) => { c.border = thinB; c.font = { size: 9 }; if (ci === 3) c.fill = typ === 'IN' ? inFill : usedFill; });
+  });
+  const tr = ws.addRow(['TOTAL','','','','',totalAmt,'','','']);
+  tr.eachCell(c => { c.border = thinB; c.font = { bold: true, size: 10, color: { argb: 'FF1a365d' } }; });
+
+  [12, 18, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_transactions.xlsx');
+  await wb.xlsx.write(res); res.end();
+}));
+
+// ============ TRANSACTION EXPORT (PDF) ============
+router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
+  const PDFDocument = require('pdfkit');
+  let items = [...(database.data.mill_parts_stock || [])];
+  if (req.query.kms_year) items = items.filter(t => t.kms_year === req.query.kms_year);
+  if (req.query.season) items = items.filter(t => t.season === req.query.season);
+  if (req.query.part_name) items = items.filter(t => t.part_name === req.query.part_name);
+  if (req.query.txn_type) items = items.filter(t => t.txn_type === req.query.txn_type);
+  if (req.query.date_from) items = items.filter(t => (t.date||'') >= req.query.date_from);
+  if (req.query.date_to) items = items.filter(t => (t.date||'') <= req.query.date_to);
+  items.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_transactions.pdf');
+  doc.pipe(res);
+
+  const C = { hdr: '#1a365d', border: '#cbd5e1', inBg: '#f0fdf4', usedBg: '#fef2f2', inBg2: '#dcfce7', usedBg2: '#fee2e2', blue: '#e0f2fe' };
+  let title = 'Mill Parts Transactions';
+  if (req.query.part_name) title += ` - ${req.query.part_name}`;
+  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.hdr).text(title, { align: 'center' });
+  const sub = [];
+  if (req.query.date_from || req.query.date_to) sub.push(`Date: ${req.query.date_from||'...'} to ${req.query.date_to||'...'}`);
+  if (req.query.kms_year) sub.push(`KMS: ${req.query.kms_year}`);
+  if (sub.length) doc.fontSize(8).font('Helvetica').fillColor('grey').text(sub.join(' | '), { align: 'center' });
+  doc.moveDown(0.5);
+
+  const headers = ['Date','Part Name','Type','Qty','Rate','Amount (Rs)','Party','Bill No','Remark'];
+  const colW = [55, 75, 35, 35, 45, 60, 75, 50, 75];
+  const startX = 25; let y = doc.y; const rowH = 15;
+  const totalW = colW.reduce((a,b)=>a+b,0);
+
+  let x = startX;
+  doc.rect(x, y, totalW, rowH).fill(C.hdr);
+  headers.forEach((h, i) => {
+    doc.rect(x, y, colW[i], rowH).stroke(C.border);
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(7.5).text(h, x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+    x += colW[i];
+  });
+  y += rowH;
+
+  let totalAmt = 0;
+  items.forEach((t, ri) => {
+    if (y + rowH > doc.page.height - 25) { doc.addPage(); y = 25; }
+    const isIn = t.txn_type === 'in';
+    const amt = t.total_amount || t.total_cost || 0;
+    if (isIn) totalAmt += amt;
+    x = startX;
+    const bg = ri%2===0 ? (isIn?C.inBg:C.usedBg) : (isIn?C.inBg2:C.usedBg2);
+    doc.rect(x, y, totalW, rowH).fill(bg);
+    const vals = [t.date, t.part_name, isIn?'IN':'USED', t.quantity, t.rate||0, amt?`Rs.${Math.round(amt).toLocaleString()}`:'-', t.party_name||'', t.bill_no||'', t.remark||''];
+    vals.forEach((v, i) => {
+      doc.rect(x, y, colW[i], rowH).stroke(C.border);
+      doc.fillColor('#1e293b').font('Helvetica').fontSize(7).text(String(v??''), x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+      x += colW[i];
+    });
+    y += rowH;
+  });
+
+  // Total row
+  x = startX;
+  doc.rect(x, y, totalW, rowH).fill(C.blue);
+  ['TOTAL','','','','',`Rs.${Math.round(totalAmt).toLocaleString()}`,'','',''].forEach((v,i) => {
+    doc.rect(x, y, colW[i], rowH).stroke(C.border);
+    doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(8).text(String(v), x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+    x += colW[i];
+  });
+
+  doc.end();
+}));
 
   return router;
 };
+

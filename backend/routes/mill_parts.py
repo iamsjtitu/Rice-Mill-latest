@@ -88,13 +88,18 @@ async def create_stock_entry(data: dict):
 @router.get("/mill-parts-stock")
 async def get_stock_entries(part_name: Optional[str] = None, txn_type: Optional[str] = None,
                             kms_year: Optional[str] = None, season: Optional[str] = None,
-                            party_name: Optional[str] = None):
+                            party_name: Optional[str] = None,
+                            date_from: Optional[str] = None, date_to: Optional[str] = None):
     query = {}
     if part_name: query["part_name"] = part_name
     if txn_type: query["txn_type"] = txn_type
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
     items = await db.mill_parts_stock.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
     return items
 
@@ -196,7 +201,7 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
 @router.get("/mill-parts/summary/excel")
 async def export_stock_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from fastapi.responses import StreamingResponse
     import io
 
@@ -204,29 +209,45 @@ async def export_stock_excel(kms_year: Optional[str] = None, season: Optional[st
     wb = Workbook()
     ws = wb.active
     ws.title = "Mill Parts Stock"
-    ws.merge_cells('A1:G1')
-    ws['A1'] = f"Mill Parts Stock Summary{' - ' + kms_year if kms_year else ''}"
-    ws['A1'].font = Font(bold=True, size=14)
+    ws.merge_cells('A1:H1')
+    ws['A1'] = f"Mill Parts Stock Summary{' - ' + kms_year if kms_year else ''}{' - ' + season if season else ''}"
+    ws['A1'].font = Font(bold=True, size=14, color='1a365d')
+    ws['A1'].alignment = Alignment(horizontal='center')
 
-    headers = ['Part Name', 'Category', 'Unit', 'Stock In', 'Stock Used', 'Current Stock', 'Purchase Amount (₹)']
+    headers = ['Part Name', 'Category', 'Unit', 'Stock In', 'Stock Used', 'Current Stock', 'Purchase Amount (Rs)', 'Parties']
     hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
-    hdr_font = Font(bold=True, color='FFFFFF')
+    hdr_font = Font(bold=True, color='FFFFFF', size=10)
+    thin_border = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'), top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
+    alt_fill = PatternFill(start_color='f8fafc', end_color='f8fafc', fill_type='solid')
+
     for i, h in enumerate(headers, 1):
         c = ws.cell(row=3, column=i, value=h)
         c.fill = hdr_fill
         c.font = hdr_font
+        c.border = thin_border
+        c.alignment = Alignment(horizontal='center')
 
-    for idx, s in enumerate(summary, 4):
-        ws.cell(row=idx, column=1, value=s["part_name"])
-        ws.cell(row=idx, column=2, value=s["category"])
-        ws.cell(row=idx, column=3, value=s["unit"])
-        ws.cell(row=idx, column=4, value=s["stock_in"])
-        ws.cell(row=idx, column=5, value=s["stock_used"])
-        ws.cell(row=idx, column=6, value=s["current_stock"])
-        ws.cell(row=idx, column=7, value=s["total_purchase_amount"])
+    total_purchase = 0
+    for idx, s in enumerate(summary):
+        row = idx + 4
+        vals = [s["part_name"], s["category"], s["unit"], s["stock_in"], s["stock_used"], s["current_stock"], s["total_purchase_amount"], ', '.join(p['name'] for p in s.get('parties', []))]
+        total_purchase += s["total_purchase_amount"]
+        for ci, v in enumerate(vals, 1):
+            c = ws.cell(row=row, column=ci, value=v)
+            c.border = thin_border
+            c.font = Font(size=9)
+            if idx % 2 == 1: c.fill = alt_fill
 
-    for col in range(1, 8):
-        ws.column_dimensions[chr(64 + col)].width = 18
+    # Totals row
+    tr = len(summary) + 4
+    ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True, size=10, color='1a365d')
+    ws.cell(row=tr, column=7, value=total_purchase).font = Font(bold=True, size=10, color='1a365d')
+    for ci in range(1, 9):
+        ws.cell(row=tr, column=ci).border = thin_border
+
+    widths = [20, 14, 8, 12, 12, 14, 18, 25]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[chr(64 + i)].width = w
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -237,53 +258,198 @@ async def export_stock_excel(kms_year: Optional[str] = None, season: Optional[st
 @router.get("/mill-parts/summary/pdf")
 async def export_stock_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from fastapi.responses import StreamingResponse
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
     import io
 
     summary = await get_stock_summary(kms_year, season)
-    try:
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.lib import colors
-        from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
-        from reportlab.lib.styles import getSampleStyleSheet
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30)
+    styles = getSampleStyleSheet()
+    title_text = f"Mill Parts Stock Summary"
+    if kms_year: title_text += f" - {kms_year}"
+    if season: title_text += f" ({season})"
+    elements = [Paragraph(title_text, styles['Title']), Spacer(1, 12)]
 
-        buf = io.BytesIO()
-        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30)
-        styles = getSampleStyleSheet()
-        elements = [Paragraph(f"Mill Parts Stock Summary{' - ' + kms_year if kms_year else ''}", styles['Title']), Spacer(1, 12)]
+    data = [['Part', 'Category', 'Unit', 'In', 'Used', 'Stock', 'Amount (Rs)', 'Parties']]
+    total_purchase = 0
+    for s in summary:
+        total_purchase += s["total_purchase_amount"]
+        data.append([s["part_name"], s["category"], s["unit"], s["stock_in"], s["stock_used"], s["current_stock"],
+            f'Rs.{s["total_purchase_amount"]:,.0f}', ', '.join(p['name'] for p in s.get('parties', []))])
+    data.append(['TOTAL', '', '', '', '', '', f'Rs.{total_purchase:,.0f}', ''])
 
-        data = [['Part', 'Category', 'Unit', 'In', 'Used', 'Stock', 'Amount (₹)']]
-        for s in summary:
-            data.append([s["part_name"], s["category"], s["unit"], s["stock_in"], s["stock_used"], s["current_stock"], f"₹{s['total_purchase_amount']:,.0f}"])
+    col_widths = [90, 60, 40, 45, 45, 55, 80, 120]
+    t = RTable(data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8fafc')]),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('ALIGN', (3, 0), (6, -1), 'RIGHT'),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=mill_parts_stock_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
-        t = RTable(data, repeatRows=1)
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f0f0')]),
-        ]))
-        elements.append(t)
-        doc.build(elements)
-        buf.seek(0)
-        return StreamingResponse(buf, media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=mill_parts_stock_{datetime.now().strftime('%Y%m%d')}.pdf"})
-    except ImportError:
-        # Fallback to simple text PDF
-        from reportlab.pdfgen import canvas as pdfcanvas
-        buf = io.BytesIO()
-        c = pdfcanvas.Canvas(buf)
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(50, 780, "Mill Parts Stock Summary")
-        y = 750
-        c.setFont("Helvetica", 9)
-        for s in summary:
-            c.drawString(50, y, f"{s['part_name']} | In:{s['stock_in']} | Used:{s['stock_used']} | Stock:{s['current_stock']} | Amount: Rs.{s['total_purchase_amount']}")
-            y -= 15
-            if y < 50:
-                c.showPage()
-                y = 780
-        c.save()
-        buf.seek(0)
-        return StreamingResponse(buf, media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=mill_parts_stock.pdf"})
+@router.get("/mill-parts-stock/export/excel")
+async def export_transactions_excel(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                     part_name: Optional[str] = None, txn_type: Optional[str] = None,
+                                     date_from: Optional[str] = None, date_to: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from fastapi.responses import StreamingResponse
+    import io
+
+    query = {}
+    if part_name: query["part_name"] = part_name
+    if txn_type: query["txn_type"] = txn_type
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
+    items = await db.mill_parts_stock.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Parts Transactions"
+    title = "Mill Parts Transactions"
+    if part_name: title += f" - {part_name}"
+    if date_from or date_to: title += f" ({date_from or '...'} to {date_to or '...'})"
+    ws.merge_cells('A1:I1')
+    ws['A1'] = title
+    ws['A1'].font = Font(bold=True, size=14, color='1a365d')
+    ws['A1'].alignment = Alignment(horizontal='center')
+
+    headers = ['Date', 'Part Name', 'Type', 'Qty', 'Rate', 'Amount (Rs)', 'Party', 'Bill No', 'Remark']
+    hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
+    hdr_font = Font(bold=True, color='FFFFFF', size=10)
+    thin_border = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'), top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
+    alt_fill = PatternFill(start_color='f8fafc', end_color='f8fafc', fill_type='solid')
+    in_fill = PatternFill(start_color='dcfce7', end_color='dcfce7', fill_type='solid')
+    used_fill = PatternFill(start_color='fee2e2', end_color='fee2e2', fill_type='solid')
+
+    for i, h in enumerate(headers, 1):
+        c = ws.cell(row=3, column=i, value=h)
+        c.fill = hdr_fill; c.font = hdr_font; c.border = thin_border; c.alignment = Alignment(horizontal='center')
+
+    total_in_amt = 0
+    total_in_qty = 0
+    total_used_qty = 0
+    for idx, t in enumerate(items):
+        row = idx + 4
+        typ = 'IN' if t.get('txn_type') == 'in' else 'USED'
+        amt = t.get('total_amount') or t.get('total_cost') or 0
+        qty = t.get('quantity', 0)
+        if t.get('txn_type') == 'in':
+            total_in_amt += amt
+            total_in_qty += qty
+        else:
+            total_used_qty += qty
+        vals = [t.get('date',''), t.get('part_name',''), typ, qty, t.get('rate',0), amt, t.get('party_name',''), t.get('bill_no',''), t.get('remark','')]
+        for ci, v in enumerate(vals, 1):
+            c = ws.cell(row=row, column=ci, value=v)
+            c.border = thin_border; c.font = Font(size=9)
+            if ci == 3: c.fill = in_fill if typ == 'IN' else used_fill
+
+    # Totals row
+    tr = len(items) + 4
+    ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True, size=10, color='1a365d')
+    ws.cell(row=tr, column=3, value=f"In:{total_in_qty} / Used:{total_used_qty}").font = Font(bold=True, size=9)
+    ws.cell(row=tr, column=6, value=total_in_amt).font = Font(bold=True, size=10, color='1a365d')
+    for ci in range(1, 10):
+        ws.cell(row=tr, column=ci).border = thin_border
+
+    widths = [12, 18, 8, 8, 10, 14, 18, 12, 18]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[chr(64 + i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf); buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=mill_parts_transactions_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+@router.get("/mill-parts-stock/export/pdf")
+async def export_transactions_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                   part_name: Optional[str] = None, txn_type: Optional[str] = None,
+                                   date_from: Optional[str] = None, date_to: Optional[str] = None):
+    from fastapi.responses import StreamingResponse
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    import io
+
+    query = {}
+    if part_name: query["part_name"] = part_name
+    if txn_type: query["txn_type"] = txn_type
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    if date_from or date_to:
+        query["date"] = {}
+        if date_from: query["date"]["$gte"] = date_from
+        if date_to: query["date"]["$lte"] = date_to
+    items = await db.mill_parts_stock.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30)
+    styles = getSampleStyleSheet()
+    title = "Mill Parts Transactions"
+    if part_name: title += f" - {part_name}"
+    subtitle_parts = []
+    if date_from or date_to: subtitle_parts.append(f"Date: {date_from or '...'} to {date_to or '...'}")
+    if kms_year: subtitle_parts.append(f"KMS: {kms_year}")
+    if season: subtitle_parts.append(f"Season: {season}")
+    elements = [Paragraph(title, styles['Title'])]
+    if subtitle_parts:
+        elements.append(Paragraph(' | '.join(subtitle_parts), styles['Normal']))
+    elements.append(Spacer(1, 12))
+
+    data = [['Date', 'Part Name', 'Type', 'Qty', 'Rate', 'Amount (Rs)', 'Party', 'Bill No', 'Remark']]
+    total_amt = 0
+    for t in items:
+        typ = 'IN' if t.get('txn_type') == 'in' else 'USED'
+        amt = t.get('total_amount') or t.get('total_cost') or 0
+        if t.get('txn_type') == 'in': total_amt += amt
+        data.append([t.get('date',''), t.get('part_name',''), typ, t.get('quantity',0), t.get('rate',0),
+            f'Rs.{amt:,.0f}' if amt else '-', t.get('party_name',''), t.get('bill_no',''), t.get('remark','')])
+    data.append(['TOTAL', '', '', '', '', f'Rs.{total_amt:,.0f}', '', '', ''])
+
+    col_widths = [60, 80, 35, 35, 45, 65, 80, 55, 80]
+    tbl = RTable(data, colWidths=col_widths, repeatRows=1)
+
+    # Style with colored IN/USED rows
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('ALIGN', (3, 0), (5, -1), 'RIGHT'),
+    ]
+    # Alternating row colors and IN/USED highlighting
+    for i, t in enumerate(items, 1):
+        bg = colors.HexColor('#f0fdf4') if t.get('txn_type') == 'in' else colors.HexColor('#fef2f2')
+        if i % 2 == 0: bg = colors.HexColor('#dcfce7') if t.get('txn_type') == 'in' else colors.HexColor('#fee2e2')
+        style_cmds.append(('BACKGROUND', (0, i), (-1, i), bg))
+
+    tbl.setStyle(TableStyle(style_cmds))
+    elements.append(tbl)
+    doc.build(elements)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=mill_parts_transactions_{datetime.now().strftime('%Y%m%d')}.pdf"})
