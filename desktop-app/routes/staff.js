@@ -59,19 +59,25 @@ router.post('/api/staff/attendance', safeSync((req, res) => {
 }));
 
 router.post('/api/staff/attendance/bulk', safeSync((req, res) => {
-  const items = req.body.items || [];
+  const date = req.body.date || '';
+  const records = req.body.records || req.body.items || [];
+  const kms_year = req.body.kms_year || '';
+  const season = req.body.season || '';
   const results = [];
-  for (const d of items) {
+  for (const d of records) {
     const att = col('staff_attendance');
-    database.data.staff_attendance = att.filter(a => !(a.staff_id === d.staff_id && a.date === d.date));
+    const staffId = d.staff_id;
+    const staffName = d.staff_name || '';
+    const status = d.status || 'present';
+    database.data.staff_attendance = att.filter(a => !(a.staff_id === staffId && a.date === date));
     const entry = {
-      id: uuidv4(), staff_id: d.staff_id, staff_name: d.staff_name || '', date: d.date,
-      status: d.status || 'present', kms_year: d.kms_year || '', season: d.season || ''
+      id: uuidv4(), staff_id: staffId, staff_name: staffName, date: date,
+      status: status, kms_year: kms_year, season: season
     };
     database.data.staff_attendance.push(entry);
     results.push(entry);
   }
-  database.save(); res.json(results);
+  database.save(); res.json({ message: `${results.length} attendance records saved` });
 }));
 
 router.get('/api/staff/attendance', safeSync((req, res) => {

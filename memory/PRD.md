@@ -3,45 +3,30 @@
 ## Original Problem Statement
 Rice mill management tool. 3 backends (Python/FastAPI, Node.js local-server, Electron desktop-app), React frontend.
 
-## Implemented Features (Latest Session - March 9, 2026)
+## Implemented Features
 
-### Bug Fixes
-- Excel Export data misalignment fixed (P.Pkt, P.Pkt Cut, Mill W columns + totals row)
-- Typing Bug on desktop app fixed (badge removal DOM scan + useEffect loops removed)
-- PDF Export fixed (uses backend download instead of window.print)
-- Excel Import entries not saving on desktop (data.mill_entries -> data.entries mismatch)
-- Cutting % auto-fill permanent fix (3 sources: mandi targets, existing entries, localStorage)
+### Core
+- Mill entries with 20+ columns (Truck, Agent, Mandi, QNTL, BAG, etc.)
+- Cash Book with edit, sync to Party Ledger
+- Diesel/Pump Account with filters (date, type, truck)
+- Staff Management (attendance, advance, salary calculation, settlement)
+- Mill Parts Stock (purchase, usage, party ledger auto-entry, settle)
+- Local Party Account with settle feature (auto cash book nikasi)
+- Reports: Daily, Outstanding, CMR vs DC, Season P&L
+- PDF & Excel exports for all reports
 
-### New Features
-- All columns in entry table: Date, Season, Truck, RST, TP, Agent, Mandi, QNTL, BAG, G.Dep, GBW, P.Pkt, P.Cut, Mill W, M%, M.Cut, C%, D/D/P, Final W, G.Iss, Cash, Diesel
-- Date format changed to DD-MM-YYYY across all pages
-- Cash/Diesel description: Agent Name -> Mandi Name
-- Cash/Diesel payment -> Truck Owner ledger (not Agent)
-- Cash Book Party Ledger: categories auto-create party ledgers, delete syncs
-- Daily Report + PDF/Excel: all 20 columns with M%, M.Cut, D/D/P
+### Auto-Update (v3.0.0+)
+- GitHub Actions workflow for auto build & publish
+- electron-updater integration
+- Silent error handling when no release available
+- Version auto-read from package.json in About dialog
 
-### Daily Report Export Overhaul (Feb 2026)
-- **Summary mode API** now returns all 22 paddy entry fields (was only 4: truck_no, agent, kg, final_w)
-- **Summary Excel** shows all 20 columns (Truck through Diesel) instead of just 4
-- **Summary PDF** has all 20 columns with proper data
-- **Pump Account** section changed from "Agent" to "Mandi" in API, PDF, and Excel
-- **Mandi resolution** for diesel txns: uses entry_id->mandi_name map from mill_entries
-- **diesel_accounts** collection now stores `mandi_name` field for new entries
-- **Excel column widths** auto-fit based on content
-
-### Agent -> Mandi Fix (Feb 2026)
-- **Frontend Diesel table**: Header changed from "Agent" to "Mandi", data shows mandi_name
-- **DB Migration**: All old diesel_accounts descriptions updated from "Agent X" to "Mandi Y"
-- **DB Migration**: All old cash_transactions descriptions updated from "Agent X" to "Mandi Y"  
-- **DB Migration**: mandi_name field added to all existing diesel_accounts
-
-### Auto-Update Setup (Feb 2026)
-- **GitHub Actions workflow** created (`.github/workflows/build-desktop.yml`)
-- **electron-updater** integrated in `desktop-app/main.js`
-- **package.json** configured with GitHub publish provider
-- Auto-update checks on app startup (silent) + manual "Check for Updates" menu
-- Download progress banner shown in app
-- SETUP_GUIDE.md updated with auto-update instructions
+### Bug Fixes (v3.1.0)
+- Attendance Save Bug (desktop) - `items` → `records` mismatch
+- Daily Report Blank Page (desktop) - missing API sections added
+- Daily Report PDF redesign with colored summary boxes, grid borders
+- Mill Parts PDF - added Party, Rate, Bill No columns
+- Download progress banner fix (0% → actual percentage)
 
 ## Build Process
 ```
@@ -50,18 +35,19 @@ cp -r /app/frontend/build /app/desktop-app/frontend-build
 cp -r /app/frontend/build /app/local-server/public
 ```
 
-## Desktop Build
+## Desktop Build & Release
 ```
 cd desktop-app && npm run build:win
 ```
+Or via GitHub: Save to GitHub → Create Release (tag vX.Y.Z) → GitHub Actions auto builds
 
 ## Credentials
 - Admin: admin / admin123 | Staff: staff / staff123
 
-## User Verified (Confirmed by user)
-- Typing Freeze Bug fix - VERIFIED
-- "Entry not found" on Delete - VERIFIED
-- All previous bug fixes - VERIFIED
+## Key Collections
+- mill_entries, cash_book/cash_transactions, diesel_payments/diesel_accounts
+- local_party_entries/local_party_accounts, mandi_targets, gunny_bags
+- mill_parts_stock, staff, staff_attendance, staff_advance, staff_payments
 
 ## Backlog
 - P2: Refactor desktop-app/main.js modular routes
