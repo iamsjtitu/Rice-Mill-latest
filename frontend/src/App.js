@@ -2078,27 +2078,6 @@ function MainApp({ user, onLogout }) {
               </CardContent>
             </Card>
 
-            {/* About Section */}
-            <Card className="bg-slate-800 border-slate-700" data-testid="about-section">
-              <CardHeader>
-                <CardTitle className="text-cyan-400 flex items-center gap-2">
-                  <Info className="w-5 h-5" />
-                  About / जानकारी
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center space-y-3 py-4">
-                  <h3 className="text-2xl font-bold text-amber-400">{branding.company_name}</h3>
-                  <p className="text-slate-400">{branding.tagline}</p>
-                  <div className="border-t border-slate-700 pt-4 mt-4">
-                    <p className="text-slate-300 text-sm font-semibold" data-testid="about-developer">Developed by 9x.Design</p>
-                    <p className="text-slate-400 text-sm mt-2" data-testid="about-contact">Contact Us: +917205930002</p>
-                    <p className="text-slate-500 text-xs mt-1" data-testid="about-version">Version 2.3</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
             {/* Error Log Section */}
             <Card className="bg-slate-800 border-slate-700" data-testid="error-log-section">
               <CardHeader>
