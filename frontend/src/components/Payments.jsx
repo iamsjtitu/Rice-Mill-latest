@@ -1597,7 +1597,7 @@ const DieselAccount = ({ filters, user }) => {
                 className="rounded border-slate-600" data-testid="diesel-select-all" />
             </TableHead>
           )}
-          {['Date','Pump','Type','Truck No','Agent','Amount (Rs.)','Description',''].map(h =>
+          {['Date','Pump','Type','Truck No','Mandi','Amount (Rs.)','Description',''].map(h =>
             <TableHead key={h} className={`text-slate-300 text-xs ${h === 'Amount (Rs.)' ? 'text-right' : ''}`}>{h}</TableHead>)}
         </TableRow></TableHeader>
         <TableBody>
@@ -1614,7 +1614,7 @@ const DieselAccount = ({ filters, user }) => {
               <TableCell className="text-slate-300 text-xs">{t.pump_name}</TableCell>
               <TableCell className="text-xs"><span className={t.txn_type === 'payment' ? 'text-green-400 font-medium' : 'text-orange-400'}>{t.txn_type === 'payment' ? 'PAYMENT' : 'DIESEL'}</span></TableCell>
               <TableCell className="text-slate-300 text-xs">{t.truck_no || '-'}</TableCell>
-              <TableCell className="text-slate-300 text-xs">{t.agent_name || '-'}</TableCell>
+              <TableCell className="text-slate-300 text-xs">{t.mandi_name || t.agent_name || '-'}</TableCell>
               <TableCell className={`text-xs text-right font-medium ${t.txn_type === 'payment' ? 'text-green-400' : 'text-orange-400'}`}>{t.txn_type === 'payment' ? '-' : ''}Rs.{t.amount?.toLocaleString('en-IN')}</TableCell>
               <TableCell className="text-slate-500 text-xs max-w-[200px] truncate">{t.description}</TableCell>
               <TableCell>{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDeleteTxn(t.id)}><Trash2 className="w-3 h-3" /></Button>}</TableCell>

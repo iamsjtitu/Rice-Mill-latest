@@ -29,6 +29,12 @@ Rice mill management tool. 3 backends (Python/FastAPI, Node.js local-server, Ele
 - **diesel_accounts** collection now stores `mandi_name` field for new entries
 - **Excel column widths** auto-fit based on content
 
+### Agent → Mandi Fix (Feb 2026)
+- **Frontend Diesel table**: Header changed from "Agent" to "Mandi", data shows mandi_name
+- **DB Migration**: All old diesel_accounts descriptions updated from "Agent X" to "Mandi Y"
+- **DB Migration**: All old cash_transactions descriptions updated from "Agent X" to "Mandi Y"  
+- **DB Migration**: mandi_name field added to all existing diesel_accounts
+
 ## Build Process
 ```
 cd /app/frontend && REACT_APP_BACKEND_URL="" yarn build
