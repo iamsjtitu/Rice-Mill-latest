@@ -105,8 +105,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "GITHUB_USERNAME",
-        "repo": "GITHUB_REPO_NAME",
+        "owner": "iamsjtitu",
+        "repo": "Rice-Mill-latest",
         "releaseType": "release"
       }
     ],
