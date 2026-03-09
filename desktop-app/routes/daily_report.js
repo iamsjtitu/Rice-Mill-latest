@@ -88,18 +88,37 @@ function getDailyReportData(query) {
       total_mill_w: +(totalMillW).toFixed(2),
       total_bags: entries.reduce((s, e) => s + (e.bag || 0), 0),
       total_final_w: +(totalFinalW).toFixed(2),
+      total_kg: entries.reduce((s, e) => s + (e.kg || 0), 0),
       total_g_deposite: entries.reduce((s, e) => s + (e.g_deposite || 0), 0),
       total_g_issued: entries.reduce((s, e) => s + (e.g_issued || 0), 0),
       total_cash_paid: +totalCashPaid.toFixed(2),
       total_diesel_paid: +totalDieselPaid.toFixed(2),
       details: entryDetails
     },
+    pvt_paddy: {
+      count: pvtPaddy.length,
+      total_kg: pvtPaddy.reduce((s, e) => s + (e.kg || 0), 0),
+      total_amount: pvtPaddy.reduce((s, e) => s + (e.amount || 0), 0),
+      details: isDetail ? pvtPaddy.map(p => ({ party: p.party_name||'', type: p.paddy_type||'', kg: p.kg||0, rate: p.rate||0, amount: p.amount||0 })) : []
+    },
+    rice_sales: {
+      count: riceSales.length,
+      total_qntl: riceSales.reduce((s, e) => s + (e.qntl || 0), 0),
+      total_amount: riceSales.reduce((s, e) => s + (e.amount || 0), 0),
+      details: isDetail ? riceSales.map(r => ({ buyer: r.buyer_name||'', type: r.rice_type||'', qntl: r.qntl||0, rate: r.rate||0, amount: r.amount||0 })) : []
+    },
     milling: {
       count: milling.length,
       paddy_input_qntl: +milling.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0).toFixed(2),
       rice_output_qntl: +milling.reduce((s, e) => s + (e.rice_qntl || 0), 0).toFixed(2),
       frk_used_qntl: +milling.reduce((s, e) => s + (e.frk_used_qntl || 0), 0).toFixed(2),
-      details: isDetail ? milling.map(m => ({ paddy_in: m.paddy_input_qntl||0, rice_out: m.rice_qntl||0, type: m.rice_type||'', frk: m.frk_used_qntl||0 })) : []
+      details: isDetail ? milling.map(m => ({ paddy_in: m.paddy_input_qntl||0, rice_out: m.rice_qntl||0, type: m.rice_type||'', frk: m.frk_used_qntl||0, cmr_ready: m.cmr_ready||0, outturn: m.outturn||0 })) : []
+    },
+    dc_deliveries: {
+      count: dcDeliveries.length,
+      total_bags: dcDeliveries.reduce((s, e) => s + (e.bags || 0), 0),
+      total_qntl: dcDeliveries.reduce((s, e) => s + (e.qntl || 0), 0),
+      details: isDetail ? dcDeliveries.map(d => ({ dc_no: d.dc_no||'', type: d.rice_type||'', bags: d.bags||0, qntl: d.qntl||0, destination: d.destination||'' })) : []
     },
     cash_flow: {
       cash_jama: +cashJama.toFixed(2), cash_nikasi: +cashNikasi.toFixed(2),
@@ -109,6 +128,24 @@ function getDailyReportData(query) {
     },
     payments: {
       msp_received: +mspAmount.toFixed(2), pvt_paddy_paid: +pvtPaid.toFixed(2), rice_sale_received: +pvtReceived.toFixed(2),
+    },
+    byproducts: {
+      count: bpSales.length,
+      total_amount: bpSales.reduce((s, e) => s + (e.amount || 0), 0),
+      details: isDetail ? bpSales.map(b => ({ type: b.type||'', buyer: b.buyer_name||'', amount: b.amount||0 })) : []
+    },
+    frk: {
+      count: frk.length,
+      total_amount: frk.reduce((s, e) => s + (e.amount || 0), 0),
+      total_qntl: frk.reduce((s, e) => s + (e.qntl || 0), 0),
+      details: isDetail ? frk.map(f => ({ party: f.party_name||'', qntl: f.qntl||0, rate: f.rate||0, amount: f.amount||0 })) : []
+    },
+    mill_parts: {
+      in_count: partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').length,
+      used_count: partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').length,
+      in_amount: partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').reduce((s, t) => s + (t.amount || t.total_cost || 0), 0),
+      in_details: isDetail ? partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').map(t => ({ part: t.part_name||'', qty: t.quantity||0, amount: t.amount||t.total_cost||0 })) : [],
+      used_details: isDetail ? partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').map(t => ({ part: t.part_name||'', qty: t.quantity||0 })) : []
     },
     pump_account: {
       total_diesel: +dieselTotalAmount.toFixed(2),
