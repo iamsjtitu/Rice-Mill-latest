@@ -2007,7 +2007,7 @@ function MainApp({ user, onLogout }) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="w-full px-4 py-6">
         {activeTab === "dashboard" ? (
           <Dashboard filters={filters} user={user} />
         ) : activeTab === "payments" ? (
@@ -2301,10 +2301,10 @@ function MainApp({ user, onLogout }) {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto" id="entries-table">
-              <Table>
+              <Table className="text-xs">
                 <TableHeader>
                   <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                    <TableHead className="text-slate-300 w-10">
+                    <TableHead className="text-slate-300 w-8 px-1">
                       <input
                         type="checkbox"
                         checked={selectAll}
@@ -2313,31 +2313,32 @@ function MainApp({ user, onLogout }) {
                         data-testid="select-all-checkbox"
                       />
                     </TableHead>
-                    <TableHead className="text-slate-300">Date</TableHead>
-                    <TableHead className="text-slate-300">Truck</TableHead>
-                    <TableHead className="text-slate-300">RST No.</TableHead>
-                    <TableHead className="text-slate-300">TP No.</TableHead>
-                    <TableHead className="text-slate-300">Agent</TableHead>
-                    <TableHead className="text-slate-300">Mandi</TableHead>
-                    <TableHead className="text-green-400 text-right">QNTL</TableHead>
-                    <TableHead className="text-slate-300 text-right">BAG</TableHead>
-                    <TableHead className="text-cyan-400 text-right">G.Dep</TableHead>
-                    <TableHead className="text-slate-300 text-right">GBW Cut</TableHead>
-                    <TableHead className="text-pink-400 text-right">P.Pkt</TableHead>
-                    <TableHead className="text-pink-300 text-right">P.Pkt Cut</TableHead>
-                    <TableHead className="text-blue-400 text-right">Mill W</TableHead>
-                    <TableHead className="text-purple-400 text-right">Cut %</TableHead>
-                    <TableHead className="text-amber-400 text-right">Final W</TableHead>
-                    <TableHead className="text-cyan-400 text-right">G.Issued</TableHead>
-                    <TableHead className="text-slate-300 text-right">Cash</TableHead>
-                    <TableHead className="text-slate-300 text-right">Diesel</TableHead>
-                    <TableHead className="text-slate-300 text-center">Actions</TableHead>
+                    <TableHead className="text-slate-300 whitespace-nowrap px-1.5">Date</TableHead>
+                    <TableHead className="text-slate-300 whitespace-nowrap px-1.5">Season</TableHead>
+                    <TableHead className="text-slate-300 whitespace-nowrap px-1.5">Truck</TableHead>
+                    <TableHead className="text-slate-300 whitespace-nowrap px-1.5">RST No.</TableHead>
+                    <TableHead className="text-slate-300 whitespace-nowrap px-1.5">TP No.</TableHead>
+                    <TableHead className="text-slate-300 whitespace-nowrap px-1.5">Agent</TableHead>
+                    <TableHead className="text-slate-300 whitespace-nowrap px-1.5">Mandi</TableHead>
+                    <TableHead className="text-green-400 text-right whitespace-nowrap px-1.5">QNTL</TableHead>
+                    <TableHead className="text-slate-300 text-right whitespace-nowrap px-1.5">BAG</TableHead>
+                    <TableHead className="text-cyan-400 text-right whitespace-nowrap px-1.5">G.Dep</TableHead>
+                    <TableHead className="text-slate-300 text-right whitespace-nowrap px-1.5">GBW Cut</TableHead>
+                    <TableHead className="text-pink-400 text-right whitespace-nowrap px-1.5">P.Pkt</TableHead>
+                    <TableHead className="text-pink-300 text-right whitespace-nowrap px-1.5">P.Pkt Cut</TableHead>
+                    <TableHead className="text-blue-400 text-right whitespace-nowrap px-1.5">Mill W</TableHead>
+                    <TableHead className="text-purple-400 text-right whitespace-nowrap px-1.5">Cut %</TableHead>
+                    <TableHead className="text-amber-400 text-right whitespace-nowrap px-1.5">Final W</TableHead>
+                    <TableHead className="text-cyan-400 text-right whitespace-nowrap px-1.5">G.Issued</TableHead>
+                    <TableHead className="text-slate-300 text-right whitespace-nowrap px-1.5">Cash</TableHead>
+                    <TableHead className="text-slate-300 text-right whitespace-nowrap px-1.5">Diesel</TableHead>
+                    <TableHead className="text-slate-300 text-center whitespace-nowrap px-1">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={20} className="text-center text-slate-400 py-8">
+                      <TableCell colSpan={21} className="text-center text-slate-400 py-8">
                         Koi entry nahi hai. "Nayi Entry" button click karein.
                       </TableCell>
                     </TableRow>
@@ -2348,7 +2349,7 @@ function MainApp({ user, onLogout }) {
                         className={`border-slate-700 hover:bg-slate-700/30 ${selectedEntries.includes(entry.id) ? 'bg-amber-900/20' : ''}`}
                         data-testid={`entry-row-${entry.id}`}
                       >
-                        <TableCell>
+                        <TableCell className="px-1">
                           <input
                             type="checkbox"
                             checked={selectedEntries.includes(entry.id)}
@@ -2358,69 +2359,70 @@ function MainApp({ user, onLogout }) {
                             data-testid={`select-${entry.id}`}
                           />
                         </TableCell>
-                        <TableCell className="text-white">{entry.date}</TableCell>
-                        <TableCell className="text-white font-mono text-sm">{entry.truck_no}</TableCell>
-                        <TableCell className="text-slate-300 text-sm">{entry.rst_no || '-'}</TableCell>
-                        <TableCell className="text-slate-300 text-sm">{entry.tp_no || '-'}</TableCell>
-                        <TableCell className="text-white">{entry.agent_name}</TableCell>
-                        <TableCell className="text-white">{entry.mandi_name}</TableCell>
-                        <TableCell className="text-green-400 text-right font-mono font-bold">
+                        <TableCell className="text-white whitespace-nowrap px-1.5">{entry.date}</TableCell>
+                        <TableCell className="text-white whitespace-nowrap px-1.5">{entry.season}</TableCell>
+                        <TableCell className="text-white font-mono whitespace-nowrap px-1.5">{entry.truck_no}</TableCell>
+                        <TableCell className="text-slate-300 whitespace-nowrap px-1.5">{entry.rst_no || '-'}</TableCell>
+                        <TableCell className="text-slate-300 whitespace-nowrap px-1.5">{entry.tp_no || '-'}</TableCell>
+                        <TableCell className="text-white whitespace-nowrap px-1.5">{entry.agent_name}</TableCell>
+                        <TableCell className="text-white whitespace-nowrap px-1.5">{entry.mandi_name}</TableCell>
+                        <TableCell className="text-green-400 text-right font-mono font-bold whitespace-nowrap px-1.5">
                           {entry.qntl?.toFixed(2)}
                         </TableCell>
-                        <TableCell className="text-white text-right font-mono">
+                        <TableCell className="text-white text-right font-mono whitespace-nowrap px-1.5">
                           {entry.bag}
                         </TableCell>
-                        <TableCell className="text-cyan-400 text-right font-mono">
+                        <TableCell className="text-cyan-400 text-right font-mono whitespace-nowrap px-1.5">
                           {entry.g_deposite || 0}
                         </TableCell>
-                        <TableCell className="text-slate-300 text-right font-mono">
+                        <TableCell className="text-slate-300 text-right font-mono whitespace-nowrap px-1.5">
                           {(entry.gbw_cut / 100)?.toFixed(2)}
                         </TableCell>
-                        <TableCell className="text-pink-400 text-right font-mono">
+                        <TableCell className="text-pink-400 text-right font-mono whitespace-nowrap px-1.5">
                           {entry.plastic_bag || 0}
                         </TableCell>
-                        <TableCell className="text-pink-300 text-right font-mono">
+                        <TableCell className="text-pink-300 text-right font-mono whitespace-nowrap px-1.5">
                           {(entry.p_pkt_cut / 100)?.toFixed(2)}
                         </TableCell>
-                        <TableCell className="text-blue-400 text-right font-mono font-bold">
+                        <TableCell className="text-blue-400 text-right font-mono font-bold whitespace-nowrap px-1.5">
                           {(entry.mill_w / 100)?.toFixed(2)}
                         </TableCell>
-                        <TableCell className="text-purple-400 text-right font-mono">
+                        <TableCell className="text-purple-400 text-right font-mono whitespace-nowrap px-1.5">
                           {entry.cutting_percent}%
                         </TableCell>
-                        <TableCell className="text-amber-400 text-right font-mono font-bold">
+                        <TableCell className="text-amber-400 text-right font-mono font-bold whitespace-nowrap px-1.5">
                           {(entry.final_w / 100)?.toFixed(2)}
                         </TableCell>
-                        <TableCell className="text-cyan-400 text-right font-mono">
+                        <TableCell className="text-cyan-400 text-right font-mono whitespace-nowrap px-1.5">
                           {entry.g_issued?.toLocaleString() || 0}
                         </TableCell>
-                        <TableCell className="text-white text-right font-mono">
+                        <TableCell className="text-white text-right font-mono whitespace-nowrap px-1.5">
                           {entry.cash_paid?.toLocaleString()}
                         </TableCell>
-                        <TableCell className="text-white text-right font-mono">
+                        <TableCell className="text-white text-right font-mono whitespace-nowrap px-1.5">
                           {entry.diesel_paid?.toLocaleString() || 0}
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex gap-1 justify-center">
+                        <TableCell className="text-center px-1">
+                          <div className="flex gap-0.5 justify-center">
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => handleEdit(entry)}
-                              className={`h-8 w-8 p-0 ${canEditEntry(entry) ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/30' : 'text-slate-600 cursor-not-allowed'}`}
+                              className={`h-7 w-7 p-0 ${canEditEntry(entry) ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/30' : 'text-slate-600 cursor-not-allowed'}`}
                               data-testid={`edit-btn-${entry.id}`}
                               disabled={!canEditEntry(entry)}
                             >
-                              <Edit className="w-4 h-4" />
+                              <Edit className="w-3.5 h-3.5" />
                             </Button>
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => handleDelete(entry)}
-                              className={`h-8 w-8 p-0 ${canEditEntry(entry) ? 'text-red-400 hover:text-red-300 hover:bg-red-900/30' : 'text-slate-600 cursor-not-allowed'}`}
+                              className={`h-7 w-7 p-0 ${canEditEntry(entry) ? 'text-red-400 hover:text-red-300 hover:bg-red-900/30' : 'text-slate-600 cursor-not-allowed'}`}
                               data-testid={`delete-btn-${entry.id}`}
                               disabled={!canEditEntry(entry)}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </div>
                         </TableCell>
