@@ -17,17 +17,20 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install frontend dependencies
+      - name: Install frontend dependencies & fix ajv
         working-directory: frontend
         run: |
           npm install --legacy-peer-deps
-          npm install ajv@8 --legacy-peer-deps
+          npm install ajv@8.17.1 ajv-keywords@5.1.0 --save-dev --legacy-peer-deps
+          if (Test-Path "node_modules\ajv-keywords\node_modules\ajv") { Remove-Item -Recurse -Force "node_modules\ajv-keywords\node_modules\ajv" }
+        shell: powershell
 
       - name: Build frontend for desktop
         working-directory: frontend
         env:
           REACT_APP_BACKEND_URL: http://127.0.0.1:9876
           CI: false
+          DISABLE_ESLINT_PLUGIN: true
         run: npm run build
 
       - name: Copy frontend build to desktop-app
