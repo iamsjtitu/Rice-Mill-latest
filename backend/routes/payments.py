@@ -35,7 +35,7 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
         rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
         paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
         
-        final_qntl = round(entry.get("final_w", 0) / 100, 2)
+        final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
         cash_taken = entry.get("cash_paid", 0) or 0
         diesel_taken = entry.get("diesel_paid", 0) or 0
         
@@ -89,7 +89,7 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
     if truck_no and mandi_name:
         # Find all entries with same truck_no + mandi_name
         matching = await db.mill_entries.find(
-            {"truck_no": truck_no, "mandi_name": mandi_name}, {"_id": 0, "id": 1}
+            {"truck_no": truck_no, "mandi_name": {"$regex": f"^{mandi_name}$", "$options": "i"}}, {"_id": 0, "id": 1}
         ).to_list(None)
         for m in matching:
             await db.truck_payments.update_one(
@@ -183,7 +183,7 @@ async def mark_truck_paid(entry_id: str, username: str = "", role: str = ""):
     payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
     rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
     
-    final_qntl = entry.get("final_w", 0) / 100
+    final_qntl = entry.get("qntl", 0) - entry.get("bag", 0) / 100
     cash_taken = entry.get("cash_paid", 0) or 0
     diesel_taken = entry.get("diesel_paid", 0) or 0
     net_amount = (final_qntl * rate) - cash_taken - diesel_taken
@@ -263,9 +263,9 @@ async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[st
         cutting_amount = round(cutting_qntl * cutting_rate, 2)
         total_amount = round(target_amount + cutting_amount, 2)
         
-        # Get achieved for this mandi
+        # Get achieved for this mandi (case-insensitive)
         entry_query = {
-            "mandi_name": mandi_name,
+            "mandi_name": {"$regex": f"^{mandi_name}$", "$options": "i"},
             "kms_year": target["kms_year"],
             "season": target["season"]
         }
