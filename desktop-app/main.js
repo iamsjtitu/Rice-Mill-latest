@@ -3093,8 +3093,22 @@ function setupAutoUpdater() {
     console.log('Checking for update...');
   });
 
+  // Safe helper to execute JS in renderer - prevents UNHANDLED_REJECTION crashes
+  function safeExecuteJS(js) {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.executeJavaScript(js).catch((err) => {
+          logError('SAFE_EXECUTE_JS', err);
+        });
+      }
+    } catch (err) {
+      logError('SAFE_EXECUTE_JS_OUTER', err);
+    }
+  }
+
   autoUpdater.on('update-available', (info) => {
     console.log('Update available:', info.version);
+    if (!mainWindow || mainWindow.isDestroyed()) return;
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update Available',
@@ -3105,17 +3119,15 @@ function setupAutoUpdater() {
     }).then(result => {
       if (result.response === 0) {
         autoUpdater.downloadUpdate();
-        if (mainWindow) {
-          mainWindow.webContents.executeJavaScript(`
-            if (!document.getElementById('update-banner')) {
-              const b = document.createElement('div');
-              b.id = 'update-banner';
-              b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#000;text-align:center;padding:8px;font-size:14px;font-weight:bold;';
-              b.textContent = 'Downloading update... Please wait';
-              document.body.prepend(b);
-            }
-          `);
-        }
+        safeExecuteJS(`
+          if (!document.getElementById('update-banner')) {
+            const b = document.createElement('div');
+            b.id = 'update-banner';
+            b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#000;text-align:center;padding:8px;font-size:14px;font-weight:bold;';
+            b.textContent = 'Downloading update... Please wait';
+            document.body.prepend(b);
+          }
+        `);
       }
     });
   });
@@ -3127,20 +3139,13 @@ function setupAutoUpdater() {
   autoUpdater.on('download-progress', (progress) => {
     const pct = Math.round(progress.percent);
     console.log('Download progress: ' + pct + '%');
-    if (mainWindow) {
-      mainWindow.webContents.executeJavaScript(
-        'var b = document.getElementById("update-banner"); if (b) b.textContent = "Downloading update... ' + pct + '%";'
-      );
-    }
+    safeExecuteJS('var b = document.getElementById("update-banner"); if (b) b.textContent = "Downloading update... ' + pct + '%";');
   });
 
   autoUpdater.on('update-downloaded', () => {
     console.log('Update downloaded');
-    if (mainWindow) {
-      mainWindow.webContents.executeJavaScript(
-        'var b = document.getElementById("update-banner"); if (b) { b.style.background = "#22c55e"; b.textContent = "Update download complete!"; }'
-      );
-    }
+    safeExecuteJS('var b = document.getElementById("update-banner"); if (b) { b.style.background = "#22c55e"; b.textContent = "Update download complete!"; }');
+    if (!mainWindow || mainWindow.isDestroyed()) return;
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update Ready',
@@ -3152,12 +3157,10 @@ function setupAutoUpdater() {
       if (result.response === 0) {
         autoUpdater.quitAndInstall(false, true);
       } else {
-        if (mainWindow) {
-          mainWindow.webContents.executeJavaScript(`
-            const b = document.getElementById('update-banner');
-            if (b) { b.style.background = '#22c55e'; b.textContent = 'Update ready! App close karne par install ho jayega.'; }
-          `);
-        }
+        safeExecuteJS(`
+          const b = document.getElementById('update-banner');
+          if (b) { b.style.background = '#22c55e'; b.textContent = 'Update ready! App close karne par install ho jayega.'; }
+        `);
       }
     });
   });

@@ -327,6 +327,144 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
       y += rowH;
     }
 
+    // ---- PAGE 2: MONTHLY SUMMARY ----
+    const monthNames = { '01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'May','06':'Jun','07':'Jul','08':'Aug','09':'Sep','10':'Oct','11':'Nov','12':'Dec' };
+    const monthlyData = {};
+    for (const dt of dates) {
+      const mk = dt.slice(0, 7);
+      if (!monthlyData[mk]) {
+        monthlyData[mk] = {};
+        staffList.forEach(s => { monthlyData[mk][s.id] = { P: 0, A: 0, H: 0, CH: 0 }; });
+      }
+      for (const s of staffList) {
+        const st = (attMap[s.id] || {})[dt] || '-';
+        const val = statusShort[st] || '-';
+        if (monthlyData[mk] && monthlyData[mk][s.id] && monthlyData[mk][s.id][val] !== undefined) monthlyData[mk][s.id][val]++;
+      }
+    }
+    const sortedMonths = Object.keys(monthlyData).sort();
+
+    doc.addPage({ size: 'A4', layout: 'landscape', margin: 10 });
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#1a365d')
+       .text('Monthly Summary / Masik Saransh', 10, 10);
+
+    const msHeaders = ['Staff', 'Sal.Type', 'Rate', ...sortedMonths.map(m => `${monthNames[m.slice(5,7)] || m.slice(5,7)} ${m.slice(0,4)}`), 'Total Days', 'Est. Salary'];
+    const msCols = msHeaders.length;
+    const msColW = Math.max(50, Math.min(80, 800 / Math.max(msCols, 1)));
+    const msColWidths = [70, 45, 45, ...Array(sortedMonths.length).fill(msColW), 50, 65];
+    const totalMsW = msColWidths.reduce((a, b) => a + b, 0);
+    const msScale = totalMsW > 800 ? 800 / totalMsW : 1;
+    const scaledMsW = msColWidths.map(w => w * msScale);
+
+    let msY = 28;
+    const msRowH = 12;
+
+    // Header row
+    let msX = 10;
+    for (let i = 0; i < msHeaders.length; i++) {
+      doc.rect(msX, msY, scaledMsW[i], msRowH).fill('#065f46');
+      doc.fillColor('white').font('Helvetica-Bold').fontSize(5.5)
+         .text(msHeaders[i], msX + 2, msY + 2, { width: scaledMsW[i] - 4 });
+      msX += scaledMsW[i];
+    }
+    msY += msRowH;
+
+    // Data rows - staff summary
+    for (const s of staffList) {
+      msX = 10;
+      const salType = s.salary_type === 'monthly' ? 'Monthly' : 'Daily';
+      const salAmt = s.salary_amount || 0;
+      const perDay = s.salary_type === 'monthly' ? salAmt / 30 : salAmt;
+      const vals = [s.name, salType, String(salAmt)];
+      let grand = 0;
+      for (const mk of sortedMonths) {
+        const md = monthlyData[mk][s.id];
+        const worked = md.P + md.CH + md.H * 0.5;
+        grand += worked;
+        vals.push(worked.toFixed(1));
+      }
+      const estSalary = Math.round(grand * perDay);
+      vals.push(grand.toFixed(1));
+      vals.push(`Rs.${estSalary.toLocaleString('en-IN')}`);
+
+      for (let i = 0; i < vals.length; i++) {
+        const isLastTwo = i >= vals.length - 2;
+        const bgColor = i === vals.length - 2 ? '#d1fae5' : i === vals.length - 1 ? '#fef3c7' : (staffList.indexOf(s) % 2 === 0 ? '#f0fdf4' : '#ffffff');
+        doc.rect(msX, msY, scaledMsW[i], msRowH).fill(bgColor);
+        const txtColor = i === vals.length - 1 ? '#92400e' : '#000000';
+        doc.fillColor(txtColor).font(isLastTwo || i === 0 ? 'Helvetica-Bold' : 'Helvetica').fontSize(5.5)
+           .text(vals[i], msX + 2, msY + 2, { width: scaledMsW[i] - 4 });
+        msX += scaledMsW[i];
+      }
+      msY += msRowH;
+      if (msY > 560) { doc.addPage({ size: 'A4', layout: 'landscape', margin: 10 }); msY = 10; }
+    }
+
+    // Breakdown (P/A/H/CH)
+    msY += 4;
+    msX = 10;
+    const breakdownW = scaledMsW.reduce((a, b) => a + b, 0);
+    doc.rect(msX, msY, breakdownW, msRowH).fill('#fef3c7');
+    doc.fillColor('#78350f').font('Helvetica-Bold').fontSize(6.5)
+       .text('Breakdown (P / A / H / CH)', msX + 2, msY + 2, { width: breakdownW - 4 });
+    msY += msRowH;
+
+    for (const s of staffList) {
+      msX = 10;
+      const perDay = s.salary_type === 'monthly' ? (s.salary_amount || 0) / 30 : (s.salary_amount || 0);
+      const vals = [s.name, '', ''];
+      let grandSal = 0;
+      for (const mk of sortedMonths) {
+        const md = monthlyData[mk][s.id];
+        vals.push(`${md.P}/${md.A}/${md.H}/${md.CH}`);
+        grandSal += (md.P + md.CH + md.H * 0.5) * perDay;
+      }
+      vals.push('');
+      vals.push(`Rs.${Math.round(grandSal).toLocaleString('en-IN')}`);
+      for (let i = 0; i < vals.length; i++) {
+        doc.rect(msX, msY, scaledMsW[i], msRowH).fill('#ffffff');
+        doc.fillColor('#000000').font(i === 0 ? 'Helvetica-Bold' : 'Helvetica').fontSize(5.5)
+           .text(vals[i], msX + 2, msY + 2, { width: scaledMsW[i] - 4 });
+        msX += scaledMsW[i];
+      }
+      msY += msRowH;
+      if (msY > 560) { doc.addPage({ size: 'A4', layout: 'landscape', margin: 10 }); msY = 10; }
+    }
+
+    // Month-wise Estimated Salary
+    msY += 4;
+    msX = 10;
+    doc.rect(msX, msY, breakdownW, msRowH).fill('#dbeafe');
+    doc.fillColor('#1e3a8a').font('Helvetica-Bold').fontSize(6.5)
+       .text('Month-wise Estimated Salary / Mahine Ka Anumanit Vetan', msX + 2, msY + 2, { width: breakdownW - 4 });
+    msY += msRowH;
+
+    for (const s of staffList) {
+      msX = 10;
+      const perDay = s.salary_type === 'monthly' ? (s.salary_amount || 0) / 30 : (s.salary_amount || 0);
+      const vals = [s.name, '', ''];
+      let grandSal = 0;
+      for (const mk of sortedMonths) {
+        const md = monthlyData[mk][s.id];
+        const worked = md.P + md.CH + md.H * 0.5;
+        const mSal = Math.round(worked * perDay);
+        grandSal += mSal;
+        vals.push(`Rs.${mSal.toLocaleString('en-IN')}`);
+      }
+      vals.push('');
+      vals.push(`Rs.${Math.round(grandSal).toLocaleString('en-IN')}`);
+      for (let i = 0; i < vals.length; i++) {
+        const bgColor = i === vals.length - 1 ? '#fef3c7' : '#ffffff';
+        doc.rect(msX, msY, scaledMsW[i], msRowH).fill(bgColor);
+        const txtColor = i === vals.length - 1 ? '#92400e' : '#000000';
+        doc.fillColor(txtColor).font(i === 0 || i === vals.length - 1 ? 'Helvetica-Bold' : 'Helvetica').fontSize(5.5)
+           .text(vals[i], msX + 2, msY + 2, { width: scaledMsW[i] - 4 });
+        msX += scaledMsW[i];
+      }
+      msY += msRowH;
+      if (msY > 560) { doc.addPage({ size: 'A4', layout: 'landscape', margin: 10 }); msY = 10; }
+    }
+
     doc.end();
   } else {
     // Excel export
@@ -450,6 +588,58 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     ws2.getColumn(1).width = 14;
     ws2.getColumn(2).width = 8; ws2.getColumn(3).width = 8;
     for (let i = 4; i <= msHdrs.length; i++) ws2.getColumn(i).width = 12;
+
+    // ---- Breakdown (P/A/H/CH) section in Monthly Summary ----
+    msRow += 1; // blank row
+    const breakdownHdrRow = ws2.getRow(msRow);
+    ws2.mergeCells(msRow, 1, msRow, msHdrs.length);
+    breakdownHdrRow.getCell(1).value = 'Breakdown (P / A / H / CH)';
+    breakdownHdrRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFfef3c7' } };
+    breakdownHdrRow.getCell(1).font = { bold: true, size: 10, color: { argb: 'FF78350f' } };
+    msRow++;
+
+    for (const s of staffList) {
+      const r = ws2.getRow(msRow);
+      r.getCell(1).value = s.name; r.getCell(1).font = { bold: true, size: 9 };
+      sortedMonths.forEach((mk, mi) => {
+        const md = monthlyData[mk][s.id];
+        const c = r.getCell(4 + mi);
+        c.value = `${md.P} / ${md.A} / ${md.H} / ${md.CH}`;
+        c.alignment = { horizontal: 'center' }; c.font = { size: 8 };
+      });
+      msRow++;
+    }
+
+    // ---- Month-wise Estimated Salary section ----
+    msRow += 1; // blank row
+    const salaryHdrRow = ws2.getRow(msRow);
+    ws2.mergeCells(msRow, 1, msRow, msHdrs.length);
+    salaryHdrRow.getCell(1).value = 'Month-wise Estimated Salary / Mahine Ka Anumanit Vetan';
+    salaryHdrRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFdbeafe' } };
+    salaryHdrRow.getCell(1).font = { bold: true, size: 10, color: { argb: 'FF1e3a8a' } };
+    msRow++;
+
+    for (const s of staffList) {
+      const r = ws2.getRow(msRow);
+      r.getCell(1).value = s.name; r.getCell(1).font = { bold: true, size: 9 };
+      const perDay = s.salary_type === 'monthly' ? s.salary_amount / 30 : s.salary_amount;
+      let grandSal = 0;
+      sortedMonths.forEach((mk, mi) => {
+        const md = monthlyData[mk][s.id];
+        const worked = md.P + md.CH + md.H * 0.5;
+        const mSal = Math.round(worked * perDay);
+        grandSal += mSal;
+        const c = r.getCell(4 + mi);
+        c.value = mSal; c.alignment = { horizontal: 'center' }; c.font = { size: 9 }; c.numFmt = '#,##0';
+      });
+      // Grand total salary in last column
+      const esCell = r.getCell(5 + sortedMonths.length);
+      esCell.value = Math.round(grandSal);
+      esCell.font = { bold: true, color: { argb: 'FF92400e' } };
+      esCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFfef3c7' } };
+      esCell.alignment = { horizontal: 'center' }; esCell.numFmt = '#,##0';
+      msRow++;
+    }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.xlsx`);
