@@ -212,7 +212,7 @@ class JsonDatabase {
       this.data.cash_transactions.push({
         id: uuidv4(), date: newEntry.date || new Date().toISOString().split('T')[0],
         account: 'cash', txn_type: 'nikasi', category: 'Cash Paid (Entry)',
-        description: `Cash Paid: Truck ${newEntry.truck_no||''} - Agent ${newEntry.agent_name||''} - Rs.${cashPaid}`,
+        description: `Cash Paid: Truck ${newEntry.truck_no||''} - Mandi ${newEntry.mandi_name||''} - Rs.${cashPaid}`,
         amount: cashPaid, reference: `entry_cash:${newEntry.id.slice(0,8)}`,
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
@@ -231,7 +231,7 @@ class JsonDatabase {
         pump_id: defPump?.id||'default', pump_name: defPump?.name||'Default Pump',
         truck_no: newEntry.truck_no||'', agent_name: newEntry.agent_name||'',
         amount: dieselPaid, txn_type: 'debit',
-        description: `Diesel: Truck ${newEntry.truck_no||''} - Agent ${newEntry.agent_name||''}`,
+        description: `Diesel: Truck ${newEntry.truck_no||''} - Mandi ${newEntry.mandi_name||''}`,
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
         created_at: new Date().toISOString()
@@ -259,13 +259,13 @@ class JsonDatabase {
       
       const cashPaid = parseFloat(updated.cash_paid) || 0;
       if (cashPaid > 0 && this.data.cash_transactions) {
-        this.data.cash_transactions.push({ id: uuidv4(), date: updated.date, account: 'cash', txn_type: 'nikasi', category: 'Cash Paid (Entry)', description: `Cash Paid: Truck ${updated.truck_no||''} - Agent ${updated.agent_name||''} - Rs.${cashPaid}`, amount: cashPaid, reference: `entry_cash:${id.slice(0,8)}`, kms_year: updated.kms_year||'', season: updated.season||'', created_by: updated.created_by||'system', linked_entry_id: id, created_at: new Date().toISOString() });
+        this.data.cash_transactions.push({ id: uuidv4(), date: updated.date, account: 'cash', txn_type: 'nikasi', category: 'Cash Paid (Entry)', description: `Cash Paid: Truck ${updated.truck_no||''} - Mandi ${updated.mandi_name||''} - Rs.${cashPaid}`, amount: cashPaid, reference: `entry_cash:${id.slice(0,8)}`, kms_year: updated.kms_year||'', season: updated.season||'', created_by: updated.created_by||'system', linked_entry_id: id, created_at: new Date().toISOString() });
       }
       const dieselPaid = parseFloat(updated.diesel_paid) || 0;
       if (dieselPaid > 0 && this.data.diesel_accounts) {
         if (!this.data.diesel_pumps) this.data.diesel_pumps = [];
         const defPump = this.data.diesel_pumps.find(p => p.is_default) || this.data.diesel_pumps[0];
-        this.data.diesel_accounts.push({ id: uuidv4(), date: updated.date, pump_id: defPump?.id||'default', pump_name: defPump?.name||'Default Pump', truck_no: updated.truck_no||'', agent_name: updated.agent_name||'', amount: dieselPaid, txn_type: 'debit', description: `Diesel: Truck ${updated.truck_no||''} - Agent ${updated.agent_name||''}`, kms_year: updated.kms_year||'', season: updated.season||'', created_by: updated.created_by||'system', linked_entry_id: id, created_at: new Date().toISOString() });
+        this.data.diesel_accounts.push({ id: uuidv4(), date: updated.date, pump_id: defPump?.id||'default', pump_name: defPump?.name||'Default Pump', truck_no: updated.truck_no||'', agent_name: updated.agent_name||'', amount: dieselPaid, txn_type: 'debit', description: `Diesel: Truck ${updated.truck_no||''} - Mandi ${updated.mandi_name||''}`, kms_year: updated.kms_year||'', season: updated.season||'', created_by: updated.created_by||'system', linked_entry_id: id, created_at: new Date().toISOString() });
       }
       
       this.save();
@@ -2401,8 +2401,9 @@ function createApiServer(database) {
     const { party_name, party_type, kms_year, season } = req.query;
     const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     const ledger = [];
-    if (!party_type || party_type === 'agent') { for (const e of entries) { const a = e.agent_name || ''; if (!a) continue; if (party_name && a.toLowerCase() !== party_name.toLowerCase()) continue; ledger.push({ date: e.date || '', party_name: a, party_type: 'Agent', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q | Truck: ${e.truck_no||''}`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100, ref: (e.id||'').substring(0,8) }); } }
-    if (!party_type || party_type === 'truck') { for (const e of entries) { const t = e.truck_no || ''; if (!t) continue; if (party_name && t.toLowerCase() !== party_name.toLowerCase()) continue; ledger.push({ date: e.date || '', party_name: t, party_type: 'Truck', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q | Agent: ${e.agent_name||''}`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100, ref: (e.id||'').substring(0,8) }); } }
+    if (!party_type || party_type === 'agent') { for (const e of entries) { const a = e.agent_name || ''; if (!a) continue; if (party_name && a.toLowerCase() !== party_name.toLowerCase()) continue; ledger.push({ date: e.date || '', party_name: a, party_type: 'Agent', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q | Truck: ${e.truck_no||''} | Mandi: ${e.mandi_name||''}`, debit: Math.round((e.qntl||0)*100)/100, credit: 0, ref: (e.id||'').substring(0,8) }); } }
+    if (!party_type || party_type === 'truck') { for (const e of entries) { const t = e.truck_no || ''; if (!t) continue; if (party_name && t.toLowerCase() !== party_name.toLowerCase()) continue; const tp = Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100; if (tp > 0) ledger.push({ date: e.date || '', party_name: t, party_type: 'Truck', description: `Mandi: ${e.mandi_name||''} | Cash: ${e.cash_paid||0} Diesel: ${e.diesel_paid||0}`, debit: 0, credit: tp, ref: (e.id||'').substring(0,8) }); } }
+    if (!party_type || party_type === 'cash_party') { const cashTxns = (database.data.cash_transactions||[]).filter(t => (!kms_year||t.kms_year===kms_year) && (!season||t.season===season)); for (const t of cashTxns) { const cat = (t.category||'').trim(); if (!cat) continue; if (['cash payment','diesel payment','cash paid','diesel','cash paid (entry)','diesel (entry)'].includes(cat.toLowerCase())) continue; if (party_name && cat.toLowerCase() !== party_name.toLowerCase()) continue; const isJama = t.txn_type === 'jama'; ledger.push({ date: t.date||'', party_name: cat, party_type: 'Cash Party', description: t.description || `${isJama?'Jama':'Nikasi'}: Rs.${t.amount||0}`, debit: isJama ? 0 : Math.round((t.amount||0)*100)/100, credit: isJama ? Math.round((t.amount||0)*100)/100 : 0, ref: (t.id||'').substring(0,8) }); } }
     if (!party_type || party_type === 'frk_party') { (database.data.frk_purchases||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(p => { const n = p.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: p.date||'', party_name: n, party_type: 'FRK Seller', description: `FRK: ${p.quantity_qntl||0}Q @ Rs.${p.rate_per_qntl||0}/Q`, debit: Math.round((p.total_amount||0)*100)/100, credit: 0, ref: (p.id||'').substring(0,8) }); }); }
     if (!party_type || party_type === 'buyer') { (database.data.byproduct_sales||[]).filter(s => (!kms_year||s.kms_year===kms_year) && (!season||s.season===season)).forEach(s => { const b = s.buyer_name||''; if (!b) return; if (party_name && b.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: s.date||'', party_name: b, party_type: 'Buyer', description: `${(s.product||'')}`, debit: 0, credit: Math.round((s.total_amount||0)*100)/100, ref: (s.id||'').substring(0,8) }); }); }
     // Private Paddy Purchase

@@ -14,6 +14,8 @@ import {
   IndianRupee, FileSpreadsheet, BookOpen, ClipboardList
 } from "lucide-react";
 
+const fmtDate = (d) => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
+
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -302,6 +304,7 @@ const PartyLedger = ({ filters }) => {
             <SelectItem value="all" className="text-white">All Types</SelectItem>
             <SelectItem value="agent" className="text-white">Agent</SelectItem>
             <SelectItem value="truck" className="text-white">Truck</SelectItem>
+            <SelectItem value="cash_party" className="text-white">Cash Party</SelectItem>
             <SelectItem value="frk_party" className="text-white">FRK Seller</SelectItem>
             <SelectItem value="buyer" className="text-white">Buyer</SelectItem>
             <SelectItem value="pvt_paddy" className="text-white">Pvt Paddy</SelectItem>
@@ -389,7 +392,7 @@ const PartyLedger = ({ filters }) => {
                 <TableBody>
                   {data.ledger.map((item, idx) => (
                     <TableRow key={idx} className="border-slate-700">
-                      <TableCell className="text-white text-xs">{item.date}</TableCell>
+                      <TableCell className="text-white text-xs">{fmtDate(item.date)}</TableCell>
                       <TableCell className="text-white font-semibold">{item.party_name}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-0.5 text-xs rounded-full ${

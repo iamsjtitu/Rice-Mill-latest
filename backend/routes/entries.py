@@ -42,7 +42,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
         cb = {
             "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
             "account": "cash", "txn_type": "nikasi", "category": "Cash Paid (Entry)",
-            "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Agent {doc.get('agent_name','')} - Rs.{cash_paid}",
+            "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}",
             "amount": round(cash_paid, 2), "reference": f"entry_cash:{doc['id'][:8]}",
             "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
             "created_by": username or "system", "linked_entry_id": doc["id"],
@@ -62,7 +62,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             "pump_id": pump_id, "pump_name": pump_name,
             "truck_no": doc.get("truck_no", ""), "agent_name": doc.get("agent_name", ""),
             "amount": round(diesel_paid, 2), "txn_type": "debit",
-            "description": f"Diesel: Truck {doc.get('truck_no','')} - Agent {doc.get('agent_name','')}",
+            "description": f"Diesel: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')}",
             "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
             "created_by": username or "system", "linked_entry_id": doc["id"],
             "created_at": datetime.now(timezone.utc).isoformat()
@@ -230,7 +230,7 @@ async def import_entries_from_excel(
             cb = {
                 "id": str(uuid.uuid4()), "date": doc["date"],
                 "account": "cash", "txn_type": "nikasi", "category": "Cash Paid (Entry)",
-                "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Agent {doc.get('agent_name','')} - Rs.{cash_paid}",
+                "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}",
                 "amount": round(cash_paid, 2), "reference": f"entry_cash:{doc['id'][:8]}",
                 "kms_year": kms_year, "season": season,
                 "created_by": username, "linked_entry_id": doc["id"],
@@ -246,7 +246,7 @@ async def import_entries_from_excel(
                 "pump_id": pump_id, "pump_name": pump_name,
                 "truck_no": doc.get("truck_no", ""), "agent_name": doc.get("agent_name", ""),
                 "amount": round(diesel_paid, 2), "txn_type": "debit",
-                "description": f"Diesel: Truck {doc.get('truck_no','')} - Agent {doc.get('agent_name','')}",
+                "description": f"Diesel: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')}",
                 "kms_year": kms_year, "season": season,
                 "created_by": username, "linked_entry_id": doc["id"],
                 "created_at": datetime.now(timezone.utc).isoformat()
@@ -348,7 +348,7 @@ async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = ""
         cb = {
             "id": str(uuid.uuid4()), "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
             "account": "cash", "txn_type": "nikasi", "category": "Cash Paid (Entry)",
-            "description": f"Cash Paid: Truck {merged_data.get('truck_no','')} - Agent {merged_data.get('agent_name','')} - Rs.{cash_paid}",
+            "description": f"Cash Paid: Truck {merged_data.get('truck_no','')} - Mandi {merged_data.get('mandi_name','')} - Rs.{cash_paid}",
             "amount": round(cash_paid, 2), "reference": f"entry_cash:{entry_id[:8]}",
             "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
             "created_by": username or "system", "linked_entry_id": entry_id,
@@ -368,7 +368,7 @@ async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = ""
             "pump_id": pump_id, "pump_name": pump_name,
             "truck_no": merged_data.get("truck_no", ""), "agent_name": merged_data.get("agent_name", ""),
             "amount": round(diesel_paid, 2), "txn_type": "debit",
-            "description": f"Diesel: Truck {merged_data.get('truck_no','')} - Agent {merged_data.get('agent_name','')}",
+            "description": f"Diesel: Truck {merged_data.get('truck_no','')} - Mandi {merged_data.get('mandi_name','')}",
             "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
             "created_by": username or "system", "linked_entry_id": entry_id,
             "created_at": datetime.now(timezone.utc).isoformat()

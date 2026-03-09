@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+
+const fmtDate = (d) => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -339,7 +341,7 @@ const CashBook = ({ filters, user }) => {
                     <input type="checkbox" checked={selectedIds.includes(t.id)} onChange={() => toggleSelect(t.id)}
                       className="rounded border-slate-300" data-testid={`txn-select-${t.id}`} />
                   </TableCell>
-                )}                <TableCell className="text-slate-800 text-xs font-medium">{t.date}</TableCell>
+                )}                <TableCell className="text-slate-800 text-xs font-medium">{fmtDate(t.date)}</TableCell>
                 <TableCell className="text-xs">
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${t.account === 'cash' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                     {t.account === 'cash' ? 'Cash' : 'Bank'}

@@ -91,22 +91,43 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
 
     # Paddy entries (Agent + Truck)
     entries = await db.mill_entries.find(query, {"_id": 0}).to_list(10000)
+    # Paddy entries - Agent ledger (NO cash/diesel - those go to truck)
     if not party_type or party_type == "agent":
         for e in entries:
             agent = e.get("agent_name", "")
             if not agent: continue
             if party_name and agent.lower() != party_name.lower(): continue
             ledger.append({"date": e.get("date", ""), "party_name": agent, "party_type": "Agent",
-                "description": f"Paddy: {round((e.get('mill_w',0))/100,2)}Q | Truck: {e.get('truck_no','')}",
-                "debit": 0, "credit": round(e.get("cash_paid", 0) + e.get("diesel_paid", 0), 2), "ref": e.get("id", "")[:8]})
+                "description": f"Paddy: {round((e.get('mill_w',0))/100,2)}Q | Truck: {e.get('truck_no','')} | Mandi: {e.get('mandi_name','')}",
+                "debit": round(e.get("qntl", 0), 2), "credit": 0, "ref": e.get("id", "")[:8]})
+    # Paddy entries - Truck ledger (cash + diesel payments go here)
     if not party_type or party_type == "truck":
         for e in entries:
             truck = e.get("truck_no", "")
             if not truck: continue
             if party_name and truck.lower() != party_name.lower(): continue
-            ledger.append({"date": e.get("date", ""), "party_name": truck, "party_type": "Truck",
-                "description": f"Paddy: {round((e.get('mill_w',0))/100,2)}Q | Agent: {e.get('agent_name','')}",
-                "debit": 0, "credit": round(e.get("cash_paid", 0) + e.get("diesel_paid", 0), 2), "ref": e.get("id", "")[:8]})
+            total_paid = round(e.get("cash_paid", 0) + e.get("diesel_paid", 0), 2)
+            if total_paid > 0:
+                ledger.append({"date": e.get("date", ""), "party_name": truck, "party_type": "Truck",
+                    "description": f"Mandi: {e.get('mandi_name','')} | Cash: {e.get('cash_paid',0)} Diesel: {e.get('diesel_paid',0)}",
+                    "debit": 0, "credit": total_paid, "ref": e.get("id", "")[:8]})
+
+    # Cash Book categories → Party Ledger (auto)
+    if not party_type or party_type == "cash_party":
+        cash_query = dict(query)
+        cash_txns = await db.cash_transactions.find(cash_query, {"_id": 0}).to_list(10000)
+        for t in cash_txns:
+            cat = (t.get("category") or "").strip()
+            if not cat: continue
+            # Skip system categories (Cash Payment, Diesel Payment etc.)
+            if cat.lower() in ("cash payment", "diesel payment", "cash paid", "diesel", "cash paid (entry)", "diesel (entry)"): continue
+            if party_name and cat.lower() != party_name.lower(): continue
+            is_jama = t.get("txn_type") == "jama"
+            ledger.append({"date": t.get("date", ""), "party_name": cat, "party_type": "Cash Party",
+                "description": t.get("description", "") or f"{'Jama' if is_jama else 'Nikasi'}: ₹{t.get('amount',0)}",
+                "debit": round(t.get("amount", 0), 2) if not is_jama else 0,
+                "credit": round(t.get("amount", 0), 2) if is_jama else 0,
+                "ref": t.get("id", "")[:8]})
 
     # FRK purchases
     if not party_type or party_type == "frk_party":

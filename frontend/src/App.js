@@ -57,6 +57,14 @@ import ExcelImport from "@/components/ExcelImport";
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// Format date: YYYY-MM-DD → DD-MM-YYYY
+const fmtDate = (d) => {
+  if (!d) return '';
+  const parts = String(d).split('-');
+  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  return d;
+};
+
 // Safe print helper - uses iframe approach (works in Electron + browser)
 const safePrintHTML = (htmlContent) => {
   try {
@@ -278,7 +286,7 @@ function MainApp({ user, onLogout }) {
     }
   }, [formData.bag, formData.g_deposite]);
 
-  // Helper: Find cutting % from mandi targets, existing entries, OR localStorage (case-insensitive)
+  // Helper: Find cutting % from mandi targets OR localStorage (case-insensitive)
   const findMandiCutting = useCallback((mandiName) => {
     if (!mandiName) return null;
     const searchName = mandiName.toLowerCase().trim();
@@ -291,73 +299,40 @@ function MainApp({ user, onLogout }) {
       if (target && target.cutting_percent != null && target.cutting_percent !== 0) return target;
     }
     
-    // Source 2: Check existing entries (fallback)
-    if (entries.length > 0) {
-      const matchingEntries = entries.filter(e => 
-        (e.mandi_name || '').toLowerCase().trim() === searchName && e.cutting_percent && e.cutting_percent > 0
-      );
-      if (matchingEntries.length > 0) {
-        const latest = matchingEntries[0];
-        return { mandi_name: latest.mandi_name, cutting_percent: latest.cutting_percent };
-      }
-    }
-    
-    // Source 3: Check localStorage (permanent memory)
+    // Source 2: Check localStorage (permanent memory)
     try {
       const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
-      if (saved[searchName]) {
+      if (saved[searchName] && saved[searchName] > 0) {
         return { mandi_name: mandiName, cutting_percent: saved[searchName] };
       }
     } catch(e) {}
     
     return null;
-  }, [mandiTargets, entries]);
+  }, [mandiTargets]);
 
-  // Save mandi→cutting mapping to localStorage whenever cutting % changes with a mandi
-  useEffect(() => {
-    if (formData.mandi_name && formData.cutting_percent && parseFloat(formData.cutting_percent) > 0) {
-      try {
-        const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
-        const key = formData.mandi_name.toLowerCase().trim();
-        if (saved[key] !== parseFloat(formData.cutting_percent)) {
-          saved[key] = parseFloat(formData.cutting_percent);
-          localStorage.setItem('mandi_cutting_map', JSON.stringify(saved));
-        }
-      } catch(e) {}
-    }
-  }, [formData.mandi_name, formData.cutting_percent]);
+  // Save mandi→cutting mapping to localStorage on entry save (not on every keystroke)
+  const saveCuttingToLocal = useCallback((mandiName, cuttingPercent) => {
+    if (!mandiName || !cuttingPercent || parseFloat(cuttingPercent) <= 0) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
+      const key = mandiName.toLowerCase().trim();
+      saved[key] = parseFloat(cuttingPercent);
+      localStorage.setItem('mandi_cutting_map', JSON.stringify(saved));
+    } catch(e) {}
+  }, []);
 
-  // Auto-fill cutting % from Mandi Target when mandi name changes (case-insensitive)
+  // Remove external badges - run only on Electron (desktop app)
   useEffect(() => {
-    const target = findMandiCutting(formData.mandi_name);
-    if (target && target.cutting_percent != null) {
-      setFormData(prev => {
-        const newCut = String(target.cutting_percent);
-        const newName = target.mandi_name;
-        if (prev.cutting_percent === newCut && prev.mandi_name === newName) return prev;
-        return { ...prev, cutting_percent: newCut, mandi_name: newName };
-      });
-    }
-  }, [formData.mandi_name, findMandiCutting]);
-
-  // Remove external badges (for desktop/local builds)
-  useEffect(() => {
+    const isElectron = typeof window !== 'undefined' && window.ELECTRON_API_URL;
+    if (isElectron) return; // No badge on desktop app, skip
     const removeBadge = () => {
-      document.querySelectorAll('iframe, a, div').forEach(el => {
-        const src = el.getAttribute('src') || '';
-        const href = el.getAttribute('href') || '';
-        const style = el.getAttribute('style') || '';
-        if (src.includes('emergent') || href.includes('emergent') || 
-            (style.includes('z-index') && style.includes('2147483647')) ||
-            (style.includes('position: fixed') && style.includes('bottom') && el.querySelector && el.querySelector('img[alt*="emergent" i]'))) {
-          el.style.display = 'none';
-          el.remove();
-        }
+      document.querySelectorAll('a[href*="emergent"], iframe[src*="emergent"]').forEach(el => {
+        el.remove();
       });
     };
     removeBadge();
-    const interval = setInterval(removeBadge, 2000);
-    return () => clearInterval(interval);
+    const timeout = setTimeout(removeBadge, 3000);
+    return () => clearTimeout(timeout);
   }, []);
 
 
@@ -792,6 +767,9 @@ function MainApp({ user, onLogout }) {
         await axios.post(`${API}/entries${params}`, dataToSend);
         toast.success("Entry add ho gayi!");
       }
+
+      // Save mandi→cutting mapping for future auto-fill
+      saveCuttingToLocal(formData.mandi_name, formData.cutting_percent);
 
       setFormData(initialFormState);
       setEditingId(null);
@@ -2286,7 +2264,7 @@ function MainApp({ user, onLogout }) {
                             data-testid={`select-${entry.id}`}
                           />
                         </TableCell>
-                        <TableCell className="text-white whitespace-nowrap px-1">{entry.date}</TableCell>
+                        <TableCell className="text-white whitespace-nowrap px-1">{fmtDate(entry.date)}</TableCell>
                         <TableCell className="text-white whitespace-nowrap px-1">{entry.season}</TableCell>
                         <TableCell className="text-white font-mono whitespace-nowrap px-1">{entry.truck_no}</TableCell>
                         <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.rst_no || '-'}</TableCell>

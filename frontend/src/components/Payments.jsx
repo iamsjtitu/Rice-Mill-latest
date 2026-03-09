@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+
+const fmtDate = (d) => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -334,7 +336,7 @@ export const Payments = ({ filters, user, branding }) => {
             </div>
             <div class="info-item">
               <label>Trip Date / ट्रिप दिनांक</label>
-              <span>${payment.date}</span>
+              <span>${fmtDate(payment.date)}</span>
             </div>
             <div class="info-item">
               <label>Truck Number / ट्रक नंबर</label>
@@ -893,7 +895,7 @@ export const Payments = ({ filters, user, branding }) => {
                 <TableBody>
                   {filteredTruckPayments.map((payment, idx) => (
                     <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
-                      <TableCell className="text-white text-xs">{payment.date}</TableCell>
+                      <TableCell className="text-white text-xs">{fmtDate(payment.date)}</TableCell>
                       <TableCell className="text-white font-semibold">{payment.truck_no}</TableCell>
                       <TableCell className="text-slate-300 text-xs">{payment.mandi_name}</TableCell>
                       <TableCell className="text-amber-400 text-right font-semibold">{payment.final_qntl}</TableCell>
@@ -1608,7 +1610,7 @@ const DieselAccount = ({ filters, user }) => {
                   <input type="checkbox" checked={dieselSelectedIds.includes(t.id)} onChange={() => toggleDieselSelect(t.id)}
                     className="rounded border-slate-600" data-testid={`diesel-select-${t.id}`} />
                 </TableCell>
-              )}              <TableCell className="text-white text-xs">{t.date}</TableCell>
+              )}              <TableCell className="text-white text-xs">{fmtDate(t.date)}</TableCell>
               <TableCell className="text-slate-300 text-xs">{t.pump_name}</TableCell>
               <TableCell className="text-xs"><span className={t.txn_type === 'payment' ? 'text-green-400 font-medium' : 'text-orange-400'}>{t.txn_type === 'payment' ? 'PAYMENT' : 'DIESEL'}</span></TableCell>
               <TableCell className="text-slate-300 text-xs">{t.truck_no || '-'}</TableCell>
