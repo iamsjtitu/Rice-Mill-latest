@@ -9,16 +9,25 @@ Rice mill management tool. 3 backends (Python/FastAPI, Node.js local-server, Ele
 - Excel Export data misalignment fixed (P.Pkt, P.Pkt Cut, Mill W columns + totals row)
 - Typing Bug on desktop app fixed (badge removal DOM scan + useEffect loops removed)
 - PDF Export fixed (uses backend download instead of window.print)
-- Excel Import entries not saving on desktop (data.mill_entries → data.entries mismatch)
+- Excel Import entries not saving on desktop (data.mill_entries -> data.entries mismatch)
 - Cutting % auto-fill permanent fix (3 sources: mandi targets, existing entries, localStorage)
 
 ### New Features
 - All columns in entry table: Date, Season, Truck, RST, TP, Agent, Mandi, QNTL, BAG, G.Dep, GBW, P.Pkt, P.Cut, Mill W, M%, M.Cut, C%, D/D/P, Final W, G.Iss, Cash, Diesel
 - Date format changed to DD-MM-YYYY across all pages
-- Cash/Diesel description: Agent Name → Mandi Name
-- Cash/Diesel payment → Truck Owner ledger (not Agent)
+- Cash/Diesel description: Agent Name -> Mandi Name
+- Cash/Diesel payment -> Truck Owner ledger (not Agent)
 - Cash Book Party Ledger: categories auto-create party ledgers, delete syncs
 - Daily Report + PDF/Excel: all 20 columns with M%, M.Cut, D/D/P
+
+### Daily Report Export Overhaul (Feb 2026)
+- **Summary mode API** now returns all 22 paddy entry fields (was only 4: truck_no, agent, kg, final_w)
+- **Summary Excel** shows all 20 columns (Truck through Diesel) instead of just 4
+- **Summary PDF** has all 20 columns with proper data
+- **Pump Account** section changed from "Agent" to "Mandi" in API, PDF, and Excel
+- **Mandi resolution** for diesel txns: uses entry_id->mandi_name map from mill_entries
+- **diesel_accounts** collection now stores `mandi_name` field for new entries
+- **Excel column widths** auto-fit based on content
 
 ## Build Process
 ```
@@ -34,6 +43,11 @@ cd desktop-app && npm run build:win
 
 ## Credentials
 - Admin: admin / admin123 | Staff: staff / staff123
+
+## User Verification Pending
+- Typing Freeze Bug fix (desktop app rebuild needed)
+- Party Ledger Automation & Payment Logic
+- Date Format dd-mm-yyyy
 
 ## Backlog
 - P2: "Entry not found" on Delete
