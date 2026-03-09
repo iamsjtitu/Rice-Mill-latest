@@ -157,7 +157,7 @@ const OutstandingReport = ({ filters }) => {
                   <TableRow className="border-slate-600">
                     <TableHead className="text-slate-300">Truck No.</TableHead>
                     <TableHead className="text-slate-300 text-right">Trips</TableHead>
-                    <TableHead className="text-slate-300 text-right">Qty (Q)</TableHead>
+                    <TableHead className="text-slate-300 text-right">Final W (Q)</TableHead>
                     <TableHead className="text-slate-300 text-right">Cash Paid</TableHead>
                     <TableHead className="text-slate-300 text-right">Diesel Paid</TableHead>
                   </TableRow>
@@ -197,7 +197,7 @@ const OutstandingReport = ({ filters }) => {
                   <TableRow className="border-slate-600">
                     <TableHead className="text-slate-300">Agent</TableHead>
                     <TableHead className="text-slate-300 text-right">Entries</TableHead>
-                    <TableHead className="text-slate-300 text-right">Qty (Q)</TableHead>
+                    <TableHead className="text-slate-300 text-right">Final W (Q)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

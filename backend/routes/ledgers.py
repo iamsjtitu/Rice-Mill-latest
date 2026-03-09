@@ -46,7 +46,7 @@ async def report_outstanding(kms_year: Optional[str] = None, season: Optional[st
         if truck not in truck_map:
             truck_map[truck] = {"truck_no": truck, "total_trips": 0, "total_qty_qntl": 0, "total_cash_paid": 0, "total_diesel_paid": 0}
         truck_map[truck]["total_trips"] += 1
-        truck_map[truck]["total_qty_qntl"] = round(truck_map[truck]["total_qty_qntl"] + (e.get("mill_w", 0) / 100), 2)
+        truck_map[truck]["total_qty_qntl"] = round(truck_map[truck]["total_qty_qntl"] + (e.get("final_w", 0) / 100), 2)
         truck_map[truck]["total_cash_paid"] = round(truck_map[truck]["total_cash_paid"] + (e.get("cash_paid", 0)), 2)
         truck_map[truck]["total_diesel_paid"] = round(truck_map[truck]["total_diesel_paid"] + (e.get("diesel_paid", 0)), 2)
 
@@ -58,7 +58,7 @@ async def report_outstanding(kms_year: Optional[str] = None, season: Optional[st
         if agent not in agent_map:
             agent_map[agent] = {"agent_name": agent, "total_entries": 0, "total_qty_qntl": 0}
         agent_map[agent]["total_entries"] += 1
-        agent_map[agent]["total_qty_qntl"] = round(agent_map[agent]["total_qty_qntl"] + (e.get("mill_w", 0) / 100), 2)
+        agent_map[agent]["total_qty_qntl"] = round(agent_map[agent]["total_qty_qntl"] + (e.get("final_w", 0) / 100), 2)
 
     # FRK purchase outstanding
     frk_purchases = await db.frk_purchases.find(query, {"_id": 0}).to_list(5000)
