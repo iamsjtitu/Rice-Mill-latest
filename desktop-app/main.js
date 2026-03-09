@@ -265,7 +265,7 @@ class JsonDatabase {
       if (dieselPaid > 0 && this.data.diesel_accounts) {
         if (!this.data.diesel_pumps) this.data.diesel_pumps = [];
         const defPump = this.data.diesel_pumps.find(p => p.is_default) || this.data.diesel_pumps[0];
-        this.data.diesel_accounts.push({ id: uuidv4(), date: updated.date, pump_id: defPump?.id||'default', pump_name: defPump?.name||'Default Pump', truck_no: updated.truck_no||'', agent_name: updated.agent_name||'', amount: dieselPaid, txn_type: 'debit', description: `Diesel: Truck ${updated.truck_no||''} - Mandi ${updated.mandi_name||''}`, kms_year: updated.kms_year||'', season: updated.season||'', created_by: updated.created_by||'system', linked_entry_id: id, created_at: new Date().toISOString() });
+        this.data.diesel_accounts.push({ id: uuidv4(), date: updated.date, pump_id: defPump?.id||'default', pump_name: defPump?.name||'Default Pump', truck_no: updated.truck_no||'', agent_name: updated.agent_name||'', mandi_name: updated.mandi_name||'', amount: dieselPaid, txn_type: 'debit', description: `Diesel: Truck ${updated.truck_no||''} - Mandi ${updated.mandi_name||''}`, kms_year: updated.kms_year||'', season: updated.season||'', created_by: updated.created_by||'system', linked_entry_id: id, created_at: new Date().toISOString() });
       }
       
       this.save();
@@ -1299,7 +1299,7 @@ function createApiServer(database) {
     let entries = [...database.data.entries];
     if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
-    const totalIn = +(entries.reduce((s, e) => s + (e.mill_w || 0), 0) / 100).toFixed(2);
+    const totalIn = +(entries.reduce((s, e) => s + ((e.qntl || 0) - (e.bag || 0) / 100), 0)).toFixed(2);
     const millingEntries = database.getMillingEntries(filters);
     const totalUsed = +millingEntries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0).toFixed(2);
     res.json({ total_paddy_in_qntl: totalIn, total_paddy_used_qntl: totalUsed, available_paddy_qntl: +(totalIn - totalUsed).toFixed(2) });
@@ -1389,7 +1389,7 @@ function createApiServer(database) {
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
     const millingEntries = database.getMillingEntries(filters);
     const rows = [];
-    entries.forEach(e => rows.push({ date: e.date || '', type: 'received', description: `Truck: ${e.truck_no || ''} | Agent: ${e.agent_name || ''} | Mandi: ${e.mandi_name || ''}`, received_qntl: +((e.mill_w || 0) / 100).toFixed(2), issued_qntl: 0, source_id: e.id || '' }));
+    entries.forEach(e => rows.push({ date: e.date || '', type: 'received', description: `Truck: ${e.truck_no || ''} | Agent: ${e.agent_name || ''} | Mandi: ${e.mandi_name || ''}`, received_qntl: +((e.qntl || 0) - (e.bag || 0) / 100).toFixed(2), issued_qntl: 0, source_id: e.id || '' }));
     millingEntries.forEach(e => rows.push({ date: e.date || '', type: 'issued', description: `Milling (${(e.rice_type || 'parboiled').charAt(0).toUpperCase() + (e.rice_type || '').slice(1)}) | Rice: ${e.rice_qntl || 0}Q`, received_qntl: 0, issued_qntl: e.paddy_input_qntl || 0, source_id: e.id || '' }));
     rows.sort((a, b) => a.date.localeCompare(b.date));
     let balance = 0;
@@ -1578,6 +1578,17 @@ function createApiServer(database) {
     database.data.cash_transactions = database.data.cash_transactions.filter(t => t.id !== req.params.id);
     if (database.data.cash_transactions.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
+  }));
+  apiApp.put('/api/cash-book/:id', safeSync((req, res) => {
+    if (!database.data.cash_transactions) return res.status(404).json({ detail: 'Not found' });
+    const idx = database.data.cash_transactions.findIndex(t => t.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+    const body = req.body; delete body._id; delete body.id;
+    body.updated_at = new Date().toISOString();
+    if (body.amount) body.amount = Math.round(parseFloat(body.amount) * 100) / 100;
+    Object.assign(database.data.cash_transactions[idx], body);
+    database.save();
+    res.json(database.data.cash_transactions[idx]);
   }));
   apiApp.post('/api/cash-book/delete-bulk', safeSync((req, res) => {
     const ids = req.body.ids || [];
@@ -2161,7 +2172,7 @@ function createApiServer(database) {
       if (filters.season) entries = entries.filter(e => e.season === filters.season);
       const millingEntries = database.getMillingEntries(filters);
       const rows = [];
-      entries.forEach(e => rows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.mill_w||0)/100).toFixed(2), released_qntl: 0 }));
+      entries.forEach(e => rows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
       millingEntries.forEach(e => rows.push({ date: e.date||'', type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
       rows.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       let balance = 0;
@@ -2194,7 +2205,7 @@ function createApiServer(database) {
       if (filters.season) entries = entries.filter(e => e.season === filters.season);
       const millingEntries = database.getMillingEntries(filters);
       const rows = [];
-      entries.forEach(e => rows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.mill_w||0)/100).toFixed(2), released_qntl: 0 }));
+      entries.forEach(e => rows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
       millingEntries.forEach(e => rows.push({ date: e.date||'', type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
       rows.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       let balance = 0;
@@ -2388,9 +2399,9 @@ function createApiServer(database) {
     const mspPendingQty = Math.round((totalDeliveredQntl - totalMspPaidQty) * 100) / 100;
     const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     const truckMap = {};
-    for (const e of entries) { const t = e.truck_no || 'Unknown'; if (!truckMap[t]) truckMap[t] = { truck_no: t, total_trips: 0, total_qty_qntl: 0, total_cash_paid: 0, total_diesel_paid: 0 }; truckMap[t].total_trips++; truckMap[t].total_qty_qntl = Math.round((truckMap[t].total_qty_qntl + (e.mill_w || 0) / 100) * 100) / 100; truckMap[t].total_cash_paid = Math.round((truckMap[t].total_cash_paid + (e.cash_paid || 0)) * 100) / 100; truckMap[t].total_diesel_paid = Math.round((truckMap[t].total_diesel_paid + (e.diesel_paid || 0)) * 100) / 100; }
+    for (const e of entries) { const t = e.truck_no || 'Unknown'; if (!truckMap[t]) truckMap[t] = { truck_no: t, total_trips: 0, total_qty_qntl: 0, total_cash_paid: 0, total_diesel_paid: 0 }; truckMap[t].total_trips++; truckMap[t].total_qty_qntl = Math.round((truckMap[t].total_qty_qntl + (e.final_w || 0) / 100) * 100) / 100; truckMap[t].total_cash_paid = Math.round((truckMap[t].total_cash_paid + (e.cash_paid || 0)) * 100) / 100; truckMap[t].total_diesel_paid = Math.round((truckMap[t].total_diesel_paid + (e.diesel_paid || 0)) * 100) / 100; }
     const agentMap = {};
-    for (const e of entries) { const a = e.agent_name || 'Unknown'; if (!agentMap[a]) agentMap[a] = { agent_name: a, total_entries: 0, total_qty_qntl: 0 }; agentMap[a].total_entries++; agentMap[a].total_qty_qntl = Math.round((agentMap[a].total_qty_qntl + (e.mill_w || 0) / 100) * 100) / 100; }
+    for (const e of entries) { const a = e.agent_name || 'Unknown'; if (!agentMap[a]) agentMap[a] = { agent_name: a, total_entries: 0, total_qty_qntl: 0 }; agentMap[a].total_entries++; agentMap[a].total_qty_qntl = Math.round((agentMap[a].total_qty_qntl + (e.final_w || 0) / 100) * 100) / 100; }
     const frkPurchases = (database.data.frk_purchases || []).filter(p => (!kms_year || p.kms_year === kms_year) && (!season || p.season === season));
     const frkPartyMap = {};
     for (const p of frkPurchases) { const n = p.party_name || 'Unknown'; if (!frkPartyMap[n]) frkPartyMap[n] = { party_name: n, total_qty: 0, total_amount: 0 }; frkPartyMap[n].total_qty = Math.round((frkPartyMap[n].total_qty + (p.quantity_qntl || 0)) * 100) / 100; frkPartyMap[n].total_amount = Math.round((frkPartyMap[n].total_amount + (p.total_amount || 0)) * 100) / 100; }
@@ -2398,12 +2409,13 @@ function createApiServer(database) {
   }));
 
   apiApp.get('/api/reports/party-ledger', safeSync((req, res) => {
-    const { party_name, party_type, kms_year, season } = req.query;
-    const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
+    const { party_name, party_type, kms_year, season, date_from, date_to } = req.query;
+    const dateFilter = (d) => (!date_from || d >= date_from) && (!date_to || d <= date_to);
+    const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season) && dateFilter(e.date || ''));
     const ledger = [];
-    if (!party_type || party_type === 'agent') { for (const e of entries) { const a = e.agent_name || ''; if (!a) continue; if (party_name && a.toLowerCase() !== party_name.toLowerCase()) continue; ledger.push({ date: e.date || '', party_name: a, party_type: 'Agent', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q | Truck: ${e.truck_no||''} | Mandi: ${e.mandi_name||''}`, debit: Math.round((e.qntl||0)*100)/100, credit: 0, ref: (e.id||'').substring(0,8) }); } }
+    // Agent auto-entries removed - agent payments only from cash book
     if (!party_type || party_type === 'truck') { for (const e of entries) { const t = e.truck_no || ''; if (!t) continue; if (party_name && t.toLowerCase() !== party_name.toLowerCase()) continue; const tp = Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100; if (tp > 0) ledger.push({ date: e.date || '', party_name: t, party_type: 'Truck', description: `Mandi: ${e.mandi_name||''} | Cash: ${e.cash_paid||0} Diesel: ${e.diesel_paid||0}`, debit: 0, credit: tp, ref: (e.id||'').substring(0,8) }); } }
-    if (!party_type || party_type === 'cash_party') { const cashTxns = (database.data.cash_transactions||[]).filter(t => (!kms_year||t.kms_year===kms_year) && (!season||t.season===season)); for (const t of cashTxns) { const cat = (t.category||'').trim(); if (!cat) continue; if (['cash payment','diesel payment','cash paid','diesel','cash paid (entry)','diesel (entry)'].includes(cat.toLowerCase())) continue; if (party_name && cat.toLowerCase() !== party_name.toLowerCase()) continue; const isJama = t.txn_type === 'jama'; ledger.push({ date: t.date||'', party_name: cat, party_type: 'Cash Party', description: t.description || `${isJama?'Jama':'Nikasi'}: Rs.${t.amount||0}`, debit: isJama ? 0 : Math.round((t.amount||0)*100)/100, credit: isJama ? Math.round((t.amount||0)*100)/100 : 0, ref: (t.id||'').substring(0,8) }); } }
+    if (!party_type || party_type === 'cash_party') { const cashTxns = (database.data.cash_transactions||[]).filter(t => (!kms_year||t.kms_year===kms_year) && (!season||t.season===season) && dateFilter(t.date || '')); for (const t of cashTxns) { const cat = (t.category||'').trim(); if (!cat) continue; if (['cash payment','diesel payment','cash paid','diesel','cash paid (entry)','diesel (entry)'].includes(cat.toLowerCase())) continue; if (party_name && cat.toLowerCase() !== party_name.toLowerCase()) continue; const isJama = t.txn_type === 'jama'; ledger.push({ date: t.date||'', party_name: cat, party_type: 'Cash Party', description: t.description || `${isJama?'Jama':'Nikasi'}: Rs.${t.amount||0}`, debit: isJama ? 0 : Math.round((t.amount||0)*100)/100, credit: isJama ? Math.round((t.amount||0)*100)/100 : 0, ref: (t.id||'').substring(0,8) }); } }
     if (!party_type || party_type === 'frk_party') { (database.data.frk_purchases||[]).filter(p => (!kms_year||p.kms_year===kms_year) && (!season||p.season===season)).forEach(p => { const n = p.party_name||''; if (!n) return; if (party_name && n.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: p.date||'', party_name: n, party_type: 'FRK Seller', description: `FRK: ${p.quantity_qntl||0}Q @ Rs.${p.rate_per_qntl||0}/Q`, debit: Math.round((p.total_amount||0)*100)/100, credit: 0, ref: (p.id||'').substring(0,8) }); }); }
     if (!party_type || party_type === 'buyer') { (database.data.byproduct_sales||[]).filter(s => (!kms_year||s.kms_year===kms_year) && (!season||s.season===season)).forEach(s => { const b = s.buyer_name||''; if (!b) return; if (party_name && b.toLowerCase()!==party_name.toLowerCase()) return; ledger.push({ date: s.date||'', party_name: b, party_type: 'Buyer', description: `${(s.product||'')}`, debit: 0, credit: Math.round((s.total_amount||0)*100)/100, ref: (s.id||'').substring(0,8) }); }); }
     // Private Paddy Purchase
@@ -2451,11 +2463,12 @@ function createApiServer(database) {
 
   apiApp.get('/api/reports/party-ledger/excel', safeAsync(async (req, res) => {
     try {
-      const { party_name, party_type, kms_year, season } = req.query;
-      const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
+      const { party_name, party_type, kms_year, season, date_from, date_to } = req.query;
+      const dateFilter = (d) => (!date_from || d >= date_from) && (!date_to || d <= date_to);
+      const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season) && dateFilter(e.date || ''));
       const ledger = [];
-      if (!party_type || party_type === 'agent') entries.forEach(e => { const a = e.agent_name||''; if (!a||(party_name && a.toLowerCase()!==party_name.toLowerCase())) return; ledger.push({ date: e.date, party_name: a, party_type: 'Agent', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100, ref: (e.id||'').substring(0,8) }); });
-      if (!party_type || party_type === 'truck') entries.forEach(e => { const t = e.truck_no||''; if (!t||(party_name && t.toLowerCase()!==party_name.toLowerCase())) return; ledger.push({ date: e.date, party_name: t, party_type: 'Truck', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100, ref: (e.id||'').substring(0,8) }); });
+      // Agent auto-entries removed
+      if (!party_type || party_type === 'truck') entries.forEach(e => { const t = e.truck_no||''; if (!t||(party_name && t.toLowerCase()!==party_name.toLowerCase())) return; const tp = Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100; if (tp > 0) ledger.push({ date: e.date, party_name: t, party_type: 'Truck', description: `Mandi: ${e.mandi_name||''} | Cash: ${e.cash_paid||0} Diesel: ${e.diesel_paid||0}`, debit: 0, credit: tp, ref: (e.id||'').substring(0,8) }); });
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Ledger');
       ws.mergeCells('A1:G1'); ws.getCell('A1').value = `Party Ledger${party_name?' - '+party_name:''}`; ws.getCell('A1').font = { bold: true, size: 14 };
       ['Date','Party','Type','Description','Debit(₹)','Credit(₹)','Ref'].forEach((h, i) => { ws.getCell(3, i+1).value = h; ws.getCell(3, i+1).font = { bold: true, color: { argb: 'FFFFFFFF' } }; ws.getCell(3, i+1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }; });
@@ -2467,11 +2480,12 @@ function createApiServer(database) {
 
   apiApp.get('/api/reports/party-ledger/pdf', safeSync((req, res) => {
     try {
-      const { party_name, party_type, kms_year, season } = req.query;
-      const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
+      const { party_name, party_type, kms_year, season, date_from, date_to } = req.query;
+      const dateFilter = (d) => (!date_from || d >= date_from) && (!date_to || d <= date_to);
+      const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season) && dateFilter(e.date || ''));
       const ledger = [];
-      if (!party_type || party_type === 'agent') entries.forEach(e => { const a = e.agent_name||''; if (!a||(party_name && a.toLowerCase()!==party_name.toLowerCase())) return; ledger.push({ date: e.date, party_name: a, party_type: 'Agent', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100 }); });
-      if (!party_type || party_type === 'truck') entries.forEach(e => { const t = e.truck_no||''; if (!t||(party_name && t.toLowerCase()!==party_name.toLowerCase())) return; ledger.push({ date: e.date, party_name: t, party_type: 'Truck', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100 }); });
+      // Agent auto-entries removed
+      if (!party_type || party_type === 'truck') entries.forEach(e => { const t = e.truck_no||''; if (!t||(party_name && t.toLowerCase()!==party_name.toLowerCase())) return; const tp = Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100; if (tp > 0) ledger.push({ date: e.date, party_name: t, party_type: 'Truck', description: `Mandi: ${e.mandi_name||''} | Cash: ${e.cash_paid||0} Diesel: ${e.diesel_paid||0}`, debit: 0, credit: tp }); });
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`); doc.pipe(res);
       doc.fontSize(18).text(`Party Ledger${party_name?' - '+party_name:''}`, { align: 'center' }); doc.moveDown();
@@ -2531,6 +2545,10 @@ function createApiServer(database) {
     if (req.query.pump_id) txns = txns.filter(t => t.pump_id === req.query.pump_id);
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+    if (req.query.txn_type) txns = txns.filter(t => t.txn_type === req.query.txn_type);
+    if (req.query.truck_no) txns = txns.filter(t => (t.truck_no||'').toLowerCase().includes(req.query.truck_no.toLowerCase()));
+    if (req.query.date_from) txns = txns.filter(t => (t.date||'') >= req.query.date_from);
+    if (req.query.date_to) txns = txns.filter(t => (t.date||'') <= req.query.date_to);
     res.json(txns.sort((a,b) => (b.date||'').localeCompare(a.date||'')));
   }));
   apiApp.get('/api/diesel-accounts/summary', safeSync((req, res) => {

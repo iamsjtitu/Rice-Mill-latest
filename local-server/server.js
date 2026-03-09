@@ -662,6 +662,10 @@ async function startServer() {
     if (req.query.pump_id) txns = txns.filter(t => t.pump_id === req.query.pump_id);
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+    if (req.query.txn_type) txns = txns.filter(t => t.txn_type === req.query.txn_type);
+    if (req.query.truck_no) txns = txns.filter(t => (t.truck_no||'').toLowerCase().includes(req.query.truck_no.toLowerCase()));
+    if (req.query.date_from) txns = txns.filter(t => (t.date||'') >= req.query.date_from);
+    if (req.query.date_to) txns = txns.filter(t => (t.date||'') <= req.query.date_to);
     res.json(txns.sort((a,b) => (b.date||'').localeCompare(a.date||'')));
   });
   app.get('/api/diesel-accounts/summary', (req, res) => {
