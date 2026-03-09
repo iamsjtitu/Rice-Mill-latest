@@ -17,6 +17,10 @@ Rice mill management tool. 3 backends (Python/FastAPI, Node.js local-server, Ele
 - Auto Cutting % from Mandi Target, Party-wise Report
 - Mill Parts Stock (Search, Edit, Stock Preview)
 
+### Bug Fixes (March 9, 2026)
+- Fixed Excel export data misalignment: P.Pkt, P.Pkt Cut, Mill W columns were swapped in data rows; Totals row was missing Cut% placeholder causing shift
+- Removed Season column from main Mill Entry table UI for better column fit (data still stored in entry)
+
 ### CRITICAL BUILD PROCESS
 ```
 cd /app/frontend && REACT_APP_BACKEND_URL="" yarn build
@@ -25,6 +29,9 @@ cp -r /app/frontend/build /app/local-server/public
 ```
 
 ## Backlog
+- P1: Excel Import not working on Desktop App (recurring, likely build/env issue)
+- P1: Cutting % auto-fill not working on Desktop App (recurring, likely build/env issue)
+- P2: "Entry not found" Error on Delete
 - P2: Refactor desktop-app/main.js into modular route files
 
 ## Credentials

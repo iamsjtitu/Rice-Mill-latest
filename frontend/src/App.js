@@ -2314,7 +2314,6 @@ function MainApp({ user, onLogout }) {
                       />
                     </TableHead>
                     <TableHead className="text-slate-300">Date</TableHead>
-                    <TableHead className="text-slate-300">Season</TableHead>
                     <TableHead className="text-slate-300">Truck</TableHead>
                     <TableHead className="text-slate-300">RST No.</TableHead>
                     <TableHead className="text-slate-300">TP No.</TableHead>
@@ -2338,7 +2337,7 @@ function MainApp({ user, onLogout }) {
                 <TableBody>
                   {entries.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={21} className="text-center text-slate-400 py-8">
+                      <TableCell colSpan={20} className="text-center text-slate-400 py-8">
                         Koi entry nahi hai. "Nayi Entry" button click karein.
                       </TableCell>
                     </TableRow>
@@ -2360,7 +2359,6 @@ function MainApp({ user, onLogout }) {
                           />
                         </TableCell>
                         <TableCell className="text-white">{entry.date}</TableCell>
-                        <TableCell className="text-white text-xs">{entry.season}</TableCell>
                         <TableCell className="text-white font-mono text-sm">{entry.truck_no}</TableCell>
                         <TableCell className="text-slate-300 text-sm">{entry.rst_no || '-'}</TableCell>
                         <TableCell className="text-slate-300 text-sm">{entry.tp_no || '-'}</TableCell>
