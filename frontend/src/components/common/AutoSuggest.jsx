@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
  * AutoSuggest - Dropdown Component with Keyboard Support
  * Features: Arrow keys navigation, Enter to select, Escape to close
  */
-const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, label, testId }) => {
+const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBlur, label, testId }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState([]);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -95,6 +95,9 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, labe
           setShowSuggestions(true);
         }}
         onFocus={() => setShowSuggestions(true)}
+        onBlur={(e) => {
+          if (onBlur) onBlur(e);
+        }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className="bg-slate-700 border-slate-600 text-white"

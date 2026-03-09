@@ -1488,16 +1488,36 @@ function MainApp({ user, onLogout }) {
                     />
                     <AutoSuggest
                       value={formData.mandi_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, mandi_name: e.target.value }))}
-                      suggestions={mandiSuggestions}
-                      placeholder="Mandi name"
-                      onSelect={(val) => {
+                      onChange={(e) => {
+                        const val = e.target.value;
                         const target = mandiTargets.find(t => (t.mandi_name || '').toLowerCase().trim() === val.toLowerCase().trim());
                         setFormData(prev => ({
                           ...prev,
                           mandi_name: val,
                           ...(target && target.cutting_percent != null ? { cutting_percent: String(target.cutting_percent) } : {})
                         }));
+                      }}
+                      suggestions={mandiSuggestions}
+                      placeholder="Mandi name"
+                      onSelect={(val) => {
+                        const target = mandiTargets.find(t => (t.mandi_name || '').toLowerCase().trim() === val.toLowerCase().trim());
+                        setFormData(prev => ({
+                          ...prev,
+                          mandi_name: target ? target.mandi_name : val,
+                          ...(target && target.cutting_percent != null ? { cutting_percent: String(target.cutting_percent) } : {})
+                        }));
+                      }}
+                      onBlur={() => {
+                        if (formData.mandi_name && mandiTargets.length > 0) {
+                          const target = mandiTargets.find(t => (t.mandi_name || '').toLowerCase().trim() === formData.mandi_name.toLowerCase().trim());
+                          if (target && target.cutting_percent != null) {
+                            setFormData(prev => ({
+                              ...prev,
+                              mandi_name: target.mandi_name,
+                              cutting_percent: String(target.cutting_percent)
+                            }));
+                          }
+                        }
                       }}
                       label="Mandi Name"
                       testId="input-mandi-name"
