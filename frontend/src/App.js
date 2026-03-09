@@ -2007,7 +2007,7 @@ function MainApp({ user, onLogout }) {
       </header>
 
       {/* Main Content */}
-      <main className="w-full px-4 py-6">
+      <main className="max-w-[1600px] mx-auto px-4 py-6">
         {activeTab === "dashboard" ? (
           <Dashboard filters={filters} user={user} />
         ) : activeTab === "payments" ? (
