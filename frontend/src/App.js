@@ -278,26 +278,26 @@ function MainApp({ user, onLogout }) {
     }
   }, [formData.bag, formData.g_deposite]);
 
+  // Helper: Find cutting % from mandi targets (case-insensitive)
+  const findMandiCutting = useCallback((mandiName) => {
+    if (!mandiName || !mandiTargets.length) return null;
+    return mandiTargets.find(t => 
+      (t.mandi_name || '').toLowerCase().trim() === mandiName.toLowerCase().trim()
+    );
+  }, [mandiTargets]);
+
   // Auto-fill cutting % from Mandi Target when mandi name changes (case-insensitive)
   useEffect(() => {
-    if (formData.mandi_name && mandiTargets.length > 0) {
-      const target = mandiTargets.find(t => 
-        (t.mandi_name || '').toLowerCase().trim() === formData.mandi_name.toLowerCase().trim()
-      );
-      if (target && target.cutting_percent != null) {
-        setFormData(prev => {
-          const updates = {};
-          if (String(prev.cutting_percent) !== String(target.cutting_percent)) {
-            updates.cutting_percent = String(target.cutting_percent);
-          }
-          if (prev.mandi_name !== target.mandi_name) {
-            updates.mandi_name = target.mandi_name;
-          }
-          return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
-        });
-      }
+    const target = findMandiCutting(formData.mandi_name);
+    if (target && target.cutting_percent != null) {
+      setFormData(prev => {
+        const newCut = String(target.cutting_percent);
+        const newName = target.mandi_name;
+        if (prev.cutting_percent === newCut && prev.mandi_name === newName) return prev;
+        return { ...prev, cutting_percent: newCut, mandi_name: newName };
+      });
     }
-  }, [formData.mandi_name, mandiTargets]);
+  }, [formData.mandi_name, findMandiCutting]);
 
   // Remove external badges (for desktop/local builds)
   useEffect(() => {
@@ -397,15 +397,15 @@ function MainApp({ user, onLogout }) {
     axios.get(`${API}/mandi-targets?kms_year=${filters.kms_year || ''}`).then(r => {
       const targets = r.data || [];
       setMandiTargets(targets);
-      // Add mandi target names to suggestions so they appear in dropdown
       if (targets.length > 0) {
+        console.log('Mandi Targets loaded:', targets.length, targets.map(t => `${t.mandi_name}=${t.cutting_percent}%`));
         const targetNames = targets.map(t => t.mandi_name).filter(Boolean);
         setMandiSuggestions(prev => {
           const combined = [...new Set([...prev, ...targetNames])];
           return combined.sort();
         });
       }
-    }).catch(() => {});
+    }).catch(err => { console.error('Mandi targets fetch failed:', err); });
   }, [fetchEntries, fetchTotals, fetchSuggestions, filters.kms_year]);
 
   // Reset selection when entries change
@@ -1490,33 +1490,28 @@ function MainApp({ user, onLogout }) {
                       value={formData.mandi_name}
                       onChange={(e) => {
                         const val = e.target.value;
-                        const target = mandiTargets.find(t => (t.mandi_name || '').toLowerCase().trim() === val.toLowerCase().trim());
-                        setFormData(prev => ({
-                          ...prev,
-                          mandi_name: val,
-                          ...(target && target.cutting_percent != null ? { cutting_percent: String(target.cutting_percent) } : {})
-                        }));
+                        const target = findMandiCutting(val);
+                        if (target) {
+                          setFormData(prev => ({ ...prev, mandi_name: val, cutting_percent: String(target.cutting_percent) }));
+                        } else {
+                          setFormData(prev => ({ ...prev, mandi_name: val }));
+                        }
                       }}
                       suggestions={mandiSuggestions}
                       placeholder="Mandi name"
                       onSelect={(val) => {
-                        const target = mandiTargets.find(t => (t.mandi_name || '').toLowerCase().trim() === val.toLowerCase().trim());
-                        setFormData(prev => ({
-                          ...prev,
-                          mandi_name: target ? target.mandi_name : val,
-                          ...(target && target.cutting_percent != null ? { cutting_percent: String(target.cutting_percent) } : {})
-                        }));
+                        const target = findMandiCutting(val);
+                        if (target) {
+                          setFormData(prev => ({ ...prev, mandi_name: target.mandi_name, cutting_percent: String(target.cutting_percent) }));
+                          toast.success(`Cutting ${target.cutting_percent}% set from ${target.mandi_name}`);
+                        } else {
+                          setFormData(prev => ({ ...prev, mandi_name: val }));
+                        }
                       }}
                       onBlur={() => {
-                        if (formData.mandi_name && mandiTargets.length > 0) {
-                          const target = mandiTargets.find(t => (t.mandi_name || '').toLowerCase().trim() === formData.mandi_name.toLowerCase().trim());
-                          if (target && target.cutting_percent != null) {
-                            setFormData(prev => ({
-                              ...prev,
-                              mandi_name: target.mandi_name,
-                              cutting_percent: String(target.cutting_percent)
-                            }));
-                          }
+                        const target = findMandiCutting(formData.mandi_name);
+                        if (target) {
+                          setFormData(prev => ({ ...prev, mandi_name: target.mandi_name, cutting_percent: String(target.cutting_percent) }));
                         }
                       }}
                       label="Mandi Name"
