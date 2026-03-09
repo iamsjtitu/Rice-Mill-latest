@@ -15,7 +15,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mill-entry-system.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mill-entry-preview.preview.emergentagent.com').rstrip('/')
 
 
 class TestAuthentication:
