@@ -1034,7 +1034,7 @@ function MainApp({ user, onLogout }) {
       
       {/* Header */}
       <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-3">
+        <div className="max-w-[1600px] mx-auto px-4 py-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-bold text-amber-400" data-testid="app-title">
@@ -2440,7 +2440,7 @@ function MainApp({ user, onLogout }) {
 
       {/* Footer */}
       <footer className="bg-slate-800/50 border-t border-slate-700 py-4 mt-8">
-        <div className="max-w-7xl mx-auto px-4 text-center text-slate-400 text-sm">
+        <div className="max-w-[1600px] mx-auto px-4 text-center text-slate-400 text-sm">
           <p>{branding.company_name} - {branding.tagline}</p>
           <p className="text-xs mt-1">1 Quintal = 100 KG | P.Pkt = 0.50 kg/bag</p>
         </div>
