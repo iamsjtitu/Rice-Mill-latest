@@ -3147,17 +3147,22 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('download-progress', (progress) => {
-    console.log(`Download progress: ${Math.round(progress.percent)}%`);
+    const pct = Math.round(progress.percent);
+    console.log('Download progress: ' + pct + '%');
     if (mainWindow) {
-      mainWindow.webContents.executeJavaScript(`
-        const b = document.getElementById('update-banner');
-        if (b) b.textContent = 'Downloading update... ${Math.round(progress.percent)}%';
-      `);
+      mainWindow.webContents.executeJavaScript(
+        'var b = document.getElementById("update-banner"); if (b) b.textContent = "Downloading update... ' + pct + '%";'
+      );
     }
   });
 
   autoUpdater.on('update-downloaded', () => {
     console.log('Update downloaded');
+    if (mainWindow) {
+      mainWindow.webContents.executeJavaScript(
+        'var b = document.getElementById("update-banner"); if (b) { b.style.background = "#22c55e"; b.textContent = "Update download complete!"; }'
+      );
+    }
     dialog.showMessageBox(mainWindow, {
       type: 'info',
       title: 'Update Ready',
