@@ -319,7 +319,6 @@ const PartyLedger = ({ filters }) => {
           <SelectContent className="bg-slate-700 border-slate-600 max-h-60">
             <SelectItem value="all" className="text-white">All Parties</SelectItem>
             {(data.party_list || [])
-              .filter(p => !selectedType || p.type.toLowerCase().includes(selectedType))
               .map((p, i) => (
                 <SelectItem key={i} value={p.name} className="text-white">
                   {p.name} ({p.type})
