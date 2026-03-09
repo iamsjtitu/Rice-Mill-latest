@@ -247,15 +247,15 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     red = colors.HexColor('#991b1b')
     border_color = colors.HexColor('#cbd5e1')
 
-    def make_table(headers, rows, col_widths=None):
+    def make_table(headers, rows, col_widths=None, font_size=7):
         data_rows = [headers] + rows
         t = RTable(data_rows, colWidths=col_widths, repeatRows=1)
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), hdr_bg),
             ('TEXTCOLOR', (0, 0), (-1, 0), hdr_font_color),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 8),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('FONTSIZE', (0, 0), (-1, 0), font_size + 1),
+            ('FONTSIZE', (0, 1), (-1, -1), font_size),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
             ('GRID', (0, 0), (-1, -1), 0.5, border_color),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -324,21 +324,17 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                   f"{d.get('cutting_percent',0)}%", str(d.get("disc_dust_poll",0)),
                   f"{d.get('final_w',0)/100:.2f}",
                   str(d.get("g_issued",0)), str(d.get("cash_paid",0)), str(d.get("diesel_paid",0))] for d in p["details"]],
-                [30, 30, 30, 22, 22, 28, 22, 22, 25, 20, 25, 28, 20, 25, 22, 22, 28, 22, 27, 27]
+                [42, 35, 38, 24, 24, 30, 24, 24, 28, 24, 26, 30, 22, 26, 24, 24, 30, 24, 30, 30],
+                font_size=6
             ))
         else:
             elements.append(make_table(
-                ['Truck', 'Agent', 'Mandi', 'RST', 'TP', 'QNTL', 'Bags', 'G.Dep', 'GBW', 'P.Pkt', 'P.Cut', 'Mill W', 'M%', 'M.Cut', 'C%', 'D/D/P', 'Final W', 'G.Iss', 'Cash', 'Diesel'],
-                [[d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
-                  d.get("tp_no",""),
-                  f"{d.get('kg',0)/100:.2f}", str(d.get("bags",0)), str(d.get("g_deposite",0)),
-                  f"{d.get('gbw_cut',0)/100:.2f}", str(d.get("plastic_bag",0)),
-                  f"{d.get('p_pkt_cut',0)/100:.2f}", f"{d.get('mill_w',0)/100:.2f}",
-                  str(d.get("moisture",0)), f"{(d.get('moisture_cut',0) or 0)/100:.2f}",
-                  f"{d.get('cutting_percent',0)}%", str(d.get("disc_dust_poll",0)),
-                  f"{d.get('final_w',0)/100:.2f}",
-                  str(d.get("g_issued",0)), str(d.get("cash_paid",0)), str(d.get("diesel_paid",0))] for d in p["details"]],
-                [30, 30, 30, 22, 22, 28, 22, 22, 25, 20, 25, 28, 20, 25, 22, 22, 28, 22, 27, 27]
+                ['Truck', 'Mandi', 'Agent', 'QNTL', 'Bags', 'Mill W', 'Final W', 'Cash', 'Diesel'],
+                [[d.get("truck_no",""), d.get("mandi",""), d.get("agent",""),
+                  f"{d.get('kg',0)/100:.2f}", str(d.get("bags",0)),
+                  f"{d.get('mill_w',0)/100:.2f}", f"{d.get('final_w',0)/100:.2f}",
+                  str(d.get("cash_paid",0)), str(d.get("diesel_paid",0))] for d in p["details"]],
+                [65, 60, 55, 50, 40, 55, 55, 55, 55]
             ))
     elements.append(Spacer(1, 4))
 
