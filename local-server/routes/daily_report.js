@@ -43,8 +43,8 @@ function getDailyReportData(query) {
   const staffAtt = col('staff_attendance').filter(a => a.date === date);
   const allStaff = col('staff').filter(s => s.active !== false).sort((a, b) => a.name.localeCompare(b.name));
   const dieselTxns = filterFy(col('diesel_accounts'));
-  const dieselTotalAmount = dieselTxns.filter(t => t.txn_type === 'diesel').reduce((s, t) => s + (t.amount || 0), 0);
-  const dieselTotalPaid = dieselTxns.filter(t => t.txn_type === 'payment').reduce((s, t) => s + (t.amount || 0), 0);
+  const dieselTotalAmount = dieselTxns.filter(t => t.txn_type === 'diesel' || t.txn_type === 'debit').reduce((s, t) => s + (t.amount || 0), 0);
+  const dieselTotalPaid = dieselTxns.filter(t => t.txn_type === 'payment' || t.txn_type === 'credit').reduce((s, t) => s + (t.amount || 0), 0);
 
   const totalPaddyKg = entries.reduce((s, e) => s + (e.kg || 0), 0);
   const totalPaddyBags = entries.reduce((s, e) => s + (e.bag || 0), 0);

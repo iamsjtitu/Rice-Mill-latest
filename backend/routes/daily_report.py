@@ -43,8 +43,8 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
 
     # Diesel / Pump Account
     diesel_txns = await db.diesel_accounts.find(q, {"_id": 0}).to_list(500)
-    diesel_total_amount = sum(t.get("amount", 0) for t in diesel_txns if t.get("txn_type") == "diesel")
-    diesel_total_paid = sum(t.get("amount", 0) for t in diesel_txns if t.get("txn_type") == "payment")
+    diesel_total_amount = sum(t.get("amount", 0) for t in diesel_txns if t.get("txn_type") in ("diesel", "debit"))
+    diesel_total_paid = sum(t.get("amount", 0) for t in diesel_txns if t.get("txn_type") in ("payment", "credit"))
 
     # Cash Book
     cash_txns = await db.cash_transactions.find(q, {"_id": 0}).to_list(500)
@@ -283,30 +283,48 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     p = data["paddy_entries"]
     elements.append(Paragraph(f"1. Paddy Entries ({p['count']})", section_style))
     summary_data = [
-        ['Total KG', 'Total Bags', 'Final Weight (KG)'],
-        [str(p['total_kg']), str(p['total_bags']), str(p['total_final_w'])]
+        ['Total Mill W (QNTL)', 'Total BAG', 'Final W. QNTL (Auto)', 'Bag Deposite', 'Bag Issued'],
+        [f"{p.get('total_mill_w', 0)/100:.2f}", str(p['total_bags']), f"{p['total_final_w']/100:.2f}",
+         str(p.get('total_g_deposite', 0)), str(p.get('total_g_issued', 0))]
     ]
-    st = RTable(summary_data, colWidths=[170, 170, 170])
+    st = RTable(summary_data, colWidths=[100, 90, 100, 80, 80])
     st.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0f2fe')),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
     elements.append(st)
+    # Cash/Diesel totals
+    cash_diesel_row = [
+        ['Total Cash Paid', 'Total Diesel Paid'],
+        [f"Rs.{_fmt_amt(p.get('total_cash_paid', 0))}", f"Rs.{_fmt_amt(p.get('total_diesel_paid', 0))}"]
+    ]
+    cd_t = RTable(cash_diesel_row, colWidths=[250, 250])
+    cd_t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dcfce7')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    elements.append(cd_t)
     if p["details"]:
         if is_detail:
             elements.append(make_table(
-                ['Truck No', 'Agent', 'Mandi', 'RST', 'KG', 'Bags', 'Moisture%', 'Mill W', 'Final W'],
+                ['Truck', 'Agent', 'Mandi', 'RST', 'TP No', 'QNTL', 'Bags', 'G.Dep', 'GBW Cut', 'Mill W', 'Cut%', 'P.Pkt', 'P.Pkt Cut', 'Final W', 'G.Iss', 'Cash', 'Diesel'],
                 [[d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
-                  str(d.get("kg",0)), str(d.get("bags",0)), str(d.get("moisture",0)),
-                  str(d.get("mill_w",0)), str(d.get("final_w",0))] for d in p["details"]],
-                [60, 60, 55, 45, 45, 35, 42, 50, 50]
+                  d.get("tp_no",""),
+                  f"{d.get('kg',0)/100:.2f}", str(d.get("bags",0)), str(d.get("g_deposite",0)),
+                  f"{d.get('gbw_cut',0)/100:.2f}", f"{d.get('mill_w',0)/100:.2f}",
+                  f"{d.get('cutting_percent',0)}%", str(d.get("plastic_bag",0)),
+                  f"{d.get('p_pkt_cut',0)/100:.2f}", f"{d.get('final_w',0)/100:.2f}",
+                  str(d.get("g_issued",0)), str(d.get("cash_paid",0)), str(d.get("diesel_paid",0))] for d in p["details"]],
+                [35, 35, 35, 25, 25, 32, 25, 25, 28, 32, 25, 22, 28, 32, 25, 30, 30]
             ))
         else:
             elements.append(make_table(
-                ['Truck No', 'Agent', 'KG', 'Final W'],
-                [[d["truck_no"], d["agent"], str(d["kg"]), str(d["final_w"])] for d in p["details"]],
+                ['Truck No', 'Agent', 'QNTL', 'Final W'],
+                [[d["truck_no"], d["agent"], f"{d['kg']/100:.2f}", f"{d['final_w']/100:.2f}"] for d in p["details"]],
                 [120, 150, 100, 100]
             ))
     elements.append(Spacer(1, 4))
@@ -436,10 +454,35 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 [140, 100, 80, 100]))
     elements.append(Spacer(1, 4))
 
+    # ===== PUMP ACCOUNT =====
+    pa = data.get("pump_account", {})
+    if pa.get("details"):
+        elements.append(Paragraph("6. Pump Account / Diesel", section_style))
+        pa_sum = [
+            ['Total Diesel', 'Total Paid', 'Balance'],
+            [f"Rs.{_fmt_amt(pa.get('total_diesel', 0))}", f"Rs.{_fmt_amt(pa.get('total_paid', 0))}", f"Rs.{_fmt_amt(pa.get('balance', 0))}"]
+        ]
+        pat = RTable(pa_sum, colWidths=[170, 170, 170])
+        pat.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fff7ed')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(pat)
+        elements.append(make_table(
+            ['Pump', 'Type', 'Truck', 'Agent', 'Description', 'Amount'],
+            [[d.get("pump",""), "PAID" if d.get("txn_type") in ("payment","credit") else "DIESEL",
+              d.get("truck_no",""), d.get("agent",""), d.get("desc",""),
+              f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in pa["details"]],
+            [80, 45, 60, 60, 120, 70]
+        ))
+        elements.append(Spacer(1, 4))
+
     # ===== DC DELIVERIES =====
     dc = data["dc_deliveries"]
     if dc["count"]:
-        elements.append(Paragraph(f"6. DC Deliveries ({dc['count']}) - {dc['total_qntl']} Q", section_style))
+        elements.append(Paragraph(f"7. DC Deliveries ({dc['count']}) - {dc['total_qntl']} Q", section_style))
         if is_detail and dc.get("details"):
             elements.append(make_table(
                 ['DC No', 'Godown', 'Vehicle', 'Qntl', 'Bags'],
@@ -451,7 +494,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     # ===== BY-PRODUCTS =====
     bp = data["byproducts"]
     if bp["count"]:
-        elements.append(Paragraph(f"7. By-Product Sales ({bp['count']}) - Rs. {_fmt_amt(bp['total_amount'])}", section_style))
+        elements.append(Paragraph(f"8. By-Product Sales ({bp['count']}) - Rs. {_fmt_amt(bp['total_amount'])}", section_style))
         if is_detail and bp.get("details"):
             elements.append(make_table(
                 ['Type', 'Buyer', 'Qty', 'Rate', 'Amount'],
@@ -463,7 +506,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     # ===== FRK =====
     fk = data["frk"]
     if fk["count"]:
-        elements.append(Paragraph(f"8. FRK Purchase ({fk['count']}) - {fk['total_qntl']} Q | Rs. {_fmt_amt(fk['total_amount'])}", section_style))
+        elements.append(Paragraph(f"9. FRK Purchase ({fk['count']}) - {fk['total_qntl']} Q | Rs. {_fmt_amt(fk['total_amount'])}", section_style))
         if is_detail and fk.get("details"):
             elements.append(make_table(
                 ['Party', 'Qntl', 'Rate', 'Amount'],
@@ -475,7 +518,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     # ===== MILL PARTS STOCK =====
     mp = data["mill_parts"]
     if mp["in_count"] or mp["used_count"]:
-        elements.append(Paragraph(f"9. Mill Parts Stock (In: {mp['in_count']} | Used: {mp['used_count']}) | Purchase: Rs. {_fmt_amt(mp.get('in_amount',0))}", section_style))
+        elements.append(Paragraph(f"10. Mill Parts Stock (In: {mp['in_count']} | Used: {mp['used_count']}) | Purchase: Rs. {_fmt_amt(mp.get('in_amount',0))}", section_style))
         if mp["in_details"]:
             elements.append(Paragraph("<b>Parts Purchased:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=2, spaceAfter=2)))
             elements.append(make_table(
@@ -496,7 +539,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     # ===== STAFF ATTENDANCE =====
     sa = data.get("staff_attendance", {})
     if sa.get("total", 0):
-        elements.append(Paragraph(f"10. Staff Attendance ({sa['total']})", section_style))
+        elements.append(Paragraph(f"11. Staff Attendance ({sa['total']})", section_style))
         sa_sum = [
             ['Present', 'Half Day', 'Holiday', 'Absent', 'Not Marked'],
             [str(sa.get('present', 0)), str(sa.get('half_day', 0)), str(sa.get('holiday', 0)), str(sa.get('absent', 0)), str(sa.get('not_marked', 0))]
@@ -580,17 +623,23 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     # Paddy Entries
     p = data["paddy_entries"]
     write_section(f"1. Paddy Entries ({p['count']})")
-    write_sub(f"Total KG: {p['total_kg']} | Bags: {p['total_bags']} | Final: {p['total_final_w']}")
+    write_sub(f"Total Mill W(Q): {p.get('total_mill_w',0)/100:.2f} | Bags: {p['total_bags']} | Final W(Q): {p['total_final_w']/100:.2f}")
+    write_sub(f"Bag Dep: {p.get('total_g_deposite',0)} | Bag Issued: {p.get('total_g_issued',0)} | Cash: Rs.{p.get('total_cash_paid',0):,.0f} | Diesel: Rs.{p.get('total_diesel_paid',0):,.0f}")
     if p["details"]:
         if is_detail:
-            write_headers(['Truck', 'Agent', 'Mandi', 'RST', 'KG', 'Bags', 'Moisture%', 'Mill W', 'Final W'])
+            write_headers(['Truck', 'Agent', 'Mandi', 'RST', 'TP No', 'QNTL', 'Bags', 'G.Dep', 'GBW Cut', 'Mill W', 'Cut%', 'P.Pkt', 'P.Pkt Cut', 'Final W', 'G.Iss', 'Cash', 'Diesel'])
             for d in p["details"]:
                 write_row([d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
-                    d.get("kg",0), d.get("bags",0), d.get("moisture",0), d.get("mill_w",0), d.get("final_w",0)])
+                    d.get("tp_no",""),
+                    round(d.get("kg",0)/100, 2), d.get("bags",0), d.get("g_deposite",0),
+                    round(d.get("gbw_cut",0)/100, 2), round(d.get("mill_w",0)/100, 2),
+                    d.get("cutting_percent",0), d.get("plastic_bag",0),
+                    round(d.get("p_pkt_cut",0)/100, 2), round(d.get("final_w",0)/100, 2),
+                    d.get("g_issued",0), d.get("cash_paid",0), d.get("diesel_paid",0)])
         else:
-            write_headers(['Truck', 'Agent', 'KG', 'Final W'])
+            write_headers(['Truck', 'Agent', 'QNTL', 'Final W'])
             for d in p["details"]:
-                write_row([d["truck_no"], d["agent"], d["kg"], d["final_w"]])
+                write_row([d["truck_no"], d["agent"], round(d["kg"]/100, 2), round(d["final_w"]/100, 2)])
     row += 1
 
     # Milling
@@ -673,10 +722,21 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
                 write_row([d.get("party",""), d.get("ref_type",""), d.get("mode",""), d.get("amount",0)])
     row += 1
 
+    # Pump Account
+    pa = data.get("pump_account", {})
+    if pa.get("details"):
+        write_section("6. Pump Account / Diesel")
+        write_sub(f"Total Diesel: Rs.{pa.get('total_diesel',0):,.0f} | Paid: Rs.{pa.get('total_paid',0):,.0f} | Balance: Rs.{pa.get('balance',0):,.0f}")
+        write_headers(['Pump', 'Type', 'Truck', 'Agent', 'Description', 'Amount'])
+        for d in pa["details"]:
+            write_row([d.get("pump",""), "PAID" if d.get("txn_type") in ("payment","credit") else "DIESEL",
+                d.get("truck_no",""), d.get("agent",""), d.get("desc",""), d.get("amount",0)])
+        row += 1
+
     # Mill Parts Stock
     mp = data["mill_parts"]
     if mp["in_count"] or mp["used_count"]:
-        write_section(f"6. Mill Parts Stock (In: {mp['in_count']} | Used: {mp['used_count']})")
+        write_section(f"7. Mill Parts Stock (In: {mp['in_count']} | Used: {mp['used_count']})")
         if mp["in_details"]:
             write_sub(f"Parts Purchased - Total: Rs. {mp.get('in_amount',0):,.0f}")
             write_headers(['Part', 'Qty', 'Rate', 'Party', 'Bill No', 'Amount'])
@@ -694,7 +754,7 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     bp = data["byproducts"]
     fk = data["frk"]
     if bp["count"] or fk["count"]:
-        write_section("7. Others")
+        write_section("8. Others")
         if bp["count"]:
             write_sub(f"By-Product Sales ({bp['count']}): Rs. {bp['total_amount']:,.0f}")
             if is_detail and bp.get("details"):
@@ -712,7 +772,7 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     sa = data.get("staff_attendance", {})
     if sa.get("total", 0):
         row += 1
-        write_section(f"8. Staff Attendance ({sa['total']})")
+        write_section(f"9. Staff Attendance ({sa['total']})")
         write_headers(['Present', 'Half Day', 'Holiday', 'Absent', 'Not Marked'])
         write_row([sa.get('present', 0), sa.get('half_day', 0), sa.get('holiday', 0), sa.get('absent', 0), sa.get('not_marked', 0)])
         if sa.get("details"):
@@ -722,8 +782,8 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
             for d in sa["details"]:
                 write_row([d.get("name",""), status_map.get(d.get("status",""), d.get("status",""))])
 
-    for col in range(1, 10):
-        ws.column_dimensions[chr(64 + col)].width = 16
+    for col in range(1, 18):
+        ws.column_dimensions[chr(64 + col) if col <= 26 else 'A' + chr(64 + col - 26)].width = 10 if col <= 5 else 8
 
     buf = io.BytesIO()
     wb.save(buf)

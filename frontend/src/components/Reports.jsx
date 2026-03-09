@@ -507,7 +507,7 @@ const DailyReport = ({ filters }) => {
           </Section>
 
           {/* Pump Account / Diesel */}
-          {data.pump_account && (data.pump_account.total_diesel > 0 || data.pump_account.total_paid > 0) && (
+          {data.pump_account && (data.pump_account.total_diesel > 0 || data.pump_account.total_paid > 0 || (data.pump_account.details && data.pump_account.details.length > 0)) && (
             <Section title="Pump Account / डीज़ल" icon={Fuel} color="text-orange-400">
               <div className="grid grid-cols-3 gap-3 mb-2">
                 {[["Total Diesel", `₹${data.pump_account.total_diesel.toLocaleString('en-IN')}`, "text-orange-400"],
