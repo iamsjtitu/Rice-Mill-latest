@@ -921,6 +921,8 @@ function MainApp({ user, onLogout }) {
                   <th>BAG</th>
                   <th>G.Dep</th>
                   <th>GBW</th>
+                  <th>P.Pkt</th>
+                  <th>P.Cut</th>
                   <th>Mill W</th>
                   <th>M%</th>
                   <th>M.Cut</th>
@@ -942,7 +944,9 @@ function MainApp({ user, onLogout }) {
                     <td class="qntl right">${entry.qntl?.toFixed(2)}</td>
                     <td class="right">${entry.bag}</td>
                     <td class="gunny right">${entry.g_deposite || 0}</td>
-                    <td class="right">${entry.gbw_cut?.toFixed(0)}</td>
+                    <td class="right">${(entry.gbw_cut / 100)?.toFixed(2)}</td>
+                    <td class="right">${entry.plastic_bag || 0}</td>
+                    <td class="right">${(entry.p_pkt_cut / 100)?.toFixed(2)}</td>
                     <td class="right">${(entry.mill_w / 100)?.toFixed(2)}</td>
                     <td class="center">${entry.moisture || 0}</td>
                     <td class="right">${((entry.moisture_cut || 0) / 100)?.toFixed(2)}</td>
@@ -959,7 +963,9 @@ function MainApp({ user, onLogout }) {
                   <td class="qntl right">${totals.total_qntl?.toFixed(2)}</td>
                   <td class="right">${totals.total_bag}</td>
                   <td class="gunny right">${totals.total_g_deposite || 0}</td>
-                  <td class="right">${totals.total_gbw_cut?.toFixed(0)}</td>
+                  <td class="right">${(totals.total_gbw_cut / 100)?.toFixed(2)}</td>
+                  <td class="right">-</td>
+                  <td class="right">${((totals.total_p_pkt_cut || 0) / 100)?.toFixed(2)}</td>
                   <td class="right">${(totals.total_mill_w / 100)?.toFixed(2)}</td>
                   <td class="center">-</td>
                   <td class="center">-</td>
@@ -2316,6 +2322,10 @@ function MainApp({ user, onLogout }) {
                     <TableHead className="text-slate-300">Mandi</TableHead>
                     <TableHead className="text-green-400 text-right">QNTL</TableHead>
                     <TableHead className="text-slate-300 text-right">BAG</TableHead>
+                    <TableHead className="text-cyan-400 text-right">G.Dep</TableHead>
+                    <TableHead className="text-slate-300 text-right">GBW Cut</TableHead>
+                    <TableHead className="text-pink-400 text-right">P.Pkt</TableHead>
+                    <TableHead className="text-pink-300 text-right">P.Pkt Cut</TableHead>
                     <TableHead className="text-blue-400 text-right">Mill W</TableHead>
                     <TableHead className="text-purple-400 text-right">Cut %</TableHead>
                     <TableHead className="text-amber-400 text-right">Final W</TableHead>
@@ -2328,7 +2338,7 @@ function MainApp({ user, onLogout }) {
                 <TableBody>
                   {entries.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={17} className="text-center text-slate-400 py-8">
+                      <TableCell colSpan={21} className="text-center text-slate-400 py-8">
                         Koi entry nahi hai. "Nayi Entry" button click karein.
                       </TableCell>
                     </TableRow>
@@ -2361,6 +2371,18 @@ function MainApp({ user, onLogout }) {
                         </TableCell>
                         <TableCell className="text-white text-right font-mono">
                           {entry.bag}
+                        </TableCell>
+                        <TableCell className="text-cyan-400 text-right font-mono">
+                          {entry.g_deposite || 0}
+                        </TableCell>
+                        <TableCell className="text-slate-300 text-right font-mono">
+                          {(entry.gbw_cut / 100)?.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-pink-400 text-right font-mono">
+                          {entry.plastic_bag || 0}
+                        </TableCell>
+                        <TableCell className="text-pink-300 text-right font-mono">
+                          {(entry.p_pkt_cut / 100)?.toFixed(2)}
                         </TableCell>
                         <TableCell className="text-blue-400 text-right font-mono font-bold">
                           {(entry.mill_w / 100)?.toFixed(2)}
