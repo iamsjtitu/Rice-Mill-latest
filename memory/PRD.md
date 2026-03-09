@@ -29,11 +29,19 @@ Rice mill management tool. 3 backends (Python/FastAPI, Node.js local-server, Ele
 - **diesel_accounts** collection now stores `mandi_name` field for new entries
 - **Excel column widths** auto-fit based on content
 
-### Agent → Mandi Fix (Feb 2026)
+### Agent -> Mandi Fix (Feb 2026)
 - **Frontend Diesel table**: Header changed from "Agent" to "Mandi", data shows mandi_name
 - **DB Migration**: All old diesel_accounts descriptions updated from "Agent X" to "Mandi Y"
 - **DB Migration**: All old cash_transactions descriptions updated from "Agent X" to "Mandi Y"  
 - **DB Migration**: mandi_name field added to all existing diesel_accounts
+
+### Auto-Update Setup (Feb 2026)
+- **GitHub Actions workflow** created (`.github/workflows/build-desktop.yml`)
+- **electron-updater** integrated in `desktop-app/main.js`
+- **package.json** configured with GitHub publish provider
+- Auto-update checks on app startup (silent) + manual "Check for Updates" menu
+- Download progress banner shown in app
+- SETUP_GUIDE.md updated with auto-update instructions
 
 ## Build Process
 ```
@@ -50,11 +58,11 @@ cd desktop-app && npm run build:win
 ## Credentials
 - Admin: admin / admin123 | Staff: staff / staff123
 
-## User Verification Pending
-- Typing Freeze Bug fix (desktop app rebuild needed)
-- Party Ledger Automation & Payment Logic
-- Date Format dd-mm-yyyy
+## User Verified (Confirmed by user)
+- Typing Freeze Bug fix - VERIFIED
+- "Entry not found" on Delete - VERIFIED
+- All previous bug fixes - VERIFIED
 
 ## Backlog
-- P2: "Entry not found" on Delete
 - P2: Refactor desktop-app/main.js modular routes
+- P2: UI improvements (dashboard, dark mode, charts)

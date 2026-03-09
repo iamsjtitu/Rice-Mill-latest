@@ -3057,8 +3057,12 @@ async function createMainWindow(port) {
     ]},
     { label: 'Help', submenu: [
       { label: 'Check for Updates', click: () => {
-        autoUpdater.checkForUpdates().catch(err => {
-          dialog.showMessageBox(mainWindow, { type: 'info', title: 'Update Check', message: 'Update check failed. Please check internet connection.', detail: err.message });
+        autoUpdater.checkForUpdates().then(result => {
+          if (!result || !result.updateInfo) {
+            dialog.showMessageBox(mainWindow, { type: 'info', title: 'Update Check', message: 'App already latest version hai! (v' + app.getVersion() + ')' });
+          }
+        }).catch(() => {
+          dialog.showMessageBox(mainWindow, { type: 'info', title: 'Update Check', message: 'Abhi koi update available nahi hai.\n\nCurrent version: v' + app.getVersion() });
         });
       }},
       { type: 'separator' },
@@ -3177,13 +3181,12 @@ function setupAutoUpdater() {
 
   autoUpdater.on('error', (err) => {
     console.log('Auto-updater error:', err.message);
+    // Don't show error to user on automatic checks - only on manual check
   });
 
-  // Check for updates after 5 seconds
+  // Check for updates after 5 seconds (silent - no error dialogs)
   setTimeout(() => {
-    autoUpdater.checkForUpdates().catch(err => {
-      console.log('Update check failed:', err.message);
-    });
+    autoUpdater.checkForUpdates().catch(() => {});
   }, 5000);
 }
 

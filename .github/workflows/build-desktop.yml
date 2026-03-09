@@ -1,0 +1,51 @@
+name: Build & Release Desktop App
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --legacy-peer-deps
+
+      - name: Build frontend for desktop
+        working-directory: frontend
+        env:
+          REACT_APP_BACKEND_URL: http://127.0.0.1:9876
+        run: npm run build
+
+      - name: Copy frontend build to desktop-app
+        working-directory: desktop-app
+        run: node setup-desktop.js
+
+      - name: Install desktop dependencies
+        working-directory: desktop-app
+        run: npm install
+
+      - name: Build Windows App & Publish to Release
+        working-directory: desktop-app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --x64 --publish always
+      
+      - name: Upload artifacts (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            desktop-app/dist/*.exe
+            desktop-app/dist/latest.yml
+          retention-days: 30
