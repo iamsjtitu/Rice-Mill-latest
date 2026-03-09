@@ -2090,15 +2090,31 @@ function MainApp({ user, onLogout }) {
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button
-                  onClick={fetchErrorLog}
-                  variant="outline"
-                  size="sm"
-                  className="border-red-600 text-red-400 hover:bg-red-900/30"
-                  data-testid="refresh-error-log-btn"
-                >
-                  <RefreshCw className="w-4 h-4 mr-1" /> Refresh Log
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={fetchErrorLog}
+                    variant="outline"
+                    size="sm"
+                    className="border-red-600 text-red-400 hover:bg-red-900/30"
+                    data-testid="refresh-error-log-btn"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1" /> Refresh Log
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      try {
+                        await fetch(`${API}/error-log`, { method: 'DELETE' });
+                        setErrorLog("Log clear ho gaya. Koi error nahi hai.");
+                      } catch (e) { console.error(e); }
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="border-amber-600 text-amber-400 hover:bg-amber-900/30"
+                    data-testid="clear-error-log-btn"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" /> Clear Log
+                  </Button>
+                </div>
                 <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 max-h-64 overflow-y-auto">
                   <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono" data-testid="error-log-content">
                     {errorLog || "Koi error log nahi hai."}

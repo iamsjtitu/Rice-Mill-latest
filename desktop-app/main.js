@@ -1041,7 +1041,9 @@ async function createMainWindow(port) {
         window.localStorage.setItem('ELECTRON_API_URL', 'http://127.0.0.1:${port}');
       }
       console.log('API URL set to: http://127.0.0.1:${port}');
-    `);
+    `).catch(err => {
+      console.log('[SafeInject] Failed to inject API URL:', err.message);
+    });
   });
 
   mainWindow.once('ready-to-show', () => {

@@ -29,6 +29,10 @@ async def get_print_page(page_id: str):
 async def get_error_log():
     return {"content": "Error log sirf Desktop App version mein available hai.\nWeb version mein yeh feature applicable nahi hai.", "available": False}
 
+@api_router.delete("/error-log")
+async def clear_error_log():
+    return {"success": True, "message": "Error log clear ho gaya"}
+
 # Import and include all route modules
 from routes.auth import router as auth_router
 from routes.entries import router as entries_router

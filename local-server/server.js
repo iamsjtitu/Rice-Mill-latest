@@ -640,6 +640,16 @@ async function startServer() {
     }
   });
 
+  app.delete('/api/error-log', (req, res) => {
+    const logPath = path.join(DATA_DIR, 'error.log');
+    try {
+      if (fs.existsSync(logPath)) fs.writeFileSync(logPath, '');
+      res.json({ success: true, message: 'Error log clear ho gaya' });
+    } catch (err) {
+      res.status(500).json({ detail: 'Log clear nahi ho paya: ' + err.message });
+    }
+  });
+
   // ===== SERVE FRONTEND (AFTER all API routes) =====
   if (fs.existsSync(PUBLIC_DIR)) {
     app.use(express.static(PUBLIC_DIR));

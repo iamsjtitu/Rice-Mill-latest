@@ -111,5 +111,16 @@ module.exports = function(database) {
     }
   }));
 
+  router.delete('/api/error-log', safeSync((req, res) => {
+    try {
+      if (fs.existsSync(errorLogPath)) {
+        fs.writeFileSync(errorLogPath, '');
+      }
+      res.json({ success: true, message: 'Error log clear ho gaya' });
+    } catch (err) {
+      res.status(500).json({ detail: 'Log clear nahi ho paya: ' + err.message });
+    }
+  }));
+
   return router;
 };
