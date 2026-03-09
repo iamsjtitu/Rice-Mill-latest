@@ -278,13 +278,32 @@ function MainApp({ user, onLogout }) {
     }
   }, [formData.bag, formData.g_deposite]);
 
-  // Helper: Find cutting % from mandi targets (case-insensitive)
+  // Helper: Find cutting % from mandi targets OR from existing entries (case-insensitive)
   const findMandiCutting = useCallback((mandiName) => {
-    if (!mandiName || !mandiTargets.length) return null;
-    return mandiTargets.find(t => 
-      (t.mandi_name || '').toLowerCase().trim() === mandiName.toLowerCase().trim()
-    );
-  }, [mandiTargets]);
+    if (!mandiName) return null;
+    const searchName = mandiName.toLowerCase().trim();
+    
+    // Primary: Check mandi targets
+    if (mandiTargets.length > 0) {
+      const target = mandiTargets.find(t => 
+        (t.mandi_name || '').toLowerCase().trim() === searchName
+      );
+      if (target && target.cutting_percent != null) return target;
+    }
+    
+    // Fallback: Check existing entries for the same mandi (use most recent)
+    if (entries.length > 0) {
+      const matchingEntries = entries.filter(e => 
+        (e.mandi_name || '').toLowerCase().trim() === searchName && e.cutting_percent
+      );
+      if (matchingEntries.length > 0) {
+        const latest = matchingEntries[0]; // entries are sorted by date desc
+        return { mandi_name: latest.mandi_name, cutting_percent: latest.cutting_percent };
+      }
+    }
+    
+    return null;
+  }, [mandiTargets, entries]);
 
   // Auto-fill cutting % from Mandi Target when mandi name changes (case-insensitive)
   useEffect(() => {
@@ -397,15 +416,15 @@ function MainApp({ user, onLogout }) {
     axios.get(`${API}/mandi-targets?kms_year=${filters.kms_year || ''}`).then(r => {
       const targets = r.data || [];
       setMandiTargets(targets);
+      console.log('[MILL] Mandi Targets API response:', targets.length, 'targets found', targets.length > 0 ? targets.map(t => `${t.mandi_name}=${t.cutting_percent}%`) : '(empty)');
       if (targets.length > 0) {
-        console.log('Mandi Targets loaded:', targets.length, targets.map(t => `${t.mandi_name}=${t.cutting_percent}%`));
         const targetNames = targets.map(t => t.mandi_name).filter(Boolean);
         setMandiSuggestions(prev => {
           const combined = [...new Set([...prev, ...targetNames])];
           return combined.sort();
         });
       }
-    }).catch(err => { console.error('Mandi targets fetch failed:', err); });
+    }).catch(err => { console.error('[MILL] Mandi targets fetch FAILED:', err.message || err); });
   }, [fetchEntries, fetchTotals, fetchSuggestions, filters.kms_year]);
 
   // Reset selection when entries change
