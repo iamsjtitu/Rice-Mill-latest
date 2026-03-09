@@ -89,17 +89,8 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
 
     ledger = []
 
-    # Paddy entries (Agent + Truck)
+    # Paddy entries (Truck only - Agent payments come from Cash Book)
     entries = await db.mill_entries.find(query, {"_id": 0}).to_list(10000)
-    # Paddy entries - Agent ledger (NO cash/diesel - those go to truck)
-    if not party_type or party_type == "agent":
-        for e in entries:
-            agent = e.get("agent_name", "")
-            if not agent: continue
-            if party_name and agent.lower() != party_name.lower(): continue
-            ledger.append({"date": e.get("date", ""), "party_name": agent, "party_type": "Agent",
-                "description": f"Paddy: {round((e.get('mill_w',0))/100,2)}Q | Truck: {e.get('truck_no','')} | Mandi: {e.get('mandi_name','')}",
-                "debit": round(e.get("qntl", 0), 2), "credit": 0, "ref": e.get("id", "")[:8]})
     # Paddy entries - Truck ledger (cash + diesel payments go here)
     if not party_type or party_type == "truck":
         for e in entries:
