@@ -19,17 +19,28 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install --legacy-peer-deps
+        run: |
+          npm install --legacy-peer-deps
+          npm install ajv@8 --legacy-peer-deps
 
       - name: Build frontend for desktop
         working-directory: frontend
         env:
           REACT_APP_BACKEND_URL: http://127.0.0.1:9876
+          CI: false
         run: npm run build
 
       - name: Copy frontend build to desktop-app
-        working-directory: desktop-app
-        run: node setup-desktop.js
+        shell: powershell
+        run: |
+          if (Test-Path "desktop-app/frontend-build") { Remove-Item -Recurse -Force "desktop-app/frontend-build" }
+          Copy-Item -Recurse "frontend/build" "desktop-app/frontend-build"
+          $html = Get-Content "desktop-app/frontend-build/index.html" -Raw
+          $html = $html -replace 'Emergent \| Fullstack App', 'Mill Entry System'
+          $html = $html -replace 'A product of emergent.sh', 'Mill Entry System'
+          $html = $html -replace '<script src="https://assets\.emergent\.sh/[^"]*"></script>', ''
+          $html = $html -replace '<a id="emergent-badge"[^>]*>.*?</a>', ''
+          Set-Content "desktop-app/frontend-build/index.html" $html
 
       - name: Install desktop dependencies
         working-directory: desktop-app
