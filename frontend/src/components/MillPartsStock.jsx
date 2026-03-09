@@ -512,10 +512,13 @@ export default function MillPartsStock({ filters, user }) {
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Category</Label><Input value={partForm.category} onChange={e => setPartForm(p => ({ ...p, category: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
               <div><Label className="text-xs text-slate-400">Unit</Label>
-                <Select value={partForm.unit} onValueChange={v => setPartForm(p => ({ ...p, unit: v }))}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="Pcs">Pcs</SelectItem><SelectItem value="Kg">Kg</SelectItem><SelectItem value="Ltr">Ltr</SelectItem><SelectItem value="Mtr">Mtr</SelectItem><SelectItem value="Set">Set</SelectItem></SelectContent>
-                </Select>
+                <select value={partForm.unit} onChange={e => setPartForm(p => ({ ...p, unit: e.target.value }))} className="flex h-8 w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-1 text-sm text-white shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                  <option value="Pcs" className="bg-slate-700">Pcs</option>
+                  <option value="Kg" className="bg-slate-700">Kg</option>
+                  <option value="Ltr" className="bg-slate-700">Ltr</option>
+                  <option value="Mtr" className="bg-slate-700">Mtr</option>
+                  <option value="Set" className="bg-slate-700">Set</option>
+                </select>
               </div>
             </div>
             <div><Label className="text-xs text-slate-400">Min Stock (Alert)</Label><Input type="number" value={partForm.min_stock} onChange={e => setPartForm(p => ({ ...p, min_stock: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
@@ -537,10 +540,10 @@ export default function MillPartsStock({ filters, user }) {
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Date</Label><Input type="date" value={stockForm.date} onChange={e => setStockForm(p => ({ ...p, date: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
               <div><Label className="text-xs text-slate-400">Part *</Label>
-                <Select value={stockForm.part_name} onValueChange={v => setStockForm(p => ({ ...p, part_name: v }))}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="stock-part-select"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent className="max-h-60">{parts.map(p => <SelectItem key={p.id} value={p.name} className="text-white">{p.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <select value={stockForm.part_name} onChange={e => setStockForm(p => ({ ...p, part_name: e.target.value }))} className="flex h-8 w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-1 text-sm text-white shadow-sm focus:outline-none focus:ring-1 focus:ring-ring" data-testid="stock-part-select">
+                  <option value="" className="bg-slate-700">Select</option>
+                  {parts.map(p => <option key={p.id} value={p.name} className="bg-slate-700">{p.name}</option>)}
+                </select>
                 {stockForm.part_name && (() => {
                   const ps = summary.find(s => s.part_name === stockForm.part_name);
                   const stock = ps ? ps.current_stock : 0;
@@ -598,10 +601,10 @@ export default function MillPartsStock({ filters, user }) {
               <div className="grid grid-cols-2 gap-3">
                 <div><Label className="text-xs text-slate-400">Date</Label><Input type="date" value={editingStock.date} onChange={e => setEditingStock(p => ({ ...p, date: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
                 <div><Label className="text-xs text-slate-400">Part</Label>
-                  <Select value={editingStock.part_name} onValueChange={v => setEditingStock(p => ({ ...p, part_name: v }))}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent className="max-h-60">{parts.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <select value={editingStock.part_name} onChange={e => setEditingStock(p => ({ ...p, part_name: e.target.value }))} className="flex h-8 w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-1 text-sm text-white shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
+                    <option value="" className="bg-slate-700">Select</option>
+                    {parts.map(p => <option key={p.id} value={p.name} className="bg-slate-700">{p.name}</option>)}
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">

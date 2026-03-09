@@ -39,11 +39,13 @@ Rice mill management tool ("Mill Entry System") for Navkar Agro, Jolko, Kesinga.
 - Branding customization, Multi-user auth (admin/staff)
 - All PDF/Excel exports with professional styling
 
-## Completed Tasks (Mar 9, 2026 Session)
-- [x] Fixed native "About" dialog - removed 9x.Design info, now shows "Navkar Agro, Jolko, Kesinga"
+## Completed Tasks (Mar 9-10, 2026 Session)
+- [x] Fixed native "About" dialog - updated to show "Designed By: 9x.Design, Contact: +91 72059 30002"
 - [x] Fixed build pipeline - workflow now builds frontend in GitHub Actions (root cause of desktop app not updating)
+- [x] Fixed ajv module error in CI - added explicit ajv@8 install step
+- [x] Fixed Mill Parts dropdown bug - Select inside Dialog portal conflict (Radix→native select)
 - [x] Version bumped to 3.5.1
-- [x] Rebuilt and updated desktop-app/frontend-build with latest frontend
+- [x] Rebuilt frontend-build and local-server/public with latest code
 
 ## Completed Tasks (Previous Sessions - Feb 2026)
 - [x] Modularized desktop-app/main.js: 3300 → 1273 lines (13 new route files)
