@@ -1023,7 +1023,7 @@ async function createMainWindow(port) {
           type: 'info',
           title: 'About - Mill Entry System',
           message: 'Mill Entry System',
-          detail: 'Version ' + app.getVersion() + '\n\nDeveloped by 9x.Design\nContact Us: +917205930002',
+          detail: 'Version: v' + app.getVersion() + '\n\nNavkar Agro, Jolko, Kesinga',
           buttons: ['OK']
         });
       }}

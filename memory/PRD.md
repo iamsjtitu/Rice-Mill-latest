@@ -6,19 +6,14 @@ Rice mill management tool ("Mill Entry System") for Navkar Agro, Jolko, Kesinga.
 ## Core Architecture
 ```
 /app
-├── .github/workflows/build-release.yml   # CI/CD for desktop app
+├── .github/workflows/build-desktop.yml   # CI/CD - NOW builds frontend in CI
 ├── backend/          # Python/FastAPI backend (web preview)
 ├── desktop-app/      # Electron backend (MODULARIZED - Feb 2026)
 │   ├── routes/       # 19 modular route files
-│   │   ├── auth.js, entries.js, dashboard.js, payments.js
-│   │   ├── cashbook.js, dc_payments.js, gunny_bags.js, milling.js
-│   │   ├── private_trading.js, reports.js, diesel.js, exports.js
-│   │   ├── backups.js, staff.js, mill_parts.js, daily_report.js
-│   │   ├── reports_pnl.js, local_party.js, import_excel.js
-│   │   ├── excel_helpers.js, pdf_helpers.js, safe_handler.js
-│   └── main.js       # Core Electron process only (~1273 lines)
+│   ├── frontend-build/  # Built frontend for desktop (also built in CI)
+│   └── main.js       # Core Electron process (~1276 lines)
 ├── local-server/     # Node.js portable backend (MODULARIZED - Feb 2026)
-│   ├── routes/       # 19 modular route files (incl. diesel.js)
+│   ├── routes/       # 19 modular route files
 │   └── server.js     # Server bootstrap only (~691 lines)
 └── frontend/         # React frontend (shared across all backends)
 ```
@@ -44,24 +39,33 @@ Rice mill management tool ("Mill Entry System") for Navkar Agro, Jolko, Kesinga.
 - Branding customization, Multi-user auth (admin/staff)
 - All PDF/Excel exports with professional styling
 
-## Completed Tasks (Current Session - Feb 2026)
+## Completed Tasks (Mar 9, 2026 Session)
+- [x] Fixed native "About" dialog - removed 9x.Design info, now shows "Navkar Agro, Jolko, Kesinga"
+- [x] Fixed build pipeline - workflow now builds frontend in GitHub Actions (root cause of desktop app not updating)
+- [x] Version bumped to 3.5.1
+- [x] Rebuilt and updated desktop-app/frontend-build with latest frontend
+
+## Completed Tasks (Previous Sessions - Feb 2026)
 - [x] Modularized desktop-app/main.js: 3300 → 1273 lines (13 new route files)
 - [x] Modularized local-server/server.js: 820 → 691 lines (diesel.js route)
 - [x] Created shared excel_helpers.js for professional Excel styling
 - [x] Mill Parts: Part-wise Summary redesigned - search-first approach
 - [x] Mill Parts: Party-wise purchase cards redesigned with beautiful UI
 - [x] Mill Parts: Single part PDF/Excel export (all 3 backends)
-- [x] Frontend production build verified ✅
-
-## Completed Tasks (Previous Sessions)
+- [x] Frontend production build verified
 - [x] Critical Electron App Crash Fix (safeExecuteJS wrapper)
 - [x] Staff Attendance Export Parity Fix (PDF/Excel consistency)
 - [x] Quick Monthly Report feature for Staff page
 - [x] Auto-Update UX confirmation dialog
+- [x] Error Log "Clear" button and endpoint
+- [x] UNHANDLED_REJECTION error fix (.catch() added)
 
 ## Prioritized Backlog
+### P0
+- User verification: Desktop app update working after new release (v3.5.1)
 ### P1
-- GitHub Actions build stability monitoring (user action pending - re-run on 503)
+- Performance optimization for desktop software (user requested)
+- GitHub Actions build stability monitoring
 ### P2
 - UI improvements (dashboard enhancements, dark mode, charts)
 

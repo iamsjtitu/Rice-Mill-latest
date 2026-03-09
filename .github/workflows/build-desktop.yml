@@ -20,13 +20,42 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --legacy-peer-deps
+
+      - name: Build frontend for desktop
+        working-directory: frontend
+        env:
+          REACT_APP_BACKEND_URL: http://127.0.0.1:9876
+          CI: false
+        run: npx craco build
+
+      - name: Copy frontend build to desktop-app
+        run: |
+          if (Test-Path "desktop-app/frontend-build") { Remove-Item -Recurse -Force "desktop-app/frontend-build" }
+          Copy-Item -Recurse "frontend/build" "desktop-app/frontend-build"
+        shell: powershell
+
+      - name: Fix index.html for desktop
+        run: |
+          $indexPath = "desktop-app/frontend-build/index.html"
+          $html = Get-Content $indexPath -Raw
+          $html = $html -replace 'Emergent \| Fullstack App', 'Mill Entry System'
+          $html = $html -replace 'A product of emergent\.sh', 'Mill Entry System'
+          $html = $html -replace '<script src="https://assets\.emergent\.sh/[^"]*"></script>', ''
+          $html = $html -replace '<a id="emergent-badge"[^>]*>.*?</a>', ''
+          Set-Content $indexPath $html
+          Write-Host "index.html fixed for desktop"
+        shell: powershell
+
       - name: Verify frontend-build exists
         run: |
           if (!(Test-Path "desktop-app/frontend-build/index.html")) {
-            Write-Error "frontend-build not found! Please rebuild frontend before creating release."
+            Write-Error "frontend-build not found after build! Something went wrong."
             exit 1
           }
-          Write-Host "frontend-build found OK"
+          Write-Host "frontend-build verified OK"
         shell: powershell
 
       - name: Install desktop dependencies
