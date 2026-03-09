@@ -648,17 +648,12 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
                     round(d.get("final_w",0)/100, 2),
                     d.get("g_issued",0), d.get("cash_paid",0), d.get("diesel_paid",0)])
         else:
-            write_headers(['Truck', 'Agent', 'Mandi', 'RST', 'TP', 'QNTL', 'Bags', 'G.Dep', 'GBW', 'P.Pkt', 'P.Cut', 'Mill W', 'M%', 'M.Cut', 'C%', 'D/D/P', 'Final W', 'G.Iss', 'Cash', 'Diesel'])
+            write_headers(['Truck', 'Mandi', 'Agent', 'QNTL', 'Bags', 'Mill W', 'Final W', 'Cash', 'Diesel'])
             for d in p["details"]:
-                write_row([d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
-                    d.get("tp_no",""),
-                    round(d.get("kg",0)/100, 2), d.get("bags",0), d.get("g_deposite",0),
-                    round(d.get("gbw_cut",0)/100, 2), d.get("plastic_bag",0),
-                    round(d.get("p_pkt_cut",0)/100, 2), round(d.get("mill_w",0)/100, 2),
-                    d.get("moisture",0), round((d.get("moisture_cut",0) or 0)/100, 2),
-                    d.get("cutting_percent",0), d.get("disc_dust_poll",0),
-                    round(d.get("final_w",0)/100, 2),
-                    d.get("g_issued",0), d.get("cash_paid",0), d.get("diesel_paid",0)])
+                write_row([d.get("truck_no",""), d.get("mandi",""), d.get("agent",""),
+                    round(d.get("kg",0)/100, 2), d.get("bags",0),
+                    round(d.get("mill_w",0)/100, 2), round(d.get("final_w",0)/100, 2),
+                    d.get("cash_paid",0), d.get("diesel_paid",0)])
     row += 1
 
     # Milling
