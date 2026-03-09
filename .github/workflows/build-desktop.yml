@@ -22,7 +22,9 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install --legacy-peer-deps
+        run: |
+          npm install --legacy-peer-deps
+          npm install ajv@8 --legacy-peer-deps
 
       - name: Build frontend for desktop
         working-directory: frontend
