@@ -56,11 +56,20 @@ async def delete_diesel_pump(pump_id: str):
 # ============ DIESEL ACCOUNT TRANSACTIONS ============
 
 @router.get("/diesel-accounts")
-async def get_diesel_accounts(pump_id: Optional[str] = None, kms_year: Optional[str] = None, season: Optional[str] = None):
+async def get_diesel_accounts(pump_id: Optional[str] = None, kms_year: Optional[str] = None, season: Optional[str] = None,
+                               date_from: Optional[str] = None, date_to: Optional[str] = None,
+                               txn_type: Optional[str] = None, truck_no: Optional[str] = None):
     query = {}
     if pump_id: query["pump_id"] = pump_id
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if txn_type: query["txn_type"] = txn_type
+    if truck_no: query["truck_no"] = {"$regex": truck_no, "$options": "i"}
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        if date_q: query["date"] = date_q
     txns = await db.diesel_accounts.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
     return txns
 

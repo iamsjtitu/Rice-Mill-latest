@@ -1410,6 +1410,10 @@ const DieselAccount = ({ filters, user }) => {
   const [txns, setTxns] = useState([]);
   const [selectedPump, setSelectedPump] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterTruck, setFilterTruck] = useState("");
   const [showAddPump, setShowAddPump] = useState(false);
   const [newPumpName, setNewPumpName] = useState("");
   const [showPayDialog, setShowPayDialog] = useState(false);
@@ -1425,6 +1429,10 @@ const DieselAccount = ({ filters, user }) => {
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
       if (selectedPump !== "all") p.append('pump_id', selectedPump);
+      if (filterDateFrom) p.append('date_from', filterDateFrom);
+      if (filterDateTo) p.append('date_to', filterDateTo);
+      if (filterType !== "all") p.append('txn_type', filterType);
+      if (filterTruck.trim()) p.append('truck_no', filterTruck.trim());
       const [pRes, sRes, tRes] = await Promise.all([
         axios.get(`${API}/diesel-pumps`),
         axios.get(`${API}/diesel-accounts/summary?${p}`),
@@ -1435,7 +1443,7 @@ const DieselAccount = ({ filters, user }) => {
       setTxns(tRes.data || []);
     } catch (e) { toast.error("Diesel data load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, selectedPump]);
+  }, [filters.kms_year, filters.season, selectedPump, filterDateFrom, filterDateTo, filterType, filterTruck]);
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleAddPump = async () => {
@@ -1564,11 +1572,33 @@ const DieselAccount = ({ filters, user }) => {
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-2 flex-wrap">
-        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+      {/* Filters */}
+      <div className="flex gap-2 flex-wrap items-end">
+        <div className="flex flex-col">
+          <label className="text-[10px] text-slate-400 mb-0.5">From Date</label>
+          <Input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
+            className="h-8 w-36 bg-slate-700 border-slate-600 text-white text-xs" data-testid="diesel-filter-date-from" />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-[10px] text-slate-400 mb-0.5">To Date</label>
+          <Input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
+            className="h-8 w-36 bg-slate-700 border-slate-600 text-white text-xs" data-testid="diesel-filter-date-to" />
+        </div>
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="diesel-filter-type">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="debit">Diesel</SelectItem>
+            <SelectItem value="payment">Payment</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input placeholder="Truck No..." value={filterTruck} onChange={e => setFilterTruck(e.target.value)}
+          className="h-8 w-36 bg-slate-700 border-slate-600 text-white text-xs" data-testid="diesel-filter-truck"
+          onKeyDown={e => e.key === 'Enter' && fetchData()} />
         <Select value={selectedPump} onValueChange={setSelectedPump}>
-          <SelectTrigger className="w-48 bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="diesel-pump-filter">
+          <SelectTrigger className="w-40 bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="diesel-pump-filter">
             <SelectValue placeholder="All Pumps" />
           </SelectTrigger>
           <SelectContent>
@@ -1576,6 +1606,17 @@ const DieselAccount = ({ filters, user }) => {
             {pumps.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        {(filterDateFrom || filterDateTo || filterType !== "all" || filterTruck) && (
+          <Button onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); setFilterType("all"); setFilterTruck(""); }}
+            variant="ghost" size="sm" className="h-8 text-xs text-red-400 hover:bg-slate-700" data-testid="diesel-clear-filters">
+            Clear Filters
+          </Button>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 flex-wrap">
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
         <Button onClick={async () => { try { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); const res = await axios.get(`${API}/diesel-accounts/excel?${p}`, { responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url; a.download = 'diesel_account.xlsx'; a.click(); } catch (e) { toast.error("Excel export failed"); } }} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="diesel-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={async () => { try { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); const res = await axios.get(`${API}/diesel-accounts/pdf?${p}`, { responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url; a.download = 'diesel_account.pdf'; a.click(); } catch (e) { toast.error("PDF export failed"); } }} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="diesel-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
       </div>
