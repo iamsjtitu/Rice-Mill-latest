@@ -38,6 +38,25 @@ const LoginPage = ({ onLogin }) => {
     fetchBranding();
   }, []);
 
+  useEffect(() => {
+    const removeBadge = () => {
+      document.querySelectorAll('iframe, a, div').forEach(el => {
+        const src = el.getAttribute('src') || '';
+        const href = el.getAttribute('href') || '';
+        const style = el.getAttribute('style') || '';
+        if (src.includes('emergent') || href.includes('emergent') || 
+            (style.includes('z-index') && style.includes('2147483647')) ||
+            (style.includes('position: fixed') && style.includes('bottom') && el.querySelector && el.querySelector('img[alt*="emergent" i]'))) {
+          el.style.display = 'none';
+          el.remove();
+        }
+      });
+    };
+    removeBadge();
+    const interval = setInterval(removeBadge, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
