@@ -278,14 +278,23 @@ function MainApp({ user, onLogout }) {
     }
   }, [formData.bag, formData.g_deposite]);
 
-  // Auto-fill cutting % from Mandi Target when mandi name changes
+  // Auto-fill cutting % from Mandi Target when mandi name changes (case-insensitive)
   useEffect(() => {
     if (formData.mandi_name && mandiTargets.length > 0) {
       const target = mandiTargets.find(t => 
         (t.mandi_name || '').toLowerCase().trim() === formData.mandi_name.toLowerCase().trim()
       );
       if (target && target.cutting_percent != null) {
-        setFormData(prev => ({ ...prev, cutting_percent: String(target.cutting_percent) }));
+        setFormData(prev => {
+          const updates = {};
+          if (String(prev.cutting_percent) !== String(target.cutting_percent)) {
+            updates.cutting_percent = String(target.cutting_percent);
+          }
+          if (prev.mandi_name !== target.mandi_name) {
+            updates.mandi_name = target.mandi_name;
+          }
+          return Object.keys(updates).length > 0 ? { ...prev, ...updates } : prev;
+        });
       }
     }
   }, [formData.mandi_name, mandiTargets]);
