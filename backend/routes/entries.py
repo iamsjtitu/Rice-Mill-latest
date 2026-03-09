@@ -579,7 +579,7 @@ async def export_excel(
     # Headers
     headers = [
         "Date", "Truck No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
-        "GBW Cut", "Mill W", "P.Pkt", "P.Pkt Cut", "Moist%", "M.Cut", "Cut%", 
+        "GBW Cut", "P.Pkt", "P.Pkt Cut", "Mill W", "Moist%", "M.Cut", "Cut%", 
         "D/D/P", "Final W", "G.Issued", "Cash", "Diesel"
     ]
     
@@ -655,10 +655,9 @@ async def export_excel(
         totals.total_bag,
         totals.total_g_deposite,
         round(totals.total_gbw_cut, 2),
-        round(totals.total_mill_w / 100, 2),
+        "-",
         round(totals.total_p_pkt_cut / 100, 2) if hasattr(totals, 'total_p_pkt_cut') else "-",
-        "-",
-        "-",
+        round(totals.total_mill_w / 100, 2),
         "-",
         "-",
         totals.total_disc_dust_poll,
@@ -785,7 +784,7 @@ async def export_pdf(
     # Table headers
     headers = [
         "Date", "Truck No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
-        "GBW Cut", "Mill W", "P.Pkt", "P.Pkt Cut", "Moist%", "Cut%", 
+        "GBW Cut", "P.Pkt", "P.Pkt Cut", "Mill W", "Moist%", "Cut%", 
         "D/D/P", "Final W", "G.Issued", "Cash", "Diesel"
     ]
     
@@ -802,9 +801,9 @@ async def export_pdf(
             str(entry.get('bag', 0)),
             str(entry.get('g_deposite', 0)),
             f"{entry.get('gbw_cut', 0):.1f}",
-            f"{entry.get('mill_w', 0) / 100:.2f}",
             str(entry.get('plastic_bag', 0)),
             f"{entry.get('p_pkt_cut', 0) / 100:.2f}",
+            f"{entry.get('mill_w', 0) / 100:.2f}",
             f"{entry.get('moisture', 0):.0f}",
             f"{entry.get('cutting_percent', 0):.1f}",
             str(entry.get('disc_dust_poll', 0)),
@@ -822,9 +821,9 @@ async def export_pdf(
         str(totals.total_bag),
         str(int(totals.total_g_deposite)),
         f"{totals.total_gbw_cut:.1f}",
-        f"{totals.total_mill_w / 100:.2f}",
         "-",
         f"{totals.total_p_pkt_cut / 100:.2f}" if hasattr(totals, 'total_p_pkt_cut') else "-",
+        f"{totals.total_mill_w / 100:.2f}",
         "-",
         "-",
         str(int(totals.total_disc_dust_poll)),
@@ -836,8 +835,8 @@ async def export_pdf(
     table_data.append(totals_row)
     
     # Column widths (total ~265mm for A4 landscape with margins)
-    col_widths = [13*mm, 14*mm, 14*mm, 14*mm, 12*mm, 8*mm, 8*mm, 10*mm, 12*mm, 
-                  8*mm, 10*mm, 8*mm, 8*mm, 8*mm, 12*mm, 10*mm, 10*mm, 10*mm]
+    col_widths = [13*mm, 14*mm, 14*mm, 14*mm, 12*mm, 8*mm, 8*mm, 10*mm, 
+                  8*mm, 10*mm, 12*mm, 8*mm, 8*mm, 8*mm, 12*mm, 10*mm, 10*mm, 10*mm]
     
     # Create table
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)

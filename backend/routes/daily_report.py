@@ -311,15 +311,16 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     if p["details"]:
         if is_detail:
             elements.append(make_table(
-                ['Truck', 'Agent', 'Mandi', 'RST', 'TP No', 'QNTL', 'Bags', 'G.Dep', 'GBW Cut', 'Mill W', 'Cut%', 'P.Pkt', 'P.Pkt Cut', 'Final W', 'G.Iss', 'Cash', 'Diesel'],
+                ['Truck', 'Agent', 'Mandi', 'RST', 'TP No', 'QNTL', 'Bags', 'G.Dep', 'GBW Cut', 'P.Pkt', 'P.Pkt Cut', 'Mill W', 'Cut%', 'Final W', 'G.Iss', 'Cash', 'Diesel'],
                 [[d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
                   d.get("tp_no",""),
                   f"{d.get('kg',0)/100:.2f}", str(d.get("bags",0)), str(d.get("g_deposite",0)),
-                  f"{d.get('gbw_cut',0)/100:.2f}", f"{d.get('mill_w',0)/100:.2f}",
-                  f"{d.get('cutting_percent',0)}%", str(d.get("plastic_bag",0)),
-                  f"{d.get('p_pkt_cut',0)/100:.2f}", f"{d.get('final_w',0)/100:.2f}",
+                  f"{d.get('gbw_cut',0)/100:.2f}", str(d.get("plastic_bag",0)),
+                  f"{d.get('p_pkt_cut',0)/100:.2f}", f"{d.get('mill_w',0)/100:.2f}",
+                  f"{d.get('cutting_percent',0)}%",
+                  f"{d.get('final_w',0)/100:.2f}",
                   str(d.get("g_issued",0)), str(d.get("cash_paid",0)), str(d.get("diesel_paid",0))] for d in p["details"]],
-                [35, 35, 35, 25, 25, 32, 25, 25, 28, 32, 25, 22, 28, 32, 25, 30, 30]
+                [35, 35, 35, 25, 25, 32, 25, 25, 28, 22, 28, 32, 25, 32, 25, 30, 30]
             ))
         else:
             elements.append(make_table(
@@ -627,14 +628,14 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     write_sub(f"Bag Dep: {p.get('total_g_deposite',0)} | Bag Issued: {p.get('total_g_issued',0)} | Cash: Rs.{p.get('total_cash_paid',0):,.0f} | Diesel: Rs.{p.get('total_diesel_paid',0):,.0f}")
     if p["details"]:
         if is_detail:
-            write_headers(['Truck', 'Agent', 'Mandi', 'RST', 'TP No', 'QNTL', 'Bags', 'G.Dep', 'GBW Cut', 'Mill W', 'Cut%', 'P.Pkt', 'P.Pkt Cut', 'Final W', 'G.Iss', 'Cash', 'Diesel'])
+            write_headers(['Truck', 'Agent', 'Mandi', 'RST', 'TP No', 'QNTL', 'Bags', 'G.Dep', 'GBW Cut', 'P.Pkt', 'P.Pkt Cut', 'Mill W', 'Cut%', 'Final W', 'G.Iss', 'Cash', 'Diesel'])
             for d in p["details"]:
                 write_row([d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
                     d.get("tp_no",""),
                     round(d.get("kg",0)/100, 2), d.get("bags",0), d.get("g_deposite",0),
-                    round(d.get("gbw_cut",0)/100, 2), round(d.get("mill_w",0)/100, 2),
-                    d.get("cutting_percent",0), d.get("plastic_bag",0),
-                    round(d.get("p_pkt_cut",0)/100, 2), round(d.get("final_w",0)/100, 2),
+                    round(d.get("gbw_cut",0)/100, 2), d.get("plastic_bag",0),
+                    round(d.get("p_pkt_cut",0)/100, 2), round(d.get("mill_w",0)/100, 2),
+                    d.get("cutting_percent",0), round(d.get("final_w",0)/100, 2),
                     d.get("g_issued",0), d.get("cash_paid",0), d.get("diesel_paid",0)])
         else:
             write_headers(['Truck', 'Agent', 'QNTL', 'Final W'])

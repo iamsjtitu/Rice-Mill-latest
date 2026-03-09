@@ -281,8 +281,8 @@ const DailyReport = ({ filters }) => {
                     {key:'rst',label:'RST',align:'left'},{key:'tp',label:'TP No',align:'left'},
                     {key:'qntl',label:'QNTL',align:'right'},{key:'bags',label:'Bags',align:'right'},
                     {key:'gdep',label:'G.Dep',align:'right'},{key:'gbw',label:'GBW Cut',align:'right'},
-                    {key:'mill_w',label:'Mill W',align:'right'},{key:'cut',label:'Cut%',align:'right'},
                     {key:'ppkt',label:'P.Pkt',align:'right'},{key:'ppkt_cut',label:'P.Pkt Cut',align:'right'},
+                    {key:'mill_w',label:'Mill W',align:'right'},{key:'cut',label:'Cut%',align:'right'},
                     {key:'final',label:'Final W',align:'right'},
                     {key:'gissued',label:'G.Issued',align:'right'},{key:'cash',label:'Cash',align:'right'},{key:'diesel',label:'Diesel',align:'right'}
                   ]}
@@ -296,10 +296,10 @@ const DailyReport = ({ filters }) => {
                     <td className="py-1 px-2 text-right text-slate-300">{d.bags}</td>
                     <td className="py-1 px-2 text-right text-cyan-400">{d.g_deposite || 0}</td>
                     <td className="py-1 px-2 text-right text-slate-400">{((d.gbw_cut || 0) / 100).toFixed(2)}</td>
-                    <td className="py-1 px-2 text-right text-blue-400">{(d.mill_w / 100).toFixed(2)}</td>
-                    <td className="py-1 px-2 text-right text-purple-400">{d.cutting_percent}%</td>
                     <td className="py-1 px-2 text-right text-slate-300">{d.plastic_bag || 0}</td>
                     <td className="py-1 px-2 text-right text-slate-400">{((d.p_pkt_cut || 0) / 100).toFixed(2)}</td>
+                    <td className="py-1 px-2 text-right text-blue-400">{(d.mill_w / 100).toFixed(2)}</td>
+                    <td className="py-1 px-2 text-right text-purple-400">{d.cutting_percent}%</td>
                     <td className="py-1 px-2 text-right text-amber-400 font-semibold">{(d.final_w / 100).toFixed(2)}</td>
                     <td className="py-1 px-2 text-right text-cyan-400">{d.g_issued}</td>
                     <td className="py-1 px-2 text-right text-green-300">{d.cash_paid || 0}</td>
