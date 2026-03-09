@@ -11,6 +11,12 @@ from openpyxl.utils import get_column_letter
 
 router = APIRouter()
 
+async def get_company_name():
+    settings = await db.settings.find_one({"type": "company"}, {"_id": 0})
+    if settings:
+        return settings.get("company_name", "Mill Entry System"), settings.get("tagline", "")
+    return "Mill Entry System", ""
+
 # ============ TRUCK PAYMENT ENDPOINTS ============
 
 @router.get("/truck-payments", response_model=List[TruckPaymentStatus])

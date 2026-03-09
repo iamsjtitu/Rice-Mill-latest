@@ -155,6 +155,7 @@ export default function MillPartsStock({ filters, user }) {
         {[
           { id: "summary", label: "Stock Summary", icon: Package },
           { id: "transactions", label: "Transactions", icon: ArrowDown },
+          { id: "partwise", label: "Part-wise Summary", icon: Filter },
           { id: "parts", label: "Parts Master", icon: Settings },
         ].map(({ id, label, icon: Icon }) => (
           <Button key={id} onClick={() => setActiveTab(id)}
@@ -167,7 +168,7 @@ export default function MillPartsStock({ filters, user }) {
       </div>
 
       {/* Search bar */}
-      {(activeTab === "summary" || activeTab === "transactions") && (
+      {(activeTab === "summary" || activeTab === "transactions" || activeTab === "partwise") && (
         <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 max-w-xs">
           <Search className="w-4 h-4 text-slate-400" />
           <input value={searchPart} onChange={e => setSearchPart(e.target.value)}
@@ -326,6 +327,73 @@ export default function MillPartsStock({ filters, user }) {
         </div>
       )}
 
+      {/* ===== PART-WISE SUMMARY TAB ===== */}
+      {activeTab === "partwise" && (
+        <div className="space-y-4">
+          {filteredSummary.map(s => (
+            <Card key={s.part_name} className="bg-slate-800 border-slate-700">
+              <CardContent className="p-4">
+                <div className="flex flex-wrap items-center gap-4 mb-3">
+                  <h3 className="text-lg font-bold text-cyan-400">{s.part_name}</h3>
+                  <span className="text-xs bg-slate-700 px-2 py-0.5 rounded text-slate-300">{s.category} | {s.unit}</span>
+                  <div className="ml-auto flex gap-4 text-sm">
+                    <span className="text-emerald-400">In: <b>{s.stock_in}</b></span>
+                    <span className="text-red-400">Used: <b>{s.stock_used}</b></span>
+                    <span className="text-yellow-400">Stock: <b>{s.current_stock}</b></span>
+                    <span className="text-blue-400">Purchase: <b>Rs.{(s.total_purchase_amount || 0).toLocaleString()}</b></span>
+                  </div>
+                </div>
+                {/* Party-wise breakdown */}
+                {(s.parties || []).length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs text-slate-400 mb-1 font-semibold">Party-wise Purchase:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {s.parties.map((p, pi) => (
+                        <span key={pi} className="text-xs bg-slate-700/50 border border-slate-600 rounded px-2 py-1 text-slate-200">
+                          {p.name}: <b className="text-emerald-400">{p.qty} {s.unit}</b> | <b className="text-blue-400">Rs.{(p.amount || 0).toLocaleString()}</b>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Recent transactions for this part */}
+                {(() => {
+                  const partTxns = stockEntries.filter(t => t.part_name === s.part_name).slice(0, 10);
+                  if (!partTxns.length) return null;
+                  return (
+                    <div>
+                      <p className="text-xs text-slate-400 mb-1 font-semibold">Recent Transactions:</p>
+                      <Table><TableHeader><TableRow className="border-slate-700">
+                        <TableHead className="text-slate-400 text-xs h-7">Date</TableHead>
+                        <TableHead className="text-slate-400 text-xs h-7">Type</TableHead>
+                        <TableHead className="text-slate-400 text-xs h-7">Qty</TableHead>
+                        <TableHead className="text-slate-400 text-xs h-7">Rate</TableHead>
+                        <TableHead className="text-slate-400 text-xs h-7">Amount</TableHead>
+                        <TableHead className="text-slate-400 text-xs h-7">Party</TableHead>
+                        <TableHead className="text-slate-400 text-xs h-7">Bill No</TableHead>
+                      </TableRow></TableHeader>
+                      <TableBody>
+                        {partTxns.map(t => (
+                          <TableRow key={t.id} className="border-slate-700/50">
+                            <TableCell className="text-xs py-1">{t.date}</TableCell>
+                            <TableCell className="py-1"><span className={`text-xs font-semibold ${t.txn_type === 'in' ? 'text-emerald-400' : 'text-red-400'}`}>{t.txn_type === 'in' ? 'IN' : 'USED'}</span></TableCell>
+                            <TableCell className={`text-xs py-1 font-bold ${t.txn_type === 'in' ? 'text-emerald-400' : 'text-red-400'}`}>{t.quantity}</TableCell>
+                            <TableCell className="text-xs py-1">Rs.{t.rate || 0}</TableCell>
+                            <TableCell className="text-xs py-1">Rs.{(t.total_amount || t.total_cost || 0).toLocaleString()}</TableCell>
+                            <TableCell className="text-xs py-1">{t.party_name || '-'}</TableCell>
+                            <TableCell className="text-xs py-1">{t.bill_no || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody></Table>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          ))}
+          {filteredSummary.length === 0 && <p className="text-slate-400 text-center py-8">No parts found</p>}
+        </div>
+      )}
       {/* ===== PARTS MASTER TAB ===== */}
       {activeTab === "parts" && (
         <div className="space-y-4">

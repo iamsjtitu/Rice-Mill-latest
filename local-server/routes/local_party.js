@@ -1,4 +1,5 @@
 const express = require('express');
+const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
@@ -9,7 +10,7 @@ function ensureCollection(name) {
 }
 
 // ============ LOCAL PARTY SUMMARY ============
-router.get('/api/local-party/summary', (req, res) => {
+router.get('/api/local-party/summary', safeSync((req, res) => {
   ensureCollection('local_party_accounts');
   let txns = [...database.data.local_party_accounts];
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
@@ -42,10 +43,10 @@ router.get('/api/local-party/summary', (req, res) => {
     grand_total_paid: Math.round(gp * 100) / 100,
     grand_balance: Math.round((gd - gp) * 100) / 100
   });
-});
+}));
 
 // ============ LOCAL PARTY TRANSACTIONS ============
-router.get('/api/local-party/transactions', (req, res) => {
+router.get('/api/local-party/transactions', safeSync((req, res) => {
   ensureCollection('local_party_accounts');
   let txns = [...database.data.local_party_accounts];
   if (req.query.party_name) {
@@ -58,10 +59,10 @@ router.get('/api/local-party/transactions', (req, res) => {
   if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
   txns.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   res.json(txns);
-});
+}));
 
 // ============ PARTY-WISE REPORT (PRINT) ============
-router.get('/api/local-party/report/:partyName', (req, res) => {
+router.get('/api/local-party/report/:partyName', safeSync((req, res) => {
   ensureCollection('local_party_accounts');
   const pn = req.params.partyName.toLowerCase();
   let txns = database.data.local_party_accounts.filter(t => (t.party_name || '').toLowerCase() === pn);
@@ -78,10 +79,10 @@ router.get('/api/local-party/report/:partyName', (req, res) => {
   const td = txns.filter(t => t.txn_type === 'debit').reduce((s, t) => s + (t.amount || 0), 0);
   const tp = txns.filter(t => t.txn_type === 'payment').reduce((s, t) => s + (t.amount || 0), 0);
   res.json({ party_name: req.params.partyName, transactions: rows, total_debit: Math.round(td * 100) / 100, total_paid: Math.round(tp * 100) / 100, balance: Math.round((td - tp) * 100) / 100, total_entries: txns.length });
-});
+}));
 
 // ============ MANUAL PURCHASE ============
-router.post('/api/local-party/manual', (req, res) => {
+router.post('/api/local-party/manual', safeSync((req, res) => {
   ensureCollection('local_party_accounts');
   const d = req.body;
   const party_name = (d.party_name || '').trim();
@@ -98,10 +99,10 @@ router.post('/api/local-party/manual', (req, res) => {
   database.data.local_party_accounts.push(doc);
   database.save();
   res.json(doc);
-});
+}));
 
 // ============ SETTLEMENT / PAY ============
-router.post('/api/local-party/settle', (req, res) => {
+router.post('/api/local-party/settle', safeSync((req, res) => {
   ensureCollection('local_party_accounts');
   ensureCollection('cash_transactions');
   const d = req.body;
@@ -136,10 +137,10 @@ router.post('/api/local-party/settle', (req, res) => {
   database.save();
 
   res.json({ success: true, message: `Rs.${amount} payment to ${party_name} recorded`, txn_id: payTxn.id });
-});
+}));
 
 // ============ DELETE TRANSACTION ============
-router.delete('/api/local-party/:id', (req, res) => {
+router.delete('/api/local-party/:id', safeSync((req, res) => {
   ensureCollection('local_party_accounts');
   const txn = database.data.local_party_accounts.find(t => t.id === req.params.id);
   if (!txn) return res.status(404).json({ detail: 'Transaction not found' });
@@ -151,93 +152,87 @@ router.delete('/api/local-party/:id', (req, res) => {
   database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.id !== req.params.id);
   database.save();
   res.json({ message: 'Deleted', id: req.params.id });
-});
+}));
 
 // ============ EXCEL EXPORT ============
-router.get('/api/local-party/excel', async (req, res) => {
-  try {
-    const ExcelJS = require('exceljs');
-    ensureCollection('local_party_accounts');
-    let txns = [...database.data.local_party_accounts];
-    if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
-    if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
-    txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+router.get('/api/local-party/excel', safeAsync(async (req, res) => {
+  const ExcelJS = require('exceljs');
+  ensureCollection('local_party_accounts');
+  let txns = [...database.data.local_party_accounts];
+  if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+  if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+  txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-    // Build summary
-    const partyMap = {};
-    for (const t of txns) {
-      const pn = (t.party_name || '').trim();
-      if (!pn) continue;
-      if (!partyMap[pn]) partyMap[pn] = { party_name: pn, total_debit: 0, total_paid: 0, txn_count: 0 };
-      if (t.txn_type === 'debit') partyMap[pn].total_debit += t.amount || 0;
-      else partyMap[pn].total_paid += t.amount || 0;
-      partyMap[pn].txn_count++;
-    }
-    const parties = Object.values(partyMap).map(p => ({
-      ...p, balance: Math.round((p.total_debit - p.total_paid) * 100) / 100,
-      total_debit: Math.round(p.total_debit * 100) / 100, total_paid: Math.round(p.total_paid * 100) / 100
-    }));
+  const partyMap = {};
+  for (const t of txns) {
+    const pn = (t.party_name || '').trim();
+    if (!pn) continue;
+    if (!partyMap[pn]) partyMap[pn] = { party_name: pn, total_debit: 0, total_paid: 0, txn_count: 0 };
+    if (t.txn_type === 'debit') partyMap[pn].total_debit += t.amount || 0;
+    else partyMap[pn].total_paid += t.amount || 0;
+    partyMap[pn].txn_count++;
+  }
+  const parties = Object.values(partyMap).map(p => ({
+    ...p, balance: Math.round((p.total_debit - p.total_paid) * 100) / 100,
+    total_debit: Math.round(p.total_debit * 100) / 100, total_paid: Math.round(p.total_paid * 100) / 100
+  }));
 
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Local Party Account');
-    ws.mergeCells('A1:F1');
-    ws.getCell('A1').value = 'Local Party Account';
-    ws.getCell('A1').font = { bold: true, size: 14 };
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Local Party Account');
+  ws.mergeCells('A1:F1');
+  ws.getCell('A1').value = 'Local Party Account';
+  ws.getCell('A1').font = { bold: true, size: 14 };
 
-    ws.addRow([]);
-    const hdr = ws.addRow(['Party Name', 'Total Debit', 'Total Paid', 'Balance', 'Entries']);
-    hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065f46' } }; });
-    for (const p of parties) ws.addRow([p.party_name, p.total_debit, p.total_paid, p.balance, p.txn_count]);
+  ws.addRow([]);
+  const hdr = ws.addRow(['Party Name', 'Total Debit', 'Total Paid', 'Balance', 'Entries']);
+  hdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065f46' } }; });
+  for (const p of parties) ws.addRow([p.party_name, p.total_debit, p.total_paid, p.balance, p.txn_count]);
 
-    ws.addRow([]);
-    ws.addRow([]);
-    const tHdr = ws.addRow(['Date', 'Party', 'Type', 'Amount', 'Description', 'Source']);
-    tHdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065f46' } }; });
-    for (const t of txns) {
-      ws.addRow([t.date, t.party_name, t.txn_type === 'payment' ? 'Payment' : 'Purchase', t.amount, t.description, t.source_type]);
-    }
-    for (let i = 1; i <= 6; i++) ws.getColumn(i).width = 20;
+  ws.addRow([]); ws.addRow([]);
+  const tHdr = ws.addRow(['Date', 'Party', 'Type', 'Amount', 'Description', 'Source']);
+  tHdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065f46' } }; });
+  for (const t of txns) {
+    ws.addRow([t.date, t.party_name, t.txn_type === 'payment' ? 'Payment' : 'Purchase', t.amount, t.description, t.source_type]);
+  }
+  for (let i = 1; i <= 6; i++) ws.getColumn(i).width = 20;
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=local_party_account.xlsx');
-    await wb.xlsx.write(res);
-    res.end();
-  } catch (e) { res.status(500).json({ detail: e.message }); }
-});
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename=local_party_account.xlsx');
+  await wb.xlsx.write(res);
+  res.end();
+}));
 
 // ============ PDF EXPORT ============
-router.get('/api/local-party/pdf', (req, res) => {
-  try {
-    const PDFDocument = require('pdfkit');
-    ensureCollection('local_party_accounts');
-    let txns = [...database.data.local_party_accounts];
-    if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
-    if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
-    txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+router.get('/api/local-party/pdf', safeSync((req, res) => {
+  const PDFDocument = require('pdfkit');
+  const { addPdfHeader, addPdfTable, addTotalsRow } = require('./pdf_helpers');
+  ensureCollection('local_party_accounts');
+  let txns = [...database.data.local_party_accounts];
+  if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+  if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+  if (req.query.party_name) txns = txns.filter(t => t.party_name === req.query.party_name);
+  txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=local_party_account.pdf');
-    doc.pipe(res);
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename=local_party_account.pdf');
+  doc.pipe(res);
 
-    doc.fontSize(16).text('Local Party Account', { align: 'center' });
-    doc.moveDown();
+  const branding = database.getBranding ? database.getBranding() : {};
+  addPdfHeader(doc, 'Local Party Account', branding);
 
-    const colW = [70, 120, 55, 70, 200, 70];
-    const headers = ['Date', 'Party', 'Type', 'Amount', 'Description', 'Source'];
-    let x = 30, y = doc.y;
-    doc.fontSize(8).font('Helvetica-Bold');
-    headers.forEach((h, i) => { doc.text(h, x, y, { width: colW[i] }); x += colW[i]; });
-    doc.font('Helvetica').fontSize(7);
-    for (const t of txns) {
-      y += 14; x = 30;
-      if (y > 550) { doc.addPage(); y = 30; }
-      const vals = [t.date, t.party_name, t.txn_type === 'payment' ? 'Payment' : 'Purchase', `Rs.${t.amount}`, (t.description || '').slice(0, 35), t.source_type || ''];
-      vals.forEach((v, i) => { doc.text(String(v), x, y, { width: colW[i] }); x += colW[i]; });
-    }
-    doc.end();
-  } catch (e) { res.status(500).json({ detail: e.message }); }
-});
+  const headers = ['Date', 'Party', 'Type', 'Amount (Rs)', 'Description', 'Source'];
+  const colW = [65, 110, 55, 70, 220, 65];
+  const rows = txns.map(t => [t.date, t.party_name, t.txn_type === 'payment' ? 'PAYMENT' : 'PURCHASE',
+    `Rs.${(t.amount||0).toLocaleString()}`, (t.description||'').slice(0, 40), t.source_type||'']);
+  addPdfTable(doc, headers, rows, colW);
+
+  const totalPurchase = txns.filter(t => t.txn_type !== 'payment').reduce((s, t) => s + (t.amount||0), 0);
+  const totalPayment = txns.filter(t => t.txn_type === 'payment').reduce((s, t) => s + (t.amount||0), 0);
+  addTotalsRow(doc, ['TOTAL', `${txns.length} entries`, '', `Purchase: Rs.${totalPurchase.toLocaleString()} | Payment: Rs.${totalPayment.toLocaleString()}`, '', `Balance: Rs.${(totalPurchase - totalPayment).toLocaleString()}`], colW);
+
+  doc.end();
+}));
 
   return router;
 };

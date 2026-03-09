@@ -205,32 +205,32 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
 // ============ PDF EXPORT ============
 router.get('/api/local-party/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
+  const { addPdfHeader, addPdfTable, addTotalsRow } = require('./pdf_helpers');
   ensureCollection('local_party_accounts');
   let txns = [...database.data.local_party_accounts];
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+  if (req.query.party_name) txns = txns.filter(t => t.party_name === req.query.party_name);
   txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename=local_party_account.pdf');
   doc.pipe(res);
 
-  doc.fontSize(16).text('Local Party Account', { align: 'center' });
-  doc.moveDown();
+  const branding = database.getBranding ? database.getBranding() : {};
+  addPdfHeader(doc, 'Local Party Account', branding);
 
-  const colW = [70, 120, 55, 70, 200, 70];
-  const headers = ['Date', 'Party', 'Type', 'Amount', 'Description', 'Source'];
-  let x = 30, y = doc.y;
-  doc.fontSize(8).font('Helvetica-Bold');
-  headers.forEach((h, i) => { doc.text(h, x, y, { width: colW[i] }); x += colW[i]; });
-  doc.font('Helvetica').fontSize(7);
-  for (const t of txns) {
-    y += 14; x = 30;
-    if (y > 550) { doc.addPage(); y = 30; }
-    const vals = [t.date, t.party_name, t.txn_type === 'payment' ? 'Payment' : 'Purchase', `Rs.${t.amount}`, (t.description || '').slice(0, 35), t.source_type || ''];
-    vals.forEach((v, i) => { doc.text(String(v), x, y, { width: colW[i] }); x += colW[i]; });
-  }
+  const headers = ['Date', 'Party', 'Type', 'Amount (Rs)', 'Description', 'Source'];
+  const colW = [65, 110, 55, 70, 220, 65];
+  const rows = txns.map(t => [t.date, t.party_name, t.txn_type === 'payment' ? 'PAYMENT' : 'PURCHASE',
+    `Rs.${(t.amount||0).toLocaleString()}`, (t.description||'').slice(0, 40), t.source_type||'']);
+  addPdfTable(doc, headers, rows, colW);
+
+  const totalPurchase = txns.filter(t => t.txn_type !== 'payment').reduce((s, t) => s + (t.amount||0), 0);
+  const totalPayment = txns.filter(t => t.txn_type === 'payment').reduce((s, t) => s + (t.amount||0), 0);
+  addTotalsRow(doc, ['TOTAL', `${txns.length} entries`, '', `Purchase: Rs.${totalPurchase.toLocaleString()} | Payment: Rs.${totalPayment.toLocaleString()}`, '', `Balance: Rs.${(totalPurchase - totalPayment).toLocaleString()}`], colW);
+
   doc.end();
 }));
 
