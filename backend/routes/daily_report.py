@@ -94,6 +94,9 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
 
     is_detail = mode == "detail"
 
+    # Build entry_id -> mandi_name map for diesel mandi lookup
+    _entry_mandi_map = {e.get("id", ""): e.get("mandi_name", "") for e in entries}
+
     result = {
         "date": date, "mode": mode,
         "paddy_entries": {
@@ -119,9 +122,7 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
                 "p_pkt_cut": e.get("p_pkt_cut", 0),
                 "g_issued": e.get("g_issued", 0),
                 "cash_paid": e.get("cash_paid", 0),
-                "diesel_paid": e.get("diesel_paid", 0)} for e in entries] if is_detail else
-                [{"truck_no": e.get("truck_no", ""), "agent": e.get("agent_name", ""),
-                "kg": e.get("kg", 0), "final_w": e.get("final_w", 0)} for e in entries]
+                "diesel_paid": e.get("diesel_paid", 0)} for e in entries]
         },
         "pvt_paddy": {
             "count": len(pvt_paddy), "total_kg": round(pvt_paddy_kg, 2),
@@ -206,7 +207,8 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
             "balance": round(diesel_total_amount - diesel_total_paid, 2),
             "details": [{"pump": t.get("pump_name", ""), "txn_type": t.get("txn_type", ""),
                 "amount": t.get("amount", 0), "truck_no": t.get("truck_no", ""),
-                "agent": t.get("agent_name", ""), "desc": t.get("description", "")} for t in diesel_txns]
+                "mandi": t.get("mandi_name", "") or _entry_mandi_map.get(t.get("linked_entry_id", ""), "") or (t.get("description", "").split("Mandi ")[-1] if "Mandi " in t.get("description", "") else ""),
+                "desc": t.get("description", "")} for t in diesel_txns]
         }
     }
     return result
@@ -326,9 +328,17 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             ))
         else:
             elements.append(make_table(
-                ['Truck No', 'Agent', 'QNTL', 'Final W'],
-                [[d["truck_no"], d["agent"], f"{d['kg']/100:.2f}", f"{d['final_w']/100:.2f}"] for d in p["details"]],
-                [120, 150, 100, 100]
+                ['Truck', 'Agent', 'Mandi', 'RST', 'TP', 'QNTL', 'Bags', 'G.Dep', 'GBW', 'P.Pkt', 'P.Cut', 'Mill W', 'M%', 'M.Cut', 'C%', 'D/D/P', 'Final W', 'G.Iss', 'Cash', 'Diesel'],
+                [[d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
+                  d.get("tp_no",""),
+                  f"{d.get('kg',0)/100:.2f}", str(d.get("bags",0)), str(d.get("g_deposite",0)),
+                  f"{d.get('gbw_cut',0)/100:.2f}", str(d.get("plastic_bag",0)),
+                  f"{d.get('p_pkt_cut',0)/100:.2f}", f"{d.get('mill_w',0)/100:.2f}",
+                  str(d.get("moisture",0)), f"{(d.get('moisture_cut',0) or 0)/100:.2f}",
+                  f"{d.get('cutting_percent',0)}%", str(d.get("disc_dust_poll",0)),
+                  f"{d.get('final_w',0)/100:.2f}",
+                  str(d.get("g_issued",0)), str(d.get("cash_paid",0)), str(d.get("diesel_paid",0))] for d in p["details"]],
+                [30, 30, 30, 22, 22, 28, 22, 22, 25, 20, 25, 28, 20, 25, 22, 22, 28, 22, 27, 27]
             ))
     elements.append(Spacer(1, 4))
 
@@ -474,11 +484,11 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         ]))
         elements.append(pat)
         elements.append(make_table(
-            ['Pump', 'Type', 'Truck', 'Agent', 'Description', 'Amount'],
+            ['Pump', 'Type', 'Truck', 'Mandi', 'Description', 'Amount'],
             [[d.get("pump",""), "PAID" if d.get("txn_type") in ("payment","credit") else "DIESEL",
-              d.get("truck_no",""), d.get("agent",""), d.get("desc",""),
+              d.get("truck_no",""), d.get("mandi",""), d.get("desc",""),
               f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in pa["details"]],
-            [80, 45, 60, 60, 120, 70]
+            [60, 40, 60, 60, 170, 60]
         ))
         elements.append(Spacer(1, 4))
 
@@ -642,9 +652,17 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
                     round(d.get("final_w",0)/100, 2),
                     d.get("g_issued",0), d.get("cash_paid",0), d.get("diesel_paid",0)])
         else:
-            write_headers(['Truck', 'Agent', 'QNTL', 'Final W'])
+            write_headers(['Truck', 'Agent', 'Mandi', 'RST', 'TP', 'QNTL', 'Bags', 'G.Dep', 'GBW', 'P.Pkt', 'P.Cut', 'Mill W', 'M%', 'M.Cut', 'C%', 'D/D/P', 'Final W', 'G.Iss', 'Cash', 'Diesel'])
             for d in p["details"]:
-                write_row([d["truck_no"], d["agent"], round(d["kg"]/100, 2), round(d["final_w"]/100, 2)])
+                write_row([d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
+                    d.get("tp_no",""),
+                    round(d.get("kg",0)/100, 2), d.get("bags",0), d.get("g_deposite",0),
+                    round(d.get("gbw_cut",0)/100, 2), d.get("plastic_bag",0),
+                    round(d.get("p_pkt_cut",0)/100, 2), round(d.get("mill_w",0)/100, 2),
+                    d.get("moisture",0), round((d.get("moisture_cut",0) or 0)/100, 2),
+                    d.get("cutting_percent",0), d.get("disc_dust_poll",0),
+                    round(d.get("final_w",0)/100, 2),
+                    d.get("g_issued",0), d.get("cash_paid",0), d.get("diesel_paid",0)])
     row += 1
 
     # Milling
@@ -732,10 +750,10 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     if pa.get("details"):
         write_section("6. Pump Account / Diesel")
         write_sub(f"Total Diesel: Rs.{pa.get('total_diesel',0):,.0f} | Paid: Rs.{pa.get('total_paid',0):,.0f} | Balance: Rs.{pa.get('balance',0):,.0f}")
-        write_headers(['Pump', 'Type', 'Truck', 'Agent', 'Description', 'Amount'])
+        write_headers(['Pump', 'Type', 'Truck', 'Mandi', 'Description', 'Amount'])
         for d in pa["details"]:
             write_row([d.get("pump",""), "PAID" if d.get("txn_type") in ("payment","credit") else "DIESEL",
-                d.get("truck_no",""), d.get("agent",""), d.get("desc",""), d.get("amount",0)])
+                d.get("truck_no",""), d.get("mandi",""), d.get("desc",""), d.get("amount",0)])
         row += 1
 
     # Mill Parts Stock
@@ -787,8 +805,16 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
             for d in sa["details"]:
                 write_row([d.get("name",""), status_map.get(d.get("status",""), d.get("status",""))])
 
-    for col in range(1, 18):
-        ws.column_dimensions[chr(64 + col) if col <= 26 else 'A' + chr(64 + col - 26)].width = 10 if col <= 5 else 8
+    # Auto-fit column widths
+    from openpyxl.utils import get_column_letter
+    for col_idx in range(1, ws.max_column + 1):
+        max_len = 0
+        col_letter = get_column_letter(col_idx)
+        for row_idx in range(1, ws.max_row + 1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            if cell.value:
+                max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[col_letter].width = min(max(max_len + 2, 8), 25)
 
     buf = io.BytesIO()
     wb.save(buf)

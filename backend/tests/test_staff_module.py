@@ -8,7 +8,7 @@ import os
 import uuid
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mill-ops-v2.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://rice-mill-manager.preview.emergentagent.com')
 
 @pytest.fixture(scope="module")
 def api_client():

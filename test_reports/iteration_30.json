@@ -1,0 +1,60 @@
+{
+  "summary": "Daily Report Export Features - ALL TESTS PASS (100%). Verified backend API fixes: 1) paddy_entries.details now has ALL 22 fields (not just 4) in both normal and detail modes, 2) pump_account.details uses 'mandi' key instead of 'agent', 3) PDF and Excel exports work correctly with proper column headers.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_daily_report_exports_iteration30.py",
+    "/app/test_reports/pytest/pytest_results_iteration30.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_daily_report_exports_iteration30.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 pytest tests passed)"
+  },
+  "features_verified": {
+    "paddy_entries_all_22_fields": {
+      "normal_mode": "PASS - GET /api/reports/daily?date=2026-01-18&mode=normal returns 22 fields in paddy_entries.details",
+      "detail_mode": "PASS - GET /api/reports/daily?date=2026-01-18&mode=detail also returns 22 fields",
+      "fields_list": ["truck_no", "agent", "mandi", "rst_no", "tp_no", "season", "kg", "qntl", "bags", "g_deposite", "gbw_cut", "mill_w", "moisture", "moisture_cut", "cutting_percent", "disc_dust_poll", "final_w", "plastic_bag", "p_pkt_cut", "g_issued", "cash_paid", "diesel_paid"]
+    },
+    "pump_account_mandi_key": {
+      "api_response": "PASS - pump_account.details has 'mandi' key, NOT 'agent'",
+      "fields_list": ["pump", "txn_type", "amount", "truck_no", "mandi", "desc"],
+      "mandi_value_source": "Fetched from entry_id->mandi_name map or stored mandi_name in diesel_accounts"
+    },
+    "pdf_exports": {
+      "normal_mode_2026_01_18": "PASS - PDF generated successfully",
+      "normal_mode_2026_03_09": "PASS - PDF with more data generated successfully",
+      "content_type": "application/pdf"
+    },
+    "excel_exports": {
+      "normal_mode_2026_01_18": "PASS - Excel generated with 20 paddy columns",
+      "detail_mode_2026_03_09": "PASS - Detail Excel generated successfully",
+      "paddy_columns": ["Truck", "Agent", "Mandi", "RST", "TP", "QNTL", "Bags", "G.Dep", "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", "D/D/P", "Final W", "G.Iss", "Cash", "Diesel"],
+      "pump_account_columns": ["Pump", "Type", "Truck", "Mandi", "Description", "Amount"]
+    }
+  },
+  "test_data": {
+    "date_2026_01_18": "2 paddy entries, diesel transactions present with mandi=DEYPUR",
+    "date_2026_03_09": "3+ entries with cash/diesel data"
+  },
+  "test_credentials": {
+    "admin_username": "admin",
+    "admin_password": "admin123"
+  },
+  "seed_data_creation": "None - used existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 30 - Daily Report Export features verified. Key fixes working: (1) Summary mode API now returns ALL 22 paddy entry fields (kg, qntl, bags, g_deposite, gbw_cut, mill_w, moisture, moisture_cut, cutting_percent, disc_dust_poll, final_w, plastic_bag, p_pkt_cut, g_issued, cash_paid, diesel_paid - previously only returned 4 fields), (2) Pump Account uses 'mandi' key instead of 'agent' in both API response and Excel exports, (3) Excel has 20 column headers for paddy entries from Truck through Diesel. All exports (PDF/Excel) generating correctly.",
+  "mocked_api": false
+}
