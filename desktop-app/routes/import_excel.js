@@ -162,7 +162,7 @@ router.post('/api/entries/import-excel', upload.single('file'), safeAsync(async 
     return res.json({ preview: true, count: entries.length, skipped, sample: entries.slice(0, 10), columns_detected: Object.keys(colMap) });
   }
 
-  if (!database.data.mill_entries) database.data.mill_entries = [];
+  if (!database.data.entries) database.data.entries = [];
   if (!database.data.cash_transactions) database.data.cash_transactions = [];
   if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
   let pumpName = 'Default Pump', pumpId = 'default';
@@ -174,7 +174,7 @@ router.post('/api/entries/import-excel', upload.single('file'), safeAsync(async 
   let imported = 0, cashCount = 0, dieselCount = 0;
   for (const ed of entries) {
     const doc = calculateAutoFields({ ...ed, id: uuidv4(), created_by: username, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), rst_no: '', tp_no: '', plastic_bag: 0 });
-    database.data.mill_entries.push(doc);
+    database.data.entries.push(doc);
     if (doc.cash_paid > 0) {
       database.data.cash_transactions.push({
         id: uuidv4(), date: doc.date, account: 'cash', txn_type: 'nikasi', category: 'Cash Paid (Entry)',

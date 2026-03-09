@@ -285,12 +285,7 @@ function MainApp({ user, onLogout }) {
         (t.mandi_name || '').toLowerCase().trim() === formData.mandi_name.toLowerCase().trim()
       );
       if (target && target.cutting_percent != null) {
-        setFormData(prev => {
-          if (!prev.cutting_percent || prev.cutting_percent === '' || prev.cutting_percent === '0') {
-            return { ...prev, cutting_percent: String(target.cutting_percent) };
-          }
-          return prev;
-        });
+        setFormData(prev => ({ ...prev, cutting_percent: String(target.cutting_percent) }));
       }
     }
   }, [formData.mandi_name, mandiTargets]);
