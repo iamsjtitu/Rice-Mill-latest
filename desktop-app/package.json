@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "electron-updater": "^6.1.7",
     "exceljs": "^4.4.0",
     "express": "^4.18.2",
     "multer": "^2.1.1",
@@ -101,6 +102,14 @@
     "pkg": {
       "artifactName": "MillEntrySystem-${version}-mac.pkg"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "GITHUB_USERNAME",
+        "repo": "GITHUB_REPO_NAME",
+        "releaseType": "release"
+      }
+    ],
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

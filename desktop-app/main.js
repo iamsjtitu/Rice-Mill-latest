@@ -4,6 +4,7 @@
  */
 
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
@@ -3055,6 +3056,12 @@ async function createMainWindow(port) {
       { type: 'separator' }, { role: 'togglefullscreen' }
     ]},
     { label: 'Help', submenu: [
+      { label: 'Check for Updates', click: () => {
+        autoUpdater.checkForUpdates().catch(err => {
+          dialog.showMessageBox(mainWindow, { type: 'info', title: 'Update Check', message: 'Update check failed. Please check internet connection.', detail: err.message });
+        });
+      }},
+      { type: 'separator' },
       { label: 'About', click: () => {
         dialog.showMessageBox(mainWindow, {
           type: 'info',
@@ -3084,6 +3091,8 @@ async function createMainWindow(port) {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.focus();
+    // Start auto-update check after window is shown
+    setupAutoUpdater();
   });
 
   mainWindow.on('closed', () => {
@@ -3091,6 +3100,91 @@ async function createMainWindow(port) {
     if (server) server.close();
     app.quit();
   });
+}
+
+// ============ AUTO UPDATER ============
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for update...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('Update available:', info.version);
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Update Available',
+      message: `New version ${info.version} available!`,
+      detail: `Current: v${app.getVersion()}\nNew: v${info.version}\n\nKya aap download karna chahte hain?`,
+      buttons: ['Download Now', 'Later'],
+      defaultId: 0
+    }).then(result => {
+      if (result.response === 0) {
+        autoUpdater.downloadUpdate();
+        if (mainWindow) {
+          mainWindow.webContents.executeJavaScript(`
+            if (!document.getElementById('update-banner')) {
+              const b = document.createElement('div');
+              b.id = 'update-banner';
+              b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#000;text-align:center;padding:8px;font-size:14px;font-weight:bold;';
+              b.textContent = 'Downloading update... Please wait';
+              document.body.prepend(b);
+            }
+          `);
+        }
+      }
+    });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    console.log('App is up to date');
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    console.log(`Download progress: ${Math.round(progress.percent)}%`);
+    if (mainWindow) {
+      mainWindow.webContents.executeJavaScript(`
+        const b = document.getElementById('update-banner');
+        if (b) b.textContent = 'Downloading update... ${Math.round(progress.percent)}%';
+      `);
+    }
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    console.log('Update downloaded');
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Update Ready',
+      message: 'Update download ho gaya!',
+      detail: 'App restart hoga update install karne ke liye.',
+      buttons: ['Restart Now', 'Restart Later'],
+      defaultId: 0
+    }).then(result => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall(false, true);
+      } else {
+        if (mainWindow) {
+          mainWindow.webContents.executeJavaScript(`
+            const b = document.getElementById('update-banner');
+            if (b) { b.style.background = '#22c55e'; b.textContent = 'Update ready! App close karne par install ho jayega.'; }
+          `);
+        }
+      }
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.log('Auto-updater error:', err.message);
+  });
+
+  // Check for updates after 5 seconds
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(err => {
+      console.log('Update check failed:', err.message);
+    });
+  }, 5000);
 }
 
 // ============ IPC HANDLERS ============
