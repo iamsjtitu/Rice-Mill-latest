@@ -1,61 +1,73 @@
 # Mill Entry System - PRD
 
 ## Original Problem Statement
-Rice mill management tool. 3 backends (Python/FastAPI, Node.js local-server, Electron desktop-app), React frontend.
+Rice mill management tool ("Mill Entry System") for Navkar Agro, Jolko, Kesinga. Full-stack application with React frontend, FastAPI backend, and two Node.js backends (desktop-app for Electron, local-server for portable use).
 
-## Implemented Features
-
-### Core
-- Mill entries with 20+ columns
-- Cash Book with edit, sync to Party Ledger
-- Diesel/Pump Account with filters
-- Staff Management (attendance, advance, salary, settlement)
-- Mill Parts Stock (purchase, usage, party ledger auto-entry, settle)
-- Local Party Account with settle feature
-- Reports: Daily, Outstanding, CMR vs DC, Season P&L
-- PDF & Excel exports for all reports (44 total)
-
-### Auto-Update (v3.0.0+)
-- GitHub Actions workflow, electron-updater, silent error handling
-- Version auto-read from package.json
-
-### v3.1.0 - Bug Fixes
-- Attendance Save (desktop), Daily Report Blank Page, Daily Report PDF redesign
-
-### v3.2.0 - Mill Parts Export & Filters
-- Date/Part/Type/Party filters on Transactions tab
-- Transaction PDF/Excel export with professional styling
-
-### v3.3.0 - Part-wise Summary + PDF Audit
-- Part-wise Summary tab (per-part stats + party breakdown + recent transactions)
-- Party Name filter on transactions
-- Professional PDF helper (pdf_helpers.js) for ALL PDFs
-- Season P&L, CMR vs DC, Local Party PDFs redesigned
-- Agent Payments PDF bug fixed (missing get_company_name)
-- All 44 exports verified passing
-
-### v3.3.1 (2026-03-09) - Critical Fixes + Quick Monthly Report
-- Fixed Electron UNHANDLED_REJECTION crash: Added safeExecuteJS wrapper for all auto-updater executeJavaScript calls
-- Fixed Staff Attendance PDF parity: Added Page 2 (Monthly Summary) to desktop-app and local-server PDF exports
-- Fixed Staff Attendance Excel parity: Added Breakdown and Month-wise Estimated Salary sections to Excel Sheet 2
-- **NEW: Quick Monthly Report tab** in Staff section:
-  - Auto-loads current month attendance summary
-  - Staff Name filter dropdown
-  - Summary cards (Total Staff, P, A, H, CH, Est. Salary)
-  - Detailed table with per-staff breakdown
-  - Total row for multi-staff view
-  - Excel and PDF export buttons
-
-## Build & Release
+## Core Architecture
 ```
-Save to GitHub -> Create Release (tag vX.Y.Z) -> GitHub Actions auto builds
+/app
+├── .github/workflows/build-release.yml   # CI/CD for desktop app
+├── backend/          # Python/FastAPI backend (web preview)
+├── desktop-app/      # Electron backend (MODULARIZED - Feb 2026)
+│   ├── routes/       # 19 modular route files
+│   │   ├── auth.js, entries.js, dashboard.js, payments.js
+│   │   ├── cashbook.js, dc_payments.js, gunny_bags.js, milling.js
+│   │   ├── private_trading.js, reports.js, diesel.js, exports.js
+│   │   ├── backups.js, staff.js, mill_parts.js, daily_report.js
+│   │   ├── reports_pnl.js, local_party.js, import_excel.js
+│   │   ├── excel_helpers.js, pdf_helpers.js, safe_handler.js
+│   └── main.js       # Core Electron process only (~1273 lines)
+├── local-server/     # Node.js portable backend (MODULARIZED - Feb 2026)
+│   ├── routes/       # 19 modular route files (incl. diesel.js)
+│   └── server.js     # Server bootstrap only (~691 lines)
+└── frontend/         # React frontend (shared across all backends)
 ```
 
-## Credentials
-- Admin: admin / admin123 | Staff: staff / staff123
+## What's Been Implemented
+- Full entries CRUD with auto-calculations (qntl, gbw, moisture, cutting, final weight)
+- Truck & Agent payment management with history
+- Mandi targets with progress tracking
+- Cash Book (jama/nikasi) with categories and exports
+- DC entries & deliveries tracking + MSP payments
+- Gunny bags stock management
+- Milling entries with paddy stock tracking
+- Byproduct stock & sales (bran, kunda, broken, kanki, husk)
+- FRK purchases & stock tracking
+- Paddy custody register
+- Private paddy trading & rice sales
+- Reports: outstanding, party ledger with exports
+- Diesel pump/accounts management with exports
+- Mill parts stock management
+- Staff attendance with monthly reports
+- Daily reports
+- P&L reports
+- Local party accounts
+- Excel import functionality
+- Backups (auto + manual)
+- Branding customization
+- Multi-user auth (admin/staff roles)
+- All PDF/Excel exports with professional styling
 
-## Backlog
-- P1: Publish stable v3.3.1 release (requires user to create GitHub release)
-- P1: GitHub Actions build stability (re-run if 503 error)
-- P2: Refactor desktop-app/main.js modular routes
-- P2: UI improvements (dashboard, dark mode, charts)
+## Completed Tasks (Feb 2026 - Current Session)
+- [x] Modularized desktop-app/main.js: 3300 → 1273 lines (13 new route files created)
+- [x] Modularized local-server/server.js: 820 → 691 lines (diesel.js route created)
+- [x] Created shared excel_helpers.js for professional Excel styling
+- [x] All route modules verified loading correctly
+- [x] Full regression test passed (25/25 backend tests, frontend login flow)
+
+## Completed Tasks (Previous Sessions)
+- [x] Critical Electron App Crash Fix (safeExecuteJS wrapper)
+- [x] Staff Attendance Export Parity Fix (PDF/Excel consistency)
+- [x] Quick Monthly Report feature for Staff page
+- [x] Auto-Update UX confirmation dialog
+
+## Prioritized Backlog
+### P0 - None currently
+### P1
+- GitHub Actions build stability monitoring (user action pending)
+### P2
+- UI improvements (dashboard enhancements, dark mode, charts)
+
+## Key Credentials
+- Admin: admin / admin123
+- Staff: staff / staff123
