@@ -34,14 +34,22 @@ Rice mill management tool. 3 backends (Python/FastAPI, Node.js local-server, Ele
 - Agent Payments PDF bug fixed (missing get_company_name)
 - All 44 exports verified passing
 
+### v3.3.1 (2026-03-09) - Critical Fixes
+- Fixed Electron UNHANDLED_REJECTION crash: Added safeExecuteJS wrapper for all auto-updater executeJavaScript calls to prevent crashes when mainWindow is destroyed/not ready
+- Fixed Staff Attendance PDF parity: Added Page 2 (Monthly Summary) to desktop-app and local-server PDF exports with Breakdown (P/A/H/CH) and Month-wise Estimated Salary sections
+- Fixed Staff Attendance Excel parity: Added Breakdown and Month-wise Estimated Salary sections to Excel Sheet 2 in both Node.js backends
+- All 3 backends now produce identical export output
+
 ## Build & Release
 ```
-Save to GitHub → Create Release (tag vX.Y.Z) → GitHub Actions auto builds
+Save to GitHub -> Create Release (tag vX.Y.Z) -> GitHub Actions auto builds
 ```
 
 ## Credentials
 - Admin: admin / admin123 | Staff: staff / staff123
 
 ## Backlog
+- P1: Publish stable v3.3.1 release (requires user to create GitHub release)
+- P1: GitHub Actions build stability (re-run if 503 error)
 - P2: Refactor desktop-app/main.js modular routes
 - P2: UI improvements (dashboard, dark mode, charts)
