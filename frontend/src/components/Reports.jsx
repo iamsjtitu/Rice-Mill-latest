@@ -249,7 +249,7 @@ const DailyReport = ({ filters }) => {
           {/* Paddy Entries */}
           <Section title="Paddy Entries / धान" icon={Truck} color="text-blue-400" count={data.paddy_entries.count}>
             <div className="grid grid-cols-3 gap-3 mb-2">
-              {[["Total QNTL", (data.paddy_entries.total_kg / 100).toFixed(2), "text-white"], ["Total Bags", data.paddy_entries.total_bags, "text-amber-400"], ["Final Weight", data.paddy_entries.total_final_w, "text-green-400"]].map(([l,v,c]) => (
+              {[["Total Mill W (QNTL)", ((data.paddy_entries.total_mill_w || 0) / 100).toFixed(2), "text-white"], ["Total BAG", data.paddy_entries.total_bags, "text-amber-400"], ["Final W. QNTL (Auto)", (data.paddy_entries.total_final_w / 100).toFixed(2), "text-green-400"]].map(([l,v,c]) => (
                 <div key={l} className="text-center p-2 bg-slate-900/50 rounded">
                   <p className="text-[10px] text-slate-400">{l}</p>
                   <p className={`text-lg font-bold ${c}`}>{v}</p>
@@ -259,19 +259,31 @@ const DailyReport = ({ filters }) => {
             {data.paddy_entries.details.length > 0 && (
               isDetail ? (
                 <DetailTable
-                  headers={[{key:'truck',label:'Truck',align:'left'},{key:'agent',label:'Agent',align:'left'},{key:'mandi',label:'Mandi',align:'left'},
-                    {key:'rst',label:'RST',align:'left'},{key:'qntl',label:'QNTL',align:'right'},{key:'bags',label:'Bags',align:'right'},
-                    {key:'moisture',label:'Moisture%',align:'right'},{key:'mill_w',label:'Mill W',align:'right'},{key:'final',label:'Final W',align:'right'}]}
+                  headers={[
+                    {key:'truck',label:'Truck',align:'left'},{key:'agent',label:'Agent',align:'left'},{key:'mandi',label:'Mandi',align:'left'},
+                    {key:'rst',label:'RST',align:'left'},{key:'tp',label:'TP No',align:'left'},
+                    {key:'qntl',label:'QNTL',align:'right'},{key:'bags',label:'Bags',align:'right'},
+                    {key:'mill_w',label:'Mill W',align:'right'},{key:'cut',label:'Cut%',align:'right'},
+                    {key:'ppkt',label:'P.Pkt',align:'right'},{key:'ppkt_cut',label:'P.Pkt Cut',align:'right'},
+                    {key:'final',label:'Final W',align:'right'},
+                    {key:'gissued',label:'G.Issued',align:'right'},{key:'cash',label:'Cash',align:'right'},{key:'diesel',label:'Diesel',align:'right'}
+                  ]}
                   rows={data.paddy_entries.details.map((d,i) => (<>
                     <td className="py-1 px-2 text-white">{d.truck_no}</td>
                     <td className="py-1 px-2 text-slate-300">{d.agent}</td>
                     <td className="py-1 px-2 text-slate-300">{d.mandi}</td>
-                    <td className="py-1 px-2 text-slate-400">{d.rst_no}</td>
-                    <td className="py-1 px-2 text-right text-amber-400">{(d.kg / 100).toFixed(2)}</td>
+                    <td className="py-1 px-2 text-slate-400">{d.rst_no || '-'}</td>
+                    <td className="py-1 px-2 text-slate-400">{d.tp_no || '-'}</td>
+                    <td className="py-1 px-2 text-right text-green-400 font-semibold">{(d.kg / 100).toFixed(2)}</td>
                     <td className="py-1 px-2 text-right text-slate-300">{d.bags}</td>
-                    <td className="py-1 px-2 text-right text-cyan-400">{d.moisture}%</td>
-                    <td className="py-1 px-2 text-right text-slate-300">{d.mill_w}</td>
-                    <td className="py-1 px-2 text-right text-green-400 font-semibold">{d.final_w}</td>
+                    <td className="py-1 px-2 text-right text-blue-400">{(d.mill_w / 100).toFixed(2)}</td>
+                    <td className="py-1 px-2 text-right text-purple-400">{d.cutting_percent}%</td>
+                    <td className="py-1 px-2 text-right text-slate-300">{d.plastic_bag || 0}</td>
+                    <td className="py-1 px-2 text-right text-slate-400">{((d.p_pkt_cut || 0) / 100).toFixed(2)}</td>
+                    <td className="py-1 px-2 text-right text-amber-400 font-semibold">{(d.final_w / 100).toFixed(2)}</td>
+                    <td className="py-1 px-2 text-right text-cyan-400">{d.g_issued}</td>
+                    <td className="py-1 px-2 text-right text-green-300">{d.cash_paid || 0}</td>
+                    <td className="py-1 px-2 text-right text-orange-400">{d.diesel_paid || 0}</td>
                   </>))}
                 />
               ) : (
@@ -282,7 +294,7 @@ const DailyReport = ({ filters }) => {
                     <td className="py-1 px-2 text-white">{d.truck_no}</td>
                     <td className="py-1 px-2 text-slate-300">{d.agent}</td>
                     <td className="py-1 px-2 text-right text-amber-400">{(d.kg / 100).toFixed(2)}</td>
-                    <td className="py-1 px-2 text-right text-green-400">{d.final_w}</td>
+                    <td className="py-1 px-2 text-right text-green-400">{(d.final_w / 100).toFixed(2)}</td>
                   </>))}
                 />
               )

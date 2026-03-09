@@ -562,7 +562,7 @@ async def export_excel(
     right_align = Alignment(horizontal='right', vertical='center')
     
     # Title
-    ws.merge_cells('A1:Q1')
+    ws.merge_cells('A1:S1')
     company_name, tagline = await get_company_name()
     ws['A1'] = f"{company_name} - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
     ws['A1'].fill = title_fill
@@ -571,7 +571,7 @@ async def export_excel(
     ws.row_dimensions[1].height = 30
     
     # Date row
-    ws.merge_cells('A2:Q2')
+    ws.merge_cells('A2:S2')
     ws['A2'] = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
     ws['A2'].alignment = center_align
     ws.row_dimensions[2].height = 20
@@ -579,7 +579,7 @@ async def export_excel(
     # Headers
     headers = [
         "Date", "Truck No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
-        "GBW Cut", "Mill W", "Moist%", "M.Cut", "Cut%", 
+        "GBW Cut", "Mill W", "P.Pkt", "P.Pkt Cut", "Moist%", "M.Cut", "Cut%", 
         "D/D/P", "Final W", "G.Issued", "Cash", "Diesel"
     ]
     
@@ -606,6 +606,8 @@ async def export_excel(
             entry.get('g_deposite', 0),
             round(entry.get('gbw_cut', 0), 2),
             round(entry.get('mill_w', 0) / 100, 2),
+            entry.get('plastic_bag', 0),
+            round(entry.get('p_pkt_cut', 0) / 100, 2),
             entry.get('moisture', 0),
             round(entry.get('moisture_cut', 0) / 100, 2) if entry.get('moisture_cut') else 0,
             entry.get('cutting_percent', 0),
@@ -630,17 +632,17 @@ async def export_excel(
             elif col == 7:  # G.Deposite
                 cell.fill = gunny_fill
                 cell.alignment = right_align
-            elif col == 14:  # Final W
+            elif col == 16:  # Final W
                 cell.fill = final_fill
                 cell.font = Font(bold=True)
                 cell.alignment = right_align
-            elif col == 16:  # Cash
+            elif col == 18:  # Cash
                 cell.fill = cash_fill
                 cell.alignment = right_align
-            elif col == 17:  # Diesel
+            elif col == 19:  # Diesel
                 cell.fill = cash_fill
                 cell.alignment = right_align
-            elif col in [6, 8, 9, 10, 11, 12, 13, 15]:
+            elif col in [6, 8, 9, 10, 11, 12, 13, 14, 15, 17]:
                 cell.alignment = right_align
         
         row_num += 1
@@ -654,6 +656,8 @@ async def export_excel(
         totals.total_g_deposite,
         round(totals.total_gbw_cut, 2),
         round(totals.total_mill_w / 100, 2),
+        round(totals.total_p_pkt_cut / 100, 2) if hasattr(totals, 'total_p_pkt_cut') else "-",
+        "-",
         "-",
         "-",
         "-",
@@ -672,8 +676,8 @@ async def export_excel(
         if col >= 5:
             cell.alignment = right_align
     
-    # Column widths
-    col_widths = [10, 12, 12, 12, 8, 6, 6, 8, 8, 6, 6, 6, 6, 8, 8, 8, 8]
+    # Column widths - A4 optimized
+    col_widths = [10, 12, 10, 10, 8, 5, 5, 7, 8, 5, 6, 5, 5, 5, 5, 8, 7, 7, 7]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     
@@ -781,7 +785,7 @@ async def export_pdf(
     # Table headers
     headers = [
         "Date", "Truck No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
-        "GBW Cut", "Mill W", "Moist%", "M.Cut", "Cut%", 
+        "GBW Cut", "Mill W", "P.Pkt", "P.Pkt Cut", "Moist%", "Cut%", 
         "D/D/P", "Final W", "G.Issued", "Cash", "Diesel"
     ]
     
@@ -799,8 +803,9 @@ async def export_pdf(
             str(entry.get('g_deposite', 0)),
             f"{entry.get('gbw_cut', 0):.1f}",
             f"{entry.get('mill_w', 0) / 100:.2f}",
+            str(entry.get('plastic_bag', 0)),
+            f"{entry.get('p_pkt_cut', 0) / 100:.2f}",
             f"{entry.get('moisture', 0):.0f}",
-            f"{(entry.get('moisture_cut', 0) / 100):.2f}" if entry.get('moisture_cut') else "0",
             f"{entry.get('cutting_percent', 0):.1f}",
             str(entry.get('disc_dust_poll', 0)),
             f"{entry.get('final_w', 0) / 100:.2f}",
@@ -819,6 +824,7 @@ async def export_pdf(
         f"{totals.total_gbw_cut:.1f}",
         f"{totals.total_mill_w / 100:.2f}",
         "-",
+        f"{totals.total_p_pkt_cut / 100:.2f}" if hasattr(totals, 'total_p_pkt_cut') else "-",
         "-",
         "-",
         str(int(totals.total_disc_dust_poll)),
@@ -830,8 +836,8 @@ async def export_pdf(
     table_data.append(totals_row)
     
     # Column widths (total ~265mm for A4 landscape with margins)
-    col_widths = [14*mm, 16*mm, 16*mm, 16*mm, 12*mm, 10*mm, 10*mm, 12*mm, 12*mm, 
-                  10*mm, 10*mm, 10*mm, 10*mm, 14*mm, 14*mm, 12*mm, 12*mm]
+    col_widths = [13*mm, 14*mm, 14*mm, 14*mm, 12*mm, 8*mm, 8*mm, 10*mm, 12*mm, 
+                  8*mm, 10*mm, 8*mm, 8*mm, 8*mm, 12*mm, 10*mm, 10*mm, 10*mm]
     
     # Create table
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -882,11 +888,11 @@ async def export_pdf(
     for i in range(1, len(table_data) - 1):
         style_commands.append(('BACKGROUND', (4, i), (4, i), qntl_bg))  # QNTL
         style_commands.append(('BACKGROUND', (6, i), (6, i), gunny_bg))  # G.Dep
-        style_commands.append(('BACKGROUND', (13, i), (13, i), final_bg))  # Final W
-        style_commands.append(('BACKGROUND', (15, i), (16, i), cash_bg))  # Cash, Diesel
+        style_commands.append(('BACKGROUND', (14, i), (14, i), final_bg))  # Final W
+        style_commands.append(('BACKGROUND', (16, i), (17, i), cash_bg))  # Cash, Diesel
     
     # Bold Final W column
-    style_commands.append(('FONTNAME', (13, 1), (13, -1), 'Helvetica-Bold'))
+    style_commands.append(('FONTNAME', (14, 1), (14, -1), 'Helvetica-Bold'))
     
     main_table.setStyle(TableStyle(style_commands))
     elements.append(main_table)

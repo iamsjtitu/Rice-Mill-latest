@@ -94,11 +94,22 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
         "paddy_entries": {
             "count": len(entries), "total_kg": round(total_paddy_kg, 2),
             "total_bags": total_paddy_bags, "total_final_w": round(total_final_w, 2),
+            "total_mill_w": round(sum(e.get("mill_w", 0) for e in entries), 2),
             "details": [{"truck_no": e.get("truck_no", ""), "agent": e.get("agent_name", ""),
                 "mandi": e.get("mandi_name", ""), "rst_no": e.get("rst_no", ""),
-                "kg": e.get("kg", 0), "bags": e.get("bag", 0),
-                "moisture": e.get("moisture", 0), "mill_w": e.get("mill_w", 0),
-                "final_w": e.get("final_w", 0)} for e in entries] if is_detail else
+                "tp_no": e.get("tp_no", ""), "season": e.get("season", ""),
+                "kg": e.get("kg", 0), "qntl": e.get("qntl", 0), "bags": e.get("bag", 0),
+                "g_deposite": e.get("g_deposite", 0), "gbw_cut": e.get("gbw_cut", 0),
+                "mill_w": e.get("mill_w", 0),
+                "moisture": e.get("moisture", 0),
+                "cutting_percent": e.get("cutting_percent", 0),
+                "disc_dust_poll": e.get("disc_dust_poll", 0),
+                "final_w": e.get("final_w", 0),
+                "plastic_bag": e.get("plastic_bag", 0),
+                "p_pkt_cut": e.get("p_pkt_cut", 0),
+                "g_issued": e.get("g_issued", 0),
+                "cash_paid": e.get("cash_paid", 0),
+                "diesel_paid": e.get("diesel_paid", 0)} for e in entries] if is_detail else
                 [{"truck_no": e.get("truck_no", ""), "agent": e.get("agent_name", ""),
                 "kg": e.get("kg", 0), "final_w": e.get("final_w", 0)} for e in entries]
         },

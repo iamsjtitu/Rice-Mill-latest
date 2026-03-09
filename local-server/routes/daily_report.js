@@ -86,8 +86,17 @@ function getDailyReportData(query) {
     date, mode: mode || 'normal',
     paddy_entries: {
       count: entries.length, total_kg: +totalPaddyKg.toFixed(2), total_bags: totalPaddyBags, total_final_w: +totalFinalW.toFixed(2),
+      total_mill_w: +entries.reduce((s, e) => s + (e.mill_w || 0), 0).toFixed(2),
       details: entries.map(e => isDetail
-        ? { truck_no: e.truck_no||'', agent: e.agent_name||'', mandi: e.mandi_name||'', rst_no: e.rst_no||'', kg: e.kg||0, bags: e.bag||0, moisture: e.moisture||0, mill_w: e.mill_w||0, final_w: e.final_w||0 }
+        ? { truck_no: e.truck_no||'', agent: e.agent_name||'', mandi: e.mandi_name||'', rst_no: e.rst_no||'',
+            tp_no: e.tp_no||'', season: e.season||'',
+            kg: e.kg||0, qntl: e.qntl||0, bags: e.bag||0,
+            g_deposite: e.g_deposite||0, gbw_cut: e.gbw_cut||0,
+            mill_w: e.mill_w||0, moisture: e.moisture||0,
+            cutting_percent: e.cutting_percent||0, disc_dust_poll: e.disc_dust_poll||0,
+            final_w: e.final_w||0,
+            plastic_bag: e.plastic_bag||0, p_pkt_cut: e.p_pkt_cut||0,
+            g_issued: e.g_issued||0, cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0 }
         : { truck_no: e.truck_no||'', agent: e.agent_name||'', kg: e.kg||0, final_w: e.final_w||0 })
     },
     pvt_paddy: {
