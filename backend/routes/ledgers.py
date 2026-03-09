@@ -81,11 +81,17 @@ async def report_outstanding(kms_year: Optional[str] = None, season: Optional[st
 
 @router.get("/reports/party-ledger")
 async def report_party_ledger(party_name: Optional[str] = None, party_type: Optional[str] = None,
-                                kms_year: Optional[str] = None, season: Optional[str] = None):
+                                kms_year: Optional[str] = None, season: Optional[str] = None,
+                                date_from: Optional[str] = None, date_to: Optional[str] = None):
     """Party Ledger - all transactions for a specific party or all parties"""
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        if date_q: query["date"] = date_q
 
     ledger = []
 

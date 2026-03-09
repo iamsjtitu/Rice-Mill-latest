@@ -260,6 +260,8 @@ const PartyLedger = ({ filters }) => {
   const [loading, setLoading] = useState(true);
   const [selectedParty, setSelectedParty] = useState("");
   const [selectedType, setSelectedType] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
@@ -269,11 +271,13 @@ const PartyLedger = ({ filters }) => {
       if (filters.season) p.append('season', filters.season);
       if (selectedParty) p.append('party_name', selectedParty);
       if (selectedType) p.append('party_type', selectedType);
+      if (dateFrom) p.append('date_from', dateFrom);
+      if (dateTo) p.append('date_to', dateTo);
       const res = await axios.get(`${API}/reports/party-ledger?${p}`);
       setData(res.data);
     } catch (e) { toast.error("Party ledger load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, selectedParty, selectedType]);
+  }, [filters.kms_year, filters.season, selectedParty, selectedType, dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -283,6 +287,8 @@ const PartyLedger = ({ filters }) => {
     if (filters.season) p.append('season', filters.season);
     if (selectedParty) p.append('party_name', selectedParty);
     if (selectedType) p.append('party_type', selectedType);
+    if (dateFrom) p.append('date_from', dateFrom);
+    if (dateTo) p.append('date_to', dateTo);
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/reports/party-ledger/${format}?${p}`, `party_ledger.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
@@ -295,14 +301,24 @@ const PartyLedger = ({ filters }) => {
   return (
     <div className="space-y-4" data-testid="party-ledger">
       {/* Filters & Export */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col">
+          <label className="text-[10px] text-slate-400 mb-0.5">From Date</label>
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+            className="h-8 w-36 rounded-md bg-slate-700 border border-slate-600 text-white text-xs px-2" data-testid="ledger-date-from" />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-[10px] text-slate-400 mb-0.5">To Date</label>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+            className="h-8 w-36 rounded-md bg-slate-700 border border-slate-600 text-white text-xs px-2" data-testid="ledger-date-to" />
+        </div>
+
         <Select value={selectedType} onValueChange={(v) => { setSelectedType(v === "all" ? "" : v); setSelectedParty(""); }}>
-          <SelectTrigger className="w-[150px] bg-slate-700 border-slate-600 text-white text-sm" data-testid="party-type-filter">
+          <SelectTrigger className="w-[130px] bg-slate-700 border-slate-600 text-white text-sm" data-testid="party-type-filter">
             <SelectValue placeholder="Party Type" />
           </SelectTrigger>
           <SelectContent className="bg-slate-700 border-slate-600">
             <SelectItem value="all" className="text-white">All Types</SelectItem>
-            <SelectItem value="agent" className="text-white">Agent</SelectItem>
             <SelectItem value="truck" className="text-white">Truck</SelectItem>
             <SelectItem value="cash_party" className="text-white">Cash Party</SelectItem>
             <SelectItem value="frk_party" className="text-white">FRK Seller</SelectItem>
@@ -313,7 +329,7 @@ const PartyLedger = ({ filters }) => {
         </Select>
 
         <Select value={selectedParty} onValueChange={(v) => setSelectedParty(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[200px] bg-slate-700 border-slate-600 text-white text-sm" data-testid="party-name-filter">
+          <SelectTrigger className="w-[180px] bg-slate-700 border-slate-600 text-white text-sm" data-testid="party-name-filter">
             <SelectValue placeholder="Select Party" />
           </SelectTrigger>
           <SelectContent className="bg-slate-700 border-slate-600 max-h-60">
@@ -326,6 +342,11 @@ const PartyLedger = ({ filters }) => {
               ))}
           </SelectContent>
         </Select>
+
+        {(dateFrom || dateTo) && (
+          <Button onClick={() => { setDateFrom(""); setDateTo(""); }} variant="ghost" size="sm"
+            className="h-8 text-xs text-red-400 hover:bg-slate-700" data-testid="ledger-clear-dates">Clear Dates</Button>
+        )}
 
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="party-ledger-refresh">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
