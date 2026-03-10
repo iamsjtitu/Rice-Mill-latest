@@ -41,7 +41,8 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
     if cash_paid > 0:
         cb = {
             "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-            "account": "cash", "txn_type": "nikasi", "category": "Cash Paid (Entry)",
+            "account": "cash", "txn_type": "nikasi", "category": doc.get("truck_no", "Cash Paid (Entry)"),
+            "party_type": "Truck",
             "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}",
             "amount": round(cash_paid, 2), "reference": f"entry_cash:{doc['id'][:8]}",
             "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
@@ -230,7 +231,8 @@ async def import_entries_from_excel(
         if cash_paid > 0:
             cb = {
                 "id": str(uuid.uuid4()), "date": doc["date"],
-                "account": "cash", "txn_type": "nikasi", "category": "Cash Paid (Entry)",
+                "account": "cash", "txn_type": "nikasi", "category": doc.get("truck_no", "Cash Paid (Entry)"),
+                "party_type": "Truck",
                 "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}",
                 "amount": round(cash_paid, 2), "reference": f"entry_cash:{doc['id'][:8]}",
                 "kms_year": kms_year, "season": season,
@@ -349,7 +351,8 @@ async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = ""
     if cash_paid > 0:
         cb = {
             "id": str(uuid.uuid4()), "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-            "account": "cash", "txn_type": "nikasi", "category": "Cash Paid (Entry)",
+            "account": "cash", "txn_type": "nikasi", "category": merged_data.get("truck_no", "Cash Paid (Entry)"),
+            "party_type": "Truck",
             "description": f"Cash Paid: Truck {merged_data.get('truck_no','')} - Mandi {merged_data.get('mandi_name','')} - Rs.{cash_paid}",
             "amount": round(cash_paid, 2), "reference": f"entry_cash:{entry_id[:8]}",
             "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
