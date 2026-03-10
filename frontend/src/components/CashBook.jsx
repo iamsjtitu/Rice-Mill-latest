@@ -616,56 +616,71 @@ const CashBook = ({ filters, user }) => {
             <Card className="bg-slate-800 border-slate-700">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-slate-700">
-                        {['#', 'Party Name', 'Party Type', 'Jama / Purchase (₹)', 'Nikasi / Payment (₹)', 'Balance (₹)', 'Txns', 'Status'].map(h => (
-                          <TableHead key={h} className="text-slate-300 text-xs font-semibold">{h}</TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  <table className="w-full" style={{ tableLayout: 'fixed' }}>
+                    <colgroup>
+                      <col style={{ width: '40px' }} />
+                      <col style={{ width: '22%' }} />
+                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '18%' }} />
+                      <col style={{ width: '18%' }} />
+                      <col style={{ width: '16%' }} />
+                      <col style={{ width: '50px' }} />
+                      <col style={{ width: '90px' }} />
+                    </colgroup>
+                    <thead>
+                      <tr className="border-b border-slate-700 bg-slate-700/30">
+                        <th className="text-left text-slate-300 text-xs font-semibold px-3 py-2.5">#</th>
+                        <th className="text-left text-slate-300 text-xs font-semibold px-3 py-2.5">Party Name</th>
+                        <th className="text-left text-slate-300 text-xs font-semibold px-3 py-2.5">Type</th>
+                        <th className="text-right text-slate-300 text-xs font-semibold px-3 py-2.5">Jama (₹)</th>
+                        <th className="text-right text-slate-300 text-xs font-semibold px-3 py-2.5">Nikasi (₹)</th>
+                        <th className="text-right text-slate-300 text-xs font-semibold px-3 py-2.5">Balance (₹)</th>
+                        <th className="text-center text-slate-300 text-xs font-semibold px-2 py-2.5">Txns</th>
+                        <th className="text-center text-slate-300 text-xs font-semibold px-3 py-2.5">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {partySummary.parties.map((p, idx) => (
-                        <TableRow key={p.party_name} className={`border-slate-700 cursor-pointer hover:bg-slate-700/50 ${p.balance === 0 ? 'bg-emerald-900/10' : p.balance < 0 ? 'bg-red-900/10' : ''}`}
+                        <tr key={p.party_name} className={`border-b border-slate-700/50 cursor-pointer hover:bg-slate-700/50 transition-colors ${p.balance === 0 ? 'bg-emerald-900/10' : p.balance < 0 ? 'bg-red-900/10' : ''}`}
                           onClick={() => { setActiveView("transactions"); setTxnFilters(prev => ({ ...prev, category: p.party_name, party_type: p.party_type || "" })); }}
                           data-testid={`party-row-${idx}`}>
-                          <TableCell className="text-slate-400 text-xs">{idx + 1}</TableCell>
-                          <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
-                          <TableCell>
-                            {p.party_type && <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          <td className="text-slate-400 text-xs px-3 py-2.5">{idx + 1}</td>
+                          <td className="text-white font-semibold text-sm px-3 py-2.5 truncate">{p.party_name}</td>
+                          <td className="px-3 py-2.5">
+                            {p.party_type && <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
                               p.party_type === 'Truck' ? 'bg-blue-900/50 text-blue-400' :
                               p.party_type === 'Agent' ? 'bg-purple-900/50 text-purple-400' :
                               p.party_type === 'Local Party' ? 'bg-amber-900/50 text-amber-400' :
                               p.party_type === 'Diesel' ? 'bg-orange-900/50 text-orange-400' :
                               'bg-slate-700 text-slate-300'
                             }`}>{p.party_type}</span>}
-                          </TableCell>
-                          <TableCell className="text-right text-emerald-400 font-semibold">₹{p.total_jama.toLocaleString('en-IN')}</TableCell>
-                          <TableCell className="text-right text-red-400 font-semibold">₹{p.total_nikasi.toLocaleString('en-IN')}</TableCell>
-                          <TableCell className={`text-right font-bold ${p.balance === 0 ? 'text-emerald-400' : p.balance > 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                          </td>
+                          <td className="text-right text-emerald-400 font-semibold text-sm px-3 py-2.5">₹{p.total_jama.toLocaleString('en-IN')}</td>
+                          <td className="text-right text-red-400 font-semibold text-sm px-3 py-2.5">₹{p.total_nikasi.toLocaleString('en-IN')}</td>
+                          <td className={`text-right font-bold text-sm px-3 py-2.5 ${p.balance === 0 ? 'text-emerald-400' : p.balance > 0 ? 'text-amber-400' : 'text-red-400'}`}>
                             ₹{Math.abs(p.balance).toLocaleString('en-IN')} {p.balance > 0 ? '(Dr)' : p.balance < 0 ? '(Cr)' : ''}
-                          </TableCell>
-                          <TableCell className="text-center text-slate-400 text-xs">{p.txn_count}</TableCell>
-                          <TableCell>
+                          </td>
+                          <td className="text-center text-slate-400 text-xs px-2 py-2.5">{p.txn_count}</td>
+                          <td className="px-3 py-2.5">
                             {p.balance === 0 ? (
-                              <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium"><CheckCircle className="w-3 h-3" /> Settled</span>
+                              <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium whitespace-nowrap"><CheckCircle className="w-3 h-3" /> Settled</span>
                             ) : (
-                              <span className="flex items-center gap-1 text-red-400 text-xs font-medium"><AlertCircle className="w-3 h-3" /> Pending</span>
+                              <span className="flex items-center gap-1 text-red-400 text-xs font-medium whitespace-nowrap"><AlertCircle className="w-3 h-3" /> Pending</span>
                             )}
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                        </tr>
                       ))}
                       {/* Total Row */}
-                      <TableRow className="border-slate-600 bg-slate-700/50">
-                        <TableCell colSpan={3} className="text-amber-400 font-bold">TOTAL ({partySummary.parties.length} parties)</TableCell>
-                        <TableCell className="text-right text-emerald-400 font-bold">₹{partySummary.summary.total_jama.toLocaleString('en-IN')}</TableCell>
-                        <TableCell className="text-right text-red-400 font-bold">₹{partySummary.summary.total_nikasi.toLocaleString('en-IN')}</TableCell>
-                        <TableCell className="text-right text-amber-400 font-bold">₹{Math.abs(partySummary.summary.total_outstanding).toLocaleString('en-IN')}</TableCell>
-                        <TableCell></TableCell>
-                        <TableCell></TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
+                      <tr className="border-t-2 border-slate-600 bg-slate-700/50">
+                        <td colSpan={3} className="text-amber-400 font-bold text-sm px-3 py-2.5">TOTAL ({partySummary.parties.length} parties)</td>
+                        <td className="text-right text-emerald-400 font-bold text-sm px-3 py-2.5">₹{partySummary.summary.total_jama.toLocaleString('en-IN')}</td>
+                        <td className="text-right text-red-400 font-bold text-sm px-3 py-2.5">₹{partySummary.summary.total_nikasi.toLocaleString('en-IN')}</td>
+                        <td className="text-right text-amber-400 font-bold text-sm px-3 py-2.5">₹{Math.abs(partySummary.summary.total_outstanding).toLocaleString('en-IN')}</td>
+                        <td></td>
+                        <td></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>
