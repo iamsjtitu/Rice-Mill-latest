@@ -36,6 +36,7 @@ const DEFAULT_CATEGORIES = {
 
 const CashBook = ({ filters, user }) => {
   const [txns, setTxns] = useState([]);
+  const [allTxns, setAllTxns] = useState([]); // unfiltered txns for category list
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -70,12 +71,18 @@ const CashBook = ({ filters, user }) => {
       if (txnFilters.category) params.append('category', txnFilters.category);
       if (txnFilters.date_from) params.append('date_from', txnFilters.date_from);
       if (txnFilters.date_to) params.append('date_to', txnFilters.date_to);
-      const [txnRes, sumRes] = await Promise.all([
+      // Also fetch unfiltered list for category dropdown
+      const allParams = new URLSearchParams();
+      if (filters.kms_year) allParams.append('kms_year', filters.kms_year);
+      if (filters.season) allParams.append('season', filters.season);
+      const [txnRes, sumRes, allRes] = await Promise.all([
         axios.get(`${API}/cash-book?${params}`),
-        axios.get(`${API}/cash-book/summary?${params}`)
+        axios.get(`${API}/cash-book/summary?${params}`),
+        axios.get(`${API}/cash-book?${allParams}`)
       ]);
       setTxns(txnRes.data);
       setSummary(sumRes.data);
+      setAllTxns(allRes.data);
     } catch (e) { toast.error("Cash book load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season, txnFilters]);
@@ -163,7 +170,23 @@ const CashBook = ({ filters, user }) => {
   const catKey = `${form.account}_${form.txn_type}`;
   const defaultCats = DEFAULT_CATEGORIES[catKey] || [];
   const customCats = customCategories.filter(c => c.type === catKey);
-  const categories = [...defaultCats, ...customCats.map(c => c.name)].filter((v, i, a) => a.indexOf(v) === i);
+  // Include categories from all transactions for autocomplete
+  const txnCategories = [...new Set(allTxns.map(t => t.category).filter(Boolean))];
+  const categories = [...new Set([...defaultCats, ...customCats.map(c => c.name), ...txnCategories])].sort();
+
+  // All unique categories for filter dropdown (from all txns)
+  const allCategoriesForFilter = [...new Set(allTxns.map(t => t.category).filter(Boolean))].sort();
+
+  // Compute party balance when category is typed
+  const getPartyBalance = (partyName) => {
+    if (!partyName) return null;
+    const partyTxns = allTxns.filter(t => t.category && t.category.toLowerCase() === partyName.toLowerCase());
+    if (partyTxns.length === 0) return null;
+    const totalIn = partyTxns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
+    const totalOut = partyTxns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
+    return { totalIn: Math.round(totalIn * 100) / 100, totalOut: Math.round(totalOut * 100) / 100, balance: Math.round((totalIn - totalOut) * 100) / 100, count: partyTxns.length };
+  };
+  const partyBalance = getPartyBalance(form.category);
 
   const handleAddCategory = async () => {
     const name = newCategoryName.trim();
@@ -306,15 +329,13 @@ const CashBook = ({ filters, user }) => {
             </div>
             <div>
               <Label className="text-xs text-slate-400">Category</Label>
-              <Select value={txnFilters.category || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, category: v === "all" ? "" : v }))}>
-                <SelectTrigger className="w-44 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-category"><SelectValue /></SelectTrigger>
-                <SelectContent className="max-h-60">
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {[...new Set(txns.map(t => t.category).filter(Boolean))].sort().map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select value={txnFilters.category} onChange={(e) => setTxnFilters(p => ({ ...p, category: e.target.value }))}
+                className="w-44 bg-slate-700 border border-slate-600 text-white h-8 text-xs rounded-md px-2 outline-none" data-testid="cashbook-filter-category">
+                <option value="">All Categories</option>
+                {allCategoriesForFilter.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
             <div>
               <Label className="text-xs text-slate-400">From</Label>
@@ -349,13 +370,22 @@ const CashBook = ({ filters, user }) => {
                   className="rounded border-slate-300" data-testid="cashbook-select-all" />
               </TableHead>
             )}
-            {['Date', 'Account', 'Type', 'Category', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Reference', ''].map(h =>
-              <TableHead key={h} className={`text-slate-600 text-xs ${['Jama (₹)', 'Nikasi (₹)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+            {['Date', 'Account', 'Type', 'Category', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Balance (₹)', 'Reference', ''].map(h =>
+              <TableHead key={h} className={`text-slate-600 text-xs ${['Jama (₹)', 'Nikasi (₹)', 'Balance (₹)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
           </TableRow></TableHeader>
           <TableBody>
-            {loading ? <TableRow><TableCell colSpan={10} className="text-center text-slate-500 py-8">Loading...</TableCell></TableRow>
-            : txns.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-500 py-8">Koi transaction nahi hai. "New Transaction" click karein.</TableCell></TableRow>
-            : txns.map(t => (
+            {loading ? <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-8">Loading...</TableCell></TableRow>
+            : txns.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-8">Koi transaction nahi hai. "New Transaction" click karein.</TableCell></TableRow>
+            : (() => {
+              // Compute running balance (oldest to newest, then display newest first)
+              const sorted = [...txns].reverse();
+              let runBal = 0;
+              const balMap = {};
+              for (const t of sorted) {
+                runBal += t.txn_type === 'jama' ? (t.amount || 0) : -(t.amount || 0);
+                balMap[t.id] = Math.round(runBal * 100) / 100;
+              }
+              return txns.map(t => (
               <TableRow key={t.id} className={`border-slate-100 ${t.txn_type === 'jama' ? 'bg-green-50/50' : 'bg-red-50/50'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`} data-testid={`txn-row-${t.id}`}>
                 {user.role === 'admin' && (
                   <TableCell className="w-8">
@@ -382,6 +412,9 @@ const CashBook = ({ filters, user }) => {
                 <TableCell className="text-right text-xs font-medium text-red-600">
                   {t.txn_type === 'nikasi' ? `₹${t.amount.toLocaleString('en-IN')}` : '-'}
                 </TableCell>
+                <TableCell className={`text-right text-xs font-bold ${(balMap[t.id] || 0) >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid={`txn-balance-${t.id}`}>
+                  ₹{(balMap[t.id] || 0).toLocaleString('en-IN')}
+                </TableCell>
                 <TableCell className="text-slate-500 text-xs max-w-[80px] truncate">{t.reference}</TableCell>
                 <TableCell>
                   {user.role === 'admin' && (
@@ -396,8 +429,27 @@ const CashBook = ({ filters, user }) => {
                   )}
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody></Table>
+            ));})()}
+          </TableBody>
+          {txns.length > 0 && (() => {
+            const totalJama = txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
+            const totalNikasi = txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
+            const restBalance = totalJama - totalNikasi;
+            return (
+              <tfoot>
+                <tr className="border-t-2 border-slate-300 bg-slate-50">
+                  {user.role === 'admin' && <td></td>}
+                  <td colSpan={4} className="px-4 py-2 text-xs font-bold text-slate-700">TOTAL ({txns.length} transactions)</td>
+                  <td></td>
+                  <td className="px-4 py-2 text-right text-xs font-bold text-green-700" data-testid="cashbook-total-jama">₹{totalJama.toLocaleString('en-IN')}</td>
+                  <td className="px-4 py-2 text-right text-xs font-bold text-red-600" data-testid="cashbook-total-nikasi">₹{totalNikasi.toLocaleString('en-IN')}</td>
+                  <td className={`px-4 py-2 text-right text-xs font-bold ${restBalance >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid="cashbook-rest-balance">₹{restBalance.toLocaleString('en-IN')}</td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            );
+          })()}
+          </Table>
         </div></CardContent>
       </Card>
 
@@ -476,6 +528,17 @@ const CashBook = ({ filters, user }) => {
               <datalist id="category-list">
                 {categories.map(c => <option key={c} value={c} />)}
               </datalist>
+              {partyBalance && (
+                <div className="mt-1 p-1.5 bg-amber-50 border border-amber-200 rounded text-[10px]" data-testid="cashbook-party-balance">
+                  <span className="font-semibold text-amber-800">{form.category}:</span>
+                  <span className="text-green-700 ml-2">In: ₹{partyBalance.totalIn.toLocaleString('en-IN')}</span>
+                  <span className="text-red-600 ml-2">Out: ₹{partyBalance.totalOut.toLocaleString('en-IN')}</span>
+                  <span className={`ml-2 font-bold ${partyBalance.balance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    Balance: ₹{partyBalance.balance.toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-slate-500 ml-1">({partyBalance.count} txns)</span>
+                </div>
+              )}
               <p className="text-[9px] text-amber-600 mt-0.5">* Yahan jo name doge wo Party Ledger mein automatically aayega</p>
             </div>
             <div>
