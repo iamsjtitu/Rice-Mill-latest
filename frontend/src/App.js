@@ -150,6 +150,10 @@ function MainApp({ user, onLogout }) {
     setTheme(newTheme);
     localStorage.setItem('mill_theme', newTheme);
   };
+  // Sync data-theme to <html> so portals (dialogs, popovers) also get themed
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   // Branding state
   const [branding, setBranding] = useState({ company_name: "NAVKAR AGRO", tagline: "Mill Entry System" });

@@ -45,6 +45,13 @@ Comprehensive management tool for a rice mill named "Mill Entry System". Full-st
 
 ### Bug Fix (Mar 10, 2026)
 - **New Transaction Dialog from Party Summary** - Fixed: Dialog was inside `activeView === "transactions"` conditional block, so it wouldn't render when on Party Summary tab. Moved Dialog outside conditional rendering.
+- **Comprehensive White/Light Theme Fix** - Fixed light theme across entire application:
+  - Set `data-theme` on `<html>` element so portal-rendered components (Dialogs, Popovers) also get themed
+  - Added comprehensive CSS overrides for all bg-slate-*, text-*, border-* dark classes
+  - Colored auto-calc fields (green, pink, blue, purple etc.) lighten properly in light mode
+  - Dialog inputs, selects, and forms all render with white backgrounds
+  - Header/navbar stays dark for contrast in light mode
+  - Both dark and light themes work correctly without regression
 
 ### v4.0.1-dev (Mar 10, 2026)
 - **Ledger Running Balance** - Party Ledger page shows "Balance" column with Dr/Cr suffix
