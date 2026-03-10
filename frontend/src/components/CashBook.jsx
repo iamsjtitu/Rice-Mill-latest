@@ -501,130 +501,6 @@ const CashBook = ({ filters, user }) => {
         </div></CardContent>
       </Card>
 
-      {/* Add Transaction Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingId(null); }}>
-        <DialogContent className="bg-white border-slate-200 text-slate-800 max-w-md" data-testid="cashbook-form-dialog">
-          <DialogHeader><DialogTitle className="text-amber-700">{editingId ? 'Edit Transaction' : 'New Transaction'}</DialogTitle></DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-slate-600">Date</Label>
-                <Input type="date" value={form.date} onChange={(e) => setForm(p => ({ ...p, date: e.target.value }))}
-                  className="border-slate-300 h-8 text-sm" required data-testid="cashbook-form-date" />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600">Account</Label>
-                <Select value={form.account} onValueChange={(v) => setForm(p => ({ ...p, account: v, category: "" }))}>
-                  <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-account"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash (नकद)</SelectItem>
-                    <SelectItem value="bank">Bank (बैंक)</SelectItem>
-                  </SelectContent>
-                </Select>
-                {summary && (
-                  <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-balance">
-                    Balance: <span className={`${(form.account === 'cash' ? summary.cash_balance : summary.bank_balance) >= 0 ? 'text-emerald-600' : 'text-red-600'} font-bold`}>
-                      ₹{(form.account === 'cash' ? summary.cash_balance : summary.bank_balance)?.toLocaleString('en-IN')}
-                    </span>
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-slate-600">Type</Label>
-                <Select value={form.txn_type} onValueChange={(v) => setForm(p => ({ ...p, txn_type: v, category: "" }))}>
-                  <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-type"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="jama">Jama (जमा / In)</SelectItem>
-                    <SelectItem value="nikasi">Nikasi (निकासी / Out)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-slate-600">Amount (₹)</Label>
-                <Input type="number" step="0.01" value={form.amount}
-                  onChange={(e) => setForm(p => ({ ...p, amount: e.target.value }))}
-                  placeholder="0.00" className="border-slate-300 h-8 text-sm" required data-testid="cashbook-form-amount" />
-                {summary && form.amount && parseFloat(form.amount) > 0 && (
-                  <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-new-balance">
-                    After: <span className={`font-bold ${
-                      ((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)) >= 0
-                        ? 'text-emerald-600' : 'text-red-600'
-                    }`}>
-                      ₹{((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)).toLocaleString('en-IN')}
-                    </span>
-                    <span className={`ml-1 ${form.txn_type === 'jama' ? 'text-emerald-600' : 'text-red-600'}`}>
-                      ({form.txn_type === 'jama' ? '+' : '-'}₹{parseFloat(form.amount).toLocaleString('en-IN')})
-                    </span>
-                  </p>
-                )}
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <Label className="text-xs text-slate-600 font-semibold">Party / Category (Ledger ke liye zaroori)</Label>
-              </div>
-              <Input
-                list="category-list"
-                value={form.category}
-                onChange={(e) => setForm(p => ({ ...p, category: e.target.value }))}
-                placeholder="Party name likho ya select karo (e.g. Titu, Dimpy)"
-                className="border-slate-300 h-8 text-sm"
-                data-testid="cashbook-form-category"
-              />
-              <datalist id="category-list">
-                {categories.map(c => <option key={c} value={c} />)}
-              </datalist>
-              {partyBalance && (
-                <div className="mt-1 p-1.5 bg-amber-50 border border-amber-200 rounded text-[10px]" data-testid="cashbook-party-balance">
-                  <span className="font-semibold text-amber-800">{form.category}:</span>
-                  <span className="text-green-700 ml-2">In: ₹{partyBalance.totalIn.toLocaleString('en-IN')}</span>
-                  <span className="text-red-600 ml-2">Out: ₹{partyBalance.totalOut.toLocaleString('en-IN')}</span>
-                  <span className={`ml-2 font-bold ${partyBalance.balance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                    Balance: ₹{partyBalance.balance.toLocaleString('en-IN')}
-                  </span>
-                  <span className="text-slate-500 ml-1">({partyBalance.count} txns)</span>
-                </div>
-              )}
-              <p className="text-[9px] text-amber-600 mt-0.5">* Yahan jo name doge wo Party Ledger mein automatically aayega</p>
-            </div>
-            <div>
-              <Label className="text-xs text-slate-600">Party Type</Label>
-              <select value={form.party_type || ""} onChange={(e) => setForm(p => ({ ...p, party_type: e.target.value }))}
-                className="w-full border border-slate-300 h-8 text-sm rounded-md px-2 outline-none" data-testid="cashbook-form-party-type">
-                <option value="">-- Select --</option>
-                <option value="Truck">Truck</option>
-                <option value="Agent">Agent</option>
-                <option value="Local Party">Local Party</option>
-                <option value="Diesel">Diesel</option>
-                <option value="Manual">Manual</option>
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs text-slate-600">Description / विवरण</Label>
-              <Input value={form.description} onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))}
-                placeholder="Details likhein..." className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-desc" />
-            </div>
-            <div>
-              <Label className="text-xs text-slate-600">Reference (Cheque No / Receipt etc.)</Label>
-              <Input value={form.reference} onChange={(e) => setForm(p => ({ ...p, reference: e.target.value }))}
-                placeholder="Optional" className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-ref" />
-            </div>
-            {parseFloat(form.amount) > 0 && (
-              <div className={`p-2 rounded text-sm font-medium ${form.txn_type === 'jama' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
-                {form.account === 'cash' ? 'Cash' : 'Bank'} {form.txn_type === 'jama' ? 'Jama' : 'Nikasi'}: ₹{parseFloat(form.amount).toLocaleString('en-IN')}
-              </div>
-            )}
-            <div className="flex gap-2 pt-2">
-              <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white flex-1" data-testid="cashbook-form-submit">
-                {editingId ? 'Update Transaction' : 'Save Transaction'}
-              </Button>
-              <Button type="button" variant="outline" className="border-slate-300 text-slate-600" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
       </>)}
 
       {/* Party Summary View */}
@@ -750,6 +626,131 @@ const CashBook = ({ filters, user }) => {
           ) : null}
         </div>
       )}
+
+      {/* Add Transaction Dialog - rendered outside activeView conditional so it works from any tab */}
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingId(null); }}>
+        <DialogContent className="bg-white border-slate-200 text-slate-800 max-w-md" data-testid="cashbook-form-dialog">
+          <DialogHeader><DialogTitle className="text-amber-700">{editingId ? 'Edit Transaction' : 'New Transaction'}</DialogTitle></DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-600">Date</Label>
+                <Input type="date" value={form.date} onChange={(e) => setForm(p => ({ ...p, date: e.target.value }))}
+                  className="border-slate-300 h-8 text-sm" required data-testid="cashbook-form-date" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-600">Account</Label>
+                <Select value={form.account} onValueChange={(v) => setForm(p => ({ ...p, account: v, category: "" }))}>
+                  <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-account"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash (नकद)</SelectItem>
+                    <SelectItem value="bank">Bank (बैंक)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {summary && (
+                  <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-balance">
+                    Balance: <span className={`${(form.account === 'cash' ? summary.cash_balance : summary.bank_balance) >= 0 ? 'text-emerald-600' : 'text-red-600'} font-bold`}>
+                      ₹{(form.account === 'cash' ? summary.cash_balance : summary.bank_balance)?.toLocaleString('en-IN')}
+                    </span>
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-600">Type</Label>
+                <Select value={form.txn_type} onValueChange={(v) => setForm(p => ({ ...p, txn_type: v, category: "" }))}>
+                  <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="jama">Jama (जमा / In)</SelectItem>
+                    <SelectItem value="nikasi">Nikasi (निकासी / Out)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-slate-600">Amount (₹)</Label>
+                <Input type="number" step="0.01" value={form.amount}
+                  onChange={(e) => setForm(p => ({ ...p, amount: e.target.value }))}
+                  placeholder="0.00" className="border-slate-300 h-8 text-sm" required data-testid="cashbook-form-amount" />
+                {summary && form.amount && parseFloat(form.amount) > 0 && (
+                  <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-new-balance">
+                    After: <span className={`font-bold ${
+                      ((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)) >= 0
+                        ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      ₹{((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)).toLocaleString('en-IN')}
+                    </span>
+                    <span className={`ml-1 ${form.txn_type === 'jama' ? 'text-emerald-600' : 'text-red-600'}`}>
+                      ({form.txn_type === 'jama' ? '+' : '-'}₹{parseFloat(form.amount).toLocaleString('en-IN')})
+                    </span>
+                  </p>
+                )}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs text-slate-600 font-semibold">Party / Category (Ledger ke liye zaroori)</Label>
+              </div>
+              <Input
+                list="category-list"
+                value={form.category}
+                onChange={(e) => setForm(p => ({ ...p, category: e.target.value }))}
+                placeholder="Party name likho ya select karo (e.g. Titu, Dimpy)"
+                className="border-slate-300 h-8 text-sm"
+                data-testid="cashbook-form-category"
+              />
+              <datalist id="category-list">
+                {categories.map(c => <option key={c} value={c} />)}
+              </datalist>
+              {partyBalance && (
+                <div className="mt-1 p-1.5 bg-amber-50 border border-amber-200 rounded text-[10px]" data-testid="cashbook-party-balance">
+                  <span className="font-semibold text-amber-800">{form.category}:</span>
+                  <span className="text-green-700 ml-2">In: ₹{partyBalance.totalIn.toLocaleString('en-IN')}</span>
+                  <span className="text-red-600 ml-2">Out: ₹{partyBalance.totalOut.toLocaleString('en-IN')}</span>
+                  <span className={`ml-2 font-bold ${partyBalance.balance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    Balance: ₹{partyBalance.balance.toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-slate-500 ml-1">({partyBalance.count} txns)</span>
+                </div>
+              )}
+              <p className="text-[9px] text-amber-600 mt-0.5">* Yahan jo name doge wo Party Ledger mein automatically aayega</p>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-600">Party Type</Label>
+              <select value={form.party_type || ""} onChange={(e) => setForm(p => ({ ...p, party_type: e.target.value }))}
+                className="w-full border border-slate-300 h-8 text-sm rounded-md px-2 outline-none" data-testid="cashbook-form-party-type">
+                <option value="">-- Select --</option>
+                <option value="Truck">Truck</option>
+                <option value="Agent">Agent</option>
+                <option value="Local Party">Local Party</option>
+                <option value="Diesel">Diesel</option>
+                <option value="Manual">Manual</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-600">Description / विवरण</Label>
+              <Input value={form.description} onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))}
+                placeholder="Details likhein..." className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-desc" />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-600">Reference (Cheque No / Receipt etc.)</Label>
+              <Input value={form.reference} onChange={(e) => setForm(p => ({ ...p, reference: e.target.value }))}
+                placeholder="Optional" className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-ref" />
+            </div>
+            {parseFloat(form.amount) > 0 && (
+              <div className={`p-2 rounded text-sm font-medium ${form.txn_type === 'jama' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+                {form.account === 'cash' ? 'Cash' : 'Bank'} {form.txn_type === 'jama' ? 'Jama' : 'Nikasi'}: ₹{parseFloat(form.amount).toLocaleString('en-IN')}
+              </div>
+            )}
+            <div className="flex gap-2 pt-2">
+              <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white flex-1" data-testid="cashbook-form-submit">
+                {editingId ? 'Update Transaction' : 'Save Transaction'}
+              </Button>
+              <Button type="button" variant="outline" className="border-slate-300 text-slate-600" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
