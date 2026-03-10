@@ -16,7 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, RefreshCw, Filter, X, Download, FileText, ArrowDownCircle, ArrowUpCircle, Wallet, Landmark, PlusCircle, Pencil } from "lucide-react";
+import { Trash2, Plus, RefreshCw, Filter, X, Download, FileText, ArrowDownCircle, ArrowUpCircle, Wallet, Landmark, PlusCircle, Pencil, Users, CheckCircle, AlertCircle } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -52,6 +52,20 @@ const CashBook = ({ filters, user }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [editingId, setEditingId] = useState(null);
+  const [activeView, setActiveView] = useState("transactions"); // "transactions" or "party-summary"
+  const [partySummary, setPartySummary] = useState(null);
+  const [partySummaryFilter, setPartySummaryFilter] = useState("");
+
+  const fetchPartySummary = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append('kms_year', filters.kms_year);
+      if (filters.season) params.append('season', filters.season);
+      if (partySummaryFilter) params.append('party_type', partySummaryFilter);
+      const res = await axios.get(`${API}/cash-book/party-summary?${params}`);
+      setPartySummary(res.data);
+    } catch (e) { toast.error("Party summary load failed"); }
+  }, [filters.kms_year, filters.season, partySummaryFilter]);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -90,6 +104,7 @@ const CashBook = ({ filters, user }) => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
+  useEffect(() => { if (activeView === "party-summary") fetchPartySummary(); }, [activeView, fetchPartySummary]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -292,13 +307,26 @@ const CashBook = ({ filters, user }) => {
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-2 flex-wrap">
-        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+      {/* Sub-tabs: Transactions vs Party Summary */}
+      <div className="flex gap-2 flex-wrap items-center">
+        <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
+          <Button onClick={() => setActiveView("transactions")} variant="ghost" size="sm"
+            className={activeView === "transactions" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
+            data-testid="cashbook-tab-transactions">
+            <Wallet className="w-4 h-4 mr-1" /> Transactions
+          </Button>
+          <Button onClick={() => setActiveView("party-summary")} variant="ghost" size="sm"
+            className={activeView === "party-summary" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
+            data-testid="cashbook-tab-party-summary">
+            <Users className="w-4 h-4 mr-1" /> Party Summary
+          </Button>
+        </div>
+        <Button onClick={() => activeView === "party-summary" ? fetchPartySummary() : fetchData()} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
       </div>
 
+      {activeView === "transactions" && (<>
       {/* Permanent Filter Section */}
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
           <div className="flex gap-3 flex-wrap items-end">
@@ -326,24 +354,28 @@ const CashBook = ({ filters, user }) => {
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-slate-400">Select Party / पार्टी</Label>
-              <select value={txnFilters.category} onChange={(e) => setTxnFilters(p => ({ ...p, category: e.target.value }))}
-                className="w-44 bg-slate-700 border border-slate-600 text-white h-8 text-xs rounded-md px-2 outline-none" data-testid="cashbook-filter-category">
-                <option value="">All Parties</option>
-                {allCategoriesForFilter.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <Label className="text-xs text-slate-400">Party Type</Label>
+              <Select value={txnFilters.party_type || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, party_type: v === "all" ? "" : v }))}>
+                <SelectTrigger className="w-36 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-party-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {[...new Set(allTxns.map(t => t.party_type).filter(Boolean))].sort().map(pt => (
+                    <SelectItem key={pt} value={pt}>{pt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <Label className="text-xs text-slate-400">Party Type</Label>
-              <select value={txnFilters.party_type} onChange={(e) => setTxnFilters(p => ({ ...p, party_type: e.target.value }))}
-                className="w-36 bg-slate-700 border border-slate-600 text-white h-8 text-xs rounded-md px-2 outline-none" data-testid="cashbook-filter-party-type">
-                <option value="">All Types</option>
-                {[...new Set(allTxns.map(t => t.party_type).filter(Boolean))].sort().map(pt => (
-                  <option key={pt} value={pt}>{pt}</option>
-                ))}
-              </select>
+              <Label className="text-xs text-slate-400">Select Party / पार्टी</Label>
+              <Select value={txnFilters.category || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, category: v === "all" ? "" : v }))}>
+                <SelectTrigger className="w-44 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-category"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Parties</SelectItem>
+                  {allCategoriesForFilter.map(c => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-xs text-slate-400">From</Label>
@@ -593,6 +625,131 @@ const CashBook = ({ filters, user }) => {
           </form>
         </DialogContent>
       </Dialog>
+      </>)}
+
+      {/* Party Summary View */}
+      {activeView === "party-summary" && (
+        <div className="space-y-4">
+          {/* Party Summary Filter & Export */}
+          <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
+            <div className="flex gap-3 flex-wrap items-end">
+              <div>
+                <Label className="text-xs text-slate-400">Party Type</Label>
+                <Select value={partySummaryFilter || "all"} onValueChange={(v) => setPartySummaryFilter(v === "all" ? "" : v)}>
+                  <SelectTrigger className="w-40 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="party-summary-filter"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="Local Party">Local Party</SelectItem>
+                    <SelectItem value="Truck">Truck</SelectItem>
+                    <SelectItem value="Agent">Agent</SelectItem>
+                    <SelectItem value="Diesel">Diesel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={() => { const u = `${API}/cash-book/party-summary/excel?kms_year=${filters.kms_year||''}&season=${filters.season||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}`; window.open(u); }}
+                variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30 h-8" data-testid="party-summary-export-excel">
+                <Download className="w-3 h-3 mr-1" /> Excel
+              </Button>
+              <Button onClick={() => { const u = `${API}/cash-book/party-summary/pdf?kms_year=${filters.kms_year||''}&season=${filters.season||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}`; window.open(u); }}
+                variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30 h-8" data-testid="party-summary-export-pdf">
+                <FileText className="w-3 h-3 mr-1" /> PDF
+              </Button>
+            </div>
+          </CardContent></Card>
+
+          {/* Summary Cards */}
+          {partySummary && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Card className="bg-slate-800 border-slate-700">
+                <CardContent className="p-3 text-center">
+                  <p className="text-[10px] text-slate-400 uppercase">Total Parties</p>
+                  <p className="text-2xl font-bold text-white" data-testid="party-summary-total">{partySummary.summary.total_parties}</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-emerald-900/30 border-emerald-700/50">
+                <CardContent className="p-3 text-center">
+                  <p className="text-[10px] text-emerald-400 uppercase">Settled (Balance 0)</p>
+                  <p className="text-2xl font-bold text-emerald-400" data-testid="party-summary-settled">{partySummary.summary.settled_count}</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-red-900/30 border-red-700/50">
+                <CardContent className="p-3 text-center">
+                  <p className="text-[10px] text-red-400 uppercase">Pending</p>
+                  <p className="text-2xl font-bold text-red-400" data-testid="party-summary-pending">{partySummary.summary.pending_count}</p>
+                </CardContent>
+              </Card>
+              <Card className="bg-amber-900/30 border-amber-700/50">
+                <CardContent className="p-3 text-center">
+                  <p className="text-[10px] text-amber-400 uppercase">Outstanding</p>
+                  <p className="text-2xl font-bold text-amber-400" data-testid="party-summary-outstanding">₹{Math.abs(partySummary.summary.total_outstanding).toLocaleString('en-IN')}</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Party Table */}
+          {partySummary && partySummary.parties.length > 0 ? (
+            <Card className="bg-slate-800 border-slate-700">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-slate-700">
+                        {['#', 'Party Name', 'Party Type', 'Jama / Purchase (₹)', 'Nikasi / Payment (₹)', 'Balance (₹)', 'Txns', 'Status'].map(h => (
+                          <TableHead key={h} className="text-slate-300 text-xs font-semibold">{h}</TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {partySummary.parties.map((p, idx) => (
+                        <TableRow key={p.party_name} className={`border-slate-700 cursor-pointer hover:bg-slate-700/50 ${p.balance === 0 ? 'bg-emerald-900/10' : p.balance < 0 ? 'bg-red-900/10' : ''}`}
+                          onClick={() => { setActiveView("transactions"); setTxnFilters(prev => ({ ...prev, category: p.party_name, party_type: "" })); }}
+                          data-testid={`party-row-${idx}`}>
+                          <TableCell className="text-slate-400 text-xs">{idx + 1}</TableCell>
+                          <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
+                          <TableCell>
+                            {p.party_type && <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              p.party_type === 'Truck' ? 'bg-blue-900/50 text-blue-400' :
+                              p.party_type === 'Agent' ? 'bg-purple-900/50 text-purple-400' :
+                              p.party_type === 'Local Party' ? 'bg-amber-900/50 text-amber-400' :
+                              p.party_type === 'Diesel' ? 'bg-orange-900/50 text-orange-400' :
+                              'bg-slate-700 text-slate-300'
+                            }`}>{p.party_type}</span>}
+                          </TableCell>
+                          <TableCell className="text-right text-emerald-400 font-semibold">₹{p.total_jama.toLocaleString('en-IN')}</TableCell>
+                          <TableCell className="text-right text-red-400 font-semibold">₹{p.total_nikasi.toLocaleString('en-IN')}</TableCell>
+                          <TableCell className={`text-right font-bold ${p.balance === 0 ? 'text-emerald-400' : p.balance > 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                            ₹{Math.abs(p.balance).toLocaleString('en-IN')} {p.balance > 0 ? '(Dr)' : p.balance < 0 ? '(Cr)' : ''}
+                          </TableCell>
+                          <TableCell className="text-center text-slate-400 text-xs">{p.txn_count}</TableCell>
+                          <TableCell>
+                            {p.balance === 0 ? (
+                              <span className="flex items-center gap-1 text-emerald-400 text-xs font-medium"><CheckCircle className="w-3 h-3" /> Settled</span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-red-400 text-xs font-medium"><AlertCircle className="w-3 h-3" /> Pending</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {/* Total Row */}
+                      <TableRow className="border-slate-600 bg-slate-700/50">
+                        <TableCell colSpan={3} className="text-amber-400 font-bold">TOTAL ({partySummary.parties.length} parties)</TableCell>
+                        <TableCell className="text-right text-emerald-400 font-bold">₹{partySummary.summary.total_jama.toLocaleString('en-IN')}</TableCell>
+                        <TableCell className="text-right text-red-400 font-bold">₹{partySummary.summary.total_nikasi.toLocaleString('en-IN')}</TableCell>
+                        <TableCell className="text-right text-amber-400 font-bold">₹{Math.abs(partySummary.summary.total_outstanding).toLocaleString('en-IN')}</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : partySummary ? (
+            <Card className="bg-slate-800 border-slate-700"><CardContent className="p-8 text-center text-slate-400">Koi party data nahi mila</CardContent></Card>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 };
