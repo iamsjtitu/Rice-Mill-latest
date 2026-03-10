@@ -118,25 +118,28 @@ code {
 /* ===== PRINT-FRIENDLY STYLES ===== */
 @media print {
   /* Hide navigation, sidebar, buttons, and non-content elements */
-  nav, header, footer,
+  nav, footer,
   [data-testid="sidebar"],
   .sidebar,
-  button:not(.print-keep),
   [data-no-print],
   .no-print,
   .fixed,
   [role="dialog"],
-  [data-testid*="export"],
-  [data-testid*="refresh"],
   [data-testid*="logout"],
   [data-testid*="login"],
   .toaster,
-  [data-sonner-toaster] {
+  [data-sonner-toaster],
+  [role="tablist"] {
+    display: none !important;
+  }
+
+  /* Hide specific buttons but keep content */
+  button:not(.print-keep) {
     display: none !important;
   }
 
   /* Reset dark theme to light for printing */
-  body, html, #root, main, .dark {
+  body, html, #root, main, .dark, div[data-theme] {
     background: white !important;
     color: black !important;
     -webkit-print-color-adjust: exact;
@@ -148,6 +151,7 @@ code {
     color: black !important;
     border-color: #ccc !important;
     box-shadow: none !important;
+    text-shadow: none !important;
   }
 
   /* Cards & containers - clean borders */
@@ -156,6 +160,14 @@ code {
   [class*="bg-blue-900"], [class*="bg-amber-900"] {
     background: white !important;
     border: 1px solid #ddd !important;
+  }
+
+  /* Gradient backgrounds reset */
+  [class*="bg-gradient"] {
+    background: white !important;
+  }
+  [class*="backdrop-blur"] {
+    backdrop-filter: none !important;
   }
 
   /* Table styling for print */
@@ -187,6 +199,24 @@ code {
   }
   [class*="text-blue"] {
     color: #2563eb !important;
+  }
+  [class*="text-orange"] {
+    color: #ea580c !important;
+  }
+  [class*="text-purple"] {
+    color: #7c3aed !important;
+  }
+  [class*="text-cyan"] {
+    color: #0891b2 !important;
+  }
+  [class*="text-pink"] {
+    color: #db2777 !important;
+  }
+  [class*="text-teal"] {
+    color: #0d9488 !important;
+  }
+  [class*="text-indigo"] {
+    color: #4f46e5 !important;
   }
 
   /* Full width content */
@@ -231,9 +261,20 @@ code {
     border-bottom: 2px solid black;
   }
 
-  /* Hide tab buttons in print */
-  [role="tablist"] {
+  /* Header visible but simplified for print */
+  header {
+    background: white !important;
+    border-bottom: 2px solid black !important;
+    padding: 8px !important;
+    position: static !important;
+  }
+  header button, header [data-testid*="tab-"] {
     display: none !important;
+  }
+  header .text-amber-400, header .text-amber-500 {
+    color: black !important;
+    font-size: 16px !important;
+    font-weight: bold !important;
   }
 }
 
