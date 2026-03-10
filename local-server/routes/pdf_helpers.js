@@ -25,7 +25,6 @@ function addPdfTable(doc, headers, rows, colWidths, opts) {
   const fs = opts.fontSize || 7;
   const hdrBg = opts.headerBg || C.hdrBg;
   const hdrTextColor = opts.headerTextColor || C.hdrText;
-  const startX = opts.startX || 25;
   const margin = opts.margin || 25;
   let y = doc.y;
   const rowH = fs + 8;
@@ -36,6 +35,8 @@ function addPdfTable(doc, headers, rows, colWidths, opts) {
   const scale = totalW > pageWidth ? pageWidth / totalW : 1;
   const widths = colWidths.map(w => Math.floor(w * scale));
   const actualTotalW = widths.reduce((a, b) => a + b, 0);
+  // Center the table on page
+  const startX = opts.startX || Math.max(margin, (doc.page.width - actualTotalW) / 2);
 
   // Page check
   if (y + rowH * Math.min(rows.length + 1, 5) + 20 > doc.page.height - margin) { doc.addPage(); y = margin; }
@@ -71,9 +72,9 @@ function addPdfTable(doc, headers, rows, colWidths, opts) {
 
 function addSummaryBox(doc, labels, values, colWidths, bgColor) {
   const fs = 7; const rowH = 16;
-  const startX = 25;
   let y = doc.y;
   const totalW = colWidths.reduce((a, b) => a + b, 0);
+  const startX = Math.max(25, (doc.page.width - totalW) / 2);
   if (y + rowH * 2 + 10 > doc.page.height - 25) { doc.addPage(); y = 25; }
 
   // Labels
@@ -103,10 +104,10 @@ function addSummaryBox(doc, labels, values, colWidths, bgColor) {
 function addTotalsRow(doc, values, colWidths, opts) {
   opts = opts || {};
   const fs = opts.fontSize || 7;
-  const startX = opts.startX || 25;
   const rowH = fs + 8;
   let y = doc.y;
   const totalW = colWidths.reduce((a, b) => a + b, 0);
+  const startX = opts.startX || Math.max(25, (doc.page.width - totalW) / 2);
   let x = startX;
   doc.rect(x, y, totalW, rowH).fill(C.blueBg);
   values.forEach((v, i) => {
@@ -121,7 +122,7 @@ function addTotalsRow(doc, values, colWidths, opts) {
 function addSectionTitle(doc, title) {
   if (doc.y > doc.page.height - 60) doc.addPage();
   doc.moveDown(0.3);
-  doc.fontSize(11).font('Helvetica-Bold').fillColor(C.hdrBg).text(title);
+  doc.fontSize(11).font('Helvetica-Bold').fillColor(C.hdrBg).text(title, { align: 'center' });
   doc.moveDown(0.15);
   doc.fillColor('black').font('Helvetica').fontSize(7);
 }

@@ -146,7 +146,9 @@ router.get('/api/staff/advance-balance/:staffId', safeSync((req, res) => {
 
 // ============ STAFF SALARY CALCULATION ============
 router.get('/api/staff/salary-calculate', safeSync((req, res) => {
-  const { staff_id, from_date, to_date, kms_year } = req.query;
+  const { staff_id, period_from, period_to, kms_year, season } = req.query;
+  const from_date = period_from || req.query.from_date;
+  const to_date = period_to || req.query.to_date;
   const staff = col('staff').find(s => s.id === staff_id);
   if (!staff) return res.status(404).json({ detail: 'Staff not found' });
 
@@ -161,8 +163,15 @@ router.get('/api/staff/salary-calculate', safeSync((req, res) => {
     else if (a.status === 'holiday') holidays++;
     else if (a.status === 'absent') absentDays++;
   }
-  const totalDays = att.length;
   const daysWorked = presentDays + holidays + halfDays * 0.5;
+
+  // Calculate total days in period
+  let totalDays = att.length;
+  if (from_date && to_date) {
+    const d1 = new Date(from_date);
+    const d2 = new Date(to_date);
+    totalDays = Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+  }
 
   let perDay = staff.salary_amount;
   if (staff.salary_type === 'monthly') perDay = staff.salary_amount / 30;
@@ -170,24 +179,26 @@ router.get('/api/staff/salary-calculate', safeSync((req, res) => {
 
   let advances = col('staff_advances').filter(a => a.staff_id === staff_id);
   if (kms_year) advances = advances.filter(a => a.kms_year === kms_year);
-  if (from_date) advances = advances.filter(a => a.date >= from_date);
-  if (to_date) advances = advances.filter(a => a.date <= to_date);
-
-  // Check already paid in this period
-  let payments = col('staff_payments').filter(p => p.staff_id === staff_id);
-  if (from_date) payments = payments.filter(p => p.from_date >= from_date || p.to_date >= from_date);
-
+  if (season) advances = advances.filter(a => a.season === season);
   const totalAdvances = advances.reduce((s, a) => s + (a.amount || 0), 0);
-  const alreadyPaid = payments.reduce((s, p) => s + (p.net_payment || 0), 0);
-  const netPayment = Math.max(0, grossSalary - totalAdvances);
+
+  let payments = col('staff_payments').filter(p => p.staff_id === staff_id);
+  if (kms_year) payments = payments.filter(p => p.kms_year === kms_year);
+  if (season) payments = payments.filter(p => p.season === season);
+  const totalDeducted = payments.reduce((s, p) => s + (p.advance_deducted || 0), 0);
+  const advanceBalance = Math.round((totalAdvances - totalDeducted) * 100) / 100;
 
   res.json({
-    staff_id: staff.id, staff_name: staff.name, salary_type: staff.salary_type,
-    salary_amount: staff.salary_amount, per_day: Math.round(perDay * 100) / 100,
-    from_date: from_date || '', to_date: to_date || '', total_days: totalDays,
-    present: presentDays, half_day: halfDays, holiday: holidays, absent: absentDays,
-    days_worked: daysWorked, gross_salary: grossSalary, total_advances: totalAdvances,
-    already_paid: alreadyPaid, net_payment: netPayment
+    staff: staff,
+    period_from: from_date || '', period_to: to_date || '',
+    total_days: totalDays,
+    present_days: presentDays, half_days: halfDays,
+    holidays: holidays, absents: absentDays,
+    days_worked: daysWorked,
+    per_day_rate: Math.round(perDay * 100) / 100,
+    gross_salary: grossSalary,
+    advance_balance: advanceBalance,
+    attendance_details: att.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
   });
 }));
 
@@ -257,20 +268,25 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.pdf`);
     doc.pipe(res);
 
+    // Calculate table dimensions for centering
+    const colW = Math.min(70, Math.max(45, (800 - 45) / Math.max(staffList.length, 1)));
+    const tableW = 45 + (staffList.length * colW);
+    const pageW = doc.page.width;
+    const tableStartX = Math.max(10, (pageW - tableW) / 2);
+
     doc.fontSize(9).font('Helvetica-Bold').fillColor('#1a365d')
-       .text(`Staff Attendance: ${date_from} to ${date_to}`, 10, 10);
+       .text(`Staff Attendance: ${date_from} to ${date_to}`, { align: 'center' });
 
     // Table
-    const colW = Math.min(70, Math.max(45, (800 - 45) / Math.max(staffList.length, 1)));
     const headers = ['Date', ...staffList.map(s => s.name)];
     let y = 25;
     const rowH = Math.min(14, Math.max(10, 540 / (dates.length + 6)));
 
     // Header
     doc.fontSize(5.5).font('Helvetica-Bold').fillColor('white');
-    doc.rect(10, y, 45, rowH).fill('#1a365d');
-    doc.fillColor('white').text('Date', 12, y + 2, { width: 41 });
-    let x = 55;
+    doc.rect(tableStartX, y, 45, rowH).fill('#1a365d');
+    doc.fillColor('white').text('Date', tableStartX + 2, y + 2, { width: 41 });
+    let x = tableStartX + 45;
     for (const s of staffList) {
       doc.rect(x, y, colW, rowH).fill('#1a365d');
       doc.fillColor('white').text(s.name, x + 2, y + 2, { width: colW - 4 });
@@ -285,10 +301,10 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     const txMap = { P: '#14532d', A: '#7f1d1d', H: '#78350f', CH: '#1e3a8a' };
 
     for (const dt of dates) {
-      x = 10;
+      x = tableStartX;
       doc.font('Helvetica-Bold').fillColor('black').fontSize(5.5);
       doc.text(dt.slice(5), x + 2, y + 2, { width: 41 });
-      x = 55;
+      x = tableStartX + 45;
       for (const s of staffList) {
         const st = (attMap[s.id] || {})[dt] || '-';
         const val = statusShort[st] || '-';
@@ -308,10 +324,10 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
 
     // Summary rows
     for (const label of ['P', 'H', 'CH', 'A', 'Total']) {
-      x = 10;
+      x = tableStartX;
       doc.rect(x, y, 45, rowH).fill('#e0e7ff');
       doc.fillColor('black').font('Helvetica-Bold').fontSize(5.5).text(label, x + 2, y + 2, { width: 41 });
-      x = 55;
+      x = tableStartX + 45;
       for (const s of staffList) {
         doc.rect(x, y, colW, rowH).fill('#e0e7ff');
         let val;
@@ -346,7 +362,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
 
     doc.addPage({ size: 'A4', layout: 'landscape', margin: 10 });
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#1a365d')
-       .text('Monthly Summary / Masik Saransh', 10, 10);
+       .text('Monthly Summary / Masik Saransh', { align: 'center' });
 
     const msHeaders = ['Staff', 'Sal.Type', 'Rate', ...sortedMonths.map(m => `${monthNames[m.slice(5,7)] || m.slice(5,7)} ${m.slice(0,4)}`), 'Total Days', 'Est. Salary'];
     const msCols = msHeaders.length;
@@ -355,12 +371,14 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     const totalMsW = msColWidths.reduce((a, b) => a + b, 0);
     const msScale = totalMsW > 800 ? 800 / totalMsW : 1;
     const scaledMsW = msColWidths.map(w => w * msScale);
+    const actualMsW = scaledMsW.reduce((a, b) => a + b, 0);
+    const msStartX = Math.max(10, (doc.page.width - actualMsW) / 2);
 
     let msY = 28;
     const msRowH = 12;
 
     // Header row
-    let msX = 10;
+    let msX = msStartX;
     for (let i = 0; i < msHeaders.length; i++) {
       doc.rect(msX, msY, scaledMsW[i], msRowH).fill('#065f46');
       doc.fillColor('white').font('Helvetica-Bold').fontSize(5.5)
@@ -371,7 +389,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
 
     // Data rows - staff summary
     for (const s of staffList) {
-      msX = 10;
+      msX = msStartX;
       const salType = s.salary_type === 'monthly' ? 'Monthly' : 'Daily';
       const salAmt = s.salary_amount || 0;
       const perDay = s.salary_type === 'monthly' ? salAmt / 30 : salAmt;
@@ -402,7 +420,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
 
     // Breakdown (P/A/H/CH)
     msY += 4;
-    msX = 10;
+    msX = msStartX;
     const breakdownW = scaledMsW.reduce((a, b) => a + b, 0);
     doc.rect(msX, msY, breakdownW, msRowH).fill('#fef3c7');
     doc.fillColor('#78350f').font('Helvetica-Bold').fontSize(6.5)
@@ -410,7 +428,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     msY += msRowH;
 
     for (const s of staffList) {
-      msX = 10;
+      msX = msStartX;
       const perDay = s.salary_type === 'monthly' ? (s.salary_amount || 0) / 30 : (s.salary_amount || 0);
       const vals = [s.name, '', ''];
       let grandSal = 0;
@@ -433,14 +451,14 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
 
     // Month-wise Estimated Salary
     msY += 4;
-    msX = 10;
+    msX = msStartX;
     doc.rect(msX, msY, breakdownW, msRowH).fill('#dbeafe');
     doc.fillColor('#1e3a8a').font('Helvetica-Bold').fontSize(6.5)
        .text('Month-wise Estimated Salary / Mahine Ka Anumanit Vetan', msX + 2, msY + 2, { width: breakdownW - 4 });
     msY += msRowH;
 
     for (const s of staffList) {
-      msX = 10;
+      msX = msStartX;
       const perDay = s.salary_type === 'monthly' ? (s.salary_amount || 0) / 30 : (s.salary_amount || 0);
       const vals = [s.name, '', ''];
       let grandSal = 0;
@@ -647,21 +665,69 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
   }
 }));
 
-// ============ STAFF PAYMENTS EXPORT (Excel) ============
+// ============ STAFF PAYMENTS EXPORT (PDF & Excel) ============
 router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
-  const ExcelJS = require('exceljs');
-  const list = col('staff_payments');
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('Staff Payments');
-  ws.addRow(['Staff', 'Period', 'Days Worked', 'Gross Salary', 'Advance', 'Net Payment', 'Date']);
-  ws.getRow(1).font = { bold: true };
-  for (const p of list) {
-    ws.addRow([p.staff_name, `${p.from_date} to ${p.to_date}`, p.days_worked, p.gross_salary, p.advance_deducted, p.net_payment, p.created_at?.split('T')[0] || '']);
+  const { fmt, kms_year, season } = req.query;
+  let list = col('staff_payments');
+  if (kms_year) list = list.filter(p => p.kms_year === kms_year);
+  if (season) list = list.filter(p => p.season === season);
+
+  if (fmt === 'pdf') {
+    const PDFDocument = require('pdfkit');
+    const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, C } = require('./pdf_helpers');
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=staff_payments.pdf');
+    doc.pipe(res);
+
+    const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
+    _addPdfHdr(doc, 'Staff Payment Report', branding, kms_year ? `${kms_year} | ${season || ''}` : '');
+
+    const headers = ['Staff', 'Period', 'Days Worked', 'Gross Salary', 'Adv. Deducted', 'Net Payment', 'Date'];
+    const rows = list.map(p => [
+      p.staff_name || '', `${p.period_from || p.from_date || ''} to ${p.period_to || p.to_date || ''}`,
+      String(p.days_worked || 0), `Rs.${fmtAmt(p.gross_salary || 0)}`,
+      `Rs.${fmtAmt(p.advance_deducted || 0)}`, `Rs.${fmtAmt(p.net_payment || 0)}`,
+      p.date || (p.created_at || '').split('T')[0] || ''
+    ]);
+    addPdfTable(doc, headers, rows, [90, 100, 60, 80, 80, 80, 65]);
+
+    // Totals
+    const totalGross = list.reduce((s, p) => s + (p.gross_salary || 0), 0);
+    const totalAdv = list.reduce((s, p) => s + (p.advance_deducted || 0), 0);
+    const totalNet = list.reduce((s, p) => s + (p.net_payment || 0), 0);
+    doc.moveDown(0.3);
+    doc.fontSize(9).font('Helvetica-Bold').fillColor(C.hdrBg)
+      .text(`Total Gross: Rs.${fmtAmt(totalGross)}  |  Adv. Deducted: Rs.${fmtAmt(totalAdv)}  |  Net Paid: Rs.${fmtAmt(totalNet)}`, { align: 'center' });
+    doc.end();
+  } else {
+    const ExcelJS = require('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Staff Payments');
+    const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
+
+    ws.mergeCells('A1:G1'); ws.getCell('A1').value = 'Staff Payment Report'; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+
+    ['Staff', 'Period', 'Days Worked', 'Gross Salary', 'Adv. Deducted', 'Net Payment', 'Date'].forEach((h, i) => { const c = ws.getCell(3, i+1); c.value = h; Object.assign(c, hdrStyle); });
+    list.forEach((p, i) => {
+      [p.staff_name || '', `${p.period_from || p.from_date || ''} to ${p.period_to || p.to_date || ''}`,
+       p.days_worked || 0, p.gross_salary || 0, p.advance_deducted || 0, p.net_payment || 0,
+       p.date || (p.created_at || '').split('T')[0] || ''
+      ].forEach((v, j) => { ws.getCell(i+4, j+1).value = v; });
+    });
+
+    // Totals
+    const r = list.length + 4;
+    ws.getCell(r, 1).value = 'TOTAL'; ws.getCell(r, 1).font = { bold: true };
+    ws.getCell(r, 4).value = list.reduce((s, p) => s + (p.gross_salary || 0), 0); ws.getCell(r, 4).font = { bold: true };
+    ws.getCell(r, 5).value = list.reduce((s, p) => s + (p.advance_deducted || 0), 0); ws.getCell(r, 5).font = { bold: true };
+    ws.getCell(r, 6).value = list.reduce((s, p) => s + (p.net_payment || 0), 0); ws.getCell(r, 6).font = { bold: true };
+
+    for (let i = 1; i <= 7; i++) ws.getColumn(i).width = 18;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=staff_payments.xlsx');
+    await wb.xlsx.write(res); res.end();
   }
-  for (let i = 1; i <= 7; i++) ws.getColumn(i).width = 16;
-  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename=staff_payments.xlsx');
-  await wb.xlsx.write(res); res.end();
 }));
 
   return router;

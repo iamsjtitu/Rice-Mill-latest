@@ -6,15 +6,15 @@ Rice mill management tool ("Mill Entry System") for Navkar Agro, Jolko, Kesinga.
 ## Core Architecture
 ```
 /app
-├── .github/workflows/build-desktop.yml   # CI/CD - NOW builds frontend in CI
+├── .github/workflows/build-desktop.yml   # CI/CD - builds frontend in CI
 ├── backend/          # Python/FastAPI backend (web preview)
-├── desktop-app/      # Electron backend (MODULARIZED - Feb 2026)
-│   ├── routes/       # 19 modular route files
-│   ├── frontend-build/  # Built frontend for desktop (also built in CI)
-│   └── main.js       # Core Electron process (~1276 lines)
-├── local-server/     # Node.js portable backend (MODULARIZED - Feb 2026)
-│   ├── routes/       # 19 modular route files
-│   └── server.js     # Server bootstrap only (~691 lines)
+├── desktop-app/      # Electron backend (MODULARIZED)
+│   ├── routes/       # 19 modular route files + pdf_helpers.js
+│   ├── frontend-build/  # Built frontend for desktop
+│   └── main.js       # Core Electron process
+├── local-server/     # Node.js portable backend (MODULARIZED)
+│   ├── routes/       # 19 modular route files + pdf_helpers.js
+│   └── server.js     # Server bootstrap
 └── frontend/         # React frontend (shared across all backends)
 ```
 
@@ -37,39 +37,36 @@ Rice mill management tool ("Mill Entry System") for Navkar Agro, Jolko, Kesinga.
 - Daily reports, P&L reports, Local party accounts
 - Excel import functionality, Backups (auto + manual)
 - Branding customization, Multi-user auth (admin/staff)
-- All PDF/Excel exports with professional styling
+- All PDF/Excel exports with professional centered styling
 
-## Completed Tasks (Mar 9-10, 2026 Session)
-- [x] Fixed native "About" dialog - updated to show "Designed By: 9x.Design, Contact: +91 72059 30002"
-- [x] Fixed build pipeline - workflow now builds frontend in GitHub Actions (root cause of desktop app not updating)
-- [x] Fixed ajv module error in CI - added explicit ajv@8 install step
-- [x] Fixed Mill Parts dropdown bug - Select inside Dialog portal conflict (Radix→native select)
-- [x] Version bumped to 3.5.1
-- [x] Rebuilt frontend-build and local-server/public with latest code
+## Completed Tasks (Mar 10, 2026)
+- [x] Fixed 6 critical parity issues between preview and desktop app
+- [x] PDF centering: All PDFs now centered on page (pdf_helpers.js rewrite)
+- [x] Salary calculation: Fixed param mismatch (period_from/to) and response field parity
+- [x] Staff Payments: Added PDF export support (was Excel only)
+- [x] Party Ledger: Complete rewrite with all party types (truck, cash, FRK, buyer, pvt paddy, rice)
+- [x] Outstanding Report: Professional table-based PDF/Excel
+- [x] Build pipeline: Fixed to build frontend in GitHub Actions CI
+- [x] About dialog: Updated to show "Designed By: 9x.Design"
+- [x] Mill Parts dropdown: Fixed Radix Select portal conflict in Electron (native select)
+- [x] Version bumped to 3.5.2
+- [x] All changes synced to both desktop-app and local-server
 
-## Completed Tasks (Previous Sessions - Feb 2026)
-- [x] Modularized desktop-app/main.js: 3300 → 1273 lines (13 new route files)
-- [x] Modularized local-server/server.js: 820 → 691 lines (diesel.js route)
-- [x] Created shared excel_helpers.js for professional Excel styling
-- [x] Mill Parts: Part-wise Summary redesigned - search-first approach
-- [x] Mill Parts: Party-wise purchase cards redesigned with beautiful UI
-- [x] Mill Parts: Single part PDF/Excel export (all 3 backends)
-- [x] Frontend production build verified
-- [x] Critical Electron App Crash Fix (safeExecuteJS wrapper)
-- [x] Staff Attendance Export Parity Fix (PDF/Excel consistency)
-- [x] Quick Monthly Report feature for Staff page
+## Previous Completed Tasks (Feb-Mar 2026)
+- [x] Modularized desktop-app/main.js and local-server/server.js
+- [x] Mill Parts UI overhaul with search-first approach
+- [x] UNHANDLED_REJECTION error fix
+- [x] Staff Attendance Export Parity
+- [x] Quick Monthly Report for Staff page
 - [x] Auto-Update UX confirmation dialog
-- [x] Error Log "Clear" button and endpoint
-- [x] UNHANDLED_REJECTION error fix (.catch() added)
+- [x] Error Log Clear button
 
 ## Prioritized Backlog
 ### P0
-- User verification: Desktop app update working after new release (v3.5.1)
-### P1
-- Performance optimization for desktop software (user requested)
-- GitHub Actions build stability monitoring
+- User verification: Desktop app update working after v3.5.2 release
 ### P2
-- UI improvements (dashboard enhancements, dark mode, charts)
+- Performance optimization (if needed)
+- UI improvements
 
 ## Key Credentials
 - Admin: admin / admin123
