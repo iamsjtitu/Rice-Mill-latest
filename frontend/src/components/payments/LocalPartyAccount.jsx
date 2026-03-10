@@ -183,32 +183,42 @@ const LocalPartyAccount = ({ filters, user }) => {
       <div className="flex flex-wrap gap-2 items-end">
         <div className="flex-1 min-w-[200px] max-w-[320px]">
           <Label className="text-[10px] text-slate-500 mb-1 block">Select Party</Label>
-          <Select value={selectedParty} onValueChange={handleSelectParty}>
-            <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-9 text-sm" data-testid="party-select">
-              <SelectValue placeholder="-- Party choose karein --" />
-            </SelectTrigger>
-            <SelectContent className="max-h-60">
-              <div className="p-1.5">
-                <div className="flex items-center bg-slate-700 rounded px-2 mb-1">
-                  <Search className="w-3 h-3 text-slate-400" />
-                  <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                    placeholder="Search party..." className="bg-transparent border-none text-white text-xs py-1.5 px-2 w-full outline-none"
-                    data-testid="party-search-input" />
-                </div>
-              </div>
-              <SelectItem value="__all__" className="text-amber-400 font-semibold">All Parties / सभी</SelectItem>
+          <div className="relative">
+            <input
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Party name type karein..."
+              className="flex h-9 w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-1 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-ring"
+              data-testid="party-search-input"
+            />
+            {searchTerm && <button onClick={() => setSearchTerm("")} className="absolute right-2 top-2 text-slate-400 hover:text-white text-xs">✕</button>}
+          </div>
+          {searchTerm && filteredParties.length > 0 && (
+            <div className="absolute z-50 mt-1 max-h-48 overflow-auto rounded-md border border-slate-600 bg-slate-800 shadow-xl" style={{minWidth: '280px'}}>
+              <div
+                onClick={() => { handleSelectParty("__all__"); setSearchTerm(""); }}
+                className="px-3 py-2 text-sm text-amber-400 font-semibold cursor-pointer hover:bg-slate-700"
+              >All Parties / सभी</div>
               {filteredParties.map(p => (
-                <SelectItem key={p.party_name} value={p.party_name}>
-                  <span className="flex items-center gap-2">
-                    <span>{p.party_name}</span>
-                    <span className={`text-[10px] font-medium ${p.balance > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                      Rs.{p.balance.toLocaleString('en-IN')}
-                    </span>
-                  </span>
-                </SelectItem>
+                <div key={p.party_name}
+                  onClick={() => { handleSelectParty(p.party_name); setSearchTerm(""); }}
+                  className="px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-700 flex justify-between"
+                >
+                  <span>{p.party_name}</span>
+                  <span className={`text-xs ${p.balance > 0 ? 'text-red-400' : 'text-green-400'}`}>Rs.{(p.balance||0).toLocaleString('en-IN')}</span>
+                </div>
               ))}
-            </SelectContent>
-          </Select>
+            </div>
+          )}
+          {!searchTerm && !selectedParty && summary?.parties?.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              <button onClick={() => handleSelectParty("__all__")} className="px-2 py-1 text-xs rounded bg-amber-900/30 text-amber-400 border border-amber-700/30 hover:bg-amber-900/50">All / सभी</button>
+              {(summary?.parties || []).slice(0, 5).map(p => (
+                <button key={p.party_name} onClick={() => handleSelectParty(p.party_name)}
+                  className="px-2 py-1 text-xs rounded bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600">{p.party_name}</button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Date Range Filter */}

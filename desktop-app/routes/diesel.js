@@ -4,7 +4,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate } = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -176,7 +176,7 @@ module.exports = function(database) {
     doc.fontSize(12).text('Transactions', { underline: true }); doc.moveDown(0.5);
     const tHeaders = ['Date', 'Pump', 'Type', 'Truck', 'Agent', 'Amount', 'Description'];
     const tRows = txns.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(t => [
-      t.date||'', (t.pump_name||'').substring(0,15), t.txn_type==='payment'?'Payment':'Diesel',
+      fmtDate(t.date), (t.pump_name||'').substring(0,15), t.txn_type==='payment'?'Payment':'Diesel',
       t.truck_no||'', (t.agent_name||'').substring(0,12), 'Rs.'+(t.amount||0), (t.description||'').substring(0,25)
     ]);
     addPdfTable(doc, tHeaders, tRows, [60, 90, 50, 70, 70, 60, 150]);

@@ -220,12 +220,14 @@ const QuickMonthlyReport = ({ staff, filters }) => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [attRes, staffRes] = await Promise.all([
+      const [attRes, staffRes, advRes] = await Promise.all([
         axios.get(`${API}/staff/attendance?date_from=${dateFrom}&date_to=${dateTo}`),
-        axios.get(`${API}/staff?active=true`)
+        axios.get(`${API}/staff?active=true`),
+        axios.get(`${API}/staff/advances`)
       ]);
       const staffList = staffRes.data;
       const attList = attRes.data;
+      const advList = advRes.data || [];
 
       // Build summary per staff
       const dates = [];
@@ -248,7 +250,8 @@ const QuickMonthlyReport = ({ staff, filters }) => {
         const daysWorked = P + CH + H * 0.5;
         const perDay = s.salary_type === 'monthly' ? s.salary_amount / 30 : s.salary_amount;
         const estSalary = Math.round(daysWorked * perDay);
-        return { ...s, P, A, H, CH, daysWorked, perDay: Math.round(perDay), estSalary, totalDays: dates.length };
+        const advTotal = advList.filter(a => a.staff_id === s.id).reduce((sum, a) => sum + (a.amount || 0), 0);
+        return { ...s, P, A, H, CH, daysWorked, perDay: Math.round(perDay), estSalary, totalDays: dates.length, advanceTotal: Math.round(advTotal) };
       });
       setData(summary);
     } catch { toast.error("Report load nahi hua"); }
@@ -261,8 +264,9 @@ const QuickMonthlyReport = ({ staff, filters }) => {
 
   const totals = filtered.reduce((acc, s) => ({
     P: acc.P + s.P, A: acc.A + s.A, H: acc.H + s.H, CH: acc.CH + s.CH,
-    daysWorked: acc.daysWorked + s.daysWorked, estSalary: acc.estSalary + s.estSalary
-  }), { P: 0, A: 0, H: 0, CH: 0, daysWorked: 0, estSalary: 0 });
+    daysWorked: acc.daysWorked + s.daysWorked, estSalary: acc.estSalary + s.estSalary,
+    advanceTotal: acc.advanceTotal + (s.advanceTotal || 0)
+  }), { P: 0, A: 0, H: 0, CH: 0, daysWorked: 0, estSalary: 0, advanceTotal: 0 });
 
   const exportReport = async (fmt) => {
     const p = new URLSearchParams({ date_from: dateFrom, date_to: dateTo, fmt });
@@ -308,7 +312,7 @@ const QuickMonthlyReport = ({ staff, filters }) => {
       {loading ? <div className="text-slate-400 text-center py-8">Loading...</div> : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-2">
             {[
               ["Total Staff", filtered.length, "text-white", "bg-slate-800"],
               ["Present (P)", totals.P, "text-emerald-400", "bg-emerald-900/20 border-emerald-700/30"],
@@ -316,6 +320,7 @@ const QuickMonthlyReport = ({ staff, filters }) => {
               ["Holiday (CH)", totals.CH, "text-blue-400", "bg-blue-900/20 border-blue-700/30"],
               ["Absent (A)", totals.A, "text-red-400", "bg-red-900/20 border-red-700/30"],
               ["Est. Salary", `₹${totals.estSalary.toLocaleString('en-IN')}`, "text-amber-400", "bg-amber-900/20 border-amber-700/30"],
+              ["Advance Bal.", `₹${totals.advanceTotal.toLocaleString('en-IN')}`, "text-red-400", "bg-red-900/20 border-red-700/30"],
             ].map(([label, val, color, bg]) => (
               <div key={label} className={`text-center p-3 rounded-lg border border-slate-700 ${bg}`}>
                 <p className="text-[10px] text-slate-400">{label}</p>
@@ -343,6 +348,7 @@ const QuickMonthlyReport = ({ staff, filters }) => {
                       <th className="text-center py-2 px-3">Days Worked</th>
                       <th className="text-right py-2 px-3">Per Day</th>
                       <th className="text-right py-2 px-3">Est. Salary</th>
+                      <th className="text-right py-2 px-3 text-red-400">Advance</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -361,6 +367,7 @@ const QuickMonthlyReport = ({ staff, filters }) => {
                         <td className="py-2 px-3 text-center text-white font-bold">{s.daysWorked}</td>
                         <td className="py-2 px-3 text-right text-slate-300">₹{s.perDay?.toLocaleString('en-IN')}</td>
                         <td className="py-2 px-3 text-right text-amber-400 font-bold">₹{s.estSalary?.toLocaleString('en-IN')}</td>
+                        <td className="py-2 px-3 text-right text-red-400 font-semibold">₹{(s.advanceTotal || 0).toLocaleString('en-IN')}</td>
                       </tr>
                     ))}
                     {filtered.length > 1 && (
@@ -373,6 +380,7 @@ const QuickMonthlyReport = ({ staff, filters }) => {
                         <td className="py-2 px-3 text-center text-white font-bold">{totals.daysWorked}</td>
                         <td className="py-2 px-3 text-right"></td>
                         <td className="py-2 px-3 text-right text-amber-400 font-bold">₹{totals.estSalary?.toLocaleString('en-IN')}</td>
+                        <td className="py-2 px-3 text-right text-red-400 font-bold">₹{totals.advanceTotal?.toLocaleString('en-IN')}</td>
                       </tr>
                     )}
                   </tbody>
@@ -388,9 +396,10 @@ const QuickMonthlyReport = ({ staff, filters }) => {
 };
 
 
-// ===== ADVANCE =====
-const AdvanceSection = ({ staff, filters, fetchAdvances, advances }) => {
+// ===== ADVANCE LEDGER =====
+const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) => {
   const [showAdd, setShowAdd] = useState(false);
+  const [filterStaff, setFilterStaff] = useState("");
   const [form, setForm] = useState({ staff_id: "", amount: "", date: new Date().toISOString().split('T')[0], description: "" });
 
   const save = async () => {
@@ -413,44 +422,151 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances }) => {
     toast.success("Deleted"); fetchAdvances();
   };
 
+  // Build ledger: advances (debit) + salary payment deductions (credit)
+  const buildLedger = (staffFilter) => {
+    const ledger = [];
+    // Advances given = Debit
+    for (const a of (advances || [])) {
+      if (staffFilter && a.staff_id !== staffFilter) continue;
+      ledger.push({ date: a.date || '', staff_name: a.staff_name || '', type: 'debit', description: a.description || 'Advance Given', amount: a.amount || 0, id: a.id, deletable: true });
+    }
+    // Salary deductions = Credit
+    for (const p of (payments || [])) {
+      if (staffFilter && p.staff_id !== staffFilter) continue;
+      if ((p.advance_deducted || 0) > 0) {
+        ledger.push({ date: p.date || (p.created_at || '').split('T')[0] || '', staff_name: p.staff_name || '', type: 'credit', description: `Salary Deduction (${p.period_from || p.from_date || ''} to ${p.period_to || p.to_date || ''})`, amount: p.advance_deducted, id: p.id, deletable: false });
+      }
+    }
+    ledger.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    // Calculate running balance
+    let bal = 0;
+    for (const item of ledger) {
+      if (item.type === 'debit') bal += item.amount;
+      else bal -= item.amount;
+      item.balance = Math.round(bal * 100) / 100;
+    }
+    return ledger;
+  };
+
+  const ledger = buildLedger(filterStaff);
+  const totalDebit = ledger.filter(l => l.type === 'debit').reduce((s, l) => s + l.amount, 0);
+  const totalCredit = ledger.filter(l => l.type === 'credit').reduce((s, l) => s + l.amount, 0);
+  const balance = Math.round((totalDebit - totalCredit) * 100) / 100;
+
+  const fmtD = (d) => { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
+
+  const exportLedger = async (fmt) => {
+    const staffName = filterStaff ? (staff.find(s => s.id === filterStaff)?.name || '') : 'All Staff';
+    if (fmt === 'pdf') {
+      const w = window.open('', '_blank');
+      w.document.write(`<html><head><title>Advance Ledger</title><style>
+        body{font-family:Arial;padding:20px;color:#000}h2{text-align:center;color:#1a365d}
+        table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #999;padding:6px 8px;font-size:11px}
+        th{background:#1a365d;color:white;text-align:center}.debit{color:#dc2626;text-align:right}.credit{color:#059669;text-align:right}
+        .bal{text-align:right;font-weight:bold}.summary{margin-top:10px;text-align:center;font-size:13px}
+      </style></head><body>
+        <h2>Advance Ledger - ${staffName}</h2>
+        <p style="text-align:center;font-size:11px">${filters.kms_year || ''} ${filters.season || ''}</p>
+        <table><thead><tr><th>#</th><th>Date</th><th>Staff</th><th>Description</th><th>Debit (Rs.)</th><th>Credit (Rs.)</th><th>Balance (Rs.)</th></tr></thead><tbody>`);
+      ledger.forEach((l, i) => {
+        w.document.write(`<tr><td>${i+1}</td><td>${fmtD(l.date)}</td><td>${l.staff_name}</td><td>${l.description}</td>
+          <td class="debit">${l.type==='debit' ? l.amount.toLocaleString('en-IN') : ''}</td>
+          <td class="credit">${l.type==='credit' ? l.amount.toLocaleString('en-IN') : ''}</td>
+          <td class="bal">${l.balance.toLocaleString('en-IN')}</td></tr>`);
+      });
+      w.document.write(`</tbody></table>
+        <div class="summary"><b>Total Advance:</b> Rs.${totalDebit.toLocaleString('en-IN')} | <b>Total Deducted:</b> Rs.${totalCredit.toLocaleString('en-IN')} | <b style="color:red">Balance:</b> Rs.${balance.toLocaleString('en-IN')}</div></body></html>`);
+      w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+    } else {
+      // Download as Excel from backend or generate client-side
+      try {
+        const resp = await axios.post(`${API}/staff/advance-ledger/export`, {
+          ledger: ledger.map(l => ({ date: l.date, staff_name: l.staff_name, description: l.description, debit: l.type === 'debit' ? l.amount : 0, credit: l.type === 'credit' ? l.amount : 0, balance: l.balance })),
+          staff_name: staffName, kms_year: filters.kms_year, season: filters.season
+        }, { responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([resp.data]));
+        const a = document.createElement('a'); a.href = url; a.download = `advance_ledger_${staffName}.xlsx`; a.click();
+      } catch { toast.error("Excel export failed"); }
+    }
+  };
+
   return (
     <div className="space-y-3" data-testid="staff-advance">
-      <div className="flex justify-between items-center">
-        <h3 className="text-sm text-slate-400">Advance Records</h3>
-        <Button onClick={() => setShowAdd(true)} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900" data-testid="add-advance-btn">
-          <Plus className="w-4 h-4 mr-1" /> Give Advance
-        </Button>
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <h3 className="text-sm text-slate-400">Advance Ledger / अग्रिम खाता</h3>
+        <div className="flex gap-2 items-center">
+          <select value={filterStaff} onChange={e => setFilterStaff(e.target.value)}
+            className="h-8 rounded border border-slate-600 bg-slate-700 px-2 text-xs text-white" data-testid="adv-filter-staff">
+            <option value="">All Staff</option>
+            {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <Button onClick={() => exportLedger('pdf')} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-7 text-xs" data-testid="adv-export-pdf">
+            <FileText className="w-3 h-3 mr-1" /> PDF
+          </Button>
+          <Button onClick={() => exportLedger('excel')} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-7 text-xs" data-testid="adv-export-excel">
+            <Download className="w-3 h-3 mr-1" /> Excel
+          </Button>
+          <Button onClick={() => setShowAdd(true)} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-xs" data-testid="add-advance-btn">
+            <Plus className="w-3 h-3 mr-1" /> Advance
+          </Button>
+        </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="border-b border-slate-700 text-slate-400">
-            <th className="text-left py-2 px-3">Date</th><th className="text-left py-2 px-3">Staff</th>
-            <th className="text-right py-2 px-3">Amount</th><th className="text-left py-2 px-3">Description</th>
-            <th className="text-center py-2 px-3">Del</th>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="text-center p-2 bg-red-900/20 rounded border border-red-700/30">
+          <p className="text-[10px] text-slate-400">Total Advance</p>
+          <p className="text-lg font-bold text-red-400">₹{totalDebit.toLocaleString('en-IN')}</p>
+        </div>
+        <div className="text-center p-2 bg-emerald-900/20 rounded border border-emerald-700/30">
+          <p className="text-[10px] text-slate-400">Total Deducted</p>
+          <p className="text-lg font-bold text-emerald-400">₹{totalCredit.toLocaleString('en-IN')}</p>
+        </div>
+        <div className="text-center p-2 bg-amber-900/20 rounded border border-amber-700/30">
+          <p className="text-[10px] text-slate-400">Balance Pending</p>
+          <p className="text-lg font-bold text-amber-400">₹{balance.toLocaleString('en-IN')}</p>
+        </div>
+      </div>
+
+      {/* Ledger Table */}
+      <div className="overflow-x-auto rounded-lg border border-slate-700">
+        <table className="w-full text-xs">
+          <thead><tr className="bg-slate-700">
+            <th className="text-left py-2 px-3 text-slate-300 font-medium">#</th>
+            <th className="text-left py-2 px-3 text-slate-300 font-medium">Date</th>
+            <th className="text-left py-2 px-3 text-slate-300 font-medium">Staff</th>
+            <th className="text-left py-2 px-3 text-slate-300 font-medium">Description</th>
+            <th className="text-right py-2 px-3 text-red-300 font-medium">Debit (Rs.)</th>
+            <th className="text-right py-2 px-3 text-emerald-300 font-medium">Credit (Rs.)</th>
+            <th className="text-right py-2 px-3 text-slate-300 font-medium">Balance (Rs.)</th>
+            <th className="text-center py-2 px-3 text-slate-300 font-medium">Del</th>
           </tr></thead>
-          <tbody>{advances.map(a => (
-            <tr key={a.id} className="border-b border-slate-700/50">
-              <td className="py-2 px-3 text-slate-300">{a.date}</td>
-              <td className="py-2 px-3 text-white font-medium">{a.staff_name}</td>
-              <td className="py-2 px-3 text-right text-red-400 font-semibold">₹{a.amount?.toLocaleString('en-IN')}</td>
-              <td className="py-2 px-3 text-slate-400">{a.description}</td>
-              <td className="py-2 px-3 text-center"><Button onClick={() => remove(a.id)} variant="ghost" size="sm" className="text-red-400 h-7 px-2"><Trash2 className="w-3 h-3" /></Button></td>
+          <tbody>{ledger.map((l, i) => (
+            <tr key={`${l.id}-${i}`} className="border-t border-slate-700/50 hover:bg-slate-700/30">
+              <td className="py-2 px-3 text-slate-500">{i + 1}</td>
+              <td className="py-2 px-3 text-slate-300">{fmtD(l.date)}</td>
+              <td className="py-2 px-3 text-white font-medium">{l.staff_name}</td>
+              <td className="py-2 px-3 text-slate-400">{l.description}</td>
+              <td className="py-2 px-3 text-right text-red-400 font-semibold">{l.type === 'debit' ? `₹${l.amount.toLocaleString('en-IN')}` : ''}</td>
+              <td className="py-2 px-3 text-right text-emerald-400 font-semibold">{l.type === 'credit' ? `₹${l.amount.toLocaleString('en-IN')}` : ''}</td>
+              <td className={`py-2 px-3 text-right font-bold ${l.balance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>₹{l.balance.toLocaleString('en-IN')}</td>
+              <td className="py-2 px-3 text-center">{l.deletable && <Button onClick={() => remove(l.id)} variant="ghost" size="sm" className="text-red-400 h-6 px-1"><Trash2 className="w-3 h-3" /></Button>}</td>
             </tr>
           ))}</tbody>
         </table>
-        {advances.length === 0 && <p className="text-center text-slate-500 py-4 text-sm">Koi advance nahi</p>}
+        {ledger.length === 0 && <p className="text-center text-slate-500 py-4 text-sm">Koi advance record nahi</p>}
       </div>
+
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md" data-testid="advance-dialog">
           <DialogHeader><DialogTitle className="text-amber-400">Give Advance / अग्रिम</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label className="text-xs text-slate-400">Staff</Label>
-              <Select value={form.staff_id} onValueChange={v => setForm(p => ({...p, staff_id: v}))}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white" data-testid="adv-staff-select"><SelectValue placeholder="Select Staff" /></SelectTrigger>
-                <SelectContent className="bg-slate-700 border-slate-600">
-                  {staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select></div>
+              <select value={form.staff_id} onChange={e => setForm(p => ({...p, staff_id: e.target.value}))}
+                className="flex h-9 w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-ring" data-testid="adv-staff-select">
+                <option value="">Select Staff</option>
+                {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select></div>
             <div><Label className="text-xs text-slate-400">Amount (₹)</Label>
               <Input type="number" value={form.amount} onChange={e => setForm(p => ({...p, amount: e.target.value}))}
                 className="bg-slate-700 border-slate-600 text-white" data-testid="adv-amount-input" /></div>
@@ -506,7 +622,9 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
         const res = await axios.get(`${API}/staff/salary-calculate?${p}`);
         setCalcData(res.data);
         setAllCalcData(null);
-        setAdvDeduct(0);
+        // Auto-fill advance deduct with advance balance (max = gross salary)
+        const autoDeduct = Math.min(res.data.advance_balance || 0, res.data.gross_salary || 0);
+        setAdvDeduct(Math.max(0, autoDeduct));
       }
     } catch { toast.error("Calculate nahi hua"); }
     finally { setCalculating(false); }
@@ -784,7 +902,7 @@ const StaffManagement = ({ filters, user }) => {
       {tab === "attendance" && <Attendance staff={staff} filters={filters} />}
       {tab === "monthly" && <QuickMonthlyReport staff={staff} filters={filters} />}
       {tab === "payments" && <SalaryPayment staff={staff} filters={filters} payments={payments} fetchPayments={fetchPayments} />}
-      {tab === "advance" && <AdvanceSection staff={staff} filters={filters} advances={advances} fetchAdvances={fetchAdvances} />}
+      {tab === "advance" && <AdvanceSection staff={staff} filters={filters} advances={advances} fetchAdvances={fetchAdvances} payments={payments} />}
       {tab === "master" && <StaffMaster staff={staff} fetchStaff={fetchStaff} />}
     </div>
   );

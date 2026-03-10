@@ -2,6 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const { fmtDate } = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -303,7 +304,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     for (const dt of dates) {
       x = tableStartX;
       doc.font('Helvetica-Bold').fillColor('black').fontSize(5.5);
-      doc.text(dt.slice(5), x + 2, y + 2, { width: 41 });
+      doc.text(fmtDate(dt), x + 2, y + 2, { width: 41 });
       x = tableStartX + 45;
       for (const s of staffList) {
         const st = (attMap[s.id] || {})[dt] || '-';
@@ -674,7 +675,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
 
   if (fmt === 'pdf') {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, C } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, fmtDate, C } = require('./pdf_helpers');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=staff_payments.pdf');
@@ -685,10 +686,10 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
 
     const headers = ['Staff', 'Period', 'Days Worked', 'Gross Salary', 'Adv. Deducted', 'Net Payment', 'Date'];
     const rows = list.map(p => [
-      p.staff_name || '', `${p.period_from || p.from_date || ''} to ${p.period_to || p.to_date || ''}`,
+      p.staff_name || '', `${fmtDate(p.period_from || p.from_date)} to ${fmtDate(p.period_to || p.to_date)}`,
       String(p.days_worked || 0), `Rs.${fmtAmt(p.gross_salary || 0)}`,
       `Rs.${fmtAmt(p.advance_deducted || 0)}`, `Rs.${fmtAmt(p.net_payment || 0)}`,
-      p.date || (p.created_at || '').split('T')[0] || ''
+      fmtDate(p.date || (p.created_at || '').split('T')[0])
     ]);
     addPdfTable(doc, headers, rows, [90, 100, 60, 80, 80, 80, 65]);
 
@@ -728,6 +729,46 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
     res.setHeader('Content-Disposition', 'attachment; filename=staff_payments.xlsx');
     await wb.xlsx.write(res); res.end();
   }
+}));
+
+// ============ ADVANCE LEDGER EXCEL EXPORT ============
+router.post('/api/staff/advance-ledger/export', safeAsync(async (req, res) => {
+  const { ledger, staff_name, kms_year, season } = req.body;
+  const ExcelJS = require('exceljs');
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Advance Ledger');
+  const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
+
+  ws.mergeCells('A1:G1');
+  ws.getCell('A1').value = `Advance Ledger - ${staff_name || 'All Staff'}`;
+  ws.getCell('A1').font = { bold: true, size: 14 };
+  ws.getCell('A1').alignment = { horizontal: 'center' };
+
+  ['#', 'Date', 'Staff', 'Description', 'Debit (Rs.)', 'Credit (Rs.)', 'Balance (Rs.)'].forEach((h, i) => {
+    const c = ws.getCell(3, i + 1); c.value = h; Object.assign(c, hdrStyle);
+  });
+
+  (ledger || []).forEach((l, i) => {
+    const d = l.date || '';
+    const parts = d.split('-');
+    const fDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : d;
+    [i + 1, fDate, l.staff_name, l.description, l.debit > 0 ? l.debit : '', l.credit > 0 ? l.credit : '', l.balance].forEach((v, j) => {
+      ws.getCell(i + 4, j + 1).value = v;
+    });
+  });
+
+  // Totals
+  const r = (ledger || []).length + 4;
+  ws.getCell(r, 1).value = 'TOTAL'; ws.getCell(r, 1).font = { bold: true };
+  ws.getCell(r, 5).value = (ledger || []).reduce((s, l) => s + (l.debit || 0), 0); ws.getCell(r, 5).font = { bold: true };
+  ws.getCell(r, 6).value = (ledger || []).reduce((s, l) => s + (l.credit || 0), 0); ws.getCell(r, 6).font = { bold: true };
+  ws.getCell(r, 7).value = (ledger || []).length > 0 ? ledger[ledger.length - 1].balance : 0; ws.getCell(r, 7).font = { bold: true };
+
+  [5, 12, 16, 30, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename=advance_ledger_${staff_name || 'all'}.xlsx`);
+  await wb.xlsx.write(res); res.end();
 }));
 
   return router;

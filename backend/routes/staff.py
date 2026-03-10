@@ -878,3 +878,75 @@ async def export_payments(fmt: str = "excel", kms_year: Optional[str] = None, se
         buf = io.BytesIO(); wb.save(buf); buf.seek(0)
         return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=staff_payments.xlsx"})
+
+
+# ============= ADVANCE LEDGER EXCEL EXPORT =============
+class LedgerItem(BaseModel):
+    date: str = ""
+    staff_name: str = ""
+    description: str = ""
+    debit: float = 0
+    credit: float = 0
+    balance: float = 0
+
+class LedgerExportRequest(BaseModel):
+    ledger: list[LedgerItem] = []
+    staff_name: str = "All Staff"
+    kms_year: str = ""
+    season: str = ""
+
+@router.post("/staff/advance-ledger/export")
+async def export_advance_ledger(req: LedgerExportRequest):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Advance Ledger"
+    hdr_font = Font(bold=True, color="FFFFFF", size=10)
+    hdr_fill = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+    ws.merge_cells('A1:G1')
+    ws['A1'] = f"Advance Ledger - {req.staff_name}"
+    ws['A1'].font = Font(bold=True, size=14)
+    ws['A1'].alignment = Alignment(horizontal='center')
+    ws['A2'] = f"{req.kms_year} {req.season}"
+    ws['A2'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A2:G2')
+
+    headers = ['#', 'Date', 'Staff', 'Description', 'Debit (Rs.)', 'Credit (Rs.)', 'Balance (Rs.)']
+    for ci, h in enumerate(headers, 1):
+        c = ws.cell(row=3, column=ci, value=h)
+        c.font = hdr_font; c.fill = hdr_fill; c.border = tb; c.alignment = Alignment(horizontal='center')
+
+    def fmt_date(d):
+        if not d: return ''
+        parts = d.split('-')
+        return f"{parts[2]}-{parts[1]}-{parts[0]}" if len(parts) == 3 else d
+
+    for i, item in enumerate(req.ledger):
+        row_n = i + 4
+        ws.cell(row=row_n, column=1, value=i+1).border = tb
+        ws.cell(row=row_n, column=2, value=fmt_date(item.date)).border = tb
+        ws.cell(row=row_n, column=3, value=item.staff_name).border = tb
+        ws.cell(row=row_n, column=4, value=item.description).border = tb
+        c = ws.cell(row=row_n, column=5, value=item.debit if item.debit > 0 else None)
+        c.border = tb; c.font = Font(color="dc2626") if item.debit > 0 else Font()
+        c = ws.cell(row=row_n, column=6, value=item.credit if item.credit > 0 else None)
+        c.border = tb; c.font = Font(color="059669") if item.credit > 0 else Font()
+        c = ws.cell(row=row_n, column=7, value=item.balance)
+        c.border = tb; c.font = Font(bold=True)
+
+    # Totals
+    row_n = len(req.ledger) + 4
+    ws.cell(row=row_n, column=1, value="TOTAL").font = Font(bold=True)
+    total_d = sum(l.debit for l in req.ledger)
+    total_c = sum(l.credit for l in req.ledger)
+    ws.cell(row=row_n, column=5, value=total_d).font = Font(bold=True, color="dc2626")
+    ws.cell(row=row_n, column=6, value=total_c).font = Font(bold=True, color="059669")
+    ws.cell(row=row_n, column=7, value=round(total_d - total_c, 2)).font = Font(bold=True)
+
+    for w, col in [(5,'A'),(12,'B'),(16,'C'),(30,'D'),(14,'E'),(14,'F'),(14,'G')]:
+        ws.column_dimensions[col].width = w
+
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=advance_ledger_{req.staff_name}.xlsx"})

@@ -10,6 +10,7 @@ function col(name) {
 }
 
 function fmtAmt(val) { return val === 0 ? '0' : val.toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
+function fmtDate(d) { if (!d) return ''; const s = String(d).split('T')[0]; const p = s.split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : s; }
 
 function getDailyReportData(query) {
   const { date, kms_year, season, mode } = query;
@@ -195,10 +196,10 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
     const fs = opts.fontSize || 7;
     const hdrBg = opts.headerBg || C.hdrBg;
     const hdrTextColor = opts.headerTextColor || C.hdrText;
-    const startX = 25;
     let y = doc.y;
     const rowH = fs + 8;
     const totalW = colWidths.reduce((a,b) => a+b, 0);
+    const startX = Math.max(25, (doc.page.width - totalW) / 2);
 
     // Page check
     if (y + rowH * (rows.length + 1) + 20 > doc.page.height - 25) { doc.addPage(); y = 25; }
@@ -229,15 +230,15 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
       y += rowH;
     });
     doc.y = y + 6;
-    doc.x = startX;
+    doc.x = 25;
   }
 
   // Summary box (colored background, 2 rows)
   function drawSummaryBox(labels, values, colWidths, bgColor) {
     const fs = 7; const rowH = 16;
-    const startX = 25;
     let y = doc.y;
     const totalW = colWidths.reduce((a,b) => a+b, 0);
+    const startX = Math.max(25, (doc.page.width - totalW) / 2);
     if (y + rowH * 2 + 10 > doc.page.height - 25) { doc.addPage(); y = 25; }
 
     // Header
@@ -267,7 +268,7 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
   function sectionTitle(num, title) {
     if (doc.y > doc.page.height - 60) doc.addPage();
     doc.moveDown(0.3);
-    doc.fontSize(11).font('Helvetica-Bold').fillColor(C.section).text(`${num}. ${title}`);
+    doc.fontSize(11).font('Helvetica-Bold').fillColor(C.section).text(`${num}. ${title}`, { align: 'center' });
     doc.moveDown(0.15);
     doc.fillColor('black').font('Helvetica').fontSize(7);
   }
@@ -279,7 +280,7 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
   }
 
   // ===== TITLE =====
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.section).text(`Daily Report - ${data.date}`, { align: 'center' });
+  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.section).text(`Daily Report - ${fmtDate(data.date)}`, { align: 'center' });
   doc.fontSize(8.5).font('Helvetica').fillColor('grey').text(`Mode: ${modeLabel} | KMS: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`, { align: 'center' });
   doc.moveDown(0.2);
   doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(25, doc.y).lineTo(doc.page.width - 25, doc.y).stroke();

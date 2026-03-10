@@ -3,7 +3,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, C } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C } = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -247,7 +247,7 @@ module.exports = function(database) {
 
       if (ledger.length > 0) {
         const headers = ['Date', 'Party', 'Type', 'Description', 'Debit(Rs.)', 'Credit(Rs.)'];
-        const rows = ledger.map(l => [l.date, l.party_name, l.party_type, l.description, l.debit ? fmtAmt(l.debit) : '', l.credit ? fmtAmt(l.credit) : '']);
+        const rows = ledger.map(l => [fmtDate(l.date), l.party_name, l.party_type, l.description, l.debit ? fmtAmt(l.debit) : '', l.credit ? fmtAmt(l.credit) : '']);
         addPdfTable(doc, headers, rows, [65, 90, 65, 200, 70, 70]);
 
         // Totals

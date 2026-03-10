@@ -3,7 +3,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate } = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 
 module.exports = function(database) {
@@ -46,7 +46,7 @@ module.exports = function(database) {
       res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Mill Entries Report');
       const h = ['Date','Truck','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss','Cash','Diesel'];
-      const rows = entries.map(e => [e.date||'',e.truck_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,e.g_deposite||0,((e.gbw_cut||0)/100).toFixed(2),e.plastic_bag||0,((e.p_pkt_cut||0)/100).toFixed(2),((e.mill_w||0)/100).toFixed(2),e.moisture||0,((e.moisture_cut||0)/100).toFixed(2),e.cutting_percent||0,e.disc_dust_poll||0,((e.final_w||0)/100).toFixed(2),e.g_issued||0,e.cash_paid||0,e.diesel_paid||0]);
+      const rows = entries.map(e => [fmtDate(e.date),e.truck_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,e.g_deposite||0,((e.gbw_cut||0)/100).toFixed(2),e.plastic_bag||0,((e.p_pkt_cut||0)/100).toFixed(2),((e.mill_w||0)/100).toFixed(2),e.moisture||0,((e.moisture_cut||0)/100).toFixed(2),e.cutting_percent||0,e.disc_dust_poll||0,((e.final_w||0)/100).toFixed(2),e.g_issued||0,e.cash_paid||0,e.diesel_paid||0]);
       addPdfTable(doc, h, rows, [38,38,38,38,32,24,24,28,24,28,34,22,28,22,24,34,26,30,30]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
@@ -179,7 +179,7 @@ module.exports = function(database) {
       res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Milling Report');
       const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%','Bran(Q)','Husk%','Note'];
-      const rows = entries.map(e => [e.date||'', (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
+      const rows = entries.map(e => [fmtDate(e.date), (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
         (e.paddy_input_qntl||0), (e.rice_percent||0)+'%', (e.rice_qntl||0), (e.frk_used_qntl||0),
         (e.cmr_delivery_qntl||0), (e.outturn_ratio||0)+'%', (e.bran_qntl||0), (e.husk_percent||0)+'%', (e.note||'').substring(0,15)]);
       addPdfTable(doc, headers, rows, [50,45,45,35,40,35,40,40,35,35,60]);
@@ -225,7 +225,7 @@ module.exports = function(database) {
       const tq = +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2);
       const ta = +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2);
       const headers = ['Date','Party','Qty(Q)','Rate(Rs.)','Amount(Rs.)','Note'];
-      const rows = purchases.map(p => [p.date||'', (p.party_name||'').substring(0,25), p.quantity_qntl||0, p.rate_per_qntl||0, p.total_amount||0, (p.note||'').substring(0,20)]);
+      const rows = purchases.map(p => [fmtDate(p.date), (p.party_name||'').substring(0,25), p.quantity_qntl||0, p.rate_per_qntl||0, p.total_amount||0, (p.note||'').substring(0,20)]);
       rows.push(['TOTAL', '', tq, '', ta, '']);
       addPdfTable(doc, headers, rows, [60, 120, 55, 55, 70, 80]);
       doc.end();
@@ -312,8 +312,8 @@ module.exports = function(database) {
       if (filters.season) entries = entries.filter(e => e.season === filters.season);
       const millingEntries = database.getMillingEntries(filters);
       const rows = [];
-      entries.forEach(e => rows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
-      millingEntries.forEach(e => rows.push({ date: e.date||'', type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
+      entries.forEach(e => rows.push({ date: fmtDate(e.date), type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
+      millingEntries.forEach(e => rows.push({ date: fmtDate(e.date), type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
       rows.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       let balance = 0;
       rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
@@ -341,8 +341,8 @@ module.exports = function(database) {
       if (filters.season) entries = entries.filter(e => e.season === filters.season);
       const millingEntries = database.getMillingEntries(filters);
       const rows = [];
-      entries.forEach(e => rows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
-      millingEntries.forEach(e => rows.push({ date: e.date||'', type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
+      entries.forEach(e => rows.push({ date: fmtDate(e.date), type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
+      millingEntries.forEach(e => rows.push({ date: fmtDate(e.date), type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
       rows.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       let balance = 0;
       rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });

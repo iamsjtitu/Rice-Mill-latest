@@ -131,4 +131,13 @@ function fmtAmt(n) {
   return (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, C };
+// Format date: yyyy-mm-dd -> dd-mm-yyyy
+function fmtDate(d) {
+  if (!d) return '';
+  const s = String(d).split('T')[0];
+  const parts = s.split('-');
+  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  return s;
+}
+
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C };

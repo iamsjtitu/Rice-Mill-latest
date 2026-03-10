@@ -340,7 +340,7 @@ export default function MillPartsStock({ filters, user }) {
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
                   <SelectItem value="none">-- Part Select Karein --</SelectItem>
-                  {parts.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
+                  {[...new Set([...parts.map(p => p.name), ...summary.map(s => s.part_name)])].filter(Boolean).sort().map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

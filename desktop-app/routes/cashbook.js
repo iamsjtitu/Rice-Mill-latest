@@ -4,7 +4,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate } = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 
 module.exports = function(database) {
@@ -144,7 +144,7 @@ module.exports = function(database) {
       res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Daily Cash Book');
       const headers = ['Date','Account','Type','Category','Description','Jama(Rs.)','Nikasi(Rs.)','Ref'];
-      const rows = txns.map(t => [t.date||'', t.account==='cash'?'Cash':'Bank', t.txn_type==='jama'?'Jama':'Nikasi',
+      const rows = txns.map(t => [fmtDate(t.date), t.account==='cash'?'Cash':'Bank', t.txn_type==='jama'?'Jama':'Nikasi',
         (t.category||'').substring(0,25), (t.description||'').substring(0,35),
         t.txn_type==='jama'?t.amount:'-', t.txn_type==='nikasi'?t.amount:'-', (t.reference||'').substring(0,12)]);
       const tj = +txns.filter(t => t.txn_type==='jama').reduce((s,t)=>s+(t.amount||0),0).toFixed(2);
