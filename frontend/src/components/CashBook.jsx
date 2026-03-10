@@ -451,19 +451,39 @@ const CashBook = ({ filters, user }) => {
           </div>
         </CardHeader>
         <CardContent className="p-0"><div className="overflow-x-auto">
-          <Table><TableHeader><TableRow className="border-slate-200 hover:bg-transparent">
+          <table className="w-full" style={{ tableLayout: 'fixed' }}>
+          <colgroup>
+            {user.role === 'admin' && <col style={{ width: '32px' }} />}
+            <col style={{ width: '82px' }} />
+            <col style={{ width: '60px' }} />
+            <col style={{ width: '62px' }} />
+            <col style={{ width: '12%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: 'auto' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '55px' }} />
+          </colgroup>
+          <thead><tr className="border-b border-slate-200">
             {user.role === 'admin' && (
-              <TableHead className="w-8">
+              <th className="px-2 py-2.5 text-left">
                 <input type="checkbox" checked={txns.length > 0 && selectedIds.length === txns.length} onChange={toggleSelectAll}
                   className="rounded border-slate-300" data-testid="cashbook-select-all" />
-              </TableHead>
+              </th>
             )}
-            {['Date', 'Account', 'Type', 'Party / पार्टी', 'Party Type', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Balance (₹)', 'Reference', ''].map(h =>
-              <TableHead key={h} className={`text-slate-600 text-xs ${['Jama (₹)', 'Nikasi (₹)', 'Balance (₹)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
-          </TableRow></TableHeader>
-          <TableBody>
-            {loading ? <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-8">Loading...</TableCell></TableRow>
-            : txns.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-8">Koi transaction nahi hai. "New Transaction" click karein.</TableCell></TableRow>
+            {[
+              { label: 'Date', align: 'left' }, { label: 'Account', align: 'left' }, { label: 'Type', align: 'left' },
+              { label: 'Party / पार्टी', align: 'left' }, { label: 'Party Type', align: 'left' }, { label: 'Description', align: 'left' },
+              { label: 'Jama (₹)', align: 'right' }, { label: 'Nikasi (₹)', align: 'right' }, { label: 'Balance (₹)', align: 'right' },
+              { label: 'Reference', align: 'left' }, { label: '', align: 'left' }
+            ].map(h =>
+              <th key={h.label} className={`px-3 py-2.5 text-${h.align} text-slate-600 text-xs font-semibold`}>{h.label}</th>)}
+          </tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={12} className="text-center text-slate-500 py-8">Loading...</td></tr>
+            : txns.length === 0 ? <tr><td colSpan={12} className="text-center text-slate-500 py-8">Koi transaction nahi hai. "New Transaction" click karein.</td></tr>
             : (() => {
               // Compute running balance (oldest to newest, then display newest first)
               const sorted = [...txns].reverse();
@@ -474,46 +494,47 @@ const CashBook = ({ filters, user }) => {
                 balMap[t.id] = Math.round(runBal * 100) / 100;
               }
               return txns.map(t => (
-              <TableRow key={t.id} className={`border-slate-100 ${t.txn_type === 'jama' ? 'bg-green-50/50' : 'bg-red-50/50'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`} data-testid={`txn-row-${t.id}`}>
+              <tr key={t.id} className={`border-b border-slate-100 ${t.txn_type === 'jama' ? 'bg-green-50/50' : 'bg-red-50/50'} ${selectedIds.includes(t.id) ? 'ring-1 ring-amber-400' : ''}`} data-testid={`txn-row-${t.id}`}>
                 {user.role === 'admin' && (
-                  <TableCell className="w-8">
+                  <td className="px-2 py-2.5">
                     <input type="checkbox" checked={selectedIds.includes(t.id)} onChange={() => toggleSelect(t.id)}
                       className="rounded border-slate-300" data-testid={`txn-select-${t.id}`} />
-                  </TableCell>
-                )}                <TableCell className="text-slate-800 text-xs font-medium">{fmtDate(t.date)}</TableCell>
-                <TableCell className="text-xs">
+                  </td>
+                )}
+                <td className="px-3 py-2.5 text-slate-800 text-xs font-medium">{fmtDate(t.date)}</td>
+                <td className="px-3 py-2.5 text-xs">
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${t.account === 'cash' ? 'bg-green-100 text-green-700' : t.account === 'bank' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
                     {t.account === 'cash' ? 'Cash' : t.account === 'bank' ? 'Bank' : 'Ledger'}
                   </span>
-                </TableCell>
-                <TableCell className="text-xs">
+                </td>
+                <td className="px-3 py-2.5 text-xs">
                   <span className={`flex items-center gap-1 font-medium ${t.txn_type === 'jama' ? 'text-green-700' : 'text-red-600'}`}>
                     {t.txn_type === 'jama' ? <ArrowDownCircle className="w-3 h-3" /> : <ArrowUpCircle className="w-3 h-3" />}
                     {t.txn_type === 'jama' ? 'Jama' : 'Nikasi'}
                   </span>
-                </TableCell>
-                <TableCell className="text-slate-700 text-xs font-semibold">{t.category}</TableCell>
-                <TableCell className="text-xs">
-                  {t.party_type && <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                </td>
+                <td className="px-3 py-2.5 text-slate-700 text-xs font-semibold truncate">{t.category}</td>
+                <td className="px-3 py-2.5 text-xs">
+                  {t.party_type && <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
                     t.party_type === 'Truck' ? 'bg-blue-100 text-blue-700' :
                     t.party_type === 'Agent' ? 'bg-purple-100 text-purple-700' :
                     t.party_type === 'Local Party' ? 'bg-amber-100 text-amber-700' :
                     t.party_type === 'Diesel' ? 'bg-orange-100 text-orange-700' :
                     'bg-slate-100 text-slate-600'
                   }`}>{t.party_type}</span>}
-                </TableCell>
-                <TableCell className="text-slate-600 text-xs max-w-[120px] truncate">{t.description}</TableCell>
-                <TableCell className="text-right text-xs font-medium text-green-700">
+                </td>
+                <td className="px-3 py-2.5 text-slate-600 text-xs truncate">{t.description}</td>
+                <td className="px-3 py-2.5 text-right text-xs font-medium text-green-700">
                   {t.txn_type === 'jama' ? `₹${t.amount.toLocaleString('en-IN')}` : '-'}
-                </TableCell>
-                <TableCell className="text-right text-xs font-medium text-red-600">
+                </td>
+                <td className="px-3 py-2.5 text-right text-xs font-medium text-red-600">
                   {t.txn_type === 'nikasi' ? `₹${t.amount.toLocaleString('en-IN')}` : '-'}
-                </TableCell>
-                <TableCell className={`text-right text-xs font-bold ${(balMap[t.id] || 0) >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid={`txn-balance-${t.id}`}>
+                </td>
+                <td className={`px-3 py-2.5 text-right text-xs font-bold ${(balMap[t.id] || 0) >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid={`txn-balance-${t.id}`}>
                   ₹{(balMap[t.id] || 0).toLocaleString('en-IN')}
-                </TableCell>
-                <TableCell className="text-slate-500 text-xs max-w-[80px] truncate">{t.reference}</TableCell>
-                <TableCell>
+                </td>
+                <td className="px-3 py-2.5 text-slate-500 text-xs truncate">{t.reference}</td>
+                <td className="px-3 py-2.5">
                   {user.role === 'admin' && (
                     <div className="flex gap-0.5">
                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700" onClick={() => handleEdit(t)} data-testid={`txn-edit-${t.id}`}>
@@ -524,10 +545,10 @@ const CashBook = ({ filters, user }) => {
                       </Button>
                     </div>
                   )}
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ));})()}
-          </TableBody>
+          </tbody>
           {txns.length > 0 && (() => {
             const totalJama = txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
             const totalNikasi = txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
@@ -536,16 +557,16 @@ const CashBook = ({ filters, user }) => {
               <tfoot>
                 <tr className="border-t-2 border-slate-300 bg-slate-50">
                   {user.role === 'admin' && <td></td>}
-                  <td colSpan={6} className="px-4 py-2 text-xs font-bold text-slate-700">TOTAL ({txns.length} transactions)</td>
-                  <td className="px-4 py-2 text-right text-xs font-bold text-green-700" data-testid="cashbook-total-jama">₹{totalJama.toLocaleString('en-IN')}</td>
-                  <td className="px-4 py-2 text-right text-xs font-bold text-red-600" data-testid="cashbook-total-nikasi">₹{totalNikasi.toLocaleString('en-IN')}</td>
-                  <td className={`px-4 py-2 text-right text-xs font-bold ${restBalance >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid="cashbook-rest-balance">₹{restBalance.toLocaleString('en-IN')}</td>
+                  <td colSpan={6} className="px-3 py-2.5 text-xs font-bold text-slate-700">TOTAL ({txns.length} transactions)</td>
+                  <td className="px-3 py-2.5 text-right text-xs font-bold text-green-700" data-testid="cashbook-total-jama">₹{totalJama.toLocaleString('en-IN')}</td>
+                  <td className="px-3 py-2.5 text-right text-xs font-bold text-red-600" data-testid="cashbook-total-nikasi">₹{totalNikasi.toLocaleString('en-IN')}</td>
+                  <td className={`px-3 py-2.5 text-right text-xs font-bold ${restBalance >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid="cashbook-rest-balance">₹{restBalance.toLocaleString('en-IN')}</td>
                   <td colSpan={2}></td>
                 </tr>
               </tfoot>
             );
           })()}
-          </Table>
+          </table>
         </div></CardContent>
       </Card>
 
