@@ -579,7 +579,7 @@ const CashBook = ({ filters, user }) => {
                     <TableBody>
                       {partySummary.parties.map((p, idx) => (
                         <TableRow key={p.party_name} className={`border-slate-700 cursor-pointer hover:bg-slate-700/50 ${p.balance === 0 ? 'bg-emerald-900/10' : p.balance < 0 ? 'bg-red-900/10' : ''}`}
-                          onClick={() => { setActiveView("transactions"); setTxnFilters(prev => ({ ...prev, category: p.party_name, party_type: "" })); }}
+                          onClick={() => { setActiveView("transactions"); setTxnFilters(prev => ({ ...prev, category: p.party_name, party_type: p.party_type || "" })); }}
                           data-testid={`party-row-${idx}`}>
                           <TableCell className="text-slate-400 text-xs">{idx + 1}</TableCell>
                           <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
