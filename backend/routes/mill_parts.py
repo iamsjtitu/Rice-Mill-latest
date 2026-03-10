@@ -159,17 +159,42 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     txns = await db.mill_parts_stock.find(query, {"_id": 0}).to_list(10000)
     parts = await db.mill_parts.find({}, {"_id": 0}).to_list(1000)
 
+    # Compute opening stock from previous FY
+    opening_stock = {}
+    if kms_year:
+        fy_parts = kms_year.split('-')
+        if len(fy_parts) == 2:
+            try:
+                prev_fy = f"{int(fy_parts[0])-1}-{int(fy_parts[1])-1}"
+                prev_query = {"kms_year": prev_fy}
+                if season: prev_query["season"] = season
+                prev_txns = await db.mill_parts_stock.find(prev_query, {"_id": 0}).to_list(10000)
+                for t in prev_txns:
+                    pn = t.get("part_name", "")
+                    if pn not in opening_stock:
+                        opening_stock[pn] = 0
+                    if t.get("txn_type") == "in":
+                        opening_stock[pn] += t.get("quantity", 0)
+                    else:
+                        opening_stock[pn] -= t.get("quantity", 0)
+            except (ValueError, IndexError):
+                pass
+
     summary = {}
     for p in parts:
+        ob = round(opening_stock.get(p["name"], 0), 2)
         summary[p["name"]] = {"part_name": p["name"], "category": p.get("category", ""),
             "unit": p.get("unit", "Pcs"), "min_stock": p.get("min_stock", 0),
+            "opening_stock": ob,
             "stock_in": 0, "stock_used": 0, "current_stock": 0,
             "total_purchase_amount": 0, "parties": {}}
 
     for t in txns:
         pn = t.get("part_name", "")
         if pn not in summary:
+            ob = round(opening_stock.get(pn, 0), 2)
             summary[pn] = {"part_name": pn, "category": "", "unit": "Pcs", "min_stock": 0,
+                "opening_stock": ob,
                 "stock_in": 0, "stock_used": 0, "current_stock": 0,
                 "total_purchase_amount": 0, "parties": {}}
         if t.get("txn_type") == "in":
@@ -188,7 +213,7 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     for pn, s in summary.items():
         s["stock_in"] = round(s["stock_in"], 2)
         s["stock_used"] = round(s["stock_used"], 2)
-        s["current_stock"] = round(s["stock_in"] - s["stock_used"], 2)
+        s["current_stock"] = round(s["opening_stock"] + s["stock_in"] - s["stock_used"], 2)
         s["total_purchase_amount"] = round(s["total_purchase_amount"], 2)
         s["parties"] = [{"name": k, **v} for k, v in s["parties"].items()]
         result.append(s)

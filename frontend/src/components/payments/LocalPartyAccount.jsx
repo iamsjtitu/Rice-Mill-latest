@@ -269,8 +269,9 @@ const LocalPartyAccount = ({ filters, user }) => {
 
       {/* Grand Totals Bar */}
       {summary && (
-        <div className="flex gap-3 text-xs">
+        <div className="flex gap-3 text-xs flex-wrap">
           <span className="text-slate-400">Parties: <b className="text-white">{summary.parties?.length || 0}</b></span>
+          {(summary.grand_opening_balance || 0) > 0 && <span className="text-slate-400">Opening Bal: <b className="text-yellow-400">Rs.{(summary.grand_opening_balance || 0).toLocaleString('en-IN')}</b></span>}
           <span className="text-slate-400">Total Debit: <b className="text-orange-400">Rs.{(summary.grand_total_debit || 0).toLocaleString('en-IN')}</b></span>
           <span className="text-slate-400">Total Paid: <b className="text-green-400">Rs.{(summary.grand_total_paid || 0).toLocaleString('en-IN')}</b></span>
           <span className="text-slate-400">Balance: <b className="text-red-400">Rs.{(summary.grand_balance || 0).toLocaleString('en-IN')}</b></span>
@@ -294,8 +295,8 @@ const LocalPartyAccount = ({ filters, user }) => {
               <Table>
                 <TableHeader>
                   <TableRow className="border-slate-700 hover:bg-transparent">
-                    {['#', 'Party Name', 'Total Debit (Rs.)', 'Total Paid (Rs.)', 'Balance (Rs.)', 'Transactions'].map(h =>
-                      <TableHead key={h} className={`text-slate-300 text-xs ${['Total Debit (Rs.)', 'Total Paid (Rs.)', 'Balance (Rs.)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>
+                    {['#', 'Party Name', 'OB (Rs.)', 'Total Debit (Rs.)', 'Total Paid (Rs.)', 'Balance (Rs.)', 'Transactions'].map(h =>
+                      <TableHead key={h} className={`text-slate-300 text-xs ${['OB (Rs.)', 'Total Debit (Rs.)', 'Total Paid (Rs.)', 'Balance (Rs.)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
@@ -304,6 +305,7 @@ const LocalPartyAccount = ({ filters, user }) => {
                     <TableRow key={p.party_name} className="border-slate-700 cursor-pointer hover:bg-slate-700/50" onClick={() => handleSelectParty(p.party_name)}>
                       <TableCell className="text-slate-500 text-xs">{i + 1}</TableCell>
                       <TableCell className="text-white text-xs font-medium">{p.party_name}</TableCell>
+                      <TableCell className="text-yellow-400 text-xs text-right">{(p.opening_balance || 0) > 0 ? `Rs.${(p.opening_balance || 0).toLocaleString('en-IN')}` : '-'}</TableCell>
                       <TableCell className="text-orange-400 text-xs text-right font-medium">Rs.{(p.total_debit || 0).toLocaleString('en-IN')}</TableCell>
                       <TableCell className="text-green-400 text-xs text-right font-medium">Rs.{(p.total_paid || 0).toLocaleString('en-IN')}</TableCell>
                       <TableCell className={`text-xs text-right font-bold ${p.balance > 0 ? 'text-red-400' : 'text-green-400'}`}>Rs.{(p.balance || 0).toLocaleString('en-IN')}</TableCell>

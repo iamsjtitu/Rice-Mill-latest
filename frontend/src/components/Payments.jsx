@@ -1549,6 +1549,7 @@ const DieselAccount = ({ filters, user }) => {
                 </div>
                 <p className="text-lg font-bold text-red-400">Rs.{p.balance.toLocaleString('en-IN')}</p>
                 <div className="flex gap-2 text-[10px] mt-1">
+                  {p.opening_balance > 0 && <span className="text-yellow-400">OB: Rs.{p.opening_balance.toLocaleString('en-IN')}</span>}
                   <span className="text-orange-400">Diesel: Rs.{p.total_diesel.toLocaleString('en-IN')}</span>
                   <span className="text-green-400">Paid: Rs.{p.total_paid.toLocaleString('en-IN')}</span>
                 </div>

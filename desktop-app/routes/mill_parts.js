@@ -138,16 +138,37 @@ function getStockSummary(query) {
   if (query.season) txns = txns.filter(t => t.season === query.season);
   const parts = [...database.data.mill_parts];
 
+  // Compute opening stock from previous FY
+  const openingStock = {};
+  if (query.kms_year) {
+    const fyParts = query.kms_year.split('-');
+    if (fyParts.length === 2) {
+      const prevFy = `${parseInt(fyParts[0])-1}-${parseInt(fyParts[1])-1}`;
+      let prevTxns = [...database.data.mill_parts_stock].filter(t => t.kms_year === prevFy);
+      if (query.season) prevTxns = prevTxns.filter(t => t.season === query.season);
+      for (const t of prevTxns) {
+        const pn = t.part_name || '';
+        if (!openingStock[pn]) openingStock[pn] = 0;
+        if (t.txn_type === 'in') openingStock[pn] += t.quantity || 0;
+        else openingStock[pn] -= t.quantity || 0;
+      }
+    }
+  }
+
   const summary = {};
   for (const p of parts) {
+    const ob = Math.round((openingStock[p.name] || 0) * 100) / 100;
     summary[p.name] = { part_name: p.name, category: p.category || '', unit: p.unit || 'Pcs',
-      min_stock: p.min_stock || 0, stock_in: 0, stock_used: 0, current_stock: 0,
+      min_stock: p.min_stock || 0, opening_stock: ob, stock_in: 0, stock_used: 0, current_stock: 0,
       total_purchase_amount: 0, parties: {} };
   }
   for (const t of txns) {
     const pn = t.part_name || '';
-    if (!summary[pn]) summary[pn] = { part_name: pn, category: '', unit: 'Pcs', min_stock: 0,
-      stock_in: 0, stock_used: 0, current_stock: 0, total_purchase_amount: 0, parties: {} };
+    if (!summary[pn]) {
+      const ob = Math.round((openingStock[pn] || 0) * 100) / 100;
+      summary[pn] = { part_name: pn, category: '', unit: 'Pcs', min_stock: 0,
+        opening_stock: ob, stock_in: 0, stock_used: 0, current_stock: 0, total_purchase_amount: 0, parties: {} };
+    }
     if (t.txn_type === 'in') {
       summary[pn].stock_in += t.quantity || 0;
       summary[pn].total_purchase_amount += t.total_amount || 0;
@@ -165,7 +186,7 @@ function getStockSummary(query) {
   for (const [pn, s] of Object.entries(summary)) {
     s.stock_in = Math.round(s.stock_in * 100) / 100;
     s.stock_used = Math.round(s.stock_used * 100) / 100;
-    s.current_stock = Math.round((s.stock_in - s.stock_used) * 100) / 100;
+    s.current_stock = Math.round((s.opening_stock + s.stock_in - s.stock_used) * 100) / 100;
     s.total_purchase_amount = Math.round(s.total_purchase_amount * 100) / 100;
     s.parties = Object.entries(s.parties).map(([name, v]) => ({ name, ...v }));
     result.push(s);

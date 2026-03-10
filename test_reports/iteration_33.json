@@ -1,0 +1,91 @@
+{
+  "summary": "FY Opening Balance Carry-Forward Testing - ALL TESTS PASS. Backend: 11/11 pytest tests passed. Frontend: All 7 requested features verified working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_fy_opening_balance.py",
+    "/app/test_reports/pytest/pytest_results_iteration33.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_fy_opening_balance.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 pytest tests passed)",
+    "frontend": "100% (All 7 features verified)"
+  },
+  "features_verified": {
+    "1_monthly_report_data_loading": {
+      "status": "PASS",
+      "details": "Staff Management > Monthly Report tab loads correctly with staff attendance summary showing Present, Absent, Half Day, Holiday, Est. Salary, Advance columns"
+    },
+    "2_mill_parts_summary_opening_stock": {
+      "status": "PASS",
+      "details": "/api/mill-parts/summary?kms_year=2025-2026 returns opening_stock field for each part"
+    },
+    "3_diesel_accounts_summary_opening_balance": {
+      "status": "PASS",
+      "details": "/api/diesel-accounts/summary?kms_year=2025-2026 returns opening_balance per pump and grand_opening_balance"
+    },
+    "4_local_party_summary_opening_balance": {
+      "status": "PASS",
+      "details": "/api/local-party/summary?kms_year=2025-2026 returns opening_balance per party and grand_opening_balance"
+    },
+    "5_staff_advance_balance_opening_balance": {
+      "status": "PASS",
+      "details": "/api/staff/advance-balance/{staffId}?kms_year=2025-2026 returns opening_balance field"
+    },
+    "6_partwise_summary_no_search_bar": {
+      "status": "PASS",
+      "details": "Part-wise Summary tab shows ONLY dropdown selector (-- Part Select Karein --), NO text search bar"
+    },
+    "7_ob_columns_in_frontend_tables": {
+      "status": "PASS",
+      "details": "OB columns verified in: Mill Parts Stock Summary table (OB column), Local Party All Parties table (OB (Rs.) column)"
+    }
+  },
+  "api_verification": {
+    "mill_parts_summary": {
+      "endpoint": "/api/mill-parts/summary?kms_year=2025-2026",
+      "fields": ["part_name", "category", "unit", "min_stock", "opening_stock", "stock_in", "stock_used", "current_stock", "total_purchase_amount", "parties"],
+      "opening_balance_formula": "current_stock = opening_stock + stock_in - stock_used"
+    },
+    "diesel_summary": {
+      "endpoint": "/api/diesel-accounts/summary?kms_year=2025-2026",
+      "top_level_fields": ["pumps", "grand_opening_balance", "grand_total_diesel", "grand_total_paid", "grand_balance"],
+      "pump_fields": ["pump_id", "pump_name", "is_default", "opening_balance", "total_diesel", "total_paid", "balance", "txn_count"],
+      "opening_balance_formula": "balance = opening_balance + total_diesel - total_paid"
+    },
+    "local_party_summary": {
+      "endpoint": "/api/local-party/summary?kms_year=2025-2026",
+      "top_level_fields": ["parties", "grand_opening_balance", "grand_total_debit", "grand_total_paid", "grand_balance"],
+      "party_fields": ["party_name", "opening_balance", "total_debit", "total_paid", "balance", "txn_count"],
+      "opening_balance_formula": "balance = opening_balance + total_debit - total_paid"
+    },
+    "staff_advance_balance": {
+      "endpoint": "/api/staff/advance-balance/{staffId}?kms_year=2025-2026",
+      "fields": ["opening_balance", "total_advance", "total_deducted", "balance"],
+      "opening_balance_formula": "balance = opening_balance + total_advance - total_deducted"
+    },
+    "staff_advance_endpoint_fixed": {
+      "correct_endpoint": "/api/staff/advance (200 OK)",
+      "old_endpoint": "/api/staff/advances (404 Not Found) - correctly removed"
+    }
+  },
+  "test_credentials": {
+    "admin_username": "admin",
+    "admin_password": "admin123"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 33 - All FY Opening Balance features verified. Backend APIs return opening_stock/opening_balance fields correctly. Frontend tables display OB columns. Monthly Report tab loads data correctly. Part-wise Summary tab correctly shows only dropdown (no text search). All 11 pytest tests pass."
+}

@@ -141,7 +141,23 @@ router.get('/api/staff/advance-balance/:staffId', safeSync((req, res) => {
   if (season) payments = payments.filter(p => p.season === season);
   const totalDeducted = +(payments.reduce((s, p) => s + (p.advance_deducted || 0), 0).toFixed(2));
 
-  res.json({ total_advance: totalAdvance, total_deducted: totalDeducted, balance: +(totalAdvance - totalDeducted).toFixed(2) });
+  // Opening balance from previous FY
+  let openingBalance = 0;
+  if (kms_year) {
+    const fyParts = kms_year.split('-');
+    if (fyParts.length === 2) {
+      const prevFy = `${parseInt(fyParts[0])-1}-${parseInt(fyParts[1])-1}`;
+      let prevAdv = col('staff_advances').filter(a => a.staff_id === req.params.staffId && a.kms_year === prevFy);
+      if (season) prevAdv = prevAdv.filter(a => a.season === season);
+      const prevTotalAdv = prevAdv.reduce((s, a) => s + (a.amount || 0), 0);
+      let prevPay = col('staff_payments').filter(p => p.staff_id === req.params.staffId && p.kms_year === prevFy);
+      if (season) prevPay = prevPay.filter(p => p.season === season);
+      const prevTotalDed = prevPay.reduce((s, p) => s + (p.advance_deducted || 0), 0);
+      openingBalance = Math.round((prevTotalAdv - prevTotalDed) * 100) / 100;
+    }
+  }
+
+  res.json({ opening_balance: openingBalance, total_advance: totalAdvance, total_deducted: totalDeducted, balance: +(openingBalance + totalAdvance - totalDeducted).toFixed(2) });
 }));
 
 
@@ -187,7 +203,23 @@ router.get('/api/staff/salary-calculate', safeSync((req, res) => {
   if (kms_year) payments = payments.filter(p => p.kms_year === kms_year);
   if (season) payments = payments.filter(p => p.season === season);
   const totalDeducted = payments.reduce((s, p) => s + (p.advance_deducted || 0), 0);
-  const advanceBalance = Math.round((totalAdvances - totalDeducted) * 100) / 100;
+
+  // Opening advance balance from previous FY
+  let advOpening = 0;
+  if (kms_year) {
+    const fyParts = kms_year.split('-');
+    if (fyParts.length === 2) {
+      const prevFy = `${parseInt(fyParts[0])-1}-${parseInt(fyParts[1])-1}`;
+      let prevAdv = col('staff_advances').filter(a => a.staff_id === staff_id && a.kms_year === prevFy);
+      if (season) prevAdv = prevAdv.filter(a => a.season === season);
+      const prevTotalAdv = prevAdv.reduce((s, a) => s + (a.amount || 0), 0);
+      let prevPay = col('staff_payments').filter(p => p.staff_id === staff_id && p.kms_year === prevFy);
+      if (season) prevPay = prevPay.filter(p => p.season === season);
+      const prevTotalDed = prevPay.reduce((s, p) => s + (p.advance_deducted || 0), 0);
+      advOpening = Math.round((prevTotalAdv - prevTotalDed) * 100) / 100;
+    }
+  }
+  const advanceBalance = Math.round((advOpening + totalAdvances - totalDeducted) * 100) / 100;
 
   res.json({
     staff: staff,

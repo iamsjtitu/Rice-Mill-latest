@@ -223,7 +223,7 @@ const QuickMonthlyReport = ({ staff, filters }) => {
       const [attRes, staffRes, advRes] = await Promise.all([
         axios.get(`${API}/staff/attendance?date_from=${dateFrom}&date_to=${dateTo}`),
         axios.get(`${API}/staff?active=true`),
-        axios.get(`${API}/staff/advances`)
+        axios.get(`${API}/staff/advance`)
       ]);
       const staffList = staffRes.data;
       const attList = attRes.data;

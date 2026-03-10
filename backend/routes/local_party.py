@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.get("/local-party/summary")
 async def get_local_party_summary(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
-    """Party-wise summary: total debit, total paid, balance"""
+    """Party-wise summary: total debit, total paid, balance with FY carry-forward"""
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -22,13 +22,41 @@ async def get_local_party_summary(kms_year: Optional[str] = None, season: Option
         query["date"] = date_q
     txns = await db.local_party_accounts.find(query, {"_id": 0}).to_list(10000)
 
+    # Compute opening balance from previous FY per party
+    opening_balances = {}
+    if kms_year and not date_from and not date_to:
+        fy_parts = kms_year.split('-')
+        if len(fy_parts) == 2:
+            try:
+                prev_fy = f"{int(fy_parts[0])-1}-{int(fy_parts[1])-1}"
+                prev_query = {"kms_year": prev_fy}
+                if season: prev_query["season"] = season
+                prev_txns = await db.local_party_accounts.find(prev_query, {"_id": 0}).to_list(10000)
+                for t in prev_txns:
+                    pn = t.get("party_name", "").strip()
+                    if not pn: continue
+                    if pn not in opening_balances:
+                        opening_balances[pn] = 0
+                    if t.get("txn_type") == "debit":
+                        opening_balances[pn] += t.get("amount", 0)
+                    elif t.get("txn_type") == "payment":
+                        opening_balances[pn] -= t.get("amount", 0)
+            except (ValueError, IndexError):
+                pass
+
     party_map = {}
+    # First add parties that have opening balances from previous FY
+    for pn, ob in opening_balances.items():
+        if round(ob, 2) != 0:
+            party_map[pn] = {"party_name": pn, "opening_balance": round(ob, 2), "total_debit": 0, "total_paid": 0, "balance": 0, "txn_count": 0}
+
     for t in txns:
         pn = t.get("party_name", "").strip()
         if not pn:
             continue
         if pn not in party_map:
-            party_map[pn] = {"party_name": pn, "total_debit": 0, "total_paid": 0, "balance": 0, "txn_count": 0}
+            ob = round(opening_balances.get(pn, 0), 2)
+            party_map[pn] = {"party_name": pn, "opening_balance": ob, "total_debit": 0, "total_paid": 0, "balance": 0, "txn_count": 0}
         if t.get("txn_type") == "debit":
             party_map[pn]["total_debit"] += t.get("amount", 0)
         elif t.get("txn_type") == "payment":
@@ -39,18 +67,20 @@ async def get_local_party_summary(kms_year: Optional[str] = None, season: Option
     for pn, s in party_map.items():
         s["total_debit"] = round(s["total_debit"], 2)
         s["total_paid"] = round(s["total_paid"], 2)
-        s["balance"] = round(s["total_debit"] - s["total_paid"], 2)
+        s["balance"] = round(s.get("opening_balance", 0) + s["total_debit"] - s["total_paid"], 2)
         parties.append(s)
 
     parties.sort(key=lambda x: x["balance"], reverse=True)
 
+    grand_ob = sum(p.get("opening_balance", 0) for p in parties)
     grand_debit = sum(p["total_debit"] for p in parties)
     grand_paid = sum(p["total_paid"] for p in parties)
     return {
         "parties": parties,
+        "grand_opening_balance": round(grand_ob, 2),
         "grand_total_debit": round(grand_debit, 2),
         "grand_total_paid": round(grand_paid, 2),
-        "grand_balance": round(grand_debit - grand_paid, 2)
+        "grand_balance": round(grand_ob + grand_debit - grand_paid, 2)
     }
 
 

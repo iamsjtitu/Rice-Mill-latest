@@ -18,11 +18,40 @@ router.get('/api/local-party/summary', safeSync((req, res) => {
   if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
   if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
 
+  // Compute opening balance from previous FY per party
+  const openingBalances = {};
+  if (req.query.kms_year && !req.query.date_from && !req.query.date_to) {
+    const fyParts = req.query.kms_year.split('-');
+    if (fyParts.length === 2) {
+      const prevFy = `${parseInt(fyParts[0])-1}-${parseInt(fyParts[1])-1}`;
+      let prevTxns = [...database.data.local_party_accounts].filter(t => t.kms_year === prevFy);
+      if (req.query.season) prevTxns = prevTxns.filter(t => t.season === req.query.season);
+      for (const t of prevTxns) {
+        const pn = (t.party_name || '').trim();
+        if (!pn) continue;
+        if (!openingBalances[pn]) openingBalances[pn] = 0;
+        if (t.txn_type === 'debit') openingBalances[pn] += t.amount || 0;
+        else if (t.txn_type === 'payment') openingBalances[pn] -= t.amount || 0;
+      }
+    }
+  }
+
   const partyMap = {};
+  // Add parties with opening balances from previous FY
+  for (const [pn, ob] of Object.entries(openingBalances)) {
+    const roundedOb = Math.round(ob * 100) / 100;
+    if (roundedOb !== 0) {
+      partyMap[pn] = { party_name: pn, opening_balance: roundedOb, total_debit: 0, total_paid: 0, balance: 0, txn_count: 0 };
+    }
+  }
+
   for (const t of txns) {
     const pn = (t.party_name || '').trim();
     if (!pn) continue;
-    if (!partyMap[pn]) partyMap[pn] = { party_name: pn, total_debit: 0, total_paid: 0, balance: 0, txn_count: 0 };
+    if (!partyMap[pn]) {
+      const ob = Math.round((openingBalances[pn] || 0) * 100) / 100;
+      partyMap[pn] = { party_name: pn, opening_balance: ob, total_debit: 0, total_paid: 0, balance: 0, txn_count: 0 };
+    }
     if (t.txn_type === 'debit') partyMap[pn].total_debit += t.amount || 0;
     else if (t.txn_type === 'payment') partyMap[pn].total_paid += t.amount || 0;
     partyMap[pn].txn_count++;
@@ -32,16 +61,18 @@ router.get('/api/local-party/summary', safeSync((req, res) => {
     ...p,
     total_debit: Math.round(p.total_debit * 100) / 100,
     total_paid: Math.round(p.total_paid * 100) / 100,
-    balance: Math.round((p.total_debit - p.total_paid) * 100) / 100
+    balance: Math.round(((p.opening_balance || 0) + p.total_debit - p.total_paid) * 100) / 100
   })).sort((a, b) => b.balance - a.balance);
 
+  const gOb = parties.reduce((s, p) => s + (p.opening_balance || 0), 0);
   const gd = parties.reduce((s, p) => s + p.total_debit, 0);
   const gp = parties.reduce((s, p) => s + p.total_paid, 0);
   res.json({
     parties,
+    grand_opening_balance: Math.round(gOb * 100) / 100,
     grand_total_debit: Math.round(gd * 100) / 100,
     grand_total_paid: Math.round(gp * 100) / 100,
-    grand_balance: Math.round((gd - gp) * 100) / 100
+    grand_balance: Math.round((gOb + gd - gp) * 100) / 100
   });
 }));
 

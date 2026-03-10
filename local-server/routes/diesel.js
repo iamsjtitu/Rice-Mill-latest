@@ -56,13 +56,33 @@ module.exports = function(database) {
     let txns = database.data.diesel_accounts || [];
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+
+    // Compute opening balance from previous FY per pump
+    const openingBalances = {};
+    if (req.query.kms_year) {
+      const fyParts = req.query.kms_year.split('-');
+      if (fyParts.length === 2) {
+        const prevFy = `${parseInt(fyParts[0])-1}-${parseInt(fyParts[1])-1}`;
+        let prevTxns = (database.data.diesel_accounts || []).filter(t => t.kms_year === prevFy);
+        if (req.query.season) prevTxns = prevTxns.filter(t => t.season === req.query.season);
+        for (const t of prevTxns) {
+          const pid = t.pump_id || '';
+          if (!openingBalances[pid]) openingBalances[pid] = 0;
+          if (t.txn_type === 'debit') openingBalances[pid] += t.amount || 0;
+          else if (t.txn_type === 'payment') openingBalances[pid] -= t.amount || 0;
+        }
+      }
+    }
+
     const pumps = (database.data.diesel_pumps || []).map(p => {
       const pt = txns.filter(t => t.pump_id === p.id);
       const td = pt.filter(t=>t.txn_type==='debit').reduce((s,t)=>s+t.amount,0);
       const tp = pt.filter(t=>t.txn_type==='payment').reduce((s,t)=>s+t.amount,0);
-      return { pump_id:p.id, pump_name:p.name, is_default:p.is_default||false, total_diesel:+td.toFixed(2), total_paid:+tp.toFixed(2), balance:+(td-tp).toFixed(2), txn_count:pt.filter(t=>t.txn_type==='debit').length };
+      const ob = Math.round((openingBalances[p.id] || 0) * 100) / 100;
+      return { pump_id:p.id, pump_name:p.name, is_default:p.is_default||false, opening_balance:ob, total_diesel:+td.toFixed(2), total_paid:+tp.toFixed(2), balance:+(ob+td-tp).toFixed(2), txn_count:pt.filter(t=>t.txn_type==='debit').length };
     });
-    res.json({ pumps, grand_total_diesel:+pumps.reduce((s,p)=>s+p.total_diesel,0).toFixed(2), grand_total_paid:+pumps.reduce((s,p)=>s+p.total_paid,0).toFixed(2), grand_balance:+pumps.reduce((s,p)=>s+p.balance,0).toFixed(2) });
+    const grandOb = +pumps.reduce((s,p)=>s+p.opening_balance,0).toFixed(2);
+    res.json({ pumps, grand_opening_balance:grandOb, grand_total_diesel:+pumps.reduce((s,p)=>s+p.total_diesel,0).toFixed(2), grand_total_paid:+pumps.reduce((s,p)=>s+p.total_paid,0).toFixed(2), grand_balance:+pumps.reduce((s,p)=>s+p.balance,0).toFixed(2) });
   }));
 
   router.post('/api/diesel-accounts/pay', safeSync((req, res) => {

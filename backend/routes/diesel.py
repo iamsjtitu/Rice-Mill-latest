@@ -81,26 +81,51 @@ async def get_diesel_summary(kms_year: Optional[str] = None, season: Optional[st
     txns = await db.diesel_accounts.find(query, {"_id": 0}).to_list(5000)
     pumps = await db.diesel_pumps.find({}, {"_id": 0}).to_list(100)
     
+    # Compute opening balance from previous FY per pump
+    opening_balances = {}
+    if kms_year:
+        fy_parts = kms_year.split('-')
+        if len(fy_parts) == 2:
+            try:
+                prev_fy = f"{int(fy_parts[0])-1}-{int(fy_parts[1])-1}"
+                prev_query = {"kms_year": prev_fy}
+                if season: prev_query["season"] = season
+                prev_txns = await db.diesel_accounts.find(prev_query, {"_id": 0}).to_list(5000)
+                for t in prev_txns:
+                    pid = t.get("pump_id", "")
+                    if pid not in opening_balances:
+                        opening_balances[pid] = 0
+                    if t.get("txn_type") == "debit":
+                        opening_balances[pid] += t.get("amount", 0)
+                    elif t.get("txn_type") == "payment":
+                        opening_balances[pid] -= t.get("amount", 0)
+            except (ValueError, IndexError):
+                pass
+    
     pump_summaries = []
     for pump in pumps:
         pid = pump["id"]
         pump_txns = [t for t in txns if t.get("pump_id") == pid]
         total_diesel = sum(t["amount"] for t in pump_txns if t.get("txn_type") == "debit")
         total_paid = sum(t["amount"] for t in pump_txns if t.get("txn_type") == "payment")
-        balance = round(total_diesel - total_paid, 2)
+        ob = round(opening_balances.get(pid, 0), 2)
+        balance = round(ob + total_diesel - total_paid, 2)
         pump_summaries.append({
             "pump_id": pid, "pump_name": pump["name"], "is_default": pump.get("is_default", False),
+            "opening_balance": ob,
             "total_diesel": round(total_diesel, 2), "total_paid": round(total_paid, 2), "balance": balance,
             "txn_count": len([t for t in pump_txns if t.get("txn_type") == "debit"])
         })
     
+    grand_ob = sum(p["opening_balance"] for p in pump_summaries)
     grand_diesel = sum(p["total_diesel"] for p in pump_summaries)
     grand_paid = sum(p["total_paid"] for p in pump_summaries)
     return {
         "pumps": pump_summaries,
+        "grand_opening_balance": round(grand_ob, 2),
         "grand_total_diesel": round(grand_diesel, 2),
         "grand_total_paid": round(grand_paid, 2),
-        "grand_balance": round(grand_diesel - grand_paid, 2)
+        "grand_balance": round(grand_ob + grand_diesel - grand_paid, 2)
     }
 
 # ============ DIESEL PAYMENT / SETTLEMENT ============

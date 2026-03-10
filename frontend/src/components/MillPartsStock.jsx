@@ -169,7 +169,7 @@ export default function MillPartsStock({ filters, user }) {
       </div>
 
       {/* Search bar */}
-      {(activeTab === "summary" || activeTab === "transactions" || activeTab === "partwise") && (
+      {(activeTab === "summary" || activeTab === "transactions") && (
         <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 max-w-xs">
           <Search className="w-4 h-4 text-slate-400" />
           <input value={searchPart} onChange={e => setSearchPart(e.target.value)}
@@ -223,17 +223,18 @@ export default function MillPartsStock({ filters, user }) {
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
             <Table>
               <TableHeader><TableRow className="border-slate-700">
-                {['Part Name', 'Category', 'Unit', 'Stock In', 'Used', 'Current Stock', 'Purchase ₹', 'Parties'].map(h =>
-                  <TableHead key={h} className={`text-slate-300 text-xs ${['Stock In', 'Used', 'Current Stock', 'Purchase ₹'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+                {['Part Name', 'Category', 'Unit', 'OB', 'Stock In', 'Used', 'Current Stock', 'Purchase ₹', 'Parties'].map(h =>
+                  <TableHead key={h} className={`text-slate-300 text-xs ${['OB', 'Stock In', 'Used', 'Current Stock', 'Purchase ₹'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
               </TableRow></TableHeader>
               <TableBody>
-                {loading ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-                : summary.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-8">Parts Master se pehle parts add karein</TableCell></TableRow>
+                {loading ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+                : summary.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Parts Master se pehle parts add karein</TableCell></TableRow>
                 : filteredSummary.map(s => (
                   <TableRow key={s.part_name} className={`border-slate-700 ${s.min_stock > 0 && s.current_stock < s.min_stock ? 'bg-red-900/10' : ''}`} data-testid={`stock-row-${s.part_name}`}>
                     <TableCell className="text-white font-semibold">{s.part_name} {s.min_stock > 0 && s.current_stock < s.min_stock && <AlertTriangle className="w-3 h-3 text-red-400 inline ml-1" />}</TableCell>
                     <TableCell className="text-slate-400 text-xs">{s.category}</TableCell>
                     <TableCell className="text-slate-400 text-xs">{s.unit}</TableCell>
+                    <TableCell className="text-right text-yellow-400">{s.opening_stock || 0}</TableCell>
                     <TableCell className="text-right text-emerald-400">{s.stock_in}</TableCell>
                     <TableCell className="text-right text-red-400">{s.stock_used}</TableCell>
                     <TableCell className={`text-right font-bold ${s.current_stock <= 0 ? 'text-red-400' : 'text-amber-400'}`}>{s.current_stock} {s.unit}</TableCell>

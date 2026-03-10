@@ -203,22 +203,41 @@ async def delete_advance(adv_id: str):
 
 @router.get("/staff/advance-balance/{staff_id}")
 async def get_advance_balance(staff_id: str, kms_year: Optional[str] = None, season: Optional[str] = None):
-    # Total advances given
+    # Total advances given in current FY
     q = {"staff_id": staff_id}
     if kms_year: q["kms_year"] = kms_year
     if season: q["season"] = season
     advances = await db.staff_advance.find(q, {"_id": 0}).to_list(5000)
     total_advance = sum(a.get("amount", 0) for a in advances)
 
-    # Total advance deducted from payments
+    # Total advance deducted from payments in current FY
     pq = {"staff_id": staff_id}
     if kms_year: pq["kms_year"] = kms_year
     if season: pq["season"] = season
     payments = await db.staff_payments.find(pq, {"_id": 0}).to_list(5000)
     total_deducted = sum(p.get("advance_deducted", 0) for p in payments)
 
-    return {"total_advance": round(total_advance, 2), "total_deducted": round(total_deducted, 2),
-            "balance": round(total_advance - total_deducted, 2)}
+    # Compute opening balance from previous FY
+    opening_balance = 0.0
+    if kms_year:
+        parts = kms_year.split('-')
+        if len(parts) == 2:
+            try:
+                prev_fy = f"{int(parts[0])-1}-{int(parts[1])-1}"
+                prev_adv_q = {"staff_id": staff_id, "kms_year": prev_fy}
+                if season: prev_adv_q["season"] = season
+                prev_advances = await db.staff_advance.find(prev_adv_q, {"_id": 0}).to_list(5000)
+                prev_total_adv = sum(a.get("amount", 0) for a in prev_advances)
+                prev_pay_q = {"staff_id": staff_id, "kms_year": prev_fy}
+                if season: prev_pay_q["season"] = season
+                prev_payments = await db.staff_payments.find(prev_pay_q, {"_id": 0}).to_list(5000)
+                prev_total_ded = sum(p.get("advance_deducted", 0) for p in prev_payments)
+                opening_balance = round(prev_total_adv - prev_total_ded, 2)
+            except (ValueError, IndexError):
+                pass
+
+    return {"opening_balance": opening_balance, "total_advance": round(total_advance, 2), "total_deducted": round(total_deducted, 2),
+            "balance": round(opening_balance + total_advance - total_deducted, 2)}
 
 
 # ============ SALARY CALCULATION ============
@@ -256,7 +275,7 @@ async def calculate_salary(staff_id: str, period_from: str, period_to: str,
         per_day = staff["salary_amount"] / 30
         gross_salary = round(days_worked * per_day, 2)
 
-    # Get advance balance
+    # Get advance balance (with FY carry-forward)
     adv_q = {"staff_id": staff_id}
     if kms_year: adv_q["kms_year"] = kms_year
     if season: adv_q["season"] = season
@@ -267,7 +286,26 @@ async def calculate_salary(staff_id: str, period_from: str, period_to: str,
     if season: pq["season"] = season
     payments = await db.staff_payments.find(pq, {"_id": 0}).to_list(5000)
     total_deducted = sum(p.get("advance_deducted", 0) for p in payments)
-    advance_balance = round(total_advance - total_deducted, 2)
+    
+    # Opening advance balance from previous FY
+    adv_opening = 0.0
+    if kms_year:
+        fy_parts = kms_year.split('-')
+        if len(fy_parts) == 2:
+            try:
+                prev_fy = f"{int(fy_parts[0])-1}-{int(fy_parts[1])-1}"
+                prev_adv_q = {"staff_id": staff_id, "kms_year": prev_fy}
+                if season: prev_adv_q["season"] = season
+                prev_adv = await db.staff_advance.find(prev_adv_q, {"_id": 0}).to_list(5000)
+                prev_total_adv = sum(a.get("amount", 0) for a in prev_adv)
+                prev_pay_q = {"staff_id": staff_id, "kms_year": prev_fy}
+                if season: prev_pay_q["season"] = season
+                prev_pay = await db.staff_payments.find(prev_pay_q, {"_id": 0}).to_list(5000)
+                prev_total_ded = sum(p.get("advance_deducted", 0) for p in prev_pay)
+                adv_opening = round(prev_total_adv - prev_total_ded, 2)
+            except (ValueError, IndexError):
+                pass
+    advance_balance = round(adv_opening + total_advance - total_deducted, 2)
 
     return {
         "staff": staff,
