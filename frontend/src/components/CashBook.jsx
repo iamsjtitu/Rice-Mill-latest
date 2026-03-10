@@ -454,16 +454,16 @@ const CashBook = ({ filters, user }) => {
           <table className="w-full" style={{ tableLayout: 'fixed' }}>
           <colgroup>
             {user.role === 'admin' && <col style={{ width: '32px' }} />}
-            <col style={{ width: '82px' }} />
+            <col style={{ width: '95px' }} />
+            <col style={{ width: '58px' }} />
             <col style={{ width: '60px' }} />
-            <col style={{ width: '62px' }} />
-            <col style={{ width: '12%' }} />
+            <col style={{ width: '11%' }} />
             <col style={{ width: '8%' }} />
             <col style={{ width: 'auto' }} />
             <col style={{ width: '10%' }} />
             <col style={{ width: '10%' }} />
             <col style={{ width: '10%' }} />
-            <col style={{ width: '10%' }} />
+            <col style={{ width: '9%' }} />
             <col style={{ width: '55px' }} />
           </colgroup>
           <thead><tr className="border-b border-slate-200">
@@ -501,7 +501,7 @@ const CashBook = ({ filters, user }) => {
                       className="rounded border-slate-300" data-testid={`txn-select-${t.id}`} />
                   </td>
                 )}
-                <td className="px-3 py-2.5 text-slate-800 text-xs font-medium">{fmtDate(t.date)}</td>
+                <td className="px-3 py-2.5 text-slate-800 text-xs font-medium whitespace-nowrap">{fmtDate(t.date)}</td>
                 <td className="px-3 py-2.5 text-xs">
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${t.account === 'cash' ? 'bg-green-100 text-green-700' : t.account === 'bank' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
                     {t.account === 'cash' ? 'Cash' : t.account === 'bank' ? 'Bank' : 'Ledger'}
