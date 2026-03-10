@@ -71,8 +71,13 @@ const LocalPartyAccount = ({ filters, user }) => {
   }, [filters.kms_year, filters.season, dateFrom, dateTo]);
 
   const handleSelectParty = (val) => {
-    setSelectedParty(val);
-    fetchPartyReport(val);
+    if (val === "__all__") {
+      setSelectedParty("__all__");
+      setReportData(null);
+    } else {
+      setSelectedParty(val);
+      fetchPartyReport(val);
+    }
   };
 
   const handleSettle = async () => {
@@ -191,6 +196,7 @@ const LocalPartyAccount = ({ filters, user }) => {
                     data-testid="party-search-input" />
                 </div>
               </div>
+              <SelectItem value="__all__" className="text-amber-400 font-semibold">All Parties / सभी</SelectItem>
               {filteredParties.map(p => (
                 <SelectItem key={p.party_name} value={p.party_name}>
                   <span className="flex items-center gap-2">
@@ -270,7 +276,38 @@ const LocalPartyAccount = ({ filters, user }) => {
         </div>
       )}
 
-      {selectedParty && (
+      {/* All Parties Table */}
+      {selectedParty === "__all__" && summary?.parties?.length > 0 && (
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-700 hover:bg-transparent">
+                    {['#', 'Party Name', 'Total Debit (Rs.)', 'Total Paid (Rs.)', 'Balance (Rs.)', 'Transactions'].map(h =>
+                      <TableHead key={h} className={`text-slate-300 text-xs ${['Total Debit (Rs.)', 'Total Paid (Rs.)', 'Balance (Rs.)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {summary.parties.map((p, i) => (
+                    <TableRow key={p.party_name} className="border-slate-700 cursor-pointer hover:bg-slate-700/50" onClick={() => handleSelectParty(p.party_name)}>
+                      <TableCell className="text-slate-500 text-xs">{i + 1}</TableCell>
+                      <TableCell className="text-white text-xs font-medium">{p.party_name}</TableCell>
+                      <TableCell className="text-orange-400 text-xs text-right font-medium">Rs.{(p.total_debit || 0).toLocaleString('en-IN')}</TableCell>
+                      <TableCell className="text-green-400 text-xs text-right font-medium">Rs.{(p.total_paid || 0).toLocaleString('en-IN')}</TableCell>
+                      <TableCell className={`text-xs text-right font-bold ${p.balance > 0 ? 'text-red-400' : 'text-green-400'}`}>Rs.{(p.balance || 0).toLocaleString('en-IN')}</TableCell>
+                      <TableCell className="text-slate-400 text-xs">{p.txn_count || 0}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedParty && selectedParty !== "__all__" && (
         <>
           {/* Party Header */}
           {partyInfo && (

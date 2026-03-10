@@ -475,19 +475,39 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
   const [periodFrom, setPeriodFrom] = useState("");
   const [periodTo, setPeriodTo] = useState("");
   const [calcData, setCalcData] = useState(null);
+  const [allCalcData, setAllCalcData] = useState(null);
   const [advDeduct, setAdvDeduct] = useState(0);
   const [calculating, setCalculating] = useState(false);
 
   const calculate = async () => {
-    if (!staffId || !periodFrom || !periodTo) return toast.error("Staff aur period select karein");
+    if (!periodFrom || !periodTo) return toast.error("Period select karein");
+    if (!staffId) return toast.error("Staff select karein");
+
     try {
       setCalculating(true);
-      const p = new URLSearchParams({ staff_id: staffId, period_from: periodFrom, period_to: periodTo });
-      if (filters.kms_year) p.append("kms_year", filters.kms_year);
-      if (filters.season) p.append("season", filters.season);
-      const res = await axios.get(`${API}/staff/salary-calculate?${p}`);
-      setCalcData(res.data);
-      setAdvDeduct(0);
+      if (staffId === "__all__") {
+        // Calculate for all staff
+        const results = [];
+        for (const s of staff) {
+          try {
+            const p = new URLSearchParams({ staff_id: s.id, period_from: periodFrom, period_to: periodTo });
+            if (filters.kms_year) p.append("kms_year", filters.kms_year);
+            if (filters.season) p.append("season", filters.season);
+            const res = await axios.get(`${API}/staff/salary-calculate?${p}`);
+            results.push({ ...res.data, staff_name: s.name, staff_id: s.id });
+          } catch {}
+        }
+        setAllCalcData(results);
+        setCalcData(null);
+      } else {
+        const p = new URLSearchParams({ staff_id: staffId, period_from: periodFrom, period_to: periodTo });
+        if (filters.kms_year) p.append("kms_year", filters.kms_year);
+        if (filters.season) p.append("season", filters.season);
+        const res = await axios.get(`${API}/staff/salary-calculate?${p}`);
+        setCalcData(res.data);
+        setAllCalcData(null);
+        setAdvDeduct(0);
+      }
     } catch { toast.error("Calculate nahi hua"); }
     finally { setCalculating(false); }
   };
@@ -543,9 +563,10 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
         <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div><Label className="text-xs text-slate-400">Staff</Label>
-              <Select value={staffId} onValueChange={v => { setStaffId(v); setCalcData(null); }}>
+              <Select value={staffId} onValueChange={v => { setStaffId(v); setCalcData(null); setAllCalcData(null); }}>
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-white" data-testid="pay-staff-select"><SelectValue placeholder="Select Staff" /></SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600">
+                  <SelectItem value="__all__" className="text-amber-400 font-semibold">All Staff / सभी</SelectItem>
                   {staff.map(s => <SelectItem key={s.id} value={s.id}>{s.name} ({s.salary_type === 'monthly' ? `₹${s.salary_amount}/mo` : `₹${s.salary_amount}/day`})</SelectItem>)}
                 </SelectContent>
               </Select></div>
@@ -561,6 +582,44 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
               </Button>
             </div>
           </div>
+
+          {/* All Staff Summary Table */}
+          {allCalcData && allCalcData.length > 0 && (
+            <div className="mt-3">
+              <div className="overflow-x-auto rounded-lg border border-slate-700">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-700">
+                      {['#', 'Staff Name', 'Present', 'Half', 'Holiday', 'Absent', 'Days Worked', 'Rate/Day', 'Gross Salary', 'Advance Bal.'].map(h =>
+                        <th key={h} className="text-left text-slate-300 px-3 py-2 font-medium">{h}</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allCalcData.map((d, i) => (
+                      <tr key={d.staff_id} className="border-t border-slate-700 hover:bg-slate-700/30">
+                        <td className="text-slate-500 px-3 py-2">{i + 1}</td>
+                        <td className="text-white px-3 py-2 font-medium">{d.staff_name}</td>
+                        <td className="text-emerald-400 px-3 py-2">{d.present_days}</td>
+                        <td className="text-amber-400 px-3 py-2">{d.half_days}</td>
+                        <td className="text-blue-400 px-3 py-2">{d.holidays}</td>
+                        <td className="text-red-400 px-3 py-2">{d.absents}</td>
+                        <td className="text-white px-3 py-2 font-bold">{d.days_worked}</td>
+                        <td className="text-slate-300 px-3 py-2">Rs.{d.per_day_rate}</td>
+                        <td className="text-emerald-400 px-3 py-2 font-bold">Rs.{(d.gross_salary || 0).toLocaleString('en-IN')}</td>
+                        <td className="text-orange-400 px-3 py-2">Rs.{(d.advance_balance || 0).toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 border-slate-600 bg-slate-700/50">
+                      <td colSpan={8} className="text-white px-3 py-2 font-bold text-right">Total:</td>
+                      <td className="text-emerald-400 px-3 py-2 font-bold">Rs.{allCalcData.reduce((s, d) => s + (d.gross_salary || 0), 0).toLocaleString('en-IN')}</td>
+                      <td className="text-orange-400 px-3 py-2 font-bold">Rs.{allCalcData.reduce((s, d) => s + (d.advance_balance || 0), 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {calcData && (
             <div className="mt-3 space-y-3">

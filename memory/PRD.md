@@ -18,7 +18,7 @@ Rice mill management tool ("Mill Entry System") for Navkar Agro, Jolko, Kesinga.
 └── frontend/         # React frontend (shared across all backends)
 ```
 
-## Version: 3.6.0
+## Version: 3.6.1
 
 ## What's Been Implemented
 - Full entries CRUD with auto-calculations
