@@ -700,7 +700,11 @@ const CashBook = ({ filters, user }) => {
               <Input
                 list="category-list"
                 value={form.category}
-                onChange={(e) => setForm(p => ({ ...p, category: e.target.value }))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const match = allTxns.find(t => t.category && t.category.toLowerCase() === val.toLowerCase() && t.party_type);
+                  setForm(p => ({ ...p, category: val, party_type: match ? match.party_type : "" }));
+                }}
                 placeholder="Party name likho ya select karo (e.g. Titu, Dimpy)"
                 className="border-slate-300 h-8 text-sm"
                 data-testid="cashbook-form-category"
@@ -720,18 +724,6 @@ const CashBook = ({ filters, user }) => {
                 </div>
               )}
               <p className="text-[9px] text-amber-600 mt-0.5">* Yahan jo name doge wo Party Ledger mein automatically aayega</p>
-            </div>
-            <div>
-              <Label className="text-xs text-slate-600">Party Type</Label>
-              <select value={form.party_type || ""} onChange={(e) => setForm(p => ({ ...p, party_type: e.target.value }))}
-                className="w-full border border-slate-300 h-8 text-sm rounded-md px-2 outline-none" data-testid="cashbook-form-party-type">
-                <option value="">-- Select --</option>
-                <option value="Truck">Truck</option>
-                <option value="Agent">Agent</option>
-                <option value="Local Party">Local Party</option>
-                <option value="Diesel">Diesel</option>
-                <option value="Manual">Manual</option>
-              </select>
             </div>
             <div>
               <Label className="text-xs text-slate-600">Description / विवरण</Label>
