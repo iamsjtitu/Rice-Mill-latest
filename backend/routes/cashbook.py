@@ -463,7 +463,120 @@ async def migrate_ledger_entries():
             await db.cash_transactions.insert_one(cb)
             migrated["diesel_payment"] += 1
     
-    # 4. Update existing cash_transactions that have old-style categories
+    # 4. Migrate truck entries (Jama - paddy delivered by truck, we owe them)
+    migrated["truck_jama"] = 0
+    truck_entries = await db.mill_entries.find({}, {"_id": 0}).to_list(50000)
+    truck_payments_col = await db.truck_payments.find({}, {"_id": 0}).to_list(50000)
+    tp_map = {p.get("entry_id"): p for p in truck_payments_col}
+    for entry in truck_entries:
+        entry_id = entry.get("id", "")
+        truck_no = entry.get("truck_no", "")
+        if not truck_no: continue
+        # Check if Jama entry already exists
+        existing = await db.cash_transactions.find_one({"reference": {"$regex": f"truck_entry:{entry_id[:8]}"}})
+        
+        payment_doc = tp_map.get(entry_id, {})
+        rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
+        final_qntl = round(entry.get("qntl", 0), 2)
+        cash_taken = entry.get("cash_paid", 0) or 0
+        diesel_taken = entry.get("diesel_paid", 0) or 0
+        # Calculate gross amount - use rate*qntl if rate exists, else use paid + remaining + advances
+        if rate > 0:
+            gross_amount = round(final_qntl * rate, 2)
+        elif payment_doc:
+            # Total owed = paid_amount + remaining + cash_taken + diesel_taken
+            gross_amount = round(
+                payment_doc.get("paid_amount", 0) + payment_doc.get("remaining", 0) + cash_taken + diesel_taken, 2)
+        else:
+            gross_amount = 0
+        
+        if not existing and gross_amount > 0:
+            cb = {
+                "id": str(uuid.uuid4()), "date": entry.get("date", ""),
+                "account": "ledger", "txn_type": "jama",
+                "category": truck_no, "party_type": "Truck",
+                "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{rate}/Q = Rs.{gross_amount}",
+                "amount": round(gross_amount, 2), "reference": f"truck_entry:{entry_id[:8]}",
+                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                "created_by": "migration",
+                "created_at": entry.get("created_at", datetime.now(timezone.utc).isoformat()),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(cb)
+            migrated["truck_jama"] += 1
+        
+        # Also add deductions (cash_taken, diesel_taken) as Nikasi
+        if cash_taken > 0:
+            existing_ded = await db.cash_transactions.find_one({"reference": f"truck_cash_ded:{entry_id[:8]}"})
+            if not existing_ded:
+                cb_ded = {
+                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
+                    "account": "cash", "txn_type": "nikasi",
+                    "category": truck_no, "party_type": "Truck",
+                    "description": f"Truck Cash Taken: {truck_no} - Rs.{cash_taken}",
+                    "amount": round(cash_taken, 2), "reference": f"truck_cash_ded:{entry_id[:8]}",
+                    "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                    "created_by": "migration",
+                    "created_at": entry.get("created_at", datetime.now(timezone.utc).isoformat()),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.cash_transactions.insert_one(cb_ded)
+        
+        # Diesel deduction entry
+        if diesel_taken > 0:
+            existing_dd = await db.cash_transactions.find_one({"reference": f"truck_diesel_ded:{entry_id[:8]}"})
+            if not existing_dd:
+                cb_dd = {
+                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
+                    "account": "cash", "txn_type": "nikasi",
+                    "category": truck_no, "party_type": "Truck",
+                    "description": f"Truck Diesel Advance: {truck_no} - Rs.{diesel_taken}",
+                    "amount": round(diesel_taken, 2), "reference": f"truck_diesel_ded:{entry_id[:8]}",
+                    "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                    "created_by": "migration",
+                    "created_at": entry.get("created_at", datetime.now(timezone.utc).isoformat()),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.cash_transactions.insert_one(cb_dd)
+    
+    # 5. Migrate agent entries (Jama - agent commission, we owe them)
+    migrated["agent_jama"] = 0
+    mandi_targets = await db.mandi_targets.find({}, {"_id": 0}).to_list(50000)
+    mandi_map = {m.get("mandi_name"): m for m in mandi_targets}
+    # Calculate agent commission from mill_entries
+    agent_entries = {}
+    for entry in truck_entries:
+        mandi = entry.get("mandi_name", "")
+        if not mandi: continue
+        if mandi not in agent_entries:
+            agent_entries[mandi] = {"total_qntl": 0, "entries": []}
+        agent_entries[mandi]["total_qntl"] += entry.get("qntl", 0)
+        agent_entries[mandi]["entries"].append(entry)
+    
+    for mandi, data in agent_entries.items():
+        existing = await db.cash_transactions.find_one({"reference": {"$regex": f"agent_comm:{mandi[:12]}"}})
+        if existing: continue
+        target = mandi_map.get(mandi, {})
+        base_rate = target.get("base_rate", 0)
+        comm_amount = round(data["total_qntl"] * base_rate, 2)
+        if comm_amount <= 0: continue
+        
+        last_entry = data["entries"][-1]
+        cb = {
+            "id": str(uuid.uuid4()), "date": last_entry.get("date", ""),
+            "account": "ledger", "txn_type": "jama",
+            "category": mandi, "party_type": "Agent",
+            "description": f"Agent Commission: {mandi} - {data['total_qntl']}Q @ Rs.{base_rate}/Q",
+            "amount": comm_amount, "reference": f"agent_comm:{mandi[:12]}",
+            "kms_year": last_entry.get("kms_year", ""), "season": last_entry.get("season", ""),
+            "created_by": "migration",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(cb)
+        migrated["agent_jama"] += 1
+    
+    # 6. Update existing cash_transactions that have old-style categories
     # Extract party name from description and update category
     import re
     old_style = await db.cash_transactions.find(
@@ -480,11 +593,11 @@ async def migrate_ledger_entries():
             if m: party_name = m.group(1).strip()
         elif t["category"] == "Truck Payment":
             pt = "Truck"
-            m = re.search(r"Truck Payment: (.+?) -", desc) or re.search(r"Truck Payment: (.+?) \(", desc)
+            m = re.search(r"Truck Payment: (.+?)(?:\s*-|\s*\()", desc)
             if m: party_name = m.group(1).strip()
         elif t["category"] == "Agent Payment":
             pt = "Agent"
-            m = re.search(r"Agent Payment: (.+?) -", desc) or re.search(r"Agent Payment: (.+?) \(", desc)
+            m = re.search(r"Agent Payment: (.+?)(?:\s*-|\s*\()", desc)
             if m: party_name = m.group(1).strip()
         elif t["category"] == "Diesel Payment":
             pt = "Diesel"
@@ -502,7 +615,7 @@ async def migrate_ledger_entries():
     )
     
     migrated["old_categories_fixed"] = len(old_style)
-    migrated["total"] = migrated["local_party_debit"] + migrated["local_party_payment"] + migrated["diesel_payment"] + len(old_style)
+    migrated["total"] = migrated["local_party_debit"] + migrated["local_party_payment"] + migrated["diesel_payment"] + migrated["truck_jama"] + migrated["agent_jama"] + len(old_style)
     return {"success": True, "migrated": migrated}
 
 

@@ -918,7 +918,7 @@ function MainApp({ user, onLogout }) {
   const hasActiveFilters = filters.truck_no || filters.rst_no || filters.tp_no || filters.agent_name || filters.mandi_name || filters.season || filters.date_from || filters.date_to;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" data-theme={theme}>
+    <div className={`min-h-screen ${theme === 'light' ? 'bg-gradient-to-br from-slate-100 via-white to-slate-50' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'}`} data-theme={theme}>
       <Toaster position="top-right" richColors />
       
       {/* Header */}
