@@ -95,7 +95,7 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
     if truck_no and mandi_name:
         # Find all entries with same truck_no + mandi_name
         matching = await db.mill_entries.find(
-            {"truck_no": truck_no, "mandi_name": {"$regex": f"^{mandi_name}$", "$options": "i"}}, {"_id": 0, "id": 1}
+            {"truck_no": truck_no, "mandi_name": {"$regex": f"^{mandi_name}$", "$options": "i"}}, {"_id": 0}
         ).to_list(None)
         for m in matching:
             await db.truck_payments.update_one(
@@ -103,6 +103,21 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
                 {"$set": {"entry_id": m["id"], "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
                 upsert=True
             )
+            # Update Jama ledger entry with new rate
+            final_qntl = round(m.get("qntl", 0) - m.get("bag", 0) / 100, 2)
+            if final_qntl > 0:
+                new_gross = round(final_qntl * request.rate_per_qntl, 2)
+                cash_taken = float(m.get("cash_paid", 0) or 0)
+                diesel_taken = float(m.get("diesel_paid", 0) or 0)
+                deductions = cash_taken + diesel_taken
+                await db.cash_transactions.update_one(
+                    {"linked_entry_id": m["id"], "reference": {"$regex": "^truck_entry:"}},
+                    {"$set": {
+                        "amount": new_gross,
+                        "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{request.rate_per_qntl}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
         updated_count = len(matching)
     else:
         await db.truck_payments.update_one(

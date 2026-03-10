@@ -36,6 +36,49 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
     
     await db.mill_entries.insert_one(doc)
     
+    truck_no = doc.get("truck_no", "")
+    
+    # Auto Jama (Ledger) entry for truck purchase - what we owe the truck
+    final_qntl = round(doc.get("qntl", 0) - doc.get("bag", 0) / 100, 2)
+    if final_qntl > 0 and truck_no:
+        # Look up rate from existing truck_payments for same truck_no + mandi
+        existing_rate_doc = await db.truck_payments.find_one(
+            {"entry_id": {"$in": [e["id"] async for e in db.mill_entries.find({"truck_no": truck_no, "mandi_name": doc.get("mandi_name", "")}, {"_id": 0, "id": 1})]}},
+            {"_id": 0, "rate_per_qntl": 1}
+        ) if truck_no else None
+        rate = existing_rate_doc.get("rate_per_qntl", 32) if existing_rate_doc else 32
+        gross_amount = round(final_qntl * rate, 2)
+        
+        cash_taken = float(doc.get("cash_paid", 0) or 0)
+        diesel_taken = float(doc.get("diesel_paid", 0) or 0)
+        deductions = cash_taken + diesel_taken
+        
+        jama_entry = {
+            "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "account": "ledger", "txn_type": "jama", "category": truck_no,
+            "party_type": "Truck",
+            "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{rate}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
+            "amount": round(gross_amount, 2), "reference": f"truck_entry:{doc['id'][:8]}",
+            "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+            "created_by": username or "system", "linked_entry_id": doc["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(jama_entry)
+        
+        # Also create Nikasi ledger entry for diesel deduction (counted against truck)
+        if diesel_taken > 0:
+            diesel_ded = {
+                "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                "account": "ledger", "txn_type": "nikasi", "category": truck_no,
+                "party_type": "Truck",
+                "description": f"Truck Diesel Advance: {truck_no} - Rs.{diesel_taken}",
+                "amount": round(diesel_taken, 2), "reference": f"truck_diesel_ded:{doc['id'][:8]}",
+                "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+                "created_by": username or "system", "linked_entry_id": doc["id"],
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(diesel_ded)
+    
     # Auto Cash Book entry for cash_paid
     cash_paid = float(doc.get("cash_paid", 0) or 0)
     if cash_paid > 0:
@@ -345,8 +388,47 @@ async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = ""
         {"$set": merged_data}
     )
     
-    # Update auto cash book entry for cash_paid
+    # Update auto cash book entries for this entry (delete all and recreate)
     await db.cash_transactions.delete_many({"linked_entry_id": entry_id})
+    
+    truck_no = merged_data.get("truck_no", "")
+    
+    # Recreate Jama (Ledger) entry for truck purchase
+    final_qntl = round(merged_data.get("qntl", 0) - merged_data.get("bag", 0) / 100, 2)
+    if final_qntl > 0 and truck_no:
+        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+        gross_amount = round(final_qntl * rate, 2)
+        cash_taken = float(merged_data.get("cash_paid", 0) or 0)
+        diesel_taken = float(merged_data.get("diesel_paid", 0) or 0)
+        deductions = cash_taken + diesel_taken
+        
+        jama_entry = {
+            "id": str(uuid.uuid4()), "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "account": "ledger", "txn_type": "jama", "category": truck_no,
+            "party_type": "Truck",
+            "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{rate}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
+            "amount": round(gross_amount, 2), "reference": f"truck_entry:{entry_id[:8]}",
+            "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
+            "created_by": username or "system", "linked_entry_id": entry_id,
+            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(jama_entry)
+        
+        if diesel_taken > 0:
+            diesel_ded = {
+                "id": str(uuid.uuid4()), "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                "account": "ledger", "txn_type": "nikasi", "category": truck_no,
+                "party_type": "Truck",
+                "description": f"Truck Diesel Advance: {truck_no} - Rs.{diesel_taken}",
+                "amount": round(diesel_taken, 2), "reference": f"truck_diesel_ded:{entry_id[:8]}",
+                "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
+                "created_by": username or "system", "linked_entry_id": entry_id,
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(diesel_ded)
+    
+    # Recreate Cash Book Nikasi entry for cash_paid
     cash_paid = float(merged_data.get("cash_paid", 0) or 0)
     if cash_paid > 0:
         cb = {
