@@ -165,6 +165,27 @@ async def add_manual_purchase(request: Request):
     }
     await db.local_party_accounts.insert_one(doc)
     doc.pop("_id", None)
+
+    # Auto create Cash Book Jama entry (purchase from local party)
+    cb = {
+        "id": str(uuid.uuid4()),
+        "date": doc["date"],
+        "account": "ledger",
+        "txn_type": "jama",
+        "category": party_name,
+        "party_type": "Local Party",
+        "description": f"Purchase: {party_name} - {data.get('description', 'Manual Purchase')} Rs.{amount}",
+        "amount": round(amount, 2),
+        "reference": f"lp_purchase:{doc['id'][:8]}",
+        "kms_year": data.get("kms_year", ""),
+        "season": data.get("season", ""),
+        "created_by": data.get("created_by", "system"),
+        "linked_local_party_id": doc["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.cash_transactions.insert_one(cb)
+
     return doc
 
 
@@ -206,7 +227,8 @@ async def settle_local_party(request: Request):
         "date": date,
         "account": "cash",
         "txn_type": "nikasi",
-        "category": "Local Party Payment",
+        "category": party_name,
+        "party_type": "Local Party",
         "description": f"Local Party Payment: {party_name} - Rs.{amount}" + (f" ({notes})" if notes else ""),
         "amount": round(amount, 2),
         "reference": f"local_party:{pay_txn['id'][:8]}",

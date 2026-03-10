@@ -83,6 +83,20 @@ async def create_stock_entry(data: dict):
         }
         await db.local_party_accounts.insert_one(lp)
 
+        # Auto create Cash Book Jama entry (purchase from local party via mill part)
+        cb = {
+            "id": str(uuid.uuid4()), "date": doc["date"],
+            "account": "ledger", "txn_type": "jama",
+            "category": doc["party_name"], "party_type": "Local Party",
+            "description": f"Mill Part: {doc['part_name']} x{doc['quantity']} @ Rs.{doc['rate']} - {doc['party_name']}",
+            "amount": doc["total_amount"], "reference": f"lp_mill_part:{doc['id'][:8]}",
+            "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+            "created_by": doc.get("created_by", "system"), "linked_local_party_id": lp["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(cb)
+
     return doc
 
 @router.get("/mill-parts-stock")
@@ -146,6 +160,22 @@ async def update_stock_entry(entry_id: str, data: dict):
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.local_party_accounts.insert_one(lp)
+
+        # Auto create Cash Book Jama entry
+        cb = {
+            "id": str(uuid.uuid4()), "date": update["date"],
+            "account": "ledger", "txn_type": "jama",
+            "category": update["party_name"], "party_type": "Local Party",
+            "description": f"Mill Part: {update['part_name']} x{update['quantity']} @ Rs.{update['rate']} - {update['party_name']}",
+            "amount": update["total_amount"], "reference": f"lp_mill_part:{entry_id[:8]}",
+            "kms_year": data.get("kms_year", existing.get("kms_year", "")),
+            "season": data.get("season", existing.get("season", "")),
+            "created_by": data.get("created_by", "system"), "linked_local_party_id": lp["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(cb)
+
     updated = await db.mill_parts_stock.find_one({"id": entry_id}, {"_id": 0})
     return updated
 

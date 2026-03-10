@@ -163,7 +163,8 @@ async def make_diesel_payment(request: Request, username: str = "", role: str = 
     # Auto create Cash Book entry (Nikasi)
     cb = {
         "id": str(uuid.uuid4()), "date": date,
-        "account": "cash", "txn_type": "nikasi", "category": "Diesel Payment",
+        "account": "cash", "txn_type": "nikasi", "category": pump['name'],
+        "party_type": "Diesel",
         "description": f"Diesel Payment: {pump['name']} - Rs.{amount}" + (f" ({notes})" if notes else ""),
         "amount": round(amount, 2), "reference": f"diesel_pay:{pay_txn['id'][:8]}",
         "kms_year": kms_year, "season": season,

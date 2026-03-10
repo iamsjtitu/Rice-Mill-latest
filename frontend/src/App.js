@@ -590,12 +590,6 @@ function MainApp({ user, onLogout }) {
         setActiveTab("dctracker");
         toast.info("DC Tracker (Alt+T)");
       }
-      // Alt + L: Go to Ledgers tab
-      if (e.altKey && e.key === 'l') {
-        e.preventDefault();
-        setActiveTab("ledgers");
-        toast.info("Ledgers Tab (Alt+L)");
-      }
       // Alt + O: Go to Reports tab
       if (e.altKey && e.key === 'o') {
         e.preventDefault();
@@ -1044,7 +1038,7 @@ function MainApp({ user, onLogout }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+B</kbd>
-                    <span className="text-slate-300">Cash Book</span>
+                    <span className="text-slate-300">Cash Book / Ledgers</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+T</kbd>
@@ -1053,10 +1047,6 @@ function MainApp({ user, onLogout }) {
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+O</kbd>
                     <span className="text-slate-300">Reports</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+L</kbd>
-                    <span className="text-slate-300">Ledgers</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+G</kbd>
@@ -1264,7 +1254,7 @@ function MainApp({ user, onLogout }) {
               data-testid="tab-cashbook"
             >
               <Wallet className="w-4 h-4 mr-1" />
-              Cash Book
+              Cash Book / Ledgers
             </Button>
             <Button
               onClick={() => setActiveTab("dctracker")}
@@ -1289,18 +1279,6 @@ function MainApp({ user, onLogout }) {
             >
               <BarChart3 className="w-4 h-4 mr-1" />
               Reports
-            </Button>
-            <Button
-              onClick={() => setActiveTab("ledgers")}
-              variant={activeTab === "ledgers" ? "default" : "ghost"}
-              size="sm"
-              className={activeTab === "ledgers" 
-                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
-                : "text-slate-300 hover:bg-slate-700"}
-              data-testid="tab-ledgers"
-            >
-              <FileSpreadsheet className="w-4 h-4 mr-1" />
-              Ledgers
             </Button>
             <Button
               onClick={() => setActiveTab("private-trading")}
@@ -1950,8 +1928,6 @@ function MainApp({ user, onLogout }) {
           <DCTracker filters={filters} user={user} />
         ) : activeTab === "reports" ? (
           <Reports filters={filters} user={user} />
-        ) : activeTab === "ledgers" ? (
-          <Ledgers filters={filters} user={user} />
         ) : activeTab === "private-trading" ? (
           <PrivateTrading filters={filters} user={user} />
         ) : activeTab === "mill-parts" ? (

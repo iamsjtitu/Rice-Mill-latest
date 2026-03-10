@@ -45,10 +45,10 @@ const CashBook = ({ filters, user }) => {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], account: "cash", txn_type: "jama",
-    category: "", description: "", amount: "", reference: "",
+    category: "", party_type: "", description: "", amount: "", reference: "",
     kms_year: CURRENT_KMS_YEAR, season: "Kharif",
   });
-  const [txnFilters, setTxnFilters] = useState({ account: "", txn_type: "", category: "", date_from: "", date_to: "" });
+  const [txnFilters, setTxnFilters] = useState({ account: "", txn_type: "", category: "", party_type: "", date_from: "", date_to: "" });
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -69,6 +69,7 @@ const CashBook = ({ filters, user }) => {
       if (txnFilters.account) params.append('account', txnFilters.account);
       if (txnFilters.txn_type) params.append('txn_type', txnFilters.txn_type);
       if (txnFilters.category) params.append('category', txnFilters.category);
+      if (txnFilters.party_type) params.append('party_type', txnFilters.party_type);
       if (txnFilters.date_from) params.append('date_from', txnFilters.date_from);
       if (txnFilters.date_to) params.append('date_to', txnFilters.date_to);
       // Also fetch unfiltered list for category dropdown
@@ -109,7 +110,7 @@ const CashBook = ({ filters, user }) => {
       setIsDialogOpen(false);
       setEditingId(null);
       setForm({ date: new Date().toISOString().split('T')[0], account: "cash", txn_type: "jama",
-        category: "", description: "", amount: "", reference: "",
+        category: "", party_type: "", description: "", amount: "", reference: "",
         kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif" });
       fetchData();
     } catch (error) { toast.error("Error: " + (error.response?.data?.detail || error.message)); }
@@ -119,7 +120,7 @@ const CashBook = ({ filters, user }) => {
     setEditingId(t.id);
     setForm({
       date: t.date || "", account: t.account || "cash", txn_type: t.txn_type || "jama",
-      category: t.category || "", description: t.description || "",
+      category: t.category || "", party_type: t.party_type || "", description: t.description || "",
       amount: String(t.amount || ""), reference: t.reference || "",
       kms_year: t.kms_year || CURRENT_KMS_YEAR, season: t.season || "Kharif",
     });
@@ -272,7 +273,7 @@ const CashBook = ({ filters, user }) => {
               <Button onClick={() => {
                 setEditingId(null);
                 setForm({ date: new Date().toISOString().split('T')[0], account: "cash", txn_type: "jama",
-                  category: "", description: "", amount: "", reference: "",
+                  category: "", party_type: "", description: "", amount: "", reference: "",
                   kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif" });
                 setIsDialogOpen(true);
               }} className="bg-amber-500 hover:bg-amber-600 text-slate-900 w-full" size="sm" data-testid="cashbook-add-btn">
@@ -296,14 +297,10 @@ const CashBook = ({ filters, user }) => {
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
-        <Button onClick={() => setShowFilters(!showFilters)} variant="outline" size="sm"
-          className={showFilters ? "border-amber-500 text-amber-400" : "border-slate-600 text-slate-300 hover:bg-slate-700"}>
-          <Filter className="w-4 h-4 mr-1" /> Filter
-        </Button>
       </div>
 
-      {showFilters && (
-        <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
+      {/* Permanent Filter Section */}
+      <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
           <div className="flex gap-3 flex-wrap items-end">
             <div>
               <Label className="text-xs text-slate-400">Account</Label>
@@ -313,6 +310,7 @@ const CashBook = ({ filters, user }) => {
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="cash">Cash</SelectItem>
                   <SelectItem value="bank">Bank</SelectItem>
+                  <SelectItem value="ledger">Ledger</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -328,12 +326,22 @@ const CashBook = ({ filters, user }) => {
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-slate-400">Category</Label>
+              <Label className="text-xs text-slate-400">Select Party / पार्टी</Label>
               <select value={txnFilters.category} onChange={(e) => setTxnFilters(p => ({ ...p, category: e.target.value }))}
                 className="w-44 bg-slate-700 border border-slate-600 text-white h-8 text-xs rounded-md px-2 outline-none" data-testid="cashbook-filter-category">
-                <option value="">All Categories</option>
+                <option value="">All Parties</option>
                 {allCategoriesForFilter.map(c => (
                   <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-400">Party Type</Label>
+              <select value={txnFilters.party_type} onChange={(e) => setTxnFilters(p => ({ ...p, party_type: e.target.value }))}
+                className="w-36 bg-slate-700 border border-slate-600 text-white h-8 text-xs rounded-md px-2 outline-none" data-testid="cashbook-filter-party-type">
+                <option value="">All Types</option>
+                {[...new Set(allTxns.map(t => t.party_type).filter(Boolean))].sort().map(pt => (
+                  <option key={pt} value={pt}>{pt}</option>
                 ))}
               </select>
             </div>
@@ -345,10 +353,9 @@ const CashBook = ({ filters, user }) => {
               <Label className="text-xs text-slate-400">To</Label>
               <Input type="date" value={txnFilters.date_to} onChange={(e) => setTxnFilters(p => ({ ...p, date_to: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-36" />
             </div>
-            <Button onClick={() => setTxnFilters({ account: "", txn_type: "", category: "", date_from: "", date_to: "" })} variant="ghost" size="sm" className="text-slate-400 h-8" data-testid="cashbook-filter-clear"><X className="w-3 h-3 mr-1" /> Clear</Button>
+            <Button onClick={() => setTxnFilters({ account: "", txn_type: "", category: "", party_type: "", date_from: "", date_to: "" })} variant="ghost" size="sm" className="text-slate-400 h-8" data-testid="cashbook-filter-clear"><X className="w-3 h-3 mr-1" /> Clear</Button>
           </div>
         </CardContent></Card>
-      )}
 
       {/* Transactions Table */}
       <Card className="bg-white border-slate-200 shadow-sm">
@@ -370,7 +377,7 @@ const CashBook = ({ filters, user }) => {
                   className="rounded border-slate-300" data-testid="cashbook-select-all" />
               </TableHead>
             )}
-            {['Date', 'Account', 'Type', 'Category', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Balance (₹)', 'Reference', ''].map(h =>
+            {['Date', 'Account', 'Type', 'Party / पार्टी', 'Party Type', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Balance (₹)', 'Reference', ''].map(h =>
               <TableHead key={h} className={`text-slate-600 text-xs ${['Jama (₹)', 'Nikasi (₹)', 'Balance (₹)'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
           </TableRow></TableHeader>
           <TableBody>
@@ -394,8 +401,8 @@ const CashBook = ({ filters, user }) => {
                   </TableCell>
                 )}                <TableCell className="text-slate-800 text-xs font-medium">{fmtDate(t.date)}</TableCell>
                 <TableCell className="text-xs">
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${t.account === 'cash' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                    {t.account === 'cash' ? 'Cash' : 'Bank'}
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${t.account === 'cash' ? 'bg-green-100 text-green-700' : t.account === 'bank' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                    {t.account === 'cash' ? 'Cash' : t.account === 'bank' ? 'Bank' : 'Ledger'}
                   </span>
                 </TableCell>
                 <TableCell className="text-xs">
@@ -404,7 +411,16 @@ const CashBook = ({ filters, user }) => {
                     {t.txn_type === 'jama' ? 'Jama' : 'Nikasi'}
                   </span>
                 </TableCell>
-                <TableCell className="text-slate-700 text-xs">{t.category}</TableCell>
+                <TableCell className="text-slate-700 text-xs font-semibold">{t.category}</TableCell>
+                <TableCell className="text-xs">
+                  {t.party_type && <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    t.party_type === 'Truck' ? 'bg-blue-100 text-blue-700' :
+                    t.party_type === 'Agent' ? 'bg-purple-100 text-purple-700' :
+                    t.party_type === 'Local Party' ? 'bg-amber-100 text-amber-700' :
+                    t.party_type === 'Diesel' ? 'bg-orange-100 text-orange-700' :
+                    'bg-slate-100 text-slate-600'
+                  }`}>{t.party_type}</span>}
+                </TableCell>
                 <TableCell className="text-slate-600 text-xs max-w-[120px] truncate">{t.description}</TableCell>
                 <TableCell className="text-right text-xs font-medium text-green-700">
                   {t.txn_type === 'jama' ? `₹${t.amount.toLocaleString('en-IN')}` : '-'}
@@ -540,6 +556,18 @@ const CashBook = ({ filters, user }) => {
                 </div>
               )}
               <p className="text-[9px] text-amber-600 mt-0.5">* Yahan jo name doge wo Party Ledger mein automatically aayega</p>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-600">Party Type</Label>
+              <select value={form.party_type || ""} onChange={(e) => setForm(p => ({ ...p, party_type: e.target.value }))}
+                className="w-full border border-slate-300 h-8 text-sm rounded-md px-2 outline-none" data-testid="cashbook-form-party-type">
+                <option value="">-- Select --</option>
+                <option value="Truck">Truck</option>
+                <option value="Agent">Agent</option>
+                <option value="Local Party">Local Party</option>
+                <option value="Diesel">Diesel</option>
+                <option value="Manual">Manual</option>
+              </select>
             </div>
             <div>
               <Label className="text-xs text-slate-600">Description / विवरण</Label>

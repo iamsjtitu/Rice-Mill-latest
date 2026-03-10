@@ -20,7 +20,7 @@ const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) |
 const API = `${BACKEND_URL}/api`;
 
 // ===== Outstanding Report =====
-const OutstandingReport = ({ filters }) => {
+export const OutstandingReport = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 

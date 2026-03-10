@@ -447,6 +447,20 @@ async def add_gunny_bag_entry(entry: GunnyBagEntry, username: str = ""):
         }
         await db.local_party_accounts.insert_one(lp)
 
+        # Auto Cash Book Jama entry for gunny bag purchase
+        cb = {
+            "id": str(uuid.uuid4()), "date": d.get("date", ""),
+            "account": "ledger", "txn_type": "jama",
+            "category": d["source"], "party_type": "Local Party",
+            "description": f"Gunny Bags (Old) x{d['quantity']} @ Rs.{d['rate']} - {d['source']}",
+            "amount": d["amount"], "reference": f"lp_gunny:{d['id'][:8]}",
+            "kms_year": d.get("kms_year", ""), "season": d.get("season", ""),
+            "created_by": username or "system", "linked_local_party_id": lp["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(cb)
+
     return d
 
 
@@ -499,6 +513,22 @@ async def update_gunny_bag_entry(entry_id: str, entry: GunnyBagEntry, username: 
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.local_party_accounts.insert_one(lp)
+
+        # Auto Cash Book Jama entry for gunny bag purchase (update)
+        await db.cash_transactions.delete_many({"reference": f"lp_gunny:{entry_id[:8]}"})
+        cb = {
+            "id": str(uuid.uuid4()), "date": d.get("date", ""),
+            "account": "ledger", "txn_type": "jama",
+            "category": d["source"], "party_type": "Local Party",
+            "description": f"Gunny Bags (Old) x{d['quantity']} @ Rs.{d['rate']} - {d['source']}",
+            "amount": d["amount"], "reference": f"lp_gunny:{entry_id[:8]}",
+            "kms_year": d.get("kms_year", existing.get("kms_year", "")),
+            "season": d.get("season", existing.get("season", "")),
+            "created_by": username or "system", "linked_local_party_id": lp["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(cb)
 
     updated = await db.gunny_bags.find_one({"id": entry_id}, {"_id": 0})
     return updated

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel } from "lucide-react";
+import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel, ClipboardList } from "lucide-react";
+import { OutstandingReport } from "@/components/Ledgers";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -695,6 +696,7 @@ const Reports = ({ filters, user }) => {
           { id: "cmr-dc", label: "CMR vs DC", icon: Scale },
           { id: "pnl", label: "Season P&L", icon: BarChart3 },
           { id: "daily", label: "Daily Report", icon: CalendarDays },
+          { id: "outstanding", label: "Outstanding", icon: ClipboardList },
         ].map(({ id, label, icon: Icon }) => (
           <Button key={id} onClick={() => setActiveReport(id)} variant={activeReport === id ? "default" : "ghost"} size="sm"
             className={activeReport === id ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white hover:bg-slate-700"}
@@ -706,6 +708,7 @@ const Reports = ({ filters, user }) => {
       {activeReport === "cmr-dc" && <CMRvsDC filters={filters} />}
       {activeReport === "pnl" && <SeasonPnL filters={filters} />}
       {activeReport === "daily" && <DailyReport filters={filters} />}
+      {activeReport === "outstanding" && <OutstandingReport filters={filters} />}
     </div>
   );
 };

@@ -17,9 +17,10 @@ class CashTransaction(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     date: str
-    account: str  # "cash" or "bank"
+    account: str  # "cash", "bank", or "ledger"
     txn_type: str  # "jama" (credit/in) or "nikasi" (debit/out)
-    category: str = ""
+    category: str = ""  # Party name
+    party_type: str = ""  # "Truck", "Agent", "Local Party", "Diesel", "Manual"
     description: str = ""
     amount: float = 0
     reference: str = ""
@@ -43,14 +44,15 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
 @router.get("/cash-book")
 async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional[str] = None,
                                  account: Optional[str] = None, txn_type: Optional[str] = None,
-                                 category: Optional[str] = None, date_from: Optional[str] = None,
-                                 date_to: Optional[str] = None):
+                                 category: Optional[str] = None, party_type: Optional[str] = None,
+                                 date_from: Optional[str] = None, date_to: Optional[str] = None):
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if account: query["account"] = account
     if txn_type: query["txn_type"] = txn_type
     if category: query["category"] = category
+    if party_type: query["party_type"] = party_type
     if date_from or date_to:
         date_q = {}
         if date_from: date_q["$gte"] = date_from
@@ -212,6 +214,116 @@ async def delete_cash_book_category(cat_id: str):
     return {"message": "Category deleted", "id": cat_id}
 
 
+@router.post("/cash-book/migrate-ledger-entries")
+async def migrate_ledger_entries():
+    """Migrate old local_party, truck, agent, diesel entries to cash_transactions"""
+    migrated = {"local_party_debit": 0, "local_party_payment": 0, "diesel_payment": 0, "total": 0}
+    
+    # 1. Migrate local_party debit entries (purchase side - Jama)
+    lp_debits = await db.local_party_accounts.find({"txn_type": "debit"}, {"_id": 0}).to_list(50000)
+    for t in lp_debits:
+        existing = await db.cash_transactions.find_one({"linked_local_party_id": t["id"], "txn_type": "jama"})
+        if not existing:
+            cb = {
+                "id": str(uuid.uuid4()), "date": t.get("date", ""),
+                "account": "ledger", "txn_type": "jama",
+                "category": t.get("party_name", ""), "party_type": "Local Party",
+                "description": f"Purchase: {t.get('party_name','')} - {t.get('description','')} Rs.{t.get('amount',0)}",
+                "amount": round(t.get("amount", 0), 2),
+                "reference": f"lp_migrate:{t['id'][:8]}",
+                "kms_year": t.get("kms_year", ""), "season": t.get("season", ""),
+                "created_by": "migration", "linked_local_party_id": t["id"],
+                "created_at": t.get("created_at", datetime.now(timezone.utc).isoformat()),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(cb)
+            migrated["local_party_debit"] += 1
+    
+    # 2. Migrate local_party payment entries that don't have linked cash_transactions
+    lp_payments = await db.local_party_accounts.find({"txn_type": "payment"}, {"_id": 0}).to_list(50000)
+    for t in lp_payments:
+        existing = await db.cash_transactions.find_one({"linked_local_party_id": t["id"], "txn_type": "nikasi"})
+        if not existing:
+            cb = {
+                "id": str(uuid.uuid4()), "date": t.get("date", ""),
+                "account": "cash", "txn_type": "nikasi",
+                "category": t.get("party_name", ""), "party_type": "Local Party",
+                "description": f"Local Party Payment: {t.get('party_name','')} - Rs.{t.get('amount',0)}",
+                "amount": round(t.get("amount", 0), 2),
+                "reference": f"lp_pay_migrate:{t['id'][:8]}",
+                "kms_year": t.get("kms_year", ""), "season": t.get("season", ""),
+                "created_by": "migration", "linked_local_party_id": t["id"],
+                "created_at": t.get("created_at", datetime.now(timezone.utc).isoformat()),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(cb)
+            migrated["local_party_payment"] += 1
+    
+    # 3. Migrate diesel payment entries that don't have linked cash_transactions
+    diesel_payments = await db.diesel_accounts.find({"txn_type": "payment"}, {"_id": 0}).to_list(50000)
+    for t in diesel_payments:
+        existing = await db.cash_transactions.find_one({"linked_diesel_payment_id": t["id"]})
+        if not existing:
+            pump = await db.diesel_pumps.find_one({"id": t.get("pump_id")}, {"_id": 0})
+            pump_name = pump["name"] if pump else t.get("pump_id", "")
+            cb = {
+                "id": str(uuid.uuid4()), "date": t.get("date", ""),
+                "account": "cash", "txn_type": "nikasi",
+                "category": pump_name, "party_type": "Diesel",
+                "description": f"Diesel Payment: {pump_name} - Rs.{t.get('amount',0)}",
+                "amount": round(t.get("amount", 0), 2),
+                "reference": f"diesel_migrate:{t['id'][:8]}",
+                "kms_year": t.get("kms_year", ""), "season": t.get("season", ""),
+                "created_by": "migration", "linked_diesel_payment_id": t["id"],
+                "created_at": t.get("created_at", datetime.now(timezone.utc).isoformat()),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(cb)
+            migrated["diesel_payment"] += 1
+    
+    # 4. Update existing cash_transactions that have old-style categories
+    # Extract party name from description and update category
+    import re
+    old_style = await db.cash_transactions.find(
+        {"category": {"$in": ["Local Party Payment", "Truck Payment", "Agent Payment", "Diesel Payment"]}},
+        {"_id": 0}
+    ).to_list(50000)
+    for t in old_style:
+        party_name = t.get("category", "")
+        pt = ""
+        desc = t.get("description", "")
+        if t["category"] == "Local Party Payment":
+            pt = "Local Party"
+            m = re.search(r"Local Party Payment: (.+?) -", desc)
+            if m: party_name = m.group(1).strip()
+        elif t["category"] == "Truck Payment":
+            pt = "Truck"
+            m = re.search(r"Truck Payment: (.+?) -", desc) or re.search(r"Truck Payment: (.+?) \(", desc)
+            if m: party_name = m.group(1).strip()
+        elif t["category"] == "Agent Payment":
+            pt = "Agent"
+            m = re.search(r"Agent Payment: (.+?) -", desc) or re.search(r"Agent Payment: (.+?) \(", desc)
+            if m: party_name = m.group(1).strip()
+        elif t["category"] == "Diesel Payment":
+            pt = "Diesel"
+            m = re.search(r"Diesel Payment: (.+?) -", desc)
+            if m: party_name = m.group(1).strip()
+        await db.cash_transactions.update_one(
+            {"id": t["id"]},
+            {"$set": {"category": party_name, "party_type": pt}}
+        )
+    
+    # Also set party_type for entries that have it empty
+    await db.cash_transactions.update_many(
+        {"party_type": {"$exists": False}},
+        {"$set": {"party_type": ""}}
+    )
+    
+    migrated["old_categories_fixed"] = len(old_style)
+    migrated["total"] = migrated["local_party_debit"] + migrated["local_party_payment"] + migrated["diesel_payment"] + len(old_style)
+    return {"success": True, "migrated": migrated}
+
+
 @router.get("/cash-book/excel")
 async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optional[str] = None,
                                   account: Optional[str] = None):
@@ -233,7 +345,7 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     
     title = "Daily Cash Book / रोज़नामचा"
     if kms_year: title += f" - KMS {kms_year}"
-    ws.merge_cells('A1:I1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A1:J1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
     
     # Summary section
     ws.cell(row=3, column=1, value="Summary").font = Font(bold=True, size=11)
@@ -253,7 +365,7 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     row = 9
     ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11)
     row += 1
-    for col, h in enumerate(['Date', 'Account', 'Type', 'Category', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Balance (₹)', 'Reference'], 1):
+    for col, h in enumerate(['Date', 'Account', 'Type', 'Party / पार्टी', 'Party Type', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Balance (₹)', 'Reference'], 1):
         c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
     row += 1
     run_bal = 0
@@ -261,18 +373,19 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
         jama = t['amount'] if t['txn_type'] == 'jama' else 0
         nikasi = t['amount'] if t['txn_type'] == 'nikasi' else 0
         run_bal += jama - nikasi
-        for col, v in enumerate([t.get('date',''), 'Cash' if t.get('account')=='cash' else 'Bank',
+        acct_label = 'Ledger' if t.get('account') == 'ledger' else ('Cash' if t.get('account') == 'cash' else 'Bank')
+        for col, v in enumerate([t.get('date',''), acct_label,
             'Jama' if t.get('txn_type')=='jama' else 'Nikasi',
-            t.get('category',''), t.get('description',''), jama, nikasi, round(run_bal, 2), t.get('reference','')], 1):
+            t.get('category',''), t.get('party_type',''), t.get('description',''), jama, nikasi, round(run_bal, 2), t.get('reference','')], 1):
             c = ws.cell(row=row, column=col, value=v); c.border = tb
-            if col in [6,7,8]: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
+            if col in [7,8,9]: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
         row += 1
     
     ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=6, value=round(sum(t['amount'] for t in txns if t['txn_type']=='jama'),2)).font = Font(bold=True)
-    ws.cell(row=row, column=7, value=round(sum(t['amount'] for t in txns if t['txn_type']=='nikasi'),2)).font = Font(bold=True)
-    ws.cell(row=row, column=8, value=round(run_bal, 2)).font = Font(bold=True)
-    for letter in ['A','B','C','D','E','F','G','H','I']: ws.column_dimensions[letter].width = 16
+    ws.cell(row=row, column=7, value=round(sum(t['amount'] for t in txns if t['txn_type']=='jama'),2)).font = Font(bold=True)
+    ws.cell(row=row, column=8, value=round(sum(t['amount'] for t in txns if t['txn_type']=='nikasi'),2)).font = Font(bold=True)
+    ws.cell(row=row, column=9, value=round(run_bal, 2)).font = Font(bold=True)
+    for letter in ['A','B','C','D','E','F','G','H','I','J']: ws.column_dimensions[letter].width = 16
     
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -318,7 +431,7 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     
     # Transactions table
     elements.append(Paragraph("Transactions", styles['Heading2'])); elements.append(Spacer(1, 6))
-    data = [['Date', 'Account', 'Type', 'Category', 'Description', 'Jama(Rs)', 'Nikasi(Rs)', 'Balance(Rs)', 'Ref']]
+    data = [['Date', 'Account', 'Type', 'Party', 'Party Type', 'Description', 'Jama(Rs)', 'Nikasi(Rs)', 'Balance(Rs)']]
     tj = tn = 0
     run_bal = 0
     for t in txns:
@@ -326,16 +439,17 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
         nikasi = t['amount'] if t['txn_type'] == 'nikasi' else 0
         tj += jama; tn += nikasi
         run_bal += jama - nikasi
-        data.append([t.get('date',''), 'Cash' if t.get('account')=='cash' else 'Bank',
+        acct_label = 'Ledger' if t.get('account') == 'ledger' else ('Cash' if t.get('account') == 'cash' else 'Bank')
+        data.append([t.get('date',''), acct_label,
             'Jama' if t.get('txn_type')=='jama' else 'Nikasi',
-            t.get('category','')[:15], t.get('description','')[:18], jama if jama > 0 else '', nikasi if nikasi > 0 else '', round(run_bal, 2), t.get('reference','')[:10]])
-    data.append(['TOTAL', '', '', '', '', round(tj,2), round(tn,2), round(run_bal,2), ''])
+            t.get('category','')[:14], t.get('party_type','')[:10], t.get('description','')[:16], jama if jama > 0 else '', nikasi if nikasi > 0 else '', round(run_bal, 2)])
+    data.append(['TOTAL', '', '', '', '', '', round(tj,2), round(tn,2), round(run_bal,2)])
     
-    table = RLTable(data, colWidths=[50, 40, 38, 65, 90, 52, 52, 52, 50], repeatRows=1)
+    table = RLTable(data, colWidths=[48, 38, 35, 62, 48, 85, 50, 50, 50], repeatRows=1)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('BACKGROUND', (0,1), (-1,-2), colors.white), ('TEXTCOLOR', (0,1), (-1,-2), colors.black),
-        ('FONTSIZE', (0,0), (-1,-1), 7), ('ALIGN', (5,0), (7,-1), 'RIGHT'),
+        ('FONTSIZE', (0,0), (-1,-1), 6.5), ('ALIGN', (6,0), (8,-1), 'RIGHT'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
         ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
