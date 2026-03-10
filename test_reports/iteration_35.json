@@ -1,0 +1,101 @@
+{
+  "summary": "Running Balance Feature - ALL TESTS PASS. Tested new running balance column feature in Party Ledger UI and Cash Book exports. Backend: 11/11 pytest tests passed. Frontend: Party Ledger shows Balance (₹) column with Dr/Cr suffix, TOTAL row shows final balance. Cash Book PDF and Excel exports include Balance(Rs.) column with running balance values.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_running_balance_feature.py",
+    "/app/test_reports/pytest/pytest_results_iteration35.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_running_balance_feature.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 pytest tests passed)",
+    "frontend": "100% (All features verified)"
+  },
+  "features_verified": {
+    "1_party_ledger_balance_column": {
+      "status": "PASS",
+      "component": "Ledgers.jsx - PartyLedger",
+      "details": "Balance (₹) column header visible in Party Ledger table. Shows running balance for each transaction row.",
+      "test_evidence": "Screenshot confirmed Balance column with values ₹20,000 (Cr), ₹30,000 (Dr), ₹50,000 (Dr)"
+    },
+    "2_party_ledger_dr_cr_suffix": {
+      "status": "PASS",
+      "details": "Running balance values display Dr/Cr suffix correctly. Dr for debit balance, Cr for credit balance.",
+      "test_evidence": "Verified (Dr) and (Cr) suffixes in balance column values"
+    },
+    "3_party_ledger_total_row_balance": {
+      "status": "PASS",
+      "details": "TOTAL row shows final running balance with Dr/Cr suffix",
+      "test_evidence": "Final Balance: ₹20,000 (Cr) in TOTAL row"
+    },
+    "4_cash_book_pdf_balance_column": {
+      "status": "PASS",
+      "endpoint": "/api/cash-book/pdf",
+      "details": "Cash Book PDF export includes Balance(Rs.) column with running balance per transaction",
+      "test_evidence": "PDF contains 'Balance(Rs)' header and values: -2000, 48000, 68000, 18000 (TOTAL)"
+    },
+    "5_cash_book_excel_balance_column": {
+      "status": "PASS",
+      "endpoint": "/api/cash-book/excel",
+      "details": "Cash Book Excel export includes Balance (₹) column at position 8 with running balance per row",
+      "test_evidence": "Excel column H contains running balance values: -2000, 48000, 68000, 18000, 18000 (TOTAL)"
+    },
+    "6_backend_api_cashbook_pdf": {
+      "status": "PASS",
+      "endpoint": "/api/cash-book/pdf",
+      "http_code": 200,
+      "content_type": "application/pdf"
+    },
+    "7_backend_api_cashbook_excel": {
+      "status": "PASS",
+      "endpoint": "/api/cash-book/excel",
+      "http_code": 200,
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    },
+    "8_backend_api_party_ledger": {
+      "status": "PASS",
+      "endpoint": "/api/reports/party-ledger",
+      "http_code": 200,
+      "details": "Returns ledger, total_debit, total_credit, party_list fields"
+    },
+    "9_running_balance_computation_logic": {
+      "status": "PASS",
+      "details": "Running balance computed as cumulative (jama - nikasi) sorted by date ascending for exports, and oldest-first reverse mapping for Party Ledger UI"
+    }
+  },
+  "export_verification": {
+    "pdf_export": {
+      "file_size": "2704 bytes",
+      "pages": 1,
+      "headers_found": ["Date", "Account", "Type", "Category", "Description", "Jama(Rs)", "Nikasi(Rs)", "Balance(Rs)", "Ref"],
+      "balance_values": [-2000, 48000, 68000, 18000],
+      "total_row": "TOTAL | 70000.0 | 52000.0 | 18000.0"
+    },
+    "excel_export": {
+      "file_size": "5830 bytes",
+      "sheet_name": "Cash Book",
+      "total_rows": 15,
+      "balance_column": "H (column 8)",
+      "balance_values": [-2000, 48000, 68000, 18000, 18000]
+    }
+  },
+  "test_credentials": {
+    "admin_username": "admin",
+    "admin_password": "admin123"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 35 - Running Balance feature fully tested. Party Ledger UI now shows Balance (₹) column with Dr/Cr suffix for each transaction and in TOTAL row. Cash Book PDF and Excel exports include Balance column with running balance computed as cumulative (jama - nikasi). All implementations verified in Python backend (cashbook.py), desktop-app (cashbook.js), and local-server (cashbook.js). 11 backend tests pass."
+}

@@ -153,15 +153,23 @@ module.exports = function(database) {
         { header: 'Date', key: 'date', width: 12 }, { header: 'Account', key: 'account', width: 10 },
         { header: 'Type', key: 'type', width: 10 }, { header: 'Category', key: 'category', width: 18 },
         { header: 'Description', key: 'description', width: 24 }, { header: 'Jama (Rs.)', key: 'jama', width: 14 },
-        { header: 'Nikasi (Rs.)', key: 'nikasi', width: 14 }, { header: 'Reference', key: 'reference', width: 16 }
+        { header: 'Nikasi (Rs.)', key: 'nikasi', width: 14 }, { header: 'Balance (Rs.)', key: 'balance', width: 14 },
+        { header: 'Reference', key: 'reference', width: 16 }
       ];
-      txns.forEach(t => ws.addRow({ date: t.date, account: t.account === 'cash' ? 'Cash' : 'Bank',
-        type: t.txn_type === 'jama' ? 'Jama' : 'Nikasi', category: t.category || '', description: t.description || '',
-        jama: t.txn_type === 'jama' ? t.amount : '', nikasi: t.txn_type === 'nikasi' ? t.amount : '', reference: t.reference || '' }));
+      let runBal = 0;
+      txns.forEach(t => {
+        const jama = t.txn_type === 'jama' ? t.amount : 0;
+        const nikasi = t.txn_type === 'nikasi' ? t.amount : 0;
+        runBal += jama - nikasi;
+        ws.addRow({ date: t.date, account: t.account === 'cash' ? 'Cash' : 'Bank',
+          type: t.txn_type === 'jama' ? 'Jama' : 'Nikasi', category: t.category || '', description: t.description || '',
+          jama: t.txn_type === 'jama' ? t.amount : '', nikasi: t.txn_type === 'nikasi' ? t.amount : '',
+          balance: +runBal.toFixed(2), reference: t.reference || '' });
+      });
       const totalRow = ws.addRow({ date: 'TOTAL', jama: +txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
-        nikasi: +txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2) });
+        nikasi: +txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2), balance: +runBal.toFixed(2) });
       totalRow.font = { bold: true };
-      addExcelTitle(ws, 'Daily Cash Book', 8, database); styleExcelHeader(ws); styleExcelData(ws, 5);
+      addExcelTitle(ws, 'Daily Cash Book', 9, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -180,14 +188,20 @@ module.exports = function(database) {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Daily Cash Book');
-      const headers = ['Date','Account','Type','Category','Description','Jama(Rs.)','Nikasi(Rs.)','Ref'];
-      const rows = txns.map(t => [fmtDate(t.date), t.account==='cash'?'Cash':'Bank', t.txn_type==='jama'?'Jama':'Nikasi',
-        (t.category||'').substring(0,25), (t.description||'').substring(0,35),
-        t.txn_type==='jama'?t.amount:'-', t.txn_type==='nikasi'?t.amount:'-', (t.reference||'').substring(0,12)]);
+      const headers = ['Date','Account','Type','Category','Description','Jama(Rs.)','Nikasi(Rs.)','Balance(Rs.)','Ref'];
+      let runBal = 0;
+      const rows = txns.map(t => {
+        const jama = t.txn_type==='jama' ? t.amount : 0;
+        const nikasi = t.txn_type==='nikasi' ? t.amount : 0;
+        runBal += jama - nikasi;
+        return [fmtDate(t.date), t.account==='cash'?'Cash':'Bank', t.txn_type==='jama'?'Jama':'Nikasi',
+          (t.category||'').substring(0,22), (t.description||'').substring(0,30),
+          t.txn_type==='jama'?t.amount:'-', t.txn_type==='nikasi'?t.amount:'-', +runBal.toFixed(2), (t.reference||'').substring(0,10)];
+      });
       const tj = +txns.filter(t => t.txn_type==='jama').reduce((s,t)=>s+(t.amount||0),0).toFixed(2);
       const tn = +txns.filter(t => t.txn_type==='nikasi').reduce((s,t)=>s+(t.amount||0),0).toFixed(2);
-      rows.push(['TOTAL','','','','',tj,tn,'']);
-      addPdfTable(doc, headers, rows, [55,45,40,90,150,60,60,55]); doc.end();
+      rows.push(['TOTAL','','','','',tj,tn,+runBal.toFixed(2),'']);
+      addPdfTable(doc, headers, rows, [50,40,38,80,130,52,52,52,50]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 

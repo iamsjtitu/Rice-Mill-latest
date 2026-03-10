@@ -395,7 +395,24 @@ const PartyLedger = ({ filters }) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          {(data.ledger || []).length > 0 ? (
+          {(data.ledger || []).length > 0 ? (() => {
+            // Compute running balance (oldest first, then display as-is since API returns date-sorted)
+            const ledger = data.ledger;
+            // Sort chronologically (oldest first) for balance calc
+            const chronological = [...ledger].reverse();
+            let runBal = 0;
+            const balMap = {};
+            for (let i = 0; i < chronological.length; i++) {
+              const item = chronological[i];
+              runBal += (item.debit || 0) - (item.credit || 0);
+              balMap[i] = Math.round(runBal * 100) / 100;
+            }
+            // Map original index to balance (reverse mapping)
+            const balByOrigIdx = {};
+            for (let i = 0; i < ledger.length; i++) {
+              balByOrigIdx[i] = balMap[ledger.length - 1 - i];
+            }
+            return (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -406,11 +423,12 @@ const PartyLedger = ({ filters }) => {
                     <TableHead className="text-slate-300">Description</TableHead>
                     <TableHead className="text-slate-300 text-right">Debit (₹)</TableHead>
                     <TableHead className="text-slate-300 text-right">Credit (₹)</TableHead>
+                    <TableHead className="text-slate-300 text-right">Balance (₹)</TableHead>
                     <TableHead className="text-slate-300">Ref</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.ledger.map((item, idx) => (
+                  {ledger.map((item, idx) => (
                     <TableRow key={idx} className="border-slate-700">
                       <TableCell className="text-white text-xs">{fmtDate(item.date)}</TableCell>
                       <TableCell className="text-white font-semibold">{item.party_name}</TableCell>
@@ -433,6 +451,9 @@ const PartyLedger = ({ filters }) => {
                       <TableCell className="text-right text-emerald-400 font-semibold">
                         {item.credit > 0 ? `₹${item.credit.toLocaleString()}` : '-'}
                       </TableCell>
+                      <TableCell className={`text-right text-xs font-bold ${(balByOrigIdx[idx] || 0) >= 0 ? 'text-amber-400' : 'text-red-400'}`} data-testid={`ledger-running-balance-${idx}`}>
+                        ₹{Math.abs(balByOrigIdx[idx] || 0).toLocaleString()} {(balByOrigIdx[idx] || 0) >= 0 ? '(Dr)' : '(Cr)'}
+                      </TableCell>
                       <TableCell className="text-slate-500 text-xs">{item.ref}</TableCell>
                     </TableRow>
                   ))}
@@ -441,12 +462,16 @@ const PartyLedger = ({ filters }) => {
                     <TableCell colSpan={4} className="text-amber-400 font-bold">TOTAL</TableCell>
                     <TableCell className="text-right text-red-400 font-bold">₹{(data.total_debit || 0).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-emerald-400 font-bold">₹{(data.total_credit || 0).toLocaleString()}</TableCell>
+                    <TableCell className={`text-right font-bold ${balance >= 0 ? 'text-amber-400' : 'text-emerald-400'}`} data-testid="ledger-final-balance">
+                      ₹{Math.abs(balance).toLocaleString()} {balance >= 0 ? '(Dr)' : '(Cr)'}
+                    </TableCell>
                     <TableCell></TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
             </div>
-          ) : (
+            );
+          })() : (
             <p className="text-slate-400 text-sm text-center py-4">Koi transaction nahi mila</p>
           )}
         </CardContent>

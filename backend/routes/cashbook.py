@@ -233,7 +233,7 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     
     title = "Daily Cash Book / रोज़नामचा"
     if kms_year: title += f" - KMS {kms_year}"
-    ws.merge_cells('A1:H1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A1:I1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
     
     # Summary section
     ws.cell(row=3, column=1, value="Summary").font = Font(bold=True, size=11)
@@ -253,23 +253,26 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     row = 9
     ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11)
     row += 1
-    for col, h in enumerate(['Date', 'Account', 'Type', 'Category', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Reference'], 1):
+    for col, h in enumerate(['Date', 'Account', 'Type', 'Category', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Balance (₹)', 'Reference'], 1):
         c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
     row += 1
+    run_bal = 0
     for t in txns:
         jama = t['amount'] if t['txn_type'] == 'jama' else 0
         nikasi = t['amount'] if t['txn_type'] == 'nikasi' else 0
+        run_bal += jama - nikasi
         for col, v in enumerate([t.get('date',''), 'Cash' if t.get('account')=='cash' else 'Bank',
             'Jama' if t.get('txn_type')=='jama' else 'Nikasi',
-            t.get('category',''), t.get('description',''), jama, nikasi, t.get('reference','')], 1):
+            t.get('category',''), t.get('description',''), jama, nikasi, round(run_bal, 2), t.get('reference','')], 1):
             c = ws.cell(row=row, column=col, value=v); c.border = tb
-            if col in [6,7]: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
+            if col in [6,7,8]: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
         row += 1
     
     ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
     ws.cell(row=row, column=6, value=round(sum(t['amount'] for t in txns if t['txn_type']=='jama'),2)).font = Font(bold=True)
     ws.cell(row=row, column=7, value=round(sum(t['amount'] for t in txns if t['txn_type']=='nikasi'),2)).font = Font(bold=True)
-    for letter in ['A','B','C','D','E','F','G','H']: ws.column_dimensions[letter].width = 16
+    ws.cell(row=row, column=8, value=round(run_bal, 2)).font = Font(bold=True)
+    for letter in ['A','B','C','D','E','F','G','H','I']: ws.column_dimensions[letter].width = 16
     
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -315,22 +318,24 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     
     # Transactions table
     elements.append(Paragraph("Transactions", styles['Heading2'])); elements.append(Spacer(1, 6))
-    data = [['Date', 'Account', 'Type', 'Category', 'Description', 'Jama(Rs)', 'Nikasi(Rs)', 'Ref']]
+    data = [['Date', 'Account', 'Type', 'Category', 'Description', 'Jama(Rs)', 'Nikasi(Rs)', 'Balance(Rs)', 'Ref']]
     tj = tn = 0
+    run_bal = 0
     for t in txns:
         jama = t['amount'] if t['txn_type'] == 'jama' else 0
         nikasi = t['amount'] if t['txn_type'] == 'nikasi' else 0
         tj += jama; tn += nikasi
+        run_bal += jama - nikasi
         data.append([t.get('date',''), 'Cash' if t.get('account')=='cash' else 'Bank',
             'Jama' if t.get('txn_type')=='jama' else 'Nikasi',
-            t.get('category','')[:15], t.get('description','')[:20], jama if jama > 0 else '', nikasi if nikasi > 0 else '', t.get('reference','')[:12]])
-    data.append(['TOTAL', '', '', '', '', round(tj,2), round(tn,2), ''])
+            t.get('category','')[:15], t.get('description','')[:18], jama if jama > 0 else '', nikasi if nikasi > 0 else '', round(run_bal, 2), t.get('reference','')[:10]])
+    data.append(['TOTAL', '', '', '', '', round(tj,2), round(tn,2), round(run_bal,2), ''])
     
-    table = RLTable(data, colWidths=[55, 45, 40, 70, 100, 55, 55, 60], repeatRows=1)
+    table = RLTable(data, colWidths=[50, 40, 38, 65, 90, 52, 52, 52, 50], repeatRows=1)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('BACKGROUND', (0,1), (-1,-2), colors.white), ('TEXTCOLOR', (0,1), (-1,-2), colors.black),
-        ('FONTSIZE', (0,0), (-1,-1), 7), ('ALIGN', (5,0), (6,-1), 'RIGHT'),
+        ('FONTSIZE', (0,0), (-1,-1), 7), ('ALIGN', (5,0), (7,-1), 'RIGHT'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
         ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
