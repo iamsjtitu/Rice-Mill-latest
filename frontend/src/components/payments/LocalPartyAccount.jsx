@@ -38,6 +38,7 @@ const LocalPartyAccount = ({ filters, user }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [showPartyDropdown, setShowPartyDropdown] = useState(false);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -181,22 +182,40 @@ const LocalPartyAccount = ({ filters, user }) => {
     <div className="space-y-3" data-testid="local-party-tab">
       {/* Top Bar: Party Selector + Actions */}
       <div className="flex flex-wrap gap-2 items-end">
-        <div className="flex-1 min-w-[200px] max-w-[320px]">
+        <div className="flex-1 min-w-[200px] max-w-[320px] relative">
           <Label className="text-[10px] text-slate-500 mb-1 block">Select Party</Label>
-          <select
-            value={selectedParty || ""}
-            onChange={e => handleSelectParty(e.target.value || "")}
-            className="flex h-9 w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-ring"
+          <input
+            value={showPartyDropdown ? searchTerm : (selectedParty === "__all__" ? "All / सभी" : selectedParty || "")}
+            onChange={e => { setSearchTerm(e.target.value); if (!showPartyDropdown) setShowPartyDropdown(true); }}
+            onFocus={() => { setShowPartyDropdown(true); setSearchTerm(""); }}
+            onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
+            placeholder="Party search ya select karein..."
+            className="flex h-9 w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-1 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-ring"
             data-testid="party-search-input"
-          >
-            <option value="">-- Party Select Karein --</option>
-            <option value="__all__">All / सभी</option>
-            {(summary?.parties || []).map(p => (
-              <option key={p.party_name} value={p.party_name}>
-                {p.party_name} (Rs.{(p.balance||0).toLocaleString('en-IN')})
-              </option>
-            ))}
-          </select>
+          />
+          {selectedParty && !showPartyDropdown && (
+            <button onClick={() => { setSelectedParty(""); setSearchTerm(""); setReportData(null); }} className="absolute right-2 top-[26px] text-slate-400 hover:text-white text-xs">✕</button>
+          )}
+          {showPartyDropdown && (
+            <div className="absolute z-50 mt-1 max-h-56 overflow-auto rounded-md border border-slate-600 bg-slate-800 shadow-xl w-full">
+              <div
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { handleSelectParty("__all__"); setShowPartyDropdown(false); setSearchTerm(""); }}
+                className="px-3 py-2 text-sm text-amber-400 font-semibold cursor-pointer hover:bg-slate-700"
+              >All / सभी</div>
+              {filteredParties.map(p => (
+                <div key={p.party_name}
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => { handleSelectParty(p.party_name); setShowPartyDropdown(false); setSearchTerm(""); }}
+                  className="px-3 py-2 text-sm text-white cursor-pointer hover:bg-slate-700 flex justify-between"
+                >
+                  <span>{p.party_name}</span>
+                  <span className={`text-xs ${p.balance > 0 ? 'text-red-400' : 'text-green-400'}`}>Rs.{(p.balance||0).toLocaleString('en-IN')}</span>
+                </div>
+              ))}
+              {filteredParties.length === 0 && <div className="px-3 py-2 text-sm text-slate-400">Koi party nahi mili</div>}
+            </div>
+          )}
         </div>
 
         {/* Date Range Filter */}
