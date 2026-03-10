@@ -594,6 +594,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
   const [allCalcData, setAllCalcData] = useState(null);
   const [advDeduct, setAdvDeduct] = useState(0);
   const [calculating, setCalculating] = useState(false);
+  const [settlingAll, setSettlingAll] = useState(false);
 
   const calculate = async () => {
     if (!periodFrom || !periodTo) return toast.error("Period select karein");
@@ -657,6 +658,37 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
     } catch { toast.error("Payment error"); }
   };
 
+  const settleAll = async () => {
+    if (!allCalcData || allCalcData.length === 0) return;
+    if (!window.confirm(`${allCalcData.length} staff ki salary settle karein?`)) return;
+    setSettlingAll(true);
+    let success = 0;
+    for (const d of allCalcData) {
+      try {
+        const advBal = d.advance_balance || 0;
+        const autoDeduct = Math.max(0, Math.min(advBal, d.gross_salary || 0));
+        const net = (d.gross_salary || 0) - autoDeduct;
+        if (net <= 0 && autoDeduct <= 0) continue;
+        await axios.post(`${API}/staff/payments`, {
+          staff_id: d.staff_id || d.staff?.id, staff_name: d.staff_name || d.staff?.name || "",
+          salary_type: d.staff?.salary_type || "", salary_amount: d.staff?.salary_amount || 0,
+          period_from: periodFrom, period_to: periodTo,
+          total_days: d.total_days, days_worked: d.days_worked,
+          holidays: d.holidays, half_days: d.half_days, absents: d.absents,
+          gross_salary: d.gross_salary, advance_balance: advBal,
+          advance_deducted: autoDeduct, net_payment: net,
+          date: new Date().toISOString().split('T')[0],
+          kms_year: filters.kms_year || "", season: filters.season || ""
+        });
+        success++;
+      } catch {}
+    }
+    setSettlingAll(false);
+    toast.success(`${success}/${allCalcData.length} staff salary settled!`);
+    setAllCalcData(null); setStaffId(""); setPeriodFrom(""); setPeriodTo("");
+    fetchPayments();
+  };
+
   const deletePayment = async (id) => {
     if (!window.confirm("Payment delete karein? Cash Book se bhi hatega.")) return;
     await axios.delete(`${API}/staff/payments/${id}`);
@@ -708,33 +740,46 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-slate-700">
-                      {['#', 'Staff Name', 'Present', 'Half', 'Holiday', 'Absent', 'Days Worked', 'Rate/Day', 'Gross Salary', 'Advance Bal.'].map(h =>
+                      {['#', 'Staff Name', 'Present', 'Half', 'Holiday', 'Absent', 'Days Worked', 'Rate/Day', 'Gross Salary', 'Advance Bal.', 'Adv. Deduct', 'Net Pay'].map(h =>
                         <th key={h} className="text-left text-slate-300 px-3 py-2 font-medium">{h}</th>
                       )}
                     </tr>
                   </thead>
                   <tbody>
-                    {allCalcData.map((d, i) => (
-                      <tr key={d.staff_id} className="border-t border-slate-700 hover:bg-slate-700/30">
-                        <td className="text-slate-500 px-3 py-2">{i + 1}</td>
-                        <td className="text-white px-3 py-2 font-medium">{d.staff_name}</td>
-                        <td className="text-emerald-400 px-3 py-2">{d.present_days}</td>
-                        <td className="text-amber-400 px-3 py-2">{d.half_days}</td>
-                        <td className="text-blue-400 px-3 py-2">{d.holidays}</td>
-                        <td className="text-red-400 px-3 py-2">{d.absents}</td>
-                        <td className="text-white px-3 py-2 font-bold">{d.days_worked}</td>
-                        <td className="text-slate-300 px-3 py-2">Rs.{d.per_day_rate}</td>
-                        <td className="text-emerald-400 px-3 py-2 font-bold">Rs.{(d.gross_salary || 0).toLocaleString('en-IN')}</td>
-                        <td className="text-orange-400 px-3 py-2">Rs.{(d.advance_balance || 0).toLocaleString('en-IN')}</td>
-                      </tr>
-                    ))}
+                    {allCalcData.map((d, i) => {
+                      const autoDeduct = Math.min(d.advance_balance || 0, d.gross_salary || 0);
+                      const netPay = (d.gross_salary || 0) - Math.max(0, autoDeduct);
+                      return (
+                        <tr key={d.staff_id} className="border-t border-slate-700 hover:bg-slate-700/30">
+                          <td className="text-slate-500 px-3 py-2">{i + 1}</td>
+                          <td className="text-white px-3 py-2 font-medium">{d.staff_name}</td>
+                          <td className="text-emerald-400 px-3 py-2">{d.present_days}</td>
+                          <td className="text-amber-400 px-3 py-2">{d.half_days}</td>
+                          <td className="text-blue-400 px-3 py-2">{d.holidays}</td>
+                          <td className="text-red-400 px-3 py-2">{d.absents}</td>
+                          <td className="text-white px-3 py-2 font-bold">{d.days_worked}</td>
+                          <td className="text-slate-300 px-3 py-2">Rs.{d.per_day_rate}</td>
+                          <td className="text-emerald-400 px-3 py-2 font-bold">Rs.{(d.gross_salary || 0).toLocaleString('en-IN')}</td>
+                          <td className="text-orange-400 px-3 py-2">Rs.{(d.advance_balance || 0).toLocaleString('en-IN')}</td>
+                          <td className="text-red-300 px-3 py-2">Rs.{Math.max(0, autoDeduct).toLocaleString('en-IN')}</td>
+                          <td className="text-emerald-300 px-3 py-2 font-bold">Rs.{netPay.toLocaleString('en-IN')}</td>
+                        </tr>
+                      );
+                    })}
                     <tr className="border-t-2 border-slate-600 bg-slate-700/50">
                       <td colSpan={8} className="text-white px-3 py-2 font-bold text-right">Total:</td>
                       <td className="text-emerald-400 px-3 py-2 font-bold">Rs.{allCalcData.reduce((s, d) => s + (d.gross_salary || 0), 0).toLocaleString('en-IN')}</td>
                       <td className="text-orange-400 px-3 py-2 font-bold">Rs.{allCalcData.reduce((s, d) => s + (d.advance_balance || 0), 0).toLocaleString('en-IN')}</td>
+                      <td className="text-red-300 px-3 py-2 font-bold">Rs.{allCalcData.reduce((s, d) => s + Math.max(0, Math.min(d.advance_balance||0, d.gross_salary||0)), 0).toLocaleString('en-IN')}</td>
+                      <td className="text-emerald-300 px-3 py-2 font-bold">Rs.{allCalcData.reduce((s, d) => { const ad = Math.max(0, Math.min(d.advance_balance||0, d.gross_salary||0)); return s + ((d.gross_salary||0) - ad); }, 0).toLocaleString('en-IN')}</td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+              <div className="mt-3 flex justify-end">
+                <Button onClick={settleAll} className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={settlingAll} data-testid="settle-all-btn">
+                  <IndianRupee className="w-4 h-4 mr-1" /> {settlingAll ? "Settling..." : `Settle All (${allCalcData.length} Staff)`}
+                </Button>
               </div>
             </div>
           )}

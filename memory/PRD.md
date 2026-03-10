@@ -1,30 +1,43 @@
 # Mill Entry System - PRD
 
-## Version: 3.6.1
+## Version: 3.6.2
 
 ## Original Problem Statement
 Rice mill management tool ("Mill Entry System") for Navkar Agro. Full-stack app: React frontend, FastAPI backend, Electron desktop + local-server Node.js backends.
 
-## Completed Tasks (Mar 10, 2026 - Current Session)
-- [x] ALL PDF tables centered on page (pdf_helpers.js, daily_report.js rewrite)
-- [x] Date format: yyyy-mm-dd → dd-mm-yyyy in ALL PDFs (fmtDate helper)
-- [x] Salary Payment fix: param mismatch (period_from/to), response field parity, auto-fill advance deduct
-- [x] Staff Advance Ledger: full ledger view (debit/credit/running balance), staff filter, PDF/Excel export
-- [x] Monthly Report: advance amount column added
-- [x] Part-wise Summary: search includes all parts from summary (not just master)
-- [x] Local Party: standalone search input (not inside Radix Select portal)
-- [x] Party Ledger: rewrite with all party types, fmtDate
-- [x] Outstanding Report: professional table-based PDF/Excel
-- [x] Staff Payments: PDF export support added
-- [x] Performance: compression, caching, debounced DB saves
-- [x] Print-friendly views: @media print CSS, Print button
-- [x] Build pipeline: GitHub Actions builds frontend in CI
-- [x] Mill Parts dropdown fix (Radix Select → native select in dialogs)
+## All Implemented Features (Complete)
+- Full entries CRUD with auto-calculations
+- Truck & Agent payment management with invoices
+- Mandi targets with progress tracking
+- Cash Book (jama/nikasi) with opening balance carry forward (Tally-style)
+- DC entries & deliveries tracking + MSP payments
+- Gunny bags stock management
+- Milling entries with paddy stock tracking
+- Byproduct stock & sales, FRK purchases & stock
+- Paddy custody register
+- Private paddy trading & rice sales
+- Reports: CMR vs DC, outstanding, party ledger (all party types)
+- Diesel pump/accounts with exports
+- Mill parts stock management
+- Staff: attendance, monthly report (with advance col), advance ledger (debit/credit/balance), salary payment (single + bulk settle)
+- Daily reports, P&L reports, Local party accounts (search + all parties view)
+- Excel import, Backups (auto + manual)
+- Branding, Multi-user auth (admin/staff)
+- All PDF/Excel exports: centered, dd-mm-yyyy date format
+- Print-friendly views, Performance optimization
 
-## Remaining / Next Tasks
-- [ ] Multiple staff salary settlement at once
-- [ ] Desktop typing/input focus issue investigation
-- [ ] FY Year Opening Balance system (like Tally - closing → opening carry forward)
+## Completed Tasks (v3.6.2)
+- [x] Multiple staff salary settlement ("Settle All" button)
+- [x] Desktop typing fix (webContents focus on window focus/show)
+- [x] FY Year Opening Balance (Tally-style carry forward in Node.js cashbook)
+- [x] All PDFs centered, dd-mm-yyyy date format
+- [x] Advance Ledger: full debit/credit/balance with staff filter, PDF/Excel
+- [x] Monthly Report: advance amount column
+- [x] Advance Deduct auto-fill in salary settlement
+- [x] Part-wise Summary: search all parts (master + summary)
+- [x] Local Party: standalone search input
+- [x] Performance: compression, caching, debounced saves
+- [x] Build pipeline: GitHub Actions builds frontend in CI
 
 ## Key Credentials
 - Admin: admin / admin123

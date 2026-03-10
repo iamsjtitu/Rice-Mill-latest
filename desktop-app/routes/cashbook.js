@@ -92,15 +92,52 @@ module.exports = function(database) {
   router.get('/api/cash-book/summary', safeSync((req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     let txns = [...database.data.cash_transactions];
-    if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+    const kmsYear = req.query.kms_year;
+    if (kmsYear) txns = txns.filter(t => t.kms_year === kmsYear);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
     const cashIn = +txns.filter(t => t.account === 'cash' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
     const cashOut = +txns.filter(t => t.account === 'cash' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
     const bankIn = +txns.filter(t => t.account === 'bank' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
     const bankOut = +txns.filter(t => t.account === 'bank' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
-    res.json({ cash_in: cashIn, cash_out: cashOut, cash_balance: +(cashIn - cashOut).toFixed(2),
-      bank_in: bankIn, bank_out: bankOut, bank_balance: +(bankIn - bankOut).toFixed(2),
-      total_balance: +((cashIn - cashOut) + (bankIn - bankOut)).toFixed(2), total_transactions: txns.length });
+
+    // Opening balance from previous FY (Tally-style carry forward)
+    let openingCash = 0, openingBank = 0;
+    if (kmsYear) {
+      const parts = kmsYear.split('-');
+      if (parts.length === 2) {
+        try {
+          const prevFy = `${parseInt(parts[0]) - 1}-${parseInt(parts[1]) - 1}`;
+          if (!database.data.opening_balances) database.data.opening_balances = [];
+          const savedOb = database.data.opening_balances.find(ob => ob.kms_year === kmsYear);
+          if (savedOb) {
+            openingCash = savedOb.cash || 0;
+            openingBank = savedOb.bank || 0;
+          } else {
+            const prevTxns = database.data.cash_transactions.filter(t => t.kms_year === prevFy);
+            const pCashIn = prevTxns.filter(t => t.account === 'cash' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
+            const pCashOut = prevTxns.filter(t => t.account === 'cash' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
+            const pBankIn = prevTxns.filter(t => t.account === 'bank' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
+            const pBankOut = prevTxns.filter(t => t.account === 'bank' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
+            const prevOb = database.data.opening_balances.find(ob => ob.kms_year === prevFy);
+            if (prevOb) {
+              openingCash = +((prevOb.cash || 0) + pCashIn - pCashOut).toFixed(2);
+              openingBank = +((prevOb.bank || 0) + pBankIn - pBankOut).toFixed(2);
+            } else {
+              openingCash = +(pCashIn - pCashOut).toFixed(2);
+              openingBank = +(pBankIn - pBankOut).toFixed(2);
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    res.json({
+      opening_cash: openingCash, opening_bank: openingBank,
+      cash_in: cashIn, cash_out: cashOut, cash_balance: +(openingCash + cashIn - cashOut).toFixed(2),
+      bank_in: bankIn, bank_out: bankOut, bank_balance: +(openingBank + bankIn - bankOut).toFixed(2),
+      total_balance: +((openingCash + cashIn - cashOut) + (openingBank + bankIn - bankOut)).toFixed(2),
+      total_transactions: txns.length
+    });
   }));
 
   router.get('/api/cash-book/excel', safeAsync(async (req, res) => {

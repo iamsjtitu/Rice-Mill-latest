@@ -1076,8 +1076,23 @@ async function createMainWindow(port) {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.focus();
+    mainWindow.webContents.focus();
     // Start auto-update check after window is shown
     setupAutoUpdater();
+  });
+
+  // Fix: Ensure webContents focus when window is focused (fixes typing issue)
+  mainWindow.on('focus', () => {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.focus();
+    }
+  });
+
+  // Fix: Re-focus webContents after any dialog closes
+  mainWindow.on('show', () => {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+      setTimeout(() => mainWindow.webContents.focus(), 100);
+    }
   });
 
   mainWindow.on('closed', () => {
