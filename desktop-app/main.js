@@ -667,6 +667,7 @@ function createApiServer(database) {
       require('./routes/reports_pnl')(database),
       require('./routes/local_party')(database),
       require('./routes/import_excel')(database),
+      require('./routes/fy_summary')(database),
     ];
     routeModules.forEach(r => apiApp.use(r));
     console.log('[Routes] All modular routes loaded successfully');
@@ -1246,6 +1247,13 @@ ipcMain.on('close-app', () => {
 async function startApplication(folderPath) {
   dataPath = folderPath;
   
+  // Show loading state on splash screen immediately
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.executeJavaScript(`
+      document.querySelector('.content').innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:50px;margin-bottom:15px;">⏳</div><h2 style="color:#f59e0b;margin-bottom:10px;">Loading Data...</h2><p style="color:#94a3b8;font-size:13px;">Database initialize ho raha hai</p><div id="load-status" style="margin-top:20px;color:#64748b;font-size:12px;">Reading data file...</div></div>';
+    `).catch(() => {});
+  }
+  
   // Update config - only keep recentPaths for reference, do NOT save lastPath for auto-load
   const config = loadConfig();
   config.recentPaths = [folderPath, ...config.recentPaths.filter(p => p !== folderPath)].slice(0, 5);
@@ -1255,16 +1263,39 @@ async function startApplication(folderPath) {
   // Initialize database
   db = new JsonDatabase(folderPath);
   
-  // Auto-backup on startup
-  dataPath = folderPath;
-  if (!hasTodayBackup() && fs.existsSync(db.dbFile)) {
-    createBackup(db, 'startup');
+  // Update loading status
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.executeJavaScript(`
+      document.getElementById('load-status').textContent = 'Starting server...';
+    `).catch(() => {});
   }
-  // Daily backup check
-  setInterval(() => { if (!hasTodayBackup()) createBackup(db, 'daily'); }, 60 * 60 * 1000);
 
   // Start API server
   const port = await createApiServer(db);
+
+  // Update loading status
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.webContents.executeJavaScript(`
+      document.getElementById('load-status').textContent = 'Opening application...';
+    `).catch(() => {});
+  }
+
+  // Close splash and open main window FIRST (don't wait for backup)
+  if (splashWindow) {
+    splashWindow.close();
+    splashWindow = null;
+  }
+  await createMainWindow(port);
+
+  // Do backup AFTER window is shown (non-blocking)
+  setTimeout(() => {
+    if (!hasTodayBackup() && db && fs.existsSync(db.dbFile)) {
+      createBackup(db, 'startup');
+    }
+  }, 5000);
+
+  // Daily backup check
+  setInterval(() => { if (!hasTodayBackup()) createBackup(db, 'daily'); }, 60 * 60 * 1000);
 
   // Monitor server health - restart if it dies
   const http = require('http');
@@ -1288,14 +1319,6 @@ async function startApplication(folderPath) {
       logError('SERVER_WATCHDOG_PING_FAIL', err.message);
     });
   }, 30000); // Check every 30 seconds
-
-  // Close splash and open main window
-  if (splashWindow) {
-    splashWindow.close();
-    splashWindow = null;
-  }
-
-  await createMainWindow(port);
 }
 
 // ============ APP LIFECYCLE ============

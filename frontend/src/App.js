@@ -52,6 +52,7 @@ import Ledgers from "@/components/Ledgers";
 import PrivateTrading from "@/components/PrivateTrading";
 import MillPartsStock from "@/components/MillPartsStock";
 import StaffManagement from "@/components/StaffManagement";
+import FYSummaryDashboard from "@/components/FYSummaryDashboard";
 import ExcelImport from "@/components/ExcelImport";
 import { PrintButton } from "@/components/PrintButton";
 
@@ -624,6 +625,12 @@ function MainApp({ user, onLogout }) {
         e.preventDefault();
         setActiveTab("settings");
         toast.info("Settings (Alt+I)");
+      }
+      // Alt + Y: Go to FY Summary tab
+      if (e.altKey && e.key === 'y') {
+        e.preventDefault();
+        setActiveTab("fy-summary");
+        toast.info("FY Summary (Alt+Y)");
       }
       // Alt + R: Refresh data
       if (e.altKey && e.key === 'r') {
@@ -1331,6 +1338,18 @@ function MainApp({ user, onLogout }) {
               <UserCheck className="w-4 h-4 mr-1" />
               Staff
             </Button>
+            <Button
+              onClick={() => setActiveTab("fy-summary")}
+              variant={activeTab === "fy-summary" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "fy-summary" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-fy-summary"
+            >
+              <TrendingUp className="w-4 h-4 mr-1" />
+              FY Summary
+            </Button>
             {user.role === 'admin' && (
               <Button
                 onClick={() => { setActiveTab("settings"); fetchBackups(); fetchErrorLog(); }}
@@ -1939,6 +1958,8 @@ function MainApp({ user, onLogout }) {
           <MillPartsStock filters={filters} user={user} />
         ) : activeTab === "staff" ? (
           <StaffManagement filters={filters} user={user} />
+        ) : activeTab === "fy-summary" ? (
+          <FYSummaryDashboard filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">

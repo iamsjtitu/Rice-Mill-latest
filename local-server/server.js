@@ -627,6 +627,10 @@ async function startServer() {
     const dieselRoutes = require('./routes/diesel')(database);
     app.use(dieselRoutes);
 
+    // FY Summary routes
+    const fySummaryRoutes = require('./routes/fy_summary')(database);
+    app.use(fySummaryRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
