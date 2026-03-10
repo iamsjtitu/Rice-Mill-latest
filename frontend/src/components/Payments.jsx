@@ -232,7 +232,7 @@ export const Payments = ({ filters, user, branding }) => {
         );
       } else {
         await axios.post(
-          `${API}/agent-payments/${encodeURIComponent(selectedItem.mandi_name)}/pay?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`,
+          `${API}/agent-payments/${encodeURIComponent(selectedItem.mandi_name)}/pay?kms_year=${selectedItem.kms_year}&season=${selectedItem.season}&username=${user.username}&role=${user.role}`,
           { amount: parseFloat(paymentAmount), note: paymentNote }
         );
       }
