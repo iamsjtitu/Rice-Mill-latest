@@ -191,7 +191,13 @@ const CashBook = ({ filters, user }) => {
   const categories = [...new Set([...defaultCats, ...customCats.map(c => c.name), ...txnCategories])].sort();
 
   // All unique categories for filter dropdown (from all txns)
-  const allCategoriesForFilter = [...new Set(allTxns.map(t => t.category).filter(Boolean))].sort();
+  // If party_type filter is active, only show parties matching that type
+  const allCategoriesForFilter = [...new Set(
+    allTxns
+      .filter(t => !txnFilters.party_type || t.party_type === txnFilters.party_type)
+      .map(t => t.category)
+      .filter(Boolean)
+  )].sort();
 
   // Compute party balance when category is typed
   const getPartyBalance = (partyName) => {
@@ -355,7 +361,7 @@ const CashBook = ({ filters, user }) => {
             </div>
             <div>
               <Label className="text-xs text-slate-400">Party Type</Label>
-              <Select value={txnFilters.party_type || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, party_type: v === "all" ? "" : v }))}>
+              <Select value={txnFilters.party_type || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, party_type: v === "all" ? "" : v, category: "" }))}>
                 <SelectTrigger className="w-36 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-party-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
