@@ -20,37 +20,45 @@ Comprehensive management tool for a rice mill named "Mill Entry System". Full-st
 - Admin: admin / admin123
 - Staff: staff / staff123
 
-## What's Implemented (as of Feb 10, 2026)
-### FY Opening Balance Carry-Forward (ALL Modules) ✅
-- **Cash Book**: Opening cash + bank from previous FY (was already done)
-- **Mill Parts Stock**: `opening_stock` per part from previous FY
-- **Diesel Accounts**: `opening_balance` per pump from previous FY
-- **Local Party Accounts**: `opening_balance` per party from previous FY
-- **Staff Advances**: `opening_balance` per staff from previous FY
-- Implemented in Python backend + both Node.js backends (desktop-app & local-server)
-- Frontend updated with OB columns in all summary tables
+## Current Version: 3.7.0
 
-### Bug Fixes ✅
-- **Monthly Report**: Fixed API call `/staff/advances` → `/staff/advance` (singular)
-- **Part-wise Summary Search**: Removed conflicting text search bar from partwise tab
+## What's Implemented
 
-### Previously Completed Features
-- PDF/Excel Report Parity (centered, DD-MM-YYYY format)
-- Staff Advance Ledger with debit/credit history
-- "All Parties" and "All Staff" options
-- Multi-Staff Salary Settlement ("Settle All")
-- Performance Optimization (caching, compression)
-- Print-Friendly Views
-- Various bug fixes (dropdowns, API mismatches)
+### v3.7.0 (Feb 10, 2026)
+- **FY Summary Dashboard** - New comprehensive dashboard showing opening vs closing balances for ALL modules:
+  - Cash & Bank (with Total row)
+  - Paddy Stock (Qtl)
+  - FRK Stock (Qtl)
+  - Milling Summary (entries, paddy milled, rice produced, FRK used, CMR delivered, avg outturn)
+  - Byproduct Stock (bran, kunda, broken, kanki, husk - produced/sold/revenue)
+  - Mill Parts Stock (per part with unit)
+  - Diesel Accounts (per pump)
+  - Local Party Accounts (aggregate)
+  - Staff Advances (per staff)
+  - Private Trading (paddy purchases + rice sales)
+  - Implemented in Python + both Node.js backends
+- **Desktop App Startup Optimization** - Loading indicator during folder selection, deferred backup to after window load
+- **Version Bump** - 3.6.2 → 3.7.0
 
-## Current Version: 3.6.2
+### v3.6.x (Previous Session)
+- **FY Opening Balance Carry-Forward** - ALL modules: Cash Book, Mill Parts, Diesel, Local Party, Staff Advances
+- **Bug Fixes**: Monthly Report API endpoint, Part-wise Summary search bar
+- **PDF/Excel Report Parity** (centered, DD-MM-YYYY format)
+- **Staff Advance Ledger** with debit/credit history
+- **"All Parties"/"All Staff" options**, Multi-Staff Settlement
+- **Performance Optimization** (caching, compression, DB save debouncing)
+- **Print-Friendly Views**
 
 ## Pending Issues
 - **P2**: Intermittent Typing/Focus Issue in Desktop App (fix deployed, user verification pending)
-- **P2**: Desktop App folder selection takes time to open (new issue, not started)
-
-## Upcoming Tasks
-- None specified by user currently
 
 ## Test Reports
-- `/app/test_reports/iteration_33.json` - All 11 backend tests + 7 frontend features PASS
+- `/app/test_reports/iteration_33.json` - 11/11 tests PASS (FY carry-forward, bug fixes)
+- `/app/test_reports/iteration_34.json` - 16/16 tests PASS (FY Summary Dashboard, regressions)
+
+## Key Files
+- `/app/backend/routes/fy_summary.py` - FY Summary API
+- `/app/frontend/src/components/FYSummaryDashboard.jsx` - FY Summary Frontend
+- `/app/desktop-app/main.js` - Desktop app with startup optimization
+- `/app/desktop-app/routes/fy_summary.js` - FY Summary for desktop
+- `/app/local-server/routes/fy_summary.js` - FY Summary for local server
