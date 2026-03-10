@@ -113,6 +113,19 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.diesel_accounts.insert_one(diesel_txn)
+        
+        # Also create JAMA (Ledger) entry in cash_transactions for diesel pump
+        diesel_jama = {
+            "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "account": "ledger", "txn_type": "jama", "category": pump_name,
+            "party_type": "Diesel",
+            "description": f"Diesel Fill: Truck {doc.get('truck_no','')} - {pump_name} - Rs.{diesel_paid}",
+            "amount": round(diesel_paid, 2), "reference": f"diesel_fill:{doc['id'][:8]}",
+            "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+            "created_by": username or "system", "linked_entry_id": doc["id"],
+            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(diesel_jama)
     
     return entry_obj
 
@@ -299,6 +312,18 @@ async def import_entries_from_excel(
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
             await db.diesel_accounts.insert_one(diesel_txn)
+            # Diesel JAMA ledger entry
+            diesel_jama = {
+                "id": str(uuid.uuid4()), "date": doc["date"],
+                "account": "ledger", "txn_type": "jama", "category": pump_name,
+                "party_type": "Diesel",
+                "description": f"Diesel Fill: Truck {doc.get('truck_no','')} - {pump_name} - Rs.{diesel_paid}",
+                "amount": round(diesel_paid, 2), "reference": f"diesel_fill:{doc['id'][:8]}",
+                "kms_year": kms_year, "season": season,
+                "created_by": username, "linked_entry_id": doc["id"],
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(diesel_jama)
             diesel_count += 1
 
         imported += 1
@@ -462,6 +487,19 @@ async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = ""
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.diesel_accounts.insert_one(diesel_txn)
+        
+        # Also create JAMA (Ledger) entry in cash_transactions for diesel pump
+        diesel_jama = {
+            "id": str(uuid.uuid4()), "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "account": "ledger", "txn_type": "jama", "category": pump_name,
+            "party_type": "Diesel",
+            "description": f"Diesel Fill: Truck {merged_data.get('truck_no','')} - {pump_name} - Rs.{diesel_paid}",
+            "amount": round(diesel_paid, 2), "reference": f"diesel_fill:{entry_id[:8]}",
+            "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
+            "created_by": username or "system", "linked_entry_id": entry_id,
+            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.cash_transactions.insert_one(diesel_jama)
     
     updated = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     return updated
