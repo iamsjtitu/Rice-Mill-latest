@@ -49,6 +49,8 @@ const CashBook = ({ filters, user }) => {
     kms_year: CURRENT_KMS_YEAR, season: "Kharif",
   });
   const [txnFilters, setTxnFilters] = useState({ account: "", txn_type: "", category: "", party_type: "", date_from: "", date_to: "" });
+  const [filterPartySearch, setFilterPartySearch] = useState("");
+  const [showFilterPartyDropdown, setShowFilterPartyDropdown] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -373,15 +375,56 @@ const CashBook = ({ filters, user }) => {
             </div>
             <div>
               <Label className="text-xs text-slate-400">Select Party / पार्टी</Label>
-              <Select value={txnFilters.category || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, category: v === "all" ? "" : v }))}>
-                <SelectTrigger className="w-44 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-category"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Parties</SelectItem>
-                  {allCategoriesForFilter.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="relative">
+                <Input
+                  value={txnFilters.category ? txnFilters.category : filterPartySearch}
+                  onChange={(e) => { setFilterPartySearch(e.target.value); setTxnFilters(p => ({ ...p, category: "" })); setShowFilterPartyDropdown(true); }}
+                  onFocus={() => setShowFilterPartyDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowFilterPartyDropdown(false), 200)}
+                  placeholder="Search party..."
+                  className="w-44 bg-slate-700 border-slate-600 text-white h-8 text-xs"
+                  autoComplete="off"
+                  data-testid="cashbook-filter-category"
+                />
+                {txnFilters.category && (
+                  <button onClick={() => { setTxnFilters(p => ({ ...p, category: "" })); setFilterPartySearch(""); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+                {showFilterPartyDropdown && (
+                  (() => {
+                    const items = filterPartySearch
+                      ? allCategoriesForFilter.filter(c => c.toLowerCase().includes(filterPartySearch.toLowerCase()))
+                      : allCategoriesForFilter;
+                    return items.length > 0 ? (
+                      <div className="absolute z-50 w-56 mt-1 max-h-48 overflow-auto bg-white border border-slate-200 rounded-md shadow-lg">
+                        <div className="px-3 py-1.5 text-xs cursor-pointer hover:bg-amber-50 text-slate-500 font-medium border-b border-slate-100"
+                          onMouseDown={() => { setTxnFilters(p => ({ ...p, category: "" })); setFilterPartySearch(""); setShowFilterPartyDropdown(false); }}>
+                          All Parties
+                        </div>
+                        {items.map(c => {
+                          const pt = allTxns.find(t => t.category === c && t.party_type);
+                          return (
+                            <div key={c}
+                              className="px-3 py-1.5 text-xs cursor-pointer hover:bg-amber-50 flex justify-between items-center"
+                              onMouseDown={() => { setTxnFilters(p => ({ ...p, category: c })); setFilterPartySearch(""); setShowFilterPartyDropdown(false); }}>
+                              <span className="text-slate-800">{c}</span>
+                              {pt && pt.party_type && <span className={`text-[9px] px-1 py-0.5 rounded ${
+                                pt.party_type === 'Truck' ? 'bg-blue-100 text-blue-700' :
+                                pt.party_type === 'Agent' ? 'bg-purple-100 text-purple-700' :
+                                pt.party_type === 'Local Party' ? 'bg-amber-100 text-amber-700' :
+                                pt.party_type === 'Diesel' ? 'bg-orange-100 text-orange-700' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>{pt.party_type}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null;
+                  })()
+                )}
+              </div>
             </div>
             <div>
               <Label className="text-xs text-slate-400">From</Label>
