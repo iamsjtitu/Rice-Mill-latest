@@ -1,4 +1,6 @@
 from fastapi import APIRouter
+from fastapi.responses import Response
+from datetime import datetime
 from typing import Optional
 from database import db
 
@@ -263,3 +265,164 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
         "staff_advances": staff_section,
         "private_trading": private_section
     }
+
+
+
+@router.get("/fy-summary/pdf")
+async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from io import BytesIO
+
+    data = await get_fy_summary(kms_year=kms_year, season=season)
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=25, rightMargin=25, topMargin=25, bottomMargin=25)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    hdr_bg = colors.HexColor('#1a365d')
+    hdr_text = colors.white
+    total_bg = colors.HexColor('#e0f2fe')
+    section_bg = colors.HexColor('#f0f0f0')
+
+    def fmt(n):
+        return f"{(n or 0):,.2f}"
+
+    def section_table(title, headers, rows, col_widths):
+        elements.append(Spacer(1, 8))
+        elements.append(Paragraph(title, styles['Heading3']))
+        elements.append(Spacer(1, 4))
+        all_data = [headers] + rows
+        t = RLTable(all_data, colWidths=col_widths, repeatRows=1)
+        style = [
+            ('BACKGROUND', (0, 0), (-1, 0), hdr_bg),
+            ('TEXTCOLOR', (0, 0), (-1, 0), hdr_text),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]
+        # Alternate row coloring
+        for i in range(1, len(all_data)):
+            if i % 2 == 0:
+                style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8fafc')))
+        # Total/last row bold
+        if len(rows) > 1:
+            style.append(('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'))
+            style.append(('BACKGROUND', (0, -1), (-1, -1), total_bg))
+        t.setStyle(TableStyle(style))
+        elements.append(t)
+
+    # Title
+    title_text = "FY Summary - Balance Sheet"
+    if kms_year:
+        title_text += f" | KMS {kms_year}"
+    if season:
+        title_text += f" | {season}"
+    elements.append(Paragraph(title_text, styles['Title']))
+    elements.append(Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
+    elements.append(Spacer(1, 6))
+
+    # 1. Cash & Bank
+    cb = data.get("cash_bank", {})
+    section_table("1. Cash & Bank (Rs.)",
+        ['Account', 'Opening', 'Inflow', 'Outflow', 'Closing'],
+        [
+            ['Cash', fmt(cb.get('opening_cash')), fmt(cb.get('cash_in')), fmt(cb.get('cash_out')), fmt(cb.get('closing_cash'))],
+            ['Bank', fmt(cb.get('opening_bank')), fmt(cb.get('bank_in')), fmt(cb.get('bank_out')), fmt(cb.get('closing_bank'))],
+            ['TOTAL', fmt((cb.get('opening_cash',0)+cb.get('opening_bank',0))),
+             fmt((cb.get('cash_in',0)+cb.get('bank_in',0))),
+             fmt((cb.get('cash_out',0)+cb.get('bank_out',0))),
+             fmt((cb.get('closing_cash',0)+cb.get('closing_bank',0)))],
+        ],
+        [65, 80, 80, 80, 80])
+
+    # 2. Paddy Stock
+    ps = data.get("paddy_stock", {})
+    section_table("2. Paddy Stock (Qtl)",
+        ['Item', 'Opening', 'In', 'Used', 'Closing'],
+        [['Paddy', fmt(ps.get('opening_stock')), fmt(ps.get('paddy_in')), fmt(ps.get('paddy_used')), fmt(ps.get('closing_stock'))]],
+        [65, 80, 80, 80, 80])
+
+    # 3. FRK Stock
+    frk = data.get("frk_stock", {})
+    section_table("3. FRK Stock (Qtl)",
+        ['Item', 'Opening', 'Purchased', 'Used', 'Closing', 'Cost (Rs.)'],
+        [['FRK', fmt(frk.get('opening_stock')), fmt(frk.get('purchased')), fmt(frk.get('used')), fmt(frk.get('closing_stock')), fmt(frk.get('total_cost'))]],
+        [55, 70, 70, 70, 70, 80])
+
+    # 4. Milling Summary
+    ml = data.get("milling", {})
+    section_table("4. Milling Summary",
+        ['Entries', 'Paddy Milled', 'Rice Produced', 'FRK Used', 'CMR Delivered', 'Avg Outturn%'],
+        [[str(ml.get('total_entries', 0)), fmt(ml.get('total_paddy_milled')), fmt(ml.get('total_rice_produced')),
+          fmt(ml.get('total_frk_used')), fmt(ml.get('total_cmr_delivered')), fmt(ml.get('avg_outturn'))]],
+        [55, 75, 75, 70, 80, 70])
+
+    # 5. Byproduct Stock
+    bp = data.get("byproducts", {})
+    bp_rows = []
+    for name, v in bp.items():
+        bp_rows.append([name.capitalize(), fmt(v.get('opening_stock')), fmt(v.get('produced')), fmt(v.get('sold')),
+                        fmt(v.get('closing_stock')), fmt(v.get('revenue'))])
+    if bp_rows:
+        section_table("5. Byproduct Stock (Qtl)",
+            ['Product', 'Opening', 'Produced', 'Sold', 'Closing', 'Revenue (Rs.)'],
+            bp_rows, [60, 65, 65, 65, 65, 80])
+
+    # 6. Mill Parts Stock
+    mp = data.get("mill_parts", [])
+    if mp:
+        mp_rows = [[p['name'], p.get('unit','Pcs'), fmt(p.get('opening_stock')), fmt(p.get('stock_in')),
+                     fmt(p.get('stock_used')), fmt(p.get('closing_stock'))] for p in mp]
+        section_table("6. Mill Parts Stock",
+            ['Part', 'Unit', 'Opening', 'In', 'Used', 'Closing'],
+            mp_rows, [80, 40, 65, 65, 65, 65])
+
+    # 7. Diesel Accounts
+    diesel = data.get("diesel", [])
+    if diesel:
+        d_rows = [[d['pump_name'], fmt(d.get('opening_balance')), fmt(d.get('total_diesel')),
+                    fmt(d.get('total_paid')), fmt(d.get('closing_balance'))] for d in diesel]
+        section_table("7. Diesel Accounts (Rs.)",
+            ['Pump', 'Opening', 'Diesel', 'Paid', 'Balance'],
+            d_rows, [90, 80, 80, 80, 80])
+
+    # 8. Local Party Accounts
+    lp = data.get("local_party", {})
+    section_table("8. Local Party Accounts (Rs.)",
+        ['Metric', 'Value'],
+        [['Total Parties', str(lp.get('party_count', 0))],
+         ['Opening Balance', fmt(lp.get('opening_balance'))],
+         ['Total Debit', fmt(lp.get('total_debit'))],
+         ['Total Paid', fmt(lp.get('total_paid'))],
+         ['Closing Balance', fmt(lp.get('closing_balance'))]],
+        [120, 120])
+
+    # 9. Staff Advances
+    staff = data.get("staff_advances", [])
+    if staff:
+        s_rows = [[s['name'], fmt(s.get('opening_balance')), fmt(s.get('total_advance')),
+                    fmt(s.get('total_deducted')), fmt(s.get('closing_balance'))] for s in staff]
+        section_table("9. Staff Advances (Rs.)",
+            ['Staff', 'Opening', 'Advance', 'Deducted', 'Balance'],
+            s_rows, [90, 80, 80, 80, 80])
+
+    # 10. Private Trading
+    pt = data.get("private_trading", {})
+    section_table("10. Private Trading (Rs.)",
+        ['Category', 'Qty (Qtl)', 'Amount', 'Paid/Received', 'Balance'],
+        [
+            ['Paddy Purchase', fmt(pt.get('paddy_qty')), fmt(pt.get('paddy_purchase_amount')), fmt(pt.get('paddy_paid')), fmt(pt.get('paddy_balance'))],
+            ['Rice Sales', fmt(pt.get('rice_qty')), fmt(pt.get('rice_sale_amount')), fmt(pt.get('rice_received')), fmt(pt.get('rice_balance'))],
+        ],
+        [80, 65, 80, 80, 80])
+
+    doc.build(elements)
+    buffer.seek(0)
+    fname = f"FY_Summary_{kms_year or 'all'}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={fname}"})

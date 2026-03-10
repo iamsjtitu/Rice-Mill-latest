@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { TrendingUp, TrendingDown, Banknote, Package, Fuel, Users, Wheat, Wrench, ArrowRightLeft, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Banknote, Package, Fuel, Users, Wheat, Wrench, ArrowRightLeft, RefreshCw, FileDown } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
 const API = process.env.REACT_APP_BACKEND_URL + '/api';
@@ -68,6 +68,13 @@ export default function FYSummaryDashboard({ filters }) {
 
   useEffect(() => { fetchData(); }, [filters.kms_year, filters.season]);
 
+  const downloadPdf = () => {
+    const p = new URLSearchParams();
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    window.open(`${API}/fy-summary/pdf?${p}`, '_blank');
+  };
+
   if (loading) return <div className="text-center text-slate-400 py-20">Loading FY Summary...</div>;
   if (!data) return <div className="text-center text-red-400 py-20">Data load nahi hua</div>;
 
@@ -86,9 +93,14 @@ export default function FYSummaryDashboard({ filters }) {
           <h2 className="text-lg font-bold text-amber-400">FY Summary Dashboard</h2>
           <p className="text-xs text-slate-400">{data.kms_year} {data.season && `| ${data.season}`} - Opening vs Closing Balances</p>
         </div>
-        <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={fetchData} data-testid="fy-summary-refresh">
-          <RefreshCw className="w-3 h-3 mr-1" /> Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={downloadPdf} data-testid="fy-summary-pdf">
+            <FileDown className="w-3 h-3 mr-1" /> PDF Export
+          </Button>
+          <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={fetchData} data-testid="fy-summary-refresh">
+            <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Cash & Bank */}
