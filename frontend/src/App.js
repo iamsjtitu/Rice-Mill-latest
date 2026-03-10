@@ -53,6 +53,7 @@ import PrivateTrading from "@/components/PrivateTrading";
 import MillPartsStock from "@/components/MillPartsStock";
 import StaffManagement from "@/components/StaffManagement";
 import ExcelImport from "@/components/ExcelImport";
+import { PrintButton } from "@/components/PrintButton";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -920,7 +921,7 @@ function MainApp({ user, onLogout }) {
       <Toaster position="top-right" richColors />
       
       {/* Header */}
-      <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-10">
+      <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-10 no-print">
         <div className="max-w-[1600px] mx-auto px-4 py-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
@@ -992,6 +993,7 @@ function MainApp({ user, onLogout }) {
               >
                 <Keyboard className="w-4 h-4" />
               </Button>
+              <PrintButton title={activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} />
               <Button
                 onClick={onLogout}
                 variant="outline"
@@ -1909,7 +1911,14 @@ function MainApp({ user, onLogout }) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-[1600px] mx-auto px-4 py-6">
+      <main className="max-w-[1600px] mx-auto px-4 py-6 print-content">
+        {/* Print Header - Only visible when printing */}
+        <div className="print-header">
+          {branding.company_name || 'Mill Entry System'} — {branding.tagline || ''}
+          <div style={{fontSize: '12px', fontWeight: 'normal', marginTop: '2px'}}>
+            {activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')} | {filters.kms_year} {filters.season || ''}
+          </div>
+        </div>
         {activeTab === "dashboard" ? (
           <Dashboard filters={filters} user={user} />
         ) : activeTab === "payments" ? (
@@ -2348,7 +2357,7 @@ function MainApp({ user, onLogout }) {
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-800/50 border-t border-slate-700 py-4 mt-8">
+      <footer className="bg-slate-800/50 border-t border-slate-700 py-4 mt-8 no-print">
         <div className="max-w-[1600px] mx-auto px-4 text-center text-slate-400 text-sm">
           <p>{branding.company_name} - {branding.tagline}</p>
           <p className="text-xs mt-1">1 Quintal = 100 KG | P.Pkt = 0.50 kg/bag</p>

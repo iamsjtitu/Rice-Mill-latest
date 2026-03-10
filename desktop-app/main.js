@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
 
 // ============ CRASH PROTECTION & ERROR LOGGING ============
@@ -136,6 +137,19 @@ class JsonDatabase {
   }
 
   save() {
+    // Debounced save - prevents excessive disk writes during rapid operations
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._pendingSave = true;
+    this._saveTimer = setTimeout(() => this._doSave(), 300);
+  }
+
+  saveImmediate() {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._doSave();
+  }
+
+  _doSave() {
+    this._pendingSave = false;
     try {
       const jsonStr = JSON.stringify(this.data, null, 2);
       // Atomic write: write to temp file first, then rename
@@ -627,6 +641,7 @@ function hasTodayBackup() {
 // ============ EXPRESS API SERVER ============
 function createApiServer(database) {
   const apiApp = express();
+  apiApp.use(compression());
   apiApp.use(cors());
   apiApp.use(express.json({ limit: '5mb' }));
 
@@ -670,7 +685,15 @@ function createApiServer(database) {
   // ===== SERVE FRONTEND STATIC FILES (MUST be after all API routes) =====
   const frontendDir = path.join(__dirname, 'frontend-build');
   if (fs.existsSync(frontendDir)) {
-    apiApp.use(express.static(frontendDir));
+    // Cache static assets (JS/CSS/images) for 1 year, HTML for no-cache
+    apiApp.use(express.static(frontendDir, {
+      maxAge: '1y',
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      }
+    }));
     apiApp.get('*', safeSync((req, res) => {
       if (!req.path.startsWith('/api')) {
         res.sendFile(path.join(frontendDir, 'index.html'));
@@ -946,10 +969,14 @@ async function createMainWindow(port) {
     minWidth: 1100,
     minHeight: 700,
     show: false,
+    backgroundColor: '#0f172a',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      backgroundThrottling: false,
+      spellcheck: false,
+      v8CacheOptions: 'code'
     }
   });
 

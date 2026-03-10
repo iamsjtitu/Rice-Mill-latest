@@ -1,6 +1,6 @@
 {
   "name": "mill-entry-system",
-  "version": "3.5.2",
+  "version": "3.6.0",
   "description": "Mill Entry Management System - Desktop Application",
   "main": "main.js",
   "scripts": {
@@ -21,6 +21,7 @@
     "electron-builder": "24.9.1"
   },
   "dependencies": {
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "electron-updater": "^6.1.7",
     "exceljs": "^4.4.0",

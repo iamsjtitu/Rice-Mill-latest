@@ -113,3 +113,131 @@ code {
         border-bottom-color: inherit;
     }
 }
+
+
+/* ===== PRINT-FRIENDLY STYLES ===== */
+@media print {
+  /* Hide navigation, sidebar, buttons, and non-content elements */
+  nav, header, footer,
+  [data-testid="sidebar"],
+  .sidebar,
+  button:not(.print-keep),
+  [data-no-print],
+  .no-print,
+  .fixed,
+  [role="dialog"],
+  [data-testid*="export"],
+  [data-testid*="refresh"],
+  [data-testid*="logout"],
+  [data-testid*="login"],
+  .toaster,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  /* Reset dark theme to light for printing */
+  body, html, #root, main, .dark {
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Make all text readable */
+  * {
+    color: black !important;
+    border-color: #ccc !important;
+    box-shadow: none !important;
+  }
+
+  /* Cards & containers - clean borders */
+  [class*="bg-slate"], [class*="bg-gray"],
+  [class*="bg-emerald-900"], [class*="bg-red-900"],
+  [class*="bg-blue-900"], [class*="bg-amber-900"] {
+    background: white !important;
+    border: 1px solid #ddd !important;
+  }
+
+  /* Table styling for print */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    border: 1px solid #999 !important;
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+  }
+
+  th {
+    background: #e5e7eb !important;
+    font-weight: bold !important;
+  }
+
+  /* Keep colored accents for summary numbers */
+  [class*="text-emerald"], [class*="text-green"] {
+    color: #059669 !important;
+  }
+  [class*="text-red"] {
+    color: #dc2626 !important;
+  }
+  [class*="text-amber"], [class*="text-yellow"] {
+    color: #d97706 !important;
+  }
+  [class*="text-blue"] {
+    color: #2563eb !important;
+  }
+
+  /* Full width content */
+  .print-content, main, [role="main"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Page settings */
+  @page {
+    margin: 10mm;
+    size: A4 landscape;
+  }
+
+  /* Add page title */
+  .print-title::before {
+    content: attr(data-print-title);
+    display: block;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid black;
+  }
+
+  /* Avoid page breaks inside cards */
+  .card, [class*="Card"] {
+    page-break-inside: avoid;
+  }
+
+  /* Show print header */
+  .print-header {
+    display: block !important;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid black;
+  }
+
+  /* Hide tab buttons in print */
+  [role="tablist"] {
+    display: none !important;
+  }
+}
+
+/* Print header - hidden on screen, shown on print */
+.print-header {
+  display: none;
+}

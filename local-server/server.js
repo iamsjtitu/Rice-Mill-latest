@@ -6,6 +6,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
@@ -59,6 +60,12 @@ class JsonDatabase {
   }
 
   save() {
+    // Debounced save - prevents excessive disk writes
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(() => this._doSave(), 300);
+  }
+
+  _doSave() {
     try {
       fs.writeFileSync(this.dbFile, JSON.stringify(this.data, null, 2));
     } catch (e) {
@@ -510,6 +517,7 @@ function hasTodayBackup() {
 
 // ============ EXPRESS APP ============
 const app = express();
+app.use(compression());
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
@@ -652,7 +660,14 @@ async function startServer() {
 
   // ===== SERVE FRONTEND (AFTER all API routes) =====
   if (fs.existsSync(PUBLIC_DIR)) {
-    app.use(express.static(PUBLIC_DIR));
+    app.use(express.static(PUBLIC_DIR, {
+      maxAge: '1y',
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      }
+    }));
     app.get('*', (req, res) => {
       if (!req.path.startsWith('/api')) {
         res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
