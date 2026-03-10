@@ -78,6 +78,7 @@ Comprehensive management tool for a rice mill named "Mill Entry System". Full-st
 - **P2**: Desktop App Slow Startup (loading indicator added, root cause not investigated)
 
 ## Test Reports
+- `/app/test_reports/iteration_38.json` - 26/26 PASS (Full Regression: Double-Entry Accounting, Light Theme, Table Layout, Party Filters)
 - `/app/test_reports/iteration_37.json` - 26/26 PASS (Party Summary Dashboard)
 - `/app/test_reports/iteration_36.json` - 19/19 PASS (Cash Book / Ledgers merge + Party Type)
 
