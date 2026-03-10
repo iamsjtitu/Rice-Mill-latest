@@ -169,7 +169,7 @@ export default function MillPartsStock({ filters, user }) {
       </div>
 
       {/* Search bar */}
-      {(activeTab === "summary" || activeTab === "transactions") && (
+      {(activeTab === "summary" || activeTab === "transactions" || activeTab === "partwise") && (
         <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 max-w-xs">
           <Search className="w-4 h-4 text-slate-400" />
           <input value={searchPart} onChange={e => setSearchPart(e.target.value)}
@@ -332,18 +332,15 @@ export default function MillPartsStock({ filters, user }) {
       {/* ===== PART-WISE SUMMARY TAB ===== */}
       {activeTab === "partwise" && (
         <div className="space-y-4">
-          {/* Part Selector */}
+          {/* Part Selector - native select for better Electron compatibility */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex-1 max-w-xs">
-              <Select value={searchPart || "none"} onValueChange={v => setSearchPart(v === "none" ? "" : v)}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-9 text-sm" data-testid="partwise-part-select">
-                  <SelectValue placeholder="Part select karein..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  <SelectItem value="none">-- Part Select Karein --</SelectItem>
-                  {[...new Set([...parts.map(p => p.name), ...summary.map(s => s.part_name)])].filter(Boolean).sort().map(name => <SelectItem key={name} value={name}>{name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <select value={searchPart || ""} onChange={e => setSearchPart(e.target.value)}
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg h-9 text-sm px-3 outline-none"
+                data-testid="partwise-part-select">
+                <option value="">-- Part Select Karein --</option>
+                {[...new Set([...parts.map(p => p.name), ...summary.map(s => s.part_name)])].filter(Boolean).sort().map(name => <option key={name} value={name}>{name}</option>)}
+              </select>
             </div>
             {searchPart && (
               <div className="flex gap-2">
@@ -370,7 +367,7 @@ export default function MillPartsStock({ filters, user }) {
 
           {/* Selected Part Summary */}
           {searchPart && (() => {
-            const s = summary.find(x => x.part_name === searchPart);
+            const s = summary.find(x => x.part_name === searchPart) || summary.find(x => x.part_name.toLowerCase().includes(searchPart.toLowerCase()));
             if (!s) return <p className="text-slate-400 text-center py-8">"{searchPart}" ka data nahi mila</p>;
             const partTxns = stockEntries.filter(t => t.part_name === s.part_name);
             return (
