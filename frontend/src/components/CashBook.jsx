@@ -697,21 +697,51 @@ const CashBook = ({ filters, user }) => {
               <div className="flex items-center justify-between mb-1">
                 <Label className="text-xs text-slate-600 font-semibold">Party / Category (Ledger ke liye zaroori)</Label>
               </div>
-              <Input
-                list="category-list"
-                value={form.category}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const match = allTxns.find(t => t.category && t.category.toLowerCase() === val.toLowerCase() && t.party_type);
-                  setForm(p => ({ ...p, category: val, party_type: match ? match.party_type : "" }));
-                }}
-                placeholder="Party name likho ya select karo (e.g. Titu, Dimpy)"
-                className="border-slate-300 h-8 text-sm"
-                data-testid="cashbook-form-category"
-              />
-              <datalist id="category-list">
-                {categories.map(c => <option key={c} value={c} />)}
-              </datalist>
+              <div className="relative">
+                <Input
+                  value={form.category}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const match = allTxns.find(t => t.category && t.category.toLowerCase() === val.toLowerCase() && t.party_type);
+                    setForm(p => ({ ...p, category: val, party_type: match ? match.party_type : "", _showPartySuggestions: true }));
+                  }}
+                  onFocus={() => setForm(p => ({ ...p, _showPartySuggestions: true }))}
+                  onBlur={() => setTimeout(() => setForm(p => ({ ...p, _showPartySuggestions: false })), 200)}
+                  placeholder="Party name search karein..."
+                  className="border-slate-300 h-8 text-sm"
+                  autoComplete="off"
+                  data-testid="cashbook-form-category"
+                />
+                {form._showPartySuggestions && (
+                  (() => {
+                    const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
+                    return filtered.length > 0 ? (
+                      <div className="absolute z-50 w-full mt-1 max-h-40 overflow-auto bg-white border border-slate-200 rounded-md shadow-lg">
+                        {filtered.map(c => {
+                          const pt = allTxns.find(t => t.category === c && t.party_type);
+                          return (
+                            <div key={c}
+                              className="px-3 py-1.5 text-sm cursor-pointer hover:bg-amber-50 flex justify-between items-center"
+                              onMouseDown={() => {
+                                const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
+                                setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : "", _showPartySuggestions: false }));
+                              }}>
+                              <span className="text-slate-800">{c}</span>
+                              {pt && pt.party_type && <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                pt.party_type === 'Truck' ? 'bg-blue-100 text-blue-700' :
+                                pt.party_type === 'Agent' ? 'bg-purple-100 text-purple-700' :
+                                pt.party_type === 'Local Party' ? 'bg-amber-100 text-amber-700' :
+                                pt.party_type === 'Diesel' ? 'bg-orange-100 text-orange-700' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>{pt.party_type}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null;
+                  })()
+                )}
+              </div>
               {partyBalance && (
                 <div className="mt-1 p-1.5 bg-amber-50 border border-amber-200 rounded text-[10px]" data-testid="cashbook-party-balance">
                   <span className="font-semibold text-amber-800">{form.category}:</span>
