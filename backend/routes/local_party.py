@@ -241,6 +241,26 @@ async def settle_local_party(request: Request):
     }
     await db.cash_transactions.insert_one(cb)
 
+    # Ledger Nikasi - reduce party outstanding
+    ledger_cb = {
+        "id": str(uuid.uuid4()),
+        "date": date,
+        "account": "ledger",
+        "txn_type": "nikasi",
+        "category": party_name,
+        "party_type": "Local Party",
+        "description": f"Local Party Payment: {party_name} - Rs.{amount}" + (f" ({notes})" if notes else ""),
+        "amount": round(amount, 2),
+        "reference": f"local_party_ledger:{pay_txn['id'][:8]}",
+        "kms_year": kms_year,
+        "season": season,
+        "created_by": username,
+        "linked_local_party_id": pay_txn["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.cash_transactions.insert_one(ledger_cb)
+
     return {"success": True, "message": f"Rs.{amount} payment to {party_name} recorded", "txn_id": pay_txn["id"]}
 
 

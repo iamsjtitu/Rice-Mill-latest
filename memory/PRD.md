@@ -3,39 +3,36 @@
 ## Original Problem Statement
 A comprehensive Mill Entry System for managing rice mill operations including paddy purchases, rice sales, truck payments, party ledgers, cash books, and private trading.
 
-## Core Modules
-- **Private Trading**: Paddy Purchase, Rice Sale, Party Summary
-- **Payments**: Truck Payments, DC Payments, Agent Commission
-- **Ledgers**: Party Ledger (Jama/Nikasi), Cash Book
-- **Reports**: Various financial and operational reports
-- **Staff Management**: Staff records and payments
-- **Milling/CMR**: Milling operations tracking
+## Core Accounting Rule
+**Every payment MUST create TWO entries:**
+1. Cash/Bank Nikasi (money going out) 
+2. Ledger Nikasi (party's outstanding balance reducing)
 
-## Key Technical Concepts
-- **Jama (Credit)**: Party owes money (e.g., a sale creates jama)
-- **Nikasi (Debit)**: Payment reduces debt (e.g., payment received creates nikasi)
-- **Ledger vs Cash**: Party Summary only counts `account: "ledger"` entries
-- **Double-entry accounting**: Every payment creates both Cash Nikasi AND Ledger Nikasi
+Without BOTH entries, Party Summary shows wrong balances.
+
+## Payment Flows (All Fixed)
+| Flow | File | Cash Nikasi | Ledger Nikasi |
+|------|------|:-----------:|:------------:|
+| Truck partial payment | payments.py | ✅ | ✅ |
+| Truck mark-paid | payments.py | ✅ | ✅ |
+| Truck owner payment | payments.py | ✅ | ✅ |
+| Truck owner mark-paid | payments.py | ✅ | ✅ |
+| Agent partial payment | payments.py | ✅ | ✅ |
+| Agent mark-paid | payments.py | ✅ | ✅ |
+| Diesel payment | diesel.py | ✅ | ✅ |
+| Local Party payment | local_party.py | ✅ | ✅ |
+| Pvt Paddy payment | private_trading.py | ✅ | ✅ |
+| Rice Sale payment | private_trading.py | ✅ | ✅ |
 
 ## What's Been Implemented
-- Full Private Trading module with Paddy Purchase, Rice Sale, Party Summary
-- Mark Paid / Undo Paid / Payment History for both Paddy and Rice
-- RST No, Cash Paid, Diesel Paid fields in Rice Sale
-- Party Summary with Paddy/Rice dropdown filter + PDF/Excel export
+- Full Private Trading module (Paddy Purchase, Rice Sale, Party Summary)
+- Mark Paid / Undo Paid / Payment History for Paddy and Rice
+- Party Summary with Paddy/Rice dropdown filter + PDF/Excel
 - Description format: `{party} - {mandi} - {qty} Qntl @ Rs.{rate}`
-- CashBook Account filter: removed "All", only Cash/Bank/Ledger, default Ledger
-- CashBook Party Summary: ledger-only counting (no double-count)
-- CashBook Party Summary: party_type auto-detection from multiple collections
+- CashBook: removed "All" from Account filter, default "Ledger"
+- CashBook Party Summary: ledger-only counting + auto party_type detection
 - Keyboard navigation (↑↓ + Enter) in party search dropdown
-- Agent payment creates both Cash Nikasi + Ledger Nikasi entries
-
-## Recent Changes (March 2026)
-- Description format: "100 @ Rs.300" → "100 Qntl @ Rs.300"
-- CashBook Account filter: default "Ledger", removed "All"
-- Party Summary: separate Paddy/Rice with dropdown filter
-- Party Summary: ledger-only entries fix (Kridha balance fixed)
-- Keyboard navigation in party search dropdown
-- **Agent Settlement Fix**: Added missing Ledger Nikasi entries for agent payments (both partial and mark-paid flows)
+- ALL payment flows now create double-entry (Cash + Ledger Nikasi)
 
 ## Backlog
 - P2: Refactor duplicate business logic between Python backend and Node.js desktop-app

@@ -174,6 +174,21 @@ async def make_diesel_payment(request: Request, username: str = "", role: str = 
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
     await db.cash_transactions.insert_one(cb)
+
+    # Ledger Nikasi - reduce diesel outstanding
+    ledger_cb = {
+        "id": str(uuid.uuid4()), "date": date,
+        "account": "ledger", "txn_type": "nikasi", "category": pump['name'],
+        "party_type": "Diesel",
+        "description": f"Diesel Payment: {pump['name']} - Rs.{amount}" + (f" ({notes})" if notes else ""),
+        "amount": round(amount, 2), "reference": f"diesel_pay_ledger:{pay_txn['id'][:8]}",
+        "kms_year": kms_year, "season": season,
+        "created_by": username or "system",
+        "linked_diesel_payment_id": pay_txn["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.cash_transactions.insert_one(ledger_cb)
     
     return {"success": True, "message": f"Rs.{amount} payment to {pump['name']} recorded", "txn_id": pay_txn["id"]}
 

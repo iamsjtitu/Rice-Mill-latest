@@ -310,6 +310,26 @@ async def make_truck_payment(entry_id: str, request: MakePaymentRequest, usernam
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         await db.cash_transactions.insert_one(cb_entry)
+
+        # Ledger Nikasi - reduce truck outstanding
+        ledger_entry = {
+            "id": str(uuid.uuid4()),
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "account": "ledger",
+            "txn_type": "nikasi",
+            "category": truck_no,
+            "party_type": "Truck",
+            "description": f"Truck Payment: {truck_no} - Rs.{request.amount}",
+            "amount": round(request.amount, 2),
+            "reference": f"truck_pay_ledger:{entry_id[:8]}",
+            "kms_year": kms_year,
+            "season": season,
+            "created_by": username or "system",
+            "linked_payment_id": f"truck_ledger:{entry_id}:{uuid.uuid4().hex[:6]}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(ledger_entry)
     
     return {"success": True, "message": f"Rs.{request.amount} payment recorded", "total_paid": new_paid}
 
@@ -374,6 +394,26 @@ async def mark_truck_paid(entry_id: str, username: str = "", role: str = ""):
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         await db.cash_transactions.insert_one(cb_entry)
+
+        # Ledger Nikasi - reduce truck outstanding
+        ledger_entry = {
+            "id": str(uuid.uuid4()),
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "account": "ledger",
+            "txn_type": "nikasi",
+            "category": truck_no,
+            "party_type": "Truck",
+            "description": f"Truck Payment: {truck_no} (Full - Mark Paid)",
+            "amount": round(net_amount, 2),
+            "reference": f"truck_markpaid_ledger:{entry_id}",
+            "kms_year": kms_year,
+            "season": season,
+            "created_by": username or "system",
+            "linked_payment_id": f"truck_ledger_markpaid:{entry_id}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(ledger_entry)
     
     return {"success": True, "message": "Truck payment cleared"}
 
@@ -906,7 +946,7 @@ async def pay_truck_owner(truck_no: str, request: Request, kms_year: str = "", s
         )
         remaining = round(remaining - allot, 2)
     
-    # Create cash book entry (only nikasi - no separate ledger entry)
+    # Create cash book entry (Cash/Bank Nikasi)
     txn_id = f"txn_{datetime.now().strftime('%Y%m%d%H%M%S')}_{truck_no}"
     cash_txn = {
         "id": txn_id,
@@ -924,6 +964,24 @@ async def pay_truck_owner(truck_no: str, request: Request, kms_year: str = "", s
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.cash_transactions.insert_one(cash_txn)
+
+    # Ledger Nikasi - reduce truck outstanding
+    ledger_txn = {
+        "id": f"txn_ledger_{datetime.now().strftime('%Y%m%d%H%M%S')}_{truck_no}",
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "account": "ledger",
+        "txn_type": "nikasi",
+        "category": truck_no,
+        "party_type": "Truck",
+        "description": f"Truck Owner Payment: {truck_no}" + (f" - {note}" if note else ""),
+        "amount": amount,
+        "reference": f"truck_owner_ledger:{truck_no}",
+        "linked_payment_id": f"truck_owner_ledger:{truck_no}:{kms_year}:{season}:{uuid.uuid4().hex[:6]}",
+        "kms_year": kms_year,
+        "season": season,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.cash_transactions.insert_one(ledger_txn)
     
     # Store owner payment history
     owner_doc = await db.truck_owner_payments.find_one({"truck_no": truck_no, "kms_year": kms_year, "season": season})
@@ -989,7 +1047,7 @@ async def mark_truck_owner_paid(truck_no: str, kms_year: str = "", season: str =
         )
     
     if total_marked > 0:
-        # Cash book nikasi only (no separate ledger entry)
+        # Cash book nikasi
         txn_id = f"txn_{datetime.now().strftime('%Y%m%d%H%M%S')}_{truck_no}_full"
         await db.cash_transactions.insert_one({
             "id": txn_id, "date": datetime.now().strftime("%Y-%m-%d"),
@@ -999,6 +1057,20 @@ async def mark_truck_owner_paid(truck_no: str, kms_year: str = "", season: str =
             "amount": total_marked,
             "reference": f"truck_owner:{truck_no}",
             "linked_payment_id": f"truck_owner:{truck_no}:{kms_year}:{season}",
+            "kms_year": kms_year, "season": season,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+
+        # Ledger Nikasi - reduce truck outstanding
+        await db.cash_transactions.insert_one({
+            "id": f"txn_ledger_{datetime.now().strftime('%Y%m%d%H%M%S')}_{truck_no}_full",
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "account": "ledger", "txn_type": "nikasi",
+            "category": truck_no, "party_type": "Truck",
+            "description": f"Truck Owner Full Payment: {truck_no}",
+            "amount": total_marked,
+            "reference": f"truck_owner_ledger:{truck_no}",
+            "linked_payment_id": f"truck_owner_ledger_markpaid:{truck_no}:{kms_year}:{season}",
             "kms_year": kms_year, "season": season,
             "created_at": datetime.now(timezone.utc).isoformat()
         })
