@@ -508,13 +508,15 @@ const GunnyBags = ({ filters, user }) => {
               <TableCell className="text-slate-400 text-xs">{e.reference}</TableCell>
               <TableCell className="text-slate-500 text-xs max-w-[120px] truncate">{e.notes}</TableCell>
               <TableCell>
-                {user.role === 'admin' && !e.linked_entry_id && (
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEditForm(e)} data-testid={`gunny-edit-${e.id}`}><Edit className="w-3 h-3" /></Button>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(e.id)} data-testid={`gunny-delete-${e.id}`}><Trash2 className="w-3 h-3" /></Button>
-                  </div>
-                )}
-                {e.linked_entry_id && <span className="text-[9px] text-slate-500">Auto</span>}
+                <div className="flex items-center gap-1">
+                  {e.linked_entry_id && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" data-testid={`gunny-auto-badge-${e.id}`}>Auto</span>}
+                  {user.role === 'admin' && !e.linked_entry_id && (
+                    <>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEditForm(e)} data-testid={`gunny-edit-${e.id}`}><Edit className="w-3 h-3" /></Button>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(e.id)} data-testid={`gunny-delete-${e.id}`}><Trash2 className="w-3 h-3" /></Button>
+                    </>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           ))}

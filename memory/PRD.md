@@ -41,6 +41,7 @@ A comprehensive management tool for a rice mill named "Mill Entry System". Full-
 ### Recent Fixes (Mar 2026)
 - PDF/Excel export formatting: Removed text truncation, increased description column widths, added Paragraph wrapping in PDFs
 - Auto Gunny Bag entries from mill entries (g_issued → OUT, g_deposite → IN with source=Agent-Mandi, ref=Truck No)
+- "Auto" badge in Gunny Bags tab to distinguish auto vs manual entries
 - All changes synced to desktop-app and local-server Node.js backends
 - Frontend build copied to desktop-app
 
@@ -57,4 +58,4 @@ A comprehensive management tool for a rice mill named "Mill Entry System". Full-
 - Admin: `admin` / `admin123`
 
 ## Backlog
-- P2: Refactor multi-backend sync process (currently manual porting)
+- None currently pending
