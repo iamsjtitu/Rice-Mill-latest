@@ -167,8 +167,8 @@ async def update_private_paddy(item_id: str, data: dict, username: str = ""):
     existing = await db.private_paddy.find_one({"id": item_id})
     if not existing: raise HTTPException(status_code=404, detail="Not found")
     update_data = {k: v for k, v in data.items() if v is not None}
-    for f in ["kg", "rate_per_qntl", "g_deposite", "gbw_cut", "moisture", "cutting_percent", "disc_dust_poll", "paid_amount", "cash_paid", "diesel_paid"]:
-        if f in update_data: update_data[f] = float(update_data[f])
+    for f in ["kg", "rate_per_qntl", "g_deposite", "gbw_cut", "moisture", "cutting_percent", "disc_dust_poll", "paid_amount", "cash_paid", "diesel_paid", "advance_paid"]:
+        if f in update_data: update_data[f] = float(update_data[f] or 0)
     for f in ["bag", "plastic_bag", "g_issued"]:
         if f in update_data: update_data[f] = int(float(update_data[f] or 0))
     merged = {**existing, **update_data}
