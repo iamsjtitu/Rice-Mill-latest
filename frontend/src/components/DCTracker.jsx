@@ -184,7 +184,7 @@ const DCEntries = ({ filters, user }) => {
                 <Input type="date" value={form.date} onChange={e => setForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="dc-form-date" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockAvail !== null && <span className={`font-bold ${riceStockAvail > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {riceStockAvail} Q)</span>}</Label>
+              <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockAvail !== null && <span className={`font-bold ${(riceStockAvail - (parseFloat(form.quantity_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((riceStockAvail - (parseFloat(form.quantity_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
                 <Input type="number" step="0.01" value={form.quantity_qntl} onChange={e => setForm(p=>({...p,quantity_qntl:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="dc-form-qty" /></div>
               <div><Label className="text-xs text-slate-400">Rice Type</Label>
                 <Select value={form.rice_type} onValueChange={v => setForm(p=>({...p,rice_type:v}))}>
@@ -216,7 +216,7 @@ const DCEntries = ({ filters, user }) => {
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={delForm.date} onChange={e => setDelForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-date" /></div>
-              <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockAvail !== null && <span className={`font-bold ${riceStockAvail > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {riceStockAvail} Q)</span>}</Label>
+              <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockAvail !== null && <span className={`font-bold ${(riceStockAvail - (parseFloat(delForm.quantity_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((riceStockAvail - (parseFloat(delForm.quantity_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
                 <Input type="number" step="0.01" value={delForm.quantity_qntl} onChange={e => setDelForm(p=>({...p,quantity_qntl:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-qty" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">

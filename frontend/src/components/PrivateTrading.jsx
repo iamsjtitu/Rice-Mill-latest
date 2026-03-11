@@ -842,7 +842,7 @@ const RiceSale = ({ filters, user }) => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs text-slate-400">Quantity (Qntl) * {riceStockAvail !== null && <span className={`ml-1 font-bold ${riceStockAvail > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {riceStockAvail} Q)</span>}</Label>
+                <Label className="text-xs text-slate-400">Quantity (Qntl) * {riceStockAvail !== null && <span className={`ml-1 font-bold ${(riceStockAvail - (parseFloat(form.quantity_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((riceStockAvail - (parseFloat(form.quantity_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
                 <Input type="number" step="0.01" value={form.quantity_qntl} onChange={e => setForm(p => ({ ...p, quantity_qntl: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="rice-form-qty" />
               </div>
               <div>

@@ -272,7 +272,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
                   <SelectContent><SelectItem value="parboiled">Parboiled (उसना)</SelectItem><SelectItem value="raw">Raw (अरवा)</SelectItem></SelectContent>
                 </Select></div>
             </div>
-            <div><Label className="text-xs text-slate-400">Paddy Input (QNTL) {paddyStock && <span className="text-green-400">(Avl: {paddyStock.available_paddy_qntl} Q)</span>}</Label>
+            <div><Label className="text-xs text-slate-400">Paddy Input (QNTL) {paddyStock && <span className={`font-bold ${(paddyStock.available_paddy_qntl - (parseFloat(formData.paddy_input_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((paddyStock.available_paddy_qntl - (parseFloat(formData.paddy_input_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
               <Input type="number" step="0.01" value={formData.paddy_input_qntl} onChange={(e) => setFormData(p => ({ ...p, paddy_input_qntl: e.target.value }))}
                 placeholder={paddyStock ? `Max ${paddyStock.available_paddy_qntl}` : ""} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="milling-form-paddy" />
               {paddyStock && paddy > paddyStock.available_paddy_qntl && <p className="text-red-400 text-xs mt-1">Stock se zyada!</p>}
