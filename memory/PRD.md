@@ -87,5 +87,13 @@ Hindi (all communication must be in Hindi)
 - **Duplicate prevention**: Once moved, button shows "Pvt Moved" (disabled)
 - **Synced** to all 3 backends
 
+## Bug Fix: Cash Book / Party Ledger Export Filters (March 2026)
+- **Cash Book exports** (PDF/Excel) now pass ALL applied filters: account, txn_type, category, party_type, date_from, date_to
+- **Cash Transactions tab** automatically adds account=cash to exports
+- **Party Summary exports** now pass status filter (pending/settled) + party_type
+- **Party Ledger exports** now pass date_from/date_to range + party_type
+- **Tab switching** clears category/party_type filters so they don't carry over
+- **Agent party type** added to Party Ledger filter dropdown
+
 ## Remaining/Future Tasks
 - None currently pending - all reported issues resolved
