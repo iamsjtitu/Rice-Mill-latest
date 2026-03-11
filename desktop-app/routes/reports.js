@@ -277,24 +277,32 @@ module.exports = function(database) {
     const mandiMap = {};
     for (const e of entries) {
       const mn = e.mandi_name || 'Unknown';
-      if (!mandiMap[mn]) mandiMap[mn] = { mandi_name: mn, agent_name: e.agent_name || '', entries: [], totals: { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_mill_w: 0, total_final_w: 0, total_cutting: 0, total_cash_paid: 0, total_diesel_paid: 0, entry_count: 0 }};
+      if (!mandiMap[mn]) mandiMap[mn] = { mandi_name: mn, agent_name: e.agent_name || '', entries: [], totals: {
+        total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_gbw_cut: 0,
+        total_plastic_bag: 0, total_p_pkt_cut: 0, total_mill_w: 0,
+        total_moisture_cut: 0, total_final_w: 0, total_g_issued: 0,
+        total_cash_paid: 0, total_diesel_paid: 0, total_disc_dust_poll: 0, entry_count: 0 }};
       const t = mandiMap[mn].totals;
-      t.total_kg += e.kg || 0; t.total_qntl += e.qntl || 0; t.total_bag += e.bag || 0;
-      t.total_g_deposite += e.g_deposite || 0; t.total_g_issued += e.g_issued || 0;
-      t.total_mill_w += e.mill_w || 0; t.total_final_w += e.final_w || 0;
-      t.total_cutting += e.cutting || 0; t.total_cash_paid += (e.cash_paid || 0);
-      t.total_diesel_paid += (e.diesel_paid || 0); t.entry_count += 1;
-      mandiMap[mn].entries.push({ date: e.date||'', truck_no: e.truck_no||'', rst_no: e.rst_no||'', tp_no: e.tp_no||'',
-        kg: e.kg||0, qntl: Math.round((e.qntl||0)*100)/100, bag: e.bag||0, g_deposite: e.g_deposite||0,
-        g_issued: e.g_issued||0, mill_w: Math.round((e.mill_w||0)*100)/100, final_w: Math.round((e.final_w||0)*100)/100,
-        cutting: Math.round((e.cutting||0)*100)/100, cutting_percent: e.cutting_percent||0,
-        cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0 });
+      t.total_qntl += e.qntl || 0; t.total_bag += e.bag || 0;
+      t.total_g_deposite += e.g_deposite || 0; t.total_gbw_cut += e.gbw_cut || 0;
+      t.total_plastic_bag += e.plastic_bag || 0; t.total_p_pkt_cut += e.p_pkt_cut || 0;
+      t.total_mill_w += e.mill_w || 0; t.total_moisture_cut += e.moisture_cut || 0;
+      t.total_final_w += e.final_w || 0; t.total_g_issued += e.g_issued || 0;
+      t.total_cash_paid += (e.cash_paid || 0); t.total_diesel_paid += (e.diesel_paid || 0);
+      t.total_disc_dust_poll += e.disc_dust_poll || 0; t.entry_count += 1;
+      const r = (v) => Math.round((v||0)*100)/100;
+      mandiMap[mn].entries.push({ date: e.date||'', truck_no: e.truck_no||'',
+        qntl: r(e.qntl), bag: e.bag||0, g_deposite: e.g_deposite||0, gbw_cut: r(e.gbw_cut),
+        plastic_bag: e.plastic_bag||0, p_pkt_cut: r(e.p_pkt_cut), mill_w: r(e.mill_w),
+        moisture_cut_percent: r(e.moisture_cut_percent), moisture_cut: r(e.moisture_cut),
+        cutting_percent: r(e.cutting_percent), disc_dust_poll: r(e.disc_dust_poll),
+        final_w: r(e.final_w), g_issued: e.g_issued||0, cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0 });
     }
 
     const result = Object.values(mandiMap).sort((a,b) => a.mandi_name.localeCompare(b.mandi_name));
     for (const m of result) { for (const k in m.totals) m.totals[k] = Math.round(m.totals[k]*100)/100; }
 
-    // Add target and extra QNTL info
+    // Add target and extra QNTL info (based on Final W)
     const targets = database.getMandiTargets({ kms_year, season });
     const targetMap = {}; for (const t of targets) targetMap[t.mandi_name] = t;
     const pvtEntries = (database.data.private_paddy || []).filter(p => p.source === 'agent_extra');
@@ -302,12 +310,17 @@ module.exports = function(database) {
     for (const m of result) {
       const target = targetMap[m.mandi_name] || {};
       const targetQntl = Math.round((target.target_qntl || 0) * 100) / 100;
+      const actualFinalQntl = Math.round((m.totals.total_final_w / 100) * 100) / 100;
       m.target_qntl = targetQntl;
-      m.extra_qntl = targetQntl > 0 ? Math.round(Math.max(0, m.totals.total_qntl - targetQntl) * 100) / 100 : 0;
+      m.actual_final_qntl = actualFinalQntl;
+      m.extra_qntl = targetQntl > 0 ? Math.round(Math.max(0, actualFinalQntl - targetQntl) * 100) / 100 : 0;
       m.pvt_moved = pvtMandiSet.has(m.mandi_name);
     }
 
-    const grand = { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_mill_w: 0, total_final_w: 0, total_cutting: 0, total_cash_paid: 0, total_diesel_paid: 0, entry_count: 0 };
+    const grand = { total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_gbw_cut: 0,
+      total_plastic_bag: 0, total_p_pkt_cut: 0, total_mill_w: 0, total_moisture_cut: 0,
+      total_final_w: 0, total_g_issued: 0, total_cash_paid: 0, total_diesel_paid: 0,
+      total_disc_dust_poll: 0, entry_count: 0 };
     for (const m of result) { for (const k in grand) grand[k] += m.totals[k]; }
     for (const k in grand) grand[k] = Math.round(grand[k]*100)/100;
     grand.total_extra_qntl = Math.round(result.reduce((s, m) => s + (m.extra_qntl || 0), 0) * 100) / 100;

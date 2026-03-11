@@ -890,7 +890,7 @@ const AgentMandiReport = ({ filters }) => {
                     <span className="text-amber-400 font-bold text-base">{mandi.mandi_name}</span>
                     <span className="text-slate-400 text-sm ml-3">Agent: <span className="text-white">{mandi.agent_name}</span></span>
                     {mandi.target_qntl > 0 && (
-                      <span className="text-slate-500 text-xs ml-3">Target: {fmtNum(mandi.target_qntl)}Q</span>
+                      <span className="text-slate-500 text-xs ml-3">Target: {fmtNum(mandi.target_qntl)}Q | Final W: {fmtNum(mandi.actual_final_qntl)}Q | Extra: {fmtNum(mandi.extra_qntl)}Q</span>
                     )}
                   </div>
                 </div>
@@ -917,23 +917,26 @@ const AgentMandiReport = ({ filters }) => {
               {/* Expanded entries table */}
               {expandedMandis[mandi.mandi_name] && (
                 <div className="border-t border-slate-700 overflow-x-auto">
-                  <table className="w-full text-xs table-fixed" style={{minWidth:'1100px'}}>
+                  <table className="w-full text-xs table-fixed" style={{minWidth:'1200px'}}>
                     <thead>
                       <tr className="bg-slate-900/80">
                         <th className="px-2 py-2 text-slate-400 font-medium text-left w-[80px]">Date</th>
                         <th className="px-2 py-2 text-slate-400 font-medium text-left w-[90px]">Truck No</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-left w-[55px]">RST</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-left w-[55px]">TP</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[75px]">Weight(Kg)</th>
                         <th className="px-2 py-2 text-slate-400 font-medium text-right w-[60px]">QNTL</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[55px]">Bags</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">G.Deposit</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[65px]">G.Issued</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">Mill Wt</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">Final Wt</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[65px]">Cutting</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[75px]">Cash Paid</th>
-                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[75px]">Diesel Paid</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[50px]">BAG</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[55px]">G.Dep</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[50px]">GBW</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[50px]">P.Pkt</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[50px]">P.Cut</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">Mill W</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[40px]">M%</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[55px]">M.Cut</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[40px]">C%</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[55px]">D/D/P</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">Final W</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[55px]">G.Iss</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">Cash</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">Diesel</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -941,31 +944,39 @@ const AgentMandiReport = ({ filters }) => {
                         <tr key={idx} className={`border-t border-slate-700/50 ${idx % 2 === 0 ? '' : 'bg-slate-800/50'} hover:bg-slate-700/30`}>
                           <td className="px-2 py-1.5 text-white whitespace-nowrap">{fmtDate(entry.date)}</td>
                           <td className="px-2 py-1.5 text-white font-semibold">{entry.truck_no}</td>
-                          <td className="px-2 py-1.5 text-slate-300">{entry.rst_no}</td>
-                          <td className="px-2 py-1.5 text-slate-300">{entry.tp_no}</td>
-                          <td className="px-2 py-1.5 text-right text-slate-300">{fmtNum(entry.kg)}</td>
                           <td className="px-2 py-1.5 text-right text-amber-400 font-semibold">{entry.qntl}</td>
                           <td className="px-2 py-1.5 text-right text-blue-400">{entry.bag}</td>
                           <td className="px-2 py-1.5 text-right text-cyan-400">{entry.g_deposite}</td>
-                          <td className="px-2 py-1.5 text-right text-purple-400">{entry.g_issued}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-300">{entry.gbw_cut}</td>
+                          <td className="px-2 py-1.5 text-right text-purple-300">{entry.plastic_bag}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-300">{entry.p_pkt_cut}</td>
                           <td className="px-2 py-1.5 text-right text-slate-300">{fmtNum(entry.mill_w)}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-400">{entry.moisture_cut_percent}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-300">{entry.moisture_cut}</td>
+                          <td className="px-2 py-1.5 text-right text-red-400">{entry.cutting_percent}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-300">{entry.disc_dust_poll}</td>
                           <td className="px-2 py-1.5 text-right text-emerald-400 font-semibold">{fmtNum(entry.final_w)}</td>
-                          <td className="px-2 py-1.5 text-right text-red-400">{fmtNum(entry.cutting)}</td>
+                          <td className="px-2 py-1.5 text-right text-purple-400">{entry.g_issued}</td>
                           <td className="px-2 py-1.5 text-right text-orange-400">{fmtNum(entry.cash_paid)}</td>
                           <td className="px-2 py-1.5 text-right text-orange-400">{fmtNum(entry.diesel_paid)}</td>
                         </tr>
                       ))}
                       {/* Totals row */}
                       <tr className="border-t-2 border-amber-600/50 bg-amber-900/20">
-                        <td className="px-2 py-2 text-amber-400 font-bold" colSpan={4}>TOTAL</td>
-                        <td className="px-2 py-2 text-right text-white font-bold">{fmtNum(mandi.totals.total_kg)}</td>
+                        <td className="px-2 py-2 text-amber-400 font-bold" colSpan={2}>TOTAL</td>
                         <td className="px-2 py-2 text-right text-amber-400 font-bold">{fmtNum(mandi.totals.total_qntl)}</td>
                         <td className="px-2 py-2 text-right text-blue-400 font-bold">{fmtNum(mandi.totals.total_bag)}</td>
                         <td className="px-2 py-2 text-right text-cyan-400 font-bold">{fmtNum(mandi.totals.total_g_deposite)}</td>
-                        <td className="px-2 py-2 text-right text-purple-400 font-bold">{fmtNum(mandi.totals.total_g_issued)}</td>
+                        <td className="px-2 py-2 text-right text-slate-300 font-bold">{fmtNum(mandi.totals.total_gbw_cut)}</td>
+                        <td className="px-2 py-2 text-right text-purple-300 font-bold">{fmtNum(mandi.totals.total_plastic_bag)}</td>
+                        <td className="px-2 py-2 text-right text-slate-300 font-bold">{fmtNum(mandi.totals.total_p_pkt_cut)}</td>
                         <td className="px-2 py-2 text-right text-white font-bold">{fmtNum(mandi.totals.total_mill_w)}</td>
+                        <td className="px-2 py-2"></td>
+                        <td className="px-2 py-2 text-right text-slate-300 font-bold">{fmtNum(mandi.totals.total_moisture_cut)}</td>
+                        <td className="px-2 py-2"></td>
+                        <td className="px-2 py-2 text-right text-slate-300 font-bold">{fmtNum(mandi.totals.total_disc_dust_poll)}</td>
                         <td className="px-2 py-2 text-right text-emerald-400 font-bold">{fmtNum(mandi.totals.total_final_w)}</td>
-                        <td className="px-2 py-2 text-right text-red-400 font-bold">{fmtNum(mandi.totals.total_cutting)}</td>
+                        <td className="px-2 py-2 text-right text-purple-400 font-bold">{fmtNum(mandi.totals.total_g_issued)}</td>
                         <td className="px-2 py-2 text-right text-orange-400 font-bold">{fmtNum(mandi.totals.total_cash_paid)}</td>
                         <td className="px-2 py-2 text-right text-orange-400 font-bold">{fmtNum(mandi.totals.total_diesel_paid)}</td>
                       </tr>
