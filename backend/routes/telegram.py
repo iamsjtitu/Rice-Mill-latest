@@ -139,7 +139,8 @@ async def _send_pdf_to_all(bot_token, chat_ids, pdf_bytes, caption):
                     data=form_data, files=files, timeout=30
                 )
                 result = resp.json()
-                results.append({"label": label, "ok": result.get("ok", False)})
+                results.append({"label": label, "ok": result.get("ok", False),
+                    "error": "" if result.get("ok") else result.get("description", "Unknown error")})
             except Exception as e:
                 results.append({"label": label, "ok": False, "error": str(e)})
     return results

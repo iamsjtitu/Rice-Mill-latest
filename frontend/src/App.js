@@ -595,7 +595,12 @@ function MainApp({ user, onLogout }) {
         kms_year: filters.kms_year,
         season: filters.season
       });
-      toast.success(res.data.message || "Report bhej diya!");
+      if (res.data.success) {
+        toast.success(res.data.message || "Report bhej diya!");
+      } else {
+        const failed = (res.data.details || []).filter(d => !d.ok).map(d => `${d.label}: ${d.error}`).join(', ');
+        toast.error(`Failed: ${failed || res.data.message}`);
+      }
       fetchTelegramLogs();
     } catch (e) {
       toast.error(e.response?.data?.detail || "Report nahi gaya");
