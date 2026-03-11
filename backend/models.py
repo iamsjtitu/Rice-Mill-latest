@@ -310,6 +310,7 @@ class TruckPaymentStatus(BaseModel):
     season: str
     agent_name: str
     mandi_name: str
+    source: str = "CMR"
 
 class AgentPaymentStatus(BaseModel):
     mandi_name: str

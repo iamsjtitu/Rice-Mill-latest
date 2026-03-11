@@ -82,6 +82,44 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
             mandi_name=entry.get("mandi_name", "")
         ))
     
+    # Also include Pvt Paddy entries with truck_no (cash + diesel go to truck)
+    pvt_query = dict(query)
+    pvt_paddy = await db.private_paddy.find(pvt_query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(1000)
+    for p in pvt_paddy:
+        truck_no = p.get("truck_no", "")
+        if not truck_no:
+            continue
+        cash_paid = float(p.get("cash_paid", 0) or 0)
+        diesel_paid = float(p.get("diesel_paid", 0) or 0)
+        if cash_paid <= 0 and diesel_paid <= 0:
+            continue
+        deductions = round(cash_paid + diesel_paid, 2)
+        party = p.get("party_name", "")
+        mandi = p.get("mandi_name", "")
+        party_label = f"{party} - {mandi}" if party and mandi else party
+        payments.append(TruckPaymentStatus(
+            entry_id=p.get("id", ""),
+            truck_no=truck_no,
+            date=p.get("date", ""),
+            total_qntl=round(p.get("final_qntl", 0), 2),
+            total_bag=int(p.get("bag", 0)),
+            final_qntl=round(p.get("final_qntl", 0), 2),
+            cash_taken=cash_paid,
+            diesel_taken=diesel_paid,
+            rate_per_qntl=0,
+            gross_amount=0,
+            deductions=deductions,
+            net_amount=0,
+            paid_amount=deductions,
+            balance_amount=0,
+            status="paid",
+            kms_year=p.get("kms_year", ""),
+            season=p.get("season", ""),
+            agent_name=p.get("agent_name", ""),
+            mandi_name=party_label,
+            source="Pvt Paddy"
+        ))
+
     return payments
 
 

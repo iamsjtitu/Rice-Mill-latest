@@ -605,10 +605,12 @@ export const Payments = ({ filters, user, branding }) => {
         total_deductions: 0,
         total_net: 0,
         total_paid: 0,
-        total_balance: 0
+        total_balance: 0,
+        has_pvt: false
       };
     }
     acc[truckNo].trips.push(payment);
+    if (payment.source === 'Pvt Paddy') acc[truckNo].has_pvt = true;
     acc[truckNo].total_final_qntl += payment.final_qntl;
     acc[truckNo].total_gross += payment.gross_amount;
     acc[truckNo].total_deductions += payment.deductions;
@@ -964,7 +966,10 @@ export const Payments = ({ filters, user, branding }) => {
                   {filteredTruckPayments.map((payment, idx) => (
                     <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
                       <TableCell className="text-white text-xs">{fmtDate(payment.date)}</TableCell>
-                      <TableCell className="text-white font-semibold">{payment.truck_no}</TableCell>
+                      <TableCell className="text-white font-semibold">
+                        {payment.truck_no}
+                        {payment.source === 'Pvt Paddy' && <span className="ml-1.5 px-1.5 py-0.5 text-[10px] rounded bg-purple-900/60 text-purple-300 font-medium">Pvt</span>}
+                      </TableCell>
                       <TableCell className="text-slate-300 text-xs">{payment.mandi_name}</TableCell>
                       <TableCell className="text-amber-400 text-right font-semibold">{payment.final_qntl}</TableCell>
                       <TableCell className="text-right">
@@ -1106,7 +1111,10 @@ export const Payments = ({ filters, user, branding }) => {
                   <TableBody>
                     {consolidatedTruckList.map((truckData, idx) => (
                       <TableRow key={idx} className="border-slate-700 hover:bg-slate-700/50">
-                        <TableCell className="text-white font-bold text-lg">{truckData.truck_no}</TableCell>
+                        <TableCell className="text-white font-bold text-lg">
+                          {truckData.truck_no}
+                          {truckData.has_pvt && <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-purple-900/60 text-purple-300 font-medium align-middle">Pvt</span>}
+                        </TableCell>
                         <TableCell className="text-center">
                           <span className="bg-slate-600 px-2 py-1 rounded-full text-xs text-white">
                             {truckData.trips.length} trips
