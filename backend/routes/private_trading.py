@@ -19,23 +19,25 @@ router = APIRouter()
 
 @router.post("/private-paddy")
 async def create_private_paddy(data: dict, username: str = "", role: str = ""):
+    def _f(v): return float(v) if v not in (None, "") else 0
+    def _i(v): return int(float(v)) if v not in (None, "") else 0
     doc = {
         "id": str(uuid.uuid4()), "date": data.get("date", ""),
         "kms_year": data.get("kms_year", ""), "season": data.get("season", ""),
         "party_name": data.get("party_name", ""), "truck_no": data.get("truck_no", ""),
         "rst_no": data.get("rst_no", ""), "agent_name": data.get("agent_name", ""),
         "mandi_name": data.get("mandi_name", ""),
-        "kg": float(data.get("kg", 0)), "bag": int(data.get("bag", 0)),
-        "rate_per_qntl": float(data.get("rate_per_qntl", 0)),
-        "g_deposite": float(data.get("g_deposite", 0)),
-        "gbw_cut": float(data.get("gbw_cut", 0)),
-        "plastic_bag": int(data.get("plastic_bag", 0)),
-        "moisture": float(data.get("moisture", 0)),
-        "cutting_percent": float(data.get("cutting_percent", 0)),
-        "disc_dust_poll": float(data.get("disc_dust_poll", 0)),
-        "g_issued": int(float(data.get("g_issued", 0) or 0)),
-        "cash_paid": float(data.get("cash_paid", 0) or 0),
-        "diesel_paid": float(data.get("diesel_paid", 0) or 0),
+        "kg": _f(data.get("kg", 0)), "bag": _i(data.get("bag", 0)),
+        "rate_per_qntl": _f(data.get("rate_per_qntl", 0)),
+        "g_deposite": _f(data.get("g_deposite", 0)),
+        "gbw_cut": _f(data.get("gbw_cut", 0)),
+        "plastic_bag": _i(data.get("plastic_bag", 0)),
+        "moisture": _f(data.get("moisture", 0)),
+        "cutting_percent": _f(data.get("cutting_percent", 0)),
+        "disc_dust_poll": _f(data.get("disc_dust_poll", 0)),
+        "g_issued": _i(data.get("g_issued", 0)),
+        "cash_paid": _f(data.get("cash_paid", 0)),
+        "diesel_paid": _f(data.get("diesel_paid", 0)),
         "remark": data.get("remark", ""),
         "created_by": username,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -43,7 +45,7 @@ async def create_private_paddy(data: dict, username: str = "", role: str = ""):
     }
     # Auto calculations
     doc["qntl"] = round(doc["kg"] / 100, 2) if doc["kg"] else 0
-    doc["gbw_cut"] = float(data.get("gbw_cut", 0)) or round(doc["bag"] * 1.0, 2)
+    doc["gbw_cut"] = _f(data.get("gbw_cut", 0)) or round(doc["bag"] * 1.0, 2)
     doc["mill_w"] = round(doc["kg"] - doc["gbw_cut"], 2)
     doc["p_pkt_cut"] = round(doc["plastic_bag"] * 0.5, 2)
     moist_pct = max(0, doc["moisture"] - 17) if doc["moisture"] > 17 else 0
