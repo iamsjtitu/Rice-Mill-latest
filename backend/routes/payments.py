@@ -562,6 +562,26 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         await db.cash_transactions.insert_one(cb_entry)
+
+        # NIKASI (Ledger) - Reduce agent outstanding in party ledger
+        ledger_nikasi = {
+            "id": str(uuid.uuid4()),
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "account": "ledger",
+            "txn_type": "nikasi",
+            "category": mandi_name,
+            "party_type": "Agent",
+            "description": f"Agent Payment: {mandi_name} - Rs.{request.amount}",
+            "amount": round(request.amount, 2),
+            "reference": f"agent_pay_ledger:{mandi_name[:10]}",
+            "kms_year": kms_year,
+            "season": season,
+            "created_by": username or "system",
+            "linked_payment_id": f"agent_ledger_pay:{mandi_name}:{kms_year}:{season}:{uuid.uuid4().hex[:6]}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(ledger_nikasi)
     
     return {"success": True, "message": f"Rs.{request.amount} payment recorded", "total_paid": new_paid}
 
@@ -671,6 +691,26 @@ async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         await db.cash_transactions.insert_one(cb_entry)
+
+        # NIKASI (Ledger) - Reduce agent outstanding in party ledger
+        ledger_nikasi = {
+            "id": str(uuid.uuid4()),
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "account": "ledger",
+            "txn_type": "nikasi",
+            "category": mandi_name,
+            "party_type": "Agent",
+            "description": f"Agent Payment: {mandi_name} (Full - Mark Paid)",
+            "amount": round(total_amount, 2),
+            "reference": f"agent_markpaid_ledger:{mandi_name[:10]}",
+            "kms_year": kms_year,
+            "season": season,
+            "created_by": username or "system",
+            "linked_payment_id": f"agent_ledger_markpaid:{mandi_name}:{kms_year}:{season}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(ledger_nikasi)
     
     return {"success": True, "message": "Agent/Mandi payment cleared"}
 
