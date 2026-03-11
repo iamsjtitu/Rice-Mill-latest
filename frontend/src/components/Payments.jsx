@@ -983,9 +983,6 @@ export const Payments = ({ filters, user, branding }) => {
                       <TableCell>{getStatusBadge(payment.status)}</TableCell>
                       {user.role === 'admin' && (
                         <TableCell>
-                          {payment.source === 'Pvt Paddy' ? (
-                            <span className="text-xs text-slate-500 italic">Pvt Paddy</span>
-                          ) : (
                           <div className="flex gap-1">
                             <Button
                               size="sm"
@@ -1048,7 +1045,6 @@ export const Payments = ({ filters, user, branding }) => {
                               <Printer className="w-3 h-3" />
                             </Button>
                           </div>
-                          )}
                         </TableCell>
                       )}
                     </TableRow>

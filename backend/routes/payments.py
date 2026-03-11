@@ -17,6 +17,17 @@ async def get_company_name():
         return settings.get("company_name", "Mill Entry System"), settings.get("tagline", "")
     return "Mill Entry System", ""
 
+async def _find_truck_entry(entry_id):
+    """Find entry from mill_entries or private_paddy, return (entry, source, final_qntl)"""
+    entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
+    if entry:
+        fq = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
+        return entry, "cmr", fq
+    entry = await db.private_paddy.find_one({"id": entry_id}, {"_id": 0})
+    if entry:
+        return entry, "pvt", round(entry.get("final_qntl", 0), 2)
+    return None, None, 0
+
 # ============ TRUCK PAYMENT ENDPOINTS ============
 
 @router.get("/truck-payments", response_model=List[TruckPaymentStatus])
@@ -91,28 +102,37 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
             continue
         cash_paid = float(p.get("cash_paid", 0) or 0)
         diesel_paid = float(p.get("diesel_paid", 0) or 0)
-        if cash_paid <= 0 and diesel_paid <= 0:
-            continue
         deductions = round(cash_paid + diesel_paid, 2)
         party = p.get("party_name", "")
         mandi = p.get("mandi_name", "")
         party_label = f"{party} - {mandi}" if party and mandi else party
+        final_qntl = round(p.get("final_qntl", 0), 2)
+        # Check if rate/payment exists in truck_payments
+        tp = await db.truck_payments.find_one({"entry_id": p["id"]}, {"_id": 0})
+        rate = tp.get("rate_per_qntl", 0) if tp else 0
+        extra_paid = tp.get("paid_amount", 0) if tp else 0
+        tp_status = tp.get("status", "") if tp else ""
+        gross = round(final_qntl * rate, 2) if rate > 0 else 0
+        net = round(gross - deductions, 2) if gross > 0 else 0
+        total_paid = round(deductions + extra_paid, 2)
+        balance = round(net - extra_paid, 2) if gross > 0 else 0
+        status = tp_status if tp_status else ("paid" if (gross > 0 and balance <= 0) else ("partial" if extra_paid > 0 else "pending"))
         payments.append(TruckPaymentStatus(
             entry_id=p.get("id", ""),
             truck_no=truck_no,
             date=p.get("date", ""),
-            total_qntl=round(p.get("final_qntl", 0), 2),
+            total_qntl=final_qntl,
             total_bag=int(p.get("bag", 0)),
-            final_qntl=round(p.get("final_qntl", 0), 2),
+            final_qntl=final_qntl,
             cash_taken=cash_paid,
             diesel_taken=diesel_paid,
-            rate_per_qntl=0,
-            gross_amount=0,
+            rate_per_qntl=rate,
+            gross_amount=gross,
             deductions=deductions,
-            net_amount=0,
-            paid_amount=deductions,
-            balance_amount=0,
-            status="paid",
+            net_amount=net,
+            paid_amount=total_paid,
+            balance_amount=balance,
+            status=status,
             kms_year=p.get("kms_year", ""),
             season=p.get("season", ""),
             agent_name=p.get("agent_name", ""),
@@ -129,15 +149,23 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
     if role != "admin":
         raise HTTPException(status_code=403, detail="Sirf admin rate set kar sakta hai")
     
-    entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
+    entry, source, final_qntl = await _find_truck_entry(entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     
     truck_no = entry.get("truck_no", "")
     mandi_name = entry.get("mandi_name", "")
-    updated_count = 1
+    updated_count = 0
     
-    if truck_no and mandi_name:
+    if source == "pvt":
+        # For pvt paddy, just set rate on this single entry
+        await db.truck_payments.update_one(
+            {"entry_id": entry_id},
+            {"$set": {"entry_id": entry_id, "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True
+        )
+        updated_count = 1
+    elif truck_no and mandi_name:
         # Find all entries with same truck_no + mandi_name
         matching = await db.mill_entries.find(
             {"truck_no": truck_no, "mandi_name": {"$regex": f"^{mandi_name}$", "$options": "i"}}, {"_id": 0}
@@ -180,8 +208,7 @@ async def make_truck_payment(entry_id: str, request: MakePaymentRequest, usernam
     if role != "admin":
         raise HTTPException(status_code=403, detail="Sirf admin payment kar sakta hai")
     
-    # Check entry exists
-    entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
+    entry, source, final_qntl = await _find_truck_entry(entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     
@@ -243,17 +270,16 @@ async def mark_truck_paid(entry_id: str, username: str = "", role: str = ""):
     if role != "admin":
         raise HTTPException(status_code=403, detail="Sirf admin paid mark kar sakta hai")
     
-    entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
+    entry, source, final_qntl = await _find_truck_entry(entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     
     payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
     rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
     
-    final_qntl = entry.get("qntl", 0) - entry.get("bag", 0) / 100
-    cash_taken = entry.get("cash_paid", 0) or 0
-    diesel_taken = entry.get("diesel_paid", 0) or 0
-    net_amount = (final_qntl * rate) - cash_taken - diesel_taken
+    cash_taken = float(entry.get("cash_paid", 0) or 0)
+    diesel_taken = float(entry.get("diesel_paid", 0) or 0)
+    net_amount = round((final_qntl * rate) - cash_taken - diesel_taken, 2)
     
     payments_history = payment_doc.get("payments_history", []) if payment_doc else []
     payments_history.append({
@@ -631,7 +657,7 @@ async def undo_truck_paid(entry_id: str, username: str = "", role: str = ""):
     await db.cash_transactions.delete_many({"linked_payment_id": f"truck:{entry_id}"})
     
     # Also find the truck_no for this entry and clean up owner-level cash entries
-    entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0, "truck_no": 1, "kms_year": 1, "season": 1})
+    entry, source, _ = await _find_truck_entry(entry_id)
     if entry:
         truck_no = entry.get("truck_no", "")
         kms_year = entry.get("kms_year", "")
