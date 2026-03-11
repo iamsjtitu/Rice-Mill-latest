@@ -167,7 +167,7 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
                 "description": f"{(s.get('product','')).capitalize()}: {s.get('quantity_qntl',0)}Q @ ₹{s.get('rate_per_qntl',0)}/Q",
                 "debit": 0, "credit": round(s.get("total_amount", 0), 2), "ref": s.get("id", "")[:8]})
 
-    # Private Paddy Purchase (debit = purchase amount, credit = advances given)
+    # Private Paddy Purchase (debit = purchase amount, credit = advance paid only)
     if not party_type or party_type == "pvt_paddy":
         pvt_paddy = await db.private_paddy.find(query, {"_id": 0}).to_list(5000)
         for p in pvt_paddy:
@@ -180,18 +180,12 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
             ledger.append({"date": p.get("date", ""), "party_name": display_name, "party_type": "Pvt Paddy Purchase",
                 "description": f"Paddy: {p.get('final_qntl',0)}Q @ Rs.{p.get('rate_per_qntl',0)}/Q = Rs.{p.get('total_amount',0)}",
                 "debit": round(p.get("total_amount", 0), 2), "credit": 0, "ref": p.get("id", "")[:8]})
-            # Credit: cash advance
-            cash_paid = float(p.get("cash_paid", 0) or 0)
-            if cash_paid > 0:
+            # Credit: advance paid only (cash/diesel go to truck payment, not party)
+            advance_paid = float(p.get("paid_amount", 0) or 0)
+            if advance_paid > 0:
                 ledger.append({"date": p.get("date", ""), "party_name": display_name, "party_type": "Pvt Paddy Purchase",
-                    "description": f"Cash Advance: Rs.{cash_paid}",
-                    "debit": 0, "credit": round(cash_paid, 2), "ref": p.get("id", "")[:8]})
-            # Credit: diesel advance
-            diesel_paid = float(p.get("diesel_paid", 0) or 0)
-            if diesel_paid > 0:
-                ledger.append({"date": p.get("date", ""), "party_name": display_name, "party_type": "Pvt Paddy Purchase",
-                    "description": f"Diesel Advance: Rs.{diesel_paid}",
-                    "debit": 0, "credit": round(diesel_paid, 2), "ref": p.get("id", "")[:8]})
+                    "description": f"Advance Paid: Rs.{advance_paid}",
+                    "debit": 0, "credit": round(advance_paid, 2), "ref": p.get("id", "")[:8]})
 
     # Rice Sale (debit = 0, credit = sale amount)
     if not party_type or party_type == "rice_buyer":

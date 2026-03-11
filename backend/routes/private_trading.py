@@ -96,11 +96,12 @@ async def _create_gunny_entries_for_pvt_paddy(doc, username=""):
 
 
 async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
-    """Auto-create cash book nikasi for cash_paid and diesel account entry for diesel_paid."""
+    """Auto-create truck payment entries for cash/diesel and party ledger entry for advance."""
     entry_id = doc["id"]
     party = doc.get("party_name", "")
     mandi = doc.get("mandi_name", "")
     party_label = f"{party} - {mandi}" if party and mandi else party or "Pvt Paddy"
+    truck_no = doc.get("truck_no", "")
     date = doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     base_fields = {
         "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
@@ -108,14 +109,23 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
         "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
     }
     cash_paid = float(doc.get("cash_paid", 0) or 0)
-    if cash_paid > 0:
-        # Cash Book nikasi
+    if cash_paid > 0 and truck_no:
+        # Cash Book nikasi (under truck)
         await db.cash_transactions.insert_one({
             "id": str(uuid.uuid4()), "date": date,
             "account": "cash", "txn_type": "nikasi",
-            "category": party_label, "party_type": "Pvt Paddy Purchase",
-            "description": f"Pvt Paddy Cash Advance: {party_label} - Rs.{cash_paid}",
+            "category": truck_no, "party_type": "Truck",
+            "description": f"Pvt Paddy Cash: Truck {truck_no} - {party_label} - Rs.{cash_paid}",
             "amount": round(cash_paid, 2), "reference": f"pvt_paddy_cash:{entry_id[:8]}",
+            **base_fields
+        })
+        # Truck Ledger nikasi (so it shows in truck payment)
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "account": "ledger", "txn_type": "nikasi",
+            "category": truck_no, "party_type": "Truck",
+            "description": f"Pvt Paddy Cash Paid: {party_label} - Rs.{cash_paid}",
+            "amount": round(cash_paid, 2), "reference": f"pvt_paddy_tcash:{entry_id[:8]}",
             **base_fields
         })
     diesel_paid = float(doc.get("diesel_paid", 0) or 0)
@@ -127,9 +137,30 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
         await db.diesel_accounts.insert_one({
             "id": str(uuid.uuid4()), "date": date,
             "pump_id": pump_id, "pump_name": pump_name,
-            "truck_no": doc.get("truck_no", ""), "agent_name": doc.get("agent_name", ""),
+            "truck_no": truck_no, "agent_name": doc.get("agent_name", ""),
             "mandi_name": mandi, "amount": round(diesel_paid, 2), "txn_type": "debit",
             "description": f"Pvt Paddy Diesel: {party_label}",
+            **base_fields
+        })
+        if truck_no:
+            # Truck Ledger nikasi for diesel
+            await db.cash_transactions.insert_one({
+                "id": str(uuid.uuid4()), "date": date,
+                "account": "ledger", "txn_type": "nikasi",
+                "category": truck_no, "party_type": "Truck",
+                "description": f"Pvt Paddy Diesel Paid: {party_label} - Rs.{diesel_paid}",
+                "amount": round(diesel_paid, 2), "reference": f"pvt_paddy_tdiesel:{entry_id[:8]}",
+                **base_fields
+            })
+    advance_paid = float(doc.get("paid_amount", 0) or 0)
+    if advance_paid > 0:
+        # Cash Book nikasi for advance (under party)
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "account": "cash", "txn_type": "nikasi",
+            "category": party_label, "party_type": "Pvt Paddy Purchase",
+            "description": f"Pvt Paddy Advance: {party_label} - Rs.{advance_paid}",
+            "amount": round(advance_paid, 2), "reference": f"pvt_paddy_adv:{entry_id[:8]}",
             **base_fields
         })
 
