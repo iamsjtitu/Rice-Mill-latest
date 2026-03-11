@@ -19,7 +19,7 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 ```
 
 ## Key Collections (MongoDB)
-- private_paddy, rice_sales, private_payments, entries, cash_transactions, gunny_bags, mandi_targets, dc_payments, staff, users, settings
+- private_paddy, rice_sales, private_payments, entries, cash_transactions, gunny_bags, mandi_targets, dc_payments, staff, users, settings, milling_entries, frk_purchases, byproduct_sales
 
 ## Credentials
 - Admin: `admin` / `admin123`
@@ -33,13 +33,14 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 - Party-wise Summary Tab (aggregated view, date range filter, exports)
 - Shared Config Extension to Cash Book + Party Ledger (10 reports total)
 - **G.Issued, Cash Paid, Diesel Paid** fields in Pvt Paddy form/table/exports
-- **Auto Gunny Bag entries**: BAG→IN, G.Issued→OUT (linked_entry_id for cascading delete/update)
+- **Auto Gunny Bag entries**: BAG->IN, G.Issued->OUT (linked_entry_id for cascading delete/update)
 - **Select-all checkbox + bulk delete** for Paddy Purchase and Rice Sale tables
+- **CMR Paddy Stock Formula Update** (2026-03-11): Changed from `QNTL - BAG` to `QNTL - BAG - P.Cut`, includes private paddy in total stock (NOT in custody maintenance)
 - All 3 backends synced
 
 ## Shared Config Reports (10 total)
 agent_mandi_report, gunny_bags_report, dc_entries_report, msp_payments_report, private_paddy_report (14 cols), rice_sales_report, party_summary_report, cashbook_report, party_ledger_report, daily_paddy_entries_report (config only)
 
 ## Backlog
+- P1: Daily Report refactoring to shared config (complex, deferred - config entry exists but logic not refactored)
 - P2: General code cleanup (style fixes, unused imports)
-- Daily Report refactoring to shared config (complex, deferred)
