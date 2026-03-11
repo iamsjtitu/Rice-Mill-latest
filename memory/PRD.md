@@ -48,12 +48,18 @@ Hindi (all communication must be in Hindi)
 ## New Feature: Agent & Mandi Wise Report (March 2026)
 - **Sub-tab** in Reports page: "Agent & Mandi"
 - **Search** by Mandi name or Agent name (case-insensitive)
+- **Date Range Filter**: From/To date picker for filtering entries by date
 - **Grouped view**: Mandi-wise with expand/collapse per group
 - **Entry details**: Date, Truck No, RST, TP, Weight(Kg), QNTL, Bags, Gunny Deposit, Gunny Issued, Mill Wt, Final Wt, Cutting, Cash Paid, Diesel Paid
 - **Summary cards**: Total Entries, QNTL, Bags, Gunny Deposit, Gunny Issued, Final Weight
 - **Totals**: Per-mandi total row + Grand total
-- **Export**: Excel and PDF with formatted tables
+- **Export**: Excel and PDF with formatted tables (supports date range)
 - **Synced** to all 3 backends (Python, desktop-app, local-server) + frontend build updated
+
+## Bug Fix: Agent Mark Paid Missing Jama Entry (March 2026)
+- **Issue**: `mark_agent_paid` was only creating nikasi (cash payment) entry but NOT creating jama (ledger commission) entry. Kesinga's jama was missing while Utkela's was present.
+- **Fix**: Added jama (Agent Commission) entry creation in `mark_agent_paid` function for ALL mandis. Also fixed `undo_agent_paid` to delete both jama and nikasi entries.
+- **Synced** to all 3 backends (Python, desktop-app, local-server)
 
 ## Backend Parity Status (March 2026)
 - **Python backend**: All features complete, all bugs fixed
