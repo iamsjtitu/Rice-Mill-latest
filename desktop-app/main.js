@@ -140,7 +140,7 @@ class JsonDatabase {
     // Debounced save - prevents excessive disk writes during rapid operations
     if (this._saveTimer) clearTimeout(this._saveTimer);
     this._pendingSave = true;
-    this._saveTimer = setTimeout(() => this._doSave(), 300);
+    this._saveTimer = setTimeout(() => this._doSave(), 100);
   }
 
   saveImmediate() {
@@ -1107,6 +1107,22 @@ async function createMainWindow(port) {
     }
   });
 
+  // Show window as soon as DOM is ready (faster perceived startup)
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
+  // Fallback: show after 4 seconds even if ready-to-show hasn't fired
+  const showTimeout = setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible()) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  }, 4000);
+
+  mainWindow.once('show', () => clearTimeout(showTimeout));
+
   // Load frontend from Express server
   mainWindow.loadURL(`http://127.0.0.1:${port}`);
 
@@ -1371,6 +1387,7 @@ ipcMain.on('close-app', () => {
 
 // ============ APPLICATION STARTUP ============
 async function startApplication(folderPath) {
+  const startTime = Date.now();
   dataPath = folderPath;
   
   // Show loading state on splash screen immediately
@@ -1380,14 +1397,16 @@ async function startApplication(folderPath) {
     `).catch(() => {});
   }
   
-  // Update config - only keep recentPaths for reference, do NOT save lastPath for auto-load
+  // Update config (fast - tiny file)
   const config = loadConfig();
   config.recentPaths = [folderPath, ...config.recentPaths.filter(p => p !== folderPath)].slice(0, 5);
-  config.lastPath = null;  // Never auto-load last folder
+  config.lastPath = null;
   saveConfig(config);
 
   // Initialize database
+  console.log('[Startup] Loading database...');
   db = new JsonDatabase(folderPath);
+  console.log(`[Startup] Database loaded in ${Date.now() - startTime}ms`);
   
   // Update loading status
   if (splashWindow && !splashWindow.isDestroyed()) {
@@ -1397,28 +1416,24 @@ async function startApplication(folderPath) {
   }
 
   // Start API server
+  console.log('[Startup] Creating API server...');
   const port = await createApiServer(db);
+  console.log(`[Startup] Server ready in ${Date.now() - startTime}ms`);
 
-  // Update loading status
+  // Close splash and open main window immediately
   if (splashWindow && !splashWindow.isDestroyed()) {
-    splashWindow.webContents.executeJavaScript(`
-      document.getElementById('load-status').textContent = 'Opening application...';
-    `).catch(() => {});
-  }
-
-  // Close splash and open main window FIRST (don't wait for backup)
-  if (splashWindow) {
     splashWindow.close();
     splashWindow = null;
   }
   await createMainWindow(port);
+  console.log(`[Startup] Window created in ${Date.now() - startTime}ms`);
 
-  // Do backup AFTER window is shown (non-blocking)
+  // Deferred tasks - run AFTER window is visible (non-blocking)
   setTimeout(() => {
     if (!hasTodayBackup() && db && fs.existsSync(db.dbFile)) {
       createBackup(db, 'startup');
     }
-  }, 5000);
+  }, 3000);
 
   // Daily backup check
   setInterval(() => { if (!hasTodayBackup()) createBackup(db, 'daily'); }, 60 * 60 * 1000);
@@ -1438,13 +1453,10 @@ async function startApplication(folderPath) {
       });
       return;
     }
-    // Quick health ping
-    http.get(`http://127.0.0.1:${server.address().port}/api/health`, (res) => {
-      // Server is alive
-    }).on('error', (err) => {
+    http.get(`http://127.0.0.1:${server.address().port}/api/health`, () => {}).on('error', (err) => {
       logError('SERVER_WATCHDOG_PING_FAIL', err.message);
     });
-  }, 30000); // Check every 30 seconds
+  }, 30000);
 }
 
 // ============ APP LIFECYCLE ============
