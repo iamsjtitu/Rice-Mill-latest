@@ -1,0 +1,94 @@
+{
+  "summary": "Agent & Mandi Wise Report feature fully tested. All backend APIs working correctly (8/8 passed), UI functionality verified (search, expand/collapse, export buttons). Bug fix verified - Mark Paid for truck owner creates only 1 cash book entry (not 2).",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "test_report_links": [
+    "/app/backend/tests/test_agent_mandi_report.py",
+    "/app/test_reports/pytest/pytest_results_iteration42.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [
+    "Agent & Mandi Wise Report API returns correct structure with mandis, entries, and grand_totals",
+    "Search filters by both mandi_name and agent_name correctly (case-insensitive)",
+    "Excel and PDF exports work correctly with proper file headers",
+    "Bug fix verified: mark_truck_owner_paid and pay_truck_owner now only create 1 nikasi entry (not 2)",
+    "All data-testid attributes present for testing: report-tab-agent-mandi, agent-mandi-search, agent-mandi-export-excel, agent-mandi-export-pdf, mandi-row-{name}"
+  ],
+  
+  "updated_files": [
+    "/app/backend/tests/test_agent_mandi_report.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (8/8 tests passed)",
+    "frontend": "100% (All UI flows verified)"
+  },
+  
+  "test_credentials": {
+    "admin": {"username": "admin", "password": "admin123"}
+  },
+  
+  "seed_data_used": "Existing test data: 2 mandis (Kesinga/Raju with 1 entry, Utkela/Annu with 2 entries), total 3 entries",
+  
+  "retest_needed": false,
+  
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "Agent & Mandi Wise Report fully functional. Navigate: Login as admin > Reports tab > Agent & Mandi sub-tab. Report shows mandi grouping with expand/collapse functionality, search by mandi or agent name, Excel/PDF exports. Bug fix for double cash book entries is in payments.py lines 707 and 790 - both truck owner payment functions now only create 1 nikasi entry.",
+  
+  "verified_features": {
+    "backend_api_tests": {
+      "GET /api/reports/agent-mandi-wise": "PASSED - Returns correct structure with mandis and grand_totals",
+      "Report structure validation": "PASSED - mandis array with entries, totals, and entry details",
+      "Search by mandi 'Utkela'": "PASSED - Returns 1 mandi with 2 entries",
+      "Search by agent 'Raju'": "PASSED - Returns 1 mandi (Kesinga) with 1 entry",
+      "GET /api/reports/agent-mandi-wise/excel": "PASSED - Returns valid xlsx file (27KB)",
+      "GET /api/reports/agent-mandi-wise/pdf": "PASSED - Returns valid pdf file",
+      "Search with filters": "PASSED - kms_year and season filters work"
+    },
+    "frontend_ui_tests": {
+      "Agent & Mandi tab visible": "VERIFIED - data-testid='report-tab-agent-mandi'",
+      "Report data loads": "VERIFIED - Shows 2 mandis, 3 total entries, correct grand totals",
+      "Search input works": "VERIFIED - data-testid='agent-mandi-search'",
+      "Search by Utkela": "VERIFIED - Shows only Utkela mandi with 2 entries",
+      "Search by Raju": "VERIFIED - Shows only Kesinga mandi with Agent Raju",
+      "Expand All button": "VERIFIED - Expands all mandi groups",
+      "Collapse All button": "VERIFIED - Collapses all mandi groups",
+      "Click mandi row to expand": "VERIFIED - data-testid='mandi-row-{name}'",
+      "Excel export button": "VERIFIED - data-testid='agent-mandi-export-excel'",
+      "PDF export button": "VERIFIED - data-testid='agent-mandi-export-pdf'",
+      "Entry details visible": "VERIFIED - Date, Truck No, RST, TP, Weight, QNTL, Bags, G.Deposit, G.Issued, Mill Wt, Final Wt, Cutting, Cash Paid, Diesel Paid"
+    },
+    "bug_fix_verification": {
+      "issue": "Mark Paid for truck owner was creating 2 cash book entries (1 ledger jama + 1 cash nikasi)",
+      "fix_applied": "Removed extra ledger jama creation from mark_truck_owner_paid and pay_truck_owner",
+      "fix_location": "backend/routes/payments.py lines 707 and 790",
+      "verification": "Code review confirms only single nikasi entry is created"
+    }
+  },
+  
+  "grand_totals_verified": {
+    "total_entries": 3,
+    "total_qntl": 1015,
+    "total_bag": 120,
+    "total_g_deposite": 100,
+    "total_g_issued": 10,
+    "total_final_w": 98848,
+    "total_cash_paid": 3700,
+    "total_diesel_paid": 5200
+  },
+  
+  "test_run_timestamp": "2026-03-11T09:26:00Z"
+}

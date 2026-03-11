@@ -264,5 +264,189 @@ module.exports = function(database) {
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
   }));
 
+  // ===== AGENT & MANDI WISE REPORT =====
+  router.get('/api/reports/agent-mandi-wise', safeSync((req, res) => {
+    const { kms_year, season, search } = req.query;
+    let entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
+    if (search) {
+      const s = search.toLowerCase();
+      entries = entries.filter(e => (e.mandi_name||'').toLowerCase().includes(s) || (e.agent_name||'').toLowerCase().includes(s));
+    }
+    entries.sort((a, b) => (b.date||'').localeCompare(a.date||''));
+
+    const mandiMap = {};
+    for (const e of entries) {
+      const mn = e.mandi_name || 'Unknown';
+      if (!mandiMap[mn]) mandiMap[mn] = { mandi_name: mn, agent_name: e.agent_name || '', entries: [], totals: { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_mill_w: 0, total_final_w: 0, total_cutting: 0, total_cash_paid: 0, total_diesel_paid: 0, entry_count: 0 }};
+      const t = mandiMap[mn].totals;
+      t.total_kg += e.kg || 0; t.total_qntl += e.qntl || 0; t.total_bag += e.bag || 0;
+      t.total_g_deposite += e.g_deposite || 0; t.total_g_issued += e.g_issued || 0;
+      t.total_mill_w += e.mill_w || 0; t.total_final_w += e.final_w || 0;
+      t.total_cutting += e.cutting || 0; t.total_cash_paid += (e.cash_paid || 0);
+      t.total_diesel_paid += (e.diesel_paid || 0); t.entry_count += 1;
+      mandiMap[mn].entries.push({ date: e.date||'', truck_no: e.truck_no||'', rst_no: e.rst_no||'', tp_no: e.tp_no||'',
+        kg: e.kg||0, qntl: Math.round((e.qntl||0)*100)/100, bag: e.bag||0, g_deposite: e.g_deposite||0,
+        g_issued: e.g_issued||0, mill_w: Math.round((e.mill_w||0)*100)/100, final_w: Math.round((e.final_w||0)*100)/100,
+        cutting: Math.round((e.cutting||0)*100)/100, cutting_percent: e.cutting_percent||0,
+        cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0 });
+    }
+
+    const result = Object.values(mandiMap).sort((a,b) => a.mandi_name.localeCompare(b.mandi_name));
+    for (const m of result) { for (const k in m.totals) m.totals[k] = Math.round(m.totals[k]*100)/100; }
+    const grand = { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_mill_w: 0, total_final_w: 0, total_cutting: 0, total_cash_paid: 0, total_diesel_paid: 0, entry_count: 0 };
+    for (const m of result) { for (const k in grand) grand[k] += m.totals[k]; }
+    for (const k in grand) grand[k] = Math.round(grand[k]*100)/100;
+    res.json({ mandis: result, grand_totals: grand });
+  }));
+
+  router.get('/api/reports/agent-mandi-wise/excel', safeSync(async (req, res) => {
+    const { kms_year, season, search } = req.query;
+    let entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
+    if (search) { const s = search.toLowerCase(); entries = entries.filter(e => (e.mandi_name||'').toLowerCase().includes(s) || (e.agent_name||'').toLowerCase().includes(s)); }
+    entries.sort((a, b) => (b.date||'').localeCompare(a.date||''));
+
+    const mandiMap = {};
+    for (const e of entries) {
+      const mn = e.mandi_name || 'Unknown';
+      if (!mandiMap[mn]) mandiMap[mn] = { mandi_name: mn, agent_name: e.agent_name || '', entries: [], totals: { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_mill_w: 0, total_final_w: 0, total_cutting: 0, total_cash_paid: 0, total_diesel_paid: 0, entry_count: 0 }};
+      const t = mandiMap[mn].totals;
+      t.total_kg += e.kg||0; t.total_qntl += e.qntl||0; t.total_bag += e.bag||0;
+      t.total_g_deposite += e.g_deposite||0; t.total_g_issued += e.g_issued||0; t.total_mill_w += e.mill_w||0;
+      t.total_final_w += e.final_w||0; t.total_cutting += e.cutting||0; t.total_cash_paid += e.cash_paid||0;
+      t.total_diesel_paid += e.diesel_paid||0; t.entry_count += 1;
+      mandiMap[mn].entries.push(e);
+    }
+    const mandis = Object.values(mandiMap).sort((a,b) => a.mandi_name.localeCompare(b.mandi_name));
+
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Agent Mandi Report');
+    const headers = ['Date','Truck No','RST','TP','Weight(Kg)','QNTL','Bags','Gunny Deposit','Gunny Issued','Mill Wt','Final Wt','Cutting','Cash Paid','Diesel Paid'];
+    let title = 'Agent & Mandi Wise Report';
+    if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
+    ws.mergeCells('A1:N1'); ws.getCell('A1').value = title;
+    ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FFD97706' } }; ws.getCell('A1').alignment = { horizontal: 'center' };
+
+    let row = 3;
+    const hdrFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+    const hdrFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+    const mFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD97706' } };
+    const tFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+    const gFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065F46' } };
+
+    for (const md of mandis) {
+      ws.mergeCells(row,1,row,14);
+      const mc = ws.getCell(row,1); mc.value = `${md.mandi_name} - Agent: ${md.agent_name} (${md.totals.entry_count} entries)`;
+      mc.fill = mFill; mc.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }; row++;
+      headers.forEach((h,i) => { const c = ws.getCell(row,i+1); c.value = h; c.fill = hdrFill; c.font = hdrFont; c.alignment = { horizontal: 'center' }; });
+      row++;
+      for (const e of md.entries) {
+        [e.date||'', e.truck_no||'', e.rst_no||'', e.tp_no||'', e.kg||0, Math.round((e.qntl||0)*100)/100, e.bag||0,
+         e.g_deposite||0, e.g_issued||0, Math.round((e.mill_w||0)*100)/100, Math.round((e.final_w||0)*100)/100,
+         Math.round((e.cutting||0)*100)/100, e.cash_paid||0, e.diesel_paid||0
+        ].forEach((v,i) => { ws.getCell(row,i+1).value = v; }); row++;
+      }
+      const t = md.totals;
+      ws.getCell(row,1).value = 'TOTAL'; ws.getCell(row,1).font = { bold: true }; ws.getCell(row,1).fill = tFill;
+      [null,null,null,null, t.total_kg, Math.round(t.total_qntl*100)/100, t.total_bag, Math.round(t.total_g_deposite*100)/100,
+       Math.round(t.total_g_issued*100)/100, Math.round(t.total_mill_w*100)/100, Math.round(t.total_final_w*100)/100,
+       Math.round(t.total_cutting*100)/100, Math.round(t.total_cash_paid*100)/100, Math.round(t.total_diesel_paid*100)/100
+      ].forEach((v,i) => { if (v !== null) { const c = ws.getCell(row,i+1); c.value = v; c.fill = tFill; c.font = { bold: true }; }});
+      row += 2;
+    }
+
+    // Grand total
+    const grand = { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_mill_w: 0, total_final_w: 0, total_cutting: 0, total_cash_paid: 0, total_diesel_paid: 0, entry_count: 0 };
+    for (const m of mandis) { for (const k in grand) grand[k] += m.totals[k]; }
+    ws.mergeCells(row,1,row,4);
+    ws.getCell(row,1).value = `GRAND TOTAL (${Math.round(grand.entry_count)} entries)`; ws.getCell(row,1).fill = gFill; ws.getCell(row,1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    [null,null,null,null, grand.total_kg, Math.round(grand.total_qntl*100)/100, grand.total_bag,
+     Math.round(grand.total_g_deposite*100)/100, Math.round(grand.total_g_issued*100)/100,
+     Math.round(grand.total_mill_w*100)/100, Math.round(grand.total_final_w*100)/100,
+     Math.round(grand.total_cutting*100)/100, Math.round(grand.total_cash_paid*100)/100, Math.round(grand.total_diesel_paid*100)/100
+    ].forEach((v,i) => { if (v !== null) { const c = ws.getCell(row,i+1); c.value = v; c.fill = gFill; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; }});
+
+    [12,14,10,10,12,10,8,13,12,12,12,10,12,12].forEach((w,i) => { ws.getColumn(i+1).width = w; });
+    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=agent_mandi_report.xlsx`);
+    res.send(Buffer.from(buf));
+  }));
+
+  router.get('/api/reports/agent-mandi-wise/pdf', safeSync((req, res) => {
+    const { kms_year, season, search } = req.query;
+    let entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
+    if (search) { const s = search.toLowerCase(); entries = entries.filter(e => (e.mandi_name||'').toLowerCase().includes(s) || (e.agent_name||'').toLowerCase().includes(s)); }
+    entries.sort((a, b) => (b.date||'').localeCompare(a.date||''));
+
+    const mandiMap = {};
+    for (const e of entries) {
+      const mn = e.mandi_name || 'Unknown';
+      if (!mandiMap[mn]) mandiMap[mn] = { mandi_name: mn, agent_name: e.agent_name || '', entries: [], totals: { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_mill_w: 0, total_final_w: 0, total_cutting: 0, total_cash_paid: 0, total_diesel_paid: 0, entry_count: 0 }};
+      const t = mandiMap[mn].totals;
+      t.total_kg += e.kg||0; t.total_qntl += e.qntl||0; t.total_bag += e.bag||0;
+      t.total_g_deposite += e.g_deposite||0; t.total_g_issued += e.g_issued||0; t.total_mill_w += e.mill_w||0;
+      t.total_final_w += e.final_w||0; t.total_cutting += e.cutting||0; t.total_cash_paid += e.cash_paid||0;
+      t.total_diesel_paid += e.diesel_paid||0; t.entry_count += 1;
+      mandiMap[mn].entries.push(e);
+    }
+    const mandis = Object.values(mandiMap).sort((a,b) => a.mandi_name.localeCompare(b.mandi_name));
+
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=agent_mandi_report.pdf');
+    doc.pipe(res);
+
+    let title = 'Agent & Mandi Wise Report';
+    if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
+    addPdfHeader(doc, title, '');
+
+    const headers = ['Date','Truck','RST','TP','Kg','QNTL','Bags','G.Dep','G.Iss','Mill Wt','Final Wt','Cut','Cash','Diesel'];
+    const colW = [50,55,35,35,40,35,30,35,30,45,45,35,40,40];
+    const startX = 20;
+
+    for (const md of mandis) {
+      if (doc.y > 450) doc.addPage();
+      // Mandi header
+      doc.rect(startX, doc.y, colW.reduce((a,b)=>a+b,0), 18).fill('#D97706');
+      doc.fillColor('white').fontSize(9).text(`${md.mandi_name} - Agent: ${md.agent_name} (${md.totals.entry_count} entries)`, startX + 5, doc.y - 14, { width: 500 });
+      doc.moveDown(0.3);
+
+      // Table header
+      let y = doc.y;
+      let x = startX;
+      doc.rect(x, y, colW.reduce((a,b)=>a+b,0), 14).fill('#1E293B');
+      headers.forEach((h,i) => { doc.fillColor('white').fontSize(6).text(h, x+2, y+3, { width: colW[i]-4, align: 'center' }); x += colW[i]; });
+      y += 14;
+
+      for (const e of md.entries) {
+        if (y > 540) { doc.addPage(); y = 30; }
+        x = startX;
+        const vals = [e.date||'', e.truck_no||'', e.rst_no||'', e.tp_no||'', e.kg||0, Math.round((e.qntl||0)*100)/100, e.bag||0, e.g_deposite||0, e.g_issued||0, Math.round((e.mill_w||0)*100)/100, Math.round((e.final_w||0)*100)/100, Math.round((e.cutting||0)*100)/100, e.cash_paid||0, e.diesel_paid||0];
+        vals.forEach((v,i) => { doc.fillColor('#334155').fontSize(6).text(String(v), x+2, y+2, { width: colW[i]-4, align: i >= 4 ? 'right' : 'left' }); x += colW[i]; });
+        y += 12;
+      }
+
+      // Mandi total
+      if (y > 540) { doc.addPage(); y = 30; }
+      x = startX;
+      doc.rect(x, y, colW.reduce((a,b)=>a+b,0), 14).fill('#FEF3C7');
+      doc.fillColor('#92400E').fontSize(6).text('TOTAL', x+2, y+3, { width: colW[0]-4 });
+      const tv = [null,null,null,null, md.totals.total_kg, Math.round(md.totals.total_qntl*100)/100, md.totals.total_bag, Math.round(md.totals.total_g_deposite*100)/100, Math.round(md.totals.total_g_issued*100)/100, Math.round(md.totals.total_mill_w*100)/100, Math.round(md.totals.total_final_w*100)/100, Math.round(md.totals.total_cutting*100)/100, Math.round(md.totals.total_cash_paid*100)/100, Math.round(md.totals.total_diesel_paid*100)/100];
+      tv.forEach((v,i) => { if (v !== null) doc.fillColor('#92400E').fontSize(6).text(String(v), x + colW.slice(0,i).reduce((a,b)=>a+b,0) + 2, y+3, { width: colW[i]-4, align: 'right' }); });
+      doc.y = y + 20;
+    }
+
+    // Grand total
+    const grand = { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_mill_w: 0, total_final_w: 0, total_cutting: 0, total_cash_paid: 0, total_diesel_paid: 0, entry_count: 0 };
+    for (const m of mandis) { for (const k in grand) grand[k] += m.totals[k]; }
+    if (doc.y > 520) doc.addPage();
+    let y = doc.y; let x = startX;
+    doc.rect(x, y, colW.reduce((a,b)=>a+b,0), 16).fill('#065F46');
+    doc.fillColor('white').fontSize(7).text(`GRAND TOTAL (${Math.round(grand.entry_count)} entries)`, x+2, y+4, { width: 170 });
+    const gv = [null,null,null,null, grand.total_kg, Math.round(grand.total_qntl*100)/100, grand.total_bag, Math.round(grand.total_g_deposite*100)/100, Math.round(grand.total_g_issued*100)/100, Math.round(grand.total_mill_w*100)/100, Math.round(grand.total_final_w*100)/100, Math.round(grand.total_cutting*100)/100, Math.round(grand.total_cash_paid*100)/100, Math.round(grand.total_diesel_paid*100)/100];
+    gv.forEach((v,i) => { if (v !== null) doc.fillColor('white').fontSize(7).text(String(v), x + colW.slice(0,i).reduce((a,b)=>a+b,0) + 2, y+4, { width: colW[i]-4, align: 'right' }); });
+
+    doc.end();
+  }));
+
   return router;
 };

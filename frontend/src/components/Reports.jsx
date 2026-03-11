@@ -731,16 +731,212 @@ const DailyReport = ({ filters }) => {
   );
 };
 
+// ===== AGENT & MANDI WISE REPORT =====
+const AgentMandiReport = ({ filters }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [expandedMandis, setExpandedMandis] = useState({});
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const p = new URLSearchParams();
+      if (filters.kms_year) p.append('kms_year', filters.kms_year);
+      if (filters.season) p.append('season', filters.season);
+      if (search.trim()) p.append('search', search.trim());
+      const res = await axios.get(`${API}/reports/agent-mandi-wise?${p}`);
+      setData(res.data);
+      // Auto-expand all when searching
+      if (search.trim()) {
+        const expanded = {};
+        (res.data.mandis || []).forEach(m => { expanded[m.mandi_name] = true; });
+        setExpandedMandis(expanded);
+      }
+    } catch (e) { toast.error("Report load nahi hua"); }
+    finally { setLoading(false); }
+  }, [filters.kms_year, filters.season, search]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const toggleMandi = (name) => {
+    setExpandedMandis(prev => ({ ...prev, [name]: !prev[name] }));
+  };
+
+  const expandAll = () => {
+    const expanded = {};
+    (data?.mandis || []).forEach(m => { expanded[m.mandi_name] = true; });
+    setExpandedMandis(expanded);
+  };
+  const collapseAll = () => setExpandedMandis({});
+
+  const exportData = async (format) => {
+    try {
+      const p = new URLSearchParams();
+      if (filters.kms_year) p.append('kms_year', filters.kms_year);
+      if (filters.season) p.append('season', filters.season);
+      if (search.trim()) p.append('search', search.trim());
+      const res = await axios.get(`${API}/reports/agent-mandi-wise/${format}?${p}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a'); a.href = url;
+      a.download = `agent_mandi_report.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    } catch (e) { toast.error("Export failed"); }
+  };
+
+  const fmtNum = (v) => typeof v === 'number' ? v.toLocaleString('en-IN') : v;
+  const fmtDate = (d) => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
+
+  if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;
+
+  return (
+    <div className="space-y-4" data-testid="agent-mandi-report">
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-[200px] max-w-[350px]">
+          <Input
+            placeholder="Mandi ya Agent name search karein..."
+            value={search} onChange={(e) => setSearch(e.target.value)}
+            className="bg-slate-700 border-slate-600 text-white text-sm"
+            data-testid="agent-mandi-search"
+          />
+        </div>
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="agent-mandi-refresh">
+          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+        </Button>
+        <Button onClick={expandAll} variant="outline" size="sm" className="border-slate-600 text-slate-300">Expand All</Button>
+        <Button onClick={collapseAll} variant="outline" size="sm" className="border-slate-600 text-slate-300">Collapse All</Button>
+        <div className="flex gap-2 ml-auto">
+          <Button onClick={() => exportData('excel')} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="agent-mandi-export-excel">
+            <Download className="w-4 h-4 mr-1" /> Excel
+          </Button>
+          <Button onClick={() => exportData('pdf')} size="sm" className="bg-red-600 hover:bg-red-700 text-white" data-testid="agent-mandi-export-pdf">
+            <FileText className="w-4 h-4 mr-1" /> PDF
+          </Button>
+        </div>
+      </div>
+
+      {/* Grand Summary */}
+      {data && data.grand_totals && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+          {[
+            ["Total Entries", data.grand_totals.entry_count, "", "text-white"],
+            ["Total QNTL", data.grand_totals.total_qntl, "Q", "text-amber-400"],
+            ["Total Bags", data.grand_totals.total_bag, "", "text-blue-400"],
+            ["Gunny Deposit", data.grand_totals.total_g_deposite, "", "text-cyan-400"],
+            ["Gunny Issued", data.grand_totals.total_g_issued, "", "text-purple-400"],
+            ["Final Weight", (data.grand_totals.total_final_w / 100).toFixed(2), "Q", "text-emerald-400"],
+          ].map(([label, val, unit, color]) => (
+            <Card key={label} className="bg-slate-800 border-slate-700">
+              <CardContent className="p-3 text-center">
+                <p className="text-[10px] text-slate-400">{label}</p>
+                <p className={`text-lg font-bold ${color}`}>{fmtNum(val)}{unit && <span className="text-xs ml-0.5">{unit}</span>}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Mandi Groups */}
+      {data && data.mandis && data.mandis.length > 0 ? (
+        <div className="space-y-3">
+          {data.mandis.map((mandi) => (
+            <Card key={mandi.mandi_name} className="bg-slate-800 border-slate-700 overflow-hidden">
+              {/* Mandi Header - clickable */}
+              <div
+                onClick={() => toggleMandi(mandi.mandi_name)}
+                className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-700/50 transition-colors"
+                data-testid={`mandi-row-${mandi.mandi_name}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`text-lg transition-transform ${expandedMandis[mandi.mandi_name] ? 'rotate-90' : ''}`}>&#9654;</span>
+                  <div>
+                    <span className="text-amber-400 font-bold text-base">{mandi.mandi_name}</span>
+                    <span className="text-slate-400 text-sm ml-3">Agent: <span className="text-white">{mandi.agent_name}</span></span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-6 text-sm">
+                  <div className="text-center"><p className="text-[10px] text-slate-500">Entries</p><p className="text-white font-bold">{mandi.totals.entry_count}</p></div>
+                  <div className="text-center"><p className="text-[10px] text-slate-500">QNTL</p><p className="text-amber-400 font-bold">{fmtNum(mandi.totals.total_qntl)}</p></div>
+                  <div className="text-center"><p className="text-[10px] text-slate-500">Bags</p><p className="text-blue-400 font-bold">{fmtNum(mandi.totals.total_bag)}</p></div>
+                  <div className="text-center"><p className="text-[10px] text-slate-500">G.Deposit</p><p className="text-cyan-400 font-bold">{fmtNum(mandi.totals.total_g_deposite)}</p></div>
+                  <div className="text-center"><p className="text-[10px] text-slate-500">G.Issued</p><p className="text-purple-400 font-bold">{fmtNum(mandi.totals.total_g_issued)}</p></div>
+                  <div className="text-center"><p className="text-[10px] text-slate-500">Final Wt</p><p className="text-emerald-400 font-bold">{fmtNum(mandi.totals.total_final_w)}</p></div>
+                </div>
+              </div>
+
+              {/* Expanded entries table */}
+              {expandedMandis[mandi.mandi_name] && (
+                <div className="border-t border-slate-700 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-slate-900/80">
+                        {["Date", "Truck No", "RST", "TP", "Weight(Kg)", "QNTL", "Bags", "G.Deposit", "G.Issued", "Mill Wt", "Final Wt", "Cutting", "Cash Paid", "Diesel Paid"].map(h => (
+                          <th key={h} className="px-2 py-2 text-slate-400 font-medium text-left whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mandi.entries.map((entry, idx) => (
+                        <tr key={idx} className={`border-t border-slate-700/50 ${idx % 2 === 0 ? '' : 'bg-slate-800/50'} hover:bg-slate-700/30`}>
+                          <td className="px-2 py-1.5 text-white whitespace-nowrap">{fmtDate(entry.date)}</td>
+                          <td className="px-2 py-1.5 text-white font-semibold">{entry.truck_no}</td>
+                          <td className="px-2 py-1.5 text-slate-300">{entry.rst_no}</td>
+                          <td className="px-2 py-1.5 text-slate-300">{entry.tp_no}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-300">{fmtNum(entry.kg)}</td>
+                          <td className="px-2 py-1.5 text-right text-amber-400 font-semibold">{entry.qntl}</td>
+                          <td className="px-2 py-1.5 text-right text-blue-400">{entry.bag}</td>
+                          <td className="px-2 py-1.5 text-right text-cyan-400">{entry.g_deposite}</td>
+                          <td className="px-2 py-1.5 text-right text-purple-400">{entry.g_issued}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-300">{fmtNum(entry.mill_w)}</td>
+                          <td className="px-2 py-1.5 text-right text-emerald-400 font-semibold">{fmtNum(entry.final_w)}</td>
+                          <td className="px-2 py-1.5 text-right text-red-400">{fmtNum(entry.cutting)}</td>
+                          <td className="px-2 py-1.5 text-right text-orange-400">{fmtNum(entry.cash_paid)}</td>
+                          <td className="px-2 py-1.5 text-right text-orange-400">{fmtNum(entry.diesel_paid)}</td>
+                        </tr>
+                      ))}
+                      {/* Totals row */}
+                      <tr className="border-t-2 border-amber-600/50 bg-amber-900/20">
+                        <td className="px-2 py-2 text-amber-400 font-bold" colSpan={4}>TOTAL</td>
+                        <td className="px-2 py-2 text-right text-white font-bold">{fmtNum(mandi.totals.total_kg)}</td>
+                        <td className="px-2 py-2 text-right text-amber-400 font-bold">{fmtNum(mandi.totals.total_qntl)}</td>
+                        <td className="px-2 py-2 text-right text-blue-400 font-bold">{fmtNum(mandi.totals.total_bag)}</td>
+                        <td className="px-2 py-2 text-right text-cyan-400 font-bold">{fmtNum(mandi.totals.total_g_deposite)}</td>
+                        <td className="px-2 py-2 text-right text-purple-400 font-bold">{fmtNum(mandi.totals.total_g_issued)}</td>
+                        <td className="px-2 py-2 text-right text-white font-bold">{fmtNum(mandi.totals.total_mill_w)}</td>
+                        <td className="px-2 py-2 text-right text-emerald-400 font-bold">{fmtNum(mandi.totals.total_final_w)}</td>
+                        <td className="px-2 py-2 text-right text-red-400 font-bold">{fmtNum(mandi.totals.total_cutting)}</td>
+                        <td className="px-2 py-2 text-right text-orange-400 font-bold">{fmtNum(mandi.totals.total_cash_paid)}</td>
+                        <td className="px-2 py-2 text-right text-orange-400 font-bold">{fmtNum(mandi.totals.total_diesel_paid)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8 text-slate-400">
+          <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+          <p>Koi data nahi mila</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ===== MAIN REPORTS COMPONENT =====
 const Reports = ({ filters, user }) => {
   const [activeReport, setActiveReport] = useState("cmr-dc");
   return (
     <div className="space-y-3" data-testid="reports-module">
-      <div className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 w-fit">
+      <div className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 w-fit flex-wrap">
         {[
           { id: "cmr-dc", label: "CMR vs DC", icon: Scale },
           { id: "pnl", label: "Season P&L", icon: BarChart3 },
           { id: "daily", label: "Daily Report", icon: CalendarDays },
+          { id: "agent-mandi", label: "Agent & Mandi", icon: Users },
           { id: "outstanding", label: "Outstanding", icon: ClipboardList },
         ].map(({ id, label, icon: Icon }) => (
           <Button key={id} onClick={() => setActiveReport(id)} variant={activeReport === id ? "default" : "ghost"} size="sm"
@@ -753,6 +949,7 @@ const Reports = ({ filters, user }) => {
       {activeReport === "cmr-dc" && <CMRvsDC filters={filters} />}
       {activeReport === "pnl" && <SeasonPnL filters={filters} />}
       {activeReport === "daily" && <DailyReport filters={filters} />}
+      {activeReport === "agent-mandi" && <AgentMandiReport filters={filters} />}
       {activeReport === "outstanding" && <OutstandingReport filters={filters} />}
     </div>
   );
