@@ -123,12 +123,20 @@ router.post('/api/truck-payments/:entryId/mark-paid', (req, res) => {
 });
 
 router.post('/api/truck-payments/:entryId/undo-paid', (req, res) => {
-  const current = database.getTruckPayment(req.params.entryId);
+  const entryId = req.params.entryId;
+  const current = database.getTruckPayment(entryId);
   const history = current.payments_history || [];
   history.push({ amount: -(current.paid_amount || 0), date: new Date().toISOString(), note: 'UNDO - Payment reversed', by: req.query.username || 'admin' });
-  database.updateTruckPayment(req.params.entryId, { paid_amount: 0, status: 'pending', payments_history: history });
-  // Delete linked cash book entries
-  database.data.cash_transactions = col('cash_transactions').filter(t => t.linked_payment_id !== `truck:${req.params.entryId}`);
+  database.updateTruckPayment(entryId, { paid_amount: 0, status: 'pending', payments_history: history });
+  // Delete individual trip entries
+  database.data.cash_transactions = col('cash_transactions').filter(t => t.linked_payment_id !== `truck:${entryId}`);
+  // Also delete owner-level entries for this truck
+  const entry = database.data.entries.find(e => e.id === entryId);
+  if (entry && entry.truck_no) {
+    database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+      !(t.linked_payment_id || '').startsWith(`truck_owner:${entry.truck_no}:`)
+    );
+  }
   database.save();
   res.json({ success: true, message: 'Payment undo ho gaya - status reset to pending' });
 });

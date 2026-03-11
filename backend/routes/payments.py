@@ -592,6 +592,18 @@ async def undo_truck_paid(entry_id: str, username: str = "", role: str = ""):
     # Delete linked cash book entries for this truck
     await db.cash_transactions.delete_many({"linked_payment_id": f"truck:{entry_id}"})
     
+    # Also find the truck_no for this entry and clean up owner-level cash entries
+    entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0, "truck_no": 1, "kms_year": 1, "season": 1})
+    if entry:
+        truck_no = entry.get("truck_no", "")
+        kms_year = entry.get("kms_year", "")
+        season = entry.get("season", "")
+        if truck_no:
+            # Delete owner-level cash entries (they'll be recreated when user marks paid again)
+            await db.cash_transactions.delete_many({
+                "linked_payment_id": {"$regex": f"^truck_owner:{truck_no}:"}
+            })
+    
     return {"success": True, "message": "Payment undo ho gaya - status reset to pending"}
 
 

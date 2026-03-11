@@ -120,9 +120,18 @@ module.exports = function(database) {
   }));
 
   router.post('/api/truck-payments/:entryId/undo-paid', safeSync((req, res) => {
-    database.updateTruckPayment(req.params.entryId, { paid_amount: 0, status: 'pending' });
+    const entryId = req.params.entryId;
+    database.updateTruckPayment(entryId, { paid_amount: 0, status: 'pending' });
     if (database.data.cash_transactions) {
-      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `truck:${req.params.entryId}`);
+      // Delete individual trip entries
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `truck:${entryId}`);
+      // Also delete owner-level entries for this truck
+      const entry = database.data.entries.find(e => e.id === entryId);
+      if (entry && entry.truck_no) {
+        database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+          !(t.linked_payment_id || '').startsWith(`truck_owner:${entry.truck_no}:`)
+        );
+      }
     }
     database.save();
     res.json({ success: true, message: 'Payment undo ho gaya' });
