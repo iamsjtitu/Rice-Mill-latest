@@ -771,7 +771,7 @@ const RiceSale = ({ filters, user }) => {
 
 
 // ===== Party Summary Sub-Component =====
-const PartySummary = ({ filters }) => {
+const PartySummary = ({ filters, onNavigate }) => {
   const [data, setData] = useState({ parties: [], totals: {} });
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
@@ -863,7 +863,15 @@ const PartySummary = ({ filters }) => {
               {loading ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
               : data.parties.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi party nahi mili.</TableCell></TableRow>
               : data.parties.map((p, idx) => (
-                <TableRow key={p.party_name + idx} className="border-slate-700" data-testid={`summary-row-${idx}`}>
+                <TableRow key={p.party_name + idx} className="border-slate-700 cursor-pointer hover:bg-slate-700/50 transition-colors" data-testid={`summary-row-${idx}`}
+                  onClick={() => {
+                    if (onNavigate) {
+                      const mandi = p.mandi_name || "";
+                      const label = mandi ? `${p.party_name} - ${mandi}` : p.party_name;
+                      toast.info(`"${label}" ki Cash Book Ledger khul rahi hai...`);
+                      onNavigate("cashbook");
+                    }
+                  }}>
                   <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
                   <TableCell className="text-cyan-400 text-xs">{p.mandi_name || '-'}</TableCell>
                   <TableCell className="text-purple-400 text-xs">{p.agent_name || '-'}</TableCell>
@@ -901,7 +909,7 @@ const PartySummary = ({ filters }) => {
 };
 
 // ===== Main Component =====
-export default function PrivateTrading({ filters, user }) {
+export default function PrivateTrading({ filters, user, onNavigate }) {
   const [activeTab, setActiveTab] = useState("paddy");
 
   return (
@@ -932,7 +940,7 @@ export default function PrivateTrading({ filters, user }) {
       ) : activeTab === "rice" ? (
         <RiceSale filters={filters} user={user} />
       ) : (
-        <PartySummary filters={filters} />
+        <PartySummary filters={filters} onNavigate={onNavigate} />
       )}
     </div>
   );

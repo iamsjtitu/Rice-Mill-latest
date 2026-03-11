@@ -164,22 +164,36 @@ module.exports = function(database) {
     database.data.private_payments.push(d);
     if (d.ref_type === 'paddy_purchase' && d.ref_id) {
       const entry = (database.data.private_paddy || []).find(e => e.id === d.ref_id);
-      if (entry) { entry.paid_amount = Math.round((entry.paid_amount || 0) + d.amount * 100) / 100; entry.balance = Math.round(entry.total_amount - entry.paid_amount * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + d.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     } else if (d.ref_type === 'rice_sale' && d.ref_id) {
       const entry = (database.data.rice_sales || []).find(e => e.id === d.ref_id);
-      if (entry) { entry.paid_amount = Math.round((entry.paid_amount || 0) + d.amount * 100) / 100; entry.balance = Math.round(entry.total_amount - entry.paid_amount * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + d.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     }
     const account = d.mode === 'bank' ? 'bank' : 'cash';
-    const cbTxn = {
-      id: require('crypto').randomUUID(), date: d.date, account,
-      txn_type: d.ref_type === 'paddy_purchase' ? 'nikasi' : 'jama',
-      category: d.ref_type === 'paddy_purchase' ? 'Pvt Paddy Payment' : 'Rice Sale Payment',
-      description: d.ref_type === 'paddy_purchase' ? `Paddy Payment: ${d.party_name}` : `Rice Payment Received: ${d.party_name}`,
-      amount: d.amount, reference: d.reference || d.id.substring(0, 8),
-      kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by,
-      linked_payment_id: d.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    };
-    database.data.cash_transactions.push(cbTxn);
+    const isPaddy = d.ref_type === 'paddy_purchase';
+    // Get mandi from ref entry for party label
+    let mandi = '';
+    if (isPaddy && d.ref_id) {
+      const refEntry = (database.data.private_paddy || []).find(e => e.id === d.ref_id);
+      if (refEntry) mandi = refEntry.mandi_name || '';
+    }
+    const partyLabel = (d.party_name && mandi) ? `${d.party_name} - ${mandi}` : (d.party_name || '');
+    const partyType = isPaddy ? 'Pvt Paddy Purchase' : 'Rice Sale';
+    const txnType = isPaddy ? 'nikasi' : 'jama';
+    const desc = isPaddy ? `Pvt Paddy Payment: ${partyLabel} - Rs.${d.amount}` : `Rice Sale Payment Received: ${partyLabel} - Rs.${d.amount}`;
+    const baseCb = { date: d.date, kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by, linked_payment_id: d.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    // Cash Book entry
+    database.data.cash_transactions.push({
+      id: require('crypto').randomUUID(), account, txn_type: txnType,
+      category: partyLabel, party_type: partyType, description: desc,
+      amount: d.amount, reference: d.reference || `pvt_pay:${d.id.substring(0, 8)}`, ...baseCb
+    });
+    // Party Ledger entry
+    database.data.cash_transactions.push({
+      id: require('crypto').randomUUID(), account: 'ledger', txn_type: txnType,
+      category: partyLabel, party_type: partyType, description: desc,
+      amount: d.amount, reference: d.reference || `pvt_pay_ledger:${d.id.substring(0, 8)}`, ...baseCb
+    });
     database.save(); res.json(d);
   }));
 

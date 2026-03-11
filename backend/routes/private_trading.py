@@ -319,25 +319,56 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
         if entry:
             new_paid = round(entry.get("paid_amount", 0) + doc["amount"], 2)
             await db.rice_sales.update_one({"id": doc["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
-    # Auto-create Cash Book entry
+    # Auto-create Cash Book + Ledger entries
     account = "bank" if doc["mode"] == "bank" else "cash"
+    base_cb = {
+        "date": doc["date"], "kms_year": doc["kms_year"], "season": doc["season"],
+        "created_by": username, "linked_payment_id": doc["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
     if doc["ref_type"] == "paddy_purchase":
-        cb_txn = {
-            "id": str(uuid.uuid4()), "date": doc["date"], "account": account, "txn_type": "nikasi",
-            "category": "Pvt Paddy Payment", "description": f"Paddy Payment: {doc['party_name']}", "amount": doc["amount"],
-            "reference": doc["reference"] or doc["id"][:8], "kms_year": doc["kms_year"], "season": doc["season"],
-            "created_by": username, "linked_payment_id": doc["id"],
-            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
+        # Build party label from entry data
+        ref_entry = await db.private_paddy.find_one({"id": doc["ref_id"]}, {"_id": 0})
+        party = doc["party_name"]
+        mandi = ref_entry.get("mandi_name", "") if ref_entry else ""
+        party_label = f"{party} - {mandi}" if party and mandi else party
+        # Cash Book nikasi
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "account": account, "txn_type": "nikasi",
+            "category": party_label, "party_type": "Pvt Paddy Purchase",
+            "description": f"Pvt Paddy Payment: {party_label} - Rs.{doc['amount']}",
+            "amount": doc["amount"], "reference": doc["reference"] or f"pvt_pay:{doc['id'][:8]}",
+            **base_cb
+        })
+        # Party Ledger entry (credit = nikasi in party's account)
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "nikasi",
+            "category": party_label, "party_type": "Pvt Paddy Purchase",
+            "description": f"Pvt Paddy Payment: {party_label} - Rs.{doc['amount']}",
+            "amount": doc["amount"], "reference": doc["reference"] or f"pvt_pay_ledger:{doc['id'][:8]}",
+            **base_cb
+        })
     else:
-        cb_txn = {
-            "id": str(uuid.uuid4()), "date": doc["date"], "account": account, "txn_type": "jama",
-            "category": "Rice Sale Payment", "description": f"Rice Payment Received: {doc['party_name']}", "amount": doc["amount"],
-            "reference": doc["reference"] or doc["id"][:8], "kms_year": doc["kms_year"], "season": doc["season"],
-            "created_by": username, "linked_payment_id": doc["id"],
-            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-    await db.cash_transactions.insert_one(cb_txn)
+        # Rice Sale - party label
+        ref_entry = await db.rice_sales.find_one({"id": doc["ref_id"]}, {"_id": 0})
+        party = doc["party_name"]
+        party_label = party
+        # Cash Book jama
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "account": account, "txn_type": "jama",
+            "category": party_label, "party_type": "Rice Sale",
+            "description": f"Rice Sale Payment Received: {party_label} - Rs.{doc['amount']}",
+            "amount": doc["amount"], "reference": doc["reference"] or f"rice_pay:{doc['id'][:8]}",
+            **base_cb
+        })
+        # Party Ledger entry (jama in party's account)
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "jama",
+            "category": party_label, "party_type": "Rice Sale",
+            "description": f"Rice Sale Payment Received: {party_label} - Rs.{doc['amount']}",
+            "amount": doc["amount"], "reference": doc["reference"] or f"rice_pay_ledger:{doc['id'][:8]}",
+            **base_cb
+        })
     doc.pop("_id", None)
     return doc
 
@@ -371,6 +402,58 @@ async def delete_private_payment(pay_id: str):
     await db.cash_transactions.delete_many({"linked_payment_id": pay_id})
     await db.private_payments.delete_one({"id": pay_id})
     return {"message": "Deleted", "id": pay_id}
+
+
+@router.get("/private-payments/fix-old-entries")
+async def fix_old_payment_cashbook_entries():
+    """Fix old payment entries that have generic 'Pvt Paddy Payment'/'Rice Sale Payment' category."""
+    fixed = 0
+    # Find old broken entries
+    old_entries = await db.cash_transactions.find(
+        {"category": {"$in": ["Pvt Paddy Payment", "Rice Sale Payment"]}},
+        {"_id": 0}
+    ).to_list(10000)
+    for entry in old_entries:
+        pay_id = entry.get("linked_payment_id", "")
+        if not pay_id:
+            continue
+        pay = await db.private_payments.find_one({"id": pay_id}, {"_id": 0})
+        if not pay:
+            continue
+        party = pay.get("party_name", "")
+        if not party:
+            continue
+        # Get mandi from ref entry
+        mandi = ""
+        if pay.get("ref_type") == "paddy_purchase" and pay.get("ref_id"):
+            ref = await db.private_paddy.find_one({"id": pay["ref_id"]}, {"_id": 0})
+            if ref:
+                mandi = ref.get("mandi_name", "")
+        party_label = f"{party} - {mandi}" if party and mandi else party
+        is_paddy = pay.get("ref_type") == "paddy_purchase"
+        party_type = "Pvt Paddy Purchase" if is_paddy else "Rice Sale"
+        txn_type = "nikasi" if is_paddy else "jama"
+        desc = f"Pvt Paddy Payment: {party_label} - Rs.{pay['amount']}" if is_paddy else f"Rice Sale Payment Received: {party_label} - Rs.{pay['amount']}"
+        # Update existing cash entry
+        await db.cash_transactions.update_one(
+            {"id": entry["id"]},
+            {"$set": {"category": party_label, "party_type": party_type, "description": desc}}
+        )
+        # Check if ledger entry exists
+        existing_ledger = await db.cash_transactions.find_one({"linked_payment_id": pay_id, "account": "ledger"})
+        if not existing_ledger:
+            await db.cash_transactions.insert_one({
+                "id": str(uuid.uuid4()), "date": entry.get("date", ""),
+                "account": "ledger", "txn_type": txn_type,
+                "category": party_label, "party_type": party_type,
+                "description": desc, "amount": pay["amount"],
+                "reference": f"pvt_pay_ledger_fix:{pay_id[:8]}",
+                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                "created_by": "migration", "linked_payment_id": pay_id,
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
+            })
+        fixed += 1
+    return {"message": f"Fixed {fixed} old payment entries", "total_checked": len(old_entries)}
 
 
 # ============ EXPORT: Private Paddy PDF/Excel ============

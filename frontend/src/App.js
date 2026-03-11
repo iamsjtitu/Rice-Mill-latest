@@ -2000,7 +2000,7 @@ function MainApp({ user, onLogout }) {
         ) : activeTab === "reports" ? (
           <Reports filters={filters} user={user} />
         ) : activeTab === "private-trading" ? (
-          <PrivateTrading filters={filters} user={user} />
+          <PrivateTrading filters={filters} user={user} onNavigate={(tab) => setActiveTab(tab)} />
         ) : activeTab === "mill-parts" ? (
           <MillPartsStock filters={filters} user={user} />
         ) : activeTab === "staff" ? (
