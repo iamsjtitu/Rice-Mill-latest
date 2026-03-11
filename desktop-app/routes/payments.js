@@ -268,5 +268,174 @@ module.exports = function(database) {
     res.json({ history: payment.payment_history || [], total_paid: payment.paid_amount || 0 });
   }));
 
+  // ===== TRUCK OWNER CONSOLIDATED PAYMENT ENDPOINTS =====
+  router.post('/api/truck-owner/:truckNo/pay', safeSync((req, res) => {
+    const truckNo = decodeURIComponent(req.params.truckNo);
+    const { kms_year, season, username, role } = req.query;
+    if (role !== 'admin') return res.status(403).json({ detail: 'Sirf admin payment kar sakta hai' });
+    const { amount, note, payment_mode } = req.body;
+    if (!amount || amount <= 0) return res.status(400).json({ detail: 'Amount 0 se zyada hona chahiye' });
+
+    let entries = database.data.entries.filter(e => e.truck_no === truckNo);
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (!entries.length) return res.status(404).json({ detail: 'Is truck ke entries nahi mile' });
+
+    entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    let remaining = amount;
+    for (const entry of entries) {
+      if (remaining <= 0) break;
+      const payment = database.getTruckPayment(entry.id);
+      const rate = payment.rate_per_qntl || 0;
+      const paidSoFar = payment.paid_amount || 0;
+      const finalQntl = Math.round(((entry.qntl || 0) - (entry.bag || 0) / 100) * 100) / 100;
+      const cashTaken = parseFloat(entry.cash_paid) || 0;
+      const dieselTaken = parseFloat(entry.diesel_paid) || 0;
+      const gross = Math.round(finalQntl * rate * 100) / 100;
+      const net = Math.round((gross - cashTaken - dieselTaken) * 100) / 100;
+      const tripBalance = Math.max(0, Math.round((net - paidSoFar) * 100) / 100);
+      if (tripBalance <= 0) continue;
+      const allot = Math.min(remaining, tripBalance);
+      const newPaid = Math.round((paidSoFar + allot) * 100) / 100;
+      const newBalance = Math.max(0, Math.round((net - newPaid) * 100) / 100);
+      const history = payment.payment_history || [];
+      history.push({ amount: allot, date: new Date().toISOString(), note: note ? `Owner Payment: ${note}` : 'Owner Payment', by: username || '', payment_mode: payment_mode || 'cash' });
+      let status = 'pending';
+      if (newBalance < 0.10) status = 'paid';
+      else if (newPaid > 0) status = 'partial';
+      database.updateTruckPayment(entry.id, { paid_amount: newPaid, payment_history: history, status });
+      remaining = Math.round((remaining - allot) * 100) / 100;
+    }
+
+    // Cash book nikasi only (no ledger jama)
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    database.data.cash_transactions.push({
+      id: uuidv4(), date: new Date().toISOString().split('T')[0],
+      account: payment_mode || 'cash', txn_type: 'nikasi',
+      category: truckNo, party_type: 'Truck',
+      description: `Truck Owner Payment: ${truckNo}` + (note ? ` - ${note}` : ''),
+      amount: amount, reference: `truck_owner:${truckNo}`,
+      linked_payment_id: `truck_owner:${truckNo}:${kms_year || ''}:${season || ''}`,
+      kms_year: kms_year || '', season: season || '',
+      created_at: new Date().toISOString()
+    });
+
+    // Store owner payment history
+    if (!database.data.truck_owner_payments) database.data.truck_owner_payments = [];
+    let ownerDoc = database.data.truck_owner_payments.find(d => d.truck_no === truckNo && d.kms_year === (kms_year||'') && d.season === (season||''));
+    if (!ownerDoc) {
+      ownerDoc = { truck_no: truckNo, kms_year: kms_year || '', season: season || '', payments_history: [] };
+      database.data.truck_owner_payments.push(ownerDoc);
+    }
+    ownerDoc.payments_history.push({ amount, date: new Date().toISOString(), note: note || '', by: username || '', payment_mode: payment_mode || 'cash' });
+    ownerDoc.updated_at = new Date().toISOString();
+
+    database.save();
+    res.json({ success: true, message: `₹${amount} payment ho gaya! (${Math.round(amount - remaining)} distributed)` });
+  }));
+
+  router.post('/api/truck-owner/:truckNo/mark-paid', safeSync((req, res) => {
+    const truckNo = decodeURIComponent(req.params.truckNo);
+    const { kms_year, season, username, role } = req.query;
+    if (role !== 'admin') return res.status(403).json({ detail: 'Sirf admin mark paid kar sakta hai' });
+
+    let entries = database.data.entries.filter(e => e.truck_no === truckNo);
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (!entries.length) return res.status(404).json({ detail: 'Entries nahi mile' });
+
+    let totalMarked = 0;
+    for (const entry of entries) {
+      const payment = database.getTruckPayment(entry.id);
+      const rate = payment.rate_per_qntl || 0;
+      const paidSoFar = payment.paid_amount || 0;
+      const finalQntl = Math.round(((entry.qntl || 0) - (entry.bag || 0) / 100) * 100) / 100;
+      const gross = Math.round(finalQntl * rate * 100) / 100;
+      const deductions = (parseFloat(entry.cash_paid) || 0) + (parseFloat(entry.diesel_paid) || 0);
+      const net = Math.round((gross - deductions) * 100) / 100;
+      if (paidSoFar >= net && net > 0) continue;
+      const tripBalance = Math.max(0, Math.round((net - paidSoFar) * 100) / 100);
+      totalMarked += tripBalance;
+      const history = payment.payment_history || [];
+      history.push({ amount: tripBalance, date: new Date().toISOString(), note: 'Owner Mark Paid (Full)', by: username || '' });
+      database.updateTruckPayment(entry.id, { paid_amount: net, payment_history: history, status: 'paid' });
+    }
+
+    if (totalMarked > 0) {
+      if (!database.data.cash_transactions) database.data.cash_transactions = [];
+      // Cash book nikasi only (no ledger jama)
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: new Date().toISOString().split('T')[0],
+        account: 'cash', txn_type: 'nikasi',
+        category: truckNo, party_type: 'Truck',
+        description: `Truck Owner Full Payment: ${truckNo}`,
+        amount: totalMarked, reference: `truck_owner:${truckNo}`,
+        linked_payment_id: `truck_owner:${truckNo}:${kms_year || ''}:${season || ''}`,
+        kms_year: kms_year || '', season: season || '',
+        created_at: new Date().toISOString()
+      });
+    }
+    database.save();
+    res.json({ success: true, message: `Sab trips paid! ₹${totalMarked} mark paid kiya` });
+  }));
+
+  router.post('/api/truck-owner/:truckNo/undo-paid', safeSync((req, res) => {
+    const truckNo = decodeURIComponent(req.params.truckNo);
+    const { kms_year, season, username, role } = req.query;
+    if (role !== 'admin') return res.status(403).json({ detail: 'Sirf admin undo kar sakta hai' });
+
+    let entries = database.data.entries.filter(e => e.truck_no === truckNo);
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+
+    for (const entry of entries) {
+      const payment = database.getTruckPayment(entry.id);
+      if (payment.paid_amount > 0) {
+        const history = payment.payment_history || [];
+        history.push({ amount: -(payment.paid_amount || 0), date: new Date().toISOString(), note: 'UNDO - Owner payment reversed', by: username || '' });
+        database.updateTruckPayment(entry.id, { paid_amount: 0, payment_history: history, status: 'pending' });
+      }
+      // Delete individual linked entries
+      if (database.data.cash_transactions) {
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `truck:${entry.id}`);
+      }
+    }
+    // Delete owner-level cash transactions
+    if (database.data.cash_transactions) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `truck_owner:${truckNo}:${kms_year || ''}:${season || ''}`);
+    }
+    database.save();
+    res.json({ success: true, message: `${truckNo} ke saare payments undo ho gaye` });
+  }));
+
+  router.get('/api/truck-owner/:truckNo/history', safeSync((req, res) => {
+    const truckNo = decodeURIComponent(req.params.truckNo);
+    const { kms_year, season } = req.query;
+
+    if (!database.data.truck_owner_payments) database.data.truck_owner_payments = [];
+    const ownerDoc = database.data.truck_owner_payments.find(d => d.truck_no === truckNo && d.kms_year === (kms_year||'') && d.season === (season||''));
+
+    let entries = database.data.entries.filter(e => e.truck_no === truckNo);
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+
+    const allHistory = [];
+    if (ownerDoc) {
+      for (const h of (ownerDoc.payments_history || [])) {
+        allHistory.push({ ...h, source: 'owner' });
+      }
+    }
+    for (const entry of entries) {
+      const payment = database.getTruckPayment(entry.id);
+      for (const h of (payment.payment_history || [])) {
+        if (!(h.note || '').includes('Owner')) {
+          allHistory.push({ ...h, source: 'trip', entry_id: entry.id });
+        }
+      }
+    }
+    allHistory.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    res.json({ history: allHistory });
+  }));
+
   return router;
 };

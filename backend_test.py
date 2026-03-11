@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Dict, Any
 
 class MillEntryAPITester:
-    def __init__(self, base_url="https://mill-entry-preview-1.preview.emergentagent.com"):
+    def __init__(self, base_url="https://rice-mill-mgmt.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.tests_run = 0
