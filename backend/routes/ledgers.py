@@ -329,10 +329,12 @@ async def export_party_ledger_excel(party_name: Optional[str] = None, party_type
         c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
     
     for i, l in enumerate(data["ledger"], 4):
-        # Convert debit/credit: show empty string for 0 values
         row_data = dict(l)
         if row_data.get("debit", 0) == 0: row_data["debit"] = ""
         if row_data.get("credit", 0) == 0: row_data["credit"] = ""
+        # Add [Pvt] tag to party name for Pvt Paddy entries
+        if row_data.get("party_type") == "Pvt Paddy Purchase":
+            row_data["party_name"] = f"[Pvt] {row_data.get('party_name', '')}"
         vals = get_entry_row(row_data, cols)
         for col_idx, v in enumerate(vals, 1):
             c = ws.cell(row=i, column=col_idx, value=v); c.border = tb
@@ -391,6 +393,9 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
         row_data = dict(l)
         if row_data.get("debit", 0) == 0: row_data["debit"] = "-"
         if row_data.get("credit", 0) == 0: row_data["credit"] = "-"
+        # Add [Pvt] tag to party name for Pvt Paddy entries
+        if row_data.get("party_type") == "Pvt Paddy Purchase":
+            row_data["party_name"] = f"[Pvt] {row_data.get('party_name', '')}"
         row_vals = get_entry_row(row_data, cols)
         out = []
         for i, v in enumerate(row_vals):
