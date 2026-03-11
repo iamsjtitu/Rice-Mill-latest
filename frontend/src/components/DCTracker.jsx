@@ -451,12 +451,17 @@ export const GunnyBags = ({ filters, user }) => {
   return (
     <div className="space-y-3" data-testid="gunny-bags-tab">
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
           <Card className="bg-gradient-to-br from-blue-900/40 to-slate-800 border-blue-800/30"><CardContent className="p-3">
             <p className="text-[10px] text-blue-400">Bag Received (Mill)</p>
             <p className="text-xl font-bold text-blue-400">{summary.auto_mill?.total_in || 0}</p>
             <p className="text-[9px] text-red-400 mt-0.5">Issued: {summary.auto_mill?.total_out || 0}</p>
             <p className="text-[9px] text-slate-500">Net: {summary.auto_mill?.balance || 0}</p>
+          </CardContent></Card>
+          <Card className="bg-gradient-to-br from-red-900/40 to-slate-800 border-red-800/30"><CardContent className="p-3">
+            <p className="text-[10px] text-red-400">Total G.Issued</p>
+            <p className="text-xl font-bold text-red-400">{summary.g_issued_total || 0}</p>
+            <p className="text-[9px] text-slate-500 mt-1">Gunny bags issued</p>
           </CardContent></Card>
           <Card className="bg-gradient-to-br from-purple-900/40 to-slate-800 border-purple-800/30"><CardContent className="p-3">
             <p className="text-[10px] text-purple-400">P.Pkt (Plastic)</p>

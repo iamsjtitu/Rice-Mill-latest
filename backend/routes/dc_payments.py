@@ -576,6 +576,7 @@ async def get_gunny_bag_summary(kms_year: Optional[str] = None, season: Optional
     all_old_in = sum(e.get("quantity",0) for e in all_old if e.get("txn_type") == "in")
     all_old_out = sum(e.get("quantity",0) for e in all_old if e.get("txn_type") == "out")
     result["grand_total"] = all_old_in - all_old_out
+    result["g_issued_total"] = sum(e.get("quantity",0) for e in entries if e.get("txn_type") == "out" and e.get("bag_type") == "old")
     return result
 
 
