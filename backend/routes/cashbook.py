@@ -39,8 +39,74 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
     txn_dict = txn.model_dump()
     txn_dict['created_by'] = username
     txn_dict['amount'] = round(txn_dict['amount'], 2)
+    category = txn_dict.get('category', '').strip()
+    
+    # Auto-detect party_type if not provided
+    if not txn_dict.get('party_type') and category:
+        # Check existing transactions first (exact match)
+        existing = await db.cash_transactions.find_one(
+            {"category": category, "party_type": {"$ne": "", "$exists": True}},
+            {"_id": 0, "party_type": 1}
+        )
+        if existing and existing.get('party_type'):
+            txn_dict['party_type'] = existing['party_type']
+        else:
+            # Cross-collection lookup (exact + partial match)
+            cat_lower = category.lower()
+            if await db.private_paddy.find_one({"party_name": category}):
+                txn_dict['party_type'] = "Pvt Paddy Purchase"
+            elif await db.rice_sales.find_one({"party_name": category}):
+                txn_dict['party_type'] = "Rice Sale"
+            elif await db.diesel_accounts.find_one({"pump_name": category}):
+                txn_dict['party_type'] = "Diesel"
+            elif await db.local_party_accounts.find_one({"party_name": category}):
+                txn_dict['party_type'] = "Local Party"
+            elif await db.truck_payments.find_one({"truck_no": category}):
+                txn_dict['party_type'] = "Truck"
+            elif await db.mandi_targets.find_one({"mandi_name": category}):
+                txn_dict['party_type'] = "Agent"
+            else:
+                # Fuzzy: check if category matches start of any known party
+                import re
+                rgx = {"$regex": f"^{re.escape(category)}", "$options": "i"}
+                if await db.diesel_accounts.find_one({"pump_name": rgx}):
+                    txn_dict['party_type'] = "Diesel"
+                elif await db.private_paddy.find_one({"party_name": rgx}):
+                    txn_dict['party_type'] = "Pvt Paddy Purchase"
+                elif await db.rice_sales.find_one({"party_name": rgx}):
+                    txn_dict['party_type'] = "Rice Sale"
+                elif await db.local_party_accounts.find_one({"party_name": rgx}):
+                    txn_dict['party_type'] = "Local Party"
+                elif await db.mandi_targets.find_one({"mandi_name": rgx}):
+                    txn_dict['party_type'] = "Agent"
+                else:
+                    # Reverse: known party starts with category
+                    rgx2 = {"$regex": re.escape(category), "$options": "i"}
+                    if await db.diesel_accounts.find_one({"pump_name": rgx2}):
+                        txn_dict['party_type'] = "Diesel"
+                    elif await db.private_paddy.find_one({"party_name": rgx2}):
+                        txn_dict['party_type'] = "Pvt Paddy Purchase"
+                    elif await db.rice_sales.find_one({"party_name": rgx2}):
+                        txn_dict['party_type'] = "Rice Sale"
+                    elif await db.local_party_accounts.find_one({"party_name": rgx2}):
+                        txn_dict['party_type'] = "Local Party"
+                    elif await db.mandi_targets.find_one({"mandi_name": rgx2}):
+                        txn_dict['party_type'] = "Agent"
+    
     await db.cash_transactions.insert_one(txn_dict)
     txn_dict.pop('_id', None)
+    
+    # Auto-create corresponding ledger entry if this is a cash/bank transaction
+    if txn_dict.get('account') in ('cash', 'bank') and category:
+        ledger_entry = {**txn_dict}
+        ledger_entry['id'] = str(uuid.uuid4())
+        ledger_entry['account'] = 'ledger'
+        ledger_entry['reference'] = f"auto_ledger:{txn_dict.get('id', '')[:8]}"
+        ledger_entry['created_at'] = datetime.now(timezone.utc).isoformat()
+        ledger_entry['updated_at'] = datetime.now(timezone.utc).isoformat()
+        await db.cash_transactions.insert_one(ledger_entry)
+        ledger_entry.pop('_id', None)
+    
     return txn_dict
 
 
@@ -67,6 +133,8 @@ async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional
 
 @router.delete("/cash-book/{txn_id}")
 async def delete_cash_transaction(txn_id: str):
+    # Also delete auto-created ledger entry
+    await db.cash_transactions.delete_many({"reference": f"auto_ledger:{txn_id[:8]}"})
     result = await db.cash_transactions.delete_one({"id": txn_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -85,6 +153,9 @@ async def update_cash_transaction(txn_id: str, request: Request, username: str =
     result = await db.cash_transactions.update_one({"id": txn_id}, {"$set": body})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    # Update auto-created ledger entry too
+    ledger_body = {k: v for k, v in body.items() if k not in ('account', 'reference')}
+    await db.cash_transactions.update_many({"reference": f"auto_ledger:{txn_id[:8]}"}, {"$set": ledger_body})
     updated = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
     return updated
 

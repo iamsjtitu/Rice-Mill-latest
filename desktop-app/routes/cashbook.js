@@ -18,11 +18,37 @@ module.exports = function(database) {
   router.post('/api/cash-book', safeSync((req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = req.body;
+    const category = (d.category || '').trim();
+    
+    // Auto-detect party_type
+    let partyType = d.party_type || '';
+    if (!partyType && category) {
+      const existing = database.data.cash_transactions.find(t => t.category === category && t.party_type);
+      if (existing) {
+        partyType = existing.party_type;
+      } else {
+        if ((database.data.private_paddy || []).find(p => p.party_name === category)) partyType = 'Pvt Paddy Purchase';
+        else if ((database.data.rice_sales || []).find(p => p.party_name === category)) partyType = 'Rice Sale';
+        else if ((database.data.diesel_accounts || []).find(p => p.pump_name === category)) partyType = 'Diesel';
+        else if ((database.data.local_party_accounts || []).find(p => p.party_name === category)) partyType = 'Local Party';
+        else if ((database.data.truck_payments || []).find(p => p.truck_no === category)) partyType = 'Truck';
+        else if ((database.data.mandi_targets || []).find(p => p.mandi_name === category)) partyType = 'Agent';
+      }
+    }
+    
     const txn = { id: uuidv4(), date: d.date, account: d.account || 'cash', txn_type: d.txn_type || 'jama',
-      category: d.category || '', description: d.description || '', amount: +(d.amount || 0),
+      category: category, party_type: partyType, description: d.description || '', amount: +(d.amount || 0),
       reference: d.reference || '', kms_year: d.kms_year || '', season: d.season || '',
       created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    database.data.cash_transactions.push(txn); database.save(); res.json(txn);
+    database.data.cash_transactions.push(txn);
+    
+    // Auto-create ledger entry for cash/bank transactions
+    if ((txn.account === 'cash' || txn.account === 'bank') && category) {
+      const ledgerEntry = { ...txn, id: uuidv4(), account: 'ledger', reference: `auto_ledger:${txn.id.substring(0, 8)}` };
+      database.data.cash_transactions.push(ledgerEntry);
+    }
+    
+    database.save(); res.json(txn);
   }));
 
   router.get('/api/cash-book', safeSync((req, res) => {
