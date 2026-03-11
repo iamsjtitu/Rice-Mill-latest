@@ -19,10 +19,9 @@ const CashBookFilters = ({
         {activeView === "transactions" && (
         <div>
           <Label className="text-xs text-slate-400">Account</Label>
-          <Select value={txnFilters.account || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, account: v === "all" ? "" : v }))}>
+          <Select value={txnFilters.account || "ledger"} onValueChange={(v) => setTxnFilters(p => ({ ...p, account: v }))}>
             <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-account"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
               <SelectItem value="cash">Cash</SelectItem>
               <SelectItem value="bank">Bank</SelectItem>
               <SelectItem value="ledger">Ledger</SelectItem>
@@ -116,7 +115,7 @@ const CashBookFilters = ({
           <Label className="text-xs text-slate-400">To</Label>
           <Input type="date" value={txnFilters.date_to} onChange={(e) => setTxnFilters(p => ({ ...p, date_to: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-36" />
         </div>
-        <Button onClick={() => setTxnFilters({ account: "", txn_type: "", category: "", party_type: "", date_from: "", date_to: "" })} variant="ghost" size="sm" className="text-slate-400 h-8" data-testid="cashbook-filter-clear"><X className="w-3 h-3 mr-1" /> Clear</Button>
+        <Button onClick={() => setTxnFilters({ account: "ledger", txn_type: "", category: "", party_type: "", date_from: "", date_to: "" })} variant="ghost" size="sm" className="text-slate-400 h-8" data-testid="cashbook-filter-clear"><X className="w-3 h-3 mr-1" /> Clear</Button>
       </div>
     </CardContent></Card>
   );

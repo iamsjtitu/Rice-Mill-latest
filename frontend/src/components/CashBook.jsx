@@ -37,7 +37,7 @@ const CashBook = ({ filters, user }) => {
     category: "", party_type: "", description: "", amount: "", reference: "",
     kms_year: CURRENT_KMS_YEAR, season: "Kharif",
   });
-  const [txnFilters, setTxnFilters] = useState({ account: "", txn_type: "", category: "", party_type: "", date_from: "", date_to: "" });
+  const [txnFilters, setTxnFilters] = useState({ account: "ledger", txn_type: "", category: "", party_type: "", date_from: "", date_to: "" });
   const [filterPartySearch, setFilterPartySearch] = useState("");
   const [showFilterPartyDropdown, setShowFilterPartyDropdown] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);

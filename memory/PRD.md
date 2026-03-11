@@ -20,14 +20,17 @@ A comprehensive Mill Entry System for managing rice mill operations including pa
 - Full Private Trading module with Paddy Purchase, Rice Sale, Party Summary
 - Mark Paid / Undo Paid / Payment History for both Paddy and Rice
 - RST No, Cash Paid, Diesel Paid fields in Rice Sale
-- Party Summary with separate Paddy/Rice sections
+- Party Summary with separate Paddy/Rice sections (two separate tables)
 - Navigation from Party Summary to detailed ledger
 - Detailed ledger descriptions: `{party} - {mandi} - {qty} Qntl @ Rs.{rate}`
 - Truck Payments sorted newest first
 - All accounting bugs fixed (jama/nikasi logic)
+- CashBook Account filter: removed "All", only Cash/Bank/Ledger, default is Ledger
 
 ## Recent Changes (March 2026)
-- Fixed description format: "100 @ Rs.300" → "100 Qntl @ Rs.300" in both Python and Node.js backends
+- Fixed description format: "100 @ Rs.300" → "100 Qntl @ Rs.300" in Python & Node.js
+- CashBook Account filter: removed "All" option, default set to "Ledger"
+- Party Summary split into separate Paddy Purchase & Rice Sale sections
 
 ## Backlog
 - P2: Refactor duplicate business logic between Python backend and Node.js desktop-app
