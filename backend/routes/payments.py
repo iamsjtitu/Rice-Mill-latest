@@ -50,8 +50,15 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
         net_amount = round(gross_amount - deductions, 2)
         balance = round(net_amount - paid_amount, 2)
         
-        # Use tolerance for floating-point precision (₹0.10 tolerance)
-        status = "paid" if balance < 0.10 else ("partial" if paid_amount > 0 else "pending")
+        # Status: pending if nothing paid, paid if balance ~0, partial otherwise
+        if paid_amount == 0:
+            status = "pending"
+        elif balance < 0.10:
+            status = "paid"
+        elif paid_amount > 0:
+            status = "partial"
+        else:
+            status = "pending"
         
         payments.append(TruckPaymentStatus(
             entry_id=entry_id,
@@ -621,6 +628,274 @@ async def get_agent_payment_history(mandi_name: str, kms_year: str = "", season:
         "history": payment_doc.get("payments_history", []),
         "total_paid": payment_doc.get("paid_amount", 0)
     }
+
+
+
+# ===== TRUCK OWNER CONSOLIDATED PAYMENT ENDPOINTS =====
+
+@router.post("/truck-owner/{truck_no}/pay")
+async def pay_truck_owner(truck_no: str, request: Request, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
+    """Make partial payment to truck owner - distributes across all trips"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin payment kar sakta hai")
+    
+    body = await request.json()
+    amount = float(body.get("amount", 0))
+    note = body.get("note", "")
+    payment_mode = body.get("payment_mode", "cash")
+    
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount 0 se zyada hona chahiye")
+    
+    # Get all entries for this truck
+    query = {"truck_no": truck_no}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    entries = await db.mill_entries.find(query, {"_id": 0}).to_list(None)
+    if not entries:
+        raise HTTPException(status_code=404, detail="Is truck ke entries nahi mile")
+    
+    # Distribute payment across unpaid trips (oldest first)
+    remaining = amount
+    for entry in sorted(entries, key=lambda e: e.get("date", "")):
+        if remaining <= 0:
+            break
+        entry_id = entry.get("id")
+        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
+        paid_so_far = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        
+        final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
+        cash_taken = float(entry.get("cash_paid", 0) or 0)
+        diesel_taken = float(entry.get("diesel_paid", 0) or 0)
+        gross = round(final_qntl * rate, 2)
+        net = round(gross - cash_taken - diesel_taken, 2)
+        trip_balance = max(0, round(net - paid_so_far, 2))
+        
+        if trip_balance <= 0:
+            continue
+        
+        allot = min(remaining, trip_balance)
+        new_paid = round(paid_so_far + allot, 2)
+        new_balance = max(0, round(net - new_paid, 2))
+        
+        history = payment_doc.get("payments_history", []) if payment_doc else []
+        history.append({
+            "amount": allot, "date": datetime.now(timezone.utc).isoformat(),
+            "note": f"Owner Payment: {note}" if note else "Owner Payment",
+            "by": username, "payment_mode": payment_mode
+        })
+        
+        if new_balance < 0.10:
+            status = "paid"
+        elif new_paid > 0:
+            status = "partial"
+        else:
+            status = "pending"
+        
+        await db.truck_payments.update_one(
+            {"entry_id": entry_id},
+            {"$set": {
+                "entry_id": entry_id, "paid_amount": new_paid,
+                "payments_history": history, "status": status,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }},
+            upsert=True
+        )
+        remaining = round(remaining - allot, 2)
+    
+    # Create cash book entry
+    txn_id = f"txn_{datetime.now().strftime('%Y%m%d%H%M%S')}_{truck_no}"
+    cash_txn = {
+        "id": txn_id,
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "account": payment_mode,
+        "txn_type": "nikasi",
+        "category": truck_no,
+        "party_type": "Truck",
+        "description": f"Truck Owner Payment: {truck_no}" + (f" - {note}" if note else ""),
+        "amount": amount,
+        "reference": f"truck_owner:{truck_no}",
+        "linked_payment_id": f"truck_owner:{truck_no}:{kms_year}:{season}",
+        "kms_year": kms_year,
+        "season": season,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.cash_transactions.insert_one(cash_txn)
+    
+    # Create ledger jama entry for truck
+    ledger_txn = {
+        "id": f"txn_{datetime.now().strftime('%Y%m%d%H%M%S')}_led_{truck_no}",
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "account": "ledger",
+        "txn_type": "jama",
+        "category": truck_no,
+        "party_type": "Truck",
+        "description": f"Truck Owner Payment (Ledger): {truck_no}" + (f" - {note}" if note else ""),
+        "amount": amount,
+        "reference": f"truck_owner:{truck_no}",
+        "linked_payment_id": f"truck_owner:{truck_no}:{kms_year}:{season}",
+        "kms_year": kms_year,
+        "season": season,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.cash_transactions.insert_one(ledger_txn)
+    
+    # Store owner payment history
+    owner_doc = await db.truck_owner_payments.find_one({"truck_no": truck_no, "kms_year": kms_year, "season": season})
+    owner_history = owner_doc.get("payments_history", []) if owner_doc else []
+    owner_history.append({
+        "amount": amount, "date": datetime.now(timezone.utc).isoformat(),
+        "note": note, "by": username, "payment_mode": payment_mode
+    })
+    await db.truck_owner_payments.update_one(
+        {"truck_no": truck_no, "kms_year": kms_year, "season": season},
+        {"$set": {"payments_history": owner_history, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    
+    return {"success": True, "message": f"₹{amount:,.0f} payment ho gaya! ({round(amount - remaining, 0)} distributed)"}
+
+
+@router.post("/truck-owner/{truck_no}/mark-paid")
+async def mark_truck_owner_paid(truck_no: str, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
+    """Mark all trips for a truck as fully paid"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin mark paid kar sakta hai")
+    
+    query = {"truck_no": truck_no}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    entries = await db.mill_entries.find(query, {"_id": 0}).to_list(None)
+    if not entries:
+        raise HTTPException(status_code=404, detail="Entries nahi mile")
+    
+    total_marked = 0
+    for entry in entries:
+        entry_id = entry.get("id")
+        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        rate = payment_doc.get("rate_per_qntl", 0) if payment_doc else 0
+        paid_so_far = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        
+        final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
+        gross = round(final_qntl * rate, 2)
+        deductions = float(entry.get("cash_paid", 0) or 0) + float(entry.get("diesel_paid", 0) or 0)
+        net = round(gross - deductions, 2)
+        
+        if paid_so_far >= net and net > 0:
+            continue  # Already paid
+        
+        trip_balance = max(0, round(net - paid_so_far, 2))
+        total_marked += trip_balance
+        
+        history = payment_doc.get("payments_history", []) if payment_doc else []
+        history.append({
+            "amount": trip_balance, "date": datetime.now(timezone.utc).isoformat(),
+            "note": "Owner Mark Paid (Full)", "by": username
+        })
+        
+        await db.truck_payments.update_one(
+            {"entry_id": entry_id},
+            {"$set": {
+                "entry_id": entry_id, "paid_amount": net,
+                "payments_history": history, "status": "paid",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }},
+            upsert=True
+        )
+    
+    if total_marked > 0:
+        # Cash book nikasi
+        txn_id = f"txn_{datetime.now().strftime('%Y%m%d%H%M%S')}_{truck_no}_full"
+        await db.cash_transactions.insert_one({
+            "id": txn_id, "date": datetime.now().strftime("%Y-%m-%d"),
+            "account": "cash", "txn_type": "nikasi",
+            "category": truck_no, "party_type": "Truck",
+            "description": f"Truck Owner Full Payment: {truck_no}",
+            "amount": total_marked,
+            "reference": f"truck_owner:{truck_no}",
+            "linked_payment_id": f"truck_owner:{truck_no}:{kms_year}:{season}",
+            "kms_year": kms_year, "season": season,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        # Ledger jama
+        await db.cash_transactions.insert_one({
+            "id": f"txn_{datetime.now().strftime('%Y%m%d%H%M%S')}_led_{truck_no}_full",
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "account": "ledger", "txn_type": "jama",
+            "category": truck_no, "party_type": "Truck",
+            "description": f"Truck Owner Full Payment (Ledger): {truck_no}",
+            "amount": total_marked,
+            "reference": f"truck_owner:{truck_no}",
+            "linked_payment_id": f"truck_owner:{truck_no}:{kms_year}:{season}",
+            "kms_year": kms_year, "season": season,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+    
+    return {"success": True, "message": f"Sab trips paid! ₹{total_marked:,.0f} mark paid kiya"}
+
+
+@router.post("/truck-owner/{truck_no}/undo-paid")
+async def undo_truck_owner_paid(truck_no: str, kms_year: str = "", season: str = "", username: str = "", role: str = ""):
+    """Undo all payments for a truck owner - resets all trips"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin undo kar sakta hai")
+    
+    query = {"truck_no": truck_no}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    entries = await db.mill_entries.find(query, {"_id": 0}).to_list(None)
+    
+    for entry in entries:
+        entry_id = entry.get("id")
+        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        if payment_doc:
+            history = payment_doc.get("payments_history", [])
+            history.append({
+                "amount": -payment_doc.get("paid_amount", 0),
+                "date": datetime.now(timezone.utc).isoformat(),
+                "note": "UNDO - Owner payment reversed", "by": username
+            })
+            await db.truck_payments.update_one(
+                {"entry_id": entry_id},
+                {"$set": {"paid_amount": 0, "payments_history": history, "status": "pending", "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+        # Also delete individual linked entries
+        await db.cash_transactions.delete_many({"linked_payment_id": f"truck:{entry_id}"})
+    
+    # Delete owner-level cash transactions
+    await db.cash_transactions.delete_many({"linked_payment_id": f"truck_owner:{truck_no}:{kms_year}:{season}"})
+    
+    return {"success": True, "message": f"{truck_no} ke saare payments undo ho gaye"}
+
+
+@router.get("/truck-owner/{truck_no}/history")
+async def get_truck_owner_history(truck_no: str, kms_year: str = "", season: str = ""):
+    """Get consolidated payment history for a truck owner"""
+    owner_doc = await db.truck_owner_payments.find_one(
+        {"truck_no": truck_no, "kms_year": kms_year, "season": season}, {"_id": 0}
+    )
+    
+    # Also get individual trip payments
+    query = {"truck_no": truck_no}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    entries = await db.mill_entries.find(query, {"_id": 0, "id": 1}).to_list(None)
+    
+    all_history = []
+    if owner_doc:
+        for h in owner_doc.get("payments_history", []):
+            all_history.append({**h, "source": "owner"})
+    
+    for entry in entries:
+        payment_doc = await db.truck_payments.find_one({"entry_id": entry["id"]}, {"_id": 0})
+        if payment_doc:
+            for h in payment_doc.get("payments_history", []):
+                if "Owner" not in h.get("note", ""):
+                    all_history.append({**h, "source": "trip", "entry_id": entry["id"]})
+    
+    all_history.sort(key=lambda x: x.get("date", ""), reverse=True)
+    return {"history": all_history}
 
 
 @router.get("/export/agent-payments-excel")

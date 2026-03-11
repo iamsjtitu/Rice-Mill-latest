@@ -65,6 +65,14 @@ export const Payments = ({ filters, user, branding }) => {
   const [newRate, setNewRate] = useState("");
   const [truckSearchFilter, setTruckSearchFilter] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
+  // Truck Owner Payment states
+  const [showOwnerPayDialog, setShowOwnerPayDialog] = useState(false);
+  const [showOwnerHistoryDialog, setShowOwnerHistoryDialog] = useState(false);
+  const [selectedOwnerTruck, setSelectedOwnerTruck] = useState(null);
+  const [ownerPayAmount, setOwnerPayAmount] = useState("");
+  const [ownerPayNote, setOwnerPayNote] = useState("");
+  const [ownerPayMode, setOwnerPayMode] = useState("cash");
+  const [ownerHistory, setOwnerHistory] = useState([]);
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -192,6 +200,46 @@ export const Payments = ({ filters, user, branding }) => {
       toast.error("History load karne mein error");
     }
   };
+
+  // ==== TRUCK OWNER CONSOLIDATED PAYMENT HANDLERS ====
+  const handleOwnerPay = async () => {
+    if (!ownerPayAmount || !selectedOwnerTruck) return;
+    try {
+      const params = `kms_year=${filters.kms_year||''}&season=${filters.season||''}&username=${user.username}&role=${user.role}`;
+      const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(selectedOwnerTruck.truck_no)}/pay?${params}`, {
+        amount: parseFloat(ownerPayAmount), note: ownerPayNote, payment_mode: ownerPayMode
+      });
+      toast.success(res.data.message);
+      setShowOwnerPayDialog(false); setOwnerPayAmount(""); setOwnerPayNote(""); setOwnerPayMode("cash");
+      fetchPayments();
+    } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
+  };
+
+  const handleOwnerMarkPaid = async (truck) => {
+    if (!window.confirm(`${truck.truck_no} ke saare trips mark paid karna chahte hain?`)) return;
+    try {
+      const params = `kms_year=${filters.kms_year||''}&season=${filters.season||''}&username=${user.username}&role=${user.role}`;
+      const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(truck.truck_no)}/mark-paid?${params}`);
+      toast.success(res.data.message); fetchPayments();
+    } catch (e) { toast.error(e.response?.data?.detail || "Mark paid error"); }
+  };
+
+  const handleOwnerUndoPaid = async (truck) => {
+    if (!window.confirm(`${truck.truck_no} ke saare payments undo karna chahte hain?`)) return;
+    try {
+      const params = `kms_year=${filters.kms_year||''}&season=${filters.season||''}&username=${user.username}&role=${user.role}`;
+      const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(truck.truck_no)}/undo-paid?${params}`);
+      toast.success(res.data.message); fetchPayments();
+    } catch (e) { toast.error(e.response?.data?.detail || "Undo error"); }
+  };
+
+  const handleOwnerHistory = async (truck) => {
+    try {
+      const res = await axios.get(`${API}/truck-owner/${encodeURIComponent(truck.truck_no)}/history?kms_year=${filters.kms_year||''}&season=${filters.season||''}`);
+      setOwnerHistory(res.data.history || []); setSelectedOwnerTruck(truck); setShowOwnerHistoryDialog(true);
+    } catch (e) { toast.error("History load error"); }
+  };
+
 
   const handleSetRate = async () => {
     if (!newRate || !selectedItem) return;
@@ -566,6 +614,13 @@ export const Payments = ({ filters, user, branding }) => {
     acc[truckNo].total_net += payment.net_amount;
     acc[truckNo].total_paid += payment.paid_amount;
     acc[truckNo].total_balance += payment.balance_amount;
+    // Compute owner status
+    const tp = acc[truckNo].total_paid;
+    const tn = acc[truckNo].total_net;
+    const tb = acc[truckNo].total_balance;
+    if (tp === 0) acc[truckNo].status = "pending";
+    else if (tb < 0.10) acc[truckNo].status = "paid";
+    else acc[truckNo].status = "partial";
     return acc;
   }, {});
 
@@ -1031,6 +1086,7 @@ export const Payments = ({ filters, user, branding }) => {
                       <TableHead className="text-slate-300 text-right">Net Payable</TableHead>
                       <TableHead className="text-slate-300 text-right">Paid</TableHead>
                       <TableHead className="text-slate-300 text-right">Balance</TableHead>
+                      <TableHead className="text-slate-300 text-center">Status</TableHead>
                       <TableHead className="text-slate-300">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1063,17 +1119,53 @@ export const Payments = ({ filters, user, branding }) => {
                             ₹{truckData.total_balance.toLocaleString()}
                           </span>
                         </TableCell>
+                        <TableCell className="text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                            truckData.status === 'paid' ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-600' :
+                            truckData.status === 'partial' ? 'bg-amber-900/50 text-amber-400 border border-amber-600' :
+                            'bg-red-900/50 text-red-400 border border-red-600'
+                          }`} data-testid={`owner-status-${idx}`}>
+                            {truckData.status === 'paid' ? 'Paid' : truckData.status === 'partial' ? 'Partial' : 'Pending'}
+                          </span>
+                        </TableCell>
                         <TableCell>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handlePrintConsolidatedInvoice(truckData)}
-                            className="h-8 px-3 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600"
-                            title="Print Consolidated Receipt"
-                          >
-                            <Printer className="w-4 h-4 mr-1" />
-                            Print
-                          </Button>
+                          <div className="flex gap-1 flex-wrap">
+                            {user.role === 'admin' && truckData.status !== 'paid' && (
+                              <>
+                                <Button size="sm" variant="ghost"
+                                  onClick={() => { setSelectedOwnerTruck(truckData); setOwnerPayAmount(""); setOwnerPayNote(""); setShowOwnerPayDialog(true); }}
+                                  className="h-7 px-2 text-emerald-400 hover:bg-emerald-900/30 border border-emerald-600 text-xs"
+                                  data-testid={`owner-pay-${idx}`}>
+                                  Make Payment
+                                </Button>
+                                <Button size="sm" variant="ghost"
+                                  onClick={() => handleOwnerMarkPaid(truckData)}
+                                  className="h-7 px-2 text-blue-400 hover:bg-blue-900/30 border border-blue-600 text-xs"
+                                  data-testid={`owner-markpaid-${idx}`}>
+                                  Mark Paid
+                                </Button>
+                              </>
+                            )}
+                            {user.role === 'admin' && truckData.status !== 'pending' && (
+                              <Button size="sm" variant="ghost"
+                                onClick={() => handleOwnerUndoPaid(truckData)}
+                                className="h-7 px-2 text-orange-400 hover:bg-orange-900/30 border border-orange-600 text-xs"
+                                data-testid={`owner-undo-${idx}`}>
+                                Undo Paid
+                              </Button>
+                            )}
+                            <Button size="sm" variant="ghost"
+                              onClick={() => handleOwnerHistory(truckData)}
+                              className="h-7 px-2 text-purple-400 hover:bg-purple-900/30 border border-purple-600 text-xs"
+                              data-testid={`owner-history-${idx}`}>
+                              History
+                            </Button>
+                            <Button size="sm" variant="ghost"
+                              onClick={() => handlePrintConsolidatedInvoice(truckData)}
+                              className="h-7 px-2 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600 text-xs">
+                              <Printer className="w-3 h-3 mr-1" /> Print
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1694,6 +1786,77 @@ const DieselAccount = ({ filters, user }) => {
               </Button>
               <Button variant="outline" onClick={() => setShowPayDialog(false)} className="border-slate-600 text-slate-300">Cancel</Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Truck Owner Pay Dialog */}
+      <Dialog open={showOwnerPayDialog} onOpenChange={setShowOwnerPayDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-400">Make Payment - {selectedOwnerTruck?.truck_no}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {selectedOwnerTruck && (
+              <div className="bg-slate-700/50 rounded-lg p-3 text-sm">
+                <div className="flex justify-between"><span className="text-slate-400">Net Payable:</span><span className="text-white font-bold">₹{selectedOwnerTruck.total_net?.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Already Paid:</span><span className="text-emerald-400">₹{selectedOwnerTruck.total_paid?.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Balance:</span><span className="text-red-400 font-bold">₹{selectedOwnerTruck.total_balance?.toLocaleString()}</span></div>
+              </div>
+            )}
+            <div>
+              <Label className="text-slate-300 text-xs">Amount (₹)</Label>
+              <Input type="number" value={ownerPayAmount} onChange={(e) => setOwnerPayAmount(e.target.value)}
+                placeholder={`Max: ${selectedOwnerTruck?.total_balance?.toLocaleString()}`}
+                className="bg-slate-700 border-slate-600 text-white mt-1" data-testid="owner-pay-amount" />
+            </div>
+            <div>
+              <Label className="text-slate-300 text-xs">Payment Mode</Label>
+              <Select value={ownerPayMode} onValueChange={setOwnerPayMode}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash (नकद)</SelectItem>
+                  <SelectItem value="bank">Bank (बैंक)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-slate-300 text-xs">Note (Optional)</Label>
+              <Input value={ownerPayNote} onChange={(e) => setOwnerPayNote(e.target.value)}
+                placeholder="Payment details..." className="bg-slate-700 border-slate-600 text-white mt-1" />
+            </div>
+            <Button onClick={handleOwnerPay} disabled={!ownerPayAmount || parseFloat(ownerPayAmount) <= 0}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="owner-pay-submit">
+              Pay ₹{ownerPayAmount ? parseFloat(ownerPayAmount).toLocaleString() : '0'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Truck Owner History Dialog */}
+      <Dialog open={showOwnerHistoryDialog} onOpenChange={setShowOwnerHistoryDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-purple-400">Payment History - {selectedOwnerTruck?.truck_no}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto space-y-2">
+            {ownerHistory.length === 0 ? (
+              <p className="text-slate-400 text-center py-4">Koi payment history nahi hai</p>
+            ) : ownerHistory.map((h, idx) => (
+              <div key={idx} className={`p-2 rounded border text-sm ${h.amount >= 0 ? 'bg-emerald-900/20 border-emerald-700/30' : 'bg-red-900/20 border-red-700/30'}`}>
+                <div className="flex justify-between items-center">
+                  <span className={`font-bold ${h.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {h.amount >= 0 ? '+' : ''}₹{Math.abs(h.amount).toLocaleString()}
+                  </span>
+                  <span className="text-slate-500 text-xs">
+                    {h.source === 'owner' ? 'Owner' : 'Trip'} | {h.payment_mode || 'cash'}
+                  </span>
+                </div>
+                <div className="text-slate-400 text-xs mt-1">
+                  {h.note} {h.by ? `| by ${h.by}` : ''} | {h.date ? new Date(h.date).toLocaleDateString('en-IN') : ''}
+                </div>
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>
