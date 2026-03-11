@@ -282,7 +282,7 @@ async def create_rice_sale(data: dict, username: str = "", role: str = ""):
 
 
 async def _create_cashbook_for_rice_sale(doc, username=""):
-    """Auto-create truck payment entries for cash/diesel paid in rice sale."""
+    """Auto-create truck payment entries for cash/diesel + party ledger jama for rice sale."""
     entry_id = doc["id"]
     party = doc.get("party_name", "")
     truck_no = doc.get("truck_no", "")
@@ -290,11 +290,24 @@ async def _create_cashbook_for_rice_sale(doc, username=""):
     qty = doc.get("quantity_qntl", 0) or 0
     rate = doc.get("rate_per_qntl", 0) or 0
     detail = _fmt_detail(qty, rate) if qty and rate else ""
+    total = float(doc.get("total_amount", 0) or 0)
     base = {
         "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
         "created_by": username or "system", "linked_entry_id": entry_id,
         "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
     }
+    # 1. Party Ledger: jama (sale amount receivable from buyer)
+    if total > 0:
+        sale_desc = f"Rice Sale: {party} - {detail}" if detail else f"Rice Sale: {party} - Rs.{total}"
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "account": "ledger", "txn_type": "jama",
+            "category": party, "party_type": "Rice Sale",
+            "description": sale_desc,
+            "amount": round(total, 2), "reference": f"rice_sale_jama:{entry_id[:8]}",
+            **base
+        })
+    # 2. Cash paid → truck payment
     cash_paid = float(doc.get("cash_paid", 0) or 0)
     if cash_paid > 0 and truck_no:
         cash_desc = f"Rice Sale: {party} - {detail}" if detail else f"Rice Sale: {party} - Rs.{cash_paid}"
@@ -314,6 +327,7 @@ async def _create_cashbook_for_rice_sale(doc, username=""):
             "amount": round(cash_paid, 2), "reference": f"rice_sale_tcash:{entry_id[:8]}",
             **base
         })
+    # 3. Diesel paid → diesel account + truck ledger
     diesel_paid = float(doc.get("diesel_paid", 0) or 0)
     if diesel_paid > 0:
         diesel_desc = f"Rice Sale: {party} - {detail}" if detail else f"Rice Sale: {party} - Rs.{diesel_paid}"

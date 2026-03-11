@@ -18,7 +18,7 @@ async def get_company_name():
     return "Mill Entry System", ""
 
 async def _find_truck_entry(entry_id):
-    """Find entry from mill_entries or private_paddy, return (entry, source, final_qntl)"""
+    """Find entry from mill_entries, private_paddy, or rice_sales - return (entry, source, final_qntl)"""
     entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     if entry:
         fq = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
@@ -26,6 +26,9 @@ async def _find_truck_entry(entry_id):
     entry = await db.private_paddy.find_one({"id": entry_id}, {"_id": 0})
     if entry:
         return entry, "pvt", round(entry.get("final_qntl", 0), 2)
+    entry = await db.rice_sales.find_one({"id": entry_id}, {"_id": 0})
+    if entry:
+        return entry, "rice_sale", round(entry.get("quantity_qntl", 0), 2)
     return None, None, 0
 
 # ============ TRUCK PAYMENT ENDPOINTS ============
@@ -138,6 +141,51 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
             agent_name=p.get("agent_name", ""),
             mandi_name=party_label,
             source="Pvt Paddy"
+        ))
+
+    # Also include Rice Sale entries with truck_no (cash + diesel go to truck)
+    rice_query = dict(query)
+    rice_sales = await db.rice_sales.find(rice_query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(1000)
+    for r in rice_sales:
+        truck_no = r.get("truck_no", "")
+        if not truck_no:
+            continue
+        cash_paid = float(r.get("cash_paid", 0) or 0)
+        diesel_paid = float(r.get("diesel_paid", 0) or 0)
+        if cash_paid == 0 and diesel_paid == 0:
+            continue
+        deductions = round(cash_paid + diesel_paid, 2)
+        party = r.get("party_name", "")
+        qty = r.get("quantity_qntl", 0) or 0
+        tp = await db.truck_payments.find_one({"entry_id": r["id"]}, {"_id": 0})
+        rate = tp.get("rate_per_qntl", 0) if tp else 0
+        extra_paid = tp.get("paid_amount", 0) if tp else 0
+        tp_status = tp.get("status", "") if tp else ""
+        gross = round(qty * rate, 2) if rate > 0 else 0
+        net = round(gross - deductions, 2) if gross > 0 else 0
+        balance = round(net - extra_paid, 2) if gross > 0 else 0
+        status = tp_status if tp_status else ("paid" if (gross > 0 and balance <= 0) else ("partial" if extra_paid > 0 else "pending"))
+        payments.append(TruckPaymentStatus(
+            entry_id=r.get("id", ""),
+            truck_no=truck_no,
+            date=r.get("date", ""),
+            total_qntl=qty,
+            total_bag=int(r.get("bags", 0)),
+            final_qntl=qty,
+            cash_taken=cash_paid,
+            diesel_taken=diesel_paid,
+            rate_per_qntl=rate,
+            gross_amount=gross,
+            deductions=deductions,
+            net_amount=net,
+            paid_amount=round(deductions + extra_paid, 2),
+            balance_amount=max(0, balance),
+            status=status,
+            kms_year=r.get("kms_year", ""),
+            season=r.get("season", ""),
+            agent_name="",
+            mandi_name=party,
+            source="Rice Sale"
         ))
 
     return payments

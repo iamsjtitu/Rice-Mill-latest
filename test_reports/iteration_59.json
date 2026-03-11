@@ -1,0 +1,122 @@
+{
+  "summary": "Iteration 59: Bug Fix Verification - Rice Sale cash_paid/diesel_paid appearing in Truck Payments + Rice Sale jama entry in Cash Book. All 11 backend tests PASSED. All UI flows verified working correctly.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration59_rice_sale_bugfix.py",
+    "/app/test_reports/pytest/pytest_results_iteration59.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Backend payments.py get_truck_payments (line 146-189): Now includes rice_sales with cash_paid/diesel_paid > 0, setting source='Rice Sale'",
+    "Backend private_trading.py _create_cashbook_for_rice_sale (line 284-353): Creates jama entry (rice_sale_jama) for total_amount, plus cash/diesel entries for truck ledger",
+    "Backend private_trading.py delete_rice_sale (line 391-403): Cascade deletes cash_transactions, diesel_accounts, private_payments linked to rice sale"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_iteration59_rice_sale_bugfix.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% - All Rice Sale bug fixes verified"
+  },
+
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+
+  "seed_data_creation": "TestRice entry created and deleted during test - verified end-to-end flow",
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Bug fixes verified: 1) Rice Sale cash_paid/diesel_paid now appear in Truck Payments (GET /api/truck-payments) with source='Rice Sale'. 2) Rice Sale total amount creates jama entry in Cash Book Party Summary with party_type='Rice Sale'. Sillu entry (ID: 0e1f5460) with OR08E2455 truck is existing test data.",
+
+  "verified_bug_fixes": {
+    "bug_1_rice_sale_truck_payments": {
+      "description": "Rice Sale cash_paid/diesel_paid were not appearing in Truck Payments page",
+      "status": "FIXED",
+      "verification": [
+        "GET /api/truck-payments now includes rice_sales entries with truck_no",
+        "Sillu (OR08E2455) appears with cash_taken=500, diesel_taken=500, source='Rice Sale'",
+        "Created TestRice with TEST-TRUCK, cash=1000, diesel=500 - appeared correctly",
+        "DELETE rice sale removes entry from Truck Payments"
+      ]
+    },
+    "bug_2_rice_sale_cashbook_jama": {
+      "description": "Rice Sale total amount was not creating jama/kharch entry in Cash Book/Ledger",
+      "status": "FIXED",
+      "verification": [
+        "GET /api/cash-book/party-summary shows Sillu with party_type='Rice Sale', total_jama=700000",
+        "Creating new rice sale creates jama entry with reference 'rice_sale_jama:{id}'",
+        "TestRice appeared with total_jama=30000 (20Q * Rs.1500)",
+        "DELETE rice sale removes jama entry from Cash Book"
+      ]
+    }
+  },
+
+  "tests_executed": {
+    "backend": {
+      "test_01_get_truck_payments_includes_rice_sales": "PASSED",
+      "test_02_verify_sillu_entry_in_truck_payments": "PASSED",
+      "test_01_create_rice_sale_creates_jama_entry": "PASSED",
+      "test_02_verify_jama_entry_in_cash_transactions": "PASSED",
+      "test_03_verify_truck_payments_has_test_entry": "PASSED",
+      "test_04_verify_party_ledger_has_jama_for_rice_sale": "PASSED",
+      "test_01_delete_test_rice_sale": "PASSED",
+      "test_02_verify_truck_payments_removed": "PASSED",
+      "test_01_get_sillu_rice_sale": "PASSED",
+      "test_02_check_sillu_jama_in_party_summary": "PASSED",
+      "test_99_cleanup_test_entries": "PASSED"
+    },
+    "frontend": {
+      "login_admin": "PASSED",
+      "navigate_payments_truck_payments": "PASSED - Sillu/OR08E2455 visible with Cash+Diesel",
+      "navigate_cashbook_party_summary": "PASSED - Sillu with Rice Sale type and Jama amount",
+      "create_rice_sale_testrice": "PASSED - TestRice with RST999, 20Q, Rs.1500, TEST-TRUCK, Cash=1000, Diesel=500",
+      "verify_testrice_in_truck_payments": "PASSED - TEST-TRUCK appeared with source='Rice Sale'",
+      "verify_testrice_in_party_summary": "PASSED - TestRice appeared with total_jama=30000",
+      "delete_testrice_cascade": "PASSED - Removed from both Truck Payments and Party Summary"
+    }
+  },
+
+  "existing_data_verified": {
+    "sillu_rice_sale": {
+      "id": "0e1f5460-70f3-4f7d-b3d5-b3bb9b0137bf",
+      "party_name": "Sillu",
+      "truck_no": "OR08E2455",
+      "cash_paid": 500,
+      "diesel_paid": 500,
+      "total_amount": 300000,
+      "payment_status": "paid"
+    },
+    "sillu_in_truck_payments": {
+      "truck_no": "OR08E2455",
+      "mandi_name": "Sillu",
+      "cash_taken": 500,
+      "diesel_taken": 500,
+      "source": "Rice Sale"
+    },
+    "sillu_in_party_summary": {
+      "party_name": "Sillu",
+      "party_type": "Rice Sale",
+      "total_jama": 700000
+    }
+  },
+
+  "test_run_timestamp": "2026-03-11T18:58:00Z"
+}
