@@ -257,13 +257,21 @@ async def get_byproduct_stock(kms_year: Optional[str] = None, season: Optional[s
     if season: query["season"] = season
     milling_entries = await db.milling_entries.find(query, {"_id": 0}).to_list(1000)
     sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(1000)
+    # Also count Sale Book sales for by-products
+    sale_vouchers = await db.sale_vouchers.find(query, {"_id": 0}).to_list(10000)
+    sb_sold = {}
+    for sv in sale_vouchers:
+        for item in sv.get('items', []):
+            name = item.get('item_name', '').lower()
+            sb_sold[name] = sb_sold.get(name, 0) + (item.get('quantity', 0) or 0)
     products = ["bran", "kunda", "broken", "kanki", "husk"]
     stock = {}
     for p in products:
         produced = round(sum(e.get(f'{p}_qntl', 0) for e in milling_entries), 2)
         sold = round(sum(s.get('quantity_qntl', 0) for s in sales if s.get('product') == p), 2)
+        sold_sb = round(sb_sold.get(p, 0), 2)
         revenue = round(sum(s.get('total_amount', 0) for s in sales if s.get('product') == p), 2)
-        stock[p] = {"produced_qntl": produced, "sold_qntl": sold, "available_qntl": round(produced - sold, 2), "total_revenue": revenue}
+        stock[p] = {"produced_qntl": produced, "sold_qntl": round(sold + sold_sb, 2), "available_qntl": round(produced - sold - sold_sb, 2), "total_revenue": revenue}
     return stock
 
 

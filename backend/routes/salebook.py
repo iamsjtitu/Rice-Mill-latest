@@ -261,3 +261,172 @@ async def delete_sale_voucher(voucher_id: str, username: str = "", role: str = "
     # Delete linked ledger entries
     await db.cash_transactions.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     return {"message": "Sale voucher deleted", "id": voucher_id}
+
+
+@router.put("/sale-book/{voucher_id}")
+async def update_sale_voucher(voucher_id: str, input: SaleVoucherCreate, username: str = "", role: str = ""):
+    existing = await db.sale_vouchers.find_one({"id": voucher_id}, {"_id": 0})
+    if not existing: raise HTTPException(status_code=404, detail="Voucher not found")
+    
+    d = input.model_dump()
+    items = []
+    subtotal = 0
+    for item in d.get('items', []):
+        amount = round(item.get('quantity', 0) * item.get('rate', 0), 2)
+        items.append({**item, "amount": amount})
+        subtotal += amount
+    
+    d['items'] = items
+    d['subtotal'] = round(subtotal, 2)
+    cgst_amt = round(subtotal * d.get('cgst_percent', 0) / 100, 2) if d.get('gst_type') == 'cgst_sgst' else 0
+    sgst_amt = round(subtotal * d.get('sgst_percent', 0) / 100, 2) if d.get('gst_type') == 'cgst_sgst' else 0
+    igst_amt = round(subtotal * d.get('igst_percent', 0) / 100, 2) if d.get('gst_type') == 'igst' else 0
+    d['cgst_amount'] = cgst_amt
+    d['sgst_amount'] = sgst_amt
+    d['igst_amount'] = igst_amt
+    total = round(subtotal + cgst_amt + sgst_amt + igst_amt, 2)
+    d['total'] = total
+    cash = d.get('cash_paid', 0) or 0
+    diesel = d.get('diesel_paid', 0) or 0
+    d['paid_amount'] = round(cash + diesel, 2)
+    d['balance'] = round(total - cash - diesel, 2)
+    d['updated_at'] = datetime.now(timezone.utc).isoformat()
+    
+    await db.sale_vouchers.update_one({"id": voucher_id}, {"$set": d})
+    
+    # Delete old ledger entries and recreate
+    await db.cash_transactions.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
+    
+    party = (d.get('party_name') or '').strip()
+    vno = existing.get('voucher_no', 0)
+    if party and total > 0:
+        ledger_jama = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
+            "amount": total, "category": party, "party_type": "Sale Book",
+            "description": f"Sale Voucher #{vno} - {', '.join(i['item_name'] for i in items)}",
+            "reference": f"sale_voucher:{voucher_id}",
+            "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
+            "created_by": username, "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(ledger_jama)
+    if cash > 0 and party:
+        nikasi = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+            "amount": cash, "category": party, "party_type": "Sale Book",
+            "description": f"Cash received - Sale #{vno}",
+            "reference": f"sale_voucher_cash:{voucher_id}",
+            "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
+            "created_by": username, "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(nikasi)
+        cash_entry = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "cash", "txn_type": "jama",
+            "amount": cash, "category": party, "party_type": "Sale Book",
+            "description": f"Cash from Sale #{vno}",
+            "reference": f"sale_voucher_cash:{voucher_id}",
+            "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
+            "created_by": username, "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(cash_entry)
+    
+    updated = await db.sale_vouchers.find_one({"id": voucher_id}, {"_id": 0})
+    return updated
+
+
+# ============ SALE BOOK PDF EXPORT ============
+
+@router.get("/sale-book/export/pdf")
+async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from fastapi.responses import Response
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    vouchers = await db.sale_vouchers.find(query, {"_id": 0}).sort("voucher_no", 1).to_list(10000)
+    
+    # Get branding
+    branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
+    company = branding.get("company_name", "NAVKAR AGRO")
+    tagline = branding.get("tagline", "Sale Book Report")
+    
+    html = f"""<html><head><style>
+    body {{ font-family: Arial; font-size: 11px; margin: 20px; }}
+    h2 {{ text-align: center; margin: 0; }} .sub {{ text-align: center; color: #666; font-size: 10px; margin-bottom: 15px; }}
+    table {{ width: 100%; border-collapse: collapse; }} th, td {{ border: 1px solid #ccc; padding: 4px 6px; text-align: left; font-size: 10px; }}
+    th {{ background: #f0f0f0; font-weight: bold; }} .r {{ text-align: right; }} .b {{ font-weight: bold; }}
+    .footer {{ margin-top: 15px; font-size: 10px; color: #666; text-align: center; }}
+    </style></head><body>
+    <h2>{company}</h2><div class="sub">{tagline} | Sale Book Report{f' | FY: {kms_year}' if kms_year else ''}{f' | {season}' if season else ''}</div>
+    <table><tr><th>No.</th><th>Date</th><th>Party</th><th>Items</th><th>Truck</th><th class="r">Subtotal</th><th class="r">GST</th><th class="r">Total</th><th class="r">Paid</th><th class="r">Balance</th></tr>"""
+    
+    g_subtotal = g_gst = g_total = g_paid = g_balance = 0
+    for v in vouchers:
+        items_str = ', '.join(f"{i['item_name']}({i['quantity']}Q)" for i in v.get('items', []))
+        gst = (v.get('cgst_amount', 0) or 0) + (v.get('sgst_amount', 0) or 0) + (v.get('igst_amount', 0) or 0)
+        date_parts = str(v.get('date', '')).split('-')
+        fdate = f"{date_parts[2]}-{date_parts[1]}-{date_parts[0]}" if len(date_parts) == 3 else v.get('date', '')
+        g_subtotal += v.get('subtotal', 0) or 0
+        g_gst += gst
+        g_total += v.get('total', 0) or 0
+        g_paid += v.get('paid_amount', 0) or 0
+        g_balance += v.get('balance', 0) or 0
+        html += f"""<tr><td>#{v.get('voucher_no','')}</td><td>{fdate}</td><td>{v.get('party_name','')}</td>
+        <td>{items_str}</td><td>{v.get('truck_no','')}</td>
+        <td class="r">Rs.{v.get('subtotal',0):,.2f}</td><td class="r">Rs.{gst:,.2f}</td>
+        <td class="r b">Rs.{v.get('total',0):,.2f}</td><td class="r">Rs.{v.get('paid_amount',0):,.2f}</td>
+        <td class="r b">Rs.{v.get('balance',0):,.2f}</td></tr>"""
+    
+    html += f"""<tr style="background:#f0f0f0;font-weight:bold;"><td colspan="5">TOTAL ({len(vouchers)} vouchers)</td>
+    <td class="r">Rs.{g_subtotal:,.2f}</td><td class="r">Rs.{g_gst:,.2f}</td><td class="r">Rs.{g_total:,.2f}</td>
+    <td class="r">Rs.{g_paid:,.2f}</td><td class="r">Rs.{g_balance:,.2f}</td></tr></table>
+    <div class="footer">Generated on {datetime.now().strftime('%d-%m-%Y %H:%M')}</div></body></html>"""
+    
+    return Response(content=html, media_type="text/html", headers={"Content-Disposition": "inline; filename=sale_book.html"})
+
+
+# ============ OPENING BALANCE ============
+
+class OpeningBalanceCreate(BaseModel):
+    party_name: str
+    party_type: str = ""
+    amount: float = 0
+    balance_type: str = "jama"  # jama = party owes us, nikasi = we owe party
+    kms_year: str = ""
+    season: str = ""
+    note: str = ""
+
+@router.get("/opening-balances")
+async def get_opening_balances(kms_year: Optional[str] = None):
+    query = {"is_opening_balance": True}
+    if kms_year: query["kms_year"] = kms_year
+    return await db.cash_transactions.find(query, {"_id": 0}).sort("category", 1).to_list(10000)
+
+@router.post("/opening-balances")
+async def create_opening_balance(data: OpeningBalanceCreate, username: str = "", role: str = ""):
+    entry = {
+        "id": str(uuid.uuid4()),
+        "date": "",
+        "account": "ledger",
+        "txn_type": data.balance_type,
+        "amount": abs(data.amount),
+        "category": data.party_name.strip(),
+        "party_type": data.party_type or "Cash Party",
+        "description": f"Opening Balance - {data.note}" if data.note else "Opening Balance",
+        "reference": "opening_balance",
+        "is_opening_balance": True,
+        "kms_year": data.kms_year,
+        "season": data.season,
+        "created_by": username,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.cash_transactions.insert_one(entry)
+    entry.pop('_id', None)
+    return entry
+
+@router.delete("/opening-balances/{entry_id}")
+async def delete_opening_balance(entry_id: str, username: str = "", role: str = ""):
+    existing = await db.cash_transactions.find_one({"id": entry_id, "is_opening_balance": True}, {"_id": 0})
+    if not existing: raise HTTPException(status_code=404, detail="Opening balance not found")
+    await db.cash_transactions.delete_one({"id": entry_id})
+    return {"message": "Opening balance deleted", "id": entry_id}
+

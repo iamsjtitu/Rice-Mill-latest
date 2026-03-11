@@ -1,0 +1,162 @@
+{
+  "summary": "Iteration 62: ALL 16 backend tests PASSED. Frontend UI verification confirmed Sale Book Edit, PDF Export, Opening Balance (CashBook with Account Type dropdown), and CashBook Party Type dropdown features working correctly.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "All Dialogs", "issues": ["Minor: Missing aria-describedby warning in console for DialogContent (accessibility, non-blocking)"]}
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration62_salebook_edit_pdf_opening_balance.py",
+    "/app/test_reports/pytest/pytest_results_iteration62.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Backend salebook.py lines 266-333: PUT /sale-book/{id} correctly updates voucher, recalculates GST/totals, and recreates all ledger entries",
+    "Backend salebook.py lines 336-383: PDF export returns HTML with proper table structure, totals, and Content-Disposition header",
+    "Backend salebook.py lines 397-431: Opening Balance CRUD creates entries with is_opening_balance=true and reference='opening_balance'",
+    "Backend milling.py lines 253-275: byproduct-stock now deducts Sale Book sales (sb_sold) in addition to byproduct_sales",
+    "Frontend SaleBook.jsx: Edit button per row (pencil icon) with data-testid='sv-edit-{id}', PDF button, Opening Balance button all present",
+    "Frontend CashBook.jsx: Opening Balance dialog has Account Type dropdown (Ledger/Cash/Bank) per data-testid='ob-account-type'",
+    "Frontend TransactionFormDialog.jsx: party_type dropdown has Auto Detect + 9 manual options (10 total)"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_iteration62_salebook_edit_pdf_opening_balance.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (16/16 tests passed)",
+    "frontend": "100% - All features verified"
+  },
+
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+
+  "seed_data_creation": "Test entries created and cleaned up during test execution",
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Sale Book Edit (PUT) working with GST recalculation and ledger recreation. PDF export returns HTML. Opening Balance CRUD works in both SaleBook and CashBook. CashBook OB dialog has Account Type selector (Ledger/Cash/Bank). By-product stock deduction from Sale Book verified.",
+
+  "verified_features": {
+    "sale_book_edit_put_endpoint": {
+      "status": "PASSED",
+      "api": "PUT /api/sale-book/{id}",
+      "verified": [
+        "Updates items, quantity, rate",
+        "Recalculates subtotal, GST amounts (CGST/SGST or IGST), total",
+        "Recalculates paid_amount, balance",
+        "Deletes old ledger entries and recreates them",
+        "Returns 404 for non-existent voucher"
+      ]
+    },
+    "sale_book_pdf_export": {
+      "status": "PASSED",
+      "api": "GET /api/sale-book/export/pdf",
+      "verified": [
+        "Returns 200 status",
+        "Content-Type is text/html",
+        "Content-Disposition header present",
+        "HTML contains table structure",
+        "HTML contains totals row"
+      ]
+    },
+    "opening_balance_crud": {
+      "status": "PASSED",
+      "apis": [
+        "POST /api/opening-balances - creates with is_opening_balance=true",
+        "GET /api/opening-balances?kms_year= - returns filtered entries",
+        "DELETE /api/opening-balances/{id} - deletes entry"
+      ],
+      "verified": [
+        "Creates ledger entry with reference='opening_balance'",
+        "Supports jama (party owes us) and nikasi (we owe party) types",
+        "Returns 404 for non-existent entry on delete"
+      ]
+    },
+    "byproduct_stock_deduction_from_salebook": {
+      "status": "PASSED",
+      "api": "GET /api/byproduct-stock",
+      "verified": [
+        "sold_qntl includes Sale Book sales",
+        "available_qntl = produced - byproduct_sales - sale_book_sales"
+      ]
+    },
+    "cashbook_opening_balance_dialog": {
+      "status": "PASSED",
+      "ui_verified": true,
+      "fields": [
+        "Account Type dropdown (Party Ledger/Cash/Bank)",
+        "Balance Type dropdown (Jama/Nikasi)",
+        "Party Name input",
+        "Party Type dropdown (when Account Type = Ledger)",
+        "Amount input",
+        "Note input"
+      ]
+    },
+    "cashbook_transaction_party_type_dropdown": {
+      "status": "PASSED",
+      "ui_verified": true,
+      "options": ["Auto Detect", "Cash Party", "Pvt Paddy Purchase", "Rice Sale", "Diesel", "Local Party", "Truck", "Agent", "By-Product Sale", "Staff"],
+      "count": 10
+    },
+    "sale_book_edit_button": {
+      "status": "PASSED",
+      "ui_verified": true,
+      "testid_pattern": "sv-edit-{voucher_id}",
+      "opens_form_with_title": "Edit Sale Voucher"
+    }
+  },
+
+  "tests_executed": {
+    "backend": {
+      "TestSaleBookEdit::test_01_create_voucher_for_edit": "PASSED",
+      "TestSaleBookEdit::test_02_edit_voucher_update_items_and_gst": "PASSED - Verified subtotal, IGST, total, balance recalculation",
+      "TestSaleBookEdit::test_03_verify_ledger_entries_recreated": "PASSED - 2+ ledger entries with updated amounts",
+      "TestSaleBookEdit::test_04_edit_nonexistent_voucher_returns_404": "PASSED",
+      "TestSaleBookPDFExport::test_01_pdf_export_returns_html_with_200": "PASSED",
+      "TestSaleBookPDFExport::test_02_pdf_export_has_content_disposition_header": "PASSED",
+      "TestSaleBookPDFExport::test_03_pdf_export_contains_table_structure": "PASSED",
+      "TestOpeningBalanceCRUD::test_01_create_opening_balance_jama": "PASSED",
+      "TestOpeningBalanceCRUD::test_02_create_opening_balance_nikasi": "PASSED",
+      "TestOpeningBalanceCRUD::test_03_get_opening_balances_with_kms_year_filter": "PASSED",
+      "TestOpeningBalanceCRUD::test_04_delete_opening_balance": "PASSED",
+      "TestOpeningBalanceCRUD::test_05_delete_nonexistent_opening_balance_returns_404": "PASSED",
+      "TestByProductStockDeductionFromSaleBook::test_01_get_initial_byproduct_stock": "PASSED",
+      "TestByProductStockDeductionFromSaleBook::test_02_create_sale_voucher_with_bran": "PASSED",
+      "TestByProductStockDeductionFromSaleBook::test_03_verify_byproduct_stock_reduced": "PASSED",
+      "TestCleanupIteration62::test_99_cleanup_test_data": "PASSED"
+    },
+    "frontend": {
+      "login": "PASSED",
+      "navigate_cashbook_tab": "PASSED",
+      "cashbook_ob_button_present": "PASSED - data-testid='cashbook-ob-btn'",
+      "cashbook_ob_dialog_opens": "PASSED",
+      "cashbook_ob_account_type_dropdown": "PASSED - Ledger/Cash/Bank options",
+      "cashbook_ob_party_type_dropdown": "PASSED",
+      "cashbook_transaction_dialog_opens": "PASSED",
+      "cashbook_transaction_party_type_dropdown": "PASSED - 10 options including Auto Detect",
+      "navigate_salebook_tab": "PASSED - data-testid='tab-salebook'",
+      "salebook_pdf_button": "PASSED - data-testid='sale-book-pdf-btn'",
+      "salebook_ob_button": "PASSED - data-testid='ob-add-btn'",
+      "salebook_edit_buttons": "PASSED - Edit button per voucher row",
+      "salebook_edit_form_opens": "PASSED - Title shows 'Edit Sale Voucher'"
+    }
+  },
+
+  "test_run_timestamp": "2026-03-11T21:50:00Z"
+}
