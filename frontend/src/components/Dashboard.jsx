@@ -15,7 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Trash2, Edit, Calculator, Target, TrendingUp, TrendingDown, Users, IndianRupee, BarChart3, FileText, RefreshCw,
+  Plus, Trash2, Edit, Calculator, Target, TrendingUp, TrendingDown, Users, IndianRupee, BarChart3, FileText, RefreshCw, Wheat, Package, Truck, ShoppingCart,
 } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
@@ -41,6 +41,8 @@ export const Dashboard = ({ filters, user }) => {
   const [plData, setPlData] = useState(null);
   const [plLoading, setPlLoading] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [riceStock, setRiceStock] = useState(null);
+  const [paddyStock, setPaddyStock] = useState(null);
   const [showTargetForm, setShowTargetForm] = useState(false);
   const [targetForm, setTargetForm] = useState({
     mandi_name: "",
@@ -69,6 +71,16 @@ export const Dashboard = ({ filters, user }) => {
 
       setAgentTotals(agentRes.data.agent_totals || []);
       setMandiTargets(targetRes.data || []);
+
+      // Fetch stock data
+      try {
+        const [riceRes, paddyRes] = await Promise.all([
+          axios.get(`${API}/rice-stock?${params.toString()}`),
+          axios.get(`${API}/paddy-stock?${params.toString()}`)
+        ]);
+        setRiceStock(riceRes.data);
+        setPaddyStock(paddyRes.data);
+      } catch (e) { console.error("Stock fetch error:", e); }
     } catch (error) {
       console.error("Dashboard fetch error:", error);
     } finally {
@@ -188,6 +200,89 @@ export const Dashboard = ({ filters, user }) => {
           <FileText className="w-4 h-4 mr-2" />
           Summary Report PDF
         </Button>
+      </div>
+
+      {/* Stock Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Rice Stock Card */}
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader className="pb-2 pt-3 px-4">
+            <CardTitle className="text-sm text-emerald-400 flex items-center gap-2">
+              <Package className="w-4 h-4" /> Rice Stock
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3">
+            {riceStock ? (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center py-1 border-b border-slate-700">
+                  <span className="text-slate-400 text-xs">Milling se Produced</span>
+                  <span className="text-white font-semibold text-sm" data-testid="rice-produced">{riceStock.total_produced_qntl} Qntl</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-slate-700">
+                  <span className="text-slate-400 text-xs flex items-center gap-1"><Truck className="w-3 h-3" /> Govt ko diya (DC)</span>
+                  <span className="text-red-400 font-semibold text-sm" data-testid="rice-govt">- {riceStock.govt_delivered_qntl} Qntl</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-slate-700">
+                  <span className="text-slate-400 text-xs flex items-center gap-1"><ShoppingCart className="w-3 h-3" /> Pvt mein becha</span>
+                  <span className="text-red-400 font-semibold text-sm" data-testid="rice-pvt-sold">- {riceStock.pvt_sold_qntl} Qntl</span>
+                </div>
+                <div className="flex justify-between items-center pt-1">
+                  <span className="text-amber-400 font-bold text-sm">Available Stock</span>
+                  <span className={`font-bold text-lg ${riceStock.available_qntl > 0 ? 'text-emerald-400' : 'text-red-400'}`} data-testid="rice-available">
+                    {riceStock.available_qntl} Qntl
+                  </span>
+                </div>
+                {(riceStock.parboiled_produced_qntl > 0 || riceStock.raw_produced_qntl > 0) && (
+                  <div className="flex gap-3 pt-1 text-[10px]">
+                    <span className="text-sky-400">Parboiled: {riceStock.parboiled_produced_qntl}Q</span>
+                    <span className="text-orange-400">Raw: {riceStock.raw_produced_qntl}Q</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-xs text-center py-4">Loading...</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Paddy Stock Card */}
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader className="pb-2 pt-3 px-4">
+            <CardTitle className="text-sm text-amber-400 flex items-center gap-2">
+              <Wheat className="w-4 h-4" /> Paddy Stock
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3">
+            {paddyStock ? (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center py-1 border-b border-slate-700">
+                  <span className="text-slate-400 text-xs">Total Paddy In (CMR + Pvt)</span>
+                  <span className="text-white font-semibold text-sm" data-testid="paddy-total-in">{paddyStock.total_paddy_in_qntl} Qntl</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-slate-700">
+                  <span className="text-slate-400 text-xs">CMR Paddy</span>
+                  <span className="text-cyan-400 text-sm">{paddyStock.cmr_paddy_in_qntl} Qntl</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-slate-700">
+                  <span className="text-slate-400 text-xs">Pvt Paddy</span>
+                  <span className="text-purple-400 text-sm">{paddyStock.pvt_paddy_in_qntl} Qntl</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-slate-700">
+                  <span className="text-slate-400 text-xs">Milling mein use hua</span>
+                  <span className="text-red-400 font-semibold text-sm" data-testid="paddy-used">- {paddyStock.total_paddy_used_qntl} Qntl</span>
+                </div>
+                <div className="flex justify-between items-center pt-1">
+                  <span className="text-amber-400 font-bold text-sm">Available Stock</span>
+                  <span className={`font-bold text-lg ${paddyStock.available_paddy_qntl > 0 ? 'text-emerald-400' : 'text-red-400'}`} data-testid="paddy-available">
+                    {paddyStock.available_paddy_qntl} Qntl
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-slate-500 text-xs text-center py-4">Loading...</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Mandi Target Section */}

@@ -196,6 +196,47 @@ async def get_frk_stock(kms_year: Optional[str] = None, season: Optional[str] = 
         "available_qntl": round(total_purchased - total_used, 2), "total_cost": total_cost}
 
 
+
+@router.get("/rice-stock")
+async def get_rice_stock(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Rice Stock = Milling se produced - Govt ko diya (DC) - Pvt mein becha"""
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    
+    # Rice produced from milling
+    milling_entries = await db.milling_entries.find(query, {"_id": 0, "rice_qntl": 1, "rice_type": 1}).to_list(10000)
+    total_produced = round(sum(e.get('rice_qntl', 0) for e in milling_entries), 2)
+    parboiled_produced = round(sum(e.get('rice_qntl', 0) for e in milling_entries if e.get('rice_type') == 'parboiled'), 2)
+    raw_produced = round(sum(e.get('rice_qntl', 0) for e in milling_entries if e.get('rice_type') == 'raw'), 2)
+    
+    # Rice delivered to Govt (DC deliveries)
+    dc_query = {}
+    if kms_year: dc_query["kms_year"] = kms_year
+    if season: dc_query["season"] = season
+    dc_deliveries = await db.dc_deliveries.find(dc_query, {"_id": 0, "quantity_qntl": 1}).to_list(10000)
+    total_govt_delivered = round(sum(d.get('quantity_qntl', 0) for d in dc_deliveries), 2)
+    
+    # Rice sold privately
+    pvt_sales = await db.rice_sales.find(query, {"_id": 0, "quantity_qntl": 1}).to_list(10000)
+    total_pvt_sold = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales), 2)
+    
+    available = round(total_produced - total_govt_delivered - total_pvt_sold, 2)
+    
+    return {
+        "total_produced_qntl": total_produced,
+        "parboiled_produced_qntl": parboiled_produced,
+        "raw_produced_qntl": raw_produced,
+        "govt_delivered_qntl": total_govt_delivered,
+        "pvt_sold_qntl": total_pvt_sold,
+        "available_qntl": available,
+        "milling_count": len(milling_entries),
+        "dc_delivery_count": len(dc_deliveries),
+        "pvt_sale_count": len(pvt_sales)
+    }
+
+
+
 # ============ BY-PRODUCT STOCK & SALE APIs ============
 
 @router.get("/byproduct-stock")
