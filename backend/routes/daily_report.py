@@ -211,9 +211,9 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
                 "desc": t.get("description", "")} for t in diesel_txns]
         },
         "cash_transactions": {
-            "count": len(cash_txns),
-            "total_jama": round(sum(t.get("amount", 0) for t in cash_txns if t.get("txn_type") == "jama"), 2),
-            "total_nikasi": round(sum(t.get("amount", 0) for t in cash_txns if t.get("txn_type") == "nikasi"), 2),
+            "count": len([t for t in cash_txns if t.get("account") == "cash"]),
+            "total_jama": round(sum(t.get("amount", 0) for t in cash_txns if t.get("txn_type") == "jama" and t.get("account") == "cash"), 2),
+            "total_nikasi": round(sum(t.get("amount", 0) for t in cash_txns if t.get("txn_type") == "nikasi" and t.get("account") == "cash"), 2),
             "details": [{
                 "date": t.get("date", date),
                 "party_name": t.get("category", ""),
@@ -221,8 +221,8 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
                 "txn_type": t.get("txn_type", ""),
                 "amount": round(t.get("amount", 0), 2),
                 "description": t.get("description", ""),
-                "payment_mode": "Ledger" if t.get("account") == "ledger" else ("Cash" if t.get("account") == "cash" else "Bank")
-            } for t in cash_txns]
+                "payment_mode": "Cash"
+            } for t in cash_txns if t.get("account") == "cash"]
         }
     }
     return result

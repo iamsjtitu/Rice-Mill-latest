@@ -160,17 +160,17 @@ function getDailyReportData(query) {
       }))
     },
     cash_transactions: {
-      count: cashTxns.length,
-      total_jama: +cashTxns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
-      total_nikasi: +cashTxns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
-      details: cashTxns.map(t => ({
+      count: cashTxns.filter(t => t.account === 'cash').length,
+      total_jama: +cashTxns.filter(t => t.txn_type === 'jama' && t.account === 'cash').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
+      total_nikasi: +cashTxns.filter(t => t.txn_type === 'nikasi' && t.account === 'cash').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
+      details: cashTxns.filter(t => t.account === 'cash').map(t => ({
         date: t.date || date,
         party_name: t.category || '',
         party_type: t.party_type || '',
         txn_type: t.txn_type || '',
         amount: Math.round((t.amount || 0) * 100) / 100,
         description: t.description || '',
-        payment_mode: t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank')
+        payment_mode: 'Cash'
       }))
     },
     staff_attendance: {
