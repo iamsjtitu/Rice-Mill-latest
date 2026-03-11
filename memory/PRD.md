@@ -45,10 +45,20 @@ Hindi (all communication must be in Hindi)
 - Added RST and TP columns to Mill Entry reports
 - Excel total row alignment fix
 
+## New Feature: Agent & Mandi Wise Report (March 2026)
+- **Sub-tab** in Reports page: "Agent & Mandi"
+- **Search** by Mandi name or Agent name (case-insensitive)
+- **Grouped view**: Mandi-wise with expand/collapse per group
+- **Entry details**: Date, Truck No, RST, TP, Weight(Kg), QNTL, Bags, Gunny Deposit, Gunny Issued, Mill Wt, Final Wt, Cutting, Cash Paid, Diesel Paid
+- **Summary cards**: Total Entries, QNTL, Bags, Gunny Deposit, Gunny Issued, Final Weight
+- **Totals**: Per-mandi total row + Grand total
+- **Export**: Excel and PDF with formatted tables
+- **Synced** to all 3 backends (Python, desktop-app, local-server) + frontend build updated
+
 ## Backend Parity Status (March 2026)
 - **Python backend**: All features complete, all bugs fixed
-- **Desktop-app (Node.js)**: Truck Owner endpoints added (pay, mark-paid, undo-paid, history)
-- **Local-server (Node.js)**: Truck Owner endpoints added (pay, mark-paid, undo-paid, history)
+- **Desktop-app (Node.js)**: Truck Owner endpoints + Agent Mandi Report synced
+- **Local-server (Node.js)**: Truck Owner endpoints + Agent Mandi Report synced
 - **Frontend build**: Copied to desktop-app/frontend-build
 
 ## Credentials
