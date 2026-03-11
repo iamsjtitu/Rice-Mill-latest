@@ -17,38 +17,41 @@ A comprehensive Mill Entry System (NAVKAR AGRO) for rice mill operations - track
 - Party Ledger with auto jama/nikasi
 - Staff Management
 - FRK Purchase & Stock
-- By-Product Stock & Sales
+- By-Product Stock & Sales (with auto party ledger)
 - Dashboard with stock widgets (Paddy/Rice)
 - Milling Tracker with CMR calculations
 - PDF/Excel exports across all modules
 - Telegram notifications
 - FY Summary & Opening Balance
+- **NEW: Sale Book** (Tally-style multi-item vouchers with GST)
+- **NEW: GST Settings** (CGST/SGST/IGST configurable)
+- **NEW: CashBook Party Type Manual Dropdown**
 
-## Critical Business Logic
-- **Jama/Nikasi Accounting**: Every payment creates a corresponding ledger nikasi entry
-- **Auto Ledger**: Manual cash/bank entries auto-create linked ledger entries (auto_ledger reference)
-- **Party Type Auto-Detect**: Case-insensitive cross-collection lookup with "Cash Party" fallback
-- **Retroactive Party Type Fix**: New entries with detected type update old entries for same category
-- **Rice Stock**: Produced (milling) - Govt delivered (DC) - Pvt sold = Available
-- **Paddy Stock**: Received (mill entries + pvt purchases) - Used (milling) = Available
+## Recent Changes (March 2026 - Session 2)
+1. **Sale Book (New Tab)**: Tally-style sale voucher system
+   - Stock overview cards for all items (Rice Usna/Raw, Bran, Kunda, Broken, Kanki, Husk, FRK)
+   - Multi-item sale vouchers with Date, Party Name, Truck No, RST No
+   - GST support: No GST / CGST+SGST / IGST with configurable percentages
+   - Cash & Diesel payment tracking with balance calculation
+   - Auto-creates party_ledger entries (jama for total, nikasi for cash received)
+   - Auto voucher numbering
+2. **GST Settings**: Configurable CGST/SGST/IGST percentages in Settings page
+3. **CashBook Party Type Dropdown**: Manual override for auto-detected party_type (10 options)
+4. **By-Product Ledger Integration**: By-product sales now auto-create party ledger entries
+5. **Party Type "Cash Party" fallback**: Unknown parties get "Cash Party" instead of empty
+6. **Rice Type Dropdown**: Only Usna/Raw (removed Boiled/Other)
+7. **Type-Specific Stock Display**: Shows Usna stock or Raw stock based on selection
 
-## Recent Changes (March 2026)
-1. Rice Type dropdown: Only "Usna" and "Raw" (removed Boiled/Other)
-2. Type-specific stock display: Shows Usna stock or Raw stock based on selection
-3. Party Type auto-detect: Case-insensitive, fallback "Cash Party", retroactive update
-4. fix-empty-party-types endpoint for historical data repair
-5. All 6 payment flows fixed for proper nikasi entries
-6. Manual cash transactions auto-create linked ledger entries
-
-## API Endpoints (Key)
-- `/api/rice-stock` - Returns type-specific stock (parboiled_available_qntl, raw_available_qntl)
-- `/api/paddy-stock` - Paddy stock levels
-- `/api/cash-book` - CRUD for cash transactions
+## API Endpoints (Key - New)
+- `/api/sale-book` - CRUD for sale vouchers
+- `/api/sale-book/stock-items` - Available stock for all items
+- `/api/gst-settings` - GET/PUT GST configuration
 - `/api/cash-book/fix-empty-party-types` - Fix historical empty party types
-- `/api/cash-book/party-summary` - Tally-style party summary
 
 ## Credentials
 - Admin: admin / admin123
 
 ## Backlog
 - P2: Consolidate Python/Node.js backend duplicate business logic
+- P3: Sale Book PDF/Excel export
+- P3: Sale Book edit functionality
