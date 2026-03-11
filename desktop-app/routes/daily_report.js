@@ -448,7 +448,7 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
     drawSummaryBox(
       ['Total Jama', 'Total Nikasi', 'Balance'],
       [`Rs.${fmtAmt(ctxn.total_jama)}`, `Rs.${fmtAmt(ctxn.total_nikasi)}`, `Rs.${fmtAmt(ctxn.total_jama - ctxn.total_nikasi)}`],
-      [266, 266, 266], C.yellowBg || C.orangeBg
+      [170, 170, 170], C.yellowBg || C.orangeBg
     );
     if (ctxn.details && ctxn.details.length) {
       const ctH = isDetail ? ['Date','Party Name','Type','Amount (Rs.)','Description'] : ['Date','Party Name','Type','Amount (Rs.)'];
@@ -457,7 +457,7 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
         if (isDetail) row.push(d.description||'');
         return row;
       });
-      const ctW = isDetail ? [80,160,70,120,310] : [120,300,100,180];
+      const ctW = isDetail ? [60,110,50,80,200] : [80,200,70,120];
       drawTable(ctH, ctR, ctW);
     }
   }
