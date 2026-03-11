@@ -1,33 +1,54 @@
 # Mill Entry System - PRD
 
 ## Original Problem Statement
-A comprehensive Mill Entry System for managing rice mill operations including paddy purchases, rice sales, truck payments, party ledgers, cash books, and private trading.
+A comprehensive Mill Entry System (NAVKAR AGRO) for rice mill operations - tracking paddy purchases, milling, rice sales, payments, diesel, truck logistics, and complete accounting (Cash Book / Ledger / Party Summary).
 
-## Core Accounting Rule
-**Every payment MUST create TWO entries:**
-1. Cash/Bank Nikasi (money going out) 
-2. Ledger Nikasi (party's outstanding balance reducing)
+## Core Architecture
+- **Frontend**: React (Port 3000) - Dark theme mill management dashboard
+- **Backend**: Python FastAPI (Port 8001) - `/app/backend/`
+- **Desktop**: Node.js Electron app - `/app/desktop-app/`
+- **Database**: MongoDB (test_database)
 
-## What's Been Implemented
-- Full Private Trading module (Paddy Purchase, Rice Sale, Party Summary)
-- Mark Paid / Undo Paid / Payment History for Paddy and Rice
-- Party Summary with Paddy/Rice dropdown filter + PDF/Excel
-- Description format: `{party} - {mandi} - {qty} Qntl @ Rs.{rate}`
-- CashBook: Account filter (Cash/Bank/Ledger), default "Ledger"
-- CashBook Party Summary: ledger-only counting + auto party_type detection
-- Keyboard navigation (↑↓ + Enter) in party search dropdown
-- ALL 10 payment flows create double-entry (Cash + Ledger Nikasi)
-- Migration endpoint: `/api/migrate/fix-missing-ledger-nikasi`
-- **Rice Stock Dashboard**: Shows Produced - Govt Delivered - Pvt Sold = Available
-- **Paddy Stock Dashboard**: Shows Total In - Milling Used = Available
+## Key Features Implemented
+- Mill Entry CRUD with auto-calculations
+- DC Tracker (Government deliveries)
+- Private Trading (Paddy Purchase + Rice Sale)
+- Cash Book (Cash/Bank/Ledger with double-entry)
+- Party Ledger with auto jama/nikasi
+- Staff Management
+- FRK Purchase & Stock
+- By-Product Stock & Sales
+- Dashboard with stock widgets (Paddy/Rice)
+- Milling Tracker with CMR calculations
+- PDF/Excel exports across all modules
+- Telegram notifications
+- FY Summary & Opening Balance
 
-## Key APIs
-- `GET /api/rice-stock` - Rice stock calculation
-- `GET /api/paddy-stock` - Paddy stock calculation
-- `GET /api/migrate/fix-missing-ledger-nikasi` - Fix missing ledger entries
+## Critical Business Logic
+- **Jama/Nikasi Accounting**: Every payment creates a corresponding ledger nikasi entry
+- **Auto Ledger**: Manual cash/bank entries auto-create linked ledger entries (auto_ledger reference)
+- **Party Type Auto-Detect**: Case-insensitive cross-collection lookup with "Cash Party" fallback
+- **Retroactive Party Type Fix**: New entries with detected type update old entries for same category
+- **Rice Stock**: Produced (milling) - Govt delivered (DC) - Pvt sold = Available
+- **Paddy Stock**: Received (mill entries + pvt purchases) - Used (milling) = Available
 
-## Backlog
-- P2: Refactor duplicate business logic between Python backend and Node.js desktop-app
+## Recent Changes (March 2026)
+1. Rice Type dropdown: Only "Usna" and "Raw" (removed Boiled/Other)
+2. Type-specific stock display: Shows Usna stock or Raw stock based on selection
+3. Party Type auto-detect: Case-insensitive, fallback "Cash Party", retroactive update
+4. fix-empty-party-types endpoint for historical data repair
+5. All 6 payment flows fixed for proper nikasi entries
+6. Manual cash transactions auto-create linked ledger entries
+
+## API Endpoints (Key)
+- `/api/rice-stock` - Returns type-specific stock (parboiled_available_qntl, raw_available_qntl)
+- `/api/paddy-stock` - Paddy stock levels
+- `/api/cash-book` - CRUD for cash transactions
+- `/api/cash-book/fix-empty-party-types` - Fix historical empty party types
+- `/api/cash-book/party-summary` - Tally-style party summary
 
 ## Credentials
 - Admin: admin / admin123
+
+## Backlog
+- P2: Consolidate Python/Node.js backend duplicate business logic
