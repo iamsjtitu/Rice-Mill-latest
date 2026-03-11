@@ -1491,6 +1491,77 @@ export const Payments = ({ filters, user, branding }) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Truck Owner Pay Dialog */}
+      <Dialog open={showOwnerPayDialog} onOpenChange={setShowOwnerPayDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-400">Make Payment - {selectedOwnerTruck?.truck_no}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {selectedOwnerTruck && (
+              <div className="bg-slate-700/50 rounded-lg p-3 text-sm">
+                <div className="flex justify-between"><span className="text-slate-400">Net Payable:</span><span className="text-white font-bold">₹{selectedOwnerTruck.total_net?.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Already Paid:</span><span className="text-emerald-400">₹{selectedOwnerTruck.total_paid?.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Balance:</span><span className="text-red-400 font-bold">₹{selectedOwnerTruck.total_balance?.toLocaleString()}</span></div>
+              </div>
+            )}
+            <div>
+              <Label className="text-slate-300 text-xs">Amount (₹)</Label>
+              <Input type="number" value={ownerPayAmount} onChange={(e) => setOwnerPayAmount(e.target.value)}
+                placeholder={`Max: ${selectedOwnerTruck?.total_balance?.toLocaleString()}`}
+                className="bg-slate-700 border-slate-600 text-white mt-1" data-testid="owner-pay-amount" />
+            </div>
+            <div>
+              <Label className="text-slate-300 text-xs">Payment Mode</Label>
+              <Select value={ownerPayMode} onValueChange={setOwnerPayMode}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash (नकद)</SelectItem>
+                  <SelectItem value="bank">Bank (बैंक)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-slate-300 text-xs">Note (Optional)</Label>
+              <Input value={ownerPayNote} onChange={(e) => setOwnerPayNote(e.target.value)}
+                placeholder="Payment details..." className="bg-slate-700 border-slate-600 text-white mt-1" />
+            </div>
+            <Button onClick={handleOwnerPay} disabled={!ownerPayAmount || parseFloat(ownerPayAmount) <= 0}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="owner-pay-submit">
+              Pay ₹{ownerPayAmount ? parseFloat(ownerPayAmount).toLocaleString() : '0'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Truck Owner History Dialog */}
+      <Dialog open={showOwnerHistoryDialog} onOpenChange={setShowOwnerHistoryDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-purple-400">Payment History - {selectedOwnerTruck?.truck_no}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto space-y-2">
+            {ownerHistory.length === 0 ? (
+              <p className="text-slate-400 text-center py-4">Koi payment history nahi hai</p>
+            ) : ownerHistory.map((h, idx) => (
+              <div key={idx} className={`p-2 rounded border text-sm ${h.amount >= 0 ? 'bg-emerald-900/20 border-emerald-700/30' : 'bg-red-900/20 border-red-700/30'}`}>
+                <div className="flex justify-between items-center">
+                  <span className={`font-bold ${h.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {h.amount >= 0 ? '+' : ''}₹{Math.abs(h.amount).toLocaleString()}
+                  </span>
+                  <span className="text-slate-500 text-xs">
+                    {h.source === 'owner' ? 'Owner' : 'Trip'} | {h.payment_mode || 'cash'}
+                  </span>
+                </div>
+                <div className="text-slate-400 text-xs mt-1">
+                  {h.note} {h.by ? `| by ${h.by}` : ''} | {h.date ? new Date(h.date).toLocaleDateString('en-IN') : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -1786,77 +1857,6 @@ const DieselAccount = ({ filters, user }) => {
               </Button>
               <Button variant="outline" onClick={() => setShowPayDialog(false)} className="border-slate-600 text-slate-300">Cancel</Button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Truck Owner Pay Dialog */}
-      <Dialog open={showOwnerPayDialog} onOpenChange={setShowOwnerPayDialog}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-emerald-400">Make Payment - {selectedOwnerTruck?.truck_no}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            {selectedOwnerTruck && (
-              <div className="bg-slate-700/50 rounded-lg p-3 text-sm">
-                <div className="flex justify-between"><span className="text-slate-400">Net Payable:</span><span className="text-white font-bold">₹{selectedOwnerTruck.total_net?.toLocaleString()}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Already Paid:</span><span className="text-emerald-400">₹{selectedOwnerTruck.total_paid?.toLocaleString()}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Balance:</span><span className="text-red-400 font-bold">₹{selectedOwnerTruck.total_balance?.toLocaleString()}</span></div>
-              </div>
-            )}
-            <div>
-              <Label className="text-slate-300 text-xs">Amount (₹)</Label>
-              <Input type="number" value={ownerPayAmount} onChange={(e) => setOwnerPayAmount(e.target.value)}
-                placeholder={`Max: ${selectedOwnerTruck?.total_balance?.toLocaleString()}`}
-                className="bg-slate-700 border-slate-600 text-white mt-1" data-testid="owner-pay-amount" />
-            </div>
-            <div>
-              <Label className="text-slate-300 text-xs">Payment Mode</Label>
-              <Select value={ownerPayMode} onValueChange={setOwnerPayMode}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash (नकद)</SelectItem>
-                  <SelectItem value="bank">Bank (बैंक)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-slate-300 text-xs">Note (Optional)</Label>
-              <Input value={ownerPayNote} onChange={(e) => setOwnerPayNote(e.target.value)}
-                placeholder="Payment details..." className="bg-slate-700 border-slate-600 text-white mt-1" />
-            </div>
-            <Button onClick={handleOwnerPay} disabled={!ownerPayAmount || parseFloat(ownerPayAmount) <= 0}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="owner-pay-submit">
-              Pay ₹{ownerPayAmount ? parseFloat(ownerPayAmount).toLocaleString() : '0'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Truck Owner History Dialog */}
-      <Dialog open={showOwnerHistoryDialog} onOpenChange={setShowOwnerHistoryDialog}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-purple-400">Payment History - {selectedOwnerTruck?.truck_no}</DialogTitle>
-          </DialogHeader>
-          <div className="max-h-80 overflow-y-auto space-y-2">
-            {ownerHistory.length === 0 ? (
-              <p className="text-slate-400 text-center py-4">Koi payment history nahi hai</p>
-            ) : ownerHistory.map((h, idx) => (
-              <div key={idx} className={`p-2 rounded border text-sm ${h.amount >= 0 ? 'bg-emerald-900/20 border-emerald-700/30' : 'bg-red-900/20 border-red-700/30'}`}>
-                <div className="flex justify-between items-center">
-                  <span className={`font-bold ${h.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {h.amount >= 0 ? '+' : ''}₹{Math.abs(h.amount).toLocaleString()}
-                  </span>
-                  <span className="text-slate-500 text-xs">
-                    {h.source === 'owner' ? 'Owner' : 'Trip'} | {h.payment_mode || 'cash'}
-                  </span>
-                </div>
-                <div className="text-slate-400 text-xs mt-1">
-                  {h.note} {h.by ? `| by ${h.by}` : ''} | {h.date ? new Date(h.date).toLocaleDateString('en-IN') : ''}
-                </div>
-              </div>
-            ))}
           </div>
         </DialogContent>
       </Dialog>
