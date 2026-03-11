@@ -18,9 +18,10 @@ import {
 import { Label } from "@/components/ui/label";
 import {
   Truck, Users, IndianRupee, CheckCircle, Clock, AlertCircle, Undo2, History,
-  Target, Download, FileText, FileSpreadsheet, Printer, X, Edit, Fuel, Plus, Trash2, Star, RefreshCw, Handshake,
+  Target, Download, FileText, FileSpreadsheet, Printer, X, Edit, Fuel, Plus, Trash2, Star, RefreshCw, Handshake, Package,
 } from "lucide-react";
 import LocalPartyAccount from "./payments/LocalPartyAccount";
+import { GunnyBags } from "./DCTracker";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -844,6 +845,18 @@ export const Payments = ({ filters, user, branding }) => {
           <Handshake className="w-4 h-4 mr-1" />
           Local Party
         </Button>
+        <Button
+          onClick={() => setActivePaymentTab("gunny")}
+          variant={activePaymentTab === "gunny" ? "default" : "ghost"}
+          size="sm"
+          className={activePaymentTab === "gunny" 
+            ? "bg-amber-600 hover:bg-amber-700 text-white" 
+            : "text-slate-300 hover:bg-slate-700"}
+          data-testid="tab-gunny"
+        >
+          <Package className="w-4 h-4 mr-1" />
+          Gunny Bags
+        </Button>
       </div>
 
       {/* Truck Filter & Export - Only for Truck Tab */}
@@ -1442,6 +1455,7 @@ export const Payments = ({ filters, user, branding }) => {
 
       {activePaymentTab === "diesel" && <DieselAccount filters={filters} user={user} />}
       {activePaymentTab === "local-party" && <LocalPartyAccount filters={filters} user={user} />}
+      {activePaymentTab === "gunny" && <GunnyBags filters={filters} user={user} />}
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>

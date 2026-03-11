@@ -388,7 +388,7 @@ const MSPPayments = ({ filters, user, dcList }) => {
 };
 
 // ===== GUNNY BAGS SUB-TAB =====
-const GunnyBags = ({ filters, user }) => {
+export const GunnyBags = ({ filters, user }) => {
   const [entries, setEntries] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -588,7 +588,6 @@ const DCTracker = ({ filters, user }) => {
         {[
           { id: "dc", label: "DC / Delivery Challan", icon: ClipboardList },
           { id: "msp", label: "MSP Payments", icon: IndianRupee },
-          { id: "gunny", label: "Gunny Bags / बोरी", icon: Package },
         ].map(({ id, label, icon: Icon }) => (
           <Button key={id} onClick={() => setActiveSubTab(id)} variant={activeSubTab === id ? "default" : "ghost"} size="sm"
             className={activeSubTab === id ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white hover:bg-slate-700"}
@@ -599,7 +598,6 @@ const DCTracker = ({ filters, user }) => {
       </div>
       {activeSubTab === "dc" && <DCEntries filters={filters} user={user} />}
       {activeSubTab === "msp" && <MSPPayments filters={filters} user={user} dcList={dcList} />}
-      {activeSubTab === "gunny" && <GunnyBags filters={filters} user={user} />}
     </div>
   );
 };
