@@ -907,7 +907,7 @@ const AgentMandiReport = ({ filters }) => {
                   <div className="text-center"><p className="text-[10px] text-slate-500">Bags</p><p className="text-blue-400 font-bold">{fmtNum(mandi.totals.total_bag)}</p></div>
                   <div className="text-center"><p className="text-[10px] text-slate-500">G.Deposit</p><p className="text-cyan-400 font-bold">{fmtNum(mandi.totals.total_g_deposite)}</p></div>
                   <div className="text-center"><p className="text-[10px] text-slate-500">G.Issued</p><p className="text-purple-400 font-bold">{fmtNum(mandi.totals.total_g_issued)}</p></div>
-                  <div className="text-center"><p className="text-[10px] text-slate-500">Final Wt</p><p className="text-emerald-400 font-bold">{fmtNum(mandi.totals.total_final_w)}</p></div>
+                  <div className="text-center"><p className="text-[10px] text-slate-500">Final Wt</p><p className="text-emerald-400 font-bold">{fmtNum(mandi.totals.total_final_w/100)}</p></div>
                   {mandi.extra_qntl > 0 && (
                     <Button size="sm" onClick={(e) => { e.stopPropagation(); setPvtDialog({ open: true, mandi }); setPvtRate(""); }}
                       className={mandi.pvt_moved ? "bg-slate-600 text-slate-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700 text-white"}
