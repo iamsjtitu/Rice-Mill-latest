@@ -778,7 +778,7 @@ async def export_excel(
     # Totals row
     totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season)
     totals_data = [
-        "TOTAL", "", "", "",
+        "TOTAL", "", "", "", "", "",
         round(totals.total_qntl, 2),
         totals.total_bag,
         totals.total_g_deposite,
@@ -801,11 +801,11 @@ async def export_excel(
         cell.fill = total_fill
         cell.font = total_font
         cell.border = thin_border
-        if col >= 5:
+        if col >= 7:
             cell.alignment = right_align
     
-    # Column widths - A4 optimized (19 cols)
-    col_widths = [9, 11, 9, 9, 8, 5, 5, 6, 5, 6, 7, 5, 6, 5, 5, 8, 6, 7, 7]
+    # Column widths - A4 optimized (21 cols)
+    col_widths = [9, 11, 8, 8, 9, 9, 8, 5, 5, 6, 5, 6, 7, 5, 6, 5, 5, 8, 6, 7, 7]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     
