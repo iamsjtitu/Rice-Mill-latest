@@ -114,7 +114,7 @@ async def get_stock_entries(part_name: Optional[str] = None, txn_type: Optional[
         query["date"] = {}
         if date_from: query["date"]["$gte"] = date_from
         if date_to: query["date"]["$lte"] = date_to
-    items = await db.mill_parts_stock.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    items = await db.mill_parts_stock.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
     return items
 
 @router.delete("/mill-parts-stock/{entry_id}")
@@ -374,7 +374,7 @@ async def export_transactions_excel(kms_year: Optional[str] = None, season: Opti
         query["date"] = {}
         if date_from: query["date"]["$gte"] = date_from
         if date_to: query["date"]["$lte"] = date_to
-    items = await db.mill_parts_stock.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    items = await db.mill_parts_stock.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
 
     wb = Workbook()
     ws = wb.active
@@ -455,7 +455,7 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
         query["date"] = {}
         if date_from: query["date"]["$gte"] = date_from
         if date_to: query["date"]["$lte"] = date_to
-    items = await db.mill_parts_stock.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    items = await db.mill_parts_stock.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30)
@@ -525,7 +525,7 @@ async def export_part_summary_excel(part_name: str, kms_year: Optional[str] = No
     query = {"part_name": part_name}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    txns = await db.mill_parts_stock.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    txns = await db.mill_parts_stock.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
     part_info = await db.mill_parts.find_one({"name": part_name}, {"_id": 0})
 
     stock_in = sum(t.get("quantity", 0) for t in txns if t.get("txn_type") == "in")
@@ -654,7 +654,7 @@ async def export_part_summary_pdf(part_name: str, kms_year: Optional[str] = None
     query = {"part_name": part_name}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    txns = await db.mill_parts_stock.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    txns = await db.mill_parts_stock.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
     part_info = await db.mill_parts.find_one({"name": part_name}, {"_id": 0})
 
     stock_in = sum(t.get("quantity", 0) for t in txns if t.get("txn_type") == "in")

@@ -27,7 +27,7 @@ module.exports = function(database) {
     let entries = [...database.data.dc_entries];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
     if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
-    entries.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+    entries.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
     entries.forEach(e => { const dels = database.data.dc_deliveries.filter(d => d.dc_id === e.id); const delivered = +dels.reduce((s,d)=>s+(d.quantity_qntl||0),0).toFixed(2); e.delivered_qntl = delivered; e.pending_qntl = +(e.quantity_qntl-delivered).toFixed(2); e.delivery_count = dels.length; e.status = delivered >= e.quantity_qntl ? 'completed' : (delivered > 0 ? 'partial' : 'pending'); });
     res.json(entries);
   }));
@@ -88,7 +88,7 @@ module.exports = function(database) {
     if (req.query.dc_id) dels = dels.filter(d => d.dc_id === req.query.dc_id);
     if (req.query.kms_year) dels = dels.filter(d => d.kms_year === req.query.kms_year);
     if (req.query.season) dels = dels.filter(d => d.season === req.query.season);
-    res.json(dels.sort((a,b) => (b.date||'').localeCompare(a.date||'')));
+    res.json(dels.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||'')));
   }));
 
   router.delete('/api/dc-deliveries/:id', safeSync((req, res) => {
@@ -139,7 +139,7 @@ module.exports = function(database) {
     if (req.query.season) pays = pays.filter(p=>p.season===req.query.season);
     const dcMap = Object.fromEntries(database.data.dc_entries.map(d=>[d.id,d.dc_number||'']));
     pays.forEach(p=>{p.dc_number=dcMap[p.dc_id]||'';});
-    res.json(pays.sort((a,b)=>(b.date||'').localeCompare(a.date||'')));
+    res.json(pays.sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||'')));
   }));
 
   router.delete('/api/msp-payments/:id', safeSync((req, res) => {

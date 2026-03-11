@@ -59,7 +59,7 @@ async def get_private_paddy(kms_year: Optional[str] = None, season: Optional[str
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
-    items = await db.private_paddy.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    items = await db.private_paddy.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
     return items
 
 @router.put("/private-paddy/{item_id}")
@@ -122,7 +122,7 @@ async def get_rice_sales(kms_year: Optional[str] = None, season: Optional[str] =
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
-    items = await db.rice_sales.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    items = await db.rice_sales.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
     return items
 
 @router.put("/rice-sales/{item_id}")
@@ -204,7 +204,7 @@ async def get_private_payments(party_name: Optional[str] = None, ref_type: Optio
     if ref_id: query["ref_id"] = ref_id
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    items = await db.private_payments.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    items = await db.private_payments.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
     return items
 
 @router.delete("/private-payments/{pay_id}")

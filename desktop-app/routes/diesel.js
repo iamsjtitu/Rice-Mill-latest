@@ -49,7 +49,7 @@ module.exports = function(database) {
     if (req.query.truck_no) txns = txns.filter(t => (t.truck_no||'').toLowerCase().includes(req.query.truck_no.toLowerCase()));
     if (req.query.date_from) txns = txns.filter(t => (t.date||'') >= req.query.date_from);
     if (req.query.date_to) txns = txns.filter(t => (t.date||'') <= req.query.date_to);
-    res.json(txns.sort((a,b) => (b.date||'').localeCompare(a.date||'')));
+    res.json(txns.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||'')));
   }));
 
   router.get('/api/diesel-accounts/summary', safeSync((req, res) => {

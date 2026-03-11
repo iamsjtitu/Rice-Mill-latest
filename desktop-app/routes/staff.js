@@ -115,7 +115,7 @@ router.get('/api/staff/advance', safeSync((req, res) => {
   let list = col('staff_advances');
   if (req.query.staff_id) list = list.filter(a => a.staff_id === req.query.staff_id);
   if (req.query.kms_year) list = list.filter(a => a.kms_year === req.query.kms_year);
-  res.json(list.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
+  res.json(list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||'')));
 }));
 
 router.delete('/api/staff/advance/:id', safeSync((req, res) => {

@@ -70,7 +70,7 @@ async def get_diesel_accounts(pump_id: Optional[str] = None, kms_year: Optional[
         if date_from: date_q["$gte"] = date_from
         if date_to: date_q["$lte"] = date_to
         if date_q: query["date"] = date_q
-    txns = await db.diesel_accounts.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    txns = await db.diesel_accounts.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
     return txns
 
 @router.get("/diesel-accounts/summary")

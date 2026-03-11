@@ -468,7 +468,7 @@ module.exports = function(database) {
         }
       }
     }
-    allHistory.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    allHistory.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
     res.json({ history: allHistory });
   }));
 

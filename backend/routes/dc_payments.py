@@ -61,7 +61,7 @@ async def get_dc_entries(kms_year: Optional[str] = None, season: Optional[str] =
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    entries = await db.dc_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    entries = await db.dc_entries.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(1000)
     # Attach delivery summary to each DC
     for e in entries:
         deliveries = await db.dc_deliveries.find({"dc_id": e["id"]}, {"_id": 0}).to_list(500)
@@ -113,7 +113,7 @@ async def get_dc_deliveries(dc_id: Optional[str] = None, kms_year: Optional[str]
     if dc_id: query["dc_id"] = dc_id
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    return await db.dc_deliveries.find(query, {"_id": 0}).sort("date", -1).to_list(2000)
+    return await db.dc_deliveries.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(2000)
 
 
 @router.delete("/dc-deliveries/{delivery_id}")
@@ -286,7 +286,7 @@ async def get_msp_payments(kms_year: Optional[str] = None, season: Optional[str]
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    payments = await db.msp_payments.find(query, {"_id": 0}).sort("date", -1).to_list(2000)
+    payments = await db.msp_payments.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(2000)
     # Attach DC number
     dc_ids = list(set(p.get("dc_id","") for p in payments if p.get("dc_id")))
     dcs = {}
@@ -470,7 +470,7 @@ async def get_gunny_bag_entries(kms_year: Optional[str] = None, season: Optional
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if bag_type: query["bag_type"] = bag_type
-    return await db.gunny_bags.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    return await db.gunny_bags.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
 
 
 @router.delete("/gunny-bags/{entry_id}")

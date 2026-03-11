@@ -38,7 +38,7 @@ module.exports = function(database) {
     if (kms_year) items = items.filter(i => i.kms_year === kms_year);
     if (season) items = items.filter(i => i.season === season);
     if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
-    items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    items.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
     res.json(items);
   }));
 
@@ -78,7 +78,7 @@ module.exports = function(database) {
     if (kms_year) items = items.filter(i => i.kms_year === kms_year);
     if (season) items = items.filter(i => i.season === season);
     if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
-    items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    items.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
     res.json(items);
   }));
 
@@ -138,7 +138,7 @@ module.exports = function(database) {
     if (ref_id) items = items.filter(i => i.ref_id === ref_id);
     if (kms_year) items = items.filter(i => i.kms_year === kms_year);
     if (season) items = items.filter(i => i.season === season);
-    items.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    items.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
     res.json(items);
   }));
 

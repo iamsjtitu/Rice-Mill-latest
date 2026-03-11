@@ -114,7 +114,7 @@ async def get_attendance(staff_id: Optional[str] = None, date: Optional[str] = N
         if date_from: date_q["$gte"] = date_from
         if date_to: date_q["$lte"] = date_to
         query["date"] = date_q
-    return await db.staff_attendance.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
+    return await db.staff_attendance.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(10000)
 
 @router.post("/staff/attendance")
 async def mark_attendance(entry: AttendanceEntry):
@@ -162,7 +162,7 @@ async def get_advances(staff_id: Optional[str] = None, kms_year: Optional[str] =
     if staff_id: query["staff_id"] = staff_id
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    return await db.staff_advance.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
+    return await db.staff_advance.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
 
 @router.post("/staff/advance")
 async def add_advance(adv: StaffAdvance, username: str = ""):

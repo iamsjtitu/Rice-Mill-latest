@@ -96,7 +96,7 @@ async def get_local_party_transactions(party_name: Optional[str] = None, kms_yea
         if date_from: date_q["$gte"] = date_from
         if date_to: date_q["$lte"] = date_to
         query["date"] = date_q
-    txns = await db.local_party_accounts.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
+    txns = await db.local_party_accounts.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(10000)
     return txns
 
 

@@ -87,7 +87,7 @@ module.exports = function(database) {
       });
     }
 
-    ledger.sort((a, b) => (b.date||'').localeCompare(a.date||''));
+    ledger.sort((a, b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
     return ledger;
   }
 
