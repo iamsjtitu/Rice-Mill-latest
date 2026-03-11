@@ -325,15 +325,15 @@ class JsonDatabase {
       kms_year: doc.kms_year||'', season: doc.season||'',
       created_by: doc.created_by||'system', linked_entry_id: doc.id, created_at: now };
 
+    const bagIn = parseInt(doc.bag) || 0;
+    if (bagIn > 0) {
+      this.data.gunny_bags.push({ ...base, id: uuidv4(), date: doc.date||'',
+        txn_type: 'in', quantity: bagIn, source, reference: truck });
+    }
     const gIssued = parseFloat(doc.g_issued) || 0;
     if (gIssued > 0) {
       this.data.gunny_bags.push({ ...base, id: uuidv4(), date: doc.date||'',
         txn_type: 'out', quantity: Math.floor(gIssued), source, reference: truck });
-    }
-    const gDep = parseFloat(doc.g_deposite) || 0;
-    if (gDep > 0) {
-      this.data.gunny_bags.push({ ...base, id: uuidv4(), date: doc.date||'',
-        txn_type: 'in', quantity: Math.floor(gDep), source, reference: truck });
     }
   }
 

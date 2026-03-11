@@ -471,7 +471,7 @@ const GunnyBags = ({ filters, user }) => {
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
             <p className="text-[10px] text-white font-medium">Total (Excl Govt)</p>
             <p className="text-xl font-bold text-white">{summary.grand_total || 0} bags</p>
-            <p className="text-[9px] text-slate-500 mt-1">Paddy + P.Pkt + Old</p>
+            <p className="text-[9px] text-slate-500 mt-1">P.Pkt + Old (In - Out)</p>
           </CardContent></Card>
           <Card className="bg-gradient-to-br from-emerald-900/40 to-slate-800 border-emerald-800/30"><CardContent className="p-3">
             <p className="text-[10px] text-emerald-400">Govt Bags (Free)</p>

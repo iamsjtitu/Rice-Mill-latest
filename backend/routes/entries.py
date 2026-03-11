@@ -134,7 +134,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
 
 
 async def _create_gunny_entries_for_mill(doc, username=""):
-    """Auto-create gunny bag entries for g_issued and g_deposite in a mill entry."""
+    """Auto-create gunny bag entries for bag (IN) and g_issued (OUT) in a mill entry."""
     entry_id = doc["id"]
     agent = doc.get("agent_name", "")
     mandi = doc.get("mandi_name", "")
@@ -147,16 +147,16 @@ async def _create_gunny_entries_for_mill(doc, username=""):
         "created_at": datetime.now(timezone.utc).isoformat()
     }
 
-    g_issued = float(doc.get("g_issued", 0) or 0)
-    if g_issued > 0:
+    bag_in = int(float(doc.get("bag", 0) or 0))
+    if bag_in > 0:
         entry = {**base, "id": str(uuid.uuid4()), "date": doc.get("date", ""),
-                 "txn_type": "out", "quantity": int(g_issued), "source": source, "reference": truck}
+                 "txn_type": "in", "quantity": bag_in, "source": source, "reference": truck}
         await db.gunny_bags.insert_one(entry)
 
-    g_dep = float(doc.get("g_deposite", 0) or 0)
-    if g_dep > 0:
+    g_issued = int(float(doc.get("g_issued", 0) or 0))
+    if g_issued > 0:
         entry = {**base, "id": str(uuid.uuid4()), "date": doc.get("date", ""),
-                 "txn_type": "in", "quantity": int(g_dep), "source": source, "reference": truck}
+                 "txn_type": "out", "quantity": g_issued, "source": source, "reference": truck}
         await db.gunny_bags.insert_one(entry)
 
 
