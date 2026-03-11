@@ -137,9 +137,11 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
         {paddyStock && (
           <Card className="bg-gradient-to-r from-slate-800 to-slate-800/80 border-slate-700">
             <CardContent className="p-3">
-              <p className="text-[10px] text-slate-400 mb-1">Paddy Stock (QNTL - BAG)</p>
-              <div className="flex items-center gap-4 text-sm">
-                <div><span className="text-slate-400 text-xs">In:</span> <span className="text-blue-400 font-bold">{paddyStock.total_paddy_in_qntl} Q</span></div>
+              <p className="text-[10px] text-slate-400 mb-1">Paddy Stock (QNTL - BAG - P.Cut)</p>
+              <div className="flex items-center gap-3 text-sm flex-wrap">
+                <div><span className="text-slate-400 text-xs">CMR:</span> <span className="text-blue-400 font-bold">{paddyStock.cmr_paddy_in_qntl || 0} Q</span></div>
+                {paddyStock.pvt_paddy_in_qntl > 0 && <div><span className="text-slate-400 text-xs">Pvt:</span> <span className="text-purple-400 font-bold">{paddyStock.pvt_paddy_in_qntl} Q</span></div>}
+                <div><span className="text-slate-400 text-xs">Total In:</span> <span className="text-blue-300 font-bold">{paddyStock.total_paddy_in_qntl} Q</span></div>
                 <div><span className="text-slate-400 text-xs">Used:</span> <span className="text-orange-400 font-bold">{paddyStock.total_paddy_used_qntl} Q</span></div>
                 <div><span className="text-slate-400 text-xs">Avl:</span> <span className={`font-bold ${paddyStock.available_paddy_qntl > 0 ? 'text-green-400' : 'text-red-400'}`}>{paddyStock.available_paddy_qntl} Q</span></div>
               </div>

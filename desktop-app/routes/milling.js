@@ -37,10 +37,17 @@ module.exports = function(database) {
     let entries = [...database.data.entries];
     if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
-    const totalIn = +(entries.reduce((s, e) => s + ((e.qntl || 0) - (e.bag || 0) / 100), 0)).toFixed(2);
+    // CMR paddy: QNTL - BAG - P.Cut
+    const cmrIn = +(entries.reduce((s, e) => s + ((e.qntl || 0) - (e.bag || 0) / 100 - (e.p_pkt_cut || 0) / 100), 0)).toFixed(2);
+    // Private paddy purchases (NOT in custody maintenance)
+    let pvtEntries = database.data.private_paddy || [];
+    if (filters.kms_year) pvtEntries = pvtEntries.filter(e => e.kms_year === filters.kms_year);
+    if (filters.season) pvtEntries = pvtEntries.filter(e => e.season === filters.season);
+    const pvtIn = +pvtEntries.reduce((s, e) => s + (e.final_qntl || 0), 0).toFixed(2);
+    const totalIn = +(cmrIn + pvtIn).toFixed(2);
     const millingEntries = database.getMillingEntries(filters);
     const totalUsed = +millingEntries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0).toFixed(2);
-    res.json({ total_paddy_in_qntl: totalIn, total_paddy_used_qntl: totalUsed, available_paddy_qntl: +(totalIn - totalUsed).toFixed(2) });
+    res.json({ total_paddy_in_qntl: totalIn, total_paddy_used_qntl: totalUsed, available_paddy_qntl: +(totalIn - totalUsed).toFixed(2), cmr_paddy_in_qntl: cmrIn, pvt_paddy_in_qntl: pvtIn });
   }));
 
   // ===== BYPRODUCT STOCK & SALES =====

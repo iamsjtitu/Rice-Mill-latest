@@ -101,11 +101,18 @@ async def get_paddy_stock(kms_year: Optional[str] = None, season: Optional[str] 
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    mill_entries = await db.mill_entries.find(query, {"qntl": 1, "bag": 1, "_id": 0}).to_list(10000)
-    total_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 for e in mill_entries), 2)
+    # CMR paddy: QNTL - BAG - P.Cut
+    mill_entries = await db.mill_entries.find(query, {"qntl": 1, "bag": 1, "p_pkt_cut": 1, "_id": 0}).to_list(10000)
+    cmr_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 - e.get('p_pkt_cut', 0) / 100 for e in mill_entries), 2)
+    # Private paddy purchases (NOT in custody maintenance)
+    pvt_entries = await db.private_paddy.find(query, {"final_qntl": 1, "_id": 0}).to_list(10000)
+    pvt_paddy_in = round(sum(e.get('final_qntl', 0) for e in pvt_entries), 2)
+    total_paddy_in = round(cmr_paddy_in + pvt_paddy_in, 2)
     milling_entries = await db.milling_entries.find(query, {"paddy_input_qntl": 1, "_id": 0}).to_list(10000)
     total_paddy_used = round(sum(e.get('paddy_input_qntl', 0) for e in milling_entries), 2)
-    return {"total_paddy_in_qntl": total_paddy_in, "total_paddy_used_qntl": total_paddy_used, "available_paddy_qntl": round(total_paddy_in - total_paddy_used, 2)}
+    return {"total_paddy_in_qntl": total_paddy_in, "total_paddy_used_qntl": total_paddy_used,
+        "available_paddy_qntl": round(total_paddy_in - total_paddy_used, 2),
+        "cmr_paddy_in_qntl": cmr_paddy_in, "pvt_paddy_in_qntl": pvt_paddy_in}
 
 
 @router.get("/milling-summary")

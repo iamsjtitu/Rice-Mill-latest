@@ -1,0 +1,114 @@
+{
+  "summary": "Iteration 53: CMR Paddy Stock Formula Change & Custody Register - All 15 backend tests PASSED. Frontend verified with correct display of Paddy Stock (QNTL - BAG - P.Cut) showing CMR, Pvt, Total In, Used, Avl values. Custody register confirmed to NOT include private paddy entries.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Milling page", "issues": ["Console warning 404 for backup endpoints - expected on web version"]}
+    ]
+  },
+  
+  "test_report_links": [
+    "/app/backend/tests/test_iteration53_paddy_stock.py",
+    "/app/test_reports/pytest/pytest_results_iteration53.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [
+    "Backend milling.py /paddy-stock: Correctly calculates cmr_paddy_in_qntl using formula (QNTL - BAG/100 - P.Cut/100)",
+    "Backend milling.py /paddy-stock: pvt_paddy_in_qntl correctly sums final_qntl from private_paddy collection",
+    "Backend milling.py /paddy-stock: total_paddy_in = cmr + pvt (verified mathematically)",
+    "Backend milling.py /paddy-custody-register: Only fetches from mill_entries and milling_entries, NOT from private_paddy",
+    "Frontend MillingTracker.jsx line 140: Label correctly shows 'Paddy Stock (QNTL - BAG - P.Cut)'",
+    "Frontend MillingTracker.jsx lines 142-147: Displays CMR, Pvt (conditional), Total In, Used, Avl values correctly"
+  ],
+  
+  "updated_files": [
+    "/app/backend/tests/test_iteration53_paddy_stock.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100% - All display elements verified"
+  },
+  
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+  
+  "seed_data_creation": "None - used existing data",
+  
+  "retest_needed": false,
+  
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "CMR Paddy Stock formula is now (QNTL - BAG - P.Cut). Private paddy is included in total stock but NOT in custody register. Current values: CMR=1132.7Q, Pvt=122.48Q, Total In=1255.18Q, Used=100Q, Avl=1155.18Q. Custody balance=1032.8Q (unchanged).",
+  
+  "verified_features": {
+    "paddy_stock_api": {
+      "endpoint": "GET /api/paddy-stock",
+      "status": "PASSED",
+      "returns_fields": ["cmr_paddy_in_qntl", "pvt_paddy_in_qntl", "total_paddy_in_qntl", "total_paddy_used_qntl", "available_paddy_qntl"],
+      "formula_verification": {
+        "total_paddy_in": "CMR + Pvt = 1132.7 + 122.48 = 1255.18 ✓",
+        "available_paddy": "Total In - Used = 1255.18 - 100 = 1155.18 ✓"
+      }
+    },
+    "paddy_custody_register": {
+      "endpoint": "GET /api/paddy-custody-register",
+      "status": "PASSED",
+      "no_private_entries": "VERIFIED - All rows are from mill_entries or milling_entries",
+      "balance_unchanged": "VERIFIED - Current Balance = 1032.8 Q as expected"
+    },
+    "frontend_milling_page": {
+      "paddy_stock_label": "PASSED - Shows 'Paddy Stock (QNTL - BAG - P.Cut)'",
+      "cmr_display": "PASSED - CMR: 1132.7 Q (blue)",
+      "pvt_display": "PASSED - Pvt: 122.48 Q (purple, shows when > 0)",
+      "total_in_display": "PASSED - Total In: 1255.18 Q",
+      "used_display": "PASSED - Used: 100 Q (orange)",
+      "avl_display": "PASSED - Avl: 1155.18 Q (green)"
+    },
+    "frontend_custody_register": {
+      "total_received": "PASSED - 1132.8 Q (green)",
+      "total_released": "PASSED - 100 Q (orange)",
+      "current_balance": "PASSED - 1032.8 Q",
+      "table_rows": "PASSED - All entries show Truck/Agent/Mandi format, no private paddy"
+    },
+    "export_endpoints": {
+      "custody_excel": "PASSED - GET /api/paddy-custody-register/excel returns 200",
+      "custody_pdf": "PASSED - GET /api/paddy-custody-register/pdf returns 200"
+    }
+  },
+  
+  "tests_executed": {
+    "test_01_paddy_stock_returns_all_required_fields": "PASSED",
+    "test_02_total_paddy_equals_cmr_plus_pvt": "PASSED",
+    "test_03_available_paddy_equals_total_minus_used": "PASSED",
+    "test_04_paddy_stock_with_filters": "PASSED",
+    "test_05_custody_register_returns_200": "PASSED",
+    "test_06_custody_register_no_private_entries": "PASSED",
+    "test_07_custody_register_only_mill_entries": "PASSED",
+    "test_08_custody_register_balance_calculation": "PASSED",
+    "test_09_cmr_stock_matches_custody_balance": "PASSED",
+    "test_10_mill_entries_api": "PASSED",
+    "test_11_private_paddy_api": "PASSED",
+    "test_12_milling_entries_api": "PASSED",
+    "test_13_milling_summary_api": "PASSED",
+    "test_14_custody_register_excel_export": "PASSED",
+    "test_15_custody_register_pdf_export": "PASSED"
+  },
+  
+  "screenshots": [
+    "/app/.screenshots/milling_paddy_stock.png",
+    "/app/.screenshots/custody_register.png"
+  ],
+  
+  "test_run_timestamp": "2026-03-11"
+}
