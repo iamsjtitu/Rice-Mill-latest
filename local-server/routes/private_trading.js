@@ -108,8 +108,9 @@ module.exports = function(database) {
     const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     database.data.private_paddy.splice(idx, 1);
-    // Delete linked cash book + diesel entries
+    // Delete linked cash book + diesel + truck_payments entries
     _deleteCashDieselForPvtPaddy(database, req.params.id);
+    if (database.data.truck_payments) database.data.truck_payments = database.data.truck_payments.filter(t => t.entry_id !== req.params.id);
     database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
 

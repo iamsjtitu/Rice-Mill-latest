@@ -855,15 +855,20 @@ const PartySummary = ({ filters }) => {
         <CardContent className="p-0"><div className="overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="border-slate-700">
-              {['Party', 'Mandi', 'Agent', 'Purchase Amt', 'Paid (Paddy)', 'Paddy Bal', 'Sale Amt', 'Received (Rice)', 'Rice Bal', 'Net Balance'].map(h =>
+              {['Party', 'Type', 'Mandi', 'Agent', 'Purchase Amt', 'Paid (Paddy)', 'Paddy Bal', 'Sale Amt', 'Received (Rice)', 'Rice Bal', 'Net Balance'].map(h =>
                 <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Purchase Amt', 'Paid (Paddy)', 'Paddy Bal', 'Sale Amt', 'Received (Rice)', 'Rice Bal', 'Net Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
             </TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-              : data.parties.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi party nahi mili.</TableCell></TableRow>
+              {loading ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+              : data.parties.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Koi party nahi mili.</TableCell></TableRow>
               : data.parties.map((p, idx) => (
                 <TableRow key={p.party_name + idx} className="border-slate-700" data-testid={`summary-row-${idx}`}>
                   <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
+                  <TableCell className="text-xs">
+                    <span className={`px-1.5 py-0.5 rounded ${p.party_type === 'Both' ? 'bg-amber-900/50 text-amber-300' : p.party_type === 'Paddy Seller' ? 'bg-purple-900/50 text-purple-300' : 'bg-sky-900/50 text-sky-300'}`}>
+                      {p.party_type}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-cyan-400 text-xs">{p.mandi_name || '-'}</TableCell>
                   <TableCell className="text-purple-400 text-xs">{p.agent_name || '-'}</TableCell>
                   <TableCell className="text-right text-amber-400 text-sm">Rs.{p.purchase_amount.toLocaleString()}</TableCell>
@@ -879,7 +884,7 @@ const PartySummary = ({ filters }) => {
               ))}
               {data.parties.length > 0 && (
                 <TableRow className="border-slate-700 bg-amber-900/20">
-                  <TableCell className="font-bold text-amber-400 text-sm" colSpan={3}>TOTAL</TableCell>
+                  <TableCell className="font-bold text-amber-400 text-sm" colSpan={4}>TOTAL</TableCell>
                   <TableCell className="text-right text-amber-400 font-bold text-sm">Rs.{(t.total_purchase || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-emerald-400 font-bold text-xs">Rs.{(t.total_purchase_paid || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-red-400 font-bold text-sm">Rs.{(t.total_purchase_balance || 0).toLocaleString()}</TableCell>

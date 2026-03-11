@@ -235,6 +235,7 @@ async def delete_private_paddy(item_id: str):
     await db.gunny_bags.delete_many({"linked_entry_id": item_id})
     await db.cash_transactions.delete_many({"linked_entry_id": item_id, "reference": {"$regex": "^pvt_paddy"}})
     await db.diesel_accounts.delete_many({"linked_entry_id": item_id})
+    await db.truck_payments.delete_many({"entry_id": item_id})
     return {"message": "Deleted", "id": item_id}
 
 # --- Rice Sale ---
@@ -741,6 +742,10 @@ async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to
         pm["sale_received"] = round(pm["sale_received"], 2)
         pm["sale_balance"] = round(pm["sale_amount"] - pm["sale_received"], 2)
         pm["net_balance"] = round(pm["purchase_balance"] - pm["sale_balance"], 2)
+        # Auto party_type
+        has_purchase = pm["purchase_amount"] > 0
+        has_sale = pm["sale_amount"] > 0
+        pm["party_type"] = "Both" if has_purchase and has_sale else ("Paddy Seller" if has_purchase else "Rice Buyer")
         result.append(pm)
 
     if search:
