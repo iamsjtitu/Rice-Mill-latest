@@ -18,39 +18,35 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 └── sync_backends.sh           # Sync script (desktop-app -> local-server)
 ```
 
-## Modules
-- Entries, Dashboard & Targets, Payments, Milling (CMR), Cash Book/Ledgers, DC & Payments, Reports, Pvt Trading, Mill Parts, Staff, FY Summary, Settings
-
-## Key Collections (MongoDB)
-- private_paddy, rice_sales, private_payments, entries, cash_transactions, gunny_bags, mandi_targets, dc_payments, staff, users, settings
+## Shared Config Reports (report_config.json)
+| Report | Columns | Python | Node.js | Status |
+|--------|---------|--------|---------|--------|
+| agent_mandi_report | 18 | reports.py | daily_report.js | Done |
+| gunny_bags_report | 5 | reports.py | daily_report.js | Done |
+| dc_entries_report | 7 | reports.py | daily_report.js | Done |
+| msp_payments_report | 6 | reports.py | daily_report.js | Done |
+| private_paddy_report | 11 | private_trading.py | private_trading.js | Done |
+| rice_sales_report | 9 | private_trading.py | private_trading.js | Done |
+| party_summary_report | 10 | private_trading.py | private_trading.js | Done |
+| cashbook_report | 10 | cashbook.py | cashbook.js | Done |
+| party_ledger_report | 7 | ledgers.py | - | Done |
+| daily_paddy_entries | 9+20 | - | daily_report.js | Config only |
 
 ## Credentials
 - Admin: `admin` / `admin123`
 
-## Completed Features (11-Mar-2026)
+## Completed
 - Agent & Mandi Report: column alignment, filtered PDF/Excel exports
-- Shared config system for 7 reports (agent_mandi, gunny_bags, dc_entries, msp_payments, private_paddy, rice_sales, party_summary)
-- Application-wide sorting (newest first via compound sort)
+- Sorting fix across all backends (newest first)
 - Gunny bag data cleanup
-- Target calculation with cutting%
-- Move to Pvt Trading with last truck details
-- Removed "Outstanding" tab from Party Ledger
+- Move to Pvt Trading with correct logic
+- Removed Outstanding tab from Party Ledger
 - Fixed Final Wt Kg->QNTL display bug
-- **Private Trading Page Overhaul:**
-  - Separate columns for Party, Mandi, Agent
-  - Balance calculation fixed (move-to-pvt entries)
-  - PDF/Excel export for Paddy Purchase and Rice Sales
-  - Search/filter functionality
-- **Party-wise Summary Tab (NEW):**
-  - Aggregated view: Paddy Purchase + Rice Sale per party
-  - 10 columns: Party, Mandi, Agent, Purchase Amt, Paid(Paddy), Paddy Bal, Sale Amt, Received(Rice), Rice Bal, Net Balance
-  - Date range filter (from/to)
-  - Party name search
-  - PDF/Excel export
-  - Summary cards with key totals
-  - TOTAL row with aggregation
-  - All 3 backends synced
+- Private Trading Page Overhaul (separate cols, balance fix, exports, search)
+- Party-wise Summary Tab (aggregated view, date range filter, exports)
+- Shared Config Extension to Cash Book + Party Ledger (P1 complete)
+- Node.js backend sync via sync_backends.sh
 
 ## Backlog
-- P1: Extend shared configuration system to remaining reports (Daily Report, Cash Book, Party Ledger)
-- P2: General code cleanup and refactoring
+- P2: General code cleanup (style fixes, unused imports)
+- Daily Report Excel/PDF refactoring to use shared config (complex, deferred)
