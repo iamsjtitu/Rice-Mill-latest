@@ -224,6 +224,7 @@ async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_type: query["party_type"] = party_type
+    query["account"] = "ledger"  # Only count ledger entries for party balance
     
     txns = await db.cash_transactions.find(query, {"_id": 0}).to_list(100000)
     
