@@ -24,6 +24,7 @@ const DCEntries = ({ filters, user }) => {
   const [expandedDC, setExpandedDC] = useState(null);
   const [deliveries, setDeliveries] = useState([]);
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
+  const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", godown_name: "", deadline: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
   const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
 
@@ -35,6 +36,7 @@ const DCEntries = ({ filters, user }) => {
       if (filters.season) p.append('season', filters.season);
       const [dcRes, sumRes] = await Promise.all([axios.get(`${API}/dc-entries?${p}`), axios.get(`${API}/dc-summary?${p}`)]);
       setDcs(dcRes.data); setSummary(sumRes.data);
+      try { const stockRes = await axios.get(`${API}/rice-stock?${p}`); setRiceStockAvail(stockRes.data.available_qntl); } catch { setRiceStockAvail(null); }
     } catch (e) { toast.error("DC data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season]);
@@ -117,26 +119,26 @@ const DCEntries = ({ filters, user }) => {
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="dc-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
-        <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
+        <Table className="min-w-[900px]"><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
           {['','DC No','Date','Type','Allotted(Q)','Delivered(Q)','Pending(Q)','Status','Deadline','Godown',''].map(h =>
-            <TableHead key={h} className="text-slate-300 text-xs">{h}</TableHead>)}
+            <TableHead key={h} className="text-slate-300 text-xs whitespace-nowrap">{h}</TableHead>)}
         </TableRow></TableHeader>
         <TableBody>
           {loading ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
           : dcs.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Koi DC nahi hai. "New DC" click karein.</TableCell></TableRow>
           : dcs.map(dc => (<React.Fragment key={dc.id}>
             <TableRow key={dc.id} className="border-slate-700 cursor-pointer hover:bg-slate-750" onClick={() => handleExpandDC(dc.id)} data-testid={`dc-row-${dc.id}`}>
-              <TableCell>{expandedDC === dc.id ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}</TableCell>
-              <TableCell className="text-amber-400 font-medium text-xs">{dc.dc_number}</TableCell>
-              <TableCell className="text-white text-xs">{dc.date}</TableCell>
-              <TableCell className="text-xs"><span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${(dc.rice_type||'')==='parboiled' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'}`}>{(dc.rice_type||'').charAt(0).toUpperCase()+(dc.rice_type||'').slice(1)}</span></TableCell>
-              <TableCell className="text-white text-xs text-right">{dc.quantity_qntl}</TableCell>
-              <TableCell className="text-green-400 text-xs text-right">{dc.delivered_qntl}</TableCell>
-              <TableCell className="text-red-400 text-xs text-right">{dc.pending_qntl}</TableCell>
-              <TableCell>{statusBadge(dc.status)}</TableCell>
-              <TableCell className="text-slate-300 text-xs">{dc.deadline}</TableCell>
-              <TableCell className="text-slate-400 text-xs">{dc.godown_name}</TableCell>
-              <TableCell>{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={(e) => { e.stopPropagation(); handleDeleteDC(dc.id); }}><Trash2 className="w-3 h-3" /></Button>}</TableCell>
+              <TableCell className="w-8">{expandedDC === dc.id ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}</TableCell>
+              <TableCell className="text-amber-400 font-semibold text-sm whitespace-nowrap">{dc.dc_number}</TableCell>
+              <TableCell className="text-slate-200 text-xs whitespace-nowrap">{dc.date}</TableCell>
+              <TableCell className="text-xs"><span className={`px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${(dc.rice_type||'')==='parboiled' ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40' : 'bg-sky-500/25 text-sky-300 border border-sky-500/40'}`}>{(dc.rice_type||'')==='parboiled' ? 'Usna' : 'Arwa'}</span></TableCell>
+              <TableCell className="text-white text-sm text-right font-medium whitespace-nowrap">{dc.quantity_qntl} Q</TableCell>
+              <TableCell className="text-green-400 text-sm text-right font-medium whitespace-nowrap">{dc.delivered_qntl} Q</TableCell>
+              <TableCell className="text-red-400 text-sm text-right font-medium whitespace-nowrap">{dc.pending_qntl} Q</TableCell>
+              <TableCell className="whitespace-nowrap">{statusBadge(dc.status)}</TableCell>
+              <TableCell className="text-slate-300 text-xs whitespace-nowrap">{dc.deadline || '-'}</TableCell>
+              <TableCell className="text-slate-400 text-xs whitespace-nowrap">{dc.godown_name || '-'}</TableCell>
+              <TableCell className="w-8">{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={(e) => { e.stopPropagation(); handleDeleteDC(dc.id); }}><Trash2 className="w-3 h-3" /></Button>}</TableCell>
             </TableRow>
             {expandedDC === dc.id && (
               <TableRow key={`${dc.id}-del`} className="border-slate-700 bg-slate-900/50">
@@ -146,18 +148,18 @@ const DCEntries = ({ filters, user }) => {
                     <Button onClick={() => { setDelForm(f => ({ ...f, dc_id: dc.id, kms_year: dc.kms_year, season: dc.season, godown_name: dc.godown_name })); setShowDeliveryForm(true); }} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-6 text-xs" data-testid="dc-add-delivery-btn"><Plus className="w-3 h-3 mr-1" /> Add Delivery</Button>
                   </div>
                   {deliveries.length === 0 ? <p className="text-xs text-slate-500 py-2">No deliveries yet</p> : (
-                    <Table><TableHeader><TableRow className="border-slate-600 hover:bg-transparent">
+                    <Table className="min-w-[600px]"><TableHeader><TableRow className="border-slate-600 hover:bg-transparent">
                       {['Date','Qty (Q)','Vehicle','Driver','Slip No','Godown','Note',''].map(h =>
-                        <TableHead key={h} className="text-slate-400 text-[10px] py-1">{h}</TableHead>)}
+                        <TableHead key={h} className="text-slate-400 text-[10px] py-1 whitespace-nowrap">{h}</TableHead>)}
                     </TableRow></TableHeader>
                     <TableBody>{deliveries.map(d => (
                       <TableRow key={d.id} className="border-slate-700" data-testid={`delivery-row-${d.id}`}>
-                        <TableCell className="text-white text-[11px] py-1">{d.date}</TableCell>
-                        <TableCell className="text-green-400 text-[11px] py-1 font-medium">{d.quantity_qntl}</TableCell>
-                        <TableCell className="text-slate-300 text-[11px] py-1">{d.vehicle_no}</TableCell>
-                        <TableCell className="text-slate-400 text-[11px] py-1">{d.driver_name}</TableCell>
-                        <TableCell className="text-slate-400 text-[11px] py-1">{d.slip_no}</TableCell>
-                        <TableCell className="text-slate-400 text-[11px] py-1">{d.godown_name}</TableCell>
+                        <TableCell className="text-slate-200 text-[11px] py-1 whitespace-nowrap">{d.date}</TableCell>
+                        <TableCell className="text-green-400 text-[11px] py-1 font-semibold whitespace-nowrap">{d.quantity_qntl} Q</TableCell>
+                        <TableCell className="text-slate-300 text-[11px] py-1 whitespace-nowrap">{d.vehicle_no}</TableCell>
+                        <TableCell className="text-slate-400 text-[11px] py-1 whitespace-nowrap">{d.driver_name}</TableCell>
+                        <TableCell className="text-slate-400 text-[11px] py-1 whitespace-nowrap">{d.slip_no}</TableCell>
+                        <TableCell className="text-slate-400 text-[11px] py-1 whitespace-nowrap">{d.godown_name}</TableCell>
                         <TableCell className="text-slate-500 text-[11px] py-1">{d.notes}</TableCell>
                         <TableCell className="py-1">{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400" onClick={() => handleDeleteDelivery(d.id)}><Trash2 className="w-2.5 h-2.5" /></Button>}</TableCell>
                       </TableRow>
@@ -182,7 +184,7 @@ const DCEntries = ({ filters, user }) => {
                 <Input type="date" value={form.date} onChange={e => setForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="dc-form-date" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-slate-400">Quantity (QNTL)</Label>
+              <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockAvail !== null && <span className={`font-bold ${riceStockAvail > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {riceStockAvail} Q)</span>}</Label>
                 <Input type="number" step="0.01" value={form.quantity_qntl} onChange={e => setForm(p=>({...p,quantity_qntl:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="dc-form-qty" /></div>
               <div><Label className="text-xs text-slate-400">Rice Type</Label>
                 <Select value={form.rice_type} onValueChange={v => setForm(p=>({...p,rice_type:v}))}>
@@ -214,7 +216,7 @@ const DCEntries = ({ filters, user }) => {
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={delForm.date} onChange={e => setDelForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-date" /></div>
-              <div><Label className="text-xs text-slate-400">Quantity (QNTL)</Label>
+              <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockAvail !== null && <span className={`font-bold ${riceStockAvail > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {riceStockAvail} Q)</span>}</Label>
                 <Input type="number" step="0.01" value={delForm.quantity_qntl} onChange={e => setDelForm(p=>({...p,quantity_qntl:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-qty" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
