@@ -688,7 +688,7 @@ async def export_excel(
     right_align = Alignment(horizontal='right', vertical='center')
     
     # Title
-    ws.merge_cells('A1:S1')
+    ws.merge_cells('A1:U1')
     company_name, tagline = await get_company_name()
     ws['A1'] = f"{company_name} - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
     ws['A1'].fill = title_fill
@@ -697,14 +697,14 @@ async def export_excel(
     ws.row_dimensions[1].height = 30
     
     # Date row
-    ws.merge_cells('A2:S2')
+    ws.merge_cells('A2:U2')
     ws['A2'] = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
     ws['A2'].alignment = center_align
     ws.row_dimensions[2].height = 20
     
     # Headers
     headers = [
-        "Date", "Truck No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
+        "Date", "Truck No", "RST No", "TP No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
         "GBW Cut", "P.Pkt", "P.Pkt Cut", "Mill W", "Moist%", "M.Cut", "Cut%", 
         "D/D/P", "Final W", "G.Issued", "Cash", "Diesel"
     ]
@@ -725,6 +725,8 @@ async def export_excel(
         row_data = [
             entry.get('date', ''),
             entry.get('truck_no', ''),
+            entry.get('rst_no', ''),
+            entry.get('tp_no', ''),
             entry.get('agent_name', ''),
             entry.get('mandi_name', ''),
             round(entry.get('qntl', 0), 2),
@@ -910,7 +912,7 @@ async def export_pdf(
     
     # Table headers
     headers = [
-        "Date", "Truck", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
+        "Date", "Truck", "RST", "TP", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
         "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", 
         "D/D/P", "Final W", "G.Iss", "Cash", "Diesel"
     ]
@@ -922,6 +924,8 @@ async def export_pdf(
         row = [
             entry.get('date', '')[:10] if entry.get('date') else '',
             entry.get('truck_no', '')[:10] if entry.get('truck_no') else '',
+            entry.get('rst_no', '')[:8] if entry.get('rst_no') else '',
+            entry.get('tp_no', '')[:8] if entry.get('tp_no') else '',
             entry.get('agent_name', '')[:10] if entry.get('agent_name') else '',
             entry.get('mandi_name', '')[:10] if entry.get('mandi_name') else '',
             f"{entry.get('qntl', 0):.2f}",
@@ -944,7 +948,7 @@ async def export_pdf(
     
     # Totals row
     totals_row = [
-        "TOTAL", "", "", "",
+        "TOTAL", "", "", "", "", "",
         f"{totals.total_qntl:.2f}",
         str(totals.total_bag),
         str(int(totals.total_g_deposite)),
@@ -963,8 +967,8 @@ async def export_pdf(
     ]
     table_data.append(totals_row)
     
-    # Column widths (total ~265mm for A4 landscape with margins)
-    col_widths = [12*mm, 13*mm, 13*mm, 13*mm, 11*mm, 7*mm, 7*mm, 8*mm, 
+    # Column widths (21 columns for A4 landscape with margins)
+    col_widths = [12*mm, 12*mm, 10*mm, 10*mm, 12*mm, 12*mm, 11*mm, 7*mm, 7*mm, 8*mm, 
                   7*mm, 8*mm, 11*mm, 7*mm, 9*mm, 7*mm, 8*mm, 11*mm, 9*mm, 9*mm, 9*mm]
     
     # Create table
@@ -999,7 +1003,7 @@ async def export_pdf(
         ('RIGHTPADDING', (0, 0), (-1, -1), 2),
         
         # Right align numeric columns
-        ('ALIGN', (4, 1), (-1, -1), 'RIGHT'),
+        ('ALIGN', (6, 1), (-1, -1), 'RIGHT'),
         
         # Totals row (last row)
         ('BACKGROUND', (0, -1), (-1, -1), total_bg),
