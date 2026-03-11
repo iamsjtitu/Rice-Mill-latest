@@ -39,6 +39,7 @@ const PartySummaryTab = ({
                 <SelectItem value="Agent">Agent</SelectItem>
                 <SelectItem value="Diesel">Diesel</SelectItem>
                 <SelectItem value="Pvt Paddy Purchase">Pvt Paddy Purchase</SelectItem>
+                <SelectItem value="Rice Sale">Rice Sale</SelectItem>
               </SelectContent>
             </Select>
           </div>

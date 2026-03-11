@@ -1103,7 +1103,7 @@ async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional
 
 # ============ PARTY SUMMARY ============
 
-async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to=None, search=None):
+async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to=None, search=None, view_type=None):
     """Aggregate party-wise summary from both private_paddy and rice_sales"""
     paddy_q = {}
     rice_q = {}
@@ -1177,6 +1177,12 @@ async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to
         s = search.lower()
         result = [r for r in result if s in r["party_name"].lower() or s in r["mandi_name"].lower() or s in r["agent_name"].lower()]
 
+    # Filter by view_type (paddy/rice)
+    if view_type == "paddy":
+        result = [r for r in result if r["purchase_amount"] > 0]
+    elif view_type == "rice":
+        result = [r for r in result if r["sale_amount"] > 0]
+
     result.sort(key=lambda x: abs(x["net_balance"]), reverse=True)
 
     totals = {
@@ -1192,14 +1198,14 @@ async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to
 
 
 @router.get("/private-trading/party-summary")
-async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None):
-    return await _get_party_summary(kms_year, season, date_from, date_to, search)
+async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None, view_type: Optional[str] = None):
+    return await _get_party_summary(kms_year, season, date_from, date_to, search, view_type)
 
 
 @router.get("/private-trading/party-summary/excel")
-async def export_party_summary_excel(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None):
+async def export_party_summary_excel(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None, view_type: Optional[str] = None):
     from io import BytesIO
-    data = await _get_party_summary(kms_year, season, date_from, date_to, search)
+    data = await _get_party_summary(kms_year, season, date_from, date_to, search, view_type)
     cols = get_columns("party_summary_report")
     ncols = col_count(cols)
     headers = get_excel_headers(cols)
@@ -1212,6 +1218,8 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
     tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
     title = "Party-wise Summary (Pvt Trading)"
+    if view_type == "paddy": title = "Paddy Purchase Summary"
+    elif view_type == "rice": title = "Rice Sale Summary"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
@@ -1247,7 +1255,7 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
 
 
 @router.get("/private-trading/party-summary/pdf")
-async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None):
+async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None, view_type: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -1256,7 +1264,7 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     from reportlab.lib.enums import TA_CENTER
     from io import BytesIO
 
-    data = await _get_party_summary(kms_year, season, date_from, date_to, search)
+    data = await _get_party_summary(kms_year, season, date_from, date_to, search, view_type)
     cols = get_columns("party_summary_report")
     headers = get_pdf_headers(cols)
     col_widths = [w*mm for w in get_pdf_widths_mm(cols)]
@@ -1266,6 +1274,8 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     elements = []; styles = getSampleStyleSheet()
 
     title = "Party-wise Summary (Pvt Trading)"
+    if view_type == "paddy": title = "Paddy Purchase Summary"
+    elif view_type == "rice": title = "Rice Sale Summary"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#D97706'), alignment=TA_CENTER)

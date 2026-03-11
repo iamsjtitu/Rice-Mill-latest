@@ -243,6 +243,45 @@ async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str
         if not party_map[cat]["party_type"] and t.get("party_type"):
             party_map[cat]["party_type"] = t["party_type"]
     
+    # Auto-detect party_type for parties with empty type by checking ALL transactions
+    empty_type_parties = [cat for cat, p in party_map.items() if not p["party_type"]]
+    if empty_type_parties:
+        all_txns_for_types = await db.cash_transactions.find(
+            {"category": {"$in": empty_type_parties}, "party_type": {"$ne": "", "$exists": True}},
+            {"_id": 0, "category": 1, "party_type": 1}
+        ).to_list(10000)
+        type_lookup = {}
+        for t in all_txns_for_types:
+            cat = t.get("category", "").strip()
+            if cat and t.get("party_type") and cat not in type_lookup:
+                type_lookup[cat] = t["party_type"]
+        
+        # Also check other collections for party type detection
+        for cat in empty_type_parties:
+            if cat in type_lookup:
+                party_map[cat]["party_type"] = type_lookup[cat]
+                continue
+            # Check private_paddy
+            paddy_check = await db.private_paddy.find_one({"party_name": cat}, {"_id": 0, "party_name": 1})
+            if paddy_check:
+                party_map[cat]["party_type"] = "Pvt Paddy Purchase"
+                continue
+            # Check rice_sales
+            rice_check = await db.rice_sales.find_one({"party_name": cat}, {"_id": 0, "party_name": 1})
+            if rice_check:
+                party_map[cat]["party_type"] = "Rice Sale"
+                continue
+            # Check local_party_accounts
+            local_check = await db.local_party_accounts.find_one({"party_name": cat}, {"_id": 0, "party_name": 1})
+            if local_check:
+                party_map[cat]["party_type"] = "Local Party"
+                continue
+            # Check diesel_accounts
+            diesel_check = await db.diesel_accounts.find_one({"pump_name": cat}, {"_id": 0, "pump_name": 1})
+            if diesel_check:
+                party_map[cat]["party_type"] = "Diesel"
+                continue
+    
     # Calculate balance and sort
     parties = []
     for p in party_map.values():

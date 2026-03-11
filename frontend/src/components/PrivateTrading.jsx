@@ -955,6 +955,7 @@ const PartySummary = ({ filters, onNavigate }) => {
   const [searchText, setSearchText] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [viewType, setViewType] = useState("all");
 
   const fetchData = useCallback(async () => {
     try {
@@ -980,6 +981,7 @@ const PartySummary = ({ filters, onNavigate }) => {
     if (dateFrom) p.append('date_from', dateFrom);
     if (dateTo) p.append('date_to', dateTo);
     if (searchText) p.append('search', searchText);
+    if (viewType && viewType !== "all") p.append('view_type', viewType);
     downloadFile(`/api/private-trading/party-summary/${type}?${p}`, `party_summary.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
@@ -1005,6 +1007,16 @@ const PartySummary = ({ filters, onNavigate }) => {
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
+        <Select value={viewType} onValueChange={setViewType}>
+          <SelectTrigger className="w-[130px] bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="summary-view-type">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All (सब)</SelectItem>
+            <SelectItem value="paddy">Paddy Purchase</SelectItem>
+            <SelectItem value="rice">Rice Sale</SelectItem>
+          </SelectContent>
+        </Select>
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="summary-refresh-btn">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
@@ -1031,7 +1043,7 @@ const PartySummary = ({ filters, onNavigate }) => {
       </div>
 
       {/* Paddy Purchase Section */}
-      {(() => {
+      {(viewType === "all" || viewType === "paddy") && (() => {
         const paddyParties = data.parties.filter(p => p.purchase_amount > 0);
         const paddyTotalAmt = paddyParties.reduce((s, p) => s + p.purchase_amount, 0);
         const paddyTotalPaid = paddyParties.reduce((s, p) => s + p.purchase_paid, 0);
@@ -1076,7 +1088,7 @@ const PartySummary = ({ filters, onNavigate }) => {
       })()}
 
       {/* Rice Sale Section */}
-      {(() => {
+      {(viewType === "all" || viewType === "rice") && (() => {
         const riceParties = data.parties.filter(p => p.sale_amount > 0);
         const riceTotalAmt = riceParties.reduce((s, p) => s + p.sale_amount, 0);
         const riceTotalRcvd = riceParties.reduce((s, p) => s + p.sale_received, 0);
