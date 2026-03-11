@@ -15,8 +15,9 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  Plus, Trash2, RefreshCw, ShoppingCart, Wheat, IndianRupee, Eye, EyeOff, Calculator,
+  Plus, Trash2, RefreshCw, ShoppingCart, Wheat, IndianRupee, Eye, Calculator, Search, FileText, FileSpreadsheet, Download,
 } from "lucide-react";
+import { downloadFile } from "../utils/download";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -27,7 +28,6 @@ const CURRENT_KMS_YEAR = (() => {
   return now.getMonth() >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 })();
 
-// ===== Paddy Purchase Auto Calculations =====
 const calcPaddyFields = (f) => {
   const kg = parseFloat(f.kg) || 0;
   const bag = parseInt(f.bag) || 0;
@@ -37,7 +37,6 @@ const calcPaddyFields = (f) => {
   const cuttingPct = parseFloat(f.cutting_percent) || 0;
   const discDustPoll = parseFloat(f.disc_dust_poll) || 0;
   const rate = parseFloat(f.rate_per_qntl) || 0;
-
   const qntl = Math.round(kg / 100 * 100) / 100;
   const gbw_cut = gDep > 0 ? Math.round(gDep * 0.5 * 100) / 100 : Math.round(bag * 1 * 100) / 100;
   const mill_w = Math.round((kg - gbw_cut) * 100) / 100;
@@ -49,7 +48,6 @@ const calcPaddyFields = (f) => {
   const final_w = Math.round((afterMoisture - cutting - p_pkt_cut - discDustPoll) * 100) / 100;
   const final_qntl = Math.round(final_w / 100 * 100) / 100;
   const total_amount = Math.round(final_qntl * rate * 100) / 100;
-
   return { qntl, gbw_cut, mill_w, p_pkt_cut, moistureCutPct, moistureCut, cutting, final_w, final_qntl, total_amount };
 };
 
@@ -61,6 +59,7 @@ const PaddyPurchase = ({ filters, user }) => {
   const [editId, setEditId] = useState(null);
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
+  const [searchText, setSearchText] = useState("");
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], kms_year: CURRENT_KMS_YEAR, season: "Kharif",
     party_name: "", truck_no: "", rst_no: "", agent_name: "", mandi_name: "",
@@ -83,6 +82,17 @@ const PaddyPurchase = ({ filters, user }) => {
   }, [filters.kms_year, filters.season]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filtered = useMemo(() => {
+    if (!searchText) return items;
+    const s = searchText.toLowerCase();
+    return items.filter(i =>
+      (i.party_name || "").toLowerCase().includes(s) ||
+      (i.mandi_name || "").toLowerCase().includes(s) ||
+      (i.agent_name || "").toLowerCase().includes(s) ||
+      (i.truck_no || "").toLowerCase().includes(s)
+    );
+  }, [items, searchText]);
 
   const resetForm = () => {
     setForm({ date: new Date().toISOString().split('T')[0], kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif",
@@ -146,64 +156,87 @@ const PaddyPurchase = ({ filters, user }) => {
   };
 
   const totals = useMemo(() => {
-    const totalAmt = items.reduce((s, i) => s + (i.total_amount || 0), 0);
-    const totalPaid = items.reduce((s, i) => s + (i.paid_amount || 0), 0);
-    const totalQntl = items.reduce((s, i) => s + (i.final_qntl || 0), 0);
+    const totalAmt = filtered.reduce((s, i) => s + (i.total_amount || 0), 0);
+    const totalPaid = filtered.reduce((s, i) => s + (i.paid_amount || 0), 0);
+    const totalQntl = filtered.reduce((s, i) => s + (i.final_qntl || i.quantity_qntl || 0), 0);
     return { totalAmt: Math.round(totalAmt), totalPaid: Math.round(totalPaid), balance: Math.round(totalAmt - totalPaid), totalQntl: Math.round(totalQntl * 100) / 100 };
-  }, [items]);
+  }, [filtered]);
+
+  const handleExport = (type) => {
+    const p = new URLSearchParams();
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    if (searchText) p.append('search', searchText);
+    downloadFile(`/api/private-paddy/${type}?${p}`, `pvt_paddy.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
+  };
 
   return (
     <div className="space-y-4" data-testid="paddy-purchase-section">
-      {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          ["Total Entries", items.length, "text-white"],
+          ["Total Entries", filtered.length, "text-white"],
           ["Total Qntl", `${totals.totalQntl} Q`, "text-amber-400"],
-          ["Total Amount", `₹${totals.totalAmt.toLocaleString()}`, "text-white"],
-          ["Paid", `₹${totals.totalPaid.toLocaleString()}`, "text-emerald-400"],
-          ["Balance", `₹${totals.balance.toLocaleString()}`, "text-red-400"],
+          ["Total Amount", `Rs.${totals.totalAmt.toLocaleString()}`, "text-white"],
+          ["Paid", `Rs.${totals.totalPaid.toLocaleString()}`, "text-emerald-400"],
+          ["Balance", `Rs.${totals.balance.toLocaleString()}`, "text-red-400"],
         ].map(([label, val, color]) => (
           <Card key={label} className="bg-slate-800 border-slate-700">
             <CardContent className="p-3 text-center">
               <p className="text-[10px] text-slate-400">{label}</p>
-              <p className={`text-lg font-bold ${color}`}>{val}</p>
+              <p className={`text-lg font-bold ${color}`} data-testid={`paddy-summary-${label.toLowerCase().replace(/\s/g,'-')}`}>{val}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="paddy-add-btn">
           <Plus className="w-4 h-4 mr-1" /> Nayi Entry
         </Button>
-        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300">
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="paddy-refresh-btn">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
+        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="paddy-export-pdf">
+          <FileText className="w-4 h-4 mr-1" /> PDF
+        </Button>
+        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="paddy-export-excel">
+          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+        </Button>
+        <div className="relative ml-auto min-w-[200px]">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input value={searchText} onChange={e => setSearchText(e.target.value)}
+            placeholder="Party / Mandi / Agent search..."
+            className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8" data-testid="paddy-search-input" />
+        </div>
       </div>
 
-      {/* Table */}
       <Card className="bg-slate-800 border-slate-700">
         <CardContent className="p-0"><div className="overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="border-slate-700">
-              {['Date', 'Party', 'Truck', 'KG', 'Final Q', 'Rate/Q', 'Total ₹', 'Paid ₹', 'Balance ₹', ''].map(h =>
-                <TableHead key={h} className={`text-slate-300 text-xs ${['KG', 'Final Q', 'Rate/Q', 'Total ₹', 'Paid ₹', 'Balance ₹'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+              {['Date', 'Party', 'Mandi', 'Agent', 'Truck', 'KG', 'Final Q', 'Rate/Q', 'Total Rs', 'Paid Rs', 'Balance Rs', ''].map(h =>
+                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['KG', 'Final Q', 'Rate/Q', 'Total Rs', 'Paid Rs', 'Balance Rs'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
             </TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-              : items.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi entry nahi. "Nayi Entry" click karein.</TableCell></TableRow>
-              : items.map(item => (
+              {loading ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+              : filtered.length === 0 ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Koi entry nahi mili.</TableCell></TableRow>
+              : filtered.map(item => {
+                const fq = item.final_qntl || item.quantity_qntl || 0;
+                const bal = item.balance != null ? item.balance : (item.total_amount || 0) - (item.paid_amount || 0);
+                return (
                 <TableRow key={item.id} className="border-slate-700" data-testid={`paddy-row-${item.id}`}>
-                  <TableCell className="text-white text-xs">{item.date}</TableCell>
+                  <TableCell className="text-white text-xs whitespace-nowrap">{item.date}</TableCell>
                   <TableCell className="text-white font-semibold text-sm">{item.party_name}</TableCell>
+                  <TableCell className="text-cyan-400 text-xs">{item.mandi_name || '-'}</TableCell>
+                  <TableCell className="text-purple-400 text-xs">{item.agent_name || '-'}</TableCell>
                   <TableCell className="text-slate-300 text-xs">{item.truck_no || '-'}</TableCell>
-                  <TableCell className="text-right text-slate-300 text-xs">{item.kg}</TableCell>
-                  <TableCell className="text-right text-amber-400 font-semibold text-sm">{item.final_qntl} Q</TableCell>
-                  <TableCell className="text-right text-slate-300 text-xs">₹{item.rate_per_qntl}</TableCell>
-                  <TableCell className="text-right text-white font-semibold text-sm">₹{(item.total_amount || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-emerald-400 text-sm">₹{(item.paid_amount || 0).toLocaleString()}</TableCell>
-                  <TableCell className={`text-right font-semibold text-sm ${(item.balance || 0) > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                    ₹{(item.balance || 0).toLocaleString()}
+                  <TableCell className="text-right text-slate-300 text-xs">{item.kg || '-'}</TableCell>
+                  <TableCell className="text-right text-amber-400 font-semibold text-sm">{fq} Q</TableCell>
+                  <TableCell className="text-right text-slate-300 text-xs">Rs.{item.rate_per_qntl}</TableCell>
+                  <TableCell className="text-right text-white font-semibold text-sm">Rs.{(item.total_amount || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-right text-emerald-400 text-sm">Rs.{(item.paid_amount || 0).toLocaleString()}</TableCell>
+                  <TableCell className={`text-right font-semibold text-sm ${bal > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`paddy-balance-${item.id}`}>
+                    Rs.{Math.round(bal).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-1 justify-end">
@@ -221,7 +254,7 @@ const PaddyPurchase = ({ filters, user }) => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </div></CardContent>
@@ -260,12 +293,10 @@ const PaddyPurchase = ({ filters, user }) => {
                 <Input value={form.mandi_name} onChange={e => setForm(p => ({ ...p, mandi_name: e.target.value }))} placeholder="Mandi" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pvt-paddy-mandi" />
               </div>
               <div>
-                <Label className="text-amber-400 text-xs font-semibold">Rate / Qntl (₹) *</Label>
-                <Input type="number" step="0.01" value={form.rate_per_qntl} onChange={e => setForm(p => ({ ...p, rate_per_qntl: e.target.value }))} placeholder="₹ per quintal" className="bg-amber-900/30 border-amber-700 text-amber-400 h-8 text-sm font-semibold" data-testid="pvt-paddy-rate" />
+                <Label className="text-amber-400 text-xs font-semibold">Rate / Qntl (Rs.) *</Label>
+                <Input type="number" step="0.01" value={form.rate_per_qntl} onChange={e => setForm(p => ({ ...p, rate_per_qntl: e.target.value }))} placeholder="Rs. per quintal" className="bg-amber-900/30 border-amber-700 text-amber-400 h-8 text-sm font-semibold" data-testid="pvt-paddy-rate" />
               </div>
             </div>
-
-            {/* Weight & Calculations */}
             <Card className="bg-slate-700/50 border-slate-600">
               <CardHeader className="pb-1 pt-2 px-3">
                 <CardTitle className="text-amber-400 text-sm flex items-center gap-2"><Calculator className="w-4 h-4" /> Weight & Auto Calculations</CardTitle>
@@ -329,14 +360,13 @@ const PaddyPurchase = ({ filters, user }) => {
                 </div>
                 <div className="col-span-2">
                   <Label className="text-emerald-400 text-xs font-semibold">Total Amount (Auto)</Label>
-                  <Input value={`₹${calc.total_amount.toLocaleString()} (${calc.final_qntl}Q × ₹${parseFloat(form.rate_per_qntl) || 0}/Q)`} readOnly className="bg-emerald-900/30 border-emerald-700 text-emerald-400 h-8 text-lg font-bold" />
+                  <Input value={`Rs.${calc.total_amount.toLocaleString()} (${calc.final_qntl}Q x Rs.${parseFloat(form.rate_per_qntl) || 0}/Q)`} readOnly className="bg-emerald-900/30 border-emerald-700 text-emerald-400 h-8 text-lg font-bold" />
                 </div>
               </CardContent>
             </Card>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-slate-300 text-xs">Advance Paid (₹)</Label>
+                <Label className="text-slate-300 text-xs">Advance Paid (Rs.)</Label>
                 <Input type="number" value={form.paid_amount} onChange={e => setForm(p => ({ ...p, paid_amount: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pvt-paddy-paid" />
               </div>
               <div>
@@ -344,7 +374,6 @@ const PaddyPurchase = ({ filters, user }) => {
                 <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pvt-paddy-remark" />
               </div>
             </div>
-
             <div className="flex gap-2 justify-end pt-2">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="border-slate-600 text-slate-300">Cancel</Button>
               <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold" data-testid="pvt-paddy-submit">{editId ? "Update" : "Save"}</Button>
@@ -359,12 +388,12 @@ const PaddyPurchase = ({ filters, user }) => {
           <DialogHeader><DialogTitle className="text-emerald-400">Payment - {payDialog.item?.party_name}</DialogTitle></DialogHeader>
           {payDialog.item && (
             <div className="text-xs text-slate-400 mb-2">
-              Total: ₹{payDialog.item.total_amount?.toLocaleString()} | Paid: ₹{payDialog.item.paid_amount?.toLocaleString()} | <span className="text-red-400">Balance: ₹{payDialog.item.balance?.toLocaleString()}</span>
+              Total: Rs.{payDialog.item.total_amount?.toLocaleString()} | Paid: Rs.{payDialog.item.paid_amount?.toLocaleString()} | <span className="text-red-400">Balance: Rs.{((payDialog.item.total_amount || 0) - (payDialog.item.paid_amount || 0)).toLocaleString()}</span>
             </div>
           )}
           <form onSubmit={handlePayment} className="space-y-3">
             <div><Label className="text-xs text-slate-400">Date</Label><Input type="date" value={payForm.date} onChange={e => setPayForm(p => ({ ...p, date: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
-            <div><Label className="text-xs text-slate-400">Amount (₹)</Label><Input type="number" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="paddy-pay-amount" /></div>
+            <div><Label className="text-xs text-slate-400">Amount (Rs.)</Label><Input type="number" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="paddy-pay-amount" /></div>
             <div><Label className="text-xs text-slate-400">Mode</Label>
               <Select value={payForm.mode} onValueChange={v => setPayForm(p => ({ ...p, mode: v }))}>
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm"><SelectValue /></SelectTrigger>
@@ -391,6 +420,7 @@ const RiceSale = ({ filters, user }) => {
   const [editId, setEditId] = useState(null);
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
+  const [searchText, setSearchText] = useState("");
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], kms_year: CURRENT_KMS_YEAR, season: "Kharif",
     party_name: "", rice_type: "Usna", quantity_qntl: "", rate_per_qntl: "", bags: "", truck_no: "",
@@ -416,6 +446,16 @@ const RiceSale = ({ filters, user }) => {
   }, [filters.kms_year, filters.season]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filtered = useMemo(() => {
+    if (!searchText) return items;
+    const s = searchText.toLowerCase();
+    return items.filter(i =>
+      (i.party_name || "").toLowerCase().includes(s) ||
+      (i.truck_no || "").toLowerCase().includes(s) ||
+      (i.rice_type || "").toLowerCase().includes(s)
+    );
+  }, [items, searchText]);
 
   const resetForm = () => {
     setForm({ date: new Date().toISOString().split('T')[0], kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif",
@@ -476,63 +516,83 @@ const RiceSale = ({ filters, user }) => {
   };
 
   const totals = useMemo(() => {
-    const totalAmt = items.reduce((s, i) => s + (i.total_amount || 0), 0);
-    const totalPaid = items.reduce((s, i) => s + (i.paid_amount || 0), 0);
-    const totalQntl = items.reduce((s, i) => s + (i.quantity_qntl || 0), 0);
+    const totalAmt = filtered.reduce((s, i) => s + (i.total_amount || 0), 0);
+    const totalPaid = filtered.reduce((s, i) => s + (i.paid_amount || 0), 0);
+    const totalQntl = filtered.reduce((s, i) => s + (i.quantity_qntl || 0), 0);
     return { totalAmt: Math.round(totalAmt), totalPaid: Math.round(totalPaid), balance: Math.round(totalAmt - totalPaid), totalQntl: Math.round(totalQntl * 100) / 100 };
-  }, [items]);
+  }, [filtered]);
+
+  const handleExport = (type) => {
+    const p = new URLSearchParams();
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    if (searchText) p.append('search', searchText);
+    downloadFile(`/api/rice-sales/${type}?${p}`, `rice_sales.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
+  };
 
   return (
     <div className="space-y-4" data-testid="rice-sale-section">
-      {/* Summary */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          ["Total Entries", items.length, "text-white"],
+          ["Total Entries", filtered.length, "text-white"],
           ["Total Qntl", `${totals.totalQntl} Q`, "text-amber-400"],
-          ["Total Amount", `₹${totals.totalAmt.toLocaleString()}`, "text-white"],
-          ["Received", `₹${totals.totalPaid.toLocaleString()}`, "text-emerald-400"],
-          ["Balance", `₹${totals.balance.toLocaleString()}`, "text-red-400"],
+          ["Total Amount", `Rs.${totals.totalAmt.toLocaleString()}`, "text-white"],
+          ["Received", `Rs.${totals.totalPaid.toLocaleString()}`, "text-emerald-400"],
+          ["Balance", `Rs.${totals.balance.toLocaleString()}`, "text-red-400"],
         ].map(([label, val, color]) => (
           <Card key={label} className="bg-slate-800 border-slate-700">
             <CardContent className="p-3 text-center">
               <p className="text-[10px] text-slate-400">{label}</p>
-              <p className={`text-lg font-bold ${color}`}>{val}</p>
+              <p className={`text-lg font-bold ${color}`} data-testid={`rice-summary-${label.toLowerCase().replace(/\s/g,'-')}`}>{val}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="bg-emerald-500 hover:bg-emerald-600 text-white" size="sm" data-testid="rice-add-btn">
           <Plus className="w-4 h-4 mr-1" /> Nayi Sale Entry
         </Button>
-        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300">
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="rice-refresh-btn">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
+        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="rice-export-pdf">
+          <FileText className="w-4 h-4 mr-1" /> PDF
+        </Button>
+        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="rice-export-excel">
+          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+        </Button>
+        <div className="relative ml-auto min-w-[200px]">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input value={searchText} onChange={e => setSearchText(e.target.value)}
+            placeholder="Party / Type search..."
+            className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8" data-testid="rice-search-input" />
+        </div>
       </div>
 
-      {/* Table */}
       <Card className="bg-slate-800 border-slate-700">
         <CardContent className="p-0"><div className="overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="border-slate-700">
-              {['Date', 'Party', 'Type', 'Qntl', 'Rate/Q', 'Total ₹', 'Received ₹', 'Balance ₹', 'Truck', ''].map(h =>
-                <TableHead key={h} className={`text-slate-300 text-xs ${['Qntl', 'Rate/Q', 'Total ₹', 'Received ₹', 'Balance ₹'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+              {['Date', 'Party', 'Type', 'Qntl', 'Rate/Q', 'Total Rs', 'Received Rs', 'Balance Rs', 'Truck', ''].map(h =>
+                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Qntl', 'Rate/Q', 'Total Rs', 'Received Rs', 'Balance Rs'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
             </TableRow></TableHeader>
             <TableBody>
               {loading ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-              : items.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi sale nahi. "Nayi Sale Entry" click karein.</TableCell></TableRow>
-              : items.map(item => (
+              : filtered.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi sale nahi mili.</TableCell></TableRow>
+              : filtered.map(item => {
+                const bal = item.balance != null ? item.balance : (item.total_amount || 0) - (item.paid_amount || 0);
+                return (
                 <TableRow key={item.id} className="border-slate-700" data-testid={`rice-row-${item.id}`}>
-                  <TableCell className="text-white text-xs">{item.date}</TableCell>
+                  <TableCell className="text-white text-xs whitespace-nowrap">{item.date}</TableCell>
                   <TableCell className="text-white font-semibold text-sm">{item.party_name}</TableCell>
                   <TableCell><span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-900/40 text-amber-400">{item.rice_type}</span></TableCell>
                   <TableCell className="text-right text-amber-400 font-semibold text-sm">{item.quantity_qntl} Q</TableCell>
-                  <TableCell className="text-right text-slate-300 text-xs">₹{item.rate_per_qntl}</TableCell>
-                  <TableCell className="text-right text-white font-semibold text-sm">₹{(item.total_amount || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-emerald-400 text-sm">₹{(item.paid_amount || 0).toLocaleString()}</TableCell>
-                  <TableCell className={`text-right font-semibold text-sm ${(item.balance || 0) > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                    ₹{(item.balance || 0).toLocaleString()}
+                  <TableCell className="text-right text-slate-300 text-xs">Rs.{item.rate_per_qntl}</TableCell>
+                  <TableCell className="text-right text-white font-semibold text-sm">Rs.{(item.total_amount || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-right text-emerald-400 text-sm">Rs.{(item.paid_amount || 0).toLocaleString()}</TableCell>
+                  <TableCell className={`text-right font-semibold text-sm ${bal > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`rice-balance-${item.id}`}>
+                    Rs.{Math.round(bal).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-slate-300 text-xs">{item.truck_no || '-'}</TableCell>
                   <TableCell className="text-right">
@@ -551,7 +611,7 @@ const RiceSale = ({ filters, user }) => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </div></CardContent>
@@ -585,7 +645,7 @@ const RiceSale = ({ filters, user }) => {
                 <Input type="number" step="0.01" value={form.quantity_qntl} onChange={e => setForm(p => ({ ...p, quantity_qntl: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="rice-form-qty" />
               </div>
               <div>
-                <Label className="text-xs text-slate-400">Rate / Qntl (₹) *</Label>
+                <Label className="text-xs text-slate-400">Rate / Qntl (Rs.) *</Label>
                 <Input type="number" step="0.01" value={form.rate_per_qntl} onChange={e => setForm(p => ({ ...p, rate_per_qntl: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="rice-form-rate" />
               </div>
             </div>
@@ -599,12 +659,12 @@ const RiceSale = ({ filters, user }) => {
                 <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="rice-form-truck" />
               </div>
               <div>
-                <Label className="text-xs text-slate-400">Advance Received (₹)</Label>
+                <Label className="text-xs text-slate-400">Advance Received (Rs.)</Label>
                 <Input type="number" value={form.paid_amount} onChange={e => setForm(p => ({ ...p, paid_amount: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="rice-form-paid" />
               </div>
             </div>
             <div>
-              <Label className="text-emerald-400 text-sm font-bold">Total: ₹{riceTotal.toLocaleString()}</Label>
+              <Label className="text-emerald-400 text-sm font-bold">Total: Rs.{riceTotal.toLocaleString()}</Label>
             </div>
             <div>
               <Label className="text-xs text-slate-400">Remark</Label>
@@ -624,12 +684,12 @@ const RiceSale = ({ filters, user }) => {
           <DialogHeader><DialogTitle className="text-emerald-400">Payment Received - {payDialog.item?.party_name}</DialogTitle></DialogHeader>
           {payDialog.item && (
             <div className="text-xs text-slate-400 mb-2">
-              Total: ₹{payDialog.item.total_amount?.toLocaleString()} | Received: ₹{payDialog.item.paid_amount?.toLocaleString()} | <span className="text-red-400">Balance: ₹{payDialog.item.balance?.toLocaleString()}</span>
+              Total: Rs.{payDialog.item.total_amount?.toLocaleString()} | Received: Rs.{payDialog.item.paid_amount?.toLocaleString()} | <span className="text-red-400">Balance: Rs.{((payDialog.item.total_amount || 0) - (payDialog.item.paid_amount || 0)).toLocaleString()}</span>
             </div>
           )}
           <form onSubmit={handlePayment} className="space-y-3">
             <div><Label className="text-xs text-slate-400">Date</Label><Input type="date" value={payForm.date} onChange={e => setPayForm(p => ({ ...p, date: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
-            <div><Label className="text-xs text-slate-400">Amount (₹)</Label><Input type="number" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="rice-pay-amount" /></div>
+            <div><Label className="text-xs text-slate-400">Amount (Rs.)</Label><Input type="number" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="rice-pay-amount" /></div>
             <div><Label className="text-xs text-slate-400">Mode</Label>
               <Select value={payForm.mode} onValueChange={v => setPayForm(p => ({ ...p, mode: v }))}>
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm"><SelectValue /></SelectTrigger>
@@ -659,13 +719,13 @@ export default function PrivateTrading({ filters, user }) {
           variant={activeTab === "paddy" ? "default" : "ghost"} size="sm"
           className={activeTab === "paddy" ? "bg-amber-500 hover:bg-amber-600 text-slate-900" : "text-slate-300 hover:bg-slate-700"}
           data-testid="tab-pvt-paddy">
-          <Wheat className="w-4 h-4 mr-1" /> Paddy Purchase / धान खरीदी
+          <Wheat className="w-4 h-4 mr-1" /> Paddy Purchase
         </Button>
         <Button onClick={() => setActiveTab("rice")}
           variant={activeTab === "rice" ? "default" : "ghost"} size="sm"
           className={activeTab === "rice" ? "bg-emerald-500 hover:bg-emerald-600 text-white" : "text-slate-300 hover:bg-slate-700"}
           data-testid="tab-pvt-rice">
-          <ShoppingCart className="w-4 h-4 mr-1" /> Rice Sale / चावल बिक्री
+          <ShoppingCart className="w-4 h-4 mr-1" /> Rice Sale
         </Button>
       </div>
 

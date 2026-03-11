@@ -45,6 +45,34 @@
       {"field": "godown_name", "header": "Godown", "pdf_header": "Godown", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 20}
     ]
   },
+  "private_paddy_report": {
+    "columns": [
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
+      {"field": "party_name", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 28},
+      {"field": "mandi_name", "header": "Mandi", "pdf_header": "Mandi", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
+      {"field": "agent_name", "header": "Agent", "pdf_header": "Agent", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
+      {"field": "truck_no", "header": "Truck No", "pdf_header": "Truck", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
+      {"field": "kg", "header": "KG", "pdf_header": "KG", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_kg"},
+      {"field": "final_qntl", "header": "Final Q", "pdf_header": "Final Q", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_final_qntl"},
+      {"field": "rate_per_qntl", "header": "Rate/Q", "pdf_header": "Rate", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16},
+      {"field": "total_amount", "header": "Total Rs", "pdf_header": "Total", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_amount"},
+      {"field": "paid_amount", "header": "Paid Rs", "pdf_header": "Paid", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_paid"},
+      {"field": "balance", "header": "Balance Rs", "pdf_header": "Balance", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_balance"}
+    ]
+  },
+  "rice_sales_report": {
+    "columns": [
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
+      {"field": "party_name", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 30},
+      {"field": "rice_type", "header": "Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 10, "width_pdf_mm": 16},
+      {"field": "quantity_qntl", "header": "Qntl", "pdf_header": "Qntl", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_qntl"},
+      {"field": "rate_per_qntl", "header": "Rate/Q", "pdf_header": "Rate", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16},
+      {"field": "total_amount", "header": "Total Rs", "pdf_header": "Total", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_amount"},
+      {"field": "paid_amount", "header": "Received Rs", "pdf_header": "Rcvd", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_paid"},
+      {"field": "balance", "header": "Balance Rs", "pdf_header": "Balance", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_balance"},
+      {"field": "truck_no", "header": "Truck", "pdf_header": "Truck", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 20}
+    ]
+  },
   "msp_payments_report": {
     "columns": [
       {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},

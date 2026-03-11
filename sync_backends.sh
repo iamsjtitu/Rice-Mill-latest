@@ -22,6 +22,7 @@ ROUTES_TO_SYNC=(
     "routes/telegram.js"
     "routes/pdf_helpers.js"
     "routes/safe_handler.js"
+    "routes/private_trading.js"
 )
 
 SYNCED=0

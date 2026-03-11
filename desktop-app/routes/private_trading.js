@@ -1,5 +1,6 @@
 const express = require('express');
 const { safeSync } = require('./safe_handler');
+const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../../shared/report_helper');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -158,6 +159,148 @@ module.exports = function(database) {
       database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== pay.id);
     }
     database.data.private_payments.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
+  }));
+
+  // ===== EXPORT: Private Paddy Excel =====
+  router.get('/api/private-paddy/excel', safeSync((req, res) => {
+    const ExcelJS = require('exceljs');
+    if (!database.data.private_paddy) database.data.private_paddy = [];
+    const { kms_year, season, search } = req.query;
+    let items = [...database.data.private_paddy];
+    if (kms_year) items = items.filter(i => i.kms_year === kms_year);
+    if (season) items = items.filter(i => i.season === season);
+    if (search) {
+      const s = search.toLowerCase();
+      items = items.filter(i => (i.party_name||'').toLowerCase().includes(s) || (i.mandi_name||'').toLowerCase().includes(s) || (i.agent_name||'').toLowerCase().includes(s));
+    }
+    items.forEach(i => { if (!i.final_qntl && i.quantity_qntl) i.final_qntl = i.quantity_qntl; if (!i.balance) i.balance = Math.round(((i.total_amount||0)-(i.paid_amount||0))*100)/100; });
+    items.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
+    const cols = getColumns('private_paddy_report');
+    const headers = getExcelHeaders(cols);
+    const widths = getExcelWidths(cols);
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Pvt Paddy');
+    let title = 'Private Paddy Purchase'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
+    ws.mergeCells(1, 1, 1, cols.length); ws.getCell('A1').value = title; ws.getCell('A1').font = { bold: true, size: 14 };
+    headers.forEach((h, i) => { const c = ws.getCell(3, i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }; });
+    const totals = { total_kg: 0, total_final_qntl: 0, total_amount: 0, total_paid: 0, total_balance: 0 };
+    items.forEach((item, idx) => {
+      const vals = getEntryRow(item, cols);
+      vals.forEach((v, ci) => ws.getCell(4+idx, ci+1).value = v);
+      totals.total_kg += item.kg || 0; totals.total_final_qntl += item.final_qntl || 0;
+      totals.total_amount += item.total_amount || 0; totals.total_paid += item.paid_amount || 0; totals.total_balance += item.balance || 0;
+    });
+    Object.keys(totals).forEach(k => totals[k] = Math.round(totals[k]*100)/100);
+    const trow = 4 + items.length;
+    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true };
+    const totalVals = getTotalRow(totals, cols);
+    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true }; } });
+    widths.forEach((w, i) => ws.getColumn(i+1).width = w);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=pvt_paddy.xlsx');
+    wb.xlsx.write(res).then(() => res.end());
+  }));
+
+  // ===== EXPORT: Private Paddy PDF =====
+  router.get('/api/private-paddy/pdf', safeSync((req, res) => {
+    const PDFDocument = require('pdfkit');
+    if (!database.data.private_paddy) database.data.private_paddy = [];
+    const { kms_year, season, search } = req.query;
+    let items = [...database.data.private_paddy];
+    if (kms_year) items = items.filter(i => i.kms_year === kms_year);
+    if (season) items = items.filter(i => i.season === season);
+    if (search) {
+      const s = search.toLowerCase();
+      items = items.filter(i => (i.party_name||'').toLowerCase().includes(s) || (i.mandi_name||'').toLowerCase().includes(s) || (i.agent_name||'').toLowerCase().includes(s));
+    }
+    items.forEach(i => { if (!i.final_qntl && i.quantity_qntl) i.final_qntl = i.quantity_qntl; if (!i.balance) i.balance = Math.round(((i.total_amount||0)-(i.paid_amount||0))*100)/100; });
+    items.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
+    const cols = getColumns('private_paddy_report');
+    const headers = getPdfHeaders(cols);
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=pvt_paddy.pdf');
+    doc.pipe(res);
+    let title = 'Private Paddy Purchase'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
+    doc.fontSize(14).fillColor('#D97706').text(title, { align: 'center' }); doc.moveDown(0.5);
+    doc.fontSize(7).fillColor('#333');
+    const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
+    let y = doc.y;
+    headers.forEach((h, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.fillColor('#1E293B').rect(x, y, colW[i], 14).fill(); doc.fillColor('#FFF').text(h, x+2, y+3, { width: colW[i]-4 }); });
+    y += 16; doc.fillColor('#333');
+    items.forEach(item => {
+      const vals = getEntryRow(item, cols);
+      vals.forEach((v, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.text(String(v), x+2, y+2, { width: colW[i]-4 }); });
+      y += 14; if (y > 560) { doc.addPage(); y = 20; }
+    });
+    doc.end();
+  }));
+
+  // ===== EXPORT: Rice Sales Excel =====
+  router.get('/api/rice-sales/excel', safeSync((req, res) => {
+    const ExcelJS = require('exceljs');
+    if (!database.data.rice_sales) database.data.rice_sales = [];
+    const { kms_year, season, search } = req.query;
+    let items = [...database.data.rice_sales];
+    if (kms_year) items = items.filter(i => i.kms_year === kms_year);
+    if (season) items = items.filter(i => i.season === season);
+    if (search) { const s = search.toLowerCase(); items = items.filter(i => (i.party_name||'').toLowerCase().includes(s)); }
+    items.forEach(i => { if (!i.balance) i.balance = Math.round(((i.total_amount||0)-(i.paid_amount||0))*100)/100; });
+    items.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
+    const cols = getColumns('rice_sales_report');
+    const headers = getExcelHeaders(cols);
+    const widths = getExcelWidths(cols);
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Rice Sales');
+    let title = 'Rice Sales Report'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
+    ws.mergeCells(1, 1, 1, cols.length); ws.getCell('A1').value = title; ws.getCell('A1').font = { bold: true, size: 14 };
+    headers.forEach((h, i) => { const c = ws.getCell(3, i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065F46' } }; });
+    const totals = { total_qntl: 0, total_amount: 0, total_paid: 0, total_balance: 0 };
+    items.forEach((item, idx) => {
+      const vals = getEntryRow(item, cols);
+      vals.forEach((v, ci) => ws.getCell(4+idx, ci+1).value = v);
+      totals.total_qntl += item.quantity_qntl || 0; totals.total_amount += item.total_amount || 0;
+      totals.total_paid += item.paid_amount || 0; totals.total_balance += item.balance || 0;
+    });
+    Object.keys(totals).forEach(k => totals[k] = Math.round(totals[k]*100)/100);
+    const trow = 4 + items.length;
+    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true };
+    const totalVals = getTotalRow(totals, cols);
+    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true }; } });
+    widths.forEach((w, i) => ws.getColumn(i+1).width = w);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=rice_sales.xlsx');
+    wb.xlsx.write(res).then(() => res.end());
+  }));
+
+  // ===== EXPORT: Rice Sales PDF =====
+  router.get('/api/rice-sales/pdf', safeSync((req, res) => {
+    const PDFDocument = require('pdfkit');
+    if (!database.data.rice_sales) database.data.rice_sales = [];
+    const { kms_year, season, search } = req.query;
+    let items = [...database.data.rice_sales];
+    if (kms_year) items = items.filter(i => i.kms_year === kms_year);
+    if (season) items = items.filter(i => i.season === season);
+    if (search) { const s = search.toLowerCase(); items = items.filter(i => (i.party_name||'').toLowerCase().includes(s)); }
+    items.forEach(i => { if (!i.balance) i.balance = Math.round(((i.total_amount||0)-(i.paid_amount||0))*100)/100; });
+    items.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
+    const cols = getColumns('rice_sales_report');
+    const headers = getPdfHeaders(cols);
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=rice_sales.pdf');
+    doc.pipe(res);
+    let title = 'Rice Sales Report'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
+    doc.fontSize(14).fillColor('#065F46').text(title, { align: 'center' }); doc.moveDown(0.5);
+    doc.fontSize(7).fillColor('#333');
+    const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
+    let y = doc.y;
+    headers.forEach((h, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.fillColor('#065F46').rect(x, y, colW[i], 14).fill(); doc.fillColor('#FFF').text(h, x+2, y+3, { width: colW[i]-4 }); });
+    y += 16; doc.fillColor('#333');
+    items.forEach(item => {
+      const vals = getEntryRow(item, cols);
+      vals.forEach((v, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.text(String(v), x+2, y+2, { width: colW[i]-4 }); });
+      y += 14; if (y > 560) { doc.addPage(); y = 20; }
+    });
+    doc.end();
   }));
 
   return router;

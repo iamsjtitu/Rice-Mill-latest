@@ -4,10 +4,14 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
-import uuid, io, csv
+import uuid
+import io
+import csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+
+from utils.report_helper import get_columns, get_entry_row, get_total_row, get_excel_headers, get_pdf_headers, get_excel_widths, get_pdf_widths_mm, col_count
 
 router = APIRouter()
 
@@ -226,5 +230,300 @@ async def delete_private_payment(pay_id: str):
     await db.cash_transactions.delete_many({"linked_payment_id": pay_id})
     await db.private_payments.delete_one({"id": pay_id})
     return {"message": "Deleted", "id": pay_id}
+
+
+# ============ EXPORT: Private Paddy PDF/Excel ============
+
+@router.get("/private-paddy/excel")
+async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+    from io import BytesIO
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    items = await db.private_paddy.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    if search:
+        s = search.lower()
+        items = [i for i in items if s in (i.get("party_name","")).lower() or s in (i.get("mandi_name","")).lower() or s in (i.get("agent_name","")).lower()]
+    # Normalize fields for agent_extra entries
+    for item in items:
+        if not item.get("final_qntl") and item.get("quantity_qntl"):
+            item["final_qntl"] = item["quantity_qntl"]
+        if not item.get("balance"):
+            item["balance"] = round((item.get("total_amount", 0) or 0) - (item.get("paid_amount", 0) or 0), 2)
+
+    cols = get_columns("private_paddy_report")
+    ncols = col_count(cols)
+    headers = get_excel_headers(cols)
+    widths = get_excel_widths(cols)
+
+    wb = Workbook(); ws = wb.active; ws.title = "Pvt Paddy Purchase"
+    hf = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
+    hfont = Font(bold=True, color="FFFFFF", size=9)
+    tf = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+    title = "Private Paddy Purchase"
+    if kms_year: title += f" | KMS: {kms_year}"
+    if season: title += f" | {season}"
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+    ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14, color="D97706"); ws['A1'].alignment = Alignment(horizontal='center')
+
+    # Headers row 3
+    for col_idx, h in enumerate(headers, 1):
+        c = ws.cell(row=3, column=col_idx, value=h)
+        c.fill = hf; c.font = hfont; c.alignment = Alignment(horizontal='center'); c.border = tb
+
+    row = 4
+    totals = {"total_kg": 0, "total_final_qntl": 0, "total_amount": 0, "total_paid": 0, "total_balance": 0}
+    for item in items:
+        vals = get_entry_row(item, cols)
+        for col_idx, v in enumerate(vals, 1):
+            c = ws.cell(row=row, column=col_idx, value=v)
+            c.border = tb
+            if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
+        totals["total_kg"] += item.get("kg", 0) or 0
+        totals["total_final_qntl"] += item.get("final_qntl", 0) or 0
+        totals["total_amount"] += item.get("total_amount", 0) or 0
+        totals["total_paid"] += item.get("paid_amount", 0) or 0
+        totals["total_balance"] += item.get("balance", 0) or 0
+        row += 1
+
+    # Totals row
+    for k in totals: totals[k] = round(totals[k], 2)
+    total_vals = get_total_row(totals, cols)
+    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
+    for col_idx, val in enumerate(total_vals, 1):
+        if val is not None:
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
+
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=pvt_paddy_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+
+@router.get("/private-paddy/pdf")
+async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER
+    from io import BytesIO
+
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    items = await db.private_paddy.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    if search:
+        s = search.lower()
+        items = [i for i in items if s in (i.get("party_name","")).lower() or s in (i.get("mandi_name","")).lower() or s in (i.get("agent_name","")).lower()]
+    for item in items:
+        if not item.get("final_qntl") and item.get("quantity_qntl"):
+            item["final_qntl"] = item["quantity_qntl"]
+        if not item.get("balance"):
+            item["balance"] = round((item.get("total_amount", 0) or 0) - (item.get("paid_amount", 0) or 0), 2)
+
+    cols = get_columns("private_paddy_report")
+    ncols = col_count(cols)
+    headers = get_pdf_headers(cols)
+    col_widths = [w*mm for w in get_pdf_widths_mm(cols)]
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
+    elements = []; styles = getSampleStyleSheet()
+
+    title = "Private Paddy Purchase"
+    if kms_year: title += f" | KMS: {kms_year}"
+    if season: title += f" | {season}"
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#D97706'), alignment=TA_CENTER)
+    elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
+
+    table_data = [headers]
+    totals = {"total_kg": 0, "total_final_qntl": 0, "total_amount": 0, "total_paid": 0, "total_balance": 0}
+    for item in items:
+        table_data.append([str(v) for v in get_entry_row(item, cols)])
+        totals["total_kg"] += item.get("kg", 0) or 0
+        totals["total_final_qntl"] += item.get("final_qntl", 0) or 0
+        totals["total_amount"] += item.get("total_amount", 0) or 0
+        totals["total_paid"] += item.get("paid_amount", 0) or 0
+        totals["total_balance"] += item.get("balance", 0) or 0
+    for k in totals: totals[k] = round(totals[k], 2)
+    total_vals = get_total_row(totals, cols)
+    total_row = []
+    for i, val in enumerate(total_vals):
+        if i == 0: total_row.append("TOTAL")
+        elif val is not None: total_row.append(str(val))
+        else: total_row.append("")
+    table_data.append(total_row)
+
+    first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 2)
+    tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+    ]
+    for i in range(1, len(table_data) - 1):
+        if i % 2 == 0: style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F1F5F9')))
+    tbl.setStyle(TableStyle(style_cmds))
+    elements.append(tbl)
+    doc.build(elements); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=pvt_paddy_{datetime.now().strftime('%Y%m%d')}.pdf"})
+
+
+@router.get("/rice-sales/excel")
+async def export_rice_sales_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+    from io import BytesIO
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    items = await db.rice_sales.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    if search:
+        s = search.lower()
+        items = [i for i in items if s in (i.get("party_name","")).lower()]
+    for item in items:
+        if not item.get("balance"):
+            item["balance"] = round((item.get("total_amount", 0) or 0) - (item.get("paid_amount", 0) or 0), 2)
+
+    cols = get_columns("rice_sales_report")
+    ncols = col_count(cols)
+    headers = get_excel_headers(cols)
+    widths = get_excel_widths(cols)
+
+    wb = Workbook(); ws = wb.active; ws.title = "Rice Sales"
+    hf = PatternFill(start_color="065F46", end_color="065F46", fill_type="solid")
+    hfont = Font(bold=True, color="FFFFFF", size=9)
+    tf = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+    title = "Rice Sales Report"
+    if kms_year: title += f" | KMS: {kms_year}"
+    if season: title += f" | {season}"
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+    ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14, color="065F46"); ws['A1'].alignment = Alignment(horizontal='center')
+
+    for col_idx, h in enumerate(headers, 1):
+        c = ws.cell(row=3, column=col_idx, value=h)
+        c.fill = hf; c.font = hfont; c.alignment = Alignment(horizontal='center'); c.border = tb
+
+    row = 4
+    totals = {"total_qntl": 0, "total_amount": 0, "total_paid": 0, "total_balance": 0}
+    for item in items:
+        vals = get_entry_row(item, cols)
+        for col_idx, v in enumerate(vals, 1):
+            c = ws.cell(row=row, column=col_idx, value=v)
+            c.border = tb
+            if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
+        totals["total_qntl"] += item.get("quantity_qntl", 0) or 0
+        totals["total_amount"] += item.get("total_amount", 0) or 0
+        totals["total_paid"] += item.get("paid_amount", 0) or 0
+        totals["total_balance"] += item.get("balance", 0) or 0
+        row += 1
+
+    for k in totals: totals[k] = round(totals[k], 2)
+    total_vals = get_total_row(totals, cols)
+    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
+    for col_idx, val in enumerate(total_vals, 1):
+        if val is not None:
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
+
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=rice_sales_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+
+@router.get("/rice-sales/pdf")
+async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER
+    from io import BytesIO
+
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    items = await db.rice_sales.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    if search:
+        s = search.lower()
+        items = [i for i in items if s in (i.get("party_name","")).lower()]
+    for item in items:
+        if not item.get("balance"):
+            item["balance"] = round((item.get("total_amount", 0) or 0) - (item.get("paid_amount", 0) or 0), 2)
+
+    cols = get_columns("rice_sales_report")
+    ncols = col_count(cols)
+    headers = get_pdf_headers(cols)
+    col_widths = [w*mm for w in get_pdf_widths_mm(cols)]
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
+    elements = []; styles = getSampleStyleSheet()
+
+    title = "Rice Sales Report"
+    if kms_year: title += f" | KMS: {kms_year}"
+    if season: title += f" | {season}"
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#065F46'), alignment=TA_CENTER)
+    elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
+
+    table_data = [headers]
+    totals = {"total_qntl": 0, "total_amount": 0, "total_paid": 0, "total_balance": 0}
+    for item in items:
+        table_data.append([str(v) for v in get_entry_row(item, cols)])
+        totals["total_qntl"] += item.get("quantity_qntl", 0) or 0
+        totals["total_amount"] += item.get("total_amount", 0) or 0
+        totals["total_paid"] += item.get("paid_amount", 0) or 0
+        totals["total_balance"] += item.get("balance", 0) or 0
+    for k in totals: totals[k] = round(totals[k], 2)
+    total_vals = get_total_row(totals, cols)
+    total_row = []
+    for i, val in enumerate(total_vals):
+        if i == 0: total_row.append("TOTAL")
+        elif val is not None: total_row.append(str(val))
+        else: total_row.append("")
+    table_data.append(total_row)
+
+    first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 2)
+    tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#065F46')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#D1FAE5')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+    ]
+    for i in range(1, len(table_data) - 1):
+        if i % 2 == 0: style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F1F5F9')))
+    tbl.setStyle(TableStyle(style_cmds))
+    elements.append(tbl)
+    doc.build(elements); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=rice_sales_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
 
