@@ -316,7 +316,13 @@ async def export_party_ledger_excel(party_name: Optional[str] = None, party_type
     ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
     ws.cell(row=row, column=5, value=data["total_debit"]).font = Font(bold=True)
     ws.cell(row=row, column=6, value=data["total_credit"]).font = Font(bold=True)
-    for letter in ['A','B','C','D','E','F','G']: ws.column_dimensions[letter].width = 18
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['B'].width = 22
+    ws.column_dimensions['C'].width = 14
+    ws.column_dimensions['D'].width = 50
+    ws.column_dimensions['E'].width = 14
+    ws.column_dimensions['F'].width = 14
+    ws.column_dimensions['G'].width = 10
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=party_ledger_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -338,15 +344,22 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
     title = "Party Ledger"
     if party_name: title += f" - {party_name}"
     elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT
+    desc_style = ParagraphStyle('desc', fontName='Helvetica', fontSize=6.5, leading=8, alignment=TA_LEFT)
+    party_style = ParagraphStyle('party', fontName='Helvetica', fontSize=6.5, leading=8, alignment=TA_LEFT)
+    
     tdata = [['Date', 'Party', 'Type', 'Description', 'Debit(₹)', 'Credit(₹)', 'Ref']]
     for l in data["ledger"]:
-        tdata.append([l["date"], l["party_name"][:18], l["party_type"], l["description"][:25],
+        tdata.append([l["date"], Paragraph(l["party_name"], party_style), l["party_type"],
+            Paragraph(l["description"], desc_style),
             l["debit"] if l["debit"] > 0 else '-', l["credit"] if l["credit"] > 0 else '-', l["ref"]])
     tdata.append(['TOTAL', '', '', '', data["total_debit"], data["total_credit"], ''])
-    table = RLTable(tdata, colWidths=[50, 80, 50, 120, 55, 55, 45], repeatRows=1)
+    table = RLTable(tdata, colWidths=[48, 90, 50, 220, 55, 55, 40], repeatRows=1)
     table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1a365d')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,-1),7),('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-        ('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('ALIGN',(4,0),(5,-1),'RIGHT')]))
+        ('FONTSIZE',(0,0),(-1,0),7),('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
+        ('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('ALIGN',(4,0),(5,-1),'RIGHT'),
+        ('VALIGN',(0,0),(-1,-1),'TOP'),('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2)]))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=party_ledger_{datetime.now().strftime('%Y%m%d')}.pdf"})

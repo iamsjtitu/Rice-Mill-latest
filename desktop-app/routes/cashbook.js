@@ -153,7 +153,7 @@ module.exports = function(database) {
         { header: 'Date', key: 'date', width: 12 }, { header: 'Account', key: 'account', width: 10 },
         { header: 'Type', key: 'type', width: 10 }, { header: 'Party / पार्टी', key: 'category', width: 18 },
         { header: 'Party Type', key: 'party_type', width: 14 },
-        { header: 'Description', key: 'description', width: 24 }, { header: 'Jama (Rs.)', key: 'jama', width: 14 },
+        { header: 'Description', key: 'description', width: 45 }, { header: 'Jama (Rs.)', key: 'jama', width: 14 },
         { header: 'Nikasi (Rs.)', key: 'nikasi', width: 14 }, { header: 'Balance (Rs.)', key: 'balance', width: 14 },
         { header: 'Reference', key: 'reference', width: 16 }
       ];
@@ -199,13 +199,13 @@ module.exports = function(database) {
         runBal += jama - nikasi;
         const acctLabel = t.account==='ledger'?'Ledger':(t.account==='cash'?'Cash':'Bank');
         return [fmtDate(t.date), acctLabel, t.txn_type==='jama'?'Jama':'Nikasi',
-          (t.category||'').substring(0,18), (t.party_type||'').substring(0,12), (t.description||'').substring(0,22),
+          t.category||'', t.party_type||'', t.description||'',
           t.txn_type==='jama'?t.amount:'-', t.txn_type==='nikasi'?t.amount:'-', +runBal.toFixed(2)];
       });
       const tj = +txns.filter(t => t.txn_type==='jama').reduce((s,t)=>s+(t.amount||0),0).toFixed(2);
       const tn = +txns.filter(t => t.txn_type==='nikasi').reduce((s,t)=>s+(t.amount||0),0).toFixed(2);
       rows.push(['TOTAL','','','','','',tj,tn,+runBal.toFixed(2)]);
-      addPdfTable(doc, headers, rows, [48,38,35,68,48,95,52,52,52]); doc.end();
+      addPdfTable(doc, headers, rows, [48,38,34,80,48,210,52,52,52]); doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 

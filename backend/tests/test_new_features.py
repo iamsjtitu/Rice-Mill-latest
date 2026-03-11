@@ -8,7 +8,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://rice-mill-mgmt.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mill-entry-system-1.preview.emergentagent.com').rstrip('/')
 
 class TestAuthentication:
     """Test login with admin and staff credentials"""

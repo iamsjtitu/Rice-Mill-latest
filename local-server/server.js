@@ -753,6 +753,7 @@ async function startServer() {
     const cmrExportsRoutes = require('./routes/cmr_exports')(database);
     const privateTradingRoutes = require('./routes/private_trading')(database);
     const ledgersRoutes = require('./routes/ledgers')(database);
+    const reportsRoutes = require('./routes/reports')(database);
     const millPartsRoutes = require('./routes/mill_parts')(database);
     const staffRoutes = require('./routes/staff')(database);
     const dailyReportRoutes = require('./routes/daily_report')(database);
@@ -769,6 +770,7 @@ async function startServer() {
     app.use(dcPaymentsRoutes);
     app.use(cmrExportsRoutes);
     app.use(privateTradingRoutes);
+    app.use(reportsRoutes);
     app.use(ledgersRoutes);
     app.use(millPartsRoutes);
     app.use(staffRoutes);

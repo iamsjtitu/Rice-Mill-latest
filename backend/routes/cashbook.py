@@ -313,18 +313,24 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     elements.append(t); elements.append(Spacer(1, 16))
     
     # Party table
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT
+    name_style = ParagraphStyle('name', fontName='Helvetica', fontSize=7, leading=8.5, alignment=TA_LEFT)
+    
     data = [['#', 'Party Name', 'Party Type', 'Jama (Rs)', 'Nikasi (Rs)', 'Balance (Rs)', 'Txns', 'Status']]
     for i, p in enumerate(parties, 1):
         status = 'Settled' if p['balance'] == 0 else 'Pending'
-        data.append([str(i), p['party_name'], p['party_type'], f"{p['total_jama']:,.2f}", f"{p['total_nikasi']:,.2f}",
+        data.append([str(i), Paragraph(p['party_name'], name_style), p['party_type'], f"{p['total_jama']:,.2f}", f"{p['total_nikasi']:,.2f}",
                       f"{p['balance']:,.2f}", str(p['txn_count']), status])
     
-    table = RLTable(data, colWidths=[25, 95, 70, 75, 75, 75, 35, 50], repeatRows=1)
+    table = RLTable(data, colWidths=[25, 120, 70, 75, 75, 75, 35, 50], repeatRows=1)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,-1), 7),
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         ('ALIGN', (3,0), (5,-1), 'RIGHT'), ('ALIGN', (6,0), (6,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
     ]))
     # Color rows based on status
     for i, p in enumerate(parties, 1):
@@ -382,16 +388,20 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
     for i, p in enumerate(parties, 1):
         row += 1
         status = 'Settled' if p['balance'] == 0 else 'Pending'
-        fill = settled_fill if p['balance'] == 0 else pending_fill if p['balance'] < 0 else None
+        fill = settled_fill if p['balance'] == 0 else pending_fill
         for col, v in enumerate([i, p['party_name'], p['party_type'], p['total_jama'], p['total_nikasi'], p['balance'], p['txn_count'], status], 1):
             c = ws.cell(row=row, column=col, value=v); c.border = tb
             if col in [4,5,6]: c.number_format = '#,##0.00'; c.alignment = Alignment(horizontal='right')
             if fill: c.fill = fill
     
-    for letter in ['A','B','C','D','E','F','G','H']:
-        ws.column_dimensions[letter].width = 16
     ws.column_dimensions['A'].width = 6
-    ws.column_dimensions['B'].width = 22
+    ws.column_dimensions['B'].width = 35
+    ws.column_dimensions['C'].width = 14
+    ws.column_dimensions['D'].width = 16
+    ws.column_dimensions['E'].width = 16
+    ws.column_dimensions['F'].width = 16
+    ws.column_dimensions['G'].width = 12
+    ws.column_dimensions['H'].width = 12
     
     buf = BytesIO(); wb.save(buf); buf.seek(0)
     from starlette.responses import Response
@@ -674,7 +684,7 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     row = 9
     ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11)
     row += 1
-    for col, h in enumerate(['Date', 'Account', 'Type', 'Party / पार्टी', 'Party Type', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Balance (₹)', 'Reference'], 1):
+    for col, h in enumerate(['Date', 'Account', 'Type', 'Party / पार्टी', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Balance (₹)'], 1):
         c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
     row += 1
     run_bal = 0
@@ -685,16 +695,23 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
         acct_label = 'Ledger' if t.get('account') == 'ledger' else ('Cash' if t.get('account') == 'cash' else 'Bank')
         for col, v in enumerate([t.get('date',''), acct_label,
             'Jama' if t.get('txn_type')=='jama' else 'Nikasi',
-            t.get('category',''), t.get('party_type',''), t.get('description',''), jama, nikasi, round(run_bal, 2), t.get('reference','')], 1):
+            t.get('category',''), t.get('description',''), jama, nikasi, round(run_bal, 2)], 1):
             c = ws.cell(row=row, column=col, value=v); c.border = tb
-            if col in [7,8,9]: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
+            if col in [6,7,8]: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
         row += 1
     
     ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=7, value=round(sum(t['amount'] for t in txns if t['txn_type']=='jama'),2)).font = Font(bold=True)
-    ws.cell(row=row, column=8, value=round(sum(t['amount'] for t in txns if t['txn_type']=='nikasi'),2)).font = Font(bold=True)
-    ws.cell(row=row, column=9, value=round(run_bal, 2)).font = Font(bold=True)
-    for letter in ['A','B','C','D','E','F','G','H','I','J']: ws.column_dimensions[letter].width = 16
+    ws.cell(row=row, column=6, value=round(sum(t['amount'] for t in txns if t['txn_type']=='jama'),2)).font = Font(bold=True)
+    ws.cell(row=row, column=7, value=round(sum(t['amount'] for t in txns if t['txn_type']=='nikasi'),2)).font = Font(bold=True)
+    ws.cell(row=row, column=8, value=round(run_bal, 2)).font = Font(bold=True)
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['B'].width = 10
+    ws.column_dimensions['C'].width = 8
+    ws.column_dimensions['D'].width = 18
+    ws.column_dimensions['E'].width = 40
+    ws.column_dimensions['F'].width = 14
+    ws.column_dimensions['G'].width = 14
+    ws.column_dimensions['H'].width = 14
     
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -749,8 +766,13 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     elements.append(st); elements.append(Spacer(1, 15))
     
     # Transactions table
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT
+    desc_style = ParagraphStyle('desc', fontName='Helvetica', fontSize=6, leading=7.5, alignment=TA_LEFT)
+    party_style = ParagraphStyle('party', fontName='Helvetica', fontSize=6, leading=7.5, alignment=TA_LEFT)
+    
     elements.append(Paragraph("Transactions", styles['Heading2'])); elements.append(Spacer(1, 6))
-    data = [['Date', 'Account', 'Type', 'Party', 'Party Type', 'Description', 'Jama(Rs)', 'Nikasi(Rs)', 'Balance(Rs)']]
+    data = [['Date', 'Account', 'Type', 'Party', 'Description', 'Jama(Rs)', 'Nikasi(Rs)', 'Balance(Rs)']]
     tj = tn = 0
     run_bal = 0
     for t in txns:
@@ -759,19 +781,24 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
         tj += jama; tn += nikasi
         run_bal += jama - nikasi
         acct_label = 'Ledger' if t.get('account') == 'ledger' else ('Cash' if t.get('account') == 'cash' else 'Bank')
+        desc = t.get('description', '')
+        party = t.get('category', '')
         data.append([t.get('date',''), acct_label,
             'Jama' if t.get('txn_type')=='jama' else 'Nikasi',
-            t.get('category','')[:14], t.get('party_type','')[:10], t.get('description','')[:16], jama if jama > 0 else '', nikasi if nikasi > 0 else '', round(run_bal, 2)])
-    data.append(['TOTAL', '', '', '', '', '', round(tj,2), round(tn,2), round(run_bal,2)])
+            Paragraph(party, party_style), Paragraph(desc, desc_style), jama if jama > 0 else '', nikasi if nikasi > 0 else '', round(run_bal, 2)])
+    data.append(['TOTAL', '', '', '', '', round(tj,2), round(tn,2), round(run_bal,2)])
     
-    table = RLTable(data, colWidths=[48, 38, 35, 62, 48, 85, 50, 50, 50], repeatRows=1)
+    table = RLTable(data, colWidths=[48, 38, 34, 80, 210, 52, 52, 52], repeatRows=1)
     table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('BACKGROUND', (0,1), (-1,-2), colors.white), ('TEXTCOLOR', (0,1), (-1,-2), colors.black),
-        ('FONTSIZE', (0,0), (-1,-1), 6.5), ('ALIGN', (6,0), (8,-1), 'RIGHT'),
+        ('FONTSIZE', (0,0), (-1,0), 6.5), ('FONTSIZE', (0,1), (-1,-1), 6),
+        ('ALIGN', (5,0), (7,-1), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
         ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
     ]))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
