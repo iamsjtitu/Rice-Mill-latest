@@ -293,11 +293,12 @@ async def export_outstanding_pdf(kms_year: Optional[str] = None, season: Optiona
 
 @router.get("/reports/party-ledger/excel")
 async def export_party_ledger_excel(party_name: Optional[str] = None, party_type: Optional[str] = None,
-                                     kms_year: Optional[str] = None, season: Optional[str] = None):
+                                     kms_year: Optional[str] = None, season: Optional[str] = None,
+                                     date_from: Optional[str] = None, date_to: Optional[str] = None):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
-    data = await report_party_ledger(party_name=party_name, party_type=party_type, kms_year=kms_year, season=season)
+    data = await report_party_ledger(party_name=party_name, party_type=party_type, kms_year=kms_year, season=season, date_from=date_from, date_to=date_to)
     wb = Workbook(); ws = wb.active; ws.title = "Party Ledger"
     hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
     hfont = Font(bold=True, color="FFFFFF", size=10)
@@ -323,13 +324,14 @@ async def export_party_ledger_excel(party_name: Optional[str] = None, party_type
 
 @router.get("/reports/party-ledger/pdf")
 async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: Optional[str] = None,
-                                    kms_year: Optional[str] = None, season: Optional[str] = None):
+                                    kms_year: Optional[str] = None, season: Optional[str] = None,
+                                    date_from: Optional[str] = None, date_to: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib import colors
     from io import BytesIO
-    data = await report_party_ledger(party_name=party_name, party_type=party_type, kms_year=kms_year, season=season)
+    data = await report_party_ledger(party_name=party_name, party_type=party_type, kms_year=kms_year, season=season, date_from=date_from, date_to=date_to)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()

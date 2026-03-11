@@ -52,11 +52,11 @@ const PartySummaryTab = ({
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={() => { const u = `${API}/cash-book/party-summary/excel?kms_year=${filters.kms_year||''}&season=${filters.season||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}`; window.open(u); }}
+          <Button onClick={() => { const u = `${API}/cash-book/party-summary/excel?kms_year=${filters.kms_year||''}&season=${filters.season||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}${statusFilter?'&status='+statusFilter:''}`; window.open(u); }}
             variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30 h-8" data-testid="party-summary-export-excel">
             <Download className="w-3 h-3 mr-1" /> Excel
           </Button>
-          <Button onClick={() => { const u = `${API}/cash-book/party-summary/pdf?kms_year=${filters.kms_year||''}&season=${filters.season||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}`; window.open(u); }}
+          <Button onClick={() => { const u = `${API}/cash-book/party-summary/pdf?kms_year=${filters.kms_year||''}&season=${filters.season||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}${statusFilter?'&status='+statusFilter:''}`; window.open(u); }}
             variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30 h-8" data-testid="party-summary-export-pdf">
             <FileText className="w-3 h-3 mr-1" /> PDF
           </Button>

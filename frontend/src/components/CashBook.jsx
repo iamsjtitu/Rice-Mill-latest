@@ -162,7 +162,17 @@ const CashBook = ({ filters, user }) => {
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
-      if (txnFilters.account) params.append('account', txnFilters.account);
+      // Pass all active filters for export
+      if (activeView === 'cash-transactions') {
+        params.append('account', 'cash');
+      } else {
+        if (txnFilters.account) params.append('account', txnFilters.account);
+      }
+      if (txnFilters.txn_type) params.append('txn_type', txnFilters.txn_type);
+      if (txnFilters.category) params.append('category', txnFilters.category);
+      if (txnFilters.party_type) params.append('party_type', txnFilters.party_type);
+      if (txnFilters.date_from) params.append('date_from', txnFilters.date_from);
+      if (txnFilters.date_to) params.append('date_to', txnFilters.date_to);
       const res = await axios.get(`${API}/cash-book/${format}?${params}`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a'); a.href = url;

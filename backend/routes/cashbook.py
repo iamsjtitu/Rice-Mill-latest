@@ -271,7 +271,7 @@ async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str
 
 
 @router.get("/cash-book/party-summary/pdf")
-async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, party_type: Optional[str] = None):
+async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, party_type: Optional[str] = None, status: Optional[str] = None):
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from reportlab.lib import colors
@@ -280,6 +280,8 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     
     result = await get_party_summary(kms_year, season, party_type)
     parties = result["parties"]
+    if status == "settled": parties = [p for p in parties if p["balance"] == 0]
+    elif status == "pending": parties = [p for p in parties if p["balance"] != 0]
     summary = result["summary"]
     
     buf = BytesIO()
@@ -340,13 +342,15 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
 
 
 @router.get("/cash-book/party-summary/excel")
-async def export_party_summary_excel(kms_year: Optional[str] = None, season: Optional[str] = None, party_type: Optional[str] = None):
+async def export_party_summary_excel(kms_year: Optional[str] = None, season: Optional[str] = None, party_type: Optional[str] = None, status: Optional[str] = None):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
     
     result = await get_party_summary(kms_year, season, party_type)
     parties = result["parties"]
+    if status == "settled": parties = [p for p in parties if p["balance"] == 0]
+    elif status == "pending": parties = [p for p in parties if p["balance"] != 0]
     summary = result["summary"]
     
     wb = Workbook(); ws = wb.active; ws.title = "Party Summary"
@@ -621,7 +625,9 @@ async def migrate_ledger_entries():
 
 @router.get("/cash-book/excel")
 async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optional[str] = None,
-                                  account: Optional[str] = None):
+                                  account: Optional[str] = None, txn_type: Optional[str] = None,
+                                  category: Optional[str] = None, party_type: Optional[str] = None,
+                                  date_from: Optional[str] = None, date_to: Optional[str] = None):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
@@ -630,6 +636,14 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if account: query["account"] = account
+    if txn_type: query["txn_type"] = txn_type
+    if category: query["category"] = category
+    if party_type: query["party_type"] = party_type
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        query["date"] = date_q
     txns = await db.cash_transactions.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_cash_book_summary(kms_year=kms_year, season=season)
     
@@ -689,7 +703,9 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
 
 @router.get("/cash-book/pdf")
 async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
-                                account: Optional[str] = None):
+                                account: Optional[str] = None, txn_type: Optional[str] = None,
+                                category: Optional[str] = None, party_type: Optional[str] = None,
+                                date_from: Optional[str] = None, date_to: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet
@@ -700,6 +716,14 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if account: query["account"] = account
+    if txn_type: query["txn_type"] = txn_type
+    if category: query["category"] = category
+    if party_type: query["party_type"] = party_type
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        query["date"] = date_q
     txns = await db.cash_transactions.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_cash_book_summary(kms_year=kms_year, season=season)
     

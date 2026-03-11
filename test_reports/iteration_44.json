@@ -1,0 +1,120 @@
+{
+  "summary": "Iteration 44 Testing: Cash Book Export Filter Bug Fix - All 27 backend tests PASSED. Verified that exports (PDF/Excel) correctly pass filter parameters (account, txn_type, category, party_type, date_from, date_to, status) to API endpoints.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "test_report_links": [
+    "/app/backend/tests/test_cashbook_exports_filters.py",
+    "/app/test_reports/pytest/pytest_results_iteration44.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [
+    "CashBook.jsx exportData() function (lines 160-183) correctly passes all txnFilters to export endpoints",
+    "Cash Transactions tab automatically adds account=cash to exports (line 167)",
+    "Party Summary tab exports (PartySummaryTab.jsx lines 55-62) correctly pass party_type and status filters",
+    "Party Ledger page (Ledgers.jsx lines 284-293) correctly passes party_type, date_from, date_to filters",
+    "Backend endpoints (cashbook.py lines 626-778, ledgers.py lines 294-352) correctly accept and apply all filter parameters",
+    "Tab switching clears category and party_type filters (CashBook.jsx line 227, 232) - Kesinga filter from Party Ledgers won't carry to Cash Transactions"
+  ],
+  
+  "updated_files": [
+    "/app/backend/tests/test_cashbook_exports_filters.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (27/27 tests passed)",
+    "frontend": "100% (All UI elements verified)"
+  },
+  
+  "test_credentials": {
+    "admin": {"username": "admin", "password": "admin123"}
+  },
+  
+  "seed_data_used": "17 cash transactions with 4 Agent, 10 Truck, 3 Diesel entries. 4 parties in summary: OD08T2002 (Truck), Titu Fuels (Diesel), Kesinga (Agent), Utkela (Agent)",
+  
+  "retest_needed": false,
+  
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "All Cash Book export filter tests passed. The bug fix has been verified: exports now correctly respect applied filters (account, txn_type, category, party_type, date_from, date_to, status). Tab switching clears category and party_type filters.",
+  
+  "verified_features": {
+    "cash_transactions_tab_exports": {
+      "test_01_pdf_account_cash": "PASSED - PDF export with account=cash",
+      "test_02_excel_account_cash": "PASSED - Excel export with account=cash",
+      "test_03_pdf_txn_type_jama": "PASSED - PDF export with txn_type=jama",
+      "test_04_excel_txn_type_jama": "PASSED - Excel export with txn_type=jama"
+    },
+    "party_ledgers_tab_exports": {
+      "test_05_pdf_category_kesinga": "PASSED - PDF export with category=Kesinga",
+      "test_06_excel_category_kesinga": "PASSED - Excel export with category=Kesinga",
+      "test_07_pdf_party_type_agent": "PASSED - PDF export with party_type=Agent",
+      "test_08_excel_party_type_truck": "PASSED - Excel export with party_type=Truck",
+      "test_09_date_range_filter": "PASSED - Excel export with date range"
+    },
+    "party_summary_tab_exports": {
+      "test_10_pdf_status_pending": "PASSED - PDF export with status=pending",
+      "test_11_excel_status_pending": "PASSED - Excel export with status=pending",
+      "test_12_pdf_status_settled": "PASSED - PDF export with status=settled",
+      "test_13_excel_party_type_agent": "PASSED - Excel export with party_type=Agent",
+      "test_14_pdf_combined_filters": "PASSED - PDF export with party_type=Agent + status=settled"
+    },
+    "party_ledger_page_exports": {
+      "test_15_pdf_party_type_agent": "PASSED - PDF export with party_type=Agent",
+      "test_16_excel_party_type_agent": "PASSED - Excel export with party_type=Agent",
+      "test_17_pdf_date_range": "PASSED - PDF export with date range",
+      "test_18_excel_combined": "PASSED - Excel export with party_type + date range"
+    },
+    "data_verification": {
+      "test_19_jama_filter_returns_only_jama": "PASSED - API filter verification",
+      "test_20_party_type_agent_filter": "PASSED - API filter verification",
+      "test_21_category_kesinga_filter": "PASSED - API filter verification",
+      "test_22_party_summary_status_filter": "PASSED - API filter verification",
+      "test_23_account_cash_filter": "PASSED - API filter verification",
+      "test_24_combined_filters": "PASSED - API filter verification"
+    },
+    "party_ledger_api": {
+      "test_25_date_from_param": "PASSED - API accepts date_from",
+      "test_26_date_to_param": "PASSED - API accepts date_to",
+      "test_27_party_type_filter": "PASSED - API filters by party_type"
+    },
+    "tab_switching_filter_clear": {
+      "verified": true,
+      "behavior": "category and party_type filters are cleared when switching between Cash Transactions and Party Ledgers tabs",
+      "code_location": "CashBook.jsx lines 227, 232"
+    }
+  },
+  
+  "ui_verification": {
+    "party_summary_tab": {
+      "party_type_filter": "Present with data-testid='party-summary-filter'",
+      "status_filter": "Present with data-testid='party-summary-status-filter'",
+      "excel_button": "Present with data-testid='party-summary-export-excel'",
+      "pdf_button": "Present with data-testid='party-summary-export-pdf'"
+    },
+    "cash_transactions_tab": {
+      "type_filter": "Present - Type dropdown (All)",
+      "date_range": "Present - From/To date inputs"
+    },
+    "party_ledgers_tab": {
+      "account_filter": "Present",
+      "type_filter": "Present",
+      "party_type_filter": "Present",
+      "select_party": "Present with search",
+      "date_range": "Present - From/To date inputs"
+    }
+  },
+  
+  "test_run_timestamp": "2026-01-11T10:35:00Z"
+}
