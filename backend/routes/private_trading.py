@@ -174,7 +174,8 @@ async def migrate_pvt_paddy_cashbook():
     for doc in entries:
         cash_paid = float(doc.get("cash_paid", 0) or 0)
         diesel_paid = float(doc.get("diesel_paid", 0) or 0)
-        if cash_paid <= 0 and diesel_paid <= 0:
+        advance_paid = float(doc.get("paid_amount", 0) or 0)
+        if cash_paid <= 0 and diesel_paid <= 0 and advance_paid <= 0:
             continue
         existing = await db.cash_transactions.find_one({"linked_entry_id": doc["id"], "reference": {"$regex": "^pvt_paddy"}})
         if existing:
