@@ -917,12 +917,23 @@ const AgentMandiReport = ({ filters }) => {
               {/* Expanded entries table */}
               {expandedMandis[mandi.mandi_name] && (
                 <div className="border-t border-slate-700 overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs table-fixed" style={{minWidth:'1100px'}}>
                     <thead>
                       <tr className="bg-slate-900/80">
-                        {["Date", "Truck No", "RST", "TP", "Weight(Kg)", "QNTL", "Bags", "G.Deposit", "G.Issued", "Mill Wt", "Final Wt", "Cutting", "Cash Paid", "Diesel Paid"].map(h => (
-                          <th key={h} className="px-2 py-2 text-slate-400 font-medium text-left whitespace-nowrap">{h}</th>
-                        ))}
+                        <th className="px-2 py-2 text-slate-400 font-medium text-left w-[80px]">Date</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-left w-[90px]">Truck No</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-left w-[55px]">RST</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-left w-[55px]">TP</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[75px]">Weight(Kg)</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[60px]">QNTL</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[55px]">Bags</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">G.Deposit</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[65px]">G.Issued</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">Mill Wt</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">Final Wt</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[65px]">Cutting</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[75px]">Cash Paid</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[75px]">Diesel Paid</th>
                       </tr>
                     </thead>
                     <tbody>
