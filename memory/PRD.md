@@ -24,6 +24,21 @@ Comprehensive management tool for a rice mill named "Mill Entry System". Full-st
 
 ## What's Implemented
 
+### v4.1.1-dev (Mar 11, 2026)
+- **P0: Node.js Backend Sync** - Ported double-entry (Jama/Nikasi) accounting logic from Python to both Node.js backends
+  - `desktop-app/main.js` addEntry/updateEntry: Auto-creates Truck Jama, Diesel Nikasi, Cash Nikasi, Diesel Jama
+  - `local-server/server.js` addEntry/updateEntry: Same double-entry logic synced
+  - `desktop-app/routes/payments.js`: Truck/Agent payments use party_name as category (not generic 'Truck Payment'/'Agent Payment')
+  - `local-server/routes/payments.js`: Same payments logic synced
+  - `desktop-app/routes/diesel.js` & `local-server/routes/diesel.js`: Diesel payment category=pump_name
+  - Rate update endpoint updates Jama ledger entries with new rate
+  - Agent payment creates JAMA commission entry + NIKASI payment entry
+- **Cash Transactions in Detail Report** - Added Cash Transactions section to mill entries export
+  - Python: `/api/export/excel` now has 2nd sheet "Cash Transactions" with Date, Party Name, Type, Amount, Description, Payment Mode
+  - Python: `/api/export/pdf` now has Cash Transactions section on separate page
+  - Both Node.js backends: Same Cash Transactions section in Excel (2nd sheet) and PDF (new page)
+- **100% Backend Test Pass** - iteration_39: 10/10 tests passed for double-entry CRUD + exports
+
 ### v4.1.0-dev (Mar 10, 2026)
 - **Cash Book / Ledgers Merge** - Unified "Cash Book / Ledgers" page replaces separate Cash Book and Ledgers tabs
   - Removed standalone "Ledgers" menu tab
@@ -78,6 +93,7 @@ Comprehensive management tool for a rice mill named "Mill Entry System". Full-st
 - **P2**: Desktop App Slow Startup (loading indicator added, root cause not investigated)
 
 ## Test Reports
+- `/app/test_reports/iteration_39.json` - 10/10 PASS (Double-Entry Accounting: Create/Update/Delete entries, Truck Payments, Export PDF/Excel with Cash Transactions)
 - `/app/test_reports/iteration_38.json` - 26/26 PASS (Full Regression: Double-Entry Accounting, Light Theme, Table Layout, Party Filters)
 - `/app/test_reports/iteration_37.json` - 26/26 PASS (Party Summary Dashboard)
 - `/app/test_reports/iteration_36.json` - 19/19 PASS (Cash Book / Ledgers merge + Party Type)
@@ -85,6 +101,7 @@ Comprehensive management tool for a rice mill named "Mill Entry System". Full-st
 ## Key Files
 - `/app/frontend/src/components/CashBook.jsx` - Unified Cash Book / Ledgers UI
 - `/app/backend/routes/cashbook.py` - Cash Book API + migration + PDF/Excel
+- `/app/backend/routes/entries.py` - Mill entries CRUD + double-entry accounting + exports with Cash Transactions section
 - `/app/backend/routes/local_party.py` - Auto Jama entries for purchases
 - `/app/backend/routes/payments.py` - Truck/Agent auto entries
 - `/app/backend/routes/diesel.py` - Diesel auto entries
@@ -92,6 +109,12 @@ Comprehensive management tool for a rice mill named "Mill Entry System". Full-st
 - `/app/backend/routes/dc_payments.py` - Auto Jama for gunny bags
 - `/app/frontend/src/components/Reports.jsx` - Reports with Outstanding subtab
 - `/app/frontend/src/App.js` - Menu with merged Cash Book / Ledgers tab
+- `/app/desktop-app/main.js` - Desktop app database with double-entry sync
+- `/app/desktop-app/routes/payments.js` - Desktop truck/agent payments with double-entry
+- `/app/desktop-app/routes/exports.js` - Desktop exports with Cash Transactions section
+- `/app/local-server/server.js` - Local server database with double-entry sync
+- `/app/local-server/routes/payments.js` - Local server truck/agent payments with double-entry
+- `/app/local-server/routes/exports.js` - Local server exports with Cash Transactions section
 
 ## Upcoming Tasks
 - Version bump to 4.1.0
