@@ -542,6 +542,7 @@ const RiceSale = ({ filters, user }) => {
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [historyDialog, setHistoryDialog] = useState({ open: false, item: null, history: [] });
+  const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], kms_year: CURRENT_KMS_YEAR, season: "Kharif",
     party_name: "", rice_type: "Usna", rst_no: "", quantity_qntl: "", rate_per_qntl: "", bags: "", truck_no: "",
@@ -562,6 +563,11 @@ const RiceSale = ({ filters, user }) => {
       if (filters.season) p.append('season', filters.season);
       const res = await axios.get(`${API}/rice-sales?${p}`);
       setItems(res.data);
+      // Fetch rice stock
+      try {
+        const stockRes = await axios.get(`${API}/rice-stock?${p}`);
+        setRiceStockAvail(stockRes.data.available_qntl);
+      } catch { setRiceStockAvail(null); }
     } catch { toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season]);
@@ -836,7 +842,7 @@ const RiceSale = ({ filters, user }) => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs text-slate-400">Quantity (Qntl) *</Label>
+                <Label className="text-xs text-slate-400">Quantity (Qntl) * {riceStockAvail !== null && <span className={`ml-1 font-bold ${riceStockAvail > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {riceStockAvail} Q)</span>}</Label>
                 <Input type="number" step="0.01" value={form.quantity_qntl} onChange={e => setForm(p => ({ ...p, quantity_qntl: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="rice-form-qty" />
               </div>
               <div>
