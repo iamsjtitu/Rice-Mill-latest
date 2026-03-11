@@ -159,6 +159,20 @@ function getDailyReportData(query) {
         desc: t.description||''
       }))
     },
+    cash_transactions: {
+      count: cashTxns.length,
+      total_jama: +cashTxns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
+      total_nikasi: +cashTxns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
+      details: cashTxns.map(t => ({
+        date: t.date || date,
+        party_name: t.category || '',
+        party_type: t.party_type || '',
+        txn_type: t.txn_type || '',
+        amount: Math.round((t.amount || 0) * 100) / 100,
+        description: t.description || '',
+        payment_mode: t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank')
+      }))
+    },
     staff_attendance: {
       total: allStaff.length, present: presentC, absent: absentC, half_day: halfC, holiday: holidayC, not_marked: notMarkedC,
       details: staffDetails
@@ -427,6 +441,28 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
     );
   }
 
+  // ===== 6.5 CASH TRANSACTIONS =====
+  const ctxn = data.cash_transactions;
+  if (ctxn && ctxn.count > 0) {
+    sectionTitle(0, `Cash Transactions / लेन-देन (${ctxn.count})`);
+    drawSummaryBox(
+      ['Total Jama', 'Total Nikasi', 'Balance'],
+      [`Rs.${fmtAmt(ctxn.total_jama)}`, `Rs.${fmtAmt(ctxn.total_nikasi)}`, `Rs.${fmtAmt(ctxn.total_jama - ctxn.total_nikasi)}`],
+      [170, 170, 170], C.yellowBg || C.orangeBg
+    );
+    if (ctxn.details && ctxn.details.length) {
+      const ctH = isDetail ? ['Date','Party Name','Type','Amount','Description','Mode'] : ['Date','Party Name','Type','Amount','Mode'];
+      const ctR = ctxn.details.map(d => {
+        const row = [d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'JAMA' : 'NIKASI', `Rs.${fmtAmt(d.amount)}`];
+        if (isDetail) row.splice(4, 0, (d.description||'').substring(0,40));
+        row.push(d.payment_mode||'');
+        return row;
+      });
+      const ctW = isDetail ? [50,80,40,60,160,50] : [60,130,50,80,70];
+      drawTable(ctH, ctR, ctW);
+    }
+  }
+
   // ===== 7. DC DELIVERIES =====
   const dc = data.dc_deliveries;
   if (dc.count) {
@@ -592,6 +628,23 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
     pa.details.forEach(d => writeRow([d.pump, d.txn_type === 'payment' || d.txn_type === 'credit' ? 'PAID' : 'DIESEL', d.truck_no, d.mandi, d.desc, d.amount]));
   }
   row++;
+
+  // 6.5. Cash Transactions
+  const ctxn = data.cash_transactions;
+  if (ctxn && ctxn.count > 0) {
+    writeSection(`Cash Transactions / लेन-देन (${ctxn.count})`);
+    writeSummary(`Jama: Rs.${fmtAmt(ctxn.total_jama)} | Nikasi: Rs.${fmtAmt(ctxn.total_nikasi)} | Balance: Rs.${fmtAmt(ctxn.total_jama - ctxn.total_nikasi)}`);
+    if (ctxn.details && ctxn.details.length) {
+      if (isDetail) {
+        writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Description', 'Payment Mode']);
+        ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount, d.description||'', d.payment_mode||'']));
+      } else {
+        writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Payment Mode']);
+        ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount, d.payment_mode||'']));
+      }
+    }
+    row++;
+  }
 
   // 11. Staff Attendance
   const sa = data.staff_attendance;

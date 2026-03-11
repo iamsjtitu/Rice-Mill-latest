@@ -33,10 +33,11 @@ Comprehensive management tool for a rice mill named "Mill Entry System". Full-st
   - `desktop-app/routes/diesel.js` & `local-server/routes/diesel.js`: Diesel payment category=pump_name
   - Rate update endpoint updates Jama ledger entries with new rate
   - Agent payment creates JAMA commission entry + NIKASI payment entry
-- **Cash Transactions in Detail Report** - Added Cash Transactions section to mill entries export
-  - Python: `/api/export/excel` now has 2nd sheet "Cash Transactions" with Date, Party Name, Type, Amount, Description, Payment Mode
-  - Python: `/api/export/pdf` now has Cash Transactions section on separate page
-  - Both Node.js backends: Same Cash Transactions section in Excel (2nd sheet) and PDF (new page)
+- **Cash Transactions in Daily Report** - Added Cash Transactions table to Daily Report page
+  - Frontend: New "Cash Transactions / लेन-देन" section with summary boxes (Total Jama, Nikasi, Balance) and detail table (Date, Party Name, Type, Amount, Description, Payment Mode)
+  - Python: `/api/reports/daily` now returns `cash_transactions` section with count, totals, and details
+  - Python: PDF and Excel daily report exports include Cash Transactions section
+  - Both Node.js backends: Same data structure and export sections synced
 - **100% Backend Test Pass** - iteration_39: 10/10 tests passed for double-entry CRUD + exports
 
 ### v4.1.0-dev (Mar 10, 2026)

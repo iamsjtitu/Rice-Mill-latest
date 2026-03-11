@@ -209,6 +209,20 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
                 "amount": t.get("amount", 0), "truck_no": t.get("truck_no", ""),
                 "mandi": t.get("mandi_name", "") or _entry_mandi_map.get(t.get("linked_entry_id", ""), "") or (t.get("description", "").split("Mandi ")[-1] if "Mandi " in t.get("description", "") else ""),
                 "desc": t.get("description", "")} for t in diesel_txns]
+        },
+        "cash_transactions": {
+            "count": len(cash_txns),
+            "total_jama": round(sum(t.get("amount", 0) for t in cash_txns if t.get("txn_type") == "jama"), 2),
+            "total_nikasi": round(sum(t.get("amount", 0) for t in cash_txns if t.get("txn_type") == "nikasi"), 2),
+            "details": [{
+                "date": t.get("date", date),
+                "party_name": t.get("category", ""),
+                "party_type": t.get("party_type", ""),
+                "txn_type": t.get("txn_type", ""),
+                "amount": round(t.get("amount", 0), 2),
+                "description": t.get("description", ""),
+                "payment_mode": "Ledger" if t.get("account") == "ledger" else ("Cash" if t.get("account") == "cash" else "Bank")
+            } for t in cash_txns]
         }
     }
     return result
@@ -569,6 +583,38 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 [250, 100]
             ))
 
+    # ===== CASH TRANSACTIONS =====
+    ct = data.get("cash_transactions", {})
+    if ct.get("count", 0) > 0:
+        elements.append(Spacer(1, 4))
+        elements.append(Paragraph(f"Cash Transactions / लेन-देन ({ct['count']})", section_style))
+        ct_sum = [
+            ['Total Jama', 'Total Nikasi', 'Balance'],
+            [f"Rs.{_fmt_amt(ct.get('total_jama', 0))}", f"Rs.{_fmt_amt(ct.get('total_nikasi', 0))}",
+             f"Rs.{_fmt_amt(ct.get('total_jama', 0) - ct.get('total_nikasi', 0))}"]
+        ]
+        ctt = RTable(ct_sum, colWidths=[170, 170, 170])
+        ctt.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fef3c7')),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(ctt)
+        if ct.get("details"):
+            ct_headers = ['Date', 'Party Name', 'Type', 'Amount', 'Description', 'Mode'] if is_detail else ['Date', 'Party Name', 'Type', 'Amount', 'Mode']
+            ct_rows = []
+            for d in ct["details"]:
+                txn_label = "JAMA" if d.get("txn_type") == "jama" else "NIKASI"
+                row = [d.get("date", "")[:10], d.get("party_name", ""), txn_label, f"Rs.{_fmt_amt(d.get('amount', 0))}"]
+                if is_detail:
+                    row.insert(4, d.get("description", "")[:40])
+                row.append(d.get("payment_mode", ""))
+                ct_rows.append(row)
+            ct_widths = [50, 80, 40, 60, 160, 50] if is_detail else [55, 130, 50, 80, 70]
+            elements.append(make_table(ct_headers, ct_rows, ct_widths))
+        elements.append(Spacer(1, 4))
+
     # Build
     doc.build(elements)
     buf.seek(0)
@@ -795,6 +841,24 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
             write_headers(['Staff Name', 'Status'])
             for d in sa["details"]:
                 write_row([d.get("name",""), status_map.get(d.get("status",""), d.get("status",""))])
+
+    # Cash Transactions
+    ct = data.get("cash_transactions", {})
+    if ct.get("count", 0) > 0:
+        row += 1
+        write_section(f"Cash Transactions / लेन-देन ({ct['count']})")
+        write_sub(f"Jama: Rs.{ct.get('total_jama',0):,.0f} | Nikasi: Rs.{ct.get('total_nikasi',0):,.0f} | Balance: Rs.{(ct.get('total_jama',0) - ct.get('total_nikasi',0)):,.0f}")
+        if ct.get("details"):
+            if is_detail:
+                write_headers(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Description', 'Payment Mode'])
+            else:
+                write_headers(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Payment Mode'])
+            for d in ct["details"]:
+                txn_label = "Jama" if d.get("txn_type") == "jama" else "Nikasi"
+                if is_detail:
+                    write_row([d.get("date",""), d.get("party_name",""), txn_label, round(d.get("amount",0), 2), d.get("description",""), d.get("payment_mode","")])
+                else:
+                    write_row([d.get("date",""), d.get("party_name",""), txn_label, round(d.get("amount",0), 2), d.get("payment_mode","")])
 
     # Auto-fit column widths
     from openpyxl.utils import get_column_letter

@@ -471,6 +471,51 @@ const DailyReport = ({ filters }) => {
             )}
           </Section>
 
+          {/* Cash Transactions / लेन-देन */}
+          {data.cash_transactions && data.cash_transactions.count > 0 && (
+            <Section title="Cash Transactions / लेन-देन" icon={IndianRupee} color="text-yellow-400" count={data.cash_transactions.count}>
+              <div className="grid grid-cols-3 gap-3 mb-2">
+                {[
+                  ["Total Jama", `₹${(data.cash_transactions.total_jama || 0).toLocaleString('en-IN')}`, "text-green-400"],
+                  ["Total Nikasi", `₹${(data.cash_transactions.total_nikasi || 0).toLocaleString('en-IN')}`, "text-red-400"],
+                  ["Balance", `₹${((data.cash_transactions.total_jama || 0) - (data.cash_transactions.total_nikasi || 0)).toLocaleString('en-IN')}`, 
+                    (data.cash_transactions.total_jama || 0) >= (data.cash_transactions.total_nikasi || 0) ? "text-green-400" : "text-red-400"],
+                ].map(([l,v,c]) => (
+                  <div key={l} className="text-center p-2 bg-slate-900/50 rounded">
+                    <p className="text-[10px] text-slate-400">{l}</p>
+                    <p className={`text-sm font-bold ${c}`}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              <DetailTable
+                headers={[
+                  {key:'date',label:'Date',align:'left'},
+                  {key:'party',label:'Party Name',align:'left'},
+                  {key:'type',label:'Type (Jama/Nikasi)',align:'left'},
+                  {key:'amt',label:'Amount (Rs.)',align:'right'},
+                  ...(isDetail ? [{key:'desc',label:'Description',align:'left'}] : []),
+                  {key:'mode',label:'Payment Mode',align:'left'}
+                ]}
+                rows={data.cash_transactions.details.map((d,i) => (<>
+                  <td className="py-1 px-2 text-slate-300 whitespace-nowrap">{d.date}</td>
+                  <td className="py-1 px-2 text-white">{d.party_name}{d.party_type ? <span className="text-[9px] text-slate-500 ml-1">({d.party_type})</span> : ''}</td>
+                  <td className="py-1 px-2">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${d.txn_type === 'jama' ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
+                      {d.txn_type === 'jama' ? 'JAMA' : 'NIKASI'}
+                    </span>
+                  </td>
+                  <td className={`py-1 px-2 text-right font-semibold ${d.txn_type === 'jama' ? 'text-green-400' : 'text-red-400'}`}>₹{(d.amount || 0).toLocaleString('en-IN')}</td>
+                  {isDetail && <td className="py-1 px-2 text-slate-400 text-[10px]">{d.description}</td>}
+                  <td className="py-1 px-2">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${d.payment_mode === 'Ledger' ? 'bg-blue-900/40 text-blue-400' : d.payment_mode === 'Cash' ? 'bg-amber-900/40 text-amber-400' : 'bg-purple-900/40 text-purple-400'}`}>
+                      {d.payment_mode}
+                    </span>
+                  </td>
+                </>))}
+              />
+            </Section>
+          )}
+
           {/* Payments Summary */}
           <Section title="Payments Summary" icon={IndianRupee} color="text-cyan-400">
             <div className="grid grid-cols-3 gap-3">
