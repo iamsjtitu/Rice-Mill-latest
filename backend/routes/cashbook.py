@@ -43,55 +43,54 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
     
     # Auto-detect party_type if not provided
     if not txn_dict.get('party_type') and category:
-        # Check existing transactions first (exact match)
+        import re
+        cat_rgx = {"$regex": f"^{re.escape(category)}$", "$options": "i"}
+        cat_contains = {"$regex": re.escape(category), "$options": "i"}
+        
+        # 1. Check existing cash_transactions (case-insensitive exact match)
         existing = await db.cash_transactions.find_one(
-            {"category": category, "party_type": {"$ne": "", "$exists": True}},
+            {"category": cat_rgx, "party_type": {"$nin": ["", None]}},
             {"_id": 0, "party_type": 1}
         )
         if existing and existing.get('party_type'):
             txn_dict['party_type'] = existing['party_type']
         else:
-            # Cross-collection lookup (exact + partial match)
-            cat_lower = category.lower()
-            if await db.private_paddy.find_one({"party_name": category}):
+            # 2. Cross-collection lookup (case-insensitive)
+            if await db.private_paddy.find_one({"party_name": cat_rgx}):
                 txn_dict['party_type'] = "Pvt Paddy Purchase"
-            elif await db.rice_sales.find_one({"party_name": category}):
+            elif await db.rice_sales.find_one({"party_name": cat_rgx}):
                 txn_dict['party_type'] = "Rice Sale"
-            elif await db.diesel_accounts.find_one({"pump_name": category}):
+            elif await db.diesel_accounts.find_one({"pump_name": cat_rgx}):
                 txn_dict['party_type'] = "Diesel"
-            elif await db.local_party_accounts.find_one({"party_name": category}):
+            elif await db.local_party_accounts.find_one({"party_name": cat_rgx}):
                 txn_dict['party_type'] = "Local Party"
-            elif await db.truck_payments.find_one({"truck_no": category}):
+            elif await db.truck_payments.find_one({"truck_no": cat_rgx}):
                 txn_dict['party_type'] = "Truck"
-            elif await db.mandi_targets.find_one({"mandi_name": category}):
+            elif await db.mandi_targets.find_one({"mandi_name": cat_rgx}):
                 txn_dict['party_type'] = "Agent"
+            # 3. Fuzzy contains match (category found inside party name or vice-versa)
+            elif await db.private_paddy.find_one({"party_name": cat_contains}):
+                txn_dict['party_type'] = "Pvt Paddy Purchase"
+            elif await db.rice_sales.find_one({"party_name": cat_contains}):
+                txn_dict['party_type'] = "Rice Sale"
+            elif await db.diesel_accounts.find_one({"pump_name": cat_contains}):
+                txn_dict['party_type'] = "Diesel"
+            elif await db.local_party_accounts.find_one({"party_name": cat_contains}):
+                txn_dict['party_type'] = "Local Party"
+            elif await db.mandi_targets.find_one({"mandi_name": cat_contains}):
+                txn_dict['party_type'] = "Agent"
+            # 4. Check private_payments (pvt trading payments)
+            elif await db.private_payments.find_one({"party_name": cat_rgx}):
+                txn_dict['party_type'] = "Pvt Paddy Purchase"
             else:
-                # Fuzzy: check if category matches start of any known party
-                import re
-                rgx = {"$regex": f"^{re.escape(category)}", "$options": "i"}
-                if await db.diesel_accounts.find_one({"pump_name": rgx}):
-                    txn_dict['party_type'] = "Diesel"
-                elif await db.private_paddy.find_one({"party_name": rgx}):
-                    txn_dict['party_type'] = "Pvt Paddy Purchase"
-                elif await db.rice_sales.find_one({"party_name": rgx}):
-                    txn_dict['party_type'] = "Rice Sale"
-                elif await db.local_party_accounts.find_one({"party_name": rgx}):
-                    txn_dict['party_type'] = "Local Party"
-                elif await db.mandi_targets.find_one({"mandi_name": rgx}):
-                    txn_dict['party_type'] = "Agent"
-                else:
-                    # Reverse: known party starts with category
-                    rgx2 = {"$regex": re.escape(category), "$options": "i"}
-                    if await db.diesel_accounts.find_one({"pump_name": rgx2}):
-                        txn_dict['party_type'] = "Diesel"
-                    elif await db.private_paddy.find_one({"party_name": rgx2}):
-                        txn_dict['party_type'] = "Pvt Paddy Purchase"
-                    elif await db.rice_sales.find_one({"party_name": rgx2}):
-                        txn_dict['party_type'] = "Rice Sale"
-                    elif await db.local_party_accounts.find_one({"party_name": rgx2}):
-                        txn_dict['party_type'] = "Local Party"
-                    elif await db.mandi_targets.find_one({"mandi_name": rgx2}):
-                        txn_dict['party_type'] = "Agent"
+                txn_dict['party_type'] = "Cash Party"
+        
+        # Retroactive fix: update ALL old entries for this category that have empty party_type
+        if txn_dict.get('party_type'):
+            await db.cash_transactions.update_many(
+                {"category": cat_rgx, "$or": [{"party_type": ""}, {"party_type": None}, {"party_type": {"$exists": False}}]},
+                {"$set": {"party_type": txn_dict['party_type']}}
+            )
     
     await db.cash_transactions.insert_one(txn_dict)
     txn_dict.pop('_id', None)
@@ -522,6 +521,72 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
     return Response(content=buf.getvalue(),
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f"attachment; filename=party_summary_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+
+
+@router.post("/cash-book/fix-empty-party-types")
+async def fix_empty_party_types():
+    """Fix all cash_transactions entries with empty party_type by running auto-detection"""
+    import re
+    fixed = 0
+    empty_entries = await db.cash_transactions.find(
+        {"$or": [{"party_type": ""}, {"party_type": None}, {"party_type": {"$exists": False}}]},
+        {"_id": 0, "id": 1, "category": 1}
+    ).to_list(100000)
+    
+    # Group by category to avoid repeated lookups
+    cats = {}
+    for e in empty_entries:
+        cat = (e.get("category") or "").strip()
+        if cat:
+            cats.setdefault(cat, []).append(e["id"])
+    
+    for cat, ids in cats.items():
+        detected = ""
+        cat_rgx = {"$regex": f"^{re.escape(cat)}$", "$options": "i"}
+        cat_contains = {"$regex": re.escape(cat), "$options": "i"}
+        
+        # Check existing transactions with party_type
+        existing = await db.cash_transactions.find_one(
+            {"category": cat_rgx, "party_type": {"$nin": ["", None]}},
+            {"_id": 0, "party_type": 1}
+        )
+        if existing and existing.get("party_type"):
+            detected = existing["party_type"]
+        else:
+            if await db.private_paddy.find_one({"party_name": cat_rgx}):
+                detected = "Pvt Paddy Purchase"
+            elif await db.rice_sales.find_one({"party_name": cat_rgx}):
+                detected = "Rice Sale"
+            elif await db.diesel_accounts.find_one({"pump_name": cat_rgx}):
+                detected = "Diesel"
+            elif await db.local_party_accounts.find_one({"party_name": cat_rgx}):
+                detected = "Local Party"
+            elif await db.truck_payments.find_one({"truck_no": cat_rgx}):
+                detected = "Truck"
+            elif await db.mandi_targets.find_one({"mandi_name": cat_rgx}):
+                detected = "Agent"
+            elif await db.private_paddy.find_one({"party_name": cat_contains}):
+                detected = "Pvt Paddy Purchase"
+            elif await db.rice_sales.find_one({"party_name": cat_contains}):
+                detected = "Rice Sale"
+            elif await db.diesel_accounts.find_one({"pump_name": cat_contains}):
+                detected = "Diesel"
+            elif await db.local_party_accounts.find_one({"party_name": cat_contains}):
+                detected = "Local Party"
+            elif await db.private_payments.find_one({"party_name": cat_rgx}):
+                detected = "Pvt Paddy Purchase"
+            else:
+                detected = "Cash Party"
+        
+        if detected:
+            result = await db.cash_transactions.update_many(
+                {"id": {"$in": ids}},
+                {"$set": {"party_type": detected}}
+            )
+            fixed += result.modified_count
+    
+    return {"success": True, "fixed_count": fixed, "categories_processed": len(cats)}
 
 
 @router.post("/cash-book/migrate-ledger-entries")

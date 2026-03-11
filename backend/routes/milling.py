@@ -210,18 +210,27 @@ async def get_rice_stock(kms_year: Optional[str] = None, season: Optional[str] =
     parboiled_produced = round(sum(e.get('rice_qntl', 0) for e in milling_entries if e.get('rice_type') == 'parboiled'), 2)
     raw_produced = round(sum(e.get('rice_qntl', 0) for e in milling_entries if e.get('rice_type') == 'raw'), 2)
     
-    # Rice delivered to Govt (DC deliveries)
+    # Rice delivered to Govt (DC deliveries) - type-wise
     dc_query = {}
     if kms_year: dc_query["kms_year"] = kms_year
     if season: dc_query["season"] = season
-    dc_deliveries = await db.dc_deliveries.find(dc_query, {"_id": 0, "quantity_qntl": 1}).to_list(10000)
+    dc_deliveries = await db.dc_deliveries.find(dc_query, {"_id": 0, "quantity_qntl": 1, "dc_id": 1}).to_list(10000)
+    # Get DC rice_type mapping
+    dc_entries = await db.dc_entries.find({}, {"_id": 0, "id": 1, "rice_type": 1}).to_list(10000)
+    dc_type_map = {d["id"]: d.get("rice_type", "") for d in dc_entries}
     total_govt_delivered = round(sum(d.get('quantity_qntl', 0) for d in dc_deliveries), 2)
+    parboiled_govt = round(sum(d.get('quantity_qntl', 0) for d in dc_deliveries if dc_type_map.get(d.get('dc_id')) == 'parboiled'), 2)
+    raw_govt = round(sum(d.get('quantity_qntl', 0) for d in dc_deliveries if dc_type_map.get(d.get('dc_id')) == 'raw'), 2)
     
-    # Rice sold privately
-    pvt_sales = await db.rice_sales.find(query, {"_id": 0, "quantity_qntl": 1}).to_list(10000)
+    # Rice sold privately - type-wise
+    pvt_sales = await db.rice_sales.find(query, {"_id": 0, "quantity_qntl": 1, "rice_type": 1}).to_list(10000)
     total_pvt_sold = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales), 2)
+    parboiled_pvt = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type') in ('Usna', 'parboiled')), 2)
+    raw_pvt = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type') in ('Raw', 'raw')), 2)
     
     available = round(total_produced - total_govt_delivered - total_pvt_sold, 2)
+    parboiled_available = round(parboiled_produced - parboiled_govt - parboiled_pvt, 2)
+    raw_available = round(raw_produced - raw_govt - raw_pvt, 2)
     
     return {
         "total_produced_qntl": total_produced,
@@ -230,6 +239,8 @@ async def get_rice_stock(kms_year: Optional[str] = None, season: Optional[str] =
         "govt_delivered_qntl": total_govt_delivered,
         "pvt_sold_qntl": total_pvt_sold,
         "available_qntl": available,
+        "parboiled_available_qntl": parboiled_available,
+        "raw_available_qntl": raw_available,
         "milling_count": len(milling_entries),
         "dc_delivery_count": len(dc_deliveries),
         "pvt_sale_count": len(pvt_sales)

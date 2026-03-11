@@ -542,7 +542,7 @@ const RiceSale = ({ filters, user }) => {
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [historyDialog, setHistoryDialog] = useState({ open: false, item: null, history: [] });
-  const [riceStockAvail, setRiceStockAvail] = useState(null);
+  const [riceStockByType, setRiceStockByType] = useState({ usna: null, raw: null });
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], kms_year: CURRENT_KMS_YEAR, season: "Kharif",
     party_name: "", rice_type: "Usna", rst_no: "", quantity_qntl: "", rate_per_qntl: "", bags: "", truck_no: "",
@@ -563,11 +563,14 @@ const RiceSale = ({ filters, user }) => {
       if (filters.season) p.append('season', filters.season);
       const res = await axios.get(`${API}/rice-sales?${p}`);
       setItems(res.data);
-      // Fetch rice stock
+      // Fetch rice stock by type
       try {
         const stockRes = await axios.get(`${API}/rice-stock?${p}`);
-        setRiceStockAvail(stockRes.data.available_qntl);
-      } catch { setRiceStockAvail(null); }
+        setRiceStockByType({
+          usna: stockRes.data.parboiled_available_qntl,
+          raw: stockRes.data.raw_available_qntl,
+        });
+      } catch { setRiceStockByType({ usna: null, raw: null }); }
     } catch { toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season]);
@@ -838,11 +841,17 @@ const RiceSale = ({ filters, user }) => {
                 <Label className="text-xs text-slate-400">Rice Type</Label>
                 <Select value={form.rice_type} onValueChange={v => setForm(p => ({ ...p, rice_type: v }))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="rice-form-type"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="Usna">Usna</SelectItem><SelectItem value="Raw">Raw</SelectItem><SelectItem value="Boiled">Boiled</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent>
+                  <SelectContent><SelectItem value="Usna">Usna</SelectItem><SelectItem value="Raw">Raw</SelectItem></SelectContent>
                 </Select>
               </div>
               <div>
-                <Label className="text-xs text-slate-400">Quantity (Qntl) * {riceStockAvail !== null && <span className={`ml-1 font-bold ${(riceStockAvail - (parseFloat(form.quantity_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((riceStockAvail - (parseFloat(form.quantity_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
+                {(() => {
+                  const currentStock = form.rice_type === 'Raw' ? riceStockByType.raw : riceStockByType.usna;
+                  const remaining = currentStock !== null ? Math.round((currentStock - (parseFloat(form.quantity_qntl) || 0)) * 100) / 100 : null;
+                  return (
+                    <Label className="text-xs text-slate-400">Quantity (Qntl) * {remaining !== null && <span className={`ml-1 font-bold ${remaining > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock {form.rice_type}: {remaining} Q)</span>}</Label>
+                  );
+                })()}
                 <Input type="number" step="0.01" value={form.quantity_qntl} onChange={e => setForm(p => ({ ...p, quantity_qntl: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="rice-form-qty" />
               </div>
               <div>

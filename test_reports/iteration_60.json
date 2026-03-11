@@ -1,0 +1,135 @@
+{
+  "summary": "Iteration 60: Rice Sale Dropdown (Usna/Raw only) and Cash Book party_type auto-detection - ALL TESTS PASSED. 15/15 backend tests passed. Frontend UI verification confirmed all features working correctly.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Rice Sale Dialog", "issues": ["Minor: Missing aria-describedby warning in console for DialogContent (accessibility)"]}
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration60_rice_sale_dropdown_cashbook_party_type.py",
+    "/app/test_reports/pytest/pytest_results_iteration60.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Frontend PrivateTrading.jsx line 844: Rice Type dropdown correctly shows only 'Usna' and 'Raw' options",
+    "Frontend PrivateTrading.jsx line 848-852: Stock display shows type-specific values (Usna: parboiled_available_qntl, Raw: raw_available_qntl)",
+    "Backend cashbook.py line 37-109: add_cash_transaction correctly auto-detects party_type using cross-collection lookup",
+    "Backend cashbook.py line 86: Fallback to 'Cash Party' when no match found in any collection",
+    "Backend cashbook.py line 89-93: Retroactive update for same category with empty party_type",
+    "Backend cashbook.py line 526-589: fix-empty-party-types endpoint properly fixes historical entries",
+    "Backend milling.py line 200-247: rice-stock endpoint returns parboiled_available_qntl and raw_available_qntl"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_iteration60_rice_sale_dropdown_cashbook_party_type.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100% - All features verified"
+  },
+
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+
+  "seed_data_creation": "Test entries created and cleaned up during test execution",
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Rice Sale dropdown only shows Usna and Raw (no Boiled/Other). Stock display is type-specific (Usna stock vs Raw stock). Cash Book party_type auto-detection working - never leaves party_type empty, falls back to 'Cash Party' for unknown parties.",
+
+  "verified_features": {
+    "rice_sale_dropdown_options": {
+      "status": "PASSED",
+      "verification": "Dropdown shows only ['Usna', 'Raw'] - no Boiled or Other options",
+      "ui_confirmed": true,
+      "screenshot": ".screenshots/rice_type_dropdown.png"
+    },
+    "rice_stock_type_specific_display": {
+      "status": "PASSED",
+      "verification": "Stock label shows type-specific values: 'Stock Usna: -1193 Q' and 'Stock Raw: -10 Q'",
+      "backend_api": "GET /api/rice-stock returns parboiled_available_qntl and raw_available_qntl",
+      "ui_confirmed": true
+    },
+    "cashbook_party_type_auto_detection": {
+      "status": "PASSED",
+      "detection_sources": [
+        "Existing cash_transactions with same category",
+        "private_paddy (party_name) -> 'Pvt Paddy Purchase'",
+        "rice_sales (party_name) -> 'Rice Sale'",
+        "diesel_accounts (pump_name) -> 'Diesel'",
+        "local_party_accounts (party_name) -> 'Local Party'",
+        "truck_payments (truck_no) -> 'Truck'",
+        "mandi_targets (mandi_name) -> 'Agent'",
+        "Contains-match fallback for partial matches",
+        "Fallback to 'Cash Party' for unknown parties"
+      ],
+      "case_insensitive": true
+    },
+    "cashbook_party_type_never_empty": {
+      "status": "PASSED",
+      "verification": "New cash_transactions always have party_type set (detected or 'Cash Party' fallback)"
+    },
+    "fix_empty_party_types_endpoint": {
+      "status": "PASSED",
+      "endpoint": "POST /api/cash-book/fix-empty-party-types",
+      "response_fields": ["success", "fixed_count", "categories_processed"]
+    },
+    "retroactive_party_type_update": {
+      "status": "PASSED",
+      "verification": "Creating new entry with detected party_type updates old entries for same category"
+    },
+    "party_summary_shows_party_type": {
+      "status": "PASSED",
+      "ui_confirmed": true,
+      "types_visible": ["Cash Party", "Diesel", "Truck", "Local Party", "Rice Sale", "Agent", "Pvt Paddy Purchase"]
+    }
+  },
+
+  "tests_executed": {
+    "backend": {
+      "TestRiceStockAPI::test_01_rice_stock_returns_type_specific_values": "PASSED",
+      "TestRiceStockAPI::test_02_rice_stock_with_kms_year_filter": "PASSED",
+      "TestRiceSaleRiceTypes::test_01_create_rice_sale_usna_type": "PASSED",
+      "TestRiceSaleRiceTypes::test_02_create_rice_sale_raw_type": "PASSED",
+      "TestRiceSaleRiceTypes::test_03_rice_sales_list_shows_correct_types": "PASSED",
+      "TestRiceSaleRiceTypes::test_99_cleanup_test_rice_sales": "PASSED",
+      "TestCashBookPartyTypeAutoDetection::test_01_create_cash_entry_auto_detect_rice_sale_party": "PASSED",
+      "TestCashBookPartyTypeAutoDetection::test_02_create_cash_entry_unknown_party_fallback_cash_party": "PASSED",
+      "TestCashBookPartyTypeAutoDetection::test_03_party_type_never_empty_on_new_entry": "PASSED",
+      "TestCashBookPartyTypeAutoDetection::test_04_case_insensitive_matching": "PASSED",
+      "TestCashBookPartyTypeAutoDetection::test_99_cleanup_test_entries": "PASSED",
+      "TestFixEmptyPartyTypesEndpoint::test_01_fix_empty_party_types_endpoint_exists": "PASSED",
+      "TestFixEmptyPartyTypesEndpoint::test_02_retroactive_update_on_new_entry": "PASSED",
+      "TestPartySummaryPartyType::test_01_party_summary_has_party_type": "PASSED",
+      "TestPartySummaryPartyType::test_02_filter_party_summary_by_party_type": "PASSED"
+    },
+    "frontend": {
+      "login": "PASSED",
+      "navigate_pvt_trading_rice_sale": "PASSED",
+      "open_rice_sale_form": "PASSED",
+      "verify_dropdown_options_usna_raw_only": "PASSED",
+      "verify_stock_display_usna": "PASSED - Shows 'Stock Usna: -1193 Q'",
+      "verify_stock_display_raw": "PASSED - Shows 'Stock Raw: -10 Q'",
+      "navigate_cash_book": "PASSED",
+      "verify_party_summary_types": "PASSED - All party types visible",
+      "verify_cash_transactions_party_type_column": "PASSED"
+    }
+  },
+
+  "test_run_timestamp": "2026-03-11T20:55:00Z"
+}

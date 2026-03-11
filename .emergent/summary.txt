@@ -1,88 +1,89 @@
 <analysis>**original_problem_statement:**
-The user is enhancing a Mill Entry System. This session focused on resolving several critical bugs and adding significant features to the Private Trading module.
-
-The user's requests were:
-1.  **Revert Mistake:** A Party Summary tab was mistakenly removed from the Private Trading page. The user asked to restore it and improve its design.
-2.  **Critical Bug (Recurring):** Payments made for Pvt Paddy were not being reflected correctly in the  or  (jama kharch).
-3.  **UI/UX Improvement:** Add a navigation shortcut from the Party Summary table to a party's detailed ledger.
-4.  **Feature Request (Ledger Descriptions):** Change the description format for ledger entries to be more detailed, like , and format numbers cleanly (e.g.,  not ).
-5.  **Feature Parity (Paddy Purchase):** Add Mark Paid, Undo Paid, and Payment History features to the Paddy Purchase table, similar to the existing Truck Payments page.
-6.  **Feature Expansion (Rice Sale):**
-    *   Add RST No, Cash Paid, and Diesel Paid fields.
-    *   Enable search by RST No.
-    *   Implement Mark Paid, Undo Paid, and Payment History features.
-    *   Fix a bug where Cash Paid / Diesel Paid did not create entries in Truck Payments and did not update the party ledger.
-7.  **Final Bug Fixes & Features:**
-    *   Fix a critical accounting bug where a sale of Rs. 30,000 was incorrectly showing a balance of Rs. 70,000 due to duplicated ledger entries on Mark Paid.
-    *   In the Party Summary tab, display Paddy and Rice data in two separate sections.
-    *   Sort the Truck Payments page to show the newest entries at the top.
+The user is enhancing their Mill Entry System with a focus on fixing critical accounting bugs and improving UI/UX. The key requests in this session included:
+1.  **Ledger Formatting:** Change quantity display from  to .
+2.  **UI Cleanup (Cash Book):** Remove the All option from the account filter and set the default to Ledger.
+3.  **UI Enhancement (Private Trading):** Convert the Party Summary's separate Paddy/Rice sections into a single filterable view (Dropdown: All/Paddy/Rice) and update PDF/Excel exports accordingly.
+4.  **Keyboard Navigation:** Fix party search dropdowns to support arrow keys and Enter for selection.
+5.  **Critical Accounting Bugs (System-Wide):** The user reported that payments were not being correctly recorded in the  (jama kharch). This was a recurring issue. The request was to perform a full audit of all payment types (Agent, Truck, Diesel, Local Party, Pvt Paddy, Rice Sale) and ensure that every payment correctly generates a  (debit) entry to reduce the party's balance.
+6.  **Data Integrity:** Create a migration script to fix historical transactions affected by the accounting bug.
+7.  **Feature - Stock Tracking:** Implement dashboard widgets to display current Paddy Stock and Rice Stock.
+8.  **Feature - Stock Visibility:** Show the available stock on the New Rice Sale and DC Add Delivery forms. The displayed stock should update in real-time as the user types a quantity.
+9.  **Bug - Manual Transactions:** Fix a critical, long-standing bug where manual transactions added via the Cash Book were not auto-detecting the  and, most importantly, were not creating the corresponding entry in the .
+10. **UI/UX - Badge Styling:** Improve the visibility and styling of Usna / Raw badges in both light and dark themes.
+11. **Final Request (In Progress):** In the milling/sale forms, the Rice Type dropdown should only show Usna and Raw, and the available stock displayed should correspond to the selected rice type.
 
 **User's preferred language**: Hindi
 
 **what currently exists?**
-The Private Trading module has been significantly overhauled.
-- The Party Summary tab has been restored and now displays separate sections for Paddy and Rice transactions.
-- Critical accounting bugs related to payments have been fixed. The system now correctly handles side-effects for payments, creating ledger  (debit) entries to reduce party debt, and  (credit) entries in the cash book.
-- The ledger description format is now more detailed and uses clean number formatting.
-- Both Paddy Purchase and Rice Sale tabs now have full payment lifecycle features (Mark Paid, Undo Paid, Payment History).
-- The Rice Sale module is now integrated with Truck Payments, ensuring  and  are correctly tracked.
-- The Truck Payments list is now sorted with the most recent entries first.
-- Multiple data migration scripts were created and executed to clean up historical data corrupted by previous logic bugs.
+The application's core accounting logic has been significantly hardened. All identified payment flows now correctly create  (debit) entries in the party ledger, resolving a major recurring bug. A migration endpoint exists to patch historical data. The dashboard now features live stock widgets for Paddy and Rice. Various forms (Rice Sale, DC Tracker) provide real-time stock visibility, which updates as the user types quantities. Multiple UI/UX improvements have been made, including fixing keyboard navigation, improving badge visibility in light/dark themes, and refining filters. The critical bug related to manual cash transactions has also been resolved; they now auto-detect party types and create linked ledger entries.
 
 **Last working item**:
--   Last item agent was working: The agent addressed a batch of three user-reported issues:
-    1.  Fixing a critical accounting bug that inflated balances on Mark Paid for Rice Sales.
-    2.  Updating the Party Summary UI to show separate sections for Paddy and Rice.
-    3.  Sorting the Truck Payments page by date (newest first).
--   Status: USER VERIFICATION PENDING
--   Agent Testing Done: Y (Agent fixed the logic, created and ran migration scripts to clean up bad data, and verified the database state).
--   Which testing method agent to use? The user should manually verify the fixes. A single screenshot showing the corrected balance for the Kuldeep party in the Party Summary, the new separate Paddy/Rice sections, and the sorted Truck Payments page would be efficient.
+-   Last item agent was working: The user requested that in the forms where rice type is selected (like New Rice Sale), the Rice Type dropdown should only contain Usna and Raw, and the available stock shown should be specific to the selected type.
+-   Status: IN PROGRESS
+-   Agent Testing Done: N
+-   Which testing method agent to use? screenshot tool. First, verify the New Rice Sale form: the dropdown should only have Usna and Raw. Second, select Usna and verify the stock shown matches the Usna stock. Third, select Raw and verify the stock updates to show Raw stock (which should be 0).
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   There are no pending issues. The work is pending user verification.
+-   **Issue 1: Type-Specific Stock Display (P0)**
+    -   **Description:** The Rice Type dropdown in forms like New Rice Sale shows Other and the stock displayed is the total rice stock, not the stock for the selected type (Usna or Raw).
+    -   **Attempted fixes:** The agent created a backend endpoint  to provide the necessary data. The frontend implementation is pending.
+    -   **Next debug checklist:**
+        -   Modify .
+        -   Update the  dropdown options to remove Other.
+        -   In , call the new  endpoint to get an object like .
+        -   Modify the state and JSX to display the stock corresponding to the currently selected  in the dropdown.
+        -   Ensure the live calculation subtracts from the correct stock type.
+    -   **Why fix this issue and what will be achieved with the fix?** To prevent users from selling a type of rice they don't have in stock and to provide accurate, context-aware stock information.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** Frontend
+    -   **Blocked on other issue:** None
 
 **In progress Task List**:
--   None.
+-   **Task 1: Complete Type-Specific Stock Feature (P0)**
+    -   **Where to resume:** The backend API is ready. The next step is to modify the frontend component  to consume the new API, update the dropdown, and display the stock dynamically based on the user's selection of Usna or Raw.
+    -   **What will be achieved with this?** The user will see accurate, real-time stock levels for the specific type of rice they are trying to sell.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** Frontend
+    -   **Blocked on something:** None
 
 **Upcoming and Future Tasks**
 -   **Future Tasks:**
-    -   P2: General code cleanup and refactoring. There is significant business logic duplication between the Python backend () and the Node.js backend () which should be addressed by creating a shared library or service to reduce maintenance overhead.
+    -   P2: Refactor the duplicated business logic between the Python backend () and the Node.js backend (). Consolidating this logic would reduce maintenance overhead and prevent inconsistencies.
 
 **Completed work in this session**
--   **Bug Fix (Accounting Logic):** Fixed a critical bug where payments against sales were incorrectly creating  (credit) entries instead of  (debit) entries in the , leading to inflated balances. Corrected the logic in  and .
--   **Feature Parity (Payment Lifecycle):** Implemented Mark Paid, Undo Paid, and Payment History functionality for both the Paddy Purchase and Rice Sale tabs in Private Trading.
--   **Feature Expansion (Rice Sale):**
-    -   Added RST No, Cash Paid, and Diesel Paid fields and integrated them with the  and  systems.
-    -   Enabled search by RST No.
--   **UI/UX Improvements:**
-    -   Restored and redesigned the Party Summary tab, which now shows separate data for Paddy and Rice.
-    -   Added a navigation shortcut from the Party Summary table to the detailed party ledger.
-    -   Implemented sorting on the Truck Payments page to show the newest entries first.
--   **Data Integrity & Formatting:**
-    -   Fixed a recurring bug preventing private paddy payments from being recorded in ledgers.
-    -   Updated ledger entry descriptions to a more detailed format: .
-    -   Created and executed multiple migration scripts to correct historical data after logic fixes.
--   **Testing:** Successfully used the  multiple times to validate complex end-to-end flows.
+-   **Critical Bug Fix (System-Wide Accounting):** Audited and fixed all 6 major payment flows (Agent, Truck, Diesel, etc.) to ensure a  (debit) entry is always created in the  upon payment, permanently fixing the jama kharch issue.
+-   **Critical Bug Fix (Manual Transactions):** Fixed a recurring issue where manual cash transactions failed to create ledger entries and auto-detect party types. The fix includes fuzzy name matching and automatic creation/update/deletion of linked ledger entries.
+-   **Data Migration:** Created a safe, idempotent API endpoint () to repair historical data in the production database.
+-   **Feature (Stock Management):** Added Paddy Stock and Rice Stock widgets to the dashboard and integrated live stock display (with real-time calculation) into the Rice Sale and DC Tracker forms.
+-   **UI/UX Enhancements:**
+    -   Fixed keyboard navigation for party search dropdowns.
+    -   Improved visibility of Usna/Raw badges in both light and dark themes.
+    -   Refined the Party Summary in Private Trading with a filter dropdown (Paddy/Rice/All).
+    -   Cleaned up the Cash Book account filter, removing All and setting the default to Ledger.
+-   **Backend Sync:** Added missing  endpoint to the Node.js backend for the desktop app.
 
 **Earlier issues found/mentioned but not fixed**
 -   None.
 
 **Known issue recurrence from previous fork**
--   The issue of pvt paddy ka payment... jama kharch nai hua (private paddy payment not reflecting in ledgers) was a recurring complaint from the user. It was addressed thoroughly in this session by fixing the logic for creating side-effects in  and . The next agent should be mindful of this complexity.
+-   The core accounting issue of jama kharch nai hua (payments not reflecting in ledgers) was a recurring complaint from the previous fork and this session. It was addressed with a system-wide audit and fix across 6 payment flows and the manual transaction flow. The next agent should be aware of this as the application's most critical and sensitive area.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Ledger Accounting (Jama/Nikasi):** A critical concept was correcting the accounting flow. A sale creates a  (credit) on the party's account (they owe money). A payment received against that sale must create a  (debit) to reduce the debt. Previous logic incorrectly created another , inflating the balance.
--   **Transactional Side-Effects:** The system is heavily reliant on single API calls (e.g., creating a rice sale) triggering a cascade of writes across multiple database collections (, , , ).
--   **Data Migration for Bug Fixes:** Temporary API endpoints were a key strategy to run one-off scripts to clean up production data that was corrupted by logic errors.
+-   **Jama/Nikasi Accounting:** The core principle of the app. A payment received ( entry) must be accompanied by a debt reduction ( entry). This was fixed system-wide.
+-   **Transactional Integrity:** Manual cash transactions now automatically create a linked ledger entry, ensuring the two books (cash and party ledger) stay in sync. A  is used to link them.
+-   **Idempotent Migrations:** A key strategy for safely fixing production data via a reusable API endpoint.
+-   **Fuzzy String Matching:** Used in the manual transaction flow to correctly guess the  even with partial names (e.g., Titu matches Titu Fuels).
+-   **Live UI Updates:** Using React state to provide instant feedback as a user types in a form field (e.g., live stock calculation).
+-   **Light/Dark Theme CSS:** Using targeted CSS overrides to ensure UI components are styled correctly in both themes.
 
 **key DB schema**
--   ****: Added  (String),  (Number),  (Number),  (String).
--   ****: The  field now includes Rice Sale to distinguish these entries.
--   ****: Now correctly receives  entries for payments received against sales.
+-   ****: A new field  (String) was added to link a manual cash entry to its automatically generated  counterpart.
+-   ****: Entries created automatically from the cash book are now marked with a field like  and linked back via a source transaction ID.
 
 **changes in tech stack**
 -   None.
@@ -93,45 +94,47 @@ The Private Trading module has been significantly overhauled.
 -   
 -   
 -   
+-   
+-   
+-   
 
 **Areas that need refactoring**:
--   The significant duplication of complex business logic between  and  poses a high risk for future maintenance and should be addressed.
+-   The significant duplication of business logic between the Python backend () and the Node.js backend () remains a technical debt. Consolidating this logic is recommended for long-term maintainability.
 
 **key api endpoints**
 -   **NEW:**
-    -   , , 
-    -   , , 
+    -   : Idempotent migration to fix historical payments lacking ledger entries.
+    -   : Retrieves aggregate rice stock.
+    -   : Retrieves aggregate paddy stock.
+    -   : Retrieves rice stock broken down by type (Usna, Raw).
 -   **MODIFIED:**
-    -   : Logic heavily updated to handle new fields and trigger correct / entries.
-    -   : Logic updated to correctly handle payments against rice sales.
-    -   : Logic updated to include entries from  and sort the results.
-    -   All temporary migration endpoints added to .
+    -   : Now auto-detects  and auto-creates a linked  entry.
+    -   : Now also deletes the linked  entry.
+    -   All payment endpoints (, , etc.) were updated to correctly create  entries in the .
 
 **Critical Info for New Agent**
 -   **Language:** You **MUST** communicate with the user in **Hindi**.
--   **Immediate Task:** Your first task is to confirm with the user that the last set of fixes (accounting bug, Party Summary UI, Truck Payment sorting) are working as expected. Take a screenshot to help with verification.
--   **Accounting is Complex:** Be extremely careful when modifying any payment-related logic. The distinction between  (credit) and  (debit) in the  is the most critical and error-prone part of the application.
+-   **Immediate Task:** You need to complete the feature for displaying type-specific rice stock. The user wants the Rice Type dropdown on forms (like New Rice Sale) to only show Usna and Raw, and the available stock display must update based on the selection. The backend endpoint  is already created. You need to implement the frontend logic in  and other relevant forms.
+-   **Accounting is Critical:** A massive effort was just made to fix accounting logic across the entire application. Be extremely cautious when modifying any code related to payments, transactions, or ledgers (). The logic in  for creating linked ledger entries is the new standard.
 
 **documents and test reports created in this job**
--   /app/test_reports/iteration_12.json
--   /app/test_reports/iteration_11.json
--   /app/memory/PRD.md (updated)
+-   None.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Requested separate Paddy/Rice sections in Party Summary, sorting for Truck Payments, and reported an inflated balance bug for Rice Sales. - **STATUS: Completed, pending user verification.**
-2.  **User:** Approved adding Mark Paid/Undo/History to Rice Sales and requested adding RST No, Cash Paid, and Diesel Paid fields. - **STATUS: Completed.**
-3.  **User:** Reported that  from a new Rice Sale entry did not appear in Truck Payments and the party ledger wasn't updated. - **STATUS: Completed.**
-4.  **User:** Requested Mark Paid, Undo Paid, Payment History options for the Pvt Trading Paddy Purchase table. - **STATUS: Completed.**
-5.  **User:** Agreed with the plan to format ledger descriptions cleanly. - **STATUS: Completed.**
-6.  **User:** Requested a more detailed description format in the ledger for paddy purchases, e.g., . - **STATUS: Completed.**
-7.  **User:** All 14 tests passed! (Agent message after testing). - **STATUS: Completed.**
-8.  **User:** Requested a shortcut in Party Summary to click on a party and see their detailed ledger. Also re-reported the critical bug that pvt paddy payments are not reflecting in the cash ledger, stating it's been mentioned 3-4 times. - **STATUS: Completed.**
-9.  **User:** Approved restoring the Party Summary tab and asked to make it look better. - **STATUS: Completed.**
-10. **User:** Clarified that they wanted the Party Summary from the  to be improved, not the one removed from . This was a misunderstanding by the previous agent. - **STATUS: Completed.**
+1.  **User:** Requested a system-wide audit and fix for all payment flows to ensure  is correct. - **STATUS: Completed**
+2.  **User:** Asked to run the migration script on the production database. - **STATUS: Completed** (endpoint provided)
+3.  **User:** Asked how rice stock is tracked. - **STATUS: Completed** (feature implemented)
+4.  **User:** Complained about badge styling (Usna badge). - **STATUS: Completed**
+5.  **User:** Complained badge text was not bold enough. - **STATUS: Completed**
+6.  **User:** Complained the badge was invisible in light theme. - **STATUS: Completed**
+7.  **User:** Requested to show available rice stock on the New Rice Sale form. - **STATUS: Completed**
+8.  **User:** Reported the live stock calculation wasn't working. - **STATUS: Completed** (re-implemented)
+9.  **User:** Reported a critical bug with manual cash transactions not creating ledger entries or party types. - **STATUS: Completed**
+10. **User (Latest):** The Rice Type dropdown should only contain Usna and Raw, and the stock display must be specific to the selected type. - **STATUS: IN PROGRESS**
 
 **Project Health Check:**
--   **Broken:** None.
--   **Mocked:** None.
+-   **Broken:** None
+-   **Mocked:** None
 
 **3rd Party Integrations**
 -   electron-builder / electron-updater
@@ -140,13 +143,13 @@ The Private Trading module has been significantly overhauled.
 -   Telegram API
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. Used multiple times to verify complex payment and feature flows.
+-   **Testing agent used after significant changes:** NO
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None
--   **Known regressions:** None.
+-   **Known regressions:** A minor regression with live stock calculation was reported by the user and subsequently fixed.
 
 **Credentials to test flow:**
 -   **Admin:**  / 
 
 **What agent forgot to execute**
--   Nothing. The agent successfully identified and fixed all issues reported by the user in this session.</analysis>
+-   Nothing was forgotten; all user requests during the session were addressed. The agent was in the middle of the last request when the session ended.</analysis>
