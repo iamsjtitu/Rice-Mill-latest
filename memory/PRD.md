@@ -78,5 +78,14 @@ Hindi (all communication must be in Hindi)
 - `agent_payments` - Agent/mandi payment records
 - `mandi_targets` - Target configuration for mandis
 
+## Feature: Extra QNTL to Pvt Purchase (March 2026)
+- **Auto-calculation**: Target QNTL vs Actual QNTL - extra automatically calculated per mandi
+- **Summary card**: "Extra QNTL" shown in red in grand summary
+- **Per mandi**: Target, Extra QNTL shown; "Move to Pvt" button appears only when extra > 0
+- **Move to Pvt dialog**: Shows Mandi, Agent, Target, Actual, Extra QNTL; user enters rate per QNTL
+- **Pvt entry created** with party_name = "AgentName (MandiName)", source = "agent_extra"
+- **Duplicate prevention**: Once moved, button shows "Pvt Moved" (disabled)
+- **Synced** to all 3 backends
+
 ## Remaining/Future Tasks
 - None currently pending - all reported issues resolved

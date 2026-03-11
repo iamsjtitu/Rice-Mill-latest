@@ -739,6 +739,8 @@ const AgentMandiReport = ({ filters }) => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [expandedMandis, setExpandedMandis] = useState({});
+  const [pvtDialog, setPvtDialog] = useState({ open: false, mandi: null });
+  const [pvtRate, setPvtRate] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
@@ -790,6 +792,22 @@ const AgentMandiReport = ({ filters }) => {
     } catch (e) { toast.error("Export failed"); }
   };
 
+  const handleMoveToPvt = async () => {
+    const rate = parseFloat(pvtRate);
+    if (!rate || rate <= 0) { toast.error("Rate daalein"); return; }
+    try {
+      const res = await axios.post(`${API}/reports/agent-mandi-wise/move-to-pvt`, {
+        mandi_name: pvtDialog.mandi.mandi_name,
+        agent_name: pvtDialog.mandi.agent_name,
+        extra_qntl: pvtDialog.mandi.extra_qntl,
+        rate, kms_year: filters.kms_year, season: filters.season,
+        username: "admin"
+      });
+      if (res.data.success) { toast.success(res.data.message); setPvtDialog({ open: false, mandi: null }); setPvtRate(""); fetchData(); }
+      else toast.error(res.data.detail || "Error");
+    } catch (e) { toast.error(e.response?.data?.detail || "Move failed"); }
+  };
+
   const fmtNum = (v) => typeof v === 'number' ? v.toLocaleString('en-IN') : v;
   const fmtDate = (d) => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
 
@@ -835,10 +853,11 @@ const AgentMandiReport = ({ filters }) => {
 
       {/* Grand Summary */}
       {data && data.grand_totals && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
           {[
             ["Total Entries", data.grand_totals.entry_count, "", "text-white"],
             ["Total QNTL", data.grand_totals.total_qntl, "Q", "text-amber-400"],
+            ["Extra QNTL", data.grand_totals.total_extra_qntl || 0, "Q", "text-red-400"],
             ["Total Bags", data.grand_totals.total_bag, "", "text-blue-400"],
             ["Gunny Deposit", data.grand_totals.total_g_deposite, "", "text-cyan-400"],
             ["Gunny Issued", data.grand_totals.total_g_issued, "", "text-purple-400"],
@@ -870,15 +889,28 @@ const AgentMandiReport = ({ filters }) => {
                   <div>
                     <span className="text-amber-400 font-bold text-base">{mandi.mandi_name}</span>
                     <span className="text-slate-400 text-sm ml-3">Agent: <span className="text-white">{mandi.agent_name}</span></span>
+                    {mandi.target_qntl > 0 && (
+                      <span className="text-slate-500 text-xs ml-3">Target: {fmtNum(mandi.target_qntl)}Q</span>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-6 text-sm">
+                <div className="flex items-center gap-4 text-sm">
                   <div className="text-center"><p className="text-[10px] text-slate-500">Entries</p><p className="text-white font-bold">{mandi.totals.entry_count}</p></div>
                   <div className="text-center"><p className="text-[10px] text-slate-500">QNTL</p><p className="text-amber-400 font-bold">{fmtNum(mandi.totals.total_qntl)}</p></div>
+                  {mandi.extra_qntl > 0 && (
+                    <div className="text-center"><p className="text-[10px] text-red-400">Extra</p><p className="text-red-400 font-bold">{fmtNum(mandi.extra_qntl)}Q</p></div>
+                  )}
                   <div className="text-center"><p className="text-[10px] text-slate-500">Bags</p><p className="text-blue-400 font-bold">{fmtNum(mandi.totals.total_bag)}</p></div>
                   <div className="text-center"><p className="text-[10px] text-slate-500">G.Deposit</p><p className="text-cyan-400 font-bold">{fmtNum(mandi.totals.total_g_deposite)}</p></div>
                   <div className="text-center"><p className="text-[10px] text-slate-500">G.Issued</p><p className="text-purple-400 font-bold">{fmtNum(mandi.totals.total_g_issued)}</p></div>
                   <div className="text-center"><p className="text-[10px] text-slate-500">Final Wt</p><p className="text-emerald-400 font-bold">{fmtNum(mandi.totals.total_final_w)}</p></div>
+                  {mandi.extra_qntl > 0 && (
+                    <Button size="sm" onClick={(e) => { e.stopPropagation(); setPvtDialog({ open: true, mandi }); setPvtRate(""); }}
+                      className={mandi.pvt_moved ? "bg-slate-600 text-slate-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700 text-white"}
+                      disabled={mandi.pvt_moved} data-testid={`move-pvt-${mandi.mandi_name}`}>
+                      {mandi.pvt_moved ? "Pvt Moved" : "Move to Pvt"}
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -937,6 +969,42 @@ const AgentMandiReport = ({ filters }) => {
         <div className="text-center py-8 text-slate-400">
           <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
           <p>Koi data nahi mila</p>
+        </div>
+      )}
+
+      {/* Move to Pvt Purchase Dialog */}
+      {pvtDialog.open && pvtDialog.mandi && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setPvtDialog({ open: false, mandi: null })}>
+          <Card className="bg-slate-800 border-slate-600 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <CardContent className="p-6 space-y-4">
+              <h3 className="text-lg font-bold text-amber-400">Move to Pvt Purchase</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-slate-400">Mandi:</span><span className="text-white font-semibold">{pvtDialog.mandi.mandi_name}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Agent:</span><span className="text-white font-semibold">{pvtDialog.mandi.agent_name}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Target QNTL:</span><span className="text-white">{fmtNum(pvtDialog.mandi.target_qntl)}Q</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Actual QNTL:</span><span className="text-amber-400">{fmtNum(pvtDialog.mandi.totals.total_qntl)}Q</span></div>
+                <div className="flex justify-between border-t border-slate-700 pt-2"><span className="text-red-400 font-bold">Extra QNTL:</span><span className="text-red-400 font-bold">{fmtNum(pvtDialog.mandi.extra_qntl)}Q</span></div>
+              </div>
+              <div>
+                <label className="text-slate-400 text-xs block mb-1">Rate per QNTL (Rs.)</label>
+                <Input type="number" value={pvtRate} onChange={e => setPvtRate(e.target.value)} placeholder="e.g. 1800"
+                  className="bg-slate-700 border-slate-600 text-white" data-testid="pvt-rate-input" />
+              </div>
+              {pvtRate && parseFloat(pvtRate) > 0 && (
+                <div className="bg-slate-900 rounded p-3 text-center">
+                  <p className="text-slate-400 text-xs">Total Amount</p>
+                  <p className="text-2xl font-bold text-emerald-400">Rs. {fmtNum(Math.round(pvtDialog.mandi.extra_qntl * parseFloat(pvtRate) * 100) / 100)}</p>
+                  <p className="text-slate-500 text-xs">{pvtDialog.mandi.extra_qntl}Q x Rs.{pvtRate}/Q</p>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <Button onClick={() => setPvtDialog({ open: false, mandi: null })} variant="outline" className="flex-1 border-slate-600 text-slate-300">Cancel</Button>
+                <Button onClick={handleMoveToPvt} className="flex-1 bg-red-600 hover:bg-red-700 text-white" data-testid="confirm-move-pvt">
+                  Move to Pvt Purchase
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

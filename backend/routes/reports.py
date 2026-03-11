@@ -302,6 +302,27 @@ async def report_agent_mandi_wise(kms_year: Optional[str] = None, season: Option
 
     result.sort(key=lambda x: x["mandi_name"])
 
+    # Fetch mandi targets for extra QNTL calculation
+    target_query = {}
+    if kms_year: target_query["kms_year"] = kms_year
+    if season: target_query["season"] = season
+    targets = await db.mandi_targets.find(target_query, {"_id": 0}).to_list(500)
+    target_map = {t["mandi_name"]: t for t in targets}
+
+    # Check existing pvt entries from this feature
+    pvt_entries = await db.private_paddy.find({"source": "agent_extra"}, {"_id": 0, "mandi_name": 1}).to_list(500)
+    pvt_mandi_set = set(p.get("mandi_name", "") for p in pvt_entries)
+
+    for m in result:
+        mn = m["mandi_name"]
+        target = target_map.get(mn, {})
+        target_qntl = round(target.get("target_qntl", 0), 2)
+        actual_qntl = m["totals"]["total_qntl"]
+        extra_qntl = round(max(0, actual_qntl - target_qntl), 2) if target_qntl > 0 else 0
+        m["target_qntl"] = target_qntl
+        m["extra_qntl"] = extra_qntl
+        m["pvt_moved"] = mn in pvt_mandi_set
+
     # Grand totals
     grand = {"total_kg": 0, "total_qntl": 0, "total_bag": 0, "total_g_deposite": 0,
              "total_g_issued": 0, "total_mill_w": 0, "total_final_w": 0, "total_cutting": 0,
@@ -311,8 +332,56 @@ async def report_agent_mandi_wise(kms_year: Optional[str] = None, season: Option
             grand[k] += m["totals"][k]
     for k in grand:
         grand[k] = round(grand[k], 2)
+    grand["total_extra_qntl"] = round(sum(m.get("extra_qntl", 0) for m in result), 2)
 
     return {"mandis": result, "grand_totals": grand}
+
+
+@router.post("/reports/agent-mandi-wise/move-to-pvt")
+async def move_extra_to_pvt(request: Request):
+    """Move extra QNTL (above target) to Private Paddy Purchase"""
+    body = await request.json()
+    mandi_name = body.get("mandi_name")
+    agent_name = body.get("agent_name", "")
+    extra_qntl = body.get("extra_qntl", 0)
+    rate = body.get("rate", 0)
+    kms_year = body.get("kms_year", "")
+    season = body.get("season", "")
+    username = body.get("username", "admin")
+
+    if not mandi_name or extra_qntl <= 0 or rate <= 0:
+        return {"success": False, "detail": "Mandi name, extra QNTL aur rate required hai"}
+
+    total_amount = round(extra_qntl * rate, 2)
+
+    # Check if already moved
+    existing = await db.private_paddy.find_one({"mandi_name": mandi_name, "source": "agent_extra", "kms_year": kms_year, "season": season}, {"_id": 0})
+    if existing:
+        return {"success": False, "detail": f"{mandi_name} ka extra QNTL pehle se Pvt Purchase mein move ho chuka hai"}
+
+    pvt_entry = {
+        "id": str(uuid.uuid4()),
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "party_name": f"{agent_name} ({mandi_name})",
+        "mandi_name": mandi_name,
+        "agent_name": agent_name,
+        "quantity_qntl": round(extra_qntl, 2),
+        "rate_per_qntl": round(rate, 2),
+        "total_amount": total_amount,
+        "paid_amount": 0,
+        "status": "pending",
+        "source": "agent_extra",
+        "note": f"Agent extra QNTL - Target se {extra_qntl}Q zyada aaya",
+        "kms_year": kms_year,
+        "season": season,
+        "created_by": username,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.private_paddy.insert_one(pvt_entry)
+
+    return {"success": True, "message": f"{extra_qntl}Q @ ₹{rate}/Q = ₹{total_amount} Pvt Purchase mein move ho gaya ({agent_name} - {mandi_name})"}
+
 
 
 @router.get("/reports/agent-mandi-wise/excel")

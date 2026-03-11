@@ -293,10 +293,47 @@ module.exports = function(database) {
 
     const result = Object.values(mandiMap).sort((a,b) => a.mandi_name.localeCompare(b.mandi_name));
     for (const m of result) { for (const k in m.totals) m.totals[k] = Math.round(m.totals[k]*100)/100; }
+
+    // Add target and extra QNTL info
+    const targets = database.getMandiTargets({ kms_year, season });
+    const targetMap = {}; for (const t of targets) targetMap[t.mandi_name] = t;
+    const pvtEntries = (database.data.private_paddy || []).filter(p => p.source === 'agent_extra');
+    const pvtMandiSet = new Set(pvtEntries.map(p => p.mandi_name));
+    for (const m of result) {
+      const target = targetMap[m.mandi_name] || {};
+      const targetQntl = Math.round((target.target_qntl || 0) * 100) / 100;
+      m.target_qntl = targetQntl;
+      m.extra_qntl = targetQntl > 0 ? Math.round(Math.max(0, m.totals.total_qntl - targetQntl) * 100) / 100 : 0;
+      m.pvt_moved = pvtMandiSet.has(m.mandi_name);
+    }
+
     const grand = { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_mill_w: 0, total_final_w: 0, total_cutting: 0, total_cash_paid: 0, total_diesel_paid: 0, entry_count: 0 };
     for (const m of result) { for (const k in grand) grand[k] += m.totals[k]; }
     for (const k in grand) grand[k] = Math.round(grand[k]*100)/100;
+    grand.total_extra_qntl = Math.round(result.reduce((s, m) => s + (m.extra_qntl || 0), 0) * 100) / 100;
     res.json({ mandis: result, grand_totals: grand });
+  }));
+
+  // Move extra QNTL to Pvt Purchase
+  router.post('/api/reports/agent-mandi-wise/move-to-pvt', safeSync((req, res) => {
+    const { mandi_name, agent_name, extra_qntl, rate, kms_year, season, username } = req.body;
+    if (!mandi_name || !extra_qntl || extra_qntl <= 0 || !rate || rate <= 0)
+      return res.status(400).json({ success: false, detail: 'Mandi name, extra QNTL aur rate required hai' });
+    if (!database.data.private_paddy) database.data.private_paddy = [];
+    const existing = database.data.private_paddy.find(p => p.mandi_name === mandi_name && p.source === 'agent_extra' && p.kms_year === (kms_year||'') && p.season === (season||''));
+    if (existing) return res.json({ success: false, detail: `${mandi_name} ka extra QNTL pehle se Pvt Purchase mein move ho chuka hai` });
+    const total_amount = Math.round(extra_qntl * rate * 100) / 100;
+    database.data.private_paddy.push({
+      id: uuidv4(), date: new Date().toISOString().split('T')[0],
+      party_name: `${agent_name} (${mandi_name})`, mandi_name, agent_name,
+      quantity_qntl: Math.round(extra_qntl * 100) / 100, rate_per_qntl: Math.round(rate * 100) / 100,
+      total_amount, paid_amount: 0, status: 'pending', source: 'agent_extra',
+      note: `Agent extra QNTL - Target se ${extra_qntl}Q zyada aaya`,
+      kms_year: kms_year || '', season: season || '', created_by: username || 'admin',
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    });
+    database.save();
+    res.json({ success: true, message: `${extra_qntl}Q @ ₹${rate}/Q = ₹${total_amount} Pvt Purchase mein move ho gaya (${agent_name} - ${mandi_name})` });
   }));
 
   router.get('/api/reports/agent-mandi-wise/excel', safeSync(async (req, res) => {
