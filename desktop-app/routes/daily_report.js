@@ -444,21 +444,20 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
   // ===== 6.5 CASH TRANSACTIONS =====
   const ctxn = data.cash_transactions;
   if (ctxn && ctxn.count > 0) {
-    sectionTitle(0, `Cash Transactions / लेन-देन (${ctxn.count})`);
+    sectionTitle(0, `Cash Transactions (${ctxn.count})`);
     drawSummaryBox(
       ['Total Jama', 'Total Nikasi', 'Balance'],
       [`Rs.${fmtAmt(ctxn.total_jama)}`, `Rs.${fmtAmt(ctxn.total_nikasi)}`, `Rs.${fmtAmt(ctxn.total_jama - ctxn.total_nikasi)}`],
       [170, 170, 170], C.yellowBg || C.orangeBg
     );
     if (ctxn.details && ctxn.details.length) {
-      const ctH = isDetail ? ['Date','Party Name','Type','Amount','Description','Mode'] : ['Date','Party Name','Type','Amount','Mode'];
+      const ctH = isDetail ? ['Date','Party Name','Type','Amount (Rs.)','Description'] : ['Date','Party Name','Type','Amount (Rs.)'];
       const ctR = ctxn.details.map(d => {
-        const row = [d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'JAMA' : 'NIKASI', `Rs.${fmtAmt(d.amount)}`];
-        if (isDetail) row.splice(4, 0, (d.description||'').substring(0,40));
-        row.push(d.payment_mode||'');
+        const row = [d.date||'', (d.party_name||'').substring(0,20), d.txn_type === 'jama' ? 'JAMA' : 'NIKASI', `Rs.${fmtAmt(d.amount)}`];
+        if (isDetail) row.push((d.description||'').substring(0,35));
         return row;
       });
-      const ctW = isDetail ? [50,80,40,60,160,50] : [60,130,50,80,70];
+      const ctW = isDetail ? [55,90,45,70,150] : [70,150,55,90];
       drawTable(ctH, ctR, ctW);
     }
   }
@@ -632,15 +631,15 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   // 6.5. Cash Transactions
   const ctxn = data.cash_transactions;
   if (ctxn && ctxn.count > 0) {
-    writeSection(`Cash Transactions / लेन-देन (${ctxn.count})`);
+    writeSection(`Cash Transactions (${ctxn.count})`);
     writeSummary(`Jama: Rs.${fmtAmt(ctxn.total_jama)} | Nikasi: Rs.${fmtAmt(ctxn.total_nikasi)} | Balance: Rs.${fmtAmt(ctxn.total_jama - ctxn.total_nikasi)}`);
     if (ctxn.details && ctxn.details.length) {
       if (isDetail) {
-        writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Description', 'Payment Mode']);
-        ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount, d.description||'', d.payment_mode||'']));
+        writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Description']);
+        ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount, d.description||'']));
       } else {
-        writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Payment Mode']);
-        ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount, d.payment_mode||'']));
+        writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)']);
+        ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount]));
       }
     }
     row++;

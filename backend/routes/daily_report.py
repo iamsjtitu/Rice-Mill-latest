@@ -587,7 +587,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     ct = data.get("cash_transactions", {})
     if ct.get("count", 0) > 0:
         elements.append(Spacer(1, 4))
-        elements.append(Paragraph(f"Cash Transactions / लेन-देन ({ct['count']})", section_style))
+        elements.append(Paragraph(f"Cash Transactions ({ct['count']})", section_style))
         ct_sum = [
             ['Total Jama', 'Total Nikasi', 'Balance'],
             [f"Rs.{_fmt_amt(ct.get('total_jama', 0))}", f"Rs.{_fmt_amt(ct.get('total_nikasi', 0))}",
@@ -602,16 +602,15 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         ]))
         elements.append(ctt)
         if ct.get("details"):
-            ct_headers = ['Date', 'Party Name', 'Type', 'Amount', 'Description', 'Mode'] if is_detail else ['Date', 'Party Name', 'Type', 'Amount', 'Mode']
+            ct_headers = ['Date', 'Party Name', 'Type', 'Amount (Rs.)', 'Description'] if is_detail else ['Date', 'Party Name', 'Type', 'Amount (Rs.)']
             ct_rows = []
             for d in ct["details"]:
                 txn_label = "JAMA" if d.get("txn_type") == "jama" else "NIKASI"
-                row = [d.get("date", "")[:10], d.get("party_name", ""), txn_label, f"Rs.{_fmt_amt(d.get('amount', 0))}"]
+                row = [d.get("date", "")[:10], d.get("party_name", "")[:20], txn_label, f"Rs.{_fmt_amt(d.get('amount', 0))}"]
                 if is_detail:
-                    row.insert(4, d.get("description", "")[:40])
-                row.append(d.get("payment_mode", ""))
+                    row.append(d.get("description", "")[:35])
                 ct_rows.append(row)
-            ct_widths = [50, 80, 40, 60, 160, 50] if is_detail else [55, 130, 50, 80, 70]
+            ct_widths = [55, 90, 45, 70, 150] if is_detail else [70, 150, 55, 90]
             elements.append(make_table(ct_headers, ct_rows, ct_widths))
         elements.append(Spacer(1, 4))
 
@@ -846,7 +845,7 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     ct = data.get("cash_transactions", {})
     if ct.get("count", 0) > 0:
         row += 1
-        write_section(f"Cash Transactions / लेन-देन ({ct['count']})")
+        write_section(f"Cash Transactions ({ct['count']})")
         write_sub(f"Jama: Rs.{ct.get('total_jama',0):,.0f} | Nikasi: Rs.{ct.get('total_nikasi',0):,.0f} | Balance: Rs.{(ct.get('total_jama',0) - ct.get('total_nikasi',0)):,.0f}")
         if ct.get("details"):
             if is_detail:

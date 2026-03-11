@@ -54,7 +54,7 @@ const CashBook = ({ filters, user }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [editingId, setEditingId] = useState(null);
-  const [activeView, setActiveView] = useState("transactions"); // "transactions" or "party-summary"
+  const [activeView, setActiveView] = useState("cash-transactions");
   const [partySummary, setPartySummary] = useState(null);
   const [partySummaryFilter, setPartySummaryFilter] = useState("");
   const [partySummaryStatusFilter, setPartySummaryStatusFilter] = useState("");
@@ -324,15 +324,15 @@ const CashBook = ({ filters, user }) => {
       {/* Sub-tabs */}
       <div className="flex gap-2 flex-wrap items-center">
         <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
-          <Button onClick={() => setActiveView("transactions")} variant="ghost" size="sm"
-            className={activeView === "transactions" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
-            data-testid="cashbook-tab-transactions">
-            <Wallet className="w-4 h-4 mr-1" /> All Transactions
-          </Button>
           <Button onClick={() => setActiveView("cash-transactions")} variant="ghost" size="sm"
             className={activeView === "cash-transactions" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
             data-testid="cashbook-tab-cash-transactions">
             <Banknote className="w-4 h-4 mr-1" /> Cash Transactions
+          </Button>
+          <Button onClick={() => setActiveView("transactions")} variant="ghost" size="sm"
+            className={activeView === "transactions" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
+            data-testid="cashbook-tab-transactions">
+            <Wallet className="w-4 h-4 mr-1" /> Party Ledgers
           </Button>
           <Button onClick={() => setActiveView("party-summary")} variant="ghost" size="sm"
             className={activeView === "party-summary" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
