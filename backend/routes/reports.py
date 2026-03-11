@@ -416,7 +416,7 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
     ws['A1'].font = Font(bold=True, size=14, color="D97706")
     ws['A1'].alignment = Alignment(horizontal='center')
 
-    headers = ["Date", "Truck No", "QNTL", "BAG", "G.Dep", "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", "D/D/P", "Final W", "G.Iss"]
+    headers = ["Date", "Truck No", "QNTL", "BAG", "G.Dep", "G.Iss", "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", "D/D/P", "Final W"]
     row = 3
     q = lambda v: round(v/100, 2)
     for mandi_data in data["mandis"]:
@@ -438,10 +438,9 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
         # Entries
         for entry in mandi_data["entries"]:
             vals = [entry["date"], entry["truck_no"], entry["qntl"], entry["bag"],
-                    entry["g_deposite"], q(entry["gbw_cut"]), entry["plastic_bag"], q(entry["p_pkt_cut"]),
+                    entry["g_deposite"], entry["g_issued"], q(entry["gbw_cut"]), entry["plastic_bag"], q(entry["p_pkt_cut"]),
                     q(entry["mill_w"]), entry["moisture_cut_percent"], q(entry["moisture_cut"]),
-                    entry["cutting_percent"], q(entry["disc_dust_poll"]), q(entry["final_w"]),
-                    entry["g_issued"]]
+                    entry["cutting_percent"], q(entry["disc_dust_poll"]), q(entry["final_w"])]
             for col, v in enumerate(vals, 1):
                 c = ws.cell(row=row, column=col, value=v)
                 c.border = tb
@@ -452,10 +451,9 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
         t = mandi_data["totals"]
         ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
         for col, val in [(3, t["total_qntl"]), (4, t["total_bag"]), (5, t["total_g_deposite"]),
-                         (6, q(t["total_gbw_cut"])), (7, t["total_plastic_bag"]), (8, q(t["total_p_pkt_cut"])),
-                         (9, q(t["total_mill_w"])), (11, q(t["total_moisture_cut"])),
-                         (13, q(t["total_disc_dust_poll"])), (14, q(t["total_final_w"])),
-                         (15, t["total_g_issued"])]:
+                         (6, t["total_g_issued"]), (7, q(t["total_gbw_cut"])), (8, t["total_plastic_bag"]), (9, q(t["total_p_pkt_cut"])),
+                         (10, q(t["total_mill_w"])), (12, q(t["total_moisture_cut"])),
+                         (14, q(t["total_disc_dust_poll"])), (15, q(t["total_final_w"]))]:
             c = ws.cell(row=row, column=col, value=val)
             c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
         ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
@@ -467,10 +465,9 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
     ws.cell(row=row, column=1, value=f"GRAND TOTAL ({g['entry_count']} entries)").font = gfont
     ws.cell(row=row, column=1).fill = gf
     for col, val in [(3, g["total_qntl"]), (4, g["total_bag"]), (5, g["total_g_deposite"]),
-                     (6, q(g["total_gbw_cut"])), (7, g["total_plastic_bag"]), (8, q(g["total_p_pkt_cut"])),
-                     (9, q(g["total_mill_w"])), (11, q(g["total_moisture_cut"])),
-                     (13, q(g["total_disc_dust_poll"])), (14, q(g["total_final_w"])),
-                     (15, g["total_g_issued"])]:
+                     (6, g["total_g_issued"]), (7, q(g["total_gbw_cut"])), (8, g["total_plastic_bag"]), (9, q(g["total_p_pkt_cut"])),
+                     (10, q(g["total_mill_w"])), (12, q(g["total_moisture_cut"])),
+                     (14, q(g["total_disc_dust_poll"])), (15, q(g["total_final_w"]))]:
         c = ws.cell(row=row, column=col, value=val)
         c.fill = gf; c.font = gfont; c.border = tb; c.alignment = Alignment(horizontal='right')
 
@@ -506,8 +503,8 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
     elements.append(Paragraph(title, title_style))
     elements.append(Spacer(1, 8))
 
-    headers = ["Date", "Truck", "QNTL", "BAG", "G.Dep", "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", "D/D/P", "Final W", "G.Iss"]
-    col_widths = [22*mm, 24*mm, 16*mm, 12*mm, 12*mm, 14*mm, 12*mm, 14*mm, 18*mm, 12*mm, 14*mm, 12*mm, 14*mm, 18*mm, 12*mm]
+    headers = ["Date", "Truck", "QNTL", "BAG", "G.Dep", "G.Iss", "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", "D/D/P", "Final W"]
+    col_widths = [22*mm, 24*mm, 16*mm, 12*mm, 12*mm, 12*mm, 14*mm, 12*mm, 14*mm, 18*mm, 12*mm, 14*mm, 12*mm, 14*mm, 18*mm]
 
     for mandi_data in report_data["mandis"]:
         # Mandi header
@@ -526,18 +523,16 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
         q = lambda v: round(v/100, 2)
         for entry in mandi_data["entries"]:
             table_data.append([entry["date"], entry["truck_no"], str(entry["qntl"]), str(entry["bag"]),
-                str(entry["g_deposite"]), str(q(entry["gbw_cut"])), str(entry["plastic_bag"]), str(q(entry["p_pkt_cut"])),
+                str(entry["g_deposite"]), str(entry["g_issued"]), str(q(entry["gbw_cut"])), str(entry["plastic_bag"]), str(q(entry["p_pkt_cut"])),
                 str(q(entry["mill_w"])), str(entry["moisture_cut_percent"]), str(q(entry["moisture_cut"])),
-                str(entry["cutting_percent"]), str(q(entry["disc_dust_poll"])), str(q(entry["final_w"])),
-                str(entry["g_issued"])])
+                str(entry["cutting_percent"]), str(q(entry["disc_dust_poll"])), str(q(entry["final_w"]))])
 
         # Mandi totals
         t = mandi_data["totals"]
         table_data.append(["TOTAL", "", str(t["total_qntl"]), str(t["total_bag"]),
-            str(t["total_g_deposite"]), str(q(t["total_gbw_cut"])), str(t["total_plastic_bag"]), str(q(t["total_p_pkt_cut"])),
+            str(t["total_g_deposite"]), str(t["total_g_issued"]), str(q(t["total_gbw_cut"])), str(t["total_plastic_bag"]), str(q(t["total_p_pkt_cut"])),
             str(q(t["total_mill_w"])), "", str(q(t["total_moisture_cut"])),
-            "", str(q(t["total_disc_dust_poll"])), str(q(t["total_final_w"])),
-            str(t["total_g_issued"])])
+            "", str(q(t["total_disc_dust_poll"])), str(q(t["total_final_w"]))])
 
         tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
         style_cmds = [
@@ -564,10 +559,9 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
     q = lambda v: round(v/100, 2)
     grand_data = [[f"GRAND TOTAL ({g['entry_count']})", "",
         str(g["total_qntl"]), str(g["total_bag"]), str(g["total_g_deposite"]),
-        str(q(g["total_gbw_cut"])), str(g["total_plastic_bag"]), str(q(g["total_p_pkt_cut"])),
+        str(g["total_g_issued"]), str(q(g["total_gbw_cut"])), str(g["total_plastic_bag"]), str(q(g["total_p_pkt_cut"])),
         str(q(g["total_mill_w"])), "", str(q(g["total_moisture_cut"])),
-        "", str(q(g["total_disc_dust_poll"])), str(q(g["total_final_w"])),
-        str(g["total_g_issued"])]]
+        "", str(q(g["total_disc_dust_poll"])), str(q(g["total_final_w"]))]]
     gt = RLTable(grand_data, colWidths=col_widths)
     gt.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#065F46')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),

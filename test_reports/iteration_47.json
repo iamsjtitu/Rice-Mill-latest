@@ -1,0 +1,92 @@
+{
+  "summary": "Agent & Mandi Report column alignment fix verified - G.Iss column correctly positioned at 6th position (after G.Dep) in Frontend table, Python backend exports, and Node.js backends. All 7 backend tests PASSED.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "test_report_links": [
+    "/app/backend/tests/test_agent_mandi_column_fix.py",
+    "/app/test_reports/pytest/pytest_results_iteration47.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [
+    "Frontend Reports.jsx - Headers at line 922-938: G.Iss correctly at position 6",
+    "Frontend Reports.jsx - Body data at line 947-948: entry.g_issued correctly after entry.g_deposite",
+    "Frontend Reports.jsx - Totals row at line 965-966: total_g_issued correctly at position 6",
+    "Python reports.py - Excel headers at line 419 and data at line 441-444: G.Iss at column 6",
+    "Python reports.py - PDF headers at line 506 and data at line 524-528: G.Iss at position 6",
+    "Node.js desktop-app/routes/reports.js - Excel/PDF both have G.Iss at correct position",
+    "Node.js local-server/routes/reports.js - Synced with desktop-app, correct column order"
+  ],
+  
+  "updated_files": [
+    "/app/backend/tests/test_agent_mandi_column_fix.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (7/7 tests passed)",
+    "frontend": "100% - UI verified via Playwright"
+  },
+  
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+  
+  "seed_data_creation": "Existing seed data used - 2 mandis (Kesinga, Utkela) with entries",
+  
+  "retest_needed": false,
+  
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "Agent & Mandi Report column alignment fix verified. Column order: Date, Truck No, QNTL, BAG, G.Dep, G.Iss, GBW, P.Pkt, P.Cut, Mill W, M%, M.Cut, C%, D/D/P, Final W. G.Iss is correctly at position 6 in all places: frontend table headers, body rows, totals row, Python backend Excel/PDF exports, and Node.js backend Excel/PDF exports.",
+  
+  "verified_features": {
+    "frontend_table_column_order": {
+      "headers": "VERIFIED - G.Iss at position 6 (line 928)",
+      "body_data": "VERIFIED - entry.g_issued at position 6 (line 948)",
+      "totals_row": "VERIFIED - total_g_issued at position 6 (line 966)"
+    },
+    "python_backend_exports": {
+      "excel_export": "VERIFIED - 200 OK, G.Iss at column 6",
+      "pdf_export": "VERIFIED - 200 OK, G.Iss at position 6"
+    },
+    "nodejs_backends": {
+      "desktop_app_excel": "VERIFIED - G.Iss at column 6 (line 372, 393-397)",
+      "desktop_app_pdf": "VERIFIED - G.Iss at position 6 (line 458, 479-483)",
+      "local_server_excel": "VERIFIED - Same as desktop-app",
+      "local_server_pdf": "VERIFIED - Same as desktop-app"
+    },
+    "api_response": {
+      "g_issued_in_entries": "VERIFIED - Each entry has g_issued field",
+      "total_g_issued_in_totals": "VERIFIED - Mandi totals include total_g_issued",
+      "grand_total_g_issued": "VERIFIED - grand_totals includes total_g_issued"
+    }
+  },
+  
+  "tests_executed": {
+    "test_01_api_returns_data_with_correct_fields": "PASSED",
+    "test_02_entry_has_g_issued_field": "PASSED",
+    "test_03_totals_has_g_issued": "PASSED",
+    "test_04_excel_export_success": "PASSED",
+    "test_05_excel_column_order": "PASSED - Headers verified as ['Date', 'Truck No', 'QNTL', 'BAG', 'G.Dep', 'G.Iss', ...]",
+    "test_06_pdf_export_success": "PASSED",
+    "test_07_g_iss_position_after_g_dep": "PASSED"
+  },
+  
+  "ui_verification": {
+    "expanded_table_view": "VERIFIED via Playwright - Table shows correct column order with data aligned",
+    "screenshot_taken": ".screenshots/agent_mandi_expanded.png"
+  },
+  
+  "test_run_timestamp": "2026-03-11T13:22:00Z"
+}
