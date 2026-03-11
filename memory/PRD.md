@@ -6,7 +6,7 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 ## Core Architecture
 ```
 /app
-├── shared/                    # NEW: Shared config for all backends
+├── shared/                    # Shared config for all backends
 │   ├── report_config.json     # Column definitions (single source of truth)
 │   └── report_helper.js       # Node.js helper functions
 ├── backend/                   # Python/FastAPI (MongoDB)
@@ -17,45 +17,35 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 └── sync_backends.sh           # Sync script (desktop-app -> local-server)
 ```
 
-## Shared Config System (NEW)
-- `/app/shared/report_config.json` defines all column definitions for Agent & Mandi Report
-- Column order, headers, field names, types, widths all defined in ONE place
-- Python backend reads via `utils/report_helper.py`
-- Node.js backends read via `shared/report_helper.js`
-- To add/remove/reorder columns: edit `report_config.json` only
+## Shared Config System
+- `/app/shared/report_config.json` - Column definitions for 4 reports:
+  - agent_mandi_report (15 cols)
+  - gunny_bags_report (9 cols)
+  - dc_entries_report (9 cols)
+  - msp_payments_report (8 cols)
+- Python reads via `utils/report_helper.py`, Node.js via `shared/report_helper.js`
+- To change columns: edit `report_config.json` only
 - Run `bash sync_backends.sh` to sync desktop-app -> local-server
 
-## Implemented Features
+## Key Schema Notes
+- **Gunny Bags**: Uses `txn_type` (in/out), `quantity`, `source`, `reference` (NOT transaction_type/bags)
+- **Auto entries**: Created with `is_auto_entry: True`, `linked_entry_id` 
+- **Mill entries auto-create**: BAG->IN, g_issued->OUT (bag_type=old)
 
-### Agent & Mandi Report
-- Column order: Date, Truck No, QNTL, BAG, G.Dep, G.Iss, GBW, P.Pkt, P.Cut, Mill W, M%, M.Cut, C%, D/D/P, Final W
-- Target based on Final W: actual_final_qntl = total_final_w / 100
-- PDF/Excel respects expanded mandis filter (only exports what's expanded)
-- Grand Total scoped to filtered mandis only
-- Cash/Diesel columns removed
-- Synced across all 3 backends via shared config
-
-### Gunny Bag Automation
-- Auto entries: BAG=IN, g_issued=OUT (bag_type=old)
-- Auto badge, filters (Type + IN/OUT), summary cards
-- PDF/Excel exports with filters
-
-### Other Modules
-- Mill Entry CRUD, Cash Book, DC & Payments
-- Payments (Truck/Owner/Agent/Diesel/Local Party/Gunny Bags)
-- Mandi Target Management, Private Purchase
-- Excel Import, Telegram integration
+## Sorting
+All LIST endpoints sort `(date DESC, created_at DESC)` - newest entry always first
 
 ## Credentials
 - Admin: `admin` / `admin123`
 
 ## Completed (11-Mar-2026)
 - Fixed Agent & Mandi Report column misalignment (G.Iss after G.Dep)
-- PDF/Excel export filter: only expanded mandis exported, Grand Total scoped
-- **Shared config system**: report_config.json + helpers for Python & Node.js
-- Sync script for desktop-app -> local-server
-- All 3 backends refactored to use shared config
+- PDF/Excel export respects expanded mandis filter, Grand Total scoped
+- Shared config system for 4 reports (agent_mandi, gunny_bags, dc_entries, msp_payments)
+- Sorting fix: ALL list endpoints sort newest first across all 3 backends
+- Old gunny bag entries cleanup: Deleted broken entries, recreated with correct schema
+- Node.js backends fully synced via sync script
 - Frontend build updated in desktop-app
 
 ## Backlog
-- P2: Cleanup old Gunny Bag entries (g_deposite logic)
+- None pending
