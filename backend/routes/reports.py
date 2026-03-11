@@ -8,6 +8,7 @@ import uuid, io, csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from utils.report_helper import get_columns, get_entry_row, get_total_row, get_excel_headers, get_pdf_headers, get_excel_widths, get_pdf_widths_mm, col_count
 
 router = APIRouter()
 
@@ -422,8 +423,13 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
     gfont = Font(bold=True, color="FFFFFF", size=10)
     tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
+    cols = get_columns("agent_mandi_report")
+    ncols = col_count(cols)
+    headers = get_excel_headers(cols)
+    widths = get_excel_widths(cols)
+
     # Title
-    ws.merge_cells('A1:N1')
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
     title = f"Agent & Mandi Wise Report"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
@@ -431,12 +437,10 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
     ws['A1'].font = Font(bold=True, size=14, color="D97706")
     ws['A1'].alignment = Alignment(horizontal='center')
 
-    headers = ["Date", "Truck No", "QNTL", "BAG", "G.Dep", "G.Iss", "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", "D/D/P", "Final W"]
     row = 3
-    q = lambda v: round(v/100, 2)
     for mandi_data in data["mandis"]:
         # Mandi header row
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=15)
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=ncols)
         lbl = f"{mandi_data['mandi_name']} - Agent: {mandi_data['agent_name']} ({mandi_data['totals']['entry_count']} entries)"
         if mandi_data.get("target_qntl"):
             lbl += f" | Target: {mandi_data['target_qntl']}Q | Final W: {mandi_data.get('actual_final_qntl',0)}Q | Extra: {mandi_data.get('extra_qntl',0)}Q"
@@ -445,49 +449,43 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
         row += 1
 
         # Column headers
-        for col, h in enumerate(headers, 1):
-            c = ws.cell(row=row, column=col, value=h)
+        for col_idx, h in enumerate(headers, 1):
+            c = ws.cell(row=row, column=col_idx, value=h)
             c.fill = hf; c.font = hfont; c.alignment = Alignment(horizontal='center'); c.border = tb
         row += 1
 
-        # Entries
+        # Entries - values come from shared config
         for entry in mandi_data["entries"]:
-            vals = [entry["date"], entry["truck_no"], entry["qntl"], entry["bag"],
-                    entry["g_deposite"], entry["g_issued"], q(entry["gbw_cut"]), entry["plastic_bag"], q(entry["p_pkt_cut"]),
-                    q(entry["mill_w"]), entry["moisture_cut_percent"], q(entry["moisture_cut"]),
-                    entry["cutting_percent"], q(entry["disc_dust_poll"]), q(entry["final_w"])]
-            for col, v in enumerate(vals, 1):
-                c = ws.cell(row=row, column=col, value=v)
+            vals = get_entry_row(entry, cols)
+            for col_idx, v in enumerate(vals, 1):
+                c = ws.cell(row=row, column=col_idx, value=v)
                 c.border = tb
-                if col >= 3: c.alignment = Alignment(horizontal='right')
+                if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
             row += 1
 
-        # Mandi total row
+        # Mandi total row - values come from shared config
         t = mandi_data["totals"]
+        total_vals = get_total_row(t, cols)
         ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-        for col, val in [(3, t["total_qntl"]), (4, t["total_bag"]), (5, t["total_g_deposite"]),
-                         (6, t["total_g_issued"]), (7, q(t["total_gbw_cut"])), (8, t["total_plastic_bag"]), (9, q(t["total_p_pkt_cut"])),
-                         (10, q(t["total_mill_w"])), (12, q(t["total_moisture_cut"])),
-                         (14, q(t["total_disc_dust_poll"])), (15, q(t["total_final_w"]))]:
-            c = ws.cell(row=row, column=col, value=val)
-            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
         ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
+        for col_idx, val in enumerate(total_vals, 1):
+            if val is not None:
+                c = ws.cell(row=row, column=col_idx, value=val)
+                c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
         row += 2  # gap
 
-    # Grand total
+    # Grand total - values come from shared config
     g = data["grand_totals"]
+    grand_vals = get_total_row(g, cols)
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
     ws.cell(row=row, column=1, value=f"GRAND TOTAL ({g['entry_count']} entries)").font = gfont
     ws.cell(row=row, column=1).fill = gf
-    for col, val in [(3, g["total_qntl"]), (4, g["total_bag"]), (5, g["total_g_deposite"]),
-                     (6, g["total_g_issued"]), (7, q(g["total_gbw_cut"])), (8, g["total_plastic_bag"]), (9, q(g["total_p_pkt_cut"])),
-                     (10, q(g["total_mill_w"])), (12, q(g["total_moisture_cut"])),
-                     (14, q(g["total_disc_dust_poll"])), (15, q(g["total_final_w"]))]:
-        c = ws.cell(row=row, column=col, value=val)
-        c.fill = gf; c.font = gfont; c.border = tb; c.alignment = Alignment(horizontal='right')
+    for col_idx, val in enumerate(grand_vals, 1):
+        if val is not None:
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.fill = gf; c.font = gfont; c.border = tb; c.alignment = Alignment(horizontal='right')
 
-    # Column widths
-    widths = [12, 14, 10, 8, 8, 10, 8, 10, 12, 6, 10, 6, 10, 12, 8]
+    # Column widths from shared config
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -532,45 +530,48 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
     elements.append(Paragraph(title, title_style))
     elements.append(Spacer(1, 8))
 
-    headers = ["Date", "Truck", "QNTL", "BAG", "G.Dep", "G.Iss", "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", "D/D/P", "Final W"]
-    col_widths = [22*mm, 24*mm, 16*mm, 12*mm, 12*mm, 12*mm, 14*mm, 12*mm, 14*mm, 18*mm, 12*mm, 14*mm, 12*mm, 14*mm, 18*mm]
+    cols = get_columns("agent_mandi_report")
+    ncols = col_count(cols)
+    headers = get_pdf_headers(cols)
+    col_widths = [w*mm for w in get_pdf_widths_mm(cols)]
 
     for mandi_data in report_data["mandis"]:
         # Mandi header
         mandi_label = f"{mandi_data['mandi_name']} - Agent: {mandi_data['agent_name']} ({mandi_data['totals']['entry_count']} entries)"
         if mandi_data.get("target_qntl"):
             mandi_label += f" | Target: {mandi_data['target_qntl']}Q | Final W: {mandi_data.get('actual_final_qntl',0)}Q | Extra: {mandi_data.get('extra_qntl',0)}Q"
-        mandi_row = [[Paragraph(f"<b>{mandi_label}</b>", styles['Normal'])] + [''] * 14]
+        mandi_row = [[Paragraph(f"<b>{mandi_label}</b>", styles['Normal'])] + [''] * (ncols - 1)]
         mt = RLTable(mandi_row, colWidths=col_widths)
         mt.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D97706')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('SPAN', (0, 0), (-1, 0)),
             ('TOPPADDING', (0, 0), (-1, 0), 4), ('BOTTOMPADDING', (0, 0), (-1, 0), 4)]))
         elements.append(mt)
 
-        # Data table
+        # Data table - entries from shared config
         table_data = [headers]
-        q = lambda v: round(v/100, 2)
         for entry in mandi_data["entries"]:
-            table_data.append([entry["date"], entry["truck_no"], str(entry["qntl"]), str(entry["bag"]),
-                str(entry["g_deposite"]), str(entry["g_issued"]), str(q(entry["gbw_cut"])), str(entry["plastic_bag"]), str(q(entry["p_pkt_cut"])),
-                str(q(entry["mill_w"])), str(entry["moisture_cut_percent"]), str(q(entry["moisture_cut"])),
-                str(entry["cutting_percent"]), str(q(entry["disc_dust_poll"])), str(q(entry["final_w"]))])
+            table_data.append([str(v) for v in get_entry_row(entry, cols)])
 
-        # Mandi totals
+        # Mandi totals from shared config
         t = mandi_data["totals"]
-        table_data.append(["TOTAL", "", str(t["total_qntl"]), str(t["total_bag"]),
-            str(t["total_g_deposite"]), str(t["total_g_issued"]), str(q(t["total_gbw_cut"])), str(t["total_plastic_bag"]), str(q(t["total_p_pkt_cut"])),
-            str(q(t["total_mill_w"])), "", str(q(t["total_moisture_cut"])),
-            "", str(q(t["total_disc_dust_poll"])), str(q(t["total_final_w"]))])
+        total_vals = get_total_row(t, cols)
+        total_row = []
+        for i, val in enumerate(total_vals):
+            if i == 0: total_row.append("TOTAL")
+            elif val is not None: total_row.append(str(val))
+            else: total_row.append("")
+        table_data.append(total_row)
 
         tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+        # Find first right-aligned column index
+        first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 2)
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, -1), 7),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ALIGN', (4, 1), (-1, -1), 'RIGHT'),
+            ('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'),
             ('TOPPADDING', (0, 0), (-1, -1), 2),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
             ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
@@ -583,18 +584,20 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
         elements.append(tbl)
         elements.append(Spacer(1, 8))
 
-    # Grand total
+    # Grand total from shared config
     g = report_data["grand_totals"]
-    q = lambda v: round(v/100, 2)
-    grand_data = [[f"GRAND TOTAL ({g['entry_count']})", "",
-        str(g["total_qntl"]), str(g["total_bag"]), str(g["total_g_deposite"]),
-        str(g["total_g_issued"]), str(q(g["total_gbw_cut"])), str(g["total_plastic_bag"]), str(q(g["total_p_pkt_cut"])),
-        str(q(g["total_mill_w"])), "", str(q(g["total_moisture_cut"])),
-        "", str(q(g["total_disc_dust_poll"])), str(q(g["total_final_w"]))]]
+    grand_vals = get_total_row(g, cols)
+    grand_row = []
+    for i, val in enumerate(grand_vals):
+        if i == 0: grand_row.append(f"GRAND TOTAL ({g['entry_count']})")
+        elif i == 1: grand_row.append("")
+        elif val is not None: grand_row.append(str(val))
+        else: grand_row.append("")
+    grand_data = [grand_row]
     gt = RLTable(grand_data, colWidths=col_widths)
     gt.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#065F46')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8), ('ALIGN', (4, 0), (-1, 0), 'RIGHT'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8), ('ALIGN', (first_right, 0), (-1, 0), 'RIGHT'),
         ('TOPPADDING', (0, 0), (-1, 0), 4), ('BOTTOMPADDING', (0, 0), (-1, 0), 4)]))
     elements.append(gt)
 

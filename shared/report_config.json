@@ -1,0 +1,21 @@
+{
+  "agent_mandi_report": {
+    "columns": [
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 22, "show_total": false},
+      {"field": "truck_no", "header": "Truck No", "pdf_header": "Truck", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 24, "show_total": false},
+      {"field": "qntl", "header": "QNTL", "pdf_header": "QNTL", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_qntl"},
+      {"field": "bag", "header": "BAG", "pdf_header": "BAG", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_bag"},
+      {"field": "g_deposite", "header": "G.Dep", "pdf_header": "G.Dep", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_g_deposite"},
+      {"field": "g_issued", "header": "G.Iss", "pdf_header": "G.Iss", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_g_issued"},
+      {"field": "gbw_cut", "header": "GBW", "pdf_header": "GBW", "type": "qntl", "align": "right", "width_excel": 10, "width_pdf_mm": 14, "show_total": true, "total_key": "total_gbw_cut"},
+      {"field": "plastic_bag", "header": "P.Pkt", "pdf_header": "P.Pkt", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_plastic_bag"},
+      {"field": "p_pkt_cut", "header": "P.Cut", "pdf_header": "P.Cut", "type": "qntl", "align": "right", "width_excel": 10, "width_pdf_mm": 14, "show_total": true, "total_key": "total_p_pkt_cut"},
+      {"field": "mill_w", "header": "Mill W", "pdf_header": "Mill W", "type": "qntl", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_mill_w"},
+      {"field": "moisture_cut_percent", "header": "M%", "pdf_header": "M%", "type": "number", "align": "right", "width_excel": 6, "width_pdf_mm": 12, "show_total": false},
+      {"field": "moisture_cut", "header": "M.Cut", "pdf_header": "M.Cut", "type": "qntl", "align": "right", "width_excel": 10, "width_pdf_mm": 14, "show_total": true, "total_key": "total_moisture_cut"},
+      {"field": "cutting_percent", "header": "C%", "pdf_header": "C%", "type": "number", "align": "right", "width_excel": 6, "width_pdf_mm": 12, "show_total": false},
+      {"field": "disc_dust_poll", "header": "D/D/P", "pdf_header": "D/D/P", "type": "qntl", "align": "right", "width_excel": 10, "width_pdf_mm": 14, "show_total": true, "total_key": "total_disc_dust_poll"},
+      {"field": "final_w", "header": "Final W", "pdf_header": "Final W", "type": "qntl", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_final_w"}
+    ]
+  }
+}

@@ -4,6 +4,7 @@ const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C } = require('./pdf_helpers');
+const rptHelper = require('../../shared/report_helper');
 
 module.exports = function(database) {
 
@@ -353,28 +354,34 @@ module.exports = function(database) {
     const { kms_year, season, search, mandis: mandiFilter } = req.query;
     let entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     if (search) { const s = search.toLowerCase(); entries = entries.filter(e => (e.mandi_name||'').toLowerCase().includes(s) || (e.agent_name||'').toLowerCase().includes(s)); }
-    // Filter by expanded mandis
     if (mandiFilter) { const names = mandiFilter.split(',').map(n => n.trim()).filter(Boolean); if (names.length) entries = entries.filter(e => names.includes(e.mandi_name||'')); }
     entries.sort((a, b) => (b.date||'').localeCompare(a.date||''));
+
+    const cols = rptHelper.getColumns('agent_mandi_report');
+    const ncols = rptHelper.colCount(cols);
+    const totalKeys = rptHelper.getTotalKeys(cols);
 
     const mandiMap = {};
     for (const e of entries) {
       const mn = e.mandi_name || 'Unknown';
-      if (!mandiMap[mn]) mandiMap[mn] = { mandi_name: mn, agent_name: e.agent_name || '', entries: [], totals: { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_mill_w: 0, total_final_w: 0, total_cutting: 0, total_cash_paid: 0, total_diesel_paid: 0, entry_count: 0 }};
+      if (!mandiMap[mn]) {
+        const initTotals = { entry_count: 0 };
+        totalKeys.forEach(k => initTotals[k] = 0);
+        mandiMap[mn] = { mandi_name: mn, agent_name: e.agent_name || '', entries: [], totals: initTotals };
+      }
       const t = mandiMap[mn].totals;
-      t.total_kg += e.kg||0; t.total_qntl += e.qntl||0; t.total_bag += e.bag||0;
-      t.total_g_deposite += e.g_deposite||0; t.total_g_issued += e.g_issued||0; t.total_mill_w += e.mill_w||0;
-      t.total_final_w += e.final_w||0; t.total_cutting += e.cutting||0; t.total_cash_paid += e.cash_paid||0;
-      t.total_diesel_paid += e.diesel_paid||0; t.entry_count += 1;
+      totalKeys.forEach(k => { const field = k.replace('total_', ''); t[k] += (e[field]||0); });
+      t.entry_count += 1;
       mandiMap[mn].entries.push(e);
     }
     const mandis = Object.values(mandiMap).sort((a,b) => a.mandi_name.localeCompare(b.mandi_name));
 
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Agent Mandi Report');
-    const headers = ['Date','Truck No','QNTL','BAG','G.Dep','G.Iss','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W'];
+    const headers = rptHelper.getExcelHeaders(cols);
+    const widths = rptHelper.getExcelWidths(cols);
     let title = 'Agent & Mandi Wise Report';
     if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
-    ws.mergeCells('A1:O1'); ws.getCell('A1').value = title;
+    ws.mergeCells(1,1,1,ncols); ws.getCell('A1').value = title;
     ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FFD97706' } }; ws.getCell('A1').alignment = { horizontal: 'center' };
 
     let row = 3;
@@ -383,43 +390,33 @@ module.exports = function(database) {
     const mFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD97706' } };
     const tFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
     const gFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065F46' } };
-    const q = (v) => Math.round((v||0)/100*100)/100;
 
     for (const md of mandis) {
-      ws.mergeCells(row,1,row,15);
+      ws.mergeCells(row,1,row,ncols);
       const mc = ws.getCell(row,1); mc.value = `${md.mandi_name} - Agent: ${md.agent_name} (${md.totals.entry_count} entries)`;
       mc.fill = mFill; mc.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }; row++;
       headers.forEach((h,i) => { const c = ws.getCell(row,i+1); c.value = h; c.fill = hdrFill; c.font = hdrFont; c.alignment = { horizontal: 'center' }; });
       row++;
       for (const e of md.entries) {
-        [e.date||'', e.truck_no||'', Math.round((e.qntl||0)*100)/100, e.bag||0,
-         e.g_deposite||0, e.g_issued||0, q(e.gbw_cut), e.plastic_bag||0, q(e.p_pkt_cut),
-         q(e.mill_w), e.moisture_cut_percent||0, q(e.moisture_cut),
-         e.cutting_percent||0, q(e.disc_dust_poll), q(e.final_w)
-        ].forEach((v,i) => { ws.getCell(row,i+1).value = v; }); row++;
+        rptHelper.getEntryRow(e, cols).forEach((v,i) => { ws.getCell(row,i+1).value = v; }); row++;
       }
       const t = md.totals;
+      const totalVals = rptHelper.getTotalRow(t, cols);
       ws.getCell(row,1).value = 'TOTAL'; ws.getCell(row,1).font = { bold: true }; ws.getCell(row,1).fill = tFill;
-      [null, null, Math.round(t.total_qntl*100)/100, t.total_bag, Math.round(t.total_g_deposite*100)/100,
-       Math.round(t.total_g_issued*100)/100, q(t.total_gbw_cut), t.total_plastic_bag, q(t.total_p_pkt_cut),
-       q(t.total_mill_w), null, q(t.total_moisture_cut),
-       null, q(t.total_disc_dust_poll), q(t.total_final_w)
-      ].forEach((v,i) => { if (v !== null) { const c = ws.getCell(row,i+1); c.value = v; c.fill = tFill; c.font = { bold: true }; }});
+      totalVals.forEach((v,i) => { if (v !== null) { const c = ws.getCell(row,i+1); c.value = v; c.fill = tFill; c.font = { bold: true }; }});
       row += 2;
     }
 
     // Grand total
-    const grand = { total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_gbw_cut: 0, total_plastic_bag: 0, total_p_pkt_cut: 0, total_mill_w: 0, total_moisture_cut: 0, total_disc_dust_poll: 0, total_final_w: 0, entry_count: 0 };
-    for (const m of mandis) { for (const k in grand) grand[k] += (m.totals[k]||0); }
+    const grand = { entry_count: 0 };
+    totalKeys.forEach(k => grand[k] = 0);
+    for (const m of mandis) { totalKeys.forEach(k => grand[k] += (m.totals[k]||0)); grand.entry_count += m.totals.entry_count; }
+    const grandVals = rptHelper.getTotalRow(grand, cols);
     ws.mergeCells(row,1,row,2);
-    ws.getCell(row,1).value = `GRAND TOTAL (${Math.round(grand.entry_count)} entries)`; ws.getCell(row,1).fill = gFill; ws.getCell(row,1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    [null, null, Math.round(grand.total_qntl*100)/100, grand.total_bag, Math.round(grand.total_g_deposite*100)/100,
-     Math.round(grand.total_g_issued*100)/100, q(grand.total_gbw_cut), grand.total_plastic_bag, q(grand.total_p_pkt_cut),
-     q(grand.total_mill_w), null, q(grand.total_moisture_cut),
-     null, q(grand.total_disc_dust_poll), q(grand.total_final_w)
-    ].forEach((v,i) => { if (v !== null) { const c = ws.getCell(row,i+1); c.value = v; c.fill = gFill; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; }});
+    ws.getCell(row,1).value = `GRAND TOTAL (${grand.entry_count} entries)`; ws.getCell(row,1).fill = gFill; ws.getCell(row,1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    grandVals.forEach((v,i) => { if (v !== null) { const c = ws.getCell(row,i+1); c.value = v; c.fill = gFill; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; }});
 
-    [12,14,10,8,8,8,10,8,10,12,6,10,6,10,12].forEach((w,i) => { ws.getColumn(i+1).width = w; });
+    widths.forEach((w,i) => { ws.getColumn(i+1).width = w; });
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=agent_mandi_report.xlsx`);
@@ -434,21 +431,24 @@ module.exports = function(database) {
     if (mandiFilter) { const names = mandiFilter.split(',').map(n => n.trim()).filter(Boolean); if (names.length) entries = entries.filter(e => names.includes(e.mandi_name||'')); }
     entries.sort((a, b) => (b.date||'').localeCompare(a.date||''));
 
+    const cols = rptHelper.getColumns('agent_mandi_report');
+    const ncols = rptHelper.colCount(cols);
+    const totalKeys = rptHelper.getTotalKeys(cols);
+
     const mandiMap = {};
     for (const e of entries) {
       const mn = e.mandi_name || 'Unknown';
-      if (!mandiMap[mn]) mandiMap[mn] = { mandi_name: mn, agent_name: e.agent_name || '', entries: [], totals: { total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_gbw_cut: 0, total_plastic_bag: 0, total_p_pkt_cut: 0, total_mill_w: 0, total_moisture_cut: 0, total_disc_dust_poll: 0, total_final_w: 0, entry_count: 0 }};
+      if (!mandiMap[mn]) {
+        const initTotals = { entry_count: 0 };
+        totalKeys.forEach(k => initTotals[k] = 0);
+        mandiMap[mn] = { mandi_name: mn, agent_name: e.agent_name || '', entries: [], totals: initTotals };
+      }
       const t = mandiMap[mn].totals;
-      t.total_qntl += e.qntl||0; t.total_bag += e.bag||0;
-      t.total_g_deposite += e.g_deposite||0; t.total_g_issued += e.g_issued||0;
-      t.total_gbw_cut += e.gbw_cut||0; t.total_plastic_bag += e.plastic_bag||0;
-      t.total_p_pkt_cut += e.p_pkt_cut||0; t.total_mill_w += e.mill_w||0;
-      t.total_moisture_cut += e.moisture_cut||0; t.total_disc_dust_poll += e.disc_dust_poll||0;
-      t.total_final_w += e.final_w||0; t.entry_count += 1;
+      totalKeys.forEach(k => { const field = k.replace('total_', ''); t[k] += (e[field]||0); });
+      t.entry_count += 1;
       mandiMap[mn].entries.push(e);
     }
     const mandis = Object.values(mandiMap).sort((a,b) => a.mandi_name.localeCompare(b.mandi_name));
-    const q = (v) => Math.round((v||0)/100*100)/100;
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
     res.setHeader('Content-Type', 'application/pdf');
@@ -459,60 +459,51 @@ module.exports = function(database) {
     if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
     addPdfHeader(doc, title, '');
 
-    const headers = ['Date','Truck','QNTL','BAG','G.Dep','G.Iss','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W'];
-    const colW = [48,52,35,30,30,30,35,30,35,42,25,35,25,35,42];
+    const headers = rptHelper.getPdfHeaders(cols);
+    const colW = rptHelper.getPdfWidthsMm(cols).map(w => w * 2.83); // mm to points approx
     const startX = 20;
 
     for (const md of mandis) {
       if (doc.y > 450) doc.addPage();
-      // Mandi header
       doc.rect(startX, doc.y, colW.reduce((a,b)=>a+b,0), 18).fill('#D97706');
       doc.fillColor('white').fontSize(9).text(`${md.mandi_name} - Agent: ${md.agent_name} (${md.totals.entry_count} entries)`, startX + 5, doc.y - 14, { width: 500 });
       doc.moveDown(0.3);
 
-      // Table header
       let y = doc.y;
       let x = startX;
       doc.rect(x, y, colW.reduce((a,b)=>a+b,0), 14).fill('#1E293B');
       headers.forEach((h,i) => { doc.fillColor('white').fontSize(6).text(h, x+2, y+3, { width: colW[i]-4, align: 'center' }); x += colW[i]; });
       y += 14;
 
+      // Find first right-aligned column
+      const firstRight = cols.findIndex(c => c.align === 'right');
+
       for (const e of md.entries) {
         if (y > 540) { doc.addPage(); y = 30; }
         x = startX;
-        const vals = [e.date||'', e.truck_no||'', Math.round((e.qntl||0)*100)/100, e.bag||0,
-          e.g_deposite||0, e.g_issued||0, q(e.gbw_cut), e.plastic_bag||0, q(e.p_pkt_cut),
-          q(e.mill_w), e.moisture_cut_percent||0, q(e.moisture_cut),
-          e.cutting_percent||0, q(e.disc_dust_poll), q(e.final_w)];
-        vals.forEach((v,i) => { doc.fillColor('#334155').fontSize(6).text(String(v), x+2, y+2, { width: colW[i]-4, align: i >= 2 ? 'right' : 'left' }); x += colW[i]; });
+        const vals = rptHelper.getEntryRow(e, cols);
+        vals.forEach((v,i) => { doc.fillColor('#334155').fontSize(6).text(String(v), x+2, y+2, { width: colW[i]-4, align: i >= firstRight ? 'right' : 'left' }); x += colW[i]; });
         y += 12;
       }
 
-      // Mandi total
       if (y > 540) { doc.addPage(); y = 30; }
       x = startX;
       doc.rect(x, y, colW.reduce((a,b)=>a+b,0), 14).fill('#FEF3C7');
       doc.fillColor('#92400E').fontSize(6).text('TOTAL', x+2, y+3, { width: colW[0]-4 });
-      const t = md.totals;
-      const tv = [null, null, Math.round(t.total_qntl*100)/100, t.total_bag, Math.round(t.total_g_deposite*100)/100,
-        Math.round(t.total_g_issued*100)/100, q(t.total_gbw_cut), t.total_plastic_bag, q(t.total_p_pkt_cut),
-        q(t.total_mill_w), null, q(t.total_moisture_cut),
-        null, q(t.total_disc_dust_poll), q(t.total_final_w)];
+      const tv = rptHelper.getTotalRow(md.totals, cols);
       tv.forEach((v,i) => { if (v !== null) doc.fillColor('#92400E').fontSize(6).text(String(v), x + colW.slice(0,i).reduce((a,b)=>a+b,0) + 2, y+3, { width: colW[i]-4, align: 'right' }); });
       doc.y = y + 20;
     }
 
     // Grand total
-    const grand = { total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_g_issued: 0, total_gbw_cut: 0, total_plastic_bag: 0, total_p_pkt_cut: 0, total_mill_w: 0, total_moisture_cut: 0, total_disc_dust_poll: 0, total_final_w: 0, entry_count: 0 };
-    for (const m of mandis) { for (const k in grand) grand[k] += (m.totals[k]||0); }
+    const grand = { entry_count: 0 };
+    totalKeys.forEach(k => grand[k] = 0);
+    for (const m of mandis) { totalKeys.forEach(k => grand[k] += (m.totals[k]||0)); grand.entry_count += m.totals.entry_count; }
     if (doc.y > 520) doc.addPage();
     let y = doc.y; let x = startX;
     doc.rect(x, y, colW.reduce((a,b)=>a+b,0), 16).fill('#065F46');
-    doc.fillColor('white').fontSize(7).text(`GRAND TOTAL (${Math.round(grand.entry_count)} entries)`, x+2, y+4, { width: 170 });
-    const gv = [null, null, Math.round(grand.total_qntl*100)/100, grand.total_bag, Math.round(grand.total_g_deposite*100)/100,
-      Math.round(grand.total_g_issued*100)/100, q(grand.total_gbw_cut), grand.total_plastic_bag, q(grand.total_p_pkt_cut),
-      q(grand.total_mill_w), null, q(grand.total_moisture_cut),
-      null, q(grand.total_disc_dust_poll), q(grand.total_final_w)];
+    doc.fillColor('white').fontSize(7).text(`GRAND TOTAL (${grand.entry_count} entries)`, x+2, y+4, { width: 170 });
+    const gv = rptHelper.getTotalRow(grand, cols);
     gv.forEach((v,i) => { if (v !== null) doc.fillColor('white').fontSize(7).text(String(v), x + colW.slice(0,i).reduce((a,b)=>a+b,0) + 2, y+4, { width: colW[i]-4, align: 'right' }); });
 
     doc.end();
