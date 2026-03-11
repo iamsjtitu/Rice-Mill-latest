@@ -18,7 +18,7 @@ def _fmt_detail(qntl, rate):
     """Format qty @ rate with clean numbers (no trailing .0)"""
     q = int(qntl) if qntl == int(qntl) else qntl
     r = int(rate) if rate == int(rate) else round(rate, 2)
-    return f"{q} @ Rs.{r}"
+    return f"{q} Qntl @ Rs.{r}"
 
 router = APIRouter()
 
@@ -351,6 +351,26 @@ async def _create_cashbook_for_rice_sale(doc, username=""):
                 "amount": round(diesel_paid, 2), "reference": f"rice_sale_tdiesel:{entry_id[:8]}",
                 **base
             })
+    # 4. Advance received → cash jama + ledger nikasi
+    advance = float(doc.get("paid_amount", 0) or 0)
+    if advance > 0:
+        adv_desc = f"Rice Advance: {party} - {detail}" if detail else f"Rice Advance: {party} - Rs.{advance}"
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "account": "cash", "txn_type": "jama",
+            "category": party, "party_type": "Rice Sale",
+            "description": adv_desc,
+            "amount": round(advance, 2), "reference": f"rice_sale_adv:{entry_id[:8]}",
+            **base
+        })
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "account": "ledger", "txn_type": "nikasi",
+            "category": party, "party_type": "Rice Sale",
+            "description": adv_desc,
+            "amount": round(advance, 2), "reference": f"rice_sale_adv_ledger:{entry_id[:8]}",
+            **base
+        })
 
 @router.get("/rice-sales")
 async def get_rice_sales(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None, search: Optional[str] = None):
@@ -470,7 +490,7 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
         ref_entry = await db.rice_sales.find_one({"id": doc["ref_id"]}, {"_id": 0})
         party = doc["party_name"]
         party_label = party
-        # Cash Book jama
+        # Cash Book jama (money received)
         await db.cash_transactions.insert_one({
             "id": str(uuid.uuid4()), "account": account, "txn_type": "jama",
             "category": party_label, "party_type": "Rice Sale",
@@ -478,9 +498,9 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
             "amount": doc["amount"], "reference": doc["reference"] or f"rice_pay:{doc['id'][:8]}",
             **base_cb
         })
-        # Party Ledger entry (jama in party's account)
+        # Ledger nikasi (buyer's debt reduced)
         await db.cash_transactions.insert_one({
-            "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "jama",
+            "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "nikasi",
             "category": party_label, "party_type": "Rice Sale",
             "description": f"Rice Sale Payment Received: {party_label} - Rs.{doc['amount']}",
             "amount": doc["amount"], "reference": doc["reference"] or f"rice_pay_ledger:{doc['id'][:8]}",
@@ -638,13 +658,15 @@ async def mark_rice_sale_paid(entry_id: str, username: str = "", role: str = "")
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         desc = f"Rice Sale: {party} - {detail} (Mark Paid)"
+        # Cash jama (money received in hand)
         await db.cash_transactions.insert_one({
             "id": str(uuid.uuid4()), "account": "cash", "txn_type": "jama",
             "category": party, "party_type": "Rice Sale",
             "description": desc, "amount": remaining, "reference": mark_id, **base
         })
+        # Ledger nikasi (buyer's debt reduced)
         await db.cash_transactions.insert_one({
-            "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "jama",
+            "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "nikasi",
             "category": party, "party_type": "Rice Sale",
             "description": desc, "amount": remaining, "reference": f"mark_paid_rice_ledger:{entry_id[:8]}", **base
         })

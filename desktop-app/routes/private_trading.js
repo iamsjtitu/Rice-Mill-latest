@@ -8,7 +8,7 @@ module.exports = function(database) {
   function _fmtDetail(qntl, rate) {
     const q = qntl === Math.floor(qntl) ? Math.floor(qntl) : qntl;
     const r = rate === Math.floor(rate) ? Math.floor(rate) : Math.round(rate * 100) / 100;
-    return `${q} @ Rs.${r}`;
+    return `${q} Qntl @ Rs.${r}`;
   }
 
   // Helper: Create truck payment + advance entries for pvt paddy

@@ -188,6 +188,8 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
             source="Rice Sale"
         ))
 
+    # Sort by date descending (newest first)
+    payments.sort(key=lambda x: x.date, reverse=True)
     return payments
 
 

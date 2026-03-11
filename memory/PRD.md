@@ -1,38 +1,42 @@
-# Mill Entry System - Product Requirements Document
+# Mill Entry System - PRD
 
 ## Original Problem Statement
-Rice mill management tool ("Mill Entry System") with React frontend, Python/FastAPI backend, two Node.js backends. User communicates in Hindi.
+A comprehensive Mill Entry System for managing rice mill operations including paddy purchases, rice sales, truck payments, party ledgers, cash books, and private trading.
 
-## Credentials
-- Admin: `admin` / `admin123`
+## Core Modules
+- **Private Trading**: Paddy Purchase, Rice Sale, Party Summary
+- **Payments**: Truck Payments, DC Payments, Agent Commission
+- **Ledgers**: Party Ledger (Jama/Nikasi), Cash Book
+- **Reports**: Various financial and operational reports
+- **Staff Management**: Staff records and payments
+- **Milling/CMR**: Milling operations tracking
 
-## Completed Features
-- Agent & Mandi Report, Sorting, Gunny bag cleanup, Shared Config (10 reports)
-- CMR Paddy Stock: `QNTL - BAG - P.Cut` + private paddy
-- Private Trading: Paddy Purchase, Rice Sale, Party Summary tabs
-- **Pvt Paddy Payment Flow**: Cash/Diesel → Truck Payment + Cash Book, Advance → Party Ledger
-- **Rice Sale Payment Flow (2026-03-11)**: 
-  - RST No field (searchable), Cash Paid, Diesel Paid fields
-  - Cash/Diesel → Truck Payment page (auto) + Cash Book nikasi
-  - Total Amount → Party Ledger jama entry
-  - Edit re-creates linked entries, Delete cascades all linked entries
-- **Mark Paid / Undo Paid / Payment History**: Both Paddy Purchase & Rice Sale
-- Description Format: `{party} - {qty} @ Rs.{rate}`
-- Truck Payments: CMR + Pvt Paddy + Rice Sale entries
-- CashBook Party Summary beautified, Party click navigation
+## Key Technical Concepts
+- **Jama (Credit)**: Party owes money (e.g., a sale creates jama)
+- **Nikasi (Debit)**: Payment reduces debt (e.g., payment received creates nikasi)
+- **Transactional Side-Effects**: Single API calls cascade writes across multiple collections
 
-## Rice Sale Financial Flow
-| Event | Cash Book | Truck Ledger | Party Ledger | Diesel Account |
-|-------|-----------|-------------|--------------|----------------|
-| Total Amount | - | - | jama (party) | - |
-| Cash Paid | nikasi (truck) | nikasi (truck) | - | - |
-| Diesel Paid | - | nikasi (truck) | - | debit |
-| ₹ Payment | jama (party) | - | jama (party) | - |
+## What's Been Implemented
+- Full Private Trading module with Paddy Purchase, Rice Sale, Party Summary
+- Mark Paid / Undo Paid / Payment History for both Paddy and Rice
+- RST No, Cash Paid, Diesel Paid fields in Rice Sale
+- Party Summary with separate Paddy/Rice sections
+- Navigation from Party Summary to detailed ledger
+- Detailed ledger descriptions: `{party} - {mandi} - {qty} Qntl @ Rs.{rate}`
+- Truck Payments sorted newest first
+- All accounting bugs fixed (jama/nikasi logic)
 
-## Key Files
-- `backend/routes/private_trading.py` - All pvt trading + rice sale logic
-- `backend/routes/payments.py` - Truck payments (CMR + Pvt + Rice Sale)
-- `frontend/src/components/PrivateTrading.jsx` - 3 tabs, forms, payment UI
+## Recent Changes (March 2026)
+- Fixed description format: "100 @ Rs.300" → "100 Qntl @ Rs.300" in both Python and Node.js backends
 
 ## Backlog
-- P2: Code cleanup & refactoring (reduce Python/Node.js duplication)
+- P2: Refactor duplicate business logic between Python backend and Node.js desktop-app
+
+## Architecture
+- Frontend: React (Vite/CRA)
+- Backend: Python FastAPI + Node.js (desktop-app)
+- Database: MongoDB
+- Desktop: Electron
+
+## Credentials
+- Admin: admin / admin123
