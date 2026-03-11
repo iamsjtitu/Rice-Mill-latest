@@ -24,7 +24,24 @@ Comprehensive management tool for a rice mill named "Mill Entry System". Full-st
 
 ## What's Implemented
 
-### v4.1.1-dev (Mar 11, 2026)
+### v4.1.1 (Mar 11, 2026)
+- **CashBook.jsx Refactoring** - Split 902-line monolithic component into 5 sub-components:
+  - `SummaryCards.jsx` (80 lines) - Balance overview cards
+  - `CashBookFilters.jsx` (126 lines) - Filter section for tabs
+  - `TransactionsTable.jsx` (148 lines) - Transactions data table
+  - `PartySummaryTab.jsx` (178 lines) - Party summary view
+  - `TransactionFormDialog.jsx` (167 lines) - Add/Edit dialog
+  - Main CashBook.jsx reduced to ~195 lines (state + orchestration)
+- **Telegram Bot Integration** - Automatic daily report PDF sending via Telegram
+  - Backend: `/api/telegram/config` (GET/POST), `/api/telegram/test`, `/api/telegram/send-report`, `/api/telegram/logs`
+  - Frontend: Settings page Telegram config section (Bot Token, Chat ID, Schedule Time, Auto Send)
+  - Background scheduler checks every 30s and sends report at configured time
+  - PDF generation with text summary + full detail report
+- **Frontend Build** - `yarn build` completed for desktop app sync
+- **Version Bump** - desktop-app version updated to 4.1.1
+- **Testing** - iteration_40 (CashBook refactor 11/11), iteration_41 (Telegram 100% pass)
+
+### v4.1.1-dev (Mar 11, 2026) - Previous Session
 - **P0: Node.js Backend Sync** - Ported double-entry (Jama/Nikasi) accounting logic from Python to both Node.js backends
   - `desktop-app/main.js` addEntry/updateEntry: Auto-creates Truck Jama, Diesel Nikasi, Cash Nikasi, Diesel Jama
   - `local-server/server.js` addEntry/updateEntry: Same double-entry logic synced
