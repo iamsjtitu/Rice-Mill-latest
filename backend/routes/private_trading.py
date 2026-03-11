@@ -13,6 +13,13 @@ from openpyxl.utils import get_column_letter
 
 from utils.report_helper import get_columns, get_entry_row, get_total_row, get_excel_headers, get_pdf_headers, get_excel_widths, get_pdf_widths_mm, col_count
 
+
+def _fmt_detail(qntl, rate):
+    """Format qty @ rate with clean numbers (no trailing .0)"""
+    q = int(qntl) if qntl == int(qntl) else qntl
+    r = int(rate) if rate == int(rate) else round(rate, 2)
+    return f"{q} @ Rs.{r}"
+
 router = APIRouter()
 
 # ============ PRIVATE TRADING: Paddy Purchase & Rice Sale ============
@@ -103,6 +110,11 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
     party_label = f"{party} - {mandi}" if party and mandi else party or "Pvt Paddy"
     truck_no = doc.get("truck_no", "")
     date = doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    qntl = doc.get("qntl", 0) or 0
+    rate = doc.get("rate", 0) or 0
+    if not rate and qntl:
+        rate = round(float(doc.get("total_amount", 0) or 0) / float(qntl), 2)
+    detail = _fmt_detail(qntl, rate) if qntl and rate else ""
     base_fields = {
         "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
         "created_by": username or "system", "linked_entry_id": entry_id,
@@ -110,12 +122,13 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
     }
     cash_paid = float(doc.get("cash_paid", 0) or 0)
     if cash_paid > 0 and truck_no:
+        cash_desc = f"{party_label} - {detail}" if detail else f"{party_label} - Rs.{cash_paid}"
         # Cash Book nikasi (under truck)
         await db.cash_transactions.insert_one({
             "id": str(uuid.uuid4()), "date": date,
             "account": "cash", "txn_type": "nikasi",
             "category": truck_no, "party_type": "Truck",
-            "description": f"Pvt Paddy Cash: Truck {truck_no} - {party_label} - Rs.{cash_paid}",
+            "description": cash_desc,
             "amount": round(cash_paid, 2), "reference": f"pvt_paddy_cash:{entry_id[:8]}",
             **base_fields
         })
@@ -124,12 +137,13 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
             "id": str(uuid.uuid4()), "date": date,
             "account": "ledger", "txn_type": "nikasi",
             "category": truck_no, "party_type": "Truck",
-            "description": f"Pvt Paddy Cash Paid: {party_label} - Rs.{cash_paid}",
+            "description": cash_desc,
             "amount": round(cash_paid, 2), "reference": f"pvt_paddy_tcash:{entry_id[:8]}",
             **base_fields
         })
     diesel_paid = float(doc.get("diesel_paid", 0) or 0)
     if diesel_paid > 0:
+        diesel_desc = f"{party_label} - {detail}" if detail else f"{party_label} - Rs.{diesel_paid}"
         # Diesel Account entry
         default_pump = await db.diesel_pumps.find_one({"is_default": True}, {"_id": 0})
         pump_name = default_pump["name"] if default_pump else "Default Pump"
@@ -139,7 +153,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
             "pump_id": pump_id, "pump_name": pump_name,
             "truck_no": truck_no, "agent_name": doc.get("agent_name", ""),
             "mandi_name": mandi, "amount": round(diesel_paid, 2), "txn_type": "debit",
-            "description": f"Pvt Paddy Diesel: {party_label}",
+            "description": diesel_desc,
             **base_fields
         })
         if truck_no:
@@ -148,18 +162,19 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
                 "id": str(uuid.uuid4()), "date": date,
                 "account": "ledger", "txn_type": "nikasi",
                 "category": truck_no, "party_type": "Truck",
-                "description": f"Pvt Paddy Diesel Paid: {party_label} - Rs.{diesel_paid}",
+                "description": diesel_desc,
                 "amount": round(diesel_paid, 2), "reference": f"pvt_paddy_tdiesel:{entry_id[:8]}",
                 **base_fields
             })
     advance_paid = float(doc.get("paid_amount", 0) or 0)
     if advance_paid > 0:
+        adv_desc = f"Advance - {detail}" if detail else f"Advance - {party_label} - Rs.{advance_paid}"
         # Cash Book nikasi for advance (under party)
         await db.cash_transactions.insert_one({
             "id": str(uuid.uuid4()), "date": date,
             "account": "cash", "txn_type": "nikasi",
             "category": party_label, "party_type": "Pvt Paddy Purchase",
-            "description": f"Pvt Paddy Advance: {party_label} - Rs.{advance_paid}",
+            "description": adv_desc,
             "amount": round(advance_paid, 2), "reference": f"pvt_paddy_adv:{entry_id[:8]}",
             **base_fields
         })
@@ -332,11 +347,17 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
         party = doc["party_name"]
         mandi = ref_entry.get("mandi_name", "") if ref_entry else ""
         party_label = f"{party} - {mandi}" if party and mandi else party
+        qntl = ref_entry.get("qntl", 0) if ref_entry else 0
+        rate = ref_entry.get("rate", 0) if ref_entry else 0
+        if not rate and qntl and ref_entry:
+            rate = round(float(ref_entry.get("total_amount", 0) or 0) / float(qntl), 2)
+        detail = _fmt_detail(qntl, rate) if qntl and rate else f"Rs.{doc['amount']}"
+        pay_desc = f"{party_label} - {detail}"
         # Cash Book nikasi
         await db.cash_transactions.insert_one({
             "id": str(uuid.uuid4()), "account": account, "txn_type": "nikasi",
             "category": party_label, "party_type": "Pvt Paddy Purchase",
-            "description": f"Pvt Paddy Payment: {party_label} - Rs.{doc['amount']}",
+            "description": pay_desc,
             "amount": doc["amount"], "reference": doc["reference"] or f"pvt_pay:{doc['id'][:8]}",
             **base_cb
         })
@@ -344,7 +365,7 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
         await db.cash_transactions.insert_one({
             "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "nikasi",
             "category": party_label, "party_type": "Pvt Paddy Purchase",
-            "description": f"Pvt Paddy Payment: {party_label} - Rs.{doc['amount']}",
+            "description": pay_desc,
             "amount": doc["amount"], "reference": doc["reference"] or f"pvt_pay_ledger:{doc['id'][:8]}",
             **base_cb
         })
@@ -406,14 +427,41 @@ async def delete_private_payment(pay_id: str):
 
 @router.get("/private-payments/fix-old-entries")
 async def fix_old_payment_cashbook_entries():
-    """Fix old payment entries that have generic 'Pvt Paddy Payment'/'Rice Sale Payment' category."""
+    """Fix ALL pvt paddy related cash_transactions descriptions to use 'qty @ Rs.rate' format."""
     fixed = 0
-    # Find old broken entries
-    old_entries = await db.cash_transactions.find(
-        {"category": {"$in": ["Pvt Paddy Payment", "Rice Sale Payment"]}},
+    # Fix entries linked to private_paddy (via linked_entry_id) - advance, cash, diesel
+    linked_entries = await db.cash_transactions.find(
+        {"linked_entry_id": {"$exists": True, "$ne": ""}},
         {"_id": 0}
     ).to_list(10000)
-    for entry in old_entries:
+    for entry in linked_entries:
+        eid = entry.get("linked_entry_id", "")
+        if not eid:
+            continue
+        ref = await db.private_paddy.find_one({"id": eid}, {"_id": 0})
+        if not ref:
+            continue
+        party = ref.get("party_name", "")
+        mandi = ref.get("mandi_name", "")
+        party_label = f"{party} - {mandi}" if party and mandi else party
+        qntl = ref.get("qntl", 0) or 0
+        rate = ref.get("rate", 0) or 0
+        if not rate and qntl:
+            rate = round(float(ref.get("total_amount", 0) or 0) / float(qntl), 2)
+        detail = _fmt_detail(qntl, rate) if qntl and rate else ""
+        ref_str = entry.get("reference", "")
+        if "adv" in ref_str:
+            desc = f"Advance - {detail}" if detail else f"Advance - {party_label}"
+        else:
+            desc = f"{party_label} - {detail}" if detail else party_label
+        await db.cash_transactions.update_one({"id": entry["id"]}, {"$set": {"description": desc}})
+        fixed += 1
+    # Fix entries linked to private_payments (via linked_payment_id) - ₹ button payments
+    pay_entries = await db.cash_transactions.find(
+        {"linked_payment_id": {"$exists": True, "$ne": ""}},
+        {"_id": 0}
+    ).to_list(10000)
+    for entry in pay_entries:
         pay_id = entry.get("linked_payment_id", "")
         if not pay_id:
             continue
@@ -423,8 +471,8 @@ async def fix_old_payment_cashbook_entries():
         party = pay.get("party_name", "")
         if not party:
             continue
-        # Get mandi from ref entry
         mandi = ""
+        ref = None
         if pay.get("ref_type") == "paddy_purchase" and pay.get("ref_id"):
             ref = await db.private_paddy.find_one({"id": pay["ref_id"]}, {"_id": 0})
             if ref:
@@ -432,28 +480,41 @@ async def fix_old_payment_cashbook_entries():
         party_label = f"{party} - {mandi}" if party and mandi else party
         is_paddy = pay.get("ref_type") == "paddy_purchase"
         party_type = "Pvt Paddy Purchase" if is_paddy else "Rice Sale"
-        txn_type = "nikasi" if is_paddy else "jama"
-        desc = f"Pvt Paddy Payment: {party_label} - Rs.{pay['amount']}" if is_paddy else f"Rice Sale Payment Received: {party_label} - Rs.{pay['amount']}"
-        # Update existing cash entry
+        qntl = ref.get("qntl", 0) if ref else 0
+        rate = ref.get("rate", 0) if ref else 0
+        if not rate and qntl and ref:
+            rate = round(float(ref.get("total_amount", 0) or 0) / float(qntl), 2)
+        detail = _fmt_detail(qntl, rate) if qntl and rate else f"Rs.{pay['amount']}"
+        desc = f"{party_label} - {detail}"
         await db.cash_transactions.update_one(
             {"id": entry["id"]},
             {"$set": {"category": party_label, "party_type": party_type, "description": desc}}
         )
-        # Check if ledger entry exists
-        existing_ledger = await db.cash_transactions.find_one({"linked_payment_id": pay_id, "account": "ledger"})
-        if not existing_ledger:
-            await db.cash_transactions.insert_one({
-                "id": str(uuid.uuid4()), "date": entry.get("date", ""),
-                "account": "ledger", "txn_type": txn_type,
-                "category": party_label, "party_type": party_type,
-                "description": desc, "amount": pay["amount"],
-                "reference": f"pvt_pay_ledger_fix:{pay_id[:8]}",
-                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
-                "created_by": "migration", "linked_payment_id": pay_id,
-                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
-            })
         fixed += 1
-    return {"message": f"Fixed {fixed} old payment entries", "total_checked": len(old_entries)}
+    # Also fix diesel_accounts descriptions
+    diesel_entries = await db.diesel_accounts.find(
+        {"linked_entry_id": {"$exists": True, "$ne": ""}},
+        {"_id": 0}
+    ).to_list(10000)
+    for entry in diesel_entries:
+        eid = entry.get("linked_entry_id", "")
+        if not eid:
+            continue
+        ref = await db.private_paddy.find_one({"id": eid}, {"_id": 0})
+        if not ref:
+            continue
+        party = ref.get("party_name", "")
+        mandi = ref.get("mandi_name", "")
+        party_label = f"{party} - {mandi}" if party and mandi else party
+        qntl = ref.get("qntl", 0) or 0
+        rate = ref.get("rate", 0) or 0
+        if not rate and qntl:
+            rate = round(float(ref.get("total_amount", 0) or 0) / float(qntl), 2)
+        detail = _fmt_detail(qntl, rate) if qntl and rate else ""
+        desc = f"{party_label} - {detail}" if detail else party_label
+        await db.diesel_accounts.update_one({"id": entry["id"]}, {"$set": {"description": desc}})
+        fixed += 1
+    return {"message": f"Fixed {fixed} entries with new description format"}
 
 
 # ============ EXPORT: Private Paddy PDF/Excel ============

@@ -21,47 +21,39 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 ## Credentials
 - Admin: `admin` / `admin123`
 
-## Completed Features (All Sessions)
+## Completed Features
 - Agent & Mandi Report, Application-wide sorting, Gunny bag cleanup
 - Private Trading Page: Paddy Purchase, Rice Sale, Party Summary tabs
 - Shared Config for all reports (10 reports total)
-- G.Issued, Cash Paid, Diesel Paid fields + Auto Gunny Bag entries
-- Select-all checkbox + bulk delete
-- CMR Paddy Stock: `QNTL - BAG - P.Cut` + private paddy (NOT custody)
-- Pvt Paddy Payment Flow: Cash/Diesel -> Truck Payment, Advance -> Party Ledger + Cash Book
-- Daily Report Shared Config: PDF/Excel uses report_config.json
-- Migration script for existing entries backfilled
-- Bug fix: empty string float conversion on edit
-- Truck Payments: Pvt Paddy entries with "Pvt" badge, full payment actions
-- Party Ledger Export: [Pvt] tag in PDF/Excel
-- Delete Cascade: private paddy delete removes linked truck_payments
-- **Party Summary Tab Restored (2026-03-11):** Restored in Private Trading after accidental removal
-- **CashBook Party Summary Beautified (2026-03-11):** Enhanced with gradient cards, icons, styled type badges, status pills
-- **BUG FIX: Pvt Paddy Payment Cash Book Entries (2026-03-11, P0):**
-  - Fixed: payment category was generic "Pvt Paddy Payment" -> now uses actual party name (e.g., "Amit - Kullu")
-  - Fixed: party_type was empty -> now "Pvt Paddy Purchase"
-  - Added: Ledger entry (account="ledger") created alongside cash entry
-  - Migration: fix_old_payment_cashbook_entries endpoint fixed 4 old entries
-  - Synced fix to Node.js desktop-app backend
-- **Party Summary Click Navigation (2026-03-11):** Clicking party in Pvt Trading Party Summary navigates to Cash Book
+- CMR Paddy Stock: `QNTL - BAG - P.Cut` + private paddy
+- Pvt Paddy Payment Flow with full cascade on CRUD
+- Daily Report Shared Config
+- Truck Payments: Pvt Paddy entries with "Pvt" badge
+- Party Ledger Export: [Pvt] tag
+- Delete Cascade: private paddy delete removes linked entries
+- Party Summary Click Navigation (Pvt Trading → Cash Book)
+- CashBook Party Summary Beautified
+- **Description Format Fix (2026-03-11):**
+  - All pvt paddy cash/ledger entries now show: `{party} - {mandi} - {qntl} @ Rs.{rate}`
+  - Advance entries: `Advance - {qntl} @ Rs.{rate}`
+  - Rate auto-calculated from `total_amount / qntl` when not stored
+  - Clean number formatting (50 not 50.0, 1600 not 1600.0)
+  - Migration endpoint updated all old entries
+  - Node.js backend synced
 
-## Pvt Paddy Payment Flow Summary
-| Payment Source | Cash Book | Truck Ledger | Party Ledger | Diesel Account |
-|---------|-----------|-------------|--------------|----------------|
-| Cash (at entry) | nikasi (truck) | nikasi (truck) | - | - |
-| Diesel (at entry) | - | nikasi (truck) | - | debit |
-| Advance (at entry) | nikasi (party) | - | - | - |
-| Payment (₹ button) | nikasi (party) | - | nikasi (party ledger) | - |
-| Rice Payment (₹) | jama (party) | - | jama (party ledger) | - |
+## Key Description Format
+| Entry Type | Description Format |
+|-----------|-------------------|
+| Cash/Diesel payment | `Raju - Nanu - 50 @ Rs.1600` |
+| Advance | `Advance - 50 @ Rs.1600` |
+| ₹ button payment | `Amit - Kullu - 500 @ Rs.1579.67` |
+| Deleted ref entry | `Raju - Rs.729208` (fallback) |
 
 ## Key Files
-- `frontend/src/components/PrivateTrading.jsx` - Paddy Purchase + Rice Sale + Party Summary tabs
-- `frontend/src/components/cashbook/PartySummaryTab.jsx` - CashBook Party Summary (beautified)
-- `frontend/src/components/CashBook.jsx` - Cash Book main component
-- `backend/routes/private_trading.py` - Private paddy CRUD + payments + financial side-effects
-- `backend/routes/payments.py` - Truck payments (CMR + Pvt Paddy)
-- `backend/routes/cashbook.py` - Cash Book + Party Summary API
-- `desktop-app/routes/private_trading.js` - Node.js sync of private trading logic
+- `backend/routes/private_trading.py` - `_fmt_detail()` helper, all CRUD + payments
+- `desktop-app/routes/private_trading.js` - `_fmtDetail()` helper, synced logic
+- `frontend/src/components/PrivateTrading.jsx` - 3 tabs with navigation
+- `frontend/src/components/cashbook/PartySummaryTab.jsx` - Beautified UI
 
 ## Backlog
-- P2: General code cleanup & refactoring (reduce duplication between Python and Node.js backends)
+- P2: Code cleanup & refactoring (reduce Python/Node.js duplication)

@@ -5,6 +5,12 @@ const router = express.Router();
 
 module.exports = function(database) {
 
+  function _fmtDetail(qntl, rate) {
+    const q = qntl === Math.floor(qntl) ? Math.floor(qntl) : qntl;
+    const r = rate === Math.floor(rate) ? Math.floor(rate) : Math.round(rate * 100) / 100;
+    return `${q} @ Rs.${r}`;
+  }
+
   // Helper: Create truck payment + advance entries for pvt paddy
   function _createCashDieselForPvtPaddy(db, doc, username) {
     if (!db.data.cash_transactions) db.data.cash_transactions = [];
@@ -15,28 +21,30 @@ module.exports = function(database) {
     const partyLabel = (party && mandi) ? `${party} - ${mandi}` : party || 'Pvt Paddy';
     const truckNo = doc.truck_no || '';
     const date = doc.date || new Date().toISOString().slice(0, 10);
+    const qntl = doc.qntl || 0;
+    const rate = doc.rate || ((qntl && doc.total_amount) ? Math.round(doc.total_amount / qntl * 100) / 100 : 0);
+    const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : '';
     const base = { kms_year: doc.kms_year || '', season: doc.season || '', created_by: username || 'system', linked_entry_id: entryId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     const cashPaid = parseFloat(doc.cash_paid) || 0;
     if (cashPaid > 0 && truckNo) {
-      // Cash Book nikasi (under truck)
-      db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'nikasi', category: truckNo, party_type: 'Truck', description: `Pvt Paddy Cash: Truck ${truckNo} - ${partyLabel} - Rs.${cashPaid}`, amount: Math.round(cashPaid * 100) / 100, reference: `pvt_paddy_cash:${entryId.slice(0,8)}`, ...base });
-      // Truck Ledger nikasi
-      db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'nikasi', category: truckNo, party_type: 'Truck', description: `Pvt Paddy Cash Paid: ${partyLabel} - Rs.${cashPaid}`, amount: Math.round(cashPaid * 100) / 100, reference: `pvt_paddy_tcash:${entryId.slice(0,8)}`, ...base });
+      const cashDesc = detail ? `${partyLabel} - ${detail}` : `${partyLabel} - Rs.${cashPaid}`;
+      db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'nikasi', category: truckNo, party_type: 'Truck', description: cashDesc, amount: Math.round(cashPaid * 100) / 100, reference: `pvt_paddy_cash:${entryId.slice(0,8)}`, ...base });
+      db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'nikasi', category: truckNo, party_type: 'Truck', description: cashDesc, amount: Math.round(cashPaid * 100) / 100, reference: `pvt_paddy_tcash:${entryId.slice(0,8)}`, ...base });
     }
     const dieselPaid = parseFloat(doc.diesel_paid) || 0;
     if (dieselPaid > 0) {
+      const dieselDesc = detail ? `${partyLabel} - ${detail}` : `${partyLabel} - Rs.${dieselPaid}`;
       const pumps = db.data.diesel_pumps || [];
       const defPump = pumps.find(p => p.is_default) || { id: 'default', name: 'Default Pump' };
-      db.data.diesel_accounts.push({ id: require('crypto').randomUUID(), date, pump_id: defPump.id, pump_name: defPump.name, truck_no: truckNo, agent_name: doc.agent_name || '', mandi_name: mandi, amount: Math.round(dieselPaid * 100) / 100, txn_type: 'debit', description: `Pvt Paddy Diesel: ${partyLabel}`, ...base });
+      db.data.diesel_accounts.push({ id: require('crypto').randomUUID(), date, pump_id: defPump.id, pump_name: defPump.name, truck_no: truckNo, agent_name: doc.agent_name || '', mandi_name: mandi, amount: Math.round(dieselPaid * 100) / 100, txn_type: 'debit', description: dieselDesc, ...base });
       if (truckNo) {
-        // Truck Ledger nikasi for diesel
-        db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'nikasi', category: truckNo, party_type: 'Truck', description: `Pvt Paddy Diesel Paid: ${partyLabel} - Rs.${dieselPaid}`, amount: Math.round(dieselPaid * 100) / 100, reference: `pvt_paddy_tdiesel:${entryId.slice(0,8)}`, ...base });
+        db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'nikasi', category: truckNo, party_type: 'Truck', description: dieselDesc, amount: Math.round(dieselPaid * 100) / 100, reference: `pvt_paddy_tdiesel:${entryId.slice(0,8)}`, ...base });
       }
     }
     const advancePaid = parseFloat(doc.paid_amount) || 0;
     if (advancePaid > 0) {
-      // Cash Book nikasi for advance (under party)
-      db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'nikasi', category: partyLabel, party_type: 'Pvt Paddy Purchase', description: `Pvt Paddy Advance: ${partyLabel} - Rs.${advancePaid}`, amount: Math.round(advancePaid * 100) / 100, reference: `pvt_paddy_adv:${entryId.slice(0,8)}`, ...base });
+      const advDesc = detail ? `Advance - ${detail}` : `Advance - ${partyLabel} - Rs.${advancePaid}`;
+      db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'nikasi', category: partyLabel, party_type: 'Pvt Paddy Purchase', description: advDesc, amount: Math.round(advancePaid * 100) / 100, reference: `pvt_paddy_adv:${entryId.slice(0,8)}`, ...base });
     }
   }
 
@@ -171,16 +179,17 @@ module.exports = function(database) {
     }
     const account = d.mode === 'bank' ? 'bank' : 'cash';
     const isPaddy = d.ref_type === 'paddy_purchase';
-    // Get mandi from ref entry for party label
-    let mandi = '';
+    // Get mandi + qntl/rate from ref entry for party label + description
+    let mandi = '', qntl = 0, rate = 0;
     if (isPaddy && d.ref_id) {
       const refEntry = (database.data.private_paddy || []).find(e => e.id === d.ref_id);
-      if (refEntry) mandi = refEntry.mandi_name || '';
+      if (refEntry) { mandi = refEntry.mandi_name || ''; qntl = refEntry.qntl || 0; rate = refEntry.rate || ((qntl && refEntry.total_amount) ? Math.round(refEntry.total_amount / qntl * 100) / 100 : 0); }
     }
     const partyLabel = (d.party_name && mandi) ? `${d.party_name} - ${mandi}` : (d.party_name || '');
     const partyType = isPaddy ? 'Pvt Paddy Purchase' : 'Rice Sale';
     const txnType = isPaddy ? 'nikasi' : 'jama';
-    const desc = isPaddy ? `Pvt Paddy Payment: ${partyLabel} - Rs.${d.amount}` : `Rice Sale Payment Received: ${partyLabel} - Rs.${d.amount}`;
+    const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : `Rs.${d.amount}`;
+    const desc = `${partyLabel} - ${detail}`;
     const baseCb = { date: d.date, kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by, linked_payment_id: d.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     // Cash Book entry
     database.data.cash_transactions.push({
