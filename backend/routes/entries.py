@@ -127,7 +127,37 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
         }
         await db.cash_transactions.insert_one(diesel_jama)
     
+    # Auto Gunny Bag entries for g_issued and g_deposite
+    await _create_gunny_entries_for_mill(doc, username)
+    
     return entry_obj
+
+
+async def _create_gunny_entries_for_mill(doc, username=""):
+    """Auto-create gunny bag entries for g_issued and g_deposite in a mill entry."""
+    entry_id = doc["id"]
+    agent = doc.get("agent_name", "")
+    mandi = doc.get("mandi_name", "")
+    source = f"{agent} - {mandi}" if agent and mandi else (agent or mandi or "")
+    truck = doc.get("truck_no", "")
+    base = {
+        "bag_type": "new", "rate": 0, "amount": 0, "notes": "Auto from Mill Entry",
+        "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+        "created_by": username or "system", "linked_entry_id": entry_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    g_issued = float(doc.get("g_issued", 0) or 0)
+    if g_issued > 0:
+        entry = {**base, "id": str(uuid.uuid4()), "date": doc.get("date", ""),
+                 "txn_type": "out", "quantity": int(g_issued), "source": source, "reference": truck}
+        await db.gunny_bags.insert_one(entry)
+
+    g_dep = float(doc.get("g_deposite", 0) or 0)
+    if g_dep > 0:
+        entry = {**base, "id": str(uuid.uuid4()), "date": doc.get("date", ""),
+                 "txn_type": "in", "quantity": int(g_dep), "source": source, "reference": truck}
+        await db.gunny_bags.insert_one(entry)
 
 
 
@@ -326,6 +356,9 @@ async def import_entries_from_excel(
             await db.cash_transactions.insert_one(diesel_jama)
             diesel_count += 1
 
+        # Auto Gunny Bag entries for g_issued and g_deposite
+        await _create_gunny_entries_for_mill(doc, username)
+
         imported += 1
 
     return {
@@ -501,6 +534,10 @@ async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = ""
         }
         await db.cash_transactions.insert_one(diesel_jama)
     
+    # Update auto gunny bag entries (delete old + recreate)
+    await db.gunny_bags.delete_many({"linked_entry_id": entry_id})
+    await _create_gunny_entries_for_mill(merged_data | {"id": entry_id}, username)
+    
     updated = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     return updated
 
@@ -523,6 +560,7 @@ async def delete_entry(entry_id: str, username: str = "", role: str = ""):
     # Clean up linked auto entries
     await db.cash_transactions.delete_many({"linked_entry_id": entry_id})
     await db.diesel_accounts.delete_many({"linked_entry_id": entry_id})
+    await db.gunny_bags.delete_many({"linked_entry_id": entry_id})
     
     return {"message": "Entry deleted successfully"}
 

@@ -211,8 +211,34 @@ class JsonDatabase {
       });
     }
 
+    // Auto Gunny Bag entries for g_issued and g_deposite
+    this._createGunnyEntriesForMill(newEntry);
+
     this.save();
     return newEntry;
+  }
+
+  _createGunnyEntriesForMill(doc) {
+    if (!this.data.gunny_bags) this.data.gunny_bags = [];
+    const agent = doc.agent_name || '';
+    const mandi = doc.mandi_name || '';
+    const source = agent && mandi ? `${agent} - ${mandi}` : (agent || mandi || '');
+    const truck = doc.truck_no || '';
+    const now = new Date().toISOString();
+    const base = { bag_type: 'new', rate: 0, amount: 0, notes: 'Auto from Mill Entry',
+      kms_year: doc.kms_year||'', season: doc.season||'',
+      created_by: doc.created_by||'system', linked_entry_id: doc.id, created_at: now };
+
+    const gIssued = parseFloat(doc.g_issued) || 0;
+    if (gIssued > 0) {
+      this.data.gunny_bags.push({ ...base, id: uuidv4(), date: doc.date||'',
+        txn_type: 'out', quantity: Math.floor(gIssued), source, reference: truck });
+    }
+    const gDep = parseFloat(doc.g_deposite) || 0;
+    if (gDep > 0) {
+      this.data.gunny_bags.push({ ...base, id: uuidv4(), date: doc.date||'',
+        txn_type: 'in', quantity: Math.floor(gDep), source, reference: truck });
+    }
   }
 
   updateEntry(id, updates) {
@@ -308,6 +334,10 @@ class JsonDatabase {
       });
     }
 
+    // Update auto gunny bag entries (delete old + recreate)
+    if (this.data.gunny_bags) this.data.gunny_bags = this.data.gunny_bags.filter(g => g.linked_entry_id !== id);
+    this._createGunnyEntriesForMill(updated);
+
     this.save();
     return updated;
   }
@@ -317,6 +347,7 @@ class JsonDatabase {
     this.data.entries = this.data.entries.filter(e => e.id !== id);
     if (this.data.cash_transactions) this.data.cash_transactions = this.data.cash_transactions.filter(t => t.linked_entry_id !== id);
     if (this.data.diesel_accounts) this.data.diesel_accounts = this.data.diesel_accounts.filter(t => t.linked_entry_id !== id);
+    if (this.data.gunny_bags) this.data.gunny_bags = this.data.gunny_bags.filter(g => g.linked_entry_id !== id);
     if (this.data.entries.length < len) { this.save(); return true; }
     return false;
   }
