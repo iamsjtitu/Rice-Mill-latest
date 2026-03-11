@@ -167,16 +167,31 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
                 "description": f"{(s.get('product','')).capitalize()}: {s.get('quantity_qntl',0)}Q @ ₹{s.get('rate_per_qntl',0)}/Q",
                 "debit": 0, "credit": round(s.get("total_amount", 0), 2), "ref": s.get("id", "")[:8]})
 
-    # Private Paddy Purchase (debit = purchase amount, credit = payment received)
+    # Private Paddy Purchase (debit = purchase amount, credit = advances given)
     if not party_type or party_type == "pvt_paddy":
         pvt_paddy = await db.private_paddy.find(query, {"_id": 0}).to_list(5000)
         for p in pvt_paddy:
             party = p.get("party_name", "")
+            mandi = p.get("mandi_name", "")
             if not party: continue
-            if party_name and party.lower() != party_name.lower(): continue
-            ledger.append({"date": p.get("date", ""), "party_name": party, "party_type": "Pvt Paddy",
-                "description": f"Paddy Purchase: {p.get('final_qntl',0)}Q @ ₹{p.get('rate_per_qntl',0)}/Q = ₹{p.get('total_amount',0)}",
+            display_name = f"{party} - {mandi}" if mandi else party
+            if party_name and display_name.lower() != party_name.lower() and party.lower() != party_name.lower(): continue
+            # Debit: total purchase amount (what we owe)
+            ledger.append({"date": p.get("date", ""), "party_name": display_name, "party_type": "Pvt Paddy Purchase",
+                "description": f"Paddy: {p.get('final_qntl',0)}Q @ Rs.{p.get('rate_per_qntl',0)}/Q = Rs.{p.get('total_amount',0)}",
                 "debit": round(p.get("total_amount", 0), 2), "credit": 0, "ref": p.get("id", "")[:8]})
+            # Credit: cash advance
+            cash_paid = float(p.get("cash_paid", 0) or 0)
+            if cash_paid > 0:
+                ledger.append({"date": p.get("date", ""), "party_name": display_name, "party_type": "Pvt Paddy Purchase",
+                    "description": f"Cash Advance: Rs.{cash_paid}",
+                    "debit": 0, "credit": round(cash_paid, 2), "ref": p.get("id", "")[:8]})
+            # Credit: diesel advance
+            diesel_paid = float(p.get("diesel_paid", 0) or 0)
+            if diesel_paid > 0:
+                ledger.append({"date": p.get("date", ""), "party_name": display_name, "party_type": "Pvt Paddy Purchase",
+                    "description": f"Diesel Advance: Rs.{diesel_paid}",
+                    "debit": 0, "credit": round(diesel_paid, 2), "ref": p.get("id", "")[:8]})
 
     # Rice Sale (debit = 0, credit = sale amount)
     if not party_type or party_type == "rice_buyer":
@@ -198,13 +213,13 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
             if party_name and pn.lower() != party_name.lower(): continue
             if pay.get("ref_type") == "paddy_purchase":
                 if party_type and party_type not in ("pvt_paddy", "pvt_payment"): continue
-                ledger.append({"date": pay.get("date", ""), "party_name": pn, "party_type": "Pvt Paddy",
-                    "description": f"Payment: ₹{pay.get('amount',0)} ({pay.get('mode','cash')})",
+                ledger.append({"date": pay.get("date", ""), "party_name": pn, "party_type": "Pvt Paddy Purchase",
+                    "description": f"Payment: Rs.{pay.get('amount',0)} ({pay.get('mode','cash')})",
                     "debit": 0, "credit": round(pay.get("amount", 0), 2), "ref": pay.get("id", "")[:8]})
             elif pay.get("ref_type") == "rice_sale":
                 if party_type and party_type not in ("rice_buyer", "pvt_payment"): continue
                 ledger.append({"date": pay.get("date", ""), "party_name": pn, "party_type": "Rice Buyer",
-                    "description": f"Payment Received: ₹{pay.get('amount',0)} ({pay.get('mode','cash')})",
+                    "description": f"Payment Received: Rs.{pay.get('amount',0)} ({pay.get('mode','cash')})",
                     "debit": round(pay.get("amount", 0), 2), "credit": 0, "ref": pay.get("id", "")[:8]})
 
     ledger.sort(key=lambda x: x.get("date", ""), reverse=True)

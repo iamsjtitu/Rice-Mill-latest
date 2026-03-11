@@ -5,6 +5,35 @@ const router = express.Router();
 
 module.exports = function(database) {
 
+  // Helper: Create cash book + diesel entries for pvt paddy
+  function _createCashDieselForPvtPaddy(db, doc, username) {
+    if (!db.data.cash_transactions) db.data.cash_transactions = [];
+    if (!db.data.diesel_accounts) db.data.diesel_accounts = [];
+    const entryId = doc.id;
+    const party = doc.party_name || '';
+    const mandi = doc.mandi_name || '';
+    const partyLabel = (party && mandi) ? `${party} - ${mandi}` : party || 'Pvt Paddy';
+    const date = doc.date || new Date().toISOString().slice(0, 10);
+    const base = { kms_year: doc.kms_year || '', season: doc.season || '', created_by: username || 'system', linked_entry_id: entryId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const cashPaid = parseFloat(doc.cash_paid) || 0;
+    if (cashPaid > 0) {
+      db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'nikasi', category: partyLabel, party_type: 'Pvt Paddy Purchase', description: `Pvt Paddy Cash Advance: ${partyLabel} - Rs.${cashPaid}`, amount: Math.round(cashPaid * 100) / 100, reference: `pvt_paddy_cash:${entryId.slice(0,8)}`, ...base });
+    }
+    const dieselPaid = parseFloat(doc.diesel_paid) || 0;
+    if (dieselPaid > 0) {
+      const pumps = db.data.diesel_pumps || [];
+      const defPump = pumps.find(p => p.is_default) || { id: 'default', name: 'Default Pump' };
+      db.data.diesel_accounts.push({ id: require('crypto').randomUUID(), date, pump_id: defPump.id, pump_name: defPump.name, truck_no: doc.truck_no || '', agent_name: doc.agent_name || '', mandi_name: mandi, amount: Math.round(dieselPaid * 100) / 100, txn_type: 'debit', description: `Pvt Paddy Diesel: ${partyLabel}`, ...base });
+    }
+  }
+
+  // Helper: Delete linked cash book + diesel entries for pvt paddy
+  function _deleteCashDieselForPvtPaddy(db, entryId) {
+    if (db.data.cash_transactions) db.data.cash_transactions = db.data.cash_transactions.filter(t => !(t.linked_entry_id === entryId && (t.reference || '').startsWith('pvt_paddy')));
+    if (db.data.diesel_accounts) db.data.diesel_accounts = db.data.diesel_accounts.filter(t => t.linked_entry_id !== entryId);
+  }
+
+
   function calcPaddyAutoDesktop(d) {
     d.qntl = Math.round((d.kg || 0) / 100 * 100) / 100;
     d.gbw_cut = d.g_deposite > 0 ? Math.round(d.g_deposite * 0.5 * 100) / 100 : Math.round((d.bag || 0) * 1 * 100) / 100;
@@ -29,7 +58,10 @@ module.exports = function(database) {
     ['kg','bag','rate_per_qntl','g_deposite','plastic_bag','moisture','cutting_percent','disc_dust_poll','paid_amount'].forEach(f => { d[f] = parseFloat(d[f]) || 0; });
     d.bag = parseInt(d.bag) || 0; d.plastic_bag = parseInt(d.plastic_bag) || 0;
     calcPaddyAutoDesktop(d);
-    database.data.private_paddy.push(d); database.save(); res.json(d);
+    database.data.private_paddy.push(d);
+    // Auto cash book + diesel entries
+    _createCashDieselForPvtPaddy(database, d, req.query.username || '');
+    database.save(); res.json(d);
   }));
 
   router.get('/api/private-paddy', safeSync((req, res) => {
@@ -51,14 +83,21 @@ module.exports = function(database) {
     ['kg','bag','rate_per_qntl','g_deposite','plastic_bag','moisture','cutting_percent','disc_dust_poll','paid_amount'].forEach(f => { merged[f] = parseFloat(merged[f]) || 0; });
     merged.bag = parseInt(merged.bag) || 0; merged.plastic_bag = parseInt(merged.plastic_bag) || 0;
     calcPaddyAutoDesktop(merged);
-    database.data.private_paddy[idx] = merged; database.save(); res.json(merged);
+    database.data.private_paddy[idx] = merged;
+    // Re-create cash book + diesel entries
+    _deleteCashDieselForPvtPaddy(database, req.params.id);
+    _createCashDieselForPvtPaddy(database, merged, req.query.username || '');
+    database.save(); res.json(merged);
   }));
 
   router.delete('/api/private-paddy/:id', safeSync((req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
-    database.data.private_paddy.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
+    database.data.private_paddy.splice(idx, 1);
+    // Delete linked cash book + diesel entries
+    _deleteCashDieselForPvtPaddy(database, req.params.id);
+    database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
 
   // ===== RICE SALES =====

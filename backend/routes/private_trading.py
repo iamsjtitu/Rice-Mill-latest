@@ -62,6 +62,8 @@ async def create_private_paddy(data: dict, username: str = "", role: str = ""):
     doc.pop("_id", None)
     # Auto gunny bag entries
     await _create_gunny_entries_for_pvt_paddy(doc, username)
+    # Auto cash book + diesel entries
+    await _create_cashbook_diesel_for_pvt_paddy(doc, username)
     return doc
 
 
@@ -91,6 +93,46 @@ async def _create_gunny_entries_for_pvt_paddy(doc, username=""):
         entry = {**base, "id": str(uuid.uuid4()), "date": doc.get("date", ""),
                  "txn_type": "out", "quantity": g_issued, "source": source, "reference": truck}
         await db.gunny_bags.insert_one(entry)
+
+
+async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
+    """Auto-create cash book nikasi for cash_paid and diesel account entry for diesel_paid."""
+    entry_id = doc["id"]
+    party = doc.get("party_name", "")
+    mandi = doc.get("mandi_name", "")
+    party_label = f"{party} - {mandi}" if party and mandi else party or "Pvt Paddy"
+    date = doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    base_fields = {
+        "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+        "created_by": username or "system", "linked_entry_id": entry_id,
+        "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    cash_paid = float(doc.get("cash_paid", 0) or 0)
+    if cash_paid > 0:
+        # Cash Book nikasi
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "account": "cash", "txn_type": "nikasi",
+            "category": party_label, "party_type": "Pvt Paddy Purchase",
+            "description": f"Pvt Paddy Cash Advance: {party_label} - Rs.{cash_paid}",
+            "amount": round(cash_paid, 2), "reference": f"pvt_paddy_cash:{entry_id[:8]}",
+            **base_fields
+        })
+    diesel_paid = float(doc.get("diesel_paid", 0) or 0)
+    if diesel_paid > 0:
+        # Diesel Account entry
+        default_pump = await db.diesel_pumps.find_one({"is_default": True}, {"_id": 0})
+        pump_name = default_pump["name"] if default_pump else "Default Pump"
+        pump_id = default_pump["id"] if default_pump else "default"
+        await db.diesel_accounts.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "pump_id": pump_id, "pump_name": pump_name,
+            "truck_no": doc.get("truck_no", ""), "agent_name": doc.get("agent_name", ""),
+            "mandi_name": mandi, "amount": round(diesel_paid, 2), "txn_type": "debit",
+            "description": f"Pvt Paddy Diesel: {party_label}",
+            **base_fields
+        })
+
 
 @router.get("/private-paddy")
 async def get_private_paddy(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None):
@@ -129,6 +171,10 @@ async def update_private_paddy(item_id: str, data: dict, username: str = ""):
     # Re-create gunny bag entries
     await db.gunny_bags.delete_many({"linked_entry_id": item_id})
     await _create_gunny_entries_for_pvt_paddy(merged, username)
+    # Re-create cash book + diesel entries
+    await db.cash_transactions.delete_many({"linked_entry_id": item_id, "reference": {"$regex": "^pvt_paddy"}})
+    await db.diesel_accounts.delete_many({"linked_entry_id": item_id})
+    await _create_cashbook_diesel_for_pvt_paddy(merged, username)
     return merged
 
 @router.delete("/private-paddy/{item_id}")
@@ -136,6 +182,8 @@ async def delete_private_paddy(item_id: str):
     result = await db.private_paddy.delete_one({"id": item_id})
     if result.deleted_count == 0: raise HTTPException(status_code=404, detail="Not found")
     await db.gunny_bags.delete_many({"linked_entry_id": item_id})
+    await db.cash_transactions.delete_many({"linked_entry_id": item_id, "reference": {"$regex": "^pvt_paddy"}})
+    await db.diesel_accounts.delete_many({"linked_entry_id": item_id})
     return {"message": "Deleted", "id": item_id}
 
 # --- Rice Sale ---
