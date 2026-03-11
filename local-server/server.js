@@ -225,7 +225,7 @@ class JsonDatabase {
     const source = agent && mandi ? `${agent} - ${mandi}` : (agent || mandi || '');
     const truck = doc.truck_no || '';
     const now = new Date().toISOString();
-    const base = { bag_type: 'new', rate: 0, amount: 0, notes: 'Auto from Mill Entry',
+    const base = { bag_type: 'old', rate: 0, amount: 0, notes: 'Auto from Mill Entry',
       kms_year: doc.kms_year||'', season: doc.season||'',
       created_by: doc.created_by||'system', linked_entry_id: doc.id, created_at: now };
 

@@ -141,7 +141,7 @@ async def _create_gunny_entries_for_mill(doc, username=""):
     source = f"{agent} - {mandi}" if agent and mandi else (agent or mandi or "")
     truck = doc.get("truck_no", "")
     base = {
-        "bag_type": "new", "rate": 0, "amount": 0, "notes": "Auto from Mill Entry",
+        "bag_type": "old", "rate": 0, "amount": 0, "notes": "Auto from Mill Entry",
         "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
         "created_by": username or "system", "linked_entry_id": entry_id,
         "created_at": datetime.now(timezone.utc).isoformat()

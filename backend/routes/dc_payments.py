@@ -556,8 +556,8 @@ async def get_gunny_bag_summary(kms_year: Optional[str] = None, season: Optional
     result["paddy_bags"] = {"total": paddy_bags, "label": "Paddy Receive Bags"}
     result["ppkt"] = {"total": paddy_ppkt, "label": "P.Pkt (Plastic Bags)"}
     result["g_issued"] = {"total": g_issued_total, "label": "G.Issued (Entries)"}
-    # Grand total: paddy + P.Pkt + old bags balance - G.Issued
-    result["grand_total"] = paddy_bags + paddy_ppkt + result["old"]["balance"] - g_issued_total
+    # Grand total: paddy + P.Pkt + old bags balance
+    result["grand_total"] = paddy_bags + paddy_ppkt + result["old"]["balance"]
     return result
 
 
