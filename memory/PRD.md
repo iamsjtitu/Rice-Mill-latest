@@ -6,53 +6,51 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 ## Core Architecture
 ```
 /app
-├── shared/                    # Shared config for all backends
-│   ├── report_config.json     # Column definitions (single source of truth)
-│   ├── report_helper.js       # Node.js helper (supports subkey)
-│   └── (Python helper at backend/utils/report_helper.py)
-├── backend/                   # Python/FastAPI (MongoDB)
-│   └── routes/                # API route modules
-├── desktop-app/               # Node.js/Electron (JSON)
-├── local-server/              # Node.js/Express (JSON)
-├── frontend/                  # React (shared UI)
-└── sync_backends.sh           # Sync script (desktop-app -> local-server)
+├── shared/              # Shared config for all backends
+├── backend/             # Python/FastAPI (MongoDB)
+├── desktop-app/         # Node.js/Electron (JSON)
+├── local-server/        # Node.js/Express (JSON, synced from desktop-app)
+├── frontend/            # React (shared UI)
+└── sync_backends.sh
 ```
 
 ## Credentials
 - Admin: `admin` / `admin123`
 
 ## Completed Features
-- Agent & Mandi Report, Application-wide sorting, Gunny bag cleanup
-- Private Trading Page: Paddy Purchase, Rice Sale, Party Summary tabs
-- Shared Config for all reports (10 reports total)
+- Agent & Mandi Report, Sorting, Gunny bag cleanup
+- Private Trading: Paddy Purchase, Rice Sale, Party Summary tabs
+- Shared Config for 10 reports, Daily Report refactor
 - CMR Paddy Stock: `QNTL - BAG - P.Cut` + private paddy
-- Pvt Paddy Payment Flow with full cascade on CRUD
-- Daily Report Shared Config
-- Truck Payments: Pvt Paddy entries with "Pvt" badge
+- Pvt Paddy Payment Flow (Cash/Diesel→Truck, Advance→Party Ledger+CashBook)
+- Truck Payments: "Pvt" badge, full payment actions
 - Party Ledger Export: [Pvt] tag
-- Delete Cascade: private paddy delete removes linked entries
-- Party Summary Click Navigation (Pvt Trading → Cash Book)
-- CashBook Party Summary Beautified
-- **Description Format Fix (2026-03-11):**
-  - All pvt paddy cash/ledger entries now show: `{party} - {mandi} - {qntl} @ Rs.{rate}`
-  - Advance entries: `Advance - {qntl} @ Rs.{rate}`
-  - Rate auto-calculated from `total_amount / qntl` when not stored
-  - Clean number formatting (50 not 50.0, 1600 not 1600.0)
-  - Migration endpoint updated all old entries
-  - Node.js backend synced
+- Delete Cascade: private paddy→truck_payments→cash_transactions
+- CashBook Party Summary beautified (gradient cards, badges)
+- Party Summary click navigation (Pvt Trading→CashBook)
+- **Description Format (2026-03-11):** `{party} - {mandi} - {qntl} @ Rs.{rate}`, Advance: `Advance - {qntl} @ Rs.{rate}`
+- **Mark Paid / Undo Paid / Payment History (2026-03-11):**
+  - `POST /api/private-paddy/{id}/mark-paid` - fully paid, creates cash+ledger entries
+  - `POST /api/private-paddy/{id}/undo-paid` - resets all payments, deletes linked
+  - `GET /api/private-paddy/{id}/history` - payment history from private_payments
+  - UI: ✓ Mark Paid (amber), ↶ Undo (red), ⏰ History (purple) buttons
+  - PAID badge on balance column, conditional button visibility
+  - History dialog with payment list
 
-## Key Description Format
-| Entry Type | Description Format |
-|-----------|-------------------|
-| Cash/Diesel payment | `Raju - Nanu - 50 @ Rs.1600` |
-| Advance | `Advance - 50 @ Rs.1600` |
-| ₹ button payment | `Amit - Kullu - 500 @ Rs.1579.67` |
-| Deleted ref entry | `Raju - Rs.729208` (fallback) |
+## Key Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/private-paddy` | GET/POST | Paddy CRUD |
+| `/api/private-paddy/{id}/mark-paid` | POST | Mark fully paid (admin) |
+| `/api/private-paddy/{id}/undo-paid` | POST | Reset payments (admin) |
+| `/api/private-paddy/{id}/history` | GET | Payment history |
+| `/api/private-payments` | POST | Individual payment |
+| `/api/private-payments/fix-old-entries` | GET | Migration endpoint |
 
 ## Key Files
-- `backend/routes/private_trading.py` - `_fmt_detail()` helper, all CRUD + payments
-- `desktop-app/routes/private_trading.js` - `_fmtDetail()` helper, synced logic
-- `frontend/src/components/PrivateTrading.jsx` - 3 tabs with navigation
+- `backend/routes/private_trading.py` - All pvt paddy logic + mark/undo/history
+- `desktop-app/routes/private_trading.js` - Node.js synced logic
+- `frontend/src/components/PrivateTrading.jsx` - 3 tabs, all payment UI
 - `frontend/src/components/cashbook/PartySummaryTab.jsx` - Beautified UI
 
 ## Backlog
