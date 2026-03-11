@@ -798,6 +798,74 @@ async def fix_old_payment_cashbook_entries():
     return {"message": f"Fixed {fixed} entries with new description format"}
 
 
+
+@router.get("/migrate/fix-missing-ledger-nikasi")
+async def fix_missing_ledger_nikasi():
+    """Migration: Find all cash nikasi entries that don't have corresponding ledger nikasi entries and create them.
+    This fixes the bug where payments didn't create ledger entries, causing Party Summary to show wrong balances."""
+    fixed = 0
+    skipped = 0
+    details = []
+    
+    # Get ALL cash/bank nikasi entries (these are payments made)
+    cash_payments = await db.cash_transactions.find({
+        "account": {"$in": ["cash", "bank"]},
+        "txn_type": "nikasi"
+    }, {"_id": 0}).to_list(None)
+    
+    for payment in cash_payments:
+        cat = payment.get("category", "").strip()
+        amt = payment.get("amount", 0)
+        pt = payment.get("party_type", "")
+        desc = payment.get("description", "")
+        
+        if not cat or amt <= 0:
+            continue
+        
+        # Check if a ledger nikasi with same description and amount exists
+        existing = await db.cash_transactions.find_one({
+            "account": "ledger",
+            "txn_type": "nikasi",
+            "category": cat,
+            "amount": amt,
+            "description": desc
+        })
+        
+        if existing:
+            skipped += 1
+            continue
+        
+        # Create missing ledger nikasi
+        import uuid as _uuid
+        entry = {
+            "id": str(_uuid.uuid4()),
+            "date": payment.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "account": "ledger",
+            "txn_type": "nikasi",
+            "category": cat,
+            "party_type": pt,
+            "description": desc,
+            "amount": amt,
+            "reference": f"migration_ledger:{cat[:10]}",
+            "kms_year": payment.get("kms_year", ""),
+            "season": payment.get("season", ""),
+            "created_by": "migration",
+            "linked_payment_id": f"migration:{cat}:{_uuid.uuid4().hex[:6]}",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(entry)
+        fixed += 1
+        details.append(f"{cat} ({pt}) - Rs.{amt} - {desc[:50]}")
+    
+    return {
+        "success": True,
+        "message": f"Migration complete: {fixed} ledger entries created, {skipped} already existed",
+        "fixed_count": fixed,
+        "skipped_count": skipped,
+        "details": details
+    }
+
 # ============ EXPORT: Private Paddy PDF/Excel ============
 
 @router.get("/private-paddy/excel")
