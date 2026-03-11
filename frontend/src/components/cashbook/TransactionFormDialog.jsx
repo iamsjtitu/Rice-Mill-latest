@@ -137,6 +137,24 @@ const TransactionFormDialog = ({
             <p className="text-[9px] text-amber-600 mt-0.5">* Yahan jo name doge wo Party Ledger mein automatically aayega</p>
           </div>
           <div>
+            <Label className="text-xs text-slate-600">Party Type (Auto / Manual)</Label>
+            <Select value={form.party_type || "_auto"} onValueChange={(v) => setForm(p => ({ ...p, party_type: v === "_auto" ? "" : v }))}>
+              <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-party-type"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_auto">Auto Detect</SelectItem>
+                <SelectItem value="Cash Party">Cash Party</SelectItem>
+                <SelectItem value="Pvt Paddy Purchase">Pvt Paddy Purchase</SelectItem>
+                <SelectItem value="Rice Sale">Rice Sale</SelectItem>
+                <SelectItem value="Diesel">Diesel</SelectItem>
+                <SelectItem value="Local Party">Local Party</SelectItem>
+                <SelectItem value="Truck">Truck</SelectItem>
+                <SelectItem value="Agent">Agent</SelectItem>
+                <SelectItem value="By-Product Sale">By-Product Sale</SelectItem>
+                <SelectItem value="Staff">Staff</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label className="text-xs text-slate-600">Description / विवरण</Label>
             <Input value={form.description} onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))}
               placeholder="Details likhein..." className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-desc" />

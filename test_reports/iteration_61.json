@@ -1,0 +1,127 @@
+{
+  "summary": "Iteration 61: All 14 backend tests PASSED. Frontend UI verification confirmed Sale Book, GST Settings, and CashBook Party Type dropdown features working correctly.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Sale Book Form Dialog", "issues": ["Minor: Missing aria-describedby warning in console for DialogContent (accessibility, non-blocking)"]}
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration61_salebook_gst_byproduct.py",
+    "/app/test_reports/pytest/pytest_results_iteration61.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Backend salebook.py: Correctly creates 3 ledger entries on sale voucher with cash (jama for total, nikasi for cash received, cash jama)",
+    "Backend salebook.py: Delete voucher correctly uses regex to cleanup all linked entries (sale_voucher*:{id})",
+    "Backend milling.py: By-product sale creates ledger entry with reference pattern byproduct:{id}, delete cleans up correctly",
+    "Frontend SaleBook.jsx: Stock overview shows 8 items with color-coded quantities (green positive, red negative)",
+    "Frontend SaleBook.jsx: GST calculation working correctly - subtotal + CGST + SGST or IGST = total",
+    "Frontend TransactionFormDialog.jsx: Party type dropdown has all 10 options including 'By-Product Sale' and 'Staff'"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_iteration61_salebook_gst_byproduct.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (14/14 tests passed)",
+    "frontend": "100% - All features verified"
+  },
+
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+
+  "seed_data_creation": "Test entries created and cleaned up during test execution",
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Sale Book feature fully implemented with stock overview (8 items), multi-item vouchers, GST types (none/CGST+SGST/IGST), ledger auto-entries. GST settings stored in DB settings collection with key='gst'. CashBook party_type dropdown has 10 options. By-product sales auto-create party ledger entries when buyer_name provided.",
+
+  "verified_features": {
+    "sale_book_stock_overview": {
+      "status": "PASSED",
+      "items": ["Rice (Usna)", "Rice (Raw)", "Bran", "Kunda", "Broken", "Kanki", "Husk", "FRK"],
+      "api": "GET /api/sale-book/stock-items"
+    },
+    "sale_book_voucher_crud": {
+      "status": "PASSED",
+      "create": "POST /api/sale-book",
+      "list": "GET /api/sale-book",
+      "delete": "DELETE /api/sale-book/{id}",
+      "calculations_verified": ["subtotal", "cgst_amount", "sgst_amount", "igst_amount", "total", "paid_amount", "balance"]
+    },
+    "sale_book_ledger_integration": {
+      "status": "PASSED",
+      "auto_entries": [
+        "jama entry for total (account=ledger, ref=sale_voucher:{id})",
+        "nikasi entry for cash received (account=ledger, ref=sale_voucher_cash:{id})",
+        "jama entry for cash (account=cash, ref=sale_voucher_cash:{id})"
+      ],
+      "delete_cleanup": "Deletes all entries with reference pattern sale_voucher*:{id}"
+    },
+    "gst_settings": {
+      "status": "PASSED",
+      "get_api": "GET /api/gst-settings",
+      "update_api": "PUT /api/gst-settings",
+      "values": {"cgst_percent": 2.5, "sgst_percent": 2.5, "igst_percent": 5.0},
+      "ui_verified": true
+    },
+    "cashbook_party_type_dropdown": {
+      "status": "PASSED",
+      "options": ["Auto Detect", "Cash Party", "Pvt Paddy Purchase", "Rice Sale", "Diesel", "Local Party", "Truck", "Agent", "By-Product Sale", "Staff"],
+      "ui_verified": true
+    },
+    "byproduct_ledger_integration": {
+      "status": "PASSED",
+      "auto_create": "Creates ledger jama entry when buyer_name provided (party_type='By-Product Sale')",
+      "delete_cleanup": "Deletes ledger entry with reference byproduct:{id}"
+    }
+  },
+
+  "tests_executed": {
+    "backend": {
+      "TestGSTSettings::test_01_get_gst_settings": "PASSED",
+      "TestGSTSettings::test_02_update_gst_settings": "PASSED",
+      "TestSaleBookStockItems::test_01_get_stock_items": "PASSED - All 8 items returned",
+      "TestSaleBookStockItems::test_02_stock_items_have_correct_structure": "PASSED",
+      "TestSaleBookVouchers::test_01_create_sale_voucher_no_gst": "PASSED",
+      "TestSaleBookVouchers::test_02_verify_ledger_entries_created": "PASSED - 3 entries created",
+      "TestSaleBookVouchers::test_03_create_sale_voucher_with_cgst_sgst": "PASSED",
+      "TestSaleBookVouchers::test_04_create_sale_voucher_with_igst": "PASSED",
+      "TestSaleBookVouchers::test_05_get_sale_vouchers_list": "PASSED",
+      "TestSaleBookVouchers::test_06_delete_voucher_cleans_ledger_entries": "PASSED",
+      "TestByProductLedgerIntegration::test_01_create_byproduct_sale_creates_ledger_entry": "PASSED",
+      "TestByProductLedgerIntegration::test_02_delete_byproduct_sale_deletes_ledger_entry": "PASSED",
+      "TestCashBookPartyTypeDropdown::test_01_party_type_options_in_transactions": "PASSED",
+      "TestCleanupAllTestData::test_99_cleanup": "PASSED"
+    },
+    "frontend": {
+      "login": "PASSED",
+      "navigate_salebook_tab": "PASSED",
+      "stock_overview_cards": "PASSED - 8 items visible with correct quantities",
+      "new_sale_voucher_form": "PASSED - All fields working",
+      "item_dropdown_selection": "PASSED",
+      "gst_type_dropdown": "PASSED - CGST+SGST/IGST options",
+      "gst_calculation_display": "PASSED - Shows Rs.375 for CGST and SGST",
+      "grand_total_display": "PASSED - Shows Rs.15,750",
+      "settings_gst_section": "PASSED - CGST/SGST/IGST inputs visible",
+      "cashbook_party_type_dropdown": "PASSED - All 10 options present"
+    }
+  },
+
+  "test_run_timestamp": "2026-03-11T21:11:00Z"
+}

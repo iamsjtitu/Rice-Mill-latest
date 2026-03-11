@@ -276,6 +276,31 @@ async def create_byproduct_sale(input: ByProductSaleCreate, username: str = "", 
     doc = obj.model_dump()
     await db.byproduct_sales.insert_one(doc)
     doc.pop('_id', None)
+    
+    # Auto-create party_ledger entry if buyer_name is provided
+    buyer = (d.get('buyer_name') or '').strip()
+    if buyer and d['total_amount'] > 0:
+        import uuid as _uuid
+        from datetime import datetime as _dt, timezone as _tz
+        ledger_entry = {
+            "id": str(_uuid.uuid4()),
+            "date": d.get('date', ''),
+            "account": "ledger",
+            "txn_type": "jama",
+            "amount": d['total_amount'],
+            "category": buyer,
+            "party_type": "By-Product Sale",
+            "description": f"{d.get('product','').title()} sale - {d.get('quantity_qntl',0)} Qntl @ Rs.{d.get('rate_per_qntl',0)}/Q",
+            "reference": f"byproduct:{doc.get('id','')}",
+            "kms_year": d.get('kms_year', ''),
+            "season": d.get('season', ''),
+            "created_by": username,
+            "created_at": _dt.now(_tz.utc).isoformat(),
+            "updated_at": _dt.now(_tz.utc).isoformat(),
+        }
+        await db.cash_transactions.insert_one(ledger_entry)
+        ledger_entry.pop('_id', None)
+    
     return doc
 
 
@@ -293,6 +318,8 @@ async def delete_byproduct_sale(sale_id: str, username: str = "", role: str = ""
     existing = await db.byproduct_sales.find_one({"id": sale_id}, {"_id": 0})
     if not existing: raise HTTPException(status_code=404, detail="Sale entry not found")
     await db.byproduct_sales.delete_one({"id": sale_id})
+    # Also delete linked party_ledger entry
+    await db.cash_transactions.delete_many({"reference": f"byproduct:{sale_id}"})
     return {"message": "Sale entry deleted", "id": sale_id}
 
 

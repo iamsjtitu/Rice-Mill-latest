@@ -54,6 +54,7 @@ import MillPartsStock from "@/components/MillPartsStock";
 import StaffManagement from "@/components/StaffManagement";
 import FYSummaryDashboard from "@/components/FYSummaryDashboard";
 import ExcelImport from "@/components/ExcelImport";
+import SaleBook from "@/components/SaleBook";
 import { PrintButton } from "@/components/PrintButton";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
@@ -1388,6 +1389,18 @@ function MainApp({ user, onLogout }) {
               Staff
             </Button>
             <Button
+              onClick={() => setActiveTab("salebook")}
+              variant={activeTab === "salebook" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "salebook" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-salebook"
+            >
+              <FileText className="w-4 h-4 mr-1" />
+              Sale Book
+            </Button>
+            <Button
               onClick={() => setActiveTab("fy-summary")}
               variant={activeTab === "fy-summary" ? "default" : "ghost"}
               size="sm"
@@ -2007,6 +2020,8 @@ function MainApp({ user, onLogout }) {
           <StaffManagement filters={filters} user={user} />
         ) : activeTab === "fy-summary" ? (
           <FYSummaryDashboard filters={filters} user={user} />
+        ) : activeTab === "salebook" ? (
+          <SaleBook filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">
@@ -2060,6 +2075,22 @@ function MainApp({ user, onLogout }) {
                 >
                   Save Branding / ब्रांडिंग सेव करें
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* GST Settings Section */}
+            <Card className="bg-slate-800 border-slate-700" data-testid="gst-settings-section">
+              <CardHeader>
+                <CardTitle className="text-blue-400 flex items-center gap-2">
+                  <Calculator className="w-5 h-5" />
+                  GST Settings / जीएसटी सेटिंग्स
+                </CardTitle>
+                <p className="text-slate-400 text-sm">
+                  Default GST rates set karein. Ye Sale Book mein automatically apply hoga.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <GSTSettingsForm />
               </CardContent>
             </Card>
 
@@ -2612,6 +2643,46 @@ function MainApp({ user, onLogout }) {
           <p className="text-xs mt-1">1 Quintal = 100 KG | P.Pkt = 0.50 kg/bag</p>
         </div>
       </footer>
+    </div>
+  );
+}
+
+// GST Settings Form Component
+function GSTSettingsForm() {
+  const [gst, setGst] = useState({ cgst_percent: 0, sgst_percent: 0, igst_percent: 0 });
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    axios.get(`${API}/gst-settings`).then(r => { setGst(r.data); setLoaded(true); }).catch(() => setLoaded(true));
+  }, []);
+  const save = async () => {
+    try {
+      await axios.put(`${API}/gst-settings`, gst);
+      toast.success("GST settings save ho gayi!");
+    } catch { toast.error("GST save error"); }
+  };
+  if (!loaded) return null;
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <Label className="text-slate-300">CGST %</Label>
+          <Input type="number" step="0.01" value={gst.cgst_percent} onChange={e => setGst(p => ({ ...p, cgst_percent: parseFloat(e.target.value) || 0 }))}
+            className="bg-slate-700 border-slate-600 text-white" data-testid="gst-cgst" />
+        </div>
+        <div>
+          <Label className="text-slate-300">SGST %</Label>
+          <Input type="number" step="0.01" value={gst.sgst_percent} onChange={e => setGst(p => ({ ...p, sgst_percent: parseFloat(e.target.value) || 0 }))}
+            className="bg-slate-700 border-slate-600 text-white" data-testid="gst-sgst" />
+        </div>
+        <div>
+          <Label className="text-slate-300">IGST %</Label>
+          <Input type="number" step="0.01" value={gst.igst_percent} onChange={e => setGst(p => ({ ...p, igst_percent: parseFloat(e.target.value) || 0 }))}
+            className="bg-slate-700 border-slate-600 text-white" data-testid="gst-igst" />
+        </div>
+      </div>
+      <Button onClick={save} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold" data-testid="save-gst-btn">
+        Save GST Settings / जीएसटी सेव करें
+      </Button>
     </div>
   );
 }
