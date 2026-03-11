@@ -239,7 +239,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
           : entries.map(e => (
             <TableRow key={e.id} className="border-slate-700">
               <TableCell className="text-white text-xs">{e.date}</TableCell>
-              <TableCell className="text-xs"><span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${e.rice_type === 'parboiled' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'}`}>{e.rice_type === 'parboiled' ? 'Usna' : 'Arwa'}</span></TableCell>
+              <TableCell className="text-xs"><span className={`px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${e.rice_type === 'parboiled' ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40' : 'bg-sky-500/25 text-sky-300 border border-sky-500/40'}`}>{e.rice_type === 'parboiled' ? 'Usna' : 'Arwa'}</span></TableCell>
               <TableCell className="text-blue-300 text-xs text-right font-medium">{e.paddy_input_qntl}</TableCell>
               <TableCell className="text-slate-300 text-xs text-right">{e.rice_percent}%</TableCell>
               <TableCell className="text-green-400 text-xs text-right font-medium">{e.rice_qntl}</TableCell>
