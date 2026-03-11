@@ -17,35 +17,34 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 └── sync_backends.sh           # Sync script (desktop-app -> local-server)
 ```
 
-## Shared Config System
-- `/app/shared/report_config.json` - Column definitions for 4 reports:
-  - agent_mandi_report (15 cols)
-  - gunny_bags_report (9 cols)
-  - dc_entries_report (9 cols)
-  - msp_payments_report (8 cols)
-- Python reads via `utils/report_helper.py`, Node.js via `shared/report_helper.js`
-- To change columns: edit `report_config.json` only
-- Run `bash sync_backends.sh` to sync desktop-app -> local-server
+## Key Business Logic
 
-## Key Schema Notes
-- **Gunny Bags**: Uses `txn_type` (in/out), `quantity`, `source`, `reference` (NOT transaction_type/bags)
-- **Auto entries**: Created with `is_auto_entry: True`, `linked_entry_id` 
-- **Mill entries auto-create**: BAG->IN, g_issued->OUT (bag_type=old)
+### Target & Excess Calculation
+- Target = Base QNTL + Cutting% (e.g., 500 + 5% = 525Q)
+- Stored in `mandi_targets` collection with `target_qntl`, `cutting_percent`, `expected_total`
+- Extra = max(0, actual_final_w_qntl - expected_total)
+- "Move to Pvt Trading" button appears when extra > 0
+- Creates entry in `private_paddy` with last truck details, rate entered by user
 
-## Sorting
-All LIST endpoints sort `(date DESC, created_at DESC)` - newest entry always first
+### Gunny Bags Schema
+- Uses `txn_type` (in/out), `quantity`, `source`, `reference`
+- Auto entries: BAG->IN, g_issued->OUT (bag_type=old)
+
+### Sorting
+All LIST endpoints sort `(date DESC, created_at DESC)` - newest first
 
 ## Credentials
 - Admin: `admin` / `admin123`
 
 ## Completed (11-Mar-2026)
-- Fixed Agent & Mandi Report column misalignment (G.Iss after G.Dep)
-- PDF/Excel export respects expanded mandis filter, Grand Total scoped
-- Shared config system for 4 reports (agent_mandi, gunny_bags, dc_entries, msp_payments)
-- Sorting fix: ALL list endpoints sort newest first across all 3 backends
-- Old gunny bag entries cleanup: Deleted broken entries, recreated with correct schema
-- Node.js backends fully synced via sync script
-- Frontend build updated in desktop-app
+- Fixed Agent & Mandi Report column alignment (G.Iss after G.Dep)
+- PDF/Excel export respects expanded mandis filter
+- Shared config system for 4 reports
+- Sorting fix across all backends
+- Old gunny bag entries cleanup
+- Target calculation fixed: uses expected_total (target + cutting%) not just target
+- "Move to Pvt Trading" with last truck details, rate input, duplicate protection
+- All synced across 3 backends
 
 ## Backlog
 - None pending

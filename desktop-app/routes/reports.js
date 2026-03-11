@@ -311,11 +311,19 @@ module.exports = function(database) {
     for (const m of result) {
       const target = targetMap[m.mandi_name] || {};
       const targetQntl = Math.round((target.target_qntl || 0) * 100) / 100;
+      const cuttingPct = Math.round((target.cutting_percent || 0) * 100) / 100;
+      const expectedTotal = Math.round((target.expected_total || (targetQntl + targetQntl * cuttingPct / 100)) * 100) / 100;
       const actualFinalQntl = Math.round((m.totals.total_final_w / 100) * 100) / 100;
       m.target_qntl = targetQntl;
+      m.cutting_percent = cuttingPct;
+      m.expected_total = expectedTotal;
       m.actual_final_qntl = actualFinalQntl;
-      m.extra_qntl = targetQntl > 0 ? Math.round(Math.max(0, actualFinalQntl - targetQntl) * 100) / 100 : 0;
+      m.extra_qntl = expectedTotal > 0 ? Math.round(Math.max(0, actualFinalQntl - expectedTotal) * 100) / 100 : 0;
       m.pvt_moved = pvtMandiSet.has(m.mandi_name);
+      if (m.entries.length > 0) {
+        const last = m.entries[m.entries.length - 1];
+        m.last_truck = { truck_no: last.truck_no, date: last.date, qntl: last.qntl, bag: last.bag, agent_name: m.agent_name, mandi_name: m.mandi_name };
+      }
     }
 
     const grand = { total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_gbw_cut: 0,
@@ -330,24 +338,26 @@ module.exports = function(database) {
 
   // Move extra QNTL to Pvt Purchase
   router.post('/api/reports/agent-mandi-wise/move-to-pvt', safeSync((req, res) => {
-    const { mandi_name, agent_name, extra_qntl, rate, kms_year, season, username } = req.body;
+    const { mandi_name, agent_name, extra_qntl, rate, kms_year, season, username, last_truck } = req.body;
     if (!mandi_name || !extra_qntl || extra_qntl <= 0 || !rate || rate <= 0)
       return res.status(400).json({ success: false, detail: 'Mandi name, extra QNTL aur rate required hai' });
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const existing = database.data.private_paddy.find(p => p.mandi_name === mandi_name && p.source === 'agent_extra' && p.kms_year === (kms_year||'') && p.season === (season||''));
     if (existing) return res.json({ success: false, detail: `${mandi_name} ka extra QNTL pehle se Pvt Purchase mein move ho chuka hai` });
     const total_amount = Math.round(extra_qntl * rate * 100) / 100;
+    const lt = last_truck || {};
     database.data.private_paddy.push({
-      id: uuidv4(), date: new Date().toISOString().split('T')[0],
+      id: uuidv4(), date: lt.date || new Date().toISOString().split('T')[0],
       party_name: `${agent_name} (${mandi_name})`, mandi_name, agent_name,
+      truck_no: lt.truck_no || '',
       quantity_qntl: Math.round(extra_qntl * 100) / 100, rate_per_qntl: Math.round(rate * 100) / 100,
-      total_amount, paid_amount: 0, status: 'pending', source: 'agent_extra',
-      note: `Agent extra QNTL - Target se ${extra_qntl}Q zyada aaya`,
+      total_amount, bag: lt.bag || 0, paid_amount: 0, status: 'pending', source: 'agent_extra',
+      note: `Agent extra - Target se ${extra_qntl}Q zyada (${lt.truck_no || ''})`,
       kms_year: kms_year || '', season: season || '', created_by: username || 'admin',
       created_at: new Date().toISOString(), updated_at: new Date().toISOString()
     });
     database.save();
-    res.json({ success: true, message: `${extra_qntl}Q @ ₹${rate}/Q = ₹${total_amount} Pvt Purchase mein move ho gaya (${agent_name} - ${mandi_name})` });
+    res.json({ success: true, message: `${extra_qntl}Q @ Rs.${rate}/Q = Rs.${total_amount} Pvt Purchase mein move ho gaya (${agent_name} - ${mandi_name})` });
   }));
 
   router.get('/api/reports/agent-mandi-wise/excel', safeSync(async (req, res) => {

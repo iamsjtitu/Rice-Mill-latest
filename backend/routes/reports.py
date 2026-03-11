@@ -325,12 +325,27 @@ async def report_agent_mandi_wise(kms_year: Optional[str] = None, season: Option
         mn = m["mandi_name"]
         target = target_map.get(mn, {})
         target_qntl = round(target.get("target_qntl", 0), 2)
+        cutting_pct = round(target.get("cutting_percent", 0), 2)
+        expected_total = round(target.get("expected_total", 0) or (target_qntl + target_qntl * cutting_pct / 100), 2)
         actual_final_w_qntl = round(m["totals"]["total_final_w"] / 100, 2)  # final_w is in kg, convert to QNTL
-        extra_qntl = round(max(0, actual_final_w_qntl - target_qntl), 2) if target_qntl > 0 else 0
+        extra_qntl = round(max(0, actual_final_w_qntl - expected_total), 2) if expected_total > 0 else 0
         m["target_qntl"] = target_qntl
+        m["cutting_percent"] = cutting_pct
+        m["expected_total"] = expected_total
         m["actual_final_qntl"] = actual_final_w_qntl
         m["extra_qntl"] = extra_qntl
         m["pvt_moved"] = mn in pvt_mandi_set
+        # Include last entry details for pvt move
+        if m["entries"]:
+            last_entry = m["entries"][-1]  # last entry (oldest date, last truck)
+            m["last_truck"] = {
+                "truck_no": last_entry.get("truck_no", ""),
+                "date": last_entry.get("date", ""),
+                "qntl": last_entry.get("qntl", 0),
+                "bag": last_entry.get("bag", 0),
+                "agent_name": last_entry.get("agent_name", m.get("agent_name", "")),
+                "mandi_name": last_entry.get("mandi_name", mn),
+            }
 
     # Grand totals
     grand = {"total_qntl": 0, "total_bag": 0, "total_g_deposite": 0, "total_gbw_cut": 0,
@@ -358,6 +373,7 @@ async def move_extra_to_pvt(request: Request):
     kms_year = body.get("kms_year", "")
     season = body.get("season", "")
     username = body.get("username", "admin")
+    last_truck = body.get("last_truck", {})
 
     if not mandi_name or extra_qntl <= 0 or rate <= 0:
         return {"success": False, "detail": "Mandi name, extra QNTL aur rate required hai"}
@@ -371,17 +387,19 @@ async def move_extra_to_pvt(request: Request):
 
     pvt_entry = {
         "id": str(uuid.uuid4()),
-        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "date": last_truck.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
         "party_name": f"{agent_name} ({mandi_name})",
         "mandi_name": mandi_name,
         "agent_name": agent_name,
+        "truck_no": last_truck.get("truck_no", ""),
         "quantity_qntl": round(extra_qntl, 2),
         "rate_per_qntl": round(rate, 2),
         "total_amount": total_amount,
+        "bag": last_truck.get("bag", 0),
         "paid_amount": 0,
         "status": "pending",
         "source": "agent_extra",
-        "note": f"Agent extra QNTL - Target se {extra_qntl}Q zyada aaya",
+        "note": f"Agent extra - Target se {extra_qntl}Q zyada ({last_truck.get('truck_no', '')})",
         "kms_year": kms_year,
         "season": season,
         "created_by": username,
@@ -390,7 +408,7 @@ async def move_extra_to_pvt(request: Request):
     }
     await db.private_paddy.insert_one(pvt_entry)
 
-    return {"success": True, "message": f"{extra_qntl}Q @ ₹{rate}/Q = ₹{total_amount} Pvt Purchase mein move ho gaya ({agent_name} - {mandi_name})"}
+    return {"success": True, "message": f"{extra_qntl}Q @ Rs.{rate}/Q = Rs.{total_amount} Pvt Purchase mein move ho gaya ({agent_name} - {mandi_name})"}
 
 
 

@@ -804,7 +804,8 @@ const AgentMandiReport = ({ filters }) => {
         agent_name: pvtDialog.mandi.agent_name,
         extra_qntl: pvtDialog.mandi.extra_qntl,
         rate, kms_year: filters.kms_year, season: filters.season,
-        username: "admin"
+        username: "admin",
+        last_truck: pvtDialog.mandi.last_truck || {}
       });
       if (res.data.success) { toast.success(res.data.message); setPvtDialog({ open: false, mandi: null }); setPvtRate(""); fetchData(); }
       else toast.error(res.data.detail || "Error");
@@ -893,7 +894,7 @@ const AgentMandiReport = ({ filters }) => {
                     <span className="text-amber-400 font-bold text-base">{mandi.mandi_name}</span>
                     <span className="text-slate-400 text-sm ml-3">Agent: <span className="text-white">{mandi.agent_name}</span></span>
                     {mandi.target_qntl > 0 && (
-                      <span className="text-slate-500 text-xs ml-3">Target: {fmtNum(mandi.target_qntl)}Q | Final W: {fmtNum(mandi.actual_final_qntl)}Q | Extra: {fmtNum(mandi.extra_qntl)}Q</span>
+                      <span className="text-slate-500 text-xs ml-3">Target: {fmtNum(mandi.target_qntl)}Q + {mandi.cutting_percent || 0}% = {fmtNum(mandi.expected_total)}Q | Final W: {fmtNum(mandi.actual_final_qntl)}Q | Extra: {fmtNum(mandi.extra_qntl)}Q</span>
                     )}
                   </div>
                 </div>
@@ -1000,9 +1001,12 @@ const AgentMandiReport = ({ filters }) => {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-slate-400">Mandi:</span><span className="text-white font-semibold">{pvtDialog.mandi.mandi_name}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Agent:</span><span className="text-white font-semibold">{pvtDialog.mandi.agent_name}</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Target QNTL:</span><span className="text-white">{fmtNum(pvtDialog.mandi.target_qntl)}Q</span></div>
-                <div className="flex justify-between"><span className="text-slate-400">Actual QNTL:</span><span className="text-amber-400">{fmtNum(pvtDialog.mandi.totals.total_qntl)}Q</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Target:</span><span className="text-white">{fmtNum(pvtDialog.mandi.target_qntl)}Q + {pvtDialog.mandi.cutting_percent || 0}% = {fmtNum(pvtDialog.mandi.expected_total)}Q</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Final W:</span><span className="text-amber-400">{fmtNum(pvtDialog.mandi.actual_final_qntl)}Q</span></div>
                 <div className="flex justify-between border-t border-slate-700 pt-2"><span className="text-red-400 font-bold">Extra QNTL:</span><span className="text-red-400 font-bold">{fmtNum(pvtDialog.mandi.extra_qntl)}Q</span></div>
+                {pvtDialog.mandi.last_truck && (
+                  <div className="flex justify-between"><span className="text-slate-400">Last Truck:</span><span className="text-cyan-400">{pvtDialog.mandi.last_truck.truck_no} ({pvtDialog.mandi.last_truck.date})</span></div>
+                )}
               </div>
               <div>
                 <label className="text-slate-400 text-xs block mb-1">Rate per QNTL (Rs.)</label>
