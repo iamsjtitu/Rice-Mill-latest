@@ -50,6 +50,35 @@ module.exports = function(database) {
     res.json({ total_paddy_in_qntl: totalIn, total_paddy_used_qntl: totalUsed, available_paddy_qntl: +(totalIn - totalUsed).toFixed(2), cmr_paddy_in_qntl: cmrIn, pvt_paddy_in_qntl: pvtIn });
   }));
 
+  // ===== RICE STOCK =====
+  router.get('/api/rice-stock', safeSync((req, res) => {
+    const filters = req.query;
+    const millingEntries = database.getMillingEntries(filters);
+    const totalProduced = +millingEntries.reduce((s, e) => s + (e.rice_qntl || 0), 0).toFixed(2);
+    const parboiledProduced = +millingEntries.filter(e => e.rice_type === 'parboiled').reduce((s, e) => s + (e.rice_qntl || 0), 0).toFixed(2);
+    const rawProduced = +millingEntries.filter(e => e.rice_type === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0).toFixed(2);
+
+    // DC deliveries (govt)
+    let dcDeliveries = database.data.dc_deliveries || [];
+    if (filters.kms_year) dcDeliveries = dcDeliveries.filter(d => d.kms_year === filters.kms_year);
+    if (filters.season) dcDeliveries = dcDeliveries.filter(d => d.season === filters.season);
+    const govtDelivered = +dcDeliveries.reduce((s, d) => s + (d.quantity_qntl || 0), 0).toFixed(2);
+
+    // Pvt rice sales
+    let riceSales = database.data.rice_sales || [];
+    if (filters.kms_year) riceSales = riceSales.filter(s => s.kms_year === filters.kms_year);
+    if (filters.season) riceSales = riceSales.filter(s => s.season === filters.season);
+    const pvtSold = +riceSales.reduce((s, r) => s + (r.quantity_qntl || 0), 0).toFixed(2);
+
+    const available = +(totalProduced - govtDelivered - pvtSold).toFixed(2);
+    res.json({
+      total_produced_qntl: totalProduced, parboiled_produced_qntl: parboiledProduced,
+      raw_produced_qntl: rawProduced, govt_delivered_qntl: govtDelivered,
+      pvt_sold_qntl: pvtSold, available_qntl: available,
+      milling_count: millingEntries.length, dc_delivery_count: dcDeliveries.length, pvt_sale_count: riceSales.length
+    });
+  }));
+
   // ===== BYPRODUCT STOCK & SALES =====
   router.get('/api/byproduct-stock', safeSync((req, res) => {
     if (!database.data.byproduct_sales) database.data.byproduct_sales = [];

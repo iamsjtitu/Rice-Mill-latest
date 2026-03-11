@@ -503,6 +503,8 @@ code {
 [data-theme="light"] .text-emerald-300 { color: #047857 !important; }
 [data-theme="light"] .text-sky-300 { color: #0369a1 !important; }
 [data-theme="light"] .text-violet-300 { color: #6d28d9 !important; }
+[data-theme="light"] .text-emerald-400 { color: #059669 !important; }
+[data-theme="light"] .text-red-400 { color: #dc2626 !important; }
 [data-theme="light"] .border-emerald-500\/40 { border-color: #34d399 !important; }
 [data-theme="light"] .border-sky-500\/40 { border-color: #38bdf8 !important; }
 [data-theme="light"] .border-violet-500\/40 { border-color: #a78bfa !important; }
