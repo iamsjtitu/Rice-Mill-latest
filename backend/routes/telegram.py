@@ -13,6 +13,9 @@ TELEGRAM_CONFIG_ID = "telegram_config"
 
 async def get_telegram_config():
     config = await db.app_settings.find_one({"setting_id": TELEGRAM_CONFIG_ID}, {"_id": 0})
+    # Migrate old single chat_id to chat_ids list
+    if config and "chat_ids" not in config and config.get("chat_id"):
+        config["chat_ids"] = [{"chat_id": config["chat_id"], "label": "Default"}]
     return config
 
 
@@ -20,8 +23,7 @@ async def get_telegram_config():
 async def get_config():
     config = await get_telegram_config()
     if not config:
-        return {"bot_token": "", "chat_id": "", "schedule_time": "21:00", "enabled": False}
-    # Mask the token for security
+        return {"bot_token": "", "chat_ids": [], "schedule_time": "21:00", "enabled": False}
     masked = config.copy()
     if masked.get("bot_token"):
         t = masked["bot_token"]
@@ -32,19 +34,31 @@ async def get_config():
 @router.post("/telegram/config")
 async def save_config(data: dict):
     bot_token = data.get("bot_token", "").strip()
-    chat_id = data.get("chat_id", "").strip()
+    chat_ids = data.get("chat_ids", [])
     schedule_time = data.get("schedule_time", "21:00").strip()
     enabled = data.get("enabled", False)
 
-    if not bot_token or not chat_id:
-        raise HTTPException(status_code=400, detail="Bot Token aur Chat ID dono zaroori hain")
+    if not bot_token:
+        raise HTTPException(status_code=400, detail="Bot Token zaroori hai")
+    if not chat_ids or len(chat_ids) == 0:
+        raise HTTPException(status_code=400, detail="Kam se kam ek Chat ID add karein")
 
-    # Validate bot token by calling getMe
+    # Clean chat_ids
+    clean_ids = []
+    for item in chat_ids:
+        cid = str(item.get("chat_id", "")).strip()
+        label = str(item.get("label", "")).strip() or f"Chat {len(clean_ids)+1}"
+        if cid:
+            clean_ids.append({"chat_id": cid, "label": label})
+    if not clean_ids:
+        raise HTTPException(status_code=400, detail="Valid Chat ID add karein")
+
+    # Validate bot token
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(f"https://api.telegram.org/bot{bot_token}/getMe", timeout=10)
             if resp.status_code != 200:
-                raise HTTPException(status_code=400, detail="Invalid Bot Token - Telegram se verify nahi hua")
+                raise HTTPException(status_code=400, detail="Invalid Bot Token")
             bot_info = resp.json()
             if not bot_info.get("ok"):
                 raise HTTPException(status_code=400, detail="Bot Token galat hai")
@@ -54,7 +68,7 @@ async def save_config(data: dict):
     config = {
         "setting_id": TELEGRAM_CONFIG_ID,
         "bot_token": bot_token,
-        "chat_id": chat_id,
+        "chat_ids": clean_ids,
         "schedule_time": schedule_time,
         "enabled": enabled,
         "bot_name": bot_info["result"].get("first_name", ""),
@@ -67,87 +81,106 @@ async def save_config(data: dict):
         {"$set": config},
         upsert=True
     )
-    return {"success": True, "message": "Telegram config save ho gayi!", "bot_name": config["bot_name"]}
+    return {"success": True, "message": f"Config save ho gayi! {len(clean_ids)} recipients set.", "bot_name": config["bot_name"]}
 
 
 @router.post("/telegram/test")
 async def test_connection(data: dict):
-    """Send a test message to verify bot and chat_id work"""
     bot_token = data.get("bot_token", "").strip()
-    chat_id = data.get("chat_id", "").strip()
+    chat_ids = data.get("chat_ids", [])
 
-    if not bot_token or not chat_id:
+    if not bot_token or not chat_ids:
         raise HTTPException(status_code=400, detail="Bot Token aur Chat ID dono zaroori hain")
 
+    results = []
     async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.post(
-                f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                json={"chat_id": chat_id, "text": "Navkar Agro - Test Message\nTelegram Bot connected successfully!"},
-                timeout=10
-            )
-            result = resp.json()
-            if not result.get("ok"):
-                desc = result.get("description", "Unknown error")
-                raise HTTPException(status_code=400, detail=f"Message nahi gaya: {desc}")
-            return {"success": True, "message": "Test message bhej diya! Telegram check karein."}
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=400, detail=f"Telegram API error: {str(e)}")
+        for item in chat_ids:
+            cid = str(item.get("chat_id", "")).strip()
+            label = item.get("label", cid)
+            if not cid:
+                continue
+            try:
+                resp = await client.post(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                    json={"chat_id": cid, "text": f"Navkar Agro - Test Message\n{label}: Connected!"},
+                    timeout=10
+                )
+                result = resp.json()
+                if result.get("ok"):
+                    results.append({"label": label, "status": "sent"})
+                else:
+                    results.append({"label": label, "status": "failed", "error": result.get("description", "")})
+            except httpx.RequestError as e:
+                results.append({"label": label, "status": "failed", "error": str(e)})
+
+    sent = sum(1 for r in results if r["status"] == "sent")
+    failed = sum(1 for r in results if r["status"] == "failed")
+    msg = f"{sent} ko message gaya"
+    if failed:
+        msg += f", {failed} failed"
+    return {"success": sent > 0, "message": msg, "details": results}
+
+
+async def _send_pdf_to_all(bot_token, chat_ids, pdf_bytes, caption):
+    """Send PDF to all chat_ids, return results"""
+    results = []
+    async with httpx.AsyncClient() as client:
+        for item in chat_ids:
+            cid = str(item.get("chat_id", "")).strip()
+            label = item.get("label", cid)
+            if not cid:
+                continue
+            try:
+                buf = io.BytesIO(pdf_bytes)
+                files = {"document": (f"detail_report.pdf", buf, "application/pdf")}
+                form_data = {"chat_id": cid, "caption": caption}
+                resp = await client.post(
+                    f"https://api.telegram.org/bot{bot_token}/sendDocument",
+                    data=form_data, files=files, timeout=30
+                )
+                result = resp.json()
+                results.append({"label": label, "ok": result.get("ok", False)})
+            except Exception as e:
+                results.append({"label": label, "ok": False, "error": str(e)})
+    return results
 
 
 @router.post("/telegram/send-report")
 async def send_daily_report_now(data: dict = None):
-    """Generate today's daily report PDF and send via Telegram"""
     config = await get_telegram_config()
-    if not config or not config.get("bot_token") or not config.get("chat_id"):
-        raise HTTPException(status_code=400, detail="Telegram config set nahi hai. Settings mein jaake configure karein.")
+    if not config or not config.get("bot_token") or not config.get("chat_ids"):
+        raise HTTPException(status_code=400, detail="Telegram config set nahi hai. Settings mein configure karein.")
 
     report_date = (data or {}).get("date", datetime.now().strftime("%Y-%m-%d"))
     kms_year = (data or {}).get("kms_year", "")
     season = (data or {}).get("season", "")
 
-    # Generate PDF using the EXACT same function as the download button
     from routes.daily_report import export_daily_pdf
     try:
         pdf_response = await export_daily_pdf(report_date, kms_year or None, season or None, mode="detail")
-        # Read the streaming response body into bytes
         pdf_buf = io.BytesIO()
         async for chunk in pdf_response.body_iterator:
             pdf_buf.write(chunk)
-        pdf_buf.seek(0)
+        pdf_bytes = pdf_buf.getvalue()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PDF generate nahi hua: {str(e)}")
 
-    # Send only PDF to Telegram
-    bot_token = config["bot_token"]
-    chat_id = config["chat_id"]
+    caption = f"Detail Report - {report_date}"
+    results = await _send_pdf_to_all(config["bot_token"], config["chat_ids"], pdf_bytes, caption)
 
-    async with httpx.AsyncClient() as client:
-        try:
-            pdf_buf.seek(0)
-            files = {"document": (f"detail_report_{report_date}.pdf", pdf_buf, "application/pdf")}
-            form_data = {"chat_id": chat_id, "caption": f"Detail Report - {report_date}"}
-            resp = await client.post(
-                f"https://api.telegram.org/bot{bot_token}/sendDocument",
-                data=form_data,
-                files=files,
-                timeout=30
-            )
-            result = resp.json()
-            if not result.get("ok"):
-                raise HTTPException(status_code=400, detail=f"PDF nahi gaya: {result.get('description', 'Unknown error')}")
+    sent = sum(1 for r in results if r.get("ok"))
+    total = len(results)
 
-            # Log the send
-            await db.telegram_logs.insert_one({
-                "date": report_date,
-                "sent_at": datetime.now(timezone.utc).isoformat(),
-                "status": "success",
-                "type": "manual"
-            })
+    await db.telegram_logs.insert_one({
+        "date": report_date,
+        "sent_at": datetime.now(timezone.utc).isoformat(),
+        "status": "success" if sent > 0 else "failed",
+        "type": "manual",
+        "sent_to": sent,
+        "total": total
+    })
 
-            return {"success": True, "message": f"Report ({report_date}) Telegram pe bhej diya!"}
-        except httpx.RequestError as e:
-            raise HTTPException(status_code=500, detail=f"Telegram send error: {str(e)}")
+    return {"success": sent > 0, "message": f"Report {sent}/{total} recipients ko bhej diya!", "details": results}
 
 
 @router.get("/telegram/logs")
@@ -157,15 +190,12 @@ async def get_send_logs():
 
 
 async def scheduled_send_report():
-    """Called by the scheduler to auto-send daily report PDF only"""
     config = await get_telegram_config()
-    if not config or not config.get("enabled") or not config.get("bot_token") or not config.get("chat_id"):
+    if not config or not config.get("enabled") or not config.get("bot_token") or not config.get("chat_ids"):
         return
 
     today = datetime.now().strftime("%Y-%m-%d")
-
-    # Check if already sent today
-    existing = await db.telegram_logs.find_one({"date": today, "status": "success"})
+    existing = await db.telegram_logs.find_one({"date": today, "status": "success", "type": "scheduled"})
     if existing:
         return
 
@@ -175,26 +205,20 @@ async def scheduled_send_report():
         pdf_buf = io.BytesIO()
         async for chunk in pdf_response.body_iterator:
             pdf_buf.write(chunk)
-        pdf_buf.seek(0)
+        pdf_bytes = pdf_buf.getvalue()
 
-        bot_token = config["bot_token"]
-        chat_id = config["chat_id"]
-
-        async with httpx.AsyncClient() as client:
-            files = {"document": (f"detail_report_{today}.pdf", pdf_buf, "application/pdf")}
-            form_data = {"chat_id": chat_id, "caption": f"Detail Report - {today} (Auto)"}
-            await client.post(
-                f"https://api.telegram.org/bot{bot_token}/sendDocument",
-                data=form_data, files=files, timeout=30
-            )
+        results = await _send_pdf_to_all(config["bot_token"], config["chat_ids"], pdf_bytes, f"Detail Report - {today} (Auto)")
+        sent = sum(1 for r in results if r.get("ok"))
 
         await db.telegram_logs.insert_one({
             "date": today,
             "sent_at": datetime.now(timezone.utc).isoformat(),
-            "status": "success",
-            "type": "scheduled"
+            "status": "success" if sent > 0 else "failed",
+            "type": "scheduled",
+            "sent_to": sent,
+            "total": len(results)
         })
-        logger.info(f"Telegram: Detail report sent for {today}")
+        logger.info(f"Telegram: Detail report sent to {sent}/{len(results)} for {today}")
     except Exception as e:
         logger.error(f"Telegram scheduled send failed: {e}")
         await db.telegram_logs.insert_one({

@@ -170,7 +170,7 @@ function MainApp({ user, onLogout }) {
   const [errorLogAvailable, setErrorLogAvailable] = useState(false);
 
   // Telegram state
-  const [telegramConfig, setTelegramConfig] = useState({ bot_token: "", chat_id: "", schedule_time: "21:00", enabled: false });
+  const [telegramConfig, setTelegramConfig] = useState({ bot_token: "", chat_ids: [], schedule_time: "21:00", enabled: false });
   const [telegramLogs, setTelegramLogs] = useState([]);
   const [telegramLoading, setTelegramLoading] = useState(false);
 
@@ -578,7 +578,7 @@ function MainApp({ user, onLogout }) {
     try {
       const res = await axios.post(`${API}/telegram/test`, {
         bot_token: telegramConfig.bot_token,
-        chat_id: telegramConfig.chat_id
+        chat_ids: telegramConfig.chat_ids
       });
       toast.success(res.data.message || "Test message bhej diya!");
     } catch (e) {
@@ -2207,54 +2207,18 @@ function MainApp({ user, onLogout }) {
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Bot Config */}
-                <div className="space-y-3">
-                  <div>
-                    <Label className="text-slate-300">Bot Token</Label>
-                    <Input
-                      value={telegramConfig.bot_token}
-                      onChange={(e) => setTelegramConfig(prev => ({ ...prev, bot_token: e.target.value }))}
-                      placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v..."
-                      className="bg-slate-700 border-slate-600 text-white mt-1 font-mono text-sm"
-                      type="password"
-                      data-testid="telegram-bot-token"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">@BotFather se milega. /newbot command use karein.</p>
-                  </div>
-                  <div>
-                    <Label className="text-slate-300">Chat ID</Label>
-                    <Input
-                      value={telegramConfig.chat_id}
-                      onChange={(e) => setTelegramConfig(prev => ({ ...prev, chat_id: e.target.value }))}
-                      placeholder="123456789 ya -100123456789"
-                      className="bg-slate-700 border-slate-600 text-white mt-1 font-mono text-sm"
-                      data-testid="telegram-chat-id"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">Bot ko message bhejein, phir @userinfobot se Chat ID lein.</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-slate-300">Schedule Time / समय</Label>
-                      <Input
-                        type="time"
-                        value={telegramConfig.schedule_time}
-                        onChange={(e) => setTelegramConfig(prev => ({ ...prev, schedule_time: e.target.value }))}
-                        className="bg-slate-700 border-slate-600 text-white mt-1"
-                        data-testid="telegram-schedule-time"
-                      />
-                      <p className="text-xs text-slate-500 mt-1">Roz is time pe report bhejega</p>
-                    </div>
-                    <div className="flex items-end">
-                      <div className="flex items-center gap-2 bg-slate-700/50 p-3 rounded-lg border border-slate-600 w-full">
-                        <Checkbox
-                          checked={telegramConfig.enabled}
-                          onCheckedChange={(v) => setTelegramConfig(prev => ({ ...prev, enabled: !!v }))}
-                          data-testid="telegram-enabled"
-                        />
-                        <Label className="text-slate-300 cursor-pointer">Auto Send Enable</Label>
-                      </div>
-                    </div>
-                  </div>
+                {/* Bot Token */}
+                <div>
+                  <Label className="text-slate-300">Bot Token</Label>
+                  <Input
+                    value={telegramConfig.bot_token}
+                    onChange={(e) => setTelegramConfig(prev => ({ ...prev, bot_token: e.target.value }))}
+                    placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v..."
+                    className="bg-slate-700 border-slate-600 text-white mt-1 font-mono text-sm"
+                    type="password"
+                    data-testid="telegram-bot-token"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">@BotFather se milega. /newbot command use karein.</p>
                 </div>
 
                 {/* Bot Info */}
@@ -2265,11 +2229,98 @@ function MainApp({ user, onLogout }) {
                   </div>
                 )}
 
+                {/* Recipients / Chat IDs */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-slate-300 font-semibold">Recipients ({(telegramConfig.chat_ids || []).length})</Label>
+                    <Button
+                      onClick={() => setTelegramConfig(prev => ({ ...prev, chat_ids: [...(prev.chat_ids || []), { chat_id: "", label: "" }] }))}
+                      variant="outline" size="sm"
+                      className="border-blue-600 text-blue-400 hover:bg-blue-900/30 h-7 text-xs"
+                      data-testid="telegram-add-recipient"
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add Recipient
+                    </Button>
+                  </div>
+                  <p className="text-xs text-slate-500">Individual users, groups ya channels - sabko report bhej sakte hain</p>
+
+                  {(telegramConfig.chat_ids || []).length === 0 && (
+                    <div className="bg-slate-700/30 border border-slate-600 rounded-lg p-4 text-center text-slate-400 text-sm">
+                      Koi recipient nahi hai. "Add Recipient" click karein.
+                    </div>
+                  )}
+
+                  {(telegramConfig.chat_ids || []).map((item, idx) => (
+                    <div key={idx} className="flex gap-2 items-center bg-slate-700/30 p-2 rounded-lg border border-slate-600" data-testid={`telegram-recipient-${idx}`}>
+                      <div className="flex-1">
+                        <Input
+                          value={item.label}
+                          onChange={(e) => {
+                            const updated = [...(telegramConfig.chat_ids || [])];
+                            updated[idx] = { ...updated[idx], label: e.target.value };
+                            setTelegramConfig(prev => ({ ...prev, chat_ids: updated }));
+                          }}
+                          placeholder="Name (Owner, Accountant, Group...)"
+                          className="bg-slate-700 border-slate-600 text-white h-8 text-xs mb-1"
+                          data-testid={`telegram-recipient-label-${idx}`}
+                        />
+                        <Input
+                          value={item.chat_id}
+                          onChange={(e) => {
+                            const updated = [...(telegramConfig.chat_ids || [])];
+                            updated[idx] = { ...updated[idx], chat_id: e.target.value };
+                            setTelegramConfig(prev => ({ ...prev, chat_ids: updated }));
+                          }}
+                          placeholder="Chat ID (e.g. 123456789 ya -100...)"
+                          className="bg-slate-700 border-slate-600 text-white h-8 text-xs font-mono"
+                          data-testid={`telegram-recipient-id-${idx}`}
+                        />
+                      </div>
+                      <Button
+                        onClick={() => {
+                          const updated = (telegramConfig.chat_ids || []).filter((_, i) => i !== idx);
+                          setTelegramConfig(prev => ({ ...prev, chat_ids: updated }));
+                        }}
+                        variant="ghost" size="sm"
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8 p-0"
+                        data-testid={`telegram-recipient-remove-${idx}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Schedule & Auto Send */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-slate-300">Schedule Time / समय</Label>
+                    <Input
+                      type="time"
+                      value={telegramConfig.schedule_time}
+                      onChange={(e) => setTelegramConfig(prev => ({ ...prev, schedule_time: e.target.value }))}
+                      className="bg-slate-700 border-slate-600 text-white mt-1"
+                      data-testid="telegram-schedule-time"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Roz is time pe report bhejega</p>
+                  </div>
+                  <div className="flex items-end">
+                    <div className="flex items-center gap-2 bg-slate-700/50 p-3 rounded-lg border border-slate-600 w-full">
+                      <Checkbox
+                        checked={telegramConfig.enabled}
+                        onCheckedChange={(v) => setTelegramConfig(prev => ({ ...prev, enabled: !!v }))}
+                        data-testid="telegram-enabled"
+                      />
+                      <Label className="text-slate-300 cursor-pointer">Auto Send Enable</Label>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Action Buttons */}
                 <div className="flex gap-2 flex-wrap">
                   <Button
                     onClick={handleSaveTelegramConfig}
-                    disabled={telegramLoading || !telegramConfig.bot_token || !telegramConfig.chat_id}
+                    disabled={telegramLoading || !telegramConfig.bot_token || !(telegramConfig.chat_ids || []).some(c => c.chat_id)}
                     className="bg-blue-600 hover:bg-blue-700 text-white"
                     data-testid="telegram-save-btn"
                   >
@@ -2277,7 +2328,7 @@ function MainApp({ user, onLogout }) {
                   </Button>
                   <Button
                     onClick={handleTestTelegram}
-                    disabled={telegramLoading || !telegramConfig.bot_token || !telegramConfig.chat_id}
+                    disabled={telegramLoading || !telegramConfig.bot_token || !(telegramConfig.chat_ids || []).some(c => c.chat_id)}
                     variant="outline"
                     className="border-blue-600 text-blue-400 hover:bg-blue-900/30"
                     data-testid="telegram-test-btn"
@@ -2286,7 +2337,7 @@ function MainApp({ user, onLogout }) {
                   </Button>
                   <Button
                     onClick={handleSendReportNow}
-                    disabled={telegramLoading || !telegramConfig.bot_token || !telegramConfig.chat_id}
+                    disabled={telegramLoading || !telegramConfig.bot_token || !(telegramConfig.chat_ids || []).some(c => c.chat_id)}
                     variant="outline"
                     className="border-green-600 text-green-400 hover:bg-green-900/30"
                     data-testid="telegram-send-now-btn"
@@ -2302,7 +2353,7 @@ function MainApp({ user, onLogout }) {
                     <div className="max-h-40 overflow-y-auto space-y-1">
                       {telegramLogs.map((log, idx) => (
                         <div key={idx} className={`flex items-center justify-between text-xs p-2 rounded ${log.status === 'success' ? 'bg-green-900/20 border border-green-800/30' : 'bg-red-900/20 border border-red-800/30'}`} data-testid={`telegram-log-${idx}`}>
-                          <span className="text-slate-300">{log.date} - {log.type === 'scheduled' ? 'Auto' : 'Manual'}</span>
+                          <span className="text-slate-300">{log.date} - {log.type === 'scheduled' ? 'Auto' : 'Manual'}{log.sent_to ? ` (${log.sent_to}/${log.total})` : ''}</span>
                           <span className={log.status === 'success' ? 'text-green-400' : 'text-red-400'}>
                             {log.status === 'success' ? 'Sent' : 'Failed'}
                           </span>
@@ -2315,12 +2366,12 @@ function MainApp({ user, onLogout }) {
                 {/* Setup Guide */}
                 <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-xs text-slate-400 space-y-1">
                   <p className="font-semibold text-slate-300">Setup Guide:</p>
-                  <p>1. Telegram mein @BotFather search karein</p>
-                  <p>2. /newbot command bhejein aur Bot ka naam dein</p>
-                  <p>3. Jo Token mile wo upar paste karein</p>
-                  <p>4. Apne Bot ko Telegram mein search karke "Start" karein</p>
-                  <p>5. @userinfobot ko message bhejein - Chat ID mil jaayegi</p>
-                  <p>6. Chat ID upar paste karein aur "Test Message" click karein</p>
+                  <p>1. Telegram mein @BotFather search karein, /newbot command bhejein</p>
+                  <p>2. Jo Token mile wo upar paste karein</p>
+                  <p>3. Bot ko start karein ya group mein add karein</p>
+                  <p>4. @userinfobot se apna Chat ID lein, group ke liye @getidsbot use karein</p>
+                  <p>5. "Add Recipient" se naam aur Chat ID add karein (multiple log add kar sakte hain)</p>
+                  <p>6. "Test Message" se verify karein, phir Save karein</p>
                 </div>
               </CardContent>
             </Card>
