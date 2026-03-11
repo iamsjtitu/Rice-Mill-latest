@@ -453,9 +453,10 @@ const GunnyBags = ({ filters, user }) => {
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
           <Card className="bg-gradient-to-br from-blue-900/40 to-slate-800 border-blue-800/30"><CardContent className="p-3">
-            <p className="text-[10px] text-blue-400">Paddy Receive Bags</p>
-            <p className="text-xl font-bold text-blue-400">{summary.paddy_bags?.total || 0}</p>
-            <p className="text-[9px] text-slate-500 mt-1">From truck entries</p>
+            <p className="text-[10px] text-blue-400">Bag Received (Mill)</p>
+            <p className="text-xl font-bold text-blue-400">{summary.auto_mill?.total_in || 0}</p>
+            <p className="text-[9px] text-red-400 mt-0.5">Issued: {summary.auto_mill?.total_out || 0}</p>
+            <p className="text-[9px] text-slate-500">Net: {summary.auto_mill?.balance || 0}</p>
           </CardContent></Card>
           <Card className="bg-gradient-to-br from-purple-900/40 to-slate-800 border-purple-800/30"><CardContent className="p-3">
             <p className="text-[10px] text-purple-400">P.Pkt (Plastic)</p>
@@ -471,7 +472,7 @@ const GunnyBags = ({ filters, user }) => {
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
             <p className="text-[10px] text-white font-medium">Total (Excl Govt)</p>
             <p className="text-xl font-bold text-white">{summary.grand_total || 0} bags</p>
-            <p className="text-[9px] text-slate-500 mt-1">P.Pkt + Old (In - Out)</p>
+            <p className="text-[9px] text-slate-500 mt-1">Old Market (In - Out)</p>
           </CardContent></Card>
           <Card className="bg-gradient-to-br from-emerald-900/40 to-slate-800 border-emerald-800/30"><CardContent className="p-3">
             <p className="text-[10px] text-emerald-400">Govt Bags (Free)</p>

@@ -540,24 +540,39 @@ async def get_gunny_bag_summary(kms_year: Optional[str] = None, season: Optional
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     entries = await db.gunny_bags.find(query, {"_id": 0}).to_list(10000)
-    # Manual gunny bag transactions (new=govt, old=market)
+
+    # Separate manual vs auto entries
+    manual_entries = [e for e in entries if not e.get("linked_entry_id")]
+    auto_entries = [e for e in entries if e.get("linked_entry_id")]
+
     result = {}
-    for bt in ["new", "old"]:
-        items = [e for e in entries if e.get("bag_type") == bt]
-        total_in = sum(e.get("quantity",0) for e in items if e.get("txn_type") == "in")
-        total_out = sum(e.get("quantity",0) for e in items if e.get("txn_type") == "out")
-        total_cost = round(sum(e.get("amount",0) for e in items if e.get("txn_type") == "in"), 2)
-        result[bt] = {"total_in": total_in, "total_out": total_out, "balance": total_in - total_out, "total_cost": total_cost}
+    # New (Govt) bags - manual only
+    new_items = [e for e in manual_entries if e.get("bag_type") == "new"]
+    new_in = sum(e.get("quantity",0) for e in new_items if e.get("txn_type") == "in")
+    new_out = sum(e.get("quantity",0) for e in new_items if e.get("txn_type") == "out")
+    result["new"] = {"total_in": new_in, "total_out": new_out, "balance": new_in - new_out, "total_cost": 0}
+
+    # Old (Market) bags - manual only (purchased from market)
+    old_items = [e for e in manual_entries if e.get("bag_type") == "old"]
+    old_in = sum(e.get("quantity",0) for e in old_items if e.get("txn_type") == "in")
+    old_out = sum(e.get("quantity",0) for e in old_items if e.get("txn_type") == "out")
+    old_cost = round(sum(e.get("amount",0) for e in old_items if e.get("txn_type") == "in"), 2)
+    result["old"] = {"total_in": old_in, "total_out": old_out, "balance": old_in - old_out, "total_cost": old_cost}
+
+    # Auto entries from mill entries (bag=IN, g_issued=OUT)
+    auto_in = sum(e.get("quantity",0) for e in auto_entries if e.get("txn_type") == "in")
+    auto_out = sum(e.get("quantity",0) for e in auto_entries if e.get("txn_type") == "out")
+    result["auto_mill"] = {"total_in": auto_in, "total_out": auto_out, "balance": auto_in - auto_out}
+
     # Paddy-received bags from truck entries
     paddy_entries = await db.mill_entries.find(query, {"_id": 0, "bag": 1, "plastic_bag": 1, "g_issued": 1}).to_list(10000)
     paddy_bags = sum(e.get("bag", 0) for e in paddy_entries)
     paddy_ppkt = sum(e.get("plastic_bag", 0) for e in paddy_entries)
-    g_issued_total = sum(int(e.get("g_issued", 0) or 0) for e in paddy_entries)
     result["paddy_bags"] = {"total": paddy_bags, "label": "Paddy Receive Bags"}
     result["ppkt"] = {"total": paddy_ppkt, "label": "P.Pkt (Plastic Bags)"}
-    result["g_issued"] = {"total": g_issued_total, "label": "G.Issued (Entries)"}
-    # Grand total: P.Pkt + old bags balance (bag IN & g_issued OUT already in old balance)
-    result["grand_total"] = paddy_ppkt + result["old"]["balance"]
+
+    # Grand total (Excl Govt): Old Market Balance (IN - OUT)
+    result["grand_total"] = result["old"]["balance"]
     return result
 
 
