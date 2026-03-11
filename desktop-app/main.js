@@ -794,6 +794,7 @@ function createApiServer(database) {
       require('./routes/local_party')(database),
       require('./routes/import_excel')(database),
       require('./routes/fy_summary')(database),
+      require('./routes/telegram')(database),
     ];
     routeModules.forEach(r => apiApp.use(r));
     console.log('[Routes] All modular routes loaded successfully');

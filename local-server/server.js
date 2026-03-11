@@ -785,6 +785,10 @@ async function startServer() {
     const fySummaryRoutes = require('./routes/fy_summary')(database);
     app.use(fySummaryRoutes);
 
+    // Telegram routes
+    const telegramRoutes = require('./routes/telegram')(database);
+    app.use(telegramRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
