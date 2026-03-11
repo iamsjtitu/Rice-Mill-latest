@@ -197,21 +197,32 @@ router.get('/api/gunny-bags/summary', (req, res) => {
   let entries = [...database.data.gunny_bags];
   if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
   if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
-  const result = {};
-  ['new','old'].forEach(bt => {
-    const items = entries.filter(e => e.bag_type === bt);
-    result[bt] = { total_in: items.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0), total_out: items.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0), balance: 0, total_cost: +items.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.amount||0),0).toFixed(2) };
-    result[bt].balance = result[bt].total_in - result[bt].total_out;
-  });
-  // Paddy-received bags from truck entries
+
+  const manual = entries.filter(e => !e.linked_entry_id);
+  const auto = entries.filter(e => !!e.linked_entry_id);
+  const newItems = manual.filter(e => e.bag_type === 'new');
+  const oldItems = manual.filter(e => e.bag_type === 'old');
+  const allOld = entries.filter(e => e.bag_type === 'old');
+
   let paddyEntries = [...database.data.entries];
   if (req.query.kms_year) paddyEntries = paddyEntries.filter(e => e.kms_year === req.query.kms_year);
   if (req.query.season) paddyEntries = paddyEntries.filter(e => e.season === req.query.season);
-  result.paddy_bags = { total: paddyEntries.reduce((s,e)=>s+(e.bag||0),0), label: 'Paddy Receive Bags' };
-  result.ppkt = { total: paddyEntries.reduce((s,e)=>s+(e.plastic_bag||0),0), label: 'P.Pkt (Plastic Bags)' };
-  const gIssuedTotal = paddyEntries.reduce((s,e)=>s+(parseInt(e.g_issued)||0),0);
-  result.g_issued = { total: gIssuedTotal, label: 'G.Issued (Entries)' };
-  result.grand_total = result.paddy_bags.total + result.ppkt.total + result.old.balance - gIssuedTotal;
+
+  const allOldIn = allOld.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0);
+  const allOldOut = allOld.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
+
+  const result = {
+    'new': { total_in: newItems.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0), total_out: newItems.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0), balance: 0, total_cost: 0 },
+    old: { total_in: oldItems.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0), total_out: oldItems.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0), balance: 0, total_cost: +oldItems.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.amount||0),0).toFixed(2) },
+    auto_mill: { total_in: auto.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0), total_out: auto.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0), balance: 0 },
+    paddy_bags: { total: paddyEntries.reduce((s,e)=>s+(e.bag||0),0), label: 'Paddy Receive Bags' },
+    ppkt: { total: paddyEntries.reduce((s,e)=>s+(e.plastic_bag||0),0), label: 'P.Pkt (Plastic Bags)' },
+    grand_total: allOldIn - allOldOut,
+    g_issued_total: allOldOut,
+  };
+  result['new'].balance = result['new'].total_in - result['new'].total_out;
+  result.old.balance = result.old.total_in - result.old.total_out;
+  result.auto_mill.balance = result.auto_mill.total_in - result.auto_mill.total_out;
   res.json(result);
 });
 
@@ -256,14 +267,39 @@ router.get('/api/dc-entries/pdf', (req, res) => {
 });
 
 // ============ GUNNY BAGS EXPORT ============
+function applyGunnyFilters(entries, bagFilter, txnFilter) {
+  let result = entries;
+  if (bagFilter === 'mill') result = result.filter(e => !!e.linked_entry_id);
+  else if (bagFilter === 'market') result = result.filter(e => e.bag_type === 'old' && !e.linked_entry_id);
+  else if (bagFilter === 'govt') result = result.filter(e => e.bag_type === 'new');
+  if (txnFilter === 'in') result = result.filter(e => e.txn_type === 'in');
+  else if (txnFilter === 'out') result = result.filter(e => e.txn_type === 'out');
+  return result;
+}
+
 router.get('/api/gunny-bags/excel', async (req, res) => {
   if (!database.data.gunny_bags) database.data.gunny_bags = [];
   let entries = [...database.data.gunny_bags];
   if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
   if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+  const filtered = applyGunnyFilters(entries, req.query.bag_filter, req.query.txn_filter);
   const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Gunny Bags');
-  ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Bag Type', key: 'bag_type', width: 10 }, { header: 'Txn Type', key: 'txn_type', width: 8 }, { header: 'Quantity', key: 'quantity', width: 10 }, { header: 'Rate', key: 'rate', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Notes', key: 'notes', width: 20 }];
-  entries.forEach(e => ws.addRow(e));
+  ws.columns = [
+    { header: 'Date', key: 'date', width: 12 }, { header: 'Bag Type', key: 'bag_type', width: 15 },
+    { header: 'In/Out', key: 'txn_type', width: 8 }, { header: 'Qty', key: 'quantity', width: 10 },
+    { header: 'Source/To', key: 'source', width: 35 }, { header: 'Rate', key: 'rate', width: 10 },
+    { header: 'Amount (Rs.)', key: 'amount', width: 14 }, { header: 'Reference', key: 'reference', width: 18 },
+    { header: 'Notes', key: 'notes', width: 25 }
+  ];
+  filtered.forEach(e => ws.addRow({
+    date: e.date||'', bag_type: e.bag_type==='new'?'New (Govt)':'Old (Market)',
+    txn_type: e.txn_type==='in'?'In':'Out', quantity: e.quantity||0,
+    source: (e.source||'') + (e.linked_entry_id ? ' [Auto]' : ''),
+    rate: e.rate||0, amount: e.amount||0, reference: e.reference||'', notes: e.notes||''
+  }));
+  const totalIn = filtered.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0);
+  const totalOut = filtered.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
+  ws.addRow({ date: 'TOTAL', txn_type: `In:${totalIn} Out:${totalOut}`, quantity: totalIn - totalOut });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', 'attachment; filename=gunny_bags.xlsx');
   await wb.xlsx.write(res); res.end();
@@ -274,15 +310,22 @@ router.get('/api/gunny-bags/pdf', (req, res) => {
   let entries = [...database.data.gunny_bags];
   if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
   if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+  const filtered = applyGunnyFilters(entries, req.query.bag_filter, req.query.txn_filter);
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename=gunny_bags.pdf');
-  doc.pipe(res);
-  addPdfHeader(doc, 'Gunny Bags Report');
-  const headers = ['Date', 'Bag Type', 'In/Out', 'Quantity', 'Rate(Rs.)', 'Amount(Rs.)', 'Notes'];
-  const rows = entries.map(e => [e.date||'', e.bag_type||'', e.txn_type||'', e.quantity||0, e.rate||0, e.amount||0, (e.notes||'').substring(0,20)]);
-  addPdfTable(doc, headers, rows, [60, 50, 40, 50, 50, 60, 100]);
-  doc.end();
+  doc.pipe(res); addPdfHeader(doc, 'Gunny Bags Report');
+  const headers = ['Date', 'Bag Type', 'In/Out', 'Qty', 'Source/To', 'Rate', 'Amount(Rs.)', 'Reference', 'Notes'];
+  const rows = filtered.map(e => [
+    e.date||'', e.bag_type==='new'?'New(Govt)':'Old(Mkt)',
+    e.txn_type==='in'?'In':'Out', e.quantity||0,
+    (e.source||'') + (e.linked_entry_id ? ' [Auto]' : ''),
+    e.rate||0, e.amount||0, e.reference||'', e.notes||''
+  ]);
+  const totalIn = filtered.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0);
+  const totalOut = filtered.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
+  rows.push(['TOTAL', '', `In:${totalIn} Out:${totalOut}`, totalIn-totalOut, '', '', '', '', '']);
+  addPdfTable(doc, headers, rows, [48,52,35,35,150,38,52,65,65]); doc.end();
 });
 
 // ============ MSP PAYMENTS EXPORT ============

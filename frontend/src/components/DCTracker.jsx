@@ -444,6 +444,8 @@ export const GunnyBags = ({ filters, user }) => {
   const exportData = async (format) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
+      if (bagFilter !== 'all') p.append('bag_filter', bagFilter);
+      if (txnFilter !== 'all') p.append('txn_filter', txnFilter);
       const res = await axios.get(`${API}/gunny-bags/${format}?${p}`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url;
       a.download = `gunny_bags.${format === 'excel' ? 'xlsx' : 'pdf'}`; a.click();

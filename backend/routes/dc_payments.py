@@ -581,7 +581,8 @@ async def get_gunny_bag_summary(kms_year: Optional[str] = None, season: Optional
 
 
 @router.get("/gunny-bags/excel")
-async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                   bag_filter: Optional[str] = None, txn_filter: Optional[str] = None):
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
@@ -590,49 +591,99 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     if season: query["season"] = season
     entries = await db.gunny_bags.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_gunny_bag_summary(kms_year=kms_year, season=season)
+
+    # Apply filters
+    def apply_filters(items):
+        result = items
+        if bag_filter == "mill": result = [e for e in result if e.get("linked_entry_id")]
+        elif bag_filter == "market": result = [e for e in result if e.get("bag_type") == "old" and not e.get("linked_entry_id")]
+        elif bag_filter == "govt": result = [e for e in result if e.get("bag_type") == "new"]
+        if txn_filter == "in": result = [e for e in result if e.get("txn_type") == "in"]
+        elif txn_filter == "out": result = [e for e in result if e.get("txn_type") == "out"]
+        return result
+    filtered = apply_filters(entries)
+
     wb = Workbook(); ws = wb.active; ws.title = "Gunny Bags"
     hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
     hfont = Font(bold=True, color="FFFFFF", size=10)
+    bf = Font(bold=True)
     tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    ws.merge_cells('A1:H1'); ws['A1'] = "Gunny Bag Register / बोरी रजिस्टर"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A1:I1'); ws['A1'] = "Gunny Bag Register / बोरी रजिस्टर"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    filter_txt = f"KMS: {kms_year or 'All'} | Season: {season or 'All'}"
+    if bag_filter and bag_filter != 'all': filter_txt += f" | Type: {bag_filter}"
+    if txn_filter and txn_filter != 'all': filter_txt += f" | Txn: {txn_filter.upper()}"
+    ws.merge_cells('A2:I2'); ws['A2'] = filter_txt; ws['A2'].font = Font(size=9, italic=True); ws['A2'].alignment = Alignment(horizontal='center')
+
     # Summary
-    ws.cell(row=3, column=1, value="Summary").font = Font(bold=True, size=11)
-    for col, h in enumerate(['Type', 'In', 'Out', 'Balance', 'Cost (₹)'], 1):
-        c = ws.cell(row=4, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
-    for i, (bt, label) in enumerate([("new","New (Govt)"),("old","Old (Market)")], 5):
-        s = summary.get(bt, {})
-        for col, v in enumerate([label, s.get("total_in",0), s.get("total_out",0), s.get("balance",0), s.get("total_cost",0)], 1):
-            c = ws.cell(row=i, column=col, value=v); c.border = tb
-    # Paddy receive bags
-    ws.cell(row=7, column=1, value="Paddy Receive Bags").border = tb
-    ws.cell(row=7, column=4, value=summary.get("paddy_bags",{}).get("total",0)).border = tb
-    ws.cell(row=8, column=1, value="P.Pkt (Plastic)").border = tb
-    ws.cell(row=8, column=4, value=summary.get("ppkt",{}).get("total",0)).border = tb
-    ws.cell(row=9, column=1, value="G.Issued (Old Bags Out)").border = tb
-    ws.cell(row=9, column=4, value=summary.get("old",{}).get("total_out",0)).border = tb
-    ws.cell(row=10, column=1, value="Total (Excl Govt)").font = Font(bold=True)
-    ws.cell(row=10, column=4, value=summary.get("grand_total",0)).font = Font(bold=True)
+    ws.cell(row=4, column=1, value="Summary").font = Font(bold=True, size=11)
+    for col, h in enumerate(['Category', 'In', 'Out', 'Balance', 'Cost (Rs.)'], 1):
+        c = ws.cell(row=5, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+    row = 6
+    am = summary.get("auto_mill", {})
+    for label, tin, tout, bal, cost in [
+        ("Bag Received (Mill)", am.get("total_in",0), am.get("total_out",0), am.get("balance",0), "-"),
+        ("Old Bags (Market)", summary.get("old",{}).get("total_in",0), summary.get("old",{}).get("total_out",0), summary.get("old",{}).get("balance",0), summary.get("old",{}).get("total_cost",0)),
+        ("Govt Bags (Free)", summary.get("new",{}).get("total_in",0), summary.get("new",{}).get("total_out",0), summary.get("new",{}).get("balance",0), "-"),
+    ]:
+        for col, v in enumerate([label, tin, tout, bal, cost], 1):
+            c = ws.cell(row=row, column=col, value=v); c.border = tb
+        row += 1
+    ws.cell(row=row, column=1, value="Total G.Issued").font = bf
+    ws.cell(row=row, column=1).border = tb
+    ws.cell(row=row, column=4, value=summary.get("g_issued_total",0)).font = bf
+    ws.cell(row=row, column=4).border = tb
+    row += 1
+    ws.cell(row=row, column=1, value="Total (Excl Govt)").font = bf
+    ws.cell(row=row, column=1).border = tb
+    ws.cell(row=row, column=4, value=summary.get("grand_total",0)).font = bf
+    ws.cell(row=row, column=4).border = tb
+    row += 1
+    ws.cell(row=row, column=1, value="P.Pkt (Plastic)").border = tb
+    ws.cell(row=row, column=4, value=summary.get("ppkt",{}).get("total",0)).border = tb
+    row += 2
+
     # Transactions
-    row = 12
     ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11); row += 1
-    for col, h in enumerate(['Date','Type','In/Out','Qty','Source/To','Rate','Amount (₹)','Reference'], 1):
+    for col, h in enumerate(['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount (Rs.)','Reference','Notes'], 1):
         c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
     row += 1
-    for e in entries:
-        for col, v in enumerate([e.get("date",""), "New" if e.get("bag_type")=="new" else "Old", "In" if e.get("txn_type")=="in" else "Out", e.get("quantity",0), e.get("source",""), e.get("rate",0), e.get("amount",0), e.get("reference","")], 1):
-            ws.cell(row=row, column=col, value=v).border = tb
+    for e in filtered:
+        bt = "New (Govt)" if e.get("bag_type")=="new" else "Old (Market)"
+        src = (e.get("source","") + (" [Auto]" if e.get("linked_entry_id") else ""))
+        for col, v in enumerate([e.get("date",""), bt, "In" if e.get("txn_type")=="in" else "Out",
+            e.get("quantity",0), src, e.get("rate",0), e.get("amount",0), e.get("reference",""), e.get("notes","")], 1):
+            c = ws.cell(row=row, column=col, value=v); c.border = tb
+            if e.get("txn_type") == "in": c.font = Font(color="008000")
+            elif e.get("txn_type") == "out": c.font = Font(color="CC0000")
         row += 1
-    for letter in ['A','B','C','D','E','F','G','H']: ws.column_dimensions[letter].width = 15
+    # Totals
+    total_in = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "in")
+    total_out = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "out")
+    ws.cell(row=row, column=1, value="TOTAL").font = bf; ws.cell(row=row, column=1).border = tb
+    ws.cell(row=row, column=3, value=f"In: {total_in} | Out: {total_out}").font = bf; ws.cell(row=row, column=3).border = tb
+    ws.cell(row=row, column=4, value=total_in - total_out).font = bf; ws.cell(row=row, column=4).border = tb
+
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['B'].width = 15
+    ws.column_dimensions['C'].width = 8
+    ws.column_dimensions['D'].width = 10
+    ws.column_dimensions['E'].width = 35
+    ws.column_dimensions['F'].width = 10
+    ws.column_dimensions['G'].width = 14
+    ws.column_dimensions['H'].width = 18
+    ws.column_dimensions['I'].width = 25
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=gunny_bags_{datetime.now().strftime('%Y%m%d')}.xlsx"})
 
 
 @router.get("/gunny-bags/pdf")
-async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                 bag_filter: Optional[str] = None, txn_filter: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT
     from reportlab.lib import colors
     from io import BytesIO
     query = {}
@@ -640,27 +691,65 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
     if season: query["season"] = season
     entries = await db.gunny_bags.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_gunny_bag_summary(kms_year=kms_year, season=season)
+
+    # Apply filters
+    filtered = entries
+    if bag_filter == "mill": filtered = [e for e in filtered if e.get("linked_entry_id")]
+    elif bag_filter == "market": filtered = [e for e in filtered if e.get("bag_type") == "old" and not e.get("linked_entry_id")]
+    elif bag_filter == "govt": filtered = [e for e in filtered if e.get("bag_type") == "new"]
+    if txn_filter == "in": filtered = [e for e in filtered if e.get("txn_type") == "in"]
+    elif txn_filter == "out": filtered = [e for e in filtered if e.get("txn_type") == "out"]
+
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
-    elements.append(Paragraph("Gunny Bag Register", styles['Title'])); elements.append(Spacer(1, 10))
-    # Summary
-    sdata = [['Type','In','Out','Balance','Cost(₹)']]
-    for bt, label in [("new","New(Govt)"),("old","Old(Market)")]:
-        s = summary.get(bt, {})
-        sdata.append([label, s.get("total_in",0), s.get("total_out",0), s.get("balance",0), s.get("total_cost",0)])
-    st = RLTable(sdata, colWidths=[70,50,50,50,60])
+    src_style = ParagraphStyle('src', fontName='Helvetica', fontSize=7, leading=8.5, alignment=TA_LEFT)
+
+    title = "Gunny Bag Register"
+    filter_txt = f"KMS: {kms_year or 'All'} | Season: {season or 'All'}"
+    if bag_filter and bag_filter != 'all': filter_txt += f" | Type: {bag_filter}"
+    if txn_filter and txn_filter != 'all': filter_txt += f" | Txn: {txn_filter.upper()}"
+    elements.append(Paragraph(title, styles['Title']))
+    elements.append(Paragraph(filter_txt, styles['Normal'])); elements.append(Spacer(1, 8))
+
+    # Summary table
+    am = summary.get("auto_mill", {})
+    sdata = [['Category','In','Out','Balance','Cost(Rs.)']]
+    sdata.append(["Bag Received (Mill)", am.get("total_in",0), am.get("total_out",0), am.get("balance",0), "-"])
+    sdata.append(["Old Bags (Market)", summary.get("old",{}).get("total_in",0), summary.get("old",{}).get("total_out",0), summary.get("old",{}).get("balance",0), summary.get("old",{}).get("total_cost",0)])
+    sdata.append(["Govt Bags (Free)", summary.get("new",{}).get("total_in",0), summary.get("new",{}).get("total_out",0), summary.get("new",{}).get("balance",0), "-"])
+    sdata.append(["Total G.Issued", "", "", summary.get("g_issued_total",0), ""])
+    sdata.append(["Total (Excl Govt)", "", "", summary.get("grand_total",0), ""])
+    sdata.append(["P.Pkt (Plastic)", "", "", summary.get("ppkt",{}).get("total",0), ""])
+    st = RLTable(sdata, colWidths=[120,50,50,55,65])
     st.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1a365d')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,-1),8),('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold')]))
+        ('FONTSIZE',(0,0),(-1,-1),8),('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
+        ('FONTNAME',(0,-3),(-1,-1),'Helvetica-Bold'),('BACKGROUND',(0,-2),(-1,-1),colors.HexColor('#f0f0f0')),
+        ('ALIGN',(1,0),(-1,-1),'RIGHT'),('VALIGN',(0,0),(-1,-1),'TOP'),
+        ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2)]))
     elements.append(st); elements.append(Spacer(1, 12))
+
     # Transactions
     elements.append(Paragraph("Transactions", styles['Heading2'])); elements.append(Spacer(1, 6))
-    data = [['Date','Type','In/Out','Qty','Source/To','Rate','Amount(₹)','Ref']]
-    for e in entries:
-        data.append([e.get("date",""), "New" if e.get("bag_type")=="new" else "Old", "In" if e.get("txn_type")=="in" else "Out", e.get("quantity",0), e.get("source","")[:18], e.get("rate",0), e.get("amount",0), e.get("reference","")[:12]])
-    table = RLTable(data, colWidths=[55,40,35,35,80,40,50,55], repeatRows=1)
+    data = [['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount(Rs.)','Reference','Notes']]
+    for e in filtered:
+        bt = "New(Govt)" if e.get("bag_type")=="new" else "Old(Mkt)"
+        src = e.get("source","")
+        if e.get("linked_entry_id"): src += " [Auto]"
+        data.append([e.get("date",""), bt, "In" if e.get("txn_type")=="in" else "Out",
+            e.get("quantity",0), Paragraph(src, src_style), e.get("rate",0), e.get("amount",0),
+            e.get("reference",""), e.get("notes","")])
+    total_in = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "in")
+    total_out = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "out")
+    data.append(['TOTAL', '', f'In:{total_in} Out:{total_out}', total_in - total_out, '', '', '', '', ''])
+
+    table = RLTable(data, colWidths=[48,52,35,35,150,38,52,65,65], repeatRows=1)
     table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1a365d')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,-1),7),('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold')]))
+        ('FONTSIZE',(0,0),(-1,0),7),('FONTSIZE',(0,1),(-1,-1),6.5),
+        ('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
+        ('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('BACKGROUND',(0,-1),(-1,-1),colors.HexColor('#f0f0f0')),
+        ('ALIGN',(3,0),(6,-1),'RIGHT'),('VALIGN',(0,0),(-1,-1),'TOP'),
+        ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2)]))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=gunny_bags_{datetime.now().strftime('%Y%m%d')}.pdf"})
