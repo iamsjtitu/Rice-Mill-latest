@@ -527,3 +527,204 @@ async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional
         headers={"Content-Disposition": f"attachment; filename=rice_sales_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
 
+
+
+# ============ PARTY SUMMARY ============
+
+async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to=None, search=None):
+    """Aggregate party-wise summary from both private_paddy and rice_sales"""
+    paddy_q = {}
+    rice_q = {}
+    if kms_year:
+        paddy_q["kms_year"] = kms_year
+        rice_q["kms_year"] = kms_year
+    if season:
+        paddy_q["season"] = season
+        rice_q["season"] = season
+    if date_from or date_to:
+        dq = {}
+        if date_from: dq["$gte"] = date_from
+        if date_to: dq["$lte"] = date_to
+        paddy_q["date"] = dq
+        rice_q["date"] = dq
+
+    paddy_items = await db.private_paddy.find(paddy_q, {"_id": 0}).to_list(5000)
+    rice_items = await db.rice_sales.find(rice_q, {"_id": 0}).to_list(5000)
+
+    party_map = {}
+
+    for p in paddy_items:
+        name = p.get("party_name", "Unknown")
+        if name not in party_map:
+            party_map[name] = {
+                "party_name": name,
+                "mandi_name": p.get("mandi_name", ""),
+                "agent_name": p.get("agent_name", ""),
+                "purchase_amount": 0, "purchase_paid": 0, "purchase_balance": 0,
+                "sale_amount": 0, "sale_received": 0, "sale_balance": 0,
+                "net_balance": 0,
+            }
+        pm = party_map[name]
+        pm["purchase_amount"] += p.get("total_amount", 0) or 0
+        pm["purchase_paid"] += p.get("paid_amount", 0) or 0
+        if not pm["mandi_name"] and p.get("mandi_name"):
+            pm["mandi_name"] = p["mandi_name"]
+        if not pm["agent_name"] and p.get("agent_name"):
+            pm["agent_name"] = p["agent_name"]
+
+    for r in rice_items:
+        name = r.get("party_name", "Unknown")
+        if name not in party_map:
+            party_map[name] = {
+                "party_name": name,
+                "mandi_name": "", "agent_name": "",
+                "purchase_amount": 0, "purchase_paid": 0, "purchase_balance": 0,
+                "sale_amount": 0, "sale_received": 0, "sale_balance": 0,
+                "net_balance": 0,
+            }
+        pm = party_map[name]
+        pm["sale_amount"] += r.get("total_amount", 0) or 0
+        pm["sale_received"] += r.get("paid_amount", 0) or 0
+
+    result = []
+    for pm in party_map.values():
+        pm["purchase_amount"] = round(pm["purchase_amount"], 2)
+        pm["purchase_paid"] = round(pm["purchase_paid"], 2)
+        pm["purchase_balance"] = round(pm["purchase_amount"] - pm["purchase_paid"], 2)
+        pm["sale_amount"] = round(pm["sale_amount"], 2)
+        pm["sale_received"] = round(pm["sale_received"], 2)
+        pm["sale_balance"] = round(pm["sale_amount"] - pm["sale_received"], 2)
+        pm["net_balance"] = round(pm["purchase_balance"] - pm["sale_balance"], 2)
+        result.append(pm)
+
+    if search:
+        s = search.lower()
+        result = [r for r in result if s in r["party_name"].lower() or s in r["mandi_name"].lower() or s in r["agent_name"].lower()]
+
+    result.sort(key=lambda x: abs(x["net_balance"]), reverse=True)
+
+    totals = {
+        "total_purchase": round(sum(r["purchase_amount"] for r in result), 2),
+        "total_purchase_paid": round(sum(r["purchase_paid"] for r in result), 2),
+        "total_purchase_balance": round(sum(r["purchase_balance"] for r in result), 2),
+        "total_sale": round(sum(r["sale_amount"] for r in result), 2),
+        "total_sale_received": round(sum(r["sale_received"] for r in result), 2),
+        "total_sale_balance": round(sum(r["sale_balance"] for r in result), 2),
+        "total_net_balance": round(sum(r["net_balance"] for r in result), 2),
+    }
+    return {"parties": result, "totals": totals}
+
+
+@router.get("/private-trading/party-summary")
+async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None):
+    return await _get_party_summary(kms_year, season, date_from, date_to, search)
+
+
+@router.get("/private-trading/party-summary/excel")
+async def export_party_summary_excel(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None):
+    from io import BytesIO
+    data = await _get_party_summary(kms_year, season, date_from, date_to, search)
+    cols = get_columns("party_summary_report")
+    ncols = col_count(cols)
+    headers = get_excel_headers(cols)
+    widths = get_excel_widths(cols)
+
+    wb = Workbook(); ws = wb.active; ws.title = "Party Summary"
+    hf = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
+    hfont = Font(bold=True, color="FFFFFF", size=9)
+    tf = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+    title = "Party-wise Summary (Pvt Trading)"
+    if kms_year: title += f" | KMS: {kms_year}"
+    if season: title += f" | {season}"
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+    ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14, color="D97706"); ws['A1'].alignment = Alignment(horizontal='center')
+
+    for col_idx, h in enumerate(headers, 1):
+        c = ws.cell(row=3, column=col_idx, value=h)
+        c.fill = hf; c.font = hfont; c.alignment = Alignment(horizontal='center'); c.border = tb
+
+    row = 4
+    for party in data["parties"]:
+        vals = get_entry_row(party, cols)
+        for col_idx, v in enumerate(vals, 1):
+            c = ws.cell(row=row, column=col_idx, value=v)
+            c.border = tb
+            if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
+        row += 1
+
+    total_vals = get_total_row(data["totals"], cols)
+    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
+    for col_idx, val in enumerate(total_vals, 1):
+        if val is not None:
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
+
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=party_summary_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+
+@router.get("/private-trading/party-summary/pdf")
+async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER
+    from io import BytesIO
+
+    data = await _get_party_summary(kms_year, season, date_from, date_to, search)
+    cols = get_columns("party_summary_report")
+    headers = get_pdf_headers(cols)
+    col_widths = [w*mm for w in get_pdf_widths_mm(cols)]
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
+    elements = []; styles = getSampleStyleSheet()
+
+    title = "Party-wise Summary (Pvt Trading)"
+    if kms_year: title += f" | KMS: {kms_year}"
+    if season: title += f" | {season}"
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#D97706'), alignment=TA_CENTER)
+    elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
+
+    table_data = [headers]
+    for party in data["parties"]:
+        table_data.append([str(v) for v in get_entry_row(party, cols)])
+
+    total_vals = get_total_row(data["totals"], cols)
+    total_row = []
+    for i, val in enumerate(total_vals):
+        if i == 0: total_row.append("TOTAL")
+        elif val is not None: total_row.append(str(val))
+        else: total_row.append("")
+    table_data.append(total_row)
+
+    first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 3)
+    tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+    ]
+    for i in range(1, len(table_data) - 1):
+        if i % 2 == 0: style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F1F5F9')))
+    tbl.setStyle(TableStyle(style_cmds))
+    elements.append(tbl)
+    doc.build(elements); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=party_summary_{datetime.now().strftime('%Y%m%d')}.pdf"})

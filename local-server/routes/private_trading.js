@@ -161,7 +161,140 @@ module.exports = function(database) {
     database.data.private_payments.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
 
-  // ===== EXPORT: Private Paddy Excel =====
+  // ===== PARTY SUMMARY =====
+  router.get('/api/private-trading/party-summary', safeSync((req, res) => {
+    if (!database.data.private_paddy) database.data.private_paddy = [];
+    if (!database.data.rice_sales) database.data.rice_sales = [];
+    const { kms_year, season, date_from, date_to, search } = req.query;
+    let paddyItems = [...database.data.private_paddy];
+    let riceItems = [...database.data.rice_sales];
+    if (kms_year) { paddyItems = paddyItems.filter(i => i.kms_year === kms_year); riceItems = riceItems.filter(i => i.kms_year === kms_year); }
+    if (season) { paddyItems = paddyItems.filter(i => i.season === season); riceItems = riceItems.filter(i => i.season === season); }
+    if (date_from) { paddyItems = paddyItems.filter(i => (i.date||'') >= date_from); riceItems = riceItems.filter(i => (i.date||'') >= date_from); }
+    if (date_to) { paddyItems = paddyItems.filter(i => (i.date||'') <= date_to); riceItems = riceItems.filter(i => (i.date||'') <= date_to); }
+    const partyMap = {};
+    paddyItems.forEach(p => {
+      const name = p.party_name || 'Unknown';
+      if (!partyMap[name]) partyMap[name] = { party_name: name, mandi_name: p.mandi_name||'', agent_name: p.agent_name||'', purchase_amount: 0, purchase_paid: 0, purchase_balance: 0, sale_amount: 0, sale_received: 0, sale_balance: 0, net_balance: 0 };
+      partyMap[name].purchase_amount += p.total_amount || 0;
+      partyMap[name].purchase_paid += p.paid_amount || 0;
+      if (!partyMap[name].mandi_name && p.mandi_name) partyMap[name].mandi_name = p.mandi_name;
+      if (!partyMap[name].agent_name && p.agent_name) partyMap[name].agent_name = p.agent_name;
+    });
+    riceItems.forEach(r => {
+      const name = r.party_name || 'Unknown';
+      if (!partyMap[name]) partyMap[name] = { party_name: name, mandi_name: '', agent_name: '', purchase_amount: 0, purchase_paid: 0, purchase_balance: 0, sale_amount: 0, sale_received: 0, sale_balance: 0, net_balance: 0 };
+      partyMap[name].sale_amount += r.total_amount || 0;
+      partyMap[name].sale_received += r.paid_amount || 0;
+    });
+    let result = Object.values(partyMap).map(pm => {
+      pm.purchase_amount = Math.round(pm.purchase_amount * 100) / 100;
+      pm.purchase_paid = Math.round(pm.purchase_paid * 100) / 100;
+      pm.purchase_balance = Math.round((pm.purchase_amount - pm.purchase_paid) * 100) / 100;
+      pm.sale_amount = Math.round(pm.sale_amount * 100) / 100;
+      pm.sale_received = Math.round(pm.sale_received * 100) / 100;
+      pm.sale_balance = Math.round((pm.sale_amount - pm.sale_received) * 100) / 100;
+      pm.net_balance = Math.round((pm.purchase_balance - pm.sale_balance) * 100) / 100;
+      return pm;
+    });
+    if (search) { const s = search.toLowerCase(); result = result.filter(r => r.party_name.toLowerCase().includes(s) || r.mandi_name.toLowerCase().includes(s) || r.agent_name.toLowerCase().includes(s)); }
+    result.sort((a, b) => Math.abs(b.net_balance) - Math.abs(a.net_balance));
+    const totals = {
+      total_purchase: Math.round(result.reduce((s, r) => s + r.purchase_amount, 0) * 100) / 100,
+      total_purchase_paid: Math.round(result.reduce((s, r) => s + r.purchase_paid, 0) * 100) / 100,
+      total_purchase_balance: Math.round(result.reduce((s, r) => s + r.purchase_balance, 0) * 100) / 100,
+      total_sale: Math.round(result.reduce((s, r) => s + r.sale_amount, 0) * 100) / 100,
+      total_sale_received: Math.round(result.reduce((s, r) => s + r.sale_received, 0) * 100) / 100,
+      total_sale_balance: Math.round(result.reduce((s, r) => s + r.sale_balance, 0) * 100) / 100,
+      total_net_balance: Math.round(result.reduce((s, r) => s + r.net_balance, 0) * 100) / 100,
+    };
+    res.json({ parties: result, totals });
+  }));
+
+  // ===== PARTY SUMMARY EXCEL =====
+  router.get('/api/private-trading/party-summary/excel', safeSync((req, res) => {
+    const ExcelJS = require('exceljs');
+    // Reuse the logic from the GET endpoint
+    if (!database.data.private_paddy) database.data.private_paddy = [];
+    if (!database.data.rice_sales) database.data.rice_sales = [];
+    const { kms_year, season, date_from, date_to, search } = req.query;
+    let paddyItems = [...database.data.private_paddy];
+    let riceItems = [...database.data.rice_sales];
+    if (kms_year) { paddyItems = paddyItems.filter(i => i.kms_year === kms_year); riceItems = riceItems.filter(i => i.kms_year === kms_year); }
+    if (season) { paddyItems = paddyItems.filter(i => i.season === season); riceItems = riceItems.filter(i => i.season === season); }
+    if (date_from) { paddyItems = paddyItems.filter(i => (i.date||'') >= date_from); riceItems = riceItems.filter(i => (i.date||'') >= date_from); }
+    if (date_to) { paddyItems = paddyItems.filter(i => (i.date||'') <= date_to); riceItems = riceItems.filter(i => (i.date||'') <= date_to); }
+    const partyMap = {};
+    paddyItems.forEach(p => { const n = p.party_name||'?'; if (!partyMap[n]) partyMap[n] = { party_name: n, mandi_name: p.mandi_name||'', agent_name: p.agent_name||'', purchase_amount: 0, purchase_paid: 0, sale_amount: 0, sale_received: 0 }; partyMap[n].purchase_amount += p.total_amount||0; partyMap[n].purchase_paid += p.paid_amount||0; });
+    riceItems.forEach(r => { const n = r.party_name||'?'; if (!partyMap[n]) partyMap[n] = { party_name: n, mandi_name: '', agent_name: '', purchase_amount: 0, purchase_paid: 0, sale_amount: 0, sale_received: 0 }; partyMap[n].sale_amount += r.total_amount||0; partyMap[n].sale_received += r.paid_amount||0; });
+    let result = Object.values(partyMap).map(pm => ({ ...pm, purchase_balance: Math.round((pm.purchase_amount-pm.purchase_paid)*100)/100, sale_balance: Math.round((pm.sale_amount-pm.sale_received)*100)/100, net_balance: Math.round(((pm.purchase_amount-pm.purchase_paid)-(pm.sale_amount-pm.sale_received))*100)/100 }));
+    if (search) { const s = search.toLowerCase(); result = result.filter(r => r.party_name.toLowerCase().includes(s)); }
+    result.sort((a,b) => Math.abs(b.net_balance) - Math.abs(a.net_balance));
+    const cols = getColumns('party_summary_report');
+    const headers = getExcelHeaders(cols);
+    const widths = getExcelWidths(cols);
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Summary');
+    let title = 'Party-wise Summary'; if (kms_year) title += ` | KMS: ${kms_year}`;
+    ws.mergeCells(1,1,1,cols.length); ws.getCell('A1').value = title; ws.getCell('A1').font = { bold: true, size: 14 };
+    headers.forEach((h,i) => { const c = ws.getCell(3,i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }; });
+    const totals = { total_purchase: 0, total_purchase_paid: 0, total_purchase_balance: 0, total_sale: 0, total_sale_received: 0, total_sale_balance: 0, total_net_balance: 0 };
+    result.forEach((item, idx) => {
+      const vals = getEntryRow(item, cols);
+      vals.forEach((v, ci) => ws.getCell(4+idx, ci+1).value = v);
+      totals.total_purchase += item.purchase_amount||0; totals.total_purchase_paid += item.purchase_paid||0;
+      totals.total_purchase_balance += item.purchase_balance||0; totals.total_sale += item.sale_amount||0;
+      totals.total_sale_received += item.sale_received||0; totals.total_sale_balance += item.sale_balance||0;
+      totals.total_net_balance += item.net_balance||0;
+    });
+    const trow = 4 + result.length;
+    ws.getCell(trow,1).value = 'TOTAL'; ws.getCell(trow,1).font = { bold: true };
+    const totalVals = getTotalRow(totals, cols);
+    totalVals.forEach((v,i) => { if (v !== null) { ws.getCell(trow,i+1).value = v; ws.getCell(trow,i+1).font = { bold: true }; } });
+    widths.forEach((w,i) => ws.getColumn(i+1).width = w);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=party_summary.xlsx');
+    wb.xlsx.write(res).then(() => res.end());
+  }));
+
+  // ===== PARTY SUMMARY PDF =====
+  router.get('/api/private-trading/party-summary/pdf', safeSync((req, res) => {
+    const PDFDocument = require('pdfkit');
+    if (!database.data.private_paddy) database.data.private_paddy = [];
+    if (!database.data.rice_sales) database.data.rice_sales = [];
+    const { kms_year, season, search } = req.query;
+    let paddyItems = [...database.data.private_paddy];
+    let riceItems = [...database.data.rice_sales];
+    if (kms_year) { paddyItems = paddyItems.filter(i => i.kms_year === kms_year); riceItems = riceItems.filter(i => i.kms_year === kms_year); }
+    if (season) { paddyItems = paddyItems.filter(i => i.season === season); riceItems = riceItems.filter(i => i.season === season); }
+    const partyMap = {};
+    paddyItems.forEach(p => { const n = p.party_name||'?'; if (!partyMap[n]) partyMap[n] = { party_name: n, mandi_name: p.mandi_name||'', agent_name: p.agent_name||'', purchase_amount: 0, purchase_paid: 0, sale_amount: 0, sale_received: 0 }; partyMap[n].purchase_amount += p.total_amount||0; partyMap[n].purchase_paid += p.paid_amount||0; });
+    riceItems.forEach(r => { const n = r.party_name||'?'; if (!partyMap[n]) partyMap[n] = { party_name: n, mandi_name: '', agent_name: '', purchase_amount: 0, purchase_paid: 0, sale_amount: 0, sale_received: 0 }; partyMap[n].sale_amount += r.total_amount||0; partyMap[n].sale_received += r.paid_amount||0; });
+    let result = Object.values(partyMap).map(pm => ({ ...pm, purchase_balance: Math.round((pm.purchase_amount-pm.purchase_paid)*100)/100, sale_balance: Math.round((pm.sale_amount-pm.sale_received)*100)/100, net_balance: Math.round(((pm.purchase_amount-pm.purchase_paid)-(pm.sale_amount-pm.sale_received))*100)/100 }));
+    if (search) { const s = search.toLowerCase(); result = result.filter(r => r.party_name.toLowerCase().includes(s)); }
+    result.sort((a,b) => Math.abs(b.net_balance) - Math.abs(a.net_balance));
+    const cols = getColumns('party_summary_report');
+    const headers = getPdfHeaders(cols);
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=party_summary.pdf');
+    doc.pipe(res);
+    let title = 'Party-wise Summary'; if (kms_year) title += ` | KMS: ${kms_year}`;
+    doc.fontSize(14).fillColor('#D97706').text(title, { align: 'center' }); doc.moveDown(0.5);
+    doc.fontSize(7).fillColor('#333');
+    const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
+    let y = doc.y;
+    headers.forEach((h,i) => { let x = 20 + colW.slice(0,i).reduce((a,b)=>a+b,0); doc.fillColor('#1E293B').rect(x,y,colW[i],14).fill(); doc.fillColor('#FFF').text(h,x+2,y+3,{width:colW[i]-4}); });
+    y += 16; doc.fillColor('#333');
+    result.forEach(item => {
+      const vals = getEntryRow(item, cols);
+      vals.forEach((v,i) => { let x = 20 + colW.slice(0,i).reduce((a,b)=>a+b,0); doc.text(String(v),x+2,y+2,{width:colW[i]-4}); });
+      y += 14; if (y > 560) { doc.addPage(); y = 20; }
+    });
+    doc.end();
+  }));
+
+  return router;
+};
   router.get('/api/private-paddy/excel', safeSync((req, res) => {
     const ExcelJS = require('exceljs');
     if (!database.data.private_paddy) database.data.private_paddy = [];

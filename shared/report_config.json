@@ -73,6 +73,20 @@
       {"field": "truck_no", "header": "Truck", "pdf_header": "Truck", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 20}
     ]
   },
+  "party_summary_report": {
+    "columns": [
+      {"field": "party_name", "header": "Party Name", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 20, "width_pdf_mm": 32},
+      {"field": "mandi_name", "header": "Mandi", "pdf_header": "Mandi", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
+      {"field": "agent_name", "header": "Agent", "pdf_header": "Agent", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
+      {"field": "purchase_amount", "header": "Purchase Amt", "pdf_header": "Purch", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_purchase"},
+      {"field": "purchase_paid", "header": "Paid (Paddy)", "pdf_header": "Paid", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_purchase_paid"},
+      {"field": "purchase_balance", "header": "Paddy Bal", "pdf_header": "P.Bal", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 18, "show_total": true, "total_key": "total_purchase_balance"},
+      {"field": "sale_amount", "header": "Sale Amt", "pdf_header": "Sale", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_sale"},
+      {"field": "sale_received", "header": "Received (Rice)", "pdf_header": "Rcvd", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_sale_received"},
+      {"field": "sale_balance", "header": "Rice Bal", "pdf_header": "R.Bal", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 18, "show_total": true, "total_key": "total_sale_balance"},
+      {"field": "net_balance", "header": "Net Balance", "pdf_header": "Net Bal", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_net_balance"}
+    ]
+  },
   "msp_payments_report": {
     "columns": [
       {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
