@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  Plus, Trash2, RefreshCw, ShoppingCart, Wheat, IndianRupee, Eye, Calculator, Search, FileText, FileSpreadsheet, Download, Users, Calendar,
+  Plus, Trash2, RefreshCw, ShoppingCart, Wheat, IndianRupee, Eye, Calculator, Search, FileText, FileSpreadsheet, Download, Calendar,
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
 
@@ -769,140 +769,6 @@ const RiceSale = ({ filters, user }) => {
   );
 };
 
-// ===== Party Summary Sub-Component =====
-const PartySummary = ({ filters }) => {
-  const [data, setData] = useState({ parties: [], totals: {} });
-  const [loading, setLoading] = useState(true);
-  const [searchText, setSearchText] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const p = new URLSearchParams();
-      if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
-      if (dateFrom) p.append('date_from', dateFrom);
-      if (dateTo) p.append('date_to', dateTo);
-      if (searchText) p.append('search', searchText);
-      const res = await axios.get(`${API}/private-trading/party-summary?${p}`);
-      setData(res.data);
-    } catch { toast.error("Data load nahi hua"); }
-    finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, dateFrom, dateTo, searchText]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const handleExport = (type) => {
-    const p = new URLSearchParams();
-    if (filters.kms_year) p.append('kms_year', filters.kms_year);
-    if (filters.season) p.append('season', filters.season);
-    if (dateFrom) p.append('date_from', dateFrom);
-    if (dateTo) p.append('date_to', dateTo);
-    if (searchText) p.append('search', searchText);
-    downloadFile(`/api/private-trading/party-summary/${type}?${p}`, `party_summary.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
-  };
-
-  const t = data.totals;
-
-  return (
-    <div className="space-y-4" data-testid="party-summary-section">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[
-          ["Parties", data.parties.length, "text-white"],
-          ["Purchase Bal", `Rs.${(t.total_purchase_balance || 0).toLocaleString()}`, "text-red-400"],
-          ["Sale Bal", `Rs.${(t.total_sale_balance || 0).toLocaleString()}`, "text-cyan-400"],
-          ["Net Balance", `Rs.${(t.total_net_balance || 0).toLocaleString()}`, (t.total_net_balance || 0) > 0 ? "text-red-400" : "text-emerald-400"],
-          ["Total Purchase", `Rs.${(t.total_purchase || 0).toLocaleString()}`, "text-amber-400"],
-        ].map(([label, val, color]) => (
-          <Card key={label} className="bg-slate-800 border-slate-700">
-            <CardContent className="p-3 text-center">
-              <p className="text-[10px] text-slate-400">{label}</p>
-              <p className={`text-lg font-bold ${color}`} data-testid={`summary-${label.toLowerCase().replace(/\s/g,'-')}`}>{val}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2 items-center">
-        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="summary-refresh-btn">
-          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
-        </Button>
-        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="summary-export-pdf">
-          <FileText className="w-4 h-4 mr-1" /> PDF
-        </Button>
-        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="summary-export-excel">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
-        </Button>
-        <div className="flex items-center gap-1 ml-2">
-          <Calendar className="w-4 h-4 text-slate-400" />
-          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-[130px]" data-testid="summary-date-from" />
-          <span className="text-slate-500 text-xs">to</span>
-          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-[130px]" data-testid="summary-date-to" />
-        </div>
-        <div className="relative ml-auto min-w-[200px]">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input value={searchText} onChange={e => setSearchText(e.target.value)}
-            placeholder="Party / Mandi / Agent..."
-            className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8" data-testid="summary-search-input" />
-        </div>
-      </div>
-
-      <Card className="bg-slate-800 border-slate-700">
-        <CardContent className="p-0"><div className="overflow-x-auto">
-          <Table>
-            <TableHeader><TableRow className="border-slate-700">
-              {['Party', 'Type', 'Mandi', 'Agent', 'Purchase Amt', 'Paid (Paddy)', 'Paddy Bal', 'Sale Amt', 'Received (Rice)', 'Rice Bal', 'Net Balance'].map(h =>
-                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Purchase Amt', 'Paid (Paddy)', 'Paddy Bal', 'Sale Amt', 'Received (Rice)', 'Rice Bal', 'Net Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
-            </TableRow></TableHeader>
-            <TableBody>
-              {loading ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-              : data.parties.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Koi party nahi mili.</TableCell></TableRow>
-              : data.parties.map((p, idx) => (
-                <TableRow key={p.party_name + idx} className="border-slate-700" data-testid={`summary-row-${idx}`}>
-                  <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
-                  <TableCell className="text-xs">
-                    <span className={`px-1.5 py-0.5 rounded ${p.party_type === 'Both' ? 'bg-amber-900/50 text-amber-300' : p.party_type === 'Paddy Seller' ? 'bg-purple-900/50 text-purple-300' : 'bg-sky-900/50 text-sky-300'}`}>
-                      {p.party_type}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-cyan-400 text-xs">{p.mandi_name || '-'}</TableCell>
-                  <TableCell className="text-purple-400 text-xs">{p.agent_name || '-'}</TableCell>
-                  <TableCell className="text-right text-amber-400 text-sm">Rs.{p.purchase_amount.toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-emerald-400 text-xs">Rs.{p.purchase_paid.toLocaleString()}</TableCell>
-                  <TableCell className={`text-right font-semibold text-sm ${p.purchase_balance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>Rs.{p.purchase_balance.toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-sky-400 text-sm">Rs.{p.sale_amount.toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-emerald-400 text-xs">Rs.{p.sale_received.toLocaleString()}</TableCell>
-                  <TableCell className={`text-right font-semibold text-sm ${p.sale_balance > 0 ? 'text-cyan-400' : 'text-emerald-400'}`}>Rs.{p.sale_balance.toLocaleString()}</TableCell>
-                  <TableCell className={`text-right font-bold text-sm ${p.net_balance > 0 ? 'text-red-400' : p.net_balance < 0 ? 'text-emerald-400' : 'text-white'}`} data-testid={`summary-net-${idx}`}>
-                    Rs.{p.net_balance.toLocaleString()}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {data.parties.length > 0 && (
-                <TableRow className="border-slate-700 bg-amber-900/20">
-                  <TableCell className="font-bold text-amber-400 text-sm" colSpan={4}>TOTAL</TableCell>
-                  <TableCell className="text-right text-amber-400 font-bold text-sm">Rs.{(t.total_purchase || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-emerald-400 font-bold text-xs">Rs.{(t.total_purchase_paid || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-red-400 font-bold text-sm">Rs.{(t.total_purchase_balance || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-sky-400 font-bold text-sm">Rs.{(t.total_sale || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-emerald-400 font-bold text-xs">Rs.{(t.total_sale_received || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-cyan-400 font-bold text-sm">Rs.{(t.total_sale_balance || 0).toLocaleString()}</TableCell>
-                  <TableCell className={`text-right font-bold text-sm ${(t.total_net_balance || 0) > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid="summary-net-total">
-                    Rs.{(t.total_net_balance || 0).toLocaleString()}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div></CardContent>
-      </Card>
-    </div>
-  );
-};
 
 // ===== Main Component =====
 export default function PrivateTrading({ filters, user }) {
@@ -923,20 +789,12 @@ export default function PrivateTrading({ filters, user }) {
           data-testid="tab-pvt-rice">
           <ShoppingCart className="w-4 h-4 mr-1" /> Rice Sale
         </Button>
-        <Button onClick={() => setActiveTab("summary")}
-          variant={activeTab === "summary" ? "default" : "ghost"} size="sm"
-          className={activeTab === "summary" ? "bg-sky-500 hover:bg-sky-600 text-white" : "text-slate-300 hover:bg-slate-700"}
-          data-testid="tab-pvt-summary">
-          <Users className="w-4 h-4 mr-1" /> Party Summary
-        </Button>
       </div>
 
       {activeTab === "paddy" ? (
         <PaddyPurchase filters={filters} user={user} />
-      ) : activeTab === "rice" ? (
-        <RiceSale filters={filters} user={user} />
       ) : (
-        <PartySummary filters={filters} />
+        <RiceSale filters={filters} user={user} />
       )}
     </div>
   );
