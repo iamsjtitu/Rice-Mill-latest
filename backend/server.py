@@ -5,6 +5,7 @@ from database import client, print_pages
 import os
 import logging
 import secrets
+import asyncio
 
 # Create the main app
 app = FastAPI()
@@ -50,6 +51,7 @@ from routes.staff import router as staff_router
 from routes.diesel import router as diesel_router
 from routes.local_party import router as local_party_router
 from routes.fy_summary import router as fy_summary_router
+from routes.telegram import router as telegram_router
 
 api_router.include_router(auth_router)
 api_router.include_router(entries_router)
@@ -67,6 +69,7 @@ api_router.include_router(staff_router)
 api_router.include_router(diesel_router)
 api_router.include_router(local_party_router)
 api_router.include_router(fy_summary_router)
+api_router.include_router(telegram_router)
 
 # Include the api_router in the main app
 app.include_router(api_router)
@@ -89,3 +92,30 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
+# Telegram scheduler background task
+async def _telegram_scheduler_loop():
+    """Check every 60 seconds if it's time to send the scheduled report"""
+    from routes.telegram import get_telegram_config, scheduled_send_report
+    while True:
+        try:
+            config = await get_telegram_config()
+            if config and config.get("enabled") and config.get("schedule_time"):
+                from datetime import datetime
+                now = datetime.now()
+                current_time = now.strftime("%H:%M")
+                if current_time == config["schedule_time"]:
+                    logger.info("Telegram scheduler: Time matched, sending report...")
+                    await scheduled_send_report()
+                    await asyncio.sleep(61)  # skip this minute
+                    continue
+        except Exception as e:
+            logger.error(f"Telegram scheduler error: {e}")
+        await asyncio.sleep(30)
+
+
+@app.on_event("startup")
+async def start_telegram_scheduler():
+    asyncio.create_task(_telegram_scheduler_loop())
+    logger.info("Telegram scheduler started")

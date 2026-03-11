@@ -36,7 +36,7 @@ import {
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
   Info, Printer, HardDrive, Download, RotateCcw, Shield, Sun, Moon,
-  Wheat, Wallet, Package, UserCheck
+  Wheat, Wallet, Package, UserCheck, Send
 } from "lucide-react";
 
 // Import extracted components
@@ -168,6 +168,11 @@ function MainApp({ user, onLogout }) {
   // Error log state
   const [errorLog, setErrorLog] = useState("");
   const [errorLogAvailable, setErrorLogAvailable] = useState(false);
+
+  // Telegram state
+  const [telegramConfig, setTelegramConfig] = useState({ bot_token: "", chat_id: "", schedule_time: "21:00", enabled: false });
+  const [telegramLogs, setTelegramLogs] = useState([]);
+  const [telegramLoading, setTelegramLoading] = useState(false);
 
   // Suggestions state
   const [truckSuggestions, setTruckSuggestions] = useState([]);
@@ -539,6 +544,63 @@ function MainApp({ user, onLogout }) {
     } catch (e) {
       toast.error("Delete mein error");
     }
+  };
+
+  // ---- TELEGRAM FUNCTIONS ----
+  const fetchTelegramConfig = async () => {
+    try {
+      const res = await axios.get(`${API}/telegram/config`);
+      setTelegramConfig(res.data);
+    } catch (e) { /* ignore */ }
+  };
+
+  const fetchTelegramLogs = async () => {
+    try {
+      const res = await axios.get(`${API}/telegram/logs`);
+      setTelegramLogs(res.data);
+    } catch (e) { /* ignore */ }
+  };
+
+  const handleSaveTelegramConfig = async () => {
+    setTelegramLoading(true);
+    try {
+      const res = await axios.post(`${API}/telegram/config`, telegramConfig);
+      toast.success(res.data.message || "Telegram config save ho gayi!");
+      fetchTelegramConfig();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Telegram config save nahi hua");
+    }
+    setTelegramLoading(false);
+  };
+
+  const handleTestTelegram = async () => {
+    setTelegramLoading(true);
+    try {
+      const res = await axios.post(`${API}/telegram/test`, {
+        bot_token: telegramConfig.bot_token,
+        chat_id: telegramConfig.chat_id
+      });
+      toast.success(res.data.message || "Test message bhej diya!");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Test message nahi gaya");
+    }
+    setTelegramLoading(false);
+  };
+
+  const handleSendReportNow = async () => {
+    setTelegramLoading(true);
+    try {
+      const res = await axios.post(`${API}/telegram/send-report`, {
+        date: new Date().toISOString().split('T')[0],
+        kms_year: filters.kms_year,
+        season: filters.season
+      });
+      toast.success(res.data.message || "Report bhej diya!");
+      fetchTelegramLogs();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Report nahi gaya");
+    }
+    setTelegramLoading(false);
   };
 
   // Global Keyboard Shortcuts
@@ -1334,7 +1396,7 @@ function MainApp({ user, onLogout }) {
             </Button>
             {user.role === 'admin' && (
               <Button
-                onClick={() => { setActiveTab("settings"); fetchBackups(); fetchErrorLog(); }}
+                onClick={() => { setActiveTab("settings"); fetchBackups(); fetchErrorLog(); fetchTelegramConfig(); fetchTelegramLogs(); }}
                 variant={activeTab === "settings" ? "default" : "ghost"}
                 size="sm"
                 className={activeTab === "settings" 
@@ -2129,6 +2191,136 @@ function MainApp({ user, onLogout }) {
                   <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono" data-testid="error-log-content">
                     {errorLog || "Koi error log nahi hai."}
                   </pre>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Telegram Bot Section */}
+            <Card className="bg-slate-800 border-slate-700" data-testid="telegram-section">
+              <CardHeader>
+                <CardTitle className="text-blue-400 flex items-center gap-2">
+                  <Send className="w-5 h-5" />
+                  Telegram Bot - Daily Report
+                </CardTitle>
+                <p className="text-slate-400 text-sm">
+                  Telegram Bot se daily report PDF automatic bhejein. Free hai!
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Bot Config */}
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-slate-300">Bot Token</Label>
+                    <Input
+                      value={telegramConfig.bot_token}
+                      onChange={(e) => setTelegramConfig(prev => ({ ...prev, bot_token: e.target.value }))}
+                      placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v..."
+                      className="bg-slate-700 border-slate-600 text-white mt-1 font-mono text-sm"
+                      type="password"
+                      data-testid="telegram-bot-token"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">@BotFather se milega. /newbot command use karein.</p>
+                  </div>
+                  <div>
+                    <Label className="text-slate-300">Chat ID</Label>
+                    <Input
+                      value={telegramConfig.chat_id}
+                      onChange={(e) => setTelegramConfig(prev => ({ ...prev, chat_id: e.target.value }))}
+                      placeholder="123456789 ya -100123456789"
+                      className="bg-slate-700 border-slate-600 text-white mt-1 font-mono text-sm"
+                      data-testid="telegram-chat-id"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Bot ko message bhejein, phir @userinfobot se Chat ID lein.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-slate-300">Schedule Time / समय</Label>
+                      <Input
+                        type="time"
+                        value={telegramConfig.schedule_time}
+                        onChange={(e) => setTelegramConfig(prev => ({ ...prev, schedule_time: e.target.value }))}
+                        className="bg-slate-700 border-slate-600 text-white mt-1"
+                        data-testid="telegram-schedule-time"
+                      />
+                      <p className="text-xs text-slate-500 mt-1">Roz is time pe report bhejega</p>
+                    </div>
+                    <div className="flex items-end">
+                      <div className="flex items-center gap-2 bg-slate-700/50 p-3 rounded-lg border border-slate-600 w-full">
+                        <Checkbox
+                          checked={telegramConfig.enabled}
+                          onCheckedChange={(v) => setTelegramConfig(prev => ({ ...prev, enabled: !!v }))}
+                          data-testid="telegram-enabled"
+                        />
+                        <Label className="text-slate-300 cursor-pointer">Auto Send Enable</Label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bot Info */}
+                {telegramConfig.bot_name && (
+                  <div className="bg-blue-900/30 border border-blue-700/50 rounded-lg p-3">
+                    <p className="text-blue-400 text-sm font-semibold">Connected Bot: {telegramConfig.bot_name}</p>
+                    {telegramConfig.bot_username && <p className="text-blue-300 text-xs">@{telegramConfig.bot_username}</p>}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    onClick={handleSaveTelegramConfig}
+                    disabled={telegramLoading || !telegramConfig.bot_token || !telegramConfig.chat_id}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    data-testid="telegram-save-btn"
+                  >
+                    {telegramLoading ? 'Saving...' : 'Save Config'}
+                  </Button>
+                  <Button
+                    onClick={handleTestTelegram}
+                    disabled={telegramLoading || !telegramConfig.bot_token || !telegramConfig.chat_id}
+                    variant="outline"
+                    className="border-blue-600 text-blue-400 hover:bg-blue-900/30"
+                    data-testid="telegram-test-btn"
+                  >
+                    Test Message
+                  </Button>
+                  <Button
+                    onClick={handleSendReportNow}
+                    disabled={telegramLoading || !telegramConfig.bot_token || !telegramConfig.chat_id}
+                    variant="outline"
+                    className="border-green-600 text-green-400 hover:bg-green-900/30"
+                    data-testid="telegram-send-now-btn"
+                  >
+                    <Send className="w-4 h-4 mr-1" /> Send Report Now
+                  </Button>
+                </div>
+
+                {/* Recent Logs */}
+                {telegramLogs.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-slate-300 text-sm font-semibold">Recent Sends:</p>
+                    <div className="max-h-40 overflow-y-auto space-y-1">
+                      {telegramLogs.map((log, idx) => (
+                        <div key={idx} className={`flex items-center justify-between text-xs p-2 rounded ${log.status === 'success' ? 'bg-green-900/20 border border-green-800/30' : 'bg-red-900/20 border border-red-800/30'}`} data-testid={`telegram-log-${idx}`}>
+                          <span className="text-slate-300">{log.date} - {log.type === 'scheduled' ? 'Auto' : 'Manual'}</span>
+                          <span className={log.status === 'success' ? 'text-green-400' : 'text-red-400'}>
+                            {log.status === 'success' ? 'Sent' : 'Failed'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Setup Guide */}
+                <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-xs text-slate-400 space-y-1">
+                  <p className="font-semibold text-slate-300">Setup Guide:</p>
+                  <p>1. Telegram mein @BotFather search karein</p>
+                  <p>2. /newbot command bhejein aur Bot ka naam dein</p>
+                  <p>3. Jo Token mile wo upar paste karein</p>
+                  <p>4. Apne Bot ko Telegram mein search karke "Start" karein</p>
+                  <p>5. @userinfobot ko message bhejein - Chat ID mil jaayegi</p>
+                  <p>6. Chat ID upar paste karein aur "Test Message" click karein</p>
                 </div>
               </CardContent>
             </Card>
