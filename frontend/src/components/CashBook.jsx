@@ -374,6 +374,7 @@ const CashBook = ({ filters, user }) => {
                 </SelectContent>
               </Select>
             </div>
+            {activeView === "transactions" && (<>
             <div>
               <Label className="text-xs text-slate-400">Party Type</Label>
               <Select value={txnFilters.party_type || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, party_type: v === "all" ? "" : v, category: "" }))}>
@@ -387,7 +388,7 @@ const CashBook = ({ filters, user }) => {
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-slate-400">Select Party / पार्टी</Label>
+              <Label className="text-xs text-slate-400">Select Party</Label>
               <div className="relative">
                 <Input
                   value={txnFilters.category ? txnFilters.category : filterPartySearch}
@@ -439,6 +440,7 @@ const CashBook = ({ filters, user }) => {
                 )}
               </div>
             </div>
+            </>)}
             <div>
               <Label className="text-xs text-slate-400">From</Label>
               <Input type="date" value={txnFilters.date_from} onChange={(e) => setTxnFilters(p => ({ ...p, date_from: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-36" />
