@@ -23,6 +23,7 @@ ROUTES_TO_SYNC=(
     "routes/pdf_helpers.js"
     "routes/safe_handler.js"
     "routes/private_trading.js"
+    "routes/cashbook.js"
 )
 
 SYNCED=0

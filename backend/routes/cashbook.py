@@ -4,10 +4,13 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
-import uuid, io, csv
+import uuid
+import io
+import csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from utils.report_helper import get_columns, get_entry_row, get_total_row, get_excel_headers, get_pdf_headers, get_excel_widths, get_pdf_widths_mm, col_count
 
 router = APIRouter()
 
@@ -638,8 +641,6 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
                                   account: Optional[str] = None, txn_type: Optional[str] = None,
                                   category: Optional[str] = None, party_type: Optional[str] = None,
                                   date_from: Optional[str] = None, date_to: Optional[str] = None):
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
     
     query = {}
@@ -657,6 +658,31 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     txns = await db.cash_transactions.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_cash_book_summary(kms_year=kms_year, season=season)
     
+    # Pre-process rows with derived fields
+    run_bal = 0
+    rows = []
+    for t in txns:
+        jama = t['amount'] if t['txn_type'] == 'jama' else 0
+        nikasi = t['amount'] if t['txn_type'] == 'nikasi' else 0
+        run_bal += jama - nikasi
+        rows.append({
+            "date": t.get("date", ""),
+            "account_label": "Ledger" if t.get("account") == "ledger" else ("Cash" if t.get("account") == "cash" else "Bank"),
+            "type_label": "Jama" if t.get("txn_type") == "jama" else "Nikasi",
+            "category": t.get("category", ""),
+            "party_type": t.get("party_type", ""),
+            "description": t.get("description", ""),
+            "jama": jama if jama > 0 else "",
+            "nikasi": nikasi if nikasi > 0 else "",
+            "balance": round(run_bal, 2),
+            "reference": t.get("reference", ""),
+        })
+    
+    cols = get_columns("cashbook_report")
+    ncols = col_count(cols)
+    headers = get_excel_headers(cols)
+    widths = get_excel_widths(cols)
+    
     wb = Workbook(); ws = wb.active; ws.title = "Cash Book"
     hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
     hfont = Font(bold=True, color="FFFFFF", size=10)
@@ -664,7 +690,8 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     
     title = "Daily Cash Book / रोज़नामचा"
     if kms_year: title += f" - KMS {kms_year}"
-    ws.merge_cells('A1:J1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+    ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
     
     # Summary section
     ws.cell(row=3, column=1, value="Summary").font = Font(bold=True, size=11)
@@ -680,38 +707,40 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     ws.cell(row=7, column=4, value=summary['total_balance']).font = Font(bold=True)
     ws.cell(row=7, column=4).number_format = '#,##0.00'
     
-    # Transactions
-    row = 9
-    ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11)
-    row += 1
-    for col, h in enumerate(['Date', 'Account', 'Type', 'Party / पार्टी', 'Description', 'Jama (₹)', 'Nikasi (₹)', 'Balance (₹)'], 1):
-        c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
-    row += 1
-    run_bal = 0
-    for t in txns:
-        jama = t['amount'] if t['txn_type'] == 'jama' else 0
-        nikasi = t['amount'] if t['txn_type'] == 'nikasi' else 0
-        run_bal += jama - nikasi
-        acct_label = 'Ledger' if t.get('account') == 'ledger' else ('Cash' if t.get('account') == 'cash' else 'Bank')
-        for col, v in enumerate([t.get('date',''), acct_label,
-            'Jama' if t.get('txn_type')=='jama' else 'Nikasi',
-            t.get('category',''), t.get('description',''), jama, nikasi, round(run_bal, 2)], 1):
-            c = ws.cell(row=row, column=col, value=v); c.border = tb
-            if col in [6,7,8]: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
-        row += 1
+    # Transactions - using shared config columns
+    row_num = 9
+    ws.cell(row=row_num, column=1, value="Transactions").font = Font(bold=True, size=11)
+    row_num += 1
+    for col_idx, h in enumerate(headers, 1):
+        c = ws.cell(row=row_num, column=col_idx, value=h)
+        c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
+    row_num += 1
     
-    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=6, value=round(sum(t['amount'] for t in txns if t['txn_type']=='jama'),2)).font = Font(bold=True)
-    ws.cell(row=row, column=7, value=round(sum(t['amount'] for t in txns if t['txn_type']=='nikasi'),2)).font = Font(bold=True)
-    ws.cell(row=row, column=8, value=round(run_bal, 2)).font = Font(bold=True)
-    ws.column_dimensions['A'].width = 12
-    ws.column_dimensions['B'].width = 10
-    ws.column_dimensions['C'].width = 8
-    ws.column_dimensions['D'].width = 18
-    ws.column_dimensions['E'].width = 40
-    ws.column_dimensions['F'].width = 14
-    ws.column_dimensions['G'].width = 14
-    ws.column_dimensions['H'].width = 14
+    for r in rows:
+        vals = get_entry_row(r, cols)
+        for col_idx, v in enumerate(vals, 1):
+            c = ws.cell(row=row_num, column=col_idx, value=v); c.border = tb
+            if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
+            if cols[col_idx-1]["type"] == "number" and isinstance(v, (int, float)): c.number_format = '#,##0.00'
+        row_num += 1
+    
+    # Total row
+    totals = {
+        "total_jama": round(sum(t['amount'] for t in txns if t['txn_type'] == 'jama'), 2),
+        "total_nikasi": round(sum(t['amount'] for t in txns if t['txn_type'] == 'nikasi'), 2),
+        "closing_balance": round(run_bal, 2),
+    }
+    total_vals = get_total_row(totals, cols)
+    tf = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    ws.cell(row=row_num, column=1, value="TOTAL").font = Font(bold=True)
+    ws.cell(row=row_num, column=1).fill = tf; ws.cell(row=row_num, column=1).border = tb
+    for col_idx, val in enumerate(total_vals, 1):
+        if val is not None:
+            c = ws.cell(row=row_num, column=col_idx, value=val)
+            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
+    
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
     
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -725,8 +754,10 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
                                 date_from: Optional[str] = None, date_to: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER
     from io import BytesIO
     
     query = {}
@@ -744,63 +775,94 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     txns = await db.cash_transactions.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_cash_book_summary(kms_year=kms_year, season=season)
     
+    # Pre-process rows
+    run_bal = 0
+    rows = []
+    for t in txns:
+        jama = t['amount'] if t['txn_type'] == 'jama' else 0
+        nikasi = t['amount'] if t['txn_type'] == 'nikasi' else 0
+        run_bal += jama - nikasi
+        rows.append({
+            "date": t.get("date", ""),
+            "account_label": "Ledger" if t.get("account") == "ledger" else ("Cash" if t.get("account") == "cash" else "Bank"),
+            "type_label": "Jama" if t.get("txn_type") == "jama" else "Nikasi",
+            "category": t.get("category", ""),
+            "party_type": t.get("party_type", ""),
+            "description": t.get("description", ""),
+            "jama": jama if jama > 0 else "",
+            "nikasi": nikasi if nikasi > 0 else "",
+            "balance": round(run_bal, 2),
+            "reference": t.get("reference", ""),
+        })
+    
+    cols = get_columns("cashbook_report")
+    headers = get_pdf_headers(cols)
+    col_widths = [w*mm for w in get_pdf_widths_mm(cols)]
+    
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = getSampleStyleSheet()
     title = "Daily Cash Book"
     if kms_year: title += f" - KMS {kms_year}"
-    elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1a365d'), alignment=TA_CENTER)
+    elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 6))
     
     # Summary table
-    elements.append(Paragraph("Summary", styles['Heading2'])); elements.append(Spacer(1, 6))
     sdata = [['', 'Jama (In)', 'Nikasi (Out)', 'Balance'],
              ['Cash', summary['cash_in'], summary['cash_out'], summary['cash_balance']],
              ['Bank', summary['bank_in'], summary['bank_out'], summary['bank_balance']],
              ['Total', round(summary['cash_in']+summary['bank_in'],2), round(summary['cash_out']+summary['bank_out'],2), summary['total_balance']]]
     st = RLTable(sdata, colWidths=[80, 80, 80, 80])
     st.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('BACKGROUND', (0,1), (-1,-2), colors.white), ('TEXTCOLOR', (0,1), (-1,-2), colors.black),
         ('FONTSIZE', (0,0), (-1,-1), 8), ('ALIGN', (1,0), (-1,-1), 'RIGHT'), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
         ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0'))]))
-    elements.append(st); elements.append(Spacer(1, 15))
+    elements.append(st); elements.append(Spacer(1, 10))
     
-    # Transactions table
-    from reportlab.lib.styles import ParagraphStyle
-    from reportlab.lib.enums import TA_LEFT
+    # Transactions table using shared config
     desc_style = ParagraphStyle('desc', fontName='Helvetica', fontSize=6, leading=7.5, alignment=TA_LEFT)
     party_style = ParagraphStyle('party', fontName='Helvetica', fontSize=6, leading=7.5, alignment=TA_LEFT)
     
-    elements.append(Paragraph("Transactions", styles['Heading2'])); elements.append(Spacer(1, 6))
-    data = [['Date', 'Account', 'Type', 'Party', 'Description', 'Jama(Rs)', 'Nikasi(Rs)', 'Balance(Rs)']]
-    tj = tn = 0
-    run_bal = 0
-    for t in txns:
-        jama = t['amount'] if t['txn_type'] == 'jama' else 0
-        nikasi = t['amount'] if t['txn_type'] == 'nikasi' else 0
-        tj += jama; tn += nikasi
-        run_bal += jama - nikasi
-        acct_label = 'Ledger' if t.get('account') == 'ledger' else ('Cash' if t.get('account') == 'cash' else 'Bank')
-        desc = t.get('description', '')
-        party = t.get('category', '')
-        data.append([t.get('date',''), acct_label,
-            'Jama' if t.get('txn_type')=='jama' else 'Nikasi',
-            Paragraph(party, party_style), Paragraph(desc, desc_style), jama if jama > 0 else '', nikasi if nikasi > 0 else '', round(run_bal, 2)])
-    data.append(['TOTAL', '', '', '', '', round(tj,2), round(tn,2), round(run_bal,2)])
+    table_data = [headers]
+    for r in rows:
+        row_vals = get_entry_row(r, cols)
+        # Wrap long text fields in Paragraph
+        out = []
+        for i, v in enumerate(row_vals):
+            if cols[i]["field"] == "description":
+                out.append(Paragraph(str(v), desc_style))
+            elif cols[i]["field"] == "category":
+                out.append(Paragraph(str(v), party_style))
+            else:
+                out.append(str(v) if v != "" else "")
+        table_data.append(out)
     
-    table = RLTable(data, colWidths=[48, 38, 34, 80, 210, 52, 52, 52], repeatRows=1)
-    table.setStyle(TableStyle([
+    # Total row
+    tj = round(sum(t['amount'] for t in txns if t['txn_type'] == 'jama'), 2)
+    tn = round(sum(t['amount'] for t in txns if t['txn_type'] == 'nikasi'), 2)
+    totals = {"total_jama": tj, "total_nikasi": tn, "closing_balance": round(run_bal, 2)}
+    total_vals = get_total_row(totals, cols)
+    total_row = []
+    for i, val in enumerate(total_vals):
+        if i == 0: total_row.append("TOTAL")
+        elif val is not None: total_row.append(str(val))
+        else: total_row.append("")
+    table_data.append(total_row)
+    
+    first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 3)
+    tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+    tbl.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('BACKGROUND', (0,1), (-1,-2), colors.white), ('TEXTCOLOR', (0,1), (-1,-2), colors.black),
-        ('FONTSIZE', (0,0), (-1,0), 6.5), ('FONTSIZE', (0,1), (-1,-1), 6),
-        ('ALIGN', (5,0), (7,-1), 'RIGHT'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,-1), 6),
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
-        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
     ]))
-    elements.append(table); doc.build(elements); buffer.seek(0)
+    elements.append(tbl)
+    doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=cash_book_{datetime.now().strftime('%Y%m%d')}.pdf"})
 

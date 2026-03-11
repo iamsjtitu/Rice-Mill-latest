@@ -4,10 +4,13 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
-import uuid, io, csv
+import uuid
+import io
+import csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from utils.report_helper import get_columns, get_entry_row, get_total_row, get_excel_headers, get_pdf_headers, get_excel_widths, get_pdf_widths_mm, col_count
 
 router = APIRouter()
 
@@ -295,34 +298,52 @@ async def export_outstanding_pdf(kms_year: Optional[str] = None, season: Optiona
 async def export_party_ledger_excel(party_name: Optional[str] = None, party_type: Optional[str] = None,
                                      kms_year: Optional[str] = None, season: Optional[str] = None,
                                      date_from: Optional[str] = None, date_to: Optional[str] = None):
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
     data = await report_party_ledger(party_name=party_name, party_type=party_type, kms_year=kms_year, season=season, date_from=date_from, date_to=date_to)
+    
+    cols = get_columns("party_ledger_report")
+    ncols = col_count(cols)
+    headers = get_excel_headers(cols)
+    widths = get_excel_widths(cols)
+    
     wb = Workbook(); ws = wb.active; ws.title = "Party Ledger"
     hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
     hfont = Font(bold=True, color="FFFFFF", size=10)
     tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
     title = "Party Ledger"
     if party_name: title += f" - {party_name}"
-    ws.merge_cells('A1:G1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
-    for col, h in enumerate(['Date', 'Party', 'Type', 'Description', 'Debit(₹)', 'Credit(₹)', 'Ref'], 1):
-        c = ws.cell(row=3, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+    ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    
+    for col_idx, h in enumerate(headers, 1):
+        c = ws.cell(row=3, column=col_idx, value=h)
+        c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
+    
     for i, l in enumerate(data["ledger"], 4):
-        for col, v in enumerate([l["date"], l["party_name"], l["party_type"], l["description"], l["debit"] if l["debit"] > 0 else "", l["credit"] if l["credit"] > 0 else "", l["ref"]], 1):
-            c = ws.cell(row=i, column=col, value=v); c.border = tb
-            if col in [5, 6]: c.number_format = '#,##0.00'
+        # Convert debit/credit: show empty string for 0 values
+        row_data = dict(l)
+        if row_data.get("debit", 0) == 0: row_data["debit"] = ""
+        if row_data.get("credit", 0) == 0: row_data["credit"] = ""
+        vals = get_entry_row(row_data, cols)
+        for col_idx, v in enumerate(vals, 1):
+            c = ws.cell(row=i, column=col_idx, value=v); c.border = tb
+            if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
+            if cols[col_idx-1]["type"] == "number" and isinstance(v, (int, float)): c.number_format = '#,##0.00'
+    
     row = len(data["ledger"]) + 4
+    tf = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    totals = {"total_debit": data["total_debit"], "total_credit": data["total_credit"]}
+    total_vals = get_total_row(totals, cols)
     ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=5, value=data["total_debit"]).font = Font(bold=True)
-    ws.cell(row=row, column=6, value=data["total_credit"]).font = Font(bold=True)
-    ws.column_dimensions['A'].width = 12
-    ws.column_dimensions['B'].width = 22
-    ws.column_dimensions['C'].width = 14
-    ws.column_dimensions['D'].width = 50
-    ws.column_dimensions['E'].width = 14
-    ws.column_dimensions['F'].width = 14
-    ws.column_dimensions['G'].width = 10
+    ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
+    for col_idx, val in enumerate(total_vals, 1):
+        if val is not None:
+            c = ws.cell(row=row, column=col_idx, value=val)
+            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
+    
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=party_ledger_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -334,32 +355,64 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
                                     date_from: Optional[str] = None, date_to: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER
     from io import BytesIO
     data = await report_party_ledger(party_name=party_name, party_type=party_type, kms_year=kms_year, season=season, date_from=date_from, date_to=date_to)
+    
+    cols = get_columns("party_ledger_report")
+    headers = get_pdf_headers(cols)
+    col_widths = [w*mm for w in get_pdf_widths_mm(cols)]
+    
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = getSampleStyleSheet()
     title = "Party Ledger"
     if party_name: title += f" - {party_name}"
-    elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
-    from reportlab.lib.styles import ParagraphStyle
-    from reportlab.lib.enums import TA_LEFT
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1a365d'), alignment=TA_CENTER)
+    elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
+    
     desc_style = ParagraphStyle('desc', fontName='Helvetica', fontSize=6.5, leading=8, alignment=TA_LEFT)
     party_style = ParagraphStyle('party', fontName='Helvetica', fontSize=6.5, leading=8, alignment=TA_LEFT)
     
-    tdata = [['Date', 'Party', 'Type', 'Description', 'Debit(₹)', 'Credit(₹)', 'Ref']]
+    table_data = [headers]
     for l in data["ledger"]:
-        tdata.append([l["date"], Paragraph(l["party_name"], party_style), l["party_type"],
-            Paragraph(l["description"], desc_style),
-            l["debit"] if l["debit"] > 0 else '-', l["credit"] if l["credit"] > 0 else '-', l["ref"]])
-    tdata.append(['TOTAL', '', '', '', data["total_debit"], data["total_credit"], ''])
-    table = RLTable(tdata, colWidths=[48, 90, 50, 220, 55, 55, 40], repeatRows=1)
-    table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1a365d')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,0),7),('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-        ('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('ALIGN',(4,0),(5,-1),'RIGHT'),
-        ('VALIGN',(0,0),(-1,-1),'TOP'),('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2)]))
+        row_data = dict(l)
+        if row_data.get("debit", 0) == 0: row_data["debit"] = "-"
+        if row_data.get("credit", 0) == 0: row_data["credit"] = "-"
+        row_vals = get_entry_row(row_data, cols)
+        out = []
+        for i, v in enumerate(row_vals):
+            if cols[i]["field"] == "description":
+                out.append(Paragraph(str(v), desc_style))
+            elif cols[i]["field"] == "party_name":
+                out.append(Paragraph(str(v), party_style))
+            else:
+                out.append(str(v) if v != "" else "")
+        table_data.append(out)
+    
+    totals = {"total_debit": data["total_debit"], "total_credit": data["total_credit"]}
+    total_vals = get_total_row(totals, cols)
+    total_row = []
+    for i, val in enumerate(total_vals):
+        if i == 0: total_row.append("TOTAL")
+        elif val is not None: total_row.append(str(val))
+        else: total_row.append("")
+    table_data.append(total_row)
+    
+    first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 4)
+    table = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,-1), 7),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('ALIGN', (first_right, 0), (-1, -1), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+    ]))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=party_ledger_{datetime.now().strftime('%Y%m%d')}.pdf"})

@@ -6,6 +6,7 @@ const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate } = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
+const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../../shared/report_helper');
 
 module.exports = function(database) {
 
@@ -148,31 +149,52 @@ module.exports = function(database) {
       if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
       if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
       txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Cash Book');
-      ws.columns = [
-        { header: 'Date', key: 'date', width: 12 }, { header: 'Account', key: 'account', width: 10 },
-        { header: 'Type', key: 'type', width: 10 }, { header: 'Party / पार्टी', key: 'category', width: 18 },
-        { header: 'Party Type', key: 'party_type', width: 14 },
-        { header: 'Description', key: 'description', width: 45 }, { header: 'Jama (Rs.)', key: 'jama', width: 14 },
-        { header: 'Nikasi (Rs.)', key: 'nikasi', width: 14 }, { header: 'Balance (Rs.)', key: 'balance', width: 14 },
-        { header: 'Reference', key: 'reference', width: 16 }
-      ];
+      
+      const cols = getColumns('cashbook_report');
+      const headers = getExcelHeaders(cols);
+      const widths = getExcelWidths(cols);
+      
+      // Pre-process rows with derived fields
       let runBal = 0;
-      txns.forEach(t => {
+      const rows = txns.map(t => {
         const jama = t.txn_type === 'jama' ? t.amount : 0;
         const nikasi = t.txn_type === 'nikasi' ? t.amount : 0;
         runBal += jama - nikasi;
-        const acctLabel = t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank');
-        ws.addRow({ date: t.date, account: acctLabel,
-          type: t.txn_type === 'jama' ? 'Jama' : 'Nikasi', category: t.category || '', party_type: t.party_type || '',
-          description: t.description || '',
-          jama: t.txn_type === 'jama' ? t.amount : '', nikasi: t.txn_type === 'nikasi' ? t.amount : '',
-          balance: +runBal.toFixed(2), reference: t.reference || '' });
+        return {
+          date: t.date, account_label: t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
+          type_label: t.txn_type === 'jama' ? 'Jama' : 'Nikasi', category: t.category || '', party_type: t.party_type || '',
+          description: t.description || '', jama: t.txn_type === 'jama' ? t.amount : '', nikasi: t.txn_type === 'nikasi' ? t.amount : '',
+          balance: +runBal.toFixed(2), reference: t.reference || ''
+        };
       });
-      const totalRow = ws.addRow({ date: 'TOTAL', jama: +txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
-        nikasi: +txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2), balance: +runBal.toFixed(2) });
-      totalRow.font = { bold: true };
-      addExcelTitle(ws, 'Daily Cash Book', 10, database); styleExcelHeader(ws); styleExcelData(ws, 5);
+      
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Cash Book');
+      // Title
+      ws.mergeCells(1, 1, 1, cols.length);
+      ws.getCell('A1').value = 'Daily Cash Book'; ws.getCell('A1').font = { bold: true, size: 14 };
+      // Headers row 3
+      headers.forEach((h, i) => {
+        const c = ws.getCell(3, i + 1); c.value = h;
+        c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
+      });
+      // Data rows
+      rows.forEach((r, idx) => {
+        const vals = getEntryRow(r, cols);
+        vals.forEach((v, ci) => ws.getCell(4 + idx, ci + 1).value = v);
+      });
+      // Total row
+      const trow = 4 + rows.length;
+      const totals = {
+        total_jama: +txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
+        total_nikasi: +txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
+        closing_balance: +runBal.toFixed(2)
+      };
+      ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true };
+      const totalVals = getTotalRow(totals, cols);
+      totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i + 1).value = v; ws.getCell(trow, i + 1).font = { bold: true }; } });
+      widths.forEach((w, i) => ws.getColumn(i + 1).width = w);
+      
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -187,25 +209,49 @@ module.exports = function(database) {
       if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
       if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
       txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      
+      const cols = getColumns('cashbook_report');
+      const headers = getPdfHeaders(cols);
+      const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
+      
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Daily Cash Book');
-      const headers = ['Date','Account','Type','Party','Party Type','Description','Jama(Rs.)','Nikasi(Rs.)','Balance(Rs.)'];
+      
+      // Pre-process rows
       let runBal = 0;
       const rows = txns.map(t => {
-        const jama = t.txn_type==='jama' ? t.amount : 0;
-        const nikasi = t.txn_type==='nikasi' ? t.amount : 0;
+        const jama = t.txn_type === 'jama' ? t.amount : 0;
+        const nikasi = t.txn_type === 'nikasi' ? t.amount : 0;
         runBal += jama - nikasi;
-        const acctLabel = t.account==='ledger'?'Ledger':(t.account==='cash'?'Cash':'Bank');
-        return [fmtDate(t.date), acctLabel, t.txn_type==='jama'?'Jama':'Nikasi',
-          t.category||'', t.party_type||'', t.description||'',
-          t.txn_type==='jama'?t.amount:'-', t.txn_type==='nikasi'?t.amount:'-', +runBal.toFixed(2)];
+        return {
+          date: t.date, account_label: t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
+          type_label: t.txn_type === 'jama' ? 'Jama' : 'Nikasi', category: t.category || '', party_type: t.party_type || '',
+          description: t.description || '', jama: t.txn_type === 'jama' ? t.amount : '-', nikasi: t.txn_type === 'nikasi' ? t.amount : '-',
+          balance: +runBal.toFixed(2), reference: t.reference || ''
+        };
       });
-      const tj = +txns.filter(t => t.txn_type==='jama').reduce((s,t)=>s+(t.amount||0),0).toFixed(2);
-      const tn = +txns.filter(t => t.txn_type==='nikasi').reduce((s,t)=>s+(t.amount||0),0).toFixed(2);
-      rows.push(['TOTAL','','','','','',tj,tn,+runBal.toFixed(2)]);
-      addPdfTable(doc, headers, rows, [48,38,34,80,48,210,52,52,52]); doc.end();
+      
+      let y = doc.y;
+      // Headers
+      doc.fontSize(7);
+      headers.forEach((h, i) => {
+        let x = 30 + colW.slice(0, i).reduce((a, b) => a + b, 0);
+        doc.fillColor('#1a365d').rect(x, y, colW[i], 14).fill();
+        doc.fillColor('#FFF').text(h, x + 2, y + 3, { width: colW[i] - 4 });
+      });
+      y += 16; doc.fillColor('#333');
+      // Data rows
+      rows.forEach(r => {
+        const vals = getEntryRow(r, cols);
+        vals.forEach((v, i) => {
+          let x = 30 + colW.slice(0, i).reduce((a, b) => a + b, 0);
+          doc.text(String(v), x + 2, y + 2, { width: colW[i] - 4 });
+        });
+        y += 14; if (y > 560) { doc.addPage(); y = 20; }
+      });
+      doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
