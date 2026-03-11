@@ -784,6 +784,9 @@ const AgentMandiReport = ({ filters }) => {
       if (search.trim()) p.append('search', search.trim());
       if (dateFrom) p.append('date_from', dateFrom);
       if (dateTo) p.append('date_to', dateTo);
+      // Pass expanded mandi names so PDF/Excel only includes those
+      const expanded = Object.keys(expandedMandis).filter(k => expandedMandis[k]);
+      if (expanded.length > 0) p.append('mandis', expanded.join(','));
       const res = await axios.get(`${API}/reports/agent-mandi-wise/${format}?${p}`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a'); a.href = url;

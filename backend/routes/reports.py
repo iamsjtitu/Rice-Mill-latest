@@ -394,9 +394,24 @@ async def move_extra_to_pvt(request: Request):
 
 
 @router.get("/reports/agent-mandi-wise/excel")
-async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
+async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, mandis: Optional[str] = None):
     from io import BytesIO
     data = await report_agent_mandi_wise(kms_year=kms_year, season=season, search=search, date_from=date_from, date_to=date_to)
+    # Filter to only expanded mandis if specified
+    if mandis:
+        mandi_names = [m.strip() for m in mandis.split(',') if m.strip()]
+        if mandi_names:
+            data["mandis"] = [m for m in data["mandis"] if m["mandi_name"] in mandi_names]
+            # Recalculate grand totals for filtered mandis
+            gt = {}
+            for key in data["grand_totals"]:
+                gt[key] = 0
+            for m in data["mandis"]:
+                for key in gt:
+                    gt[key] += m["totals"].get(key, 0)
+            gt["entry_count"] = sum(m["totals"]["entry_count"] for m in data["mandis"])
+            gt["total_extra_qntl"] = round(sum(m.get("extra_qntl", 0) for m in data["mandis"]), 2)
+            data["grand_totals"] = gt
     wb = Workbook(); ws = wb.active; ws.title = "Agent Mandi Report"
     hf = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
     hfont = Font(bold=True, color="FFFFFF", size=9)
@@ -482,7 +497,7 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
 
 
 @router.get("/reports/agent-mandi-wise/pdf")
-async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
+async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, mandis: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -492,6 +507,20 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
     from io import BytesIO
 
     report_data = await report_agent_mandi_wise(kms_year=kms_year, season=season, search=search, date_from=date_from, date_to=date_to)
+    # Filter to only expanded mandis if specified
+    if mandis:
+        mandi_names = [m.strip() for m in mandis.split(',') if m.strip()]
+        if mandi_names:
+            report_data["mandis"] = [m for m in report_data["mandis"] if m["mandi_name"] in mandi_names]
+            gt = {}
+            for key in report_data["grand_totals"]:
+                gt[key] = 0
+            for m in report_data["mandis"]:
+                for key in gt:
+                    gt[key] += m["totals"].get(key, 0)
+            gt["entry_count"] = sum(m["totals"]["entry_count"] for m in report_data["mandis"])
+            gt["total_extra_qntl"] = round(sum(m.get("extra_qntl", 0) for m in report_data["mandis"]), 2)
+            report_data["grand_totals"] = gt
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = getSampleStyleSheet()

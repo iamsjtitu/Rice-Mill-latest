@@ -350,9 +350,11 @@ module.exports = function(database) {
   }));
 
   router.get('/api/reports/agent-mandi-wise/excel', safeSync(async (req, res) => {
-    const { kms_year, season, search } = req.query;
+    const { kms_year, season, search, mandis: mandiFilter } = req.query;
     let entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     if (search) { const s = search.toLowerCase(); entries = entries.filter(e => (e.mandi_name||'').toLowerCase().includes(s) || (e.agent_name||'').toLowerCase().includes(s)); }
+    // Filter by expanded mandis
+    if (mandiFilter) { const names = mandiFilter.split(',').map(n => n.trim()).filter(Boolean); if (names.length) entries = entries.filter(e => names.includes(e.mandi_name||'')); }
     entries.sort((a, b) => (b.date||'').localeCompare(a.date||''));
 
     const mandiMap = {};
@@ -425,9 +427,11 @@ module.exports = function(database) {
   }));
 
   router.get('/api/reports/agent-mandi-wise/pdf', safeSync((req, res) => {
-    const { kms_year, season, search } = req.query;
+    const { kms_year, season, search, mandis: mandiFilter } = req.query;
     let entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     if (search) { const s = search.toLowerCase(); entries = entries.filter(e => (e.mandi_name||'').toLowerCase().includes(s) || (e.agent_name||'').toLowerCase().includes(s)); }
+    // Filter by expanded mandis
+    if (mandiFilter) { const names = mandiFilter.split(',').map(n => n.trim()).filter(Boolean); if (names.length) entries = entries.filter(e => names.includes(e.mandi_name||'')); }
     entries.sort((a, b) => (b.date||'').localeCompare(a.date||''));
 
     const mandiMap = {};
