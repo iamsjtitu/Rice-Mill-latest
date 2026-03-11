@@ -126,6 +126,22 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
                 "credit": round(t.get("amount", 0), 2) if is_jama else 0,
                 "ref": t.get("id", "")[:8]})
 
+    # Agent payments (from cash_transactions with party_type=Agent)
+    if not party_type or party_type == "Agent":
+        agent_query = dict(query)
+        agent_query["party_type"] = "Agent"
+        agent_txns = await db.cash_transactions.find(agent_query, {"_id": 0}).to_list(10000)
+        for t in agent_txns:
+            cat = (t.get("category") or "").strip()
+            if not cat: continue
+            if party_name and cat.lower() != party_name.lower(): continue
+            is_jama = t.get("txn_type") == "jama"
+            ledger.append({"date": t.get("date", ""), "party_name": cat, "party_type": "Agent",
+                "description": t.get("description", "") or f"{'Jama' if is_jama else 'Nikasi'}: ₹{t.get('amount',0)}",
+                "debit": round(t.get("amount", 0), 2) if not is_jama else 0,
+                "credit": round(t.get("amount", 0), 2) if is_jama else 0,
+                "ref": t.get("id", "")[:8]})
+
     # FRK purchases
     if not party_type or party_type == "frk_party":
         frk_purchases = await db.frk_purchases.find(query, {"_id": 0}).to_list(5000)

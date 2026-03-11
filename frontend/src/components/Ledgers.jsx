@@ -319,6 +319,7 @@ const PartyLedger = ({ filters }) => {
           </SelectTrigger>
           <SelectContent className="bg-slate-700 border-slate-600">
             <SelectItem value="all" className="text-white">All Types</SelectItem>
+            <SelectItem value="Agent" className="text-white">Agent</SelectItem>
             <SelectItem value="truck" className="text-white">Truck</SelectItem>
             <SelectItem value="cash_party" className="text-white">Cash Party</SelectItem>
             <SelectItem value="frk_party" className="text-white">FRK Seller</SelectItem>
