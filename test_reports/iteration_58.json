@@ -1,0 +1,159 @@
+{
+  "summary": "Iteration 58: Rice Sale Tab New Features - RST No field, Cash Paid / Diesel Paid auto-creating truck payment entries, Mark Paid / Undo Paid / Payment History. All 16 backend tests PASSED. All UI flows verified working correctly.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Rice Sale Dialog", "issues": ["Missing aria-describedby warning in console for DialogContent (minor accessibility)"]}
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration58_rice_sale_features.py",
+    "/app/test_reports/pytest/pytest_results_iteration58.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Backend private_trading.py: create_rice_sale (line 257-281) - Creates entry with rst_no, cash_paid, diesel_paid fields",
+    "Backend private_trading.py: _create_cashbook_for_rice_sale (line 284-339) - Creates cash_transactions and diesel_accounts entries for truck payments",
+    "Backend private_trading.py: mark_rice_sale_paid (line 600-637) - Requires admin role, creates jama entries when balance > 0",
+    "Backend private_trading.py: undo_rice_sale_paid (line 640-658) - Resets paid_amount=0, balance=total, deletes linked payments",
+    "Backend private_trading.py: get_rice_sale_history (line 662-670) - Returns payment history array with total_paid",
+    "Backend private_trading.py: delete_rice_sale (line 377-389) - Cascades delete to cash_transactions, diesel_accounts, and private_payments",
+    "Frontend PrivateTrading.jsx: RiceSale component has all new fields in form (rst_no, cash_paid, diesel_paid)",
+    "Frontend shows RST No, Cash, Diesel columns in table header and values in rows"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_iteration58_rice_sale_features.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (16/16 tests passed)",
+    "frontend": "100% - All Rice Sale features working"
+  },
+
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+
+  "seed_data_creation": "Created UITestBuyer entry for UI testing (deleted at end of test)",
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Rice Sale features are fully functional. RST No, Cash Paid, Diesel Paid fields working with truck payment auto-creation. Mark Paid/Undo/History features same as Paddy Purchase. Sillu entry (1000Q @ Rs.300, total Rs.300,000) exists in Rice Sale tab.",
+
+  "verified_features": {
+    "rice_sale_rst_no": {
+      "field": "rst_no",
+      "status": "PASSED",
+      "ui_location": "Rice Sale form - RST No. field",
+      "table_column": "RST No column shows value"
+    },
+    "rice_sale_cash_paid": {
+      "field": "cash_paid",
+      "status": "PASSED",
+      "auto_creates": "cash_transactions entry with category=truck_no, party_type=Truck, reference='rice_sale_cash:{id}'"
+    },
+    "rice_sale_diesel_paid": {
+      "field": "diesel_paid",
+      "status": "PASSED",
+      "auto_creates": "diesel_accounts entry with txn_type=debit, linked_entry_id=rice_sale_id"
+    },
+    "search_by_rst_no": {
+      "endpoint": "GET /api/rice-sales?search=RST001",
+      "status": "PASSED",
+      "searches": "party_name, rst_no, truck_no, rice_type"
+    },
+    "history_endpoint": {
+      "endpoint": "GET /api/rice-sales/{id}/history",
+      "status": "PASSED",
+      "returns": "{ history: [], total_paid: number }"
+    },
+    "mark_paid_endpoint": {
+      "endpoint": "POST /api/rice-sales/{id}/mark-paid?username=admin&role=admin",
+      "status": "PASSED",
+      "requires": "admin role (403 without)",
+      "effects": "Sets payment_status='paid', balance=0, creates jama entries"
+    },
+    "undo_paid_endpoint": {
+      "endpoint": "POST /api/rice-sales/{id}/undo-paid?username=admin&role=admin",
+      "status": "PASSED",
+      "requires": "admin role (403 without)",
+      "effects": "Sets payment_status='pending', paid_amount=0, balance=total_amount, deletes linked payments"
+    },
+    "cascade_delete": {
+      "endpoint": "DELETE /api/rice-sales/{id}",
+      "status": "PASSED",
+      "deletes": "rice_sale entry, cash_transactions, diesel_accounts, private_payments linked entries"
+    },
+    "edit_with_populated_fields": {
+      "status": "PASSED",
+      "verified": "RST No, Cash Paid, Diesel Paid fields are populated when editing entry"
+    },
+    "ui_button_visibility": {
+      "status": "PASSED",
+      "when_pending": "Shows: Payment (₹), Mark Paid (✓), History, Edit, Delete",
+      "when_paid": "Shows: Undo (↶), History, Edit, Delete (no ₹ or ✓)"
+    }
+  },
+
+  "tests_executed": {
+    "backend": {
+      "test_01_create_rice_sale_with_new_fields": "PASSED",
+      "test_02_verify_cash_book_entries_created": "PASSED",
+      "test_03_verify_diesel_account_entry_created": "PASSED",
+      "test_04_search_by_rst_no": "PASSED",
+      "test_01_get_history_endpoint": "PASSED",
+      "test_02_mark_paid_requires_admin": "PASSED",
+      "test_03_mark_paid_with_admin": "PASSED",
+      "test_04_verify_entry_after_mark_paid": "PASSED",
+      "test_05_undo_paid_requires_admin": "PASSED",
+      "test_06_undo_paid_with_admin": "PASSED",
+      "test_07_verify_entry_after_undo_paid": "PASSED",
+      "test_01_edit_rice_sale_with_new_fields": "PASSED",
+      "test_02_verify_updated_cash_diesel_entries": "PASSED",
+      "test_03_delete_rice_sale_cascades": "PASSED",
+      "test_04_verify_linked_entries_deleted": "PASSED",
+      "test_01_complete_flow": "PASSED"
+    },
+    "frontend": {
+      "login": "PASSED",
+      "navigate_to_pvt_trading_rice_sale": "PASSED",
+      "create_rice_sale_with_all_fields": "PASSED",
+      "verify_rst_cash_diesel_in_table": "PASSED",
+      "search_by_rst_no": "PASSED",
+      "history_button_and_dialog": "PASSED",
+      "mark_paid_button": "PASSED",
+      "paid_badge_appears": "PASSED",
+      "undo_paid_button": "PASSED",
+      "edit_with_populated_fields": "PASSED",
+      "delete_entry": "PASSED"
+    }
+  },
+
+  "toast_notifications_verified": {
+    "rice_sale_entry_save": "Rice sale entry save ho gayi!",
+    "mark_paid": "Mark Paid ho gaya!",
+    "undo_paid": "Undo ho gaya!",
+    "deleted": "Deleted!"
+  },
+
+  "confirmation_dialogs_verified": {
+    "mark_paid": "UITestBuyer ko fully paid mark karna chahte hain? Balance Rs.19,000 clear hoga.",
+    "undo_paid": "UITestBuyer ka payment undo karna chahte hain? Sab reset ho jayega.",
+    "delete": "Delete karna chahte hain?"
+  },
+
+  "test_run_timestamp": "2026-03-11T18:47:00Z"
+}

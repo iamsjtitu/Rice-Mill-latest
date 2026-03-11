@@ -256,16 +256,19 @@ async def delete_private_paddy(item_id: str):
 # --- Rice Sale ---
 @router.post("/rice-sales")
 async def create_rice_sale(data: dict, username: str = "", role: str = ""):
-    qty = float(data.get("quantity_qntl", 0))
-    rate = float(data.get("rate_per_qntl", 0))
+    qty = float(data.get("quantity_qntl", 0) or 0)
+    rate = float(data.get("rate_per_qntl", 0) or 0)
     total = round(qty * rate, 2)
-    paid = float(data.get("paid_amount", 0))
+    paid = float(data.get("paid_amount", 0) or 0)
     doc = {
         "id": str(uuid.uuid4()), "date": data.get("date", ""),
         "kms_year": data.get("kms_year", ""), "season": data.get("season", ""),
         "party_name": data.get("party_name", ""), "rice_type": data.get("rice_type", ""),
+        "rst_no": data.get("rst_no", ""),
         "quantity_qntl": qty, "rate_per_qntl": rate, "total_amount": total,
-        "bags": int(data.get("bags", 0)), "truck_no": data.get("truck_no", ""),
+        "bags": int(data.get("bags", 0) or 0), "truck_no": data.get("truck_no", ""),
+        "cash_paid": float(data.get("cash_paid", 0) or 0),
+        "diesel_paid": float(data.get("diesel_paid", 0) or 0),
         "paid_amount": paid, "balance": round(total - paid, 2),
         "remark": data.get("remark", ""),
         "created_by": username,
@@ -274,14 +277,80 @@ async def create_rice_sale(data: dict, username: str = "", role: str = ""):
     }
     await db.rice_sales.insert_one(doc)
     doc.pop("_id", None)
+    await _create_cashbook_for_rice_sale(doc, username)
     return doc
 
+
+async def _create_cashbook_for_rice_sale(doc, username=""):
+    """Auto-create truck payment entries for cash/diesel paid in rice sale."""
+    entry_id = doc["id"]
+    party = doc.get("party_name", "")
+    truck_no = doc.get("truck_no", "")
+    date = doc.get("date", "")
+    qty = doc.get("quantity_qntl", 0) or 0
+    rate = doc.get("rate_per_qntl", 0) or 0
+    detail = _fmt_detail(qty, rate) if qty and rate else ""
+    base = {
+        "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+        "created_by": username or "system", "linked_entry_id": entry_id,
+        "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    cash_paid = float(doc.get("cash_paid", 0) or 0)
+    if cash_paid > 0 and truck_no:
+        cash_desc = f"Rice Sale: {party} - {detail}" if detail else f"Rice Sale: {party} - Rs.{cash_paid}"
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "account": "cash", "txn_type": "nikasi",
+            "category": truck_no, "party_type": "Truck",
+            "description": cash_desc,
+            "amount": round(cash_paid, 2), "reference": f"rice_sale_cash:{entry_id[:8]}",
+            **base
+        })
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "account": "ledger", "txn_type": "nikasi",
+            "category": truck_no, "party_type": "Truck",
+            "description": cash_desc,
+            "amount": round(cash_paid, 2), "reference": f"rice_sale_tcash:{entry_id[:8]}",
+            **base
+        })
+    diesel_paid = float(doc.get("diesel_paid", 0) or 0)
+    if diesel_paid > 0:
+        diesel_desc = f"Rice Sale: {party} - {detail}" if detail else f"Rice Sale: {party} - Rs.{diesel_paid}"
+        default_pump = await db.diesel_pumps.find_one({"is_default": True}, {"_id": 0})
+        pump_name = default_pump["name"] if default_pump else "Default Pump"
+        pump_id = default_pump["id"] if default_pump else "default"
+        await db.diesel_accounts.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "pump_id": pump_id, "pump_name": pump_name,
+            "truck_no": truck_no, "agent_name": "",
+            "mandi_name": "", "amount": round(diesel_paid, 2), "txn_type": "debit",
+            "description": diesel_desc,
+            **base
+        })
+        if truck_no:
+            await db.cash_transactions.insert_one({
+                "id": str(uuid.uuid4()), "date": date,
+                "account": "ledger", "txn_type": "nikasi",
+                "category": truck_no, "party_type": "Truck",
+                "description": diesel_desc,
+                "amount": round(diesel_paid, 2), "reference": f"rice_sale_tdiesel:{entry_id[:8]}",
+                **base
+            })
+
 @router.get("/rice-sales")
-async def get_rice_sales(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None):
+async def get_rice_sales(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None, search: Optional[str] = None):
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
+    if search:
+        query["$or"] = [
+            {"party_name": {"$regex": search, "$options": "i"}},
+            {"rst_no": {"$regex": search, "$options": "i"}},
+            {"truck_no": {"$regex": search, "$options": "i"}},
+            {"rice_type": {"$regex": search, "$options": "i"}},
+        ]
     items = await db.rice_sales.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
     return items
 
@@ -290,20 +359,33 @@ async def update_rice_sale(item_id: str, data: dict):
     existing = await db.rice_sales.find_one({"id": item_id})
     if not existing: raise HTTPException(status_code=404, detail="Not found")
     update_data = {k: v for k, v in data.items() if v is not None}
-    for f in ["quantity_qntl", "rate_per_qntl", "paid_amount", "bags"]:
-        if f in update_data: update_data[f] = float(update_data[f]) if f != "bags" else int(update_data[f])
+    for f in ["quantity_qntl", "rate_per_qntl", "paid_amount", "cash_paid", "diesel_paid"]:
+        if f in update_data: update_data[f] = float(update_data[f]) if update_data[f] != "" else 0
+    if "bags" in update_data: update_data["bags"] = int(update_data["bags"]) if update_data["bags"] != "" else 0
     merged = {**existing, **update_data}
     merged["total_amount"] = round(merged["quantity_qntl"] * merged["rate_per_qntl"], 2)
     merged["balance"] = round(merged["total_amount"] - merged.get("paid_amount", 0), 2)
     merged["updated_at"] = datetime.now(timezone.utc).isoformat()
     merged.pop("_id", None)
     await db.rice_sales.update_one({"id": item_id}, {"$set": merged})
+    # Re-create cash/diesel entries
+    await db.cash_transactions.delete_many({"linked_entry_id": item_id, "reference": {"$regex": "^rice_sale_"}})
+    await db.diesel_accounts.delete_many({"linked_entry_id": item_id})
+    await _create_cashbook_for_rice_sale(merged, merged.get("created_by", ""))
     return merged
 
 @router.delete("/rice-sales/{item_id}")
 async def delete_rice_sale(item_id: str):
     result = await db.rice_sales.delete_one({"id": item_id})
     if result.deleted_count == 0: raise HTTPException(status_code=404, detail="Not found")
+    # Cascade delete linked entries
+    await db.cash_transactions.delete_many({"linked_entry_id": item_id})
+    await db.diesel_accounts.delete_many({"linked_entry_id": item_id})
+    # Delete linked payments and their cash entries
+    payments = await db.private_payments.find({"ref_id": item_id, "ref_type": "rice_sale"}, {"_id": 0, "id": 1}).to_list(1000)
+    for p in payments:
+        await db.cash_transactions.delete_many({"linked_payment_id": p["id"]})
+    await db.private_payments.delete_many({"ref_id": item_id, "ref_type": "rice_sale"})
     return {"message": "Deleted", "id": item_id}
 
 # --- Private Payments (for both paddy purchase & rice sale parties) ---
@@ -509,6 +591,81 @@ async def get_pvt_paddy_history(entry_id: str):
         {"_id": 0}
     ).sort([("created_at", -1)]).to_list(1000)
     entry = await db.private_paddy.find_one({"id": entry_id}, {"_id": 0})
+    total_paid = float(entry.get("paid_amount", 0)) if entry else 0
+    return {"history": payments, "total_paid": total_paid}
+
+
+# ============ RICE SALE: MARK PAID / UNDO / HISTORY ============
+
+@router.post("/rice-sales/{entry_id}/mark-paid")
+async def mark_rice_sale_paid(entry_id: str, username: str = "", role: str = ""):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin paid mark kar sakta hai")
+    entry = await db.rice_sales.find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    total = float(entry.get("total_amount", 0) or 0)
+    already_paid = float(entry.get("paid_amount", 0) or 0)
+    remaining = round(total - already_paid, 2)
+    party = entry.get("party_name", "")
+    qty = entry.get("quantity_qntl", 0) or 0
+    rate = entry.get("rate_per_qntl", 0) or 0
+    detail = _fmt_detail(qty, rate) if qty and rate else f"Rs.{total}"
+    await db.rice_sales.update_one({"id": entry_id}, {"$set": {
+        "paid_amount": total, "balance": 0, "payment_status": "paid",
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }})
+    if remaining > 0:
+        mark_id = f"mark_paid_rice:{entry_id[:8]}"
+        base = {
+            "date": entry.get("date", ""), "kms_year": entry.get("kms_year", ""),
+            "season": entry.get("season", ""), "created_by": username,
+            "linked_payment_id": mark_id,
+            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        desc = f"Rice Sale: {party} - {detail} (Mark Paid)"
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "account": "cash", "txn_type": "jama",
+            "category": party, "party_type": "Rice Sale",
+            "description": desc, "amount": remaining, "reference": mark_id, **base
+        })
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "jama",
+            "category": party, "party_type": "Rice Sale",
+            "description": desc, "amount": remaining, "reference": f"mark_paid_rice_ledger:{entry_id[:8]}", **base
+        })
+    return {"success": True, "message": f"Marked paid - Rs.{remaining} cleared"}
+
+
+@router.post("/rice-sales/{entry_id}/undo-paid")
+async def undo_rice_sale_paid(entry_id: str, username: str = "", role: str = ""):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin undo kar sakta hai")
+    entry = await db.rice_sales.find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    total = float(entry.get("total_amount", 0) or 0)
+    await db.rice_sales.update_one({"id": entry_id}, {"$set": {
+        "paid_amount": 0, "balance": total, "payment_status": "pending",
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }})
+    # Delete mark-paid entries
+    await db.cash_transactions.delete_many({"linked_payment_id": {"$regex": f"mark_paid_rice:{entry_id[:8]}|mark_paid_rice_ledger:{entry_id[:8]}"}})
+    # Delete all linked private_payments and their cash entries
+    payments = await db.private_payments.find({"ref_id": entry_id, "ref_type": "rice_sale"}, {"_id": 0, "id": 1}).to_list(1000)
+    for p in payments:
+        await db.cash_transactions.delete_many({"linked_payment_id": p["id"]})
+    await db.private_payments.delete_many({"ref_id": entry_id, "ref_type": "rice_sale"})
+    return {"success": True, "message": "Payment undo - sab reset ho gaya"}
+
+
+@router.get("/rice-sales/{entry_id}/history")
+async def get_rice_sale_history(entry_id: str):
+    payments = await db.private_payments.find(
+        {"ref_id": entry_id, "ref_type": "rice_sale"},
+        {"_id": 0}
+    ).sort([("created_at", -1)]).to_list(1000)
+    entry = await db.rice_sales.find_one({"id": entry_id}, {"_id": 0})
     total_paid = float(entry.get("paid_amount", 0)) if entry else 0
     return {"history": payments, "total_paid": total_paid}
 

@@ -541,10 +541,11 @@ const RiceSale = ({ filters, user }) => {
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
+  const [historyDialog, setHistoryDialog] = useState({ open: false, item: null, history: [] });
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], kms_year: CURRENT_KMS_YEAR, season: "Kharif",
-    party_name: "", rice_type: "Usna", quantity_qntl: "", rate_per_qntl: "", bags: "", truck_no: "",
-    paid_amount: "0", remark: "",
+    party_name: "", rice_type: "Usna", rst_no: "", quantity_qntl: "", rate_per_qntl: "", bags: "", truck_no: "",
+    cash_paid: "", diesel_paid: "", paid_amount: "0", remark: "",
   });
 
   const riceTotal = useMemo(() => {
@@ -573,14 +574,15 @@ const RiceSale = ({ filters, user }) => {
     return items.filter(i =>
       (i.party_name || "").toLowerCase().includes(s) ||
       (i.truck_no || "").toLowerCase().includes(s) ||
-      (i.rice_type || "").toLowerCase().includes(s)
+      (i.rice_type || "").toLowerCase().includes(s) ||
+      (i.rst_no || "").toLowerCase().includes(s)
     );
   }, [items, searchText]);
 
   const resetForm = () => {
     setForm({ date: new Date().toISOString().split('T')[0], kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif",
-      party_name: "", rice_type: "Usna", quantity_qntl: "", rate_per_qntl: "", bags: "", truck_no: "",
-      paid_amount: "0", remark: "" });
+      party_name: "", rice_type: "Usna", rst_no: "", quantity_qntl: "", rate_per_qntl: "", bags: "", truck_no: "",
+      cash_paid: "", diesel_paid: "", paid_amount: "0", remark: "" });
     setEditId(null);
   };
 
@@ -604,8 +606,10 @@ const RiceSale = ({ filters, user }) => {
     setForm({
       date: item.date, kms_year: item.kms_year, season: item.season,
       party_name: item.party_name, rice_type: item.rice_type || "Usna",
+      rst_no: item.rst_no || "",
       quantity_qntl: item.quantity_qntl, rate_per_qntl: item.rate_per_qntl,
       bags: item.bags || "", truck_no: item.truck_no || "",
+      cash_paid: item.cash_paid || "", diesel_paid: item.diesel_paid || "",
       paid_amount: item.paid_amount || "0", remark: item.remark || "",
     });
     setEditId(item.id);
@@ -646,6 +650,30 @@ const RiceSale = ({ filters, user }) => {
       setPayDialog({ open: false, item: null }); setPayForm({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
       fetchData();
     } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+  };
+
+  const handleMarkPaid = async (item) => {
+    const bal = Math.round((item.total_amount || 0) - (item.paid_amount || 0));
+    if (!window.confirm(`${item.party_name} ko fully paid mark karna chahte hain? Balance Rs.${bal.toLocaleString()} clear hoga.`)) return;
+    try {
+      await axios.post(`${API}/rice-sales/${item.id}/mark-paid?username=${user.username}&role=${user.role}`);
+      toast.success("Mark Paid ho gaya!"); fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+  };
+
+  const handleUndoPaid = async (item) => {
+    if (!window.confirm(`${item.party_name} ka payment undo karna chahte hain? Sab reset ho jayega.`)) return;
+    try {
+      await axios.post(`${API}/rice-sales/${item.id}/undo-paid?username=${user.username}&role=${user.role}`);
+      toast.success("Undo ho gaya!"); fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+  };
+
+  const handleViewHistory = async (item) => {
+    try {
+      const res = await axios.get(`${API}/rice-sales/${item.id}/history`);
+      setHistoryDialog({ open: true, item, history: res.data.history || [] });
+    } catch { toast.error("History load nahi hua"); }
   };
 
   const totals = useMemo(() => {
@@ -698,7 +726,7 @@ const RiceSale = ({ filters, user }) => {
         <div className="relative ml-auto min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input value={searchText} onChange={e => setSearchText(e.target.value)}
-            placeholder="Party / Type search..."
+            placeholder="Party / RST / Type search..."
             className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8" data-testid="rice-search-input" />
         </div>
         {selectedIds.length > 0 && (
@@ -713,8 +741,8 @@ const RiceSale = ({ filters, user }) => {
           <Table>
             <TableHeader><TableRow className="border-slate-700">
               <TableHead className="w-8"><input type="checkbox" checked={selectedIds.length === filtered.length && filtered.length > 0} onChange={toggleAll} className="accent-emerald-500" data-testid="rice-select-all" /></TableHead>
-              {['Date', 'Party', 'Type', 'Qntl', 'Rate/Q', 'Total Rs', 'Received Rs', 'Balance Rs', 'Truck', ''].map(h =>
-                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Qntl', 'Rate/Q', 'Total Rs', 'Received Rs', 'Balance Rs'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+              {['Date', 'Party', 'RST No', 'Type', 'Qntl', 'Rate/Q', 'Total Rs', 'Received Rs', 'Balance Rs', 'Truck', 'Cash', 'Diesel', ''].map(h =>
+                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Qntl', 'Rate/Q', 'Total Rs', 'Received Rs', 'Balance Rs', 'Cash', 'Diesel'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
             </TableRow></TableHeader>
             <TableBody>
               {loading ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
@@ -726,25 +754,48 @@ const RiceSale = ({ filters, user }) => {
                   <TableCell><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelect(item.id)} className="accent-emerald-500" /></TableCell>
                   <TableCell className="text-white text-xs whitespace-nowrap">{item.date}</TableCell>
                   <TableCell className="text-white font-semibold text-sm">{item.party_name}</TableCell>
+                  <TableCell className="text-sky-400 text-xs font-medium">{item.rst_no || '-'}</TableCell>
                   <TableCell><span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-900/40 text-amber-400">{item.rice_type}</span></TableCell>
                   <TableCell className="text-right text-amber-400 font-semibold text-sm">{item.quantity_qntl} Q</TableCell>
                   <TableCell className="text-right text-slate-300 text-xs">Rs.{item.rate_per_qntl}</TableCell>
                   <TableCell className="text-right text-white font-semibold text-sm">Rs.{(item.total_amount || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-emerald-400 text-sm">Rs.{(item.paid_amount || 0).toLocaleString()}</TableCell>
                   <TableCell className={`text-right font-semibold text-sm ${bal > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`rice-balance-${item.id}`}>
-                    Rs.{Math.round(bal).toLocaleString()}
+                    <div className="flex flex-col items-end">
+                      <span>Rs.{Math.round(bal).toLocaleString()}</span>
+                      {item.payment_status === 'paid' && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full mt-0.5 font-bold">PAID</span>}
+                    </div>
                   </TableCell>
                   <TableCell className="text-slate-300 text-xs">{item.truck_no || '-'}</TableCell>
+                  <TableCell className="text-right text-emerald-300 text-xs">{item.cash_paid ? `Rs.${item.cash_paid.toLocaleString()}` : '-'}</TableCell>
+                  <TableCell className="text-right text-orange-300 text-xs">{item.diesel_paid ? `Rs.${item.diesel_paid.toLocaleString()}` : '-'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog({ open: true, item }); setPayForm({ ...payForm, date: new Date().toISOString().split('T')[0] }); }} data-testid={`rice-pay-${item.id}`}>
-                        <IndianRupee className="w-3 h-3" />
+                      {item.payment_status !== 'paid' && (
+                        <>
+                          <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog({ open: true, item }); setPayForm({ ...payForm, date: new Date().toISOString().split('T')[0] }); }} data-testid={`rice-pay-${item.id}`} title="Payment">
+                            <IndianRupee className="w-3 h-3" />
+                          </Button>
+                          {user.role === 'admin' && (
+                            <Button variant="ghost" size="sm" className="h-6 px-1 text-amber-400" onClick={() => handleMarkPaid(item)} data-testid={`rice-markpaid-${item.id}`} title="Mark Paid">
+                              <CheckCircle className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      {item.payment_status === 'paid' && user.role === 'admin' && (
+                        <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleUndoPaid(item)} data-testid={`rice-undo-${item.id}`} title="Undo Paid">
+                          <Undo2 className="w-3 h-3" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-6 px-1 text-purple-400" onClick={() => handleViewHistory(item)} data-testid={`rice-history-${item.id}`} title="Payment History">
+                        <History className="w-3 h-3" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => handleEdit(item)} data-testid={`rice-edit-${item.id}`}>
+                      <Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => handleEdit(item)} data-testid={`rice-edit-${item.id}`} title="Edit">
                         <Eye className="w-3 h-3" />
                       </Button>
                       {user.role === 'admin' && (
-                        <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDelete(item.id)} data-testid={`rice-del-${item.id}`}>
+                        <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDelete(item.id)} data-testid={`rice-del-${item.id}`} title="Delete">
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       )}
@@ -762,7 +813,7 @@ const RiceSale = ({ filters, user }) => {
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg" data-testid="rice-form-dialog">
           <DialogHeader><DialogTitle className="text-emerald-400">{editId ? "Sale Edit" : "Nayi Rice Sale"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="rice-form-date" />
@@ -770,6 +821,10 @@ const RiceSale = ({ filters, user }) => {
               <div>
                 <Label className="text-xs text-slate-400">Party Name *</Label>
                 <Input value={form.party_name} onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))} placeholder="Buyer name" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="rice-form-party" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-400">RST No.</Label>
+                <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))} placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="rice-form-rst" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -801,6 +856,16 @@ const RiceSale = ({ filters, user }) => {
               <div>
                 <Label className="text-xs text-slate-400">Advance Received (Rs.)</Label>
                 <Input type="number" value={form.paid_amount} onChange={e => setForm(p => ({ ...p, paid_amount: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="rice-form-paid" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-400">Cash Paid (Rs.)</Label>
+                <Input type="number" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="rice-form-cash" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-400">Diesel Paid (Rs.)</Label>
+                <Input type="number" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="rice-form-diesel" />
               </div>
             </div>
             <div>
@@ -842,6 +907,40 @@ const RiceSale = ({ filters, user }) => {
               <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white flex-1" data-testid="rice-pay-submit">Receive</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment History Dialog */}
+      <Dialog open={historyDialog.open} onOpenChange={(o) => setHistoryDialog(prev => ({ ...prev, open: o }))}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg" data-testid="rice-history-dialog">
+          <DialogHeader><DialogTitle className="text-purple-400 flex items-center gap-2"><History className="w-5 h-5" /> Payment History - {historyDialog.item?.party_name}</DialogTitle></DialogHeader>
+          {historyDialog.item && (
+            <div className="text-xs text-slate-400 mb-3 flex gap-4">
+              <span>Total: <span className="text-white font-semibold">Rs.{historyDialog.item.total_amount?.toLocaleString()}</span></span>
+              <span>Received: <span className="text-emerald-400 font-semibold">Rs.{historyDialog.item.paid_amount?.toLocaleString()}</span></span>
+              <span>Status: <span className={`font-semibold ${historyDialog.item.payment_status === 'paid' ? 'text-emerald-400' : 'text-amber-400'}`}>{historyDialog.item.payment_status === 'paid' ? 'PAID' : 'PENDING'}</span></span>
+            </div>
+          )}
+          {historyDialog.history.length === 0 ? (
+            <p className="text-slate-500 text-center py-6">Koi payment history nahi hai</p>
+          ) : (
+            <div className="overflow-y-auto max-h-[350px] space-y-2">
+              {historyDialog.history.map((h, i) => (
+                <Card key={h.id || i} className="bg-slate-700/50 border-slate-600">
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Rs.{h.amount?.toLocaleString()}</p>
+                      <p className="text-[10px] text-slate-400">{h.date} | {h.mode || 'cash'} {h.reference ? `| ${h.reference}` : ''}</p>
+                      {h.remark && <p className="text-[10px] text-slate-500 italic">{h.remark}</p>}
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${h.payment_type === 'received' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                      {h.payment_type || 'received'}
+                    </span>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
