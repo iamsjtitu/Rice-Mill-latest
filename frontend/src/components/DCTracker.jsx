@@ -397,6 +397,7 @@ export const GunnyBags = ({ filters, user }) => {
   const defaultForm = { date: new Date().toISOString().split('T')[0], bag_type: "new", txn_type: "in", quantity: "", source: "", rate: "", reference: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" };
   const [form, setForm] = useState(defaultForm);
   const [bagFilter, setBagFilter] = useState("all");
+  const [txnFilter, setTxnFilter] = useState("all");
 
   const fetchData = useCallback(async () => {
     try {
@@ -500,6 +501,17 @@ export const GunnyBags = ({ filters, user }) => {
               data-testid={`gunny-filter-${f.id}`}>{f.label}</Button>
           ))}
         </div>
+        <div className="flex gap-1 bg-slate-900 p-0.5 rounded border border-slate-700">
+          {[
+            { id: "all", label: "All" },
+            { id: "in", label: "IN" },
+            { id: "out", label: "OUT" },
+          ].map(f => (
+            <Button key={f.id} onClick={() => setTxnFilter(f.id)} variant={txnFilter === f.id ? "default" : "ghost"} size="sm"
+              className={`h-7 text-xs ${txnFilter === f.id ? (f.id === "in" ? "bg-green-600 text-white" : f.id === "out" ? "bg-red-600 text-white" : "bg-amber-500 text-slate-900") : "text-slate-400 hover:text-white"}`}
+              data-testid={`gunny-txn-${f.id}`}>{f.label}</Button>
+          ))}
+        </div>
         <div className="flex gap-2 ml-auto">
           <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
           <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="gunny-add-btn"><Plus className="w-4 h-4 mr-1" /> New Entry</Button>
@@ -516,9 +528,11 @@ export const GunnyBags = ({ filters, user }) => {
           {loading ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
           : entries.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi entry nahi hai.</TableCell></TableRow>
           : entries.filter(e => {
-              if (bagFilter === "mill") return !!e.linked_entry_id;
-              if (bagFilter === "market") return e.bag_type === "old" && !e.linked_entry_id;
-              if (bagFilter === "govt") return e.bag_type === "new";
+              if (bagFilter === "mill" && !e.linked_entry_id) return false;
+              if (bagFilter === "market" && (e.bag_type !== "old" || e.linked_entry_id)) return false;
+              if (bagFilter === "govt" && e.bag_type !== "new") return false;
+              if (txnFilter === "in" && e.txn_type !== "in") return false;
+              if (txnFilter === "out" && e.txn_type !== "out") return false;
               return true;
             }).map(e => (
             <TableRow key={e.id} className={`border-slate-700 ${e.txn_type === 'in' ? 'bg-green-900/5' : 'bg-red-900/5'}`} data-testid={`gunny-row-${e.id}`}>
