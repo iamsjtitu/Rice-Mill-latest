@@ -165,7 +165,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
         rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
         paid = payment_doc.get("paid_amount", 0) if payment_doc else 0
         
-        final_qntl = round(entry.get("final_w", 0) / 100, 2)
+        final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
         cash = entry.get("cash_paid", 0) or 0
         diesel = entry.get("diesel_paid", 0) or 0
         gross = round(final_qntl * rate, 2)
@@ -327,7 +327,7 @@ async def export_truck_owner_excel(
         rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
         paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
         
-        final_qntl = round(entry.get("final_w", 0) / 100, 2)
+        final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
         cash_taken = entry.get("cash_paid", 0) or 0
         diesel_taken = entry.get("diesel_paid", 0) or 0
         
@@ -467,7 +467,7 @@ async def export_truck_owner_pdf(
         rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
         paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
         
-        final_qntl = round(entry.get("final_w", 0) / 100, 2)
+        final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
         cash_taken = entry.get("cash_paid", 0) or 0
         diesel_taken = entry.get("diesel_paid", 0) or 0
         
