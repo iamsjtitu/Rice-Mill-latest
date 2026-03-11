@@ -18,51 +18,39 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 └── sync_backends.sh           # Sync script (desktop-app -> local-server)
 ```
 
-## Key Business Logic
+## Modules
+- Entries, Dashboard & Targets, Payments, Milling (CMR), Cash Book/Ledgers, DC & Payments, Reports, Pvt Trading, Mill Parts, Staff, FY Summary, Settings
 
-### Target & Excess Calculation
-- Target = Base QNTL + Cutting% (e.g., 500 + 5% = 525Q)
-- Stored in `mandi_targets` collection with `target_qntl`, `cutting_percent`, `expected_total`
-- Extra = max(0, actual_final_w_qntl - expected_total)
-- "Move to Pvt Trading" button appears when extra > 0
-- Creates entry in `private_paddy` with last truck details, rate entered by user
-
-### Private Trading
-- Two sections: Paddy Purchase (buy) and Rice Sale (sell)
-- Paddy Purchase: auto-calculations (QNTL, GBW, Mill W, Moisture Cut, Final W)
-- Rice Sale: simple qty * rate calculation
-- Both support payments, PDF/Excel exports, search filtering
-- Entries from "move-to-pvt" include `source: "agent_extra"`, `balance`, `final_qntl`, `kg`
-
-### Gunny Bags Schema
-- Uses `txn_type` (in/out), `quantity`, `source`, `reference`
-- Auto entries: BAG->IN, g_issued->OUT (bag_type=old)
-
-### Sorting
-All LIST endpoints sort `(date DESC, created_at DESC)` - newest first
+## Key Collections (MongoDB)
+- private_paddy, rice_sales, private_payments, entries, cash_transactions, gunny_bags, mandi_targets, dc_payments, staff, users, settings
 
 ## Credentials
 - Admin: `admin` / `admin123`
 
-## Completed (11-Mar-2026)
-- Fixed Agent & Mandi Report column alignment (G.Iss after G.Dep)
-- PDF/Excel export respects expanded mandis filter
-- Shared config system for 6 reports (agent_mandi, gunny_bags, dc_entries, msp_payments, private_paddy, rice_sales)
-- Sorting fix across all backends
-- Old gunny bag entries cleanup
-- Target calculation fixed: uses expected_total (target + cutting%) not just target
-- "Move to Pvt Trading" with last truck details, rate input, duplicate protection
+## Completed Features (11-Mar-2026)
+- Agent & Mandi Report: column alignment, filtered PDF/Excel exports
+- Shared config system for 7 reports (agent_mandi, gunny_bags, dc_entries, msp_payments, private_paddy, rice_sales, party_summary)
+- Application-wide sorting (newest first via compound sort)
+- Gunny bag data cleanup
+- Target calculation with cutting%
+- Move to Pvt Trading with last truck details
 - Removed "Outstanding" tab from Party Ledger
 - Fixed Final Wt Kg->QNTL display bug
 - **Private Trading Page Overhaul:**
-  - Separate columns for Party, Mandi, Agent in the table
-  - Balance calculation fixed (was showing 0 for move-to-pvt entries)
-  - final_qntl and kg fields added to move-to-pvt entries
+  - Separate columns for Party, Mandi, Agent
+  - Balance calculation fixed (move-to-pvt entries)
   - PDF/Excel export for Paddy Purchase and Rice Sales
-  - Search/filter functionality for both sections
-  - All 3 backends synced (Python, desktop-app, local-server)
-  - DB migration for existing agent_extra entries
+  - Search/filter functionality
+- **Party-wise Summary Tab (NEW):**
+  - Aggregated view: Paddy Purchase + Rice Sale per party
+  - 10 columns: Party, Mandi, Agent, Purchase Amt, Paid(Paddy), Paddy Bal, Sale Amt, Received(Rice), Rice Bal, Net Balance
+  - Date range filter (from/to)
+  - Party name search
+  - PDF/Excel export
+  - Summary cards with key totals
+  - TOTAL row with aggregation
+  - All 3 backends synced
 
 ## Backlog
-- P1: Extend shared configuration system to all other major reports (Daily Report, Cash Book, Party Ledger)
+- P1: Extend shared configuration system to remaining reports (Daily Report, Cash Book, Party Ledger)
 - P2: General code cleanup and refactoring
