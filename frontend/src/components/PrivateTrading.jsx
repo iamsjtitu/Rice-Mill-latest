@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  Plus, Trash2, RefreshCw, ShoppingCart, Wheat, IndianRupee, Eye, Calculator, Search, FileText, FileSpreadsheet, Download, Calendar, Users,
+  Plus, Trash2, RefreshCw, ShoppingCart, Wheat, IndianRupee, Eye, Calculator, Search, FileText, FileSpreadsheet, Download, Calendar, Users, CheckCircle, Undo2, History,
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
 
@@ -61,6 +61,7 @@ const PaddyPurchase = ({ filters, user }) => {
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
+  const [historyDialog, setHistoryDialog] = useState({ open: false, item: null, history: [] });
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], kms_year: CURRENT_KMS_YEAR, season: "Kharif",
     party_name: "", truck_no: "", rst_no: "", agent_name: "", mandi_name: "",
@@ -173,6 +174,30 @@ const PaddyPurchase = ({ filters, user }) => {
     } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
   };
 
+  const handleMarkPaid = async (item) => {
+    const bal = Math.round((item.total_amount || 0) - (item.paid_amount || 0));
+    if (!window.confirm(`${item.party_name} ko fully paid mark karna chahte hain? Balance Rs.${bal.toLocaleString()} clear hoga.`)) return;
+    try {
+      await axios.post(`${API}/private-paddy/${item.id}/mark-paid?username=${user.username}&role=${user.role}`);
+      toast.success("Mark Paid ho gaya!"); fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+  };
+
+  const handleUndoPaid = async (item) => {
+    if (!window.confirm(`${item.party_name} ka payment undo karna chahte hain? Sab reset ho jayega.`)) return;
+    try {
+      await axios.post(`${API}/private-paddy/${item.id}/undo-paid?username=${user.username}&role=${user.role}`);
+      toast.success("Undo ho gaya!"); fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+  };
+
+  const handleViewHistory = async (item) => {
+    try {
+      const res = await axios.get(`${API}/private-paddy/${item.id}/history`);
+      setHistoryDialog({ open: true, item, history: res.data.history || [] });
+    } catch { toast.error("History load nahi hua"); }
+  };
+
   const totals = useMemo(() => {
     const totalAmt = filtered.reduce((s, i) => s + (i.total_amount || 0), 0);
     const totalPaid = filtered.reduce((s, i) => s + (i.paid_amount || 0), 0);
@@ -261,21 +286,41 @@ const PaddyPurchase = ({ filters, user }) => {
                   <TableCell className="text-right text-white font-semibold text-sm">Rs.{(item.total_amount || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-emerald-400 text-sm">Rs.{(item.paid_amount || 0).toLocaleString()}</TableCell>
                   <TableCell className={`text-right font-semibold text-sm ${bal > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`paddy-balance-${item.id}`}>
-                    Rs.{Math.round(bal).toLocaleString()}
+                    <div className="flex flex-col items-end">
+                      <span>Rs.{Math.round(bal).toLocaleString()}</span>
+                      {item.payment_status === 'paid' && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full mt-0.5 font-bold">PAID</span>}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right text-blue-300 text-xs">{item.g_issued || '-'}</TableCell>
                   <TableCell className="text-right text-emerald-300 text-xs">{item.cash_paid ? `Rs.${item.cash_paid.toLocaleString()}` : '-'}</TableCell>
                   <TableCell className="text-right text-orange-300 text-xs">{item.diesel_paid ? `Rs.${item.diesel_paid.toLocaleString()}` : '-'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog({ open: true, item }); setPayForm({ ...payForm, date: new Date().toISOString().split('T')[0] }); }} data-testid={`paddy-pay-${item.id}`}>
-                        <IndianRupee className="w-3 h-3" />
+                      {item.payment_status !== 'paid' && (
+                        <>
+                          <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog({ open: true, item }); setPayForm({ ...payForm, date: new Date().toISOString().split('T')[0] }); }} data-testid={`paddy-pay-${item.id}`} title="Payment">
+                            <IndianRupee className="w-3 h-3" />
+                          </Button>
+                          {user.role === 'admin' && (
+                            <Button variant="ghost" size="sm" className="h-6 px-1 text-amber-400" onClick={() => handleMarkPaid(item)} data-testid={`paddy-markpaid-${item.id}`} title="Mark Paid">
+                              <CheckCircle className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      {item.payment_status === 'paid' && user.role === 'admin' && (
+                        <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleUndoPaid(item)} data-testid={`paddy-undo-${item.id}`} title="Undo Paid">
+                          <Undo2 className="w-3 h-3" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-6 px-1 text-purple-400" onClick={() => handleViewHistory(item)} data-testid={`paddy-history-${item.id}`} title="Payment History">
+                        <History className="w-3 h-3" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => handleEdit(item)} data-testid={`paddy-edit-${item.id}`}>
+                      <Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => handleEdit(item)} data-testid={`paddy-edit-${item.id}`} title="Edit">
                         <Eye className="w-3 h-3" />
                       </Button>
                       {user.role === 'admin' && (
-                        <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDelete(item.id)} data-testid={`paddy-del-${item.id}`}>
+                        <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDelete(item.id)} data-testid={`paddy-del-${item.id}`} title="Delete">
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       )}
@@ -446,6 +491,40 @@ const PaddyPurchase = ({ filters, user }) => {
               <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white flex-1" data-testid="paddy-pay-submit">Pay</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment History Dialog */}
+      <Dialog open={historyDialog.open} onOpenChange={(o) => setHistoryDialog(prev => ({ ...prev, open: o }))}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg" data-testid="paddy-history-dialog">
+          <DialogHeader><DialogTitle className="text-purple-400 flex items-center gap-2"><History className="w-5 h-5" /> Payment History - {historyDialog.item?.party_name}</DialogTitle></DialogHeader>
+          {historyDialog.item && (
+            <div className="text-xs text-slate-400 mb-3 flex gap-4">
+              <span>Total: <span className="text-white font-semibold">Rs.{historyDialog.item.total_amount?.toLocaleString()}</span></span>
+              <span>Paid: <span className="text-emerald-400 font-semibold">Rs.{historyDialog.item.paid_amount?.toLocaleString()}</span></span>
+              <span>Status: <span className={`font-semibold ${historyDialog.item.payment_status === 'paid' ? 'text-emerald-400' : 'text-amber-400'}`}>{historyDialog.item.payment_status === 'paid' ? 'PAID' : 'PENDING'}</span></span>
+            </div>
+          )}
+          {historyDialog.history.length === 0 ? (
+            <p className="text-slate-500 text-center py-6">Koi payment history nahi hai</p>
+          ) : (
+            <div className="overflow-y-auto max-h-[350px] space-y-2">
+              {historyDialog.history.map((h, i) => (
+                <Card key={h.id || i} className="bg-slate-700/50 border-slate-600">
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Rs.{h.amount?.toLocaleString()}</p>
+                      <p className="text-[10px] text-slate-400">{h.date} | {h.mode || 'cash'} {h.reference ? `| ${h.reference}` : ''}</p>
+                      {h.remark && <p className="text-[10px] text-slate-500 italic">{h.remark}</p>}
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${h.payment_type === 'paid' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                      {h.payment_type || 'paid'}
+                    </span>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

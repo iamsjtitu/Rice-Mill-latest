@@ -425,6 +425,94 @@ async def delete_private_payment(pay_id: str):
     return {"message": "Deleted", "id": pay_id}
 
 
+# ============ MARK PAID / UNDO / HISTORY ============
+
+@router.post("/private-paddy/{entry_id}/mark-paid")
+async def mark_pvt_paddy_paid(entry_id: str, username: str = "", role: str = ""):
+    """Mark pvt paddy entry as fully paid"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin paid mark kar sakta hai")
+    entry = await db.private_paddy.find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    total = float(entry.get("total_amount", 0) or 0)
+    already_paid = float(entry.get("paid_amount", 0) or 0)
+    remaining = round(total - already_paid, 2)
+    party = entry.get("party_name", "")
+    mandi = entry.get("mandi_name", "")
+    party_label = f"{party} - {mandi}" if party and mandi else party
+    qntl = entry.get("qntl", 0) or 0
+    rate = entry.get("rate", 0) or 0
+    if not rate and qntl:
+        rate = round(total / float(qntl), 2)
+    detail = _fmt_detail(qntl, rate) if qntl and rate else f"Rs.{total}"
+    # Update entry
+    await db.private_paddy.update_one({"id": entry_id}, {"$set": {
+        "paid_amount": total, "balance": 0, "payment_status": "paid",
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }})
+    # Create cash book + ledger entries for remaining balance
+    if remaining > 0:
+        mark_id = f"mark_paid:{entry_id[:8]}"
+        base = {
+            "date": entry.get("date", ""), "kms_year": entry.get("kms_year", ""),
+            "season": entry.get("season", ""), "created_by": username,
+            "linked_payment_id": mark_id,
+            "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        desc = f"{party_label} - {detail} (Mark Paid)"
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "account": "cash", "txn_type": "nikasi",
+            "category": party_label, "party_type": "Pvt Paddy Purchase",
+            "description": desc, "amount": remaining, "reference": mark_id, **base
+        })
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "nikasi",
+            "category": party_label, "party_type": "Pvt Paddy Purchase",
+            "description": desc, "amount": remaining, "reference": f"mark_paid_ledger:{entry_id[:8]}", **base
+        })
+    return {"success": True, "message": f"Marked paid - Rs.{remaining} cleared"}
+
+
+@router.post("/private-paddy/{entry_id}/undo-paid")
+async def undo_pvt_paddy_paid(entry_id: str, username: str = "", role: str = ""):
+    """Undo paid - reset all payments to 0"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf admin undo kar sakta hai")
+    entry = await db.private_paddy.find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    total = float(entry.get("total_amount", 0) or 0)
+    # Reset entry
+    await db.private_paddy.update_one({"id": entry_id}, {"$set": {
+        "paid_amount": 0, "balance": total, "payment_status": "pending",
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }})
+    # Delete all linked private_payments
+    await db.private_payments.delete_many({"ref_id": entry_id, "ref_type": "paddy_purchase"})
+    # Delete all linked cash book entries (from payments and mark-paid)
+    await db.cash_transactions.delete_many({"linked_payment_id": {"$regex": f"mark_paid:{entry_id[:8]}|mark_paid_ledger:{entry_id[:8]}"}})
+    # Also delete payment-linked cash entries
+    payments = await db.private_payments.find({"ref_id": entry_id}, {"_id": 0, "id": 1}).to_list(1000)
+    for p in payments:
+        await db.cash_transactions.delete_many({"linked_payment_id": p["id"]})
+    # Delete advance entry
+    await db.cash_transactions.delete_many({"linked_entry_id": entry_id, "reference": {"$regex": "pvt_paddy_adv"}})
+    return {"success": True, "message": "Payment undo - sab reset ho gaya"}
+
+
+@router.get("/private-paddy/{entry_id}/history")
+async def get_pvt_paddy_history(entry_id: str):
+    """Get payment history for a pvt paddy entry"""
+    payments = await db.private_payments.find(
+        {"ref_id": entry_id, "ref_type": "paddy_purchase"},
+        {"_id": 0}
+    ).sort([("created_at", -1)]).to_list(1000)
+    entry = await db.private_paddy.find_one({"id": entry_id}, {"_id": 0})
+    total_paid = float(entry.get("paid_amount", 0)) if entry else 0
+    return {"history": payments, "total_paid": total_paid}
+
+
 @router.get("/private-payments/fix-old-entries")
 async def fix_old_payment_cashbook_entries():
     """Fix ALL pvt paddy related cash_transactions descriptions to use 'qty @ Rs.rate' format."""

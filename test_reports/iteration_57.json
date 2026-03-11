@@ -1,0 +1,141 @@
+{
+  "summary": "Iteration 57: Mark Paid, Undo Paid, Payment History features for Pvt Trading Paddy Purchase - All 15 backend tests PASSED. All UI flows verified working correctly. Description format 'qty @ Rs.rate' confirmed in cash book entries.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration57_mark_paid_undo_history.py",
+    "/app/test_reports/pytest/pytest_results_iteration57.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Backend private_trading.py: mark_pvt_paddy_paid (line 430) - requires admin role, creates cash book entries when balance > 0",
+    "Backend private_trading.py: undo_pvt_paddy_paid (line 477) - resets paid_amount=0, balance=total, deletes linked payments",
+    "Backend private_trading.py: get_pvt_paddy_history (line 504) - returns payment history array with total_paid",
+    "Backend private_trading.py: _fmt_detail helper (line 17-21) - formats 'qty @ Rs.rate' with clean numbers",
+    "Frontend PrivateTrading.jsx: PaddyPurchase component has handleMarkPaid, handleUndoPaid, handleViewHistory handlers",
+    "Frontend correctly shows/hides buttons based on payment_status: Mark Paid + Payment buttons for pending, Undo button for paid"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_iteration57_mark_paid_undo_history.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100% - All Mark Paid/Undo/History flows working"
+  },
+
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+
+  "seed_data_creation": "Used existing Raju entry (id: 326b1eb2-1c7d-43e5-9b0c-f20f56a63dda) for testing",
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Pvt Trading Mark Paid/Undo/History features are fully functional. Raju entry (50Q @ Rs.1600, total Rs.80,000) is currently in 'paid' status with balance=0. Cash book entries show correct 'qty @ Rs.rate' format in descriptions.",
+
+  "verified_features": {
+    "history_endpoint": {
+      "endpoint": "GET /api/private-paddy/{id}/history",
+      "status": "PASSED",
+      "returns": "{ history: [], total_paid: number }",
+      "verified": "Returns payment history array and total paid amount"
+    },
+    "mark_paid_endpoint": {
+      "endpoint": "POST /api/private-paddy/{id}/mark-paid?username=admin&role=admin",
+      "status": "PASSED",
+      "requires": "admin role (403 without)",
+      "effects": "Sets payment_status='paid', balance=0, creates cash book entries if balance > 0"
+    },
+    "undo_paid_endpoint": {
+      "endpoint": "POST /api/private-paddy/{id}/undo-paid?username=admin&role=admin",
+      "status": "PASSED",
+      "requires": "admin role (403 without)",
+      "effects": "Sets payment_status='pending', paid_amount=0, balance=total_amount, deletes linked payments"
+    },
+    "ui_button_visibility": {
+      "status": "PASSED",
+      "when_pending": "Shows: Payment (₹), Mark Paid (✓), History, Edit, Delete",
+      "when_paid": "Shows: Undo (↶), History, Edit, Delete (no ₹ or ✓)"
+    },
+    "history_dialog": {
+      "status": "PASSED",
+      "data_testid": "paddy-history-dialog",
+      "shows": "Total, Paid, Status, and payment history list"
+    },
+    "toast_notifications": {
+      "mark_paid": "Mark Paid ho gaya! ✅",
+      "undo_paid": "Undo ho gaya! ✅"
+    },
+    "cashbook_description_format": {
+      "status": "PASSED",
+      "format": "'Party - Mandi - qty @ Rs.rate' e.g., 'Raju - Nanu - 50 @ Rs.1600'",
+      "verified_in": "Cash Book > Cash Transactions tab"
+    },
+    "party_summary_type_badge": {
+      "status": "PASSED",
+      "badge": "'Pvt Paddy Purchase' shown for pvt paddy parties in Cash Book > Party Summary"
+    }
+  },
+
+  "tests_executed": {
+    "test_01_history_endpoint_exists": "PASSED",
+    "test_02_history_returns_correct_structure": "PASSED",
+    "test_03_history_not_found_for_invalid_id": "PASSED",
+    "test_01_mark_paid_requires_admin_role": "PASSED",
+    "test_02_mark_paid_with_admin_role": "PASSED",
+    "test_03_verify_entry_status_after_mark_paid": "PASSED",
+    "test_01_undo_paid_requires_admin_role": "PASSED",
+    "test_02_undo_paid_with_admin_role": "PASSED",
+    "test_03_verify_entry_reset_after_undo": "PASSED",
+    "test_01_mark_paid_creates_cashbook_entries": "PASSED",
+    "test_01_verify_cashbook_description_format": "PASSED",
+    "test_01_private_paddy_list": "PASSED",
+    "test_02_private_payments_list": "PASSED",
+    "test_03_party_summary": "PASSED",
+    "test_final_restore_raju": "PASSED"
+  },
+
+  "ui_verification": {
+    "pvt_trading_paddy_purchase": {
+      "action_buttons": "PASSED - All 5 buttons visible (₹, ✓, ↺, edit, delete) based on status",
+      "raju_row": "PASSED - Shows correct data: 50Q, Rs.80,000, balance=Rs.0, PAID badge",
+      "amit_row": "PASSED - Shows Rs.789,837, balance=Rs.0"
+    },
+    "history_dialog": {
+      "opens": "PASSED - Opens when clicking History button (purple clock icon)",
+      "content": "PASSED - Shows Total, Paid, Status header; 'Koi payment history nahi hai' when empty"
+    },
+    "mark_paid_flow": {
+      "click": "PASSED - Confirmation prompt, then marks as paid",
+      "result": "Balance becomes Rs.0, PAID badge shows, Undo button appears",
+      "toast": "'Mark Paid ho gaya!'"
+    },
+    "undo_paid_flow": {
+      "click": "PASSED - Confirmation prompt, then undoes payment",
+      "result": "Balance returns to total, pending status, ₹ and ✓ buttons appear",
+      "toast": "'Undo ho gaya!'"
+    },
+    "cashbook_entries": {
+      "description_format": "PASSED - 'Raju - Nanu - 50 @ Rs.1600 (Mark Paid)'",
+      "party_type": "PASSED - 'Pvt Paddy Purchase' badge for all pvt paddy entries"
+    }
+  },
+
+  "test_run_timestamp": "2026-03-11T18:40:00Z"
+}
