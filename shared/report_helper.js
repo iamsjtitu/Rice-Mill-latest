@@ -7,8 +7,9 @@ function loadConfig() {
     return _config;
 }
 
-function getColumns(reportName) {
-    return loadConfig()[reportName].columns;
+function getColumns(reportName, subkey) {
+    subkey = subkey || 'columns';
+    return loadConfig()[reportName][subkey];
 }
 
 function fmtVal(value, type) {

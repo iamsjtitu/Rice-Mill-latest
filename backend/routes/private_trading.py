@@ -134,6 +134,25 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
         })
 
 
+
+@router.post("/private-paddy/migrate-cashbook")
+async def migrate_pvt_paddy_cashbook():
+    """One-time migration: create cash book + diesel entries for existing pvt paddy entries that don't have them."""
+    entries = await db.private_paddy.find({}, {"_id": 0}).to_list(10000)
+    migrated = 0
+    for doc in entries:
+        cash_paid = float(doc.get("cash_paid", 0) or 0)
+        diesel_paid = float(doc.get("diesel_paid", 0) or 0)
+        if cash_paid <= 0 and diesel_paid <= 0:
+            continue
+        existing = await db.cash_transactions.find_one({"linked_entry_id": doc["id"], "reference": {"$regex": "^pvt_paddy"}})
+        if existing:
+            continue
+        await _create_cashbook_diesel_for_pvt_paddy(doc, "migration")
+        migrated += 1
+    return {"message": f"Migrated {migrated} entries", "total_checked": len(entries)}
+
+
 @router.get("/private-paddy")
 async def get_private_paddy(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None):
     query = {}

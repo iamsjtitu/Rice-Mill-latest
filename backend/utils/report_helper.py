@@ -6,8 +6,8 @@ def load_config():
     with open(CONFIG_PATH) as f:
         return json.load(f)
 
-def get_columns(report_name):
-    return load_config()[report_name]["columns"]
+def get_columns(report_name, subkey="columns"):
+    return load_config()[report_name][subkey]
 
 def fmt_val(value, col_type):
     if col_type == "qntl":

@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from typing import Optional
 from datetime import datetime
 from database import db
+from utils.report_helper import get_columns, fmt_val, get_pdf_headers, get_pdf_widths_mm, get_excel_headers, get_entry_row
 import io
 
 router = APIRouter()
@@ -326,30 +327,12 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     ]))
     elements.append(cd_t)
     if p["details"]:
-        if is_detail:
-            elements.append(make_table(
-                ['Truck', 'Agent', 'Mandi', 'RST', 'TP', 'QNTL', 'Bags', 'G.Dep', 'GBW', 'P.Pkt', 'P.Cut', 'Mill W', 'M%', 'M.Cut', 'C%', 'D/D/P', 'Final W', 'G.Iss', 'Cash', 'Diesel'],
-                [[d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
-                  d.get("tp_no",""),
-                  f"{d.get('kg',0)/100:.2f}", str(d.get("bags",0)), str(d.get("g_deposite",0)),
-                  f"{d.get('gbw_cut',0)/100:.2f}", str(d.get("plastic_bag",0)),
-                  f"{d.get('p_pkt_cut',0)/100:.2f}", f"{d.get('mill_w',0)/100:.2f}",
-                  str(d.get("moisture",0)), f"{(d.get('moisture_cut',0) or 0)/100:.2f}",
-                  f"{d.get('cutting_percent',0)}%", str(d.get("disc_dust_poll",0)),
-                  f"{d.get('final_w',0)/100:.2f}",
-                  str(d.get("g_issued",0)), str(d.get("cash_paid",0)), str(d.get("diesel_paid",0))] for d in p["details"]],
-                [42, 35, 38, 24, 24, 30, 24, 24, 28, 24, 26, 30, 22, 26, 24, 24, 30, 24, 30, 30],
-                font_size=6
-            ))
-        else:
-            elements.append(make_table(
-                ['Truck', 'Mandi', 'Agent', 'QNTL', 'Bags', 'Mill W', 'Final W', 'Cash', 'Diesel'],
-                [[d.get("truck_no",""), d.get("mandi",""), d.get("agent",""),
-                  f"{d.get('kg',0)/100:.2f}", str(d.get("bags",0)),
-                  f"{d.get('mill_w',0)/100:.2f}", f"{d.get('final_w',0)/100:.2f}",
-                  str(d.get("cash_paid",0)), str(d.get("diesel_paid",0))] for d in p["details"]],
-                [75, 70, 65, 60, 48, 65, 65, 60, 60]
-            ))
+        col_key = "detail_mode_columns" if is_detail else "summary_mode_columns"
+        daily_cols = get_columns("daily_paddy_entries_report", col_key)
+        pdf_hdrs = get_pdf_headers(daily_cols)
+        pdf_widths = get_pdf_widths_mm(daily_cols)
+        pdf_rows = [[str(fmt_val(d.get(c["field"], 0), c["type"])) for c in daily_cols] for d in p["details"]]
+        elements.append(make_table(pdf_hdrs, pdf_rows, pdf_widths, font_size=6 if is_detail else 7))
     elements.append(Spacer(1, 4))
 
     # ===== MILLING =====
@@ -680,25 +663,13 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     write_sub(f"Total Mill W(Q): {p.get('total_mill_w',0)/100:.2f} | Bags: {p['total_bags']} | Final W(Q): {p['total_final_w']/100:.2f}")
     write_sub(f"Bag Dep: {p.get('total_g_deposite',0)} | Bag Issued: {p.get('total_g_issued',0)} | Cash: Rs.{p.get('total_cash_paid',0):,.0f} | Diesel: Rs.{p.get('total_diesel_paid',0):,.0f}")
     if p["details"]:
-        if is_detail:
-            write_headers(['Truck', 'Agent', 'Mandi', 'RST', 'TP', 'QNTL', 'Bags', 'G.Dep', 'GBW', 'P.Pkt', 'P.Cut', 'Mill W', 'M%', 'M.Cut', 'C%', 'D/D/P', 'Final W', 'G.Iss', 'Cash', 'Diesel'])
-            for d in p["details"]:
-                write_row([d.get("truck_no",""), d.get("agent",""), d.get("mandi",""), d.get("rst_no",""),
-                    d.get("tp_no",""),
-                    round(d.get("kg",0)/100, 2), d.get("bags",0), d.get("g_deposite",0),
-                    round(d.get("gbw_cut",0)/100, 2), d.get("plastic_bag",0),
-                    round(d.get("p_pkt_cut",0)/100, 2), round(d.get("mill_w",0)/100, 2),
-                    d.get("moisture",0), round((d.get("moisture_cut",0) or 0)/100, 2),
-                    d.get("cutting_percent",0), d.get("disc_dust_poll",0),
-                    round(d.get("final_w",0)/100, 2),
-                    d.get("g_issued",0), d.get("cash_paid",0), d.get("diesel_paid",0)])
-        else:
-            write_headers(['Truck', 'Mandi', 'Agent', 'QNTL', 'Bags', 'Mill W', 'Final W', 'Cash', 'Diesel'])
-            for d in p["details"]:
-                write_row([d.get("truck_no",""), d.get("mandi",""), d.get("agent",""),
-                    round(d.get("kg",0)/100, 2), d.get("bags",0),
-                    round(d.get("mill_w",0)/100, 2), round(d.get("final_w",0)/100, 2),
-                    d.get("cash_paid",0), d.get("diesel_paid",0)])
+        col_key = "detail_mode_columns" if is_detail else "summary_mode_columns"
+        daily_cols = get_columns("daily_paddy_entries_report", col_key)
+        write_headers(get_excel_headers(daily_cols))
+        for d in p["details"]:
+            write_row([fmt_val(d.get(c["field"], 0), c["type"]) for c in daily_cols])
+        for i, c in enumerate(daily_cols, 1):
+            ws.column_dimensions[chr(64 + i) if i <= 26 else 'A'].width = c.get("width_excel", 12)
     row += 1
 
     # Milling

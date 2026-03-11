@@ -1,6 +1,7 @@
 const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
+const { getColumns, fmtVal, getPdfHeaders, getPdfWidthsMm, getExcelHeaders, getEntryRow } = require('../../shared/report_helper');
 
 module.exports = function(database) {
 
@@ -315,29 +316,15 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
   );
 
   if (p.details.length) {
-    if (isDetail) {
-      drawTable(
-        ['Truck','Agent','Mandi','RST','TP','QNTL','Bags','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss','Cash','Diesel'],
-        p.details.map(d => [
-          d.truck_no, d.agent, d.mandi, d.rst_no, d.tp_no,
-          (d.kg/100).toFixed(2), d.bags, d.g_deposite, ((d.gbw_cut||0)/100).toFixed(2),
-          d.plastic_bag, ((d.p_pkt_cut||0)/100).toFixed(2), (d.mill_w/100).toFixed(2),
-          d.moisture, ((d.moisture_cut||0)/100).toFixed(2), `${d.cutting_percent||0}%`, d.disc_dust_poll,
-          (d.final_w/100).toFixed(2), d.g_issued, d.cash_paid, d.diesel_paid
-        ]),
-        [42,35,38,24,24,30,24,24,28,24,26,30,22,26,24,24,30,24,30,30], { fontSize: 6 }
-      );
-    } else {
-      drawTable(
-        ['Truck','Mandi','Agent','QNTL','Bags','Mill W','Final W','Cash','Diesel'],
-        p.details.map(d => [
-          d.truck_no, d.mandi, d.agent,
-          (d.kg/100).toFixed(2), d.bags, (d.mill_w/100).toFixed(2),
-          (d.final_w/100).toFixed(2), d.cash_paid, d.diesel_paid
-        ]),
-        [65,60,55,50,40,55,55,55,55]
-      );
-    }
+    const colKey = isDetail ? 'detail_mode_columns' : 'summary_mode_columns';
+    const dailyCols = getColumns('daily_paddy_entries_report', colKey);
+    const pdfHdrs = getPdfHeaders(dailyCols);
+    const pdfWidths = getPdfWidthsMm(dailyCols);
+    drawTable(
+      pdfHdrs,
+      p.details.map(d => dailyCols.map(c => String(fmtVal(d[c.field], c.type)))),
+      pdfWidths, { fontSize: isDetail ? 6 : 7 }
+    );
   }
 
   // ===== 2. MILLING =====
@@ -573,23 +560,10 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   writeSummary(`Bag Dep: ${p.total_g_deposite} | Bag Issued: ${p.total_g_issued} | Cash: Rs.${fmtAmt(p.total_cash_paid)} | Diesel: Rs.${fmtAmt(p.total_diesel_paid)}`);
 
   if (p.details.length) {
-    if (isDetail) {
-      writeHeaders(['Truck','Agent','Mandi','RST','TP','QNTL','Bags','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss','Cash','Diesel']);
-      p.details.forEach(d => writeRow([
-        d.truck_no, d.agent, d.mandi, d.rst_no, d.tp_no,
-        +(d.kg/100).toFixed(2), d.bags, d.g_deposite, +(d.gbw_cut/100).toFixed(2),
-        d.plastic_bag, +(d.p_pkt_cut/100).toFixed(2), +(d.mill_w/100).toFixed(2),
-        d.moisture, +((d.moisture_cut||0)/100).toFixed(2), `${d.cutting_percent}%`, d.disc_dust_poll,
-        +(d.final_w/100).toFixed(2), d.g_issued, d.cash_paid, d.diesel_paid
-      ]));
-    } else {
-      writeHeaders(['Truck','Mandi','Agent','QNTL','Bags','Mill W','Final W','Cash','Diesel']);
-      p.details.forEach(d => writeRow([
-        d.truck_no, d.mandi, d.agent,
-        +(d.kg/100).toFixed(2), d.bags, +(d.mill_w/100).toFixed(2),
-        +(d.final_w/100).toFixed(2), d.cash_paid, d.diesel_paid
-      ]));
-    }
+    const colKey = isDetail ? 'detail_mode_columns' : 'summary_mode_columns';
+    const dailyCols = getColumns('daily_paddy_entries_report', colKey);
+    writeHeaders(getExcelHeaders(dailyCols));
+    p.details.forEach(d => writeRow(dailyCols.map(c => fmtVal(d[c.field], c.type))));
   }
   row++;
 
