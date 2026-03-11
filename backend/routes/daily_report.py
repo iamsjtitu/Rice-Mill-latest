@@ -304,7 +304,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         [f"{p.get('total_mill_w', 0)/100:.2f}", str(p['total_bags']), f"{p['total_final_w']/100:.2f}",
          str(p.get('total_g_deposite', 0)), str(p.get('total_g_issued', 0))]
     ]
-    st = RTable(summary_data, colWidths=[100, 90, 100, 80, 80])
+    st = RTable(summary_data, colWidths=[160, 160, 160, 160, 160])
     st.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0f2fe')),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
@@ -317,7 +317,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         ['Total Cash Paid', 'Total Diesel Paid'],
         [f"Rs.{_fmt_amt(p.get('total_cash_paid', 0))}", f"Rs.{_fmt_amt(p.get('total_diesel_paid', 0))}"]
     ]
-    cd_t = RTable(cash_diesel_row, colWidths=[250, 250])
+    cd_t = RTable(cash_diesel_row, colWidths=[400, 400])
     cd_t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dcfce7')),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
@@ -338,7 +338,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                   f"{d.get('cutting_percent',0)}%", str(d.get("disc_dust_poll",0)),
                   f"{d.get('final_w',0)/100:.2f}",
                   str(d.get("g_issued",0)), str(d.get("cash_paid",0)), str(d.get("diesel_paid",0))] for d in p["details"]],
-                [42, 35, 38, 24, 24, 30, 24, 24, 28, 24, 26, 30, 22, 26, 24, 24, 30, 24, 30, 30],
+                [50, 42, 45, 30, 30, 36, 30, 30, 34, 30, 32, 36, 28, 32, 30, 30, 36, 30, 36, 36],
                 font_size=6
             ))
         else:
@@ -348,7 +348,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                   f"{d.get('kg',0)/100:.2f}", str(d.get("bags",0)),
                   f"{d.get('mill_w',0)/100:.2f}", f"{d.get('final_w',0)/100:.2f}",
                   str(d.get("cash_paid",0)), str(d.get("diesel_paid",0))] for d in p["details"]],
-                [65, 60, 55, 50, 40, 55, 55, 55, 55]
+                [100, 90, 80, 75, 60, 80, 80, 75, 75]
             ))
     elements.append(Spacer(1, 4))
 
@@ -358,7 +358,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         elements.append(Paragraph(f"2. Milling ({ml['count']})", section_style))
         sm = [['Paddy In (Q)', 'Rice Out (Q)', 'FRK Used (Q)'],
               [str(ml['paddy_input_qntl']), str(ml['rice_output_qntl']), str(ml['frk_used_qntl'])]]
-        st2 = RTable(sm, colWidths=[170, 170, 170])
+        st2 = RTable(sm, colWidths=[266, 266, 266])
         st2.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fef3c7')),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
@@ -371,7 +371,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 ['Paddy In (Q)', 'Rice Out (Q)', 'Type', 'FRK (Q)', 'CMR Ready (Q)', 'Outturn%'],
                 [[str(d.get("paddy_in",0)), str(d.get("rice_out",0)), d.get("type",""),
                   str(d.get("frk",0)), str(d.get("cmr_ready",0)), str(d.get("outturn",0))] for d in ml["details"]],
-                [75, 75, 70, 60, 75, 60]
+                [120, 120, 110, 100, 120, 100]
             ))
         elements.append(Spacer(1, 4))
 
@@ -388,13 +388,13 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                     ['Party', 'Variety', 'KG', 'Rate', 'Amount', 'Vehicle'],
                     [[d.get("party",""), d.get("variety",""), str(d.get("kg",0)), str(d.get("rate",0)),
                       f"Rs.{_fmt_amt(d.get('amount',0))}", d.get("vehicle","")] for d in pp["details"]],
-                    [90, 60, 55, 55, 75, 65]
+                    [160, 110, 90, 90, 120, 110]
                 ))
             elif pp["details"]:
                 elements.append(make_table(
                     ['Party', 'KG', 'Amount'],
                     [[d["party"], str(d["kg"]), f"Rs.{_fmt_amt(d['amount'])}"] for d in pp["details"]],
-                    [200, 100, 120]
+                    [300, 150, 180]
                 ))
         if rs["count"]:
             elements.append(Spacer(1, 4))
@@ -405,13 +405,13 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                     ['Party', 'Qntl', 'Type', 'Rate', 'Amount', 'Vehicle'],
                     [[d.get("party",""), str(d.get("qntl",0)), d.get("type",""), str(d.get("rate",0)),
                       f"Rs.{_fmt_amt(d.get('amount',0))}", d.get("vehicle","")] for d in rs["details"]],
-                    [90, 55, 60, 55, 75, 65]
+                    [160, 90, 110, 90, 120, 110]
                 ))
             elif rs["details"]:
                 elements.append(make_table(
                     ['Party', 'Qntl', 'Type', 'Amount'],
                     [[d["party"], str(d["qntl"]), d["type"], f"Rs.{_fmt_amt(d['amount'])}"] for d in rs["details"]],
-                    [150, 80, 90, 100]
+                    [230, 130, 140, 150]
                 ))
         elements.append(Spacer(1, 4))
 
@@ -423,7 +423,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         ['Cash', f"Rs.{_fmt_amt(cf['cash_jama'])}", f"Rs.{_fmt_amt(cf['cash_nikasi'])}", f"Rs.{_fmt_amt(cf['net_cash'])}"],
         ['Bank', f"Rs.{_fmt_amt(cf['bank_jama'])}", f"Rs.{_fmt_amt(cf['bank_nikasi'])}", f"Rs.{_fmt_amt(cf['net_bank'])}"],
     ]
-    cft = RTable(cf_sum, colWidths=[80, 130, 130, 130])
+    cft = RTable(cf_sum, colWidths=[120, 220, 220, 220])
     cf_style = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dcfce7')),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
@@ -439,13 +439,13 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 ['Description', 'Party', 'Category', 'Type', 'Account', 'Amount'],
                 [[d.get("desc",""), d.get("party",""), d.get("category",""), d.get("type","").upper(),
                   d.get("account","").upper(), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in cf["details"]],
-                [120, 70, 55, 45, 45, 70]
+                [200, 130, 110, 80, 80, 110]
             ))
         else:
             elements.append(make_table(
                 ['Description', 'Type', 'Account', 'Amount'],
                 [[d["desc"], d["type"].upper(), d["account"].upper(), f"Rs.{_fmt_amt(d['amount'])}"] for d in cf["details"]],
-                [190, 80, 80, 100]
+                [350, 120, 120, 150]
             ))
     elements.append(Spacer(1, 4))
 
@@ -456,7 +456,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         ['MSP Received', 'Pvt Paddy Paid', 'Rice Sale Received'],
         [f"Rs.{_fmt_amt(pay['msp_received'])}", f"Rs.{_fmt_amt(pay['pvt_paddy_paid'])}", f"Rs.{_fmt_amt(pay['rice_sale_received'])}"]
     ]
-    pt = RTable(pay_data, colWidths=[170, 170, 170])
+    pt = RTable(pay_data, colWidths=[266, 266, 266])
     pt.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e7ff')),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
@@ -469,12 +469,12 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             elements.append(Paragraph("<b>MSP Payment Details:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
             elements.append(make_table(['Agent', 'Mandi', 'Amount'],
                 [[d.get("agent",""), d.get("mandi",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in pay["msp_details"]],
-                [180, 150, 120]))
+                [300, 260, 200]))
         if pay.get("pvt_payment_details"):
             elements.append(Paragraph("<b>Private Payment Details:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
             elements.append(make_table(['Party', 'Type', 'Mode', 'Amount'],
                 [[d.get("party",""), d.get("ref_type",""), d.get("mode",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in pay["pvt_payment_details"]],
-                [140, 100, 80, 100]))
+                [250, 180, 140, 180]))
     elements.append(Spacer(1, 4))
 
     # ===== PUMP ACCOUNT =====
@@ -485,7 +485,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             ['Total Diesel', 'Total Paid', 'Balance'],
             [f"Rs.{_fmt_amt(pa.get('total_diesel', 0))}", f"Rs.{_fmt_amt(pa.get('total_paid', 0))}", f"Rs.{_fmt_amt(pa.get('balance', 0))}"]
         ]
-        pat = RTable(pa_sum, colWidths=[170, 170, 170])
+        pat = RTable(pa_sum, colWidths=[266, 266, 266])
         pat.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fff7ed')),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
@@ -498,7 +498,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             [[d.get("pump",""), "PAID" if d.get("txn_type") in ("payment","credit") else "DIESEL",
               d.get("truck_no",""), d.get("mandi",""), d.get("desc",""),
               f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in pa["details"]],
-            [60, 40, 60, 60, 170, 60]
+            [110, 70, 100, 100, 260, 110]
         ))
         elements.append(Spacer(1, 4))
 
@@ -511,7 +511,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 ['DC No', 'Godown', 'Vehicle', 'Qntl', 'Bags'],
                 [[d.get("dc_no",""), d.get("godown",""), d.get("vehicle",""),
                   str(d.get("qntl",0)), str(d.get("bags",0))] for d in dc["details"]],
-                [80, 100, 100, 80, 80]
+                [140, 180, 160, 140, 120]
             ))
 
     # ===== BY-PRODUCTS =====
@@ -523,7 +523,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 ['Type', 'Buyer', 'Qty', 'Rate', 'Amount'],
                 [[d.get("type",""), d.get("buyer",""), str(d.get("qty",0)),
                   str(d.get("rate",0)), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in bp["details"]],
-                [90, 110, 70, 70, 90]
+                [160, 180, 120, 120, 150]
             ))
 
     # ===== FRK =====
@@ -535,7 +535,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 ['Party', 'Qntl', 'Rate', 'Amount'],
                 [[d.get("party",""), str(d.get("qntl",0)), str(d.get("rate",0)),
                   f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in fk["details"]],
-                [150, 90, 90, 100]
+                [250, 150, 150, 180]
             ))
 
     # ===== MILL PARTS STOCK =====
@@ -548,7 +548,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 ['Part', 'Qty', 'Rate', 'Party', 'Bill No', 'Amount'],
                 [[d.get("part",""), str(d.get("qty",0)), str(d.get("rate",0)),
                   d.get("party",""), d.get("bill_no",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in mp["in_details"]],
-                [80, 45, 55, 80, 60, 70]
+                [140, 80, 90, 140, 110, 120]
             ))
         if mp["used_details"]:
             elements.append(Spacer(1, 3))
@@ -556,7 +556,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             elements.append(make_table(
                 ['Part', 'Qty', 'Remark'],
                 [[d.get("part",""), str(d.get("qty",0)), d.get("remark","")] for d in mp["used_details"]],
-                [150, 80, 200]
+                [250, 130, 350]
             ))
 
     # ===== STAFF ATTENDANCE =====
@@ -567,7 +567,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             ['Present', 'Half Day', 'Holiday', 'Absent', 'Not Marked'],
             [str(sa.get('present', 0)), str(sa.get('half_day', 0)), str(sa.get('holiday', 0)), str(sa.get('absent', 0)), str(sa.get('not_marked', 0))]
         ]
-        sat = RTable(sa_sum, colWidths=[95, 95, 95, 95, 95])
+        sat = RTable(sa_sum, colWidths=[160, 160, 160, 160, 160])
         sat.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dbeafe')),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
@@ -580,7 +580,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             elements.append(make_table(
                 ['Staff Name', 'Status'],
                 [[d.get("name",""), status_map.get(d.get("status",""), d.get("status",""))] for d in sa["details"]],
-                [250, 100]
+                [400, 200]
             ))
 
     # ===== CASH TRANSACTIONS =====
@@ -593,7 +593,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             [f"Rs.{_fmt_amt(ct.get('total_jama', 0))}", f"Rs.{_fmt_amt(ct.get('total_nikasi', 0))}",
              f"Rs.{_fmt_amt(ct.get('total_jama', 0) - ct.get('total_nikasi', 0))}"]
         ]
-        ctt = RTable(ct_sum, colWidths=[170, 170, 170])
+        ctt = RTable(ct_sum, colWidths=[266, 266, 266])
         ctt.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fef3c7')),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
@@ -606,11 +606,11 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             ct_rows = []
             for d in ct["details"]:
                 txn_label = "JAMA" if d.get("txn_type") == "jama" else "NIKASI"
-                row = [d.get("date", "")[:10], d.get("party_name", "")[:20], txn_label, f"Rs.{_fmt_amt(d.get('amount', 0))}"]
+                row = [d.get("date", "")[:10], d.get("party_name", ""), txn_label, f"Rs.{_fmt_amt(d.get('amount', 0))}"]
                 if is_detail:
-                    row.append(d.get("description", "")[:35])
+                    row.append(d.get("description", ""))
                 ct_rows.append(row)
-            ct_widths = [55, 90, 45, 70, 150] if is_detail else [70, 150, 55, 90]
+            ct_widths = [80, 160, 70, 120, 310] if is_detail else [120, 300, 100, 180]
             elements.append(make_table(ct_headers, ct_rows, ct_widths))
         elements.append(Spacer(1, 4))
 
