@@ -33,6 +33,9 @@ async def create_private_paddy(data: dict, username: str = "", role: str = ""):
         "moisture": float(data.get("moisture", 0)),
         "cutting_percent": float(data.get("cutting_percent", 0)),
         "disc_dust_poll": float(data.get("disc_dust_poll", 0)),
+        "g_issued": int(float(data.get("g_issued", 0) or 0)),
+        "cash_paid": float(data.get("cash_paid", 0) or 0),
+        "diesel_paid": float(data.get("diesel_paid", 0) or 0),
         "remark": data.get("remark", ""),
         "created_by": username,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -55,7 +58,37 @@ async def create_private_paddy(data: dict, username: str = "", role: str = ""):
     doc["balance"] = round(doc["total_amount"] - doc["paid_amount"], 2)
     await db.private_paddy.insert_one(doc)
     doc.pop("_id", None)
+    # Auto gunny bag entries
+    await _create_gunny_entries_for_pvt_paddy(doc, username)
     return doc
+
+
+async def _create_gunny_entries_for_pvt_paddy(doc, username=""):
+    """Auto-create gunny bag entries for bag (IN) and g_issued (OUT) in a pvt paddy entry."""
+    entry_id = doc["id"]
+    party = doc.get("party_name", "")
+    agent = doc.get("agent_name", "")
+    mandi = doc.get("mandi_name", "")
+    source = f"Pvt: {party}" if party else "Pvt Paddy"
+    if agent and mandi:
+        source = f"Pvt: {agent} - {mandi}"
+    truck = doc.get("truck_no", "")
+    base = {
+        "bag_type": "old", "rate": 0, "amount": 0, "notes": "Auto from Pvt Paddy",
+        "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+        "created_by": username or "system", "linked_entry_id": entry_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    bag_in = int(float(doc.get("bag", 0) or 0))
+    if bag_in > 0:
+        entry = {**base, "id": str(uuid.uuid4()), "date": doc.get("date", ""),
+                 "txn_type": "in", "quantity": bag_in, "source": source, "reference": truck}
+        await db.gunny_bags.insert_one(entry)
+    g_issued = int(float(doc.get("g_issued", 0) or 0))
+    if g_issued > 0:
+        entry = {**base, "id": str(uuid.uuid4()), "date": doc.get("date", ""),
+                 "txn_type": "out", "quantity": g_issued, "source": source, "reference": truck}
+        await db.gunny_bags.insert_one(entry)
 
 @router.get("/private-paddy")
 async def get_private_paddy(kms_year: Optional[str] = None, season: Optional[str] = None, party_name: Optional[str] = None):
@@ -67,12 +100,14 @@ async def get_private_paddy(kms_year: Optional[str] = None, season: Optional[str
     return items
 
 @router.put("/private-paddy/{item_id}")
-async def update_private_paddy(item_id: str, data: dict):
+async def update_private_paddy(item_id: str, data: dict, username: str = ""):
     existing = await db.private_paddy.find_one({"id": item_id})
     if not existing: raise HTTPException(status_code=404, detail="Not found")
     update_data = {k: v for k, v in data.items() if v is not None}
-    for f in ["kg", "bag", "rate_per_qntl", "g_deposite", "gbw_cut", "plastic_bag", "moisture", "cutting_percent", "disc_dust_poll", "paid_amount"]:
-        if f in update_data: update_data[f] = float(update_data[f]) if f != "bag" and f != "plastic_bag" else int(update_data[f])
+    for f in ["kg", "rate_per_qntl", "g_deposite", "gbw_cut", "moisture", "cutting_percent", "disc_dust_poll", "paid_amount", "cash_paid", "diesel_paid"]:
+        if f in update_data: update_data[f] = float(update_data[f])
+    for f in ["bag", "plastic_bag", "g_issued"]:
+        if f in update_data: update_data[f] = int(float(update_data[f] or 0))
     merged = {**existing, **update_data}
     merged["qntl"] = round(merged["kg"] / 100, 2) if merged["kg"] else 0
     merged["mill_w"] = round(merged["kg"] - merged["gbw_cut"], 2)
@@ -89,12 +124,16 @@ async def update_private_paddy(item_id: str, data: dict):
     merged["updated_at"] = datetime.now(timezone.utc).isoformat()
     merged.pop("_id", None)
     await db.private_paddy.update_one({"id": item_id}, {"$set": merged})
+    # Re-create gunny bag entries
+    await db.gunny_bags.delete_many({"linked_entry_id": item_id})
+    await _create_gunny_entries_for_pvt_paddy(merged, username)
     return merged
 
 @router.delete("/private-paddy/{item_id}")
 async def delete_private_paddy(item_id: str):
     result = await db.private_paddy.delete_one({"id": item_id})
     if result.deleted_count == 0: raise HTTPException(status_code=404, detail="Not found")
+    await db.gunny_bags.delete_many({"linked_entry_id": item_id})
     return {"message": "Deleted", "id": item_id}
 
 # --- Rice Sale ---
@@ -274,7 +313,7 @@ async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Opt
         c.fill = hf; c.font = hfont; c.alignment = Alignment(horizontal='center'); c.border = tb
 
     row = 4
-    totals = {"total_kg": 0, "total_final_qntl": 0, "total_amount": 0, "total_paid": 0, "total_balance": 0}
+    totals = {"total_kg": 0, "total_final_qntl": 0, "total_amount": 0, "total_paid": 0, "total_balance": 0, "total_g_issued": 0, "total_cash": 0, "total_diesel": 0}
     for item in items:
         vals = get_entry_row(item, cols)
         for col_idx, v in enumerate(vals, 1):
@@ -286,6 +325,9 @@ async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Opt
         totals["total_amount"] += item.get("total_amount", 0) or 0
         totals["total_paid"] += item.get("paid_amount", 0) or 0
         totals["total_balance"] += item.get("balance", 0) or 0
+        totals["total_g_issued"] += item.get("g_issued", 0) or 0
+        totals["total_cash"] += item.get("cash_paid", 0) or 0
+        totals["total_diesel"] += item.get("diesel_paid", 0) or 0
         row += 1
 
     # Totals row
@@ -345,7 +387,7 @@ async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optio
     elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
 
     table_data = [headers]
-    totals = {"total_kg": 0, "total_final_qntl": 0, "total_amount": 0, "total_paid": 0, "total_balance": 0}
+    totals = {"total_kg": 0, "total_final_qntl": 0, "total_amount": 0, "total_paid": 0, "total_balance": 0, "total_g_issued": 0, "total_cash": 0, "total_diesel": 0}
     for item in items:
         table_data.append([str(v) for v in get_entry_row(item, cols)])
         totals["total_kg"] += item.get("kg", 0) or 0
@@ -353,6 +395,9 @@ async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optio
         totals["total_amount"] += item.get("total_amount", 0) or 0
         totals["total_paid"] += item.get("paid_amount", 0) or 0
         totals["total_balance"] += item.get("balance", 0) or 0
+        totals["total_g_issued"] += item.get("g_issued", 0) or 0
+        totals["total_cash"] += item.get("cash_paid", 0) or 0
+        totals["total_diesel"] += item.get("diesel_paid", 0) or 0
     for k in totals: totals[k] = round(totals[k], 2)
     total_vals = get_total_row(totals, cols)
     total_row = []

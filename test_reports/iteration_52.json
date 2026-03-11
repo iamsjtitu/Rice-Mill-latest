@@ -1,0 +1,109 @@
+{
+  "summary": "Iteration 52: Private Paddy New Features - All 15 backend tests PASSED. Verified g_issued, cash_paid, diesel_paid fields, auto gunny bag creation/update/delete, and select-all/bulk delete UI elements.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dialog components", "issues": ["Console warning: Missing Description or aria-describedby for DialogContent - accessibility improvement needed"]}
+    ]
+  },
+  
+  "test_report_links": [
+    "/app/backend/tests/test_iteration52_pvt_paddy_features.py",
+    "/app/test_reports/pytest/pytest_results_iteration52.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [
+    "Backend: POST /api/private-paddy correctly stores and returns g_issued, cash_paid, diesel_paid fields",
+    "Backend: _create_gunny_entries_for_pvt_paddy() correctly creates 2 gunny entries - IN (bag qty) and OUT (g_issued qty)",
+    "Backend: PUT /api/private-paddy/{id} re-creates gunny entries with updated values (delete old, create new)",
+    "Backend: DELETE /api/private-paddy/{id} cascades delete to linked gunny entries via linked_entry_id",
+    "Frontend: Form dialog has all 3 new fields: pvt-paddy-g-issued, pvt-paddy-cash-paid, pvt-paddy-diesel-paid",
+    "Frontend: Table displays G.Iss, Cash, Diesel columns in header",
+    "Frontend: Select-all checkbox working (data-testid=paddy-select-all, rice-select-all)",
+    "Frontend: Bulk delete button appears when items selected (data-testid=paddy-bulk-delete)",
+    "Config: report_config.json has 14 columns including g_issued, cash_paid, diesel_paid with proper alignment and totals"
+  ],
+  
+  "updated_files": [
+    "/app/backend/tests/test_iteration52_pvt_paddy_features.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100% - All UI elements verified"
+  },
+  
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+  
+  "seed_data_creation": "Test paddy entries created and cleaned up during backend tests",
+  
+  "retest_needed": false,
+  
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "New private paddy fields (g_issued, cash_paid, diesel_paid) fully tested. Auto gunny bag creation verified with linked_entry_id tracking. Select-all checkboxes and bulk delete buttons working in both Paddy Purchase and Rice Sale tables. Existing entry: Annu (Utkela) from move-to-pvt feature.",
+  
+  "verified_features": {
+    "new_fields": {
+      "g_issued": "PASSED - Stored, returned, displayed in form and table",
+      "cash_paid": "PASSED - Stored, returned, displayed in form and table",
+      "diesel_paid": "PASSED - Stored, returned, displayed in form and table"
+    },
+    "auto_gunny_entries": {
+      "create": "PASSED - Creating paddy with bag=50, g_issued=10 creates 2 gunny entries (IN:50, OUT:10)",
+      "update": "PASSED - Updating paddy re-creates gunny entries with new values",
+      "delete": "PASSED - Deleting paddy cascades to delete linked gunny entries"
+    },
+    "exports": {
+      "private_paddy_excel": "PASSED - GET /api/private-paddy/excel returns 200",
+      "private_paddy_pdf": "PASSED - GET /api/private-paddy/pdf returns 200",
+      "rice_sales_excel": "PASSED - GET /api/rice-sales/excel returns 200",
+      "rice_sales_pdf": "PASSED - GET /api/rice-sales/pdf returns 200",
+      "party_summary": "PASSED - GET /api/private-trading/party-summary returns valid JSON"
+    },
+    "report_config": {
+      "column_count": "PASSED - 14 columns in private_paddy_report",
+      "new_columns": "PASSED - g_issued, cash_paid, diesel_paid present with totals"
+    },
+    "ui_elements": {
+      "paddy_select_all": "PASSED - data-testid=paddy-select-all checkbox found",
+      "rice_select_all": "PASSED - data-testid=rice-select-all checkbox found",
+      "paddy_bulk_delete": "PASSED - data-testid=paddy-bulk-delete appears when items selected",
+      "pvt_paddy_g_issued": "PASSED - data-testid=pvt-paddy-g-issued field in form",
+      "pvt_paddy_cash_paid": "PASSED - data-testid=pvt-paddy-cash-paid field in form",
+      "pvt_paddy_diesel_paid": "PASSED - data-testid=pvt-paddy-diesel-paid field in form",
+      "table_columns": "PASSED - G.Iss, Cash, Diesel columns visible in table"
+    }
+  },
+  
+  "tests_executed": {
+    "test_01_create_paddy_with_new_fields": "PASSED",
+    "test_02_get_paddy_returns_new_fields": "PASSED",
+    "test_03_update_paddy_preserves_new_fields": "PASSED",
+    "test_04_create_paddy_creates_gunny_entries": "PASSED",
+    "test_05_update_paddy_recreates_gunny_entries": "PASSED",
+    "test_06_delete_paddy_deletes_gunny_entries": "PASSED",
+    "test_07_private_paddy_excel_export": "PASSED",
+    "test_08_private_paddy_pdf_export": "PASSED",
+    "test_09_party_summary_api": "PASSED",
+    "test_10_rice_sales_excel_export": "PASSED",
+    "test_11_rice_sales_pdf_export": "PASSED",
+    "test_12_report_config_has_new_columns": "PASSED",
+    "test_13_existing_paddy_entries_accessible": "PASSED",
+    "test_14_existing_rice_sales_accessible": "PASSED",
+    "test_15_existing_gunny_bags_accessible": "PASSED"
+  },
+  
+  "test_run_timestamp": "2026-03-11"
+}

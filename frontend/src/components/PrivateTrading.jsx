@@ -60,11 +60,13 @@ const PaddyPurchase = ({ filters, user }) => {
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
   const [searchText, setSearchText] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], kms_year: CURRENT_KMS_YEAR, season: "Kharif",
     party_name: "", truck_no: "", rst_no: "", agent_name: "", mandi_name: "",
     kg: "", bag: "", rate_per_qntl: "", g_deposite: "", plastic_bag: "", moisture: "",
-    cutting_percent: "", disc_dust_poll: "", paid_amount: "0", remark: "",
+    cutting_percent: "", disc_dust_poll: "", g_issued: "", cash_paid: "", diesel_paid: "",
+    paid_amount: "0", remark: "",
   });
 
   const calc = useMemo(() => calcPaddyFields(form), [form]);
@@ -98,7 +100,8 @@ const PaddyPurchase = ({ filters, user }) => {
     setForm({ date: new Date().toISOString().split('T')[0], kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif",
       party_name: "", truck_no: "", rst_no: "", agent_name: "", mandi_name: "",
       kg: "", bag: "", rate_per_qntl: "", g_deposite: "", plastic_bag: "", moisture: "",
-      cutting_percent: "", disc_dust_poll: "", paid_amount: "0", remark: "" });
+      cutting_percent: "", disc_dust_poll: "", g_issued: "", cash_paid: "", diesel_paid: "",
+      paid_amount: "0", remark: "" });
     setEditId(null);
   };
 
@@ -126,7 +129,9 @@ const PaddyPurchase = ({ filters, user }) => {
       kg: item.kg, bag: item.bag, rate_per_qntl: item.rate_per_qntl,
       g_deposite: item.g_deposite || "", plastic_bag: item.plastic_bag || "",
       moisture: item.moisture || "", cutting_percent: item.cutting_percent || "",
-      disc_dust_poll: item.disc_dust_poll || "", paid_amount: item.paid_amount || "0", remark: item.remark || "",
+      disc_dust_poll: item.disc_dust_poll || "",
+      g_issued: item.g_issued || "", cash_paid: item.cash_paid || "", diesel_paid: item.diesel_paid || "",
+      paid_amount: item.paid_amount || "0", remark: item.remark || "",
     });
     setEditId(item.id);
     setDialogOpen(true);
@@ -137,6 +142,19 @@ const PaddyPurchase = ({ filters, user }) => {
     try { await axios.delete(`${API}/private-paddy/${id}`); toast.success("Deleted!"); fetchData(); }
     catch { toast.error("Delete nahi hua"); }
   };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`${selectedIds.length} entries delete karna chahte hain?`)) return;
+    try {
+      await Promise.all(selectedIds.map(id => axios.delete(`${API}/private-paddy/${id}`)));
+      toast.success(`${selectedIds.length} entries deleted!`);
+      setSelectedIds([]); fetchData();
+    } catch { toast.error("Kuch delete nahi hue"); }
+  };
+
+  const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleAll = () => setSelectedIds(prev => prev.length === filtered.length ? [] : filtered.map(i => i.id));
 
   const handlePayment = async (e) => {
     e.preventDefault();
@@ -208,23 +226,30 @@ const PaddyPurchase = ({ filters, user }) => {
             placeholder="Party / Mandi / Agent search..."
             className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8" data-testid="paddy-search-input" />
         </div>
+        {selectedIds.length > 0 && (
+          <Button onClick={handleBulkDelete} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="paddy-bulk-delete">
+            <Trash2 className="w-4 h-4 mr-1" /> Delete ({selectedIds.length})
+          </Button>
+        )}
       </div>
 
       <Card className="bg-slate-800 border-slate-700">
         <CardContent className="p-0"><div className="overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="border-slate-700">
-              {['Date', 'Party', 'Mandi', 'Agent', 'Truck', 'KG', 'Final Q', 'Rate/Q', 'Total Rs', 'Paid Rs', 'Balance Rs', ''].map(h =>
-                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['KG', 'Final Q', 'Rate/Q', 'Total Rs', 'Paid Rs', 'Balance Rs'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+              <TableHead className="w-8"><input type="checkbox" checked={selectedIds.length === filtered.length && filtered.length > 0} onChange={toggleAll} className="accent-amber-500" data-testid="paddy-select-all" /></TableHead>
+              {['Date', 'Party', 'Mandi', 'Agent', 'Truck', 'KG', 'Final Q', 'Rate/Q', 'Total Rs', 'Paid Rs', 'Balance Rs', 'G.Iss', 'Cash', 'Diesel', ''].map(h =>
+                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['KG', 'Final Q', 'Rate/Q', 'Total Rs', 'Paid Rs', 'Balance Rs', 'G.Iss', 'Cash', 'Diesel'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
             </TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-              : filtered.length === 0 ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Koi entry nahi mili.</TableCell></TableRow>
+              {loading ? <TableRow><TableCell colSpan={16} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+              : filtered.length === 0 ? <TableRow><TableCell colSpan={16} className="text-center text-slate-400 py-8">Koi entry nahi mili.</TableCell></TableRow>
               : filtered.map(item => {
                 const fq = item.final_qntl || item.quantity_qntl || 0;
                 const bal = item.balance != null ? item.balance : (item.total_amount || 0) - (item.paid_amount || 0);
                 return (
-                <TableRow key={item.id} className="border-slate-700" data-testid={`paddy-row-${item.id}`}>
+                <TableRow key={item.id} className={`border-slate-700 ${selectedIds.includes(item.id) ? 'bg-amber-900/20' : ''}`} data-testid={`paddy-row-${item.id}`}>
+                  <TableCell><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelect(item.id)} className="accent-amber-500" /></TableCell>
                   <TableCell className="text-white text-xs whitespace-nowrap">{item.date}</TableCell>
                   <TableCell className="text-white font-semibold text-sm">{item.party_name}</TableCell>
                   <TableCell className="text-cyan-400 text-xs">{item.mandi_name || '-'}</TableCell>
@@ -238,6 +263,9 @@ const PaddyPurchase = ({ filters, user }) => {
                   <TableCell className={`text-right font-semibold text-sm ${bal > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`paddy-balance-${item.id}`}>
                     Rs.{Math.round(bal).toLocaleString()}
                   </TableCell>
+                  <TableCell className="text-right text-blue-300 text-xs">{item.g_issued || '-'}</TableCell>
+                  <TableCell className="text-right text-emerald-300 text-xs">{item.cash_paid ? `Rs.${item.cash_paid.toLocaleString()}` : '-'}</TableCell>
+                  <TableCell className="text-right text-orange-300 text-xs">{item.diesel_paid ? `Rs.${item.diesel_paid.toLocaleString()}` : '-'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-1 justify-end">
                       <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog({ open: true, item }); setPayForm({ ...payForm, date: new Date().toISOString().split('T')[0] }); }} data-testid={`paddy-pay-${item.id}`}>
@@ -358,13 +386,25 @@ const PaddyPurchase = ({ filters, user }) => {
                   <Label className="text-amber-400 text-xs font-semibold">Final W. (Auto)</Label>
                   <Input value={`${calc.final_w} KG = ${calc.final_qntl} Q`} readOnly className="bg-amber-900/30 border-amber-700 text-amber-400 h-8 text-sm font-bold" />
                 </div>
+                <div>
+                  <Label className="text-blue-400 text-xs font-semibold">G.Issued (Gunny)</Label>
+                  <Input type="number" value={form.g_issued} onChange={e => setForm(p => ({ ...p, g_issued: e.target.value }))} placeholder="0" className="bg-blue-900/30 border-blue-700 text-blue-400 h-8 text-sm" data-testid="pvt-paddy-g-issued" />
+                </div>
                 <div className="col-span-2">
                   <Label className="text-emerald-400 text-xs font-semibold">Total Amount (Auto)</Label>
                   <Input value={`Rs.${calc.total_amount.toLocaleString()} (${calc.final_qntl}Q x Rs.${parseFloat(form.rate_per_qntl) || 0}/Q)`} readOnly className="bg-emerald-900/30 border-emerald-700 text-emerald-400 h-8 text-lg font-bold" />
                 </div>
               </CardContent>
             </Card>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <Label className="text-emerald-400 text-xs font-semibold">Cash Paid (Rs.)</Label>
+                <Input type="number" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))} placeholder="0" className="bg-emerald-900/30 border-emerald-700 text-emerald-400 h-8 text-sm" data-testid="pvt-paddy-cash-paid" />
+              </div>
+              <div>
+                <Label className="text-orange-400 text-xs font-semibold">Diesel Paid (Rs.)</Label>
+                <Input type="number" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))} placeholder="0" className="bg-orange-900/30 border-orange-700 text-orange-400 h-8 text-sm" data-testid="pvt-paddy-diesel-paid" />
+              </div>
               <div>
                 <Label className="text-slate-300 text-xs">Advance Paid (Rs.)</Label>
                 <Input type="number" value={form.paid_amount} onChange={e => setForm(p => ({ ...p, paid_amount: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pvt-paddy-paid" />
@@ -421,6 +461,7 @@ const RiceSale = ({ filters, user }) => {
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
   const [searchText, setSearchText] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], kms_year: CURRENT_KMS_YEAR, season: "Kharif",
     party_name: "", rice_type: "Usna", quantity_qntl: "", rate_per_qntl: "", bags: "", truck_no: "",
@@ -498,6 +539,19 @@ const RiceSale = ({ filters, user }) => {
     catch { toast.error("Delete nahi hua"); }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`${selectedIds.length} entries delete karna chahte hain?`)) return;
+    try {
+      await Promise.all(selectedIds.map(id => axios.delete(`${API}/rice-sales/${id}`)));
+      toast.success(`${selectedIds.length} entries deleted!`);
+      setSelectedIds([]); fetchData();
+    } catch { toast.error("Kuch delete nahi hue"); }
+  };
+
+  const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleAll = () => setSelectedIds(prev => prev.length === filtered.length ? [] : filtered.map(i => i.id));
+
   const handlePayment = async (e) => {
     e.preventDefault();
     const amt = parseFloat(payForm.amount);
@@ -568,22 +622,29 @@ const RiceSale = ({ filters, user }) => {
             placeholder="Party / Type search..."
             className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8" data-testid="rice-search-input" />
         </div>
+        {selectedIds.length > 0 && (
+          <Button onClick={handleBulkDelete} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="rice-bulk-delete">
+            <Trash2 className="w-4 h-4 mr-1" /> Delete ({selectedIds.length})
+          </Button>
+        )}
       </div>
 
       <Card className="bg-slate-800 border-slate-700">
         <CardContent className="p-0"><div className="overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="border-slate-700">
+              <TableHead className="w-8"><input type="checkbox" checked={selectedIds.length === filtered.length && filtered.length > 0} onChange={toggleAll} className="accent-emerald-500" data-testid="rice-select-all" /></TableHead>
               {['Date', 'Party', 'Type', 'Qntl', 'Rate/Q', 'Total Rs', 'Received Rs', 'Balance Rs', 'Truck', ''].map(h =>
                 <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Qntl', 'Rate/Q', 'Total Rs', 'Received Rs', 'Balance Rs'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
             </TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-              : filtered.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi sale nahi mili.</TableCell></TableRow>
+              {loading ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+              : filtered.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Koi sale nahi mili.</TableCell></TableRow>
               : filtered.map(item => {
                 const bal = item.balance != null ? item.balance : (item.total_amount || 0) - (item.paid_amount || 0);
                 return (
-                <TableRow key={item.id} className="border-slate-700" data-testid={`rice-row-${item.id}`}>
+                <TableRow key={item.id} className={`border-slate-700 ${selectedIds.includes(item.id) ? 'bg-emerald-900/20' : ''}`} data-testid={`rice-row-${item.id}`}>
+                  <TableCell><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelect(item.id)} className="accent-emerald-500" /></TableCell>
                   <TableCell className="text-white text-xs whitespace-nowrap">{item.date}</TableCell>
                   <TableCell className="text-white font-semibold text-sm">{item.party_name}</TableCell>
                   <TableCell><span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-900/40 text-amber-400">{item.rice_type}</span></TableCell>

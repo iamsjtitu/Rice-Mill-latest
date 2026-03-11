@@ -57,7 +57,10 @@
       {"field": "rate_per_qntl", "header": "Rate/Q", "pdf_header": "Rate", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16},
       {"field": "total_amount", "header": "Total Rs", "pdf_header": "Total", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_amount"},
       {"field": "paid_amount", "header": "Paid Rs", "pdf_header": "Paid", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_paid"},
-      {"field": "balance", "header": "Balance Rs", "pdf_header": "Balance", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_balance"}
+      {"field": "balance", "header": "Balance Rs", "pdf_header": "Balance", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_balance"},
+      {"field": "g_issued", "header": "G.Iss", "pdf_header": "G.Iss", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_g_issued"},
+      {"field": "cash_paid", "header": "Cash", "pdf_header": "Cash", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_cash"},
+      {"field": "diesel_paid", "header": "Diesel", "pdf_header": "Diesel", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_diesel"}
     ]
   },
   "rice_sales_report": {
