@@ -129,7 +129,7 @@ const DCEntries = ({ filters, user }) => {
               <TableCell>{expandedDC === dc.id ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}</TableCell>
               <TableCell className="text-amber-400 font-medium text-xs">{dc.dc_number}</TableCell>
               <TableCell className="text-white text-xs">{dc.date}</TableCell>
-              <TableCell className="text-xs"><span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/20 text-blue-400">{(dc.rice_type||'').charAt(0).toUpperCase()+(dc.rice_type||'').slice(1)}</span></TableCell>
+              <TableCell className="text-xs"><span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${(dc.rice_type||'')==='parboiled' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'}`}>{(dc.rice_type||'').charAt(0).toUpperCase()+(dc.rice_type||'').slice(1)}</span></TableCell>
               <TableCell className="text-white text-xs text-right">{dc.quantity_qntl}</TableCell>
               <TableCell className="text-green-400 text-xs text-right">{dc.delivered_qntl}</TableCell>
               <TableCell className="text-red-400 text-xs text-right">{dc.pending_qntl}</TableCell>

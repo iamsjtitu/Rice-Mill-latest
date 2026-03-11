@@ -755,7 +755,7 @@ const RiceSale = ({ filters, user }) => {
                   <TableCell className="text-white text-xs whitespace-nowrap">{item.date}</TableCell>
                   <TableCell className="text-white font-semibold text-sm">{item.party_name}</TableCell>
                   <TableCell className="text-sky-400 text-xs font-medium">{item.rst_no || '-'}</TableCell>
-                  <TableCell><span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-900/40 text-amber-400">{item.rice_type}</span></TableCell>
+                  <TableCell><span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${item.rice_type === 'Usna' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : item.rice_type === 'Raw' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : 'bg-violet-500/20 text-violet-300 border border-violet-500/30'}`}>{item.rice_type}</span></TableCell>
                   <TableCell className="text-right text-amber-400 font-semibold text-sm">{item.quantity_qntl} Q</TableCell>
                   <TableCell className="text-right text-slate-300 text-xs">Rs.{item.rate_per_qntl}</TableCell>
                   <TableCell className="text-right text-white font-semibold text-sm">Rs.{(item.total_amount || 0).toLocaleString()}</TableCell>
