@@ -18,35 +18,28 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 └── sync_backends.sh           # Sync script (desktop-app -> local-server)
 ```
 
-## Shared Config Reports (report_config.json)
-| Report | Columns | Python | Node.js | Status |
-|--------|---------|--------|---------|--------|
-| agent_mandi_report | 18 | reports.py | daily_report.js | Done |
-| gunny_bags_report | 5 | reports.py | daily_report.js | Done |
-| dc_entries_report | 7 | reports.py | daily_report.js | Done |
-| msp_payments_report | 6 | reports.py | daily_report.js | Done |
-| private_paddy_report | 11 | private_trading.py | private_trading.js | Done |
-| rice_sales_report | 9 | private_trading.py | private_trading.js | Done |
-| party_summary_report | 10 | private_trading.py | private_trading.js | Done |
-| cashbook_report | 10 | cashbook.py | cashbook.js | Done |
-| party_ledger_report | 7 | ledgers.py | - | Done |
-| daily_paddy_entries | 9+20 | - | daily_report.js | Config only |
+## Key Collections (MongoDB)
+- private_paddy, rice_sales, private_payments, entries, cash_transactions, gunny_bags, mandi_targets, dc_payments, staff, users, settings
 
 ## Credentials
 - Admin: `admin` / `admin123`
 
-## Completed
+## Completed Features
 - Agent & Mandi Report: column alignment, filtered PDF/Excel exports
-- Sorting fix across all backends (newest first)
-- Gunny bag data cleanup
-- Move to Pvt Trading with correct logic
-- Removed Outstanding tab from Party Ledger
-- Fixed Final Wt Kg->QNTL display bug
+- Application-wide sorting (newest first via compound sort)
+- Gunny bag data cleanup + move-to-pvt fix
+- Removed Outstanding tab + Fixed Final Wt Kg->QNTL bug
 - Private Trading Page Overhaul (separate cols, balance fix, exports, search)
 - Party-wise Summary Tab (aggregated view, date range filter, exports)
-- Shared Config Extension to Cash Book + Party Ledger (P1 complete)
-- Node.js backend sync via sync_backends.sh
+- Shared Config Extension to Cash Book + Party Ledger (10 reports total)
+- **G.Issued, Cash Paid, Diesel Paid** fields in Pvt Paddy form/table/exports
+- **Auto Gunny Bag entries**: BAG→IN, G.Issued→OUT (linked_entry_id for cascading delete/update)
+- **Select-all checkbox + bulk delete** for Paddy Purchase and Rice Sale tables
+- All 3 backends synced
+
+## Shared Config Reports (10 total)
+agent_mandi_report, gunny_bags_report, dc_entries_report, msp_payments_report, private_paddy_report (14 cols), rice_sales_report, party_summary_report, cashbook_report, party_ledger_report, daily_paddy_entries_report (config only)
 
 ## Backlog
 - P2: General code cleanup (style fixes, unused imports)
-- Daily Report Excel/PDF refactoring to use shared config (complex, deferred)
+- Daily Report refactoring to shared config (complex, deferred)
