@@ -502,8 +502,43 @@ async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
         upsert=True
     )
     
-    # Auto-create Cash Book Nikasi entry for agent mark-paid
+    # Auto-create Cash Book entries for agent mark-paid
     if total_amount > 0:
+        # JAMA (Ledger) - Agent Commission entry
+        entries_for_mandi = await db.mill_entries.find(
+            {"mandi_name": {"$regex": f"^{mandi_name}$", "$options": "i"}, "kms_year": kms_year},
+            {"_id": 0, "qntl": 1, "bag": 1}
+        ).to_list(None)
+        achieved_qntl = round(sum(e.get("qntl", 0) - e.get("bag", 0) / 100 for e in entries_for_mandi), 2)
+        cutting_qntl = round(achieved_qntl * target.get("cutting_percent", 0) / 100, 2) if target.get("cutting_percent", 0) > 0 else 0
+
+        linked_jama_id = f"agent_jama:{mandi_name}:{kms_year}:{season}"
+        existing_jama = await db.cash_transactions.find_one({"linked_payment_id": linked_jama_id}, {"_id": 0})
+        if not existing_jama:
+            jama_entry = {
+                "id": str(uuid.uuid4()),
+                "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "account": "ledger", "txn_type": "jama",
+                "category": mandi_name, "party_type": "Agent",
+                "description": f"Agent Commission: {mandi_name} - {achieved_qntl}Q @ Rs.{base_rate}",
+                "amount": round(total_amount, 2),
+                "reference": f"agent_comm:{mandi_name[:10]}",
+                "kms_year": kms_year, "season": season,
+                "created_by": username or "system",
+                "linked_payment_id": linked_jama_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await db.cash_transactions.insert_one(jama_entry)
+        elif existing_jama:
+            await db.cash_transactions.update_one(
+                {"linked_payment_id": linked_jama_id},
+                {"$set": {"amount": round(total_amount, 2),
+                          "description": f"Agent Commission: {mandi_name} - {achieved_qntl}Q @ Rs.{base_rate}",
+                          "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+
+        # NIKASI (Cash) - Agent Payment
         cb_entry = {
             "id": str(uuid.uuid4()),
             "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -593,8 +628,9 @@ async def undo_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
         }}
     )
     
-    # Delete linked cash book entries for this agent
+    # Delete linked cash book entries for this agent (both nikasi and jama)
     await db.cash_transactions.delete_many({"linked_payment_id": f"agent:{mandi_name}:{kms_year}:{season}"})
+    await db.cash_transactions.delete_many({"linked_payment_id": f"agent_jama:{mandi_name}:{kms_year}:{season}"})
     
     return {"success": True, "message": "Payment undo ho gaya - status reset to pending"}
 

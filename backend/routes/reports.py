@@ -236,11 +236,16 @@ async def export_season_pnl_pdf(kms_year: Optional[str] = None, season: Optional
 # ============ AGENT & MANDI WISE REPORT ============
 
 @router.get("/reports/agent-mandi-wise")
-async def report_agent_mandi_wise(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+async def report_agent_mandi_wise(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
     """Agent & Mandi wise report with individual trip entries"""
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        query["date"] = date_q
 
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(5000)
 
@@ -311,9 +316,9 @@ async def report_agent_mandi_wise(kms_year: Optional[str] = None, season: Option
 
 
 @router.get("/reports/agent-mandi-wise/excel")
-async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
     from io import BytesIO
-    data = await report_agent_mandi_wise(kms_year=kms_year, season=season, search=search)
+    data = await report_agent_mandi_wise(kms_year=kms_year, season=season, search=search, date_from=date_from, date_to=date_to)
     wb = Workbook(); ws = wb.active; ws.title = "Agent Mandi Report"
     hf = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
     hfont = Font(bold=True, color="FFFFFF", size=9)
@@ -393,7 +398,7 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
 
 
 @router.get("/reports/agent-mandi-wise/pdf")
-async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
+async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -402,7 +407,7 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
     from reportlab.lib.enums import TA_CENTER
     from io import BytesIO
 
-    report_data = await report_agent_mandi_wise(kms_year=kms_year, season=season, search=search)
+    report_data = await report_agent_mandi_wise(kms_year=kms_year, season=season, search=search, date_from=date_from, date_to=date_to)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = getSampleStyleSheet()

@@ -736,6 +736,8 @@ const AgentMandiReport = ({ filters }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [expandedMandis, setExpandedMandis] = useState({});
 
   const fetchData = useCallback(async () => {
@@ -745,6 +747,8 @@ const AgentMandiReport = ({ filters }) => {
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
       if (search.trim()) p.append('search', search.trim());
+      if (dateFrom) p.append('date_from', dateFrom);
+      if (dateTo) p.append('date_to', dateTo);
       const res = await axios.get(`${API}/reports/agent-mandi-wise?${p}`);
       setData(res.data);
       // Auto-expand all when searching
@@ -755,7 +759,7 @@ const AgentMandiReport = ({ filters }) => {
       }
     } catch (e) { toast.error("Report load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, search]);
+  }, [filters.kms_year, filters.season, search, dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -776,6 +780,8 @@ const AgentMandiReport = ({ filters }) => {
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
       if (search.trim()) p.append('search', search.trim());
+      if (dateFrom) p.append('date_from', dateFrom);
+      if (dateTo) p.append('date_to', dateTo);
       const res = await axios.get(`${API}/reports/agent-mandi-wise/${format}?${p}`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a'); a.href = url;
@@ -793,13 +799,24 @@ const AgentMandiReport = ({ filters }) => {
     <div className="space-y-4" data-testid="agent-mandi-report">
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex-1 min-w-[200px] max-w-[350px]">
+        <div className="flex-1 min-w-[200px] max-w-[300px]">
           <Input
             placeholder="Mandi ya Agent name search karein..."
             value={search} onChange={(e) => setSearch(e.target.value)}
             className="bg-slate-700 border-slate-600 text-white text-sm"
             data-testid="agent-mandi-search"
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-slate-400 text-xs whitespace-nowrap">From:</span>
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+            className="bg-slate-700 border-slate-600 text-white text-sm w-[145px]" data-testid="agent-mandi-date-from" />
+          <span className="text-slate-400 text-xs whitespace-nowrap">To:</span>
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+            className="bg-slate-700 border-slate-600 text-white text-sm w-[145px]" data-testid="agent-mandi-date-to" />
+          {(dateFrom || dateTo) && (
+            <Button onClick={() => { setDateFrom(""); setDateTo(""); }} variant="ghost" size="sm" className="text-red-400 hover:text-red-300 px-2 h-8">Clear</Button>
+          )}
         </div>
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="agent-mandi-refresh">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh

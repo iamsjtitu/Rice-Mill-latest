@@ -230,13 +230,36 @@ module.exports = function(database) {
     const target = database.getMandiTargets({ kms_year, season }).find(t => t.mandi_name === mandiName);
     if (!target) return res.status(404).json({ detail: 'Mandi target not found' });
     const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
-    const total_amount = (target.target_qntl * (target.base_rate ?? 10)) + (cutting_qntl * (target.cutting_rate ?? 5));
+    const base_rate = target.base_rate ?? 10;
+    const cutting_rate = target.cutting_rate ?? 5;
+    const total_amount = (target.target_qntl * base_rate) + (cutting_qntl * cutting_rate);
     const current = database.getAgentPayment(mandiName, kms_year, season);
     const hist = current.payment_history || [];
     hist.push({ amount: total_amount, date: new Date().toISOString(), note: 'Full payment - marked as paid', by: req.query.username || 'admin' });
     database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: total_amount, status: 'paid', payment_history: hist });
     if (total_amount > 0) {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
+      // JAMA (Ledger) - Agent Commission entry
+      const mandiEntries = database.data.entries.filter(e => (e.mandi_name||'').toLowerCase() === mandiName.toLowerCase() && (!kms_year || e.kms_year === kms_year));
+      const achieved_qntl = Math.round(mandiEntries.reduce((s,e) => s + (e.qntl||0) - (e.bag||0)/100, 0) * 100) / 100;
+      const linked_jama_id = `agent_jama:${mandiName}:${kms_year}:${season}`;
+      const existingJama = database.data.cash_transactions.find(t => t.linked_payment_id === linked_jama_id);
+      if (!existingJama) {
+        database.data.cash_transactions.push({
+          id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'jama',
+          category: mandiName, party_type: 'Agent',
+          description: `Agent Commission: ${mandiName} - ${achieved_qntl}Q @ Rs.${base_rate}`,
+          amount: Math.round(total_amount * 100) / 100, reference: `agent_comm:${mandiName.substring(0,10)}`,
+          kms_year: kms_year || '', season: season || '',
+          created_by: req.query.username || 'system', linked_payment_id: linked_jama_id,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+        });
+      } else {
+        existingJama.amount = Math.round(total_amount * 100) / 100;
+        existingJama.description = `Agent Commission: ${mandiName} - ${achieved_qntl}Q @ Rs.${base_rate}`;
+        existingJama.updated_at = new Date().toISOString();
+      }
+      // NIKASI (Cash) - Agent Payment
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
         category: mandiName, party_type: 'Agent',
@@ -256,7 +279,10 @@ module.exports = function(database) {
     const mandiName = decodeURIComponent(req.params.mandiName);
     database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: 0, status: 'pending' });
     if (database.data.cash_transactions) {
-      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `agent:${mandiName}:${kms_year}:${season}`);
+      database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+        t.linked_payment_id !== `agent:${mandiName}:${kms_year}:${season}` &&
+        t.linked_payment_id !== `agent_jama:${mandiName}:${kms_year}:${season}`
+      );
     }
     database.save();
     res.json({ success: true, message: 'Payment undo ho gaya' });
