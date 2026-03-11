@@ -19,7 +19,7 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 ```
 
 ## Key Collections (MongoDB)
-- private_paddy, rice_sales, private_payments, entries, cash_transactions, gunny_bags, mandi_targets, dc_payments, staff, users, settings, milling_entries, frk_purchases, byproduct_sales
+- private_paddy, rice_sales, private_payments, entries, cash_transactions, gunny_bags, mandi_targets, dc_payments, staff, users, settings, milling_entries, frk_purchases, byproduct_sales, diesel_accounts
 
 ## Credentials
 - Admin: `admin` / `admin123`
@@ -36,6 +36,12 @@ Rice mill management tool ("Mill Entry System") with React frontend, Python/Fast
 - **Auto Gunny Bag entries**: BAG->IN, G.Issued->OUT (linked_entry_id for cascading delete/update)
 - **Select-all checkbox + bulk delete** for Paddy Purchase and Rice Sale tables
 - **CMR Paddy Stock Formula Update** (2026-03-11): Changed from `QNTL - BAG` to `QNTL - BAG - P.Cut`, includes private paddy in total stock (NOT in custody maintenance)
+- **Pvt Paddy → Cash Book + Diesel + Party Ledger** (2026-03-11):
+  - Cash Paid auto-creates Cash Book nikasi entry
+  - Diesel Paid auto-creates Diesel Account entry
+  - Party Ledger shows "Pvt Paddy Purchase" with "Party - Mandi" format
+  - Cash/Diesel advances shown as separate credit entries in Party Ledger
+  - Full cascade on update/delete (linked cash_transactions + diesel_accounts)
 - All 3 backends synced
 
 ## Shared Config Reports (10 total)
