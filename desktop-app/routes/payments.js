@@ -196,7 +196,7 @@ module.exports = function(database) {
           database.data.cash_transactions.push({
             id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'jama',
             category: mandiName, party_type: 'Agent',
-            description: `Agent Commission: ${mandiName} - ${achievedQntl}Q @ Rs.${baseRate}`,
+            description: `Agent Commission: ${mandiName} @ Rs.${baseRate}`,
             amount: totalAmount, reference: `agent_comm:${mandiName.substring(0,10)}`,
             kms_year: kms_year || '', season: season || '',
             created_by: req.query.username || 'system', linked_payment_id: linkedId,
@@ -204,7 +204,7 @@ module.exports = function(database) {
           });
         } else if (existingIdx !== -1 && totalAmount > 0) {
           database.data.cash_transactions[existingIdx].amount = totalAmount;
-          database.data.cash_transactions[existingIdx].description = `Agent Commission: ${mandiName} - ${achievedQntl}Q @ Rs.${baseRate}`;
+          database.data.cash_transactions[existingIdx].description = `Agent Commission: ${mandiName} @ Rs.${baseRate}`;
           database.data.cash_transactions[existingIdx].updated_at = new Date().toISOString();
         }
       }
@@ -248,7 +248,7 @@ module.exports = function(database) {
         database.data.cash_transactions.push({
           id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'jama',
           category: mandiName, party_type: 'Agent',
-          description: `Agent Commission: ${mandiName} - ${achieved_qntl}Q @ Rs.${base_rate}`,
+          description: `Agent Commission: ${mandiName} @ Rs.${base_rate}`,
           amount: Math.round(total_amount * 100) / 100, reference: `agent_comm:${mandiName.substring(0,10)}`,
           kms_year: kms_year || '', season: season || '',
           created_by: req.query.username || 'system', linked_payment_id: linked_jama_id,
@@ -256,7 +256,7 @@ module.exports = function(database) {
         });
       } else {
         existingJama.amount = Math.round(total_amount * 100) / 100;
-        existingJama.description = `Agent Commission: ${mandiName} - ${achieved_qntl}Q @ Rs.${base_rate}`;
+        existingJama.description = `Agent Commission: ${mandiName} @ Rs.${base_rate}`;
         existingJama.updated_at = new Date().toISOString();
       }
       // NIKASI (Cash) - Agent Payment

@@ -411,7 +411,7 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
                     "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                     "account": "ledger", "txn_type": "jama",
                     "category": mandi_name, "party_type": "Agent",
-                    "description": f"Agent Commission: {mandi_name} - {target.get('agent_name','')} - {achieved_qntl}Q @ Rs.{base_rate}",
+                    "description": f"Agent Commission: {mandi_name} @ Rs.{base_rate}",
                     "amount": round(total_amount, 2),
                     "reference": f"agent_comm:{mandi_name[:10]}",
                     "kms_year": kms_year, "season": season,
@@ -425,7 +425,7 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
                 await db.cash_transactions.update_one(
                     {"linked_payment_id": linked_id},
                     {"$set": {"amount": round(total_amount, 2),
-                              "description": f"Agent Commission: {mandi_name} - {target.get('agent_name','')} - {achieved_qntl}Q @ Rs.{base_rate}",
+                              "description": f"Agent Commission: {mandi_name} @ Rs.{base_rate}",
                               "updated_at": datetime.now(timezone.utc).isoformat()}}
                 )
         
@@ -520,7 +520,7 @@ async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
                 "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                 "account": "ledger", "txn_type": "jama",
                 "category": mandi_name, "party_type": "Agent",
-                "description": f"Agent Commission: {mandi_name} - {achieved_qntl}Q @ Rs.{base_rate}",
+                "description": f"Agent Commission: {mandi_name} @ Rs.{base_rate}",
                 "amount": round(total_amount, 2),
                 "reference": f"agent_comm:{mandi_name[:10]}",
                 "kms_year": kms_year, "season": season,
@@ -534,7 +534,7 @@ async def mark_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
             await db.cash_transactions.update_one(
                 {"linked_payment_id": linked_jama_id},
                 {"$set": {"amount": round(total_amount, 2),
-                          "description": f"Agent Commission: {mandi_name} - {achieved_qntl}Q @ Rs.{base_rate}",
+                          "description": f"Agent Commission: {mandi_name} @ Rs.{base_rate}",
                           "updated_at": datetime.now(timezone.utc).isoformat()}}
             )
 
