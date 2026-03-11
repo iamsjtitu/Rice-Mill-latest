@@ -9,7 +9,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://rice-mill-cashbook.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://ledger-parity.preview.emergentagent.com')
 KMS_YEAR = "2025-2026"
 
 class TestMillPartsSummary:

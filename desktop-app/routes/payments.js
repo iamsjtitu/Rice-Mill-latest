@@ -41,11 +41,28 @@ module.exports = function(database) {
     let updatedCount = 1;
     if (entry && entry.truck_no && entry.mandi_name) {
       const matching = database.data.entries.filter(e => e.truck_no === entry.truck_no && e.mandi_name === entry.mandi_name);
-      matching.forEach(m => { database.updateTruckPayment(m.id, { rate_per_qntl: req.body.rate_per_qntl }); });
+      matching.forEach(m => {
+        database.updateTruckPayment(m.id, { rate_per_qntl: req.body.rate_per_qntl });
+        // Update Jama ledger entry with new rate
+        const finalQntl = Math.round(((m.qntl || 0) - (m.bag || 0) / 100) * 100) / 100;
+        if (finalQntl > 0 && database.data.cash_transactions) {
+          const cashTaken = parseFloat(m.cash_paid) || 0;
+          const dieselTaken = parseFloat(m.diesel_paid) || 0;
+          const deductions = cashTaken + dieselTaken;
+          const newGross = Math.round(finalQntl * req.body.rate_per_qntl * 100) / 100;
+          const jamaIdx = database.data.cash_transactions.findIndex(t => t.linked_entry_id === m.id && (t.reference||'').startsWith('truck_entry:'));
+          if (jamaIdx !== -1) {
+            database.data.cash_transactions[jamaIdx].amount = newGross;
+            database.data.cash_transactions[jamaIdx].description = `Truck Entry: ${m.truck_no} - ${finalQntl}Q @ Rs.${req.body.rate_per_qntl}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : '');
+            database.data.cash_transactions[jamaIdx].updated_at = new Date().toISOString();
+          }
+        }
+      });
       updatedCount = matching.length;
     } else {
       database.updateTruckPayment(req.params.entryId, { rate_per_qntl: req.body.rate_per_qntl });
     }
+    database.save();
     const payment = database.getTruckPayment(req.params.entryId);
     res.json({ success: true, payment, updated_count: updatedCount, truck_no: entry?.truck_no, mandi_name: entry?.mandi_name });
   }));
@@ -57,19 +74,21 @@ module.exports = function(database) {
     const history = current.payment_history || [];
     history.push({ amount: req.body.amount, date: new Date().toISOString(), note: req.body.note || '', by: req.query.username || 'admin' });
     database.updateTruckPayment(req.params.entryId, { paid_amount: newPaidAmount, payment_history: history });
-    if (req.body.amount > 0 && !database.data.cash_transactions) database.data.cash_transactions = [];
     if (req.body.amount > 0) {
+      if (!database.data.cash_transactions) database.data.cash_transactions = [];
+      const truckNo = entry?.truck_no || '';
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
-        category: 'Truck Payment', description: `Truck Payment: ${entry?.truck_no || ''} - Rs.${req.body.amount}`,
+        category: truckNo, party_type: 'Truck',
+        description: `Truck Payment: ${truckNo} - Rs.${req.body.amount}`,
         amount: Math.round(req.body.amount * 100) / 100, reference: `truck_pay:${req.params.entryId.substring(0,8)}`,
         kms_year: entry?.kms_year || '', season: entry?.season || '',
         created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
     }
     database.save();
-    res.json({ success: true, message: 'Payment recorded' });
+    res.json({ success: true, message: 'Payment recorded', total_paid: newPaidAmount });
   }));
 
   router.post('/api/truck-payments/:entryId/mark-paid', safeSync((req, res) => {
@@ -80,16 +99,20 @@ module.exports = function(database) {
     const gross_amount = final_qntl * current.rate_per_qntl;
     const deductions = (entry.cash_paid || 0) + (entry.diesel_paid || 0);
     const net_amount = gross_amount - deductions;
-    database.updateTruckPayment(req.params.entryId, { paid_amount: net_amount, status: 'paid' });
+    const history = current.payment_history || [];
+    history.push({ amount: net_amount, date: new Date().toISOString(), note: 'Full payment - marked as paid', by: req.query.username || 'admin' });
+    database.updateTruckPayment(req.params.entryId, { paid_amount: net_amount, status: 'paid', payment_history: history });
     if (net_amount > 0) {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
+      const truckNo = entry.truck_no || '';
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
-        category: 'Truck Payment', description: `Truck Payment: ${entry.truck_no || ''} (Full - Mark Paid)`,
+        category: truckNo, party_type: 'Truck',
+        description: `Truck Payment: ${truckNo} (Full - Mark Paid)`,
         amount: Math.round(net_amount * 100) / 100, reference: `truck_markpaid:${req.params.entryId.substring(0,8)}`,
         kms_year: entry.kms_year || '', season: entry.season || '',
         created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
     }
     database.save();
@@ -154,17 +177,51 @@ module.exports = function(database) {
     database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: newPaidAmount, payment_history: history });
     if (req.body.amount > 0) {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
+
+      // Create/Update JAMA (Ledger) entry for agent commission
+      const target = database.getMandiTargets({ kms_year, season }).find(t => (t.mandi_name||'').toLowerCase() === mandiName.toLowerCase());
+      if (target) {
+        const entries = database.getEntries({ kms_year, season });
+        const mandiEntries = entries.filter(e => (e.mandi_name||'').toLowerCase() === mandiName.toLowerCase());
+        const achievedQntl = Math.round(mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0) * 100) / 100;
+        const baseRate = target.base_rate ?? 10;
+        const cuttingRate = target.cutting_rate ?? 5;
+        const cuttingPercent = target.cutting_percent || 0;
+        const cuttingQntl = Math.round(achievedQntl * cuttingPercent / 100 * 100) / 100;
+        const totalAmount = Math.round(((target.target_qntl * baseRate) + (cuttingQntl * cuttingRate)) * 100) / 100;
+
+        const linkedId = `agent_jama:${mandiName}:${kms_year}:${season}`;
+        const existingIdx = database.data.cash_transactions.findIndex(t => t.linked_payment_id === linkedId);
+        if (existingIdx === -1 && totalAmount > 0) {
+          database.data.cash_transactions.push({
+            id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'jama',
+            category: mandiName, party_type: 'Agent',
+            description: `Agent Commission: ${mandiName} - ${achievedQntl}Q @ Rs.${baseRate}`,
+            amount: totalAmount, reference: `agent_comm:${mandiName.substring(0,10)}`,
+            kms_year: kms_year || '', season: season || '',
+            created_by: req.query.username || 'system', linked_payment_id: linkedId,
+            created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+          });
+        } else if (existingIdx !== -1 && totalAmount > 0) {
+          database.data.cash_transactions[existingIdx].amount = totalAmount;
+          database.data.cash_transactions[existingIdx].description = `Agent Commission: ${mandiName} - ${achievedQntl}Q @ Rs.${baseRate}`;
+          database.data.cash_transactions[existingIdx].updated_at = new Date().toISOString();
+        }
+      }
+
+      // NIKASI (Cash) - Agent Payment
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
-        category: 'Agent Payment', description: `Agent Payment: ${mandiName} - Rs.${req.body.amount}`,
+        category: mandiName, party_type: 'Agent',
+        description: `Agent Payment: ${mandiName} - Rs.${req.body.amount}`,
         amount: Math.round(req.body.amount * 100) / 100, reference: `agent_pay:${mandiName.substring(0,10)}`,
         kms_year: kms_year || '', season: season || '',
         created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
     }
     database.save();
-    res.json({ success: true, message: 'Payment recorded' });
+    res.json({ success: true, message: 'Payment recorded', total_paid: newPaidAmount });
   }));
 
   router.post('/api/agent-payments/:mandiName/mark-paid', safeSync((req, res) => {
@@ -174,16 +231,20 @@ module.exports = function(database) {
     if (!target) return res.status(404).json({ detail: 'Mandi target not found' });
     const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
     const total_amount = (target.target_qntl * (target.base_rate ?? 10)) + (cutting_qntl * (target.cutting_rate ?? 5));
-    database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: total_amount, status: 'paid' });
+    const current = database.getAgentPayment(mandiName, kms_year, season);
+    const hist = current.payment_history || [];
+    hist.push({ amount: total_amount, date: new Date().toISOString(), note: 'Full payment - marked as paid', by: req.query.username || 'admin' });
+    database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: total_amount, status: 'paid', payment_history: hist });
     if (total_amount > 0) {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
-        category: 'Agent Payment', description: `Agent Payment: ${mandiName} (Full - Mark Paid)`,
+        category: mandiName, party_type: 'Agent',
+        description: `Agent Payment: ${mandiName} (Full - Mark Paid)`,
         amount: Math.round(total_amount * 100) / 100, reference: `agent_markpaid:${mandiName.substring(0,10)}`,
         kms_year: kms_year || '', season: season || '',
         created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
     }
     database.save();

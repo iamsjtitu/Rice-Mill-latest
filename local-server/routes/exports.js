@@ -32,6 +32,37 @@ module.exports = function(database) {
       ];
       entries.forEach(e => ws.addRow({ date: e.date, truck_no: e.truck_no, rst_no: e.rst_no || '', tp_no: e.tp_no || '', agent_name: e.agent_name, mandi_name: e.mandi_name, qntl: +(e.qntl||0).toFixed(2), bag: e.bag||0, g_deposite: e.g_deposite||0, gbw_cut: +(e.gbw_cut||0).toFixed(2), mill_w: +((e.mill_w||0)/100).toFixed(2), moisture: e.moisture||0, moisture_cut: +((e.moisture_cut||0)/100).toFixed(2), cutting_percent: e.cutting_percent||0, disc_dust_poll: e.disc_dust_poll||0, final_w: +((e.final_w||0)/100).toFixed(2), g_issued: e.g_issued||0, cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0 }));
       addExcelTitle(ws, 'Mill Entries Report', 19, database); styleExcelHeader(ws); styleExcelData(ws, 5);
+
+      // Cash Transactions Sheet
+      let cashTxns = (database.data.cash_transactions || []).filter(t => {
+        if (req.query.kms_year && t.kms_year !== req.query.kms_year) return false;
+        if (req.query.season && t.season !== req.query.season) return false;
+        return true;
+      }).sort((a, b) => (b.date||'').localeCompare(a.date||''));
+      if (cashTxns.length > 0) {
+        const ws2 = wb.addWorksheet('Cash Transactions');
+        ws2.columns = [
+          { header: 'Date', key: 'date', width: 12 }, { header: 'Party Name', key: 'party', width: 18 },
+          { header: 'Type (Jama/Nikasi)', key: 'type', width: 16 }, { header: 'Amount (Rs.)', key: 'amount', width: 14 },
+          { header: 'Description', key: 'desc', width: 40 }, { header: 'Payment Mode', key: 'mode', width: 12 }
+        ];
+        let tJama = 0, tNikasi = 0;
+        cashTxns.forEach(t => {
+          const isJama = t.txn_type === 'jama';
+          const amt = Math.round((t.amount || 0) * 100) / 100;
+          if (isJama) tJama += amt; else tNikasi += amt;
+          const mode = t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank');
+          ws2.addRow({ date: t.date||'', party: t.category||'', type: isJama ? 'Jama' : 'Nikasi', amount: amt, desc: t.description||'', mode });
+        });
+        const totRow1 = ws2.addRow({ date: 'TOTAL', party: '', type: 'Jama:', amount: Math.round(tJama * 100) / 100, desc: '', mode: '' });
+        totRow1.font = { bold: true };
+        const totRow2 = ws2.addRow({ date: '', party: '', type: 'Nikasi:', amount: Math.round(tNikasi * 100) / 100, desc: '', mode: '' });
+        totRow2.font = { bold: true };
+        const totRow3 = ws2.addRow({ date: '', party: '', type: 'Balance:', amount: Math.round((tJama - tNikasi) * 100) / 100, desc: '', mode: '' });
+        totRow3.font = { bold: true };
+        addExcelTitle(ws2, 'Cash Transactions', 6, database); styleExcelHeader(ws2); styleExcelData(ws2, 5);
+      }
+
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -47,7 +78,33 @@ module.exports = function(database) {
       doc.pipe(res); addPdfHeader(doc, 'Mill Entries Report');
       const h = ['Date','Truck','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss','Cash','Diesel'];
       const rows = entries.map(e => [fmtDate(e.date),e.truck_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,e.g_deposite||0,((e.gbw_cut||0)/100).toFixed(2),e.plastic_bag||0,((e.p_pkt_cut||0)/100).toFixed(2),((e.mill_w||0)/100).toFixed(2),e.moisture||0,((e.moisture_cut||0)/100).toFixed(2),e.cutting_percent||0,e.disc_dust_poll||0,((e.final_w||0)/100).toFixed(2),e.g_issued||0,e.cash_paid||0,e.diesel_paid||0]);
-      addPdfTable(doc, h, rows, [38,38,38,38,32,24,24,28,24,28,34,22,28,22,24,34,26,30,30]); doc.end();
+      addPdfTable(doc, h, rows, [38,38,38,38,32,24,24,28,24,28,34,22,28,22,24,34,26,30,30]);
+
+      // Cash Transactions Section
+      let cashTxns = (database.data.cash_transactions || []).filter(t => {
+        if (req.query.kms_year && t.kms_year !== req.query.kms_year) return false;
+        if (req.query.season && t.season !== req.query.season) return false;
+        return true;
+      }).sort((a, b) => (b.date||'').localeCompare(a.date||''));
+      if (cashTxns.length > 0) {
+        doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
+        addPdfHeader(doc, 'Cash Transactions');
+        const ctH = ['Date', 'Party Name', 'Type', 'Amount (Rs.)', 'Description', 'Payment Mode'];
+        let tJama = 0, tNikasi = 0;
+        const ctRows = cashTxns.map(t => {
+          const isJama = t.txn_type === 'jama';
+          const amt = Math.round((t.amount || 0) * 100) / 100;
+          if (isJama) tJama += amt; else tNikasi += amt;
+          const mode = t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank');
+          return [fmtDate(t.date), (t.category||'').substring(0,16), isJama ? 'Jama' : 'Nikasi', amt, (t.description||'').substring(0,30), mode];
+        });
+        ctRows.push(['TOTAL', '', 'Jama:', Math.round(tJama*100)/100, '', '']);
+        ctRows.push(['', '', 'Nikasi:', Math.round(tNikasi*100)/100, '', '']);
+        ctRows.push(['', '', 'Balance:', Math.round((tJama-tNikasi)*100)/100, '', '']);
+        addPdfTable(doc, ctH, ctRows, [50, 80, 50, 60, 160, 50]);
+      }
+
+      doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 

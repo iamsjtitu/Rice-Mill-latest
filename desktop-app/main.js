@@ -217,40 +217,96 @@ class JsonDatabase {
       updated_at: new Date().toISOString()
     };
     this.data.entries.push(newEntry);
-    
-    // Auto Cash Book for cash_paid
-    const cashPaid = parseFloat(newEntry.cash_paid) || 0;
-    if (cashPaid > 0) {
-      if (!this.data.cash_transactions) this.data.cash_transactions = [];
+    if (!this.data.cash_transactions) this.data.cash_transactions = [];
+
+    const truckNo = newEntry.truck_no || '';
+    const entryDate = newEntry.date || new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
+
+    // Auto Jama (Ledger) entry for truck purchase - what we owe the truck
+    const finalQntl = Math.round(((newEntry.qntl || 0) - (newEntry.bag || 0) / 100) * 100) / 100;
+    if (finalQntl > 0 && truckNo) {
+      const existingRateDoc = this.data.truck_payments.find(p => {
+        const e = this.data.entries.find(en => en.id === p.entry_id && en.truck_no === truckNo && en.mandi_name === (newEntry.mandi_name || ''));
+        return !!e;
+      });
+      const rate = existingRateDoc ? (existingRateDoc.rate_per_qntl || 32) : 32;
+      const grossAmount = Math.round(finalQntl * rate * 100) / 100;
+      const cashTaken = parseFloat(newEntry.cash_paid) || 0;
+      const dieselTaken = parseFloat(newEntry.diesel_paid) || 0;
+      const deductions = cashTaken + dieselTaken;
+
       this.data.cash_transactions.push({
-        id: uuidv4(), date: newEntry.date || new Date().toISOString().split('T')[0],
-        account: 'cash', txn_type: 'nikasi', category: 'Cash Paid (Entry)',
-        description: `Cash Paid: Truck ${newEntry.truck_no||''} - Mandi ${newEntry.mandi_name||''} - Rs.${cashPaid}`,
-        amount: cashPaid, reference: `entry_cash:${newEntry.id.slice(0,8)}`,
+        id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: truckNo,
+        party_type: 'Truck',
+        description: `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : ''),
+        amount: Math.round(grossAmount * 100) / 100, reference: `truck_entry:${newEntry.id.slice(0,8)}`,
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
-        created_at: new Date().toISOString()
+        created_at: now, updated_at: now
+      });
+
+      // Nikasi ledger entry for diesel deduction (counted against truck)
+      if (dieselTaken > 0) {
+        this.data.cash_transactions.push({
+          id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
+          party_type: 'Truck',
+          description: `Truck Diesel Advance: ${truckNo} - Rs.${dieselTaken}`,
+          amount: Math.round(dieselTaken * 100) / 100, reference: `truck_diesel_ded:${newEntry.id.slice(0,8)}`,
+          kms_year: newEntry.kms_year||'', season: newEntry.season||'',
+          created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
+          created_at: now, updated_at: now
+        });
+      }
+    }
+
+    // Auto Cash Book Nikasi entry for cash_paid
+    const cashPaid = parseFloat(newEntry.cash_paid) || 0;
+    if (cashPaid > 0) {
+      this.data.cash_transactions.push({
+        id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: truckNo || 'Cash Paid (Entry)',
+        party_type: 'Truck',
+        description: `Cash Paid: Truck ${truckNo} - Mandi ${newEntry.mandi_name||''} - Rs.${cashPaid}`,
+        amount: Math.round(cashPaid * 100) / 100, reference: `entry_cash:${newEntry.id.slice(0,8)}`,
+        kms_year: newEntry.kms_year||'', season: newEntry.season||'',
+        created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
+        created_at: now, updated_at: now
       });
     }
-    
+
     // Auto Diesel Account for diesel_paid
     const dieselPaid = parseFloat(newEntry.diesel_paid) || 0;
     if (dieselPaid > 0) {
       if (!this.data.diesel_accounts) this.data.diesel_accounts = [];
       if (!this.data.diesel_pumps) this.data.diesel_pumps = [];
       const defPump = this.data.diesel_pumps.find(p => p.is_default) || this.data.diesel_pumps[0];
+      const pumpName = defPump?.name || 'Default Pump';
+      const pumpId = defPump?.id || 'default';
+
       this.data.diesel_accounts.push({
-        id: uuidv4(), date: newEntry.date || new Date().toISOString().split('T')[0],
-        pump_id: defPump?.id||'default', pump_name: defPump?.name||'Default Pump',
-        truck_no: newEntry.truck_no||'', agent_name: newEntry.agent_name||'',
-        amount: dieselPaid, txn_type: 'debit',
-        description: `Diesel: Truck ${newEntry.truck_no||''} - Mandi ${newEntry.mandi_name||''}`,
+        id: uuidv4(), date: entryDate,
+        pump_id: pumpId, pump_name: pumpName,
+        truck_no: truckNo, agent_name: newEntry.agent_name||'',
+        mandi_name: newEntry.mandi_name||'',
+        amount: Math.round(dieselPaid * 100) / 100, txn_type: 'debit',
+        description: `Diesel: Truck ${truckNo} - Mandi ${newEntry.mandi_name||''}`,
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
-        created_at: new Date().toISOString()
+        created_at: now
+      });
+
+      // Also create JAMA (Ledger) entry in cash_transactions for diesel pump
+      this.data.cash_transactions.push({
+        id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: pumpName,
+        party_type: 'Diesel',
+        description: `Diesel Fill: Truck ${truckNo} - ${pumpName} - Rs.${dieselPaid}`,
+        amount: Math.round(dieselPaid * 100) / 100, reference: `diesel_fill:${newEntry.id.slice(0,8)}`,
+        kms_year: newEntry.kms_year||'', season: newEntry.season||'',
+        created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
+        created_at: now, updated_at: now
       });
     }
-    
+
     this.save();
     return newEntry;
   }
@@ -265,22 +321,92 @@ class JsonDatabase {
         updated_at: new Date().toISOString()
       };
       const updated = this.data.entries[index];
-      
-      // Update linked cash/diesel entries
+      const now = new Date().toISOString();
+      const truckNo = updated.truck_no || '';
+      const entryDate = updated.date || new Date().toISOString().split('T')[0];
+
+      // Delete all linked cash/diesel entries and recreate
       if (this.data.cash_transactions) this.data.cash_transactions = this.data.cash_transactions.filter(t => t.linked_entry_id !== id);
       if (this.data.diesel_accounts) this.data.diesel_accounts = this.data.diesel_accounts.filter(t => t.linked_entry_id !== id);
-      
-      const cashPaid = parseFloat(updated.cash_paid) || 0;
-      if (cashPaid > 0 && this.data.cash_transactions) {
-        this.data.cash_transactions.push({ id: uuidv4(), date: updated.date, account: 'cash', txn_type: 'nikasi', category: 'Cash Paid (Entry)', description: `Cash Paid: Truck ${updated.truck_no||''} - Mandi ${updated.mandi_name||''} - Rs.${cashPaid}`, amount: cashPaid, reference: `entry_cash:${id.slice(0,8)}`, kms_year: updated.kms_year||'', season: updated.season||'', created_by: updated.created_by||'system', linked_entry_id: id, created_at: new Date().toISOString() });
+      if (!this.data.cash_transactions) this.data.cash_transactions = [];
+
+      // Recreate Jama (Ledger) entry for truck purchase
+      const finalQntl = Math.round(((updated.qntl || 0) - (updated.bag || 0) / 100) * 100) / 100;
+      if (finalQntl > 0 && truckNo) {
+        const paymentDoc = this.data.truck_payments.find(p => p.entry_id === id);
+        const rate = paymentDoc ? (paymentDoc.rate_per_qntl || 32) : 32;
+        const grossAmount = Math.round(finalQntl * rate * 100) / 100;
+        const cashTaken = parseFloat(updated.cash_paid) || 0;
+        const dieselTaken = parseFloat(updated.diesel_paid) || 0;
+        const deductions = cashTaken + dieselTaken;
+
+        this.data.cash_transactions.push({
+          id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: truckNo,
+          party_type: 'Truck',
+          description: `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : ''),
+          amount: Math.round(grossAmount * 100) / 100, reference: `truck_entry:${id.slice(0,8)}`,
+          kms_year: updated.kms_year||'', season: updated.season||'',
+          created_by: updated.created_by||'system', linked_entry_id: id,
+          created_at: now, updated_at: now
+        });
+
+        if (dieselTaken > 0) {
+          this.data.cash_transactions.push({
+            id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
+            party_type: 'Truck',
+            description: `Truck Diesel Advance: ${truckNo} - Rs.${dieselTaken}`,
+            amount: Math.round(dieselTaken * 100) / 100, reference: `truck_diesel_ded:${id.slice(0,8)}`,
+            kms_year: updated.kms_year||'', season: updated.season||'',
+            created_by: updated.created_by||'system', linked_entry_id: id,
+            created_at: now, updated_at: now
+          });
+        }
       }
+
+      // Recreate Cash Book Nikasi entry for cash_paid
+      const cashPaid = parseFloat(updated.cash_paid) || 0;
+      if (cashPaid > 0) {
+        this.data.cash_transactions.push({
+          id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: truckNo || 'Cash Paid (Entry)',
+          party_type: 'Truck',
+          description: `Cash Paid: Truck ${truckNo} - Mandi ${updated.mandi_name||''} - Rs.${cashPaid}`,
+          amount: Math.round(cashPaid * 100) / 100, reference: `entry_cash:${id.slice(0,8)}`,
+          kms_year: updated.kms_year||'', season: updated.season||'',
+          created_by: updated.created_by||'system', linked_entry_id: id,
+          created_at: now, updated_at: now
+        });
+      }
+
+      // Recreate diesel account and diesel JAMA ledger entry
       const dieselPaid = parseFloat(updated.diesel_paid) || 0;
-      if (dieselPaid > 0 && this.data.diesel_accounts) {
+      if (dieselPaid > 0) {
+        if (!this.data.diesel_accounts) this.data.diesel_accounts = [];
         if (!this.data.diesel_pumps) this.data.diesel_pumps = [];
         const defPump = this.data.diesel_pumps.find(p => p.is_default) || this.data.diesel_pumps[0];
-        this.data.diesel_accounts.push({ id: uuidv4(), date: updated.date, pump_id: defPump?.id||'default', pump_name: defPump?.name||'Default Pump', truck_no: updated.truck_no||'', agent_name: updated.agent_name||'', mandi_name: updated.mandi_name||'', amount: dieselPaid, txn_type: 'debit', description: `Diesel: Truck ${updated.truck_no||''} - Mandi ${updated.mandi_name||''}`, kms_year: updated.kms_year||'', season: updated.season||'', created_by: updated.created_by||'system', linked_entry_id: id, created_at: new Date().toISOString() });
+        const pumpName = defPump?.name || 'Default Pump';
+        const pumpId = defPump?.id || 'default';
+
+        this.data.diesel_accounts.push({
+          id: uuidv4(), date: entryDate, pump_id: pumpId, pump_name: pumpName,
+          truck_no: truckNo, agent_name: updated.agent_name||'', mandi_name: updated.mandi_name||'',
+          amount: Math.round(dieselPaid * 100) / 100, txn_type: 'debit',
+          description: `Diesel: Truck ${truckNo} - Mandi ${updated.mandi_name||''}`,
+          kms_year: updated.kms_year||'', season: updated.season||'',
+          created_by: updated.created_by||'system', linked_entry_id: id,
+          created_at: now
+        });
+
+        this.data.cash_transactions.push({
+          id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: pumpName,
+          party_type: 'Diesel',
+          description: `Diesel Fill: Truck ${truckNo} - ${pumpName} - Rs.${dieselPaid}`,
+          amount: Math.round(dieselPaid * 100) / 100, reference: `diesel_fill:${id.slice(0,8)}`,
+          kms_year: updated.kms_year||'', season: updated.season||'',
+          created_by: updated.created_by||'system', linked_entry_id: id,
+          created_at: now, updated_at: now
+        });
       }
-      
+
       this.save();
       return updated;
     }

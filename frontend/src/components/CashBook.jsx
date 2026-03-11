@@ -16,7 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, RefreshCw, Filter, X, Download, FileText, ArrowDownCircle, ArrowUpCircle, Wallet, Landmark, PlusCircle, Pencil, Users, CheckCircle, AlertCircle } from "lucide-react";
+import { Trash2, Plus, RefreshCw, Filter, X, Download, FileText, ArrowDownCircle, ArrowUpCircle, Wallet, Landmark, PlusCircle, Pencil, Users, CheckCircle, AlertCircle, Banknote } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -57,6 +57,7 @@ const CashBook = ({ filters, user }) => {
   const [activeView, setActiveView] = useState("transactions"); // "transactions" or "party-summary"
   const [partySummary, setPartySummary] = useState(null);
   const [partySummaryFilter, setPartySummaryFilter] = useState("");
+  const [partySummaryStatusFilter, setPartySummaryStatusFilter] = useState("");
 
   const fetchPartySummary = useCallback(async () => {
     try {
@@ -82,7 +83,12 @@ const CashBook = ({ filters, user }) => {
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
-      if (txnFilters.account) params.append('account', txnFilters.account);
+      // Force account=cash for Cash Transactions tab
+      if (activeView === 'cash-transactions') {
+        params.append('account', 'cash');
+      } else {
+        if (txnFilters.account) params.append('account', txnFilters.account);
+      }
       if (txnFilters.txn_type) params.append('txn_type', txnFilters.txn_type);
       if (txnFilters.category) params.append('category', txnFilters.category);
       if (txnFilters.party_type) params.append('party_type', txnFilters.party_type);
@@ -102,7 +108,7 @@ const CashBook = ({ filters, user }) => {
       setAllTxns(allRes.data);
     } catch (e) { toast.error("Cash book load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, txnFilters]);
+  }, [filters.kms_year, filters.season, txnFilters, activeView]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
@@ -315,13 +321,18 @@ const CashBook = ({ filters, user }) => {
         </div>
       )}
 
-      {/* Sub-tabs: Transactions vs Party Summary */}
+      {/* Sub-tabs */}
       <div className="flex gap-2 flex-wrap items-center">
         <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
           <Button onClick={() => setActiveView("transactions")} variant="ghost" size="sm"
             className={activeView === "transactions" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
             data-testid="cashbook-tab-transactions">
-            <Wallet className="w-4 h-4 mr-1" /> Transactions
+            <Wallet className="w-4 h-4 mr-1" /> All Transactions
+          </Button>
+          <Button onClick={() => setActiveView("cash-transactions")} variant="ghost" size="sm"
+            className={activeView === "cash-transactions" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
+            data-testid="cashbook-tab-cash-transactions">
+            <Banknote className="w-4 h-4 mr-1" /> Cash Transactions
           </Button>
           <Button onClick={() => setActiveView("party-summary")} variant="ghost" size="sm"
             className={activeView === "party-summary" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
@@ -334,10 +345,11 @@ const CashBook = ({ filters, user }) => {
         </Button>
       </div>
 
-      {activeView === "transactions" && (<>
+      {(activeView === "transactions" || activeView === "cash-transactions") && (<>
       {/* Permanent Filter Section */}
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
           <div className="flex gap-3 flex-wrap items-end">
+            {activeView === "transactions" && (
             <div>
               <Label className="text-xs text-slate-400">Account</Label>
               <Select value={txnFilters.account || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, account: v === "all" ? "" : v }))}>
@@ -350,6 +362,7 @@ const CashBook = ({ filters, user }) => {
                 </SelectContent>
               </Select>
             </div>
+            )}
             <div>
               <Label className="text-xs text-slate-400">Type</Label>
               <Select value={txnFilters.txn_type || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, txn_type: v === "all" ? "" : v }))}>
@@ -591,6 +604,17 @@ const CashBook = ({ filters, user }) => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label className="text-xs text-slate-400">Status</Label>
+                <Select value={partySummaryStatusFilter || "all"} onValueChange={(v) => setPartySummaryStatusFilter(v === "all" ? "" : v)}>
+                  <SelectTrigger className="w-36 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="party-summary-status-filter"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="settled">Settled</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Button onClick={() => { const u = `${API}/cash-book/party-summary/excel?kms_year=${filters.kms_year||''}&season=${filters.season||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}`; window.open(u); }}
                 variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30 h-8" data-testid="party-summary-export-excel">
                 <Download className="w-3 h-3 mr-1" /> Excel
@@ -633,7 +657,16 @@ const CashBook = ({ filters, user }) => {
           )}
 
           {/* Party Table */}
-          {partySummary && partySummary.parties.length > 0 ? (
+          {partySummary && partySummary.parties.length > 0 ? (() => {
+            const filteredParties = partySummary.parties.filter(p => {
+              if (partySummaryStatusFilter === "settled") return p.balance === 0;
+              if (partySummaryStatusFilter === "pending") return p.balance !== 0;
+              return true;
+            });
+            const fJama = filteredParties.reduce((s, p) => s + p.total_jama, 0);
+            const fNikasi = filteredParties.reduce((s, p) => s + p.total_nikasi, 0);
+            const fBalance = fJama - fNikasi;
+            return filteredParties.length > 0 ? (
             <Card className="bg-slate-800 border-slate-700">
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
@@ -661,7 +694,7 @@ const CashBook = ({ filters, user }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {partySummary.parties.map((p, idx) => (
+                      {filteredParties.map((p, idx) => (
                         <tr key={p.party_name} className={`border-b border-slate-700/50 cursor-pointer hover:bg-slate-700/50 transition-colors ${p.balance === 0 ? 'bg-emerald-900/10' : p.balance < 0 ? 'bg-red-900/10' : ''}`}
                           onClick={() => { setActiveView("transactions"); setTxnFilters(prev => ({ ...prev, category: p.party_name, party_type: p.party_type || "" })); }}
                           data-testid={`party-row-${idx}`}>
@@ -693,10 +726,10 @@ const CashBook = ({ filters, user }) => {
                       ))}
                       {/* Total Row */}
                       <tr className="border-t-2 border-slate-600 bg-slate-700/50">
-                        <td colSpan={3} className="text-amber-400 font-bold text-sm px-3 py-2.5">TOTAL ({partySummary.parties.length} parties)</td>
-                        <td className="text-right text-emerald-400 font-bold text-sm px-3 py-2.5">₹{partySummary.summary.total_jama.toLocaleString('en-IN')}</td>
-                        <td className="text-right text-red-400 font-bold text-sm px-3 py-2.5">₹{partySummary.summary.total_nikasi.toLocaleString('en-IN')}</td>
-                        <td className="text-right text-amber-400 font-bold text-sm px-3 py-2.5">₹{Math.abs(partySummary.summary.total_outstanding).toLocaleString('en-IN')}</td>
+                        <td colSpan={3} className="text-amber-400 font-bold text-sm px-3 py-2.5">TOTAL ({filteredParties.length} parties)</td>
+                        <td className="text-right text-emerald-400 font-bold text-sm px-3 py-2.5">₹{fJama.toLocaleString('en-IN')}</td>
+                        <td className="text-right text-red-400 font-bold text-sm px-3 py-2.5">₹{fNikasi.toLocaleString('en-IN')}</td>
+                        <td className="text-right text-amber-400 font-bold text-sm px-3 py-2.5">₹{Math.abs(fBalance).toLocaleString('en-IN')}</td>
                         <td></td>
                         <td></td>
                       </tr>
@@ -705,7 +738,9 @@ const CashBook = ({ filters, user }) => {
                 </div>
               </CardContent>
             </Card>
-          ) : partySummary ? (
+          ) : <p className="text-center text-slate-400 py-8">No parties match filter</p>;
+          })()
+          : partySummary ? (
             <Card className="bg-slate-800 border-slate-700"><CardContent className="p-8 text-center text-slate-400">Koi party data nahi mila</CardContent></Card>
           ) : null}
         </div>
