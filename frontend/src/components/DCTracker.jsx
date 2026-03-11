@@ -455,13 +455,7 @@ export const GunnyBags = ({ filters, user }) => {
           <Card className="bg-gradient-to-br from-blue-900/40 to-slate-800 border-blue-800/30"><CardContent className="p-3">
             <p className="text-[10px] text-blue-400">Bag Received (Mill)</p>
             <p className="text-xl font-bold text-blue-400">{summary.auto_mill?.total_in || 0}</p>
-            <p className="text-[9px] text-red-400 mt-0.5">Issued: {summary.auto_mill?.total_out || 0}</p>
-            <p className="text-[9px] text-slate-500">Net: {summary.auto_mill?.balance || 0}</p>
-          </CardContent></Card>
-          <Card className="bg-gradient-to-br from-red-900/40 to-slate-800 border-red-800/30"><CardContent className="p-3">
-            <p className="text-[10px] text-red-400">Total G.Issued</p>
-            <p className="text-xl font-bold text-red-400">{summary.g_issued_total || 0}</p>
-            <p className="text-[9px] text-slate-500 mt-1">Gunny bags issued</p>
+            <p className="text-[9px] text-slate-500 mt-1">From truck entries</p>
           </CardContent></Card>
           <Card className="bg-gradient-to-br from-purple-900/40 to-slate-800 border-purple-800/30"><CardContent className="p-3">
             <p className="text-[10px] text-purple-400">P.Pkt (Plastic)</p>
@@ -473,6 +467,11 @@ export const GunnyBags = ({ filters, user }) => {
             <p className="text-xl font-bold text-orange-400">{summary.old?.balance || 0}</p>
             <div className="flex gap-2 text-[10px] mt-1"><span className="text-green-500">In: {summary.old?.total_in || 0}</span><span className="text-red-400">Out: {summary.old?.total_out || 0}</span></div>
             <p className="text-[9px] text-amber-400">Cost: Rs.{(summary.old?.total_cost || 0).toLocaleString('en-IN')}</p>
+          </CardContent></Card>
+          <Card className="bg-gradient-to-br from-red-900/40 to-slate-800 border-red-800/30"><CardContent className="p-3">
+            <p className="text-[10px] text-red-400">Total G.Issued</p>
+            <p className="text-xl font-bold text-red-400">{summary.g_issued_total || 0}</p>
+            <p className="text-[9px] text-slate-500 mt-1">Gunny bags OUT</p>
           </CardContent></Card>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-3">
             <p className="text-[10px] text-white font-medium">Total (Excl Govt)</p>
