@@ -20,7 +20,7 @@ Comprehensive management tool for a rice mill named "Mill Entry System". Full-st
 - Admin: admin / admin123
 - Staff: staff / staff123
 
-## Current Version: 4.0.0
+## Current Version: 4.1.1
 
 ## What's Implemented
 
