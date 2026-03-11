@@ -571,8 +571,11 @@ async def get_gunny_bag_summary(kms_year: Optional[str] = None, season: Optional
     result["paddy_bags"] = {"total": paddy_bags, "label": "Paddy Receive Bags"}
     result["ppkt"] = {"total": paddy_ppkt, "label": "P.Pkt (Plastic Bags)"}
 
-    # Grand total (Excl Govt): Old Market Balance (IN - OUT)
-    result["grand_total"] = result["old"]["balance"]
+    # Grand total (Excl Govt): ALL old bag entries (manual + auto) IN - OUT
+    all_old = [e for e in entries if e.get("bag_type") == "old"]
+    all_old_in = sum(e.get("quantity",0) for e in all_old if e.get("txn_type") == "in")
+    all_old_out = sum(e.get("quantity",0) for e in all_old if e.get("txn_type") == "out")
+    result["grand_total"] = all_old_in - all_old_out
     return result
 
 
