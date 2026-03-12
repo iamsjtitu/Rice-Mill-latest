@@ -1172,7 +1172,7 @@ async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional
 # ============ PARTY SUMMARY ============
 
 async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to=None, search=None, view_type=None):
-    """Aggregate party-wise summary from private_paddy, rice_sales, sale_vouchers, and purchase_vouchers"""
+    """Aggregate party-wise summary separately for paddy_purchase, sale_vouchers, and purchase_vouchers"""
     base_q = {}
     if kms_year: base_q["kms_year"] = kms_year
     if season: base_q["season"] = season
@@ -1183,97 +1183,73 @@ async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to
         base_q["date"] = dq
 
     paddy_items = await db.private_paddy.find(base_q, {"_id": 0}).to_list(5000)
-    rice_items = await db.rice_sales.find(base_q, {"_id": 0}).to_list(5000)
     sale_voucher_items = await db.sale_vouchers.find(base_q, {"_id": 0}).to_list(5000)
     purchase_voucher_items = await db.purchase_vouchers.find(base_q, {"_id": 0}).to_list(5000)
 
-    party_map = {}
+    def _agg(items, amt_key, paid_key, label):
+        pmap = {}
+        for item in items:
+            name = item.get("party_name", "Unknown")
+            if name not in pmap:
+                pmap[name] = {"party_name": name, "amount": 0, "paid": 0, "balance": 0,
+                              "mandi_name": item.get("mandi_name", ""), "agent_name": item.get("agent_name", ""),
+                              "entries": 0}
+            pm = pmap[name]
+            pm["amount"] += item.get(amt_key, 0) or 0
+            pm["paid"] += item.get(paid_key, 0) or 0
+            pm["entries"] += 1
+            if not pm["mandi_name"] and item.get("mandi_name"):
+                pm["mandi_name"] = item["mandi_name"]
+            if not pm["agent_name"] and item.get("agent_name"):
+                pm["agent_name"] = item["agent_name"]
+        result = []
+        for pm in pmap.values():
+            pm["amount"] = round(pm["amount"], 2)
+            pm["paid"] = round(pm["paid"], 2)
+            pm["balance"] = round(pm["amount"] - pm["paid"], 2)
+            result.append(pm)
+        if search:
+            s = search.lower()
+            result = [r for r in result if s in r["party_name"].lower() or s in r.get("mandi_name", "").lower() or s in r.get("agent_name", "").lower()]
+        result.sort(key=lambda x: abs(x["balance"]), reverse=True)
+        total_amt = round(sum(r["amount"] for r in result), 2)
+        total_paid = round(sum(r["paid"] for r in result), 2)
+        total_bal = round(sum(r["balance"] for r in result), 2)
+        return {"parties": result, "total_amount": total_amt, "total_paid": total_paid, "total_balance": total_bal}
 
-    def ensure_party(name):
-        if name not in party_map:
-            party_map[name] = {
-                "party_name": name, "mandi_name": "", "agent_name": "",
-                "purchase_amount": 0, "purchase_paid": 0, "purchase_balance": 0,
-                "sale_amount": 0, "sale_received": 0, "sale_balance": 0,
-                "net_balance": 0, "sources": set(),
-            }
-        return party_map[name]
+    paddy_summary = _agg(paddy_items, "total_amount", "paid_amount", "Paddy Purchase")
+    sale_summary = _agg(sale_voucher_items, "total", "paid_amount", "Sale Voucher")
+    purchase_summary = _agg(purchase_voucher_items, "total", "paid_amount", "Purchase Voucher")
 
-    # Paddy Purchase entries
-    for p in paddy_items:
-        name = p.get("party_name", "Unknown")
-        pm = ensure_party(name)
-        pm["purchase_amount"] += p.get("total_amount", 0) or 0
-        pm["purchase_paid"] += p.get("paid_amount", 0) or 0
-        pm["sources"].add("Paddy Purchase")
-        if not pm["mandi_name"] and p.get("mandi_name"):
-            pm["mandi_name"] = p["mandi_name"]
-        if not pm["agent_name"] and p.get("agent_name"):
-            pm["agent_name"] = p["agent_name"]
-
-    # Rice Sale entries
-    for r in rice_items:
-        name = r.get("party_name", "Unknown")
-        pm = ensure_party(name)
-        pm["sale_amount"] += r.get("total_amount", 0) or 0
-        pm["sale_received"] += r.get("paid_amount", 0) or 0
-        pm["sources"].add("Rice Sale")
-
-    # Sale Voucher entries
-    for sv in sale_voucher_items:
-        name = sv.get("party_name", "Unknown")
-        pm = ensure_party(name)
-        pm["sale_amount"] += sv.get("total", 0) or 0
-        pm["sale_received"] += sv.get("paid_amount", 0) or 0
-        pm["sources"].add("Sale Voucher")
-
-    # Purchase Voucher entries
-    for pv in purchase_voucher_items:
-        name = pv.get("party_name", "Unknown")
-        pm = ensure_party(name)
-        pm["purchase_amount"] += pv.get("total", 0) or 0
-        pm["purchase_paid"] += pv.get("paid_amount", 0) or 0
-        pm["sources"].add("Purchase Voucher")
-
-    result = []
-    for pm in party_map.values():
-        pm["purchase_amount"] = round(pm["purchase_amount"], 2)
-        pm["purchase_paid"] = round(pm["purchase_paid"], 2)
-        pm["purchase_balance"] = round(pm["purchase_amount"] - pm["purchase_paid"], 2)
-        pm["sale_amount"] = round(pm["sale_amount"], 2)
-        pm["sale_received"] = round(pm["sale_received"], 2)
-        pm["sale_balance"] = round(pm["sale_amount"] - pm["sale_received"], 2)
-        pm["net_balance"] = round(pm["purchase_balance"] - pm["sale_balance"], 2)
-        # Auto party_type
-        has_purchase = pm["purchase_amount"] > 0
-        has_sale = pm["sale_amount"] > 0
-        pm["party_type"] = "Both" if has_purchase and has_sale else ("Seller" if has_purchase else "Buyer")
-        pm["source_list"] = ", ".join(sorted(pm["sources"]))
-        del pm["sources"]
-        result.append(pm)
-
-    if search:
-        s = search.lower()
-        result = [r for r in result if s in r["party_name"].lower() or s in r["mandi_name"].lower() or s in r["agent_name"].lower()]
-
-    # Filter by view_type (paddy/rice)
-    if view_type == "paddy":
-        result = [r for r in result if r["purchase_amount"] > 0]
-    elif view_type == "rice":
-        result = [r for r in result if r["sale_amount"] > 0]
-
-    result.sort(key=lambda x: abs(x["net_balance"]), reverse=True)
+    # Combined totals for top cards
+    all_purchase = paddy_summary["total_amount"] + purchase_summary["total_amount"]
+    all_purchase_paid = paddy_summary["total_paid"] + purchase_summary["total_paid"]
+    all_sale = sale_summary["total_amount"]
+    all_sale_rcvd = sale_summary["total_paid"]
+    total_parties = len(set(
+        [p["party_name"] for p in paddy_summary["parties"]] +
+        [p["party_name"] for p in sale_summary["parties"]] +
+        [p["party_name"] for p in purchase_summary["parties"]]
+    ))
 
     totals = {
-        "total_purchase": round(sum(r["purchase_amount"] for r in result), 2),
-        "total_purchase_paid": round(sum(r["purchase_paid"] for r in result), 2),
-        "total_purchase_balance": round(sum(r["purchase_balance"] for r in result), 2),
-        "total_sale": round(sum(r["sale_amount"] for r in result), 2),
-        "total_sale_received": round(sum(r["sale_received"] for r in result), 2),
-        "total_sale_balance": round(sum(r["sale_balance"] for r in result), 2),
-        "total_net_balance": round(sum(r["net_balance"] for r in result), 2),
+        "total_parties": total_parties,
+        "total_purchase": round(all_purchase, 2),
+        "total_purchase_paid": round(all_purchase_paid, 2),
+        "total_purchase_balance": round(all_purchase - all_purchase_paid, 2),
+        "total_sale": round(all_sale, 2),
+        "total_sale_received": round(all_sale_rcvd, 2),
+        "total_sale_balance": round(all_sale - all_sale_rcvd, 2),
+        "total_net_balance": round((all_purchase - all_purchase_paid) - (all_sale - all_sale_rcvd), 2),
     }
-    return {"parties": result, "totals": totals}
+
+    return {
+        "paddy_purchase": paddy_summary,
+        "sale_vouchers": sale_summary,
+        "purchase_vouchers": purchase_summary,
+        "totals": totals,
+        "parties": [],  # backward compat
+    }
 
 
 @router.get("/private-trading/party-summary")

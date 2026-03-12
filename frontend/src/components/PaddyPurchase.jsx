@@ -533,12 +533,11 @@ export const PaddyPurchase = ({ filters, user }) => {
 
 // ===== Party Summary Component =====
 export const PartySummary = ({ filters, onNavigate }) => {
-  const [data, setData] = useState({ parties: [], totals: {} });
+  const [data, setData] = useState({ paddy_purchase: {}, sale_vouchers: {}, purchase_vouchers: {}, totals: {} });
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [viewType, setViewType] = useState("all");
 
   const fetchData = useCallback(async () => {
     try {
@@ -564,21 +563,60 @@ export const PartySummary = ({ filters, onNavigate }) => {
     if (dateFrom) p.append('date_from', dateFrom);
     if (dateTo) p.append('date_to', dateTo);
     if (searchText) p.append('search', searchText);
-    if (viewType && viewType !== "all") p.append('view_type', viewType);
     downloadFile(`/api/private-trading/party-summary/${type}?${p}`, `party_summary.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
-  const t = data.totals;
+  const t = data.totals || {};
+  const paddy = data.paddy_purchase || { parties: [], total_amount: 0, total_paid: 0, total_balance: 0 };
+  const sale = data.sale_vouchers || { parties: [], total_amount: 0, total_paid: 0, total_balance: 0 };
+  const purchase = data.purchase_vouchers || { parties: [], total_amount: 0, total_paid: 0, total_balance: 0 };
+
+  const SectionTable = ({ title, icon: Icon, color, borderColor, parties, totalAmt, totalPaid, totalBal, amtLabel, paidLabel, testPrefix }) => (
+    <Card className={`bg-slate-800 ${borderColor} border`}>
+      <CardHeader className="pb-2 pt-3 px-4">
+        <CardTitle className={`${color} text-sm flex items-center gap-2`}><Icon className="w-4 h-4" /> {title} ({parties.length} parties)</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0"><div className="overflow-x-auto">
+        <Table>
+          <TableHeader><TableRow className="border-slate-700">
+            {['Party', 'Entries', amtLabel, paidLabel, 'Balance'].map(h =>
+              <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${[amtLabel, paidLabel, 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+          </TableRow></TableHeader>
+          <TableBody>
+            {loading ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-6">Loading...</TableCell></TableRow>
+            : parties.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-6">Koi entry nahi mili.</TableCell></TableRow>
+            : parties.map((p, idx) => (
+              <TableRow key={p.party_name + idx} className="border-slate-700 cursor-pointer hover:bg-slate-700/50 transition-colors" data-testid={`${testPrefix}-row-${idx}`}
+                onClick={() => { if (onNavigate) { toast.info(`"${p.party_name}" ki ledger khul rahi hai...`); onNavigate("cashbook"); } }}>
+                <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
+                <TableCell className="text-slate-400 text-xs">{p.entries}</TableCell>
+                <TableCell className={`text-right ${color} text-sm`}>Rs.{(p.amount || 0).toLocaleString()}</TableCell>
+                <TableCell className="text-right text-emerald-400 text-xs">Rs.{(p.paid || 0).toLocaleString()}</TableCell>
+                <TableCell className={`text-right font-semibold text-sm ${(p.balance || 0) > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`${testPrefix}-bal-${idx}`}>Rs.{(p.balance || 0).toLocaleString()}</TableCell>
+              </TableRow>
+            ))}
+            {parties.length > 0 && (
+              <TableRow className="border-slate-700 bg-slate-700/30">
+                <TableCell className={`font-bold ${color} text-sm`} colSpan={2}>TOTAL</TableCell>
+                <TableCell className={`text-right ${color} font-bold text-sm`}>Rs.{Math.round(totalAmt).toLocaleString()}</TableCell>
+                <TableCell className="text-right text-emerald-400 font-bold text-xs">Rs.{Math.round(totalPaid).toLocaleString()}</TableCell>
+                <TableCell className="text-right text-red-400 font-bold text-sm" data-testid={`${testPrefix}-total-bal`}>Rs.{Math.round(totalBal).toLocaleString()}</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div></CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-4" data-testid="party-summary-section">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          ["Parties", data.parties.length, "text-white"],
+          ["Total Parties", t.total_parties || 0, "text-white"],
           ["Purchase Bal", `Rs.${(t.total_purchase_balance || 0).toLocaleString()}`, "text-red-400"],
           ["Sale Bal", `Rs.${(t.total_sale_balance || 0).toLocaleString()}`, "text-cyan-400"],
           ["Net Balance", `Rs.${(t.total_net_balance || 0).toLocaleString()}`, (t.total_net_balance || 0) > 0 ? "text-red-400" : "text-emerald-400"],
-          ["Total Purchase", `Rs.${(t.total_purchase || 0).toLocaleString()}`, "text-amber-400"],
         ].map(([label, val, color]) => (
           <Card key={label} className="bg-slate-800 border-slate-700">
             <CardContent className="p-3 text-center">
@@ -590,16 +628,6 @@ export const PartySummary = ({ filters, onNavigate }) => {
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
-        <Select value={viewType} onValueChange={setViewType}>
-          <SelectTrigger className="w-[130px] bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="summary-view-type">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="paddy">Paddy Purchase</SelectItem>
-            <SelectItem value="rice">Rice Sale</SelectItem>
-          </SelectContent>
-        </Select>
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="summary-refresh-btn">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
@@ -620,98 +648,31 @@ export const PartySummary = ({ filters, onNavigate }) => {
         <div className="relative ml-auto min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input value={searchText} onChange={e => setSearchText(e.target.value)}
-            placeholder="Party / Mandi / Agent..."
+            placeholder="Party search..."
             className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8" data-testid="summary-search-input" />
         </div>
       </div>
 
-      {/* Purchase Section (Paddy Purchase + Purchase Vouchers) */}
-      {(viewType === "all" || viewType === "paddy") && (() => {
-        const paddyParties = data.parties.filter(p => p.purchase_amount > 0);
-        const paddyTotalAmt = paddyParties.reduce((s, p) => s + p.purchase_amount, 0);
-        const paddyTotalPaid = paddyParties.reduce((s, p) => s + p.purchase_paid, 0);
-        const paddyTotalBal = paddyParties.reduce((s, p) => s + p.purchase_balance, 0);
-        return (
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2 pt-3 px-4">
-            <CardTitle className="text-amber-400 text-sm flex items-center gap-2"><Wheat className="w-4 h-4" /> Purchase Summary ({paddyParties.length} parties)</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0"><div className="overflow-x-auto">
-            <Table>
-              <TableHeader><TableRow className="border-slate-700">
-                {['Party', 'Source', 'Purchase Amt', 'Paid', 'Balance'].map(h =>
-                  <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Purchase Amt', 'Paid', 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
-              </TableRow></TableHeader>
-              <TableBody>
-                {loading ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-                : paddyParties.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-6">Koi purchase nahi mili.</TableCell></TableRow>
-                : paddyParties.map((p, idx) => (
-                  <TableRow key={p.party_name + idx} className="border-slate-700 cursor-pointer hover:bg-slate-700/50 transition-colors" data-testid={`paddy-summary-row-${idx}`}
-                    onClick={() => { if (onNavigate) { toast.info(`"${p.party_name}" ki Cash Book Ledger khul rahi hai...`); onNavigate("cashbook"); } }}>
-                    <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
-                    <TableCell className="text-xs"><span className="text-slate-400 bg-slate-700/50 px-1.5 py-0.5 rounded text-[10px]">{p.source_list || '-'}</span></TableCell>
-                    <TableCell className="text-right text-amber-400 text-sm">Rs.{p.purchase_amount.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-emerald-400 text-xs">Rs.{p.purchase_paid.toLocaleString()}</TableCell>
-                    <TableCell className={`text-right font-semibold text-sm ${p.purchase_balance > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`paddy-summary-bal-${idx}`}>Rs.{p.purchase_balance.toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
-                {paddyParties.length > 0 && (
-                  <TableRow className="border-slate-700 bg-amber-900/20">
-                    <TableCell className="font-bold text-amber-400 text-sm" colSpan={2}>TOTAL</TableCell>
-                    <TableCell className="text-right text-amber-400 font-bold text-sm">Rs.{Math.round(paddyTotalAmt).toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-emerald-400 font-bold text-xs">Rs.{Math.round(paddyTotalPaid).toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-red-400 font-bold text-sm" data-testid="paddy-summary-total-bal">Rs.{Math.round(paddyTotalBal).toLocaleString()}</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div></CardContent>
-        </Card>);
-      })()}
+      {/* 1. Sale Vouchers Section */}
+      <SectionTable
+        title="Sale Vouchers" icon={ShoppingCart} color="text-emerald-400" borderColor="border-emerald-700"
+        parties={sale.parties || []} totalAmt={sale.total_amount} totalPaid={sale.total_paid} totalBal={sale.total_balance}
+        amtLabel="Sale Amount" paidLabel="Received" testPrefix="sv-summary"
+      />
 
-      {/* Sale Section (Rice Sale + Sale Vouchers) */}
-      {(viewType === "all" || viewType === "rice") && (() => {
-        const riceParties = data.parties.filter(p => p.sale_amount > 0);
-        const riceTotalAmt = riceParties.reduce((s, p) => s + p.sale_amount, 0);
-        const riceTotalRcvd = riceParties.reduce((s, p) => s + p.sale_received, 0);
-        const riceTotalBal = riceParties.reduce((s, p) => s + p.sale_balance, 0);
-        return (
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2 pt-3 px-4">
-            <CardTitle className="text-emerald-400 text-sm flex items-center gap-2"><ShoppingCart className="w-4 h-4" /> Sale Summary ({riceParties.length} parties)</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0"><div className="overflow-x-auto">
-            <Table>
-              <TableHeader><TableRow className="border-slate-700">
-                {['Party', 'Source', 'Sale Amt', 'Received', 'Balance'].map(h =>
-                  <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Sale Amt', 'Received', 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
-              </TableRow></TableHeader>
-              <TableBody>
-                {loading ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-                : riceParties.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-6">Koi sale nahi mili.</TableCell></TableRow>
-                : riceParties.map((p, idx) => (
-                  <TableRow key={p.party_name + idx} className="border-slate-700 cursor-pointer hover:bg-slate-700/50 transition-colors" data-testid={`rice-summary-row-${idx}`}
-                    onClick={() => { if (onNavigate) { toast.info(`"${p.party_name}" ki Cash Book Ledger khul rahi hai...`); onNavigate("cashbook"); } }}>
-                    <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
-                    <TableCell className="text-xs"><span className="text-slate-400 bg-slate-700/50 px-1.5 py-0.5 rounded text-[10px]">{p.source_list || '-'}</span></TableCell>
-                    <TableCell className="text-right text-sky-400 text-sm">Rs.{p.sale_amount.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-emerald-400 text-xs">Rs.{p.sale_received.toLocaleString()}</TableCell>
-                    <TableCell className={`text-right font-semibold text-sm ${p.sale_balance > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`rice-summary-bal-${idx}`}>Rs.{p.sale_balance.toLocaleString()}</TableCell>
-                  </TableRow>
-                ))}
-                {riceParties.length > 0 && (
-                  <TableRow className="border-slate-700 bg-emerald-900/20">
-                    <TableCell className="font-bold text-emerald-400 text-sm" colSpan={2}>TOTAL</TableCell>
-                    <TableCell className="text-right text-sky-400 font-bold text-sm">Rs.{Math.round(riceTotalAmt).toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-emerald-400 font-bold text-xs">Rs.{Math.round(riceTotalRcvd).toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-red-400 font-bold text-sm" data-testid="rice-summary-total-bal">Rs.{Math.round(riceTotalBal).toLocaleString()}</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div></CardContent>
-        </Card>);
-      })()}
+      {/* 2. Purchase Vouchers Section */}
+      <SectionTable
+        title="Purchase Vouchers" icon={Wheat} color="text-purple-400" borderColor="border-purple-700"
+        parties={purchase.parties || []} totalAmt={purchase.total_amount} totalPaid={purchase.total_paid} totalBal={purchase.total_balance}
+        amtLabel="Purchase Amount" paidLabel="Paid" testPrefix="pv-summary"
+      />
+
+      {/* 3. Paddy Purchase Section */}
+      <SectionTable
+        title="Paddy Purchase" icon={Wheat} color="text-amber-400" borderColor="border-amber-700"
+        parties={paddy.parties || []} totalAmt={paddy.total_amount} totalPaid={paddy.total_paid} totalBal={paddy.total_balance}
+        amtLabel="Purchase Amount" paidLabel="Paid" testPrefix="paddy-summary"
+      />
     </div>
   );
 };
