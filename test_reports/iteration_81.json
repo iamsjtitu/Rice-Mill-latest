@@ -1,0 +1,141 @@
+{
+  "summary": "Iteration 81 - Paddy Stock Fix & Individual Voucher PDF Print. Backend: 10/10 tests passed. Frontend: All features verified. FIXED: Route order issue for /purchase-book/export/pdf (was being intercepted by /{voucher_id}/pdf).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration81_stock_pdf.py",
+    "/app/test_reports/pytest/pytest_results_iteration81.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration81_stock_pdf.py",
+    "/app/backend/routes/purchase_vouchers.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Paddy stock now shows 297Q correctly (was 461.96Q bug). Single voucher PDF endpoints work at /api/sale-book/{id}/pdf and /api/purchase-book/{id}/pdf. Bulk PDF exports at /export/pdf also working. Route ordering fixed in purchase_vouchers.py (dynamic {voucher_id}/pdf route must come AFTER static /export/pdf route).",
+  "features_tested": {
+    "feature_1_paddy_stock_calculation_fix": {
+      "status": "PASSED",
+      "endpoint": "GET /api/purchase-book/stock-items",
+      "details": [
+        "Paddy stock now shows 297Q (NOT 461.96Q)",
+        "Fixed calculation: qntl - bag/100 - p_pkt_cut/100 - paddy_input_qntl",
+        "Consistent with /api/paddy-stock API"
+      ]
+    },
+    "feature_2_paddy_stock_api_consistency": {
+      "status": "PASSED",
+      "endpoint": "GET /api/paddy-stock",
+      "details": [
+        "available_paddy_qntl matches stock-items Paddy value",
+        "Both APIs return ~297Q"
+      ]
+    },
+    "feature_3_sale_voucher_single_pdf": {
+      "status": "PASSED",
+      "endpoint": "GET /api/sale-book/{voucher_id}/pdf",
+      "details": [
+        "Returns valid PDF for existing voucher",
+        "Returns 404 for invalid voucher ID",
+        "Content-Disposition header includes sale_invoice filename"
+      ]
+    },
+    "feature_4_purchase_voucher_single_pdf": {
+      "status": "PASSED",
+      "endpoint": "GET /api/purchase-book/{voucher_id}/pdf",
+      "details": [
+        "Returns valid PDF for existing voucher",
+        "Returns 404 for invalid voucher ID",
+        "Content-Disposition header includes purchase_voucher filename"
+      ]
+    },
+    "feature_5_bulk_pdf_exports_no_regression": {
+      "status": "PASSED",
+      "endpoints": [
+        "GET /api/sale-book/export/pdf",
+        "GET /api/purchase-book/export/pdf"
+      ],
+      "details": [
+        "Both bulk export endpoints still working",
+        "Route ordering fixed - /export/pdf must come before /{voucher_id}/pdf"
+      ]
+    },
+    "feature_6_frontend_print_buttons_sale": {
+      "status": "PASSED",
+      "location": "Vouchers > Sale Vouchers > Table",
+      "details": [
+        "Printer icon button visible in each voucher row",
+        "2 print buttons found for 2 sale vouchers",
+        "Clicking opens PDF in new tab via /api/sale-book/{id}/pdf"
+      ]
+    },
+    "feature_7_frontend_print_buttons_purchase": {
+      "status": "PASSED",
+      "location": "Vouchers > Purchase Vouchers > Table",
+      "details": [
+        "Printer icon button visible in each voucher row",
+        "1 print button found for 1 purchase voucher",
+        "Clicking opens PDF in new tab via /api/purchase-book/{id}/pdf"
+      ]
+    },
+    "feature_8_frontend_stock_overview_paddy": {
+      "status": "PASSED",
+      "location": "Vouchers > Purchase Vouchers > Stock Overview",
+      "details": [
+        "Paddy shows 297 Q (CORRECT - not 461.96Q)",
+        "All other stock items displayed correctly",
+        "Stock cards have color coding for quantities"
+      ]
+    }
+  },
+  "bug_fix_applied": {
+    "issue": "Route order conflict in purchase_vouchers.py",
+    "root_cause": "The dynamic route /purchase-book/{voucher_id}/pdf was defined BEFORE the static route /purchase-book/export/pdf, causing 'export' to be matched as a voucher_id",
+    "fix": "Moved the single voucher PDF route definition to after the bulk export routes",
+    "file_modified": "/app/backend/routes/purchase_vouchers.py",
+    "verification": "Bulk PDF export now returns 200 with valid PDF content"
+  },
+  "backend_test_summary": {
+    "test_file": "/app/backend/tests/test_iteration81_stock_pdf.py",
+    "tests_run": 10,
+    "tests_passed": 10,
+    "tests_failed": 0,
+    "test_classes": [
+      "TestPaddyStockCalculation (2 tests) - stock-items Paddy value and API consistency",
+      "TestSingleVoucherPDF (4 tests) - sale and purchase single PDF endpoints + 404 handling",
+      "TestBulkPDFExports (2 tests) - sale-book and purchase-book bulk PDF exports",
+      "TestSaleBookAPI (1 test) - basic list endpoint",
+      "TestPurchaseBookAPI (1 test) - basic list endpoint"
+    ]
+  },
+  "frontend_test_summary": {
+    "login": "PASSED",
+    "navigation_to_vouchers": "PASSED",
+    "sale_vouchers_print_buttons": "PASSED - 2 buttons found",
+    "purchase_vouchers_print_buttons": "PASSED - 1 button found",
+    "purchase_vouchers_stock_overview": "PASSED - Paddy shows 297 Q correctly",
+    "screenshots": [
+      ".screenshots/sale_book_view.png - Sale Vouchers with print buttons visible",
+      ".screenshots/purchase_book_view.png - Purchase Vouchers with stock overview (Paddy 297Q)"
+    ]
+  },
+  "verification_notes": {
+    "paddy_stock_bug_resolved": "User reported Paddy showing 461.96Q instead of 297Q. Now correctly shows ~297Q in both stock-items and paddy-stock APIs",
+    "individual_pdf_print": "Both Sale and Purchase voucher tables have Printer icon button for each row. Clicking opens PDF in new browser tab",
+    "route_ordering_importance": "In FastAPI, route definition order matters. Static paths (/export/pdf) must be defined BEFORE dynamic paths (/{id}/pdf) to avoid matching conflicts"
+  }
+}

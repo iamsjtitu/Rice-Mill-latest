@@ -352,7 +352,6 @@ async def bulk_delete_purchase_vouchers(request: Request):
             deleted += 1
     return {"message": f"{deleted} purchase vouchers deleted", "deleted": deleted}
 
-
 @router.get("/purchase-book/item-suggestions")
 async def get_item_suggestions():
     """Get unique item names from purchase vouchers for autocomplete"""
@@ -381,10 +380,10 @@ async def get_purchase_stock_items(kms_year: Optional[str] = None, season: Optio
     mill_entries = await db.mill_entries.find(query, {"_id": 0}).to_list(10000)
     pvt_paddy = await db.private_paddy.find(query, {"_id": 0}).to_list(10000)
 
-    # Paddy
-    paddy_in_entries = round(sum((e.get('final_w', 0) or 0) / 100 for e in mill_entries), 2)
-    paddy_in_pvt = round(sum((e.get('final_qntl', 0) or (e.get('final_w', 0) or 0) / 100) for e in pvt_paddy), 2)
-    paddy_used_milling = round(sum(e.get('paddy_used_qntl', 0) or e.get('paddy_qntl', 0) or 0 for e in milling), 2)
+    # Paddy - consistent with /api/paddy-stock calculation
+    cmr_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 - e.get('p_pkt_cut', 0) / 100 for e in mill_entries), 2)
+    pvt_paddy_in = round(sum(e.get('final_qntl', 0) for e in pvt_paddy), 2)
+    paddy_used = round(sum(e.get('paddy_input_qntl', 0) for e in milling), 2)
 
     # Rice
     usna_produced = round(sum(e.get('rice_qntl', 0) for e in milling if e.get('rice_type', '').lower() in ('usna', 'parboiled')), 2)
@@ -417,8 +416,8 @@ async def get_purchase_stock_items(kms_year: Optional[str] = None, season: Optio
     items = []
 
     # Paddy
-    paddy_total_in = round(paddy_in_entries + paddy_in_pvt + pv_bought.get("Paddy", 0), 2)
-    items.append({"name": "Paddy", "available_qntl": round(paddy_total_in - paddy_used_milling, 2), "unit": "Qntl"})
+    paddy_total_in = round(cmr_paddy_in + pvt_paddy_in + pv_bought.get("Paddy", 0), 2)
+    items.append({"name": "Paddy", "available_qntl": round(paddy_total_in - paddy_used, 2), "unit": "Qntl"})
 
     # Rice
     usna_avail = round(usna_produced + pv_bought.get("Rice (Usna)", 0) - govt_delivered - pvt_sold_usna - sb_sold.get("Rice (Usna)", 0), 2)
@@ -879,6 +878,159 @@ async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Opt
                         headers={"Content-Disposition": f"attachment; filename=purchase_book_{datetime.now().strftime('%Y%m%d')}.xlsx"})
     except ImportError:
         return {"error": "openpyxl not installed"}
+
+
+# ============ SINGLE PURCHASE VOUCHER INVOICE PDF ============
+# NOTE: This route must come AFTER /purchase-book/export/pdf to avoid route conflicts
+
+@router.get("/purchase-book/{voucher_id}/pdf")
+async def export_single_purchase_voucher_pdf(voucher_id: str):
+    from fastapi.responses import Response
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    import io
+
+    v = await db.purchase_vouchers.find_one({"id": voucher_id}, {"_id": 0})
+    if not v: raise HTTPException(status_code=404, detail="Voucher not found")
+
+    branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
+    company = branding.get("company_name", "NAVKAR AGRO")
+    tagline = branding.get("tagline", "")
+    address = branding.get("address", "")
+    phone = branding.get("phone", "")
+    gstin = branding.get("gstin", "")
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=12*mm, bottomMargin=12*mm)
+    elements = []
+    styles = getSampleStyleSheet()
+    green = '#2e7d32'
+
+    title_s = ParagraphStyle('T', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor(green), alignment=TA_CENTER, spaceAfter=2)
+    sub_s = ParagraphStyle('S', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666'), alignment=TA_CENTER, spaceAfter=1)
+    label_s = ParagraphStyle('L', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555'))
+    val_s = ParagraphStyle('V', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
+    cell_s = ParagraphStyle('C', parent=styles['Normal'], fontSize=9, leading=12)
+    cell_r = ParagraphStyle('CR', parent=styles['Normal'], fontSize=9, leading=12, alignment=TA_RIGHT)
+    cell_rb = ParagraphStyle('CRB', parent=styles['Normal'], fontSize=10, leading=12, alignment=TA_RIGHT, fontName='Helvetica-Bold')
+    hd_s = ParagraphStyle('H', parent=styles['Normal'], fontSize=9, leading=12, fontName='Helvetica-Bold', textColor=colors.white)
+
+    elements.append(Paragraph(company, title_s))
+    if tagline: elements.append(Paragraph(tagline, sub_s))
+    if address: elements.append(Paragraph(address, sub_s))
+    contact = []
+    if phone: contact.append(f"Ph: {phone}")
+    if gstin: contact.append(f"GSTIN: {gstin}")
+    if contact: elements.append(Paragraph(" | ".join(contact), sub_s))
+    elements.append(Spacer(1, 4*mm))
+
+    inv_title = ParagraphStyle('IT', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor(green), alignment=TA_CENTER, spaceAfter=3)
+    elements.append(Paragraph("PURCHASE VOUCHER", inv_title))
+
+    dp = str(v.get('date', '')).split('-')
+    date_str = f"{dp[2]}/{dp[1]}/{dp[0]}" if len(dp) == 3 else v.get('date', '')
+
+    info_data = [
+        [Paragraph('<b>Voucher No:</b>', label_s), Paragraph(f"#{v.get('voucher_no', '')}", val_s),
+         Paragraph('<b>Date:</b>', label_s), Paragraph(date_str, val_s)],
+        [Paragraph('<b>Party/Seller:</b>', label_s), Paragraph(v.get('party_name', ''), val_s),
+         Paragraph('<b>Invoice No:</b>', label_s), Paragraph(v.get('invoice_no', ''), val_s)],
+        [Paragraph('<b>Truck No:</b>', label_s), Paragraph(v.get('truck_no', ''), val_s),
+         Paragraph('<b>RST No:</b>', label_s), Paragraph(v.get('rst_no', ''), val_s)],
+    ]
+    if v.get('eway_bill_no'):
+        info_data.append([Paragraph('<b>E-Way Bill:</b>', label_s), Paragraph(v.get('eway_bill_no', ''), val_s), '', ''])
+
+    info_tbl = RLTable(info_data, colWidths=[30*mm, 55*mm, 30*mm, 55*mm])
+    info_tbl.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LINEBELOW', (0, -1), (-1, -1), 1, colors.HexColor('#ddd')),
+    ]))
+    elements.append(info_tbl)
+    elements.append(Spacer(1, 5*mm))
+
+    items_header = [Paragraph('<b>S.No</b>', hd_s), Paragraph('<b>Item Name</b>', hd_s),
+                    Paragraph('<b>Quantity (Qntl)</b>', hd_s), Paragraph('<b>Rate (Rs)</b>', hd_s),
+                    Paragraph('<b>Amount (Rs)</b>', hd_s)]
+    items_data = [items_header]
+    for idx, item in enumerate(v.get('items', []), 1):
+        qty = item.get('quantity', 0) or 0
+        rate = item.get('rate', 0) or 0
+        amt = round(qty * rate, 2)
+        items_data.append([
+            Paragraph(str(idx), cell_s), Paragraph(item.get('item_name', ''), cell_s),
+            Paragraph(f"{qty} Qntl", cell_r), Paragraph(f"{rate:,.2f}", cell_r),
+            Paragraph(f"{amt:,.2f}", cell_rb)
+        ])
+
+    items_tbl = RLTable(items_data, colWidths=[15*mm, 60*mm, 30*mm, 30*mm, 35*mm], repeatRows=1)
+    items_style = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(green)),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]
+    for i in range(1, len(items_data)):
+        if i % 2 == 0:
+            items_style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8FAFC')))
+    items_tbl.setStyle(TableStyle(items_style))
+    elements.append(items_tbl)
+    elements.append(Spacer(1, 3*mm))
+
+    subtotal = v.get('subtotal', 0) or sum((i.get('quantity', 0) or 0) * (i.get('rate', 0) or 0) for i in v.get('items', []))
+    cgst = v.get('cgst_amount', 0) or 0
+    sgst = v.get('sgst_amount', 0) or 0
+    igst = v.get('igst_amount', 0) or 0
+    total = v.get('total', 0) or 0
+    advance = v.get('advance', 0) or 0
+    cash = v.get('cash_paid', 0) or 0
+    diesel = v.get('diesel_paid', 0) or 0
+    balance = v.get('balance', 0) or 0
+
+    tot_s = ParagraphStyle('TS', parent=styles['Normal'], fontSize=9, alignment=TA_RIGHT)
+    tot_b = ParagraphStyle('TB', parent=styles['Normal'], fontSize=11, alignment=TA_RIGHT, fontName='Helvetica-Bold', textColor=colors.HexColor(green))
+
+    total_data = [[Paragraph('Subtotal:', tot_s), Paragraph(f"Rs. {subtotal:,.2f}", tot_s)]]
+    if cgst > 0: total_data.append([Paragraph(f"CGST ({v.get('cgst_percent',0)}%):", tot_s), Paragraph(f"Rs. {cgst:,.2f}", tot_s)])
+    if sgst > 0: total_data.append([Paragraph(f"SGST ({v.get('sgst_percent',0)}%):", tot_s), Paragraph(f"Rs. {sgst:,.2f}", tot_s)])
+    if igst > 0: total_data.append([Paragraph(f"IGST ({v.get('igst_percent',0)}%):", tot_s), Paragraph(f"Rs. {igst:,.2f}", tot_s)])
+    total_data.append([Paragraph('<b>Grand Total:</b>', tot_b), Paragraph(f"<b>Rs. {total:,.2f}</b>", tot_b)])
+    if advance > 0: total_data.append([Paragraph('Advance Paid:', tot_s), Paragraph(f"Rs. {advance:,.2f}", tot_s)])
+    if cash > 0: total_data.append([Paragraph('Cash Paid (Truck):', tot_s), Paragraph(f"Rs. {cash:,.2f}", tot_s)])
+    if diesel > 0: total_data.append([Paragraph('Diesel:', tot_s), Paragraph(f"Rs. {diesel:,.2f}", tot_s)])
+    total_data.append([Paragraph('<b>Balance Due:</b>', tot_b), Paragraph(f"<b>Rs. {balance:,.2f}</b>", tot_b)])
+
+    tot_tbl = RLTable(total_data, colWidths=[120*mm, 50*mm])
+    tot_tbl.setStyle(TableStyle([
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor(green)),
+    ]))
+    elements.append(tot_tbl)
+
+    if v.get('remark'):
+        elements.append(Spacer(1, 3*mm))
+        elements.append(Paragraph(f"<b>Remark:</b> {v['remark']}", label_s))
+
+    elements.append(Spacer(1, 15*mm))
+    sig_s = ParagraphStyle('Sig', alignment=TA_CENTER, fontSize=9)
+    sig_b = ParagraphStyle('SigB', alignment=TA_CENTER, fontSize=9, fontName='Helvetica-Bold')
+    sig_data = [[Paragraph('Received By', sig_s), Paragraph(f'For {company}', sig_b)]]
+    sig_tbl = RLTable(sig_data, colWidths=[85*mm, 85*mm])
+    sig_tbl.setStyle(TableStyle([('LINEABOVE', (0, 0), (0, 0), 0.5, colors.black), ('LINEABOVE', (1, 0), (1, 0), 0.5, colors.black)]))
+    elements.append(sig_tbl)
+
+    doc.build(elements)
+    return Response(content=buf.getvalue(), media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename=purchase_voucher_{v.get('voucher_no','')}.pdf"})
 
 
 # ============ STOCK SUMMARY PDF EXPORT ============

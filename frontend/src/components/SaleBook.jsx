@@ -222,7 +222,7 @@ export default function SaleBook({ filters, user }) {
   };
 
   const handlePrintInvoice = (v) => {
-    window.open(`${API}/sale-book/invoice/${v.id}`, '_blank');
+    window.open(`${API}/sale-book/${v.id}/pdf`, '_blank');
   };
 
   const getStockForItem = (itemName) => {

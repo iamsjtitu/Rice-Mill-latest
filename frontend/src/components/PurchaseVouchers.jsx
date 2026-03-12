@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt, Clock, History, Undo2,
+  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt, Clock, History, Undo2, Printer,
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
 
@@ -246,6 +246,10 @@ export default function PurchaseVouchers({ filters, user }) {
     downloadFile(`/api/purchase-book/export/${type}${qs}`, `purchase_book.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
+  const handlePrintInvoice = (v) => {
+    window.open(`${API}/purchase-book/${v.id}/pdf`, '_blank');
+  };
+
   const handlePayment = async () => {
     if (!payDialog || !payAmount || parseFloat(payAmount) <= 0) { toast.error("Amount daalna zaroori hai"); return; }
     if (payAccount === "bank" && !payBankName) { toast.error("Bank account select karein"); return; }
@@ -410,6 +414,9 @@ export default function PurchaseVouchers({ filters, user }) {
                       )}
                       <Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => handleEdit(v)} data-testid={`pv-edit-${v.id}`}>
                         <Eye className="w-3 h-3" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-6 px-1 text-purple-400" onClick={() => handlePrintInvoice(v)} title="Print Invoice" data-testid={`pv-print-${v.id}`}>
+                        <Printer className="w-3 h-3" />
                       </Button>
                       {user.role === 'admin' && (
                         <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDelete(v.id)} data-testid={`pv-del-${v.id}`}>

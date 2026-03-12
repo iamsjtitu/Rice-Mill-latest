@@ -740,6 +740,166 @@ class OpeningBalanceCreate(BaseModel):
     season: str = ""
     note: str = ""
 
+
+# ============ SINGLE SALE VOUCHER INVOICE PDF ============
+
+@router.get("/sale-book/{voucher_id}/pdf")
+async def export_single_sale_voucher_pdf(voucher_id: str):
+    from fastapi.responses import Response
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+    import io
+
+    v = await db.sale_vouchers.find_one({"id": voucher_id}, {"_id": 0})
+    if not v: raise HTTPException(status_code=404, detail="Voucher not found")
+
+    branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
+    company = branding.get("company_name", "NAVKAR AGRO")
+    tagline = branding.get("tagline", "")
+    address = branding.get("address", "")
+    phone = branding.get("phone", "")
+    gstin = branding.get("gstin", "")
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=12*mm, bottomMargin=12*mm)
+    elements = []
+    styles = getSampleStyleSheet()
+    blue = '#1a5276'
+
+    title_s = ParagraphStyle('T', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor(blue), alignment=TA_CENTER, spaceAfter=2)
+    sub_s = ParagraphStyle('S', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666'), alignment=TA_CENTER, spaceAfter=1)
+    label_s = ParagraphStyle('L', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555'))
+    val_s = ParagraphStyle('V', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
+    cell_s = ParagraphStyle('C', parent=styles['Normal'], fontSize=9, leading=12)
+    cell_r = ParagraphStyle('CR', parent=styles['Normal'], fontSize=9, leading=12, alignment=TA_RIGHT)
+    cell_rb = ParagraphStyle('CRB', parent=styles['Normal'], fontSize=10, leading=12, alignment=TA_RIGHT, fontName='Helvetica-Bold')
+    hd_s = ParagraphStyle('H', parent=styles['Normal'], fontSize=9, leading=12, fontName='Helvetica-Bold', textColor=colors.white)
+
+    # Company Header
+    elements.append(Paragraph(company, title_s))
+    if tagline: elements.append(Paragraph(tagline, sub_s))
+    if address: elements.append(Paragraph(address, sub_s))
+    contact = []
+    if phone: contact.append(f"Ph: {phone}")
+    if gstin: contact.append(f"GSTIN: {gstin}")
+    if contact: elements.append(Paragraph(" | ".join(contact), sub_s))
+    elements.append(Spacer(1, 4*mm))
+
+    # Invoice Title
+    inv_title = ParagraphStyle('IT', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor(blue), alignment=TA_CENTER, spaceBefore=0, spaceAfter=3)
+    elements.append(Paragraph("SALE INVOICE", inv_title))
+
+    # Invoice Details
+    dp = str(v.get('date', '')).split('-')
+    date_str = f"{dp[2]}/{dp[1]}/{dp[0]}" if len(dp) == 3 else v.get('date', '')
+
+    info_data = [
+        [Paragraph('<b>Voucher No:</b>', label_s), Paragraph(f"#{v.get('voucher_no', '')}", val_s),
+         Paragraph('<b>Date:</b>', label_s), Paragraph(date_str, val_s)],
+        [Paragraph('<b>Party:</b>', label_s), Paragraph(v.get('party_name', ''), val_s),
+         Paragraph('<b>Invoice No:</b>', label_s), Paragraph(v.get('invoice_no', ''), val_s)],
+        [Paragraph('<b>Truck No:</b>', label_s), Paragraph(v.get('truck_no', ''), val_s),
+         Paragraph('<b>RST No:</b>', label_s), Paragraph(v.get('rst_no', ''), val_s)],
+    ]
+    if v.get('eway_bill_no'):
+        info_data.append([Paragraph('<b>E-Way Bill:</b>', label_s), Paragraph(v.get('eway_bill_no', ''), val_s), '', ''])
+
+    info_tbl = RLTable(info_data, colWidths=[30*mm, 55*mm, 30*mm, 55*mm])
+    info_tbl.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LINEBELOW', (0, -1), (-1, -1), 1, colors.HexColor('#ddd')),
+    ]))
+    elements.append(info_tbl)
+    elements.append(Spacer(1, 5*mm))
+
+    # Items Table
+    items_header = [Paragraph('<b>S.No</b>', hd_s), Paragraph('<b>Item Name</b>', hd_s),
+                    Paragraph('<b>Quantity (Qntl)</b>', hd_s), Paragraph('<b>Rate (Rs)</b>', hd_s),
+                    Paragraph('<b>Amount (Rs)</b>', hd_s)]
+    items_data = [items_header]
+    for idx, item in enumerate(v.get('items', []), 1):
+        qty = item.get('quantity', 0) or 0
+        rate = item.get('rate', 0) or 0
+        amt = round(qty * rate, 2)
+        items_data.append([
+            Paragraph(str(idx), cell_s), Paragraph(item.get('item_name', ''), cell_s),
+            Paragraph(f"{qty} Qntl", cell_r), Paragraph(f"{rate:,.2f}", cell_r),
+            Paragraph(f"{amt:,.2f}", cell_rb)
+        ])
+
+    items_tbl = RLTable(items_data, colWidths=[15*mm, 60*mm, 30*mm, 30*mm, 35*mm], repeatRows=1)
+    items_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(blue)),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    for i in range(1, len(items_data)):
+        if i % 2 == 0:
+            items_tbl.setStyle(TableStyle([('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8FAFC'))]))
+    elements.append(items_tbl)
+    elements.append(Spacer(1, 3*mm))
+
+    # Totals
+    subtotal = v.get('subtotal', 0) or 0
+    cgst = v.get('cgst_amount', 0) or 0
+    sgst = v.get('sgst_amount', 0) or 0
+    igst = v.get('igst_amount', 0) or 0
+    total = v.get('total', 0) or 0
+    advance = v.get('advance', 0) or 0
+    cash = v.get('cash_paid', 0) or 0
+    diesel = v.get('diesel_paid', 0) or 0
+    balance = v.get('balance', 0) or 0
+
+    tot_s = ParagraphStyle('TS', parent=styles['Normal'], fontSize=9, alignment=TA_RIGHT)
+    tot_b = ParagraphStyle('TB', parent=styles['Normal'], fontSize=11, alignment=TA_RIGHT, fontName='Helvetica-Bold', textColor=colors.HexColor(blue))
+
+    total_data = [[Paragraph('Subtotal:', tot_s), Paragraph(f"Rs. {subtotal:,.2f}", tot_s)]]
+    cgst_pct = v.get('cgst_percent', 0)
+    sgst_pct = v.get('sgst_percent', 0)
+    igst_pct = v.get('igst_percent', 0)
+    if cgst > 0: total_data.append([Paragraph(f"CGST ({cgst_pct}%):", tot_s), Paragraph(f"Rs. {cgst:,.2f}", tot_s)])
+    if sgst > 0: total_data.append([Paragraph(f"SGST ({sgst_pct}%):", tot_s), Paragraph(f"Rs. {sgst:,.2f}", tot_s)])
+    if igst > 0: total_data.append([Paragraph(f"IGST ({igst_pct}%):", tot_s), Paragraph(f"Rs. {igst:,.2f}", tot_s)])
+    total_data.append([Paragraph('<b>Grand Total:</b>', tot_b), Paragraph(f"<b>Rs. {total:,.2f}</b>", tot_b)])
+    if advance > 0: total_data.append([Paragraph('Advance Paid:', tot_s), Paragraph(f"Rs. {advance:,.2f}", tot_s)])
+    if cash > 0: total_data.append([Paragraph('Cash Paid:', tot_s), Paragraph(f"Rs. {cash:,.2f}", tot_s)])
+    if diesel > 0: total_data.append([Paragraph('Diesel:', tot_s), Paragraph(f"Rs. {diesel:,.2f}", tot_s)])
+    total_data.append([Paragraph('<b>Balance Due:</b>', tot_b), Paragraph(f"<b>Rs. {balance:,.2f}</b>", tot_b)])
+
+    tot_tbl = RLTable(total_data, colWidths=[120*mm, 50*mm])
+    tot_tbl.setStyle(TableStyle([
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor(blue)),
+    ]))
+    elements.append(tot_tbl)
+
+    if v.get('remark'):
+        elements.append(Spacer(1, 3*mm))
+        elements.append(Paragraph(f"<b>Remark:</b> {v['remark']}", label_s))
+
+    # Footer
+    elements.append(Spacer(1, 15*mm))
+    sig_data = [[Paragraph('Received By', ParagraphStyle('Sig', alignment=TA_CENTER, fontSize=9)),
+                 Paragraph(f'For {company}', ParagraphStyle('Sig', alignment=TA_CENTER, fontSize=9, fontName='Helvetica-Bold'))]]
+    sig_tbl = RLTable(sig_data, colWidths=[85*mm, 85*mm])
+    sig_tbl.setStyle(TableStyle([('LINEABOVE', (0, 0), (0, 0), 0.5, colors.black), ('LINEABOVE', (1, 0), (1, 0), 0.5, colors.black)]))
+    elements.append(sig_tbl)
+
+    doc.build(elements)
+    return Response(content=buf.getvalue(), media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename=sale_invoice_{v.get('voucher_no','')}.pdf"})
+
+
 @router.get("/opening-balances")
 async def get_opening_balances(kms_year: Optional[str] = None):
     query = {"is_opening_balance": True}
