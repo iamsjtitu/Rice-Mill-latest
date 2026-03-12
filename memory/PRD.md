@@ -1,4 +1,6 @@
-# Mill Entry System - PRD
+# Mill Entry System
+## Recent Bug Fixes (March 2026)
+- **Cash Paid Ledger Entry Bug**: Fixed missing Ledger Nikasi entry for `cash_paid` in truck entries. Previously, only diesel_paid created a ledger nikasi entry, causing incorrect party balance calculations. Now both cash_paid and diesel_paid correctly deduct from the truck's party ledger balance. Backfill migration endpoint added at `/api/entries/fix-cash-ledger`. - PRD
 
 ## Overview
 A comprehensive mill entry management system for NAVKAR AGRO, JOLKO, KESINGA. Handles milling, delivery challans, vouchers, payments, cash book, party ledgers, GST accounting, and reporting.

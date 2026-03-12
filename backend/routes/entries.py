@@ -93,6 +93,19 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.cash_transactions.insert_one(cb)
+        # Also create Ledger Nikasi entry for cash deduction (counted against truck balance)
+        if truck_no:
+            cash_ded = {
+                "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                "account": "ledger", "txn_type": "nikasi", "category": truck_no,
+                "party_type": "Truck",
+                "description": f"Truck Cash Advance: {truck_no} - Rs.{cash_paid}",
+                "amount": round(cash_paid, 2), "reference": f"truck_cash_ded:{doc['id'][:8]}",
+                "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
+                "created_by": username or "system", "linked_entry_id": doc["id"],
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(cash_ded)
     
     # Auto Diesel Account entry for diesel_paid
     diesel_paid = float(doc.get("diesel_paid", 0) or 0)
@@ -159,6 +172,33 @@ async def _create_gunny_entries_for_mill(doc, username=""):
                  "txn_type": "out", "quantity": g_issued, "source": source, "reference": truck}
         await db.gunny_bags.insert_one(entry)
 
+
+
+@router.post("/entries/fix-cash-ledger")
+async def fix_cash_ledger_entries():
+    """Backfill missing ledger nikasi entries for cash_paid on existing mill entries"""
+    entries = await db.mill_entries.find({}, {"_id": 0}).to_list(50000)
+    fixed = 0
+    for entry in entries:
+        cash_paid = float(entry.get("cash_paid", 0) or 0)
+        truck_no = entry.get("truck_no", "")
+        entry_id = entry.get("id", "")
+        if cash_paid > 0 and truck_no and entry_id:
+            existing = await db.cash_transactions.find_one({"reference": f"truck_cash_ded:{entry_id[:8]}"})
+            if not existing:
+                cash_ded = {
+                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
+                    "account": "ledger", "txn_type": "nikasi", "category": truck_no,
+                    "party_type": "Truck",
+                    "description": f"Truck Cash Advance: {truck_no} - Rs.{cash_paid}",
+                    "amount": round(cash_paid, 2), "reference": f"truck_cash_ded:{entry_id[:8]}",
+                    "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                    "created_by": "system", "linked_entry_id": entry_id,
+                    "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.cash_transactions.insert_one(cash_ded)
+                fixed += 1
+    return {"success": True, "fixed_count": fixed}
 
 
 @router.post("/entries/import-excel")
@@ -509,6 +549,19 @@ async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = ""
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.cash_transactions.insert_one(cb)
+        # Also create Ledger Nikasi entry for cash deduction (counted against truck balance)
+        if truck_no:
+            cash_ded = {
+                "id": str(uuid.uuid4()), "date": merged_data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                "account": "ledger", "txn_type": "nikasi", "category": truck_no,
+                "party_type": "Truck",
+                "description": f"Truck Cash Advance: {truck_no} - Rs.{cash_paid}",
+                "amount": round(cash_paid, 2), "reference": f"truck_cash_ded:{entry_id[:8]}",
+                "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
+                "created_by": username or "system", "linked_entry_id": entry_id,
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.cash_transactions.insert_one(cash_ded)
     
     # Update auto diesel account entry for diesel_paid
     await db.diesel_accounts.delete_many({"linked_entry_id": entry_id})

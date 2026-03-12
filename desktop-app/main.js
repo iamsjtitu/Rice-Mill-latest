@@ -279,6 +279,18 @@ class JsonDatabase {
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
         created_at: now, updated_at: now
       });
+      // Also create Ledger Nikasi entry for cash deduction (counted against truck balance)
+      if (truckNo) {
+        this.data.cash_transactions.push({
+          id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
+          party_type: 'Truck',
+          description: `Truck Cash Advance: ${truckNo} - Rs.${cashPaid}`,
+          amount: Math.round(cashPaid * 100) / 100, reference: `truck_cash_ded:${newEntry.id.slice(0,8)}`,
+          kms_year: newEntry.kms_year||'', season: newEntry.season||'',
+          created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
+          created_at: now, updated_at: now
+        });
+      }
     }
 
     // Auto Diesel Account for diesel_paid
@@ -408,6 +420,18 @@ class JsonDatabase {
           created_by: updated.created_by||'system', linked_entry_id: id,
           created_at: now, updated_at: now
         });
+        // Also create Ledger Nikasi entry for cash deduction (counted against truck balance)
+        if (truckNo) {
+          this.data.cash_transactions.push({
+            id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
+            party_type: 'Truck',
+            description: `Truck Cash Advance: ${truckNo} - Rs.${cashPaid}`,
+            amount: Math.round(cashPaid * 100) / 100, reference: `truck_cash_ded:${id.slice(0,8)}`,
+            kms_year: updated.kms_year||'', season: updated.season||'',
+            created_by: updated.created_by||'system', linked_entry_id: id,
+            created_at: now, updated_at: now
+          });
+        }
       }
 
       // Recreate diesel account and diesel JAMA ledger entry
