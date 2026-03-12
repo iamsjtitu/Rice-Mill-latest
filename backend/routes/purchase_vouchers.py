@@ -632,69 +632,89 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
         ]
     vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).sort("voucher_no", 1).to_list(10000)
 
+    # Ledger-based paid amounts
+    party_names = list(set(v.get("party_name", "") for v in vouchers if v.get("party_name")))
+    ledger_paid_map = {}
+    if party_names:
+        ledger_q = {"account": "ledger", "txn_type": "nikasi", "category": {"$in": party_names}, "party_type": "Purchase Book"}
+        if kms_year: ledger_q["kms_year"] = kms_year
+        ledger_txns = await db.cash_transactions.find(ledger_q, {"_id": 0}).to_list(50000)
+        for lt in ledger_txns:
+            pn = lt.get("category", "")
+            ledger_paid_map[pn] = ledger_paid_map.get(pn, 0) + lt.get("amount", 0)
+
     branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
     company = branding.get("company_name", "NAVKAR AGRO")
     tagline = branding.get("tagline", "")
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=8*mm)
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=6*mm, rightMargin=6*mm, topMargin=8*mm, bottomMargin=6*mm)
     elements = []
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle('PurchTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#2e7d32'), alignment=TA_CENTER, spaceAfter=2)
+    title_style = ParagraphStyle('PurchTitle', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#2e7d32'), alignment=TA_CENTER, spaceAfter=1)
     elements.append(Paragraph(company, title_style))
     if tagline:
-        sub_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceAfter=2)
+        sub_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceAfter=1)
         elements.append(Paragraph(tagline, sub_style))
 
-    meta_parts = ["Purchase Book Report"]
+    meta_parts = ["Purchase Book"]
     if kms_year: meta_parts.append(f"FY: {kms_year}")
     if season: meta_parts.append(season)
     meta_parts.append(f"Date: {datetime.now().strftime('%d-%m-%Y')}")
-    meta_style = ParagraphStyle('Meta', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555555'), alignment=TA_CENTER, spaceAfter=8)
+    meta_style = ParagraphStyle('Meta', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#555555'), alignment=TA_CENTER, spaceAfter=4)
     elements.append(Paragraph(" | ".join(meta_parts), meta_style))
 
-    cell_s = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=7, leading=9)
-    cell_r = ParagraphStyle('CellR', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_RIGHT)
-    cell_rb = ParagraphStyle('CellRB', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_RIGHT, fontName='Helvetica-Bold')
+    cell_s = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=6, leading=8)
+    cell_r = ParagraphStyle('CellR', parent=styles['Normal'], fontSize=6, leading=8, alignment=TA_RIGHT)
+    cell_rb = ParagraphStyle('CellRB', parent=styles['Normal'], fontSize=6, leading=8, alignment=TA_RIGHT, fontName='Helvetica-Bold')
 
-    headers = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck', 'E-Way', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance']
+    headers = ['#', 'Date', 'Inv', 'Party', 'Items', 'Truck', 'Total', 'Adv', 'Cash', 'Diesel', 'Ledger Paid', 'Balance', 'Status']
     table_data = [headers]
-    col_widths = [18*mm, 20*mm, 20*mm, 32*mm, 55*mm, 24*mm, 22*mm, 22*mm, 20*mm, 18*mm, 18*mm, 22*mm]
+    # Optimized for A4 landscape
+    col_widths = [12*mm, 18*mm, 16*mm, 28*mm, 52*mm, 20*mm, 20*mm, 16*mm, 16*mm, 16*mm, 20*mm, 20*mm, 16*mm]
 
-    g = {"total": 0, "adv": 0, "cash": 0, "diesel": 0, "bal": 0}
+    g = {"total": 0, "adv": 0, "cash": 0, "diesel": 0, "paid": 0, "bal": 0}
     for v in vouchers:
         items_str = ', '.join(f"{i['item_name']}({i.get('quantity', 0)})" for i in v.get('items', []))
         dp = str(v.get('date', '')).split('-')
         dt = f"{dp[2]}/{dp[1]}/{dp[0]}" if len(dp) == 3 else v.get('date', '')
-        g["total"] += v.get('total', 0)
-        g["adv"] += v.get('advance', 0)
-        g["cash"] += v.get('cash_paid', 0)
-        g["diesel"] += v.get('diesel_paid', 0)
-        g["bal"] += v.get('balance', 0)
+        total = v.get('total', 0) or 0
+        pn = v.get('party_name', '')
+        ledger_paid = round(ledger_paid_map.get(pn, 0), 2)
+        ledger_bal = round(total - ledger_paid, 2)
+        status = "Paid" if ledger_bal <= 0 and total > 0 else "Pending"
+        g["total"] += total
+        g["adv"] += v.get('advance', 0) or 0
+        g["cash"] += v.get('cash_paid', 0) or 0
+        g["diesel"] += v.get('diesel_paid', 0) or 0
+        g["paid"] += ledger_paid
+        g["bal"] += ledger_bal
         table_data.append([
             Paragraph(f"{v.get('voucher_no','')}", cell_s),
             Paragraph(dt, cell_s),
             Paragraph(str(v.get('invoice_no', '')), cell_s),
-            Paragraph(f"<b>{v.get('party_name','')}</b>", cell_s),
+            Paragraph(f"<b>{pn}</b>", cell_s),
             Paragraph(items_str, cell_s),
             Paragraph(str(v.get('truck_no', '')), cell_s),
-            Paragraph(str(v.get('eway_bill_no', '')), cell_s),
-            Paragraph(f"{v.get('total',0):,.0f}", cell_rb),
-            Paragraph(f"{v.get('advance',0):,.0f}", cell_r),
-            Paragraph(f"{v.get('cash_paid',0):,.0f}", cell_r),
-            Paragraph(f"{v.get('diesel_paid',0):,.0f}", cell_r),
-            Paragraph(f"{v.get('balance',0):,.0f}", cell_rb),
+            Paragraph(f"{total:,.0f}", cell_rb),
+            Paragraph(f"{v.get('advance',0) or 0:,.0f}", cell_r),
+            Paragraph(f"{v.get('cash_paid',0) or 0:,.0f}", cell_r),
+            Paragraph(f"{v.get('diesel_paid',0) or 0:,.0f}", cell_r),
+            Paragraph(f"{ledger_paid:,.0f}", cell_r),
+            Paragraph(f"{ledger_bal:,.0f}", cell_rb),
+            Paragraph(status, cell_s),
         ])
 
-    # Total row
     table_data.append([
-        Paragraph(f"<b>TOTAL ({len(vouchers)})</b>", cell_s), '', '', '', '', '', '',
+        Paragraph(f"<b>TOTAL ({len(vouchers)})</b>", cell_s), '', '', '', '', '',
         Paragraph(f"<b>{g['total']:,.0f}</b>", cell_rb),
         Paragraph(f"<b>{g['adv']:,.0f}</b>", cell_rb),
         Paragraph(f"<b>{g['cash']:,.0f}</b>", cell_rb),
         Paragraph(f"<b>{g['diesel']:,.0f}</b>", cell_rb),
+        Paragraph(f"<b>{g['paid']:,.0f}</b>", cell_rb),
         Paragraph(f"<b>{g['bal']:,.0f}</b>", cell_rb),
+        '',
     ])
 
     tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
@@ -702,10 +722,10 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2e7d32')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 7),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('FONTSIZE', (0, 0), (-1, 0), 6),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#2e7d32')),
         ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
@@ -716,13 +736,11 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
     tbl.setStyle(TableStyle(style_cmds))
     elements.append(tbl)
 
-    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#999999'), alignment=TA_CENTER, spaceBefore=10)
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#999999'), alignment=TA_CENTER, spaceBefore=6)
     elements.append(Paragraph(f"{company} - Purchase Book | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", footer_style))
 
     doc.build(elements)
-    pdf_bytes = buf.getvalue()
-
-    return Response(content=pdf_bytes, media_type="application/pdf",
+    return Response(content=buf.getvalue(), media_type="application/pdf",
                     headers={"Content-Disposition": "attachment; filename=purchase_book.pdf"})
 
 

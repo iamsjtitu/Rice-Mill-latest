@@ -1,0 +1,169 @@
+{
+  "summary": "Iteration 78 - Purchase Voucher Form Redesign + PDF/Excel Exports with Ledger Balance - ALL TESTS PASSED. Backend: 13/13 tests passed. Frontend: All 12 feature tests verified via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "DialogContent", "issues": ["Minor: Missing aria-describedby for DialogContent (console warning only, no functional impact)"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration78_purchase_form_redesign.py",
+    "/app/test_reports/pytest/pytest_results_iteration78.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration78_purchase_form_redesign.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "100% (all 12 UI tests passed)"
+  },
+  "seed_data_creation": "Created and cleaned up test voucher (TEST_Iteration78_Balance) during testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Purchase Voucher form redesigned to match Sale Voucher - Table component for items, stock dropdown with quantities. PDF/Excel exports include ledger-based Paid and Balance columns from cashbook. Stock overview cards show OUT OF STOCK/LOW STOCK labels.",
+  "features_tested": {
+    "feature_1_form_layout_first_row": {
+      "status": "PASSED",
+      "details": [
+        "First row has Invoice No, Date, Party Name, RST No fields",
+        "Layout matches Sale Voucher form",
+        "data-testid selectors: pv-invoice, pv-date, pv-party, pv-rst"
+      ]
+    },
+    "feature_2_items_table_component": {
+      "status": "PASSED",
+      "details": [
+        "Items section uses Table component (not simple inputs)",
+        "Columns: Name of Item (Select), Stock, Quantity, Rate, Amount",
+        "Add Item button (data-testid=pv-add-item) adds new rows",
+        "Amount auto-calculates from Quantity × Rate"
+      ]
+    },
+    "feature_3_item_select_dropdown": {
+      "status": "PASSED",
+      "selector": "data-testid='pv-item-select-0'",
+      "details": [
+        "Dropdown shows stock items with quantities (e.g., 'Paddy (461.96 Q)')",
+        "11 options including standard items and custom option",
+        "'+ Other / Custom Item' option at bottom in amber color"
+      ]
+    },
+    "feature_4_stock_column": {
+      "status": "PASSED",
+      "details": [
+        "Stock column shows available quantity for selected stock item",
+        "Shows '461.96 Q' when Paddy selected",
+        "Shows 'New' for custom items"
+      ]
+    },
+    "feature_5_gst_section": {
+      "status": "PASSED",
+      "details": [
+        "GST section in bordered box",
+        "GST Type selector (No GST, CGST+SGST, IGST)",
+        "CGST/SGST/IGST percentage inputs when applicable"
+      ]
+    },
+    "feature_6_payment_section": {
+      "status": "PASSED",
+      "details": [
+        "Grand Total displayed prominently in emerald color",
+        "Cash (Truck ko) and Diesel (Pump se) inputs",
+        "Advance Paid (Party ko diya) input with blue border",
+        "Balance (Party ko dena baki) auto-calculates: Grand Total - Advance"
+      ]
+    },
+    "feature_7_balance_calculation": {
+      "status": "PASSED",
+      "details": [
+        "Test: Paddy 10Q × Rs.2500 = Rs.25,000 total",
+        "Advance: Rs.10,000",
+        "Balance: Rs.15,000 (correctly calculated as 25,000 - 10,000)",
+        "Balance shown in red when > 0, emerald when 0"
+      ]
+    },
+    "feature_8_stock_overview_cards": {
+      "status": "PASSED",
+      "selector": "data-testid='pv-stock-overview'",
+      "details": [
+        "Cards show all stock items with available quantities",
+        "OUT OF STOCK label (red) for items with 0 stock: Rice (Raw), Bran, Broken, FRK",
+        "LOW STOCK label (amber) for items with stock <= 10: Kanki (6Q), Husk (5Q)"
+      ]
+    },
+    "feature_9_low_stock_alert": {
+      "status": "PASSED",
+      "selector": "data-testid='pv-low-stock-alert'",
+      "details": [
+        "Banner visible when items have stock <= 10",
+        "Shows: 'Low Stock Alert: Rice (Raw) (0Q), Bran (0Q), Broken (0Q), Kanki (6Q), Husk (5Q), FRK (0Q) - Re-order karein!'"
+      ]
+    },
+    "feature_10_pdf_export": {
+      "status": "PASSED",
+      "endpoint": "GET /api/purchase-book/export/pdf",
+      "details": [
+        "Returns valid PDF (verified magic bytes %PDF-)",
+        "Includes ledger-based 'Ledger Paid' and 'Balance' columns",
+        "Optimized for A4 landscape with smaller fonts/margins"
+      ]
+    },
+    "feature_11_excel_export": {
+      "status": "PASSED",
+      "endpoint": "GET /api/purchase-book/export/excel",
+      "details": [
+        "Returns valid Excel file (ZIP/XLSX format)",
+        "UI button (data-testid=pv-export-excel) visible and accessible"
+      ]
+    },
+    "feature_12_sale_pdf_export": {
+      "status": "PASSED",
+      "endpoint": "GET /api/sale-book/export/pdf",
+      "details": [
+        "Returns valid PDF with ledger-based balance column",
+        "Includes 'Paid' column from Cash Book payments"
+      ]
+    }
+  },
+  "backend_test_summary": {
+    "test_file": "/app/backend/tests/test_iteration78_purchase_form_redesign.py",
+    "tests_run": 13,
+    "tests_passed": 13,
+    "tests_failed": 0,
+    "test_classes": [
+      "TestPDFExports (4 tests) - PDF export verification for Sale and Purchase books",
+      "TestExcelExports (2 tests) - Excel export verification",
+      "TestStockItemsForPurchaseVoucher (2 tests) - Stock items endpoint with quantities",
+      "TestPurchaseVoucherCreationWithBalance (3 tests) - Balance calculation verification",
+      "TestPurchaseVoucherLedgerBalance (1 test) - Ledger-based paid/balance fields",
+      "TestItemSuggestions (1 test) - Item autocomplete suggestions"
+    ]
+  },
+  "frontend_test_summary": {
+    "login": "PASSED",
+    "navigate_to_purchase_vouchers": "PASSED",
+    "stock_overview_cards": "PASSED - Shows OUT OF STOCK (4 items) and LOW STOCK (2 items) labels",
+    "low_stock_alert_banner": "PASSED - Shows items needing reorder",
+    "form_layout_first_row": "PASSED - Invoice No, Date, Party, RST",
+    "items_table_component": "PASSED - Name of Item, Stock, Quantity, Rate, Amount columns",
+    "item_select_dropdown": "PASSED - 11 options including stock items with quantities",
+    "custom_item_option": "PASSED - '+ Other / Custom Item' in amber",
+    "gst_section": "PASSED - Bordered box with GST type selector",
+    "payment_section": "PASSED - Grand Total, Cash, Diesel, Advance, Balance",
+    "balance_calculation": "PASSED - Rs.15,000 = Rs.25,000 - Rs.10,000",
+    "pdf_excel_buttons": "PASSED - Both buttons visible and accessible"
+  },
+  "screenshots": [
+    "pv_dropdown_open.png - Item dropdown showing stock items with quantities",
+    "pv_stock_overview.png - Stock overview cards with OUT OF STOCK/LOW STOCK labels",
+    "pv_form_filled.png - Form with balance calculation (Rs.15,000)",
+    "pv_final_view.png - Voucher list with saved test voucher"
+  ]
+}

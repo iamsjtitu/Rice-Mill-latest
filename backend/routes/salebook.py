@@ -470,31 +470,32 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
     tagline = branding.get("tagline", "")
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=8*mm)
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=6*mm, rightMargin=6*mm, topMargin=8*mm, bottomMargin=6*mm)
     elements = []
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle('SaleTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1a5276'), alignment=TA_CENTER, spaceAfter=2)
+    title_style = ParagraphStyle('SaleTitle', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1a5276'), alignment=TA_CENTER, spaceAfter=1)
     elements.append(Paragraph(company, title_style))
     if tagline:
-        sub_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceAfter=2)
+        sub_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceAfter=1)
         elements.append(Paragraph(tagline, sub_style))
 
-    meta_parts = ["Sale Book Report"]
+    meta_parts = ["Sale Book"]
     if kms_year: meta_parts.append(f"FY: {kms_year}")
     if season: meta_parts.append(season)
     meta_parts.append(f"Date: {datetime.now().strftime('%d-%m-%Y')}")
-    meta_style = ParagraphStyle('Meta', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555555'), alignment=TA_CENTER, spaceAfter=8)
+    meta_style = ParagraphStyle('Meta', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#555555'), alignment=TA_CENTER, spaceAfter=4)
     elements.append(Paragraph(" | ".join(meta_parts), meta_style))
 
-    cell_s = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=7, leading=9)
-    cell_r = ParagraphStyle('CellR', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_RIGHT)
-    cell_b = ParagraphStyle('CellB', parent=styles['Normal'], fontSize=7, leading=9, fontName='Helvetica-Bold')
-    cell_rb = ParagraphStyle('CellRB', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_RIGHT, fontName='Helvetica-Bold')
+    cell_s = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=6, leading=8)
+    cell_r = ParagraphStyle('CellR', parent=styles['Normal'], fontSize=6, leading=8, alignment=TA_RIGHT)
+    cell_b = ParagraphStyle('CellB', parent=styles['Normal'], fontSize=6, leading=8, fontName='Helvetica-Bold')
+    cell_rb = ParagraphStyle('CellRB', parent=styles['Normal'], fontSize=6, leading=8, alignment=TA_RIGHT, fontName='Helvetica-Bold')
 
-    headers = ['No.', 'Date', 'Inv', 'Party', 'Items', 'Truck/RST', 'Total', 'Advance', 'Cash', 'Diesel', 'Paid', 'Balance', 'Status']
+    headers = ['#', 'Date', 'Inv', 'Party', 'Items', 'Truck/RST', 'Total', 'Adv', 'Cash', 'Diesel', 'Paid', 'Balance', 'Status']
     table_data = [headers]
-    col_widths = [18*mm, 20*mm, 18*mm, 30*mm, 55*mm, 25*mm, 22*mm, 20*mm, 18*mm, 18*mm, 20*mm, 22*mm, 18*mm]
+    # Optimized for A4 landscape
+    col_widths = [12*mm, 18*mm, 16*mm, 28*mm, 52*mm, 22*mm, 20*mm, 16*mm, 16*mm, 16*mm, 20*mm, 20*mm, 16*mm]
 
     g = {"total": 0, "adv": 0, "cash": 0, "diesel": 0, "paid": 0, "bal": 0}
     for v in vouchers:
@@ -547,10 +548,10 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a5276')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 7),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('FONTSIZE', (0, 0), (-1, 0), 6),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#1a5276')),
         ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
@@ -561,13 +562,11 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
     tbl.setStyle(TableStyle(style_cmds))
     elements.append(tbl)
 
-    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#999999'), alignment=TA_CENTER, spaceBefore=10)
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=6, textColor=colors.HexColor('#999999'), alignment=TA_CENTER, spaceBefore=6)
     elements.append(Paragraph(f"{company} - Sale Book | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", footer_style))
 
     doc.build(elements)
-    pdf_bytes = buf.getvalue()
-
-    return Response(content=pdf_bytes, media_type="application/pdf",
+    return Response(content=buf.getvalue(), media_type="application/pdf",
                     headers={"Content-Disposition": "attachment; filename=sale_book.pdf"})
 
 

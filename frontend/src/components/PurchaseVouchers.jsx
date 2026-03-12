@@ -306,17 +306,30 @@ export default function PurchaseVouchers({ filters, user }) {
         ))}
       </div>
 
-      {/* Stock Overview */}
+      {/* Stock Overview + Low Stock Alert */}
       {stockItems.length > 0 && (
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-2" data-testid="pv-stock-overview">
-          {stockItems.map(item => (
-            <Card key={item.name} className="bg-slate-800/50 border-slate-700 p-2">
-              <div className="text-[10px] text-slate-400 truncate">{item.name}</div>
-              <div className={`text-sm font-bold ${item.available_qntl > 0 ? 'text-emerald-400' : item.available_qntl < 0 ? 'text-red-400' : 'text-slate-500'}`}>
-                {item.available_qntl} Q
-              </div>
-            </Card>
-          ))}
+        <div className="space-y-2">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-2" data-testid="pv-stock-overview">
+            {stockItems.map(item => (
+              <Card key={item.name} className={`border p-2 ${item.available_qntl <= 0 ? 'bg-red-900/30 border-red-700' : item.available_qntl <= 10 ? 'bg-amber-900/20 border-amber-700' : 'bg-slate-800/50 border-slate-700'}`}>
+                <div className="text-[10px] text-slate-400 truncate">{item.name}</div>
+                <div className={`text-sm font-bold ${item.available_qntl > 10 ? 'text-emerald-400' : item.available_qntl > 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                  {item.available_qntl} Q
+                </div>
+                {item.available_qntl <= 0 && <div className="text-[9px] text-red-400 font-semibold">OUT OF STOCK</div>}
+                {item.available_qntl > 0 && item.available_qntl <= 10 && <div className="text-[9px] text-amber-400 font-semibold">LOW STOCK</div>}
+              </Card>
+            ))}
+          </div>
+          {stockItems.some(i => i.available_qntl <= 10 && i.available_qntl >= 0) && (
+            <div className="bg-amber-900/20 border border-amber-700 rounded-lg px-3 py-1.5 flex items-center gap-2" data-testid="pv-low-stock-alert">
+              <span className="text-amber-400 text-xs font-semibold">Low Stock Alert:</span>
+              <span className="text-amber-300 text-xs">
+                {stockItems.filter(i => i.available_qntl <= 10 && i.available_qntl >= 0).map(i => `${i.name} (${i.available_qntl}Q)`).join(', ')}
+                {' '}- Re-order karein!
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -432,236 +445,237 @@ export default function PurchaseVouchers({ filters, user }) {
             <ShoppingBag className="w-5 h-5" /> {editId ? "Edit Purchase Voucher" : "Nayi Purchase Entry"}
           </DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Row 1: Date, Party, Invoice, RST, Truck, E-Way */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Row 1: Invoice No, Date, Party, RST */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <Label className="text-slate-300 text-xs">Date</Label>
+                <Label className="text-xs text-cyan-400 font-semibold flex items-center gap-1"><Receipt className="w-3 h-3" /> Invoice No.</Label>
+                <Input value={form.invoice_no} onChange={e => setForm(p => ({ ...p, invoice_no: e.target.value }))}
+                  placeholder="INV-001" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-invoice" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
                   className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-date" />
               </div>
               <div>
-                <Label className="text-slate-300 text-xs">Party Name *</Label>
+                <Label className="text-xs text-slate-400">Party Name *</Label>
                 <Input value={form.party_name} onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
-                  placeholder="Party name" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="pv-party" />
+                  placeholder="Party / Seller" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="pv-party" />
               </div>
               <div>
-                <Label className="text-cyan-400 text-xs font-semibold flex items-center gap-1"><Receipt className="w-3 h-3" /> Invoice No.</Label>
-                <Input value={form.invoice_no} onChange={e => setForm(p => ({ ...p, invoice_no: e.target.value }))}
-                  placeholder="INV-001" className="bg-cyan-900/30 border-cyan-700 text-cyan-400 h-8 text-sm" data-testid="pv-invoice" />
-              </div>
-              <div>
-                <Label className="text-purple-400 text-xs font-semibold">RST No.</Label>
+                <Label className="text-xs text-slate-400">RST No.</Label>
                 <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
-                  placeholder="RST Number" className="bg-purple-900/30 border-purple-700 text-purple-400 h-8 text-sm" data-testid="pv-rst" />
+                  placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-rst" />
               </div>
+            </div>
+            {/* Row 2: E-Way, Truck */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-slate-300 text-xs">Truck No.</Label>
-                <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
-                  placeholder="OD00XX0000" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-truck" />
-              </div>
-              <div>
-                <Label className="text-slate-300 text-xs">E-Way Bill No.</Label>
+                <Label className="text-xs text-slate-400">E-Way Bill No.</Label>
                 <Input value={form.eway_bill_no} onChange={e => setForm(p => ({ ...p, eway_bill_no: e.target.value }))}
-                  placeholder="E-Way Bill" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-eway" />
+                  placeholder="E-Way Bill Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-eway" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-400">Truck No.</Label>
+                <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
+                  placeholder="Vehicle Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-truck" />
               </div>
             </div>
 
-            {/* Items */}
-            <Card className="bg-slate-700/50 border-slate-600">
-              <CardHeader className="pb-1 pt-2 px-3">
-                <CardTitle className="text-emerald-400 text-sm flex items-center justify-between">
-                  <span className="flex items-center gap-2"><ShoppingBag className="w-4 h-4" /> Items</span>
-                  <Button type="button" onClick={addItem} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white h-6 text-xs" data-testid="pv-add-item">
-                    <Plus className="w-3 h-3 mr-1" /> Add Item
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3 space-y-2">
-                {form.items.map((item, idx) => {
-                  const stock = getStockForItem(item.item_name);
-                  const isCustom = item.item_name && !stockItems.find(s => s.name === item.item_name);
-                  return (
-                  <div key={idx} className="grid grid-cols-12 gap-2 items-end">
-                    <div className={item._custom ? "col-span-2" : "col-span-3"}>
-                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Item Name *</Label>}
-                      <Select value={item._custom ? "_custom" : (item.item_name || "_none")} onValueChange={v => {
-                        if (v === "_custom") {
-                          handleItemChange(idx, 'item_name', '');
-                          handleItemChange(idx, '_custom', true);
-                        } else {
-                          handleItemChange(idx, 'item_name', v === "_none" ? "" : v);
-                          handleItemChange(idx, '_custom', false);
-                        }
-                      }}>
-                        <SelectTrigger className="bg-slate-600 border-slate-500 text-white h-8 text-xs" data-testid={`pv-item-select-${idx}`}>
-                          <SelectValue placeholder="Item select karein" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-600">
-                          <SelectItem value="_none" className="text-slate-400">-- Select --</SelectItem>
-                          {stockItems.map(si => (
-                            <SelectItem key={si.name} value={si.name} className="text-white">
-                              {si.name} ({si.available_qntl} Q)
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="_custom" className="text-amber-400">+ Other / Custom Item</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {item._custom && (
-                      <div className="col-span-2">
-                        {idx === 0 && <Label className="text-amber-400 text-[10px]">Name</Label>}
-                        <Input value={item.item_name} onChange={e => handleItemChange(idx, 'item_name', e.target.value)}
-                          placeholder="Item name" className="bg-amber-900/30 border-amber-700 text-amber-400 h-8 text-xs" autoFocus
-                          list={`item-suggest-${idx}`} data-testid={`pv-item-custom-${idx}`} />
-                        <datalist id={`item-suggest-${idx}`}>
-                          {suggestions.map(s => <option key={s} value={s} />)}
-                        </datalist>
-                      </div>
-                    )}
-                    <div className="col-span-1">
-                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Stock</Label>}
-                      <div className="h-8 flex items-center">
-                        {stock !== null ? (
-                          <span className={`text-xs font-semibold ${stock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stock}Q</span>
-                        ) : isCustom ? (
-                          <span className="text-xs text-amber-400">New</span>
-                        ) : (
-                          <span className="text-xs text-slate-500">-</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="col-span-2">
-                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Qty</Label>}
-                      <Input type="number" step="0.01" value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', e.target.value)}
-                        placeholder="0" className="bg-slate-600 border-slate-500 text-white h-8 text-sm" data-testid={`pv-item-qty-${idx}`} />
-                    </div>
-                    <div className="col-span-2">
-                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Rate</Label>}
-                      <Input type="number" step="0.01" value={item.rate} onChange={e => handleItemChange(idx, 'rate', e.target.value)}
-                        placeholder="0" className="bg-slate-600 border-slate-500 text-white h-8 text-sm" data-testid={`pv-item-rate-${idx}`} />
-                    </div>
-                    <div className="col-span-2">
-                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Amount</Label>}
-                      <Input value={`Rs.${((parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0)).toLocaleString()}`}
-                        readOnly className="bg-emerald-900/30 border-emerald-700 text-emerald-400 h-8 text-sm font-semibold" />
-                    </div>
-                    <div className="col-span-1">
-                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Unit</Label>}
-                      <Input value={item.unit} onChange={e => handleItemChange(idx, 'unit', e.target.value)}
-                        className="bg-slate-600 border-slate-500 text-white h-8 text-xs" data-testid={`pv-item-unit-${idx}`} />
-                    </div>
-                    <div className="col-span-1 flex items-end">
-                      {form.items.length > 1 && (
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(idx)} className="h-8 px-1 text-red-400" data-testid={`pv-item-del-${idx}`}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })}
-                <div className="flex justify-end pt-2 border-t border-slate-600">
-                  <span className="text-emerald-400 font-bold text-lg" data-testid="pv-subtotal">
-                    Subtotal: Rs.{subtotal.toLocaleString()}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Items Section - Table based like Sale Voucher */}
+            <div className="border border-slate-600 rounded-lg overflow-hidden">
+              <div className="bg-slate-700/50 px-3 py-2 flex items-center justify-between">
+                <span className="text-xs font-semibold text-amber-400">Items (सामान)</span>
+                <Button type="button" onClick={addItem} size="sm" variant="ghost" className="h-6 text-emerald-400 hover:text-emerald-300 text-xs" data-testid="pv-add-item">
+                  <Plus className="w-3 h-3 mr-1" /> Add
+                </Button>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-600">
+                    <TableHead className="text-slate-400 text-[10px] w-[35%]">Name of Item</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[10%]">Stock</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[15%]">Quantity</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[12%]">Rate</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[18%] text-right">Amount</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[10%]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {form.items.map((item, idx) => {
+                    const stock = getStockForItem(item.item_name);
+                    const isCustom = item._custom;
+                    const amt = (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0);
+                    return (
+                      <TableRow key={idx} className="border-slate-600">
+                        <TableCell className="p-1">
+                          {isCustom ? (
+                            <div className="flex gap-1">
+                              <Input value={item.item_name} onChange={e => handleItemChange(idx, 'item_name', e.target.value)}
+                                placeholder="Item name" className="bg-amber-900/30 border-amber-700 text-amber-400 h-8 text-xs flex-1" autoFocus
+                                list={`item-suggest-${idx}`} data-testid={`pv-item-custom-${idx}`} />
+                              <datalist id={`item-suggest-${idx}`}>
+                                {suggestions.map(s => <option key={s} value={s} />)}
+                              </datalist>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => { handleItemChange(idx, '_custom', false); handleItemChange(idx, 'item_name', ''); }}
+                                className="h-8 px-1 text-slate-400 text-[10px]">List</Button>
+                            </div>
+                          ) : (
+                            <Select value={item.item_name || "_none"} onValueChange={v => {
+                              if (v === "_custom") {
+                                handleItemChange(idx, 'item_name', '');
+                                handleItemChange(idx, '_custom', true);
+                              } else {
+                                handleItemChange(idx, 'item_name', v === "_none" ? "" : v);
+                                handleItemChange(idx, '_custom', false);
+                              }
+                            }}>
+                              <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid={`pv-item-select-${idx}`}>
+                                <SelectValue placeholder="Select" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_none">-- Select --</SelectItem>
+                                {stockItems.map(si => (
+                                  <SelectItem key={si.name} value={si.name}>{si.name} ({si.available_qntl} Q)</SelectItem>
+                                ))}
+                                <SelectItem value="_custom" className="text-amber-400">+ Other / Custom Item</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </TableCell>
+                        <TableCell className="p-1">
+                          {stock !== null ? (
+                            <span className={`text-xs font-medium ${stock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stock} Q</span>
+                          ) : isCustom ? (
+                            <span className="text-xs text-amber-400">New</span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input type="number" step="0.01" value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', e.target.value)}
+                            className="bg-slate-700 border-slate-600 text-white h-8 text-xs" placeholder="0" data-testid={`pv-item-qty-${idx}`} />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input type="number" step="0.01" value={item.rate} onChange={e => handleItemChange(idx, 'rate', e.target.value)}
+                            className="bg-slate-700 border-slate-600 text-white h-8 text-xs" placeholder="0" data-testid={`pv-item-rate-${idx}`} />
+                        </TableCell>
+                        <TableCell className="p-1 text-right text-white text-xs font-medium">Rs.{amt.toLocaleString('en-IN')}</TableCell>
+                        <TableCell className="p-1">
+                          {form.items.length > 1 && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(idx)} className="h-6 w-6 p-0 text-red-400" data-testid={`pv-item-del-${idx}`}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
 
-            {/* GST Section */}
-            <Card className="bg-slate-700/50 border-slate-600">
-              <CardHeader className="pb-1 pt-2 px-3">
-                <CardTitle className="text-yellow-400 text-sm flex items-center gap-2"><Receipt className="w-4 h-4" /> GST</CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3">
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
-                  <div>
-                    <Label className="text-slate-400 text-xs">GST Type</Label>
-                    <Select value={form.gst_type} onValueChange={handleGstTypeChange}>
-                      <SelectTrigger className="bg-slate-600 border-slate-500 text-white h-8 text-sm" data-testid="pv-gst-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No GST</SelectItem>
-                        <SelectItem value="cgst_sgst">CGST + SGST</SelectItem>
-                        <SelectItem value="igst">IGST</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {form.gst_type === 'cgst_sgst' && (
-                    <>
-                      <div>
-                        <Label className="text-yellow-400 text-xs">CGST %</Label>
-                        <Input type="number" step="0.01" value={form.cgst_percent}
-                          onChange={e => setForm(p => ({ ...p, cgst_percent: e.target.value }))}
-                          className="bg-yellow-900/30 border-yellow-700 text-yellow-400 h-8 text-sm" data-testid="pv-cgst" />
-                      </div>
-                      <div>
-                        <Label className="text-yellow-400 text-xs">SGST %</Label>
-                        <Input type="number" step="0.01" value={form.sgst_percent}
-                          onChange={e => setForm(p => ({ ...p, sgst_percent: e.target.value }))}
-                          className="bg-yellow-900/30 border-yellow-700 text-yellow-400 h-8 text-sm" data-testid="pv-sgst" />
-                      </div>
-                      <div>
-                        <Label className="text-yellow-400 text-xs">GST Amount</Label>
-                        <Input value={`CGST: Rs.${gstCalc.cgst.toLocaleString()} + SGST: Rs.${gstCalc.sgst.toLocaleString()}`}
-                          readOnly className="bg-yellow-900/20 border-yellow-800 text-yellow-400 h-8 text-xs font-semibold" />
-                      </div>
-                    </>
-                  )}
-                  {form.gst_type === 'igst' && (
-                    <>
-                      <div>
-                        <Label className="text-yellow-400 text-xs">IGST %</Label>
-                        <Input type="number" step="0.01" value={form.igst_percent}
-                          onChange={e => setForm(p => ({ ...p, igst_percent: e.target.value }))}
-                          className="bg-yellow-900/30 border-yellow-700 text-yellow-400 h-8 text-sm" data-testid="pv-igst" />
-                      </div>
-                      <div>
-                        <Label className="text-yellow-400 text-xs">IGST Amount</Label>
-                        <Input value={`Rs.${gstCalc.igst.toLocaleString()}`}
-                          readOnly className="bg-yellow-900/20 border-yellow-800 text-yellow-400 h-8 text-sm font-semibold" />
-                      </div>
-                    </>
-                  )}
-                  <div>
-                    <Label className="text-emerald-400 text-xs font-bold">Grand Total</Label>
-                    <Input value={`Rs.${gstCalc.total.toLocaleString()}`}
-                      readOnly className="bg-emerald-900/30 border-emerald-700 text-emerald-400 h-8 text-lg font-bold" data-testid="pv-grand-total" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="text-right text-sm font-bold text-white" data-testid="pv-subtotal">Subtotal: Rs.{subtotal.toLocaleString('en-IN')}</div>
 
-            {/* Payment Details */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <Label className="text-emerald-400 text-xs font-semibold flex items-center gap-1"><IndianRupee className="w-3 h-3" /> Cash Paid</Label>
-                <Input type="number" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
-                  placeholder="0" className="bg-emerald-900/30 border-emerald-700 text-emerald-400 h-8 text-sm" data-testid="pv-cash" />
-              </div>
-              <div>
-                <Label className="text-orange-400 text-xs font-semibold">Diesel Paid</Label>
-                <Input type="number" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))}
-                  placeholder="0" className="bg-orange-900/30 border-orange-700 text-orange-400 h-8 text-sm" data-testid="pv-diesel" />
-              </div>
-              <div>
-                <Label className="text-sky-400 text-xs font-semibold">Advance Paid</Label>
-                <Input type="number" value={form.advance} onChange={e => setForm(p => ({ ...p, advance: e.target.value }))}
-                  placeholder="0" className="bg-sky-900/30 border-sky-700 text-sky-400 h-8 text-sm" data-testid="pv-advance" />
-              </div>
-              <div>
-                <Label className="text-slate-300 text-xs">Remark</Label>
-                <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
-                  placeholder="Remark" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-remark" />
+            {/* GST */}
+            <div className="border border-slate-600 rounded-lg p-3 space-y-3">
+              <Label className="text-xs text-amber-400 font-semibold">GST</Label>
+              <div className="grid grid-cols-4 gap-3 items-end">
+                <div>
+                  <Label className="text-[10px] text-slate-400">GST Type</Label>
+                  <Select value={form.gst_type} onValueChange={handleGstTypeChange}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="pv-gst-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No GST</SelectItem>
+                      <SelectItem value="cgst_sgst">CGST + SGST</SelectItem>
+                      <SelectItem value="igst">IGST</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.gst_type === 'cgst_sgst' && (<>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">CGST %</Label>
+                    <div className="flex items-center gap-1">
+                      <Input type="number" step="0.01" value={form.cgst_percent}
+                        onChange={e => setForm(p => ({ ...p, cgst_percent: e.target.value }))}
+                        className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="pv-cgst" />
+                      <span className="text-[10px] text-emerald-400 whitespace-nowrap">Rs.{gstCalc.cgst.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">SGST %</Label>
+                    <div className="flex items-center gap-1">
+                      <Input type="number" step="0.01" value={form.sgst_percent}
+                        onChange={e => setForm(p => ({ ...p, sgst_percent: e.target.value }))}
+                        className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="pv-sgst" />
+                      <span className="text-[10px] text-emerald-400 whitespace-nowrap">Rs.{gstCalc.sgst.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </>)}
+                {form.gst_type === 'igst' && (
+                  <div>
+                    <Label className="text-[10px] text-slate-400">IGST %</Label>
+                    <div className="flex items-center gap-1">
+                      <Input type="number" step="0.01" value={form.igst_percent}
+                        onChange={e => setForm(p => ({ ...p, igst_percent: e.target.value }))}
+                        className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="pv-igst" />
+                      <span className="text-[10px] text-emerald-400 whitespace-nowrap">Rs.{gstCalc.igst.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex gap-2 justify-end pt-2">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="border-slate-600 text-slate-300">Cancel</Button>
-              <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold" data-testid="pv-submit">
-                {editId ? "Update" : "Save"}
+            {/* Total + Payment Section */}
+            <div className="bg-slate-700/50 rounded-lg p-3 space-y-3">
+              <div className="flex justify-between items-center text-lg font-bold">
+                <span className="text-slate-300">Grand Total:</span>
+                <span className="text-emerald-400" data-testid="pv-grand-total">Rs.{gstCalc.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              </div>
+
+              {/* Cash + Diesel */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] text-slate-400">Cash (Truck ko)</Label>
+                  <Input type="number" step="0.01" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
+                    placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="pv-cash" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-400">Diesel (Pump se)</Label>
+                  <Input type="number" step="0.01" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))}
+                    placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="pv-diesel" />
+                </div>
+              </div>
+
+              {/* Advance + Balance */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] text-blue-400 font-semibold">Advance Paid (Party ko diya)</Label>
+                  <Input type="number" step="0.01" value={form.advance} onChange={e => setForm(p => ({ ...p, advance: e.target.value }))}
+                    placeholder="0" className="bg-slate-700 border-blue-600 text-white h-8 text-xs" data-testid="pv-advance" />
+                </div>
+                <div className="flex flex-col justify-end">
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-400">Balance (Party ko dena baki): </span>
+                    <span className={`text-sm font-bold ${(gstCalc.total - (parseFloat(form.advance) || 0)) > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid="pv-balance">
+                      Rs.{(gstCalc.total - (parseFloat(form.advance) || 0)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs text-slate-400">Remark</Label>
+              <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
+                placeholder="Optional remark" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-remark" />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold flex-1" data-testid="pv-submit">
+                <IndianRupee className="w-4 h-4 mr-1" /> {editId ? 'Update Voucher' : 'Save Purchase Voucher'}
               </Button>
+              <Button type="button" variant="outline" className="border-slate-600 text-slate-300" onClick={() => setDialogOpen(false)}>Cancel</Button>
             </div>
           </form>
         </DialogContent>
