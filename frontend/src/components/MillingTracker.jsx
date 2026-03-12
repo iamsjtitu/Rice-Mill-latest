@@ -639,8 +639,6 @@ const MillingTracker = ({ filters, user }) => {
 
   const tabs = [
     { id: "milling", label: "Milling Entries" },
-    { id: "frk", label: "FRK Purchase" },
-    { id: "byproducts", label: "By-Products" },
     { id: "custody", label: "Paddy Custody Register" },
   ];
 
@@ -651,16 +649,12 @@ const MillingTracker = ({ filters, user }) => {
           <Button key={t.id} onClick={() => setSubTab(t.id)} variant={subTab === t.id ? "default" : "ghost"} size="sm"
             className={subTab === t.id ? "bg-amber-500 hover:bg-amber-600 text-slate-900" : "text-slate-300 hover:bg-slate-700"}
             data-testid={`subtab-${t.id}`}>
-            {t.id === 'frk' && <ShoppingCart className="w-4 h-4 mr-1" />}
-            {t.id === 'byproducts' && <Package className="w-4 h-4 mr-1" />}
             {t.id === 'custody' && <ClipboardList className="w-4 h-4 mr-1" />}
             {t.label}
           </Button>
         ))}
       </div>
       {subTab === "milling" && <MillingEntriesTab filters={filters} user={user} paddyStock={paddyStock} frkStock={frkStock} onRefresh={fetchStocks} />}
-      {subTab === "frk" && <FrkPurchaseTab filters={filters} user={user} frkStock={frkStock} onRefresh={fetchStocks} />}
-      {subTab === "byproducts" && <ByProductTab filters={filters} user={user} onRefresh={fetchStocks} />}
       {subTab === "custody" && <PaddyCustodyTab filters={filters} />}
     </div>
   );

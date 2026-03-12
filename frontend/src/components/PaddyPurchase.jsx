@@ -625,7 +625,7 @@ export const PartySummary = ({ filters, onNavigate }) => {
         </div>
       </div>
 
-      {/* Paddy Purchase Section */}
+      {/* Purchase Section (Paddy Purchase + Purchase Vouchers) */}
       {(viewType === "all" || viewType === "paddy") && (() => {
         const paddyParties = data.parties.filter(p => p.purchase_amount > 0);
         const paddyTotalAmt = paddyParties.reduce((s, p) => s + p.purchase_amount, 0);
@@ -634,23 +634,22 @@ export const PartySummary = ({ filters, onNavigate }) => {
         return (
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader className="pb-2 pt-3 px-4">
-            <CardTitle className="text-amber-400 text-sm flex items-center gap-2"><Wheat className="w-4 h-4" /> Paddy Purchase ({paddyParties.length} parties)</CardTitle>
+            <CardTitle className="text-amber-400 text-sm flex items-center gap-2"><Wheat className="w-4 h-4" /> Purchase Summary ({paddyParties.length} parties)</CardTitle>
           </CardHeader>
           <CardContent className="p-0"><div className="overflow-x-auto">
             <Table>
               <TableHeader><TableRow className="border-slate-700">
-                {['Party', 'Mandi', 'Agent', 'Purchase Amt', 'Paid', 'Balance'].map(h =>
+                {['Party', 'Source', 'Purchase Amt', 'Paid', 'Balance'].map(h =>
                   <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Purchase Amt', 'Paid', 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
               </TableRow></TableHeader>
               <TableBody>
-                {loading ? <TableRow><TableCell colSpan={6} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-                : paddyParties.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-slate-400 py-6">Koi paddy purchase nahi mili.</TableCell></TableRow>
+                {loading ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+                : paddyParties.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-6">Koi purchase nahi mili.</TableCell></TableRow>
                 : paddyParties.map((p, idx) => (
                   <TableRow key={p.party_name + idx} className="border-slate-700 cursor-pointer hover:bg-slate-700/50 transition-colors" data-testid={`paddy-summary-row-${idx}`}
                     onClick={() => { if (onNavigate) { toast.info(`"${p.party_name}" ki Cash Book Ledger khul rahi hai...`); onNavigate("cashbook"); } }}>
                     <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
-                    <TableCell className="text-cyan-400 text-xs">{p.mandi_name || '-'}</TableCell>
-                    <TableCell className="text-purple-400 text-xs">{p.agent_name || '-'}</TableCell>
+                    <TableCell className="text-xs"><span className="text-slate-400 bg-slate-700/50 px-1.5 py-0.5 rounded text-[10px]">{p.source_list || '-'}</span></TableCell>
                     <TableCell className="text-right text-amber-400 text-sm">Rs.{p.purchase_amount.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-emerald-400 text-xs">Rs.{p.purchase_paid.toLocaleString()}</TableCell>
                     <TableCell className={`text-right font-semibold text-sm ${p.purchase_balance > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`paddy-summary-bal-${idx}`}>Rs.{p.purchase_balance.toLocaleString()}</TableCell>
@@ -658,7 +657,7 @@ export const PartySummary = ({ filters, onNavigate }) => {
                 ))}
                 {paddyParties.length > 0 && (
                   <TableRow className="border-slate-700 bg-amber-900/20">
-                    <TableCell className="font-bold text-amber-400 text-sm" colSpan={3}>TOTAL</TableCell>
+                    <TableCell className="font-bold text-amber-400 text-sm" colSpan={2}>TOTAL</TableCell>
                     <TableCell className="text-right text-amber-400 font-bold text-sm">Rs.{Math.round(paddyTotalAmt).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-emerald-400 font-bold text-xs">Rs.{Math.round(paddyTotalPaid).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-red-400 font-bold text-sm" data-testid="paddy-summary-total-bal">Rs.{Math.round(paddyTotalBal).toLocaleString()}</TableCell>
@@ -670,7 +669,7 @@ export const PartySummary = ({ filters, onNavigate }) => {
         </Card>);
       })()}
 
-      {/* Rice Sale Section */}
+      {/* Sale Section (Rice Sale + Sale Vouchers) */}
       {(viewType === "all" || viewType === "rice") && (() => {
         const riceParties = data.parties.filter(p => p.sale_amount > 0);
         const riceTotalAmt = riceParties.reduce((s, p) => s + p.sale_amount, 0);
@@ -679,21 +678,22 @@ export const PartySummary = ({ filters, onNavigate }) => {
         return (
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader className="pb-2 pt-3 px-4">
-            <CardTitle className="text-emerald-400 text-sm flex items-center gap-2"><ShoppingCart className="w-4 h-4" /> Rice Sale ({riceParties.length} parties)</CardTitle>
+            <CardTitle className="text-emerald-400 text-sm flex items-center gap-2"><ShoppingCart className="w-4 h-4" /> Sale Summary ({riceParties.length} parties)</CardTitle>
           </CardHeader>
           <CardContent className="p-0"><div className="overflow-x-auto">
             <Table>
               <TableHeader><TableRow className="border-slate-700">
-                {['Party', 'Sale Amt', 'Received', 'Balance'].map(h =>
+                {['Party', 'Source', 'Sale Amt', 'Received', 'Balance'].map(h =>
                   <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Sale Amt', 'Received', 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
               </TableRow></TableHeader>
               <TableBody>
-                {loading ? <TableRow><TableCell colSpan={4} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-                : riceParties.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center text-slate-400 py-6">Koi rice sale nahi mili.</TableCell></TableRow>
+                {loading ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+                : riceParties.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-6">Koi sale nahi mili.</TableCell></TableRow>
                 : riceParties.map((p, idx) => (
                   <TableRow key={p.party_name + idx} className="border-slate-700 cursor-pointer hover:bg-slate-700/50 transition-colors" data-testid={`rice-summary-row-${idx}`}
                     onClick={() => { if (onNavigate) { toast.info(`"${p.party_name}" ki Cash Book Ledger khul rahi hai...`); onNavigate("cashbook"); } }}>
                     <TableCell className="text-white font-semibold text-sm">{p.party_name}</TableCell>
+                    <TableCell className="text-xs"><span className="text-slate-400 bg-slate-700/50 px-1.5 py-0.5 rounded text-[10px]">{p.source_list || '-'}</span></TableCell>
                     <TableCell className="text-right text-sky-400 text-sm">Rs.{p.sale_amount.toLocaleString()}</TableCell>
                     <TableCell className="text-right text-emerald-400 text-xs">Rs.{p.sale_received.toLocaleString()}</TableCell>
                     <TableCell className={`text-right font-semibold text-sm ${p.sale_balance > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`rice-summary-bal-${idx}`}>Rs.{p.sale_balance.toLocaleString()}</TableCell>
@@ -701,7 +701,7 @@ export const PartySummary = ({ filters, onNavigate }) => {
                 ))}
                 {riceParties.length > 0 && (
                   <TableRow className="border-slate-700 bg-emerald-900/20">
-                    <TableCell className="font-bold text-emerald-400 text-sm">TOTAL</TableCell>
+                    <TableCell className="font-bold text-emerald-400 text-sm" colSpan={2}>TOTAL</TableCell>
                     <TableCell className="text-right text-sky-400 font-bold text-sm">Rs.{Math.round(riceTotalAmt).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-emerald-400 font-bold text-xs">Rs.{Math.round(riceTotalRcvd).toLocaleString()}</TableCell>
                     <TableCell className="text-right text-red-400 font-bold text-sm" data-testid="rice-summary-total-bal">Rs.{Math.round(riceTotalBal).toLocaleString()}</TableCell>
