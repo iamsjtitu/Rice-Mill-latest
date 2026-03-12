@@ -418,7 +418,11 @@ class GunnyBagEntry(BaseModel):
     rst_no: str = ""
     gst_type: str = "none"  # none / cgst_sgst / igst
     gst_percent: float = 0
+    cgst_percent: float = 0
+    sgst_percent: float = 0
     gst_amount: float = 0
+    cgst_amount: float = 0
+    sgst_amount: float = 0
     subtotal: float = 0
     total: float = 0
     advance: float = 0
@@ -475,6 +479,29 @@ async def _create_gunny_accounting_entries(d, doc_id, username):
     for entry in entries:
         await db.cash_transactions.insert_one(entry)
 
+    # Create local_party_accounts entry for gunny bag purchase (we owe = debit)
+    if total > 0:
+        lp = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''),
+            "party_name": party, "txn_type": "debit",
+            "amount": total, "description": f"Gunny Bags x{d.get('quantity', 0)} @ Rs.{d.get('rate', 0)}{desc_suffix}",
+            "source_type": "gunny_bag", "reference": f"gunny_purchase:{doc_id}",
+            "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
+            "created_by": username, "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.local_party_accounts.insert_one(lp)
+    # If advance paid, add payment entry in local_party
+    if advance > 0:
+        lp_adv = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''),
+            "party_name": party, "txn_type": "payment",
+            "amount": advance, "description": f"Advance paid - Gunny Bags{desc_suffix}",
+            "source_type": "gunny_bag_advance", "reference": f"gunny_advance:{doc_id}",
+            "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
+            "created_by": username, "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.local_party_accounts.insert_one(lp_adv)
+
 
 @router.post("/gunny-bags")
 async def add_gunny_bag_entry(entry: GunnyBagEntry, username: str = ""):
@@ -488,10 +515,20 @@ async def add_gunny_bag_entry(entry: GunnyBagEntry, username: str = ""):
 
     # GST calculation
     gst_amount = 0
+    cgst_amount = 0
+    sgst_amount = 0
     if d.get('gst_type') == 'cgst_sgst':
-        gst_amount = round(subtotal * d.get('gst_percent', 0) / 100, 2) * 2  # CGST + SGST
+        cgst_pct = d.get('cgst_percent', 0) or d.get('gst_percent', 0) or 0
+        sgst_pct = d.get('sgst_percent', 0) or d.get('gst_percent', 0) or 0
+        cgst_amount = round(subtotal * cgst_pct / 100, 2)
+        sgst_amount = round(subtotal * sgst_pct / 100, 2)
+        gst_amount = cgst_amount + sgst_amount
+        d['cgst_percent'] = cgst_pct
+        d['sgst_percent'] = sgst_pct
     elif d.get('gst_type') == 'igst':
         gst_amount = round(subtotal * d.get('gst_percent', 0) / 100, 2)
+    d['cgst_amount'] = cgst_amount
+    d['sgst_amount'] = sgst_amount
     d['gst_amount'] = round(gst_amount, 2)
     d['total'] = round(subtotal + gst_amount, 2)
 
@@ -524,6 +561,7 @@ async def get_gunny_bag_entries(kms_year: Optional[str] = None, season: Optional
 async def delete_gunny_bag_entry(entry_id: str):
     # Remove linked local party entry + accounting entries
     await db.local_party_accounts.delete_many({"linked_gunny_id": entry_id})
+    await db.local_party_accounts.delete_many({"reference": {"$regex": f"gunny_.*:{entry_id}"}})
     await db.cash_transactions.delete_many({"reference": {"$regex": f"gunny_.*:{entry_id}"}})
     await db.cash_transactions.delete_many({"reference": f"lp_gunny:{entry_id[:8]}"})
     result = await db.gunny_bags.delete_one({"id": entry_id})
@@ -548,10 +586,20 @@ async def update_gunny_bag_entry(entry_id: str, entry: GunnyBagEntry, username: 
 
     # GST calculation
     gst_amount = 0
+    cgst_amount = 0
+    sgst_amount = 0
     if d.get('gst_type') == 'cgst_sgst':
-        gst_amount = round(subtotal * d.get('gst_percent', 0) / 100, 2) * 2
+        cgst_pct = d.get('cgst_percent', 0) or d.get('gst_percent', 0) or 0
+        sgst_pct = d.get('sgst_percent', 0) or d.get('gst_percent', 0) or 0
+        cgst_amount = round(subtotal * cgst_pct / 100, 2)
+        sgst_amount = round(subtotal * sgst_pct / 100, 2)
+        gst_amount = cgst_amount + sgst_amount
+        d['cgst_percent'] = cgst_pct
+        d['sgst_percent'] = sgst_pct
     elif d.get('gst_type') == 'igst':
         gst_amount = round(subtotal * d.get('gst_percent', 0) / 100, 2)
+    d['cgst_amount'] = cgst_amount
+    d['sgst_amount'] = sgst_amount
     d['gst_amount'] = round(gst_amount, 2)
     d['total'] = round(subtotal + gst_amount, 2)
 
@@ -565,6 +613,7 @@ async def update_gunny_bag_entry(entry_id: str, entry: GunnyBagEntry, username: 
 
     # Delete old accounting entries and recreate
     await db.local_party_accounts.delete_many({"linked_gunny_id": entry_id})
+    await db.local_party_accounts.delete_many({"reference": {"$regex": f"gunny_.*:{entry_id}"}})
     await db.cash_transactions.delete_many({"reference": {"$regex": f"gunny_.*:{entry_id}"}})
     await db.cash_transactions.delete_many({"reference": f"lp_gunny:{entry_id[:8]}"})
 

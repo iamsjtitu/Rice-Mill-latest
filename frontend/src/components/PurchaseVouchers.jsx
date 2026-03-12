@@ -32,6 +32,10 @@ export default function PurchaseVouchers({ filters, user }) {
   const [searchText, setSearchText] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [gstSettings, setGstSettings] = useState({ cgst_percent: 0, sgst_percent: 0, igst_percent: 0 });
+  const [payDialog, setPayDialog] = useState(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payNotes, setPayNotes] = useState("");
+  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
     party_name: "", invoice_no: "", rst_no: "", truck_no: "",
@@ -188,6 +192,18 @@ export default function PurchaseVouchers({ filters, user }) {
     downloadFile(`/api/purchase-book/export/${type}`, `purchase_book.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
+  const handlePayment = async () => {
+    if (!payDialog || !payAmount || parseFloat(payAmount) <= 0) { toast.error("Amount daalna zaroori hai"); return; }
+    try {
+      await axios.post(`${API}/voucher-payment`, {
+        voucher_type: "purchase", voucher_id: payDialog.id, amount: parseFloat(payAmount),
+        date: payDate, notes: payNotes, username: user.username,
+        kms_year: filters.kms_year || "", season: filters.season || "",
+      });
+      toast.success("Payment record ho gayi!"); setPayDialog(null); setPayAmount(""); setPayNotes(""); fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
+  };
+
   const totals = useMemo(() => {
     const t = vouchers.reduce((a, v) => ({
       total: a.total + (v.total || 0), advance: a.advance + (v.advance || 0),
@@ -272,6 +288,9 @@ export default function PurchaseVouchers({ filters, user }) {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-1 justify-end">
+                      <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog(v); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); }} title="Payment Karein" data-testid={`pv-pay-${v.id}`}>
+                        <IndianRupee className="w-3 h-3" />
+                      </Button>
                       <Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => handleEdit(v)} data-testid={`pv-edit-${v.id}`}>
                         <Eye className="w-3 h-3" />
                       </Button>
@@ -480,6 +499,33 @@ export default function PurchaseVouchers({ filters, user }) {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={!!payDialog} onOpenChange={v => { if (!v) setPayDialog(null); }}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-sm" data-testid="pv-pay-dialog">
+          <DialogHeader><DialogTitle className="text-emerald-400 flex items-center gap-2"><IndianRupee className="w-5 h-5" /> Payment Karein / भुगतान</DialogTitle></DialogHeader>
+          {payDialog && (
+            <div className="space-y-3">
+              <div className="bg-slate-900 p-3 rounded border border-slate-700 text-xs space-y-1">
+                <p><span className="text-slate-400">Party:</span> <span className="text-white font-medium">{payDialog.party_name}</span></p>
+                <p><span className="text-slate-400">Invoice:</span> <span className="text-white">{payDialog.invoice_no || '-'}</span></p>
+                <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{payDialog.total?.toLocaleString('en-IN')}</span></p>
+                <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{payDialog.balance?.toLocaleString('en-IN')}</span></p>
+              </div>
+              <div><Label className="text-xs text-slate-400">Date</Label>
+                <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-date" /></div>
+              <div><Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
+                <Input type="number" step="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder={`Max: ${payDialog.balance}`}
+                  className="bg-slate-700 border-slate-600 text-white h-8 text-sm" autoFocus data-testid="pv-pay-amount" /></div>
+              <div><Label className="text-xs text-slate-400">Notes</Label>
+                <Input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-notes" /></div>
+              <Button onClick={handlePayment} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white" data-testid="pv-pay-submit">
+                Payment Record Karein
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet } from "lucide-react";
+import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer } from "lucide-react";
 
 const API = `${(typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -29,6 +29,10 @@ export default function SaleBook({ filters, user }) {
   const [isObOpen, setIsObOpen] = useState(false);
   const [obForm, setObForm] = useState({ party_name: "", party_type: "Cash Party", amount: "", balance_type: "jama", note: "" });
   const [searchQuery, setSearchQuery] = useState("");
+  const [payDialog, setPayDialog] = useState(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payNotes, setPayNotes] = useState("");
+  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
 
   const emptyItem = { item_name: "", quantity: "", rate: "", unit: "Qntl" };
   const [form, setForm] = useState({
@@ -152,6 +156,22 @@ export default function SaleBook({ filters, user }) {
       a.click(); window.URL.revokeObjectURL(url);
       toast.success("Excel export ho gaya!");
     } catch { toast.error("Excel export failed"); }
+  };
+
+  const handlePayment = async () => {
+    if (!payDialog || !payAmount || parseFloat(payAmount) <= 0) { toast.error("Amount daalna zaroori hai"); return; }
+    try {
+      await axios.post(`${API}/voucher-payment`, {
+        voucher_type: "sale", voucher_id: payDialog.id, amount: parseFloat(payAmount),
+        date: payDate, notes: payNotes, username: user.username,
+        kms_year: filters.kms_year || "", season: filters.season || "",
+      });
+      toast.success("Payment record ho gayi!"); setPayDialog(null); setPayAmount(""); setPayNotes(""); fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
+  };
+
+  const handlePrintInvoice = (v) => {
+    window.open(`${API}/sale-book/invoice/${v.id}`, '_blank');
   };
 
   const getStockForItem = (itemName) => {
@@ -292,6 +312,12 @@ export default function SaleBook({ filters, user }) {
                     Rs.{v.balance?.toLocaleString('en-IN')}
                   </TableCell>
                   <TableCell className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => { setPayDialog(v); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); }} className="text-emerald-400 hover:text-emerald-300 h-6 w-6 p-0" title="Payment Receive" data-testid={`sv-pay-${v.id}`}>
+                      <IndianRupee className="w-3 h-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handlePrintInvoice(v)} className="text-purple-400 hover:text-purple-300 h-6 w-6 p-0" title="Print Invoice" data-testid={`sv-print-${v.id}`}>
+                      <Printer className="w-3 h-3" />
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => openEditForm(v)} className="text-blue-400 hover:text-blue-300 h-6 w-6 p-0" data-testid={`sv-edit-${v.id}`}>
                       <Edit className="w-3 h-3" />
                     </Button>
@@ -560,6 +586,33 @@ export default function SaleBook({ filters, user }) {
               Save Opening Balance
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={!!payDialog} onOpenChange={v => { if (!v) setPayDialog(null); }}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-sm" data-testid="sv-pay-dialog">
+          <DialogHeader><DialogTitle className="text-emerald-400 flex items-center gap-2"><IndianRupee className="w-5 h-5" /> Payment Receive / पैसा प्राप्त</DialogTitle></DialogHeader>
+          {payDialog && (
+            <div className="space-y-3">
+              <div className="bg-slate-900 p-3 rounded border border-slate-700 text-xs space-y-1">
+                <p><span className="text-slate-400">Party:</span> <span className="text-white font-medium">{payDialog.party_name}</span></p>
+                <p><span className="text-slate-400">Invoice:</span> <span className="text-white">{payDialog.invoice_no || '-'}</span></p>
+                <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{payDialog.total?.toLocaleString('en-IN')}</span></p>
+                <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{payDialog.balance?.toLocaleString('en-IN')}</span></p>
+              </div>
+              <div><Label className="text-xs text-slate-400">Date</Label>
+                <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-date" /></div>
+              <div><Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
+                <Input type="number" step="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder={`Max: ${payDialog.balance}`}
+                  className="bg-slate-700 border-slate-600 text-white h-8 text-sm" autoFocus data-testid="sv-pay-amount" /></div>
+              <div><Label className="text-xs text-slate-400">Notes</Label>
+                <Input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-notes" /></div>
+              <Button onClick={handlePayment} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white" data-testid="sv-pay-submit">
+                Payment Record Karein
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

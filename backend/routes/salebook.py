@@ -253,6 +253,29 @@ async def _create_sale_ledger_entries(d, doc_id, vno, items, username):
     for entry in entries:
         await db.cash_transactions.insert_one(entry)
 
+    # Create local_party_accounts entry for sale voucher (party owes us = debit)
+    if party and total > 0:
+        lp = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''),
+            "party_name": party, "txn_type": "debit",
+            "amount": total, "description": f"Sale #{vno} - {items_str}{desc_suffix}",
+            "source_type": "sale_voucher", "reference": f"sale_voucher:{doc_id}",
+            "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
+            "created_by": username, "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.local_party_accounts.insert_one(lp)
+    # If advance received, add payment entry in local_party
+    if advance > 0 and party:
+        lp_adv = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''),
+            "party_name": party, "txn_type": "payment",
+            "amount": advance, "description": f"Advance received - Sale #{vno}{desc_suffix}",
+            "source_type": "sale_voucher_advance", "reference": f"sale_voucher_adv:{doc_id}",
+            "kms_year": d.get('kms_year', ''), "season": d.get('season', ''),
+            "created_by": username, "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.local_party_accounts.insert_one(lp_adv)
+
 
 @router.post("/sale-book")
 async def create_sale_voucher(input: SaleVoucherCreate, username: str = "", role: str = ""):
@@ -304,6 +327,7 @@ async def delete_sale_voucher(voucher_id: str, username: str = "", role: str = "
     await db.cash_transactions.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     await db.diesel_accounts.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     await db.truck_payments.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
+    await db.local_party_accounts.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     return {"message": "Sale voucher deleted", "id": voucher_id}
 
 
@@ -341,6 +365,7 @@ async def update_sale_voucher(voucher_id: str, input: SaleVoucherCreate, usernam
     await db.cash_transactions.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     await db.diesel_accounts.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     await db.truck_payments.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
+    await db.local_party_accounts.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     vno = existing.get('voucher_no', 0)
     await _create_sale_ledger_entries(d, voucher_id, vno, items, username)
     

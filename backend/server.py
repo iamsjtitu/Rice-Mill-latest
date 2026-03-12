@@ -54,6 +54,7 @@ from routes.fy_summary import router as fy_summary_router
 from routes.telegram import router as telegram_router
 from routes.salebook import router as salebook_router
 from routes.purchase_vouchers import router as purchase_vouchers_router
+from routes.voucher_payments import router as voucher_payments_router
 
 api_router.include_router(auth_router)
 api_router.include_router(entries_router)
@@ -74,6 +75,7 @@ api_router.include_router(fy_summary_router)
 api_router.include_router(telegram_router)
 api_router.include_router(salebook_router)
 api_router.include_router(purchase_vouchers_router)
+api_router.include_router(voucher_payments_router)
 
 # Include the api_router in the main app
 app.include_router(api_router)

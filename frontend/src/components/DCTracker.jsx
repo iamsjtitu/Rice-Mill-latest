@@ -396,7 +396,7 @@ export const GunnyBags = ({ filters, user }) => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const defaultForm = { date: new Date().toISOString().split('T')[0], bag_type: "old", txn_type: "in", quantity: "", source: "", party_name: "", rate: "", invoice_no: "", truck_no: "", rst_no: "", gst_type: "none", gst_percent: "", advance: "", reference: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" };
+  const defaultForm = { date: new Date().toISOString().split('T')[0], bag_type: "old", txn_type: "in", quantity: "", source: "", party_name: "", rate: "", invoice_no: "", truck_no: "", rst_no: "", gst_type: "none", cgst_percent: "", sgst_percent: "", gst_percent: "", advance: "", reference: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" };
   const [form, setForm] = useState(defaultForm);
   const [bagFilter, setBagFilter] = useState("all");
   const [txnFilter, setTxnFilter] = useState("all");
@@ -424,7 +424,9 @@ export const GunnyBags = ({ filters, user }) => {
       date: entry.date || '', bag_type: entry.bag_type || 'old', txn_type: entry.txn_type || 'in',
       quantity: entry.quantity?.toString() || '', source: entry.source || '', party_name: entry.party_name || entry.source || '',
       rate: entry.rate?.toString() || '', invoice_no: entry.invoice_no || '', truck_no: entry.truck_no || '',
-      rst_no: entry.rst_no || '', gst_type: entry.gst_type || 'none', gst_percent: entry.gst_percent?.toString() || '',
+      rst_no: entry.rst_no || '', gst_type: entry.gst_type || 'none',
+      cgst_percent: entry.cgst_percent?.toString() || '', sgst_percent: entry.sgst_percent?.toString() || '',
+      gst_percent: entry.gst_percent?.toString() || '',
       advance: entry.advance?.toString() || '', reference: entry.reference || '', notes: entry.notes || '',
       kms_year: entry.kms_year || '', season: entry.season || ''
     });
@@ -435,9 +437,15 @@ export const GunnyBags = ({ filters, user }) => {
   const qty = parseInt(form.quantity) || 0;
   const rate = parseFloat(form.rate) || 0;
   const subtotal = qty * rate;
-  let gstAmt = 0;
-  if (form.gst_type === 'cgst_sgst') gstAmt = subtotal * (parseFloat(form.gst_percent) || 0) / 100 * 2;
-  else if (form.gst_type === 'igst') gstAmt = subtotal * (parseFloat(form.gst_percent) || 0) / 100;
+  let cgstAmt = 0, sgstAmt = 0, igstAmt = 0, gstAmt = 0;
+  if (form.gst_type === 'cgst_sgst') {
+    cgstAmt = subtotal * (parseFloat(form.cgst_percent) || 0) / 100;
+    sgstAmt = subtotal * (parseFloat(form.sgst_percent) || 0) / 100;
+    gstAmt = cgstAmt + sgstAmt;
+  } else if (form.gst_type === 'igst') {
+    igstAmt = subtotal * (parseFloat(form.gst_percent) || 0) / 100;
+    gstAmt = igstAmt;
+  }
   const grandTotal = subtotal + gstAmt;
 
   const handleSubmit = async (e) => {
@@ -446,6 +454,8 @@ export const GunnyBags = ({ filters, user }) => {
     try {
       const payload = {
         ...form, quantity: qty, rate, advance: parseFloat(form.advance) || 0,
+        cgst_percent: parseFloat(form.cgst_percent) || 0,
+        sgst_percent: parseFloat(form.sgst_percent) || 0,
         gst_percent: parseFloat(form.gst_percent) || 0,
       };
       if (editingId) {
@@ -461,6 +471,21 @@ export const GunnyBags = ({ filters, user }) => {
   };
 
   const handleDelete = async (id) => { if (!window.confirm("Delete karein?")) return; try { await axios.delete(`${API}/gunny-bags/${id}`); toast.success("Deleted!"); fetchData(); } catch (e) { toast.error("Delete nahi hua"); } };
+  const [payDialog, setPayDialog] = useState(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payNotes, setPayNotes] = useState("");
+  const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+  const handleGunnyPayment = async () => {
+    if (!payDialog || !payAmount || parseFloat(payAmount) <= 0) { toast.error("Amount daalna zaroori hai"); return; }
+    try {
+      await axios.post(`${API}/voucher-payment`, {
+        voucher_type: "gunny", voucher_id: payDialog.id, amount: parseFloat(payAmount),
+        date: payDate, notes: payNotes, username: user.username,
+        kms_year: filters.kms_year || "", season: filters.season || "",
+      });
+      toast.success("Payment record ho gayi!"); setPayDialog(null); setPayAmount(""); setPayNotes(""); fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
+  };
   const exportData = async (format) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
@@ -574,6 +599,9 @@ export const GunnyBags = ({ filters, user }) => {
                   {e.linked_entry_id && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" data-testid={`gunny-auto-badge-${e.id}`}>Auto</span>}
                   {user.role === 'admin' && !e.linked_entry_id && (
                     <>
+                      {(e.total || e.amount || 0) > 0 && e.txn_type === 'in' && (
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-emerald-400" onClick={() => { setPayDialog(e); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); }} title="Payment Karein" data-testid={`gunny-pay-${e.id}`}><IndianRupee className="w-3 h-3" /></Button>
+                      )}
                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEditForm(e)} data-testid={`gunny-edit-${e.id}`}><Edit className="w-3 h-3" /></Button>
                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(e.id)} data-testid={`gunny-delete-${e.id}`}><Trash2 className="w-3 h-3" /></Button>
                     </>
@@ -629,23 +657,35 @@ export const GunnyBags = ({ filters, user }) => {
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-gsttype"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="none">No GST</SelectItem><SelectItem value="cgst_sgst">CGST+SGST</SelectItem><SelectItem value="igst">IGST</SelectItem></SelectContent>
                 </Select></div>
-              {form.gst_type !== 'none' && (
-                <div><Label className="text-xs text-slate-400">{form.gst_type === 'cgst_sgst' ? 'CGST %' : 'IGST %'}</Label>
-                  <Input type="number" step="0.01" value={form.gst_percent} onChange={e => setForm(p=>({...p,gst_percent:e.target.value}))} placeholder="e.g. 9" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-gstpercent" /></div>
+              {form.gst_type === 'cgst_sgst' && (
+                <>
+                  <div><Label className="text-xs text-slate-400">CGST %</Label>
+                    <Input type="number" step="0.01" value={form.cgst_percent} onChange={e => setForm(p=>({...p,cgst_percent:e.target.value}))} placeholder="e.g. 9" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-cgstpercent" /></div>
+                  <div><Label className="text-xs text-slate-400">SGST %</Label>
+                    <Input type="number" step="0.01" value={form.sgst_percent} onChange={e => setForm(p=>({...p,sgst_percent:e.target.value}))} placeholder="e.g. 9" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-sgstpercent" /></div>
+                </>
+              )}
+              {form.gst_type === 'igst' && (
+                <div><Label className="text-xs text-slate-400">IGST %</Label>
+                  <Input type="number" step="0.01" value={form.gst_percent} onChange={e => setForm(p=>({...p,gst_percent:e.target.value}))} placeholder="e.g. 18" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-gstpercent" /></div>
               )}
               <div><Label className="text-xs text-slate-400">Party Advance</Label>
                 <Input type="number" step="0.01" value={form.advance} onChange={e => setForm(p=>({...p,advance:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-advance" /></div>
+            </div>
+            {/* Row 5: Reference & Notes */}
+            <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Reference</Label>
                 <Input value={form.reference} onChange={e => setForm(p=>({...p,reference:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-ref" /></div>
+              <div><Label className="text-xs text-slate-400">Notes</Label>
+                <Input value={form.notes} onChange={e => setForm(p=>({...p,notes:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-notes" /></div>
             </div>
-            {/* Row 5: Notes */}
-            <div><Label className="text-xs text-slate-400">Notes</Label>
-              <Input value={form.notes} onChange={e => setForm(p=>({...p,notes:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-form-notes" /></div>
             {/* Amount Summary */}
             {subtotal > 0 && (
               <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 grid grid-cols-4 gap-2 text-xs">
                 <div><span className="text-slate-400">Subtotal:</span> <span className="text-white font-medium">Rs.{subtotal.toLocaleString('en-IN')}</span></div>
-                {gstAmt > 0 && <div><span className="text-slate-400">GST:</span> <span className="text-sky-400 font-medium">Rs.{gstAmt.toFixed(0)}</span></div>}
+                {cgstAmt > 0 && <div><span className="text-slate-400">CGST:</span> <span className="text-sky-400 font-medium">Rs.{cgstAmt.toFixed(0)}</span></div>}
+                {sgstAmt > 0 && <div><span className="text-slate-400">SGST:</span> <span className="text-sky-400 font-medium">Rs.{sgstAmt.toFixed(0)}</span></div>}
+                {igstAmt > 0 && <div><span className="text-slate-400">IGST:</span> <span className="text-sky-400 font-medium">Rs.{igstAmt.toFixed(0)}</span></div>}
                 <div><span className="text-slate-400">Total:</span> <span className="text-amber-400 font-bold">Rs.{grandTotal.toLocaleString('en-IN')}</span></div>
                 {(parseFloat(form.advance) || 0) > 0 && <div><span className="text-slate-400">Balance:</span> <span className="text-red-400 font-bold">Rs.{(grandTotal - (parseFloat(form.advance) || 0)).toLocaleString('en-IN')}</span></div>}
               </div>
@@ -655,6 +695,33 @@ export const GunnyBags = ({ filters, user }) => {
               <Button type="button" variant="outline" className="border-slate-600 text-slate-300" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Dialog */}
+      <Dialog open={!!payDialog} onOpenChange={v => { if (!v) setPayDialog(null); }}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-sm" data-testid="gunny-pay-dialog">
+          <DialogHeader><DialogTitle className="text-emerald-400 flex items-center gap-2"><IndianRupee className="w-5 h-5" /> Payment Karein / भुगतान</DialogTitle></DialogHeader>
+          {payDialog && (
+            <div className="space-y-3">
+              <div className="bg-slate-900 p-3 rounded border border-slate-700 text-xs space-y-1">
+                <p><span className="text-slate-400">Party:</span> <span className="text-white font-medium">{payDialog.party_name || payDialog.source || '-'}</span></p>
+                <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{(payDialog.total || payDialog.amount || 0).toLocaleString('en-IN')}</span></p>
+                <p><span className="text-slate-400">Advance Paid:</span> <span className="text-sky-400">Rs.{(payDialog.advance || 0).toLocaleString('en-IN')}</span></p>
+                <p><span className="text-slate-400">Balance:</span> <span className="text-red-400 font-bold">Rs.{((payDialog.total || payDialog.amount || 0) - (payDialog.advance || 0)).toLocaleString('en-IN')}</span></p>
+              </div>
+              <div><Label className="text-xs text-slate-400">Date</Label>
+                <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-pay-date" /></div>
+              <div><Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
+                <Input type="number" step="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)}
+                  className="bg-slate-700 border-slate-600 text-white h-8 text-sm" autoFocus data-testid="gunny-pay-amount" /></div>
+              <div><Label className="text-xs text-slate-400">Notes</Label>
+                <Input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-pay-notes" /></div>
+              <Button onClick={handleGunnyPayment} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white" data-testid="gunny-pay-submit">
+                Payment Record Karein
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
