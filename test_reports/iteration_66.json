@@ -1,0 +1,47 @@
+{
+  "summary": "Iteration 66 - Enhanced Gunny Bags features tested. All 11 backend tests passed. Frontend UI verified - all new form fields present and working. Stock Summary shows Gunny Bags under Raw Material with correct in/out/available in Bags unit. Category filter buttons work correctly. Party Summary search functionality verified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": [
+      {"warning": "Missing Description or aria-describedby for DialogContent", "location": "Gunny Bags form dialog", "priority": "LOW"},
+      {"warning": "404 errors for some resources", "location": "General console", "priority": "LOW"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration66_gunny_bags_enhanced.py",
+    "/app/test_reports/pytest/pytest_results_iteration66.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration66_gunny_bags_enhanced.py"
+  ],
+  "success_rate": {"backend": "100% (11/11 tests passed)", "frontend": "100%"},
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "Test gunny bag entries created and cleaned up after testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Enhanced Gunny Bags features fully tested. Key features: 1) Gunny Bags form has new fields: Invoice No (gunny-form-invoice), RST No (gunny-form-rst), Truck No (gunny-form-truck), Party Name (gunny-form-party), GST Type (gunny-form-gsttype), GST Percent (gunny-form-gstpercent), Party Advance (gunny-form-advance). 2) GST calculation works for CGST+SGST and IGST. 3) Accounting entries created for purchases (party ledger JAMA for total, NIKASI for advance, cash NIKASI for advance). 4) Stock Summary shows Gunny Bags under Raw Material category with unit 'Bags'. 5) Category filter buttons work (All, Raw Material, Finished, By-Product). 6) Party Summary search filters all 3 sections (Sale Vouchers, Purchase Vouchers, Paddy Purchase). API endpoints tested: POST/GET/PUT/DELETE /api/gunny-bags, GET /api/gunny-bags/summary, GET /api/stock-summary, GET /api/private-trading/party-summary?search=xyz, GET /api/cash-book.",
+  "test_results": {
+    "gunny_bags_crud_no_gst": "PASS",
+    "gunny_bags_crud_cgst_sgst": "PASS - GST calculated: subtotal * gst_percent / 100 * 2",
+    "gunny_bags_crud_igst": "PASS - GST calculated: subtotal * gst_percent / 100",
+    "gunny_bags_accounting_entries_created": "PASS - JAMA for total, NIKASI for advance, cash NIKASI",
+    "gunny_bags_delete_cleans_accounting": "PASS",
+    "gunny_bags_update_recalculates_accounting": "PASS",
+    "stock_summary_shows_gunny_bags": "PASS - Raw Material category, unit: Bags",
+    "stock_summary_category_filter": "PASS - All, Raw Material, Finished, By-Product buttons work",
+    "party_summary_search_filters": "PASS - Filters all 3 sections",
+    "party_summary_endpoint": "PASS - Returns totals and 3 section summaries",
+    "gunny_bags_list_new_fields": "PASS - party_name, invoice_no, truck_no, rst_no, gst_type, etc.",
+    "gunny_bags_summary": "PASS - new (govt) and old (market) bag counts",
+    "gunny_form_ui_all_fields": "PASS - Date, Bag Type, In/Out, Invoice No, RST No, Truck No, Party Name, Qty, Rate, GST Type, GST %, Party Advance, Reference, Notes",
+    "gunny_table_shows_new_columns": "PASS - Party, Inv No, Truck, In/Out, Qty, Rate, Total, GST, Advance, Type"
+  }
+}

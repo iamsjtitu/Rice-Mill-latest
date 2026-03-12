@@ -409,9 +409,19 @@ class GunnyBagEntry(BaseModel):
     bag_type: str = "new"  # new (govt free) / old (market purchase)
     txn_type: str = "in"   # in / out
     quantity: int = 0
-    source: str = ""       # where from / where to
+    source: str = ""       # where from / where to (backward compat)
+    party_name: str = ""   # explicit party name for purchases
     rate: float = 0        # rate per bag (for old/purchased)
     amount: float = 0
+    invoice_no: str = ""
+    truck_no: str = ""
+    rst_no: str = ""
+    gst_type: str = "none"  # none / cgst_sgst / igst
+    gst_percent: float = 0
+    gst_amount: float = 0
+    subtotal: float = 0
+    total: float = 0
+    advance: float = 0
     reference: str = ""
     notes: str = ""
     kms_year: str = ""
@@ -420,46 +430,83 @@ class GunnyBagEntry(BaseModel):
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
+async def _create_gunny_accounting_entries(d, doc_id, username):
+    """Create accounting entries for gunny bag purchase"""
+    party = (d.get('party_name') or d.get('source') or '').strip()
+    if not party:
+        return
+    total = d.get('total', 0) or d.get('amount', 0) or 0
+    advance = d.get('advance', 0) or 0
+    truck = (d.get('truck_no') or '').strip()
+    inv = d.get('invoice_no', '')
+    now_iso = datetime.now(timezone.utc).isoformat()
+    base = {"kms_year": d.get('kms_year', ''), "season": d.get('season', ''), "created_by": username, "created_at": now_iso, "updated_at": now_iso}
+    desc_suffix = f" | Inv:{inv}" if inv else ""
+
+    entries = []
+
+    # 1. Party Ledger JAMA: total purchase amount (we owe the party)
+    if total > 0:
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
+            "amount": total, "category": party, "party_type": "Gunny Bag",
+            "description": f"Gunny Bags x{d.get('quantity', 0)} @ Rs.{d.get('rate', 0)}{desc_suffix}",
+            "reference": f"gunny_purchase:{doc_id}", **base
+        })
+
+    # 2. Advance paid → NIKASI in party ledger
+    if advance > 0:
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+            "amount": advance, "category": party, "party_type": "Gunny Bag",
+            "description": f"Advance paid - Gunny Bags{desc_suffix}",
+            "reference": f"gunny_advance:{doc_id}", **base
+        })
+
+    # 3. Cash NIKASI for advance (cash going out)
+    if advance > 0:
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "cash", "txn_type": "nikasi",
+            "amount": advance, "category": party, "party_type": "Gunny Bag",
+            "description": f"Gunny Bags advance - {party}{desc_suffix}",
+            "reference": f"gunny_cash:{doc_id}", **base
+        })
+
+    for entry in entries:
+        await db.cash_transactions.insert_one(entry)
+
+
 @router.post("/gunny-bags")
 async def add_gunny_bag_entry(entry: GunnyBagEntry, username: str = ""):
     d = entry.model_dump()
     d['created_by'] = username
-    d['amount'] = round(d.get('quantity', 0) * d.get('rate', 0), 2)
+
+    # Calculate amounts
+    subtotal = round(d.get('quantity', 0) * d.get('rate', 0), 2)
+    d['subtotal'] = subtotal
+    d['amount'] = subtotal  # backward compat
+
+    # GST calculation
+    gst_amount = 0
+    if d.get('gst_type') == 'cgst_sgst':
+        gst_amount = round(subtotal * d.get('gst_percent', 0) / 100, 2) * 2  # CGST + SGST
+    elif d.get('gst_type') == 'igst':
+        gst_amount = round(subtotal * d.get('gst_percent', 0) / 100, 2)
+    d['gst_amount'] = round(gst_amount, 2)
+    d['total'] = round(subtotal + gst_amount, 2)
+
+    # Use party_name if provided, else fall back to source
+    if d.get('party_name') and not d.get('source'):
+        d['source'] = d['party_name']
+    elif d.get('source') and not d.get('party_name'):
+        d['party_name'] = d['source']
+
     await db.gunny_bags.insert_one(d)
     d.pop('_id', None)
 
-    # Auto-create local party entry for old (market) bag purchases with a source (party)
-    if d.get("bag_type") == "old" and d.get("txn_type") == "in" and d.get("source") and d["amount"] > 0:
-        lp = {
-            "id": str(uuid.uuid4()),
-            "date": d.get("date", ""),
-            "party_name": d["source"],
-            "txn_type": "debit",
-            "amount": d["amount"],
-            "description": f"Gunny Bags (Old) x{d['quantity']} @ Rs.{d['rate']}",
-            "source_type": "gunny_bag",
-            "reference": f"gunny:{d['id'][:8]}",
-            "kms_year": d.get("kms_year", ""),
-            "season": d.get("season", ""),
-            "created_by": username or "system",
-            "linked_gunny_id": d["id"],
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.local_party_accounts.insert_one(lp)
-
-        # Auto Cash Book Jama entry for gunny bag purchase
-        cb = {
-            "id": str(uuid.uuid4()), "date": d.get("date", ""),
-            "account": "ledger", "txn_type": "jama",
-            "category": d["source"], "party_type": "Local Party",
-            "description": f"Gunny Bags (Old) x{d['quantity']} @ Rs.{d['rate']} - {d['source']}",
-            "amount": d["amount"], "reference": f"lp_gunny:{d['id'][:8]}",
-            "kms_year": d.get("kms_year", ""), "season": d.get("season", ""),
-            "created_by": username or "system", "linked_local_party_id": lp["id"],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.cash_transactions.insert_one(cb)
+    # Create accounting entries for purchases
+    if d.get("txn_type") == "in" and d.get("party_name") and d.get("total", 0) > 0:
+        await _create_gunny_accounting_entries(d, d['id'], username)
 
     return d
 
@@ -475,8 +522,10 @@ async def get_gunny_bag_entries(kms_year: Optional[str] = None, season: Optional
 
 @router.delete("/gunny-bags/{entry_id}")
 async def delete_gunny_bag_entry(entry_id: str):
-    # Also remove linked local party entry
+    # Remove linked local party entry + accounting entries
     await db.local_party_accounts.delete_many({"linked_gunny_id": entry_id})
+    await db.cash_transactions.delete_many({"reference": {"$regex": f"gunny_.*:{entry_id}"}})
+    await db.cash_transactions.delete_many({"reference": f"lp_gunny:{entry_id[:8]}"})
     result = await db.gunny_bags.delete_one({"id": entry_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -490,45 +539,37 @@ async def update_gunny_bag_entry(entry_id: str, entry: GunnyBagEntry, username: 
         raise HTTPException(status_code=404, detail="Entry not found")
     d = entry.model_dump()
     d["id"] = entry_id  # preserve original id
-    d["amount"] = round(d.get("quantity", 0) * d.get("rate", 0), 2)
     d["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    # Calculate amounts
+    subtotal = round(d.get("quantity", 0) * d.get("rate", 0), 2)
+    d['subtotal'] = subtotal
+    d['amount'] = subtotal
+
+    # GST calculation
+    gst_amount = 0
+    if d.get('gst_type') == 'cgst_sgst':
+        gst_amount = round(subtotal * d.get('gst_percent', 0) / 100, 2) * 2
+    elif d.get('gst_type') == 'igst':
+        gst_amount = round(subtotal * d.get('gst_percent', 0) / 100, 2)
+    d['gst_amount'] = round(gst_amount, 2)
+    d['total'] = round(subtotal + gst_amount, 2)
+
+    # Sync party_name <-> source
+    if d.get('party_name') and not d.get('source'):
+        d['source'] = d['party_name']
+    elif d.get('source') and not d.get('party_name'):
+        d['party_name'] = d['source']
+
     await db.gunny_bags.update_one({"id": entry_id}, {"$set": d})
 
-    # Update linked local party entry for old market bags
+    # Delete old accounting entries and recreate
     await db.local_party_accounts.delete_many({"linked_gunny_id": entry_id})
-    if d.get("bag_type") == "old" and d.get("txn_type") == "in" and d.get("source") and d["amount"] > 0:
-        lp = {
-            "id": str(uuid.uuid4()),
-            "date": d.get("date", ""),
-            "party_name": d["source"],
-            "txn_type": "debit",
-            "amount": d["amount"],
-            "description": f"Gunny Bags (Old) x{d['quantity']} @ Rs.{d['rate']}",
-            "source_type": "gunny_bag",
-            "reference": f"gunny:{entry_id[:8]}",
-            "kms_year": d.get("kms_year", existing.get("kms_year", "")),
-            "season": d.get("season", existing.get("season", "")),
-            "created_by": username or "system",
-            "linked_gunny_id": entry_id,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.local_party_accounts.insert_one(lp)
+    await db.cash_transactions.delete_many({"reference": {"$regex": f"gunny_.*:{entry_id}"}})
+    await db.cash_transactions.delete_many({"reference": f"lp_gunny:{entry_id[:8]}"})
 
-        # Auto Cash Book Jama entry for gunny bag purchase (update)
-        await db.cash_transactions.delete_many({"reference": f"lp_gunny:{entry_id[:8]}"})
-        cb = {
-            "id": str(uuid.uuid4()), "date": d.get("date", ""),
-            "account": "ledger", "txn_type": "jama",
-            "category": d["source"], "party_type": "Local Party",
-            "description": f"Gunny Bags (Old) x{d['quantity']} @ Rs.{d['rate']} - {d['source']}",
-            "amount": d["amount"], "reference": f"lp_gunny:{entry_id[:8]}",
-            "kms_year": d.get("kms_year", existing.get("kms_year", "")),
-            "season": d.get("season", existing.get("season", "")),
-            "created_by": username or "system", "linked_local_party_id": lp["id"],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.cash_transactions.insert_one(cb)
+    if d.get("txn_type") == "in" and d.get("party_name") and d.get("total", 0) > 0:
+        await _create_gunny_accounting_entries(d, entry_id, username)
 
     updated = await db.gunny_bags.find_one({"id": entry_id}, {"_id": 0})
     return updated

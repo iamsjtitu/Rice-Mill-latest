@@ -92,6 +92,18 @@ export default function StockSummary({ filters }) {
         <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="stock-export-excel">
           <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
         </Button>
+        {categories.length > 0 && (
+          <div className="flex gap-1 bg-slate-900 p-0.5 rounded border border-slate-700 ml-2">
+            <Button onClick={() => setFilterCategory("all")} variant={filterCategory === "all" ? "default" : "ghost"} size="sm"
+              className={`h-7 text-xs ${filterCategory === "all" ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white"}`}
+              data-testid="stock-filter-all">All</Button>
+            {categories.map(cat => (
+              <Button key={cat} onClick={() => setFilterCategory(cat)} variant={filterCategory === cat ? "default" : "ghost"} size="sm"
+                className={`h-7 text-xs ${filterCategory === cat ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white"}`}
+                data-testid={`stock-filter-${cat.toLowerCase().replace(/\s/g,'-')}`}>{cat}</Button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Stock Items by Category */}
