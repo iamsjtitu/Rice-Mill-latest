@@ -46,6 +46,13 @@ Comprehensive Mill Entry System (rice mill management) web + desktop app.
   - Cash Book manual payments are reflected in PDF/Excel exports
 - **PDF A4 Optimization (12-Mar-2026):**
   - Both Sale and Purchase PDFs optimized with smaller fonts/margins to fit A4 landscape
+- **Purchase Voucher Stock Integration Fix (12-Mar-2026):**
+  - CRITICAL BUG FIX: Items purchased via Purchase Vouchers were NOT reflected in other modules
+  - Fixed `/api/rice-stock` (milling.py) - now includes PV rice purchases in available stock
+  - Fixed `/api/sale-book/stock-items` (salebook.py) - now includes PV items in stock dropdown
+  - Fixed `/api/byproduct-stock` (milling.py) - now includes PV byproduct purchases
+  - Dashboard shows "Purchase se kharida: + X Qntl" line in Rice Stock card
+  - Low Stock Alert removed from Purchase Vouchers page (user request)
 
 ## Backlog
 - P1: Full regression test of all payment modules
