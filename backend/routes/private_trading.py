@@ -1172,59 +1172,68 @@ async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional
 # ============ PARTY SUMMARY ============
 
 async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to=None, search=None, view_type=None):
-    """Aggregate party-wise summary from both private_paddy and rice_sales"""
-    paddy_q = {}
-    rice_q = {}
-    if kms_year:
-        paddy_q["kms_year"] = kms_year
-        rice_q["kms_year"] = kms_year
-    if season:
-        paddy_q["season"] = season
-        rice_q["season"] = season
+    """Aggregate party-wise summary from private_paddy, rice_sales, sale_vouchers, and purchase_vouchers"""
+    base_q = {}
+    if kms_year: base_q["kms_year"] = kms_year
+    if season: base_q["season"] = season
     if date_from or date_to:
         dq = {}
         if date_from: dq["$gte"] = date_from
         if date_to: dq["$lte"] = date_to
-        paddy_q["date"] = dq
-        rice_q["date"] = dq
+        base_q["date"] = dq
 
-    paddy_items = await db.private_paddy.find(paddy_q, {"_id": 0}).to_list(5000)
-    rice_items = await db.rice_sales.find(rice_q, {"_id": 0}).to_list(5000)
+    paddy_items = await db.private_paddy.find(base_q, {"_id": 0}).to_list(5000)
+    rice_items = await db.rice_sales.find(base_q, {"_id": 0}).to_list(5000)
+    sale_voucher_items = await db.sale_vouchers.find(base_q, {"_id": 0}).to_list(5000)
+    purchase_voucher_items = await db.purchase_vouchers.find(base_q, {"_id": 0}).to_list(5000)
 
     party_map = {}
 
-    for p in paddy_items:
-        name = p.get("party_name", "Unknown")
+    def ensure_party(name):
         if name not in party_map:
             party_map[name] = {
-                "party_name": name,
-                "mandi_name": p.get("mandi_name", ""),
-                "agent_name": p.get("agent_name", ""),
+                "party_name": name, "mandi_name": "", "agent_name": "",
                 "purchase_amount": 0, "purchase_paid": 0, "purchase_balance": 0,
                 "sale_amount": 0, "sale_received": 0, "sale_balance": 0,
-                "net_balance": 0,
+                "net_balance": 0, "sources": set(),
             }
-        pm = party_map[name]
+        return party_map[name]
+
+    # Paddy Purchase entries
+    for p in paddy_items:
+        name = p.get("party_name", "Unknown")
+        pm = ensure_party(name)
         pm["purchase_amount"] += p.get("total_amount", 0) or 0
         pm["purchase_paid"] += p.get("paid_amount", 0) or 0
+        pm["sources"].add("Paddy Purchase")
         if not pm["mandi_name"] and p.get("mandi_name"):
             pm["mandi_name"] = p["mandi_name"]
         if not pm["agent_name"] and p.get("agent_name"):
             pm["agent_name"] = p["agent_name"]
 
+    # Rice Sale entries
     for r in rice_items:
         name = r.get("party_name", "Unknown")
-        if name not in party_map:
-            party_map[name] = {
-                "party_name": name,
-                "mandi_name": "", "agent_name": "",
-                "purchase_amount": 0, "purchase_paid": 0, "purchase_balance": 0,
-                "sale_amount": 0, "sale_received": 0, "sale_balance": 0,
-                "net_balance": 0,
-            }
-        pm = party_map[name]
+        pm = ensure_party(name)
         pm["sale_amount"] += r.get("total_amount", 0) or 0
         pm["sale_received"] += r.get("paid_amount", 0) or 0
+        pm["sources"].add("Rice Sale")
+
+    # Sale Voucher entries
+    for sv in sale_voucher_items:
+        name = sv.get("party_name", "Unknown")
+        pm = ensure_party(name)
+        pm["sale_amount"] += sv.get("total", 0) or 0
+        pm["sale_received"] += sv.get("paid_amount", 0) or 0
+        pm["sources"].add("Sale Voucher")
+
+    # Purchase Voucher entries
+    for pv in purchase_voucher_items:
+        name = pv.get("party_name", "Unknown")
+        pm = ensure_party(name)
+        pm["purchase_amount"] += pv.get("total", 0) or 0
+        pm["purchase_paid"] += pv.get("paid_amount", 0) or 0
+        pm["sources"].add("Purchase Voucher")
 
     result = []
     for pm in party_map.values():
@@ -1238,7 +1247,9 @@ async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to
         # Auto party_type
         has_purchase = pm["purchase_amount"] > 0
         has_sale = pm["sale_amount"] > 0
-        pm["party_type"] = "Both" if has_purchase and has_sale else ("Paddy Seller" if has_purchase else "Rice Buyer")
+        pm["party_type"] = "Both" if has_purchase and has_sale else ("Seller" if has_purchase else "Buyer")
+        pm["source_list"] = ", ".join(sorted(pm["sources"]))
+        del pm["sources"]
         result.append(pm)
 
     if search:

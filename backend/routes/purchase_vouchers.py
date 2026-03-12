@@ -268,12 +268,12 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     sale_vouchers = await db.sale_vouchers.find(query, {"_id": 0}).to_list(10000)
     bp_sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(10000)
     purchase_vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).to_list(10000)
-    entries = await db.entries.find(query, {"_id": 0}).to_list(10000)
+    mill_entries = await db.mill_entries.find(query, {"_id": 0}).to_list(10000)
     pvt_paddy = await db.private_paddy.find(query, {"_id": 0}).to_list(10000)
 
-    # Paddy stock from mill entries
-    paddy_in_entries = round(sum(e.get('final_w', 0) / 100 for e in entries), 2)
-    paddy_in_pvt = round(sum(e.get('final_qntl', 0) or e.get('quantity_qntl', 0) or 0 for e in pvt_paddy), 2)
+    # Paddy stock from mill entries (final_w is in KG, convert to Qntl)
+    paddy_in_entries = round(sum((e.get('final_w', 0) or 0) / 100 for e in mill_entries), 2)
+    paddy_in_pvt = round(sum((e.get('final_qntl', 0) or (e.get('final_w', 0) or 0) / 100) for e in pvt_paddy), 2)
     paddy_used_milling = round(sum(e.get('paddy_used_qntl', 0) or e.get('paddy_qntl', 0) or 0 for e in milling), 2)
 
     # Rice produced from milling
@@ -537,6 +537,14 @@ async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Opt
 @router.get("/stock-summary/export/pdf")
 async def export_stock_summary_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from fastapi.responses import Response
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    import io
+
     data = await get_stock_summary(kms_year, season)
     items = data.get("items", [])
 
@@ -544,55 +552,99 @@ async def export_stock_summary_pdf(kms_year: Optional[str] = None, season: Optio
     company = branding.get("company_name", "NAVKAR AGRO")
     tagline = branding.get("tagline", "")
 
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    @page {{ size: A4; margin: 12mm 10mm; }}
-    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; color: #222; }}
-    .header {{ text-align: center; border-bottom: 2px solid #1565c0; padding-bottom: 8px; margin-bottom: 10px; }}
-    .header h1 {{ font-size: 18px; color: #1565c0; }}
-    .header .sub {{ font-size: 10px; color: #666; margin-top: 2px; }}
-    .meta {{ display: flex; justify-content: space-between; font-size: 9px; color: #555; margin-bottom: 10px; padding: 4px 0; border-bottom: 1px solid #ddd; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 9px; }}
-    th {{ background: #1565c0; color: white; padding: 6px 5px; text-align: left; font-weight: 600; }}
-    td {{ padding: 5px; border-bottom: 1px solid #e0e0e0; }}
-    tr:nth-child(even) {{ background: #f5f5f5; }}
-    .r {{ text-align: right; }} .b {{ font-weight: 700; }}
-    .pos {{ color: #2e7d32; }} .neg {{ color: #c62828; }}
-    .footer {{ margin-top: 12px; text-align: center; font-size: 8px; color: #999; border-top: 1px solid #ddd; padding-top: 6px; }}
-    </style></head><body>
-    <div class="header"><h1>{company}</h1>"""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=15*mm, bottomMargin=12*mm)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Title
+    title_style = ParagraphStyle('StockTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1565C0'), alignment=TA_CENTER, spaceAfter=4)
+    elements.append(Paragraph(company, title_style))
     if tagline:
-        html += f'<div class="sub">{tagline}</div>'
-    html += f"""</div>
-    <div class="meta"><span>Stock Summary</span><span>{f'FY: {kms_year}' if kms_year else ''} {f'| {season}' if season else ''}</span><span>{datetime.now().strftime('%d-%m-%Y')}</span></div>
-    <table><tr><th>Item</th><th>Category</th><th class="r">In (Q)</th><th class="r">Out (Q)</th><th class="r">Available (Q)</th><th>Details</th></tr>"""
+        sub_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceAfter=2)
+        elements.append(Paragraph(tagline, sub_style))
 
+    meta_parts = ["Stock Summary Report"]
+    if kms_year: meta_parts.append(f"FY: {kms_year}")
+    if season: meta_parts.append(season)
+    meta_parts.append(f"Date: {datetime.now().strftime('%d-%m-%Y')}")
+    meta_style = ParagraphStyle('Meta', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555555'), alignment=TA_CENTER, spaceAfter=10)
+    elements.append(Paragraph(" | ".join(meta_parts), meta_style))
+    elements.append(Spacer(1, 5))
+
+    # Category colors
+    cat_colors = {
+        "Raw Material": colors.HexColor('#F59E0B'),
+        "Finished": colors.HexColor('#10B981'),
+        "By-Product": colors.HexColor('#3B82F6'),
+        "Custom": colors.HexColor('#8B5CF6'),
+    }
+
+    # Group by category
+    grouped = {}
     for item in items:
-        avail = item.get('available', 0)
-        cls = 'pos' if avail >= 0 else 'neg'
-        html += f"""<tr><td class="b">{item['name']}</td><td>{item.get('category','')}</td>
-        <td class="r">{item.get('in_qty',0)}</td><td class="r">{item.get('out_qty',0)}</td>
-        <td class="r b {cls}">{avail} {item.get('unit','Q')}</td><td style="font-size:7px;color:#666">{item.get('details','')}</td></tr>"""
+        cat = item.get('category', 'Other')
+        if cat not in grouped: grouped[cat] = []
+        grouped[cat].append(item)
 
-    html += f"""</table><div class="footer">{company} - Stock Summary | {datetime.now().strftime('%d-%m-%Y %H:%M')}</div></body></html>"""
+    cell_style = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=8, leading=10)
+    cell_r = ParagraphStyle('CellR', parent=styles['Normal'], fontSize=8, leading=10, alignment=TA_RIGHT)
+    cell_b = ParagraphStyle('CellB', parent=styles['Normal'], fontSize=9, leading=11, alignment=TA_RIGHT)
+    detail_style = ParagraphStyle('Detail', parent=styles['Normal'], fontSize=6, leading=8, textColor=colors.HexColor('#888888'))
 
-    try:
-        from weasyprint import HTML as WeasyprintHTML
-        pdf_bytes = WeasyprintHTML(string=html).write_pdf()
-    except Exception:
-        import io as _io
-        from reportlab.lib.pagesizes import A4
-        from reportlab.pdfgen import canvas
-        buf = _io.BytesIO()
-        c = canvas.Canvas(buf, pagesize=A4)
-        c.drawString(50, 800, f"{company} - Stock Summary")
-        y = 770
-        for item in items:
-            c.drawString(50, y, f"{item['name']}: {item.get('available', 0)} {item.get('unit', 'Q')}")
-            y -= 15
-            if y < 50: c.showPage(); y = 800
-        c.save()
-        pdf_bytes = buf.getvalue()
+    col_widths = [45*mm, 30*mm, 30*mm, 35*mm, 46*mm]
+
+    for cat_name, cat_items in grouped.items():
+        # Category header
+        cat_color = cat_colors.get(cat_name, colors.HexColor('#666666'))
+        cat_style = ParagraphStyle('CatTitle', parent=styles['Normal'], fontSize=10, textColor=cat_color, spaceAfter=3, spaceBefore=8)
+        elements.append(Paragraph(f"<b>{cat_name}</b> ({len(cat_items)} items)", cat_style))
+
+        # Table
+        table_data = [["Item", "In (Qntl)", "Out (Qntl)", "Available", "Details"]]
+        for item in cat_items:
+            avail = item.get('available', 0)
+            avail_str = f"{avail} {item.get('unit', 'Qntl')}"
+            table_data.append([
+                Paragraph(f"<b>{item['name']}</b>", cell_style),
+                Paragraph(f"{item.get('in_qty', 0)}", cell_r),
+                Paragraph(f"{item.get('out_qty', 0)}", cell_r),
+                Paragraph(f"<b>{avail_str}</b>", cell_b),
+                Paragraph(item.get('details', ''), detail_style),
+            ])
+
+        tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('ALIGN', (1, 1), (3, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]
+        for i in range(1, len(table_data)):
+            if i % 2 == 0:
+                style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8FAFC')))
+            # Color available based on positive/negative
+            avail_val = cat_items[i-1].get('available', 0)
+            if avail_val < 0:
+                style_cmds.append(('TEXTCOLOR', (3, i), (3, i), colors.HexColor('#DC2626')))
+            else:
+                style_cmds.append(('TEXTCOLOR', (3, i), (3, i), colors.HexColor('#059669')))
+
+        tbl.setStyle(TableStyle(style_cmds))
+        elements.append(tbl)
+        elements.append(Spacer(1, 8))
+
+    # Footer
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#999999'), alignment=TA_CENTER, spaceBefore=15)
+    elements.append(Paragraph(f"{company} - Stock Summary | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", footer_style))
+
+    doc.build(elements)
+    pdf_bytes = buf.getvalue()
 
     return Response(content=pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": "attachment; filename=stock_summary.pdf"})
@@ -607,30 +659,96 @@ async def export_stock_summary_excel(kms_year: Optional[str] = None, season: Opt
     data = await get_stock_summary(kms_year, season)
     items = data.get("items", [])
 
-    try:
-        from openpyxl import Workbook
-        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Stock Summary"
-        headers = ["Item", "Category", "In (Qntl)", "Out (Qntl)", "Available (Qntl)", "Unit"]
-        hfill = PatternFill(start_color="1565C0", end_color="1565C0", fill_type="solid")
-        hfont = Font(bold=True, color="FFFFFF", size=10)
-        for c, h in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=c, value=h)
-            cell.fill = hfill
-            cell.font = hfont
-        for r, item in enumerate(items, 2):
-            vals = [item['name'], item.get('category', ''), item.get('in_qty', 0), item.get('out_qty', 0), item.get('available', 0), item.get('unit', 'Qntl')]
+    branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
+    company = branding.get("company_name", "NAVKAR AGRO")
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Stock Summary"
+
+    thin = Side(style='thin', color='CBD5E1')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    # Title row
+    ws.merge_cells('A1:F1')
+    ws['A1'] = f"{company} - Stock Summary"
+    ws['A1'].font = Font(bold=True, size=14, color="1565C0")
+    ws['A1'].alignment = Alignment(horizontal='center')
+
+    meta = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+    ws.merge_cells('A2:F2')
+    ws['A2'] = meta
+    ws['A2'].font = Font(size=8, color="666666")
+    ws['A2'].alignment = Alignment(horizontal='center')
+
+    # Headers
+    headers = ["Item", "Category", "In (Qntl)", "Out (Qntl)", "Available (Qntl)", "Details"]
+    hfill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    hfont = Font(bold=True, color="FFFFFF", size=9)
+
+    for c, h in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=c, value=h)
+        cell.fill = hfill
+        cell.font = hfont
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+
+    # Category fills
+    cat_fills = {
+        "Raw Material": PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"),
+        "Finished": PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid"),
+        "By-Product": PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid"),
+        "Custom": PatternFill(start_color="EDE9FE", end_color="EDE9FE", fill_type="solid"),
+    }
+
+    # Group items
+    grouped = {}
+    for item in items:
+        cat = item.get('category', 'Other')
+        if cat not in grouped: grouped[cat] = []
+        grouped[cat].append(item)
+
+    row = 5
+    for cat_name, cat_items in grouped.items():
+        # Category header row
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+        cell = ws.cell(row=row, column=1, value=cat_name)
+        cell.font = Font(bold=True, size=10, color="1E293B")
+        cat_fill = cat_fills.get(cat_name, PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid"))
+        cell.fill = cat_fill
+        cell.border = border
+        row += 1
+
+        for item in cat_items:
+            avail = item.get('available', 0)
+            vals = [item['name'], item.get('category', ''), item.get('in_qty', 0), item.get('out_qty', 0), avail, item.get('details', '')]
             for c, val in enumerate(vals, 1):
-                ws.cell(row=r, column=c, value=val)
-        for c in range(1, 7):
-            ws.column_dimensions[chr(64 + c)].width = 18
-        buf = io.BytesIO()
-        wb.save(buf)
-        buf.seek(0)
-        return Response(content=buf.getvalue(),
-                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        headers={"Content-Disposition": "attachment; filename=stock_summary.xlsx"})
-    except ImportError:
-        return {"error": "openpyxl not installed"}
+                cell = ws.cell(row=row, column=c, value=val)
+                cell.border = border
+                if c == 1:
+                    cell.font = Font(bold=True, size=9)
+                elif c == 5:
+                    cell.font = Font(bold=True, size=10, color="DC2626" if avail < 0 else "059669")
+                    cell.alignment = Alignment(horizontal='right')
+                elif c in (3, 4):
+                    cell.alignment = Alignment(horizontal='right')
+                elif c == 6:
+                    cell.font = Font(size=7, color="888888")
+            row += 1
+        row += 1  # gap between categories
+
+    # Column widths
+    widths = [22, 14, 14, 14, 18, 50]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return Response(content=buf.getvalue(),
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=stock_summary.xlsx"})

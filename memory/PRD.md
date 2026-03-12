@@ -9,10 +9,6 @@ NAVKAR AGRO Mill Entry System - A comprehensive rice mill management application
 - **Desktop**: Electron app wrapper
 - **Language**: Hindi (UI and user communication)
 
-## User Personas
-- **Admin**: Full access to all features, settings, user management
-- **Operator**: Limited access, time-restricted editing (5 min window)
-
 ## What's Been Implemented
 
 ### Completed Features
@@ -23,61 +19,27 @@ NAVKAR AGRO Mill Entry System - A comprehensive rice mill management application
 5. **Cash Book / Ledgers** - Full cash book with party ledger, opening balance
 6. **DC & Payments** - DC tracker with truck payment management
 7. **Reports** - Various report generation
-8. **Vouchers Tab** (consolidated from Sale Book + Pvt Trading):
-   - **Sale Vouchers**: Tally-style sales with GST, invoice numbers, PDF/Excel export, stock overview, multi-part accounting
-   - **Purchase Vouchers** (NEW): Buy any custom item, auto accounting (Cash Book, Diesel Account, Party Ledger, Truck Payments), PDF/Excel export, search/filter, item autocomplete
-   - **Paddy Purchase**: Private paddy purchase with weight calculations, payment tracking
-   - **Stock Summary** (NEW): All stocks in one place - Paddy, Rice (Usna/Raw), By-products, FRK, Custom items. Shows In/Out/Available. PDF/Excel export
-   - **Party Summary**: Consolidated view of all parties with purchase/sale breakdown
-9. **Mill Parts** - Spare parts stock management
-10. **Staff Management** - Staff salary, attendance tracking
-11. **FY Summary** - Financial year summary dashboard
-12. **Settings** - Branding, GST settings, backup, Telegram bot, error logs
-13. **Opening Balance** - For both Cash Book and Sale Book
-14. **GST Integration** - System-wide CGST/SGST/IGST settings
-15. **By-product Ledger Integration** - Auto ledger entries on by-product sales
+8. **Vouchers Tab** (5 sub-tabs):
+   - **Sale Vouchers**: Tally-style sales with GST, multi-part accounting
+   - **Purchase Vouchers**: Any custom item purchase, auto accounting
+   - **Paddy Purchase**: Weight calculations, payment tracking
+   - **Stock Summary**: All stocks - Paddy (from mill_entries + pvt purchase), Rice, By-products, FRK, Custom items
+   - **Party Summary**: Aggregated from sale_vouchers + purchase_vouchers + paddy_purchase + rice_sales
+9. **Mill Parts, Staff, FY Summary, Settings, GST, Opening Balance**
 
-### Critical Bug Fixes Applied
-- Party type auto-detection fix (permanent, with migration script)
-- Sale Book multi-collection accounting (party ledger + cash + diesel + truck payments)
-- Truck payment "Entry not found" fix for Sale Book vouchers
-- PDF export weasyprint import fix
-
-### UI Restructuring (Feb 2026)
-- "Sale Book" tab renamed and merged into "Vouchers"
-- "Pvt Trading" tab removed, content moved into "Vouchers" sub-tabs
-- New unified "Vouchers" tab with 5 sub-tabs
+### Bug Fixes (Mar 2026)
+- Stock Summary: Fixed `db.entries` → `db.mill_entries` for correct paddy stock
+- Party Summary: Added sale_vouchers + purchase_vouchers aggregation
+- Stock Summary PDF/Excel: Rewritten with professional reportlab formatting
 
 ## Key Database Collections
-- `entries` - Main mill entries
-- `cash_transactions` - Cash book entries
-- `party_ledger` - Party wise ledger
-- `sale_vouchers` - Sale book vouchers
-- `purchase_vouchers` (NEW) - Purchase vouchers with custom items
-- `truck_payments` - Truck payment records
-- `diesel_accounts` - Diesel payment records
-- `gst_settings` - GST configuration
+- `mill_entries` - Main mill entries (paddy incoming)
+- `milling_entries` - CMR/Milling records
 - `private_paddy` - Private paddy purchases
-- `rice_sales` - Rice sale entries
-- `private_payments` - Private trading payments
-- `milling_entries` - Milling/CMR records
-- `byproduct_sales` - By-product sale records
-
-## Key API Endpoints
-- POST/GET/PUT/DELETE `/api/purchase-book` - Purchase voucher CRUD
-- GET `/api/stock-summary` - Comprehensive stock summary
-- GET `/api/purchase-book/item-suggestions` - Autocomplete for item names
-- GET `/api/purchase-book/export/pdf`, `/api/purchase-book/export/excel` - Exports
-- GET `/api/stock-summary/export/pdf`, `/api/stock-summary/export/excel` - Exports
-- POST/GET/PUT/DELETE `/api/sale-book` - Sale voucher CRUD
-- GET `/api/sale-book/stock-items` - Stock for sale form
-
-## Prioritized Backlog
-
-### P2 - Future
-- Refactor duplicated logic between Python backend and Node.js desktop backend
-- Desktop app sync with web version changes
-- Advanced reporting and analytics
+- `sale_vouchers` - Sale book vouchers
+- `purchase_vouchers` - Purchase vouchers with custom items
+- `cash_transactions` - Cash book entries
+- `truck_payments`, `diesel_accounts`, `rice_sales`, `byproduct_sales`, etc.
 
 ## Credentials
 - Admin: admin / admin123
