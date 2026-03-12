@@ -288,14 +288,18 @@ def _fmt_amt(val):
 async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Optional[str] = None, mode: str = "normal"):
     data = await get_daily_report(date, kms_year, season, mode)
 
-    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer, HRFlowable
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
 
+    is_detail = mode == "detail"
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=25, rightMargin=25, topMargin=20, bottomMargin=20)
+    if is_detail:
+        doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=15, rightMargin=15, topMargin=20, bottomMargin=20)
+    else:
+        doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=25, rightMargin=25, topMargin=20, bottomMargin=20)
     styles = getSampleStyleSheet()
     elements = []
 
@@ -338,7 +342,6 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 Paragraph(f"<b>Rs. {_fmt_amt(value)}</b>", ParagraphStyle('val', parent=styles['Normal'],
                     textColor=color_val or colors.black, alignment=2))]
 
-    is_detail = mode == "detail"
     mode_label = "DETAILED" if is_detail else "SUMMARY"
 
     # Title
@@ -380,9 +383,12 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         col_key = "detail_mode_columns" if is_detail else "summary_mode_columns"
         daily_cols = get_columns("daily_paddy_entries_report", col_key)
         pdf_hdrs = get_pdf_headers(daily_cols)
-        pdf_widths = get_pdf_widths_mm(daily_cols)
+        if is_detail:
+            pdf_widths = [w * mm for w in get_pdf_widths_mm(daily_cols)]
+        else:
+            pdf_widths = get_pdf_widths_mm(daily_cols)
         pdf_rows = [[str(fmt_val(d.get(c["field"], 0), c["type"])) for c in daily_cols] for d in p["details"]]
-        elements.append(make_table(pdf_hdrs, pdf_rows, pdf_widths, font_size=6 if is_detail else 7))
+        elements.append(make_table(pdf_hdrs, pdf_rows, pdf_widths, font_size=5 if is_detail else 7))
     elements.append(Spacer(1, 4))
 
     # ===== MILLING =====
@@ -774,17 +780,17 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     if pp["count"] or rs["count"]:
         write_section("3. Private Trading")
         if pp["count"]:
-            write_sub(f"Paddy Purchase ({pp['count']}): {pp['total_kg']} KG | Rs. {pp['total_amount']:,.0f}")
+            write_sub(f"Paddy Purchase ({pp['count']}): {pp['total_qntl']} Qntl | Rs. {pp['total_amount']:,.0f}")
             if pp["details"]:
                 if is_detail:
-                    write_headers(['Party', 'Variety', 'KG', 'Rate', 'Amount', 'Vehicle'])
+                    write_headers(['Party', 'Mandi', 'Qntl', 'Rate', 'Amount', 'Truck'])
                     for d in pp["details"]:
-                        write_row([d.get("party",""), d.get("variety",""), d.get("kg",0),
-                            d.get("rate",0), d.get("amount",0), d.get("vehicle","")])
+                        write_row([d.get("party",""), d.get("mandi",""), d.get("qntl",0),
+                            d.get("rate",0), d.get("amount",0), d.get("truck_no","")])
                 else:
-                    write_headers(['Party', 'KG', 'Amount'])
+                    write_headers(['Party', 'Qntl', 'Amount'])
                     for d in pp["details"]:
-                        write_row([d["party"], d["kg"], d["amount"]])
+                        write_row([d.get("party",""), d.get("qntl",0), d.get("amount",0)])
         if rs["count"]:
             write_sub(f"Rice Sales ({rs['count']}): {rs['total_qntl']}Q | Rs. {rs['total_amount']:,.0f}")
             if rs["details"]:

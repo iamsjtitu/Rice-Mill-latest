@@ -160,7 +160,7 @@ const LocalPartyAccount = ({ filters, user }) => {
       <table><thead><tr><th>#</th><th>Date</th><th>Description</th><th>Source</th><th>Debit (Rs.)</th><th>Payment (Rs.)</th><th>Balance (Rs.)</th></tr></thead><tbody>`);
     reportData.transactions.forEach((t, i) => {
       w.document.write(`<tr><td>${i + 1}</td><td>${t.date}</td><td>${t.description || ''}</td>
-        <td>${t.source_type === 'mill_part' ? 'Mill Part' : t.source_type === 'gunny_bag' ? 'Gunny Bag' : t.source_type === 'settlement' ? 'Settlement' : 'Manual'}</td>
+        <td>${t.source_type === 'mill_part' ? 'Mill Part' : t.source_type === 'gunny_bag' ? 'Gunny Bag' : t.source_type === 'settlement' ? 'Settlement' : t.source_type === 'cashbook' ? 'CashBook' : 'Manual'}</td>
         <td class="debit">${t.txn_type === 'debit' ? t.amount : ''}</td>
         <td class="payment">${t.txn_type === 'payment' ? t.amount : ''}</td>
         <td style="font-weight:bold">${t.running_balance}</td></tr>`);
@@ -382,11 +382,13 @@ const LocalPartyAccount = ({ filters, user }) => {
                               t.source_type === 'mill_part' ? 'bg-cyan-900/30 text-cyan-400' :
                               t.source_type === 'gunny_bag' ? 'bg-amber-900/30 text-amber-400' :
                               t.source_type === 'settlement' ? 'bg-green-900/30 text-green-400' :
+                              t.source_type === 'cashbook' ? 'bg-blue-900/30 text-blue-400' :
                               'bg-slate-700 text-slate-400'
                             }`}>
                               {t.source_type === 'mill_part' ? 'Mill Part' :
                                t.source_type === 'gunny_bag' ? 'Gunny Bag' :
-                               t.source_type === 'settlement' ? 'Settlement' : 'Manual'}
+                               t.source_type === 'settlement' ? 'Settlement' :
+                               t.source_type === 'cashbook' ? 'CashBook' : 'Manual'}
                             </span>
                           </TableCell>
                           <TableCell className="text-xs text-right text-orange-400 font-medium">

@@ -102,7 +102,7 @@ async def get_local_party_summary(kms_year: Optional[str] = None, season: Option
 
 @router.get("/local-party/transactions")
 async def get_local_party_transactions(party_name: Optional[str] = None, kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
-    """Get all transactions, optionally filtered by party"""
+    """Get all transactions, optionally filtered by party. Includes manual cashbook payments."""
     query = {}
     if party_name: query["party_name"] = {"$regex": f"^{party_name}$", "$options": "i"}
     if kms_year: query["kms_year"] = kms_year
@@ -113,6 +113,57 @@ async def get_local_party_transactions(party_name: Optional[str] = None, kms_yea
         if date_to: date_q["$lte"] = date_to
         query["date"] = date_q
     txns = await db.local_party_accounts.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(10000)
+
+    # Also include manual cashbook payments (ledger nikasi not from lp_settlement)
+    if party_name:
+        existing_refs = set(t.get("reference", "") for t in txns if t.get("reference"))
+        existing_linked_ids = set(t.get("id", "") for t in txns)
+        # Extract IDs from references for dedup matching
+        existing_ref_ids = set()
+        for t in txns:
+            ref = t.get("reference", "")
+            if ref and ":" in ref:
+                existing_ref_ids.add(ref.split(":", 1)[1])
+        cb_query = {"account": "ledger", "txn_type": "nikasi",
+                    "category": {"$regex": f"^{party_name}$", "$options": "i"}}
+        if kms_year: cb_query["kms_year"] = kms_year
+        if season: cb_query["season"] = season
+        if date_from or date_to:
+            date_q = {}
+            if date_from: date_q["$gte"] = date_from
+            if date_to: date_q["$lte"] = date_to
+            cb_query["date"] = date_q
+        cb_payments = await db.cash_transactions.find(cb_query, {"_id": 0}).to_list(10000)
+        for cb in cb_payments:
+            linked_id = cb.get("linked_local_party_id", "")
+            if linked_id and linked_id in existing_linked_ids:
+                continue
+            ref = cb.get("reference", "")
+            if ref.startswith("local_party_ledger:") or ref.startswith("local_party:"):
+                continue
+            # Skip voucher payment ledger entries if the corresponding voucher_payment exists
+            if ref.startswith("voucher_payment_ledger:"):
+                ref_id = ref.split(":", 1)[1]
+                if ref_id in existing_ref_ids:
+                    continue
+            if ref and ref in existing_refs:
+                continue
+            txns.append({
+                "id": cb.get("id", ""),
+                "date": cb.get("date", ""),
+                "party_name": party_name,
+                "txn_type": "payment",
+                "amount": cb.get("amount", 0),
+                "description": cb.get("description", "CashBook Payment"),
+                "source_type": "cashbook",
+                "reference": cb.get("reference", ""),
+                "kms_year": cb.get("kms_year", ""),
+                "season": cb.get("season", ""),
+                "created_by": cb.get("created_by", ""),
+                "created_at": cb.get("created_at", "")
+            })
+        txns.sort(key=lambda x: (x.get("date", ""), x.get("created_at", "")), reverse=True)
+
     return txns
 
 
@@ -128,6 +179,62 @@ async def get_party_report(party_name: str, kms_year: Optional[str] = None, seas
         if date_to: date_q["$lte"] = date_to
         query["date"] = date_q
     txns = await db.local_party_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+
+    # Also include manual cashbook payments (ledger nikasi not from lp_settlement)
+    existing_lp_ids = set()
+    existing_refs = set()
+    existing_ref_ids = set()  # Extract IDs from references like "voucher_payment:xxx"
+    for t in txns:
+        if t.get("txn_type") == "payment" and t.get("source_type") == "settlement":
+            existing_lp_ids.add(t.get("id", ""))
+        ref = t.get("reference", "")
+        if ref:
+            existing_refs.add(ref)
+            # Extract the ID portion from reference for matching ledger entries
+            if ":" in ref:
+                ref_id = ref.split(":", 1)[1]
+                existing_ref_ids.add(ref_id)
+    cb_query = {"account": "ledger", "txn_type": "nikasi",
+                "category": {"$regex": f"^{party_name}$", "$options": "i"}}
+    if kms_year: cb_query["kms_year"] = kms_year
+    if season: cb_query["season"] = season
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        cb_query["date"] = date_q
+    cb_payments = await db.cash_transactions.find(cb_query, {"_id": 0}).to_list(10000)
+    # Exclude cashbook payments that are already reflected in local_party_accounts
+    existing_linked_ids = set(t.get("id", "") for t in txns)
+    for cb in cb_payments:
+        linked_id = cb.get("linked_local_party_id", "")
+        if linked_id and linked_id in existing_linked_ids:
+            continue
+        ref = cb.get("reference", "")
+        if ref.startswith("local_party_ledger:") or ref.startswith("local_party:"):
+            continue
+        # Skip voucher payment ledger entries if the corresponding voucher_payment exists
+        if ref.startswith("voucher_payment_ledger:"):
+            ref_id = ref.split(":", 1)[1]
+            if ref_id in existing_ref_ids:
+                continue
+        if ref and ref in existing_refs:
+            continue
+        txns.append({
+            "id": cb.get("id", ""),
+            "date": cb.get("date", ""),
+            "party_name": party_name,
+            "txn_type": "payment",
+            "amount": cb.get("amount", 0),
+            "description": cb.get("description", "CashBook Payment"),
+            "source_type": "cashbook",
+            "reference": cb.get("reference", ""),
+            "kms_year": cb.get("kms_year", ""),
+            "season": cb.get("season", ""),
+            "created_by": cb.get("created_by", ""),
+            "created_at": cb.get("created_at", "")
+        })
+    txns.sort(key=lambda x: (x.get("date", ""), x.get("created_at", "")))
 
     running_balance = 0
     report_rows = []

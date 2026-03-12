@@ -1,0 +1,114 @@
+{
+  "summary": "Iteration 83 - Bug Fixes Verified: 1) Daily Report PDF detail mode now uses landscape A4, 2) Local Party cashbook payments no longer double-counted. Also fixed Excel export KeyError bug.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration83_bug_fixes.py",
+    "/app/test_reports/pytest/pytest_results_iteration83.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/routes/daily_report.py",
+    "/app/backend/routes/local_party.py",
+    "/app/backend/tests/test_iteration83_bug_fixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "Not fully tested due to navigation issues, but backend API verified"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Two bug fixes verified: 1) Daily Report PDF in detail mode uses landscape A4 with proper mm conversion for 20-column paddy table, 2) Local Party report now correctly excludes voucher_payment_ledger entries when voucher_payment entry exists (using ref ID matching). Also fixed Excel export bug where total_kg was used instead of total_qntl.",
+  "features_tested": {
+    "bug_1_daily_report_pdf_detail_mode": {
+      "status": "PASSED",
+      "fix_verified": "PDF uses landscape(A4) for detail mode, portrait for normal",
+      "endpoints_tested": [
+        "GET /api/reports/daily/pdf?date=2026-03-12&mode=detail - 200 OK, PDF generated",
+        "GET /api/reports/daily/pdf?date=2026-03-12&mode=normal - 200 OK, PDF generated"
+      ],
+      "details": [
+        "Detail mode PDF successfully generated with landscape orientation",
+        "Normal mode PDF successfully generated with portrait orientation",
+        "Detail mode includes all 20 columns for paddy entries table",
+        "Column widths properly converted using mm factor in detail mode"
+      ]
+    },
+    "bug_2_local_party_cashbook_double_counting": {
+      "status": "PASSED",
+      "fix_verified": "Cashbook payments with voucher_payment_ledger: prefix excluded when voucher_payment: entry exists",
+      "endpoints_tested": [
+        "GET /api/local-party/summary - 200 OK",
+        "GET /api/local-party/report/{party_name} - 200 OK",
+        "GET /api/local-party/transactions - 200 OK"
+      ],
+      "details": [
+        "Gayatri Agro balance now matches: Summary=0.0, Report=0.0 (was -32400.0 due to double-counting)",
+        "Dedup logic added: Extract ref IDs from voucher_payment:xxx entries and skip voucher_payment_ledger:xxx with matching ID",
+        "No duplicate transaction IDs found in party reports",
+        "Manual cashbook payments (without voucher_payment ref) still included correctly"
+      ]
+    },
+    "bug_3_excel_export_fix": {
+      "status": "PASSED (side fix)",
+      "fix_verified": "Changed total_kg to total_qntl in Excel export",
+      "details": [
+        "Fixed KeyError: 'total_kg' in daily report Excel export",
+        "Changed from 'Paddy Purchase: KG' to 'Paddy Purchase: Qntl' format",
+        "Updated column headers from Variety/KG/Vehicle to Mandi/Qntl/Truck"
+      ]
+    }
+  },
+  "api_verification": {
+    "daily_report_pdf_detail": {
+      "endpoint": "GET /api/reports/daily/pdf?date=2026-03-12&mode=detail",
+      "status": 200,
+      "content_type": "application/pdf",
+      "pdf_size": "> 1000 bytes"
+    },
+    "daily_report_pdf_normal": {
+      "endpoint": "GET /api/reports/daily/pdf?date=2026-03-12&mode=normal",
+      "status": 200,
+      "content_type": "application/pdf"
+    },
+    "daily_report_excel_detail": {
+      "endpoint": "GET /api/reports/daily/excel?date=2026-03-12&mode=detail",
+      "status": 200,
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    },
+    "local_party_gayatri_agro": {
+      "endpoint": "GET /api/local-party/report/Gayatri%20Agro",
+      "before_fix": {
+        "total_debit": 35400.0,
+        "total_paid": 67800.0,
+        "balance": -32400.0,
+        "transactions_count": 4
+      },
+      "after_fix": {
+        "total_debit": 35400.0,
+        "total_paid": 35400.0,
+        "balance": 0.0,
+        "transactions_count": 3
+      }
+    }
+  },
+  "code_changes_made": {
+    "daily_report.py_line_783": "Changed pp['total_kg'] to pp['total_qntl'] and updated headers/fields",
+    "local_party.py_lines_173-200": "Added existing_ref_ids set to extract IDs from references and skip voucher_payment_ledger entries with matching IDs",
+    "local_party.py_lines_118-140": "Same dedup fix applied to get_local_party_transactions function"
+  },
+  "test_summary": {
+    "total_tests": 13,
+    "passed": 13,
+    "failed": 0
+  }
+}
