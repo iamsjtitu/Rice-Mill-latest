@@ -370,7 +370,7 @@ const MSPPayments = ({ filters, user, dcList }) => {
                 <Select value={form.payment_mode || "_none"} onValueChange={v => setForm(p=>({...p,payment_mode:v==="_none"?"":v}))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="msp-form-mode"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="_none">-- Select --</SelectItem>
-                    {["NEFT","RTGS","Cheque","Cash","DD"].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {["NEFT","RTGS","Cheque","DD"].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                   </SelectContent>
                 </Select></div>
               <div><Label className="text-xs text-slate-400">Reference (UTR/Cheque)</Label>

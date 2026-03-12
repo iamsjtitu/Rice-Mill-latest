@@ -55,5 +55,9 @@ Entries → Dashboard & Targets → Milling (CMR) → DC (Payments) → Vouchers
 ## Credentials
 - Admin: admin / admin123 | Staff: staff / staff123
 
+## Recent Changes (Mar 12, 2026)
+- Removed "Cash" from MSP Payment mode dropdown (govt only pays via bank)
+- Payment modes now: NEFT, RTGS, Cheque, DD
+
 ## Data Status
 - All data cleared for fresh user testing (Mar 2026)
