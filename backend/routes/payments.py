@@ -902,44 +902,80 @@ async def undo_truck_paid(entry_id: str, username: str = "", role: str = ""):
     if role != "admin":
         raise HTTPException(status_code=403, detail="Sirf admin undo kar sakta hai")
     
-    payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
-    if not payment_doc:
-        raise HTTPException(status_code=404, detail="Payment record not found")
-    
-    payments_history = payment_doc.get("payments_history", [])
-    payments_history.append({
-        "amount": -payment_doc.get("paid_amount", 0),
-        "date": datetime.now(timezone.utc).isoformat(),
-        "note": "UNDO - Payment reversed",
-        "by": username
-    })
-    
-    await db.truck_payments.update_one(
-        {"entry_id": entry_id},
-        {"$set": {
-            "paid_amount": 0,
-            "payments_history": payments_history,
-            "status": "pending",
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }}
-    )
-    
-    # Delete linked cash book entries for this truck
-    await db.cash_transactions.delete_many({"linked_payment_id": f"truck:{entry_id}"})
-    
-    # Also find the truck_no for this entry and clean up owner-level cash entries
+    # Find the entry first to get truck_no
     entry, source, _ = await _find_truck_entry(entry_id)
-    if entry:
-        truck_no = entry.get("truck_no", "")
-        kms_year = entry.get("kms_year", "")
-        season = entry.get("season", "")
-        if truck_no:
-            # Delete owner-level cash entries (they'll be recreated when user marks paid again)
-            await db.cash_transactions.delete_many({
-                "linked_payment_id": {"$regex": f"^truck_owner:{truck_no}:"}
-            })
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
     
-    return {"success": True, "message": "Payment undo ho gaya - status reset to pending"}
+    truck_no = entry.get("truck_no", "")
+    
+    # Reset truck_payments if exists
+    payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+    if payment_doc:
+        payments_history = payment_doc.get("payments_history", [])
+        payments_history.append({
+            "amount": -payment_doc.get("paid_amount", 0),
+            "date": datetime.now(timezone.utc).isoformat(),
+            "note": "UNDO - Payment reversed",
+            "by": username
+        })
+        await db.truck_payments.update_one(
+            {"entry_id": entry_id},
+            {"$set": {
+                "paid_amount": 0,
+                "payments_history": payments_history,
+                "status": "pending",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+    
+    # Delete ALL payment-related cash book entries for this truck entry
+    # 1. Cash entries from Pay/Mark Paid buttons
+    await db.cash_transactions.delete_many({"linked_payment_id": f"truck:{entry_id}"})
+    # 2. Ledger entries from Pay button
+    await db.cash_transactions.delete_many({"linked_payment_id": {"$regex": f"^truck_ledger:{entry_id}"}})
+    # 3. Ledger entries from Mark Paid button
+    await db.cash_transactions.delete_many({"linked_payment_id": f"truck_ledger_markpaid:{entry_id}"})
+    # 4. Owner-level cash entries
+    if truck_no:
+        await db.cash_transactions.delete_many({
+            "linked_payment_id": {"$regex": f"^truck_owner:{truck_no}:"}
+        })
+    
+    # 5. Delete manual Cash Book entries for this truck that are NOT auto-deductions
+    #    (entries with auto_ledger reference or manual entries linked to this truck via linked_entry_id)
+    eid_short = entry_id[:8]
+    deduction_refs = [f"truck_cash_ded:{eid_short}", f"truck_diesel_ded:{eid_short}", f"entry_cash:{eid_short}", f"truck_entry:{eid_short}"]
+    
+    # Find and delete non-deduction ledger nikasi entries for this truck that are NOT auto-generated from entry
+    all_ledger = await db.cash_transactions.find({
+        "account": "ledger", "txn_type": "nikasi", "category": truck_no
+    }, {"_id": 0, "id": 1, "reference": 1}).to_list(50000)
+    
+    ids_to_delete = []
+    for txn in all_ledger:
+        ref = txn.get("reference", "")
+        if not any(ref.startswith(dp) for dp in deduction_refs):
+            ids_to_delete.append(txn["id"])
+    
+    if ids_to_delete:
+        await db.cash_transactions.delete_many({"id": {"$in": ids_to_delete}})
+    
+    # Also delete corresponding cash entries (manual Cash Book payments for the truck)
+    all_cash = await db.cash_transactions.find({
+        "account": "cash", "txn_type": "nikasi", "category": truck_no
+    }, {"_id": 0, "id": 1, "reference": 1}).to_list(50000)
+    
+    cash_ids_to_delete = []
+    for txn in all_cash:
+        ref = txn.get("reference", "")
+        if not any(ref.startswith(dp) for dp in deduction_refs):
+            cash_ids_to_delete.append(txn["id"])
+    
+    if cash_ids_to_delete:
+        await db.cash_transactions.delete_many({"id": {"$in": cash_ids_to_delete}})
+    
+    return {"success": True, "message": "Payment undo ho gaya - sab entries delete ho gayi"}
 
 
 @router.post("/agent-payments/{mandi_name}/undo-paid")
@@ -978,6 +1014,9 @@ async def undo_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
     # Delete linked cash book entries for this agent (both nikasi and jama)
     await db.cash_transactions.delete_many({"linked_payment_id": f"agent:{mandi_name}:{kms_year}:{season}"})
     await db.cash_transactions.delete_many({"linked_payment_id": f"agent_jama:{mandi_name}:{kms_year}:{season}"})
+    # Delete linked LEDGER entries (from Pay button and Mark Paid button)
+    await db.cash_transactions.delete_many({"linked_payment_id": {"$regex": f"^agent_ledger_pay:{mandi_name}:{kms_year}:{season}"}})
+    await db.cash_transactions.delete_many({"linked_payment_id": f"agent_ledger_markpaid:{mandi_name}:{kms_year}:{season}"})
     
     return {"success": True, "message": "Payment undo ho gaya - status reset to pending"}
 

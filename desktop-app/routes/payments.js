@@ -151,6 +151,7 @@ module.exports = function(database) {
     if (req.body.amount > 0) {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
       const truckNo = entry?.truck_no || '';
+      // Cash Book Nikasi
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
         category: truckNo, party_type: 'Truck',
@@ -158,6 +159,16 @@ module.exports = function(database) {
         amount: Math.round(req.body.amount * 100) / 100, reference: `truck_pay:${req.params.entryId.substring(0,8)}`,
         kms_year: entry?.kms_year || '', season: entry?.season || '',
         created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+      });
+      // Ledger Nikasi - reduce truck outstanding
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'nikasi',
+        category: truckNo, party_type: 'Truck',
+        description: `Truck Payment: ${truckNo} - Rs.${req.body.amount}`,
+        amount: Math.round(req.body.amount * 100) / 100, reference: `truck_pay_ledger:${req.params.entryId.substring(0,8)}`,
+        kms_year: entry?.kms_year || '', season: entry?.season || '',
+        created_by: req.query.username || 'system', linked_payment_id: `truck_ledger:${req.params.entryId}:${uuidv4().substring(0,6)}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
     }
@@ -179,13 +190,24 @@ module.exports = function(database) {
     if (net_amount > 0) {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
       const truckNo = entry.truck_no || '';
+      // Cash Book Nikasi
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
         category: truckNo, party_type: 'Truck',
         description: `Truck Payment: ${truckNo} (Full - Mark Paid)`,
-        amount: Math.round(net_amount * 100) / 100, reference: `truck_markpaid:${req.params.entryId.substring(0,8)}`,
+        amount: Math.round(net_amount * 100) / 100, reference: `truck_markpaid:${req.params.entryId}`,
         kms_year: entry.kms_year || '', season: entry.season || '',
         created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+      });
+      // Ledger Nikasi - reduce truck outstanding
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'nikasi',
+        category: truckNo, party_type: 'Truck',
+        description: `Truck Payment: ${truckNo} (Full - Mark Paid)`,
+        amount: Math.round(net_amount * 100) / 100, reference: `truck_markpaid_ledger:${req.params.entryId}`,
+        kms_year: entry.kms_year || '', season: entry.season || '',
+        created_by: req.query.username || 'system', linked_payment_id: `truck_ledger_markpaid:${req.params.entryId}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
     }
@@ -195,20 +217,38 @@ module.exports = function(database) {
 
   router.post('/api/truck-payments/:entryId/undo-paid', safeSync((req, res) => {
     const entryId = req.params.entryId;
+    const entry = database.data.entries.find(e => e.id === entryId);
+    if (!entry) return res.status(404).json({ detail: 'Entry not found' });
+    const truckNo = entry.truck_no || '';
+    const eidShort = entryId.slice(0, 8);
+    
+    // Reset truck_payments
     database.updateTruckPayment(entryId, { paid_amount: 0, status: 'pending' });
+    
     if (database.data.cash_transactions) {
-      // Delete individual trip entries
-      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `truck:${entryId}`);
-      // Also delete owner-level entries for this truck
-      const entry = database.data.entries.find(e => e.id === entryId);
-      if (entry && entry.truck_no) {
-        database.data.cash_transactions = database.data.cash_transactions.filter(t =>
-          !(t.linked_payment_id || '').startsWith(`truck_owner:${entry.truck_no}:`)
-        );
-      }
+      const deductionPrefixes = [`truck_cash_ded:${eidShort}`, `truck_diesel_ded:${eidShort}`, `entry_cash:${eidShort}`, `truck_entry:${eidShort}`];
+      
+      // Delete ALL non-deduction entries for this truck (cash + ledger payments)
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => {
+        // Keep entries that are not for this truck
+        if (t.category !== truckNo) return true;
+        const ref = t.reference || '';
+        // Keep auto-deduction entries
+        if (deductionPrefixes.some(p => ref.startsWith(p))) return true;
+        // Keep jama entries (truck_entry is already in deductionPrefixes)
+        if (t.account === 'ledger' && t.txn_type === 'jama') return true;
+        // Delete everything else (payments - both manual and auto)
+        if (t.txn_type === 'nikasi') return false;
+        return true;
+      });
+      
+      // Delete owner-level entries
+      database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+        !(t.linked_payment_id || '').startsWith(`truck_owner:${truckNo}:`)
+      );
     }
     database.save();
-    res.json({ success: true, message: 'Payment undo ho gaya' });
+    res.json({ success: true, message: 'Payment undo ho gaya - sab entries delete ho gayi' });
   }));
 
   router.get('/api/truck-payments/:entryId/history', safeSync((req, res) => {
@@ -302,6 +342,16 @@ module.exports = function(database) {
         created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
+      // NIKASI (Ledger) - Reduce agent outstanding
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'nikasi',
+        category: mandiName, party_type: 'Agent',
+        description: `Agent Payment: ${mandiName} - Rs.${req.body.amount}`,
+        amount: Math.round(req.body.amount * 100) / 100, reference: `agent_pay_ledger:${mandiName.substring(0,10)}`,
+        kms_year: kms_year || '', season: season || '',
+        created_by: req.query.username || 'system', linked_payment_id: `agent_ledger_pay:${mandiName}:${kms_year}:${season}:${uuidv4().substring(0,6)}`,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+      });
     }
     database.save();
     res.json({ success: true, message: 'Payment recorded', total_paid: newPaidAmount });
@@ -352,6 +402,16 @@ module.exports = function(database) {
         created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
+      // NIKASI (Ledger) - Reduce agent outstanding
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'nikasi',
+        category: mandiName, party_type: 'Agent',
+        description: `Agent Payment: ${mandiName} (Full - Mark Paid)`,
+        amount: Math.round(total_amount * 100) / 100, reference: `agent_markpaid_ledger:${mandiName.substring(0,10)}`,
+        kms_year: kms_year || '', season: season || '',
+        created_by: req.query.username || 'system', linked_payment_id: `agent_ledger_markpaid:${mandiName}:${kms_year}:${season}`,
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+      });
     }
     database.save();
     res.json({ success: true, message: 'Agent/Mandi payment cleared' });
@@ -362,9 +422,18 @@ module.exports = function(database) {
     const mandiName = decodeURIComponent(req.params.mandiName);
     database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: 0, status: 'pending' });
     if (database.data.cash_transactions) {
+      // Delete cash entries (from Pay/Mark Paid)
       database.data.cash_transactions = database.data.cash_transactions.filter(t =>
         t.linked_payment_id !== `agent:${mandiName}:${kms_year}:${season}` &&
         t.linked_payment_id !== `agent_jama:${mandiName}:${kms_year}:${season}`
+      );
+      // Delete ledger entries (from Pay button)
+      database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+        !(t.linked_payment_id || '').startsWith(`agent_ledger_pay:${mandiName}:${kms_year}:${season}`)
+      );
+      // Delete ledger entries (from Mark Paid button)
+      database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+        t.linked_payment_id !== `agent_ledger_markpaid:${mandiName}:${kms_year}:${season}`
       );
     }
     database.save();
