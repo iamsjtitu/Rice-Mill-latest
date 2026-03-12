@@ -74,12 +74,18 @@ module.exports = function(database) {
       }
     }
 
+    const allCashTxns = database.data.cash_transactions || [];
     const pumps = (database.data.diesel_pumps || []).map(p => {
       const pt = txns.filter(t => t.pump_id === p.id);
       const td = pt.filter(t=>t.txn_type==='debit').reduce((s,t)=>s+t.amount,0);
-      const tp = pt.filter(t=>t.txn_type==='payment').reduce((s,t)=>s+t.amount,0);
       const ob = Math.round((openingBalances[p.id] || 0) * 100) / 100;
-      return { pump_id:p.id, pump_name:p.name, is_default:p.is_default||false, opening_balance:ob, total_diesel:+td.toFixed(2), total_paid:+tp.toFixed(2), balance:+(ob+td-tp).toFixed(2), txn_count:pt.filter(t=>t.txn_type==='debit').length };
+      // Use ledger as source of truth for total_paid (includes manual Cash Book payments)
+      let ledgerPaid = allCashTxns.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === p.name
+        && (!req.query.kms_year || t.kms_year === req.query.kms_year)
+        && (!req.query.season || t.season === req.query.season)
+      ).reduce((s,t) => s + (t.amount||0), 0);
+      const tp = Math.round(ledgerPaid * 100) / 100;
+      return { pump_id:p.id, pump_name:p.name, is_default:p.is_default||false, opening_balance:ob, total_diesel:+td.toFixed(2), total_paid:tp, balance:+(ob+td-tp).toFixed(2), txn_count:pt.filter(t=>t.txn_type==='debit').length };
     });
     const grandOb = +pumps.reduce((s,p)=>s+p.opening_balance,0).toFixed(2);
     res.json({ pumps, grand_opening_balance:grandOb, grand_total_diesel:+pumps.reduce((s,p)=>s+p.total_diesel,0).toFixed(2), grand_total_paid:+pumps.reduce((s,p)=>s+p.total_paid,0).toFixed(2), grand_balance:+pumps.reduce((s,p)=>s+p.balance,0).toFixed(2) });

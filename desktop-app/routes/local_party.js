@@ -57,6 +57,20 @@ router.get('/api/local-party/summary', safeSync((req, res) => {
     partyMap[pn].txn_count++;
   }
 
+  // Use ledger as source of truth for total_paid (includes manual Cash Book payments)
+  const allCashTxns = database.data.cash_transactions || [];
+  const allPartyNames = Object.keys(partyMap);
+  for (const pn of allPartyNames) {
+    const ledgerPaid = allCashTxns
+      .filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === pn && t.party_type === 'Local Party'
+        && (!req.query.kms_year || t.kms_year === req.query.kms_year)
+        && (!req.query.season || t.season === req.query.season))
+      .reduce((s, t) => s + (t.amount || 0), 0);
+    if (ledgerPaid > partyMap[pn].total_paid) {
+      partyMap[pn].total_paid = Math.round(ledgerPaid * 100) / 100;
+    }
+  }
+
   const parties = Object.values(partyMap).map(p => ({
     ...p,
     total_debit: Math.round(p.total_debit * 100) / 100,

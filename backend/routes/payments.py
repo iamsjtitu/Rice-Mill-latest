@@ -609,13 +609,15 @@ async def get_agent_payments(kms_year: Optional[str] = None, season: Optional[st
         
         is_target_complete = achieved_qntl >= expected_total
         
-        # Get payment record
-        payment_doc = await db.agent_payments.find_one({
-            "mandi_name": mandi_name,
-            "kms_year": target["kms_year"],
-            "season": target["season"]
-        }, {"_id": 0})
-        paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        # Get payment: use ledger as source of truth (includes manual Cash Book payments)
+        ledger_query_agent = {
+            "account": "ledger", "txn_type": "nikasi",
+            "category": {"$regex": f"^{mandi_name}$", "$options": "i"}
+        }
+        if target.get("kms_year"): ledger_query_agent["kms_year"] = target["kms_year"]
+        if target.get("season"): ledger_query_agent["season"] = target["season"]
+        agent_ledger_txns = await db.cash_transactions.find(ledger_query_agent, {"_id": 0}).to_list(50000)
+        paid_amount = round(sum(t.get("amount", 0) for t in agent_ledger_txns), 2)
         
         balance = round(total_amount - paid_amount, 2)
         status = "paid" if balance <= 0 else ("partial" if paid_amount > 0 else "pending")
@@ -1341,28 +1343,38 @@ async def undo_truck_owner_paid(truck_no: str, kms_year: str = "", season: str =
 
 @router.get("/truck-owner/{truck_no}/history")
 async def get_truck_owner_history(truck_no: str, kms_year: str = "", season: str = ""):
-    """Get consolidated payment history for a truck owner"""
-    owner_doc = await db.truck_owner_payments.find_one(
-        {"truck_no": truck_no, "kms_year": kms_year, "season": season}, {"_id": 0}
-    )
+    """Get consolidated payment history for a truck owner - uses ledger as source of truth"""
+    # Get all ledger nikasi entries for this truck (payments, not deductions)
+    ledger_query = {"account": "ledger", "txn_type": "nikasi", "category": truck_no}
+    if kms_year: ledger_query["kms_year"] = kms_year
+    if season: ledger_query["season"] = season
+    ledger_payments = await db.cash_transactions.find(ledger_query, {"_id": 0}).to_list(50000)
     
-    # Also get individual trip payments
+    # Get entry IDs for this truck to identify deduction prefixes
     query = {"truck_no": truck_no}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     entries = await db.mill_entries.find(query, {"_id": 0, "id": 1}).to_list(None)
+    entry_short_ids = [e["id"][:8] for e in entries]
     
     all_history = []
-    if owner_doc:
-        for h in owner_doc.get("payments_history", []):
-            all_history.append({**h, "source": "owner"})
-    
-    for entry in entries:
-        payment_doc = await db.truck_payments.find_one({"entry_id": entry["id"]}, {"_id": 0})
-        if payment_doc:
-            for h in payment_doc.get("payments_history", []):
-                if "Owner" not in h.get("note", ""):
-                    all_history.append({**h, "source": "trip", "entry_id": entry["id"]})
+    for txn in ledger_payments:
+        ref = txn.get("reference", "")
+        # Skip deduction entries
+        is_deduction = False
+        for eid in entry_short_ids:
+            if ref.startswith(f"truck_cash_ded:{eid}") or ref.startswith(f"truck_diesel_ded:{eid}") or ref.startswith(f"entry_cash:{eid}"):
+                is_deduction = True
+                break
+        if is_deduction:
+            continue
+        all_history.append({
+            "amount": txn.get("amount", 0),
+            "date": txn.get("created_at") or txn.get("date", ""),
+            "note": txn.get("description", ""),
+            "by": txn.get("created_by", "system"),
+            "source": "ledger"
+        })
     
     all_history.sort(key=lambda x: x.get("date", ""), reverse=True)
     return {"history": all_history}

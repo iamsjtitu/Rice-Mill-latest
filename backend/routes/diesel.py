@@ -102,18 +102,32 @@ async def get_diesel_summary(kms_year: Optional[str] = None, season: Optional[st
             except (ValueError, IndexError):
                 pass
     
+    # Get all ledger nikasi entries for diesel pumps (source of truth for payments)
+    pump_names = [p["name"] for p in pumps]
+    ledger_query = {"account": "ledger", "txn_type": "nikasi", "category": {"$in": pump_names}}
+    if kms_year: ledger_query["kms_year"] = kms_year
+    if season: ledger_query["season"] = season
+    ledger_payments = await db.cash_transactions.find(ledger_query, {"_id": 0}).to_list(50000)
+    
+    # Group ledger payments by pump name
+    ledger_paid_by_pump = {}
+    for lp in ledger_payments:
+        pn = lp.get("category", "")
+        ledger_paid_by_pump[pn] = ledger_paid_by_pump.get(pn, 0) + lp.get("amount", 0)
+    
     pump_summaries = []
     for pump in pumps:
         pid = pump["id"]
         pump_txns = [t for t in txns if t.get("pump_id") == pid]
         total_diesel = sum(t["amount"] for t in pump_txns if t.get("txn_type") == "debit")
-        total_paid = sum(t["amount"] for t in pump_txns if t.get("txn_type") == "payment")
+        # Use ledger as source of truth for total_paid (includes manual Cash Book payments)
+        total_paid = round(ledger_paid_by_pump.get(pump["name"], 0), 2)
         ob = round(opening_balances.get(pid, 0), 2)
         balance = round(ob + total_diesel - total_paid, 2)
         pump_summaries.append({
             "pump_id": pid, "pump_name": pump["name"], "is_default": pump.get("is_default", False),
             "opening_balance": ob,
-            "total_diesel": round(total_diesel, 2), "total_paid": round(total_paid, 2), "balance": balance,
+            "total_diesel": round(total_diesel, 2), "total_paid": total_paid, "balance": balance,
             "txn_count": len([t for t in pump_txns if t.get("txn_type") == "debit"])
         })
     

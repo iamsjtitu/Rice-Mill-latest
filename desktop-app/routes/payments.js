@@ -282,18 +282,29 @@ module.exports = function(database) {
   router.get('/api/agent-payments', safeSync((req, res) => {
     const targets = database.getMandiTargets(req.query);
     const entries = database.getEntries(req.query);
+    const allCashTxns = database.data.cash_transactions || [];
+    
     const payments = targets.map(target => {
-      const payment = database.getAgentPayment(target.mandi_name, target.kms_year, target.season);
       const mandiEntries = entries.filter(e => (e.mandi_name||'').toLowerCase() === (target.mandi_name||'').toLowerCase());
       const achieved_qntl = mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0);
       const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
       const target_amount = target.target_qntl * (target.base_rate ?? 10);
       const cutting_amount = cutting_qntl * (target.cutting_rate ?? 5);
       const total_amount = target_amount + cutting_amount;
-      const balance_amount = Math.max(0, total_amount - payment.paid_amount);
+      
+      // Use ledger as source of truth for paid_amount
+      const ledgerPaid = allCashTxns.filter(t =>
+        t.account === 'ledger' && t.txn_type === 'nikasi' &&
+        (t.category || '').toLowerCase() === (target.mandi_name || '').toLowerCase() &&
+        (!req.query.kms_year || t.kms_year === req.query.kms_year) &&
+        (!req.query.season || t.season === req.query.season)
+      ).reduce((s, t) => s + (t.amount || 0), 0);
+      const paidAmount = Math.round(ledgerPaid * 100) / 100;
+      
+      const balance_amount = Math.max(0, Math.round((total_amount - paidAmount) * 100) / 100);
       let status = 'pending';
       if (balance_amount < 0.01) status = 'paid';
-      else if (payment.paid_amount > 0) status = 'partial';
+      else if (paidAmount > 0) status = 'partial';
       return {
         mandi_name: target.mandi_name, agent_name: target.agent_name || '',
         target_qntl: target.target_qntl, cutting_percent: target.cutting_percent,
@@ -304,9 +315,8 @@ module.exports = function(database) {
         total_amount: Math.round(total_amount * 100) / 100,
         achieved_qntl: Math.round(achieved_qntl * 100) / 100,
         is_target_complete: achieved_qntl >= target.expected_total,
-        paid_amount: payment.paid_amount,
-        balance_amount: Math.round(balance_amount * 100) / 100,
-        status, kms_year: target.kms_year, season: target.season
+        paid_amount: paidAmount,
+        balance_amount, status, kms_year: target.kms_year, season: target.season
       };
     });
     res.json(payments);

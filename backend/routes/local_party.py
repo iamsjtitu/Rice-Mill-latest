@@ -63,6 +63,22 @@ async def get_local_party_summary(kms_year: Optional[str] = None, season: Option
             party_map[pn]["total_paid"] += t.get("amount", 0)
         party_map[pn]["txn_count"] += 1
 
+    # Use ledger as source of truth for total_paid (includes manual Cash Book payments)
+    all_party_names = list(party_map.keys())
+    if all_party_names:
+        ledger_query_lp = {"account": "ledger", "txn_type": "nikasi", "category": {"$in": all_party_names}, "party_type": "Local Party"}
+        if kms_year: ledger_query_lp["kms_year"] = kms_year
+        if season: ledger_query_lp["season"] = season
+        ledger_payments = await db.cash_transactions.find(ledger_query_lp, {"_id": 0}).to_list(50000)
+        ledger_paid_map = {}
+        for lp in ledger_payments:
+            pn = lp.get("category", "")
+            ledger_paid_map[pn] = ledger_paid_map.get(pn, 0) + lp.get("amount", 0)
+        for pn in party_map:
+            ledger_paid = round(ledger_paid_map.get(pn, 0), 2)
+            if ledger_paid > party_map[pn]["total_paid"]:
+                party_map[pn]["total_paid"] = ledger_paid
+
     parties = []
     for pn, s in party_map.items():
         s["total_debit"] = round(s["total_debit"], 2)
