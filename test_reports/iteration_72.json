@@ -1,0 +1,87 @@
+{
+  "summary": "Iteration 72 - Verified Cash Book Cash In (Jama) auto-ledger fix. Auto-ledger entries now correctly use txn_type=nikasi for both Cash In and Cash Out transactions. Sale Voucher ledger_paid shows correct amounts from ledger entries.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/health", "issue": "Endpoint does not exist (404), test skipped"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration72_cashbook_autoledger_fix.py",
+    "/app/test_reports/pytest/pytest_results_iteration72.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration72_cashbook_autoledger_fix.py"
+  ],
+  "success_rate": {
+    "backend": "91% (10/11 tests passed - health check endpoint missing)",
+    "frontend": "100% (all features verified)"
+  },
+  "seed_data_creation": "Used existing Gayatri Agro voucher (total=35400, advance=3000, inv=IB-1). Created/deleted test entries for verification.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The Cash Book auto-ledger fix is working correctly. When creating Cash In (Jama) or Cash Out (Nikasi) entries in Cash Book with a party category, the system automatically creates a corresponding ledger entry with txn_type='nikasi' (always nikasi, regardless of the parent txn_type). This is correct because: (1) Cash In from party = party paid us = reduces their debt = Ledger Nikasi, (2) Cash Out to party = we paid them = reduces our debt = Ledger Nikasi. The Sale Voucher listing now correctly shows ledger_paid and ledger_balance computed from ledger entries. Gayatri Agro voucher shows total=35400, ledger_paid=35400, ledger_balance=0 (Paid badge visible).",
+  "features_tested": {
+    "backend_tests_passed": [
+      "test_cash_in_jama_creates_ledger_nikasi - PASSED: Cash In (jama) creates auto-ledger with txn_type=nikasi",
+      "test_cash_out_nikasi_creates_ledger_nikasi - PASSED: Cash Out (nikasi) also creates auto-ledger with txn_type=nikasi",
+      "test_existing_gayatri_agro_voucher - PASSED: Found voucher with correct data",
+      "test_sale_voucher_api_returns_ledger_paid_field - PASSED: API returns ledger_paid and ledger_balance",
+      "test_party_summary_returns_correct_format - PASSED: Party Summary has correct structure",
+      "test_party_summary_uses_ledger_entries - PASSED: Filters by account=ledger",
+      "test_private_trading_party_summary_api - PASSED: Returns sale_vouchers section with correct paid amounts",
+      "test_dc_entries_api - PASSED: DC Entries API works correctly",
+      "test_dc_delivery_creates_entries - PASSED: DC Delivery still creates cash_transactions",
+      "test_e2e_sale_voucher_cash_in_payment - PASSED: Full E2E flow works"
+    ],
+    "backend_tests_failed": [
+      "test_health_check - FAILED: /api/health endpoint returns 404 (endpoint doesn't exist)"
+    ],
+    "frontend_verified": [
+      "Login with admin/admin123 - ✓ Works",
+      "Vouchers > Sale Book tab - ✓ Loads correctly",
+      "Gayatri Agro voucher visible with: total=Rs.35,400, advance=Rs.3,000, Balance=Rs.-3,000 → Rs.0",
+      "Paid badge visible (green) for Gayatri Agro - ✓ Correct",
+      "Cash Book & Ledgers > Cash Transactions - ✓ Shows Gayatri Agro entries",
+      "Cash Book > Party Summary tab - ✓ Shows 9 parties with correct balances",
+      "Gayatri Agro in Party Summary: Jama=35,400, Nikasi=35,400 (3000 + 32400), Balance=0 - ✓ Correct"
+    ]
+  },
+  "verified_data": {
+    "gayatri_agro_voucher": {
+      "party_name": "Gayatri Agro",
+      "invoice_no": "IB-1",
+      "total": 35400,
+      "advance": 3000,
+      "ledger_paid": 35400,
+      "ledger_balance": 0,
+      "status": "Paid"
+    },
+    "gayatri_agro_ledger_entries": [
+      {"account": "ledger", "txn_type": "jama", "amount": 35400, "description": "Sale #1 - Bran | Inv:IB-1"},
+      {"account": "ledger", "txn_type": "nikasi", "amount": 3000, "description": "Advance received - Sale #1 | Inv:IB-1"},
+      {"account": "ledger", "txn_type": "nikasi", "amount": 32400, "description": "Payment received - Sale #1 - Gayatri Agro"}
+    ],
+    "auto_ledger_fix_verified": {
+      "cash_in_jama_creates_ledger_nikasi": true,
+      "cash_out_nikasi_creates_ledger_nikasi": true,
+      "old_behavior_was_copying_parent_txn_type": "Fixed - now always creates nikasi"
+    }
+  },
+  "bug_fix_rca": {
+    "issue": "Cash Book Cash In for sale voucher party not reflecting in Sale Voucher paid status and Party Ledger",
+    "root_cause": "Auto-ledger entry was copying the parent txn_type (jama for Cash In), but should always be nikasi because any cash movement represents a payment settlement",
+    "fix_applied": [
+      "cashbook.py Line 135: ledger_entry['txn_type'] = 'nikasi' (hardcoded, not copied from parent)",
+      "private_trading.py Line 1185-1270: _get_party_summary uses ledger entries for paid calculation"
+    ],
+    "verification": "Backend tests confirmed auto-ledger entries have txn_type=nikasi for both Cash In and Cash Out. E2E test confirmed sale voucher shows correct ledger_paid after manual Cash In payment."
+  }
+}

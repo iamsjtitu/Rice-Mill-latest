@@ -97,7 +97,91 @@
 #====================================================================================================
 
 
-
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Cash Book Cash In for sale voucher party (Gayatri Agro) not reflecting in Sale Voucher paid status and Party Ledger. Auto-ledger entry was creating Jama instead of Nikasi for Cash In entries."
+
+backend:
+  - task: "Auto-ledger creates correct Nikasi for Cash In entries"
+    implemented: true
+    working: true
+    file: "backend/routes/cashbook.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "Fixed auto-ledger in add_cash_transaction to always set txn_type='nikasi'. Previously it copied txn_type from cash entry, causing Cash In (jama) to create Ledger Jama instead of Nikasi."
+
+  - task: "Party Summary uses ledger for sale/purchase voucher paid amounts"
+    implemented: true
+    working: true
+    file: "backend/routes/private_trading.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "Updated _get_party_summary to compute sale/purchase voucher paid amounts from cashbook ledger entries instead of voucher document's paid_amount field."
+
+  - task: "Auto-ledger txn_type preserved on update"
+    implemented: true
+    working: true
+    file: "backend/routes/cashbook.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "Excluded txn_type from auto-ledger update propagation in update_cash_transaction to keep auto-ledger always as nikasi."
+
+frontend:
+  - task: "Sale Book shows correct ledger-based payment status"
+    implemented: true
+    working: true
+    file: "frontend/src/components/SaleBook.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "Frontend already uses ledger_paid and ledger_balance from backend. The fix was backend-only."
+
+  - task: "Vouchers Party Summary shows correct received amounts"
+    implemented: true
+    working: true
+    file: "frontend/src/components/PaddyPurchase.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: true
+        - agent: "main"
+        - comment: "Frontend shows backend-computed amounts. Fixed via backend API change."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 72
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Auto-ledger creates correct Nikasi for Cash In entries"
+    - "Sale Book shows correct ledger-based payment status"
+    - "Vouchers Party Summary shows correct received amounts"
+    - "Cash Book Party Summary shows correct balance"
+    - "Existing flows not broken (DC delivery, mandi entries, truck payments)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+    - message: "Fixed 2 critical bugs: 1) Cash Book auto-ledger now creates Nikasi (not Jama) for Cash In entries - this ensures manual Cash Book payments appear in Sale Voucher paid status and party ledgers. 2) Vouchers Party Summary now computes paid amounts from ledger instead of voucher documents. Login: admin/admin123. Test by creating a Cash In for a sale voucher party and verifying it shows in Sale Voucher as paid."

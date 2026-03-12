@@ -125,10 +125,14 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
     txn_dict.pop('_id', None)
     
     # Auto-create corresponding ledger entry if this is a cash/bank transaction
+    # Ledger perspective: any cash movement (in or out) is a settlement/payment → always Nikasi
+    # Cash In (Jama) from party = party paid us → Ledger Nikasi (reduces their debt)
+    # Cash Out (Nikasi) to party = we paid them → Ledger Nikasi (reduces our debt)
     if txn_dict.get('account') in ('cash', 'bank') and category:
         ledger_entry = {**txn_dict}
         ledger_entry['id'] = str(uuid.uuid4())
         ledger_entry['account'] = 'ledger'
+        ledger_entry['txn_type'] = 'nikasi'
         ledger_entry['reference'] = f"auto_ledger:{txn_dict.get('id', '')[:8]}"
         ledger_entry['created_at'] = datetime.now(timezone.utc).isoformat()
         ledger_entry['updated_at'] = datetime.now(timezone.utc).isoformat()
@@ -307,8 +311,8 @@ async def update_cash_transaction(txn_id: str, request: Request, username: str =
     result = await db.cash_transactions.update_one({"id": txn_id}, {"$set": body})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    # Update auto-created ledger entry too
-    ledger_body = {k: v for k, v in body.items() if k not in ('account', 'reference')}
+    # Update auto-created ledger entry too (exclude txn_type - auto-ledger always stays nikasi)
+    ledger_body = {k: v for k, v in body.items() if k not in ('account', 'reference', 'txn_type')}
     await db.cash_transactions.update_many({"reference": f"auto_ledger:{txn_id[:8]}"}, {"$set": ledger_body})
     updated = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
     return updated

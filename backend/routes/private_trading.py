@@ -1186,7 +1186,32 @@ async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to
     sale_voucher_items = await db.sale_vouchers.find(base_q, {"_id": 0}).to_list(5000)
     purchase_voucher_items = await db.purchase_vouchers.find(base_q, {"_id": 0}).to_list(5000)
 
-    def _agg(items, amt_key, paid_key, label):
+    # Build ledger-based paid maps for sale and purchase vouchers (source of truth)
+    ledger_q = {"account": "ledger", "txn_type": "nikasi"}
+    if kms_year: ledger_q["kms_year"] = kms_year
+    if season: ledger_q["season"] = season
+
+    sale_party_names = list(set(v.get("party_name", "") for v in sale_voucher_items if v.get("party_name")))
+    sale_ledger_paid = {}
+    if sale_party_names:
+        sale_ledger_txns = await db.cash_transactions.find(
+            {**ledger_q, "category": {"$in": sale_party_names}, "party_type": "Sale Book"}, {"_id": 0}
+        ).to_list(50000)
+        for lt in sale_ledger_txns:
+            pn = lt.get("category", "")
+            sale_ledger_paid[pn] = sale_ledger_paid.get(pn, 0) + lt.get("amount", 0)
+
+    purchase_party_names = list(set(v.get("party_name", "") for v in purchase_voucher_items if v.get("party_name")))
+    purchase_ledger_paid = {}
+    if purchase_party_names:
+        purchase_ledger_txns = await db.cash_transactions.find(
+            {**ledger_q, "category": {"$in": purchase_party_names}, "party_type": "Purchase Voucher"}, {"_id": 0}
+        ).to_list(50000)
+        for lt in purchase_ledger_txns:
+            pn = lt.get("category", "")
+            purchase_ledger_paid[pn] = purchase_ledger_paid.get(pn, 0) + lt.get("amount", 0)
+
+    def _agg(items, amt_key, paid_key, label, ledger_paid_map=None):
         pmap = {}
         for item in items:
             name = item.get("party_name", "Unknown")
@@ -1196,12 +1221,17 @@ async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to
                               "entries": 0}
             pm = pmap[name]
             pm["amount"] += item.get(amt_key, 0) or 0
-            pm["paid"] += item.get(paid_key, 0) or 0
+            if ledger_paid_map is None:
+                pm["paid"] += item.get(paid_key, 0) or 0
             pm["entries"] += 1
             if not pm["mandi_name"] and item.get("mandi_name"):
                 pm["mandi_name"] = item["mandi_name"]
             if not pm["agent_name"] and item.get("agent_name"):
                 pm["agent_name"] = item["agent_name"]
+        # Override paid from ledger if available
+        if ledger_paid_map is not None:
+            for name, pm in pmap.items():
+                pm["paid"] = round(ledger_paid_map.get(name, 0), 2)
         result = []
         for pm in pmap.values():
             pm["amount"] = round(pm["amount"], 2)
@@ -1218,8 +1248,8 @@ async def _get_party_summary(kms_year=None, season=None, date_from=None, date_to
         return {"parties": result, "total_amount": total_amt, "total_paid": total_paid, "total_balance": total_bal}
 
     paddy_summary = _agg(paddy_items, "total_amount", "paid_amount", "Paddy Purchase")
-    sale_summary = _agg(sale_voucher_items, "total", "paid_amount", "Sale Voucher")
-    purchase_summary = _agg(purchase_voucher_items, "total", "paid_amount", "Purchase Voucher")
+    sale_summary = _agg(sale_voucher_items, "total", "paid_amount", "Sale Voucher", ledger_paid_map=sale_ledger_paid)
+    purchase_summary = _agg(purchase_voucher_items, "total", "paid_amount", "Purchase Voucher", ledger_paid_map=purchase_ledger_paid)
 
     # Combined totals for top cards
     all_purchase = paddy_summary["total_amount"] + purchase_summary["total_amount"]
