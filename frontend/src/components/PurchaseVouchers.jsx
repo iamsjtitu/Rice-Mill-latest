@@ -38,7 +38,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
-    party_name: "", invoice_no: "", rst_no: "", truck_no: "",
+    party_name: "", invoice_no: "", rst_no: "", truck_no: "", eway_bill_no: "",
     items: [{ ...emptyItem }],
     gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
     cash_paid: "", diesel_paid: "", advance: "", remark: "",
@@ -89,7 +89,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const resetForm = () => {
     setForm({
       date: new Date().toISOString().split('T')[0],
-      party_name: "", invoice_no: "", rst_no: "", truck_no: "",
+      party_name: "", invoice_no: "", rst_no: "", truck_no: "", eway_bill_no: "",
       items: [{ ...emptyItem }],
       gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
       cash_paid: "", diesel_paid: "", advance: "", remark: "",
@@ -161,7 +161,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const handleEdit = (v) => {
     setForm({
       date: v.date || "", party_name: v.party_name || "", invoice_no: v.invoice_no || "",
-      rst_no: v.rst_no || "", truck_no: v.truck_no || "",
+      rst_no: v.rst_no || "", truck_no: v.truck_no || "", eway_bill_no: v.eway_bill_no || "",
       items: (v.items || []).map(i => ({
         item_name: i.item_name || "", quantity: String(i.quantity || ""),
         rate: String(i.rate || ""), unit: i.unit || "Qntl",
@@ -341,6 +341,13 @@ export default function PurchaseVouchers({ filters, user }) {
                 <Label className="text-slate-300 text-xs">Truck No.</Label>
                 <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
                   placeholder="OD00XX0000" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-truck" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-slate-300 text-xs">E-Way Bill No.</Label>
+                <Input value={form.eway_bill_no} onChange={e => setForm(p => ({ ...p, eway_bill_no: e.target.value }))}
+                  placeholder="E-Way Bill Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-eway" />
               </div>
             </div>
 

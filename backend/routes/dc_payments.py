@@ -44,6 +44,9 @@ class DCDelivery(BaseModel):
     bags_used: int = 0  # Govt bags used in this delivery (minus from stock)
     cash_paid: float = 0  # Cash paid to driver → cash book auto entry
     diesel_paid: float = 0  # Diesel paid → truck payment auto entry
+    eway_bill_no: str = ""
+    cgst_amount: float = 0
+    sgst_amount: float = 0
     notes: str = ""
     kms_year: str = ""
     season: str = ""
@@ -203,6 +206,7 @@ async def get_delivery_invoice(delivery_id: str):
       <div class="info-item"><label>Date</label><span>{delivery.get('date','')}</span></div>
       <div class="info-item"><label>Invoice No</label><span>{delivery.get('invoice_no','')}</span></div>
       <div class="info-item"><label>RST No</label><span>{delivery.get('rst_no','')}</span></div>
+      <div class="info-item"><label>E-Way Bill</label><span>{delivery.get('eway_bill_no','')}</span></div>
       <div class="info-item"><label>Vehicle No</label><span>{delivery.get('vehicle_no','')}</span></div>
       <div class="info-item"><label>Driver</label><span>{delivery.get('driver_name','')}</span></div>
       <div class="info-item"><label>Slip No</label><span>{delivery.get('slip_no','')}</span></div>
@@ -213,6 +217,8 @@ async def get_delivery_invoice(delivery_id: str):
       <tr><td>Bags Used (Govt)</td><td style="text-align:right">{delivery.get('bags_used',0)}</td></tr>
       <tr><td>Cash Paid</td><td style="text-align:right">Rs.{delivery.get('cash_paid',0):,.2f}</td></tr>
       <tr><td>Diesel Paid</td><td style="text-align:right">Rs.{delivery.get('diesel_paid',0):,.2f}</td></tr>
+      <tr><td>CGST</td><td style="text-align:right">Rs.{delivery.get('cgst_amount',0):,.2f}</td></tr>
+      <tr><td>SGST</td><td style="text-align:right">Rs.{delivery.get('sgst_amount',0):,.2f}</td></tr>
       <tr class="total-row"><td>Total Payment</td><td style="text-align:right">Rs.{(delivery.get('cash_paid',0)+delivery.get('diesel_paid',0)):,.2f}</td></tr>
     </table>
     {f'<p style="margin-top:10px;font-size:12px;color:#555">Notes: {delivery.get("notes","")}</p>' if delivery.get('notes') else ''}

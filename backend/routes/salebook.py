@@ -53,6 +53,7 @@ class SaleVoucherCreate(BaseModel):
     cash_paid: float = 0
     diesel_paid: float = 0
     advance: float = 0
+    eway_bill_no: str = ""
     kms_year: str = ""
     season: str = ""
 
@@ -79,6 +80,7 @@ class SaleVoucher(BaseModel):
     cash_paid: float = 0
     diesel_paid: float = 0
     advance: float = 0
+    eway_bill_no: str = ""
     paid_amount: float = 0
     balance: float = 0
     kms_year: str = ""

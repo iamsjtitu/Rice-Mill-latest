@@ -39,7 +39,7 @@ export default function SaleBook({ filters, user }) {
     date: new Date().toISOString().split('T')[0],
     party_name: "", invoice_no: "", items: [{ ...emptyItem }],
     gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
-    truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "",
+    truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
     kms_year: filters.kms_year || "", season: filters.season || "",
   });
 
@@ -69,7 +69,7 @@ export default function SaleBook({ filters, user }) {
       date: new Date().toISOString().split('T')[0], party_name: "", invoice_no: "",
       items: [{ ...emptyItem }], gst_type: "none",
       cgst_percent: gstSettings.cgst_percent, sgst_percent: gstSettings.sgst_percent, igst_percent: gstSettings.igst_percent,
-      truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "",
+      truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
       kms_year: filters.kms_year || "", season: filters.season || "",
     });
     setIsFormOpen(true);
@@ -82,7 +82,7 @@ export default function SaleBook({ filters, user }) {
       items: (v.items || []).map(i => ({ item_name: i.item_name, quantity: String(i.quantity || ""), rate: String(i.rate || ""), unit: i.unit || "Qntl" })),
       gst_type: v.gst_type || "none",
       cgst_percent: v.cgst_percent || 0, sgst_percent: v.sgst_percent || 0, igst_percent: v.igst_percent || 0,
-      truck_no: v.truck_no || "", rst_no: v.rst_no || "", remark: v.remark || "",
+      truck_no: v.truck_no || "", rst_no: v.rst_no || "", remark: v.remark || "", eway_bill_no: v.eway_bill_no || "",
       cash_paid: v.cash_paid ? String(v.cash_paid) : "", diesel_paid: v.diesel_paid ? String(v.diesel_paid) : "",
       advance: v.advance ? String(v.advance) : "",
       kms_year: v.kms_year || filters.kms_year || "", season: v.season || filters.season || "",
@@ -349,11 +349,6 @@ export default function SaleBook({ filters, user }) {
                   placeholder="INV-001" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-invoice" />
               </div>
               <div>
-                <Label className="text-xs text-slate-400">Truck No</Label>
-                <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
-                  placeholder="OD00XX0000" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-truck" />
-              </div>
-              <div>
                 <Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
                   className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="sv-form-date" />
@@ -367,6 +362,18 @@ export default function SaleBook({ filters, user }) {
                 <Label className="text-xs text-slate-400">RST No</Label>
                 <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
                   placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-rst" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-400">E-Way Bill No</Label>
+                <Input value={form.eway_bill_no} onChange={e => setForm(p => ({ ...p, eway_bill_no: e.target.value }))}
+                  placeholder="E-Way Bill Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-eway" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-400">Truck No</Label>
+                <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
+                  placeholder="Vehicle Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-truck" />
               </div>
             </div>
 

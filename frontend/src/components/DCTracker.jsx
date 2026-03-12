@@ -26,7 +26,7 @@ const DCEntries = ({ filters, user }) => {
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
   const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", godown_name: "", deadline: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
-  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", invoice_no: "", rst_no: "", bags_used: "", cash_paid: "", diesel_paid: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
+  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", invoice_no: "", rst_no: "", eway_bill_no: "", bags_used: "", cash_paid: "", diesel_paid: "", cgst_amount: "", sgst_amount: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
 
   const fetchData = useCallback(async () => {
     try {
@@ -73,9 +73,11 @@ const DCEntries = ({ filters, user }) => {
         bags_used: parseInt(delForm.bags_used) || 0,
         cash_paid: parseFloat(delForm.cash_paid) || 0,
         diesel_paid: parseFloat(delForm.diesel_paid) || 0,
+        cgst_amount: parseFloat(delForm.cgst_amount) || 0,
+        sgst_amount: parseFloat(delForm.sgst_amount) || 0,
       });
       toast.success("Delivery add hui!"); setShowDeliveryForm(false);
-      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", invoice_no: "", rst_no: "", bags_used: "", cash_paid: "", diesel_paid: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif" });
+      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", invoice_no: "", rst_no: "", eway_bill_no: "", bags_used: "", cash_paid: "", diesel_paid: "", cgst_amount: "", sgst_amount: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif" });
       fetchDeliveries(expandedDC); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
@@ -246,12 +248,14 @@ const DCEntries = ({ filters, user }) => {
                 <Input value={delForm.rst_no} onChange={e => setDelForm(p=>({...p,rst_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-rst" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs text-slate-400">E-Way Bill Number</Label>
+                <Input value={delForm.eway_bill_no} onChange={e => setDelForm(p=>({...p,eway_bill_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-eway" /></div>
               <div><Label className="text-xs text-slate-400">Vehicle No</Label>
                 <Input value={delForm.vehicle_no} onChange={e => setDelForm(p=>({...p,vehicle_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-vehicle" /></div>
-              <div><Label className="text-xs text-slate-400">Driver Name</Label>
-                <Input value={delForm.driver_name} onChange={e => setDelForm(p=>({...p,driver_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-driver" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs text-slate-400">Driver Name</Label>
+                <Input value={delForm.driver_name} onChange={e => setDelForm(p=>({...p,driver_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-driver" /></div>
               <div><Label className="text-xs text-slate-400">Slip No</Label>
                 <Input value={delForm.slip_no} onChange={e => setDelForm(p=>({...p,slip_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-slip" /></div>
               <div><Label className="text-xs text-slate-400">Godown</Label>
@@ -267,6 +271,12 @@ const DCEntries = ({ filters, user }) => {
               <div><Label className="text-xs text-orange-400 font-semibold">Diesel Paid (Rs.)</Label>
                 <Input type="number" step="0.01" value={delForm.diesel_paid} onChange={e => setDelForm(p=>({...p,diesel_paid:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-diesel" />
                 <p className="text-[9px] text-orange-500 mt-0.5">Truck payment auto entry</p></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs text-green-400 font-semibold">CGST (Rs.)</Label>
+                <Input type="number" step="0.01" value={delForm.cgst_amount} onChange={e => setDelForm(p=>({...p,cgst_amount:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-cgst" /></div>
+              <div><Label className="text-xs text-green-400 font-semibold">SGST (Rs.)</Label>
+                <Input type="number" step="0.01" value={delForm.sgst_amount} onChange={e => setDelForm(p=>({...p,sgst_amount:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-sgst" /></div>
             </div>
             <div><Label className="text-xs text-slate-400">Notes</Label>
               <Input value={delForm.notes} onChange={e => setDelForm(p=>({...p,notes:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
