@@ -403,7 +403,7 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     elements = []
     
     # Title
-    elements.append(Paragraph("Party Summary / पार्टी सारांश", styles['Title']))
+    elements.append(Paragraph("Party Summary", styles['Title']))
     filter_text = ""
     if party_type: filter_text += f"Party Type: {party_type} | "
     if kms_year: filter_text += f"Year: {kms_year} | "

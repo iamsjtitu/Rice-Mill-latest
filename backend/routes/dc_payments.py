@@ -698,7 +698,7 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     hfont = Font(bold=True, color="FFFFFF", size=10)
     bf = Font(bold=True)
     tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    ws.merge_cells('A1:I1'); ws['A1'] = "Gunny Bag Register / बोरी रजिस्टर"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A1:I1'); ws['A1'] = "Gunny Bag Register"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
     filter_txt = f"KMS: {kms_year or 'All'} | Season: {season or 'All'}"
     if bag_filter and bag_filter != 'all': filter_txt += f" | Type: {bag_filter}"
     if txn_filter and txn_filter != 'all': filter_txt += f" | Txn: {txn_filter.upper()}"

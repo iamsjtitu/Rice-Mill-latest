@@ -112,7 +112,7 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
 
     # ---- STOCK SECTION ----
     if show_stock:
-        elements.append(Paragraph("STOCK OVERVIEW / स्टॉक ओवरव्यू", sec))
+        elements.append(Paragraph("STOCK OVERVIEW", sec))
 
         # Paddy
         pipe = [{"$match": query}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
@@ -163,10 +163,17 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
 
     # ---- TARGETS SECTION ----
     if show_targets:
-        elements.append(Paragraph(f"MANDI TARGETS / मंडी लक्ष्य{' - ' + target_mandi if target_mandi else ''}", sec))
-        tq = dict(query)
+        elements.append(Paragraph(f"MANDI TARGETS{' - ' + target_mandi if target_mandi else ''}", sec))
+        tq = {}
         if target_mandi: tq["mandi_name"] = target_mandi
+        if kms_year: tq["kms_year"] = kms_year
+        if season: tq["season"] = season
         targets = await db.mandi_targets.find(tq, {"_id": 0}).to_list(100)
+        # Fallback: if no targets found with strict filter, try without kms/season
+        if not targets and (kms_year or season):
+            tq2 = {}
+            if target_mandi: tq2["mandi_name"] = target_mandi
+            targets = await db.mandi_targets.find(tq2, {"_id": 0}).to_list(100)
 
         if targets:
             data = [["Mandi", "Target (Q)", "Cut %", "Expected (Q)", "Achieved (Q)", "Pending (Q)", "Progress", "Agent Amt"]]
@@ -262,7 +269,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     elements.append(Spacer(1, 5*mm))
 
     # ---- SECTION 1: STOCK ----
-    elements.append(Paragraph("1. STOCK OVERVIEW / स्टॉक ओवरव्यू", sec))
+    elements.append(Paragraph("1. STOCK OVERVIEW", sec))
 
     pipe = [{"$match": query}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
     mill_res = await db.mill_entries.aggregate(pipe).to_list(1)
@@ -300,8 +307,14 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     elements.append(Spacer(1, 5*mm))
 
     # ---- SECTION 2: MANDI TARGETS ----
-    elements.append(Paragraph("2. MANDI TARGETS / मंडी लक्ष्य", sec))
-    targets = await db.mandi_targets.find(query, {"_id": 0}).to_list(100)
+    elements.append(Paragraph("2. MANDI TARGETS", sec))
+    tq = {}
+    if kms_year: tq["kms_year"] = kms_year
+    if season: tq["season"] = season
+    targets = await db.mandi_targets.find(tq, {"_id": 0}).to_list(100)
+    # Fallback: if no targets found with strict filter, try without kms/season
+    if not targets and (kms_year or season):
+        targets = await db.mandi_targets.find({}, {"_id": 0}).to_list(100)
     if targets:
         tdata = [["Mandi", "Target (Q)", "Cut %", "Expected (Q)", "Achieved (Q)", "Pending (Q)", "Progress"]]
         tot = {"t": 0, "e": 0, "a": 0, "p": 0}
@@ -338,7 +351,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     elements.append(Spacer(1, 5*mm))
 
     # ---- SECTION 3: TRUCK PAYMENTS ----
-    elements.append(Paragraph("3. TRUCK PAYMENTS / भाड़ा", sec))
+    elements.append(Paragraph("3. TRUCK PAYMENTS", sec))
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
     truck_total_net = truck_total_paid = truck_total_balance = 0
     truck_rows = []
@@ -375,7 +388,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     elements.append(Spacer(1, 5*mm))
 
     # ---- SECTION 4: AGENT PAYMENTS ----
-    elements.append(Paragraph("4. AGENT/MANDI PAYMENTS / एजेंट भुगतान", sec))
+    elements.append(Paragraph("4. AGENT/MANDI PAYMENTS", sec))
     agent_total_amt = agent_total_paid = agent_total_balance = 0
     agent_rows = []
     for t in targets:
@@ -407,7 +420,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     elements.append(Spacer(1, 5*mm))
 
     # ---- GRAND TOTAL ----
-    elements.append(Paragraph("5. GRAND TOTAL / कुल योग", sec))
+    elements.append(Paragraph("5. GRAND TOTAL", sec))
     ga = truck_total_net + agent_total_amt
     gp = truck_total_paid + agent_total_paid
     gb = truck_total_balance + agent_total_balance
