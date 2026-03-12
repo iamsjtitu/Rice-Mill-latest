@@ -659,11 +659,23 @@ export const GunnyBags = ({ filters, user }) => {
               <TableCell>
                 <div className="flex items-center gap-1">
                   {e.linked_entry_id && <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" data-testid={`gunny-auto-badge-${e.id}`}>Auto</span>}
+                  {e.txn_type === 'in' && (e.total || e.amount || 0) > 0 && (
+                    (e.ledger_balance != null ? e.ledger_balance : ((e.total || e.amount || 0) - (e.advance || 0))) <= 0 ? (
+                      <>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" data-testid={`gunny-paid-badge-${e.id}`}>Paid</span>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-sky-400" onClick={() => { setHistoryParty(e.party_name || e.source); setShowHistory(true); }} title="Payment History" data-testid={`gunny-history-${e.id}`}><Clock className="w-3 h-3" /></Button>
+                      </>
+                    ) : (
+                      user.role === 'admin' && !e.linked_entry_id && (
+                        <>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-emerald-400" onClick={() => { setPayDialog(e); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); }} title="Payment Karein" data-testid={`gunny-pay-${e.id}`}><IndianRupee className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-sky-400" onClick={() => { setHistoryParty(e.party_name || e.source); setShowHistory(true); }} title="Payment History" data-testid={`gunny-history-${e.id}`}><Clock className="w-3 h-3" /></Button>
+                        </>
+                      )
+                    )
+                  )}
                   {user.role === 'admin' && !e.linked_entry_id && (
                     <>
-                      {(e.total || e.amount || 0) > 0 && e.txn_type === 'in' && (
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-emerald-400" onClick={() => { setPayDialog(e); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); }} title="Payment Karein" data-testid={`gunny-pay-${e.id}`}><IndianRupee className="w-3 h-3" /></Button>
-                      )}
                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-400" onClick={() => openEditForm(e)} data-testid={`gunny-edit-${e.id}`}><Edit className="w-3 h-3" /></Button>
                       <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={() => handleDelete(e.id)} data-testid={`gunny-delete-${e.id}`}><Trash2 className="w-3 h-3" /></Button>
                     </>

@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://desktop-sync-2.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://gunny-bag-ui.preview.emergentagent.com').rstrip('/')
 
 class TestPrintEndpoint:
     """CRITICAL: Test server-side print functionality for Electron compatibility"""
