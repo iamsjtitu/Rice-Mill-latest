@@ -215,6 +215,13 @@ async def _create_sale_ledger_entries(d, doc_id, vno, items, username):
             "description": f"Advance received - Sale #{vno}{desc_suffix}",
             "reference": f"sale_voucher_adv:{doc_id}", **base
         })
+        # Cash JAMA: advance cash received (money comes into cash box)
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "cash", "txn_type": "jama",
+            "amount": advance, "category": party, "party_type": "Sale Book",
+            "description": f"Advance received - Sale #{vno}{desc_suffix}",
+            "reference": f"sale_voucher_adv_cash:{doc_id}", **base
+        })
 
     # 3. Cash paid to truck → Cash NIKASI (cash going out)
     if cash > 0:
