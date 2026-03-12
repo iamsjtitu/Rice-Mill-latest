@@ -23,8 +23,13 @@ Comprehensive Mill Entry System (rice mill management) web + desktop app.
 - **Undo Paid fix**: truck_no extraction fixed for dc_deliveries (vehicle_no field), delivery deduction refs added to exclusion list
 - **Truck Owner undo**: Now includes dc_deliveries, private_paddy, rice_sales
 - **Truck Owner history**: Includes dc_delivery entry IDs for deduction detection
-- **Auto-Ledger Fix (12-Mar-2026)**: Cash Book auto-ledger now always creates Nikasi for any cash/bank entry. Previously Cash In (Jama) wrongly created Ledger Jama instead of Nikasi, causing manual payments to not reflect in Sale Voucher paid status and party ledgers.
-- **Party Summary Ledger Fix (12-Mar-2026)**: Vouchers Party Summary now computes sale/purchase voucher paid amounts from ledger entries instead of voucher document's paid_amount field.
+- **Auto-Ledger Fix (12-Mar-2026)**: Cash Book auto-ledger now always creates Nikasi for any cash/bank entry
+- **Party Summary Ledger Fix (12-Mar-2026)**: Vouchers Party Summary uses ledger for paid calculations
+
+## Features Added (12-Mar-2026)
+- **Sale Voucher Payment Mode**: Cash/Bank selector in payment dialog with bank account dropdown
+- **Sale Voucher Undo Payment**: Undo button in Payment History removes all related entries (cash, ledger, local_party)
+- **Payment History Enhancement**: Shows can_undo flag, advance entries not undoable
 
 ## Diesel handling across all modules
 - Mandi Entries: diesel → Ledger (truck) + Diesel Account (no Cash Book)
@@ -36,3 +41,4 @@ Comprehensive Mill Entry System (rice mill management) web + desktop app.
 - P1: Full regression test of all payment modules
 - P2: Complete Desktop App feature sync
 - P2: Refactor duplicated business logic between Python and Node.js backends
+- P2: Add same Cash/Bank/Undo features to Purchase Vouchers and Gunny Bags
