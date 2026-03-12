@@ -69,11 +69,11 @@ async def get_monthly_trend(kms_year: Optional[str] = None, season: Optional[str
 async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, filter: Optional[str] = None):
     """Export Dashboard PDF with optional filter (all, stock, or mandi_name)"""
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
     query = {}
     if kms_year: query["kms_year"] = kms_year
@@ -84,123 +84,140 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
     target_mandi = filter if filter and filter not in ("all", "stock") else None
 
     buffer = io.BytesIO()
-    page_width, page_height = landscape(A4)
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
     elements = []; styles = getSampleStyleSheet()
+    pw = A4[0] - 30*mm  # page width minus margins
 
-    title_style = ParagraphStyle('DashTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.white, alignment=TA_CENTER)
-    section_style = ParagraphStyle('DashSection', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#D97706'), alignment=TA_LEFT, spaceBefore=10, spaceAfter=5)
-    normal = styles['Normal']
+    company, tagline = await get_company_name()
+    filter_label = "All" if not filter or filter == "all" else ("Stock Only" if filter == "stock" else filter)
 
-    # Title
-    filter_label = "All" if not filter or filter == "all" else filter.title()
-    title_data = [[Paragraph(f"<b>NAVKAR AGRO - Dashboard Report ({filter_label})</b>", title_style)]]
-    title_table = RLTable(title_data, colWidths=[page_width - 20*mm])
-    title_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 8), ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-    ]))
-    elements.append(title_table)
-    sub_style = ParagraphStyle('DashSub', parent=normal, fontSize=10, textColor=colors.HexColor('#475569'), alignment=TA_CENTER)
-    elements.append(Paragraph(f"KMS: {kms_year or 'All'} | Season: {season or 'All'} | Filter: {filter_label} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", sub_style))
-    elements.append(Spacer(1, 8*mm))
+    # Header
+    header_data = [[
+        Paragraph(f"<b>{company}</b>", ParagraphStyle('H', parent=styles['Heading1'], fontSize=18, textColor=colors.white, alignment=TA_CENTER)),
+    ]]
+    ht = RLTable(header_data, colWidths=[pw])
+    ht.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1a365d')), ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10)]))
+    elements.append(ht)
 
-    # STOCK SECTION
+    # Sub-header
+    sub = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#475569'), alignment=TA_CENTER)
+    elements.append(Paragraph(f"{tagline}", sub))
+    elements.append(Paragraph(f"Dashboard Report | KMS: {kms_year or 'All'} | Season: {season or 'All'} | Filter: {filter_label} | {datetime.now().strftime('%d-%m-%Y %H:%M')}", sub))
+    elements.append(Spacer(1, 6*mm))
+
+    sec = ParagraphStyle('Sec', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a365d'), spaceBefore=8, spaceAfter=4, borderWidth=0, borderPadding=0)
+    hdr_bg = colors.HexColor('#1a365d')
+    hdr_fg = colors.white
+    tot_bg = colors.HexColor('#e2e8f0')
+
+    # ---- STOCK SECTION ----
     if show_stock:
-        elements.append(Paragraph("STOCK OVERVIEW", section_style))
+        elements.append(Paragraph("STOCK OVERVIEW / स्टॉक ओवरव्यू", sec))
 
-        # Paddy Stock
-        pipe_paddy_in = [{"$match": query}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
-        mill_res = await db.mill_entries.aggregate(pipe_paddy_in).to_list(1)
+        # Paddy
+        pipe = [{"$match": query}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
+        mill_res = await db.mill_entries.aggregate(pipe).to_list(1)
         cmr_paddy = round((mill_res[0]["total"] / 100) if mill_res else 0, 2)
 
-        pvt_paddy_q = dict(query)
-        pvt_paddy_entries = await db.private_paddy.find(pvt_paddy_q, {"_id": 0}).to_list(5000)
-        pvt_paddy = round(sum(e.get("net_weight", 0) for e in pvt_paddy_entries) / 100, 2)
+        pvt_entries = await db.private_paddy.find(dict(query), {"_id": 0}).to_list(5000)
+        pvt_paddy = round(sum(e.get("net_weight", 0) for e in pvt_entries) / 100, 2)
 
-        milling_q = dict(query)
-        milling_entries = await db.milling_entries.find(milling_q, {"_id": 0}).to_list(5000)
+        milling_entries = await db.milling_entries.find(dict(query), {"_id": 0}).to_list(5000)
         paddy_used = round(sum(e.get("paddy_used", 0) for e in milling_entries), 2)
+        rice_raw = round(sum(e.get("rice_produced", 0) for e in milling_entries if e.get("product_type") in ("raw", None)), 2)
+        rice_usna = round(sum(e.get("rice_produced", 0) for e in milling_entries if e.get("product_type") == "usna"), 2)
+        frk = round(sum(e.get("frk_produced", 0) or 0 for e in milling_entries), 2)
+        byproduct = round(sum(e.get("byproduct_produced", 0) or 0 for e in milling_entries), 2)
 
         total_paddy_in = round(cmr_paddy + pvt_paddy, 2)
         paddy_avail = round(total_paddy_in - paddy_used, 2)
 
-        # Rice stock
-        rice_produced = round(sum(e.get("rice_produced", 0) for e in milling_entries), 2)
+        # Gunny bags
+        gunny_entries = await db.gunny_bags.find(dict(query), {"_id": 0}).to_list(5000)
+        gunny_in = sum(e.get('quantity', 0) for e in gunny_entries if e.get('txn_type') == 'in')
+        gunny_out = sum(e.get('quantity', 0) for e in gunny_entries if e.get('txn_type') == 'out')
 
-        stock_data = [
-            ["Item", "In (Qntl)", "Used/Out (Qntl)", "Available (Qntl)"],
-            ["Paddy (CMR)", str(cmr_paddy), "-", "-"],
-            ["Paddy (Pvt)", str(pvt_paddy), "-", "-"],
-            ["Total Paddy", str(total_paddy_in), str(paddy_used), str(paddy_avail)],
-            ["Rice (Milling)", str(rice_produced), "-", "-"],
+        data = [
+            ["Item", "Source", "IN", "OUT/Used", "Available", "Unit"],
+            ["Paddy", "CMR (Mill Entry)", str(cmr_paddy), "-", "-", "Qntl"],
+            ["Paddy", "Private Purchase", str(pvt_paddy), "-", "-", "Qntl"],
+            ["Paddy Total", "", str(total_paddy_in), str(paddy_used), str(paddy_avail), "Qntl"],
+            ["Rice (Raw)", "Milling", str(rice_raw), "-", str(rice_raw), "Qntl"],
+            ["Rice (Usna)", "Milling", str(rice_usna), "-", str(rice_usna), "Qntl"],
+            ["FRK", "Milling", str(frk), "-", str(frk), "Qntl"],
+            ["By-Products", "Milling", str(byproduct), "-", str(byproduct), "Qntl"],
+            ["Gunny Bags", "All Sources", str(gunny_in), str(gunny_out), str(gunny_in - gunny_out), "Bags"],
         ]
-        stock_table = RLTable(stock_data, colWidths=[50*mm, 40*mm, 40*mm, 40*mm])
-        stock_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
-            ('FONTNAME', (0, 3), (-1, 3), 'Helvetica-Bold'), ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#f0f0f0')),
-        ]))
-        elements.append(stock_table)
-        elements.append(Spacer(1, 8*mm))
+        cw = [30*mm, 30*mm, 25*mm, 25*mm, 30*mm, 18*mm]
+        t = RLTable(data, colWidths=cw, repeatRows=1)
+        st = [
+            ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 3), (-1, 3), 'Helvetica-Bold'), ('BACKGROUND', (0, 3), (-1, 3), tot_bg),
+            ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]
+        t.setStyle(TableStyle(st))
+        elements.append(t)
+        elements.append(Spacer(1, 6*mm))
 
-    # TARGETS SECTION
+    # ---- TARGETS SECTION ----
     if show_targets:
-        elements.append(Paragraph(f"MANDI TARGETS{' - ' + target_mandi if target_mandi else ''}", section_style))
-
+        elements.append(Paragraph(f"MANDI TARGETS / मंडी लक्ष्य{' - ' + target_mandi if target_mandi else ''}", sec))
         tq = dict(query)
         if target_mandi: tq["mandi_name"] = target_mandi
         targets = await db.mandi_targets.find(tq, {"_id": 0}).to_list(100)
 
         if targets:
-            target_headers = ["Mandi", "Target QNTL", "Cut %", "Expected", "Achieved", "Pending", "Progress"]
-            target_data = [target_headers]
-            total_target = total_expected = total_achieved = total_pending = 0
-
+            data = [["Mandi", "Target (Q)", "Cut %", "Expected (Q)", "Achieved (Q)", "Pending (Q)", "Progress", "Agent Amt"]]
+            tot = {"target": 0, "expected": 0, "achieved": 0, "pending": 0, "agent": 0}
             for t in targets:
-                entry_q = {"mandi_name": t["mandi_name"]}
-                if kms_year: entry_q["kms_year"] = kms_year
-                if season: entry_q["season"] = season
-                pipe = [{"$match": entry_q}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
+                eq = {"mandi_name": t["mandi_name"]}
+                if kms_year: eq["kms_year"] = kms_year
+                if season: eq["season"] = season
+                pipe = [{"$match": eq}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
                 res = await db.mill_entries.aggregate(pipe).to_list(1)
                 achieved = round(res[0]["total"] / 100, 2) if res else 0
                 expected = t.get("expected_total", t["target_qntl"])
                 pending = round(max(0, expected - achieved), 2)
                 progress = round((achieved / expected * 100) if expected > 0 else 0, 1)
+                cutting_q = round(t["target_qntl"] * t["cutting_percent"] / 100, 2)
+                agent_amt = round((t["target_qntl"] * t.get("base_rate", 10)) + (cutting_q * t.get("cutting_rate", 5)), 2)
 
-                total_target += t["target_qntl"]
-                total_expected += expected
-                total_achieved += achieved
-                total_pending += pending
+                tot["target"] += t["target_qntl"]; tot["expected"] += expected
+                tot["achieved"] += achieved; tot["pending"] += pending; tot["agent"] += agent_amt
 
-                target_data.append([t["mandi_name"], str(t["target_qntl"]), f"{t['cutting_percent']}%", str(expected), str(achieved), str(pending), f"{progress}%"])
+                data.append([t["mandi_name"], str(t["target_qntl"]), f"{t['cutting_percent']}%",
+                    str(expected), str(achieved), str(pending), f"{progress}%", f"Rs.{agent_amt:,.0f}"])
 
-            # Totals row
-            total_progress = round((total_achieved / total_expected * 100) if total_expected > 0 else 0, 1)
-            target_data.append(["TOTAL", str(round(total_target, 2)), "-", str(round(total_expected, 2)), str(round(total_achieved, 2)), str(round(total_pending, 2)), f"{total_progress}%"])
+            tot_prog = round((tot["achieved"] / tot["expected"] * 100) if tot["expected"] > 0 else 0, 1)
+            data.append(["TOTAL", str(round(tot["target"], 2)), "-", str(round(tot["expected"], 2)),
+                str(round(tot["achieved"], 2)), str(round(tot["pending"], 2)), f"{tot_prog}%", f"Rs.{tot['agent']:,.0f}"])
 
-            target_table = RLTable(target_data, colWidths=[40*mm, 30*mm, 18*mm, 30*mm, 30*mm, 30*mm, 22*mm])
+            cw = [25*mm, 20*mm, 14*mm, 22*mm, 22*mm, 22*mm, 18*mm, 22*mm]
+            t = RLTable(data, colWidths=cw, repeatRows=1)
             st = [
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f0f0')),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
+                ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]
-            # Highlight progress > 100% in green, < 50% in red
-            for i, t2 in enumerate(targets, 1):
-                prog_str = target_data[i][6]
-                prog_val = float(prog_str.replace('%',''))
+            for i, tgt in enumerate(targets, 1):
+                prog_val = float(data[i][6].replace('%', ''))
                 if prog_val >= 100:
                     st.append(('TEXTCOLOR', (6, i), (6, i), colors.HexColor('#059669')))
                 elif prog_val < 50:
                     st.append(('TEXTCOLOR', (6, i), (6, i), colors.red))
-
-            target_table.setStyle(TableStyle(st))
-            elements.append(target_table)
+            t.setStyle(TableStyle(st))
+            elements.append(t)
         else:
-            elements.append(Paragraph("Koi target set nahi hai", normal))
+            elements.append(Paragraph("Koi target set nahi hai", styles['Normal']))
+
+    # Footer
+    elements.append(Spacer(1, 10*mm))
+    ft = ParagraphStyle('Ft', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER)
+    elements.append(Paragraph(f"Generated by {company} Mill Entry System | {datetime.now().strftime('%d-%m-%Y %H:%M')}", ft))
 
     doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
@@ -209,240 +226,215 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
 
 @router.get("/export/summary-report-pdf")
 async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
-    """Export complete summary report - Truck Payments + Agent Payments + Targets"""
+    """Export complete summary report - Stock + Targets + Truck + Agent Payments + Grand Total"""
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT
-    
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+
     query = {}
-    if kms_year:
-        query["kms_year"] = kms_year
-    if season:
-        query["season"] = season
-    
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+
     buffer = io.BytesIO()
-    page_width, page_height = landscape(A4)
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
-    
-    elements = []
-    styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, textColor=colors.white, alignment=TA_CENTER)
-    section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#D97706'), alignment=TA_LEFT, spaceBefore=10, spaceAfter=5)
-    
-    # Main Title
-    title_data = [[Paragraph("<b>NAVKAR AGRO - COMPLETE SUMMARY REPORT</b>", title_style)]]
-    title_table = Table(title_data, colWidths=[page_width - 20*mm])
-    title_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=12*mm)
+    pw = A4[0] - 24*mm
+    elements = []; styles = getSampleStyleSheet()
+
+    company, tagline = await get_company_name()
+    hdr_bg = colors.HexColor('#1a365d')
+    hdr_fg = colors.white
+    tot_bg = colors.HexColor('#e2e8f0')
+    amber_bg = colors.HexColor('#D97706')
+
+    sec = ParagraphStyle('Sec', parent=styles['Heading2'], fontSize=11, textColor=colors.HexColor('#1a365d'), spaceBefore=8, spaceAfter=4)
+    sub = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#475569'), alignment=TA_CENTER)
+    ft = ParagraphStyle('Ft', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER)
+
+    # ---- HEADER ----
+    ht = Table([[Paragraph(f"<b>{company} - COMPLETE SUMMARY REPORT</b>", ParagraphStyle('H', parent=styles['Heading1'], fontSize=16, textColor=colors.white, alignment=TA_CENTER))]], colWidths=[pw])
+    ht.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), amber_bg), ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10)]))
+    elements.append(ht)
+    elements.append(Paragraph(f"{tagline}", sub))
+    elements.append(Paragraph(f"KMS: {kms_year or 'All'} | Season: {season or 'All'} | {datetime.now().strftime('%d-%m-%Y %H:%M')}", sub))
+    elements.append(Spacer(1, 5*mm))
+
+    # ---- SECTION 1: STOCK ----
+    elements.append(Paragraph("1. STOCK OVERVIEW / स्टॉक ओवरव्यू", sec))
+
+    pipe = [{"$match": query}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
+    mill_res = await db.mill_entries.aggregate(pipe).to_list(1)
+    cmr_paddy = round((mill_res[0]["total"] / 100) if mill_res else 0, 2)
+    pvt_entries = await db.private_paddy.find(dict(query), {"_id": 0}).to_list(5000)
+    pvt_paddy = round(sum(e.get("net_weight", 0) for e in pvt_entries) / 100, 2)
+    milling_entries = await db.milling_entries.find(dict(query), {"_id": 0}).to_list(5000)
+    paddy_used = round(sum(e.get("paddy_used", 0) for e in milling_entries), 2)
+    rice_raw = round(sum(e.get("rice_produced", 0) for e in milling_entries if e.get("product_type") in ("raw", None)), 2)
+    rice_usna = round(sum(e.get("rice_produced", 0) for e in milling_entries if e.get("product_type") == "usna"), 2)
+    frk = round(sum(e.get("frk_produced", 0) or 0 for e in milling_entries), 2)
+    gunny_e = await db.gunny_bags.find(dict(query), {"_id": 0}).to_list(5000)
+    gunny_in = sum(e.get('quantity', 0) for e in gunny_e if e.get('txn_type') == 'in')
+    gunny_out = sum(e.get('quantity', 0) for e in gunny_e if e.get('txn_type') == 'out')
+
+    stock_data = [
+        ["Item", "IN", "OUT/Used", "Available", "Unit"],
+        ["Paddy (CMR)", str(cmr_paddy), "-", "-", "Qntl"],
+        ["Paddy (Pvt)", str(pvt_paddy), "-", "-", "Qntl"],
+        ["Total Paddy", str(round(cmr_paddy + pvt_paddy, 2)), str(paddy_used), str(round(cmr_paddy + pvt_paddy - paddy_used, 2)), "Qntl"],
+        ["Rice (Raw)", str(rice_raw), "-", str(rice_raw), "Qntl"],
+        ["Rice (Usna)", str(rice_usna), "-", str(rice_usna), "Qntl"],
+        ["FRK", str(frk), "-", str(frk), "Qntl"],
+        ["Gunny Bags", str(gunny_in), str(gunny_out), str(gunny_in - gunny_out), "Bags"],
+    ]
+    st = Table(stock_data, colWidths=[35*mm, 28*mm, 28*mm, 30*mm, 18*mm])
+    st.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+        ('FONTNAME', (0, 3), (-1, 3), 'Helvetica-Bold'), ('BACKGROUND', (0, 3), (-1, 3), tot_bg),
+        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
-    elements.append(title_table)
-    
-    # Subtitle
-    sub_style = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#475569'), alignment=TA_CENTER)
-    elements.append(Paragraph(f"KMS Year: {kms_year or 'All'} | Season: {season or 'All'} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", sub_style))
-    elements.append(Spacer(1, 10*mm))
-    
-    # ============ SECTION 1: MANDI TARGETS ============
-    elements.append(Paragraph("MANDI TARGETS", section_style))
-    
+    elements.append(st)
+    elements.append(Spacer(1, 5*mm))
+
+    # ---- SECTION 2: MANDI TARGETS ----
+    elements.append(Paragraph("2. MANDI TARGETS / मंडी लक्ष्य", sec))
     targets = await db.mandi_targets.find(query, {"_id": 0}).to_list(100)
     if targets:
-        target_headers = ["Mandi", "Target QNTL", "Cut %", "Expected", "Achieved", "Pending", "Progress"]
-        target_data = [target_headers]
-        
+        tdata = [["Mandi", "Target (Q)", "Cut %", "Expected (Q)", "Achieved (Q)", "Pending (Q)", "Progress"]]
+        tot = {"t": 0, "e": 0, "a": 0, "p": 0}
         for t in targets:
-            entry_q = {"mandi_name": t["mandi_name"], "kms_year": t["kms_year"], "season": t["season"]}
-            pipe = [{"$match": entry_q}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
-            res = await db.mill_entries.aggregate(pipe).to_list(1)
-            achieved = round(res[0]["total"] / 100, 2) if res else 0
-            expected = t["expected_total"]
-            pending = round(max(0, expected - achieved), 2)
-            progress = round((achieved / expected * 100) if expected > 0 else 0, 1)
-            
-            target_data.append([
-                t["mandi_name"],
-                str(t["target_qntl"]),
-                f"{t['cutting_percent']}%",
-                str(expected),
-                str(achieved),
-                str(pending),
-                f"{progress}%"
-            ])
-        
-        target_table = Table(target_data, colWidths=[35*mm, 25*mm, 18*mm, 25*mm, 25*mm, 25*mm, 22*mm])
-        target_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-        ]))
-        elements.append(target_table)
+            eq = {"mandi_name": t["mandi_name"]}
+            if kms_year: eq["kms_year"] = kms_year
+            if season: eq["season"] = season
+            pipe2 = [{"$match": eq}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
+            res = await db.mill_entries.aggregate(pipe2).to_list(1)
+            a = round(res[0]["total"] / 100, 2) if res else 0
+            e_val = t.get("expected_total", t["target_qntl"])
+            p = round(max(0, e_val - a), 2)
+            pr = round((a / e_val * 100) if e_val > 0 else 0, 1)
+            tot["t"] += t["target_qntl"]; tot["e"] += e_val; tot["a"] += a; tot["p"] += p
+            tdata.append([t["mandi_name"], str(t["target_qntl"]), f"{t['cutting_percent']}%", str(e_val), str(a), str(p), f"{pr}%"])
+        tp = round((tot["a"] / tot["e"] * 100) if tot["e"] > 0 else 0, 1)
+        tdata.append(["TOTAL", str(round(tot["t"], 2)), "-", str(round(tot["e"], 2)), str(round(tot["a"], 2)), str(round(tot["p"], 2)), f"{tp}%"])
+        tt = Table(tdata, colWidths=[28*mm, 22*mm, 14*mm, 24*mm, 24*mm, 24*mm, 18*mm])
+        tts = [
+            ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
+            ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]
+        for i in range(1, len(targets) + 1):
+            pv = float(tdata[i][6].replace('%', ''))
+            if pv >= 100: tts.append(('TEXTCOLOR', (6, i), (6, i), colors.HexColor('#059669')))
+            elif pv < 50: tts.append(('TEXTCOLOR', (6, i), (6, i), colors.red))
+        tt.setStyle(TableStyle(tts))
+        elements.append(tt)
     else:
         elements.append(Paragraph("No targets set", styles['Normal']))
-    
-    elements.append(Spacer(1, 8*mm))
-    
-    # ============ SECTION 2: TRUCK PAYMENTS SUMMARY ============
-    elements.append(Paragraph("TRUCK PAYMENTS (BHADA)", section_style))
-    
+    elements.append(Spacer(1, 5*mm))
+
+    # ---- SECTION 3: TRUCK PAYMENTS ----
+    elements.append(Paragraph("3. TRUCK PAYMENTS / भाड़ा", sec))
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
-    
-    truck_total_net = 0
-    truck_total_paid = 0
-    truck_total_balance = 0
-    truck_data_rows = []
-    
+    truck_total_net = truck_total_paid = truck_total_balance = 0
+    truck_rows = []
     for entry in entries:
-        entry_id = entry.get("id")
-        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
-        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
-        paid = payment_doc.get("paid_amount", 0) if payment_doc else 0
-        
-        final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
+        eid = entry.get("id")
+        pdoc = await db.truck_payments.find_one({"entry_id": eid}, {"_id": 0})
+        rate = pdoc.get("rate_per_qntl", 32) if pdoc else 32
+        paid = pdoc.get("paid_amount", 0) if pdoc else 0
+        fq = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
         cash = entry.get("cash_paid", 0) or 0
         diesel = entry.get("diesel_paid", 0) or 0
-        gross = round(final_qntl * rate, 2)
-        net = round(gross - cash - diesel, 2)
-        balance = round(max(0, net - paid), 2)
-        status = "Paid" if balance < 0.10 else "Pending"
-        
-        truck_total_net += net
-        truck_total_paid += paid
-        truck_total_balance += balance
-        
-        truck_data_rows.append([
-            entry.get("date", "")[:10],
-            entry.get("truck_no", "")[:12],
-            entry.get("mandi_name", "")[:12],
-            f"{final_qntl}",
-            f"Rs.{net}",
-            f"Rs.{paid}",
-            f"Rs.{balance}",
-            status
-        ])
-    
-    if truck_data_rows:
-        truck_headers = ["Date", "Truck No", "Mandi", "QNTL", "Net Amt", "Paid", "Balance", "Status"]
-        truck_table_data = [truck_headers] + truck_data_rows
-        truck_table_data.append(["TOTAL", "", "", "", f"Rs.{round(truck_total_net, 2)}", f"Rs.{round(truck_total_paid, 2)}", f"Rs.{round(truck_total_balance, 2)}", ""])
-        
-        truck_table = Table(truck_table_data, colWidths=[20*mm, 25*mm, 25*mm, 18*mm, 25*mm, 22*mm, 22*mm, 18*mm])
-        truck_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 7),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ALIGN', (3, 1), (-1, -1), 'RIGHT'),
-            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        net = round(fq * rate - cash - diesel, 2)
+        bal = round(max(0, net - paid), 2)
+        truck_total_net += net; truck_total_paid += paid; truck_total_balance += bal
+        truck_rows.append([entry.get("date", "")[:10], entry.get("truck_no", "")[:12], entry.get("mandi_name", "")[:10],
+            str(fq), f"Rs.{net:,.0f}", f"Rs.{paid:,.0f}", f"Rs.{bal:,.0f}",
+            "Paid" if bal < 0.10 else "Pending"])
+
+    if truck_rows:
+        tdata = [["Date", "Truck", "Mandi", "QNTL", "Net", "Paid", "Balance", "Status"]] + truck_rows
+        tdata.append(["TOTAL", "", "", "", f"Rs.{round(truck_total_net):,}", f"Rs.{round(truck_total_paid):,}", f"Rs.{round(truck_total_balance):,}", ""])
+        tt = Table(tdata, colWidths=[20*mm, 22*mm, 18*mm, 16*mm, 22*mm, 20*mm, 22*mm, 16*mm])
+        tts = [
+            ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (3, 1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
+            ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]
+        tt.setStyle(TableStyle(tts))
+        elements.append(tt)
+    else:
+        elements.append(Paragraph("No truck entries", styles['Normal']))
+    elements.append(Spacer(1, 5*mm))
+
+    # ---- SECTION 4: AGENT PAYMENTS ----
+    elements.append(Paragraph("4. AGENT/MANDI PAYMENTS / एजेंट भुगतान", sec))
+    agent_total_amt = agent_total_paid = agent_total_balance = 0
+    agent_rows = []
+    for t in targets:
+        mandi = t["mandi_name"]
+        cq = round(t["target_qntl"] * t["cutting_percent"] / 100, 2)
+        br = t.get("base_rate", 10); cr = t.get("cutting_rate", 5)
+        total_amt = round((t["target_qntl"] * br) + (cq * cr), 2)
+        pdoc = await db.agent_payments.find_one({"mandi_name": mandi, "kms_year": t["kms_year"], "season": t["season"]}, {"_id": 0})
+        paid = pdoc.get("paid_amount", 0) if pdoc else 0
+        bal = round(max(0, total_amt - paid), 2)
+        agent_total_amt += total_amt; agent_total_paid += paid; agent_total_balance += bal
+        agent_rows.append([mandi, str(t["target_qntl"]), str(cq), f"Rs.{br}/Rs.{cr}", f"Rs.{total_amt:,.0f}", f"Rs.{paid:,.0f}", f"Rs.{bal:,.0f}",
+            "Paid" if bal <= 0 else "Pending"])
+
+    if agent_rows:
+        adata = [["Mandi", "Target", "Cutting", "Rates", "Total", "Paid", "Balance", "Status"]] + agent_rows
+        adata.append(["TOTAL", "", "", "", f"Rs.{round(agent_total_amt):,}", f"Rs.{round(agent_total_paid):,}", f"Rs.{round(agent_total_balance):,}", ""])
+        at = Table(adata, colWidths=[25*mm, 18*mm, 16*mm, 24*mm, 22*mm, 20*mm, 22*mm, 16*mm])
+        at.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
+            ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ]))
-        elements.append(truck_table)
-    
-    elements.append(Spacer(1, 8*mm))
-    
-    # ============ SECTION 3: AGENT PAYMENTS SUMMARY ============
-    elements.append(Paragraph("AGENT/MANDI PAYMENTS", section_style))
-    
-    agent_total_amt = 0
-    agent_total_paid = 0
-    agent_total_balance = 0
-    agent_data_rows = []
-    
-    for target in targets:
-        mandi = target["mandi_name"]
-        target_qntl = target["target_qntl"]
-        cutting_qntl = round(target_qntl * target["cutting_percent"] / 100, 2)
-        base_rate = target.get("base_rate", 10)
-        cutting_rate = target.get("cutting_rate", 5)
-        total_amt = round((target_qntl * base_rate) + (cutting_qntl * cutting_rate), 2)
-        
-        payment_doc = await db.agent_payments.find_one({"mandi_name": mandi, "kms_year": target["kms_year"], "season": target["season"]}, {"_id": 0})
-        paid = payment_doc.get("paid_amount", 0) if payment_doc else 0
-        balance = round(max(0, total_amt - paid), 2)
-        status = "Paid" if balance <= 0 else "Pending"
-        
-        agent_total_amt += total_amt
-        agent_total_paid += paid
-        agent_total_balance += balance
-        
-        agent_data_rows.append([
-            mandi,
-            f"{target_qntl}",
-            f"{cutting_qntl}",
-            f"Rs.{base_rate}/Rs.{cutting_rate}",
-            f"Rs.{total_amt}",
-            f"Rs.{paid}",
-            f"Rs.{balance}",
-            status
-        ])
-    
-    if agent_data_rows:
-        agent_headers = ["Mandi", "Target", "Cutting", "Rates", "Total Amt", "Paid", "Balance", "Status"]
-        agent_table_data = [agent_headers] + agent_data_rows
-        agent_table_data.append(["TOTAL", "", "", "", f"Rs.{round(agent_total_amt, 2)}", f"Rs.{round(agent_total_paid, 2)}", f"Rs.{round(agent_total_balance, 2)}", ""])
-        
-        agent_table = Table(agent_table_data, colWidths=[30*mm, 20*mm, 20*mm, 30*mm, 25*mm, 22*mm, 22*mm, 18*mm])
-        agent_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 7),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ]))
-        elements.append(agent_table)
-    
-    elements.append(Spacer(1, 8*mm))
-    
-    # ============ GRAND TOTAL ============
-    elements.append(Paragraph("GRAND TOTAL", section_style))
-    
-    grand_total_amt = truck_total_net + agent_total_amt
-    grand_total_paid = truck_total_paid + agent_total_paid
-    grand_total_balance = truck_total_balance + agent_total_balance
-    
-    grand_data = [
-        ["", "Total Amount", "Paid", "Balance"],
-        ["Truck Payments", f"Rs.{round(truck_total_net, 2)}", f"Rs.{round(truck_total_paid, 2)}", f"Rs.{round(truck_total_balance, 2)}"],
-        ["Agent Payments", f"Rs.{round(agent_total_amt, 2)}", f"Rs.{round(agent_total_paid, 2)}", f"Rs.{round(agent_total_balance, 2)}"],
-        ["GRAND TOTAL", f"Rs.{round(grand_total_amt, 2)}", f"Rs.{round(grand_total_paid, 2)}", f"Rs.{round(grand_total_balance, 2)}"]
+        elements.append(at)
+    else:
+        elements.append(Paragraph("No agent payments", styles['Normal']))
+    elements.append(Spacer(1, 5*mm))
+
+    # ---- GRAND TOTAL ----
+    elements.append(Paragraph("5. GRAND TOTAL / कुल योग", sec))
+    ga = truck_total_net + agent_total_amt
+    gp = truck_total_paid + agent_total_paid
+    gb = truck_total_balance + agent_total_balance
+    gdata = [
+        ["Category", "Total Amount", "Paid", "Balance"],
+        ["Truck Payments", f"Rs.{round(truck_total_net):,}", f"Rs.{round(truck_total_paid):,}", f"Rs.{round(truck_total_balance):,}"],
+        ["Agent Payments", f"Rs.{round(agent_total_amt):,}", f"Rs.{round(agent_total_paid):,}", f"Rs.{round(agent_total_balance):,}"],
+        ["GRAND TOTAL", f"Rs.{round(ga):,}", f"Rs.{round(gp):,}", f"Rs.{round(gb):,}"],
     ]
-    
-    grand_table = Table(grand_data, colWidths=[50*mm, 40*mm, 40*mm, 40*mm])
-    grand_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#D97706')),
-        ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
+    gt = Table(gdata, colWidths=[40*mm, 35*mm, 35*mm, 35*mm])
+    gt.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+        ('BACKGROUND', (0, -1), (-1, -1), amber_bg), ('TEXTCOLOR', (0, -1), (-1, -1), hdr_fg),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
-    elements.append(grand_table)
-    
-    doc.build(elements)
-    buffer.seek(0)
-    
-    filename = f"summary_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-    return Response(
-        content=buffer.getvalue(),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
-    )
+    elements.append(gt)
+
+    # Footer
+    elements.append(Spacer(1, 10*mm))
+    elements.append(Paragraph(f"Generated by {company} Mill Entry System | {datetime.now().strftime('%d-%m-%Y %H:%M')}", ft))
+
+    doc.build(elements); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=summary_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"})
 
 
 @router.get("/export/truck-owner-excel")
