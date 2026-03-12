@@ -53,6 +53,13 @@ Comprehensive Mill Entry System (rice mill management) web + desktop app.
   - Fixed `/api/byproduct-stock` (milling.py) - now includes PV byproduct purchases
   - Dashboard shows "Purchase se kharida: + X Qntl" line in Rice Stock card
   - Low Stock Alert removed from Purchase Vouchers page (user request)
+- **PDF/Excel Exports Enhanced (12-Mar-2026):**
+  - Sale & Purchase PDFs: professional reportlab tables, A4 landscape fit, colorful headers, items in Qntl
+  - Sale & Purchase Excels: rewritten with ledger-based Paid/Balance, colorful formatting, A4 fit, items in Qntl
+  - All exports use ledger-based balance (Cash Book manual payments included)
+- **Paddy Stock PV Integration (12-Mar-2026):**
+  - `/api/paddy-stock` now includes Purchase Voucher paddy items (`pv_paddy_in_qntl`)
+  - Dashboard Paddy Stock card shows "Purchase se kharida" line when PV paddy exists
 
 ## Backlog
 - P1: Full regression test of all payment modules
