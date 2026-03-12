@@ -202,17 +202,31 @@ async def _create_sale_ledger_entries(d, doc_id, vno, items, username):
             "reference": f"sale_voucher_cash:{doc_id}", **base
         })
 
-    # 4. Diesel paid → Diesel Pump Ledger JAMA (we owe pump)
+    # 4. Diesel paid → Diesel Pump Ledger JAMA (we owe pump) + diesel_accounts entry
     if diesel > 0:
         pump_name = await _get_default_pump()
+        # Get pump_id
+        pump_doc = await db.diesel_accounts.find_one({"pump_name": pump_name}, {"_id": 0, "pump_id": 1})
+        pump_id = pump_doc.get("pump_id", "") if pump_doc else ""
         entries.append({
             "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
             "amount": diesel, "category": pump_name, "party_type": "Diesel",
             "description": f"Diesel for truck - Sale #{vno}{desc_suffix}",
             "reference": f"sale_voucher_diesel:{doc_id}", **base
         })
+        # Also create entry in diesel_accounts collection
+        diesel_entry = {
+            "id": str(uuid.uuid4()), "date": d.get('date', ''),
+            "pump_id": pump_id, "pump_name": pump_name,
+            "truck_no": truck, "agent_name": "",
+            "amount": diesel, "txn_type": "diesel",
+            "description": f"Diesel for Sale #{vno} - {truck}{desc_suffix}",
+            "reference": f"sale_voucher_diesel:{doc_id}",
+            **base
+        }
+        await db.diesel_accounts.insert_one(diesel_entry)
 
-    # 5. Truck payment (cash + diesel) → Truck Ledger JAMA (truck earned)
+    # 5. Truck payment (cash + diesel) → Truck Ledger + truck_payments entry
     truck_total = cash + diesel
     if truck_total > 0 and truck:
         entries.append({
@@ -221,13 +235,26 @@ async def _create_sale_ledger_entries(d, doc_id, vno, items, username):
             "description": f"Truck payment - Sale #{vno} (Cash:{cash} + Diesel:{diesel}){desc_suffix}",
             "reference": f"sale_voucher_truck:{doc_id}", **base
         })
-        # Truck Ledger NIKASI (paid via cash+diesel)
         entries.append({
             "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
             "amount": truck_total, "category": truck, "party_type": "Truck",
             "description": f"Truck paid (Cash:{cash} + Diesel:{diesel}) - Sale #{vno}{desc_suffix}",
             "reference": f"sale_voucher_truck:{doc_id}", **base
         })
+        # Also create entry in truck_payments collection
+        truck_entry = {
+            "entry_id": str(uuid.uuid4()),
+            "truck_no": truck, "date": d.get('date', ''),
+            "cash_taken": cash, "diesel_taken": diesel,
+            "gross_amount": truck_total, "deductions": 0,
+            "net_amount": truck_total, "paid_amount": truck_total,
+            "balance_amount": 0, "status": "paid",
+            "source": "Sale Book",
+            "description": f"Sale #{vno} - {party}{desc_suffix}",
+            "reference": f"sale_voucher_truck:{doc_id}",
+            **base
+        }
+        await db.truck_payments.insert_one(truck_entry)
 
     for entry in entries:
         await db.cash_transactions.insert_one(entry)
@@ -281,6 +308,8 @@ async def delete_sale_voucher(voucher_id: str, username: str = "", role: str = "
     if not existing: raise HTTPException(status_code=404, detail="Voucher not found")
     await db.sale_vouchers.delete_one({"id": voucher_id})
     await db.cash_transactions.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
+    await db.diesel_accounts.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
+    await db.truck_payments.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     return {"message": "Sale voucher deleted", "id": voucher_id}
 
 
@@ -316,6 +345,8 @@ async def update_sale_voucher(voucher_id: str, input: SaleVoucherCreate, usernam
     
     # Delete old entries and recreate
     await db.cash_transactions.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
+    await db.diesel_accounts.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
+    await db.truck_payments.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     vno = existing.get('voucher_no', 0)
     await _create_sale_ledger_entries(d, voucher_id, vno, items, username)
     

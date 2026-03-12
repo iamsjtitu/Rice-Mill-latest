@@ -188,6 +188,46 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
             source="Rice Sale"
         ))
 
+    # Also include Sale Book vouchers with truck_no
+    sb_query = dict(query)
+    sale_vouchers = await db.sale_vouchers.find(sb_query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(1000)
+    for sv in sale_vouchers:
+        truck_no = sv.get("truck_no", "")
+        if not truck_no:
+            continue
+        cash_paid = float(sv.get("cash_paid", 0) or 0)
+        diesel_paid = float(sv.get("diesel_paid", 0) or 0)
+        if cash_paid == 0 and diesel_paid == 0:
+            continue
+        deductions = round(cash_paid + diesel_paid, 2)
+        party = sv.get("party_name", "")
+        items_str = ', '.join(i.get('item_name', '') for i in sv.get('items', []))
+        inv = sv.get("invoice_no", "")
+        label = f"Sale #{sv.get('voucher_no', '')} - {party}"
+        if inv: label += f" ({inv})"
+        payments.append(TruckPaymentStatus(
+            entry_id=sv.get("id", ""),
+            truck_no=truck_no,
+            date=sv.get("date", ""),
+            total_qntl=0,
+            total_bag=0,
+            final_qntl=0,
+            cash_taken=cash_paid,
+            diesel_taken=diesel_paid,
+            rate_per_qntl=0,
+            gross_amount=deductions,
+            deductions=deductions,
+            net_amount=0,
+            paid_amount=deductions,
+            balance_amount=0,
+            status="paid",
+            kms_year=sv.get("kms_year", ""),
+            season=sv.get("season", ""),
+            agent_name="",
+            mandi_name=label,
+            source="Sale Book"
+        ))
+
     # Sort by date descending (newest first)
     payments.sort(key=lambda x: x.date, reverse=True)
     return payments
