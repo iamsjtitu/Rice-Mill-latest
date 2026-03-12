@@ -24,6 +24,7 @@ const categoryConfig = {
 export default function StockSummary({ filters }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterCategory, setFilterCategory] = useState("all");
 
   const fetchData = useCallback(async () => {
     try {
@@ -46,17 +47,20 @@ export default function StockSummary({ filters }) {
     downloadFile(`/api/stock-summary/export/${type}`, `stock_summary.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
+  const filteredItems = filterCategory === "all" ? items : items.filter(i => i.category === filterCategory);
+  const categories = [...new Set(items.map(i => i.category))];
+
   // Group by category
   const grouped = {};
-  items.forEach(item => {
+  filteredItems.forEach(item => {
     const cat = item.category || "Other";
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push(item);
   });
 
-  const totalAvail = items.reduce((s, i) => s + (i.available || 0), 0);
-  const totalIn = items.reduce((s, i) => s + (i.in_qty || 0), 0);
-  const totalOut = items.reduce((s, i) => s + (i.out_qty || 0), 0);
+  const totalAvail = filteredItems.reduce((s, i) => s + (i.available || 0), 0);
+  const totalIn = filteredItems.reduce((s, i) => s + (i.in_qty || 0), 0);
+  const totalOut = filteredItems.reduce((s, i) => s + (i.out_qty || 0), 0);
 
   return (
     <div className="space-y-4" data-testid="stock-summary-section">

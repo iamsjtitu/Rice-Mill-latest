@@ -1261,47 +1261,57 @@ async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str
 async def export_party_summary_excel(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None, view_type: Optional[str] = None):
     from io import BytesIO
     data = await _get_party_summary(kms_year, season, date_from, date_to, search, view_type)
-    cols = get_columns("party_summary_report")
-    ncols = col_count(cols)
-    headers = get_excel_headers(cols)
-    widths = get_excel_widths(cols)
+
+    branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
+    company = branding.get("company_name", "NAVKAR AGRO")
 
     wb = Workbook(); ws = wb.active; ws.title = "Party Summary"
-    hf = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
+    thin_s = Side(style='thin', color='CBD5E1')
+    tb = Border(left=thin_s, right=thin_s, top=thin_s, bottom=thin_s)
+    hfill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
     hfont = Font(bold=True, color="FFFFFF", size=9)
-    tf = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
-    title = "Party-wise Summary (Pvt Trading)"
-    if view_type == "paddy": title = "Paddy Purchase Summary"
-    elif view_type == "rice": title = "Rice Sale Summary"
-    if kms_year: title += f" | KMS: {kms_year}"
-    if season: title += f" | {season}"
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
-    ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14, color="D97706"); ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A1:E1')
+    ws['A1'] = f"{company} - Party Summary"
+    ws['A1'].font = Font(bold=True, size=14, color="D97706")
+    ws['A1'].alignment = Alignment(horizontal='center')
 
-    for col_idx, h in enumerate(headers, 1):
-        c = ws.cell(row=3, column=col_idx, value=h)
-        c.fill = hf; c.font = hfont; c.alignment = Alignment(horizontal='center'); c.border = tb
+    headers = ["Party", "Entries", "Amount", "Paid/Received", "Balance"]
+    widths_list = [25, 10, 18, 18, 18]
+    sections = [
+        ("Sale Vouchers", data.get("sale_vouchers", {}), PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid"), "10B981"),
+        ("Purchase Vouchers", data.get("purchase_vouchers", {}), PatternFill(start_color="EDE9FE", end_color="EDE9FE", fill_type="solid"), "8B5CF6"),
+        ("Paddy Purchase", data.get("paddy_purchase", {}), PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"), "D97706"),
+    ]
 
-    row = 4
-    for party in data["parties"]:
-        vals = get_entry_row(party, cols)
-        for col_idx, v in enumerate(vals, 1):
-            c = ws.cell(row=row, column=col_idx, value=v)
-            c.border = tb
-            if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
+    row = 3
+    for sec_name, sec_data, sec_fill, sec_color in sections:
+        parties = sec_data.get("parties", [])
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+        c = ws.cell(row=row, column=1, value=f"{sec_name} ({len(parties)} parties)")
+        c.font = Font(bold=True, size=11, color=sec_color); c.fill = sec_fill; c.border = tb
         row += 1
+        for ci, h in enumerate(headers, 1):
+            c = ws.cell(row=row, column=ci, value=h)
+            c.fill = hfill; c.font = hfont; c.alignment = Alignment(horizontal='center'); c.border = tb
+        row += 1
+        for p in parties:
+            vals = [p["party_name"], p.get("entries", 0), p.get("amount", 0), p.get("paid", 0), p.get("balance", 0)]
+            for ci, v in enumerate(vals, 1):
+                c = ws.cell(row=row, column=ci, value=v); c.border = tb
+                if ci >= 3: c.alignment = Alignment(horizontal='right')
+                if ci == 5: c.font = Font(bold=True, color="DC2626" if (v or 0) > 0 else "059669")
+            row += 1
+        tf = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
+        ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
+        ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
+        ws.cell(row=row, column=2, value=len(parties)).fill = tf; ws.cell(row=row, column=2).border = tb
+        for ci, key in [(3, "total_amount"), (4, "total_paid"), (5, "total_balance")]:
+            c = ws.cell(row=row, column=ci, value=sec_data.get(key, 0))
+            c.font = Font(bold=True); c.fill = tf; c.border = tb; c.alignment = Alignment(horizontal='right')
+        row += 2
 
-    total_vals = get_total_row(data["totals"], cols)
-    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
-    for col_idx, val in enumerate(total_vals, 1):
-        if val is not None:
-            c = ws.cell(row=row, column=col_idx, value=val)
-            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
-
-    for i, w in enumerate(widths, 1):
+    for i, w in enumerate(widths_list, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
@@ -1311,61 +1321,74 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
 
 @router.get("/private-trading/party-summary/pdf")
 async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None, view_type: Optional[str] = None):
-    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
-    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
     from io import BytesIO
 
     data = await _get_party_summary(kms_year, season, date_from, date_to, search, view_type)
-    cols = get_columns("party_summary_report")
-    headers = get_pdf_headers(cols)
-    col_widths = [w*mm for w in get_pdf_widths_mm(cols)]
+    branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
+    company = branding.get("company_name", "NAVKAR AGRO")
 
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=10*mm)
     elements = []; styles = getSampleStyleSheet()
 
-    title = "Party-wise Summary (Pvt Trading)"
-    if view_type == "paddy": title = "Paddy Purchase Summary"
-    elif view_type == "rice": title = "Rice Sale Summary"
-    if kms_year: title += f" | KMS: {kms_year}"
-    if season: title += f" | {season}"
-    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#D97706'), alignment=TA_CENTER)
-    elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
+    title = f"{company} - Party Summary"
+    if kms_year: title += f" | {kms_year}"
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#D97706'), alignment=TA_CENTER, spaceAfter=8)
+    elements.append(Paragraph(title, title_style))
 
-    table_data = [headers]
-    for party in data["parties"]:
-        table_data.append([str(v) for v in get_entry_row(party, cols)])
+    cell_s = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=8, leading=10)
+    cell_r = ParagraphStyle('CellR', parent=styles['Normal'], fontSize=8, leading=10, alignment=TA_RIGHT)
+    cell_b = ParagraphStyle('CellB', parent=styles['Normal'], fontSize=9, leading=11, alignment=TA_RIGHT)
+    col_widths = [55*mm, 18*mm, 35*mm, 35*mm, 35*mm]
 
-    total_vals = get_total_row(data["totals"], cols)
-    total_row = []
-    for i, val in enumerate(total_vals):
-        if i == 0: total_row.append("TOTAL")
-        elif val is not None: total_row.append(str(val))
-        else: total_row.append("")
-    table_data.append(total_row)
-
-    first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 3)
-    tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
-    style_cmds = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 7),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+    sections = [
+        ("Sale Vouchers", data.get("sale_vouchers", {}), colors.HexColor('#10B981')),
+        ("Purchase Vouchers", data.get("purchase_vouchers", {}), colors.HexColor('#8B5CF6')),
+        ("Paddy Purchase", data.get("paddy_purchase", {}), colors.HexColor('#D97706')),
     ]
-    for i in range(1, len(table_data) - 1):
-        if i % 2 == 0: style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F1F5F9')))
-    tbl.setStyle(TableStyle(style_cmds))
-    elements.append(tbl)
+
+    for sec_name, sec_data, sec_color in sections:
+        parties = sec_data.get("parties", [])
+        sec_style = ParagraphStyle('SecTitle', parent=styles['Normal'], fontSize=11, textColor=sec_color, spaceBefore=10, spaceAfter=4)
+        elements.append(Paragraph(f"<b>{sec_name}</b> ({len(parties)} parties)", sec_style))
+        table_data = [["Party", "Entries", "Amount", "Paid/Received", "Balance"]]
+        for p in parties:
+            table_data.append([
+                Paragraph(f"<b>{p['party_name']}</b>", cell_s),
+                Paragraph(str(p.get('entries', 0)), cell_r),
+                Paragraph(f"Rs.{(p.get('amount', 0)):,.0f}", cell_r),
+                Paragraph(f"Rs.{(p.get('paid', 0)):,.0f}", cell_r),
+                Paragraph(f"<b>Rs.{(p.get('balance', 0)):,.0f}</b>", cell_b),
+            ])
+        table_data.append([
+            Paragraph("<b>TOTAL</b>", cell_s), Paragraph(str(len(parties)), cell_r),
+            Paragraph(f"<b>Rs.{sec_data.get('total_amount', 0):,.0f}</b>", cell_b),
+            Paragraph(f"<b>Rs.{sec_data.get('total_paid', 0):,.0f}</b>", cell_b),
+            Paragraph(f"<b>Rs.{sec_data.get('total_balance', 0):,.0f}</b>", cell_b),
+        ])
+        tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#F1F5F9')),
+        ]
+        for i in range(1, len(table_data) - 1):
+            if i % 2 == 0: style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8FAFC')))
+        tbl.setStyle(TableStyle(style_cmds))
+        elements.append(tbl); elements.append(Spacer(1, 6))
+
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#999'), alignment=TA_CENTER, spaceBefore=12)
+    elements.append(Paragraph(f"{company} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", footer_style))
     doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=party_summary_{datetime.now().strftime('%Y%m%d')}.pdf"})
