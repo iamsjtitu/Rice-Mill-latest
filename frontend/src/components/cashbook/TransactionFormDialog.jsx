@@ -160,8 +160,8 @@ const TransactionFormDialog = ({
             {partyBalance && (
               <div className="mt-1 p-1.5 bg-amber-50 border border-amber-200 rounded text-[10px]" data-testid="cashbook-party-balance">
                 <span className="font-semibold text-amber-800">{form.category}:</span>
-                <span className="text-green-700 ml-2">In: Rs.{partyBalance.totalIn.toLocaleString('en-IN')}</span>
-                <span className="text-red-600 ml-2">Out: Rs.{partyBalance.totalOut.toLocaleString('en-IN')}</span>
+                <span className="text-green-700 ml-2">Jama: Rs.{partyBalance.totalIn.toLocaleString('en-IN')}</span>
+                <span className="text-red-600 ml-2">Nikasi: Rs.{partyBalance.totalOut.toLocaleString('en-IN')}</span>
                 <span className={`ml-2 font-bold ${partyBalance.balance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                   Balance: Rs.{partyBalance.balance.toLocaleString('en-IN')}
                 </span>

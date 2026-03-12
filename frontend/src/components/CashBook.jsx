@@ -237,7 +237,8 @@ const CashBook = ({ filters, user }) => {
 
   const getPartyBalance = (partyName) => {
     if (!partyName) return null;
-    const partyTxns = allTxns.filter(t => t.category && t.category.toLowerCase() === partyName.toLowerCase());
+    // Only count ledger entries for party balance (source of truth)
+    const partyTxns = allTxns.filter(t => t.category && t.category.toLowerCase() === partyName.toLowerCase() && t.account === 'ledger');
     if (partyTxns.length === 0) return null;
     const totalIn = partyTxns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
     const totalOut = partyTxns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
@@ -348,21 +349,18 @@ const CashBook = ({ filters, user }) => {
 
   return (
     <div className="space-y-4" data-testid="cash-book">
-      {/* Action Cards Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <button onClick={() => setIsBankMgmtOpen(true)} className="flex items-center gap-2 p-3 rounded-lg border-2 border-indigo-600/50 bg-indigo-900/20 hover:bg-indigo-900/40 transition-colors cursor-pointer" data-testid="bank-mgmt-btn">
-          <Landmark className="w-5 h-5 text-indigo-400" />
-          <span className="text-indigo-300 font-semibold text-sm">Bank Accounts</span>
-        </button>
-        <button onClick={openSvPayDialog} className="flex items-center gap-2 p-3 rounded-lg border-2 border-emerald-600/50 bg-emerald-900/20 hover:bg-emerald-900/40 transition-colors cursor-pointer" data-testid="sv-payment-btn">
-          <FileText className="w-5 h-5 text-emerald-400" />
-          <span className="text-emerald-300 font-semibold text-sm">Sale Voucher Payment</span>
-        </button>
-        <button onClick={openPvPayDialog} className="flex items-center gap-2 p-3 rounded-lg border-2 border-orange-600/50 bg-orange-900/20 hover:bg-orange-900/40 transition-colors cursor-pointer" data-testid="pv-payment-btn">
-          <FileText className="w-5 h-5 text-orange-400" />
-          <span className="text-orange-300 font-semibold text-sm">Purchase Voucher Payment</span>
-        </button>
-        <button onClick={async () => {
+      {/* Action Buttons Row */}
+      <div className="flex gap-2 flex-wrap">
+        <Button onClick={() => setIsBankMgmtOpen(true)} variant="outline" size="sm" className="border-indigo-600 text-indigo-400 hover:bg-indigo-900/30" data-testid="bank-mgmt-btn">
+          <Landmark className="w-3 h-3 mr-1" /> Bank Accounts
+        </Button>
+        <Button onClick={openSvPayDialog} variant="outline" size="sm" className="border-emerald-600 text-emerald-400 hover:bg-emerald-900/30" data-testid="sv-payment-btn">
+          <FileText className="w-3 h-3 mr-1" /> Sale Voucher Payment
+        </Button>
+        <Button onClick={openPvPayDialog} variant="outline" size="sm" className="border-orange-600 text-orange-400 hover:bg-orange-900/30" data-testid="pv-payment-btn">
+          <FileText className="w-3 h-3 mr-1" /> Purchase Voucher Payment
+        </Button>
+        <Button onClick={async () => {
           try {
             const res = await axios.get(`${API}/cash-book/opening-balance?kms_year=${filters.kms_year || CURRENT_KMS_YEAR}`);
             setObCash(String(res.data.cash || 0));
@@ -372,10 +370,9 @@ const CashBook = ({ filters, user }) => {
             setObBankDetails(merged);
             setIsObSettingsOpen(true);
           } catch { toast.error("Opening balance load failed"); }
-        }} className="flex items-center gap-2 p-3 rounded-lg border-2 border-purple-600/50 bg-purple-900/20 hover:bg-purple-900/40 transition-colors cursor-pointer" data-testid="ob-settings-btn">
-          <Wallet className="w-5 h-5 text-purple-400" />
-          <span className="text-purple-300 font-semibold text-sm">Set Opening Balance</span>
-        </button>
+        }} variant="outline" size="sm" className="border-purple-600 text-purple-400 hover:bg-purple-900/30" data-testid="ob-settings-btn">
+          <Wallet className="w-3 h-3 mr-1" /> Set Opening Balance
+        </Button>
       </div>
 
       <SummaryCards summary={summary} onNewTransaction={openNewTransaction} onExport={exportData} />
