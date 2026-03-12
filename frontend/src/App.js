@@ -49,12 +49,11 @@ import CashBook from "@/components/CashBook";
 import DCTracker from "@/components/DCTracker";
 import Reports from "@/components/Reports";
 import Ledgers from "@/components/Ledgers";
-import PrivateTrading from "@/components/PrivateTrading";
 import MillPartsStock from "@/components/MillPartsStock";
 import StaffManagement from "@/components/StaffManagement";
 import FYSummaryDashboard from "@/components/FYSummaryDashboard";
 import ExcelImport from "@/components/ExcelImport";
-import SaleBook from "@/components/SaleBook";
+import Vouchers from "@/components/Vouchers";
 import { PrintButton } from "@/components/PrintButton";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
@@ -668,11 +667,11 @@ function MainApp({ user, onLogout }) {
         setActiveTab("reports");
         toast.info("Reports (Alt+O)");
       }
-      // Alt + G: Go to Private Trading tab
+      // Alt + G: Go to Vouchers tab
       if (e.altKey && e.key === 'g') {
         e.preventDefault();
-        setActiveTab("private-trading");
-        toast.info("Private Trading (Alt+G)");
+        setActiveTab("vouchers");
+        toast.info("Vouchers (Alt+G)");
       }
       // Alt + K: Go to Mill Parts tab
       if (e.altKey && e.key === 'k') {
@@ -1122,7 +1121,7 @@ function MainApp({ user, onLogout }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+G</kbd>
-                    <span className="text-slate-300">Private Trading</span>
+                    <span className="text-slate-300">Vouchers</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+K</kbd>
@@ -1353,16 +1352,16 @@ function MainApp({ user, onLogout }) {
               Reports
             </Button>
             <Button
-              onClick={() => setActiveTab("private-trading")}
-              variant={activeTab === "private-trading" ? "default" : "ghost"}
+              onClick={() => setActiveTab("vouchers")}
+              variant={activeTab === "vouchers" ? "default" : "ghost"}
               size="sm"
-              className={activeTab === "private-trading" 
+              className={activeTab === "vouchers" 
                 ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
                 : "text-slate-300 hover:bg-slate-700"}
-              data-testid="tab-private-trading"
+              data-testid="tab-vouchers"
             >
-              <Wheat className="w-4 h-4 mr-1" />
-              Pvt Trading
+              <FileText className="w-4 h-4 mr-1" />
+              Vouchers
             </Button>
             <Button
               onClick={() => setActiveTab("mill-parts")}
@@ -1387,18 +1386,6 @@ function MainApp({ user, onLogout }) {
             >
               <UserCheck className="w-4 h-4 mr-1" />
               Staff
-            </Button>
-            <Button
-              onClick={() => setActiveTab("salebook")}
-              variant={activeTab === "salebook" ? "default" : "ghost"}
-              size="sm"
-              className={activeTab === "salebook" 
-                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
-                : "text-slate-300 hover:bg-slate-700"}
-              data-testid="tab-salebook"
-            >
-              <FileText className="w-4 h-4 mr-1" />
-              Sale Book
             </Button>
             <Button
               onClick={() => setActiveTab("fy-summary")}
@@ -2012,16 +1999,14 @@ function MainApp({ user, onLogout }) {
           <DCTracker filters={filters} user={user} />
         ) : activeTab === "reports" ? (
           <Reports filters={filters} user={user} />
-        ) : activeTab === "private-trading" ? (
-          <PrivateTrading filters={filters} user={user} onNavigate={(tab) => setActiveTab(tab)} />
+        ) : activeTab === "vouchers" ? (
+          <Vouchers filters={filters} user={user} onNavigate={(tab) => setActiveTab(tab)} />
         ) : activeTab === "mill-parts" ? (
           <MillPartsStock filters={filters} user={user} />
         ) : activeTab === "staff" ? (
           <StaffManagement filters={filters} user={user} />
         ) : activeTab === "fy-summary" ? (
           <FYSummaryDashboard filters={filters} user={user} />
-        ) : activeTab === "salebook" ? (
-          <SaleBook filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">
