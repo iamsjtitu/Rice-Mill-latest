@@ -1,63 +1,52 @@
 # Mill Entry System - PRD
 
-## Original Problem Statement
-NAVKAR AGRO Mill Entry System - Comprehensive rice mill management with paddy purchase tracking, milling, cash book, payments, ledgers, private trading, sale book (vouchers), GST settings, staff management.
+## Overview
+A comprehensive mill entry management system for NAVKAR AGRO, JOLKO, KESINGA. Handles milling, delivery challans, vouchers, payments, cash book, party ledgers, GST accounting, and reporting.
 
-## Core Architecture
-- **Frontend**: React (CRA) + Tailwind CSS + shadcn/ui
-- **Backend**: FastAPI (Python) + MongoDB
-- **Desktop**: Electron app wrapper
-- **Language**: Hindi (UI and user communication)
+## Core Features
+- **Entries**: Mill entries with full CRUD, paddy input/output tracking
+- **Dashboard & Targets**: Mandi-wise targets, filtered PDF export
+- **Milling (CMR)**: Custom Milling Register with stock tracking
+- **DC (Payments)**: Delivery Challans with deliveries, MSP payments, Gunny Bags
+- **Vouchers**: Sale Book, Purchase Vouchers with GST, payment recording
+- **Cash Book & Ledgers**: Cash/Bank transactions, Party Ledger, GST Ledger
+- **Reports**: PDF/Excel exports for all modules
+- **Settings**: Mill info, user management, Telegram notifications
 
-## Menu Order (Mar 2026)
-Entries → Dashboard & Targets → Milling (CMR) → DC (Payments) → Vouchers → Cash Book & Ledgers → Payments → Reports → Mill Parts → Staff → FY Summary → Settings
-
-## Implemented Features
-
-### Dashboard & Targets
-- Dropdown filter: All / Stock Only / individual Mandi names
-- PDF export with filter (stock, targets, specific mandi)
-- Summary Report PDF (complete overview)
-- Rice & Paddy stock cards
-- Mandi target progress bars with agent payment calculations
-
-### Vouchers Tab (5 sub-tabs)
-- Sale Vouchers: Tally-style, GST, ₹ payment, Print Invoice, Local Party sync
-- Purchase Vouchers: Custom items, auto accounting, ₹ payment, Local Party sync
-- Paddy Purchase: Weight calculations, payment tracking
-- Stock Summary: All stocks + Gunny Bags + category filter
-- Party Summary: 3 sections (Sale, Purchase, Paddy)
-
-### Gunny Bags (Enhanced)
-- Purchase form: Invoice No, Truck No, RST No, Party Name, separate CGST%/SGST%, Advance
-- Auto accounting: Party Ledger + Cash Book + Local Party
-- Stock Summary integration (Raw Material category)
-- Purchase Report: Party-wise with GST breakup (Excel + PDF)
-
-### Accounting Sync
-- ₹ Payment button on all vouchers (Sale/Purchase/Gunny)
-- Payment auto-creates: Cash Book + Party Ledger + Local Party entries
-- Voucher creation auto-creates Local Party entries
-- Cross-system sync from any payment source
-
-### Core Modules
-- Mill Entries, Milling (CMR), DC Payments, Cash Book & Ledgers
-- Payments (Truck, Agent, MSP, Gunny Bags), Reports
-- Mill Parts, Staff, FY Summary, Settings, GST
-
-## Key API Endpoints
-- `GET /api/export/dashboard-pdf?filter=<all|stock|mandi_name>` - Dashboard PDF with filter
-- `POST /api/voucher-payment` - Universal payment for any voucher
-- `GET /api/sale-book/invoice/{id}` - Sale invoice HTML
-- `GET /api/gunny-bags/purchase-report[/excel|/pdf]` - Purchase report with GST breakup
-- All standard CRUD endpoints
-
-## Credentials
-- Admin: admin / admin123 | Staff: staff / staff123
+## Key Collections (MongoDB)
+- `mill_entries`, `dc_entries`, `dc_deliveries`, `dc_msp_payments`
+- `sale_vouchers`, `purchase_vouchers`, `gunny_bags`
+- `cash_transactions`, `opening_balances`, `gst_opening_balances`
+- `bank_accounts`, `local_party_accounts`, `party_ledger`
+- `mandi_targets`, `settings`, `users`, `staff`
 
 ## Recent Changes (Mar 12, 2026)
 - Removed "Cash" from MSP Payment mode dropdown (govt only pays via bank)
-- Payment modes now: NEFT, RTGS, Cheque, DD
+- Added Custom Bank Accounts management (CRUD)
+- Added Opening Balance settings for Cash and per-bank separately
+- Per-bank balance breakdown cards in Cash Book summary
+- Bank Name dropdown in MSP Payment form (from bank_accounts)
+- **DC Delivery form enhanced**: Invoice No, RST No, Bags (Govt bags minus), Cash Paid (auto Cash Book entry), Diesel Paid (auto Truck payment entry)
+- **Delivery Invoice Print**: HTML invoice via GET /api/dc-deliveries/invoice/{id}
+- **GST Ledger**: Full IGST/SGST/CGST tracking with Opening Balance, auto credit from Purchase, auto debit from Sale
+- **Govt Bags Stock**: Tracking via /api/govt-bags/stock
 
-## Data Status
-- All data cleared for fresh user testing (Mar 2026)
+## Key API Endpoints
+- `GET /api/bank-accounts`, `POST /api/bank-accounts`, `DELETE /api/bank-accounts/{id}`
+- `PUT /api/cash-book/opening-balance` (cash + per-bank bank_details)
+- `GET /api/dc-deliveries/invoice/{id}` - Delivery invoice HTML
+- `GET /api/gst-ledger` - Compute GST ledger from vouchers
+- `GET/PUT /api/gst-ledger/opening-balance` - GST OB (IGST/SGST/CGST)
+- `GET /api/govt-bags/stock` - Govt bags stock summary
+- `POST /api/voucher-payment` - Universal payment for any voucher
+- `GET /api/sale-book/invoice/{id}` - Sale invoice HTML
+- All standard CRUD endpoints
+
+## Architecture
+- **Frontend**: React + Shadcn UI, dark theme
+- **Backend**: FastAPI + Motor (async MongoDB)
+- **Database**: MongoDB
+- **Reports**: ReportLab (PDF), OpenPyXL (Excel)
+
+## Backlog
+- P2: Refactor duplicated logic between Python backend and desktop-app Node.js backend
