@@ -144,20 +144,10 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
             }
             await db.cash_transactions.insert_one(ledger_entry)
 
-    # Auto-entry: Diesel Paid → Cash Book + Truck Ledger + Diesel Account
+    # Auto-entry: Diesel Paid → Truck Ledger + Diesel Account (NOT Cash Book - diesel is not cash)
     diesel_paid = d.get("diesel_paid", 0) or 0
     if diesel_paid > 0:
         diesel_desc = f"DC Delivery Diesel - {dc_num} | {vehicle}"
-        # Cash Book nikasi
-        diesel_entry = {
-            "id": str(uuid.uuid4()), "date": d["date"], "account": "cash", "txn_type": "nikasi",
-            "category": vehicle or f"Truck-{dc_num}", "party_type": "Diesel",
-            "description": diesel_desc,
-            "amount": round(diesel_paid, 2), "reference": f"delivery_diesel:{d['id'][:8]}",
-            "bank_name": "", "linked_entry_id": d["id"], **base
-        }
-        await db.cash_transactions.insert_one(diesel_entry)
-        diesel_entry.pop("_id", None)
         # Truck Ledger nikasi (so it shows in Truck Payments)
         if vehicle:
             ledger_diesel = {
