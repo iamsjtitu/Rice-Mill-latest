@@ -1,139 +1,155 @@
 <analysis>**original_problem_statement:**
-The user is enhancing their Mill Entry System with a focus on fixing critical accounting bugs and improving UI/UX. The key requests in this session included:
-1.  **Ledger Formatting:** Change quantity display from  to .
-2.  **UI Cleanup (Cash Book):** Remove the All option from the account filter and set the default to Ledger.
-3.  **UI Enhancement (Private Trading):** Convert the Party Summary's separate Paddy/Rice sections into a single filterable view (Dropdown: All/Paddy/Rice) and update PDF/Excel exports accordingly.
-4.  **Keyboard Navigation:** Fix party search dropdowns to support arrow keys and Enter for selection.
-5.  **Critical Accounting Bugs (System-Wide):** The user reported that payments were not being correctly recorded in the  (jama kharch). This was a recurring issue. The request was to perform a full audit of all payment types (Agent, Truck, Diesel, Local Party, Pvt Paddy, Rice Sale) and ensure that every payment correctly generates a  (debit) entry to reduce the party's balance.
-6.  **Data Integrity:** Create a migration script to fix historical transactions affected by the accounting bug.
-7.  **Feature - Stock Tracking:** Implement dashboard widgets to display current Paddy Stock and Rice Stock.
-8.  **Feature - Stock Visibility:** Show the available stock on the New Rice Sale and DC Add Delivery forms. The displayed stock should update in real-time as the user types a quantity.
-9.  **Bug - Manual Transactions:** Fix a critical, long-standing bug where manual transactions added via the Cash Book were not auto-detecting the  and, most importantly, were not creating the corresponding entry in the .
-10. **UI/UX - Badge Styling:** Improve the visibility and styling of Usna / Raw badges in both light and dark themes.
-11. **Final Request (In Progress):** In the milling/sale forms, the Rice Type dropdown should only show Usna and Raw, and the available stock displayed should correspond to the selected rice type.
+The user initiated a series of major feature requests and bug fixes for their Mill Entry System:
+1.  **UI/UX:**
+    *   In milling/sale forms, the Rice Type dropdown should only show Usna and Raw, with the available stock displayed corresponding to the selected rice type.
+    *   Add a  dropdown to the CashBook form for manual overrides.
+    *   Create a new Sale Book tab, inspired by Tally, to show all sellable stock and create sales vouchers.
+    *   The Sale Book form needs fields for , , , , , and GST calculations.
+    *   Add filters to the Sale Book list (Party Name, Invoice No, RST No).
+    *   Add PDF and Excel export functionality to the Sale Book, formatted for A4 paper.
+    *   Add Opening Balance functionality to both the Cash Book and the new Sale Book.
+    *   Restructure the main UI: Rename Sale Book to Vouchers, remove Private Trading and Rice Sale tabs, and move the Paddy Purchase and Party Summary features into the new Vouchers tab as sub-tabs.
+2.  **Critical Bugs & Accounting Logic:**
+    *   Fix a recurring, critical bug where manual cash transactions failed to auto-detect the , leaving it empty. The user requested a permanent solution.
+    *   When a sale is made through the new Sale Book, ensure all accounting entries are created correctly:
+        *    should be deducted from the main cash book.
+        *    must create an entry in the corresponding diesel pump's account.
+        *   The total payment ( + ) must be logged correctly in the truck's payment ledger as pending.
+        *    payments from the party must be reflected as a credit () in their ledger.
+        *   The sale amount must be reflected as a debit () in the party's ledger.
+    *   Fix a bug where truck payments originating from a Sale Book voucher could not have their rate set or be paid, throwing an Entry not found error.
+3.  **Integrations:**
+    *   Integrate by-product sales into the party ledger system, so selling a by-product automatically creates a ledger entry.
+    *   Implement system-wide GST settings (CGST, SGST, IGST) that can be configured and applied to sales.
 
 **User's preferred language**: Hindi
 
 **what currently exists?**
-The application's core accounting logic has been significantly hardened. All identified payment flows now correctly create  (debit) entries in the party ledger, resolving a major recurring bug. A migration endpoint exists to patch historical data. The dashboard now features live stock widgets for Paddy and Rice. Various forms (Rice Sale, DC Tracker) provide real-time stock visibility, which updates as the user types quantities. Multiple UI/UX improvements have been made, including fixing keyboard navigation, improving badge visibility in light/dark themes, and refining filters. The critical bug related to manual cash transactions has also been resolved; they now auto-detect party types and create linked ledger entries.
+The application has undergone significant changes. A major, recurring bug with  auto-detection has been permanently fixed, with a migration script to repair historical data. A new, full-featured Vouchers section (formerly Sale Book) has been created with a Tally-style interface for creating sales. This new module includes complex, multi-part accounting logic that creates linked entries across the Party Ledger, Cash Book, Diesel Accounts, and Truck Payments. It also supports GST calculations, invoice numbers, advances, PDF/Excel exports, and search filters. Opening balance functionality has been added to both the Cash Book and Vouchers. Numerous critical bugs related to the new accounting flows have been identified and resolved. The agent is currently in the middle of a major UI restructuring requested by the user.
 
 **Last working item**:
--   Last item agent was working: The user requested that in the forms where rice type is selected (like New Rice Sale), the Rice Type dropdown should only contain Usna and Raw, and the available stock shown should be specific to the selected type.
+-   Last item agent was working: The user requested a major UI overhaul. The agent is in the process of renaming the Sale Book tab to Vouchers and moving the Paddy Purchase and Party Summary functionalities from the old Private Trading tab into the new Vouchers tab as sub-tabs.
 -   Status: IN PROGRESS
 -   Agent Testing Done: N
--   Which testing method agent to use? screenshot tool. First, verify the New Rice Sale form: the dropdown should only have Usna and Raw. Second, select Usna and verify the stock shown matches the Usna stock. Third, select Raw and verify the stock updates to show Raw stock (which should be 0).
+-   Which testing method agent to use? screenshot tool. After the restructuring is complete, the agent needs to verify the new Vouchers tab exists and contains three sub-tabs: Sale Vouchers, Paddy Purchase, and Party Summary. The old Private Trading and Rice Sale tabs should be gone.
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Type-Specific Stock Display (P0)**
-    -   **Description:** The Rice Type dropdown in forms like New Rice Sale shows Other and the stock displayed is the total rice stock, not the stock for the selected type (Usna or Raw).
-    -   **Attempted fixes:** The agent created a backend endpoint  to provide the necessary data. The frontend implementation is pending.
+-   **Issue 1: Complete UI Restructuring (P0)**
+    -   **Description:** The UI needs to be refactored to match the user's new requirements: a single Vouchers tab containing Sale Vouchers, Paddy Purchase, and Party Summary.
+    -   **Attempted fixes:** The agent has started by creating a new  wrapper component and extracting the  and  components from  into new, separate files within .
     -   **Next debug checklist:**
-        -   Modify .
-        -   Update the  dropdown options to remove Other.
-        -   In , call the new  endpoint to get an object like .
-        -   Modify the state and JSX to display the stock corresponding to the currently selected  in the dropdown.
-        -   Ensure the live calculation subtracts from the correct stock type.
-    -   **Why fix this issue and what will be achieved with the fix?** To prevent users from selling a type of rice they don't have in stock and to provide accurate, context-aware stock information.
+        1.  In , import the , , and  components.
+        2.  Implement the sub-tab navigation logic within  to switch between the three components.
+        3.  In , replace the old Private Trading and Sale Book tabs with the new Vouchers tab that renders the  component.
+        4.  Ensure all props and state are passed correctly to the moved components (, ) to maintain their functionality.
+        5.  Thoroughly test all three sub-tabs after the move to ensure no regressions were introduced.
+    -   **Why fix this issue and what will be achieved with the fix?** This will consolidate related features under one logical menu, simplifying the UI as requested by the user.
     -   **Status:** IN PROGRESS
     -   **Is recurring issue?** N
     -   **Should Test frontend/backend/both after fix?** Frontend
     -   **Blocked on other issue:** None
 
 **In progress Task List**:
--   **Task 1: Complete Type-Specific Stock Feature (P0)**
-    -   **Where to resume:** The backend API is ready. The next step is to modify the frontend component  to consume the new API, update the dropdown, and display the stock dynamically based on the user's selection of Usna or Raw.
-    -   **What will be achieved with this?** The user will see accurate, real-time stock levels for the specific type of rice they are trying to sell.
+-   **Task 1: Complete UI Restructuring (P0)**
+    -   **Where to resume:** Resume work in  to build the tabbed interface, and then modify  to render the new structure.
+    -   **What will be achieved with this?** A cleaner, more organized UI that groups sales, purchases, and summaries together as per the user's request.
     -   **Status:** IN PROGRESS
     -   **Should Test frontend/backend/both after fix?** Frontend
     -   **Blocked on something:** None
 
 **Upcoming and Future Tasks**
+-   **Upcoming Tasks:**
+    -   P1: Implement the Purchase Vouchers sub-tab within the new Vouchers screen, as mentioned by the user but not yet started.
 -   **Future Tasks:**
-    -   P2: Refactor the duplicated business logic between the Python backend () and the Node.js backend (). Consolidating this logic would reduce maintenance overhead and prevent inconsistencies.
+    -   P2: Refactor the duplicated business logic between the Python backend () and the Node.js backend ().
 
 **Completed work in this session**
--   **Critical Bug Fix (System-Wide Accounting):** Audited and fixed all 6 major payment flows (Agent, Truck, Diesel, etc.) to ensure a  (debit) entry is always created in the  upon payment, permanently fixing the jama kharch issue.
--   **Critical Bug Fix (Manual Transactions):** Fixed a recurring issue where manual cash transactions failed to create ledger entries and auto-detect party types. The fix includes fuzzy name matching and automatic creation/update/deletion of linked ledger entries.
--   **Data Migration:** Created a safe, idempotent API endpoint () to repair historical data in the production database.
--   **Feature (Stock Management):** Added Paddy Stock and Rice Stock widgets to the dashboard and integrated live stock display (with real-time calculation) into the Rice Sale and DC Tracker forms.
--   **UI/UX Enhancements:**
-    -   Fixed keyboard navigation for party search dropdowns.
-    -   Improved visibility of Usna/Raw badges in both light and dark themes.
-    -   Refined the Party Summary in Private Trading with a filter dropdown (Paddy/Rice/All).
-    -   Cleaned up the Cash Book account filter, removing All and setting the default to Ledger.
--   **Backend Sync:** Added missing  endpoint to the Node.js backend for the desktop app.
+-   **Critical Bug Fix (Party Type):** Permanently fixed the recurring bug where manual cash transactions had an empty . The fix involved case-insensitive matching, a fallback to Cash Party, and a migration script () to repair old data.
+-   **Critical Bug Fix (Sale Book Accounting):** Implemented and then fixed complex accounting logic for the new Sale Book. A single sale now correctly generates up to 6 linked entries across  (sale & advance),  (cash payment),  (diesel payment), and .
+-   **Critical Bug Fix (Truck Payments):** Resolved an Entry not found error, allowing truck payments originating from Sale Book vouchers to be processed correctly from the Truck Payments page.
+-   **Feature (Vouchers/Sale Book):** Built a new Sale Book module (to be renamed Vouchers) from the ground up, featuring a Tally-style UI, stock overview, and a detailed sales form.
+-   **Feature (GST & Forms):** Added a system-wide GST settings page and integrated GST calculations into the sales voucher form. Added  and  fields.
+-   **Feature (Exports & Search):** Implemented PDF and Excel exports, along with party/invoice search filters for the Sale Book.
+-   **Feature (Opening Balance):** Added functionality to set an opening balance in both the Cash Book and the Sale Book.
+-   **Feature (Rice Stock UI):** Fixed the Rice Sale form to only show Usna and Raw rice types and display the correct stock for the selected type.
+-   **Integration (By-Products):** Integrated by-product sales into the party ledger system.
 
 **Earlier issues found/mentioned but not fixed**
 -   None.
 
 **Known issue recurrence from previous fork**
--   The core accounting issue of jama kharch nai hua (payments not reflecting in ledgers) was a recurring complaint from the previous fork and this session. It was addressed with a system-wide audit and fix across 6 payment flows and the manual transaction flow. The next agent should be aware of this as the application's most critical and sensitive area.
+-   The jama kharch (ledger accounting) bugs are a recurring theme. A critical bug where  and  amounts from the Sale Book were not reflecting in their respective modules recurred due to an incomplete initial fix. The agent performed a deeper root cause analysis and resolved it by ensuring entries were created in the correct, separate collections (, ) and that the relevant API endpoints read from all necessary sources. The next agent must be extremely careful with any accounting-related changes.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Jama/Nikasi Accounting:** The core principle of the app. A payment received ( entry) must be accompanied by a debt reduction ( entry). This was fixed system-wide.
--   **Transactional Integrity:** Manual cash transactions now automatically create a linked ledger entry, ensuring the two books (cash and party ledger) stay in sync. A  is used to link them.
--   **Idempotent Migrations:** A key strategy for safely fixing production data via a reusable API endpoint.
--   **Fuzzy String Matching:** Used in the manual transaction flow to correctly guess the  even with partial names (e.g., Titu matches Titu Fuels).
--   **Live UI Updates:** Using React state to provide instant feedback as a user types in a form field (e.g., live stock calculation).
--   **Light/Dark Theme CSS:** Using targeted CSS overrides to ensure UI components are styled correctly in both themes.
+-   **Multi-Collection Transactions:** A key learning was that different app modules rely on their own specific MongoDB collections (e.g., , , ). A single user action (like creating a sale) must create entries in *all* relevant collections to ensure data visibility across the entire app.
+-   **Centralized Lookup Logic:** Fixing the Entry not found error for truck payments required modifying a central helper function () to be aware of new data sources (). This is a key pattern for extensibility.
+-   **Stateful Accounting Logic:** The backend logic for creating a sale voucher is highly stateful and complex, involving creating up to 6 different database entries with interdependencies. This logic is concentrated in .
 
 **key DB schema**
--   ****: A new field  (String) was added to link a manual cash entry to its automatically generated  counterpart.
--   ****: Entries created automatically from the cash book are now marked with a field like  and linked back via a source transaction ID.
+-   ****: New collection to store all data from the Sale Book/Vouchers form, including , , items list, and payment details.
+-   ****: Entries originating from  now include a  field.
+-   ****: Entries originating from  now include a  field and use the party's name in the  field.
+-   ****: New collection to store  percentages.
 
 **changes in tech stack**
 -   None.
 
 **All files of reference**
+-    (Most critical backend file this session)
 -   
 -   
--   
--   
--   
--   
--   
--   
+-    (Site of upcoming major restructuring)
+-    (Core frontend component, to be part of )
+-    (Source for components being moved)
+-    (The new wrapper component being built)
 
 **Areas that need refactoring**:
--   The significant duplication of business logic between the Python backend () and the Node.js backend () remains a technical debt. Consolidating this logic is recommended for long-term maintainability.
+-   The primary task is the UI refactoring already in progress (moving components from  to ).
+-   The technical debt of duplicated logic between the Python and Node.js backends remains a future task.
 
 **key api endpoints**
--   **NEW:**
-    -   : Idempotent migration to fix historical payments lacking ledger entries.
-    -   : Retrieves aggregate rice stock.
-    -   : Retrieves aggregate paddy stock.
-    -   : Retrieves rice stock broken down by type (Usna, Raw).
+-   **NEW/HEAVILY MODIFIED:**
+    -   : Creates a new sale voucher and triggers all associated accounting entries.
+    -   : Edits an existing sale voucher.
+    -   : Retrieves sales with search/filter capabilities.
+    -   : Generates a PDF for a sale.
+    -   : Exports sales to Excel.
+    -   : Adds an opening balance to the party ledger.
+    -   , : Manage GST rates.
+    -   : One-time migration to fix .
 -   **MODIFIED:**
-    -   : Now auto-detects  and auto-creates a linked  entry.
-    -   : Now also deletes the linked  entry.
-    -   All payment endpoints (, , etc.) were updated to correctly create  entries in the .
+    -   : Now aggregates data from  in addition to other sources.
+    -   , : Now correctly handle payments for entries originating from the Sale Book.
 
 **Critical Info for New Agent**
 -   **Language:** You **MUST** communicate with the user in **Hindi**.
--   **Immediate Task:** You need to complete the feature for displaying type-specific rice stock. The user wants the Rice Type dropdown on forms (like New Rice Sale) to only show Usna and Raw, and the available stock display must update based on the selection. The backend endpoint  is already created. You need to implement the frontend logic in  and other relevant forms.
--   **Accounting is Critical:** A massive effort was just made to fix accounting logic across the entire application. Be extremely cautious when modifying any code related to payments, transactions, or ledgers (). The logic in  for creating linked ledger entries is the new standard.
+-   **Immediate Task:** Your first and only priority is to complete the UI restructuring. The user wants the Private Trading tab gone, replaced by a Vouchers tab with three sub-tabs: Sale Vouchers, Paddy Purchase, and Party Summary. The component extraction has begun; you need to assemble them into the new  component and update .
+-   **Accounting Caution:** The accounting logic, especially in , is extremely complex and was the source of multiple critical bugs. After the UI refactoring, you must perform thorough regression testing, as moving components can break state management or data fetching. Do not assume the accounting is stable until tested in the new UI structure.
 
 **documents and test reports created in this job**
--   None.
+-   /app/test_reports/iteration_1.json
+-   /app/test_reports/iteration_2.json
+-   /app/test_reports/iteration_3.json
+-   /app/test_reports/iteration_4.json
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Requested a system-wide audit and fix for all payment flows to ensure  is correct. - **STATUS: Completed**
-2.  **User:** Asked to run the migration script on the production database. - **STATUS: Completed** (endpoint provided)
-3.  **User:** Asked how rice stock is tracked. - **STATUS: Completed** (feature implemented)
-4.  **User:** Complained about badge styling (Usna badge). - **STATUS: Completed**
-5.  **User:** Complained badge text was not bold enough. - **STATUS: Completed**
-6.  **User:** Complained the badge was invisible in light theme. - **STATUS: Completed**
-7.  **User:** Requested to show available rice stock on the New Rice Sale form. - **STATUS: Completed**
-8.  **User:** Reported the live stock calculation wasn't working. - **STATUS: Completed** (re-implemented)
-9.  **User:** Reported a critical bug with manual cash transactions not creating ledger entries or party types. - **STATUS: Completed**
-10. **User (Latest):** The Rice Type dropdown should only contain Usna and Raw, and the stock display must be specific to the selected type. - **STATUS: IN PROGRESS**
+1.  **User:** My truck payments are showing as auto paid and the diesel account balance is wrong. Also, the party name is missing from the diesel entry. - **STATUS: Completed**
+2.  **User:** I'm getting an Entry not found error when trying to set the rate for a truck payment from a sale. - **STATUS: Completed**
+3.  **User:** Rename Sale Book to Vouchers. - **STATUS: In Progress**
+4.  **User:** Add sub-tabs for Sale Vouchers and Purchase Vouchers. - **STATUS: Partially In Progress** (Sale Vouchers exists, Purchase Vouchers is a future task).
+5.  **User:** Move the Paddy Purchase tab from Private Trading to be a sub-tab under Vouchers. - **STATUS: In Progress**
+6.  **User:** Also move Party Summary into the Vouchers tab. - **STATUS: In Progress**
+7.  **User:** Remove the Rice tab, it's redundant now. - **STATUS: In Progress** (Part of the restructuring).
+8.  **User:** Remove the Private Trading tab. - **STATUS: In Progress**
+9.  **User:**  (Keep Paddy Purchase as a separate tab, just move the same functionality here). - **STATUS: In Progress**
+10. **User:**  (Provide opening balance in both [Sale Book and Cash Book]). - **STATUS: Completed**
 
 **Project Health Check:**
--   **Broken:** None
+-   **Broken:** The frontend UI is currently in a broken state due to the in-progress restructuring.  and related components will not function correctly until the refactoring is complete.
 -   **Mocked:** None
 
 **3rd Party Integrations**
@@ -143,13 +159,13 @@ The application's core accounting logic has been significantly hardened. All ide
 -   Telegram API
 
 **Testing status**
--   **Testing agent used after significant changes:** NO
+-   **Testing agent used after significant changes:** YES
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None
--   **Known regressions:** A minor regression with live stock calculation was reported by the user and subsequently fixed.
+-   **Known regressions:** A major regression in accounting logic for the Sale Book was identified and fixed during this session. The risk of further regressions after the UI refactor is high.
 
 **Credentials to test flow:**
 -   **Admin:**  / 
 
 **What agent forgot to execute**
--   Nothing was forgotten; all user requests during the session were addressed. The agent was in the middle of the last request when the session ended.</analysis>
+-   The agent has not yet started implementing the Purchase Vouchers sub-tab requested by the user, as it's focused on the more immediate restructuring of existing components. This should be the next feature after the refactor is complete.</analysis>

@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://ledger-type-fix.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://milling-accounts.preview.emergentagent.com').rstrip('/')
 
 class TestPrintEndpoint:
     """CRITICAL: Test server-side print functionality for Electron compatibility"""
