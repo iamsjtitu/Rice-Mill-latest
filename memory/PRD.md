@@ -1,44 +1,79 @@
 # Mill Entry System - PRD
 
 ## Original Problem Statement
-A comprehensive Mill Entry System (NAVKAR AGRO) for rice mill operations - tracking paddy purchases, milling, rice sales, payments, diesel, truck logistics, and complete accounting (Cash Book / Ledger / Party Summary).
+NAVKAR AGRO Mill Entry System - A comprehensive rice mill management application with paddy purchase tracking, milling, cash book, payments, ledgers, private trading, sale book (vouchers), GST settings, staff management, and more.
 
 ## Core Architecture
-- **Frontend**: React (Port 3000) - Dark theme mill management dashboard
-- **Backend**: Python FastAPI (Port 8001) - `/app/backend/`
-- **Desktop**: Node.js Electron app - `/app/desktop-app/`
-- **Database**: MongoDB (test_database)
+- **Frontend**: React (CRA) + Tailwind CSS + shadcn/ui components
+- **Backend**: FastAPI (Python) + MongoDB
+- **Desktop**: Electron app wrapper
+- **Language**: Hindi (UI and user communication)
 
-## Sale Book Accounting Logic (CRITICAL)
-- **Cash Paid** = Cash given to truck driver → Cash NIKASI
-- **Diesel Paid** = Diesel from pump (default: Titu Fuels) → Diesel Pump JAMA
-- **Cash + Diesel** = Truck payment → Truck JAMA + Truck NIKASI
-- **Advance** = Payment received FROM party → Party NIKASI (reduces debt)
-- **Balance** = Total - Advance (NOT total - cash - diesel)
-- **Party Ledger** = Sale amount JAMA (party owes us)
+## User Personas
+- **Admin**: Full access to all features, settings, user management
+- **Operator**: Limited access, time-restricted editing (5 min window)
 
-## Key Features
-- All original features (Mill Entry, DC Tracker, Private Trading, Cash Book, etc.)
-- **Sale Book**: Tally-style with Invoice No, multi-items, GST, Advance, Truck, Search, PDF/Excel export
-- **GST Settings**: Configurable CGST/SGST/IGST
-- **Opening Balance**: Cash/Bank/Ledger in both CashBook and SaleBook
-- **CashBook Party Type Dropdown**: Manual override
-- **By-product → Party Ledger**: Auto entries with Sale Book stock deduction
+## What's Been Implemented
 
-## API Endpoints (Sale Book)
-- `GET/POST /api/sale-book` - List/Create with search filter
-- `PUT /api/sale-book/{id}` - Edit (recreates ledger entries)
-- `DELETE /api/sale-book/{id}` - Delete (cleans all linked entries)
-- `GET /api/sale-book/stock-items` - Available stock
-- `GET /api/sale-book/export/pdf` - A4 professional PDF
-- `GET /api/sale-book/export/excel` - A4 landscape Excel
-- `GET/PUT /api/gst-settings` - GST configuration
-- `GET/POST/DELETE /api/opening-balances` - Opening balances
+### Completed Features
+1. **Mill Entries** - CRUD with filters, bulk operations, Excel/PDF exports
+2. **Dashboard & Targets** - Mandi targets, KMS year tracking
+3. **Payments** - Truck payments, agent payments with rate setting
+4. **Milling (CMR)** - Milling tracker with by-product management
+5. **Cash Book / Ledgers** - Full cash book with party ledger, opening balance
+6. **DC & Payments** - DC tracker with truck payment management
+7. **Reports** - Various report generation
+8. **Vouchers** (formerly Sale Book + Pvt Trading) - Consolidated tab with:
+   - **Sale Vouchers**: Tally-style sales with GST, invoice numbers, PDF/Excel export, stock overview, multi-part accounting (party ledger, cash book, diesel accounts, truck payments)
+   - **Paddy Purchase**: Private paddy purchase with weight calculations, payment tracking, mark paid/undo
+   - **Party Summary**: Consolidated view of all parties with purchase/sale breakdown
+9. **Mill Parts** - Spare parts stock management
+10. **Staff Management** - Staff salary, attendance tracking
+11. **FY Summary** - Financial year summary dashboard
+12. **Settings** - Branding, GST settings, backup, Telegram bot, error logs
+13. **Opening Balance** - For both Cash Book and Sale Book
+14. **GST Integration** - System-wide CGST/SGST/IGST settings
+15. **By-product Ledger Integration** - Auto ledger entries on by-product sales
+
+### Critical Bug Fixes Applied
+- Party type auto-detection fix (permanent, with migration script)
+- Sale Book multi-collection accounting (party ledger + cash + diesel + truck payments)
+- Truck payment "Entry not found" fix for Sale Book vouchers
+
+### UI Restructuring (Feb 2026)
+- "Sale Book" tab renamed and moved into "Vouchers"
+- "Pvt Trading" tab removed, content moved into "Vouchers" sub-tabs
+- "Rice Sale" tab removed (was inside Pvt Trading)
+- New unified "Vouchers" tab with 3 sub-tabs
+
+## Key Database Collections
+- `entries` - Main mill entries
+- `cash_transactions` - Cash book entries
+- `party_ledger` - Party wise ledger
+- `sale_vouchers` - Sale book vouchers
+- `truck_payments` - Truck payment records
+- `diesel_accounts` - Diesel payment records
+- `gst_settings` - GST configuration
+- `private_paddy` - Private paddy purchases
+- `rice_sales` - Rice sale entries
+- `private_payments` - Private trading payments
+
+## Prioritized Backlog
+
+### P1 - Upcoming
+- Purchase Vouchers sub-tab within Vouchers section
+
+### P2 - Future
+- Refactor duplicated logic between Python backend and Node.js desktop backend
+- Code cleanup of old PrivateTrading.jsx (now only used for RiceSale sub-component reference)
+
+## Tech Stack
+- React 18 + Tailwind CSS + shadcn/ui
+- FastAPI + Motor (async MongoDB)
+- Electron (desktop)
+- reportlab/openpyxl (PDF/Excel in Python)
+- pdfkit/exceljs (PDF/Excel in Node.js)
+- Telegram Bot API
 
 ## Credentials
 - Admin: admin / admin123
-
-## Backlog
-- P2: Desktop app sync for Sale Book routes
-- P2: GST fields in existing forms (Rice Sale, Paddy Purchase)
-- P3: Consolidate Python/Node.js backend duplicate logic
