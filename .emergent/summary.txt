@@ -1,171 +1,170 @@
 <analysis>**original_problem_statement:**
-The user initiated a series of major feature requests and bug fixes for their Mill Entry System:
-1.  **UI/UX:**
-    *   In milling/sale forms, the Rice Type dropdown should only show Usna and Raw, with the available stock displayed corresponding to the selected rice type.
-    *   Add a  dropdown to the CashBook form for manual overrides.
-    *   Create a new Sale Book tab, inspired by Tally, to show all sellable stock and create sales vouchers.
-    *   The Sale Book form needs fields for , , , , , and GST calculations.
-    *   Add filters to the Sale Book list (Party Name, Invoice No, RST No).
-    *   Add PDF and Excel export functionality to the Sale Book, formatted for A4 paper.
-    *   Add Opening Balance functionality to both the Cash Book and the new Sale Book.
-    *   Restructure the main UI: Rename Sale Book to Vouchers, remove Private Trading and Rice Sale tabs, and move the Paddy Purchase and Party Summary features into the new Vouchers tab as sub-tabs.
-2.  **Critical Bugs & Accounting Logic:**
-    *   Fix a recurring, critical bug where manual cash transactions failed to auto-detect the , leaving it empty. The user requested a permanent solution.
-    *   When a sale is made through the new Sale Book, ensure all accounting entries are created correctly:
-        *    should be deducted from the main cash book.
-        *    must create an entry in the corresponding diesel pump's account.
-        *   The total payment ( + ) must be logged correctly in the truck's payment ledger as pending.
-        *    payments from the party must be reflected as a credit () in their ledger.
-        *   The sale amount must be reflected as a debit () in the party's ledger.
-    *   Fix a bug where truck payments originating from a Sale Book voucher could not have their rate set or be paid, throwing an Entry not found error.
-3.  **Integrations:**
-    *   Integrate by-product sales into the party ledger system, so selling a by-product automatically creates a ledger entry.
-    *   Implement system-wide GST settings (CGST, SGST, IGST) that can be configured and applied to sales.
+The user wants to synchronize all features from the web application to the standalone desktop application. This includes ensuring every new feature and bug fix implemented in the web version is fully functional in the desktop app, which uses its own local database.
+
+The features to be synced are:
+1.  **MSP Payments:** The Cash payment option should be removed.
+2.  **Account Management:**
+    *   Ability to create custom bank accounts (e.g., Bank of Baroda).
+    *   Functionality to set separate opening balances for cash and each custom bank account.
+3.  **Vouchers & Forms:**
+    *   The Bank Name field in the MSP Payment form must be a dropdown populated with the custom bank accounts.
+    *   The Delivery (DC) form must include new fields: , , ,  (for govt. bags), , , , and .
+    *   The Sale and Purchase voucher forms must include an  field.
+4.  **Automation & Ledgers:**
+    *    and  from the DC form must create automatic entries in the Cash Book.
+    *   The  field in the DC form must deduct from the Govt Bags stock.
+    *   A complete GST Ledger system with opening balance functionality and transaction tracking.
+5.  **Reporting & UI:**
+    *   An Invoice Print option for deliveries.
+    *   All PDF and Excel exports must be updated to include the new fields and fix rendering issues (e.g., '₹' symbol, column widths).
+    *   The layout of the DC/Delivery table must be fixed.
+6.  **Data & Bug Fixes:**
+    *   Deleting a DC Delivery must also delete its associated auto-generated cash book entries.
+    *   A delete all data function must be available.
+    *   Users should be able to manually type a custom Party Type in voucher forms.
 
 **User's preferred language**: Hindi
 
 **what currently exists?**
-The application has undergone significant changes. A major, recurring bug with  auto-detection has been permanently fixed, with a migration script to repair historical data. A new, full-featured Vouchers section (formerly Sale Book) has been created with a Tally-style interface for creating sales. This new module includes complex, multi-part accounting logic that creates linked entries across the Party Ledger, Cash Book, Diesel Accounts, and Truck Payments. It also supports GST calculations, invoice numbers, advances, PDF/Excel exports, and search filters. Opening balance functionality has been added to both the Cash Book and Vouchers. Numerous critical bugs related to the new accounting flows have been identified and resolved. The agent is currently in the middle of a major UI restructuring requested by the user.
+The web application is stable and all the user's requested features and bug fixes have been implemented and tested successfully. This includes a complete bank account and GST ledger management system, enhanced DC/Delivery forms with automated accounting entries, and updated reports.
+
+The agent had started the major task of porting all these new features to the standalone . The frontend was rebuilt and copied, and the main Node.js file () was updated to prepare for the new backend routes. The creation of these new route files is currently in progress.
 
 **Last working item**:
--   Last item agent was working: The user requested a major UI overhaul. The agent is in the process of renaming the Sale Book tab to Vouchers and moving the Paddy Purchase and Party Summary functionalities from the old Private Trading tab into the new Vouchers tab as sub-tabs.
+-   Last item agent was working: Syncing all new web application features to the standalone desktop application by creating the necessary Node.js/Express backend routes. The agent was in the middle of writing the JavaScript code for these new routes.
 -   Status: IN PROGRESS
 -   Agent Testing Done: N
--   Which testing method agent to use? screenshot tool. After the restructuring is complete, the agent needs to verify the new Vouchers tab exists and contains three sub-tabs: Sale Vouchers, Paddy Purchase, and Party Summary. The old Private Trading and Rice Sale tabs should be gone.
+-   Which testing method agent to use? Manual testing. After the sync is complete, the agent needs to build the desktop application (yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.) and run the executable to manually verify that every feature works correctly, as automated testing agents cannot operate on the built desktop app.
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Complete UI Restructuring (P0)**
-    -   **Description:** The UI needs to be refactored to match the user's new requirements: a single Vouchers tab containing Sale Vouchers, Paddy Purchase, and Party Summary.
-    -   **Attempted fixes:** The agent has started by creating a new  wrapper component and extracting the  and  components from  into new, separate files within .
-    -   **Next debug checklist:**
-        1.  In , import the , , and  components.
-        2.  Implement the sub-tab navigation logic within  to switch between the three components.
-        3.  In , replace the old Private Trading and Sale Book tabs with the new Vouchers tab that renders the  component.
-        4.  Ensure all props and state are passed correctly to the moved components (, ) to maintain their functionality.
-        5.  Thoroughly test all three sub-tabs after the move to ensure no regressions were introduced.
-    -   **Why fix this issue and what will be achieved with the fix?** This will consolidate related features under one logical menu, simplifying the UI as requested by the user.
-    -   **Status:** IN PROGRESS
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Frontend
-    -   **Blocked on other issue:** None
+-   There are no pending issues. The sole focus is completing the In progress Task.
 
 **In progress Task List**:
--   **Task 1: Complete UI Restructuring (P0)**
-    -   **Where to resume:** Resume work in  to build the tabbed interface, and then modify  to render the new structure.
-    -   **What will be achieved with this?** A cleaner, more organized UI that groups sales, purchases, and summaries together as per the user's request.
-    -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** Frontend
-    -   **Blocked on something:** None
+-   Task 1: Complete the Sync of Web App Features to the Desktop App (P0)
+
+ Task Detail:
+  - Task 1: 
+     - Where to resume: Continue creating and completing the new Node.js route files in the  directory. The agent had started creating , , , and . The following steps are needed:
+        1.  Create  to handle all GST-related logic.
+        2.  Complete the logic for all started route files, translating the Python/FastAPI logic to Node.js/Express.
+        3.  Update the existing  to handle the new fields in the Delivery form (, , etc.) and the automated creation of cash/diesel entries.
+        4.  Update other existing route files (e.g., for reports) to reflect the new data schemas.
+     - What will be achieved with this? The desktop application will have full feature parity with the web application, operating on its own local database.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix? Both. This requires a full manual test of the built desktop application.
+     - Blocked on something: No.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   P1: Implement the Purchase Vouchers sub-tab within the new Vouchers screen, as mentioned by the user but not yet started.
+    -   P0: Complete the Desktop App sync and perform a full manual test.
 -   **Future Tasks:**
-    -   P2: Refactor the duplicated business logic between the Python backend () and the Node.js backend ().
+    -   P2: Refactor the duplicated business logic between the Python backend () and the Node.js backend () to create a single source of truth.
 
 **Completed work in this session**
--   **Critical Bug Fix (Party Type):** Permanently fixed the recurring bug where manual cash transactions had an empty . The fix involved case-insensitive matching, a fallback to Cash Party, and a migration script () to repair old data.
--   **Critical Bug Fix (Sale Book Accounting):** Implemented and then fixed complex accounting logic for the new Sale Book. A single sale now correctly generates up to 6 linked entries across  (sale & advance),  (cash payment),  (diesel payment), and .
--   **Critical Bug Fix (Truck Payments):** Resolved an Entry not found error, allowing truck payments originating from Sale Book vouchers to be processed correctly from the Truck Payments page.
--   **Feature (Vouchers/Sale Book):** Built a new Sale Book module (to be renamed Vouchers) from the ground up, featuring a Tally-style UI, stock overview, and a detailed sales form.
--   **Feature (GST & Forms):** Added a system-wide GST settings page and integrated GST calculations into the sales voucher form. Added  and  fields.
--   **Feature (Exports & Search):** Implemented PDF and Excel exports, along with party/invoice search filters for the Sale Book.
--   **Feature (Opening Balance):** Added functionality to set an opening balance in both the Cash Book and the Sale Book.
--   **Feature (Rice Stock UI):** Fixed the Rice Sale form to only show Usna and Raw rice types and display the correct stock for the selected type.
--   **Integration (By-Products):** Integrated by-product sales into the party ledger system.
+-   **Feature (Account Management):** Implemented a full system for creating custom bank accounts and setting opening balances for cash and each bank.
+-   **Feature (GST Ledger):** Built a complete GST ledger with opening balance management and transaction history.
+-   **Feature (DC/Delivery Enhancements):** Added numerous fields (, , , etc.) and automated accounting entries for cash, diesel, and bags to the delivery form.
+-   **Feature (Voucher Enhancements):** Added  to Sale and Purchase vouchers.
+-   **Feature (Data Management):** Re-implemented a  API endpoint.
+-   **Bug Fix (Reports):** Fixed rendering of '₹' symbols and text truncation in all PDF/Excel exports and updated them with new fields.
+-   **Bug Fix (UI):** Corrected the layout of the DC/Delivery table and removed the Cash option from MSP payments.
+-   **Bug Fix (Data Integrity):** Ensured deleting a DC delivery correctly removes its associated cash book entries.
+-   **UX Improvement:** Added an option for users to manually type a custom party type.
 
 **Earlier issues found/mentioned but not fixed**
 -   None.
 
 **Known issue recurrence from previous fork**
--   The jama kharch (ledger accounting) bugs are a recurring theme. A critical bug where  and  amounts from the Sale Book were not reflecting in their respective modules recurred due to an incomplete initial fix. The agent performed a deeper root cause analysis and resolved it by ensuring entries were created in the correct, separate collections (, ) and that the relevant API endpoints read from all necessary sources. The next agent must be extremely careful with any accounting-related changes.
+-   None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Multi-Collection Transactions:** A key learning was that different app modules rely on their own specific MongoDB collections (e.g., , , ). A single user action (like creating a sale) must create entries in *all* relevant collections to ensure data visibility across the entire app.
--   **Centralized Lookup Logic:** Fixing the Entry not found error for truck payments required modifying a central helper function () to be aware of new data sources (). This is a key pattern for extensibility.
--   **Stateful Accounting Logic:** The backend logic for creating a sale voucher is highly stateful and complex, involving creating up to 6 different database entries with interdependencies. This logic is concentrated in .
+-   **Feature Parity Sync:** The core ongoing task involves translating business logic from the Python/FastAPI web backend to the Node.js/Express desktop backend, which uses a NeDB file-based database.
+-   **Component-Based UI:** New features like the GST Ledger were built as modular React components () and integrated into existing pages () to maintain a clean structure.
+-   **Cascading Logic:** Backend logic was implemented to handle cascading effects, such as deleting associated cash book transactions when a parent delivery record is deleted.
 
 **key DB schema**
--   ****: New collection to store all data from the Sale Book/Vouchers form, including , , items list, and payment details.
--   ****: Entries originating from  now include a  field.
--   ****: Entries originating from  now include a  field and use the party's name in the  field.
--   ****: New collection to store  percentages.
+-   ****: Added , , , , , , , .
+-   ****: Added .
+-   ****: Added .
+-   ** (NEW)**: Stores .
+-   ** (NEW)**: Stores GST transactions with fields like Thu Mar 12 11:09:47 UTC 2026, , , , .
+-   ****: Modified to store balances for  and a  array for each bank.
 
 **changes in tech stack**
 -   None.
 
 **All files of reference**
--    (Most critical backend file this session)
--   
--   
--    (Site of upcoming major restructuring)
--    (Core frontend component, to be part of )
--    (Source for components being moved)
--    (The new wrapper component being built)
+-    (Core file for the desktop app sync task)
+-    (Directory where all new Node.js route files must be created/completed)
+-    (Reference for logic to be ported for deliveries)
+-    (Reference for GST logic)
+-    (Reference for Bank Account logic)
+-    (Frontend UI for the enhanced delivery form)
+-    (Main UI hub for Cash, Bank, and GST features)
 
 **Areas that need refactoring**:
--   The primary task is the UI refactoring already in progress (moving components from  to ).
--   The technical debt of duplicated logic between the Python and Node.js backends remains a future task.
+-   The duplication of logic between the Python and Node.js backends is a known issue for future refactoring.
 
 **key api endpoints**
--   **NEW/HEAVILY MODIFIED:**
-    -   : Creates a new sale voucher and triggers all associated accounting entries.
-    -   : Edits an existing sale voucher.
-    -   : Retrieves sales with search/filter capabilities.
-    -   : Generates a PDF for a sale.
-    -   : Exports sales to Excel.
-    -   : Adds an opening balance to the party ledger.
-    -   , : Manage GST rates.
-    -   : One-time migration to fix .
--   **MODIFIED:**
-    -   : Now aggregates data from  in addition to other sources.
-    -   , : Now correctly handle payments for entries originating from the Sale Book.
+-   **NEW (Web App):**
+    -   : Full CRUD for bank accounts.
+    -   : GET and POST endpoints for the GST ledger and its opening balance.
+    -   : Generates a delivery invoice.
+-   **MODIFIED (Web App):**
+    -   : Now processes many new fields and creates automated sub-entries.
+    -   : Now performs cascading deletes.
+    -   : Supports per-bank balances.
+    -   , : Now accept .
+    -   : Re-implemented for data clearing.
 
 **Critical Info for New Agent**
 -   **Language:** You **MUST** communicate with the user in **Hindi**.
--   **Immediate Task:** Your first and only priority is to complete the UI restructuring. The user wants the Private Trading tab gone, replaced by a Vouchers tab with three sub-tabs: Sale Vouchers, Paddy Purchase, and Party Summary. The component extraction has begun; you need to assemble them into the new  component and update .
--   **Accounting Caution:** The accounting logic, especially in , is extremely complex and was the source of multiple critical bugs. After the UI refactoring, you must perform thorough regression testing, as moving components can break state management or data fetching. Do not assume the accounting is stable until tested in the new UI structure.
+-   **Priority Task:** The immediate and only priority is to **complete the synchronization of features to the **. This is a large, partially completed task. You must create/complete all the necessary Node.js route files in  to mirror the web app's functionality.
+-   **Desktop App Context:** The desktop app uses a Node.js/Express backend with NeDB (a file-based database). All Python logic from  must be manually translated into JavaScript for the corresponding files in .
+-   **Testing:** Once the sync is complete, you must build the desktop app (yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.) and manually test every feature to ensure it works as expected.
 
 **documents and test reports created in this job**
--   /app/test_reports/iteration_1.json
--   /app/test_reports/iteration_2.json
--   /app/test_reports/iteration_3.json
--   /app/test_reports/iteration_4.json
+-    (Updated)
+-   
+-   
+-   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** My truck payments are showing as auto paid and the diesel account balance is wrong. Also, the party name is missing from the diesel entry. - **STATUS: Completed**
-2.  **User:** I'm getting an Entry not found error when trying to set the rate for a truck payment from a sale. - **STATUS: Completed**
-3.  **User:** Rename Sale Book to Vouchers. - **STATUS: In Progress**
-4.  **User:** Add sub-tabs for Sale Vouchers and Purchase Vouchers. - **STATUS: Partially In Progress** (Sale Vouchers exists, Purchase Vouchers is a future task).
-5.  **User:** Move the Paddy Purchase tab from Private Trading to be a sub-tab under Vouchers. - **STATUS: In Progress**
-6.  **User:** Also move Party Summary into the Vouchers tab. - **STATUS: In Progress**
-7.  **User:** Remove the Rice tab, it's redundant now. - **STATUS: In Progress** (Part of the restructuring).
-8.  **User:** Remove the Private Trading tab. - **STATUS: In Progress**
-9.  **User:**  (Keep Paddy Purchase as a separate tab, just move the same functionality here). - **STATUS: In Progress**
-10. **User:**  (Provide opening balance in both [Sale Book and Cash Book]). - **STATUS: Completed**
+1.  **User:** Tab tak tum saara naya codes...desktop software mai ana chahiye (Sync all new code to the desktop software). **Status: In Progress**.
+2.  **User:** Clarified the desktop app needs to be standalone with 100% feature parity. **Status: Acknowledged**.
+3.  **User:** Reported 3 issues: DC delete bug, missing manual party type, and requested a data wipe. **Status: Completed**.
+4.  **User:** Requested GST and E-way bill fields for Delivery, Sale, and Purchase forms. **Status: Completed**.
+5.  **User:** Requested several new fields and automations for the Delivery form. **Status: Completed**.
+6.  **User:** Confirmed understanding of how Govt. Bags stock should work. **Status: Completed**.
+7.  **User:** iska table thik karo... (Fix the table layout). **Status: Completed**.
+8.  **User:** pdf and excel bhi update kardo... (Update the PDF and Excel exports). **Status: Completed**.
+9.  **User:** iska pdf and excel thik karo (Fix the PDF and Excel exports for another feature). **Status: Completed**.
+10. **User:** ismai bank name aana chahiye apne aap (The bank name should be an automatic dropdown). **Status: Completed**.
 
 **Project Health Check:**
--   **Broken:** The frontend UI is currently in a broken state due to the in-progress restructuring.  and related components will not function correctly until the refactoring is complete.
--   **Mocked:** None
+-   **Broken:** The  is currently non-functional and incomplete because the feature synchronization is in progress. The web application is stable.
+-   **Mocked:** None.
 
 **3rd Party Integrations**
 -   electron-builder / electron-updater
--   pdfkit / exceljs (Node.js)
--   reportlab / openpyxl (Python)
+-   reportlab / openpyxl (Python backend for reports)
+-   pdfkit / exceljs (Node.js backend for reports)
 -   Telegram API
 
 **Testing status**
--   **Testing agent used after significant changes:** YES
+-   **Testing agent used after significant changes:** YES, for all web application changes. All tests passed.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None
--   **Known regressions:** A major regression in accounting logic for the Sale Book was identified and fixed during this session. The risk of further regressions after the UI refactor is high.
+-   **Known regressions:** None in the web application. The desktop app is currently in a broken state.
 
 **Credentials to test flow:**
 -   **Admin:**  / 
 
 **What agent forgot to execute**
--   The agent has not yet started implementing the Purchase Vouchers sub-tab requested by the user, as it's focused on the more immediate restructuring of existing components. This should be the next feature after the refactor is complete.</analysis>
+-   The agent did not forget anything but was in the middle of the large, multi-step task of syncing features to the desktop application when the session ended. This task needs to be completed.</analysis>

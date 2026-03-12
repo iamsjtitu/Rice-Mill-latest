@@ -11,7 +11,7 @@ import requests
 import os
 from pathlib import Path
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://mill-entry-portal.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://desktop-sync-2.preview.emergentagent.com').rstrip('/')
 
 class TestPartyReport:
     """Tests for GET /api/local-party/report/{party_name} endpoint"""

@@ -132,7 +132,14 @@ class JsonDatabase {
       mandi_targets: [],
       truck_payments: [],
       agent_payments: [],
-      milling_entries: []
+      milling_entries: [],
+      bank_accounts: [],
+      gst_opening_balances: {},
+      sale_vouchers: [],
+      purchase_vouchers: [],
+      local_party_accounts: [],
+      voucher_payments: [],
+      stock_summary: []
     };
   }
 
@@ -826,9 +833,32 @@ function createApiServer(database) {
       require('./routes/import_excel')(database),
       require('./routes/fy_summary')(database),
       require('./routes/telegram')(database),
+      require('./routes/bank_accounts')(database),
+      require('./routes/gst_ledger')(database),
+      require('./routes/voucher_payments')(database),
+      require('./routes/salebook')(database),
+      require('./routes/purchase_vouchers')(database),
     ];
     routeModules.forEach(r => apiApp.use(r));
     console.log('[Routes] All modular routes loaded successfully');
+
+    // Delete all data endpoint
+    apiApp.post('/api/delete-all-data', safeAsync(async (req, res) => {
+      const collections = ['entries', 'dc_entries', 'dc_deliveries', 'dc_msp_payments',
+        'sale_vouchers', 'purchase_vouchers', 'gunny_bags', 'cash_transactions',
+        'opening_balances', 'gst_opening_balances', 'local_party_accounts', 'party_ledger',
+        'mandi_targets', 'voucher_payments', 'stock_summary', 'truck_payments', 'agent_payments',
+        'milling_entries', 'diesel_accounts'];
+      const deleted = {};
+      for (const col of collections) {
+        const count = (database.data[col] || []).length || 0;
+        if (Array.isArray(database.data[col])) database.data[col] = [];
+        else if (typeof database.data[col] === 'object') database.data[col] = {};
+        deleted[col] = count;
+      }
+      database.save();
+      res.json({ message: 'All data cleared', deleted });
+    }));
   } catch (e) {
     console.error('[Routes] Error loading modules:', e.message, e.stack);
   }
