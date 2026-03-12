@@ -474,10 +474,10 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     mill_entries = await db.mill_entries.find(query, {"_id": 0}).to_list(10000)
     pvt_paddy = await db.private_paddy.find(query, {"_id": 0}).to_list(10000)
 
-    # Paddy stock from mill entries (final_w is in KG, convert to Qntl)
-    paddy_in_entries = round(sum((e.get('final_w', 0) or 0) / 100 for e in mill_entries), 2)
-    paddy_in_pvt = round(sum((e.get('final_qntl', 0) or (e.get('final_w', 0) or 0) / 100) for e in pvt_paddy), 2)
-    paddy_used_milling = round(sum(e.get('paddy_used_qntl', 0) or e.get('paddy_qntl', 0) or 0 for e in milling), 2)
+    # Paddy stock - consistent with /api/paddy-stock calculation
+    cmr_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 - e.get('p_pkt_cut', 0) / 100 for e in mill_entries), 2)
+    pvt_paddy_in = round(sum(e.get('final_qntl', 0) for e in pvt_paddy), 2)
+    paddy_used_milling = round(sum(e.get('paddy_input_qntl', 0) for e in milling), 2)
 
     # Rice produced from milling
     usna_produced = round(sum(e.get('rice_qntl', 0) for e in milling if e.get('rice_type', '').lower() in ('usna', 'parboiled')), 2)
@@ -522,32 +522,35 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     stock_items = []
 
     # Paddy
-    paddy_total_in = round(paddy_in_entries + paddy_in_pvt + pv_bought.get("Paddy", 0), 2)
+    pv_paddy = round(pv_bought.get("Paddy", 0), 2)
+    paddy_total_in = round(cmr_paddy_in + pvt_paddy_in + pv_paddy, 2)
     stock_items.append({
         "name": "Paddy", "category": "Raw Material",
         "in_qty": paddy_total_in, "out_qty": paddy_used_milling,
         "available": round(paddy_total_in - paddy_used_milling, 2), "unit": "Qntl",
-        "details": f"Mill Entry: {paddy_in_entries}Q + Pvt Purchase: {paddy_in_pvt}Q + Purchase Voucher: {pv_bought.get('Paddy', 0)}Q - Milling: {paddy_used_milling}Q"
+        "details": f"CMR: {cmr_paddy_in}Q + Pvt: {pvt_paddy_in}Q + Purchase: {pv_paddy}Q - Milling: {paddy_used_milling}Q"
     })
 
     # Rice Usna
+    pv_usna = round(pv_bought.get("Rice (Usna)", 0), 2)
     usna_sold_total = round(govt_delivered + pvt_sold_usna + sb_sold.get("Rice (Usna)", 0), 2)
-    usna_avail = round(usna_produced + pv_bought.get("Rice (Usna)", 0) - usna_sold_total, 2)
+    usna_avail = round(usna_produced + pv_usna - usna_sold_total, 2)
     stock_items.append({
         "name": "Rice (Usna)", "category": "Finished",
-        "in_qty": round(usna_produced + pv_bought.get("Rice (Usna)", 0), 2), "out_qty": usna_sold_total,
+        "in_qty": round(usna_produced + pv_usna, 2), "out_qty": usna_sold_total,
         "available": usna_avail, "unit": "Qntl",
-        "details": f"Milling: {usna_produced}Q - DC: {govt_delivered}Q - Pvt Sale: {pvt_sold_usna}Q - Sale Voucher: {sb_sold.get('Rice (Usna)', 0)}Q"
+        "details": f"Milling: {usna_produced}Q + Purchase: {pv_usna}Q - DC: {govt_delivered}Q - Pvt: {pvt_sold_usna}Q - Sale: {sb_sold.get('Rice (Usna)', 0)}Q"
     })
 
     # Rice Raw
+    pv_raw = round(pv_bought.get("Rice (Raw)", 0), 2)
     raw_sold_total = round(pvt_sold_raw + sb_sold.get("Rice (Raw)", 0), 2)
-    raw_avail = round(raw_produced + pv_bought.get("Rice (Raw)", 0) - raw_sold_total, 2)
+    raw_avail = round(raw_produced + pv_raw - raw_sold_total, 2)
     stock_items.append({
         "name": "Rice (Raw)", "category": "Finished",
-        "in_qty": round(raw_produced + pv_bought.get("Rice (Raw)", 0), 2), "out_qty": raw_sold_total,
+        "in_qty": round(raw_produced + pv_raw, 2), "out_qty": raw_sold_total,
         "available": raw_avail, "unit": "Qntl",
-        "details": f"Milling: {raw_produced}Q - Pvt Sale: {pvt_sold_raw}Q - Sale Voucher: {sb_sold.get('Rice (Raw)', 0)}Q"
+        "details": f"Milling: {raw_produced}Q + Purchase: {pv_raw}Q - Pvt: {pvt_sold_raw}Q - Sale: {sb_sold.get('Rice (Raw)', 0)}Q"
     })
 
     # By-products
@@ -1004,8 +1007,6 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
     if igst > 0: total_data.append([Paragraph(f"IGST ({v.get('igst_percent',0)}%):", tot_s), Paragraph(f"Rs. {igst:,.2f}", tot_s)])
     total_data.append([Paragraph('<b>Grand Total:</b>', tot_b), Paragraph(f"<b>Rs. {total:,.2f}</b>", tot_b)])
     if advance > 0: total_data.append([Paragraph('Advance Paid:', tot_s), Paragraph(f"Rs. {advance:,.2f}", tot_s)])
-    if cash > 0: total_data.append([Paragraph('Cash Paid (Truck):', tot_s), Paragraph(f"Rs. {cash:,.2f}", tot_s)])
-    if diesel > 0: total_data.append([Paragraph('Diesel:', tot_s), Paragraph(f"Rs. {diesel:,.2f}", tot_s)])
     total_data.append([Paragraph('<b>Balance Due:</b>', tot_b), Paragraph(f"<b>Rs. {balance:,.2f}</b>", tot_b)])
 
     tot_tbl = RLTable(total_data, colWidths=[120*mm, 50*mm])

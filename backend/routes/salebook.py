@@ -871,8 +871,6 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
     if igst > 0: total_data.append([Paragraph(f"IGST ({igst_pct}%):", tot_s), Paragraph(f"Rs. {igst:,.2f}", tot_s)])
     total_data.append([Paragraph('<b>Grand Total:</b>', tot_b), Paragraph(f"<b>Rs. {total:,.2f}</b>", tot_b)])
     if advance > 0: total_data.append([Paragraph('Advance Paid:', tot_s), Paragraph(f"Rs. {advance:,.2f}", tot_s)])
-    if cash > 0: total_data.append([Paragraph('Cash Paid:', tot_s), Paragraph(f"Rs. {cash:,.2f}", tot_s)])
-    if diesel > 0: total_data.append([Paragraph('Diesel:', tot_s), Paragraph(f"Rs. {diesel:,.2f}", tot_s)])
     total_data.append([Paragraph('<b>Balance Due:</b>', tot_b), Paragraph(f"<b>Rs. {balance:,.2f}</b>", tot_b)])
 
     tot_tbl = RLTable(total_data, colWidths=[120*mm, 50*mm])
