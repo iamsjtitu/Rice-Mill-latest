@@ -347,7 +347,7 @@ async def export_msp_excel(kms_year: Optional[str] = None, season: Optional[str]
     hfont = Font(bold=True, color="FFFFFF", size=10)
     tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
     ws.merge_cells('A1:H1'); ws['A1'] = "MSP Payment Register"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
-    headers = ['Date','DC No','Qty (Q)','Rate (₹/Q)','Amount (₹)','Mode','Reference','Bank']
+    headers = ['Date','DC No','Qty (Q)','Rate (Rs/Q)','Amount (Rs)','Mode','Reference','Bank']
     for col, h in enumerate(headers, 1):
         c = ws.cell(row=3, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
     row = 4
@@ -359,7 +359,7 @@ async def export_msp_excel(kms_year: Optional[str] = None, season: Optional[str]
     ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
     ws.cell(row=row, column=3, value=round(sum(p.get("quantity_qntl",0) for p in payments),2)).font = Font(bold=True)
     ws.cell(row=row, column=5, value=round(sum(p.get("amount",0) for p in payments),2)).font = Font(bold=True)
-    for letter in ['A','B','C','D','E','F','G','H']: ws.column_dimensions[letter].width = 15
+    for letter in ['A','B','C','D','E','F','G','H']: ws.column_dimensions[letter].width = 18
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=msp_payments_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -385,13 +385,13 @@ async def export_msp_pdf(kms_year: Optional[str] = None, season: Optional[str] =
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
     elements.append(Paragraph("MSP Payment Register", styles['Title'])); elements.append(Spacer(1, 12))
-    data = [['Date','DC No','Qty(Q)','Rate(₹/Q)','Amount(₹)','Mode','Reference','Bank']]
+    data = [['Date','DC No','Qty(Q)','Rate(Rs/Q)','Amount(Rs)','Mode','Reference','Bank']]
     tq = ta = 0
     for p in payments:
         tq += p.get("quantity_qntl",0); ta += p.get("amount",0)
-        data.append([p.get("date",""), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("reference","")[:15], p.get("bank_name","")[:12]])
+        data.append([p.get("date",""), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("reference",""), p.get("bank_name","")])
     data.append(['TOTAL','',round(tq,2),'',round(ta,2),'','',''])
-    table = RLTable(data, colWidths=[55,55,50,50,60,45,70,60], repeatRows=1)
+    table = RLTable(data, colWidths=[60,55,45,55,60,40,75,100], repeatRows=1)
     table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1a365d')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
         ('FONTSIZE',(0,0),(-1,-1),7),('ALIGN',(2,0),(4,-1),'RIGHT'),('GRID',(0,0),(-1,-1),0.5,colors.grey),
         ('BACKGROUND',(0,-1),(-1,-1),colors.HexColor('#f0f0f0')),('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold')]))
