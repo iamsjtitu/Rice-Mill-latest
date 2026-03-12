@@ -67,6 +67,11 @@ Comprehensive Mill Entry System (rice mill management) web + desktop app.
   - New endpoints: GET /api/sale-book/{id}/pdf and GET /api/purchase-book/{id}/pdf
   - Both Sale and Purchase tables have Printer icon for each voucher row
   - Clicking opens professional PDF invoice in new tab with company header, items table, totals, signature line
+  - Print PDF does NOT show Cash Paid or Diesel (clean invoice)
+- **Stock Summary Fix (12-Mar-2026):**
+  - Fixed Paddy calculation: uses CMR formula (qntl-bag/100-p_pkt_cut/100) consistently - 297Q correct
+  - All stock items (Rice, Bran, Kunda, etc.) details show Purchase Voucher contributions
+  - Details format: "Milling: XQ + Purchase: YQ - DC: ZQ - Pvt: WQ - Sale: VQ"
 
 ## Backlog
 - P1: Full regression test of all payment modules
