@@ -186,7 +186,9 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
             ))
     
     # Also include Pvt Paddy entries with truck_no (cash + diesel go to truck)
+    # Exclude "agent_extra" entries (moved to paddy purchase from reports) - they are not truck transport entries
     pvt_query = dict(query)
+    pvt_query["source"] = {"$ne": "agent_extra"}
     pvt_paddy = await db.private_paddy.find(pvt_query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(1000)
     for p in pvt_paddy:
         truck_no = p.get("truck_no", "")
@@ -1559,8 +1561,8 @@ async def undo_truck_owner_paid(truck_no: str, kms_year: str = "", season: str =
     if season: dc_query["season"] = season
     dc_dels = await db.dc_deliveries.find(dc_query, {"_id": 0}).to_list(None)
     
-    # Also include pvt_paddy and rice_sales
-    pvt_query = {"truck_no": truck_no}
+    # Also include pvt_paddy and rice_sales (exclude agent_extra entries)
+    pvt_query = {"truck_no": truck_no, "source": {"$ne": "agent_extra"}}
     if kms_year: pvt_query["kms_year"] = kms_year
     if season: pvt_query["season"] = season
     pvt_entries = await db.private_paddy.find(pvt_query, {"_id": 0}).to_list(None)

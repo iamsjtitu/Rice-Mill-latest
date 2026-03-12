@@ -911,7 +911,7 @@ const AgentMandiReport = ({ filters }) => {
                     <Button size="sm" onClick={(e) => { e.stopPropagation(); setPvtDialog({ open: true, mandi }); setPvtRate(""); }}
                       className={mandi.pvt_moved ? "bg-slate-600 text-slate-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700 text-white"}
                       disabled={mandi.pvt_moved} data-testid={`move-pvt-${mandi.mandi_name}`}>
-                      {mandi.pvt_moved ? "Pvt Moved" : "Move to Pvt"}
+                      {mandi.pvt_moved ? "Paddy Purchased" : "Move to Paddy Purchase"}
                     </Button>
                   )}
                 </div>
@@ -996,7 +996,7 @@ const AgentMandiReport = ({ filters }) => {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setPvtDialog({ open: false, mandi: null })}>
           <Card className="bg-slate-800 border-slate-600 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
             <CardContent className="p-6 space-y-4">
-              <h3 className="text-lg font-bold text-amber-400">Move to Pvt Purchase</h3>
+              <h3 className="text-lg font-bold text-amber-400">Move to Paddy Purchase</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-slate-400">Mandi:</span><span className="text-white font-semibold">{pvtDialog.mandi.mandi_name}</span></div>
                 <div className="flex justify-between"><span className="text-slate-400">Agent:</span><span className="text-white font-semibold">{pvtDialog.mandi.agent_name}</span></div>
@@ -1022,7 +1022,7 @@ const AgentMandiReport = ({ filters }) => {
               <div className="flex gap-3">
                 <Button onClick={() => setPvtDialog({ open: false, mandi: null })} variant="outline" className="flex-1 border-slate-600 text-slate-300">Cancel</Button>
                 <Button onClick={handleMoveToPvt} className="flex-1 bg-red-600 hover:bg-red-700 text-white" data-testid="confirm-move-pvt">
-                  Move to Pvt Purchase
+                  Move to Paddy Purchase
                 </Button>
               </div>
             </CardContent>
