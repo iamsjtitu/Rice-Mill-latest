@@ -256,23 +256,31 @@ async def _create_sale_ledger_entries(d, doc_id, vno, items, username):
         }
         await db.diesel_accounts.insert_one(diesel_entry)
 
-    # 5. Truck payment (cash + diesel) → Truck Ledger + truck_payments entry
+    # 5. Truck cash+diesel → Truck Ledger NIKASI (deductions from future bhada)
+    if cash > 0 and truck:
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+            "amount": cash, "category": truck, "party_type": "Truck",
+            "description": f"Truck cash deduction - Sale #{vno}{desc_suffix}",
+            "reference": f"sale_truck_cash:{doc_id}", **base
+        })
+    if diesel > 0 and truck:
+        entries.append({
+            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
+            "amount": diesel, "category": truck, "party_type": "Truck",
+            "description": f"Truck diesel deduction - Sale #{vno}{desc_suffix}",
+            "reference": f"sale_truck_diesel:{doc_id}", **base
+        })
+    # Create truck_payments entry (rate will be set later by admin)
     truck_total = cash + diesel
     if truck_total > 0 and truck:
-        entries.append({
-            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
-            "amount": truck_total, "category": truck, "party_type": "Truck",
-            "description": f"Truck payment - Sale #{vno} (Cash:{cash} + Diesel:{diesel}){desc_suffix}",
-            "reference": f"sale_voucher_truck:{doc_id}", **base
-        })
-        # Also create entry in truck_payments collection (status=pending, not auto-paid)
         truck_entry = {
-            "entry_id": str(uuid.uuid4()),
+            "entry_id": d["id"],
             "truck_no": truck, "date": d.get('date', ''),
             "cash_taken": cash, "diesel_taken": diesel,
-            "gross_amount": truck_total, "deductions": truck_total,
+            "gross_amount": 0, "deductions": truck_total,
             "net_amount": 0, "paid_amount": 0,
-            "balance_amount": truck_total, "status": "pending",
+            "balance_amount": 0, "status": "pending",
             "source": "Sale Book",
             "description": f"Sale #{vno} - {party}{desc_suffix}",
             "reference": f"sale_voucher_truck:{doc_id}",

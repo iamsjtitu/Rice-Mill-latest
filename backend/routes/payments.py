@@ -33,6 +33,10 @@ async def _find_truck_entry(entry_id):
     if entry:
         total_qty = sum(i.get("quantity", 0) for i in entry.get("items", []))
         return entry, "sale_book", round(total_qty, 2)
+    entry = await db.purchase_vouchers.find_one({"id": entry_id}, {"_id": 0})
+    if entry:
+        total_qty = sum(i.get("quantity", 0) for i in entry.get("items", []))
+        return entry, "purchase_voucher", round(total_qty, 2)
     entry = await db.dc_deliveries.find_one({"id": entry_id}, {"_id": 0})
     if entry:
         return entry, "dc_delivery", round(entry.get("quantity_qntl", 0), 2)
@@ -286,31 +290,88 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
             continue
         deductions = round(cash_paid + diesel_paid, 2)
         party = sv.get("party_name", "")
-        items_str = ', '.join(i.get('item_name', '') for i in sv.get('items', []))
         inv = sv.get("invoice_no", "")
         label = f"Sale #{sv.get('voucher_no', '')} - {party}"
         if inv: label += f" ({inv})"
+        # Read actual rate, paid from truck_payments
+        tp = await db.truck_payments.find_one({"entry_id": sv["id"]}, {"_id": 0})
+        rate = tp.get("rate_per_qntl", 0) if tp else 0
+        extra_paid = tp.get("paid_amount", 0) if tp else 0
+        tp_status = tp.get("status", "") if tp else ""
+        qty = round(sum(i.get("quantity", 0) for i in sv.get("items", [])), 2)
+        gross = round(qty * rate, 2) if rate > 0 else 0
+        net = round(gross - deductions, 2) if gross > 0 else 0
+        balance = round(net - extra_paid, 2) if gross > 0 else 0
+        status = tp_status if tp_status else ("paid" if (gross > 0 and balance <= 0) else ("partial" if extra_paid > 0 else "pending"))
         payments.append(TruckPaymentStatus(
             entry_id=sv.get("id", ""),
             truck_no=truck_no,
             date=sv.get("date", ""),
-            total_qntl=0,
+            total_qntl=qty,
             total_bag=0,
-            final_qntl=0,
+            final_qntl=qty,
             cash_taken=cash_paid,
             diesel_taken=diesel_paid,
-            rate_per_qntl=0,
-            gross_amount=deductions,
+            rate_per_qntl=rate,
+            gross_amount=gross,
             deductions=deductions,
-            net_amount=0,
-            paid_amount=0,
-            balance_amount=deductions,
-            status="pending",
+            net_amount=net,
+            paid_amount=round(deductions + extra_paid, 2),
+            balance_amount=max(0, balance),
+            status=status,
             kms_year=sv.get("kms_year", ""),
             season=sv.get("season", ""),
             agent_name="",
             mandi_name=label,
             source="Sale Book"
+        ))
+
+    # Also include Purchase Vouchers with truck_no
+    pv_query = dict(query)
+    purchase_vouchers = await db.purchase_vouchers.find(pv_query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(1000)
+    for pv in purchase_vouchers:
+        truck_no = pv.get("truck_no", "")
+        if not truck_no:
+            continue
+        cash_paid = float(pv.get("cash_paid", 0) or 0)
+        diesel_paid = float(pv.get("diesel_paid", 0) or 0)
+        if cash_paid == 0 and diesel_paid == 0:
+            continue
+        deductions = round(cash_paid + diesel_paid, 2)
+        party = pv.get("party_name", "")
+        inv = pv.get("invoice_no", "")
+        label = f"Purchase #{pv.get('voucher_no', '')} - {party}"
+        if inv: label += f" ({inv})"
+        tp = await db.truck_payments.find_one({"entry_id": pv["id"]}, {"_id": 0})
+        rate = tp.get("rate_per_qntl", 0) if tp else 0
+        extra_paid = tp.get("paid_amount", 0) if tp else 0
+        tp_status = tp.get("status", "") if tp else ""
+        qty = round(sum(i.get("quantity", 0) for i in pv.get("items", [])), 2)
+        gross = round(qty * rate, 2) if rate > 0 else 0
+        net = round(gross - deductions, 2) if gross > 0 else 0
+        balance = round(net - extra_paid, 2) if gross > 0 else 0
+        status = tp_status if tp_status else ("paid" if (gross > 0 and balance <= 0) else ("partial" if extra_paid > 0 else "pending"))
+        payments.append(TruckPaymentStatus(
+            entry_id=pv.get("id", ""),
+            truck_no=truck_no,
+            date=pv.get("date", ""),
+            total_qntl=qty,
+            total_bag=0,
+            final_qntl=qty,
+            cash_taken=cash_paid,
+            diesel_taken=diesel_paid,
+            rate_per_qntl=rate,
+            gross_amount=gross,
+            deductions=deductions,
+            net_amount=net,
+            paid_amount=round(deductions + extra_paid, 2),
+            balance_amount=max(0, balance),
+            status=status,
+            kms_year=pv.get("kms_year", ""),
+            season=pv.get("season", ""),
+            agent_name="",
+            mandi_name=label,
+            source="Purchase Voucher"
         ))
 
     # Also include DC Deliveries with vehicle_no (cash + diesel go to truck)
@@ -393,23 +454,86 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
         )
         updated_count = 1
     elif source == "sale_book":
-        # For sale book entries, set rate on this single entry
+        # For sale book entries, set rate and create/update Jama (credit) ledger entry
+        sb_truck = entry.get("truck_no", "")
         await db.truck_payments.update_one(
             {"entry_id": entry_id},
             {"$set": {"entry_id": entry_id, "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
             upsert=True
         )
-        # Update gross amount based on rate
-        if final_qntl > 0:
+        if final_qntl > 0 and sb_truck:
             new_gross = round(final_qntl * request.rate_per_qntl, 2)
             cash_taken = float(entry.get("cash_paid", 0) or 0)
             diesel_taken = float(entry.get("diesel_paid", 0) or 0)
             deductions = cash_taken + diesel_taken
             net = round(new_gross - deductions, 2)
-            await db.truck_payments.update_one(
-                {"entry_id": entry_id},
-                {"$set": {"gross_amount": new_gross, "deductions": deductions, "net_amount": net, "balance_amount": net}}
+            # Upsert Jama entry in ledger
+            existing_jama = await db.cash_transactions.find_one(
+                {"linked_entry_id": entry_id, "reference": {"$regex": "^sale_truck_jama:"}}, {"_id": 0}
             )
+            base_fields = {
+                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                "created_by": username or "system", "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            if existing_jama:
+                await db.cash_transactions.update_one(
+                    {"id": existing_jama["id"]},
+                    {"$set": {
+                        "amount": new_gross,
+                        "description": f"Sale Truck: {sb_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}",
+                        **base_fields
+                    }}
+                )
+            else:
+                jama_entry = {
+                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
+                    "account": "ledger", "txn_type": "jama",
+                    "category": sb_truck, "party_type": "Truck",
+                    "description": f"Sale Truck: {sb_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}",
+                    "amount": new_gross, "bank_name": "",
+                    "reference": f"sale_truck_jama:{entry_id[:8]}",
+                    "linked_entry_id": entry_id,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    **base_fields
+                }
+                await db.cash_transactions.insert_one(jama_entry)
+        updated_count = 1
+    elif source == "purchase_voucher":
+        # Same logic as sale_book
+        pv_truck = entry.get("truck_no", "")
+        await db.truck_payments.update_one(
+            {"entry_id": entry_id},
+            {"$set": {"entry_id": entry_id, "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True
+        )
+        if final_qntl > 0 and pv_truck:
+            new_gross = round(final_qntl * request.rate_per_qntl, 2)
+            cash_taken = float(entry.get("cash_paid", 0) or 0)
+            diesel_taken = float(entry.get("diesel_paid", 0) or 0)
+            deductions = cash_taken + diesel_taken
+            base_fields = {
+                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                "created_by": username or "system", "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            existing_jama = await db.cash_transactions.find_one(
+                {"linked_entry_id": entry_id, "reference": {"$regex": "^purchase_truck_jama:"}}, {"_id": 0}
+            )
+            if existing_jama:
+                await db.cash_transactions.update_one(
+                    {"id": existing_jama["id"]},
+                    {"$set": {"amount": new_gross, "description": f"Purchase Truck: {pv_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}", **base_fields}}
+                )
+            else:
+                await db.cash_transactions.insert_one({
+                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
+                    "account": "ledger", "txn_type": "jama",
+                    "category": pv_truck, "party_type": "Truck",
+                    "description": f"Purchase Truck: {pv_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}",
+                    "amount": new_gross, "bank_name": "",
+                    "reference": f"purchase_truck_jama:{entry_id[:8]}",
+                    "linked_entry_id": entry_id,
+                    "created_at": datetime.now(timezone.utc).isoformat(), **base_fields
+                })
         updated_count = 1
     elif source == "dc_delivery":
         # For DC delivery, set rate and create/update Jama (credit) ledger entry
@@ -1048,7 +1172,9 @@ async def undo_truck_paid(entry_id: str, username: str = "", role: str = ""):
     #    (entries with auto_ledger reference or manual entries linked to this truck via linked_entry_id)
     eid_short = entry_id[:8]
     deduction_refs = [f"truck_cash_ded:{eid_short}", f"truck_diesel_ded:{eid_short}", f"entry_cash:{eid_short}", f"truck_entry:{eid_short}",
-                      f"delivery:{eid_short}", f"delivery_tcash:{eid_short}", f"delivery_tdiesel:{eid_short}", f"delivery_diesel:{eid_short}", f"delivery_jama:{eid_short}"]
+                      f"delivery:{eid_short}", f"delivery_tcash:{eid_short}", f"delivery_tdiesel:{eid_short}", f"delivery_diesel:{eid_short}", f"delivery_jama:{eid_short}",
+                      f"sale_truck_jama:{eid_short}", f"sale_truck_cash:{eid_short}", f"sale_truck_diesel:{eid_short}",
+                      f"purchase_truck_jama:{eid_short}", f"purchase_truck_cash:{eid_short}", f"purchase_truck_diesel:{eid_short}"]
     
     # Find and delete non-deduction ledger nikasi entries for this truck that are NOT auto-generated from entry
     all_ledger = await db.cash_transactions.find({
