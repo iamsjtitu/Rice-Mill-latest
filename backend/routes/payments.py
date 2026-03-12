@@ -1023,33 +1023,80 @@ async def undo_agent_paid(mandi_name: str, kms_year: str = "", season: str = "",
 
 @router.get("/truck-payments/{entry_id}/history")
 async def get_truck_payment_history(entry_id: str):
-    """Get payment history for a truck entry"""
+    """Get payment history for a truck entry - includes both Pay button and manual Cash Book payments"""
+    # Get truck_payments history (from Pay/Mark Paid buttons)
     payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
-    if not payment_doc:
-        return {"history": [], "total_paid": 0}
+    button_history = payment_doc.get("payments_history", []) if payment_doc else []
     
-    return {
-        "history": payment_doc.get("payments_history", []),
-        "total_paid": payment_doc.get("paid_amount", 0)
-    }
+    # Also get ledger-based payment history from cash_transactions
+    entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        return {"history": button_history, "total_paid": payment_doc.get("paid_amount", 0) if payment_doc else 0}
+    
+    truck_no = entry.get("truck_no", "")
+    eid_short = entry_id[:8]
+    DEDUCTION_PREFIXES = [f"truck_cash_ded:{eid_short}", f"truck_diesel_ded:{eid_short}", f"entry_cash:{eid_short}"]
+    
+    # Get all ledger nikasi entries for this truck (payments, not deductions)
+    ledger_payments = await db.cash_transactions.find({
+        "account": "ledger", "txn_type": "nikasi", "category": truck_no
+    }, {"_id": 0}).to_list(50000)
+    
+    # Build combined history from ledger entries
+    ledger_history = []
+    for txn in ledger_payments:
+        ref = txn.get("reference", "")
+        if any(ref.startswith(p) for p in DEDUCTION_PREFIXES):
+            continue
+        ledger_history.append({
+            "amount": txn.get("amount", 0),
+            "date": txn.get("created_at") or txn.get("date", ""),
+            "note": txn.get("description", ""),
+            "by": txn.get("created_by", "system"),
+            "source": "ledger"
+        })
+    
+    # Use ledger history as the source of truth (it includes ALL payments)
+    # Sort by date
+    all_history = sorted(ledger_history, key=lambda h: h.get("date", ""), reverse=True)
+    total_paid = round(sum(h.get("amount", 0) for h in all_history), 2)
+    
+    return {"history": all_history, "total_paid": total_paid}
 
 
 @router.get("/agent-payments/{mandi_name}/history")
 async def get_agent_payment_history(mandi_name: str, kms_year: str = "", season: str = ""):
-    """Get payment history for an agent/mandi"""
+    """Get payment history for an agent/mandi - includes both Pay button and manual Cash Book payments"""
+    # Get agent_payments history (from Pay/Mark Paid buttons)
     payment_doc = await db.agent_payments.find_one({
         "mandi_name": mandi_name,
         "kms_year": kms_year,
         "season": season
     }, {"_id": 0})
     
-    if not payment_doc:
-        return {"history": [], "total_paid": 0}
+    # Get all ledger nikasi entries for this agent (payments)
+    ledger_payments = await db.cash_transactions.find({
+        "account": "ledger", "txn_type": "nikasi", "category": mandi_name
+    }, {"_id": 0}).to_list(50000)
     
-    return {
-        "history": payment_doc.get("payments_history", []),
-        "total_paid": payment_doc.get("paid_amount", 0)
-    }
+    ledger_history = []
+    for txn in ledger_payments:
+        if kms_year and txn.get("kms_year") != kms_year:
+            continue
+        if season and txn.get("season") != season:
+            continue
+        ledger_history.append({
+            "amount": txn.get("amount", 0),
+            "date": txn.get("created_at") or txn.get("date", ""),
+            "note": txn.get("description", ""),
+            "by": txn.get("created_by", "system"),
+            "source": "ledger"
+        })
+    
+    all_history = sorted(ledger_history, key=lambda h: h.get("date", ""), reverse=True)
+    total_paid = round(sum(h.get("amount", 0) for h in all_history), 2)
+    
+    return {"history": all_history, "total_paid": total_paid}
 
 
 

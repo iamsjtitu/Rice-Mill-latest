@@ -252,8 +252,30 @@ module.exports = function(database) {
   }));
 
   router.get('/api/truck-payments/:entryId/history', safeSync((req, res) => {
-    const payment = database.getTruckPayment(req.params.entryId);
-    res.json({ history: payment.payment_history || [], total_paid: payment.paid_amount || 0 });
+    const entryId = req.params.entryId;
+    const entry = database.data.entries.find(e => e.id === entryId);
+    if (!entry) return res.json({ history: [], total_paid: 0 });
+    
+    const truckNo = entry.truck_no || '';
+    const eidShort = entryId.slice(0, 8);
+    const deductionPrefixes = [`truck_cash_ded:${eidShort}`, `truck_diesel_ded:${eidShort}`, `entry_cash:${eidShort}`];
+    const txns = database.data.cash_transactions || [];
+    
+    // Get all ledger nikasi entries for this truck (payments, not deductions)
+    const ledgerHistory = txns
+      .filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === truckNo)
+      .filter(t => !deductionPrefixes.some(p => (t.reference || '').startsWith(p)))
+      .map(t => ({
+        amount: t.amount || 0,
+        date: t.created_at || t.date || '',
+        note: t.description || '',
+        by: t.created_by || 'system',
+        source: 'ledger'
+      }))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    
+    const totalPaid = Math.round(ledgerHistory.reduce((s, h) => s + h.amount, 0) * 100) / 100;
+    res.json({ history: ledgerHistory, total_paid: totalPaid });
   }));
 
   // ===== AGENT PAYMENTS =====
@@ -442,8 +464,25 @@ module.exports = function(database) {
 
   router.get('/api/agent-payments/:mandiName/history', safeSync((req, res) => {
     const { kms_year, season } = req.query;
-    const payment = database.getAgentPayment(decodeURIComponent(req.params.mandiName), kms_year, season);
-    res.json({ history: payment.payment_history || [], total_paid: payment.paid_amount || 0 });
+    const mandiName = decodeURIComponent(req.params.mandiName);
+    const txns = database.data.cash_transactions || [];
+    
+    // Get all ledger nikasi entries for this agent (payments)
+    const ledgerHistory = txns
+      .filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === mandiName)
+      .filter(t => !kms_year || t.kms_year === kms_year)
+      .filter(t => !season || t.season === season)
+      .map(t => ({
+        amount: t.amount || 0,
+        date: t.created_at || t.date || '',
+        note: t.description || '',
+        by: t.created_by || 'system',
+        source: 'ledger'
+      }))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    
+    const totalPaid = Math.round(ledgerHistory.reduce((s, h) => s + h.amount, 0) * 100) / 100;
+    res.json({ history: ledgerHistory, total_paid: totalPaid });
   }));
 
   // ===== TRUCK OWNER CONSOLIDATED PAYMENT ENDPOINTS =====
