@@ -14,6 +14,34 @@ from utils.report_helper import get_columns, get_entry_row, get_total_row, get_e
 
 router = APIRouter()
 
+# ============ BANK ACCOUNTS MANAGEMENT ============
+
+@router.get("/bank-accounts")
+async def get_bank_accounts():
+    accounts = await db.bank_accounts.find({}, {"_id": 0}).sort("name", 1).to_list(100)
+    return accounts
+
+@router.post("/bank-accounts")
+async def add_bank_account(request: Request):
+    data = await request.json()
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Bank name is required")
+    existing = await db.bank_accounts.find_one({"name": {"$regex": f"^{name}$", "$options": "i"}})
+    if existing:
+        raise HTTPException(status_code=400, detail="Bank already exists")
+    doc = {"id": str(uuid.uuid4()), "name": name, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.bank_accounts.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@router.delete("/bank-accounts/{bank_id}")
+async def delete_bank_account(bank_id: str):
+    result = await db.bank_accounts.delete_one({"id": bank_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Bank account not found")
+    return {"message": "Bank account deleted", "id": bank_id}
+
 # ============ CASH BOOK / DAILY CASH & BANK REGISTER ============
 
 class CashTransaction(BaseModel):
@@ -27,6 +55,7 @@ class CashTransaction(BaseModel):
     description: str = ""
     amount: float = 0
     reference: str = ""
+    bank_name: str = ""  # Which bank account (for bank transactions)
     kms_year: str = ""
     season: str = ""
     created_by: str = ""
@@ -130,6 +159,132 @@ async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional
     return txns
 
 
+@router.get("/cash-book/summary")
+async def get_cash_book_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    txns = await db.cash_transactions.find(query, {"_id": 0}).to_list(10000)
+    
+    cash_in = sum(t['amount'] for t in txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
+    cash_out = sum(t['amount'] for t in txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
+    bank_in = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
+    bank_out = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
+    
+    # Per-bank breakdowns
+    bank_accounts = await db.bank_accounts.find({}, {"_id": 0}).sort("name", 1).to_list(100)
+    bank_names = [b["name"] for b in bank_accounts]
+    bank_details = {}
+    for bn in bank_names:
+        b_in = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama' and t.get('bank_name') == bn)
+        b_out = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi' and t.get('bank_name') == bn)
+        bank_details[bn] = {"in": round(b_in, 2), "out": round(b_out, 2), "balance": round(b_in - b_out, 2)}
+    # Also capture bank txns without a bank_name
+    unlinked_in = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama' and not t.get('bank_name'))
+    unlinked_out = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi' and not t.get('bank_name'))
+    if unlinked_in > 0 or unlinked_out > 0:
+        bank_details["Other"] = {"in": round(unlinked_in, 2), "out": round(unlinked_out, 2), "balance": round(unlinked_in - unlinked_out, 2)}
+    
+    # Compute opening balance
+    opening_cash = 0.0
+    opening_bank = 0.0
+    opening_bank_details = {}
+    if kms_year:
+        saved_ob = await db.opening_balances.find_one({"kms_year": kms_year}, {"_id": 0})
+        if saved_ob:
+            opening_cash = saved_ob.get("cash", 0.0)
+            opening_bank = saved_ob.get("bank", 0.0)
+            opening_bank_details = saved_ob.get("bank_details", {})
+        else:
+            parts = kms_year.split('-')
+            if len(parts) == 2:
+                try:
+                    prev_fy = f"{int(parts[0])-1}-{int(parts[1])-1}"
+                    prev_txns = await db.cash_transactions.find({"kms_year": prev_fy}, {"_id": 0}).to_list(10000)
+                    prev_cash_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
+                    prev_cash_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
+                    prev_bank_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
+                    prev_bank_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
+                    prev_ob = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
+                    if prev_ob:
+                        opening_cash = round((prev_ob.get("cash", 0) + prev_cash_in - prev_cash_out), 2)
+                        opening_bank = round((prev_ob.get("bank", 0) + prev_bank_in - prev_bank_out), 2)
+                    else:
+                        opening_cash = round(prev_cash_in - prev_cash_out, 2)
+                        opening_bank = round(prev_bank_in - prev_bank_out, 2)
+                except (ValueError, IndexError):
+                    pass
+    
+    # Add opening balances per bank to bank_details
+    for bn in bank_details:
+        ob_val = opening_bank_details.get(bn, 0)
+        bank_details[bn]["opening"] = ob_val
+        bank_details[bn]["balance"] = round(ob_val + bank_details[bn]["in"] - bank_details[bn]["out"], 2)
+    
+    return {
+        "opening_cash": opening_cash,
+        "opening_bank": opening_bank,
+        "opening_bank_details": opening_bank_details,
+        "cash_in": round(cash_in, 2),
+        "cash_out": round(cash_out, 2),
+        "cash_balance": round(opening_cash + cash_in - cash_out, 2),
+        "bank_in": round(bank_in, 2),
+        "bank_out": round(bank_out, 2),
+        "bank_balance": round(opening_bank + bank_in - bank_out, 2),
+        "bank_details": bank_details,
+        "total_balance": round((opening_cash + cash_in - cash_out) + (opening_bank + bank_in - bank_out), 2),
+        "total_transactions": len(txns)
+    }
+
+@router.get("/cash-book/opening-balance")
+async def get_opening_balance(kms_year: str):
+    saved = await db.opening_balances.find_one({"kms_year": kms_year}, {"_id": 0})
+    if saved:
+        return {"cash": saved.get("cash", 0), "bank": saved.get("bank", 0), "bank_details": saved.get("bank_details", {}), "source": "manual"}
+    parts = kms_year.split('-')
+    if len(parts) == 2:
+        try:
+            prev_fy = f"{int(parts[0])-1}-{int(parts[1])-1}"
+            prev_txns = await db.cash_transactions.find({"kms_year": prev_fy}, {"_id": 0}).to_list(10000)
+            prev_cash_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
+            prev_cash_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
+            prev_bank_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
+            prev_bank_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
+            prev_ob = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
+            ob_cash = prev_ob.get("cash", 0) if prev_ob else 0
+            ob_bank = prev_ob.get("bank", 0) if prev_ob else 0
+            return {"cash": round(ob_cash + prev_cash_in - prev_cash_out, 2), "bank": round(ob_bank + prev_bank_in - prev_bank_out, 2), "bank_details": {}, "source": "auto"}
+        except (ValueError, IndexError):
+            pass
+    return {"cash": 0, "bank": 0, "bank_details": {}, "source": "none"}
+
+@router.put("/cash-book/opening-balance")
+async def save_opening_balance(data: dict):
+    kms_year = data.get("kms_year")
+    if not kms_year:
+        raise HTTPException(status_code=400, detail="kms_year is required")
+    bank_details = data.get("bank_details", {})
+    total_bank = sum(float(v) for v in bank_details.values()) if bank_details else float(data.get("bank", 0))
+    doc = {
+        "kms_year": kms_year,
+        "cash": float(data.get("cash", 0)),
+        "bank": round(total_bank, 2),
+        "bank_details": bank_details,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.opening_balances.update_one({"kms_year": kms_year}, {"$set": doc}, upsert=True)
+    return doc
+
+@router.post("/cash-book/delete-bulk")
+async def delete_cash_transactions_bulk(request: Request):
+    body = await request.json()
+    ids = body.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="No ids provided")
+    result = await db.cash_transactions.delete_many({"id": {"$in": ids}})
+    return {"message": f"{result.deleted_count} transactions deleted", "deleted": result.deleted_count}
+
+
 @router.delete("/cash-book/{txn_id}")
 async def delete_cash_transaction(txn_id: str):
     # Also delete auto-created ledger entry
@@ -157,104 +312,6 @@ async def update_cash_transaction(txn_id: str, request: Request, username: str =
     await db.cash_transactions.update_many({"reference": f"auto_ledger:{txn_id[:8]}"}, {"$set": ledger_body})
     updated = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
     return updated
-
-
-@router.post("/cash-book/delete-bulk")
-async def delete_cash_transactions_bulk(request: Request):
-    body = await request.json()
-    ids = body.get("ids", [])
-    if not ids:
-        raise HTTPException(status_code=400, detail="No ids provided")
-    result = await db.cash_transactions.delete_many({"id": {"$in": ids}})
-    return {"message": f"{result.deleted_count} transactions deleted", "deleted": result.deleted_count}
-
-
-@router.get("/cash-book/summary")
-async def get_cash_book_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
-    query = {}
-    if kms_year: query["kms_year"] = kms_year
-    if season: query["season"] = season
-    txns = await db.cash_transactions.find(query, {"_id": 0}).to_list(10000)
-    
-    cash_in = sum(t['amount'] for t in txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
-    cash_out = sum(t['amount'] for t in txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
-    bank_in = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
-    bank_out = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
-    
-    # Compute opening balance from previous FY
-    opening_cash = 0.0
-    opening_bank = 0.0
-    if kms_year:
-        parts = kms_year.split('-')
-        if len(parts) == 2:
-            try:
-                prev_fy = f"{int(parts[0])-1}-{int(parts[1])-1}"
-                # Also check for manually saved opening balance
-                saved_ob = await db.opening_balances.find_one({"kms_year": kms_year}, {"_id": 0})
-                if saved_ob:
-                    opening_cash = saved_ob.get("cash", 0.0)
-                    opening_bank = saved_ob.get("bank", 0.0)
-                else:
-                    prev_txns = await db.cash_transactions.find({"kms_year": prev_fy}, {"_id": 0}).to_list(10000)
-                    prev_cash_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
-                    prev_cash_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
-                    prev_bank_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
-                    prev_bank_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
-                    # Check if previous FY also had an opening balance
-                    prev_ob = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
-                    if prev_ob:
-                        opening_cash = round((prev_ob.get("cash", 0) + prev_cash_in - prev_cash_out), 2)
-                        opening_bank = round((prev_ob.get("bank", 0) + prev_bank_in - prev_bank_out), 2)
-                    else:
-                        opening_cash = round(prev_cash_in - prev_cash_out, 2)
-                        opening_bank = round(prev_bank_in - prev_bank_out, 2)
-            except (ValueError, IndexError):
-                pass
-    
-    return {
-        "opening_cash": opening_cash,
-        "opening_bank": opening_bank,
-        "cash_in": round(cash_in, 2),
-        "cash_out": round(cash_out, 2),
-        "cash_balance": round(opening_cash + cash_in - cash_out, 2),
-        "bank_in": round(bank_in, 2),
-        "bank_out": round(bank_out, 2),
-        "bank_balance": round(opening_bank + bank_in - bank_out, 2),
-        "total_balance": round((opening_cash + cash_in - cash_out) + (opening_bank + bank_in - bank_out), 2),
-        "total_transactions": len(txns)
-    }
-
-@router.get("/cash-book/opening-balance")
-async def get_opening_balance(kms_year: str):
-    saved = await db.opening_balances.find_one({"kms_year": kms_year}, {"_id": 0})
-    if saved:
-        return {"cash": saved.get("cash", 0), "bank": saved.get("bank", 0), "source": "manual"}
-    # Auto-compute from previous FY
-    parts = kms_year.split('-')
-    if len(parts) == 2:
-        try:
-            prev_fy = f"{int(parts[0])-1}-{int(parts[1])-1}"
-            prev_txns = await db.cash_transactions.find({"kms_year": prev_fy}, {"_id": 0}).to_list(10000)
-            prev_cash_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
-            prev_cash_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
-            prev_bank_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
-            prev_bank_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
-            prev_ob = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
-            ob_cash = prev_ob.get("cash", 0) if prev_ob else 0
-            ob_bank = prev_ob.get("bank", 0) if prev_ob else 0
-            return {"cash": round(ob_cash + prev_cash_in - prev_cash_out, 2), "bank": round(ob_bank + prev_bank_in - prev_bank_out, 2), "source": "auto"}
-        except (ValueError, IndexError):
-            pass
-    return {"cash": 0, "bank": 0, "source": "none"}
-
-@router.put("/cash-book/opening-balance")
-async def save_opening_balance(data: dict):
-    kms_year = data.get("kms_year")
-    if not kms_year:
-        raise HTTPException(status_code=400, detail="kms_year is required")
-    doc = {"kms_year": kms_year, "cash": float(data.get("cash", 0)), "bank": float(data.get("bank", 0)), "updated_at": datetime.now(timezone.utc).isoformat()}
-    await db.opening_balances.update_one({"kms_year": kms_year}, {"$set": doc}, upsert=True)
-    return doc
 
 
 @router.get("/cash-book/categories")

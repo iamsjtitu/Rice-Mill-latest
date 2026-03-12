@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2 } from "lucide-react";
+import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark } from "lucide-react";
 import SummaryCards from "./cashbook/SummaryCards";
 import CashBookFilters from "./cashbook/CashBookFilters";
 import TransactionsTable from "./cashbook/TransactionsTable";
@@ -38,7 +38,7 @@ const CashBook = ({ filters, user }) => {
   const [customCategories, setCustomCategories] = useState([]);
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], account: "cash", txn_type: "jama",
-    category: "", party_type: "", description: "", amount: "", reference: "",
+    category: "", party_type: "", description: "", amount: "", reference: "", bank_name: "",
     kms_year: CURRENT_KMS_YEAR, season: "Kharif",
   });
   const [txnFilters, setTxnFilters] = useState({ account: "ledger", txn_type: "", category: "", party_type: "", date_from: "", date_to: "" });
@@ -52,6 +52,12 @@ const CashBook = ({ filters, user }) => {
   const [isObOpen, setIsObOpen] = useState(false);
   const [obList, setObList] = useState([]);
   const [obForm, setObForm] = useState({ party_name: "", party_type: "Cash Party", amount: "", balance_type: "jama", note: "", ob_account: "ledger" });
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [newBankName, setNewBankName] = useState("");
+  const [isBankMgmtOpen, setIsBankMgmtOpen] = useState(false);
+  const [isObSettingsOpen, setIsObSettingsOpen] = useState(false);
+  const [obCash, setObCash] = useState("");
+  const [obBankDetails, setObBankDetails] = useState({});
 
   const fetchPartySummary = useCallback(async () => {
     try {
@@ -68,6 +74,13 @@ const CashBook = ({ filters, user }) => {
     try {
       const res = await axios.get(`${API}/cash-book/categories`);
       setCustomCategories(res.data);
+    } catch (e) { /* ignore */ }
+  }, []);
+
+  const fetchBankAccounts = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/bank-accounts`);
+      setBankAccounts(res.data);
     } catch (e) { /* ignore */ }
   }, []);
 
@@ -109,11 +122,12 @@ const CashBook = ({ filters, user }) => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
+  useEffect(() => { fetchBankAccounts(); }, [fetchBankAccounts]);
   useEffect(() => { if (activeView === "party-summary") fetchPartySummary(); }, [activeView, fetchPartySummary]);
 
   const resetForm = () => setForm({
     date: new Date().toISOString().split('T')[0], account: "cash", txn_type: "jama",
-    category: "", party_type: "", description: "", amount: "", reference: "",
+    category: "", party_type: "", description: "", amount: "", reference: "", bank_name: "",
     kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif",
   });
 
@@ -141,7 +155,7 @@ const CashBook = ({ filters, user }) => {
     setForm({
       date: t.date || "", account: t.account || "cash", txn_type: t.txn_type || "jama",
       category: t.category || "", party_type: t.party_type || "", description: t.description || "",
-      amount: String(t.amount || ""), reference: t.reference || "",
+      amount: String(t.amount || ""), reference: t.reference || "", bank_name: t.bank_name || "",
       kms_year: t.kms_year || CURRENT_KMS_YEAR, season: t.season || "Kharif",
     });
     setIsDialogOpen(true);
@@ -239,22 +253,11 @@ const CashBook = ({ filters, user }) => {
         party_type: obForm.party_type,
         amount: parseFloat(obForm.amount) || 0,
         balance_type: obForm.balance_type,
-        note: obForm.note || (obForm.ob_account === 'cash' ? 'Cash Opening Balance' : ''),
+        note: obForm.note || '',
         kms_year: filters.kms_year || CURRENT_KMS_YEAR,
         season: filters.season || "Kharif",
       };
-      // For cash/bank opening balance, create directly as cash/bank entry
-      if (obForm.ob_account === 'cash' || obForm.ob_account === 'bank') {
-        await axios.post(`${API}/cash-book?username=${user.username}&role=${user.role}`, {
-          date: "", account: obForm.ob_account, txn_type: obForm.balance_type,
-          category: obForm.party_name.trim(), party_type: obForm.party_type || "Cash Party",
-          description: `Opening Balance${obForm.note ? ' - ' + obForm.note : ''}`,
-          amount: parseFloat(obForm.amount) || 0, reference: "opening_balance",
-          kms_year: filters.kms_year || CURRENT_KMS_YEAR, season: filters.season || "Kharif",
-        });
-      } else {
-        await axios.post(`${API}/opening-balances?username=${user.username}&role=${user.role}`, payload);
-      }
+      await axios.post(`${API}/opening-balances?username=${user.username}&role=${user.role}`, payload);
       toast.success("Opening balance save ho gaya!");
       setIsObOpen(false);
       setObForm({ party_name: "", party_type: "Cash Party", amount: "", balance_type: "jama", note: "", ob_account: "ledger" });
@@ -298,6 +301,23 @@ const CashBook = ({ filters, user }) => {
         </Button>
         <Button onClick={() => setIsObOpen(true)} variant="outline" size="sm" className="border-blue-600 text-blue-400 hover:bg-blue-900/30" data-testid="cashbook-ob-btn">
           <Plus className="w-3 h-3 mr-1" /> Opening Balance
+        </Button>
+        <Button onClick={() => setIsBankMgmtOpen(true)} variant="outline" size="sm" className="border-indigo-600 text-indigo-400 hover:bg-indigo-900/30" data-testid="bank-mgmt-btn">
+          <Landmark className="w-3 h-3 mr-1" /> Bank Accounts
+        </Button>
+        <Button onClick={async () => {
+          try {
+            const res = await axios.get(`${API}/cash-book/opening-balance?kms_year=${filters.kms_year || CURRENT_KMS_YEAR}`);
+            setObCash(String(res.data.cash || 0));
+            const bd = res.data.bank_details || {};
+            // Ensure all bank accounts have an entry
+            const merged = {};
+            bankAccounts.forEach(b => { merged[b.name] = String(bd[b.name] || 0); });
+            setObBankDetails(merged);
+            setIsObSettingsOpen(true);
+          } catch { toast.error("Opening balance load failed"); }
+        }} variant="outline" size="sm" className="border-purple-600 text-purple-400 hover:bg-purple-900/30" data-testid="ob-settings-btn">
+          <Wallet className="w-3 h-3 mr-1" /> Set Opening Balance
         </Button>
       </div>
 
@@ -348,45 +368,32 @@ const CashBook = ({ filters, user }) => {
         isOpen={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingId(null); }}
         editingId={editingId} form={form} setForm={setForm} summary={summary}
         categories={categories} allTxns={allTxns} partyBalance={partyBalance}
-        onSubmit={handleSubmit}
+        onSubmit={handleSubmit} bankAccounts={bankAccounts}
       />
 
-      {/* Opening Balance Dialog */}
+      {/* Opening Balance Dialog (Party Ledger) */}
       <Dialog open={isObOpen} onOpenChange={setIsObOpen}>
         <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white" data-testid="cashbook-ob-dialog">
           <DialogHeader>
-            <DialogTitle className="text-blue-400">Opening Balance (शुरुआती बाकी)</DialogTitle>
+            <DialogTitle className="text-blue-400">Opening Balance (Party Ledger)</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleObSubmit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-slate-400">Account Type</Label>
-                <Select value={obForm.ob_account} onValueChange={v => setObForm(p => ({ ...p, ob_account: v }))}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="ob-account-type"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ledger">Party Ledger (खाता बही)</SelectItem>
-                    <SelectItem value="cash">Cash (नकद)</SelectItem>
-                    <SelectItem value="bank">Bank (बैंक)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-slate-400">Balance Type</Label>
-                <Select value={obForm.balance_type} onValueChange={v => setObForm(p => ({ ...p, balance_type: v }))}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="ob-bal-type"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="jama">Jama (पार्टी पर बाकी / उधार)</SelectItem>
-                    <SelectItem value="nikasi">Nikasi (हमारा देना)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
             <div>
               <Label className="text-xs text-slate-400">Party / Account Name *</Label>
               <Input value={obForm.party_name} onChange={e => setObForm(p => ({ ...p, party_name: e.target.value }))}
                 placeholder="Party ka naam" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="ob-party-name" />
             </div>
-            {obForm.ob_account === 'ledger' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-400">Balance Type</Label>
+                <Select value={obForm.balance_type} onValueChange={v => setObForm(p => ({ ...p, balance_type: v }))}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="ob-bal-type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="jama">Jama (party par baaki)</SelectItem>
+                    <SelectItem value="nikasi">Nikasi (hamara dena)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label className="text-xs text-slate-400">Party Type</Label>
                 <Select value={obForm.party_type} onValueChange={v => setObForm(p => ({ ...p, party_type: v }))}>
@@ -405,7 +412,7 @@ const CashBook = ({ filters, user }) => {
                   </SelectContent>
                 </Select>
               </div>
-            )}
+            </div>
             <div>
               <Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
               <Input type="number" step="0.01" value={obForm.amount} onChange={e => setObForm(p => ({ ...p, amount: e.target.value }))}
@@ -420,6 +427,100 @@ const CashBook = ({ filters, user }) => {
               Save Opening Balance
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bank Account Management Dialog */}
+      <Dialog open={isBankMgmtOpen} onOpenChange={setIsBankMgmtOpen}>
+        <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white" data-testid="bank-mgmt-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-indigo-400">Bank Accounts</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Input value={newBankName} onChange={e => setNewBankName(e.target.value)}
+                placeholder="Bank name (e.g. Bank of Baroda)" className="bg-slate-700 border-slate-600 text-white h-8 text-sm flex-1" data-testid="new-bank-name" />
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white h-8" data-testid="add-bank-btn"
+                onClick={async () => {
+                  if (!newBankName.trim()) return;
+                  try {
+                    await axios.post(`${API}/bank-accounts`, { name: newBankName.trim() });
+                    toast.success("Bank account added!"); setNewBankName(""); fetchBankAccounts();
+                  } catch (e) { toast.error(e.response?.data?.detail || "Error adding bank"); }
+                }}>
+                <Plus className="w-3 h-3 mr-1" /> Add
+              </Button>
+            </div>
+            {bankAccounts.length === 0 && <p className="text-xs text-slate-500 text-center py-4">Koi bank account nahi hai. Upar se add karein.</p>}
+            <div className="space-y-1 max-h-60 overflow-auto">
+              {bankAccounts.map(b => (
+                <div key={b.id} className="flex items-center justify-between bg-slate-700/50 px-3 py-2 rounded" data-testid={`bank-item-${b.id}`}>
+                  <div className="flex items-center gap-2">
+                    <Landmark className="w-4 h-4 text-indigo-400" />
+                    <span className="text-sm text-white">{b.name}</span>
+                  </div>
+                  <button onClick={async () => {
+                    if (!window.confirm(`"${b.name}" delete karna hai?`)) return;
+                    try { await axios.delete(`${API}/bank-accounts/${b.id}`); toast.success("Deleted"); fetchBankAccounts(); }
+                    catch { toast.error("Delete failed"); }
+                  }} className="text-red-400 hover:text-red-300">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Opening Balance Settings Dialog (Cash + Bank) */}
+      <Dialog open={isObSettingsOpen} onOpenChange={setIsObSettingsOpen}>
+        <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white" data-testid="ob-settings-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-purple-400">Opening Balance Settings (FY: {filters.kms_year || CURRENT_KMS_YEAR})</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs text-slate-400 font-semibold">Cash Opening Balance (Rs.)</Label>
+              <Input type="number" step="0.01" value={obCash} onChange={e => setObCash(e.target.value)}
+                placeholder="0" className="bg-slate-700 border-slate-600 text-white h-9 text-sm mt-1" data-testid="ob-cash-input" />
+            </div>
+            {bankAccounts.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs text-slate-400 font-semibold">Bank Opening Balances (Rs.)</Label>
+                {bankAccounts.map(b => (
+                  <div key={b.id} className="flex items-center gap-2">
+                    <span className="text-xs text-indigo-300 w-40 truncate">{b.name}</span>
+                    <Input type="number" step="0.01" value={obBankDetails[b.name] || ""}
+                      onChange={e => setObBankDetails(prev => ({ ...prev, [b.name]: e.target.value }))}
+                      placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm flex-1" data-testid={`ob-bank-${b.name}`} />
+                  </div>
+                ))}
+              </div>
+            )}
+            {bankAccounts.length === 0 && (
+              <p className="text-xs text-slate-500">Pehle "Bank Accounts" button se bank add karein, phir yahan opening balance set hoga.</p>
+            )}
+            <div className="bg-slate-700/50 rounded p-2 text-xs text-slate-300">
+              <span className="font-semibold">Total Opening: </span>
+              Rs.{(parseFloat(obCash || 0) + Object.values(obBankDetails).reduce((s, v) => s + (parseFloat(v) || 0), 0)).toLocaleString('en-IN')}
+            </div>
+            <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold" data-testid="ob-settings-save"
+              onClick={async () => {
+                try {
+                  const bankDet = {};
+                  Object.entries(obBankDetails).forEach(([k, v]) => { bankDet[k] = parseFloat(v) || 0; });
+                  await axios.put(`${API}/cash-book/opening-balance`, {
+                    kms_year: filters.kms_year || CURRENT_KMS_YEAR,
+                    cash: parseFloat(obCash) || 0,
+                    bank_details: bankDet,
+                  });
+                  toast.success("Opening balance save ho gaya!"); setIsObSettingsOpen(false); fetchData();
+                } catch { toast.error("Save failed"); }
+              }}>
+              Save Opening Balance
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
