@@ -412,6 +412,15 @@ async def get_entries(
             query["date"] = date_query
     
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    # Ensure every entry has a persistent 'id' field
+    for e in entries:
+        if not e.get("id"):
+            new_id = str(uuid.uuid4())
+            e["id"] = new_id
+            await db.mill_entries.update_one(
+                {"_id": (await db.mill_entries.find_one({"truck_no": e.get("truck_no"), "date": e.get("date"), "created_at": e.get("created_at")}, {"_id": 1}) or {}).get("_id")},
+                {"$set": {"id": new_id}}
+            )
     return entries
 
 
