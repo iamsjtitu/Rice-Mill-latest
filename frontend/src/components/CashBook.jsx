@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark, Receipt } from "lucide-react";
+import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark, Receipt, FileText } from "lucide-react";
 import SummaryCards from "./cashbook/SummaryCards";
 import CashBookFilters from "./cashbook/CashBookFilters";
 import TransactionsTable from "./cashbook/TransactionsTable";
@@ -59,6 +59,9 @@ const CashBook = ({ filters, user }) => {
   const [isObSettingsOpen, setIsObSettingsOpen] = useState(false);
   const [obCash, setObCash] = useState("");
   const [obBankDetails, setObBankDetails] = useState({});
+  const [isSvPayOpen, setIsSvPayOpen] = useState(false);
+  const [svVouchers, setSvVouchers] = useState([]);
+  const [svPayForm, setSvPayForm] = useState({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
 
   const fetchPartySummary = useCallback(async () => {
     try {
@@ -274,6 +277,39 @@ const CashBook = ({ filters, user }) => {
     } catch { toast.error("Delete error"); }
   };
 
+  const openSvPayDialog = async () => {
+    try {
+      const res = await axios.get(`${API}/sale-book?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`);
+      const pending = (res.data || []).filter(v => {
+        const bal = v.ledger_balance != null ? v.ledger_balance : (v.balance || 0);
+        return bal > 0;
+      });
+      setSvVouchers(pending);
+      setSvPayForm({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
+      setIsSvPayOpen(true);
+    } catch { toast.error("Sale vouchers load nahi hue"); }
+  };
+
+  const handleSvPaySubmit = async () => {
+    if (!svPayForm.voucher_id) { toast.error("Voucher select karein"); return; }
+    const amt = parseFloat(svPayForm.amount);
+    if (!amt || amt <= 0) { toast.error("Amount daalna zaroori hai"); return; }
+    if (svPayForm.account === "bank" && !svPayForm.bank_name) { toast.error("Bank account select karein"); return; }
+    try {
+      await axios.post(`${API}/voucher-payment`, {
+        voucher_type: "sale", voucher_id: svPayForm.voucher_id, amount: amt,
+        date: svPayForm.date, notes: svPayForm.notes, username: user.username,
+        kms_year: filters.kms_year || "", season: filters.season || "",
+        account: svPayForm.account, bank_name: svPayForm.account === "bank" ? svPayForm.bank_name : "",
+      });
+      toast.success("Sale Voucher Payment record ho gayi!");
+      setIsSvPayOpen(false);
+      fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
+  };
+
+  const selectedSvVoucher = svVouchers.find(v => v.id === svPayForm.voucher_id);
+
   return (
     <div className="space-y-4" data-testid="cash-book">
       <SummaryCards summary={summary} onNewTransaction={openNewTransaction} onExport={exportData} />
@@ -307,6 +343,9 @@ const CashBook = ({ filters, user }) => {
         </Button>
         <Button onClick={() => setIsBankMgmtOpen(true)} variant="outline" size="sm" className="border-indigo-600 text-indigo-400 hover:bg-indigo-900/30" data-testid="bank-mgmt-btn">
           <Landmark className="w-3 h-3 mr-1" /> Bank Accounts
+        </Button>
+        <Button onClick={openSvPayDialog} variant="outline" size="sm" className="border-emerald-600 text-emerald-400 hover:bg-emerald-900/30" data-testid="sv-payment-btn">
+          <FileText className="w-3 h-3 mr-1" /> Sale Voucher Payment
         </Button>
         <Button onClick={async () => {
           try {
@@ -526,6 +565,85 @@ const CashBook = ({ filters, user }) => {
                 } catch { toast.error("Save failed"); }
               }}>
               Save Opening Balance
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Sale Voucher Payment Dialog */}
+      <Dialog open={isSvPayOpen} onOpenChange={setIsSvPayOpen}>
+        <DialogContent className="max-w-sm bg-slate-800 border-slate-700 text-white" data-testid="sv-payment-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-400 flex items-center gap-2">
+              <FileText className="w-5 h-5" /> Sale Voucher Payment / बिक्री भुगतान
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-slate-400">Sale Voucher Select Karein *</Label>
+              <Select value={svPayForm.voucher_id} onValueChange={v => {
+                const sv = svVouchers.find(x => x.id === v);
+                setSvPayForm(p => ({ ...p, voucher_id: v, party_name: sv?.party_name || "" }));
+              }}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-select-voucher">
+                  <SelectValue placeholder="Voucher select karein..." />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600 max-h-60">
+                  {svVouchers.length === 0 ? (
+                    <div className="text-slate-400 text-xs text-center py-3">Koi pending sale voucher nahi hai</div>
+                  ) : svVouchers.map(v => (
+                    <SelectItem key={v.id} value={v.id} className="text-white text-xs">
+                      {v.party_name} - #{v.voucher_no} | Bal: Rs.{(v.ledger_balance != null ? v.ledger_balance : v.balance)?.toLocaleString('en-IN')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedSvVoucher && (
+              <div className="bg-slate-900 p-3 rounded border border-slate-700 text-xs space-y-1">
+                <p><span className="text-slate-400">Party:</span> <span className="text-white font-medium">{selectedSvVoucher.party_name}</span></p>
+                <p><span className="text-slate-400">Invoice:</span> <span className="text-white">{selectedSvVoucher.invoice_no || '-'}</span></p>
+                <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{selectedSvVoucher.total?.toLocaleString('en-IN')}</span></p>
+                <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{(selectedSvVoucher.ledger_balance != null ? selectedSvVoucher.ledger_balance : selectedSvVoucher.balance)?.toLocaleString('en-IN')}</span></p>
+              </div>
+            )}
+            <div><Label className="text-xs text-slate-400">Date</Label>
+              <Input type="date" value={svPayForm.date} onChange={e => setSvPayForm(p => ({ ...p, date: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-cb-date" /></div>
+            <div><Label className="text-xs text-slate-400">Payment Mode</Label>
+              <Select value={svPayForm.account} onValueChange={v => setSvPayForm(p => ({ ...p, account: v, bank_name: v === "cash" ? "" : p.bank_name }))}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-cb-account">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="cash" className="text-white">Cash (नकद)</SelectItem>
+                  <SelectItem value="bank" className="text-white">Bank (बैंक)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {svPayForm.account === "bank" && (
+              <div><Label className="text-xs text-slate-400">Bank Account</Label>
+                <Select value={svPayForm.bank_name} onValueChange={v => setSvPayForm(p => ({ ...p, bank_name: v }))}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-cb-bank">
+                    <SelectValue placeholder="Bank select karein" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    {bankAccounts.map(b => (
+                      <SelectItem key={b.id} value={b.name} className="text-white">{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div><Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
+              <Input type="number" step="0.01" value={svPayForm.amount} onChange={e => setSvPayForm(p => ({ ...p, amount: e.target.value }))}
+                placeholder={selectedSvVoucher ? `Max: ${selectedSvVoucher.ledger_balance != null ? selectedSvVoucher.ledger_balance : selectedSvVoucher.balance}` : "0"}
+                className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-cb-amount" /></div>
+            <div><Label className="text-xs text-slate-400">Notes</Label>
+              <Input value={svPayForm.notes} onChange={e => setSvPayForm(p => ({ ...p, notes: e.target.value }))}
+                placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-cb-notes" /></div>
+            <Button onClick={handleSvPaySubmit} disabled={!svPayForm.voucher_id}
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold" data-testid="sv-pay-cb-submit">
+              {svPayForm.account === "bank" && svPayForm.bank_name ? `Bank (${svPayForm.bank_name}) mein Record` : "Cash mein Record"}
             </Button>
           </div>
         </DialogContent>
