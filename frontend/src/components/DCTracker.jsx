@@ -26,7 +26,7 @@ const DCEntries = ({ filters, user }) => {
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
   const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", godown_name: "", deadline: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
-  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
+  const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", invoice_no: "", rst_no: "", bags_used: "", cash_paid: "", diesel_paid: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
 
   const fetchData = useCallback(async () => {
     try {
@@ -67,9 +67,15 @@ const DCEntries = ({ filters, user }) => {
     e.preventDefault();
     if (!delForm.quantity_qntl) { toast.error("Quantity zaruri hai"); return; }
     try {
-      await axios.post(`${API}/dc-deliveries?username=${user.username}`, { ...delForm, quantity_qntl: parseFloat(delForm.quantity_qntl) });
+      await axios.post(`${API}/dc-deliveries?username=${user.username}`, {
+        ...delForm,
+        quantity_qntl: parseFloat(delForm.quantity_qntl) || 0,
+        bags_used: parseInt(delForm.bags_used) || 0,
+        cash_paid: parseFloat(delForm.cash_paid) || 0,
+        diesel_paid: parseFloat(delForm.diesel_paid) || 0,
+      });
       toast.success("Delivery add hui!"); setShowDeliveryForm(false);
-      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif" });
+      setDelForm({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", invoice_no: "", rst_no: "", bags_used: "", cash_paid: "", diesel_paid: "", notes: "", kms_year: filters.kms_year || CURRENT_KMS, season: filters.season || "Kharif" });
       fetchDeliveries(expandedDC); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
@@ -158,19 +164,24 @@ const DCEntries = ({ filters, user }) => {
                   </div>
                   {deliveries.length === 0 ? <p className="text-xs text-slate-500 py-2">No deliveries yet</p> : (
                     <Table className="w-full table-auto"><TableHeader><TableRow className="border-slate-600 hover:bg-transparent">
-                      {['Date','Qty (Q)','Vehicle','Driver','Slip No','Godown','Note',''].map(h =>
-                        <TableHead key={h} className="text-slate-400 text-[10px] py-1 whitespace-nowrap">{h}</TableHead>)}
+                      {['Date','Qty (Q)','Invoice','RST','Vehicle','Bags','Cash','Diesel','Godown',''].map(h =>
+                        <TableHead key={h} className="text-slate-400 text-[10px] py-1">{h}</TableHead>)}
                     </TableRow></TableHeader>
                     <TableBody>{deliveries.map(d => (
                       <TableRow key={d.id} className="border-slate-700" data-testid={`delivery-row-${d.id}`}>
-                        <TableCell className="text-slate-200 text-[11px] py-1 whitespace-nowrap">{d.date}</TableCell>
-                        <TableCell className="text-green-400 text-[11px] py-1 font-semibold whitespace-nowrap">{d.quantity_qntl} Q</TableCell>
-                        <TableCell className="text-slate-300 text-[11px] py-1 whitespace-nowrap">{d.vehicle_no}</TableCell>
-                        <TableCell className="text-slate-400 text-[11px] py-1 whitespace-nowrap">{d.driver_name}</TableCell>
-                        <TableCell className="text-slate-400 text-[11px] py-1 whitespace-nowrap">{d.slip_no}</TableCell>
-                        <TableCell className="text-slate-400 text-[11px] py-1 whitespace-nowrap">{d.godown_name}</TableCell>
-                        <TableCell className="text-slate-500 text-[11px] py-1">{d.notes}</TableCell>
-                        <TableCell className="py-1">{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400" onClick={() => handleDeleteDelivery(d.id)}><Trash2 className="w-2.5 h-2.5" /></Button>}</TableCell>
+                        <TableCell className="text-slate-200 text-[11px] py-1">{d.date}</TableCell>
+                        <TableCell className="text-green-400 text-[11px] py-1 font-semibold">{d.quantity_qntl} Q</TableCell>
+                        <TableCell className="text-slate-300 text-[11px] py-1">{d.invoice_no || '-'}</TableCell>
+                        <TableCell className="text-slate-300 text-[11px] py-1">{d.rst_no || '-'}</TableCell>
+                        <TableCell className="text-slate-300 text-[11px] py-1">{d.vehicle_no}</TableCell>
+                        <TableCell className="text-amber-400 text-[11px] py-1">{d.bags_used || '-'}</TableCell>
+                        <TableCell className="text-red-400 text-[11px] py-1">{d.cash_paid ? `₹${d.cash_paid}` : '-'}</TableCell>
+                        <TableCell className="text-orange-400 text-[11px] py-1">{d.diesel_paid ? `₹${d.diesel_paid}` : '-'}</TableCell>
+                        <TableCell className="text-slate-400 text-[11px] py-1">{d.godown_name}</TableCell>
+                        <TableCell className="py-1 flex gap-1">
+                          <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-blue-400" onClick={() => window.open(`${API}/dc-deliveries/invoice/${d.id}`, '_blank')} title="Print Invoice"><FileText className="w-2.5 h-2.5" /></Button>
+                          {user.role === 'admin' && <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400" onClick={() => handleDeleteDelivery(d.id)}><Trash2 className="w-2.5 h-2.5" /></Button>}
+                        </TableCell>
                       </TableRow>
                     ))}</TableBody></Table>
                   )}
@@ -219,7 +230,7 @@ const DCEntries = ({ filters, user }) => {
 
       {/* Add Delivery Dialog */}
       <Dialog open={showDeliveryForm} onOpenChange={setShowDeliveryForm}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md" data-testid="delivery-form-dialog">
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto" data-testid="delivery-form-dialog">
           <DialogHeader><DialogTitle className="text-green-400">Add Delivery / डिलीवरी जोड़ें</DialogTitle></DialogHeader>
           <form onSubmit={handleAddDelivery} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -227,6 +238,12 @@ const DCEntries = ({ filters, user }) => {
                 <Input type="date" value={delForm.date} onChange={e => setDelForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-date" /></div>
               <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockAvail !== null && <span className={`font-bold ${(riceStockAvail - (parseFloat(delForm.quantity_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((riceStockAvail - (parseFloat(delForm.quantity_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
                 <Input type="number" step="0.01" value={delForm.quantity_qntl} onChange={e => setDelForm(p=>({...p,quantity_qntl:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-qty" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs text-slate-400">Invoice Number</Label>
+                <Input value={delForm.invoice_no} onChange={e => setDelForm(p=>({...p,invoice_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-invoice" /></div>
+              <div><Label className="text-xs text-slate-400">RST Number</Label>
+                <Input value={delForm.rst_no} onChange={e => setDelForm(p=>({...p,rst_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-rst" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Vehicle No</Label>
@@ -239,6 +256,17 @@ const DCEntries = ({ filters, user }) => {
                 <Input value={delForm.slip_no} onChange={e => setDelForm(p=>({...p,slip_no:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-slip" /></div>
               <div><Label className="text-xs text-slate-400">Godown</Label>
                 <Input value={delForm.godown_name} onChange={e => setDelForm(p=>({...p,godown_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div><Label className="text-xs text-amber-400 font-semibold">Beg (Govt Bags)</Label>
+                <Input type="number" value={delForm.bags_used} onChange={e => setDelForm(p=>({...p,bags_used:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-bags" />
+                <p className="text-[9px] text-amber-500 mt-0.5">Govt bags se minus hoga</p></div>
+              <div><Label className="text-xs text-red-400 font-semibold">Cash Paid (Rs.)</Label>
+                <Input type="number" step="0.01" value={delForm.cash_paid} onChange={e => setDelForm(p=>({...p,cash_paid:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-cash" />
+                <p className="text-[9px] text-red-500 mt-0.5">Cash Book auto entry</p></div>
+              <div><Label className="text-xs text-orange-400 font-semibold">Diesel Paid (Rs.)</Label>
+                <Input type="number" step="0.01" value={delForm.diesel_paid} onChange={e => setDelForm(p=>({...p,diesel_paid:e.target.value}))} placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="delivery-form-diesel" />
+                <p className="text-[9px] text-orange-500 mt-0.5">Truck payment auto entry</p></div>
             </div>
             <div><Label className="text-xs text-slate-400">Notes</Label>
               <Input value={delForm.notes} onChange={e => setDelForm(p=>({...p,notes:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>

@@ -39,6 +39,11 @@ class DCDelivery(BaseModel):
     driver_name: str = ""
     slip_no: str = ""
     godown_name: str = ""
+    invoice_no: str = ""
+    rst_no: str = ""
+    bags_used: int = 0  # Govt bags used in this delivery (minus from stock)
+    cash_paid: float = 0  # Cash paid to driver → cash book auto entry
+    diesel_paid: float = 0  # Diesel paid → truck payment auto entry
     notes: str = ""
     kms_year: str = ""
     season: str = ""
@@ -104,6 +109,52 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
         raise HTTPException(status_code=404, detail="DC not found")
     await db.dc_deliveries.insert_one(d)
     d.pop('_id', None)
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    base = {"kms_year": d.get("kms_year", ""), "season": d.get("season", ""), "created_by": username, "created_at": now_iso, "updated_at": now_iso}
+    dc_num = dc.get("dc_number", "")
+    vehicle = d.get("vehicle_no", "")
+
+    # Auto-entry: Cash Paid → Cash Book (Truck payment)
+    cash_paid = d.get("cash_paid", 0) or 0
+    if cash_paid > 0:
+        cash_entry = {
+            "id": str(uuid.uuid4()), "date": d["date"], "account": "cash", "txn_type": "nikasi",
+            "category": vehicle or f"Truck-{dc_num}", "party_type": "Truck",
+            "description": f"DC Delivery Cash - {dc_num} | {vehicle}",
+            "amount": round(cash_paid, 2), "reference": f"delivery:{d['id'][:8]}",
+            "bank_name": "", **base
+        }
+        await db.cash_transactions.insert_one(cash_entry)
+        cash_entry.pop("_id", None)
+
+    # Auto-entry: Diesel Paid → Cash Book (Diesel/Truck payment)
+    diesel_paid = d.get("diesel_paid", 0) or 0
+    if diesel_paid > 0:
+        diesel_entry = {
+            "id": str(uuid.uuid4()), "date": d["date"], "account": "cash", "txn_type": "nikasi",
+            "category": vehicle or f"Truck-{dc_num}", "party_type": "Diesel",
+            "description": f"DC Delivery Diesel - {dc_num} | {vehicle}",
+            "amount": round(diesel_paid, 2), "reference": f"delivery_diesel:{d['id'][:8]}",
+            "bank_name": "", **base
+        }
+        await db.cash_transactions.insert_one(diesel_entry)
+        diesel_entry.pop("_id", None)
+
+    # Auto-entry: Bags Used → Govt Bags stock minus
+    bags_used = d.get("bags_used", 0) or 0
+    if bags_used > 0:
+        bag_entry = {
+            "id": str(uuid.uuid4()), "date": d["date"], "bag_type": "new", "txn_type": "out",
+            "quantity": bags_used, "source": f"DC Delivery - {dc_num}",
+            "party_name": "", "rate": 0, "amount": 0, "invoice_no": "", "truck_no": vehicle,
+            "rst_no": "", "gst_type": "none", "cgst_percent": 0, "sgst_percent": 0,
+            "gst_percent": 0, "gst_amount": 0, "cgst_amount": 0, "sgst_amount": 0,
+            "subtotal": 0, "total": 0, "advance": 0, "reference": f"delivery:{d['id'][:8]}",
+            "notes": f"Auto: DC delivery bags used", **base
+        }
+        await db.gunny_bags.insert_one(bag_entry)
+
     return d
 
 
@@ -118,10 +169,57 @@ async def get_dc_deliveries(dc_id: Optional[str] = None, kms_year: Optional[str]
 
 @router.delete("/dc-deliveries/{delivery_id}")
 async def delete_dc_delivery(delivery_id: str):
+    # Also clean up auto-created entries
+    await db.cash_transactions.delete_many({"reference": {"$in": [f"delivery:{delivery_id[:8]}", f"delivery_diesel:{delivery_id[:8]}"]}})
+    await db.gunny_bags.delete_many({"reference": f"delivery:{delivery_id[:8]}"})
     result = await db.dc_deliveries.delete_one({"id": delivery_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Delivery not found")
     return {"message": "Delivery deleted", "id": delivery_id}
+
+
+@router.get("/dc-deliveries/invoice/{delivery_id}")
+async def get_delivery_invoice(delivery_id: str):
+    delivery = await db.dc_deliveries.find_one({"id": delivery_id}, {"_id": 0})
+    if not delivery:
+        raise HTTPException(status_code=404, detail="Delivery not found")
+    dc = await db.dc_entries.find_one({"id": delivery.get("dc_id", "")}, {"_id": 0})
+    settings = await db.settings.find_one({}, {"_id": 0}) or {}
+    mill_name = settings.get("mill_name", "NAVKAR AGRO")
+    mill_address = settings.get("mill_address", "JOLKO, KESINGA")
+    dc_number = dc.get("dc_number", "") if dc else ""
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Delivery Invoice</title>
+    <style>body{{font-family:Arial;margin:20px}}table{{width:100%;border-collapse:collapse}}
+    td,th{{border:1px solid #333;padding:6px 10px;text-align:left}}th{{background:#1a365d;color:#fff}}
+    .header{{text-align:center;margin-bottom:15px}}.header h1{{margin:0;font-size:22px}}
+    .header p{{margin:2px 0;color:#555;font-size:12px}}.info-grid{{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}}
+    .info-item{{flex:1;min-width:140px;background:#f7f7f7;padding:6px 10px;border-radius:4px}}
+    .info-item label{{font-size:10px;color:#666;display:block}}.info-item span{{font-size:13px;font-weight:bold}}
+    .total-row{{background:#f0f0f0;font-weight:bold}}
+    @media print{{body{{margin:0}}button{{display:none}}}}</style></head><body>
+    <div class="header"><h1>{mill_name}</h1><p>{mill_address} - Delivery Challan</p></div>
+    <div class="info-grid">
+      <div class="info-item"><label>DC Number</label><span>{dc_number}</span></div>
+      <div class="info-item"><label>Date</label><span>{delivery.get('date','')}</span></div>
+      <div class="info-item"><label>Invoice No</label><span>{delivery.get('invoice_no','')}</span></div>
+      <div class="info-item"><label>RST No</label><span>{delivery.get('rst_no','')}</span></div>
+      <div class="info-item"><label>Vehicle No</label><span>{delivery.get('vehicle_no','')}</span></div>
+      <div class="info-item"><label>Driver</label><span>{delivery.get('driver_name','')}</span></div>
+      <div class="info-item"><label>Slip No</label><span>{delivery.get('slip_no','')}</span></div>
+      <div class="info-item"><label>Godown</label><span>{delivery.get('godown_name','')}</span></div>
+    </div>
+    <table><tr><th>Item</th><th style="text-align:right">Details</th></tr>
+      <tr><td>Quantity</td><td style="text-align:right">{delivery.get('quantity_qntl',0)} Quintals</td></tr>
+      <tr><td>Bags Used (Govt)</td><td style="text-align:right">{delivery.get('bags_used',0)}</td></tr>
+      <tr><td>Cash Paid</td><td style="text-align:right">Rs.{delivery.get('cash_paid',0):,.2f}</td></tr>
+      <tr><td>Diesel Paid</td><td style="text-align:right">Rs.{delivery.get('diesel_paid',0):,.2f}</td></tr>
+      <tr class="total-row"><td>Total Payment</td><td style="text-align:right">Rs.{(delivery.get('cash_paid',0)+delivery.get('diesel_paid',0)):,.2f}</td></tr>
+    </table>
+    {f'<p style="margin-top:10px;font-size:12px;color:#555">Notes: {delivery.get("notes","")}</p>' if delivery.get('notes') else ''}
+    <div style="margin-top:30px;display:flex;justify-content:space-between"><div style="border-top:1px solid #333;width:150px;text-align:center;padding-top:5px;font-size:11px">Signature</div></div>
+    <button onclick="window.print()" style="margin-top:15px;padding:8px 24px;background:#1a365d;color:white;border:none;border-radius:4px;cursor:pointer">Print</button>
+    </body></html>"""
+    return Response(content=html, media_type="text/html")
 
 
 @router.get("/dc-summary")

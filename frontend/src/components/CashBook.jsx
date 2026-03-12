@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark } from "lucide-react";
+import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark, Receipt } from "lucide-react";
 import SummaryCards from "./cashbook/SummaryCards";
 import CashBookFilters from "./cashbook/CashBookFilters";
 import TransactionsTable from "./cashbook/TransactionsTable";
 import PartySummaryTab from "./cashbook/PartySummaryTab";
 import TransactionFormDialog from "./cashbook/TransactionFormDialog";
+import GSTLedger from "./GSTLedger";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -295,6 +296,11 @@ const CashBook = ({ filters, user }) => {
             data-testid="cashbook-tab-party-summary">
             <Users className="w-4 h-4 mr-1" /> Party Summary
           </Button>
+          <Button onClick={() => setActiveView("gst-ledger")} variant="ghost" size="sm"
+            className={activeView === "gst-ledger" ? "bg-purple-500 text-white hover:bg-purple-600" : "text-slate-300 hover:bg-slate-700"}
+            data-testid="cashbook-tab-gst-ledger">
+            <Receipt className="w-4 h-4 mr-1" /> GST Ledger
+          </Button>
         </div>
         <Button onClick={() => activeView === "party-summary" ? fetchPartySummary() : fetchData()} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
@@ -362,6 +368,10 @@ const CashBook = ({ filters, user }) => {
           setPartySummaryFilter={setPartySummaryFilter} filters={filters}
           API={API} onPartyClick={handlePartyClick}
         />
+      )}
+
+      {activeView === "gst-ledger" && (
+        <GSTLedger filters={filters} />
       )}
 
       <TransactionFormDialog
