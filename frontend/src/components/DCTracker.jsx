@@ -564,6 +564,15 @@ export const GunnyBags = ({ filters, user }) => {
           <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="gunny-add-btn"><Plus className="w-4 h-4 mr-1" /> New Entry</Button>
           <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="gunny-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
           <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="gunny-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+          <Button onClick={() => {
+            const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
+            axios.get(`${API}/gunny-bags/purchase-report/excel?${p}`, { responseType: 'blob' }).then(res => {
+              const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url;
+              a.download = 'gunny_purchase_report.xlsx'; a.click();
+            }).catch(() => toast.error("Report export failed"));
+          }} variant="outline" size="sm" className="border-amber-600 text-amber-400 hover:bg-amber-900/30" data-testid="gunny-purchase-report">
+            <FileText className="w-4 h-4 mr-1" /> Purchase Report
+          </Button>
         </div>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">

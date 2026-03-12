@@ -1292,18 +1292,6 @@ function MainApp({ user, onLogout }) {
               Dashboard & Targets
             </Button>
             <Button
-              onClick={() => setActiveTab("payments")}
-              variant={activeTab === "payments" ? "default" : "ghost"}
-              size="sm"
-              className={activeTab === "payments" 
-                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
-                : "text-slate-300 hover:bg-slate-700"}
-              data-testid="tab-payments"
-            >
-              <IndianRupee className="w-4 h-4 mr-1" />
-              Payments
-            </Button>
-            <Button
               onClick={() => setActiveTab("milling")}
               variant={activeTab === "milling" ? "default" : "ghost"}
               size="sm"
@@ -1316,18 +1304,6 @@ function MainApp({ user, onLogout }) {
               Milling (CMR)
             </Button>
             <Button
-              onClick={() => setActiveTab("cashbook")}
-              variant={activeTab === "cashbook" ? "default" : "ghost"}
-              size="sm"
-              className={activeTab === "cashbook" 
-                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
-                : "text-slate-300 hover:bg-slate-700"}
-              data-testid="tab-cashbook"
-            >
-              <Wallet className="w-4 h-4 mr-1" />
-              Cash Book / Ledgers
-            </Button>
-            <Button
               onClick={() => setActiveTab("dctracker")}
               variant={activeTab === "dctracker" ? "default" : "ghost"}
               size="sm"
@@ -1337,19 +1313,7 @@ function MainApp({ user, onLogout }) {
               data-testid="tab-dctracker"
             >
               <Truck className="w-4 h-4 mr-1" />
-              DC & Payments
-            </Button>
-            <Button
-              onClick={() => setActiveTab("reports")}
-              variant={activeTab === "reports" ? "default" : "ghost"}
-              size="sm"
-              className={activeTab === "reports" 
-                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
-                : "text-slate-300 hover:bg-slate-700"}
-              data-testid="tab-reports"
-            >
-              <BarChart3 className="w-4 h-4 mr-1" />
-              Reports
+              DC (Payments)
             </Button>
             <Button
               onClick={() => setActiveTab("vouchers")}
@@ -1362,6 +1326,42 @@ function MainApp({ user, onLogout }) {
             >
               <FileText className="w-4 h-4 mr-1" />
               Vouchers
+            </Button>
+            <Button
+              onClick={() => setActiveTab("cashbook")}
+              variant={activeTab === "cashbook" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "cashbook" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-cashbook"
+            >
+              <Wallet className="w-4 h-4 mr-1" />
+              Cash Book & Ledgers
+            </Button>
+            <Button
+              onClick={() => setActiveTab("payments")}
+              variant={activeTab === "payments" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "payments" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-payments"
+            >
+              <IndianRupee className="w-4 h-4 mr-1" />
+              Payments
+            </Button>
+            <Button
+              onClick={() => setActiveTab("reports")}
+              variant={activeTab === "reports" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "reports" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-reports"
+            >
+              <BarChart3 className="w-4 h-4 mr-1" />
+              Reports
             </Button>
             <Button
               onClick={() => setActiveTab("mill-parts")}

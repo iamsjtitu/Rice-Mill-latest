@@ -845,3 +845,177 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
         headers={"Content-Disposition": f"attachment; filename=gunny_bags_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
 
+# ============ GUNNY BAG PURCHASE REPORT (PARTY-WISE + GST BREAKUP) ============
+
+@router.get("/gunny-bags/purchase-report")
+async def get_gunny_purchase_report(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Get party-wise gunny bag purchase summary with GST breakup"""
+    query = {"txn_type": "in"}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    entries = await db.gunny_bags.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
+
+    # Only include manual purchases (not auto mill entries)
+    purchases = [e for e in entries if not e.get("linked_entry_id") and (e.get("total", 0) > 0 or e.get("amount", 0) > 0)]
+
+    # Group by party
+    party_map = {}
+    for e in purchases:
+        party = e.get("party_name") or e.get("source") or "Unknown"
+        if party not in party_map:
+            party_map[party] = {"entries": [], "total_qty": 0, "subtotal": 0, "cgst": 0, "sgst": 0, "igst": 0, "gst_total": 0, "grand_total": 0, "advance": 0}
+        p = party_map[party]
+        p["entries"].append(e)
+        p["total_qty"] += e.get("quantity", 0)
+        p["subtotal"] += e.get("subtotal", 0) or e.get("amount", 0) or 0
+        p["cgst"] += e.get("cgst_amount", 0) or 0
+        p["sgst"] += e.get("sgst_amount", 0) or 0
+        p["igst"] += (e.get("gst_amount", 0) or 0) if e.get("gst_type") == "igst" else 0
+        p["gst_total"] += e.get("gst_amount", 0) or 0
+        p["grand_total"] += e.get("total", 0) or e.get("amount", 0) or 0
+        p["advance"] += e.get("advance", 0) or 0
+
+    # Get payments from voucher_payment
+    for party, data in party_map.items():
+        extra_payments = await db.cash_transactions.find(
+            {"category": party, "reference": {"$regex": "^voucher_payment:"}, "account": "cash"},
+            {"_id": 0, "amount": 1}
+        ).to_list(1000)
+        data["paid_via_payments"] = sum(p.get("amount", 0) for p in extra_payments)
+        data["total_paid"] = round(data["advance"] + data["paid_via_payments"], 2)
+        data["balance"] = round(data["grand_total"] - data["total_paid"], 2)
+
+    # Round everything
+    for data in party_map.values():
+        for k in ["subtotal", "cgst", "sgst", "igst", "gst_total", "grand_total", "advance", "total_paid", "balance"]:
+            data[k] = round(data[k], 2)
+
+    totals = {
+        "total_qty": sum(d["total_qty"] for d in party_map.values()),
+        "subtotal": round(sum(d["subtotal"] for d in party_map.values()), 2),
+        "cgst": round(sum(d["cgst"] for d in party_map.values()), 2),
+        "sgst": round(sum(d["sgst"] for d in party_map.values()), 2),
+        "igst": round(sum(d["igst"] for d in party_map.values()), 2),
+        "gst_total": round(sum(d["gst_total"] for d in party_map.values()), 2),
+        "grand_total": round(sum(d["grand_total"] for d in party_map.values()), 2),
+        "advance": round(sum(d["advance"] for d in party_map.values()), 2),
+        "total_paid": round(sum(d["total_paid"] for d in party_map.values()), 2),
+        "balance": round(sum(d["balance"] for d in party_map.values()), 2),
+    }
+
+    # Strip entries from response (keep summary only)
+    parties = []
+    for party, data in sorted(party_map.items()):
+        parties.append({
+            "party_name": party, "entry_count": len(data["entries"]),
+            "total_qty": data["total_qty"], "subtotal": data["subtotal"],
+            "cgst": data["cgst"], "sgst": data["sgst"], "igst": data["igst"],
+            "gst_total": data["gst_total"], "grand_total": data["grand_total"],
+            "advance": data["advance"], "total_paid": data["total_paid"], "balance": data["balance"],
+        })
+
+    return {"parties": parties, "totals": totals}
+
+
+@router.get("/gunny-bags/purchase-report/excel")
+async def export_gunny_purchase_report_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from io import BytesIO
+
+    report = await get_gunny_purchase_report(kms_year=kms_year, season=season)
+    parties = report["parties"]
+    totals = report["totals"]
+
+    wb = Workbook(); ws = wb.active; ws.title = "Purchase Report"
+    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
+    hfont = Font(bold=True, color="FFFFFF", size=10)
+    bf = Font(bold=True)
+    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+    ws.merge_cells('A1:L1')
+    ws['A1'] = "Gunny Bag Purchase Report (Party-wise / GST Breakup)"
+    ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A2:L2')
+    ws['A2'] = f"KMS: {kms_year or 'All'} | Season: {season or 'All'}"
+    ws['A2'].font = Font(size=9, italic=True); ws['A2'].alignment = Alignment(horizontal='center')
+
+    headers = ['Party Name', 'Entries', 'Total Qty', 'Subtotal', 'CGST', 'SGST', 'IGST', 'GST Total', 'Grand Total', 'Advance', 'Paid', 'Balance']
+    for col, h in enumerate(headers, 1):
+        c = ws.cell(row=4, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='right' if col > 1 else 'left')
+
+    row = 5
+    for p in parties:
+        vals = [p["party_name"], p["entry_count"], p["total_qty"], p["subtotal"], p["cgst"], p["sgst"], p["igst"], p["gst_total"], p["grand_total"], p["advance"], p["total_paid"], p["balance"]]
+        for col, v in enumerate(vals, 1):
+            c = ws.cell(row=row, column=col, value=v); c.border = tb
+            if col > 1: c.alignment = Alignment(horizontal='right')
+            if col == 12 and v > 0: c.font = Font(color="CC0000", bold=True)
+        row += 1
+
+    # Totals row
+    tot_vals = ['TOTAL', len(parties), totals["total_qty"], totals["subtotal"], totals["cgst"], totals["sgst"], totals["igst"], totals["gst_total"], totals["grand_total"], totals["advance"], totals["total_paid"], totals["balance"]]
+    for col, v in enumerate(tot_vals, 1):
+        c = ws.cell(row=row, column=col, value=v); c.border = tb; c.font = bf
+        if col > 1: c.alignment = Alignment(horizontal='right')
+
+    for col, w in enumerate([30, 8, 10, 12, 12, 12, 12, 12, 14, 12, 12, 14], 1):
+        ws.column_dimensions[chr(64 + col)].width = w
+
+    buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=gunny_purchase_report_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+
+@router.get("/gunny-bags/purchase-report/pdf")
+async def export_gunny_purchase_report_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+    from io import BytesIO
+
+    report = await get_gunny_purchase_report(kms_year=kms_year, season=season)
+    parties = report["parties"]
+    totals = report["totals"]
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=25, bottomMargin=25)
+    elements = []; styles = getSampleStyleSheet()
+
+    elements.append(Paragraph("Gunny Bag Purchase Report (Party-wise / GST Breakup)", styles['Title']))
+    elements.append(Paragraph(f"KMS: {kms_year or 'All'} | Season: {season or 'All'}", styles['Normal']))
+    elements.append(Spacer(1, 10))
+
+    data = [['Party', '#', 'Qty', 'Subtotal', 'CGST', 'SGST', 'IGST', 'GST', 'Total', 'Advance', 'Paid', 'Balance']]
+    for p in parties:
+        data.append([p["party_name"], p["entry_count"], p["total_qty"],
+            f"Rs.{p['subtotal']:,.0f}", f"Rs.{p['cgst']:,.0f}", f"Rs.{p['sgst']:,.0f}", f"Rs.{p['igst']:,.0f}",
+            f"Rs.{p['gst_total']:,.0f}", f"Rs.{p['grand_total']:,.0f}", f"Rs.{p['advance']:,.0f}",
+            f"Rs.{p['total_paid']:,.0f}", f"Rs.{p['balance']:,.0f}"])
+    data.append(['TOTAL', len(parties), totals["total_qty"],
+        f"Rs.{totals['subtotal']:,.0f}", f"Rs.{totals['cgst']:,.0f}", f"Rs.{totals['sgst']:,.0f}", f"Rs.{totals['igst']:,.0f}",
+        f"Rs.{totals['gst_total']:,.0f}", f"Rs.{totals['grand_total']:,.0f}", f"Rs.{totals['advance']:,.0f}",
+        f"Rs.{totals['total_paid']:,.0f}", f"Rs.{totals['balance']:,.0f}"])
+
+    cw = [110, 25, 35, 60, 50, 50, 50, 50, 65, 55, 55, 65]
+    table = RLTable(data, colWidths=cw, repeatRows=1)
+    style = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, 0), 7.5), ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f0f0')),
+        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'), ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]
+    # Highlight balance > 0 in red
+    for i, p in enumerate(parties, 1):
+        if p["balance"] > 0:
+            style.append(('TEXTCOLOR', (11, i), (11, i), colors.red))
+    table.setStyle(TableStyle(style))
+    elements.append(table)
+    doc.build(elements); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=gunny_purchase_report_{datetime.now().strftime('%Y%m%d')}.pdf"})
+
+
