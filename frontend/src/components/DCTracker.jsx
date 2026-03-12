@@ -250,14 +250,15 @@ const MSPPayments = ({ filters, user, dcList }) => {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState([]);
   const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], dc_id: "", quantity_qntl: "", rate_per_qntl: "", amount: "", payment_mode: "", reference: "", bank_name: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
-      const [payRes, sumRes] = await Promise.all([axios.get(`${API}/msp-payments?${p}`), axios.get(`${API}/msp-payments/summary?${p}`)]);
-      setPayments(payRes.data); setSummary(sumRes.data);
+      const [payRes, sumRes, bankRes] = await Promise.all([axios.get(`${API}/msp-payments?${p}`), axios.get(`${API}/msp-payments/summary?${p}`), axios.get(`${API}/bank-accounts`)]);
+      setPayments(payRes.data); setSummary(sumRes.data); setBankAccounts(bankRes.data);
     } catch (e) { toast.error("MSP data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season]);
@@ -377,7 +378,12 @@ const MSPPayments = ({ filters, user, dcList }) => {
                 <Input value={form.reference} onChange={e => setForm(p=>({...p,reference:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="msp-form-ref" /></div>
             </div>
             <div><Label className="text-xs text-slate-400">Bank Name</Label>
-              <Input value={form.bank_name} onChange={e => setForm(p=>({...p,bank_name:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="msp-form-bank" /></div>
+              <Select value={form.bank_name || "_none"} onValueChange={v => setForm(p=>({...p,bank_name:v==="_none"?"":v}))}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="msp-form-bank"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="_none">-- Select Bank --</SelectItem>
+                  {bankAccounts.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+                </SelectContent>
+              </Select></div>
             <div className="flex gap-2 pt-2">
               <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white flex-1" data-testid="msp-form-submit">Save Payment</Button>
               <Button type="button" variant="outline" className="border-slate-600 text-slate-300" onClick={() => setShowForm(false)}>Cancel</Button>
