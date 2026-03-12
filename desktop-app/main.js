@@ -872,7 +872,7 @@ function createApiServer(database) {
         'sale_vouchers', 'purchase_vouchers', 'gunny_bags', 'cash_transactions',
         'opening_balances', 'gst_opening_balances', 'local_party_accounts', 'party_ledger',
         'mandi_targets', 'voucher_payments', 'stock_summary', 'truck_payments', 'agent_payments',
-        'milling_entries', 'diesel_accounts'];
+        'milling_entries', 'diesel_accounts', 'bank_accounts'];
       const deleted = {};
       for (const col of collections) {
         const count = (database.data[col] || []).length || 0;

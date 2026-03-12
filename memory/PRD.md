@@ -1,54 +1,50 @@
-# Mill Entry System
-## Recent Bug Fixes (March 2026)
-- **Cash Paid Ledger Entry Bug**: Fixed missing Ledger Nikasi entry for `cash_paid` in truck entries. Previously, only diesel_paid created a ledger nikasi entry, causing incorrect party balance calculations. Now both cash_paid and diesel_paid correctly deduct from the truck's party ledger balance. Backfill migration endpoint added at `/api/entries/fix-cash-ledger`. - PRD
+# Mill Entry System - PRD
 
-## Overview
-A comprehensive mill entry management system for NAVKAR AGRO, JOLKO, KESINGA. Handles milling, delivery challans, vouchers, payments, cash book, party ledgers, GST accounting, and reporting.
+## Original Problem Statement
+The user wants a comprehensive Mill Entry System (rice mill management) with both a web application and a standalone desktop application. The desktop app must have 100% feature parity with the web app.
 
-## Core Features
-- **Entries**: Mill entries with full CRUD, paddy input/output tracking
-- **Dashboard & Targets**: Mandi-wise targets, filtered PDF export
-- **Milling (CMR)**: Custom Milling Register with stock tracking
-- **DC (Payments)**: Delivery Challans with deliveries, MSP payments, Gunny Bags
-- **Vouchers**: Sale Book, Purchase Vouchers with GST, payment recording
-- **Cash Book & Ledgers**: Cash/Bank transactions, Party Ledger, GST Ledger
-- **Reports**: PDF/Excel exports for all modules
-- **Settings**: Mill info, user management, Telegram notifications
+## Core Requirements
+- Mandi entries with truck, paddy purchase tracking
+- DC (Delivery Challan) management with deliveries
+- Cash Book & Ledgers (Cash, Bank, Party Ledger)
+- Sale/Purchase Voucher system with GST
+- Gunny Bags stock management
+- Reporting (PDF/Excel exports)
+- Desktop standalone app with local JSON database
 
-## Key Collections (MongoDB)
-- `mill_entries`, `dc_entries`, `dc_deliveries`, `dc_msp_payments`
-- `sale_vouchers`, `purchase_vouchers`, `gunny_bags`
-- `cash_transactions`, `opening_balances`, `gst_opening_balances`
-- `bank_accounts`, `local_party_accounts`, `party_ledger`
-- `mandi_targets`, `settings`, `users`, `staff`
+## What's Been Implemented
 
-## Recent Changes (Mar 12, 2026)
-- Removed "Cash" from MSP Payment mode dropdown (govt only pays via bank)
-- Added Custom Bank Accounts management (CRUD)
-- Added Opening Balance settings for Cash and per-bank separately
-- Per-bank balance breakdown cards in Cash Book summary
-- Bank Name dropdown in MSP Payment form (from bank_accounts)
-- **DC Delivery form enhanced**: Invoice No, RST No, Bags (Govt bags minus), Cash Paid (auto Cash Book entry), Diesel Paid (auto Truck payment entry)
-- **Delivery Invoice Print**: HTML invoice via GET /api/dc-deliveries/invoice/{id}
-- **GST Ledger**: Full IGST/SGST/CGST tracking with Opening Balance, auto credit from Purchase, auto debit from Sale
-- **Govt Bags Stock**: Tracking via /api/govt-bags/stock
+### Web App (Stable) ✅
+- Full entry management with mill entries
+- DC Tracker with deliveries, MSP payments
+- Cash Book with bank accounts, party ledger, GST ledger
+- Sale & Purchase vouchers with E-Way Bill
+- Bank account management with per-bank opening balances
+- Reports (PDF/Excel) for all modules
+- Settings, staff management, FY summary
+- Telegram integration for notifications
 
-## Key API Endpoints
-- `GET /api/bank-accounts`, `POST /api/bank-accounts`, `DELETE /api/bank-accounts/{id}`
-- `PUT /api/cash-book/opening-balance` (cash + per-bank bank_details)
-- `GET /api/dc-deliveries/invoice/{id}` - Delivery invoice HTML
-- `GET /api/gst-ledger` - Compute GST ledger from vouchers
-- `GET/PUT /api/gst-ledger/opening-balance` - GST OB (IGST/SGST/CGST)
-- `GET /api/govt-bags/stock` - Govt bags stock summary
-- `POST /api/voucher-payment` - Universal payment for any voucher
-- `GET /api/sale-book/invoice/{id}` - Sale invoice HTML
-- All standard CRUD endpoints
+### Desktop App Sync (Completed) ✅
+All new features ported to Node.js/Express backend with NeDB:
+- `bank_accounts.js` - Bank account CRUD
+- `gst_ledger.js` - GST ledger with opening balances
+- `voucher_payments.js` - Voucher payment processing
+- `salebook.js` - Sale vouchers with E-Way Bill
+- `purchase_vouchers.js` - Purchase vouchers with E-Way Bill
+- `dc_payments.js` - Updated with:
+  - New delivery fields (invoice_no, rst_no, eway_bill_no, bags_used, cash_paid, diesel_paid, cgst, sgst)
+  - Auto-entries for cash/diesel/bags
+  - Cascading delete for auto-entries
+  - Delivery invoice endpoint
+  - Updated Excel export with Deliveries sheet
+- `cashbook.js` - Updated with per-bank opening balance (bank_details)
+- `main.js` - delete-all-data includes bank_accounts
+- Frontend rebuilt with ELECTRON_API_URL fallback for all components
 
-## Architecture
-- **Frontend**: React + Shadcn UI, dark theme
-- **Backend**: FastAPI + Motor (async MongoDB)
-- **Database**: MongoDB
-- **Reports**: ReportLab (PDF), OpenPyXL (Excel)
+### Bug Fixes (March 2026)
+- **Cash Paid Ledger Entry**: Fixed missing Ledger Nikasi entry for cash_paid in truck entries. Both add and update entry functions now create ledger nikasi entries for cash deductions.
+- **ELECTRON_API_URL**: Fixed 5 components that used process.env directly without ELECTRON_API_URL fallback.
+- **DC Entry Delete Cascade**: Fixed to also delete auto-entries (cash/diesel/bags) when a DC entry and its deliveries are deleted.
 
 ## Backlog
-- P2: Refactor duplicated logic between Python backend and desktop-app Node.js backend
+- P2: Refactor duplicated business logic between Python and Node.js backends

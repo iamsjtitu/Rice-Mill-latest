@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RefreshCw, Wallet } from "lucide-react";
 
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+const API = ((typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL) + "/api";
 
 const GSTLedger = ({ filters }) => {
   const [data, setData] = useState(null);

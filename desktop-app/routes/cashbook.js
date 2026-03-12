@@ -158,10 +158,44 @@ module.exports = function(database) {
       }
     }
 
+    // Per-bank breakdown for bank account transactions
+    const bankTxns = txns.filter(t => t.account === 'bank');
+    const bankNames = [...new Set(bankTxns.map(t => t.bank_name).filter(Boolean))];
+    const bankDetails = {};
+    let linkedBankIn = 0, linkedBankOut = 0;
+    for (const bn of bankNames) {
+      const bIn = +bankTxns.filter(t => t.bank_name === bn && t.txn_type === 'jama').reduce((s,t) => s + (t.amount||0), 0).toFixed(2);
+      const bOut = +bankTxns.filter(t => t.bank_name === bn && t.txn_type === 'nikasi').reduce((s,t) => s + (t.amount||0), 0).toFixed(2);
+      bankDetails[bn] = { in: bIn, out: bOut, balance: +(bIn - bOut).toFixed(2) };
+      linkedBankIn += bIn; linkedBankOut += bOut;
+    }
+    const unlinkedBIn = +(bankIn - linkedBankIn).toFixed(2);
+    const unlinkedBOut = +(bankOut - linkedBankOut).toFixed(2);
+    if (unlinkedBIn > 0 || unlinkedBOut > 0) {
+      bankDetails['Other'] = { in: unlinkedBIn, out: unlinkedBOut, balance: +(unlinkedBIn - unlinkedBOut).toFixed(2) };
+    }
+
+    // Get per-bank opening balances
+    let openingBankDetails = {};
+    if (kmsYear) {
+      const savedOb2 = (database.data.opening_balances||[]).find(ob => ob.kms_year === kmsYear);
+      if (savedOb2 && savedOb2.bank_details) {
+        openingBankDetails = savedOb2.bank_details;
+      }
+    }
+    // Add opening balances per bank
+    for (const bn in bankDetails) {
+      const obVal = openingBankDetails[bn] || 0;
+      bankDetails[bn].opening = obVal;
+      bankDetails[bn].balance = +(obVal + bankDetails[bn].in - bankDetails[bn].out).toFixed(2);
+    }
+
     res.json({
       opening_cash: openingCash, opening_bank: openingBank,
+      opening_bank_details: openingBankDetails,
       cash_in: cashIn, cash_out: cashOut, cash_balance: +(openingCash + cashIn - cashOut).toFixed(2),
       bank_in: bankIn, bank_out: bankOut, bank_balance: +(openingBank + bankIn - bankOut).toFixed(2),
+      bank_details: bankDetails,
       total_balance: +((openingCash + cashIn - cashOut) + (openingBank + bankIn - bankOut)).toFixed(2),
       total_transactions: txns.length
     });
@@ -286,7 +320,7 @@ module.exports = function(database) {
     const kms_year = req.query.kms_year || '';
     if (!database.data.opening_balances) database.data.opening_balances = [];
     const saved = database.data.opening_balances.find(ob => ob.kms_year === kms_year);
-    if (saved) return res.json({ cash: saved.cash || 0, bank: saved.bank || 0, source: 'manual' });
+    if (saved) return res.json({ cash: saved.cash || 0, bank: saved.bank || 0, bank_details: saved.bank_details || {}, source: 'manual' });
     const parts = kms_year.split('-');
     if (parts.length === 2) {
       try {
@@ -299,18 +333,18 @@ module.exports = function(database) {
         const prevOb = database.data.opening_balances.find(ob => ob.kms_year === prevFy);
         const obCash = prevOb ? (prevOb.cash || 0) : 0;
         const obBank = prevOb ? (prevOb.bank || 0) : 0;
-        return res.json({ cash: +(obCash + prevCashIn - prevCashOut).toFixed(2), bank: +(obBank + prevBankIn - prevBankOut).toFixed(2), source: 'auto' });
+        return res.json({ cash: +(obCash + prevCashIn - prevCashOut).toFixed(2), bank: +(obBank + prevBankIn - prevBankOut).toFixed(2), bank_details: {}, source: 'auto' });
       } catch(e) {}
     }
-    res.json({ cash: 0, bank: 0, source: 'none' });
+    res.json({ cash: 0, bank: 0, bank_details: {}, source: 'none' });
   }));
 
   router.put('/api/cash-book/opening-balance', safeSync((req, res) => {
-    const { kms_year, cash, bank } = req.body;
+    const { kms_year, cash, bank, bank_details } = req.body;
     if (!kms_year) return res.status(400).json({ detail: 'kms_year is required' });
     if (!database.data.opening_balances) database.data.opening_balances = [];
     const idx = database.data.opening_balances.findIndex(ob => ob.kms_year === kms_year);
-    const doc = { kms_year, cash: +(cash || 0), bank: +(bank || 0), updated_at: new Date().toISOString() };
+    const doc = { kms_year, cash: +(cash || 0), bank: +(bank || 0), bank_details: bank_details || {}, updated_at: new Date().toISOString() };
     if (idx >= 0) database.data.opening_balances[idx] = doc;
     else database.data.opening_balances.push(doc);
     database.save();

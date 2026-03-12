@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { TrendingUp, TrendingDown, Banknote, Package, Fuel, Users, Wheat, Wrench, ArrowRightLeft, RefreshCw, FileDown } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
-const API = process.env.REACT_APP_BACKEND_URL + '/api';
+const API = ((typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL) + '/api';
 
 function SummaryCard({ title, icon: Icon, iconColor, children }) {
   return (

@@ -34,11 +34,26 @@ module.exports = function(database) {
 
   router.delete('/api/dc-entries/:id', safeSync((req, res) => {
     if (!database.data.dc_entries) return res.status(404).json({ detail: 'Not found' });
+    const dcId = req.params.id;
     const len = database.data.dc_entries.length;
-    database.data.dc_entries = database.data.dc_entries.filter(e => e.id !== req.params.id);
-    if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
-    database.data.dc_deliveries = database.data.dc_deliveries.filter(d => d.dc_id !== req.params.id);
-    if (database.data.dc_entries.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
+    database.data.dc_entries = database.data.dc_entries.filter(e => e.id !== dcId);
+    if (database.data.dc_entries.length < len) {
+      // Cascading: delete all deliveries and their auto-entries
+      const delIds = (database.data.dc_deliveries||[]).filter(d => d.dc_id === dcId).map(d => d.id);
+      database.data.dc_deliveries = (database.data.dc_deliveries||[]).filter(d => d.dc_id !== dcId);
+      for (const did of delIds) {
+        const refCash = `delivery:${did.slice(0,8)}`;
+        const refDiesel = `delivery_diesel:${did.slice(0,8)}`;
+        if (database.data.cash_transactions) {
+          database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== refCash && t.reference !== refDiesel);
+        }
+        if (database.data.gunny_bags) {
+          database.data.gunny_bags = database.data.gunny_bags.filter(b => b.reference !== refCash);
+        }
+      }
+      database.save();
+      return res.json({ message: 'DC and its deliveries deleted', id: dcId });
+    }
     res.status(404).json({ detail: 'Not found' });
   }));
 
@@ -52,13 +67,45 @@ module.exports = function(database) {
 
   router.get('/api/dc-entries/excel', safeAsync(async (req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
+    if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     let entries = [...database.data.dc_entries];
-    if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
-    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('DC Entries');
-    ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'DC No', key: 'dc_number', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rice Type', key: 'rice_type', width: 12 }, { header: 'Godown', key: 'godown_name', width: 15 }, { header: 'Deadline', key: 'deadline', width: 12 }];
-    entries.forEach(e => ws.addRow(e));
+    let allDels = [...database.data.dc_deliveries];
+    if (req.query.kms_year) { entries = entries.filter(e => e.kms_year === req.query.kms_year); allDels = allDels.filter(d => d.kms_year === req.query.kms_year); }
+    if (req.query.season) { entries = entries.filter(e => e.season === req.query.season); allDels = allDels.filter(d => d.season === req.query.season); }
+    const wb = new ExcelJS.Workbook();
+    // Sheet 1: DC Register
+    const ws = wb.addWorksheet('DC Register');
+    ws.columns = [
+      { header: 'DC No', key: 'dc_number', width: 12 }, { header: 'Date', key: 'date', width: 12 },
+      { header: 'Rice Type', key: 'rice_type', width: 12 }, { header: 'Allotted(Q)', key: 'quantity_qntl', width: 12 },
+      { header: 'Delivered(Q)', key: 'delivered', width: 12 }, { header: 'Pending(Q)', key: 'pending', width: 12 },
+      { header: 'Status', key: 'status', width: 12 }, { header: 'Deadline', key: 'deadline', width: 12 },
+      { header: 'Godown', key: 'godown_name', width: 15 }
+    ];
+    entries.forEach(e => {
+      const deld = +allDels.filter(d => d.dc_id === e.id).reduce((s,d) => s + (d.quantity_qntl||0), 0).toFixed(2);
+      const pend = +(e.quantity_qntl - deld).toFixed(2);
+      const status = deld >= e.quantity_qntl ? 'Completed' : (deld > 0 ? 'Partial' : 'Pending');
+      ws.addRow({ dc_number: e.dc_number, date: e.date, rice_type: (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1), quantity_qntl: e.quantity_qntl, delivered: deld, pending: pend, status, deadline: e.deadline, godown_name: e.godown_name });
+    });
+    // Sheet 2: Deliveries detail
+    const ws2 = wb.addWorksheet('Deliveries');
+    ws2.columns = [
+      { header: 'DC No', key: 'dc_no', width: 12 }, { header: 'Date', key: 'date', width: 12 },
+      { header: 'Invoice No', key: 'invoice_no', width: 14 }, { header: 'RST No', key: 'rst_no', width: 12 },
+      { header: 'E-Way Bill', key: 'eway_bill_no', width: 14 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 },
+      { header: 'Vehicle', key: 'vehicle_no', width: 12 }, { header: 'Driver', key: 'driver_name', width: 14 },
+      { header: 'Bags', key: 'bags_used', width: 8 }, { header: 'Cash Paid', key: 'cash_paid', width: 12 },
+      { header: 'Diesel Paid', key: 'diesel_paid', width: 12 }, { header: 'CGST', key: 'cgst_amount', width: 10 },
+      { header: 'SGST', key: 'sgst_amount', width: 10 }, { header: 'Godown', key: 'godown_name', width: 14 },
+      { header: 'Notes', key: 'notes', width: 18 }
+    ];
+    const dcMap = Object.fromEntries(entries.map(e => [e.id, e.dc_number||'']));
+    allDels.sort((a,b) => (a.date||'').localeCompare(b.date||'')).forEach(dl => {
+      ws2.addRow({ dc_no: dcMap[dl.dc_id]||'', date: dl.date, invoice_no: dl.invoice_no||'', rst_no: dl.rst_no||'', eway_bill_no: dl.eway_bill_no||'', quantity_qntl: dl.quantity_qntl, vehicle_no: dl.vehicle_no, driver_name: dl.driver_name, bags_used: dl.bags_used||0, cash_paid: dl.cash_paid||0, diesel_paid: dl.diesel_paid||0, cgst_amount: dl.cgst_amount||0, sgst_amount: dl.sgst_amount||0, godown_name: dl.godown_name||'', notes: dl.notes||'' });
+    });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=dc_entries.xlsx');
+    res.setHeader('Content-Disposition', 'attachment; filename=dc_register.xlsx');
     await wb.xlsx.write(res); res.end();
   }));
 
@@ -77,9 +124,60 @@ module.exports = function(database) {
   // ===== DC DELIVERIES =====
   router.post('/api/dc-deliveries', safeSync((req, res) => {
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    if (!database.data.gunny_bags) database.data.gunny_bags = [];
     const d = req.body;
-    const del = { id: uuidv4(), dc_id: d.dc_id||'', date: d.date||'', quantity_qntl: +(d.quantity_qntl||0), vehicle_no: d.vehicle_no||'', driver_name: d.driver_name||'', slip_no: d.slip_no||'', godown_name: d.godown_name||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
-    database.data.dc_deliveries.push(del); database.save(); res.json(del);
+    const now = new Date().toISOString();
+    const del = {
+      id: uuidv4(), dc_id: d.dc_id||'', date: d.date||'', quantity_qntl: +(d.quantity_qntl||0),
+      vehicle_no: d.vehicle_no||'', driver_name: d.driver_name||'', slip_no: d.slip_no||'',
+      godown_name: d.godown_name||'', notes: d.notes||'',
+      invoice_no: d.invoice_no||'', rst_no: d.rst_no||'', eway_bill_no: d.eway_bill_no||'',
+      bags_used: +(d.bags_used||0), cash_paid: +(d.cash_paid||0), diesel_paid: +(d.diesel_paid||0),
+      cgst_amount: +(d.cgst_amount||0), sgst_amount: +(d.sgst_amount||0),
+      kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: now
+    };
+    database.data.dc_deliveries.push(del);
+
+    // Find DC for dc_number
+    const dc = (database.data.dc_entries||[]).find(e => e.id === del.dc_id);
+    const dcNum = dc ? dc.dc_number : '';
+    const vehicle = del.vehicle_no;
+    const base = { kms_year: del.kms_year, season: del.season, created_by: del.created_by, created_at: now, updated_at: now };
+
+    // Auto-entry: Cash Paid → Cash Book Nikasi
+    if (del.cash_paid > 0) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: del.date, account: 'cash', txn_type: 'nikasi',
+        category: vehicle || `Truck-${dcNum}`, party_type: 'Truck',
+        description: `DC Delivery Cash - ${dcNum} | ${vehicle}`,
+        amount: Math.round(del.cash_paid * 100) / 100, reference: `delivery:${del.id.slice(0,8)}`,
+        bank_name: '', ...base
+      });
+    }
+    // Auto-entry: Diesel Paid → Cash Book Nikasi
+    if (del.diesel_paid > 0) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: del.date, account: 'cash', txn_type: 'nikasi',
+        category: vehicle || `Truck-${dcNum}`, party_type: 'Diesel',
+        description: `DC Delivery Diesel - ${dcNum} | ${vehicle}`,
+        amount: Math.round(del.diesel_paid * 100) / 100, reference: `delivery_diesel:${del.id.slice(0,8)}`,
+        bank_name: '', ...base
+      });
+    }
+    // Auto-entry: Bags Used → Gunny Bags stock out
+    if (del.bags_used > 0) {
+      database.data.gunny_bags.push({
+        id: uuidv4(), date: del.date, bag_type: 'new', txn_type: 'out',
+        quantity: del.bags_used, source: `DC Delivery - ${dcNum}`,
+        party_name: '', rate: 0, amount: 0, invoice_no: '', truck_no: vehicle,
+        rst_no: '', gst_type: 'none', cgst_percent: 0, sgst_percent: 0,
+        gst_percent: 0, gst_amount: 0, cgst_amount: 0, sgst_amount: 0,
+        subtotal: 0, total: 0, advance: 0, reference: `delivery:${del.id.slice(0,8)}`,
+        notes: 'Auto: DC delivery bags used', ...base
+      });
+    }
+    database.save(); res.json(del);
   }));
 
   router.get('/api/dc-deliveries', safeSync((req, res) => {
@@ -93,10 +191,73 @@ module.exports = function(database) {
 
   router.delete('/api/dc-deliveries/:id', safeSync((req, res) => {
     if (!database.data.dc_deliveries) return res.status(404).json({ detail: 'Not found' });
+    const deliveryId = req.params.id;
     const len = database.data.dc_deliveries.length;
-    database.data.dc_deliveries = database.data.dc_deliveries.filter(d => d.id !== req.params.id);
-    if (database.data.dc_deliveries.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
+    database.data.dc_deliveries = database.data.dc_deliveries.filter(d => d.id !== deliveryId);
+    if (database.data.dc_deliveries.length < len) {
+      // Cascading delete: remove auto-created cash and bag entries
+      const refCash = `delivery:${deliveryId.slice(0,8)}`;
+      const refDiesel = `delivery_diesel:${deliveryId.slice(0,8)}`;
+      if (database.data.cash_transactions) {
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== refCash && t.reference !== refDiesel);
+      }
+      if (database.data.gunny_bags) {
+        database.data.gunny_bags = database.data.gunny_bags.filter(b => b.reference !== refCash);
+      }
+      database.save();
+      return res.json({ message: 'Delivery deleted', id: deliveryId });
+    }
     res.status(404).json({ detail: 'Not found' });
+  }));
+
+  // Delivery Invoice HTML
+  router.get('/api/dc-deliveries/invoice/:id', safeSync((req, res) => {
+    if (!database.data.dc_deliveries) return res.status(404).json({ detail: 'Not found' });
+    const delivery = database.data.dc_deliveries.find(d => d.id === req.params.id);
+    if (!delivery) return res.status(404).json({ detail: 'Delivery not found' });
+    const dc = (database.data.dc_entries||[]).find(e => e.id === delivery.dc_id);
+    const settings = database.data.settings || {};
+    const millName = settings.mill_name || 'NAVKAR AGRO';
+    const millAddr = settings.mill_address || 'JOLKO, KESINGA';
+    const dcNum = dc ? dc.dc_number : '';
+    const cashPaid = delivery.cash_paid || 0;
+    const dieselPaid = delivery.diesel_paid || 0;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Delivery Invoice</title>
+    <style>body{font-family:Arial;margin:20px}table{width:100%;border-collapse:collapse}
+    td,th{border:1px solid #333;padding:6px 10px;text-align:left}th{background:#1a365d;color:#fff}
+    .header{text-align:center;margin-bottom:15px}.header h1{margin:0;font-size:22px}
+    .header p{margin:2px 0;color:#555;font-size:12px}.info-grid{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+    .info-item{flex:1;min-width:140px;background:#f7f7f7;padding:6px 10px;border-radius:4px}
+    .info-item label{font-size:10px;color:#666;display:block}.info-item span{font-size:13px;font-weight:bold}
+    .total-row{background:#f0f0f0;font-weight:bold}
+    @media print{body{margin:0}button{display:none}}</style></head><body>
+    <div class="header"><h1>${millName}</h1><p>${millAddr} - Delivery Challan</p></div>
+    <div class="info-grid">
+      <div class="info-item"><label>DC Number</label><span>${dcNum}</span></div>
+      <div class="info-item"><label>Date</label><span>${delivery.date||''}</span></div>
+      <div class="info-item"><label>Invoice No</label><span>${delivery.invoice_no||''}</span></div>
+      <div class="info-item"><label>RST No</label><span>${delivery.rst_no||''}</span></div>
+      <div class="info-item"><label>E-Way Bill</label><span>${delivery.eway_bill_no||''}</span></div>
+      <div class="info-item"><label>Vehicle No</label><span>${delivery.vehicle_no||''}</span></div>
+      <div class="info-item"><label>Driver</label><span>${delivery.driver_name||''}</span></div>
+      <div class="info-item"><label>Slip No</label><span>${delivery.slip_no||''}</span></div>
+      <div class="info-item"><label>Godown</label><span>${delivery.godown_name||''}</span></div>
+    </div>
+    <table><tr><th>Item</th><th style="text-align:right">Details</th></tr>
+      <tr><td>Quantity</td><td style="text-align:right">${delivery.quantity_qntl||0} Quintals</td></tr>
+      <tr><td>Bags Used (Govt)</td><td style="text-align:right">${delivery.bags_used||0}</td></tr>
+      <tr><td>Cash Paid</td><td style="text-align:right">Rs.${cashPaid.toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>
+      <tr><td>Diesel Paid</td><td style="text-align:right">Rs.${dieselPaid.toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>
+      <tr><td>CGST</td><td style="text-align:right">Rs.${(delivery.cgst_amount||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>
+      <tr><td>SGST</td><td style="text-align:right">Rs.${(delivery.sgst_amount||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>
+      <tr class="total-row"><td>Total Payment</td><td style="text-align:right">Rs.${(cashPaid+dieselPaid).toLocaleString('en-IN',{minimumFractionDigits:2})}</td></tr>
+    </table>
+    ${delivery.notes ? `<p style="margin-top:10px;font-size:12px;color:#555">Notes: ${delivery.notes}</p>` : ''}
+    <div style="margin-top:30px;display:flex;justify-content:space-between"><div style="border-top:1px solid #333;width:150px;text-align:center;padding-top:5px;font-size:11px">Signature</div></div>
+    <button onclick="window.print()" style="margin-top:15px;padding:8px 24px;background:#1a365d;color:white;border:none;border-radius:4px;cursor:pointer">Print</button>
+    </body></html>`;
+    res.set('Content-Type', 'text/html');
+    res.send(html);
   }));
 
   router.get('/api/dc-summary', safeSync((req, res) => {
