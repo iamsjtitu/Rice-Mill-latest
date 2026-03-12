@@ -62,7 +62,7 @@ router.get('/api/local-party/summary', safeSync((req, res) => {
   const allPartyNames = Object.keys(partyMap);
   for (const pn of allPartyNames) {
     const ledgerPaid = allCashTxns
-      .filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === pn && t.party_type === 'Local Party'
+      .filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === pn
         && (!req.query.kms_year || t.kms_year === req.query.kms_year)
         && (!req.query.season || t.season === req.query.season))
       .reduce((s, t) => s + (t.amount || 0), 0);

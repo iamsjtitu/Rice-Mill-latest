@@ -983,14 +983,20 @@ async def get_gunny_purchase_report(kms_year: Optional[str] = None, season: Opti
         p["grand_total"] += e.get("total", 0) or e.get("amount", 0) or 0
         p["advance"] += e.get("advance", 0) or 0
 
-    # Get payments from voucher_payment
+    # Use LEDGER as source of truth for total_paid (includes advance + Cash Book manual payments + voucher payments)
+    all_party_names = list(party_map.keys())
+    ledger_query = {"account": "ledger", "txn_type": "nikasi", "category": {"$in": all_party_names}}
+    if kms_year: ledger_query["kms_year"] = kms_year
+    if season: ledger_query["season"] = season
+    ledger_payments = await db.cash_transactions.find(ledger_query, {"_id": 0}).to_list(50000)
+    
+    ledger_paid_map = {}
+    for lp in ledger_payments:
+        pn = lp.get("category", "")
+        ledger_paid_map[pn] = ledger_paid_map.get(pn, 0) + lp.get("amount", 0)
+    
     for party, data in party_map.items():
-        extra_payments = await db.cash_transactions.find(
-            {"category": party, "reference": {"$regex": "^voucher_payment:"}, "account": "cash"},
-            {"_id": 0, "amount": 1}
-        ).to_list(1000)
-        data["paid_via_payments"] = sum(p.get("amount", 0) for p in extra_payments)
-        data["total_paid"] = round(data["advance"] + data["paid_via_payments"], 2)
+        data["total_paid"] = round(ledger_paid_map.get(party, 0), 2)
         data["balance"] = round(data["grand_total"] - data["total_paid"], 2)
 
     # Round everything
