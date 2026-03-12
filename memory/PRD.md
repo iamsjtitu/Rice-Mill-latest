@@ -9,21 +9,16 @@ Comprehensive Mill Entry System (rice mill management) web + desktop app.
 ## What's Been Implemented (Stable)
 - Full entry management, DC Tracker, Cash Book, Vouchers, Gunny Bags, Reports
 - Telegram integration, Settings, Staff, FY Summary
-- DC Search by DC Number / Invoice Number
 
-## Bug Fixes (March 2026)
-- Auto-Ledger Fix: Cash Book auto-ledger always creates Nikasi
+## Bug Fixes & Features (12-Mar-2026)
+- Auto-Ledger Fix: Cash Book auto-ledger always creates Nikasi for cash/bank entries
+- Party Balance Fix: New Transaction hint now uses ONLY ledger entries (not cash), labels show Jama/Nikasi
 - Party Summary Ledger Fix: Vouchers Party Summary uses ledger for paid calculations
-- Sale Voucher Creation: Fixed KeyError 'id' in _create_sale_ledger_entries
-- All Payment Sections → Ledger Source of Truth
-
-## Features Added (12-Mar-2026)
-- Sale Voucher Payment: Cash/Bank selector + bank dropdown + Undo Payment
-- Purchase Voucher Payment: Cash/Bank selector + bank dropdown + Undo Payment
-- Cash Book Action Cards: Bank Accounts, Sale Voucher Payment, Purchase Voucher Payment, Set Opening Balance - displayed as colored cards above summary
-- Cash Book → Direct Voucher Payment: Both Sale and Purchase voucher payments from Cash Book
-- Select & Delete: Checkbox-based bulk select & delete for Sale and Purchase Vouchers
-- Sale Book: Opening Balance button/dialog removed (managed via Cash Book)
+- Sale Voucher Creation Fix: KeyError 'id' fixed
+- Sale/Purchase Voucher Payment: Cash/Bank selector + bank dropdown + Undo Payment
+- Cash Book: Normal buttons for Bank Accounts, Sale/Purchase Voucher Payment, Set Opening Balance
+- Select & Delete: Bulk select/delete for Sale and Purchase Vouchers
+- Sale Book: Opening Balance button removed
 
 ## Backlog
 - P1: Full regression test of all payment modules
