@@ -262,9 +262,6 @@ export default function SaleBook({ filters, user }) {
           <FileText className="w-5 h-5" /> Sale Book (बिक्री खाता)
         </h2>
         <div className="flex gap-2 flex-wrap">
-          <Button onClick={() => setIsObOpen(true)} variant="outline" size="sm" className="border-blue-600 text-blue-400 hover:bg-blue-900/30" data-testid="ob-add-btn">
-            <Plus className="w-3 h-3 mr-1" /> Opening Bal.
-          </Button>
           <Button onClick={handleExportPDF} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30" data-testid="sale-book-pdf-btn">
             <Download className="w-3 h-3 mr-1" /> PDF
           </Button>
@@ -306,27 +303,6 @@ export default function SaleBook({ filters, user }) {
           </Card>
         ))}
       </div>
-
-      {/* Opening Balances */}
-      {obList.length > 0 && (
-        <Card className="bg-slate-800/30 border-blue-800/50">
-          <CardContent className="p-3">
-            <div className="text-xs font-semibold text-blue-400 mb-2">Opening Balances (FY: {filters.kms_year})</div>
-            <div className="flex flex-wrap gap-2">
-              {obList.map(ob => (
-                <div key={ob.id} className="flex items-center gap-1 bg-slate-700/50 px-2 py-1 rounded text-xs">
-                  <span className="text-white font-medium">{ob.category}</span>
-                  <span className={`font-bold ${ob.txn_type === 'jama' ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {ob.txn_type === 'jama' ? '+' : '-'}Rs.{ob.amount?.toLocaleString('en-IN')}
-                  </span>
-                  <span className="text-slate-500 text-[10px]">{ob.party_type}</span>
-                  <button onClick={() => handleObDelete(ob.id)} className="text-red-400 hover:text-red-300 ml-1"><Trash2 className="w-3 h-3" /></button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Vouchers Table */}
       <Card className="bg-slate-800/50 border-slate-700">
@@ -621,58 +597,6 @@ export default function SaleBook({ filters, user }) {
               </Button>
               <Button type="button" variant="outline" className="border-slate-600 text-slate-300" onClick={() => { setIsFormOpen(false); setEditingId(null); }}>Cancel</Button>
             </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Opening Balance Dialog */}
-      <Dialog open={isObOpen} onOpenChange={setIsObOpen}>
-        <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white" data-testid="ob-form-dialog">
-          <DialogHeader>
-            <DialogTitle className="text-blue-400">Opening Balance (शुरुआती बाकी)</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleObSubmit} className="space-y-3">
-            <div>
-              <Label className="text-xs text-slate-400">Party Name *</Label>
-              <Input value={obForm.party_name} onChange={e => setObForm(p => ({ ...p, party_name: e.target.value }))}
-                placeholder="Party ka naam" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="ob-party" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-slate-400">Party Type</Label>
-                <Select value={obForm.party_type} onValueChange={v => setObForm(p => ({ ...p, party_type: v }))}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="ob-type"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {["Cash Party","Pvt Paddy Purchase","Rice Sale","Diesel","Local Party","Truck","Agent","By-Product Sale","Sale Book"].map(t => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs text-slate-400">Balance Type</Label>
-                <Select value={obForm.balance_type} onValueChange={v => setObForm(p => ({ ...p, balance_type: v }))}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="ob-balance-type"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="jama">Jama (उधार - Party par baki)</SelectItem>
-                    <SelectItem value="nikasi">Nikasi (हमारा देना)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
-              <Input type="number" step="0.01" value={obForm.amount} onChange={e => setObForm(p => ({ ...p, amount: e.target.value }))}
-                placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="ob-amount" />
-            </div>
-            <div>
-              <Label className="text-xs text-slate-400">Note</Label>
-              <Input value={obForm.note} onChange={e => setObForm(p => ({ ...p, note: e.target.value }))}
-                placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="ob-note" />
-            </div>
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold" data-testid="ob-submit">
-              Save Opening Balance
-            </Button>
           </form>
         </DialogContent>
       </Dialog>

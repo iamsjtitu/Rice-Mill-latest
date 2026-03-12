@@ -37,6 +37,9 @@ export default function PurchaseVouchers({ filters, user }) {
   const [payAmount, setPayAmount] = useState("");
   const [payNotes, setPayNotes] = useState("");
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [payAccount, setPayAccount] = useState("cash");
+  const [payBankName, setPayBankName] = useState("");
+  const [bankAccounts, setBankAccounts] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyParty, setHistoryParty] = useState("");
   const [historyData, setHistoryData] = useState([]);
@@ -72,8 +75,12 @@ export default function PurchaseVouchers({ filters, user }) {
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
       if (searchText) p.append('search', searchText);
-      const res = await axios.get(`${API}/purchase-book?${p}`);
+      const [res, bRes] = await Promise.all([
+        axios.get(`${API}/purchase-book?${p}`),
+        axios.get(`${API}/bank-accounts`),
+      ]);
       setVouchers(res.data);
+      setBankAccounts(bRes.data || []);
     } catch { toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season, searchText]);
@@ -228,14 +235,26 @@ export default function PurchaseVouchers({ filters, user }) {
 
   const handlePayment = async () => {
     if (!payDialog || !payAmount || parseFloat(payAmount) <= 0) { toast.error("Amount daalna zaroori hai"); return; }
+    if (payAccount === "bank" && !payBankName) { toast.error("Bank account select karein"); return; }
     try {
       await axios.post(`${API}/voucher-payment`, {
         voucher_type: "purchase", voucher_id: payDialog.id, amount: parseFloat(payAmount),
         date: payDate, notes: payNotes, username: user.username,
         kms_year: filters.kms_year || "", season: filters.season || "",
+        account: payAccount, bank_name: payAccount === "bank" ? payBankName : "",
       });
-      toast.success("Payment record ho gayi!"); setPayDialog(null); setPayAmount(""); setPayNotes(""); fetchData();
+      toast.success("Payment record ho gayi!"); setPayDialog(null); setPayAmount(""); setPayNotes(""); setPayAccount("cash"); setPayBankName(""); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
+  };
+
+  const handleUndoPayment = async (paymentId) => {
+    if (!window.confirm("Kya aap payment undo karna chahte hain? Cash Book se bhi entry hat jayegi.")) return;
+    try {
+      await axios.post(`${API}/voucher-payment/undo`, { payment_id: paymentId });
+      toast.success("Payment undo ho gayi!");
+      if (historyParty) fetchHistory(historyParty);
+      fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Undo error"); }
   };
 
   const totals = useMemo(() => {
@@ -348,10 +367,13 @@ export default function PurchaseVouchers({ filters, user }) {
                           <Button variant="ghost" size="sm" className="h-6 px-1 text-sky-400" onClick={() => openHistory(v.party_name)} title="Payment History" data-testid={`pv-history-${v.id}`}>
                             <Clock className="w-3 h-3" />
                           </Button>
+                          <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog(v); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); setPayAccount("cash"); setPayBankName(""); }} title="Aur Payment" data-testid={`pv-pay-more-${v.id}`}>
+                            <IndianRupee className="w-3 h-3" />
+                          </Button>
                         </>
                       ) : (
                         <>
-                          <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog(v); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); }} title="Payment Karein" data-testid={`pv-pay-${v.id}`}>
+                          <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog(v); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); setPayAccount("cash"); setPayBankName(""); }} title="Payment Karein" data-testid={`pv-pay-${v.id}`}>
                             <IndianRupee className="w-3 h-3" />
                           </Button>
                           <Button variant="ghost" size="sm" className="h-6 px-1 text-sky-400" onClick={() => openHistory(v.party_name)} title="Payment History" data-testid={`pv-history-${v.id}`}>
@@ -587,18 +609,42 @@ export default function PurchaseVouchers({ filters, user }) {
                 <p><span className="text-slate-400">Party:</span> <span className="text-white font-medium">{payDialog.party_name}</span></p>
                 <p><span className="text-slate-400">Invoice:</span> <span className="text-white">{payDialog.invoice_no || '-'}</span></p>
                 <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{payDialog.total?.toLocaleString('en-IN')}</span></p>
-                <p><span className="text-slate-400">Paid:</span> <span className="text-sky-400 font-bold">Rs.{(payDialog.ledger_paid || payDialog.advance || 0).toLocaleString('en-IN')}</span></p>
                 <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{(payDialog.ledger_balance != null ? payDialog.ledger_balance : payDialog.balance)?.toLocaleString('en-IN')}</span></p>
               </div>
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-date" /></div>
+              <div><Label className="text-xs text-slate-400">Payment Mode</Label>
+                <Select value={payAccount} onValueChange={v => { setPayAccount(v); if (v === "cash") setPayBankName(""); }}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-account">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    <SelectItem value="cash" className="text-white">Cash (नकद)</SelectItem>
+                    <SelectItem value="bank" className="text-white">Bank (बैंक)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {payAccount === "bank" && (
+                <div><Label className="text-xs text-slate-400">Bank Account</Label>
+                  <Select value={payBankName} onValueChange={setPayBankName}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-bank">
+                      <SelectValue placeholder="Bank select karein" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-600">
+                      {bankAccounts.map(b => (
+                        <SelectItem key={b.id} value={b.name} className="text-white">{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div><Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
-                <Input type="number" step="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder={`Max: ${payDialog.balance}`}
+                <Input type="number" step="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder={`Max: ${payDialog.ledger_balance != null ? payDialog.ledger_balance : payDialog.balance}`}
                   className="bg-slate-700 border-slate-600 text-white h-8 text-sm" autoFocus data-testid="pv-pay-amount" /></div>
               <div><Label className="text-xs text-slate-400">Notes</Label>
                 <Input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-notes" /></div>
               <Button onClick={handlePayment} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white" data-testid="pv-pay-submit">
-                Payment Record Karein
+                {payAccount === "bank" ? `Bank (${payBankName || '...'}) mein Record Karein` : "Cash mein Record Karein"}
               </Button>
             </div>
           )}
@@ -626,9 +672,17 @@ export default function PurchaseVouchers({ filters, user }) {
                         <p className="text-emerald-400 font-bold">+Rs.{Math.abs(record.amount).toLocaleString('en-IN')}</p>
                         <p className="text-slate-400 text-xs">{record.note || 'Payment'}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-slate-400 text-xs">{new Date(record.date).toLocaleDateString('hi-IN')}</p>
-                        <p className="text-slate-500 text-xs">by {record.by}</p>
+                      <div className="text-right flex items-start gap-2">
+                        <div>
+                          <p className="text-slate-400 text-xs">{new Date(record.date).toLocaleDateString('hi-IN')}</p>
+                          <p className="text-slate-500 text-xs">by {record.by}</p>
+                        </div>
+                        {record.can_undo && (
+                          <Button variant="ghost" size="sm" onClick={() => handleUndoPayment(record.payment_id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-400/10 h-6 w-6 p-0" title="Undo Payment" data-testid={`pv-undo-${idx}`}>
+                            <Undo2 className="w-3 h-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>

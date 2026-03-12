@@ -275,7 +275,7 @@ async def _create_sale_ledger_entries(d, doc_id, vno, items, username):
     truck_total = cash + diesel
     if truck_total > 0 and truck:
         truck_entry = {
-            "entry_id": d["id"],
+            "entry_id": doc_id,
             "truck_no": truck, "date": d.get('date', ''),
             "cash_taken": cash, "diesel_taken": diesel,
             "gross_amount": 0, "deductions": truck_total,

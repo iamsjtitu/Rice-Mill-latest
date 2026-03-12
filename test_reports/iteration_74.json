@@ -1,0 +1,150 @@
+{
+  "summary": "Iteration 74 - All 8 features tested successfully: Cash Book 4 action cards, PV Payment dialog in Cash Book, Purchase Vouchers Cash/Bank mode + Undo, Sale Book Opening Balance removed, Sale Voucher creation bug fixed, Sale Book checkboxes work, Cash Book Sale Voucher Payment dialog works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration74_features.py",
+    "/app/test_reports/pytest/pytest_results_iteration74.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration74_features.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "seed_data_creation": "Created test purchase voucher (Test Supplier PV) to verify payment dialog and undo functionality. Cleaned up after testing.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 4 changes from this iteration verified: 1) Cash Book has 4 action cards at top (Bank Accounts indigo, Sale Voucher Payment emerald, Purchase Voucher Payment orange, Set Opening Balance purple). 2) Cash Book Purchase Voucher Payment dialog (data-testid='pv-payment-dialog') works with voucher selection and Cash/Bank mode. 3) Purchase Vouchers page payment dialog has Cash/Bank selector (data-testid='pv-pay-account') and bank dropdown (data-testid='pv-pay-bank'). 4) Payment History dialog shows Undo button (data-testid='pv-undo-{idx}') only for voucher payments, not for advance entries. 5) Sale Book Opening Balance button removed. 6) Sale voucher creation works (KeyError 'id' bug fixed).",
+  "features_tested": {
+    "feature_1_cashbook_4_action_cards": {
+      "status": "PASSED",
+      "test_ids": ["bank-mgmt-btn", "sv-payment-btn", "pv-payment-btn", "ob-settings-btn"],
+      "details": [
+        "Bank Accounts card (indigo) visible",
+        "Sale Voucher Payment card (emerald) visible",
+        "Purchase Voucher Payment card (orange) visible",
+        "Set Opening Balance card (purple) visible",
+        "All 4 cards arranged in grid at top of Cash Book"
+      ]
+    },
+    "feature_2_cashbook_pv_payment_dialog": {
+      "status": "PASSED",
+      "test_id": "pv-payment-dialog",
+      "details": [
+        "Dialog opens when Purchase Voucher Payment card clicked",
+        "Voucher dropdown shows pending purchase vouchers",
+        "Payment Mode selector with Cash/Bank options",
+        "Bank dropdown appears when Bank mode selected",
+        "Submit button text changes: 'Cash mein Record' -> 'Bank (...) mein Record'"
+      ]
+    },
+    "feature_3_purchase_vouchers_cash_bank_mode": {
+      "status": "PASSED",
+      "test_ids": ["pv-pay-dialog", "pv-pay-account", "pv-pay-bank"],
+      "details": [
+        "Payment dialog in Purchase Vouchers page has Payment Mode selector",
+        "Default mode is Cash (नकद)",
+        "Bank (बैंक) option available",
+        "Bank account dropdown appears when Bank selected",
+        "Bank payment API works with bank_name parameter"
+      ]
+    },
+    "feature_4_purchase_vouchers_undo_payment": {
+      "status": "PASSED",
+      "test_ids": ["pv-history-dialog", "pv-undo-{idx}"],
+      "details": [
+        "Payment History dialog opens from history button",
+        "Voucher payments show Undo button (can_undo=true)",
+        "Advance entries do NOT show Undo button (correct behavior)",
+        "POST /api/voucher-payment/undo deletes cash, ledger, local_party entries",
+        "Voucher balance restored after undo"
+      ]
+    },
+    "feature_5_sale_book_ob_button_removed": {
+      "status": "PASSED",
+      "details": [
+        "Opening Balance button NOT present in Sale Book toolbar",
+        "Only PDF, Excel, New Sale buttons visible",
+        "Opening Balance managed via Cash Book Set Opening Balance card"
+      ]
+    },
+    "feature_6_sale_voucher_creation_keyerror_fixed": {
+      "status": "PASSED",
+      "endpoint": "POST /api/sale-book",
+      "details": [
+        "Sale voucher creation returns 200/201 (not 500 KeyError)",
+        "Response includes id, voucher_no, total, balance",
+        "Line 278 fix: changed d['id'] to doc_id"
+      ]
+    },
+    "feature_7_sale_book_checkboxes_bulk_delete": {
+      "status": "PASSED",
+      "test_ids": ["sv-select-all", "sv-bulk-delete-btn"],
+      "details": [
+        "Select-all checkbox visible in Sale Book table header",
+        "Individual row checkboxes visible",
+        "POST /api/sale-book/delete-bulk works correctly"
+      ]
+    },
+    "feature_8_cashbook_sv_payment_dialog": {
+      "status": "PASSED",
+      "test_id": "sv-payment-dialog",
+      "details": [
+        "Sale Voucher Payment dialog opens from Cash Book card",
+        "Voucher dropdown shows pending sale vouchers",
+        "Payment Mode selector with Cash/Bank options",
+        "Payment recorded correctly via POST /api/voucher-payment"
+      ]
+    }
+  },
+  "backend_tests_summary": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "tests": [
+      "test_create_sale_voucher_success - Sale voucher creation without KeyError",
+      "test_create_purchase_voucher_for_payment - Purchase voucher creation",
+      "test_cash_payment_on_purchase_voucher - Cash payment on purchase voucher",
+      "test_bank_payment_on_purchase_voucher - Bank payment with bank_name",
+      "test_payment_history_has_can_undo - History includes can_undo field",
+      "test_undo_payment_flow - Complete undo payment flow",
+      "test_bulk_delete_sale_vouchers - Sale Book bulk delete",
+      "test_sale_book_vouchers_returned - Sale vouchers for Cash Book dialog",
+      "test_sale_voucher_payment_from_cashbook - Sale payment from Cash Book",
+      "test_purchase_vouchers_with_balance - Purchase vouchers for CB dialog",
+      "test_get_bank_accounts - Bank accounts endpoint",
+      "test_get_opening_balance - Opening balance settings endpoint"
+    ]
+  },
+  "ui_tests_summary": {
+    "login": "PASSED",
+    "cash_book_action_cards": "PASSED",
+    "pv_payment_dialog_from_cashbook": "PASSED",
+    "sv_payment_dialog_from_cashbook": "PASSED",
+    "sale_book_no_ob_button": "PASSED",
+    "sale_book_checkboxes": "PASSED",
+    "purchase_vouchers_payment_dialog": "PASSED",
+    "purchase_vouchers_cash_bank_mode": "PASSED",
+    "purchase_vouchers_payment_history": "PASSED",
+    "purchase_vouchers_undo_button": "PASSED"
+  },
+  "screenshots": {
+    "cash_book_action_cards": "Shows 4 colored cards at top",
+    "pv_payment_dialog": "Dialog with voucher select and Cash mode",
+    "pv_pay_bank_mode": "Dialog with Bank mode and bank dropdown",
+    "sv_payment_dialog_cashbook": "Sale Voucher Payment from Cash Book",
+    "purchase_vouchers_page": "Purchase Vouchers list with action buttons",
+    "pv_history_with_undo": "Payment History showing Undo button"
+  }
+}

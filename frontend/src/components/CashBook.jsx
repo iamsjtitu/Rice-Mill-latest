@@ -62,6 +62,9 @@ const CashBook = ({ filters, user }) => {
   const [isSvPayOpen, setIsSvPayOpen] = useState(false);
   const [svVouchers, setSvVouchers] = useState([]);
   const [svPayForm, setSvPayForm] = useState({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
+  const [isPvPayOpen, setIsPvPayOpen] = useState(false);
+  const [pvVouchers, setPvVouchers] = useState([]);
+  const [pvPayForm, setPvPayForm] = useState({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
 
   const fetchPartySummary = useCallback(async () => {
     try {
@@ -310,8 +313,71 @@ const CashBook = ({ filters, user }) => {
 
   const selectedSvVoucher = svVouchers.find(v => v.id === svPayForm.voucher_id);
 
+  const openPvPayDialog = async () => {
+    try {
+      const res = await axios.get(`${API}/purchase-book?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`);
+      const pending = (res.data || []).filter(v => {
+        const bal = v.ledger_balance != null ? v.ledger_balance : (v.balance || 0);
+        return bal > 0;
+      });
+      setPvVouchers(pending);
+      setPvPayForm({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
+      setIsPvPayOpen(true);
+    } catch { toast.error("Purchase vouchers load nahi hue"); }
+  };
+
+  const handlePvPaySubmit = async () => {
+    if (!pvPayForm.voucher_id) { toast.error("Voucher select karein"); return; }
+    const amt = parseFloat(pvPayForm.amount);
+    if (!amt || amt <= 0) { toast.error("Amount daalna zaroori hai"); return; }
+    if (pvPayForm.account === "bank" && !pvPayForm.bank_name) { toast.error("Bank account select karein"); return; }
+    try {
+      await axios.post(`${API}/voucher-payment`, {
+        voucher_type: "purchase", voucher_id: pvPayForm.voucher_id, amount: amt,
+        date: pvPayForm.date, notes: pvPayForm.notes, username: user.username,
+        kms_year: filters.kms_year || "", season: filters.season || "",
+        account: pvPayForm.account, bank_name: pvPayForm.account === "bank" ? pvPayForm.bank_name : "",
+      });
+      toast.success("Purchase Voucher Payment record ho gayi!");
+      setIsPvPayOpen(false);
+      fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
+  };
+
+  const selectedPvVoucher = pvVouchers.find(v => v.id === pvPayForm.voucher_id);
+
   return (
     <div className="space-y-4" data-testid="cash-book">
+      {/* Action Cards Row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <button onClick={() => setIsBankMgmtOpen(true)} className="flex items-center gap-2 p-3 rounded-lg border-2 border-indigo-600/50 bg-indigo-900/20 hover:bg-indigo-900/40 transition-colors cursor-pointer" data-testid="bank-mgmt-btn">
+          <Landmark className="w-5 h-5 text-indigo-400" />
+          <span className="text-indigo-300 font-semibold text-sm">Bank Accounts</span>
+        </button>
+        <button onClick={openSvPayDialog} className="flex items-center gap-2 p-3 rounded-lg border-2 border-emerald-600/50 bg-emerald-900/20 hover:bg-emerald-900/40 transition-colors cursor-pointer" data-testid="sv-payment-btn">
+          <FileText className="w-5 h-5 text-emerald-400" />
+          <span className="text-emerald-300 font-semibold text-sm">Sale Voucher Payment</span>
+        </button>
+        <button onClick={openPvPayDialog} className="flex items-center gap-2 p-3 rounded-lg border-2 border-orange-600/50 bg-orange-900/20 hover:bg-orange-900/40 transition-colors cursor-pointer" data-testid="pv-payment-btn">
+          <FileText className="w-5 h-5 text-orange-400" />
+          <span className="text-orange-300 font-semibold text-sm">Purchase Voucher Payment</span>
+        </button>
+        <button onClick={async () => {
+          try {
+            const res = await axios.get(`${API}/cash-book/opening-balance?kms_year=${filters.kms_year || CURRENT_KMS_YEAR}`);
+            setObCash(String(res.data.cash || 0));
+            const bd = res.data.bank_details || {};
+            const merged = {};
+            bankAccounts.forEach(b => { merged[b.name] = String(bd[b.name] || 0); });
+            setObBankDetails(merged);
+            setIsObSettingsOpen(true);
+          } catch { toast.error("Opening balance load failed"); }
+        }} className="flex items-center gap-2 p-3 rounded-lg border-2 border-purple-600/50 bg-purple-900/20 hover:bg-purple-900/40 transition-colors cursor-pointer" data-testid="ob-settings-btn">
+          <Wallet className="w-5 h-5 text-purple-400" />
+          <span className="text-purple-300 font-semibold text-sm">Set Opening Balance</span>
+        </button>
+      </div>
+
       <SummaryCards summary={summary} onNewTransaction={openNewTransaction} onExport={exportData} />
 
       {/* Sub-tabs */}
@@ -340,26 +406,6 @@ const CashBook = ({ filters, user }) => {
         </div>
         <Button onClick={() => activeView === "party-summary" ? fetchPartySummary() : fetchData()} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
-        </Button>
-        <Button onClick={() => setIsBankMgmtOpen(true)} variant="outline" size="sm" className="border-indigo-600 text-indigo-400 hover:bg-indigo-900/30" data-testid="bank-mgmt-btn">
-          <Landmark className="w-3 h-3 mr-1" /> Bank Accounts
-        </Button>
-        <Button onClick={openSvPayDialog} variant="outline" size="sm" className="border-emerald-600 text-emerald-400 hover:bg-emerald-900/30" data-testid="sv-payment-btn">
-          <FileText className="w-3 h-3 mr-1" /> Sale Voucher Payment
-        </Button>
-        <Button onClick={async () => {
-          try {
-            const res = await axios.get(`${API}/cash-book/opening-balance?kms_year=${filters.kms_year || CURRENT_KMS_YEAR}`);
-            setObCash(String(res.data.cash || 0));
-            const bd = res.data.bank_details || {};
-            // Ensure all bank accounts have an entry
-            const merged = {};
-            bankAccounts.forEach(b => { merged[b.name] = String(bd[b.name] || 0); });
-            setObBankDetails(merged);
-            setIsObSettingsOpen(true);
-          } catch { toast.error("Opening balance load failed"); }
-        }} variant="outline" size="sm" className="border-purple-600 text-purple-400 hover:bg-purple-900/30" data-testid="ob-settings-btn">
-          <Wallet className="w-3 h-3 mr-1" /> Set Opening Balance
         </Button>
       </div>
 
@@ -644,6 +690,86 @@ const CashBook = ({ filters, user }) => {
             <Button onClick={handleSvPaySubmit} disabled={!svPayForm.voucher_id}
               className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold" data-testid="sv-pay-cb-submit">
               {svPayForm.account === "bank" && svPayForm.bank_name ? `Bank (${svPayForm.bank_name}) mein Record` : "Cash mein Record"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Purchase Voucher Payment Dialog */}
+      <Dialog open={isPvPayOpen} onOpenChange={setIsPvPayOpen}>
+        <DialogContent className="max-w-sm bg-slate-800 border-slate-700 text-white" data-testid="pv-payment-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-orange-400 flex items-center gap-2">
+              <FileText className="w-5 h-5" /> Purchase Voucher Payment / खरीद भुगतान
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-slate-400">Purchase Voucher Select Karein *</Label>
+              <Select value={pvPayForm.voucher_id} onValueChange={v => {
+                const pv = pvVouchers.find(x => x.id === v);
+                setPvPayForm(p => ({ ...p, voucher_id: v, party_name: pv?.party_name || "" }));
+              }}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-select-voucher">
+                  <SelectValue placeholder="Voucher select karein..." />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600 max-h-60">
+                  {pvVouchers.length === 0 ? (
+                    <div className="text-slate-400 text-xs text-center py-3">Koi pending purchase voucher nahi hai</div>
+                  ) : pvVouchers.map(v => (
+                    <SelectItem key={v.id} value={v.id} className="text-white text-xs">
+                      {v.party_name} - #{v.voucher_no} | Bal: Rs.{(v.ledger_balance != null ? v.ledger_balance : v.balance)?.toLocaleString('en-IN')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedPvVoucher && (
+              <div className="bg-slate-900 p-3 rounded border border-slate-700 text-xs space-y-1">
+                <p><span className="text-slate-400">Party:</span> <span className="text-white font-medium">{selectedPvVoucher.party_name}</span></p>
+                <p><span className="text-slate-400">Invoice:</span> <span className="text-white">{selectedPvVoucher.invoice_no || '-'}</span></p>
+                <p><span className="text-slate-400">Total:</span> <span className="text-orange-400 font-bold">Rs.{selectedPvVoucher.total?.toLocaleString('en-IN')}</span></p>
+                <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{(selectedPvVoucher.ledger_balance != null ? selectedPvVoucher.ledger_balance : selectedPvVoucher.balance)?.toLocaleString('en-IN')}</span></p>
+              </div>
+            )}
+            <div><Label className="text-xs text-slate-400">Date</Label>
+              <Input type="date" value={pvPayForm.date} onChange={e => setPvPayForm(p => ({ ...p, date: e.target.value }))}
+                className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-cb-date" /></div>
+            <div><Label className="text-xs text-slate-400">Payment Mode</Label>
+              <Select value={pvPayForm.account} onValueChange={v => setPvPayForm(p => ({ ...p, account: v, bank_name: v === "cash" ? "" : p.bank_name }))}>
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-cb-account">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="cash" className="text-white">Cash (नकद)</SelectItem>
+                  <SelectItem value="bank" className="text-white">Bank (बैंक)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {pvPayForm.account === "bank" && (
+              <div><Label className="text-xs text-slate-400">Bank Account</Label>
+                <Select value={pvPayForm.bank_name} onValueChange={v => setPvPayForm(p => ({ ...p, bank_name: v }))}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-cb-bank">
+                    <SelectValue placeholder="Bank select karein" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    {bankAccounts.map(b => (
+                      <SelectItem key={b.id} value={b.name} className="text-white">{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div><Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
+              <Input type="number" step="0.01" value={pvPayForm.amount} onChange={e => setPvPayForm(p => ({ ...p, amount: e.target.value }))}
+                placeholder={selectedPvVoucher ? `Max: ${selectedPvVoucher.ledger_balance != null ? selectedPvVoucher.ledger_balance : selectedPvVoucher.balance}` : "0"}
+                className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-cb-amount" /></div>
+            <div><Label className="text-xs text-slate-400">Notes</Label>
+              <Input value={pvPayForm.notes} onChange={e => setPvPayForm(p => ({ ...p, notes: e.target.value }))}
+                placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-cb-notes" /></div>
+            <Button onClick={handlePvPaySubmit} disabled={!pvPayForm.voucher_id}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold" data-testid="pv-pay-cb-submit">
+              {pvPayForm.account === "bank" && pvPayForm.bank_name ? `Bank (${pvPayForm.bank_name}) mein Record` : "Cash mein Record"}
             </Button>
           </div>
         </DialogContent>
