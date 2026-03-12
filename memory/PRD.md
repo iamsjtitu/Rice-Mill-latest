@@ -43,6 +43,7 @@ All new features ported to Node.js/Express backend with NeDB:
 
 ### Bug Fixes (March 2026)
 - **Cash Paid Ledger Entry**: Fixed missing Ledger Nikasi entry for cash_paid in truck entries. Both add and update entry functions now create ledger nikasi entries for cash deductions.
+- **Truck Payments Sync with Cash Book**: Fixed Truck Payments page to calculate paid_amount from the ledger (source of truth) instead of only the truck_payments collection. Manual Cash Book payments for trucks now correctly reflect in Truck Payments with proper status (paid/partial/pending). Uses FIFO distribution for multi-entry trucks.
 - **ELECTRON_API_URL**: Fixed 5 components that used process.env directly without ELECTRON_API_URL fallback.
 - **DC Entry Delete Cascade**: Fixed to also delete auto-entries (cash/diesel/bags) when a DC entry and its deliveries are deleted.
 

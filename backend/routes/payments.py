@@ -39,7 +39,7 @@ async def _find_truck_entry(entry_id):
 
 @router.get("/truck-payments", response_model=List[TruckPaymentStatus])
 async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[str] = None):
-    """Get all truck payments with their status"""
+    """Get all truck payments with their status - uses ledger as source of truth for paid amounts"""
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
@@ -48,57 +48,135 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
     
     entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(1000)
     
+    # Bulk fetch all ledger nikasi entries for all trucks (for paid calculation)
+    all_truck_nos = list(set(e.get("truck_no", "") for e in entries if e.get("truck_no")))
+    ledger_nikasi = []
+    if all_truck_nos:
+        ledger_nikasi = await db.cash_transactions.find({
+            "account": "ledger", "txn_type": "nikasi",
+            "category": {"$in": all_truck_nos}
+        }, {"_id": 0}).to_list(50000)
+    
+    # Group ledger nikasi by truck_no
+    truck_ledger_map = {}
+    for txn in ledger_nikasi:
+        cat = txn.get("category", "")
+        truck_ledger_map.setdefault(cat, []).append(txn)
+    
+    # Deduction reference prefixes (already counted in deductions field)
+    DEDUCTION_PREFIXES = ("truck_cash_ded:", "truck_diesel_ded:", "entry_cash:")
+    
     payments = []
+    # Group entries by truck to handle FIFO distribution of manual payments
+    truck_entries_map = {}
     for entry in entries:
-        entry_id = entry.get("id")
+        truck_no = entry.get("truck_no", "")
+        truck_entries_map.setdefault(truck_no, []).append(entry)
+    
+    for truck_no, truck_entries in truck_entries_map.items():
+        # Sort entries by date ascending (oldest first) for FIFO payment distribution
+        truck_entries_sorted = sorted(truck_entries, key=lambda e: (e.get("date", ""), e.get("created_at", "")))
         
-        # Get payment record if exists
-        payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        truck_ledger = truck_ledger_map.get(truck_no, [])
         
-        # Default rate 32, or from payment doc
-        rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
-        paid_amount = payment_doc.get("paid_amount", 0) if payment_doc else 0
+        # Separate entry-specific payments from manual (unattributed) payments
+        entry_specific_paid = {}  # entry_id -> amount
+        manual_payments_total = 0
         
-        final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
-        cash_taken = entry.get("cash_paid", 0) or 0
-        diesel_taken = entry.get("diesel_paid", 0) or 0
+        for txn in truck_ledger:
+            ref = txn.get("reference", "")
+            amount = txn.get("amount", 0)
+            
+            # Skip deduction entries (already counted as deductions)
+            if any(ref.startswith(p) for p in DEDUCTION_PREFIXES):
+                continue
+            
+            # Check if this payment is linked to a specific entry
+            attributed = False
+            for entry in truck_entries_sorted:
+                eid = entry.get("id", "")
+                eid_short = eid[:8]
+                if (ref.startswith(f"truck_pay_ledger:{eid_short}") or
+                    ref.startswith(f"truck_markpaid_ledger:{eid}") or
+                    ref == f"truck_pay_ledger:{eid_short}" or
+                    ref == f"truck_markpaid_ledger:{eid}"
+                ):
+                    entry_specific_paid[eid] = entry_specific_paid.get(eid, 0) + amount
+                    attributed = True
+                    break
+            
+            if not attributed:
+                # Manual payment (auto_ledger or other) - will be distributed FIFO
+                manual_payments_total += amount
         
-        gross_amount = round(final_qntl * rate, 2)
-        deductions = cash_taken + diesel_taken
-        net_amount = round(gross_amount - deductions, 2)
-        balance = round(net_amount - paid_amount, 2)
+        # Distribute manual payments FIFO (oldest entry first)
+        remaining_manual = manual_payments_total
+        entry_manual_paid = {}
+        for entry in truck_entries_sorted:
+            if remaining_manual <= 0:
+                break
+            eid = entry.get("id", "")
+            payment_doc = await db.truck_payments.find_one({"entry_id": eid}, {"_id": 0})
+            rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+            final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
+            cash_taken = float(entry.get("cash_paid", 0) or 0)
+            diesel_taken = float(entry.get("diesel_paid", 0) or 0)
+            net = round((final_qntl * rate) - cash_taken - diesel_taken, 2)
+            already_paid = entry_specific_paid.get(eid, 0)
+            remaining_for_entry = max(0, net - already_paid)
+            manual_alloc = min(remaining_manual, remaining_for_entry)
+            if manual_alloc > 0:
+                entry_manual_paid[eid] = manual_alloc
+                remaining_manual -= manual_alloc
         
-        # Status: pending if nothing paid, paid if balance ~0, partial otherwise
-        if paid_amount == 0:
-            status = "pending"
-        elif balance < 0.10:
-            status = "paid"
-        elif paid_amount > 0:
-            status = "partial"
-        else:
-            status = "pending"
-        
-        payments.append(TruckPaymentStatus(
-            entry_id=entry_id,
-            truck_no=entry.get("truck_no", ""),
-            date=entry.get("date", ""),
-            total_qntl=round(entry.get("qntl", 0), 2),
-            total_bag=entry.get("bag", 0),
-            final_qntl=final_qntl,
-            cash_taken=cash_taken,
-            diesel_taken=diesel_taken,
-            rate_per_qntl=rate,
-            gross_amount=gross_amount,
-            deductions=deductions,
-            net_amount=net_amount,
-            paid_amount=paid_amount,
-            balance_amount=max(0, balance),
-            status=status,
-            kms_year=entry.get("kms_year", ""),
-            season=entry.get("season", ""),
-            agent_name=entry.get("agent_name", ""),
-            mandi_name=entry.get("mandi_name", "")
-        ))
+        # Build payment status for each entry
+        for entry in truck_entries_sorted:
+            entry_id = entry.get("id")
+            payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+            rate = payment_doc.get("rate_per_qntl", 32) if payment_doc else 32
+            
+            final_qntl = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
+            cash_taken = float(entry.get("cash_paid", 0) or 0)
+            diesel_taken = float(entry.get("diesel_paid", 0) or 0)
+            
+            gross_amount = round(final_qntl * rate, 2)
+            deductions = round(cash_taken + diesel_taken, 2)
+            net_amount = round(gross_amount - deductions, 2)
+            
+            # paid_amount from ledger: entry-specific + manual FIFO allocation
+            paid_amount = round(
+                entry_specific_paid.get(entry_id, 0) + entry_manual_paid.get(entry_id, 0), 2
+            )
+            balance = round(net_amount - paid_amount, 2)
+            
+            if paid_amount <= 0:
+                status = "pending"
+            elif balance < 0.10:
+                status = "paid"
+            else:
+                status = "partial"
+            
+            payments.append(TruckPaymentStatus(
+                entry_id=entry_id,
+                truck_no=truck_no,
+                date=entry.get("date", ""),
+                total_qntl=round(entry.get("qntl", 0), 2),
+                total_bag=entry.get("bag", 0),
+                final_qntl=final_qntl,
+                cash_taken=cash_taken,
+                diesel_taken=diesel_taken,
+                rate_per_qntl=rate,
+                gross_amount=gross_amount,
+                deductions=deductions,
+                net_amount=net_amount,
+                paid_amount=paid_amount,
+                balance_amount=max(0, balance),
+                status=status,
+                kms_year=entry.get("kms_year", ""),
+                season=entry.get("season", ""),
+                agent_name=entry.get("agent_name", ""),
+                mandi_name=entry.get("mandi_name", "")
+            ))
     
     # Also include Pvt Paddy entries with truck_no (cash + diesel go to truck)
     pvt_query = dict(query)

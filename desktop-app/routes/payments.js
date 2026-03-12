@@ -8,31 +8,105 @@ module.exports = function(database) {
   // ===== TRUCK PAYMENTS =====
   router.get('/api/truck-payments', safeSync((req, res) => {
     const entries = database.getEntries(req.query);
-    const payments = entries.map(entry => {
-      const payment = database.getTruckPayment(entry.id);
-      const final_qntl = (entry.qntl || 0) - (entry.bag || 0) / 100;
-      const gross_amount = final_qntl * payment.rate_per_qntl;
-      const deductions = (entry.cash_paid || 0) + (entry.diesel_paid || 0);
-      const net_amount = gross_amount - deductions;
-      const balance_amount = Math.max(0, net_amount - payment.paid_amount);
-      let status = 'pending';
-      if (balance_amount < 0.01) status = 'paid';
-      else if (payment.paid_amount > 0) status = 'partial';
-      return {
-        entry_id: entry.id, truck_no: entry.truck_no, date: entry.date,
-        agent_name: entry.agent_name, mandi_name: entry.mandi_name,
-        total_qntl: entry.qntl, total_bag: entry.bag,
-        final_qntl: Math.round(final_qntl * 100) / 100,
-        cash_taken: entry.cash_paid || 0, diesel_taken: entry.diesel_paid || 0,
-        rate_per_qntl: payment.rate_per_qntl,
-        gross_amount: Math.round(gross_amount * 100) / 100,
-        deductions: Math.round(deductions * 100) / 100,
-        net_amount: Math.round(net_amount * 100) / 100,
-        paid_amount: payment.paid_amount,
-        balance_amount: Math.round(balance_amount * 100) / 100,
-        status, kms_year: entry.kms_year, season: entry.season
-      };
+    const allTxns = database.data.cash_transactions || [];
+    
+    // Get all truck_nos
+    const truckNos = [...new Set(entries.map(e => e.truck_no).filter(Boolean))];
+    
+    // Get all ledger nikasi entries for these trucks
+    const ledgerNikasi = allTxns.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && truckNos.includes(t.category));
+    
+    // Deduction reference prefixes (already counted in deductions field)
+    const DEDUCTION_PREFIXES = ['truck_cash_ded:', 'truck_diesel_ded:', 'entry_cash:'];
+    
+    // Group entries by truck_no
+    const truckEntriesMap = {};
+    entries.forEach(e => {
+      const t = e.truck_no || '';
+      if (!truckEntriesMap[t]) truckEntriesMap[t] = [];
+      truckEntriesMap[t].push(e);
     });
+    
+    const payments = [];
+    
+    for (const [truckNo, truckEntries] of Object.entries(truckEntriesMap)) {
+      // Sort oldest first for FIFO
+      truckEntries.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.created_at || '').localeCompare(b.created_at || ''));
+      
+      const truckLedger = ledgerNikasi.filter(t => t.category === truckNo);
+      
+      // Separate entry-specific vs manual payments
+      const entrySpecificPaid = {};
+      let manualPaymentsTotal = 0;
+      
+      for (const txn of truckLedger) {
+        const ref = txn.reference || '';
+        const amount = txn.amount || 0;
+        
+        if (DEDUCTION_PREFIXES.some(p => ref.startsWith(p))) continue;
+        
+        let attributed = false;
+        for (const entry of truckEntries) {
+          const eidShort = (entry.id || '').slice(0, 8);
+          if (ref.startsWith(`truck_pay_ledger:${eidShort}`) || ref.startsWith(`truck_markpaid_ledger:${entry.id}`)) {
+            entrySpecificPaid[entry.id] = (entrySpecificPaid[entry.id] || 0) + amount;
+            attributed = true;
+            break;
+          }
+        }
+        if (!attributed) manualPaymentsTotal += amount;
+      }
+      
+      // Distribute manual payments FIFO
+      let remainingManual = manualPaymentsTotal;
+      const entryManualPaid = {};
+      for (const entry of truckEntries) {
+        if (remainingManual <= 0) break;
+        const payment = database.getTruckPayment(entry.id);
+        const finalQntl = (entry.qntl || 0) - (entry.bag || 0) / 100;
+        const deductions = (entry.cash_paid || 0) + (entry.diesel_paid || 0);
+        const net = finalQntl * payment.rate_per_qntl - deductions;
+        const alreadyPaid = entrySpecificPaid[entry.id] || 0;
+        const remainingForEntry = Math.max(0, net - alreadyPaid);
+        const manualAlloc = Math.min(remainingManual, remainingForEntry);
+        if (manualAlloc > 0) {
+          entryManualPaid[entry.id] = manualAlloc;
+          remainingManual -= manualAlloc;
+        }
+      }
+      
+      // Build payment status for each entry
+      for (const entry of truckEntries) {
+        const payment = database.getTruckPayment(entry.id);
+        const finalQntl = (entry.qntl || 0) - (entry.bag || 0) / 100;
+        const grossAmount = finalQntl * payment.rate_per_qntl;
+        const deductions = (entry.cash_paid || 0) + (entry.diesel_paid || 0);
+        const netAmount = grossAmount - deductions;
+        const paidAmount = Math.round(((entrySpecificPaid[entry.id] || 0) + (entryManualPaid[entry.id] || 0)) * 100) / 100;
+        const balanceAmount = Math.max(0, Math.round((netAmount - paidAmount) * 100) / 100);
+        let status = 'pending';
+        if (paidAmount > 0 && balanceAmount < 0.10) status = 'paid';
+        else if (paidAmount > 0) status = 'partial';
+        
+        payments.push({
+          entry_id: entry.id, truck_no: truckNo, date: entry.date,
+          agent_name: entry.agent_name, mandi_name: entry.mandi_name,
+          total_qntl: entry.qntl, total_bag: entry.bag,
+          final_qntl: Math.round(finalQntl * 100) / 100,
+          cash_taken: entry.cash_paid || 0, diesel_taken: entry.diesel_paid || 0,
+          rate_per_qntl: payment.rate_per_qntl,
+          gross_amount: Math.round(grossAmount * 100) / 100,
+          deductions: Math.round(deductions * 100) / 100,
+          net_amount: Math.round(netAmount * 100) / 100,
+          paid_amount: paidAmount,
+          balance_amount: balanceAmount,
+          status, kms_year: entry.kms_year, season: entry.season
+        });
+      }
+    }
+    
+    // Sort by date descending
+    payments.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     res.json(payments);
   }));
 
