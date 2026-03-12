@@ -305,9 +305,6 @@ const CashBook = ({ filters, user }) => {
         <Button onClick={() => activeView === "party-summary" ? fetchPartySummary() : fetchData()} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
-        <Button onClick={() => setIsObOpen(true)} variant="outline" size="sm" className="border-blue-600 text-blue-400 hover:bg-blue-900/30" data-testid="cashbook-ob-btn">
-          <Plus className="w-3 h-3 mr-1" /> Opening Balance
-        </Button>
         <Button onClick={() => setIsBankMgmtOpen(true)} variant="outline" size="sm" className="border-indigo-600 text-indigo-400 hover:bg-indigo-900/30" data-testid="bank-mgmt-btn">
           <Landmark className="w-3 h-3 mr-1" /> Bank Accounts
         </Button>

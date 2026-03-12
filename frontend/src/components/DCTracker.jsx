@@ -420,7 +420,19 @@ const MSPPayments = ({ filters, user, dcList }) => {
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={form.date} onChange={e => setForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="msp-form-date" /></div>
               <div><Label className="text-xs text-slate-400">DC (Optional)</Label>
-                <Select value={form.dc_id || "_none"} onValueChange={v => setForm(p=>({...p,dc_id:v==="_none"?"":v}))}>
+                <Select value={form.dc_id || "_none"} onValueChange={v => {
+                  const dcId = v === "_none" ? "" : v;
+                  setForm(p => ({...p, dc_id: dcId}));
+                  if (dcId) {
+                    // Auto-fill quantity from DC deliveries
+                    axios.get(`${API}/dc-entries?kms_year=${filters.kms_year || CURRENT_KMS}&season=${filters.season || "Kharif"}`).then(res => {
+                      const dc = (res.data || []).find(d => d.id === dcId);
+                      if (dc && dc.delivered_qntl) {
+                        setForm(p => ({...p, quantity_qntl: String(dc.delivered_qntl)}));
+                      }
+                    }).catch(() => {});
+                  }
+                }}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="msp-form-dc"><SelectValue placeholder="Select DC" /></SelectTrigger>
                   <SelectContent><SelectItem value="_none">-- None --</SelectItem>
                     {dcList.map(d => <SelectItem key={d.id} value={d.id}>{d.dc_number}</SelectItem>)}
