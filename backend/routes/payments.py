@@ -18,7 +18,7 @@ async def get_company_name():
     return "Mill Entry System", ""
 
 async def _find_truck_entry(entry_id):
-    """Find entry from mill_entries, private_paddy, or rice_sales - return (entry, source, final_qntl)"""
+    """Find entry from mill_entries, private_paddy, rice_sales, or sale_vouchers - return (entry, source, final_qntl)"""
     entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     if entry:
         fq = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
@@ -29,6 +29,10 @@ async def _find_truck_entry(entry_id):
     entry = await db.rice_sales.find_one({"id": entry_id}, {"_id": 0})
     if entry:
         return entry, "rice_sale", round(entry.get("quantity_qntl", 0), 2)
+    entry = await db.sale_vouchers.find_one({"id": entry_id}, {"_id": 0})
+    if entry:
+        total_qty = sum(i.get("quantity", 0) for i in entry.get("items", []))
+        return entry, "sale_book", round(total_qty, 2)
     return None, None, 0
 
 # ============ TRUCK PAYMENT ENDPOINTS ============
@@ -254,6 +258,25 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
             {"$set": {"entry_id": entry_id, "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
             upsert=True
         )
+        updated_count = 1
+    elif source == "sale_book":
+        # For sale book entries, set rate on this single entry
+        await db.truck_payments.update_one(
+            {"entry_id": entry_id},
+            {"$set": {"entry_id": entry_id, "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True
+        )
+        # Update gross amount based on rate
+        if final_qntl > 0:
+            new_gross = round(final_qntl * request.rate_per_qntl, 2)
+            cash_taken = float(entry.get("cash_paid", 0) or 0)
+            diesel_taken = float(entry.get("diesel_paid", 0) or 0)
+            deductions = cash_taken + diesel_taken
+            net = round(new_gross - deductions, 2)
+            await db.truck_payments.update_one(
+                {"entry_id": entry_id},
+                {"$set": {"gross_amount": new_gross, "deductions": deductions, "net_amount": net, "balance_amount": net}}
+            )
         updated_count = 1
     elif truck_no and mandi_name:
         # Find all entries with same truck_no + mandi_name
