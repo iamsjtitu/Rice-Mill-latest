@@ -33,6 +33,19 @@ Comprehensive Mill Entry System (rice mill management) web + desktop app.
   - Frontend: Stock overview cards on Purchase Vouchers page showing all items (Paddy, Rice, FRK, Bran, etc.)
   - Frontend: Select dropdown in form shows stock items with quantities + "Other/Custom Item" option
   - Frontend: Stock column shows available qty for selected item
+- **Purchase Voucher Form Redesign (12-Mar-2026):**
+  - Redesigned to match Sale Voucher form exactly (table-based items, same section layout)
+  - Items use Table component with columns: Name of Item (Select), Stock, Quantity, Rate, Amount
+  - GST in bordered box, Payment card with Grand Total + Cash/Diesel + Advance/Balance
+  - Balance auto-calculates: Grand Total - Advance Paid
+- **Low Stock Alert (12-Mar-2026):**
+  - Stock overview cards show OUT OF STOCK (red) and LOW STOCK (amber) labels
+  - Low Stock Alert banner shows items needing reorder
+- **PDF Ledger Balance (12-Mar-2026):**
+  - Sale Book and Purchase Book PDFs now include ledger-based Paid and Balance columns
+  - Cash Book manual payments are reflected in PDF/Excel exports
+- **PDF A4 Optimization (12-Mar-2026):**
+  - Both Sale and Purchase PDFs optimized with smaller fonts/margins to fit A4 landscape
 
 ## Backlog
 - P1: Full regression test of all payment modules
