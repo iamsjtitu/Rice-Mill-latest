@@ -170,6 +170,15 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
             "description": diesel_desc, "linked_entry_id": d["id"],
             **base
         })
+        # Pump Ledger Jama (credit to pump - we owe them for diesel)
+        pump_jama = {
+            "id": str(uuid.uuid4()), "date": d["date"], "account": "ledger", "txn_type": "jama",
+            "category": pump_name, "party_type": "Diesel",
+            "description": f"Diesel Fill: Truck {vehicle} - {pump_name} - Rs.{diesel_paid}",
+            "amount": round(diesel_paid, 2), "reference": f"delivery_dfill:{d['id'][:8]}",
+            "bank_name": "", "linked_entry_id": d["id"], **base
+        }
+        await db.cash_transactions.insert_one(pump_jama)
 
     # Auto-entry: Bags Used → Govt Bags stock minus
     bags_used = d.get("bags_used", 0) or 0
@@ -203,7 +212,8 @@ async def delete_dc_delivery(delivery_id: str):
     ref_prefix = delivery_id[:8]
     await db.cash_transactions.delete_many({"reference": {"$in": [
         f"delivery:{ref_prefix}", f"delivery_diesel:{ref_prefix}",
-        f"delivery_tcash:{ref_prefix}", f"delivery_tdiesel:{ref_prefix}"
+        f"delivery_tcash:{ref_prefix}", f"delivery_tdiesel:{ref_prefix}",
+        f"delivery_dfill:{ref_prefix}", f"delivery_jama:{ref_prefix}"
     ]}})
     await db.gunny_bags.delete_many({"reference": f"delivery:{ref_prefix}"})
     await db.diesel_accounts.delete_many({"linked_entry_id": delivery_id})
