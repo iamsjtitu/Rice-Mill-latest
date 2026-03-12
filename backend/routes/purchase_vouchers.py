@@ -365,6 +365,99 @@ async def get_item_suggestions():
     return [r["_id"] for r in results if r["_id"]]
 
 
+@router.get("/purchase-book/stock-items")
+async def get_purchase_stock_items(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Get all stock items with available quantities for purchase form"""
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+
+    milling = await db.milling_entries.find(query, {"_id": 0}).to_list(10000)
+    dc = await db.dc_entries.find(query, {"_id": 0}).to_list(10000)
+    pvt_sales = await db.rice_sales.find(query, {"_id": 0}).to_list(10000)
+    sale_vouchers = await db.sale_vouchers.find(query, {"_id": 0}).to_list(10000)
+    bp_sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(10000)
+    purchase_vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).to_list(10000)
+    mill_entries = await db.mill_entries.find(query, {"_id": 0}).to_list(10000)
+    pvt_paddy = await db.private_paddy.find(query, {"_id": 0}).to_list(10000)
+
+    # Paddy
+    paddy_in_entries = round(sum((e.get('final_w', 0) or 0) / 100 for e in mill_entries), 2)
+    paddy_in_pvt = round(sum((e.get('final_qntl', 0) or (e.get('final_w', 0) or 0) / 100) for e in pvt_paddy), 2)
+    paddy_used_milling = round(sum(e.get('paddy_used_qntl', 0) or e.get('paddy_qntl', 0) or 0 for e in milling), 2)
+
+    # Rice
+    usna_produced = round(sum(e.get('rice_qntl', 0) for e in milling if e.get('rice_type', '').lower() in ('usna', 'parboiled')), 2)
+    raw_produced = round(sum(e.get('rice_qntl', 0) for e in milling if e.get('rice_type', '').lower() == 'raw'), 2)
+    govt_delivered = round(sum(e.get('quantity_qntl', 0) for e in dc), 2)
+    pvt_sold_usna = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type', '').lower() in ('usna', 'parboiled')), 2)
+    pvt_sold_raw = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type', '').lower() == 'raw'), 2)
+
+    sb_sold = {}
+    for sv in sale_vouchers:
+        for item in sv.get('items', []):
+            name = item.get('item_name', '')
+            sb_sold[name] = sb_sold.get(name, 0) + (item.get('quantity', 0) or 0)
+
+    pv_bought = {}
+    for pv in purchase_vouchers:
+        for item in pv.get('items', []):
+            name = item.get('item_name', '')
+            pv_bought[name] = pv_bought.get(name, 0) + (item.get('quantity', 0) or 0)
+
+    products = ["bran", "kunda", "broken", "kanki", "husk"]
+    bp_produced = {}
+    for p in products:
+        bp_produced[p] = round(sum(e.get(f'{p}_qntl', 0) for e in milling), 2)
+    bp_sold_map = {}
+    for s in bp_sales:
+        prod = s.get('product', '')
+        bp_sold_map[prod] = bp_sold_map.get(prod, 0) + s.get('quantity_qntl', 0)
+
+    items = []
+
+    # Paddy
+    paddy_total_in = round(paddy_in_entries + paddy_in_pvt + pv_bought.get("Paddy", 0), 2)
+    items.append({"name": "Paddy", "available_qntl": round(paddy_total_in - paddy_used_milling, 2), "unit": "Qntl"})
+
+    # Rice
+    usna_avail = round(usna_produced + pv_bought.get("Rice (Usna)", 0) - govt_delivered - pvt_sold_usna - sb_sold.get("Rice (Usna)", 0), 2)
+    items.append({"name": "Rice (Usna)", "available_qntl": usna_avail, "unit": "Qntl"})
+    raw_avail = round(raw_produced + pv_bought.get("Rice (Raw)", 0) - pvt_sold_raw - sb_sold.get("Rice (Raw)", 0), 2)
+    items.append({"name": "Rice (Raw)", "available_qntl": raw_avail, "unit": "Qntl"})
+
+    # By-products
+    for p in products:
+        produced = bp_produced.get(p, 0)
+        sold_bp = round(bp_sold_map.get(p, 0), 2)
+        sold_sb = sb_sold.get(p.title(), 0)
+        purchased = pv_bought.get(p.title(), 0)
+        avail = round(produced + purchased - sold_bp - sold_sb, 2)
+        items.append({"name": p.title(), "available_qntl": avail, "unit": "Qntl"})
+
+    # FRK
+    frk_purchases = await db.frk_purchases.find(query, {"_id": 0}).to_list(10000) if await db.frk_purchases.count_documents(query) > 0 else []
+    frk_in = round(sum(e.get('quantity_qntl', 0) or e.get('quantity', 0) for e in frk_purchases), 2)
+    frk_purchased_pv = pv_bought.get("FRK", 0)
+    frk_sold_sb = sb_sold.get("FRK", 0)
+    items.append({"name": "FRK", "available_qntl": round(frk_in + frk_purchased_pv - frk_sold_sb, 2), "unit": "Qntl"})
+
+    # FRK Rice (common purchase item)
+    frk_rice_bought = pv_bought.get("FRK Rice", 0)
+    frk_rice_sold = sb_sold.get("FRK Rice", 0)
+    if frk_rice_bought > 0 or frk_rice_sold > 0:
+        items.append({"name": "FRK Rice", "available_qntl": round(frk_rice_bought - frk_rice_sold, 2), "unit": "Qntl"})
+
+    # Custom items from previous purchases (not already covered)
+    known_items = {"Paddy", "Rice (Usna)", "Rice (Raw)", "FRK", "FRK Rice"} | {p.title() for p in products}
+    for item_name, qty in pv_bought.items():
+        if item_name not in known_items and item_name:
+            sold = sb_sold.get(item_name, 0)
+            items.append({"name": item_name, "available_qntl": round(qty - sold, 2), "unit": "Qntl"})
+
+    return items
+
+
 # ============ STOCK SUMMARY ============
 
 @router.get("/stock-summary")

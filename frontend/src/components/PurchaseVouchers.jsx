@@ -22,7 +22,7 @@ import { downloadFile } from "../utils/download";
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const emptyItem = { item_name: "", quantity: "", rate: "", unit: "Qntl" };
+const emptyItem = { item_name: "", quantity: "", rate: "", unit: "Qntl", _custom: false };
 
 export default function PurchaseVouchers({ filters, user }) {
   const [vouchers, setVouchers] = useState([]);
@@ -32,6 +32,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
+  const [stockItems, setStockItems] = useState([]);
   const [gstSettings, setGstSettings] = useState({ cgst_percent: 0, sgst_percent: 0, igst_percent: 0 });
   const [payDialog, setPayDialog] = useState(null);
   const [payAmount, setPayAmount] = useState("");
@@ -75,12 +76,17 @@ export default function PurchaseVouchers({ filters, user }) {
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
       if (searchText) p.append('search', searchText);
-      const [res, bRes] = await Promise.all([
+      const sp = new URLSearchParams();
+      if (filters.kms_year) sp.append('kms_year', filters.kms_year);
+      if (filters.season) sp.append('season', filters.season);
+      const [res, bRes, sRes] = await Promise.all([
         axios.get(`${API}/purchase-book?${p}`),
         axios.get(`${API}/bank-accounts`),
+        axios.get(`${API}/purchase-book/stock-items?${sp}`),
       ]);
       setVouchers(res.data);
       setBankAccounts(bRes.data || []);
+      setStockItems(sRes.data || []);
     } catch { toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season, searchText]);
@@ -105,6 +111,11 @@ export default function PurchaseVouchers({ filters, user }) {
   const subtotal = useMemo(() =>
     form.items.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0), 0)
   , [form.items]);
+
+  const getStockForItem = (itemName) => {
+    const s = stockItems.find(i => i.name === itemName);
+    return s ? s.available_qntl : null;
+  };
 
   const gstCalc = useMemo(() => {
     const cgst = form.gst_type === 'cgst_sgst' ? round2(subtotal * (parseFloat(form.cgst_percent) || 0) / 100) : 0;
@@ -192,6 +203,7 @@ export default function PurchaseVouchers({ filters, user }) {
       items: (v.items || []).map(i => ({
         item_name: i.item_name || "", quantity: String(i.quantity || ""),
         rate: String(i.rate || ""), unit: i.unit || "Qntl",
+        _custom: !stockItems.find(s => s.name === i.item_name),
       })),
       gst_type: v.gst_type || "none",
       cgst_percent: v.cgst_percent || 0, sgst_percent: v.sgst_percent || 0, igst_percent: v.igst_percent || 0,
@@ -293,6 +305,20 @@ export default function PurchaseVouchers({ filters, user }) {
           </Card>
         ))}
       </div>
+
+      {/* Stock Overview */}
+      {stockItems.length > 0 && (
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-2" data-testid="pv-stock-overview">
+          {stockItems.map(item => (
+            <Card key={item.name} className="bg-slate-800/50 border-slate-700 p-2">
+              <div className="text-[10px] text-slate-400 truncate">{item.name}</div>
+              <div className={`text-sm font-bold ${item.available_qntl > 0 ? 'text-emerald-400' : item.available_qntl < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                {item.available_qntl} Q
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-wrap gap-2 items-center">
@@ -451,16 +477,58 @@ export default function PurchaseVouchers({ filters, user }) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-3 pb-3 space-y-2">
-                {form.items.map((item, idx) => (
+                {form.items.map((item, idx) => {
+                  const stock = getStockForItem(item.item_name);
+                  const isCustom = item.item_name && !stockItems.find(s => s.name === item.item_name);
+                  return (
                   <div key={idx} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-4 relative">
+                    <div className={item._custom ? "col-span-2" : "col-span-3"}>
                       {idx === 0 && <Label className="text-slate-400 text-[10px]">Item Name *</Label>}
-                      <Input value={item.item_name} onChange={e => handleItemChange(idx, 'item_name', e.target.value)}
-                        placeholder="Item name" className="bg-slate-600 border-slate-500 text-white h-8 text-sm" list={`item-suggest-${idx}`}
-                        data-testid={`pv-item-name-${idx}`} />
-                      <datalist id={`item-suggest-${idx}`}>
-                        {suggestions.map(s => <option key={s} value={s} />)}
-                      </datalist>
+                      <Select value={item._custom ? "_custom" : (item.item_name || "_none")} onValueChange={v => {
+                        if (v === "_custom") {
+                          handleItemChange(idx, 'item_name', '');
+                          handleItemChange(idx, '_custom', true);
+                        } else {
+                          handleItemChange(idx, 'item_name', v === "_none" ? "" : v);
+                          handleItemChange(idx, '_custom', false);
+                        }
+                      }}>
+                        <SelectTrigger className="bg-slate-600 border-slate-500 text-white h-8 text-xs" data-testid={`pv-item-select-${idx}`}>
+                          <SelectValue placeholder="Item select karein" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-600">
+                          <SelectItem value="_none" className="text-slate-400">-- Select --</SelectItem>
+                          {stockItems.map(si => (
+                            <SelectItem key={si.name} value={si.name} className="text-white">
+                              {si.name} ({si.available_qntl} Q)
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="_custom" className="text-amber-400">+ Other / Custom Item</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {item._custom && (
+                      <div className="col-span-2">
+                        {idx === 0 && <Label className="text-amber-400 text-[10px]">Name</Label>}
+                        <Input value={item.item_name} onChange={e => handleItemChange(idx, 'item_name', e.target.value)}
+                          placeholder="Item name" className="bg-amber-900/30 border-amber-700 text-amber-400 h-8 text-xs" autoFocus
+                          list={`item-suggest-${idx}`} data-testid={`pv-item-custom-${idx}`} />
+                        <datalist id={`item-suggest-${idx}`}>
+                          {suggestions.map(s => <option key={s} value={s} />)}
+                        </datalist>
+                      </div>
+                    )}
+                    <div className="col-span-1">
+                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Stock</Label>}
+                      <div className="h-8 flex items-center">
+                        {stock !== null ? (
+                          <span className={`text-xs font-semibold ${stock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{stock}Q</span>
+                        ) : isCustom ? (
+                          <span className="text-xs text-amber-400">New</span>
+                        ) : (
+                          <span className="text-xs text-slate-500">-</span>
+                        )}
+                      </div>
                     </div>
                     <div className="col-span-2">
                       {idx === 0 && <Label className="text-slate-400 text-[10px]">Qty</Label>}
@@ -490,7 +558,8 @@ export default function PurchaseVouchers({ filters, user }) {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 <div className="flex justify-end pt-2 border-t border-slate-600">
                   <span className="text-emerald-400 font-bold text-lg" data-testid="pv-subtotal">
                     Subtotal: Rs.{subtotal.toLocaleString()}
