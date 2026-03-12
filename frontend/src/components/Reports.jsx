@@ -358,27 +358,32 @@ const DailyReport = ({ filters }) => {
             <Section title="Private Trading / निजी व्यापार" icon={Wheat} color="text-purple-400">
               {data.pvt_paddy.count > 0 && (
                 <div className="mb-3">
-                  <p className="text-xs text-slate-400 mb-1 font-semibold">Paddy Purchase ({data.pvt_paddy.count}) - {data.pvt_paddy.total_kg} KG | ₹{data.pvt_paddy.total_amount.toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-slate-400 mb-1 font-semibold">Paddy Purchase ({data.pvt_paddy.count}) - {data.pvt_paddy.total_qntl} Qntl | ₹{data.pvt_paddy.total_amount.toLocaleString('en-IN')}</p>
                   {isDetail ? (
                     <DetailTable
-                      headers={[{key:'party',label:'Party',align:'left'},{key:'variety',label:'Variety',align:'left'},
-                        {key:'kg',label:'KG',align:'right'},{key:'rate',label:'Rate',align:'right'},
-                        {key:'amt',label:'Amount',align:'right'},{key:'veh',label:'Vehicle',align:'left'}]}
+                      headers={[{key:'party',label:'Party',align:'left'},{key:'mandi',label:'Mandi',align:'left'},
+                        {key:'truck',label:'Truck',align:'left'},{key:'qntl',label:'Qntl',align:'right'},
+                        {key:'rate',label:'Rate/Q',align:'right'},{key:'amt',label:'Amount',align:'right'},
+                        {key:'cash',label:'Cash',align:'right'},{key:'diesel',label:'Diesel',align:'right'}]}
                       rows={data.pvt_paddy.details.map((d,i) => (<>
                         <td className="py-1 px-2 text-white">{d.party}</td>
-                        <td className="py-1 px-2 text-slate-300">{d.variety}</td>
-                        <td className="py-1 px-2 text-right text-amber-400">{d.kg}</td>
+                        <td className="py-1 px-2 text-slate-300">{d.mandi}</td>
+                        <td className="py-1 px-2 text-slate-400">{d.truck_no}</td>
+                        <td className="py-1 px-2 text-right text-amber-400">{d.qntl}</td>
                         <td className="py-1 px-2 text-right text-slate-300">₹{d.rate}</td>
                         <td className="py-1 px-2 text-right text-red-400 font-semibold">₹{d.amount?.toLocaleString('en-IN')}</td>
-                        <td className="py-1 px-2 text-slate-400">{d.vehicle}</td>
+                        <td className="py-1 px-2 text-right text-green-300">₹{(d.cash_paid||0).toLocaleString('en-IN')}</td>
+                        <td className="py-1 px-2 text-right text-orange-400">₹{(d.diesel_paid||0).toLocaleString('en-IN')}</td>
                       </>))}
                     />
                   ) : (
                     <DetailTable
-                      headers={[{key:'party',label:'Party',align:'left'},{key:'kg',label:'KG',align:'right'},{key:'amt',label:'Amount',align:'right'}]}
+                      headers={[{key:'party',label:'Party',align:'left'},{key:'mandi',label:'Mandi',align:'left'},
+                        {key:'qntl',label:'Qntl',align:'right'},{key:'amt',label:'Amount',align:'right'}]}
                       rows={data.pvt_paddy.details.map((d,i) => (<>
                         <td className="py-1 px-2 text-white">{d.party}</td>
-                        <td className="py-1 px-2 text-right text-amber-400">{d.kg}</td>
+                        <td className="py-1 px-2 text-slate-300">{d.mandi}</td>
+                        <td className="py-1 px-2 text-right text-amber-400">{d.qntl}</td>
                         <td className="py-1 px-2 text-right text-red-400">₹{d.amount?.toLocaleString('en-IN')}</td>
                       </>))}
                     />
@@ -529,11 +534,14 @@ const DailyReport = ({ filters }) => {
               <div className="mt-2">
                 <p className="text-[10px] text-slate-500 font-semibold mb-1">MSP Payment Details:</p>
                 <DetailTable
-                  headers={[{key:'agent',label:'Agent',align:'left'},{key:'mandi',label:'Mandi',align:'left'},{key:'amt',label:'Amount',align:'right'}]}
+                  headers={[{key:'dc',label:'DC No',align:'left'},{key:'qntl',label:'Qntl',align:'right'},
+                    {key:'rate',label:'Rate/Q',align:'right'},{key:'amt',label:'Amount',align:'right'},{key:'mode',label:'Mode',align:'left'}]}
                   rows={data.payments.msp_details.map((d,i) => (<>
-                    <td className="py-1 px-2 text-white">{d.agent}</td>
-                    <td className="py-1 px-2 text-slate-300">{d.mandi}</td>
+                    <td className="py-1 px-2 text-white">{d.dc_no}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">{d.qntl}</td>
+                    <td className="py-1 px-2 text-right text-slate-300">₹{d.rate}</td>
                     <td className="py-1 px-2 text-right text-green-400">₹{d.amount?.toLocaleString('en-IN')}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.mode}</td>
                   </>))}
                 />
               </div>
@@ -688,6 +696,54 @@ const DailyReport = ({ filters }) => {
                       <td className="py-1.5 px-2"><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${cls}`}>{label}</span></td>
                     </>);
                   })}
+                />
+              )}
+            </Section>
+          )}
+
+          {/* Sale Vouchers */}
+          {data.sale_vouchers && data.sale_vouchers.count > 0 && (
+            <Section title="Sale Vouchers / बिक्री वाउचर" icon={IndianRupee} color="text-green-400">
+              <p className="text-xs text-slate-400 mb-1 font-semibold">
+                Total: {data.sale_vouchers.count} vouchers | ₹{data.sale_vouchers.total_amount.toLocaleString('en-IN')}
+              </p>
+              {data.sale_vouchers.details && data.sale_vouchers.details.length > 0 && (
+                <DetailTable
+                  headers={[{key:'vno',label:'V.No',align:'left'},{key:'party',label:'Party',align:'left'},
+                    {key:'truck',label:'Truck',align:'left'},{key:'total',label:'Total',align:'right'},
+                    {key:'adv',label:'Advance',align:'right'},{key:'bal',label:'Balance',align:'right'}]}
+                  rows={data.sale_vouchers.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white">{d.voucher_no}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.party}</td>
+                    <td className="py-1 px-2 text-slate-400">{d.truck_no}</td>
+                    <td className="py-1 px-2 text-right text-green-400 font-semibold">₹{d.total?.toLocaleString('en-IN')}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">₹{(d.advance||0).toLocaleString('en-IN')}</td>
+                    <td className="py-1 px-2 text-right text-red-400">₹{(d.balance||0).toLocaleString('en-IN')}</td>
+                  </>))}
+                />
+              )}
+            </Section>
+          )}
+
+          {/* Purchase Vouchers */}
+          {data.purchase_vouchers && data.purchase_vouchers.count > 0 && (
+            <Section title="Purchase Vouchers / खरीद वाउचर" icon={IndianRupee} color="text-red-400">
+              <p className="text-xs text-slate-400 mb-1 font-semibold">
+                Total: {data.purchase_vouchers.count} vouchers | ₹{data.purchase_vouchers.total_amount.toLocaleString('en-IN')}
+              </p>
+              {data.purchase_vouchers.details && data.purchase_vouchers.details.length > 0 && (
+                <DetailTable
+                  headers={[{key:'vno',label:'V.No',align:'left'},{key:'party',label:'Party',align:'left'},
+                    {key:'truck',label:'Truck',align:'left'},{key:'total',label:'Total',align:'right'},
+                    {key:'adv',label:'Advance',align:'right'},{key:'bal',label:'Balance',align:'right'}]}
+                  rows={data.purchase_vouchers.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white">{d.voucher_no}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.party}</td>
+                    <td className="py-1 px-2 text-slate-400">{d.truck_no}</td>
+                    <td className="py-1 px-2 text-right text-red-400 font-semibold">₹{d.total?.toLocaleString('en-IN')}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">₹{(d.advance||0).toLocaleString('en-IN')}</td>
+                    <td className="py-1 px-2 text-right text-green-400">₹{(d.balance||0).toLocaleString('en-IN')}</td>
+                  </>))}
                 />
               )}
             </Section>

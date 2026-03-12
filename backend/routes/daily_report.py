@@ -24,8 +24,18 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
 
     # Private Paddy
     pvt_paddy = await db.private_paddy.find(q, {"_id": 0}).to_list(500)
-    pvt_paddy_kg = sum(e.get("kg", 0) for e in pvt_paddy)
+    pvt_paddy_qntl = round(sum(e.get("qntl", 0) for e in pvt_paddy), 2)
     pvt_paddy_amount = sum(e.get("total_amount", 0) for e in pvt_paddy)
+
+    # Sale Vouchers
+    sale_vouchers = await db.sale_vouchers.find(q, {"_id": 0}).to_list(500)
+    sv_total_amount = sum(sv.get("total", 0) or sv.get("subtotal", 0) for sv in sale_vouchers)
+    sv_total_items = sum(len(sv.get("items", [])) for sv in sale_vouchers)
+
+    # Purchase Vouchers
+    purchase_vouchers_daily = await db.purchase_vouchers.find(q, {"_id": 0}).to_list(500)
+    pv_total_amount = sum(pv.get("total", 0) or pv.get("subtotal", 0) for pv in purchase_vouchers_daily)
+    pv_total_items = sum(len(pv.get("items", [])) for pv in purchase_vouchers_daily)
 
     # Rice Sales
     rice_sales = await db.rice_sales.find(q, {"_id": 0}).to_list(500)
@@ -126,12 +136,15 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
                 "diesel_paid": e.get("diesel_paid", 0)} for e in entries]
         },
         "pvt_paddy": {
-            "count": len(pvt_paddy), "total_kg": round(pvt_paddy_kg, 2),
+            "count": len(pvt_paddy), "total_qntl": round(pvt_paddy_qntl, 2),
             "total_amount": round(pvt_paddy_amount, 2),
-            "details": [{"party": p.get("party_name", ""), "variety": p.get("variety", ""),
-                "kg": p.get("kg", 0), "rate": p.get("rate", 0),
-                "amount": p.get("total_amount", 0), "vehicle": p.get("vehicle_no", "")} for p in pvt_paddy] if is_detail else
-                [{"party": p.get("party_name", ""), "kg": p.get("kg", 0), "amount": p.get("total_amount", 0)} for p in pvt_paddy]
+            "details": [{"party": p.get("party_name", ""), "mandi": p.get("mandi_name", ""),
+                "truck_no": p.get("truck_no", ""), "qntl": round(p.get("qntl", 0), 2),
+                "rate": p.get("rate_per_qntl", 0) or p.get("rate", 0),
+                "amount": p.get("total_amount", 0), "bag": p.get("bag", 0),
+                "cash_paid": p.get("cash_paid", 0), "diesel_paid": p.get("diesel_paid", 0)} for p in pvt_paddy] if is_detail else
+                [{"party": p.get("party_name", ""), "mandi": p.get("mandi_name", ""),
+                "qntl": round(p.get("qntl", 0), 2), "amount": p.get("total_amount", 0)} for p in pvt_paddy]
         },
         "rice_sales": {
             "count": len(rice_sales), "total_qntl": round(rice_sale_qntl, 2),
@@ -171,8 +184,9 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
             "msp_received": round(msp_amount, 2),
             "pvt_paddy_paid": round(pvt_paid, 2),
             "rice_sale_received": round(pvt_received, 2),
-            "msp_details": [{"agent": p.get("agent_name", ""), "amount": p.get("amount", 0),
-                "mandi": p.get("mandi_name", "")} for p in msp] if is_detail else [],
+            "msp_details": [{"dc_no": p.get("dc_number", ""), "amount": p.get("amount", 0),
+                "qntl": p.get("quantity_qntl", 0), "rate": p.get("rate_per_qntl", 0),
+                "mode": p.get("payment_mode", "")} for p in msp] if is_detail else [],
             "pvt_payment_details": [{"party": p.get("party_name", ""), "amount": p.get("amount", 0),
                 "ref_type": p.get("ref_type", ""), "mode": p.get("payment_mode", "")} for p in pvt_payments] if is_detail else []
         },
@@ -186,6 +200,42 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
             "count": len(frk), "total_qntl": round(frk_qntl, 2), "total_amount": round(frk_amount, 2),
             "details": [{"party": f.get("party_name", ""), "qntl": f.get("quantity_qntl", 0),
                 "rate": f.get("rate", 0), "amount": f.get("total_amount", 0)} for f in frk] if is_detail else []
+        },
+        "sale_vouchers": {
+            "count": len(sale_vouchers), "total_amount": round(sv_total_amount, 2),
+            "total_items": sv_total_items,
+            "details": [{
+                "voucher_no": sv.get("voucher_no", ""),
+                "party": sv.get("party_name", ""),
+                "truck_no": sv.get("truck_no", ""),
+                "items": [{
+                    "name": it.get("item_name", ""),
+                    "qty": round(it.get("quantity", 0), 2),
+                    "rate": it.get("rate", 0),
+                    "amount": it.get("amount", 0)
+                } for it in sv.get("items", [])],
+                "total": sv.get("total", 0) or sv.get("subtotal", 0),
+                "advance": sv.get("advance", 0) or sv.get("paid_amount", 0),
+                "balance": sv.get("balance", 0)
+            } for sv in sale_vouchers]
+        },
+        "purchase_vouchers": {
+            "count": len(purchase_vouchers_daily), "total_amount": round(pv_total_amount, 2),
+            "total_items": pv_total_items,
+            "details": [{
+                "voucher_no": pv.get("voucher_no", ""),
+                "party": pv.get("party_name", ""),
+                "truck_no": pv.get("truck_no", ""),
+                "items": [{
+                    "name": it.get("item_name", ""),
+                    "qty": round(it.get("quantity", 0), 2),
+                    "rate": it.get("rate", 0),
+                    "amount": it.get("amount", 0)
+                } for it in pv.get("items", [])],
+                "total": pv.get("total", 0) or pv.get("subtotal", 0),
+                "advance": pv.get("advance", 0) or pv.get("paid_amount", 0),
+                "balance": pv.get("balance", 0)
+            } for pv in purchase_vouchers_daily]
         },
         "mill_parts": {
             "in_count": len(parts_in), "used_count": len(parts_used),
@@ -364,20 +414,21 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     if pp["count"] or rs["count"]:
         elements.append(Paragraph("3. Private Trading", section_style))
         if pp["count"]:
-            elements.append(Paragraph(f"<b>Paddy Purchase ({pp['count']}): {pp['total_kg']} KG | Rs. {_fmt_amt(pp['total_amount'])}</b>",
+            elements.append(Paragraph(f"<b>Paddy Purchase ({pp['count']}): {pp['total_qntl']} Qntl | Rs. {_fmt_amt(pp['total_amount'])}</b>",
                 ParagraphStyle('sub', parent=styles['Normal'], fontSize=8, spaceAfter=2)))
             if is_detail and pp["details"]:
                 elements.append(make_table(
-                    ['Party', 'Variety', 'KG', 'Rate', 'Amount', 'Vehicle'],
-                    [[d.get("party",""), d.get("variety",""), str(d.get("kg",0)), str(d.get("rate",0)),
-                      f"Rs.{_fmt_amt(d.get('amount',0))}", d.get("vehicle","")] for d in pp["details"]],
-                    [110, 80, 65, 65, 90, 80]
+                    ['Party', 'Mandi', 'Truck', 'Qntl', 'Rate/Q', 'Amount', 'Cash', 'Diesel'],
+                    [[d.get("party",""), d.get("mandi",""), d.get("truck_no",""), str(d.get("qntl",0)),
+                      str(d.get("rate",0)), f"Rs.{_fmt_amt(d.get('amount',0))}",
+                      f"Rs.{_fmt_amt(d.get('cash_paid',0))}", f"Rs.{_fmt_amt(d.get('diesel_paid',0))}"] for d in pp["details"]],
+                    [80, 65, 65, 50, 55, 75, 55, 55]
                 ))
             elif pp["details"]:
                 elements.append(make_table(
-                    ['Party', 'KG', 'Amount'],
-                    [[d["party"], str(d["kg"]), f"Rs.{_fmt_amt(d['amount'])}"] for d in pp["details"]],
-                    [220, 120, 150]
+                    ['Party', 'Mandi', 'Qntl', 'Amount'],
+                    [[d["party"], d.get("mandi",""), str(d.get("qntl",0)), f"Rs.{_fmt_amt(d['amount'])}"] for d in pp["details"]],
+                    [160, 120, 100, 130]
                 ))
         if rs["count"]:
             elements.append(Spacer(1, 4))
@@ -450,9 +501,10 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     if is_detail:
         if pay.get("msp_details"):
             elements.append(Paragraph("<b>MSP Payment Details:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
-            elements.append(make_table(['Agent', 'Mandi', 'Amount'],
-                [[d.get("agent",""), d.get("mandi",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in pay["msp_details"]],
-                [200, 170, 130]))
+            elements.append(make_table(['DC No', 'Qntl', 'Rate/Q', 'Amount', 'Mode'],
+                [[d.get("dc_no",""), str(d.get("qntl",0)), str(d.get("rate",0)),
+                  f"Rs.{_fmt_amt(d.get('amount',0))}", d.get("mode","")] for d in pay["msp_details"]],
+                [80, 90, 80, 130, 100]))
         if pay.get("pvt_payment_details"):
             elements.append(Paragraph("<b>Private Payment Details:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
             elements.append(make_table(['Party', 'Type', 'Mode', 'Amount'],
@@ -525,6 +577,38 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     mp = data["mill_parts"]
     if mp["in_count"] or mp["used_count"]:
         elements.append(Paragraph(f"10. Mill Parts Stock (In: {mp['in_count']} | Used: {mp['used_count']}) | Purchase: Rs. {_fmt_amt(mp.get('in_amount',0))}", section_style))
+
+    # ===== SALE VOUCHERS =====
+    sv = data.get("sale_vouchers", {})
+    if sv.get("count", 0):
+        elements.append(Spacer(1, 4))
+        elements.append(Paragraph(f"11. Sale Vouchers ({sv['count']}) - Rs. {_fmt_amt(sv['total_amount'])}", section_style))
+        if sv.get("details"):
+            sv_rows = []
+            for d in sv["details"]:
+                items_str = ", ".join(f"{it['name']} ({it['qty']}Q @ Rs.{it['rate']})" for it in d.get("items", []))
+                sv_rows.append([d.get("voucher_no",""), d.get("party",""), d.get("truck_no",""),
+                    items_str[:60], f"Rs.{_fmt_amt(d.get('total',0))}", f"Rs.{_fmt_amt(d.get('balance',0))}"])
+            elements.append(make_table(
+                ['V.No', 'Party', 'Truck', 'Items', 'Total', 'Balance'],
+                sv_rows, [45, 85, 65, 160, 75, 70], font_size=6
+            ))
+
+    # ===== PURCHASE VOUCHERS =====
+    pvr = data.get("purchase_vouchers", {})
+    if pvr.get("count", 0):
+        elements.append(Spacer(1, 4))
+        elements.append(Paragraph(f"12. Purchase Vouchers ({pvr['count']}) - Rs. {_fmt_amt(pvr['total_amount'])}", section_style))
+        if pvr.get("details"):
+            pv_rows = []
+            for d in pvr["details"]:
+                items_str = ", ".join(f"{it['name']} ({it['qty']}Q @ Rs.{it['rate']})" for it in d.get("items", []))
+                pv_rows.append([d.get("voucher_no",""), d.get("party",""), d.get("truck_no",""),
+                    items_str[:60], f"Rs.{_fmt_amt(d.get('total',0))}", f"Rs.{_fmt_amt(d.get('balance',0))}"])
+            elements.append(make_table(
+                ['V.No', 'Party', 'Truck', 'Items', 'Total', 'Balance'],
+                pv_rows, [45, 85, 65, 160, 75, 70], font_size=6
+            ))
         if mp["in_details"]:
             elements.append(Paragraph("<b>Parts Purchased:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=2, spaceAfter=2)))
             elements.append(make_table(

@@ -1,8 +1,5 @@
 # NAVKAR AGRO - Mill Entry System PRD
 
-## Original Problem Statement
-Web application for rice mill financial and inventory management.
-
 ## Architecture
 - **Frontend**: React (Vite) + Shadcn/UI + Tailwind
 - **Backend**: FastAPI (Python)
@@ -10,36 +7,28 @@ Web application for rice mill financial and inventory management.
 
 ## What's Been Implemented (2026-03-12 Session)
 
-### Bug Fixes
-- "Move to Paddy Purchase" entries excluded from Truck Payments
-- Stock calculation fixed: Pvt Paddy uses QNTL - BAG/100 (not final_qntl)
-- agent_extra excluded from stock everywhere (milling.py, exports.py, purchase_vouchers.py/stock-summary)
-- CashBook payment auto-update: fixed "Party - Mandi" → party_name + mandi_name matching
-- Delete revert: same matching fix applied
+### Daily Report Updates
+- **KG → QNTL**: Pvt Paddy section now shows QNTL (not KG), with mandi, truck_no, rate
+- **Sale Vouchers section added**: Shows voucher_no, party, truck, items, total, advance, balance
+- **Purchase Vouchers section added**: Same format as Sale Vouchers
+- **MSP Details fixed**: Now shows DC No, Qntl, Rate/Q, Amount, Mode (was showing empty Agent/Mandi)
+- **PDF updated**: All new sections included in PDF export (both Normal and Detail modes)
 
-### Features Added
-- Party Jama Ledger on paddy purchase creation
-- Truck Jama Ledger on paddy purchase creation
-- Advance Ledger nikasi for party on creation
-- CashBook nikasi auto-updates private_paddy.paid_amount
-- Rate-setting for Pvt Paddy creates/updates truck jama
-
-### Key Technical Details
-- Party label: "{party_name} - {mandi_name}" (split on " - " for DB matching)
+### Stock & Ledger Fixes
 - Pvt Paddy stock = QNTL - BAG/100 (agent_extra excluded)
-- References: pvt_party_jama, pvt_truck_jama, pvt_paddy_advl, pvt_paddy_adv, pvt_paddy_tcash, pvt_paddy_tdiesel
+- Party jama ledger auto-created on paddy purchase
+- CashBook payment auto-updates private_paddy.paid_amount (split matching "Party - Mandi")
+- Truck jama auto-created on paddy purchase
 
 ### Key Files Modified
+- backend/routes/daily_report.py - New sections, KG→QNTL, MSP fix, PDF updates
 - backend/routes/private_trading.py - Party jama + advance ledger + truck jama
-- backend/routes/cashbook.py - Auto-update with split matching + delete revert
-- backend/routes/payments.py - Truck jama on rate-setting, agent_extra exclusion
-- backend/routes/milling.py - Fixed pvt paddy stock formula
-- backend/routes/exports.py - Fixed pvt paddy stock formula
-- backend/routes/purchase_vouchers.py - Fixed stock-summary pvt paddy formula
-- backend/routes/reports.py - Jama ledger on "Move to Paddy Purchase"
-
-### Known Issues
-- Lokesh Fuels: 2 manual entries with empty descriptions (Rs.500 + Rs.3000) - user data issue, not code bug
+- backend/routes/cashbook.py - Auto-update with split matching
+- backend/routes/payments.py - Truck jama, agent_extra exclusion
+- backend/routes/milling.py - Pvt paddy stock formula fix
+- backend/routes/purchase_vouchers.py - Stock summary pvt paddy fix
+- backend/routes/exports.py - Pvt paddy stock formula fix
+- frontend/src/components/Reports.jsx - New sections, QNTL, MSP details fix
 
 ## Prioritized Backlog
 - P1: Desktop App Sync (paused)
