@@ -418,7 +418,7 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
         html += f'<div class="sub">{tagline}</div>'
     html += f"""</div>
     <div class="meta"><span>Sale Book Report</span><span>{f'FY: {kms_year}' if kms_year else ''} {f'| {season}' if season else ''}</span><span>Date: {datetime.now().strftime('%d-%m-%Y')}</span></div>
-    <table><tr><th class="c">No.</th><th>Date</th><th>Inv No.</th><th>Party</th><th>Items</th><th>Truck/RST</th><th class="r">Subtotal</th><th class="r">GST</th><th class="r">Total</th><th class="r">Advance</th><th class="r">Cash</th><th class="r">Diesel</th><th class="r">Balance</th></tr>"""
+    <table><tr><th class="c">No.</th><th>Date</th><th>Inv No.</th><th>Party</th><th>Items</th><th>Truck/RST</th><th>E-Way Bill</th><th class="r">Subtotal</th><th class="r">GST</th><th class="r">Total</th><th class="r">Advance</th><th class="r">Cash</th><th class="r">Diesel</th><th class="r">Balance</th></tr>"""
     
     g = {"sub": 0, "gst": 0, "total": 0, "adv": 0, "cash": 0, "diesel": 0, "bal": 0}
     for v in vouchers:
@@ -436,13 +436,13 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
         g["diesel"] += v.get('diesel_paid', 0) or 0
         g["bal"] += v.get('balance', 0) or 0
         html += f"""<tr><td class="c">#{v.get('voucher_no','')}</td><td>{fd}</td><td>{v.get('invoice_no','')}</td><td class="b">{v.get('party_name','')}</td>
-        <td>{items_str}</td><td>{truck_rst}</td>
+        <td>{items_str}</td><td>{truck_rst}</td><td>{v.get('eway_bill_no','')}</td>
         <td class="r amt">{v.get('subtotal',0):,.0f}</td><td class="r amt">{gst:,.0f}</td>
         <td class="r amt b">{v.get('total',0):,.0f}</td><td class="r amt">{v.get('advance',0) or 0:,.0f}</td>
         <td class="r amt">{v.get('cash_paid',0) or 0:,.0f}</td><td class="r amt">{v.get('diesel_paid',0) or 0:,.0f}</td>
         <td class="r amt b">{v.get('balance',0):,.0f}</td></tr>"""
     
-    html += f"""<tr class="total-row"><td colspan="6" class="b">TOTAL ({len(vouchers)} vouchers)</td>
+    html += f"""<tr class="total-row"><td colspan="7" class="b">TOTAL ({len(vouchers)} vouchers)</td>
     <td class="r amt">{g['sub']:,.0f}</td><td class="r amt">{g['gst']:,.0f}</td><td class="r amt">{g['total']:,.0f}</td>
     <td class="r amt">{g['adv']:,.0f}</td><td class="r amt">{g['cash']:,.0f}</td><td class="r amt">{g['diesel']:,.0f}</td>
     <td class="r amt">{g['bal']:,.0f}</td></tr></table>
@@ -500,24 +500,24 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
     thin_border = Border(bottom=Side(style='thin', color='E0E0E0'))
     
     # Header
-    ws.merge_cells('A1:M1')
+    ws.merge_cells('A1:N1')
     ws['A1'] = company
     ws['A1'].font = header_font
     ws['A1'].alignment = Alignment(horizontal='center')
     
-    ws.merge_cells('A2:M2')
+    ws.merge_cells('A2:N2')
     ws['A2'] = f"Sale Book Report | {f'FY: {kms_year}' if kms_year else ''} {f'| {season}' if season else ''} | Date: {datetime.now().strftime('%d-%m-%Y')}"
     ws['A2'].font = sub_font
     ws['A2'].alignment = Alignment(horizontal='center')
     
     # Column headers
-    cols = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck/RST', 'Subtotal', 'GST', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance']
-    widths = [6, 10, 10, 18, 28, 14, 10, 8, 10, 10, 8, 8, 10]
+    cols = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck/RST', 'E-Way Bill', 'Subtotal', 'GST', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance']
+    widths = [6, 10, 10, 18, 28, 14, 14, 10, 8, 10, 10, 8, 8, 10]
     for i, (col, w) in enumerate(zip(cols, widths), 1):
         cell = ws.cell(row=4, column=i, value=col)
         cell.font = col_header_font
         cell.fill = col_header_fill
-        cell.alignment = Alignment(horizontal='right' if i >= 7 else 'left', vertical='center')
+        cell.alignment = Alignment(horizontal='right' if i >= 8 else 'left', vertical='center')
         ws.column_dimensions[cell.column_letter].width = w
     
     # Data rows
@@ -539,21 +539,21 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
         g["bal"] += v.get('balance', 0) or 0
         
         row_data = [f"#{v.get('voucher_no','')}", fd, v.get('invoice_no',''), v.get('party_name',''), items_str, truck_rst,
-                    v.get('subtotal', 0), gst, v.get('total', 0), v.get('advance', 0) or 0,
+                    v.get('eway_bill_no', ''), v.get('subtotal', 0), gst, v.get('total', 0), v.get('advance', 0) or 0,
                     v.get('cash_paid', 0) or 0, v.get('diesel_paid', 0) or 0, v.get('balance', 0)]
         for ci, val in enumerate(row_data, 1):
             cell = ws.cell(row=ri, column=ci, value=val)
-            cell.font = bold_font if ci in (4, 9, 13) else data_font
+            cell.font = bold_font if ci in (4, 10, 14) else data_font
             cell.border = thin_border
-            if ci >= 7: cell.alignment = Alignment(horizontal='right')
-            if ci >= 7 and isinstance(val, (int, float)): cell.number_format = '#,##0'
+            if ci >= 8: cell.alignment = Alignment(horizontal='right')
+            if ci >= 8 and isinstance(val, (int, float)): cell.number_format = '#,##0'
     
     # Total row
     tr = len(vouchers) + 5
-    ws.merge_cells(f'A{tr}:F{tr}')
+    ws.merge_cells(f'A{tr}:G{tr}')
     ws.cell(row=tr, column=1, value=f"TOTAL ({len(vouchers)} vouchers)").font = total_font
     ws.cell(row=tr, column=1).fill = total_fill
-    for ci, val in enumerate([g['sub'], g['gst'], g['total'], g['adv'], g['cash'], g['diesel'], g['bal']], 7):
+    for ci, val in enumerate([g['sub'], g['gst'], g['total'], g['adv'], g['cash'], g['diesel'], g['bal']], 8):
         cell = ws.cell(row=tr, column=ci, value=val)
         cell.font = total_font
         cell.fill = total_fill

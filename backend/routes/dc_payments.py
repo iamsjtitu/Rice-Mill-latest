@@ -286,15 +286,19 @@ async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] 
     ws.cell(row=row, column=6, value=round(total_allot-total_del, 2)).font = Font(bold=True)
     # Delivery detail sheet
     ws2 = wb.create_sheet("Deliveries")
-    dheaders = ['DC No', 'Date', 'Qty (Q)', 'Vehicle', 'Driver', 'Slip No', 'Godown', 'Note']
+    dheaders = ['DC No', 'Date', 'Invoice No', 'RST No', 'E-Way Bill', 'Qty (Q)', 'Vehicle', 'Driver', 'Bags', 'Cash Paid', 'Diesel Paid', 'CGST', 'SGST', 'Godown', 'Note']
     for col, h in enumerate(dheaders, 1):
         c = ws2.cell(row=1, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
     dc_map = {d["id"]: d.get("dc_number","") for d in dcs}
     for i, dl in enumerate(sorted(all_deliveries, key=lambda x: x.get("date","")), 2):
-        for col, v in enumerate([dc_map.get(dl.get("dc_id",""),""), dl.get("date",""), dl.get("quantity_qntl",0), dl.get("vehicle_no",""), dl.get("driver_name",""), dl.get("slip_no",""), dl.get("godown_name",""), dl.get("notes","")], 1):
+        vals = [dc_map.get(dl.get("dc_id",""),""), dl.get("date",""), dl.get("invoice_no",""), dl.get("rst_no",""),
+                dl.get("eway_bill_no",""), dl.get("quantity_qntl",0), dl.get("vehicle_no",""), dl.get("driver_name",""),
+                dl.get("bags_used",0), dl.get("cash_paid",0), dl.get("diesel_paid",0),
+                dl.get("cgst_amount",0), dl.get("sgst_amount",0), dl.get("godown_name",""), dl.get("notes","")]
+        for col, v in enumerate(vals, 1):
             ws2.cell(row=i, column=col, value=v).border = tb
-    for letter in ['A','B','C','D','E','F','G','H','I']:
-        ws.column_dimensions[letter].width = 15; ws2.column_dimensions[letter].width = 15
+    for letter in 'ABCDEFGHIJKLMNO':
+        ws.column_dimensions[letter].width = 16; ws2.column_dimensions[letter].width = 16
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=dc_register_{datetime.now().strftime('%Y%m%d')}.xlsx"})

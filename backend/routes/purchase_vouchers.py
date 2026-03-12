@@ -503,7 +503,7 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
         html += f'<div class="sub">{tagline}</div>'
     html += f"""</div>
     <div class="meta"><span>Purchase Book Report</span><span>{f'FY: {kms_year}' if kms_year else ''} {f'| {season}' if season else ''}</span><span>Date: {datetime.now().strftime('%d-%m-%Y')}</span></div>
-    <table><tr><th class="c">No.</th><th>Date</th><th>Inv No.</th><th>Party</th><th>Items</th><th>Truck</th><th class="r">Total</th><th class="r">Advance</th><th class="r">Cash</th><th class="r">Diesel</th><th class="r">Balance</th></tr>"""
+    <table><tr><th class="c">No.</th><th>Date</th><th>Inv No.</th><th>Party</th><th>Items</th><th>Truck</th><th>E-Way Bill</th><th class="r">Total</th><th class="r">Advance</th><th class="r">Cash</th><th class="r">Diesel</th><th class="r">Balance</th></tr>"""
 
     g = {"total": 0, "adv": 0, "cash": 0, "diesel": 0, "bal": 0}
     for v in vouchers:
@@ -516,12 +516,12 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
         g["diesel"] += v.get('diesel_paid', 0)
         g["bal"] += v.get('balance', 0)
         html += f"""<tr><td class="c">{v.get('voucher_no','')}</td><td>{dt}</td><td>{v.get('invoice_no','')}</td>
-        <td class="b">{v.get('party_name','')}</td><td>{items_str}</td><td>{v.get('truck_no','')}</td>
+        <td class="b">{v.get('party_name','')}</td><td>{items_str}</td><td>{v.get('truck_no','')}</td><td>{v.get('eway_bill_no','')}</td>
         <td class="r amt b">{v.get('total',0):,.0f}</td><td class="r amt">{v.get('advance',0):,.0f}</td>
         <td class="r amt">{v.get('cash_paid',0):,.0f}</td><td class="r amt">{v.get('diesel_paid',0):,.0f}</td>
         <td class="r amt b">{v.get('balance',0):,.0f}</td></tr>"""
 
-    html += f"""<tr class="total-row"><td class="c" colspan="6">TOTAL ({len(vouchers)} vouchers)</td>
+    html += f"""<tr class="total-row"><td class="c" colspan="7">TOTAL ({len(vouchers)} vouchers)</td>
     <td class="r amt">{g['total']:,.0f}</td><td class="r amt">{g['adv']:,.0f}</td>
     <td class="r amt">{g['cash']:,.0f}</td><td class="r amt">{g['diesel']:,.0f}</td>
     <td class="r amt">{g['bal']:,.0f}</td></tr></table>
@@ -575,7 +575,7 @@ async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Opt
         wb = Workbook()
         ws = wb.active
         ws.title = "Purchase Book"
-        headers = ["No.", "Date", "Invoice No.", "Party", "Items", "Truck", "Total", "Advance", "Cash", "Diesel", "Balance"]
+        headers = ["No.", "Date", "Invoice No.", "Party", "Items", "Truck", "E-Way Bill", "Total", "Advance", "Cash", "Diesel", "Balance"]
         hfill = PatternFill(start_color="2E7D32", end_color="2E7D32", fill_type="solid")
         hfont = Font(bold=True, color="FFFFFF", size=9)
         thin = Side(style='thin', color='CCCCCC')
@@ -587,13 +587,13 @@ async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Opt
         for r, v in enumerate(vouchers, 2):
             items_str = ', '.join(f"{i['item_name']}({i.get('quantity', 0)})" for i in v.get('items', []))
             vals = [v.get('voucher_no', ''), v.get('date', ''), v.get('invoice_no', ''), v.get('party_name', ''),
-                    items_str, v.get('truck_no', ''), v.get('total', 0), v.get('advance', 0),
+                    items_str, v.get('truck_no', ''), v.get('eway_bill_no', ''), v.get('total', 0), v.get('advance', 0),
                     v.get('cash_paid', 0), v.get('diesel_paid', 0), v.get('balance', 0)]
             for c, val in enumerate(vals, 1):
                 cell = ws.cell(row=r, column=c, value=val)
                 cell.border = Border(bottom=thin)
-        for c in range(1, 12):
-            ws.column_dimensions[chr(64 + c)].width = 14
+        for c in range(1, 13):
+            ws.column_dimensions[chr(64 + c)].width = 15
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
