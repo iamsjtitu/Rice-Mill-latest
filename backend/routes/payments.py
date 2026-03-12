@@ -380,7 +380,7 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     
-    truck_no = entry.get("truck_no", "")
+    truck_no = entry.get("truck_no", "") or entry.get("vehicle_no", "")
     mandi_name = entry.get("mandi_name", "")
     updated_count = 0
     
@@ -410,6 +410,51 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
                 {"entry_id": entry_id},
                 {"$set": {"gross_amount": new_gross, "deductions": deductions, "net_amount": net, "balance_amount": net}}
             )
+        updated_count = 1
+    elif source == "dc_delivery":
+        # For DC delivery, set rate and create/update Jama (credit) ledger entry
+        dc_truck = entry.get("vehicle_no", "")
+        await db.truck_payments.update_one(
+            {"entry_id": entry_id},
+            {"$set": {"entry_id": entry_id, "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True
+        )
+        if final_qntl > 0 and dc_truck:
+            new_gross = round(final_qntl * request.rate_per_qntl, 2)
+            cash_taken = float(entry.get("cash_paid", 0) or 0)
+            diesel_taken = float(entry.get("diesel_paid", 0) or 0)
+            deductions = cash_taken + diesel_taken
+            net = round(new_gross - deductions, 2)
+            # Upsert Jama entry in ledger
+            existing_jama = await db.cash_transactions.find_one(
+                {"linked_entry_id": entry_id, "reference": {"$regex": "^delivery_jama:"}}, {"_id": 0}
+            )
+            base_fields = {
+                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                "created_by": username or "system", "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            if existing_jama:
+                await db.cash_transactions.update_one(
+                    {"id": existing_jama["id"]},
+                    {"$set": {
+                        "amount": new_gross,
+                        "description": f"DC Delivery: {dc_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
+                        **base_fields
+                    }}
+                )
+            else:
+                jama_entry = {
+                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
+                    "account": "ledger", "txn_type": "jama",
+                    "category": dc_truck, "party_type": "Truck",
+                    "description": f"DC Delivery: {dc_truck} - {final_qntl}Q @ Rs.{request.rate_per_qntl}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
+                    "amount": new_gross, "bank_name": "",
+                    "reference": f"delivery_jama:{entry_id[:8]}",
+                    "linked_entry_id": entry_id,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    **base_fields
+                }
+                await db.cash_transactions.insert_one(jama_entry)
         updated_count = 1
     elif truck_no and mandi_name:
         # Find all entries with same truck_no + mandi_name
@@ -1003,7 +1048,7 @@ async def undo_truck_paid(entry_id: str, username: str = "", role: str = ""):
     #    (entries with auto_ledger reference or manual entries linked to this truck via linked_entry_id)
     eid_short = entry_id[:8]
     deduction_refs = [f"truck_cash_ded:{eid_short}", f"truck_diesel_ded:{eid_short}", f"entry_cash:{eid_short}", f"truck_entry:{eid_short}",
-                      f"delivery:{eid_short}", f"delivery_tcash:{eid_short}", f"delivery_tdiesel:{eid_short}", f"delivery_diesel:{eid_short}"]
+                      f"delivery:{eid_short}", f"delivery_tcash:{eid_short}", f"delivery_tdiesel:{eid_short}", f"delivery_diesel:{eid_short}", f"delivery_jama:{eid_short}"]
     
     # Find and delete non-deduction ledger nikasi entries for this truck that are NOT auto-generated from entry
     all_ledger = await db.cash_transactions.find({
