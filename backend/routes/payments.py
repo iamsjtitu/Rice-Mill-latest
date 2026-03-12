@@ -448,12 +448,45 @@ async def set_truck_rate(entry_id: str, request: SetRateRequest, username: str =
     updated_count = 0
     
     if source == "pvt":
-        # For pvt paddy, just set rate on this single entry
+        # For pvt paddy, set rate and create/update Jama (credit) ledger entry for truck
+        pvt_truck = entry.get("truck_no", "")
         await db.truck_payments.update_one(
             {"entry_id": entry_id},
             {"$set": {"entry_id": entry_id, "rate_per_qntl": request.rate_per_qntl, "updated_at": datetime.now(timezone.utc).isoformat()}},
             upsert=True
         )
+        if final_qntl > 0 and pvt_truck:
+            new_gross = round(final_qntl * request.rate_per_qntl, 2)
+            base_fields = {
+                "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
+                "created_by": username or "system", "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            existing_jama = await db.cash_transactions.find_one(
+                {"linked_entry_id": entry_id, "reference": {"$regex": "^pvt_truck_jama:"}}, {"_id": 0}
+            )
+            party = entry.get("party_name", "")
+            mandi_n = entry.get("mandi_name", "")
+            party_label = f"{party} - {mandi_n}" if party and mandi_n else party
+            if existing_jama:
+                await db.cash_transactions.update_one(
+                    {"id": existing_jama["id"]},
+                    {"$set": {
+                        "amount": new_gross,
+                        "description": f"Pvt Paddy Truck: {pvt_truck} - {party_label} - {final_qntl}Q @ Rs.{request.rate_per_qntl}",
+                        **base_fields
+                    }}
+                )
+            else:
+                await db.cash_transactions.insert_one({
+                    "id": str(uuid.uuid4()), "date": entry.get("date", ""),
+                    "account": "ledger", "txn_type": "jama",
+                    "category": pvt_truck, "party_type": "Truck",
+                    "description": f"Pvt Paddy Truck: {pvt_truck} - {party_label} - {final_qntl}Q @ Rs.{request.rate_per_qntl}",
+                    "amount": new_gross, "bank_name": "",
+                    "reference": f"pvt_truck_jama:{entry_id[:8]}",
+                    "linked_entry_id": entry_id,
+                    "created_at": datetime.now(timezone.utc).isoformat(), **base_fields
+                })
         updated_count = 1
     elif source == "sale_book":
         # For sale book entries, set rate and create/update Jama (credit) ledger entry
@@ -1176,7 +1209,8 @@ async def undo_truck_paid(entry_id: str, username: str = "", role: str = ""):
     deduction_refs = [f"truck_cash_ded:{eid_short}", f"truck_diesel_ded:{eid_short}", f"entry_cash:{eid_short}", f"truck_entry:{eid_short}",
                       f"delivery:{eid_short}", f"delivery_tcash:{eid_short}", f"delivery_tdiesel:{eid_short}", f"delivery_diesel:{eid_short}", f"delivery_jama:{eid_short}",
                       f"sale_truck_jama:{eid_short}", f"sale_truck_cash:{eid_short}", f"sale_truck_diesel:{eid_short}",
-                      f"purchase_truck_jama:{eid_short}", f"purchase_truck_cash:{eid_short}", f"purchase_truck_diesel:{eid_short}"]
+                      f"purchase_truck_jama:{eid_short}", f"purchase_truck_cash:{eid_short}", f"purchase_truck_diesel:{eid_short}",
+                      f"pvt_truck_jama:{eid_short}", f"pvt_paddy_tcash:{eid_short}", f"pvt_paddy_tdiesel:{eid_short}", f"pvt_paddy_cash:{eid_short}"]
     
     # Find and delete non-deduction ledger nikasi entries for this truck that are NOT auto-generated from entry
     all_ledger = await db.cash_transactions.find({

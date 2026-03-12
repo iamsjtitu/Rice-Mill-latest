@@ -103,7 +103,7 @@ async def _create_gunny_entries_for_pvt_paddy(doc, username=""):
 
 
 async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
-    """Auto-create truck payment entries for cash/diesel and party ledger entry for advance."""
+    """Auto-create truck payment entries for cash/diesel, truck jama (what we owe truck), and party ledger entry for advance."""
     entry_id = doc["id"]
     party = doc.get("party_name", "")
     mandi = doc.get("mandi_name", "")
@@ -120,6 +120,36 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
         "created_by": username or "system", "linked_entry_id": entry_id,
         "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
     }
+    
+    # Auto Jama (Ledger) entry for truck - what we owe the truck for transport
+    final_qntl = round(doc.get("final_qntl", 0) or doc.get("quantity_qntl", 0) or 0, 2)
+    if final_qntl > 0 and truck_no:
+        # Look up rate from existing truck_payments for same truck_no
+        existing_rate_doc = await db.truck_payments.find_one(
+            {"entry_id": {"$in": [e["id"] async for e in db.mill_entries.find({"truck_no": truck_no}, {"_id": 0, "id": 1})]}},
+            {"_id": 0, "rate_per_qntl": 1}
+        )
+        if not existing_rate_doc:
+            existing_rate_doc = await db.truck_payments.find_one(
+                {"entry_id": {"$in": [e["id"] async for e in db.private_paddy.find({"truck_no": truck_no, "id": {"$ne": entry_id}}, {"_id": 0, "id": 1})]}},
+                {"_id": 0, "rate_per_qntl": 1}
+            )
+        truck_rate = existing_rate_doc.get("rate_per_qntl", 32) if existing_rate_doc else 32
+        gross_amount = round(final_qntl * truck_rate, 2)
+        cash_taken = float(doc.get("cash_paid", 0) or 0)
+        diesel_taken = float(doc.get("diesel_paid", 0) or 0)
+        deductions = cash_taken + diesel_taken
+        jama_desc = f"Pvt Paddy Truck: {truck_no} - {party_label} - {final_qntl}Q @ Rs.{truck_rate}"
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "account": "ledger", "txn_type": "jama",
+            "category": truck_no, "party_type": "Truck",
+            "description": jama_desc,
+            "amount": round(gross_amount, 2), "bank_name": "",
+            "reference": f"pvt_truck_jama:{entry_id[:8]}",
+            **base_fields
+        })
+    
     cash_paid = float(doc.get("cash_paid", 0) or 0)
     if cash_paid > 0 and truck_no:
         cash_desc = f"{party_label} - {detail}" if detail else f"{party_label} - Rs.{cash_paid}"

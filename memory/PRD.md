@@ -1,7 +1,7 @@
 # NAVKAR AGRO - Mill Entry System PRD
 
 ## Original Problem Statement
-Synchronize a web application with a standalone desktop app. The project's focus pivoted to fixing critical bugs and adding features to the web application's financial and inventory systems.
+Synchronize a web application with a standalone desktop app. Focus pivoted to fixing critical bugs and adding features to the web application's financial and inventory systems.
 
 ## Core Requirements
 1. **Data Consistency**: All financial transactions accurately reflected across all modules, Ledger (cashbook) as single source of truth
@@ -17,39 +17,38 @@ Synchronize a web application with a standalone desktop app. The project's focus
 
 ## What's Been Implemented
 
-### Completed Features
-- Stock calculation fixes (purchases reflect everywhere)
-- PDF/Excel export overhaul (colorful, A4, Qntl units, ledger-based balances)
-- Individual voucher printing (Sale & Purchase)
-- Purchase form redesign (matches Sale form layout)
-- Stock Summary exports (PDF/Excel)
-- Report label rename ("Move to Paddy Purchase")
-- Low Stock Alert removal (per user request)
-- Stock items dropdown in Purchase form
-- Purchase voucher save bug fix
-- **Bug Fix (2026-03-12)**: "Move to Paddy Purchase" entries no longer appear in Truck Payments (Bhada) - filtered out `source: "agent_extra"` entries
-- **Feature (2026-03-12)**: "Move to Paddy Purchase" now auto-creates jama ledger entry for the party (e.g. "Balram (Gokul)") so party appears in CashBook and Ledger
-- **Feature (2026-03-12)**: CashBook nikasi payments for Pvt Paddy Purchase parties auto-update `private_paddy.paid_amount`, `balance`, and `status`
-- **Feature (2026-03-12)**: Deleting a CashBook nikasi for Pvt Paddy Purchase party auto-reverts the `private_paddy.paid_amount`
+### Completed Features (Current Session - 2026-03-12)
+- **Bug Fix**: "Move to Paddy Purchase" entries filtered out from Truck Payments (Bhada) - `source: "agent_extra"` excluded
+- **Feature**: "Move to Paddy Purchase" auto-creates jama ledger entry for party (CashBook integration)
+- **Feature**: CashBook nikasi payments for Pvt Paddy Purchase parties auto-update `private_paddy.paid_amount`
+- **Feature**: Deleting CashBook nikasi auto-reverts `private_paddy.paid_amount`
+- **Feature**: Paddy Purchase entries now auto-create **truck jama (credit) ledger entry** at creation time (using existing truck rate or default 32/qntl)
+- **Feature**: Rate-setting for Pvt Paddy trucks now creates/updates jama ledger entry (same as Sale/Purchase vouchers)
+- **Verified**: Moisture % auto-calculation IS working - user enters Moisture %, Moisture Cut auto-calculates when moisture > 17%
+
+### Previous Session Completed Features
+- Stock calculation fixes, PDF/Excel export overhaul, Individual voucher printing
+- Purchase form redesign, Stock Summary exports, Stock items dropdown
+- Purchase voucher save bug fix, Report label rename
 
 ### Key Technical Decisions
 - Ledger is Single Source of Truth
 - Purchases must update stock everywhere
-- FastAPI route ordering: static routes before dynamic routes
-- agent_extra entries in private_paddy excluded from truck payments
-- CashBook nikasi/delete auto-syncs with private_paddy paid_amount
+- agent_extra entries excluded from truck payments
+- Pvt Paddy truck jama reference: `pvt_truck_jama:{entry_id[:8]}`
+- CashBook nikasi auto-syncs with private_paddy paid_amount
 
 ## Prioritized Backlog
 - P1: Desktop App Sync (paused, pending web app stability confirmation)
-- P2: Refactor duplicated PDF/Excel logic into common utility
-- P2: Break down large frontend components (PurchaseBook, SaleBook)
+- P2: Refactor duplicated PDF/Excel logic
+- P2: Break down large frontend components
 - P2: Centralize stock calculation logic
-- P3: Deduplicate Python/Node.js backend logic
 
 ## Key Files Modified (2026-03-12)
-- `backend/routes/payments.py` - Excluded agent_extra from truck payments
+- `backend/routes/payments.py` - Excluded agent_extra from truck payments; added pvt truck jama in rate-setting; added pvt refs to deduction_refs
 - `backend/routes/reports.py` - Auto-create jama ledger on "Move to Paddy Purchase"
 - `backend/routes/cashbook.py` - Auto-update private_paddy on nikasi/delete
+- `backend/routes/private_trading.py` - Auto-create truck jama entry on pvt paddy creation
 
 ## Credentials
 - Admin: admin / admin123
