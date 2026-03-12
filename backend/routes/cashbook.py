@@ -97,6 +97,8 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
                 txn_dict['party_type'] = "Truck"
             elif await db.mandi_targets.find_one({"mandi_name": cat_rgx}):
                 txn_dict['party_type'] = "Agent"
+            elif await db.staff.find_one({"name": cat_rgx, "active": True}):
+                txn_dict['party_type'] = "Staff"
             # 3. Fuzzy contains match (category found inside party name or vice-versa)
             elif await db.private_paddy.find_one({"party_name": cat_contains}):
                 txn_dict['party_type'] = "Pvt Paddy Purchase"
@@ -108,6 +110,8 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
                 txn_dict['party_type'] = "Local Party"
             elif await db.mandi_targets.find_one({"mandi_name": cat_contains}):
                 txn_dict['party_type'] = "Agent"
+            elif await db.staff.find_one({"name": cat_contains, "active": True}):
+                txn_dict['party_type'] = "Staff"
             # 4. Check private_payments (pvt trading payments)
             elif await db.private_payments.find_one({"party_name": cat_rgx}):
                 txn_dict['party_type'] = "Pvt Paddy Purchase"

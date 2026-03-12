@@ -1,38 +1,28 @@
 # NAVKAR AGRO - Mill Entry System PRD
 
 ## Architecture
-- **Frontend**: React (Vite) + Shadcn/UI + Tailwind
-- **Backend**: FastAPI (Python)
-- **Database**: MongoDB
+- Frontend: React (Vite) + Shadcn/UI + Tailwind
+- Backend: FastAPI (Python), Database: MongoDB
 
-## What's Been Implemented (2026-03-12 Session)
+## Session Changes (2026-03-12)
 
-### Daily Report Updates
-- **KG → QNTL**: Pvt Paddy section now shows QNTL (not KG), with mandi, truck_no, rate
-- **Sale Vouchers section added**: Shows voucher_no, party, truck, items, total, advance, balance
-- **Purchase Vouchers section added**: Same format as Sale Vouchers
-- **MSP Details fixed**: Now shows DC No, Qntl, Rate/Q, Amount, Mode (was showing empty Agent/Mandi)
-- **PDF updated**: All new sections included in PDF export (both Normal and Detail modes)
+### Bug Fixes
+- Paddy Purchase: Raju paid synced (Rs.3,11,066 full payment)
+- CashBook auto-update: "Party - Mandi" split matching for private_paddy
+- Staff party_type: Now auto-detects as "Staff" from staff collection
+- Staff ledger: Auto-creates ledger jama when staff advance given
+- Local Party summary: Shows selected party totals (not ALL parties)
+- Daily Report: KG→QNTL, MSP details fixed (DC No/Qntl/Rate instead of empty Agent/Mandi)
+- Stock: Pvt Paddy = QNTL - BAG/100, agent_extra excluded everywhere
+- Truck jama auto-created for paddy purchases
 
-### Stock & Ledger Fixes
-- Pvt Paddy stock = QNTL - BAG/100 (agent_extra excluded)
-- Party jama ledger auto-created on paddy purchase
-- CashBook payment auto-updates private_paddy.paid_amount (split matching "Party - Mandi")
-- Truck jama auto-created on paddy purchase
+### Features Added
+- Sale Vouchers + Purchase Vouchers sections in Daily Report (API + Frontend + PDF)
+- Party jama + advance ledger for paddy purchases
+- Staff advance creates both cash nikasi + ledger jama
 
 ### Key Files Modified
-- backend/routes/daily_report.py - New sections, KG→QNTL, MSP fix, PDF updates
-- backend/routes/private_trading.py - Party jama + advance ledger + truck jama
-- backend/routes/cashbook.py - Auto-update with split matching
-- backend/routes/payments.py - Truck jama, agent_extra exclusion
-- backend/routes/milling.py - Pvt paddy stock formula fix
-- backend/routes/purchase_vouchers.py - Stock summary pvt paddy fix
-- backend/routes/exports.py - Pvt paddy stock formula fix
-- frontend/src/components/Reports.jsx - New sections, QNTL, MSP details fix
+- backend/routes/daily_report.py, cashbook.py, staff.py, private_trading.py, payments.py, milling.py, purchase_vouchers.py, exports.py, reports.py
+- frontend/src/components/Reports.jsx, payments/LocalPartyAccount.jsx
 
-## Prioritized Backlog
-- P1: Desktop App Sync (paused)
-- P2: Refactor PDF/Excel logic, Break large components, Centralize stock calc
-
-## Credentials
-- Admin: admin / admin123
+## Credentials: admin / admin123
