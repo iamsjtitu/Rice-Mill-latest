@@ -411,6 +411,27 @@ async def move_extra_to_pvt(request: Request):
     }
     await db.private_paddy.insert_one(pvt_entry)
 
+    # Auto-create Jama (credit) ledger entry - what we owe this party
+    party_name = pvt_entry["party_name"]
+    jama_entry = {
+        "id": str(uuid.uuid4()),
+        "date": pvt_entry["date"],
+        "account": "ledger",
+        "txn_type": "jama",
+        "category": party_name,
+        "party_type": "Pvt Paddy Purchase",
+        "description": f"Paddy Purchase: {party_name} - {extra_qntl}Q @ Rs.{rate}/Q = Rs.{total_amount}",
+        "amount": round(total_amount, 2),
+        "reference": f"pvt_paddy_jama:{pvt_entry['id'][:8]}",
+        "kms_year": kms_year,
+        "season": season,
+        "created_by": username,
+        "linked_entry_id": pvt_entry["id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.cash_transactions.insert_one(jama_entry)
+
     return {"success": True, "message": f"{extra_qntl}Q @ Rs.{rate}/Q = Rs.{total_amount} Pvt Purchase mein move ho gaya ({agent_name} - {mandi_name})"}
 
 

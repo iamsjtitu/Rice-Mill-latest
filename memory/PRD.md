@@ -27,13 +27,17 @@ Synchronize a web application with a standalone desktop app. The project's focus
 - Low Stock Alert removal (per user request)
 - Stock items dropdown in Purchase form
 - Purchase voucher save bug fix
-- **Bug Fix**: "Move to Paddy Purchase" entries no longer appear in Truck Payments (Bhada) - filtered out `source: "agent_extra"` entries from private_paddy in truck payment queries (2026-03-12)
+- **Bug Fix (2026-03-12)**: "Move to Paddy Purchase" entries no longer appear in Truck Payments (Bhada) - filtered out `source: "agent_extra"` entries
+- **Feature (2026-03-12)**: "Move to Paddy Purchase" now auto-creates jama ledger entry for the party (e.g. "Balram (Gokul)") so party appears in CashBook and Ledger
+- **Feature (2026-03-12)**: CashBook nikasi payments for Pvt Paddy Purchase parties auto-update `private_paddy.paid_amount`, `balance`, and `status`
+- **Feature (2026-03-12)**: Deleting a CashBook nikasi for Pvt Paddy Purchase party auto-reverts the `private_paddy.paid_amount`
 
 ### Key Technical Decisions
 - Ledger is Single Source of Truth
 - Purchases must update stock everywhere
 - FastAPI route ordering: static routes before dynamic routes
 - agent_extra entries in private_paddy excluded from truck payments
+- CashBook nikasi/delete auto-syncs with private_paddy paid_amount
 
 ## Prioritized Backlog
 - P1: Desktop App Sync (paused, pending web app stability confirmation)
@@ -42,13 +46,10 @@ Synchronize a web application with a standalone desktop app. The project's focus
 - P2: Centralize stock calculation logic
 - P3: Deduplicate Python/Node.js backend logic
 
-## Key Files
-- `backend/routes/payments.py` - Truck payments (modified to exclude agent_extra)
-- `backend/routes/purchase_vouchers.py` - Purchase vouchers
-- `backend/routes/sale_vouchers.py` - Sale vouchers
-- `backend/routes/rice_mill.py` - Stock calculations
-- `frontend/src/components/Payments.jsx` - Payments UI
-- `frontend/src/components/Reports.jsx` - Reports UI
+## Key Files Modified (2026-03-12)
+- `backend/routes/payments.py` - Excluded agent_extra from truck payments
+- `backend/routes/reports.py` - Auto-create jama ledger on "Move to Paddy Purchase"
+- `backend/routes/cashbook.py` - Auto-update private_paddy on nikasi/delete
 
 ## Credentials
 - Admin: admin / admin123
