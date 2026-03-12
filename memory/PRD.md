@@ -60,6 +60,13 @@ Comprehensive Mill Entry System (rice mill management) web + desktop app.
 - **Paddy Stock PV Integration (12-Mar-2026):**
   - `/api/paddy-stock` now includes Purchase Voucher paddy items (`pv_paddy_in_qntl`)
   - Dashboard Paddy Stock card shows "Purchase se kharida" line when PV paddy exists
+- **Paddy Stock Calculation Fix (12-Mar-2026):**
+  - Fixed purchase-book/stock-items Paddy to use same formula as paddy-stock (qntl-bag/100-p_pkt_cut/100)
+  - Paddy now correctly shows 297Q instead of 461.96Q
+- **Individual Voucher Print (12-Mar-2026):**
+  - New endpoints: GET /api/sale-book/{id}/pdf and GET /api/purchase-book/{id}/pdf
+  - Both Sale and Purchase tables have Printer icon for each voucher row
+  - Clicking opens professional PDF invoice in new tab with company header, items table, totals, signature line
 
 ## Backlog
 - P1: Full regression test of all payment modules
