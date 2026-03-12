@@ -484,7 +484,7 @@ async def make_truck_payment(entry_id: str, request: MakePaymentRequest, usernam
     
     # Auto-create Cash Book Nikasi entry for truck payment
     if request.amount > 0:
-        truck_no = entry.get("truck_no", "")
+        truck_no = entry.get("truck_no", "") or entry.get("vehicle_no", "")
         kms_year = entry.get("kms_year", "")
         season = entry.get("season", "")
         pay_id = str(uuid.uuid4())
@@ -571,7 +571,7 @@ async def mark_truck_paid(entry_id: str, username: str = "", role: str = ""):
     if net_amount > 0:
         kms_year = entry.get("kms_year", "")
         season = entry.get("season", "")
-        truck_no = entry.get("truck_no", "")
+        truck_no = entry.get("truck_no", "") or entry.get("vehicle_no", "")
         cb_entry = {
             "id": str(uuid.uuid4()),
             "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -1294,6 +1294,14 @@ async def mark_truck_owner_paid(truck_no: str, kms_year: str = "", season: str =
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     entries = await db.mill_entries.find(query, {"_id": 0}).to_list(None)
+    
+    # Also include dc_deliveries for this truck
+    dc_query = {"vehicle_no": truck_no}
+    if kms_year: dc_query["kms_year"] = kms_year
+    if season: dc_query["season"] = season
+    dc_entries = await db.dc_deliveries.find(dc_query, {"_id": 0}).to_list(None)
+    entries = entries + dc_entries
+    
     if not entries:
         raise HTTPException(status_code=404, detail="Entries nahi mile")
     
