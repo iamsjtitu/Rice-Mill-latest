@@ -119,26 +119,35 @@ const DCEntries = ({ filters, user }) => {
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="dc-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
-        <Table className="min-w-[900px]"><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
-          {['','DC No','Date','Type','Allotted(Q)','Delivered(Q)','Pending(Q)','Status','Deadline','Godown',''].map(h =>
-            <TableHead key={h} className="text-slate-300 text-xs whitespace-nowrap">{h}</TableHead>)}
+        <Table className="w-full table-auto"><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
+          <TableHead className="text-slate-300 text-xs w-8"></TableHead>
+          <TableHead className="text-slate-300 text-xs">DC No</TableHead>
+          <TableHead className="text-slate-300 text-xs">Date</TableHead>
+          <TableHead className="text-slate-300 text-xs">Type</TableHead>
+          <TableHead className="text-slate-300 text-xs text-right">Allotted(Q)</TableHead>
+          <TableHead className="text-slate-300 text-xs text-right">Delivered(Q)</TableHead>
+          <TableHead className="text-slate-300 text-xs text-right">Pending(Q)</TableHead>
+          <TableHead className="text-slate-300 text-xs">Status</TableHead>
+          <TableHead className="text-slate-300 text-xs">Deadline</TableHead>
+          <TableHead className="text-slate-300 text-xs">Godown</TableHead>
+          <TableHead className="text-slate-300 text-xs w-8"></TableHead>
         </TableRow></TableHeader>
         <TableBody>
           {loading ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
           : dcs.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Koi DC nahi hai. "New DC" click karein.</TableCell></TableRow>
           : dcs.map(dc => (<React.Fragment key={dc.id}>
             <TableRow key={dc.id} className="border-slate-700 cursor-pointer hover:bg-slate-750" onClick={() => handleExpandDC(dc.id)} data-testid={`dc-row-${dc.id}`}>
-              <TableCell className="w-8">{expandedDC === dc.id ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}</TableCell>
-              <TableCell className="text-amber-400 font-semibold text-sm whitespace-nowrap">{dc.dc_number}</TableCell>
-              <TableCell className="text-slate-200 text-xs whitespace-nowrap">{dc.date}</TableCell>
-              <TableCell className="text-xs"><span className={`px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${(dc.rice_type||'')==='parboiled' ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40' : 'bg-sky-500/25 text-sky-300 border border-sky-500/40'}`}>{(dc.rice_type||'')==='parboiled' ? 'Usna' : 'Arwa'}</span></TableCell>
-              <TableCell className="text-white text-sm text-right font-medium whitespace-nowrap">{dc.quantity_qntl} Q</TableCell>
-              <TableCell className="text-green-400 text-sm text-right font-medium whitespace-nowrap">{dc.delivered_qntl} Q</TableCell>
-              <TableCell className="text-red-400 text-sm text-right font-medium whitespace-nowrap">{dc.pending_qntl} Q</TableCell>
-              <TableCell className="whitespace-nowrap">{statusBadge(dc.status)}</TableCell>
-              <TableCell className="text-slate-300 text-xs whitespace-nowrap">{dc.deadline || '-'}</TableCell>
-              <TableCell className="text-slate-400 text-xs whitespace-nowrap">{dc.godown_name || '-'}</TableCell>
-              <TableCell className="w-8">{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={(e) => { e.stopPropagation(); handleDeleteDC(dc.id); }}><Trash2 className="w-3 h-3" /></Button>}</TableCell>
+              <TableCell className="w-8 px-2">{expandedDC === dc.id ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}</TableCell>
+              <TableCell className="text-amber-400 font-semibold text-sm">{dc.dc_number}</TableCell>
+              <TableCell className="text-slate-200 text-xs">{dc.date}</TableCell>
+              <TableCell className="text-xs"><span className={`px-2 py-0.5 rounded text-xs font-bold ${(dc.rice_type||'')==='parboiled' ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40' : 'bg-sky-500/25 text-sky-300 border border-sky-500/40'}`}>{(dc.rice_type||'')==='parboiled' ? 'Usna' : 'Arwa'}</span></TableCell>
+              <TableCell className="text-white text-sm text-right font-medium">{dc.quantity_qntl} Q</TableCell>
+              <TableCell className="text-green-400 text-sm text-right font-medium">{dc.delivered_qntl} Q</TableCell>
+              <TableCell className="text-red-400 text-sm text-right font-medium">{dc.pending_qntl} Q</TableCell>
+              <TableCell>{statusBadge(dc.status)}</TableCell>
+              <TableCell className="text-slate-300 text-xs">{dc.deadline || '-'}</TableCell>
+              <TableCell className="text-slate-400 text-xs">{dc.godown_name || '-'}</TableCell>
+              <TableCell className="w-8 px-2">{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400" onClick={(e) => { e.stopPropagation(); handleDeleteDC(dc.id); }}><Trash2 className="w-3 h-3" /></Button>}</TableCell>
             </TableRow>
             {expandedDC === dc.id && (
               <TableRow key={`${dc.id}-del`} className="border-slate-700 bg-slate-900/50">
@@ -148,7 +157,7 @@ const DCEntries = ({ filters, user }) => {
                     <Button onClick={() => { setDelForm(f => ({ ...f, dc_id: dc.id, kms_year: dc.kms_year, season: dc.season, godown_name: dc.godown_name })); setShowDeliveryForm(true); }} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-6 text-xs" data-testid="dc-add-delivery-btn"><Plus className="w-3 h-3 mr-1" /> Add Delivery</Button>
                   </div>
                   {deliveries.length === 0 ? <p className="text-xs text-slate-500 py-2">No deliveries yet</p> : (
-                    <Table className="min-w-[600px]"><TableHeader><TableRow className="border-slate-600 hover:bg-transparent">
+                    <Table className="w-full table-auto"><TableHeader><TableRow className="border-slate-600 hover:bg-transparent">
                       {['Date','Qty (Q)','Vehicle','Driver','Slip No','Godown','Note',''].map(h =>
                         <TableHead key={h} className="text-slate-400 text-[10px] py-1 whitespace-nowrap">{h}</TableHead>)}
                     </TableRow></TableHeader>
