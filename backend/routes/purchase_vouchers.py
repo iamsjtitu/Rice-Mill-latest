@@ -19,7 +19,12 @@ class PurchaseVoucherCreate(BaseModel):
     date: str
     party_name: str
     invoice_no: str = ""
+    rst_no: str = ""
     items: list[PurchaseItemCreate] = []
+    gst_type: str = "none"
+    cgst_percent: float = 0
+    sgst_percent: float = 0
+    igst_percent: float = 0
     truck_no: str = ""
     cash_paid: float = 0
     diesel_paid: float = 0
@@ -33,10 +38,18 @@ class PurchaseVoucher(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     voucher_no: int = 0
     invoice_no: str = ""
+    rst_no: str = ""
     date: str = ""
     party_name: str = ""
     items: list = []
     subtotal: float = 0
+    gst_type: str = "none"
+    cgst_percent: float = 0
+    sgst_percent: float = 0
+    igst_percent: float = 0
+    cgst_amount: float = 0
+    sgst_amount: float = 0
+    igst_amount: float = 0
     total: float = 0
     truck_no: str = ""
     cash_paid: float = 0
@@ -161,6 +174,7 @@ async def get_purchase_vouchers(kms_year: Optional[str] = None, season: Optional
             {"party_name": {"$regex": search, "$options": "i"}},
             {"invoice_no": {"$regex": search, "$options": "i"}},
             {"truck_no": {"$regex": search, "$options": "i"}},
+            {"rst_no": {"$regex": search, "$options": "i"}},
         ]
     return await db.purchase_vouchers.find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
 
@@ -178,11 +192,19 @@ async def create_purchase_voucher(input: PurchaseVoucherCreate, username: str = 
 
     d['items'] = items
     d['subtotal'] = round(subtotal, 2)
-    d['total'] = round(subtotal, 2)
+
+    cgst_amt = round(subtotal * d.get('cgst_percent', 0) / 100, 2) if d.get('gst_type') == 'cgst_sgst' else 0
+    sgst_amt = round(subtotal * d.get('sgst_percent', 0) / 100, 2) if d.get('gst_type') == 'cgst_sgst' else 0
+    igst_amt = round(subtotal * d.get('igst_percent', 0) / 100, 2) if d.get('gst_type') == 'igst' else 0
+    d['cgst_amount'] = cgst_amt
+    d['sgst_amount'] = sgst_amt
+    d['igst_amount'] = igst_amt
+    total = round(subtotal + cgst_amt + sgst_amt + igst_amt, 2)
+    d['total'] = total
 
     advance = d.get('advance', 0) or 0
     d['paid_amount'] = round(advance, 2)
-    d['balance'] = round(subtotal - advance, 2)
+    d['balance'] = round(total - advance, 2)
     d['created_by'] = username
 
     last = await db.purchase_vouchers.find_one(sort=[("voucher_no", -1)], projection={"_id": 0, "voucher_no": 1})
@@ -212,10 +234,17 @@ async def update_purchase_voucher(voucher_id: str, input: PurchaseVoucherCreate,
 
     d['items'] = items
     d['subtotal'] = round(subtotal, 2)
-    d['total'] = round(subtotal, 2)
+    cgst_amt = round(subtotal * d.get('cgst_percent', 0) / 100, 2) if d.get('gst_type') == 'cgst_sgst' else 0
+    sgst_amt = round(subtotal * d.get('sgst_percent', 0) / 100, 2) if d.get('gst_type') == 'cgst_sgst' else 0
+    igst_amt = round(subtotal * d.get('igst_percent', 0) / 100, 2) if d.get('gst_type') == 'igst' else 0
+    d['cgst_amount'] = cgst_amt
+    d['sgst_amount'] = sgst_amt
+    d['igst_amount'] = igst_amt
+    total = round(subtotal + cgst_amt + sgst_amt + igst_amt, 2)
+    d['total'] = total
     advance = d.get('advance', 0) or 0
     d['paid_amount'] = round(advance, 2)
-    d['balance'] = round(subtotal - advance, 2)
+    d['balance'] = round(total - advance, 2)
     d['updated_at'] = datetime.now(timezone.utc).isoformat()
 
     await db.purchase_vouchers.update_one({"id": voucher_id}, {"$set": d})

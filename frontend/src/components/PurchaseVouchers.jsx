@@ -10,9 +10,12 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee,
+  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt,
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
 
@@ -28,10 +31,12 @@ export default function PurchaseVouchers({ filters, user }) {
   const [editId, setEditId] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [suggestions, setSuggestions] = useState([]);
+  const [gstSettings, setGstSettings] = useState({ cgst_percent: 0, sgst_percent: 0, igst_percent: 0 });
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
-    party_name: "", invoice_no: "", truck_no: "",
+    party_name: "", invoice_no: "", rst_no: "", truck_no: "",
     items: [{ ...emptyItem }],
+    gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
     cash_paid: "", diesel_paid: "", advance: "", remark: "",
     kms_year: "", season: "",
   });
@@ -56,18 +61,33 @@ export default function PurchaseVouchers({ filters, user }) {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchGstSettings = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/gst-settings`);
+      setGstSettings(res.data);
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { fetchSuggestions(); }, [fetchSuggestions]);
+  useEffect(() => { fetchSuggestions(); fetchGstSettings(); }, [fetchSuggestions, fetchGstSettings]);
 
   const subtotal = useMemo(() =>
     form.items.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0), 0)
   , [form.items]);
 
+  const gstCalc = useMemo(() => {
+    const cgst = form.gst_type === 'cgst_sgst' ? round2(subtotal * (parseFloat(form.cgst_percent) || 0) / 100) : 0;
+    const sgst = form.gst_type === 'cgst_sgst' ? round2(subtotal * (parseFloat(form.sgst_percent) || 0) / 100) : 0;
+    const igst = form.gst_type === 'igst' ? round2(subtotal * (parseFloat(form.igst_percent) || 0) / 100) : 0;
+    return { cgst, sgst, igst, total: round2(subtotal + cgst + sgst + igst) };
+  }, [subtotal, form.gst_type, form.cgst_percent, form.sgst_percent, form.igst_percent]);
+
   const resetForm = () => {
     setForm({
       date: new Date().toISOString().split('T')[0],
-      party_name: "", invoice_no: "", truck_no: "",
+      party_name: "", invoice_no: "", rst_no: "", truck_no: "",
       items: [{ ...emptyItem }],
+      gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
       cash_paid: "", diesel_paid: "", advance: "", remark: "",
       kms_year: filters.kms_year || "", season: filters.season || "",
     });
@@ -88,6 +108,16 @@ export default function PurchaseVouchers({ filters, user }) {
     setForm(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
   };
 
+  const handleGstTypeChange = (val) => {
+    if (val === 'cgst_sgst') {
+      setForm(prev => ({ ...prev, gst_type: val, cgst_percent: gstSettings.cgst_percent, sgst_percent: gstSettings.sgst_percent, igst_percent: 0 }));
+    } else if (val === 'igst') {
+      setForm(prev => ({ ...prev, gst_type: val, cgst_percent: 0, sgst_percent: 0, igst_percent: gstSettings.igst_percent }));
+    } else {
+      setForm(prev => ({ ...prev, gst_type: 'none', cgst_percent: 0, sgst_percent: 0, igst_percent: 0 }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.party_name.trim()) { toast.error("Party name zaroori hai"); return; }
@@ -105,6 +135,9 @@ export default function PurchaseVouchers({ filters, user }) {
       cash_paid: parseFloat(form.cash_paid) || 0,
       diesel_paid: parseFloat(form.diesel_paid) || 0,
       advance: parseFloat(form.advance) || 0,
+      cgst_percent: parseFloat(form.cgst_percent) || 0,
+      sgst_percent: parseFloat(form.sgst_percent) || 0,
+      igst_percent: parseFloat(form.igst_percent) || 0,
       kms_year: filters.kms_year || form.kms_year,
       season: filters.season || form.season,
     };
@@ -124,11 +157,13 @@ export default function PurchaseVouchers({ filters, user }) {
   const handleEdit = (v) => {
     setForm({
       date: v.date || "", party_name: v.party_name || "", invoice_no: v.invoice_no || "",
-      truck_no: v.truck_no || "",
+      rst_no: v.rst_no || "", truck_no: v.truck_no || "",
       items: (v.items || []).map(i => ({
         item_name: i.item_name || "", quantity: String(i.quantity || ""),
         rate: String(i.rate || ""), unit: i.unit || "Qntl",
       })),
+      gst_type: v.gst_type || "none",
+      cgst_percent: v.cgst_percent || 0, sgst_percent: v.sgst_percent || 0, igst_percent: v.igst_percent || 0,
       cash_paid: String(v.cash_paid || ""), diesel_paid: String(v.diesel_paid || ""),
       advance: String(v.advance || ""), remark: v.remark || "",
       kms_year: v.kms_year || "", season: v.season || "",
@@ -199,7 +234,7 @@ export default function PurchaseVouchers({ filters, user }) {
         <div className="relative ml-auto min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input value={searchText} onChange={e => setSearchText(e.target.value)}
-            placeholder="Party / Invoice search..."
+            placeholder="Party / Invoice / RST search..."
             className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8" data-testid="pv-search-input" />
         </div>
       </div>
@@ -209,26 +244,29 @@ export default function PurchaseVouchers({ filters, user }) {
         <CardContent className="p-0"><div className="overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="border-slate-700">
-              {['#', 'Date', 'Invoice', 'Party', 'Items', 'Truck', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance', ''].map(h =>
-                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Total', 'Advance', 'Cash', 'Diesel', 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+              {['#', 'Date', 'Invoice', 'RST', 'Party', 'Items', 'Truck', 'Subtotal', 'GST', 'Total', 'Advance', 'Balance', ''].map(h =>
+                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Subtotal', 'GST', 'Total', 'Advance', 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
             </TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-              : vouchers.length === 0 ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Koi purchase voucher nahi mila.</TableCell></TableRow>
-              : vouchers.map(v => (
+              {loading ? <TableRow><TableCell colSpan={13} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+              : vouchers.length === 0 ? <TableRow><TableCell colSpan={13} className="text-center text-slate-400 py-8">Koi purchase voucher nahi mila.</TableCell></TableRow>
+              : vouchers.map(v => {
+                const gst = (v.cgst_amount || 0) + (v.sgst_amount || 0) + (v.igst_amount || 0);
+                return (
                 <TableRow key={v.id} className="border-slate-700" data-testid={`pv-row-${v.id}`}>
                   <TableCell className="text-slate-400 text-xs">{v.voucher_no}</TableCell>
                   <TableCell className="text-white text-xs whitespace-nowrap">{v.date}</TableCell>
                   <TableCell className="text-cyan-400 text-xs">{v.invoice_no || '-'}</TableCell>
+                  <TableCell className="text-purple-400 text-xs">{v.rst_no || '-'}</TableCell>
                   <TableCell className="text-white font-semibold text-sm">{v.party_name}</TableCell>
-                  <TableCell className="text-xs text-slate-300 max-w-[200px] truncate">
+                  <TableCell className="text-xs text-slate-300 max-w-[180px] truncate">
                     {(v.items || []).map(i => `${i.item_name}(${i.quantity}${i.unit === 'Qntl' ? 'Q' : i.unit})`).join(', ')}
                   </TableCell>
                   <TableCell className="text-slate-300 text-xs">{v.truck_no || '-'}</TableCell>
+                  <TableCell className="text-right text-slate-300 text-xs">Rs.{(v.subtotal || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-right text-yellow-400 text-xs">{gst > 0 ? `Rs.${gst.toLocaleString()}` : '-'}</TableCell>
                   <TableCell className="text-right text-emerald-400 font-semibold text-sm">Rs.{(v.total || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-sky-400 text-xs">Rs.{(v.advance || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-amber-400 text-xs">Rs.{(v.cash_paid || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-orange-400 text-xs">Rs.{(v.diesel_paid || 0).toLocaleString()}</TableCell>
                   <TableCell className={`text-right font-semibold text-sm ${(v.balance || 0) > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`pv-balance-${v.id}`}>
                     Rs.{(v.balance || 0).toLocaleString()}
                   </TableCell>
@@ -245,7 +283,7 @@ export default function PurchaseVouchers({ filters, user }) {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </div></CardContent>
@@ -258,7 +296,8 @@ export default function PurchaseVouchers({ filters, user }) {
             <ShoppingBag className="w-5 h-5" /> {editId ? "Edit Purchase Voucher" : "Nayi Purchase Entry"}
           </DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Row 1: Date, Party, Invoice, RST, Truck */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div>
                 <Label className="text-slate-300 text-xs">Date</Label>
                 <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
@@ -270,14 +309,19 @@ export default function PurchaseVouchers({ filters, user }) {
                   placeholder="Party name" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="pv-party" />
               </div>
               <div>
-                <Label className="text-slate-300 text-xs">Invoice No.</Label>
+                <Label className="text-cyan-400 text-xs font-semibold flex items-center gap-1"><Receipt className="w-3 h-3" /> Invoice No.</Label>
                 <Input value={form.invoice_no} onChange={e => setForm(p => ({ ...p, invoice_no: e.target.value }))}
-                  placeholder="Invoice No." className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-invoice" />
+                  placeholder="INV-001" className="bg-cyan-900/30 border-cyan-700 text-cyan-400 h-8 text-sm" data-testid="pv-invoice" />
+              </div>
+              <div>
+                <Label className="text-purple-400 text-xs font-semibold">RST No.</Label>
+                <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
+                  placeholder="RST Number" className="bg-purple-900/30 border-purple-700 text-purple-400 h-8 text-sm" data-testid="pv-rst" />
               </div>
               <div>
                 <Label className="text-slate-300 text-xs">Truck No.</Label>
                 <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
-                  placeholder="Truck No." className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-truck" />
+                  placeholder="OD00XX0000" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-truck" />
               </div>
             </div>
 
@@ -334,8 +378,73 @@ export default function PurchaseVouchers({ filters, user }) {
                 ))}
                 <div className="flex justify-end pt-2 border-t border-slate-600">
                   <span className="text-emerald-400 font-bold text-lg" data-testid="pv-subtotal">
-                    Total: Rs.{subtotal.toLocaleString()}
+                    Subtotal: Rs.{subtotal.toLocaleString()}
                   </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* GST Section */}
+            <Card className="bg-slate-700/50 border-slate-600">
+              <CardHeader className="pb-1 pt-2 px-3">
+                <CardTitle className="text-yellow-400 text-sm flex items-center gap-2"><Receipt className="w-4 h-4" /> GST</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
+                  <div>
+                    <Label className="text-slate-400 text-xs">GST Type</Label>
+                    <Select value={form.gst_type} onValueChange={handleGstTypeChange}>
+                      <SelectTrigger className="bg-slate-600 border-slate-500 text-white h-8 text-sm" data-testid="pv-gst-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No GST</SelectItem>
+                        <SelectItem value="cgst_sgst">CGST + SGST</SelectItem>
+                        <SelectItem value="igst">IGST</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {form.gst_type === 'cgst_sgst' && (
+                    <>
+                      <div>
+                        <Label className="text-yellow-400 text-xs">CGST %</Label>
+                        <Input type="number" step="0.01" value={form.cgst_percent}
+                          onChange={e => setForm(p => ({ ...p, cgst_percent: e.target.value }))}
+                          className="bg-yellow-900/30 border-yellow-700 text-yellow-400 h-8 text-sm" data-testid="pv-cgst" />
+                      </div>
+                      <div>
+                        <Label className="text-yellow-400 text-xs">SGST %</Label>
+                        <Input type="number" step="0.01" value={form.sgst_percent}
+                          onChange={e => setForm(p => ({ ...p, sgst_percent: e.target.value }))}
+                          className="bg-yellow-900/30 border-yellow-700 text-yellow-400 h-8 text-sm" data-testid="pv-sgst" />
+                      </div>
+                      <div>
+                        <Label className="text-yellow-400 text-xs">GST Amount</Label>
+                        <Input value={`CGST: Rs.${gstCalc.cgst.toLocaleString()} + SGST: Rs.${gstCalc.sgst.toLocaleString()}`}
+                          readOnly className="bg-yellow-900/20 border-yellow-800 text-yellow-400 h-8 text-xs font-semibold" />
+                      </div>
+                    </>
+                  )}
+                  {form.gst_type === 'igst' && (
+                    <>
+                      <div>
+                        <Label className="text-yellow-400 text-xs">IGST %</Label>
+                        <Input type="number" step="0.01" value={form.igst_percent}
+                          onChange={e => setForm(p => ({ ...p, igst_percent: e.target.value }))}
+                          className="bg-yellow-900/30 border-yellow-700 text-yellow-400 h-8 text-sm" data-testid="pv-igst" />
+                      </div>
+                      <div>
+                        <Label className="text-yellow-400 text-xs">IGST Amount</Label>
+                        <Input value={`Rs.${gstCalc.igst.toLocaleString()}`}
+                          readOnly className="bg-yellow-900/20 border-yellow-800 text-yellow-400 h-8 text-sm font-semibold" />
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <Label className="text-emerald-400 text-xs font-bold">Grand Total</Label>
+                    <Input value={`Rs.${gstCalc.total.toLocaleString()}`}
+                      readOnly className="bg-emerald-900/30 border-emerald-700 text-emerald-400 h-8 text-lg font-bold" data-testid="pv-grand-total" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -376,3 +485,5 @@ export default function PurchaseVouchers({ filters, user }) {
     </div>
   );
 }
+
+function round2(n) { return Math.round(n * 100) / 100; }
