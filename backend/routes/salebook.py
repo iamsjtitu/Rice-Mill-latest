@@ -435,6 +435,14 @@ async def update_sale_voucher(voucher_id: str, input: SaleVoucherCreate, usernam
 @router.get("/sale-book/export/pdf")
 async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
     from fastapi.responses import Response
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    import io
+
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -445,65 +453,122 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
             {"rst_no": {"$regex": search, "$options": "i"}},
         ]
     vouchers = await db.sale_vouchers.find(query, {"_id": 0}).sort("voucher_no", 1).to_list(10000)
-    
+
+    # Get ledger-based paid amounts
+    party_names = list(set(v.get("party_name", "") for v in vouchers if v.get("party_name")))
+    ledger_paid_map = {}
+    if party_names:
+        ledger_q = {"account": "ledger", "txn_type": "nikasi", "category": {"$in": party_names}, "party_type": "Sale Book"}
+        if kms_year: ledger_q["kms_year"] = kms_year
+        ledger_txns = await db.cash_transactions.find(ledger_q, {"_id": 0}).to_list(50000)
+        for lt in ledger_txns:
+            pn = lt.get("category", "")
+            ledger_paid_map[pn] = ledger_paid_map.get(pn, 0) + lt.get("amount", 0)
+
     branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
     company = branding.get("company_name", "NAVKAR AGRO")
     tagline = branding.get("tagline", "")
-    
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    @page {{ size: A4; margin: 12mm 10mm; }}
-    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: 'Segoe UI', Arial, sans-serif; font-size: 9px; color: #222; }}
-    .header {{ text-align: center; border-bottom: 2px solid #1a5276; padding-bottom: 8px; margin-bottom: 10px; }}
-    .header h1 {{ font-size: 18px; color: #1a5276; letter-spacing: 1px; }}
-    .header .sub {{ font-size: 10px; color: #666; margin-top: 2px; }}
-    .meta {{ display: flex; justify-content: space-between; font-size: 9px; color: #555; margin-bottom: 8px; padding: 4px 0; border-bottom: 1px solid #ddd; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 8.5px; }}
-    th {{ background: #1a5276; color: white; padding: 5px 4px; text-align: left; font-weight: 600; font-size: 8px; }}
-    td {{ padding: 4px; border-bottom: 1px solid #e0e0e0; }}
-    tr:nth-child(even) {{ background: #f8f9fa; }}
-    .r {{ text-align: right; }} .c {{ text-align: center; }} .b {{ font-weight: 700; }}
-    .total-row {{ background: #1a5276 !important; color: white; font-weight: 700; }}
-    .total-row td {{ padding: 6px 4px; border: none; }}
-    .footer {{ margin-top: 12px; text-align: center; font-size: 8px; color: #999; border-top: 1px solid #ddd; padding-top: 6px; }}
-    .amt {{ font-family: 'Consolas', monospace; }}
-    </style></head><body>
-    <div class="header"><h1>{company}</h1>"""
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=8*mm)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle('SaleTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1a5276'), alignment=TA_CENTER, spaceAfter=2)
+    elements.append(Paragraph(company, title_style))
     if tagline:
-        html += f'<div class="sub">{tagline}</div>'
-    html += f"""</div>
-    <div class="meta"><span>Sale Book Report</span><span>{f'FY: {kms_year}' if kms_year else ''} {f'| {season}' if season else ''}</span><span>Date: {datetime.now().strftime('%d-%m-%Y')}</span></div>
-    <table><tr><th class="c">No.</th><th>Date</th><th>Inv No.</th><th>Party</th><th>Items</th><th>Truck/RST</th><th>E-Way Bill</th><th class="r">Subtotal</th><th class="r">GST</th><th class="r">Total</th><th class="r">Advance</th><th class="r">Cash</th><th class="r">Diesel</th><th class="r">Balance</th></tr>"""
-    
-    g = {"sub": 0, "gst": 0, "total": 0, "adv": 0, "cash": 0, "diesel": 0, "bal": 0}
+        sub_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceAfter=2)
+        elements.append(Paragraph(tagline, sub_style))
+
+    meta_parts = ["Sale Book Report"]
+    if kms_year: meta_parts.append(f"FY: {kms_year}")
+    if season: meta_parts.append(season)
+    meta_parts.append(f"Date: {datetime.now().strftime('%d-%m-%Y')}")
+    meta_style = ParagraphStyle('Meta', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555555'), alignment=TA_CENTER, spaceAfter=8)
+    elements.append(Paragraph(" | ".join(meta_parts), meta_style))
+
+    cell_s = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=7, leading=9)
+    cell_r = ParagraphStyle('CellR', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_RIGHT)
+    cell_b = ParagraphStyle('CellB', parent=styles['Normal'], fontSize=7, leading=9, fontName='Helvetica-Bold')
+    cell_rb = ParagraphStyle('CellRB', parent=styles['Normal'], fontSize=7, leading=9, alignment=TA_RIGHT, fontName='Helvetica-Bold')
+
+    headers = ['No.', 'Date', 'Inv', 'Party', 'Items', 'Truck/RST', 'Total', 'Advance', 'Cash', 'Diesel', 'Paid', 'Balance', 'Status']
+    table_data = [headers]
+    col_widths = [18*mm, 20*mm, 18*mm, 30*mm, 55*mm, 25*mm, 22*mm, 20*mm, 18*mm, 18*mm, 20*mm, 22*mm, 18*mm]
+
+    g = {"total": 0, "adv": 0, "cash": 0, "diesel": 0, "paid": 0, "bal": 0}
     for v in vouchers:
         items_str = ', '.join(f"{i['item_name']}({i['quantity']}Q)" for i in v.get('items', []))
-        gst = (v.get('cgst_amount', 0) or 0) + (v.get('sgst_amount', 0) or 0) + (v.get('igst_amount', 0) or 0)
         dp = str(v.get('date', '')).split('-')
         fd = f"{dp[2]}/{dp[1]}/{dp[0]}" if len(dp) == 3 else v.get('date', '')
-        truck_rst = f"{v.get('truck_no','')}"
-        if v.get('rst_no'): truck_rst += f" / {v['rst_no']}"
-        g["sub"] += v.get('subtotal', 0) or 0
-        g["gst"] += gst
-        g["total"] += v.get('total', 0) or 0
+        truck_rst = v.get('truck_no', '')
+        if v.get('rst_no'): truck_rst += f"/{v['rst_no']}"
+        total = v.get('total', 0) or 0
+        pn = v.get('party_name', '')
+        ledger_paid = round(ledger_paid_map.get(pn, 0), 2)
+        ledger_bal = round(total - ledger_paid, 2)
+        status = "Paid" if ledger_bal <= 0 and total > 0 else "Pending"
+        g["total"] += total
         g["adv"] += v.get('advance', 0) or 0
         g["cash"] += v.get('cash_paid', 0) or 0
         g["diesel"] += v.get('diesel_paid', 0) or 0
-        g["bal"] += v.get('balance', 0) or 0
-        html += f"""<tr><td class="c">#{v.get('voucher_no','')}</td><td>{fd}</td><td>{v.get('invoice_no','')}</td><td class="b">{v.get('party_name','')}</td>
-        <td>{items_str}</td><td>{truck_rst}</td><td>{v.get('eway_bill_no','')}</td>
-        <td class="r amt">{v.get('subtotal',0):,.0f}</td><td class="r amt">{gst:,.0f}</td>
-        <td class="r amt b">{v.get('total',0):,.0f}</td><td class="r amt">{v.get('advance',0) or 0:,.0f}</td>
-        <td class="r amt">{v.get('cash_paid',0) or 0:,.0f}</td><td class="r amt">{v.get('diesel_paid',0) or 0:,.0f}</td>
-        <td class="r amt b">{v.get('balance',0):,.0f}</td></tr>"""
-    
-    html += f"""<tr class="total-row"><td colspan="7" class="b">TOTAL ({len(vouchers)} vouchers)</td>
-    <td class="r amt">{g['sub']:,.0f}</td><td class="r amt">{g['gst']:,.0f}</td><td class="r amt">{g['total']:,.0f}</td>
-    <td class="r amt">{g['adv']:,.0f}</td><td class="r amt">{g['cash']:,.0f}</td><td class="r amt">{g['diesel']:,.0f}</td>
-    <td class="r amt">{g['bal']:,.0f}</td></tr></table>
-    <div class="footer">Generated on {datetime.now().strftime('%d-%m-%Y %H:%M')} | {company}</div></body></html>"""
-    
-    return Response(content=html, media_type="text/html", headers={"Content-Disposition": "inline; filename=sale_book.html"})
+        g["paid"] += ledger_paid
+        g["bal"] += ledger_bal
+        table_data.append([
+            Paragraph(f"#{v.get('voucher_no','')}", cell_s),
+            Paragraph(fd, cell_s),
+            Paragraph(str(v.get('invoice_no', '')), cell_s),
+            Paragraph(f"<b>{pn}</b>", cell_s),
+            Paragraph(items_str, cell_s),
+            Paragraph(truck_rst, cell_s),
+            Paragraph(f"{total:,.0f}", cell_rb),
+            Paragraph(f"{v.get('advance',0) or 0:,.0f}", cell_r),
+            Paragraph(f"{v.get('cash_paid',0) or 0:,.0f}", cell_r),
+            Paragraph(f"{v.get('diesel_paid',0) or 0:,.0f}", cell_r),
+            Paragraph(f"{ledger_paid:,.0f}", cell_r),
+            Paragraph(f"{ledger_bal:,.0f}", cell_rb),
+            Paragraph(status, cell_s),
+        ])
+
+    # Total row
+    table_data.append([
+        Paragraph(f"<b>TOTAL ({len(vouchers)})</b>", cell_b), '', '', '', '', '',
+        Paragraph(f"<b>{g['total']:,.0f}</b>", cell_rb),
+        Paragraph(f"<b>{g['adv']:,.0f}</b>", cell_rb),
+        Paragraph(f"<b>{g['cash']:,.0f}</b>", cell_rb),
+        Paragraph(f"<b>{g['diesel']:,.0f}</b>", cell_rb),
+        Paragraph(f"<b>{g['paid']:,.0f}</b>", cell_rb),
+        Paragraph(f"<b>{g['bal']:,.0f}</b>", cell_rb),
+        '',
+    ])
+
+    tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a5276')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 7),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#1a5276')),
+        ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
+    ]
+    for i in range(1, len(table_data) - 1):
+        if i % 2 == 0:
+            style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8FAFC')))
+    tbl.setStyle(TableStyle(style_cmds))
+    elements.append(tbl)
+
+    footer_style = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, textColor=colors.HexColor('#999999'), alignment=TA_CENTER, spaceBefore=10)
+    elements.append(Paragraph(f"{company} - Sale Book | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", footer_style))
+
+    doc.build(elements)
+    pdf_bytes = buf.getvalue()
+
+    return Response(content=pdf_bytes, media_type="application/pdf",
+                    headers={"Content-Disposition": "attachment; filename=sale_book.pdf"})
 
 
 # ============ SALE BOOK EXCEL EXPORT ============

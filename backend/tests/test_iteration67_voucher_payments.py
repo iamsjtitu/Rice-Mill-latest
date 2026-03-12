@@ -16,7 +16,7 @@ import os
 import uuid
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://payment-regression-2.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://voucher-export-1.preview.emergentagent.com')
 
 # Test data prefix for cleanup
 TEST_PREFIX = "TEST_ITR67_"

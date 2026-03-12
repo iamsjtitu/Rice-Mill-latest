@@ -230,7 +230,8 @@ export default function PurchaseVouchers({ filters, user }) {
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
     if (searchText) p.append('search', searchText);
-    downloadFile(`/api/purchase-book/export/${type}`, `purchase_book.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
+    const qs = p.toString() ? `?${p.toString()}` : '';
+    downloadFile(`/api/purchase-book/export/${type}${qs}`, `purchase_book.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
   const handlePayment = async () => {
@@ -405,8 +406,8 @@ export default function PurchaseVouchers({ filters, user }) {
             <ShoppingBag className="w-5 h-5" /> {editId ? "Edit Purchase Voucher" : "Nayi Purchase Entry"}
           </DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Row 1: Date, Party, Invoice, RST, Truck */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {/* Row 1: Date, Party, Invoice, RST, Truck, E-Way */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
               <div>
                 <Label className="text-slate-300 text-xs">Date</Label>
                 <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
@@ -432,12 +433,10 @@ export default function PurchaseVouchers({ filters, user }) {
                 <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
                   placeholder="OD00XX0000" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-truck" />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-slate-300 text-xs">E-Way Bill No.</Label>
                 <Input value={form.eway_bill_no} onChange={e => setForm(p => ({ ...p, eway_bill_no: e.target.value }))}
-                  placeholder="E-Way Bill Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-eway" />
+                  placeholder="E-Way Bill" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-eway" />
               </div>
             </div>
 

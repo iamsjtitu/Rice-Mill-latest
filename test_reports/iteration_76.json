@@ -1,0 +1,172 @@
+{
+  "summary": "Iteration 76 - All 10 bug fixes verified: 1) Purchase Voucher CREATE with advance_paid works (no KeyError), 2) Sale Book PDF export returns valid PDF, 3) Sale Book Excel export returns valid xlsx, 4) Purchase Book PDF export returns valid PDF, 5) Purchase Book Excel export returns valid xlsx, 6) Frontend Purchase Voucher save with advance shows success toast, 7-10) Frontend PDF/Excel download buttons work for both Sale and Purchase vouchers",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_voucher_export_fixes.py",
+    "/app/test_reports/pytest/pytest_results_iteration76.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_voucher_export_fixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (all UI tests passed)"
+  },
+  "seed_data_creation": "Created test vouchers for testing, cleaned up after tests",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 3 reported bugs have been fixed and verified: 1) Purchase voucher create with advance_paid no longer throws KeyError (line 163 in purchase_vouchers.py uses doc_id instead of d['id']), 2) Sale Book PDF export now returns actual PDF bytes starting with %PDF- (switched from HTML to reportlab platypus), 3) Purchase Book PDF export also returns valid PDF (same fix). Balance = Total - Advance calculation is working correctly.",
+  "features_tested": {
+    "feature_1_purchase_voucher_create_with_advance": {
+      "status": "PASSED",
+      "test_method": "Backend API test + Frontend UI test",
+      "details": [
+        "POST /api/purchase-book with advance=5000 returns 200",
+        "Response has correct balance = total - advance",
+        "No KeyError on line 163 (fixed: uses doc_id)",
+        "UI shows success toast 'Purchase voucher save ho gaya!'"
+      ]
+    },
+    "feature_2_sale_book_pdf_export": {
+      "status": "PASSED",
+      "endpoint": "GET /api/sale-book/export/pdf",
+      "details": [
+        "Returns 200 status",
+        "Content-Type: application/pdf",
+        "PDF bytes start with %PDF-",
+        "Content-Disposition: attachment; filename=sale_book.pdf"
+      ]
+    },
+    "feature_3_sale_book_excel_export": {
+      "status": "PASSED",
+      "endpoint": "GET /api/sale-book/export/excel",
+      "details": [
+        "Returns 200 status",
+        "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "XLSX bytes start with PK (zip format)",
+        "Content-Disposition: attachment; filename=sale_book_YYYYMMDD.xlsx"
+      ]
+    },
+    "feature_4_purchase_book_pdf_export": {
+      "status": "PASSED",
+      "endpoint": "GET /api/purchase-book/export/pdf",
+      "details": [
+        "Returns 200 status",
+        "Content-Type: application/pdf",
+        "PDF bytes start with %PDF-",
+        "Content-Disposition: attachment; filename=purchase_book.pdf"
+      ]
+    },
+    "feature_5_purchase_book_excel_export": {
+      "status": "PASSED",
+      "endpoint": "GET /api/purchase-book/export/excel",
+      "details": [
+        "Returns 200 status",
+        "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "XLSX bytes start with PK (zip format)"
+      ]
+    },
+    "feature_6_frontend_purchase_voucher_form": {
+      "status": "PASSED",
+      "details": [
+        "Nayi Entry button opens dialog [data-testid=pv-add-btn]",
+        "Form accepts party name, item, advance",
+        "Save button submits without error",
+        "Success toast displayed",
+        "New voucher appears in list with correct balance calculation"
+      ]
+    },
+    "feature_7_frontend_purchase_pdf_download": {
+      "status": "PASSED",
+      "details": [
+        "PDF button [data-testid=pv-export-pdf] visible",
+        "Click triggers download of purchase_book.pdf"
+      ]
+    },
+    "feature_8_frontend_purchase_excel_download": {
+      "status": "PASSED",
+      "details": [
+        "Excel button [data-testid=pv-export-excel] visible",
+        "Click triggers download of purchase_book.xlsx"
+      ]
+    },
+    "feature_9_frontend_sale_pdf_download": {
+      "status": "PASSED",
+      "details": [
+        "Sale Vouchers PDF button visible",
+        "Click triggers download of sale_book.pdf"
+      ]
+    },
+    "feature_10_frontend_sale_excel_download": {
+      "status": "PASSED",
+      "details": [
+        "Sale Vouchers Excel button visible",
+        "Click triggers download of sale_book_YYYYMMDD.xlsx"
+      ]
+    }
+  },
+  "backend_test_summary": {
+    "test_file": "/app/backend/tests/test_voucher_export_fixes.py",
+    "tests_run": 12,
+    "tests_passed": 12,
+    "tests_failed": 0,
+    "test_classes": [
+      "TestPurchaseVoucherCreate (2 tests)",
+      "TestSaleBookExports (4 tests)",
+      "TestPurchaseBookExports (4 tests)",
+      "TestAdvanceDeductionLogic (2 tests)"
+    ]
+  },
+  "frontend_test_summary": {
+    "login": "PASSED",
+    "navigate_to_purchase_vouchers": "PASSED",
+    "create_purchase_voucher_with_advance": "PASSED - no error toast, success toast shown",
+    "purchase_pdf_download": "PASSED - triggered download",
+    "purchase_excel_download": "PASSED - triggered download",
+    "navigate_to_sale_vouchers": "PASSED",
+    "sale_pdf_download": "PASSED - triggered download",
+    "sale_excel_download": "PASSED - triggered download"
+  },
+  "bug_fixes_verified": {
+    "bug_1_keyerror_id": {
+      "location": "backend/routes/purchase_vouchers.py:163",
+      "original_issue": "d['id'] KeyError when creating purchase voucher with truck payments",
+      "fix": "Changed to doc_id variable",
+      "status": "VERIFIED FIXED"
+    },
+    "bug_2_sale_pdf_export": {
+      "location": "backend/routes/salebook.py:435-575",
+      "original_issue": "PDF export returned HTML instead of PDF",
+      "fix": "Rewritten using reportlab platypus",
+      "status": "VERIFIED FIXED"
+    },
+    "bug_3_purchase_pdf_export": {
+      "location": "backend/routes/purchase_vouchers.py:521-640",
+      "original_issue": "PDF export was broken",
+      "fix": "Rewritten using reportlab platypus tables",
+      "status": "VERIFIED FIXED"
+    },
+    "bug_4_advance_deduction": {
+      "location": "backend/routes/purchase_vouchers.py:266-268",
+      "original_issue": "Advance was not being deducted from total",
+      "fix": "balance = round(total - advance, 2) now works correctly",
+      "status": "VERIFIED FIXED"
+    },
+    "bug_5_frontend_export_url": {
+      "location": "frontend/src/components/PurchaseVouchers.jsx:233",
+      "original_issue": "handleExport was not including query params in URL",
+      "fix": "Now includes kms_year, season, search params",
+      "status": "VERIFIED FIXED"
+    }
+  }
+}
