@@ -472,11 +472,11 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     bp_sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(10000)
     purchase_vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).to_list(10000)
     mill_entries = await db.mill_entries.find(query, {"_id": 0}).to_list(10000)
-    pvt_paddy = await db.private_paddy.find(query, {"_id": 0}).to_list(10000)
+    pvt_paddy = await db.private_paddy.find({**query, "source": {"$ne": "agent_extra"}}, {"_id": 0}).to_list(10000)
 
     # Paddy stock - consistent with /api/paddy-stock calculation
     cmr_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 - e.get('p_pkt_cut', 0) / 100 for e in mill_entries), 2)
-    pvt_paddy_in = round(sum(e.get('final_qntl', 0) for e in pvt_paddy), 2)
+    pvt_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 for e in pvt_paddy), 2)
     paddy_used_milling = round(sum(e.get('paddy_input_qntl', 0) for e in milling), 2)
 
     # Rice produced from milling
