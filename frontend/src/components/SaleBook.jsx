@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, FileText, IndianRupee, Edit, Download } from "lucide-react";
+import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet } from "lucide-react";
 
 const API = `${(typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -28,13 +28,14 @@ export default function SaleBook({ filters, user }) {
   const [obList, setObList] = useState([]);
   const [isObOpen, setIsObOpen] = useState(false);
   const [obForm, setObForm] = useState({ party_name: "", party_type: "Cash Party", amount: "", balance_type: "jama", note: "" });
+  const [searchQuery, setSearchQuery] = useState("");
 
   const emptyItem = { item_name: "", quantity: "", rate: "", unit: "Qntl" };
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
-    party_name: "", items: [{ ...emptyItem }],
+    party_name: "", invoice_no: "", items: [{ ...emptyItem }],
     gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
-    truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "",
+    truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "",
     kms_year: filters.kms_year || "", season: filters.season || "",
   });
 
@@ -42,8 +43,9 @@ export default function SaleBook({ filters, user }) {
 
   const fetchData = useCallback(async () => {
     try {
+      const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
       const [vRes, sRes, gRes, obRes] = await Promise.all([
-        axios.get(`${API}/sale-book?${p}`),
+        axios.get(`${API}/sale-book?${p}${searchParam}`),
         axios.get(`${API}/sale-book/stock-items?${p}`),
         axios.get(`${API}/gst-settings`),
         axios.get(`${API}/opening-balances?kms_year=${filters.kms_year || ''}`),
@@ -53,17 +55,17 @@ export default function SaleBook({ filters, user }) {
       setGstSettings(gRes.data);
       setObList(obRes.data);
     } catch (e) { console.error(e); }
-  }, [p, filters.kms_year]);
+  }, [p, filters.kms_year, searchQuery]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const openNewForm = () => {
     setEditingId(null);
     setForm({
-      date: new Date().toISOString().split('T')[0], party_name: "",
+      date: new Date().toISOString().split('T')[0], party_name: "", invoice_no: "",
       items: [{ ...emptyItem }], gst_type: "none",
       cgst_percent: gstSettings.cgst_percent, sgst_percent: gstSettings.sgst_percent, igst_percent: gstSettings.igst_percent,
-      truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "",
+      truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "",
       kms_year: filters.kms_year || "", season: filters.season || "",
     });
     setIsFormOpen(true);
@@ -72,12 +74,13 @@ export default function SaleBook({ filters, user }) {
   const openEditForm = (v) => {
     setEditingId(v.id);
     setForm({
-      date: v.date || "", party_name: v.party_name || "",
+      date: v.date || "", party_name: v.party_name || "", invoice_no: v.invoice_no || "",
       items: (v.items || []).map(i => ({ item_name: i.item_name, quantity: String(i.quantity || ""), rate: String(i.rate || ""), unit: i.unit || "Qntl" })),
       gst_type: v.gst_type || "none",
       cgst_percent: v.cgst_percent || 0, sgst_percent: v.sgst_percent || 0, igst_percent: v.igst_percent || 0,
       truck_no: v.truck_no || "", rst_no: v.rst_no || "", remark: v.remark || "",
       cash_paid: v.cash_paid ? String(v.cash_paid) : "", diesel_paid: v.diesel_paid ? String(v.diesel_paid) : "",
+      advance: v.advance ? String(v.advance) : "",
       kms_year: v.kms_year || filters.kms_year || "", season: v.season || filters.season || "",
     });
     setIsFormOpen(true);
@@ -90,7 +93,6 @@ export default function SaleBook({ filters, user }) {
       return { ...prev, items };
     });
   };
-
   const addItem = () => setForm(prev => ({ ...prev, items: [...prev.items, { ...emptyItem }] }));
   const removeItem = (idx) => setForm(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
 
@@ -99,7 +101,7 @@ export default function SaleBook({ filters, user }) {
   const sgstAmt = form.gst_type === 'cgst_sgst' ? subtotal * (form.sgst_percent || 0) / 100 : 0;
   const igstAmt = form.gst_type === 'igst' ? subtotal * (form.igst_percent || 0) / 100 : 0;
   const total = subtotal + cgstAmt + sgstAmt + igstAmt;
-  const paid = (parseFloat(form.cash_paid) || 0) + (parseFloat(form.diesel_paid) || 0);
+  const advanceAmt = parseFloat(form.advance) || 0;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -114,6 +116,7 @@ export default function SaleBook({ filters, user }) {
           item_name: i.item_name, quantity: parseFloat(i.quantity) || 0, rate: parseFloat(i.rate) || 0, unit: i.unit || "Qntl"
         })),
         cash_paid: parseFloat(form.cash_paid) || 0, diesel_paid: parseFloat(form.diesel_paid) || 0,
+        advance: parseFloat(form.advance) || 0,
       };
       if (editingId) {
         await axios.put(`${API}/sale-book/${editingId}?username=${user.username}&role=${user.role}`, payload);
@@ -122,9 +125,7 @@ export default function SaleBook({ filters, user }) {
         await axios.post(`${API}/sale-book?username=${user.username}&role=${user.role}`, payload);
         toast.success("Sale voucher save ho gaya!");
       }
-      setIsFormOpen(false);
-      setEditingId(null);
-      fetchData();
+      setIsFormOpen(false); setEditingId(null); fetchData();
     } catch (err) { toast.error(err.response?.data?.detail || "Save error"); }
   };
 
@@ -132,15 +133,25 @@ export default function SaleBook({ filters, user }) {
     if (!window.confirm("Kya aap ye voucher delete karna chahte hain?")) return;
     try {
       await axios.delete(`${API}/sale-book/${id}?username=${user.username}&role=${user.role}`);
-      toast.success("Voucher delete ho gaya");
-      fetchData();
+      toast.success("Voucher delete ho gaya"); fetchData();
     } catch { toast.error("Delete error"); }
   };
 
-  const handleExportPDF = async () => {
-    const url = `${API}/sale-book/export/pdf?${p}`;
-    window.open(url, '_blank');
-    toast.success("PDF export ho raha hai!");
+  const handleExportPDF = () => {
+    const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+    window.open(`${API}/sale-book/export/pdf?${p}${searchParam}`, '_blank');
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
+      const res = await axios.get(`${API}/sale-book/export/excel?${p}${searchParam}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a'); a.href = url;
+      a.download = `sale_book_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click(); window.URL.revokeObjectURL(url);
+      toast.success("Excel export ho gaya!");
+    } catch { toast.error("Excel export failed"); }
   };
 
   const getStockForItem = (itemName) => {
@@ -151,8 +162,7 @@ export default function SaleBook({ filters, user }) {
   // Opening Balance
   const handleObSubmit = async (e) => {
     e.preventDefault();
-    if (!obForm.party_name.trim()) { toast.error("Party name daalo"); return; }
-    if (!parseFloat(obForm.amount)) { toast.error("Amount daalo"); return; }
+    if (!obForm.party_name.trim() || !parseFloat(obForm.amount)) { toast.error("Party name aur amount daalo"); return; }
     try {
       await axios.post(`${API}/opening-balances?username=${user.username}&role=${user.role}`, {
         ...obForm, amount: parseFloat(obForm.amount) || 0,
@@ -169,8 +179,7 @@ export default function SaleBook({ filters, user }) {
     if (!window.confirm("Delete opening balance?")) return;
     try {
       await axios.delete(`${API}/opening-balances/${id}?username=${user.username}&role=${user.role}`);
-      toast.success("Deleted");
-      fetchData();
+      toast.success("Deleted"); fetchData();
     } catch { toast.error("Delete error"); }
   };
 
@@ -181,17 +190,33 @@ export default function SaleBook({ filters, user }) {
         <h2 className="text-lg font-bold text-amber-400 flex items-center gap-2">
           <FileText className="w-5 h-5" /> Sale Book (बिक्री खाता)
         </h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button onClick={() => setIsObOpen(true)} variant="outline" size="sm" className="border-blue-600 text-blue-400 hover:bg-blue-900/30" data-testid="ob-add-btn">
-            <Plus className="w-3 h-3 mr-1" /> Opening Balance
+            <Plus className="w-3 h-3 mr-1" /> Opening Bal.
           </Button>
           <Button onClick={handleExportPDF} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30" data-testid="sale-book-pdf-btn">
             <Download className="w-3 h-3 mr-1" /> PDF
           </Button>
+          <Button onClick={handleExportExcel} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="sale-book-excel-btn">
+            <FileSpreadsheet className="w-3 h-3 mr-1" /> Excel
+          </Button>
           <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold" data-testid="sale-book-add-btn">
-            <Plus className="w-4 h-4 mr-1" /> New Sale Voucher
+            <Plus className="w-4 h-4 mr-1" /> New Sale
           </Button>
         </div>
+      </div>
+
+      {/* Search Filter */}
+      <div className="flex gap-2 items-center">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search: Party, Invoice No, RST, Truck..."
+            className="bg-slate-800 border-slate-700 text-white pl-8 h-8 text-sm" data-testid="sale-book-search" />
+        </div>
+        {searchQuery && (
+          <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")} className="text-slate-400 h-8 text-xs">Clear</Button>
+        )}
       </div>
 
       {/* Stock Overview */}
@@ -219,9 +244,7 @@ export default function SaleBook({ filters, user }) {
                     {ob.txn_type === 'jama' ? '+' : '-'}Rs.{ob.amount?.toLocaleString('en-IN')}
                   </span>
                   <span className="text-slate-500 text-[10px]">{ob.party_type}</span>
-                  <button onClick={() => handleObDelete(ob.id)} className="text-red-400 hover:text-red-300 ml-1">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                  <button onClick={() => handleObDelete(ob.id)} className="text-red-400 hover:text-red-300 ml-1"><Trash2 className="w-3 h-3" /></button>
                 </div>
               ))}
             </div>
@@ -237,32 +260,34 @@ export default function SaleBook({ filters, user }) {
               <TableRow className="border-slate-700">
                 <TableHead className="text-slate-400 text-xs">No.</TableHead>
                 <TableHead className="text-slate-400 text-xs">Date</TableHead>
+                <TableHead className="text-slate-400 text-xs">Inv No.</TableHead>
                 <TableHead className="text-slate-400 text-xs">Party</TableHead>
                 <TableHead className="text-slate-400 text-xs">Items</TableHead>
-                <TableHead className="text-slate-400 text-xs text-right">Subtotal</TableHead>
-                <TableHead className="text-slate-400 text-xs text-right">GST</TableHead>
                 <TableHead className="text-slate-400 text-xs text-right">Total</TableHead>
-                <TableHead className="text-slate-400 text-xs text-right">Paid</TableHead>
+                <TableHead className="text-slate-400 text-xs text-right">Advance</TableHead>
+                <TableHead className="text-slate-400 text-xs text-right">Cash</TableHead>
+                <TableHead className="text-slate-400 text-xs text-right">Diesel</TableHead>
                 <TableHead className="text-slate-400 text-xs text-right">Balance</TableHead>
-                <TableHead className="text-slate-400 text-xs w-20"></TableHead>
+                <TableHead className="text-slate-400 text-xs w-16"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {vouchers.length === 0 && (
-                <TableRow><TableCell colSpan={10} className="text-center text-slate-500 py-8">Koi sale voucher nahi hai. "New Sale Voucher" se add karein.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-8">
+                  {searchQuery ? "Koi result nahi mila." : "Koi sale voucher nahi hai."}
+                </TableCell></TableRow>
               )}
               {vouchers.map(v => (
                 <TableRow key={v.id} className="border-slate-700 hover:bg-slate-700/30">
                   <TableCell className="text-amber-400 font-mono text-xs">#{v.voucher_no}</TableCell>
                   <TableCell className="text-white text-xs">{fmtDate(v.date)}</TableCell>
+                  <TableCell className="text-slate-300 text-xs">{v.invoice_no || '-'}</TableCell>
                   <TableCell className="text-white text-sm font-medium">{v.party_name}</TableCell>
-                  <TableCell className="text-slate-300 text-xs">{(v.items || []).map(i => `${i.item_name} (${i.quantity}Q)`).join(', ')}</TableCell>
-                  <TableCell className="text-white text-xs text-right">Rs.{v.subtotal?.toLocaleString('en-IN')}</TableCell>
-                  <TableCell className="text-slate-300 text-xs text-right">
-                    {v.gst_type !== 'none' && v.gst_type ? `Rs.${((v.cgst_amount || 0) + (v.sgst_amount || 0) + (v.igst_amount || 0)).toLocaleString('en-IN')}` : '-'}
-                  </TableCell>
+                  <TableCell className="text-slate-300 text-xs max-w-[180px] truncate">{(v.items || []).map(i => `${i.item_name}(${i.quantity}Q)`).join(', ')}</TableCell>
                   <TableCell className="text-emerald-400 font-bold text-xs text-right">Rs.{v.total?.toLocaleString('en-IN')}</TableCell>
-                  <TableCell className="text-white text-xs text-right">Rs.{v.paid_amount?.toLocaleString('en-IN')}</TableCell>
+                  <TableCell className="text-blue-400 text-xs text-right">{v.advance ? `Rs.${v.advance.toLocaleString('en-IN')}` : '-'}</TableCell>
+                  <TableCell className="text-white text-xs text-right">{v.cash_paid ? `Rs.${v.cash_paid.toLocaleString('en-IN')}` : '-'}</TableCell>
+                  <TableCell className="text-orange-400 text-xs text-right">{v.diesel_paid ? `Rs.${v.diesel_paid.toLocaleString('en-IN')}` : '-'}</TableCell>
                   <TableCell className={`font-bold text-xs text-right ${v.balance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                     Rs.{v.balance?.toLocaleString('en-IN')}
                   </TableCell>
@@ -290,7 +315,13 @@ export default function SaleBook({ filters, user }) {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Row 1: Invoice No, Date */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <Label className="text-xs text-slate-400">Invoice No.</Label>
+                <Input value={form.invoice_no} onChange={e => setForm(p => ({ ...p, invoice_no: e.target.value }))}
+                  placeholder="INV-001" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-invoice" />
+              </div>
               <div>
                 <Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
@@ -299,12 +330,7 @@ export default function SaleBook({ filters, user }) {
               <div>
                 <Label className="text-xs text-slate-400">Party Name *</Label>
                 <Input value={form.party_name} onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
-                  placeholder="Party / Buyer name" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="sv-form-party" />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-400">Truck No</Label>
-                <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
-                  placeholder="OD00XX0000" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-truck" />
+                  placeholder="Party / Buyer" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="sv-form-party" />
               </div>
               <div>
                 <Label className="text-xs text-slate-400">RST No</Label>
@@ -318,17 +344,17 @@ export default function SaleBook({ filters, user }) {
               <div className="bg-slate-700/50 px-3 py-2 flex items-center justify-between">
                 <span className="text-xs font-semibold text-amber-400">Items (सामान)</span>
                 <Button type="button" onClick={addItem} size="sm" variant="ghost" className="h-6 text-emerald-400 hover:text-emerald-300 text-xs" data-testid="sv-add-item">
-                  <Plus className="w-3 h-3 mr-1" /> Add Item
+                  <Plus className="w-3 h-3 mr-1" /> Add
                 </Button>
               </div>
               <Table>
                 <TableHeader>
                   <TableRow className="border-slate-600">
                     <TableHead className="text-slate-400 text-[10px] w-[35%]">Name of Item</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] w-[15%]">Stock</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[12%]">Stock</TableHead>
                     <TableHead className="text-slate-400 text-[10px] w-[15%]">Quantity</TableHead>
                     <TableHead className="text-slate-400 text-[10px] w-[12%]">Rate</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] w-[15%] text-right">Amount</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[18%] text-right">Amount</TableHead>
                     <TableHead className="text-slate-400 text-[10px] w-[8%]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -340,12 +366,10 @@ export default function SaleBook({ filters, user }) {
                       <TableRow key={idx} className="border-slate-600">
                         <TableCell className="p-1">
                           <Select value={item.item_name || "_none"} onValueChange={v => updateItem(idx, 'item_name', v === "_none" ? "" : v)}>
-                            <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid={`sv-item-name-${idx}`}><SelectValue placeholder="Select Item" /></SelectTrigger>
+                            <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid={`sv-item-name-${idx}`}><SelectValue placeholder="Select" /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="_none">-- Select --</SelectItem>
-                              {stockItems.map(si => (
-                                <SelectItem key={si.name} value={si.name}>{si.name} ({si.available_qntl} Q)</SelectItem>
-                              ))}
+                              {stockItems.map(si => (<SelectItem key={si.name} value={si.name}>{si.name} ({si.available_qntl} Q)</SelectItem>))}
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -363,9 +387,7 @@ export default function SaleBook({ filters, user }) {
                         <TableCell className="p-1 text-right text-white text-xs font-medium">Rs.{amt.toLocaleString('en-IN')}</TableCell>
                         <TableCell className="p-1">
                           {form.items.length > 1 && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(idx)} className="h-6 w-6 p-0 text-red-400">
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(idx)} className="h-6 w-6 p-0 text-red-400"><Trash2 className="w-3 h-3" /></Button>
                           )}
                         </TableCell>
                       </TableRow>
@@ -429,28 +451,44 @@ export default function SaleBook({ filters, user }) {
               </div>
             </div>
 
-            {/* Total + Payment */}
+            {/* Total + Truck + Payment */}
             <div className="bg-slate-700/50 rounded-lg p-3 space-y-3">
               <div className="flex justify-between items-center text-lg font-bold">
                 <span className="text-slate-300">Grand Total:</span>
                 <span className="text-emerald-400" data-testid="sv-grand-total">Rs.{total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </div>
+
+              {/* Truck + Advance Row */}
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label className="text-[10px] text-slate-400">Cash Paid</Label>
+                  <Label className="text-[10px] text-slate-400">Truck No</Label>
+                  <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
+                    placeholder="OD00XX0000" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-form-truck" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-400">Cash (Truck ko)</Label>
                   <Input type="number" step="0.01" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
                     placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-cash-paid" />
                 </div>
                 <div>
-                  <Label className="text-[10px] text-slate-400">Diesel Paid</Label>
+                  <Label className="text-[10px] text-slate-400">Diesel (Pump se)</Label>
                   <Input type="number" step="0.01" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))}
                     placeholder="0" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-diesel-paid" />
                 </div>
+              </div>
+
+              {/* Advance + Balance */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] text-blue-400 font-semibold">Advance (Party se mila)</Label>
+                  <Input type="number" step="0.01" value={form.advance} onChange={e => setForm(p => ({ ...p, advance: e.target.value }))}
+                    placeholder="0" className="bg-slate-700 border-blue-600 text-white h-8 text-xs" data-testid="sv-advance" />
+                </div>
                 <div className="flex flex-col justify-end">
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-400">Balance: </span>
-                    <span className={`text-sm font-bold ${(total - paid) > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid="sv-balance">
-                      Rs.{(total - paid).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    <span className="text-[10px] text-slate-400">Balance (Party par baki): </span>
+                    <span className={`text-sm font-bold ${(total - advanceAmt) > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid="sv-balance">
+                      Rs.{(total - advanceAmt).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
@@ -491,15 +529,9 @@ export default function SaleBook({ filters, user }) {
                 <Select value={obForm.party_type} onValueChange={v => setObForm(p => ({ ...p, party_type: v }))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="ob-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Cash Party">Cash Party</SelectItem>
-                    <SelectItem value="Pvt Paddy Purchase">Pvt Paddy Purchase</SelectItem>
-                    <SelectItem value="Rice Sale">Rice Sale</SelectItem>
-                    <SelectItem value="Diesel">Diesel</SelectItem>
-                    <SelectItem value="Local Party">Local Party</SelectItem>
-                    <SelectItem value="Truck">Truck</SelectItem>
-                    <SelectItem value="Agent">Agent</SelectItem>
-                    <SelectItem value="By-Product Sale">By-Product Sale</SelectItem>
-                    <SelectItem value="Sale Book">Sale Book</SelectItem>
+                    {["Cash Party","Pvt Paddy Purchase","Rice Sale","Diesel","Local Party","Truck","Agent","By-Product Sale","Sale Book"].map(t => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -508,8 +540,8 @@ export default function SaleBook({ filters, user }) {
                 <Select value={obForm.balance_type} onValueChange={v => setObForm(p => ({ ...p, balance_type: v }))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="ob-balance-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="jama">Jama (Party owes us / उधार)</SelectItem>
-                    <SelectItem value="nikasi">Nikasi (We owe party / हमारा देना)</SelectItem>
+                    <SelectItem value="jama">Jama (उधार - Party par baki)</SelectItem>
+                    <SelectItem value="nikasi">Nikasi (हमारा देना)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -1,0 +1,187 @@
+{
+  "summary": "Iteration 63: Sale Book Accounting Overhaul - ALL 21 backend tests PASSED, Frontend UI fully verified. Major changes: Balance = total - advance (NOT total - cash - diesel), 5 types of ledger entries created correctly.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "All Dialogs", "issues": ["Minor: Missing aria-describedby warning in console for DialogContent (accessibility, non-blocking)"]}
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration63_salebook_accounting_overhaul.py",
+    "/app/test_reports/pytest/pytest_results_iteration63.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Backend salebook.py _create_sale_ledger_entries creates all 5 ledger entry types correctly",
+    "Balance = total - advance (line 262) is correct - cash/diesel are truck costs, not party payments",
+    "Advance creates party nikasi entry (reduces party debt) - correct accounting",
+    "Cash creates cash nikasi entry (money going out to truck) - correct accounting",
+    "Diesel creates diesel pump jama entry (we owe pump) - correct accounting",
+    "Truck gets jama+nikasi entries (earns cash+diesel, paid via same) - correct accounting",
+    "Search filter uses $or with regex for party_name, invoice_no, rst_no, truck_no",
+    "Excel export uses openpyxl with A4 landscape and fitToWidth settings"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_iteration63_salebook_accounting_overhaul.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (21/21 tests passed)",
+    "frontend": "100% - All features verified"
+  },
+
+  "test_credentials": {
+    "admin": "admin / admin123"
+  },
+
+  "seed_data_creation": "Test entries created and cleaned up during test execution",
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Sale Book accounting overhaul complete. KEY CHANGES: 1) Cash paid = truck ko diya (cash nikasi), 2) Diesel paid = pump se (diesel pump jama), 3) Advance = party se mila (party nikasi - reduces debt), 4) Balance = total - advance only. Ledger entries: party jama (total), party nikasi (advance), cash nikasi (truck), diesel pump jama, truck jama+nikasi. Search filter works across party/invoice/rst/truck. Excel export returns xlsx. Old Gayatri Agro voucher (#1) uses old accounting - ignore it.",
+
+  "verified_features": {
+    "ledger_entry_creation": {
+      "status": "ALL PASSED",
+      "entry_types": [
+        "1. Party Ledger JAMA - Total amount (party owes us)",
+        "2. Party Ledger NIKASI - Advance received (reduces party debt)",
+        "3. Cash NIKASI - Cash going out to truck",
+        "4. Diesel Pump JAMA - We owe pump for diesel",
+        "5. Truck Ledger JAMA + NIKASI - Truck payment (cash+diesel)"
+      ],
+      "tests_passed": 6
+    },
+    "balance_calculation": {
+      "status": "PASSED",
+      "formula": "Balance = Total - Advance",
+      "verified": [
+        "Cash and Diesel do NOT affect balance",
+        "Balance = 0 when Advance = Total",
+        "Balance correctly calculated in both backend and frontend"
+      ]
+    },
+    "invoice_no_field": {
+      "status": "PASSED",
+      "stored_returned": true,
+      "visible_in_list": true,
+      "visible_in_form": true
+    },
+    "search_filter": {
+      "status": "PASSED",
+      "fields_searchable": ["party_name", "invoice_no", "rst_no", "truck_no"],
+      "api": "GET /api/sale-book?search=XXX"
+    },
+    "excel_export": {
+      "status": "PASSED",
+      "returns_xlsx": true,
+      "has_content_disposition": true,
+      "respects_search_filter": true
+    },
+    "edit_recreates_ledger": {
+      "status": "PASSED",
+      "api": "PUT /api/sale-book/{id}",
+      "verified": [
+        "Old ledger entries deleted",
+        "New ledger entries created with updated amounts"
+      ]
+    },
+    "delete_cleanup": {
+      "status": "PASSED",
+      "api": "DELETE /api/sale-book/{id}",
+      "verified": "All 5 ledger entry types cleaned up"
+    },
+    "frontend_ui": {
+      "status": "ALL PASSED",
+      "verified": [
+        "Invoice No field at top of form",
+        "Advance field in payment section (blue border)",
+        "Cash label clarifies 'Truck ko'",
+        "Diesel label clarifies 'Pump se'",
+        "Advance label clarifies 'Party se mila'",
+        "Balance shows 'Party par baki'",
+        "Search bar with correct placeholder",
+        "Excel export button present",
+        "PDF button present",
+        "Opening Bal. button present"
+      ]
+    }
+  },
+
+  "tests_executed": {
+    "backend": {
+      "TestSaleBookLedgerEntries::test_01_create_sale_voucher_full_accounting": "PASSED",
+      "TestSaleBookLedgerEntries::test_02_verify_party_jama_entry": "PASSED",
+      "TestSaleBookLedgerEntries::test_03_verify_party_nikasi_advance_entry": "PASSED",
+      "TestSaleBookLedgerEntries::test_04_verify_cash_nikasi_truck_entry": "PASSED",
+      "TestSaleBookLedgerEntries::test_05_verify_diesel_pump_jama_entry": "PASSED",
+      "TestSaleBookLedgerEntries::test_06_verify_truck_jama_nikasi_entries": "PASSED",
+      "TestBalanceCalculation::test_01_balance_equals_total_minus_advance": "PASSED",
+      "TestBalanceCalculation::test_02_balance_zero_when_advance_equals_total": "PASSED",
+      "TestInvoiceNoField::test_01_invoice_no_stored_and_returned": "PASSED",
+      "TestInvoiceNoField::test_02_invoice_no_in_list": "PASSED",
+      "TestSearchFilter::test_01_search_by_party_name": "PASSED",
+      "TestSearchFilter::test_02_search_by_invoice_no": "PASSED",
+      "TestSearchFilter::test_03_search_by_rst_no": "PASSED",
+      "TestSearchFilter::test_04_search_by_truck_no": "PASSED",
+      "TestSearchFilter::test_05_search_no_results": "PASSED",
+      "TestExcelExport::test_01_excel_export_returns_xlsx": "PASSED",
+      "TestExcelExport::test_02_excel_export_with_search_filter": "PASSED",
+      "TestEditVoucherLedgerRecreation::test_01_create_voucher_for_edit": "PASSED",
+      "TestEditVoucherLedgerRecreation::test_02_edit_voucher_updates_ledger_entries": "PASSED",
+      "TestDeleteVoucherCleanup::test_01_delete_removes_all_ledger_entries": "PASSED",
+      "TestCleanupIteration63::test_99_cleanup": "PASSED"
+    },
+    "frontend": {
+      "login": "PASSED",
+      "navigate_salebook_tab": "PASSED",
+      "search_bar_present": "PASSED - placeholder: 'Search: Party, Invoice No, RST, Truck...'",
+      "excel_button_present": "PASSED",
+      "pdf_button_present": "PASSED",
+      "form_dialog_opens": "PASSED",
+      "invoice_no_field": "PASSED",
+      "date_field": "PASSED",
+      "party_name_field": "PASSED",
+      "truck_no_field": "PASSED",
+      "cash_paid_field": "PASSED - label: 'Cash (Truck ko)'",
+      "diesel_paid_field": "PASSED - label: 'Diesel (Pump se)'",
+      "advance_field": "PASSED - label: 'Advance (Party se mila)'",
+      "balance_display": "PASSED - shows 'Balance (Party par baki)'",
+      "balance_calculation_ui": "PASSED - Rs.8,000 = Rs.10,000 - Rs.2,000"
+    }
+  },
+
+  "accounting_logic_summary": {
+    "old_logic_deprecated": "Balance = total - cash_paid - diesel_paid (WRONG)",
+    "new_logic_correct": "Balance = total - advance (CORRECT)",
+    "explanation": {
+      "cash_paid": "Cash given to truck driver - recorded as Cash NIKASI",
+      "diesel_paid": "Diesel arranged from pump for truck - recorded as Diesel Pump JAMA",
+      "advance": "Advance payment received FROM party - reduces party debt",
+      "balance": "Remaining amount party owes us = Total - Advance"
+    },
+    "ledger_entries_on_sale": [
+      "1. Party JAMA (Rs.Total) - Party now owes us this amount",
+      "2. Party NIKASI (Rs.Advance) - Advance received reduces debt",
+      "3. Cash NIKASI (Rs.Cash) - Cash given out to truck",
+      "4. Diesel Pump JAMA (Rs.Diesel) - We now owe pump",
+      "5a. Truck JAMA (Rs.Cash+Diesel) - Truck earned this",
+      "5b. Truck NIKASI (Rs.Cash+Diesel) - Truck paid via cash+diesel"
+    ]
+  },
+
+  "test_run_timestamp": "2026-03-12T05:00:00Z"
+}
