@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 65 - Purchase Vouchers and Stock Summary features tested. All features working correctly. Backend: 17/17 tests passed. Frontend: All critical flows verified. Fixed PDF export issue (weasyprint import was outside try-except block).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": [
+      {"warning": "Missing Description or aria-describedby for DialogContent", "location": "Purchase Voucher form dialog", "priority": "LOW"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration65_purchase_vouchers_stock.py",
+    "/app/test_reports/pytest/pytest_results_iteration65.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/routes/purchase_vouchers.py (Fixed PDF export - moved weasyprint import inside try-except)"
+  ],
+  "success_rate": {"backend": "100% (17/17 tests passed)", "frontend": "100%"},
+  "test_credentials": "admin / admin123",
+  "seed_data_creation": "Test vouchers created and cleaned up after testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Purchase Vouchers and Stock Summary features fully implemented and tested. Vouchers tab now has 5 sub-tabs: Sale Vouchers, Purchase Vouchers, Paddy Purchase, Stock Summary, Party Summary. Key test-ids: pv-add-btn, pv-form-dialog, pv-party, pv-invoice, pv-truck, pv-item-name-0, pv-item-qty-0, pv-item-rate-0, pv-cash, pv-diesel, pv-advance, pv-submit, stock-summary-section, stock-export-pdf, stock-export-excel. API endpoints: POST/GET/PUT/DELETE /api/purchase-book, GET /api/stock-summary, GET /api/purchase-book/export/pdf, GET /api/purchase-book/export/excel, GET /api/stock-summary/export/pdf, GET /api/stock-summary/export/excel.",
+  "test_results": {
+    "vouchers_tab_5_subtabs": "PASS",
+    "purchase_vouchers_create": "PASS",
+    "purchase_vouchers_list": "PASS",
+    "purchase_vouchers_search_filter": "PASS",
+    "purchase_vouchers_edit_dialog": "PASS",
+    "purchase_vouchers_delete": "PASS (via API)",
+    "purchase_vouchers_summary_cards": "PASS",
+    "stock_summary_categories": "PASS (Raw Material, Finished, By-Product, Custom)",
+    "stock_summary_items": "PASS (Paddy, Rice Usna, Rice Raw, Bran, Kunda, Broken, Kanki, Husk, FRK)",
+    "stock_reflects_purchase_voucher": "PASS (Custom category shows purchase voucher items)",
+    "accounting_party_ledger_jama": "PASS",
+    "accounting_cash_nikasi": "PASS",
+    "accounting_diesel_entry": "PASS",
+    "accounting_truck_payment": "PASS",
+    "purchase_book_pdf_export": "PASS",
+    "purchase_book_excel_export": "PASS",
+    "stock_summary_pdf_export": "PASS",
+    "stock_summary_excel_export": "PASS"
+  }
+}

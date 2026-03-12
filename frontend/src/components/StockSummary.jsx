@@ -1,0 +1,136 @@
+import { useState, useEffect, useCallback } from "react";
+import axios from "axios";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  RefreshCw, FileText, FileSpreadsheet, Package, Wheat, ShoppingBag, Box,
+} from "lucide-react";
+import { downloadFile } from "../utils/download";
+
+const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
+
+const categoryConfig = {
+  "Raw Material": { icon: Wheat, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-700" },
+  "Finished": { icon: Package, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-700" },
+  "By-Product": { icon: Box, color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-700" },
+  "Custom": { icon: ShoppingBag, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-700" },
+};
+
+export default function StockSummary({ filters }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const p = new URLSearchParams();
+      if (filters.kms_year) p.append('kms_year', filters.kms_year);
+      if (filters.season) p.append('season', filters.season);
+      const res = await axios.get(`${API}/stock-summary?${p}`);
+      setItems(res.data.items || []);
+    } catch { toast.error("Stock data load nahi hua"); }
+    finally { setLoading(false); }
+  }, [filters.kms_year, filters.season]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleExport = (type) => {
+    const p = new URLSearchParams();
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    downloadFile(`/api/stock-summary/export/${type}`, `stock_summary.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
+  };
+
+  // Group by category
+  const grouped = {};
+  items.forEach(item => {
+    const cat = item.category || "Other";
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(item);
+  });
+
+  const totalAvail = items.reduce((s, i) => s + (i.available || 0), 0);
+  const totalIn = items.reduce((s, i) => s + (i.in_qty || 0), 0);
+  const totalOut = items.reduce((s, i) => s + (i.out_qty || 0), 0);
+
+  return (
+    <div className="space-y-4" data-testid="stock-summary-section">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          ["Total Items", items.length, "text-white"],
+          ["Total In", `${totalIn.toFixed(2)} Q`, "text-emerald-400"],
+          ["Total Out", `${totalOut.toFixed(2)} Q`, "text-red-400"],
+          ["Net Available", `${totalAvail.toFixed(2)} Q`, totalAvail >= 0 ? "text-sky-400" : "text-red-400"],
+        ].map(([label, val, color]) => (
+          <Card key={label} className="bg-slate-800 border-slate-700">
+            <CardContent className="p-3 text-center">
+              <p className="text-[10px] text-slate-400">{label}</p>
+              <p className={`text-lg font-bold ${color}`} data-testid={`stock-${label.toLowerCase().replace(/\s/g,'-')}`}>{val}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="stock-refresh-btn">
+          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+        </Button>
+        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="stock-export-pdf">
+          <FileText className="w-4 h-4 mr-1" /> PDF
+        </Button>
+        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="stock-export-excel">
+          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+        </Button>
+      </div>
+
+      {/* Stock Items by Category */}
+      {loading ? (
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-8 text-center text-slate-400">Loading...</CardContent>
+        </Card>
+      ) : Object.entries(grouped).map(([category, catItems]) => {
+        const config = categoryConfig[category] || categoryConfig["Custom"];
+        const CatIcon = config.icon;
+        return (
+          <Card key={category} className={`bg-slate-800 ${config.border} border`} data-testid={`stock-category-${category.toLowerCase().replace(/\s/g,'-')}`}>
+            <CardContent className="p-0">
+              <div className={`${config.bg} px-4 py-2 flex items-center gap-2 border-b ${config.border}`}>
+                <CatIcon className={`w-4 h-4 ${config.color}`} />
+                <span className={`font-semibold text-sm ${config.color}`}>{category}</span>
+                <span className="text-slate-400 text-xs ml-2">({catItems.length} items)</span>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader><TableRow className="border-slate-700">
+                    {['Item', 'In (Qntl)', 'Out (Qntl)', 'Available', 'Details'].map(h =>
+                      <TableHead key={h} className={`text-slate-300 text-xs ${['In (Qntl)', 'Out (Qntl)', 'Available'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {catItems.map(item => (
+                      <TableRow key={item.name} className="border-slate-700" data-testid={`stock-row-${item.name.toLowerCase().replace(/[\s()]/g,'-')}`}>
+                        <TableCell className="text-white font-semibold text-sm">{item.name}</TableCell>
+                        <TableCell className="text-right text-emerald-400 text-sm">{item.in_qty} {item.unit}</TableCell>
+                        <TableCell className="text-right text-red-400 text-sm">{item.out_qty} {item.unit}</TableCell>
+                        <TableCell className={`text-right font-bold text-base ${item.available >= 0 ? config.color : 'text-red-400'}`} data-testid={`stock-avail-${item.name.toLowerCase().replace(/[\s()]/g,'-')}`}>
+                          {item.available} {item.unit}
+                        </TableCell>
+                        <TableCell className="text-slate-500 text-[10px] max-w-[250px]">{item.details}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}

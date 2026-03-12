@@ -1,0 +1,378 @@
+import { useState, useEffect, useCallback, useMemo } from "react";
+import axios from "axios";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee,
+} from "lucide-react";
+import { downloadFile } from "../utils/download";
+
+const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
+
+const emptyItem = { item_name: "", quantity: "", rate: "", unit: "Qntl" };
+
+export default function PurchaseVouchers({ filters, user }) {
+  const [vouchers, setVouchers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [searchText, setSearchText] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [form, setForm] = useState({
+    date: new Date().toISOString().split('T')[0],
+    party_name: "", invoice_no: "", truck_no: "",
+    items: [{ ...emptyItem }],
+    cash_paid: "", diesel_paid: "", advance: "", remark: "",
+    kms_year: "", season: "",
+  });
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const p = new URLSearchParams();
+      if (filters.kms_year) p.append('kms_year', filters.kms_year);
+      if (filters.season) p.append('season', filters.season);
+      if (searchText) p.append('search', searchText);
+      const res = await axios.get(`${API}/purchase-book?${p}`);
+      setVouchers(res.data);
+    } catch { toast.error("Data load nahi hua"); }
+    finally { setLoading(false); }
+  }, [filters.kms_year, filters.season, searchText]);
+
+  const fetchSuggestions = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/purchase-book/item-suggestions`);
+      setSuggestions(res.data || []);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchSuggestions(); }, [fetchSuggestions]);
+
+  const subtotal = useMemo(() =>
+    form.items.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0), 0)
+  , [form.items]);
+
+  const resetForm = () => {
+    setForm({
+      date: new Date().toISOString().split('T')[0],
+      party_name: "", invoice_no: "", truck_no: "",
+      items: [{ ...emptyItem }],
+      cash_paid: "", diesel_paid: "", advance: "", remark: "",
+      kms_year: filters.kms_year || "", season: filters.season || "",
+    });
+    setEditId(null);
+  };
+
+  const handleItemChange = (idx, field, value) => {
+    setForm(prev => {
+      const items = [...prev.items];
+      items[idx] = { ...items[idx], [field]: value };
+      return { ...prev, items };
+    });
+  };
+
+  const addItem = () => setForm(prev => ({ ...prev, items: [...prev.items, { ...emptyItem }] }));
+  const removeItem = (idx) => {
+    if (form.items.length <= 1) return;
+    setForm(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.party_name.trim()) { toast.error("Party name zaroori hai"); return; }
+    const validItems = form.items.filter(i => i.item_name.trim() && (parseFloat(i.quantity) || 0) > 0);
+    if (validItems.length === 0) { toast.error("Kam se kam ek item daalein"); return; }
+
+    const payload = {
+      ...form,
+      items: validItems.map(i => ({
+        item_name: i.item_name.trim(),
+        quantity: parseFloat(i.quantity) || 0,
+        rate: parseFloat(i.rate) || 0,
+        unit: i.unit || "Qntl",
+      })),
+      cash_paid: parseFloat(form.cash_paid) || 0,
+      diesel_paid: parseFloat(form.diesel_paid) || 0,
+      advance: parseFloat(form.advance) || 0,
+      kms_year: filters.kms_year || form.kms_year,
+      season: filters.season || form.season,
+    };
+
+    try {
+      if (editId) {
+        await axios.put(`${API}/purchase-book/${editId}?username=${user.username}&role=${user.role}`, payload);
+        toast.success("Purchase voucher update ho gaya!");
+      } else {
+        await axios.post(`${API}/purchase-book?username=${user.username}&role=${user.role}`, payload);
+        toast.success("Purchase voucher save ho gaya!");
+      }
+      setDialogOpen(false); resetForm(); fetchData(); fetchSuggestions();
+    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+  };
+
+  const handleEdit = (v) => {
+    setForm({
+      date: v.date || "", party_name: v.party_name || "", invoice_no: v.invoice_no || "",
+      truck_no: v.truck_no || "",
+      items: (v.items || []).map(i => ({
+        item_name: i.item_name || "", quantity: String(i.quantity || ""),
+        rate: String(i.rate || ""), unit: i.unit || "Qntl",
+      })),
+      cash_paid: String(v.cash_paid || ""), diesel_paid: String(v.diesel_paid || ""),
+      advance: String(v.advance || ""), remark: v.remark || "",
+      kms_year: v.kms_year || "", season: v.season || "",
+    });
+    setEditId(v.id);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete karna chahte hain?")) return;
+    try {
+      await axios.delete(`${API}/purchase-book/${id}?username=${user.username}&role=${user.role}`);
+      toast.success("Deleted!"); fetchData();
+    } catch { toast.error("Delete nahi hua"); }
+  };
+
+  const handleExport = (type) => {
+    const p = new URLSearchParams();
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    if (searchText) p.append('search', searchText);
+    downloadFile(`/api/purchase-book/export/${type}`, `purchase_book.${type === 'pdf' ? 'pdf' : 'xlsx'}`);
+  };
+
+  const totals = useMemo(() => {
+    const t = vouchers.reduce((a, v) => ({
+      total: a.total + (v.total || 0), advance: a.advance + (v.advance || 0),
+      cash: a.cash + (v.cash_paid || 0), diesel: a.diesel + (v.diesel_paid || 0),
+      balance: a.balance + (v.balance || 0),
+    }), { total: 0, advance: 0, cash: 0, diesel: 0, balance: 0 });
+    return { ...t, total: Math.round(t.total), balance: Math.round(t.balance) };
+  }, [vouchers]);
+
+  return (
+    <div className="space-y-4" data-testid="purchase-vouchers-section">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {[
+          ["Vouchers", vouchers.length, "text-white"],
+          ["Total Amount", `Rs.${totals.total.toLocaleString()}`, "text-emerald-400"],
+          ["Advance", `Rs.${Math.round(totals.advance).toLocaleString()}`, "text-sky-400"],
+          ["Cash+Diesel", `Rs.${Math.round(totals.cash + totals.diesel).toLocaleString()}`, "text-amber-400"],
+          ["Balance", `Rs.${totals.balance.toLocaleString()}`, "text-red-400"],
+        ].map(([label, val, color]) => (
+          <Card key={label} className="bg-slate-800 border-slate-700">
+            <CardContent className="p-3 text-center">
+              <p className="text-[10px] text-slate-400">{label}</p>
+              <p className={`text-lg font-bold ${color}`} data-testid={`pv-summary-${label.toLowerCase().replace(/\s/g,'-')}`}>{val}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="bg-emerald-500 hover:bg-emerald-600 text-white" size="sm" data-testid="pv-add-btn">
+          <Plus className="w-4 h-4 mr-1" /> Nayi Entry
+        </Button>
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300" data-testid="pv-refresh-btn">
+          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+        </Button>
+        <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="pv-export-pdf">
+          <FileText className="w-4 h-4 mr-1" /> PDF
+        </Button>
+        <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="pv-export-excel">
+          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+        </Button>
+        <div className="relative ml-auto min-w-[200px]">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input value={searchText} onChange={e => setSearchText(e.target.value)}
+            placeholder="Party / Invoice search..."
+            className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8" data-testid="pv-search-input" />
+        </div>
+      </div>
+
+      {/* Voucher List */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardContent className="p-0"><div className="overflow-x-auto">
+          <Table>
+            <TableHeader><TableRow className="border-slate-700">
+              {['#', 'Date', 'Invoice', 'Party', 'Items', 'Truck', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance', ''].map(h =>
+                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Total', 'Advance', 'Cash', 'Diesel', 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+            </TableRow></TableHeader>
+            <TableBody>
+              {loading ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+              : vouchers.length === 0 ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Koi purchase voucher nahi mila.</TableCell></TableRow>
+              : vouchers.map(v => (
+                <TableRow key={v.id} className="border-slate-700" data-testid={`pv-row-${v.id}`}>
+                  <TableCell className="text-slate-400 text-xs">{v.voucher_no}</TableCell>
+                  <TableCell className="text-white text-xs whitespace-nowrap">{v.date}</TableCell>
+                  <TableCell className="text-cyan-400 text-xs">{v.invoice_no || '-'}</TableCell>
+                  <TableCell className="text-white font-semibold text-sm">{v.party_name}</TableCell>
+                  <TableCell className="text-xs text-slate-300 max-w-[200px] truncate">
+                    {(v.items || []).map(i => `${i.item_name}(${i.quantity}${i.unit === 'Qntl' ? 'Q' : i.unit})`).join(', ')}
+                  </TableCell>
+                  <TableCell className="text-slate-300 text-xs">{v.truck_no || '-'}</TableCell>
+                  <TableCell className="text-right text-emerald-400 font-semibold text-sm">Rs.{(v.total || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-right text-sky-400 text-xs">Rs.{(v.advance || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-right text-amber-400 text-xs">Rs.{(v.cash_paid || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-right text-orange-400 text-xs">Rs.{(v.diesel_paid || 0).toLocaleString()}</TableCell>
+                  <TableCell className={`text-right font-semibold text-sm ${(v.balance || 0) > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`pv-balance-${v.id}`}>
+                    Rs.{(v.balance || 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex gap-1 justify-end">
+                      <Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => handleEdit(v)} data-testid={`pv-edit-${v.id}`}>
+                        <Eye className="w-3 h-3" />
+                      </Button>
+                      {user.role === 'admin' && (
+                        <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDelete(v.id)} data-testid={`pv-del-${v.id}`}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div></CardContent>
+      </Card>
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="pv-form-dialog">
+          <DialogHeader><DialogTitle className="text-emerald-400 flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5" /> {editId ? "Edit Purchase Voucher" : "Nayi Purchase Entry"}
+          </DialogTitle></DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <Label className="text-slate-300 text-xs">Date</Label>
+                <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+                  className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-date" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs">Party Name *</Label>
+                <Input value={form.party_name} onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
+                  placeholder="Party name" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="pv-party" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs">Invoice No.</Label>
+                <Input value={form.invoice_no} onChange={e => setForm(p => ({ ...p, invoice_no: e.target.value }))}
+                  placeholder="Invoice No." className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-invoice" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs">Truck No.</Label>
+                <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
+                  placeholder="Truck No." className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-truck" />
+              </div>
+            </div>
+
+            {/* Items */}
+            <Card className="bg-slate-700/50 border-slate-600">
+              <CardHeader className="pb-1 pt-2 px-3">
+                <CardTitle className="text-emerald-400 text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-2"><ShoppingBag className="w-4 h-4" /> Items</span>
+                  <Button type="button" onClick={addItem} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white h-6 text-xs" data-testid="pv-add-item">
+                    <Plus className="w-3 h-3 mr-1" /> Add Item
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-3 space-y-2">
+                {form.items.map((item, idx) => (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-4 relative">
+                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Item Name *</Label>}
+                      <Input value={item.item_name} onChange={e => handleItemChange(idx, 'item_name', e.target.value)}
+                        placeholder="Item name" className="bg-slate-600 border-slate-500 text-white h-8 text-sm" list={`item-suggest-${idx}`}
+                        data-testid={`pv-item-name-${idx}`} />
+                      <datalist id={`item-suggest-${idx}`}>
+                        {suggestions.map(s => <option key={s} value={s} />)}
+                      </datalist>
+                    </div>
+                    <div className="col-span-2">
+                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Qty</Label>}
+                      <Input type="number" step="0.01" value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', e.target.value)}
+                        placeholder="0" className="bg-slate-600 border-slate-500 text-white h-8 text-sm" data-testid={`pv-item-qty-${idx}`} />
+                    </div>
+                    <div className="col-span-2">
+                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Rate</Label>}
+                      <Input type="number" step="0.01" value={item.rate} onChange={e => handleItemChange(idx, 'rate', e.target.value)}
+                        placeholder="0" className="bg-slate-600 border-slate-500 text-white h-8 text-sm" data-testid={`pv-item-rate-${idx}`} />
+                    </div>
+                    <div className="col-span-2">
+                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Amount</Label>}
+                      <Input value={`Rs.${((parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0)).toLocaleString()}`}
+                        readOnly className="bg-emerald-900/30 border-emerald-700 text-emerald-400 h-8 text-sm font-semibold" />
+                    </div>
+                    <div className="col-span-1">
+                      {idx === 0 && <Label className="text-slate-400 text-[10px]">Unit</Label>}
+                      <Input value={item.unit} onChange={e => handleItemChange(idx, 'unit', e.target.value)}
+                        className="bg-slate-600 border-slate-500 text-white h-8 text-xs" data-testid={`pv-item-unit-${idx}`} />
+                    </div>
+                    <div className="col-span-1 flex items-end">
+                      {form.items.length > 1 && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(idx)} className="h-8 px-1 text-red-400" data-testid={`pv-item-del-${idx}`}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-end pt-2 border-t border-slate-600">
+                  <span className="text-emerald-400 font-bold text-lg" data-testid="pv-subtotal">
+                    Total: Rs.{subtotal.toLocaleString()}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment Details */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <Label className="text-emerald-400 text-xs font-semibold flex items-center gap-1"><IndianRupee className="w-3 h-3" /> Cash Paid</Label>
+                <Input type="number" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
+                  placeholder="0" className="bg-emerald-900/30 border-emerald-700 text-emerald-400 h-8 text-sm" data-testid="pv-cash" />
+              </div>
+              <div>
+                <Label className="text-orange-400 text-xs font-semibold">Diesel Paid</Label>
+                <Input type="number" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))}
+                  placeholder="0" className="bg-orange-900/30 border-orange-700 text-orange-400 h-8 text-sm" data-testid="pv-diesel" />
+              </div>
+              <div>
+                <Label className="text-sky-400 text-xs font-semibold">Advance Paid</Label>
+                <Input type="number" value={form.advance} onChange={e => setForm(p => ({ ...p, advance: e.target.value }))}
+                  placeholder="0" className="bg-sky-900/30 border-sky-700 text-sky-400 h-8 text-sm" data-testid="pv-advance" />
+              </div>
+              <div>
+                <Label className="text-slate-300 text-xs">Remark</Label>
+                <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
+                  placeholder="Remark" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-remark" />
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} className="border-slate-600 text-slate-300">Cancel</Button>
+              <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold" data-testid="pv-submit">
+                {editId ? "Update" : "Save"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
