@@ -133,6 +133,29 @@ async def make_voucher_payment(request: Request):
     return {"success": True, "payment_id": payment_id, "amount": amount, "party": party}
 
 
+
+@router.get("/voucher-payment/history/{party_name}")
+async def get_voucher_payment_history(party_name: str, party_type: str = ""):
+    """Get payment history for a party from the ledger (source of truth)"""
+    query = {"account": "ledger", "txn_type": "nikasi", "category": party_name}
+    if party_type:
+        query["party_type"] = party_type
+    ledger_payments = await db.cash_transactions.find(query, {"_id": 0}).to_list(50000)
+    history = []
+    for txn in ledger_payments:
+        history.append({
+            "amount": txn.get("amount", 0),
+            "date": txn.get("created_at") or txn.get("date", ""),
+            "note": txn.get("description", ""),
+            "by": txn.get("created_by", "system"),
+            "source": "ledger"
+        })
+    history.sort(key=lambda h: h.get("date", ""), reverse=True)
+    total_paid = round(sum(h.get("amount", 0) for h in history), 2)
+    return {"history": history, "total_paid": total_paid}
+
+
+
 # ============ SALE INVOICE PDF ============
 
 @router.get("/sale-book/invoice/{voucher_id}")

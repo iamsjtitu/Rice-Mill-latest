@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package, Edit } from "lucide-react";
+import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package, Edit, Clock, History } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -528,6 +528,26 @@ export const GunnyBags = ({ filters, user }) => {
   const [payAmount, setPayAmount] = useState("");
   const [payNotes, setPayNotes] = useState("");
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyParty, setHistoryParty] = useState("");
+  const [historyData, setHistoryData] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const fetchHistory = async (party) => {
+    setHistoryLoading(true);
+    try {
+      const res = await axios.get(`${API}/voucher-payment/history/${encodeURIComponent(party)}?party_type=Gunny Bag`);
+      setHistoryData(res.data.history || []);
+    } catch (e) { setHistoryData([]); }
+    finally { setHistoryLoading(false); }
+  };
+
+  const openHistory = (party) => {
+    setHistoryParty(party);
+    setShowHistory(true);
+    fetchHistory(party);
+  };
+
   const handleGunnyPayment = async () => {
     if (!payDialog || !payAmount || parseFloat(payAmount) <= 0) { toast.error("Amount daalna zaroori hai"); return; }
     try {
@@ -663,13 +683,13 @@ export const GunnyBags = ({ filters, user }) => {
                     (e.ledger_balance != null ? e.ledger_balance : ((e.total || e.amount || 0) - (e.advance || 0))) <= 0 ? (
                       <>
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" data-testid={`gunny-paid-badge-${e.id}`}>Paid</span>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-sky-400" onClick={() => { setHistoryParty(e.party_name || e.source); setShowHistory(true); }} title="Payment History" data-testid={`gunny-history-${e.id}`}><Clock className="w-3 h-3" /></Button>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-sky-400" onClick={() => openHistory(e.party_name || e.source)} title="Payment History" data-testid={`gunny-history-${e.id}`}><Clock className="w-3 h-3" /></Button>
                       </>
                     ) : (
                       user.role === 'admin' && !e.linked_entry_id && (
                         <>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-emerald-400" onClick={() => { setPayDialog(e); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); }} title="Payment Karein" data-testid={`gunny-pay-${e.id}`}><IndianRupee className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-sky-400" onClick={() => { setHistoryParty(e.party_name || e.source); setShowHistory(true); }} title="Payment History" data-testid={`gunny-history-${e.id}`}><Clock className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-sky-400" onClick={() => openHistory(e.party_name || e.source)} title="Payment History" data-testid={`gunny-history-${e.id}`}><Clock className="w-3 h-3" /></Button>
                         </>
                       )
                     )
@@ -796,6 +816,42 @@ export const GunnyBags = ({ filters, user }) => {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment History Dialog */}
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white" data-testid="gunny-history-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <History className="w-5 h-5" /> Payment History
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-slate-300 text-sm border-b border-slate-600 pb-2">Party: {historyParty}</p>
+            {historyLoading ? (
+              <p className="text-slate-400 text-center py-4">Loading...</p>
+            ) : historyData.length > 0 ? (
+              <div className="max-h-[300px] overflow-y-auto space-y-2">
+                {historyData.map((record, idx) => (
+                  <div key={idx} className="p-3 rounded-lg border bg-slate-700/50 border-slate-600">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-emerald-400 font-bold">+Rs.{Math.abs(record.amount).toLocaleString('en-IN')}</p>
+                        <p className="text-slate-400 text-xs">{record.note || 'Payment'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-slate-400 text-xs">{new Date(record.date).toLocaleDateString('hi-IN')}</p>
+                        <p className="text-slate-500 text-xs">by {record.by}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-center py-4">Koi payment record nahi hai</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

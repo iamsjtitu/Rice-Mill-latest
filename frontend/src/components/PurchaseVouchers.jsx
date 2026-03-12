@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt,
+  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt, Clock, History,
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
 
@@ -36,6 +36,25 @@ export default function PurchaseVouchers({ filters, user }) {
   const [payAmount, setPayAmount] = useState("");
   const [payNotes, setPayNotes] = useState("");
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyParty, setHistoryParty] = useState("");
+  const [historyData, setHistoryData] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const fetchHistory = async (party) => {
+    setHistoryLoading(true);
+    try {
+      const res = await axios.get(`${API}/voucher-payment/history/${encodeURIComponent(party)}?party_type=Purchase Voucher`);
+      setHistoryData(res.data.history || []);
+    } catch (e) { setHistoryData([]); }
+    finally { setHistoryLoading(false); }
+  };
+
+  const openHistory = (party) => {
+    setHistoryParty(party);
+    setShowHistory(true);
+    fetchHistory(party);
+  };
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
     party_name: "", invoice_no: "", rst_no: "", truck_no: "", eway_bill_no: "",
@@ -294,10 +313,24 @@ export default function PurchaseVouchers({ filters, user }) {
                     Rs.{(v.ledger_balance != null ? v.ledger_balance : (v.balance || 0)).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog(v); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); }} title="Payment Karein" data-testid={`pv-pay-${v.id}`}>
-                        <IndianRupee className="w-3 h-3" />
-                      </Button>
+                    <div className="flex gap-1 justify-end items-center">
+                      {(v.ledger_balance != null ? v.ledger_balance : (v.balance || 0)) <= 0 && (v.total || 0) > 0 ? (
+                        <>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" data-testid={`pv-paid-badge-${v.id}`}>Paid</span>
+                          <Button variant="ghost" size="sm" className="h-6 px-1 text-sky-400" onClick={() => openHistory(v.party_name)} title="Payment History" data-testid={`pv-history-${v.id}`}>
+                            <Clock className="w-3 h-3" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="ghost" size="sm" className="h-6 px-1 text-emerald-400" onClick={() => { setPayDialog(v); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); }} title="Payment Karein" data-testid={`pv-pay-${v.id}`}>
+                            <IndianRupee className="w-3 h-3" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-6 px-1 text-sky-400" onClick={() => openHistory(v.party_name)} title="Payment History" data-testid={`pv-history-${v.id}`}>
+                            <Clock className="w-3 h-3" />
+                          </Button>
+                        </>
+                      )}
                       <Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => handleEdit(v)} data-testid={`pv-edit-${v.id}`}>
                         <Eye className="w-3 h-3" />
                       </Button>
@@ -541,6 +574,42 @@ export default function PurchaseVouchers({ filters, user }) {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment History Dialog */}
+      <Dialog open={showHistory} onOpenChange={setShowHistory}>
+        <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white" data-testid="pv-history-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <History className="w-5 h-5" /> Payment History
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-slate-300 text-sm border-b border-slate-600 pb-2">Party: {historyParty}</p>
+            {historyLoading ? (
+              <p className="text-slate-400 text-center py-4">Loading...</p>
+            ) : historyData.length > 0 ? (
+              <div className="max-h-[300px] overflow-y-auto space-y-2">
+                {historyData.map((record, idx) => (
+                  <div key={idx} className="p-3 rounded-lg border bg-slate-700/50 border-slate-600">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-emerald-400 font-bold">+Rs.{Math.abs(record.amount).toLocaleString('en-IN')}</p>
+                        <p className="text-slate-400 text-xs">{record.note || 'Payment'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-slate-400 text-xs">{new Date(record.date).toLocaleDateString('hi-IN')}</p>
+                        <p className="text-slate-500 text-xs">by {record.by}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-center py-4">Koi payment record nahi hai</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
