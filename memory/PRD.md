@@ -1,13 +1,13 @@
 # NAVKAR AGRO - Mill Entry System PRD
 
 ## Original Problem Statement
-Synchronize a web application with a standalone desktop app. Focus pivoted to fixing critical bugs and adding features to the web application's financial and inventory systems.
+Web application for rice mill financial and inventory management. Focus on data consistency, stock accuracy, reporting, and UI/UX improvements.
 
 ## Core Requirements
-1. **Data Consistency**: All financial transactions accurately reflected across all modules, Ledger (cashbook) as single source of truth
-2. **Stock Accuracy**: Purchases via Purchase Vouchers correctly update stock everywhere
-3. **Reporting**: Accurate, well-formatted, A4-printable PDF/Excel reports
-4. **UI/UX**: Individual invoice printing, bulk actions, improved form layouts
+1. **Data Consistency**: Ledger (cashbook) as single source of truth
+2. **Stock Accuracy**: Purchases correctly update stock everywhere
+3. **Reporting**: Accurate, A4-printable PDF/Excel reports
+4. **UI/UX**: Invoice printing, bulk actions, improved forms
 
 ## Architecture
 - **Frontend**: React (Vite) + Shadcn/UI + Tailwind
@@ -15,40 +15,44 @@ Synchronize a web application with a standalone desktop app. Focus pivoted to fi
 - **Database**: MongoDB
 - **Desktop**: Electron + Node.js (paused)
 
-## What's Been Implemented
+## What's Been Implemented (2026-03-12 Session)
 
-### Completed Features (Current Session - 2026-03-12)
-- **Bug Fix**: "Move to Paddy Purchase" entries filtered out from Truck Payments (Bhada) - `source: "agent_extra"` excluded
-- **Feature**: "Move to Paddy Purchase" auto-creates jama ledger entry for party (CashBook integration)
-- **Feature**: CashBook nikasi payments for Pvt Paddy Purchase parties auto-update `private_paddy.paid_amount`
-- **Feature**: Deleting CashBook nikasi auto-reverts `private_paddy.paid_amount`
-- **Feature**: Paddy Purchase entries now auto-create **truck jama (credit) ledger entry** at creation time (using existing truck rate or default 32/qntl)
-- **Feature**: Rate-setting for Pvt Paddy trucks now creates/updates jama ledger entry (same as Sale/Purchase vouchers)
-- **Verified**: Moisture % auto-calculation IS working - user enters Moisture %, Moisture Cut auto-calculates when moisture > 17%
+### Bug Fixes
+- "Move to Paddy Purchase" entries excluded from Truck Payments (Bhada)
+- Stock calculation fixed: Pvt Paddy uses QNTL - BAG/100 (not final_qntl)
+- agent_extra entries excluded from stock calculation (already counted in CMR)
 
-### Previous Session Completed Features
-- Stock calculation fixes, PDF/Excel export overhaul, Individual voucher printing
-- Purchase form redesign, Stock Summary exports, Stock items dropdown
-- Purchase voucher save bug fix, Report label rename
+### Features Added
+- **Party Jama Ledger**: Paddy purchase auto-creates jama entry for party (e.g., "Raju - Nayapali") with total_amount
+- **Truck Jama Ledger**: Paddy purchase auto-creates jama entry for truck with transport rate
+- **Advance Ledger**: Advance paid creates ledger nikasi for party (shows in party ledger)
+- **CashBook Auto-Sync**: Nikasi payments auto-update private_paddy.paid_amount/balance/status
+- **Delete Revert**: Deleting CashBook nikasi reverts private_paddy.paid_amount
+- **Rate-Setting Jama**: Setting truck rate for Pvt Paddy creates/updates truck jama entry
 
 ### Key Technical Decisions
-- Ledger is Single Source of Truth
-- Purchases must update stock everywhere
-- agent_extra entries excluded from truck payments
-- Pvt Paddy truck jama reference: `pvt_truck_jama:{entry_id[:8]}`
-- CashBook nikasi auto-syncs with private_paddy paid_amount
+- Ledger = Single Source of Truth
+- agent_extra excluded from both truck payments and stock calculations
+- Party label format: "{party_name} - {mandi_name}"
+- Pvt Paddy stock formula: QNTL - BAG/100 (same as CMR: QNTL - BAG/100 - P.PKT_CUT/100)
+- References: pvt_party_jama, pvt_truck_jama, pvt_paddy_advl, pvt_paddy_tcash, pvt_paddy_tdiesel
+
+## Known Issues
+- **Lokesh Fuels**: Has 2 auto_ledger entries with empty descriptions (Rs.500 and Rs.3000) that seem to be user-created manual entries. Not a code bug - user should delete if they're duplicates.
 
 ## Prioritized Backlog
-- P1: Desktop App Sync (paused, pending web app stability confirmation)
+- P1: Desktop App Sync (paused)
 - P2: Refactor duplicated PDF/Excel logic
 - P2: Break down large frontend components
 - P2: Centralize stock calculation logic
 
 ## Key Files Modified (2026-03-12)
-- `backend/routes/payments.py` - Excluded agent_extra from truck payments; added pvt truck jama in rate-setting; added pvt refs to deduction_refs
-- `backend/routes/reports.py` - Auto-create jama ledger on "Move to Paddy Purchase"
+- `backend/routes/private_trading.py` - Party jama + advance ledger + truck jama creation
+- `backend/routes/payments.py` - Truck jama on rate-setting, agent_extra exclusion
 - `backend/routes/cashbook.py` - Auto-update private_paddy on nikasi/delete
-- `backend/routes/private_trading.py` - Auto-create truck jama entry on pvt paddy creation
+- `backend/routes/reports.py` - Jama ledger on "Move to Paddy Purchase"
+- `backend/routes/milling.py` - Fixed pvt paddy stock formula, excluded agent_extra
+- `backend/routes/exports.py` - Fixed pvt paddy stock formula in exports
 
 ## Credentials
 - Admin: admin / admin123

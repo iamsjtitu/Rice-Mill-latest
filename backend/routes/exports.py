@@ -119,8 +119,10 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
         mill_res = await db.mill_entries.aggregate(pipe).to_list(1)
         cmr_paddy = round((mill_res[0]["total"] / 100) if mill_res else 0, 2)
 
-        pvt_entries = await db.private_paddy.find(dict(query), {"_id": 0}).to_list(5000)
-        pvt_paddy = round(sum(e.get("net_weight", 0) for e in pvt_entries) / 100, 2)
+        pvt_query = dict(query)
+        pvt_query["source"] = {"$ne": "agent_extra"}
+        pvt_entries = await db.private_paddy.find(pvt_query, {"_id": 0, "qntl": 1, "bag": 1}).to_list(5000)
+        pvt_paddy = round(sum(e.get("qntl", 0) - e.get("bag", 0) / 100 for e in pvt_entries), 2)
 
         milling_entries = await db.milling_entries.find(dict(query), {"_id": 0}).to_list(5000)
         paddy_used = round(sum(e.get("paddy_used", 0) for e in milling_entries), 2)
@@ -274,8 +276,10 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     pipe = [{"$match": query}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
     mill_res = await db.mill_entries.aggregate(pipe).to_list(1)
     cmr_paddy = round((mill_res[0]["total"] / 100) if mill_res else 0, 2)
-    pvt_entries = await db.private_paddy.find(dict(query), {"_id": 0}).to_list(5000)
-    pvt_paddy = round(sum(e.get("net_weight", 0) for e in pvt_entries) / 100, 2)
+    pvt_query_exp = dict(query)
+    pvt_query_exp["source"] = {"$ne": "agent_extra"}
+    pvt_entries = await db.private_paddy.find(pvt_query_exp, {"_id": 0, "qntl": 1, "bag": 1}).to_list(5000)
+    pvt_paddy = round(sum(e.get("qntl", 0) - e.get("bag", 0) / 100 for e in pvt_entries), 2)
     milling_entries = await db.milling_entries.find(dict(query), {"_id": 0}).to_list(5000)
     paddy_used = round(sum(e.get("paddy_used", 0) for e in milling_entries), 2)
     rice_raw = round(sum(e.get("rice_produced", 0) for e in milling_entries if e.get("product_type") in ("raw", None)), 2)
