@@ -18,7 +18,7 @@ async def get_company_name():
     return "Mill Entry System", ""
 
 async def _find_truck_entry(entry_id):
-    """Find entry from mill_entries, private_paddy, rice_sales, or sale_vouchers - return (entry, source, final_qntl)"""
+    """Find entry from mill_entries, private_paddy, rice_sales, sale_vouchers, or dc_deliveries - return (entry, source, final_qntl)"""
     entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     if entry:
         fq = round(entry.get("qntl", 0) - entry.get("bag", 0) / 100, 2)
@@ -33,6 +33,9 @@ async def _find_truck_entry(entry_id):
     if entry:
         total_qty = sum(i.get("quantity", 0) for i in entry.get("items", []))
         return entry, "sale_book", round(total_qty, 2)
+    entry = await db.dc_deliveries.find_one({"id": entry_id}, {"_id": 0})
+    if entry:
+        return entry, "dc_delivery", round(entry.get("quantity_qntl", 0), 2)
     return None, None, 0
 
 # ============ TRUCK PAYMENT ENDPOINTS ============
@@ -308,6 +311,49 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
             agent_name="",
             mandi_name=label,
             source="Sale Book"
+        ))
+
+    # Also include DC Deliveries with vehicle_no (cash + diesel go to truck)
+    dc_del_query = {}
+    if kms_year: dc_del_query["kms_year"] = kms_year
+    if season: dc_del_query["season"] = season
+    dc_deliveries = await db.dc_deliveries.find(dc_del_query, {"_id": 0}).sort([("date", -1)]).to_list(1000)
+    for dd in dc_deliveries:
+        truck_no = dd.get("vehicle_no", "")
+        if not truck_no:
+            continue
+        cash_paid = float(dd.get("cash_paid", 0) or 0)
+        diesel_paid = float(dd.get("diesel_paid", 0) or 0)
+        if cash_paid == 0 and diesel_paid == 0:
+            continue
+        deductions = round(cash_paid + diesel_paid, 2)
+        dc_id = dd.get("dc_id", "")
+        dc_entry = await db.dc_entries.find_one({"id": dc_id}, {"_id": 0})
+        dc_num = dc_entry.get("dc_number", "") if dc_entry else ""
+        label = f"DC Delivery - {dc_num}" if dc_num else "DC Delivery"
+        inv = dd.get("invoice_no", "")
+        if inv: label += f" ({inv})"
+        payments.append(TruckPaymentStatus(
+            entry_id=dd.get("id", ""),
+            truck_no=truck_no,
+            date=dd.get("date", ""),
+            total_qntl=round(dd.get("quantity_qntl", 0), 2),
+            total_bag=0,
+            final_qntl=round(dd.get("quantity_qntl", 0), 2),
+            cash_taken=cash_paid,
+            diesel_taken=diesel_paid,
+            rate_per_qntl=0,
+            gross_amount=deductions,
+            deductions=deductions,
+            net_amount=0,
+            paid_amount=deductions,
+            balance_amount=0,
+            status="paid",
+            kms_year=dd.get("kms_year", ""),
+            season=dd.get("season", ""),
+            agent_name=dd.get("driver_name", ""),
+            mandi_name=label,
+            source="DC Delivery"
         ))
 
     # Sort by date descending (newest first)
