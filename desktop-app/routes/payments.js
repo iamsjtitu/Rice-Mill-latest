@@ -7,7 +7,8 @@ module.exports = function(database) {
 
   // ===== TRUCK PAYMENTS =====
   router.get('/api/truck-payments', safeSync((req, res) => {
-    const entries = database.getEntries(req.query);
+    // Exclude "Move to Paddy Purchase" entries (agent_extra settled)
+    const entries = database.getEntries(req.query).filter(e => !e.moved_to_pvt_paddy);
     const allTxns = database.data.cash_transactions || [];
     
     // Get all truck_nos

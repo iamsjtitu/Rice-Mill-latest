@@ -1,0 +1,115 @@
+{
+  "summary": "Iteration 84 - FY Summary with Ledger Parties, Carry Forward API, and Local Party Summary Bar Fix. All backend tests passed (15/15). Frontend verified: FY Summary Dashboard shows all 11 sections including Ledger Parties, Carry Forward button, PDF Export. Local Party summary bar correctly HIDDEN when no party selected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration84_fy_summary_local_party.py",
+    "/app/test_reports/pytest/pytest_results_iteration84.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration84_fy_summary_local_party.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 tests passed)",
+    "frontend": "100% - All features verified via Playwright"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "FY Summary Dashboard with all 11 sections (cash_bank, paddy_stock, milling, frk_stock, byproducts, mill_parts, diesel, local_party, staff_advances, private_trading, ledger_parties) fully working. Carry Forward API saves closing balances as next FY opening. Local Party summary bar correctly hides when no party selected.",
+  "features_tested": {
+    "local_party_summary_bar": {
+      "status": "PASSED",
+      "description": "Summary bar correctly HIDDEN when no party selected. Shows when party is selected.",
+      "implementation": "Lines 267-288 in LocalPartyAccount.jsx: {summary && selectedParty && (...)} ensures bar only shows when party selected"
+    },
+    "fy_summary_api": {
+      "status": "PASSED",
+      "description": "GET /api/fy-summary returns all 11 sections including ledger_parties",
+      "sections_verified": ["cash_bank", "paddy_stock", "milling", "frk_stock", "byproducts", "mill_parts", "diesel", "local_party", "staff_advances", "private_trading", "ledger_parties"]
+    },
+    "fy_summary_ledger_parties": {
+      "status": "PASSED",
+      "description": "ledger_parties section includes total_parties, total_opening, total_jama, total_nikasi, total_closing, and per-party data",
+      "sample_data": "24 parties with Opening: -40000, Jama: 839191.4, Nikasi: 852191.4, Closing: -53000"
+    },
+    "fy_summary_carry_forward": {
+      "status": "PASSED",
+      "description": "POST /api/fy-summary/carry-forward saves all closing balances as next FY opening",
+      "test_verified": "2025-26 closing carried to 2026-27 opening. Cash/Bank/Paddy/FRK/Byproducts/Mill Parts/Diesel/Staff/Ledger Parties all preserved"
+    },
+    "fy_summary_pdf": {
+      "status": "PASSED",
+      "description": "GET /api/fy-summary/pdf exports PDF with all 11 sections including Ledger Parties (section 10)"
+    },
+    "fy_summary_dashboard_frontend": {
+      "status": "PASSED",
+      "components_verified": [
+        "Cash & Bank card with Opening/In/Out/Closing",
+        "Paddy Stock card",
+        "FRK Stock card",
+        "Milling Summary with 6 metrics",
+        "Byproduct Stock table",
+        "Mill Parts Stock table",
+        "Diesel Accounts table",
+        "Local Party Accounts summary",
+        "Staff Advances table",
+        "Ledger Parties (Cashbook) card with per-party table",
+        "Private Trading card with Paddy/Rice sections",
+        "Carry Forward to Next FY button",
+        "PDF Export button",
+        "Refresh button"
+      ]
+    }
+  },
+  "api_verification": {
+    "fy_summary_get": {
+      "endpoint": "GET /api/fy-summary?kms_year=2025-26",
+      "status": 200,
+      "response_has_all_11_sections": true
+    },
+    "fy_summary_carry_forward": {
+      "endpoint": "POST /api/fy-summary/carry-forward",
+      "payload": {"kms_year": "2025-26"},
+      "status": 200,
+      "returns": {"next_fy": "2026-27", "opening_balances": "...all entities..."}
+    },
+    "fy_summary_pdf": {
+      "endpoint": "GET /api/fy-summary/pdf?kms_year=2025-26",
+      "status": 200,
+      "content_type": "application/pdf"
+    },
+    "local_party_summary": {
+      "endpoint": "GET /api/local-party/summary?kms_year=2025-26",
+      "status": 200,
+      "response_has": ["parties", "grand_total_debit", "grand_total_paid", "grand_balance"]
+    },
+    "local_party_report": {
+      "endpoint": "GET /api/local-party/report/{party_name}",
+      "status": 200,
+      "response_has": ["total_debit", "total_paid", "balance", "transactions"]
+    }
+  },
+  "test_summary": {
+    "total_tests": 15,
+    "passed": 15,
+    "failed": 0,
+    "tests_by_class": {
+      "TestLocalPartySummary": 2,
+      "TestFYSummaryEndpoint": 6,
+      "TestFYSummaryCarryForward": 3,
+      "TestFYSummaryPDF": 1,
+      "TestByproductsAndFRK": 2,
+      "TestPrivateTrading": 1
+    }
+  }
+}

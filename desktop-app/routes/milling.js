@@ -39,8 +39,8 @@ module.exports = function(database) {
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
     // CMR paddy: QNTL - BAG - P.Cut
     const cmrIn = +(entries.reduce((s, e) => s + ((e.qntl || 0) - (e.bag || 0) / 100 - (e.p_pkt_cut || 0) / 100), 0)).toFixed(2);
-    // Private paddy purchases (NOT in custody maintenance)
-    let pvtEntries = database.data.private_paddy || [];
+    // Private paddy purchases (NOT in custody maintenance, EXCLUDE agent_extra to avoid double-counting)
+    let pvtEntries = (database.data.private_paddy || []).filter(e => e.source !== 'agent_extra');
     if (filters.kms_year) pvtEntries = pvtEntries.filter(e => e.kms_year === filters.kms_year);
     if (filters.season) pvtEntries = pvtEntries.filter(e => e.season === filters.season);
     const pvtIn = +pvtEntries.reduce((s, e) => s + (e.final_qntl || 0), 0).toFixed(2);

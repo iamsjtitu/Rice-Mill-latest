@@ -264,10 +264,10 @@ const LocalPartyAccount = ({ filters, user }) => {
         </div>
       </div>
 
-      {/* Grand Totals Bar */}
-      {summary && (
+      {/* Grand Totals Bar - only show when party selected */}
+      {summary && selectedParty && (
         <div className="flex gap-3 text-xs flex-wrap">
-          {selectedParty && selectedParty !== "__all__" && partyInfo ? (
+          {selectedParty !== "__all__" && partyInfo ? (
             <>
               <span className="text-slate-400">Party: <b className="text-white">{selectedParty}</b></span>
               {(partyInfo.opening_balance || 0) > 0 && <span className="text-slate-400">Opening Bal: <b className="text-yellow-400">Rs.{(partyInfo.opening_balance || 0).toLocaleString('en-IN')}</b></span>}
@@ -275,7 +275,7 @@ const LocalPartyAccount = ({ filters, user }) => {
               <span className="text-slate-400">Total Paid: <b className="text-green-400">Rs.{(partyInfo.total_paid || 0).toLocaleString('en-IN')}</b></span>
               <span className="text-slate-400">Balance: <b className="text-red-400">Rs.{(partyInfo.balance || 0).toLocaleString('en-IN')}</b></span>
             </>
-          ) : (
+          ) : selectedParty === "__all__" ? (
             <>
               <span className="text-slate-400">Parties: <b className="text-white">{summary.parties?.length || 0}</b></span>
               {(summary.grand_opening_balance || 0) > 0 && <span className="text-slate-400">Opening Bal: <b className="text-yellow-400">Rs.{(summary.grand_opening_balance || 0).toLocaleString('en-IN')}</b></span>}
@@ -283,7 +283,7 @@ const LocalPartyAccount = ({ filters, user }) => {
               <span className="text-slate-400">Total Paid: <b className="text-green-400">Rs.{(summary.grand_total_paid || 0).toLocaleString('en-IN')}</b></span>
               <span className="text-slate-400">Balance: <b className="text-red-400">Rs.{(summary.grand_balance || 0).toLocaleString('en-IN')}</b></span>
             </>
-          )}
+          ) : null}
         </div>
       )}
 

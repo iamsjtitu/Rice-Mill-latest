@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from datetime import datetime
 from typing import Optional
@@ -15,6 +15,15 @@ def get_prev_fy(kms_year: str) -> str:
             pass
     return ""
 
+def get_next_fy(kms_year: str) -> str:
+    parts = kms_year.split('-')
+    if len(parts) == 2:
+        try:
+            return f"{int(parts[0])+1}-{int(parts[1])+1}"
+        except (ValueError, IndexError):
+            pass
+    return ""
+
 
 @router.get("/fy-summary")
 async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
@@ -27,26 +36,33 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
     if prev_fy: prev_q["kms_year"] = prev_fy
     if season: prev_q["season"] = season
 
+    # Load saved opening balances for this FY
+    saved_ob = None
+    if kms_year:
+        saved_ob = await db.opening_balances.find_one({"kms_year": kms_year}, {"_id": 0})
+
     # ===== 1. CASH & BANK =====
-    cash_txns = await db.cash_transactions.find(query, {"_id": 0}).to_list(10000)
+    cash_txns = await db.cash_transactions.find(query, {"_id": 0}).to_list(100000)
     cash_in = sum(t.get("amount", 0) for t in cash_txns if t.get("account") == "cash" and t.get("txn_type") == "jama")
     cash_out = sum(t.get("amount", 0) for t in cash_txns if t.get("account") == "cash" and t.get("txn_type") == "nikasi")
     bank_in = sum(t.get("amount", 0) for t in cash_txns if t.get("account") == "bank" and t.get("txn_type") == "jama")
     bank_out = sum(t.get("amount", 0) for t in cash_txns if t.get("account") == "bank" and t.get("txn_type") == "nikasi")
 
-    # Opening balance from saved or computed
     ob_cash, ob_bank = 0.0, 0.0
-    if kms_year:
-        saved_ob = await db.opening_balances.find_one({"kms_year": kms_year}, {"_id": 0})
-        if saved_ob:
-            ob_cash = saved_ob.get("cash", 0.0)
-            ob_bank = saved_ob.get("bank", 0.0)
-        elif prev_fy:
-            prev_cash = await db.cash_transactions.find(prev_q, {"_id": 0}).to_list(10000)
-            p_ci = sum(t.get("amount", 0) for t in prev_cash if t.get("account") == "cash" and t.get("txn_type") == "jama")
-            p_co = sum(t.get("amount", 0) for t in prev_cash if t.get("account") == "cash" and t.get("txn_type") == "nikasi")
-            p_bi = sum(t.get("amount", 0) for t in prev_cash if t.get("account") == "bank" and t.get("txn_type") == "jama")
-            p_bo = sum(t.get("amount", 0) for t in prev_cash if t.get("account") == "bank" and t.get("txn_type") == "nikasi")
+    if saved_ob:
+        ob_cash = saved_ob.get("cash", 0.0)
+        ob_bank = saved_ob.get("bank", 0.0)
+    elif prev_fy:
+        prev_cash = await db.cash_transactions.find(prev_q, {"_id": 0}).to_list(100000)
+        p_ci = sum(t.get("amount", 0) for t in prev_cash if t.get("account") == "cash" and t.get("txn_type") == "jama")
+        p_co = sum(t.get("amount", 0) for t in prev_cash if t.get("account") == "cash" and t.get("txn_type") == "nikasi")
+        p_bi = sum(t.get("amount", 0) for t in prev_cash if t.get("account") == "bank" and t.get("txn_type") == "jama")
+        p_bo = sum(t.get("amount", 0) for t in prev_cash if t.get("account") == "bank" and t.get("txn_type") == "nikasi")
+        prev_saved = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
+        if prev_saved:
+            ob_cash = round(prev_saved.get("cash", 0) + p_ci - p_co, 2)
+            ob_bank = round(prev_saved.get("bank", 0) + p_bi - p_bo, 2)
+        else:
             ob_cash = round(p_ci - p_co, 2)
             ob_bank = round(p_bi - p_bo, 2)
 
@@ -64,12 +80,16 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
     paddy_used = round(sum(e.get("paddy_input_qntl", 0) for e in milling_entries), 2)
 
     ob_paddy = 0.0
-    if prev_fy:
+    if saved_ob and "paddy_stock" in saved_ob:
+        ob_paddy = saved_ob.get("paddy_stock", 0.0)
+    elif prev_fy:
+        prev_saved = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
         prev_me = await db.mill_entries.find(prev_q, {"_id": 0, "qntl": 1, "bag": 1}).to_list(10000)
         prev_mi = await db.milling_entries.find(prev_q, {"_id": 0, "paddy_input_qntl": 1}).to_list(10000)
         prev_paddy_in = sum(e.get("qntl", 0) - e.get("bag", 0) / 100 for e in prev_me)
         prev_paddy_used = sum(e.get("paddy_input_qntl", 0) for e in prev_mi)
-        ob_paddy = round(prev_paddy_in - prev_paddy_used, 2)
+        prev_ob_paddy = prev_saved.get("paddy_stock", 0) if prev_saved else 0
+        ob_paddy = round(prev_ob_paddy + prev_paddy_in - prev_paddy_used, 2)
 
     paddy_section = {
         "opening_stock": ob_paddy, "paddy_in": paddy_in, "paddy_used": paddy_used,
@@ -94,12 +114,16 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
     frk_cost = round(sum(p.get("total_amount", 0) for p in frk_purchases), 2)
 
     ob_frk = 0.0
-    if prev_fy:
+    if saved_ob and "frk_stock" in saved_ob:
+        ob_frk = saved_ob.get("frk_stock", 0.0)
+    elif prev_fy:
+        prev_saved = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
         prev_frk = await db.frk_purchases.find(prev_q, {"_id": 0}).to_list(1000)
         prev_frk_bought = sum(p.get("quantity_qntl", 0) for p in prev_frk)
         prev_mil = await db.milling_entries.find(prev_q, {"_id": 0, "frk_used_qntl": 1}).to_list(1000)
         prev_frk_used = sum(e.get("frk_used_qntl", 0) for e in prev_mil)
-        ob_frk = round(prev_frk_bought - prev_frk_used, 2)
+        prev_ob_frk = prev_saved.get("frk_stock", 0) if prev_saved else 0
+        ob_frk = round(prev_ob_frk + prev_frk_bought - prev_frk_used, 2)
 
     frk_section = {
         "opening_stock": ob_frk, "purchased": frk_bought, "used": total_frk_used,
@@ -110,10 +134,11 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
     byproduct_sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(1000)
     products = ["bran", "kunda", "broken", "kanki", "husk"]
     byproduct_section = {}
+    saved_bp = saved_ob.get("byproducts", {}) if saved_ob else {}
 
     prev_milling_bp = []
     prev_bp_sales = []
-    if prev_fy:
+    if not saved_bp and prev_fy:
         prev_milling_bp = await db.milling_entries.find(prev_q, {"_id": 0}).to_list(1000)
         prev_bp_sales = await db.byproduct_sales.find(prev_q, {"_id": 0}).to_list(1000)
 
@@ -122,10 +147,14 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
         sold = round(sum(s.get("quantity_qntl", 0) for s in byproduct_sales if s.get("product") == p), 2)
         revenue = round(sum(s.get("total_amount", 0) for s in byproduct_sales if s.get("product") == p), 2)
         ob = 0.0
-        if prev_fy:
+        if saved_bp:
+            ob = saved_bp.get(p, 0.0)
+        elif prev_fy:
+            prev_saved = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
+            prev_bp_ob = prev_saved.get("byproducts", {}).get(p, 0) if prev_saved else 0
             prev_prod = sum(e.get(f"{p}_qntl", 0) for e in prev_milling_bp)
             prev_sold = sum(s.get("quantity_qntl", 0) for s in prev_bp_sales if s.get("product") == p)
-            ob = round(prev_prod - prev_sold, 2)
+            ob = round(prev_bp_ob + prev_prod - prev_sold, 2)
         byproduct_section[p] = {
             "opening_stock": ob, "produced": produced, "sold": sold,
             "closing_stock": round(ob + produced - sold, 2), "revenue": revenue
@@ -134,8 +163,10 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
     # ===== 6. MILL PARTS STOCK =====
     parts = await db.mill_parts.find({}, {"_id": 0}).to_list(1000)
     parts_txns = await db.mill_parts_stock.find(query, {"_id": 0}).to_list(10000)
+    saved_mp = saved_ob.get("mill_parts", {}) if saved_ob else {}
+
     prev_parts_txns = []
-    if prev_fy:
+    if not saved_mp and prev_fy:
         prev_parts_txns = await db.mill_parts_stock.find(prev_q, {"_id": 0}).to_list(10000)
 
     parts_section = []
@@ -144,10 +175,14 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
         s_in = sum(t.get("quantity", 0) for t in parts_txns if t.get("part_name") == pn and t.get("txn_type") == "in")
         s_out = sum(t.get("quantity", 0) for t in parts_txns if t.get("part_name") == pn and t.get("txn_type") != "in")
         ob = 0.0
-        if prev_fy:
+        if saved_mp:
+            ob = saved_mp.get(pn, 0.0)
+        elif prev_fy:
+            prev_saved = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
+            prev_mp_ob = prev_saved.get("mill_parts", {}).get(pn, 0) if prev_saved else 0
             p_in = sum(t.get("quantity", 0) for t in prev_parts_txns if t.get("part_name") == pn and t.get("txn_type") == "in")
             p_out = sum(t.get("quantity", 0) for t in prev_parts_txns if t.get("part_name") == pn and t.get("txn_type") != "in")
-            ob = round(p_in - p_out, 2)
+            ob = round(prev_mp_ob + p_in - p_out, 2)
         parts_section.append({
             "name": pn, "unit": part.get("unit", "Pcs"), "opening_stock": ob,
             "stock_in": round(s_in, 2), "stock_used": round(s_out, 2),
@@ -157,30 +192,40 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
     # ===== 7. DIESEL ACCOUNTS =====
     diesel_txns = await db.diesel_accounts.find(query, {"_id": 0}).to_list(5000)
     pumps = await db.diesel_pumps.find({}, {"_id": 0}).to_list(100)
+    saved_diesel = saved_ob.get("diesel", {}) if saved_ob else {}
+
     prev_diesel = []
-    if prev_fy:
+    if not saved_diesel and prev_fy:
         prev_diesel = await db.diesel_accounts.find(prev_q, {"_id": 0}).to_list(5000)
 
     diesel_section = []
     for pump in pumps:
         pid = pump["id"]
-        pt = [t for t in diesel_txns if t.get("pump_id") == pid]
-        td = sum(t.get("amount", 0) for t in pt if t.get("txn_type") == "debit")
-        tp = sum(t.get("amount", 0) for t in pt if t.get("txn_type") == "payment")
+        pt_txns = [t for t in diesel_txns if t.get("pump_id") == pid]
+        td = sum(t.get("amount", 0) for t in pt_txns if t.get("txn_type") == "debit")
+        tp = sum(t.get("amount", 0) for t in pt_txns if t.get("txn_type") == "payment")
         ob = 0.0
-        if prev_fy:
+        if saved_diesel:
+            ob = saved_diesel.get(pid, 0.0)
+        elif prev_fy:
+            prev_saved = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
+            prev_d_ob = prev_saved.get("diesel", {}).get(pid, 0) if prev_saved else 0
             pp = [t for t in prev_diesel if t.get("pump_id") == pid]
-            ob = round(sum(t.get("amount", 0) for t in pp if t.get("txn_type") == "debit") - sum(t.get("amount", 0) for t in pp if t.get("txn_type") == "payment"), 2)
+            prev_td = sum(t.get("amount", 0) for t in pp if t.get("txn_type") == "debit")
+            prev_tp = sum(t.get("amount", 0) for t in pp if t.get("txn_type") == "payment")
+            ob = round(prev_d_ob + prev_td - prev_tp, 2)
         diesel_section.append({
-            "pump_name": pump["name"], "opening_balance": ob,
+            "pump_name": pump["name"], "pump_id": pid, "opening_balance": ob,
             "total_diesel": round(td, 2), "total_paid": round(tp, 2),
             "closing_balance": round(ob + td - tp, 2)
         })
 
     # ===== 8. LOCAL PARTY ACCOUNTS =====
     lp_txns = await db.local_party_accounts.find(query, {"_id": 0}).to_list(10000)
+    saved_lp = saved_ob.get("local_party", {}) if saved_ob else {}
+
     prev_lp = []
-    if prev_fy:
+    if not saved_lp and prev_fy:
         prev_lp = await db.local_party_accounts.find(prev_q, {"_id": 0}).to_list(10000)
 
     lp_map = {}
@@ -192,20 +237,24 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
         if t.get("txn_type") == "debit": lp_map[pn]["debit"] += t.get("amount", 0)
         elif t.get("txn_type") == "payment": lp_map[pn]["paid"] += t.get("amount", 0)
 
-    prev_lp_map = {}
-    for t in prev_lp:
-        pn = (t.get("party_name", "")).strip()
-        if not pn: continue
-        if pn not in prev_lp_map: prev_lp_map[pn] = 0
-        if t.get("txn_type") == "debit": prev_lp_map[pn] += t.get("amount", 0)
-        elif t.get("txn_type") == "payment": prev_lp_map[pn] -= t.get("amount", 0)
+    if saved_lp:
+        all_lp_parties = set(list(lp_map.keys()) + [k for k, v in saved_lp.items() if round(v, 2) != 0])
+        lp_total_ob = sum(round(saved_lp.get(p, 0), 2) for p in all_lp_parties)
+    else:
+        prev_lp_map = {}
+        for t in prev_lp:
+            pn = (t.get("party_name", "")).strip()
+            if not pn: continue
+            if pn not in prev_lp_map: prev_lp_map[pn] = 0
+            if t.get("txn_type") == "debit": prev_lp_map[pn] += t.get("amount", 0)
+            elif t.get("txn_type") == "payment": prev_lp_map[pn] -= t.get("amount", 0)
+        all_lp_parties = set(list(lp_map.keys()) + [k for k, v in prev_lp_map.items() if round(v, 2) != 0])
+        lp_total_ob = sum(round(prev_lp_map.get(p, 0), 2) for p in all_lp_parties)
 
-    all_parties = set(list(lp_map.keys()) + [k for k, v in prev_lp_map.items() if round(v, 2) != 0])
-    lp_total_ob = sum(round(prev_lp_map.get(p, 0), 2) for p in all_parties)
-    lp_total_debit = sum(lp_map.get(p, {}).get("debit", 0) for p in all_parties)
-    lp_total_paid = sum(lp_map.get(p, {}).get("paid", 0) for p in all_parties)
+    lp_total_debit = sum(lp_map.get(p, {}).get("debit", 0) for p in all_lp_parties)
+    lp_total_paid = sum(lp_map.get(p, {}).get("paid", 0) for p in all_lp_parties)
     local_party_section = {
-        "party_count": len(all_parties),
+        "party_count": len(all_lp_parties),
         "opening_balance": round(lp_total_ob, 2),
         "total_debit": round(lp_total_debit, 2), "total_paid": round(lp_total_paid, 2),
         "closing_balance": round(lp_total_ob + lp_total_debit - lp_total_paid, 2)
@@ -215,9 +264,11 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
     staff_list = await db.staff.find({"active": True}, {"_id": 0}).to_list(100)
     all_advances = await db.staff_advance.find(query, {"_id": 0}).to_list(5000)
     all_payments = await db.staff_payments.find(query, {"_id": 0}).to_list(5000)
+    saved_staff = saved_ob.get("staff", {}) if saved_ob else {}
+
     prev_adv = []
     prev_pay = []
-    if prev_fy:
+    if not saved_staff and prev_fy:
         prev_adv = await db.staff_advance.find(prev_q, {"_id": 0}).to_list(5000)
         prev_pay = await db.staff_payments.find(prev_q, {"_id": 0}).to_list(5000)
 
@@ -227,12 +278,16 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
         adv = sum(a.get("amount", 0) for a in all_advances if a.get("staff_id") == sid)
         ded = sum(p.get("advance_deducted", 0) for p in all_payments if p.get("staff_id") == sid)
         ob = 0.0
-        if prev_fy:
+        if saved_staff:
+            ob = saved_staff.get(sid, 0.0)
+        elif prev_fy:
+            prev_saved = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
+            prev_s_ob = prev_saved.get("staff", {}).get(sid, 0) if prev_saved else 0
             p_a = sum(a.get("amount", 0) for a in prev_adv if a.get("staff_id") == sid)
             p_d = sum(p.get("advance_deducted", 0) for p in prev_pay if p.get("staff_id") == sid)
-            ob = round(p_a - p_d, 2)
+            ob = round(prev_s_ob + p_a - p_d, 2)
         staff_section.append({
-            "name": s["name"], "opening_balance": ob,
+            "name": s["name"], "staff_id": sid, "opening_balance": ob,
             "total_advance": round(adv, 2), "total_deducted": round(ded, 2),
             "closing_balance": round(ob + adv - ded, 2)
         })
@@ -252,6 +307,63 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
         "rice_qty": round(sum(r.get("quantity_qntl", 0) for r in rice_sales), 2),
     }
 
+    # ===== 11. LEDGER PARTIES (Cashbook Ledger) =====
+    ledger_txns = [t for t in cash_txns if t.get("account") == "ledger"]
+    saved_ledger = saved_ob.get("ledger_parties", {}) if saved_ob else {}
+
+    ledger_map = {}
+    for t in ledger_txns:
+        cat = (t.get("category", "")).strip()
+        if not cat: continue
+        if cat not in ledger_map:
+            ledger_map[cat] = {"party_name": cat, "party_type": t.get("party_type", ""), "jama": 0, "nikasi": 0}
+        if t.get("txn_type") == "jama":
+            ledger_map[cat]["jama"] += t.get("amount", 0)
+        else:
+            ledger_map[cat]["nikasi"] += t.get("amount", 0)
+        if not ledger_map[cat]["party_type"] and t.get("party_type"):
+            ledger_map[cat]["party_type"] = t["party_type"]
+
+    # Compute opening balances for ledger parties
+    if not saved_ledger and prev_fy:
+        prev_ledger_txns = await db.cash_transactions.find(
+            {**prev_q, "account": "ledger"}, {"_id": 0, "category": 1, "txn_type": 1, "amount": 1}
+        ).to_list(100000)
+        prev_saved_lp = (await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0}) or {}).get("ledger_parties", {})
+        prev_ledger_map = {}
+        for t in prev_ledger_txns:
+            cat = (t.get("category", "")).strip()
+            if not cat: continue
+            if cat not in prev_ledger_map: prev_ledger_map[cat] = 0
+            if t.get("txn_type") == "jama": prev_ledger_map[cat] += t.get("amount", 0)
+            else: prev_ledger_map[cat] -= t.get("amount", 0)
+        saved_ledger = {}
+        for cat in set(list(prev_ledger_map.keys()) + list(prev_saved_lp.keys())):
+            val = round(prev_saved_lp.get(cat, 0) + prev_ledger_map.get(cat, 0), 2)
+            if val != 0:
+                saved_ledger[cat] = val
+
+    all_ledger_parties = set(list(ledger_map.keys()) + [k for k, v in saved_ledger.items() if round(v, 2) != 0])
+    ledger_section = []
+    for cat in sorted(all_ledger_parties):
+        info = ledger_map.get(cat, {"party_name": cat, "party_type": "", "jama": 0, "nikasi": 0})
+        ob = saved_ledger.get(cat, 0.0)
+        ledger_section.append({
+            "party_name": cat, "party_type": info.get("party_type", ""),
+            "opening_balance": round(ob, 2),
+            "total_jama": round(info["jama"], 2), "total_nikasi": round(info["nikasi"], 2),
+            "closing_balance": round(ob + info["jama"] - info["nikasi"], 2)
+        })
+
+    ledger_summary = {
+        "total_parties": len(ledger_section),
+        "total_opening": round(sum(l["opening_balance"] for l in ledger_section), 2),
+        "total_jama": round(sum(l["total_jama"] for l in ledger_section), 2),
+        "total_nikasi": round(sum(l["total_nikasi"] for l in ledger_section), 2),
+        "total_closing": round(sum(l["closing_balance"] for l in ledger_section), 2),
+        "parties": ledger_section
+    }
+
     return {
         "kms_year": kms_year or "", "season": season or "",
         "cash_bank": cash_section,
@@ -263,9 +375,90 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
         "diesel": diesel_section,
         "local_party": local_party_section,
         "staff_advances": staff_section,
-        "private_trading": private_section
+        "private_trading": private_section,
+        "ledger_parties": ledger_summary
     }
 
+
+@router.post("/fy-summary/carry-forward")
+async def carry_forward_fy(data: dict):
+    """Close current FY and carry forward all closing balances as opening balances for next FY"""
+    kms_year = data.get("kms_year")
+    if not kms_year:
+        raise HTTPException(status_code=400, detail="kms_year is required")
+
+    next_fy = get_next_fy(kms_year)
+    if not next_fy:
+        raise HTTPException(status_code=400, detail="Invalid kms_year format")
+
+    # Get current FY summary to extract all closing balances
+    summary = await get_fy_summary(kms_year=kms_year)
+
+    cb = summary["cash_bank"]
+    ps = summary["paddy_stock"]
+    frk = summary["frk_stock"]
+    bp = summary["byproducts"]
+    mp = summary["mill_parts"]
+    diesel = summary["diesel"]
+    lp = summary["local_party"]
+    staff = summary["staff_advances"]
+    pt = summary["private_trading"]
+    ledger = summary["ledger_parties"]
+
+    # Build opening balance document for next FY
+    ob_doc = {
+        "kms_year": next_fy,
+        "cash": cb["closing_cash"],
+        "bank": cb["closing_bank"],
+        "bank_details": {},
+        "paddy_stock": ps["closing_stock"],
+        "frk_stock": frk["closing_stock"],
+        "byproducts": {p: v["closing_stock"] for p, v in bp.items()},
+        "mill_parts": {p["name"]: p["closing_stock"] for p in mp},
+        "diesel": {d["pump_id"]: d["closing_balance"] for d in diesel},
+        "local_party": {},
+        "staff": {s["staff_id"]: s["closing_balance"] for s in staff if s["closing_balance"] != 0},
+        "ledger_parties": {l["party_name"]: l["closing_balance"] for l in ledger["parties"] if l["closing_balance"] != 0},
+        "private_trading": {
+            "paddy_balance": pt["paddy_balance"],
+            "rice_balance": pt["rice_balance"]
+        },
+        "carried_from": kms_year,
+        "updated_at": datetime.utcnow().isoformat()
+    }
+
+    # Save local party balances per party
+    lp_txns = await db.local_party_accounts.find({"kms_year": kms_year}, {"_id": 0}).to_list(10000)
+    lp_party_map = {}
+    for t in lp_txns:
+        pn = (t.get("party_name", "")).strip()
+        if not pn: continue
+        if pn not in lp_party_map: lp_party_map[pn] = 0
+        if t.get("txn_type") == "debit": lp_party_map[pn] += t.get("amount", 0)
+        elif t.get("txn_type") == "payment": lp_party_map[pn] -= t.get("amount", 0)
+    # Add prev OB
+    saved_ob = await db.opening_balances.find_one({"kms_year": kms_year}, {"_id": 0})
+    if saved_ob and saved_ob.get("local_party"):
+        for pn, val in saved_ob["local_party"].items():
+            lp_party_map[pn] = lp_party_map.get(pn, 0) + val
+    ob_doc["local_party"] = {k: round(v, 2) for k, v in lp_party_map.items() if round(v, 2) != 0}
+
+    # Also get bank details from current summary
+    try:
+        from routes.cashbook import get_cash_book_summary
+        cb_summary = await get_cash_book_summary(kms_year=kms_year)
+        bank_details = cb_summary.get("bank_details", {})
+        ob_doc["bank_details"] = {bn: round(bd.get("balance", 0), 2) for bn, bd in bank_details.items()}
+    except Exception:
+        pass
+
+    await db.opening_balances.update_one({"kms_year": next_fy}, {"$set": ob_doc}, upsert=True)
+
+    return {
+        "message": f"Closing balances of {kms_year} carried forward to {next_fy}",
+        "next_fy": next_fy,
+        "opening_balances": ob_doc
+    }
 
 
 @router.get("/fy-summary/pdf")
@@ -285,7 +478,6 @@ async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional
     hdr_bg = colors.HexColor('#1a365d')
     hdr_text = colors.white
     total_bg = colors.HexColor('#e0f2fe')
-    section_bg = colors.HexColor('#f0f0f0')
 
     def fmt(n):
         return f"{(n or 0):,.2f}"
@@ -305,11 +497,9 @@ async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional
             ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]
-        # Alternate row coloring
         for i in range(1, len(all_data)):
             if i % 2 == 0:
                 style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8fafc')))
-        # Total/last row bold
         if len(rows) > 1:
             style.append(('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'))
             style.append(('BACKGROUND', (0, -1), (-1, -1), total_bg))
@@ -318,10 +508,8 @@ async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional
 
     # Title
     title_text = "FY Summary - Balance Sheet"
-    if kms_year:
-        title_text += f" | KMS {kms_year}"
-    if season:
-        title_text += f" | {season}"
+    if kms_year: title_text += f" | KMS {kms_year}"
+    if season: title_text += f" | {season}"
     elements.append(Paragraph(title_text, styles['Title']))
     elements.append(Paragraph(f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", styles['Normal']))
     elements.append(Spacer(1, 6))
@@ -411,9 +599,21 @@ async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional
             ['Staff', 'Opening', 'Advance', 'Deducted', 'Balance'],
             s_rows, [90, 80, 80, 80, 80])
 
-    # 10. Private Trading
+    # 10. Ledger Parties
+    ledger = data.get("ledger_parties", {})
+    lp_list = ledger.get("parties", [])
+    if lp_list:
+        l_rows = [[l['party_name'], l.get('party_type', ''), fmt(l.get('opening_balance')), fmt(l.get('total_jama')),
+                    fmt(l.get('total_nikasi')), fmt(l.get('closing_balance'))] for l in lp_list]
+        l_rows.append(['TOTAL', '', fmt(ledger.get('total_opening')), fmt(ledger.get('total_jama')),
+                        fmt(ledger.get('total_nikasi')), fmt(ledger.get('total_closing'))])
+        section_table("10. Ledger Parties (Rs.)",
+            ['Party', 'Type', 'Opening', 'Jama', 'Nikasi', 'Balance'],
+            l_rows, [80, 55, 65, 65, 65, 65])
+
+    # 11. Private Trading
     pt = data.get("private_trading", {})
-    section_table("10. Private Trading (Rs.)",
+    section_table("11. Private Trading (Rs.)",
         ['Category', 'Qty (Qtl)', 'Amount', 'Paid/Received', 'Balance'],
         [
             ['Paddy Purchase', fmt(pt.get('paddy_qty')), fmt(pt.get('paddy_purchase_amount')), fmt(pt.get('paddy_paid')), fmt(pt.get('paddy_balance'))],

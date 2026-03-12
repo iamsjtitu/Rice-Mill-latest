@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { TrendingUp, TrendingDown, Banknote, Package, Fuel, Users, Wheat, Wrench, ArrowRightLeft, RefreshCw, FileDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Banknote, Package, Fuel, Users, Wheat, Wrench, ArrowRightLeft, RefreshCw, FileDown, BookOpen, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
+import { toast } from 'sonner';
 
 const API = ((typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL) + '/api';
 
@@ -51,6 +52,7 @@ function MiniTable({ headers, children }) {
 export default function FYSummaryDashboard({ filters }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [carryingForward, setCarryingForward] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -75,6 +77,26 @@ export default function FYSummaryDashboard({ filters }) {
     window.open(`${API}/fy-summary/pdf?${p}`, '_blank');
   };
 
+  const handleCarryForward = async () => {
+    if (!filters.kms_year) {
+      toast.error("Pehle KMS Year select karein");
+      return;
+    }
+    const parts = filters.kms_year.split('-');
+    const nextFY = `${parseInt(parts[0])+1}-${parseInt(parts[1])+1}`;
+    if (!window.confirm(`${filters.kms_year} ka closing balance ${nextFY} mein opening balance ke roop mein carry forward karein?`)) return;
+
+    setCarryingForward(true);
+    try {
+      const res = await axios.post(`${API}/fy-summary/carry-forward`, { kms_year: filters.kms_year });
+      toast.success(`Balances ${res.data.next_fy} mein carry forward ho gaye!`);
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Carry forward failed");
+    }
+    setCarryingForward(false);
+  };
+
   if (loading) return <div className="text-center text-slate-400 py-20">Loading FY Summary...</div>;
   if (!data) return <div className="text-center text-red-400 py-20">Data load nahi hua</div>;
 
@@ -85,6 +107,7 @@ export default function FYSummaryDashboard({ filters }) {
   const bp = data.byproducts || {};
   const lp = data.local_party || {};
   const pt = data.private_trading || {};
+  const ledger = data.ledger_parties || {};
 
   return (
     <div className="space-y-4" data-testid="fy-summary-dashboard">
@@ -94,6 +117,12 @@ export default function FYSummaryDashboard({ filters }) {
           <p className="text-xs text-slate-400">{data.kms_year} {data.season && `| ${data.season}`} - Opening vs Closing Balances</p>
         </div>
         <div className="flex gap-2">
+          {filters.kms_year && (
+            <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" onClick={handleCarryForward} disabled={carryingForward} data-testid="carry-forward-btn">
+              {carryingForward ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <ArrowRight className="w-3 h-3 mr-1" />}
+              Carry Forward to Next FY
+            </Button>
+          )}
           <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={downloadPdf} data-testid="fy-summary-pdf">
             <FileDown className="w-3 h-3 mr-1" /> PDF Export
           </Button>
@@ -223,6 +252,33 @@ export default function FYSummaryDashboard({ filters }) {
               <BalanceRow key={s.name} label={s.name} opening={s.opening_balance} inflow={s.total_advance} outflow={s.total_deducted} closing={s.closing_balance} />
             ))}
           </MiniTable>
+        </SummaryCard>
+      )}
+
+      {/* Ledger Parties */}
+      {ledger.parties?.length > 0 && (
+        <SummaryCard title="Ledger Parties (Cashbook)" icon={BookOpen} iconColor="text-violet-400">
+          <div className="flex gap-3 text-xs mb-3 flex-wrap">
+            <span className="text-slate-400">Parties: <b className="text-white">{ledger.total_parties}</b></span>
+            <span className="text-slate-400">Opening: <b className="text-yellow-400">₹{(ledger.total_opening || 0).toLocaleString('en-IN')}</b></span>
+            <span className="text-slate-400">Jama: <b className="text-emerald-400">₹{(ledger.total_jama || 0).toLocaleString('en-IN')}</b></span>
+            <span className="text-slate-400">Nikasi: <b className="text-red-400">₹{(ledger.total_nikasi || 0).toLocaleString('en-IN')}</b></span>
+            <span className="text-slate-400">Closing: <b className="text-amber-400">₹{(ledger.total_closing || 0).toLocaleString('en-IN')}</b></span>
+          </div>
+          <div className="max-h-[300px] overflow-auto">
+            <MiniTable headers={['Party', 'Type', 'Opening', 'Jama', 'Nikasi', 'Balance']}>
+              {ledger.parties.map(l => (
+                <TableRow key={l.party_name} className="border-slate-700/50">
+                  <TableCell className="text-slate-300 text-xs py-1.5">{l.party_name}</TableCell>
+                  <TableCell className="text-right text-slate-400 text-[10px] py-1.5">{l.party_type}</TableCell>
+                  <TableCell className="text-right text-yellow-400 text-xs py-1.5">₹{(l.opening_balance || 0).toLocaleString('en-IN')}</TableCell>
+                  <TableCell className="text-right text-emerald-400 text-xs py-1.5">₹{(l.total_jama || 0).toLocaleString('en-IN')}</TableCell>
+                  <TableCell className="text-right text-red-400 text-xs py-1.5">₹{(l.total_nikasi || 0).toLocaleString('en-IN')}</TableCell>
+                  <TableCell className={`text-right text-xs font-bold py-1.5 ${l.closing_balance >= 0 ? 'text-amber-400' : 'text-red-400'}`}>₹{(l.closing_balance || 0).toLocaleString('en-IN')}</TableCell>
+                </TableRow>
+              ))}
+            </MiniTable>
+          </div>
         </SummaryCard>
       )}
 

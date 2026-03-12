@@ -109,13 +109,44 @@ router.get('/api/local-party/transactions', safeSync((req, res) => {
 // ============ PARTY-WISE REPORT (PRINT) ============
 router.get('/api/local-party/report/:partyName', safeSync((req, res) => {
   ensureCollection('local_party_accounts');
+  ensureCollection('cash_transactions');
   const pn = req.params.partyName.toLowerCase();
   let txns = database.data.local_party_accounts.filter(t => (t.party_name || '').toLowerCase() === pn);
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
   if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
   if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
-  txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  // Include manual cashbook payments (ledger nikasi for this party)
+  const existingRefs = new Set(txns.filter(t => t.reference).map(t => t.reference));
+  const existingIds = new Set(txns.map(t => t.id));
+  let cbPayments = (database.data.cash_transactions || []).filter(t =>
+    t.account === 'ledger' && t.txn_type === 'nikasi' &&
+    (t.category || '').toLowerCase() === pn
+  );
+  if (req.query.kms_year) cbPayments = cbPayments.filter(t => t.kms_year === req.query.kms_year);
+  if (req.query.season) cbPayments = cbPayments.filter(t => t.season === req.query.season);
+  if (req.query.date_from) cbPayments = cbPayments.filter(t => (t.date || '') >= req.query.date_from);
+  if (req.query.date_to) cbPayments = cbPayments.filter(t => (t.date || '') <= req.query.date_to);
+  for (const cb of cbPayments) {
+    if (cb.linked_local_party_id && existingIds.has(cb.linked_local_party_id)) continue;
+    const ref = cb.reference || '';
+    if (ref.startsWith('local_party_ledger:') || ref.startsWith('local_party:')) continue;
+    if (ref && existingRefs.has(ref)) continue;
+    // Check ref_id overlap
+    const refIdPart = ref.includes(':') ? ref.split(':')[1] : '';
+    if (refIdPart && [...existingRefs].some(er => er.includes(refIdPart))) continue;
+    txns.push({
+      id: cb.id || '', date: cb.date || '', party_name: req.params.partyName,
+      txn_type: 'payment', amount: cb.amount || 0,
+      description: cb.description || 'CashBook Payment',
+      source_type: 'cashbook', reference: ref,
+      kms_year: cb.kms_year || '', season: cb.season || '',
+      created_by: cb.created_by || '', created_at: cb.created_at || ''
+    });
+  }
+  txns.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.created_at || '').localeCompare(b.created_at || ''));
+
   let runBal = 0;
   const rows = txns.map(t => {
     runBal += t.txn_type === 'debit' ? (t.amount || 0) : -(t.amount || 0);
