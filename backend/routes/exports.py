@@ -65,6 +65,148 @@ async def get_monthly_trend(kms_year: Optional[str] = None, season: Optional[str
     return {"monthly_data": monthly_data}
 
 
+@router.get("/export/dashboard-pdf")
+async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, filter: Optional[str] = None):
+    """Export Dashboard PDF with optional filter (all, stock, or mandi_name)"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+
+    show_stock = (not filter) or filter == "all" or filter == "stock"
+    show_targets = (not filter) or filter != "stock"
+    target_mandi = filter if filter and filter not in ("all", "stock") else None
+
+    buffer = io.BytesIO()
+    page_width, page_height = landscape(A4)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    elements = []; styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle('DashTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.white, alignment=TA_CENTER)
+    section_style = ParagraphStyle('DashSection', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#D97706'), alignment=TA_LEFT, spaceBefore=10, spaceAfter=5)
+    normal = styles['Normal']
+
+    # Title
+    filter_label = "All" if not filter or filter == "all" else filter.title()
+    title_data = [[Paragraph(f"<b>NAVKAR AGRO - Dashboard Report ({filter_label})</b>", title_style)]]
+    title_table = RLTable(title_data, colWidths=[page_width - 20*mm])
+    title_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('TOPPADDING', (0, 0), (-1, -1), 8), ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(title_table)
+    sub_style = ParagraphStyle('DashSub', parent=normal, fontSize=10, textColor=colors.HexColor('#475569'), alignment=TA_CENTER)
+    elements.append(Paragraph(f"KMS: {kms_year or 'All'} | Season: {season or 'All'} | Filter: {filter_label} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", sub_style))
+    elements.append(Spacer(1, 8*mm))
+
+    # STOCK SECTION
+    if show_stock:
+        elements.append(Paragraph("STOCK OVERVIEW", section_style))
+
+        # Paddy Stock
+        pipe_paddy_in = [{"$match": query}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
+        mill_res = await db.mill_entries.aggregate(pipe_paddy_in).to_list(1)
+        cmr_paddy = round((mill_res[0]["total"] / 100) if mill_res else 0, 2)
+
+        pvt_paddy_q = dict(query)
+        pvt_paddy_entries = await db.private_paddy.find(pvt_paddy_q, {"_id": 0}).to_list(5000)
+        pvt_paddy = round(sum(e.get("net_weight", 0) for e in pvt_paddy_entries) / 100, 2)
+
+        milling_q = dict(query)
+        milling_entries = await db.milling_entries.find(milling_q, {"_id": 0}).to_list(5000)
+        paddy_used = round(sum(e.get("paddy_used", 0) for e in milling_entries), 2)
+
+        total_paddy_in = round(cmr_paddy + pvt_paddy, 2)
+        paddy_avail = round(total_paddy_in - paddy_used, 2)
+
+        # Rice stock
+        rice_produced = round(sum(e.get("rice_produced", 0) for e in milling_entries), 2)
+
+        stock_data = [
+            ["Item", "In (Qntl)", "Used/Out (Qntl)", "Available (Qntl)"],
+            ["Paddy (CMR)", str(cmr_paddy), "-", "-"],
+            ["Paddy (Pvt)", str(pvt_paddy), "-", "-"],
+            ["Total Paddy", str(total_paddy_in), str(paddy_used), str(paddy_avail)],
+            ["Rice (Milling)", str(rice_produced), "-", "-"],
+        ]
+        stock_table = RLTable(stock_data, colWidths=[50*mm, 40*mm, 40*mm, 40*mm])
+        stock_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 3), (-1, 3), 'Helvetica-Bold'), ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#f0f0f0')),
+        ]))
+        elements.append(stock_table)
+        elements.append(Spacer(1, 8*mm))
+
+    # TARGETS SECTION
+    if show_targets:
+        elements.append(Paragraph(f"MANDI TARGETS{' - ' + target_mandi if target_mandi else ''}", section_style))
+
+        tq = dict(query)
+        if target_mandi: tq["mandi_name"] = target_mandi
+        targets = await db.mandi_targets.find(tq, {"_id": 0}).to_list(100)
+
+        if targets:
+            target_headers = ["Mandi", "Target QNTL", "Cut %", "Expected", "Achieved", "Pending", "Progress"]
+            target_data = [target_headers]
+            total_target = total_expected = total_achieved = total_pending = 0
+
+            for t in targets:
+                entry_q = {"mandi_name": t["mandi_name"]}
+                if kms_year: entry_q["kms_year"] = kms_year
+                if season: entry_q["season"] = season
+                pipe = [{"$match": entry_q}, {"$group": {"_id": None, "total": {"$sum": "$final_w"}}}]
+                res = await db.mill_entries.aggregate(pipe).to_list(1)
+                achieved = round(res[0]["total"] / 100, 2) if res else 0
+                expected = t.get("expected_total", t["target_qntl"])
+                pending = round(max(0, expected - achieved), 2)
+                progress = round((achieved / expected * 100) if expected > 0 else 0, 1)
+
+                total_target += t["target_qntl"]
+                total_expected += expected
+                total_achieved += achieved
+                total_pending += pending
+
+                target_data.append([t["mandi_name"], str(t["target_qntl"]), f"{t['cutting_percent']}%", str(expected), str(achieved), str(pending), f"{progress}%"])
+
+            # Totals row
+            total_progress = round((total_achieved / total_expected * 100) if total_expected > 0 else 0, 1)
+            target_data.append(["TOTAL", str(round(total_target, 2)), "-", str(round(total_expected, 2)), str(round(total_achieved, 2)), str(round(total_pending, 2)), f"{total_progress}%"])
+
+            target_table = RLTable(target_data, colWidths=[40*mm, 30*mm, 18*mm, 30*mm, 30*mm, 30*mm, 22*mm])
+            st = [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f0f0')),
+            ]
+            # Highlight progress > 100% in green, < 50% in red
+            for i, t2 in enumerate(targets, 1):
+                prog_str = target_data[i][6]
+                prog_val = float(prog_str.replace('%',''))
+                if prog_val >= 100:
+                    st.append(('TEXTCOLOR', (6, i), (6, i), colors.HexColor('#059669')))
+                elif prog_val < 50:
+                    st.append(('TEXTCOLOR', (6, i), (6, i), colors.red))
+
+            target_table.setStyle(TableStyle(st))
+            elements.append(target_table)
+        else:
+            elements.append(Paragraph("Koi target set nahi hai", normal))
+
+    doc.build(elements); buffer.seek(0)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=dashboard_{filter_label}_{datetime.now().strftime('%Y%m%d')}.pdf"})
+
+
 @router.get("/export/summary-report-pdf")
 async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     """Export complete summary report - Truck Payments + Agent Payments + Targets"""

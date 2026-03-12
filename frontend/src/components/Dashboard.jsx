@@ -43,6 +43,7 @@ export const Dashboard = ({ filters, user }) => {
   const [loading, setLoading] = useState(true);
   const [riceStock, setRiceStock] = useState(null);
   const [paddyStock, setPaddyStock] = useState(null);
+  const [dashFilter, setDashFilter] = useState("all");
   const [showTargetForm, setShowTargetForm] = useState(false);
   const [targetForm, setTargetForm] = useState({
     mandi_name: "",
@@ -175,6 +176,17 @@ export const Dashboard = ({ filters, user }) => {
   const cuttingAmount = cuttingQntl * parseFloat(targetForm.cutting_rate ?? 5);
   const totalAgentAmount = targetAmount + cuttingAmount;
 
+  // Build unique mandi list for filter
+  const mandiNames = [...new Set(mandiTargets.map(t => t.mandi_name))].sort();
+
+  // Filtered targets based on dropdown
+  const filteredTargets = dashFilter === "all" || dashFilter === "stock"
+    ? mandiTargets
+    : mandiTargets.filter(t => t.mandi_name === dashFilter);
+
+  const showStock = dashFilter === "all" || dashFilter === "stock";
+  const showTargets = dashFilter !== "stock";
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -185,24 +197,46 @@ export const Dashboard = ({ filters, user }) => {
 
   return (
     <div className="space-y-6">
-      {/* Summary Report Button */}
-      <div className="flex justify-end">
-        <Button
-          onClick={async () => {
+      {/* Filter Bar + Export */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex gap-1 bg-slate-900 p-0.5 rounded border border-slate-700">
+          <Button onClick={() => setDashFilter("all")} variant={dashFilter === "all" ? "default" : "ghost"} size="sm"
+            className={`h-7 text-xs ${dashFilter === "all" ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white"}`}
+            data-testid="dash-filter-all">All</Button>
+          <Button onClick={() => setDashFilter("stock")} variant={dashFilter === "stock" ? "default" : "ghost"} size="sm"
+            className={`h-7 text-xs ${dashFilter === "stock" ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white"}`}
+            data-testid="dash-filter-stock">Stock Only</Button>
+          {mandiNames.map(m => (
+            <Button key={m} onClick={() => setDashFilter(m)} variant={dashFilter === m ? "default" : "ghost"} size="sm"
+              className={`h-7 text-xs ${dashFilter === m ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white"}`}
+              data-testid={`dash-filter-${m.toLowerCase().replace(/\s+/g,'-')}`}>{m}</Button>
+          ))}
+        </div>
+        <div className="flex gap-2 ml-auto">
+          <Button onClick={async () => {
+            const params = new URLSearchParams();
+            if (filters.kms_year) params.append('kms_year', filters.kms_year);
+            if (filters.season) params.append('season', filters.season);
+            if (dashFilter && dashFilter !== 'all') params.append('filter', dashFilter);
+            const { downloadFile } = await import('../utils/download');
+            downloadFile(`/api/export/dashboard-pdf?${params.toString()}`, 'dashboard_report.pdf');
+          }} variant="outline" size="sm" className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="dash-export-pdf">
+            <FileText className="w-4 h-4 mr-1" /> PDF Export
+          </Button>
+          <Button onClick={async () => {
             const params = new URLSearchParams();
             if (filters.kms_year) params.append('kms_year', filters.kms_year);
             if (filters.season) params.append('season', filters.season);
             const { downloadFile } = await import('../utils/download');
             downloadFile(`/api/export/summary-report-pdf?${params.toString()}`, 'summary_report.pdf');
-          }}
-          className="bg-purple-600 hover:bg-purple-700 text-white"
-        >
-          <FileText className="w-4 h-4 mr-2" />
-          Summary Report PDF
-        </Button>
+          }} className="bg-purple-600 hover:bg-purple-700 text-white" size="sm" data-testid="dash-summary-pdf">
+            <FileText className="w-4 h-4 mr-1" /> Summary Report
+          </Button>
+        </div>
       </div>
 
       {/* Stock Overview */}
+      {showStock && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Rice Stock Card */}
         <Card className="bg-slate-800 border-slate-700">
@@ -284,8 +318,10 @@ export const Dashboard = ({ filters, user }) => {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Mandi Target Section */}
+      {showTargets && (
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -458,9 +494,9 @@ export const Dashboard = ({ filters, user }) => {
           )}
 
           {/* Target Progress Bars */}
-          {mandiTargets.length > 0 ? (
+          {filteredTargets.length > 0 ? (
             <div className="space-y-4">
-              {mandiTargets.map((target, idx) => (
+              {filteredTargets.map((target, idx) => (
                 <div key={idx} className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
                   <div className="flex items-center justify-between mb-2">
                     <div>
@@ -543,6 +579,7 @@ export const Dashboard = ({ filters, user }) => {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 };
