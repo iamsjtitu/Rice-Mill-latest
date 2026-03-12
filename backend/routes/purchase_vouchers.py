@@ -201,7 +201,28 @@ async def get_purchase_vouchers(kms_year: Optional[str] = None, season: Optional
             {"truck_no": {"$regex": search, "$options": "i"}},
             {"rst_no": {"$regex": search, "$options": "i"}},
         ]
-    return await db.purchase_vouchers.find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    
+    # Get ledger-based paid amounts per party (includes Cash Book manual payments)
+    party_names = list(set(v.get("party_name", "") for v in vouchers if v.get("party_name")))
+    ledger_paid_map = {}
+    if party_names:
+        lq = {"account": "ledger", "txn_type": "nikasi", "category": {"$in": party_names}}
+        if kms_year: lq["kms_year"] = kms_year
+        if season: lq["season"] = season
+        ledger_txns = await db.cash_transactions.find(lq, {"_id": 0}).to_list(50000)
+        for lt in ledger_txns:
+            pn = lt.get("category", "")
+            ledger_paid_map[pn] = ledger_paid_map.get(pn, 0) + lt.get("amount", 0)
+    
+    for v in vouchers:
+        pn = v.get("party_name", "")
+        if pn:
+            total_paid = round(ledger_paid_map.get(pn, 0), 2)
+            v["ledger_paid"] = total_paid
+            v["ledger_balance"] = round((v.get("total", 0)) - total_paid, 2)
+    
+    return vouchers
 
 
 @router.post("/purchase-book")

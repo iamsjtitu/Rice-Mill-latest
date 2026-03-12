@@ -630,8 +630,8 @@ export const GunnyBags = ({ filters, user }) => {
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
-          {['Date','Party','Inv No','Truck','In/Out','Qty','Rate','Total','GST','Advance','Type',''].map(h =>
-            <TableHead key={h} className={`text-slate-300 text-xs ${['Qty','Rate','Total','GST','Advance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+          {['Date','Party','Inv No','Truck','In/Out','Qty','Rate','Total','GST','Paid','Type',''].map(h =>
+            <TableHead key={h} className={`text-slate-300 text-xs ${['Qty','Rate','Total','GST','Paid'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
         </TableRow></TableHeader>
         <TableBody>
           {loading ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
@@ -654,7 +654,7 @@ export const GunnyBags = ({ filters, user }) => {
               <TableCell className="text-slate-400 text-xs text-right">{e.rate > 0 ? `Rs.${e.rate}` : '-'}</TableCell>
               <TableCell className="text-amber-400 text-xs text-right font-medium">{(e.total || e.amount || 0) > 0 ? `Rs.${(e.total || e.amount || 0).toLocaleString('en-IN')}` : '-'}</TableCell>
               <TableCell className="text-slate-400 text-xs text-right">{(e.gst_amount || 0) > 0 ? `Rs.${e.gst_amount}` : '-'}</TableCell>
-              <TableCell className="text-emerald-400 text-xs text-right">{(e.advance || 0) > 0 ? `Rs.${e.advance.toLocaleString('en-IN')}` : '-'}</TableCell>
+              <TableCell className="text-emerald-400 text-xs text-right">{(e.ledger_paid || e.advance || 0) > 0 ? `Rs.${(e.ledger_paid || e.advance || 0).toLocaleString('en-IN')}` : '-'}</TableCell>
               <TableCell className="text-xs"><span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${e.bag_type === 'new' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'}`}>{e.bag_type === 'new' ? 'Govt' : 'Market'}</span></TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
@@ -769,8 +769,8 @@ export const GunnyBags = ({ filters, user }) => {
               <div className="bg-slate-900 p-3 rounded border border-slate-700 text-xs space-y-1">
                 <p><span className="text-slate-400">Party:</span> <span className="text-white font-medium">{payDialog.party_name || payDialog.source || '-'}</span></p>
                 <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{(payDialog.total || payDialog.amount || 0).toLocaleString('en-IN')}</span></p>
-                <p><span className="text-slate-400">Advance Paid:</span> <span className="text-sky-400">Rs.{(payDialog.advance || 0).toLocaleString('en-IN')}</span></p>
-                <p><span className="text-slate-400">Balance:</span> <span className="text-red-400 font-bold">Rs.{((payDialog.total || payDialog.amount || 0) - (payDialog.advance || 0)).toLocaleString('en-IN')}</span></p>
+                <p><span className="text-slate-400">Paid:</span> <span className="text-sky-400">Rs.{(payDialog.ledger_paid || payDialog.advance || 0).toLocaleString('en-IN')}</span></p>
+                <p><span className="text-slate-400">Balance:</span> <span className="text-red-400 font-bold">Rs.{(payDialog.ledger_balance != null ? payDialog.ledger_balance : ((payDialog.total || payDialog.amount || 0) - (payDialog.advance || 0))).toLocaleString('en-IN')}</span></p>
               </div>
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="gunny-pay-date" /></div>

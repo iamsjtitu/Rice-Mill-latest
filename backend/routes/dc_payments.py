@@ -662,7 +662,28 @@ async def get_gunny_bag_entries(kms_year: Optional[str] = None, season: Optional
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if bag_type: query["bag_type"] = bag_type
-    return await db.gunny_bags.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    entries = await db.gunny_bags.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    
+    # Get ledger-based paid amounts per party (includes Cash Book manual payments)
+    party_names = list(set(e.get("party_name", "") for e in entries if e.get("party_name") and e.get("txn_type") == "in"))
+    ledger_paid_map = {}
+    if party_names:
+        ledger_query = {"account": "ledger", "txn_type": "nikasi", "category": {"$in": party_names}}
+        if kms_year: ledger_query["kms_year"] = kms_year
+        if season: ledger_query["season"] = season
+        ledger_txns = await db.cash_transactions.find(ledger_query, {"_id": 0}).to_list(50000)
+        for lt in ledger_txns:
+            pn = lt.get("category", "")
+            ledger_paid_map[pn] = ledger_paid_map.get(pn, 0) + lt.get("amount", 0)
+    
+    # Add ledger_paid and ledger_balance to each purchase entry
+    for e in entries:
+        if e.get("txn_type") == "in" and e.get("party_name"):
+            total_paid = round(ledger_paid_map.get(e["party_name"], 0), 2)
+            e["ledger_paid"] = total_paid
+            e["ledger_balance"] = round((e.get("total", 0) or e.get("amount", 0)) - total_paid, 2)
+    
+    return entries
 
 
 @router.delete("/gunny-bags/{entry_id}")

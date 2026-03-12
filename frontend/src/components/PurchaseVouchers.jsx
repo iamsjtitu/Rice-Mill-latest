@@ -213,6 +213,13 @@ export default function PurchaseVouchers({ filters, user }) {
     return { ...t, total: Math.round(t.total), balance: Math.round(t.balance) };
   }, [vouchers]);
 
+  // Calculate paid totals from ledger
+  const ledgerTotals = useMemo(() => {
+    const paid = vouchers.reduce((s, v) => s + (v.ledger_paid || v.advance || 0), 0);
+    const balance = vouchers.reduce((s, v) => s + (v.ledger_balance != null ? v.ledger_balance : (v.balance || 0)), 0);
+    return { paid: Math.round(paid), balance: Math.round(balance) };
+  }, [vouchers]);
+
   return (
     <div className="space-y-4" data-testid="purchase-vouchers-section">
       {/* Summary Cards */}
@@ -220,9 +227,9 @@ export default function PurchaseVouchers({ filters, user }) {
         {[
           ["Vouchers", vouchers.length, "text-white"],
           ["Total Amount", `Rs.${totals.total.toLocaleString()}`, "text-emerald-400"],
-          ["Advance", `Rs.${Math.round(totals.advance).toLocaleString()}`, "text-sky-400"],
+          ["Paid", `Rs.${ledgerTotals.paid.toLocaleString()}`, "text-sky-400"],
           ["Cash+Diesel", `Rs.${Math.round(totals.cash + totals.diesel).toLocaleString()}`, "text-amber-400"],
-          ["Balance", `Rs.${totals.balance.toLocaleString()}`, "text-red-400"],
+          ["Balance", `Rs.${ledgerTotals.balance.toLocaleString()}`, "text-red-400"],
         ].map(([label, val, color]) => (
           <Card key={label} className="bg-slate-800 border-slate-700">
             <CardContent className="p-3 text-center">
@@ -260,8 +267,8 @@ export default function PurchaseVouchers({ filters, user }) {
         <CardContent className="p-0"><div className="overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="border-slate-700">
-              {['#', 'Date', 'Invoice', 'RST', 'Party', 'Items', 'Truck', 'Subtotal', 'GST', 'Total', 'Advance', 'Balance', ''].map(h =>
-                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Subtotal', 'GST', 'Total', 'Advance', 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+              {['#', 'Date', 'Invoice', 'RST', 'Party', 'Items', 'Truck', 'Subtotal', 'GST', 'Total', 'Paid', 'Balance', ''].map(h =>
+                <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Subtotal', 'GST', 'Total', 'Paid', 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
             </TableRow></TableHeader>
             <TableBody>
               {loading ? <TableRow><TableCell colSpan={13} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
@@ -282,9 +289,9 @@ export default function PurchaseVouchers({ filters, user }) {
                   <TableCell className="text-right text-slate-300 text-xs">Rs.{(v.subtotal || 0).toLocaleString()}</TableCell>
                   <TableCell className="text-right text-yellow-400 text-xs">{gst > 0 ? `Rs.${gst.toLocaleString()}` : '-'}</TableCell>
                   <TableCell className="text-right text-emerald-400 font-semibold text-sm">Rs.{(v.total || 0).toLocaleString()}</TableCell>
-                  <TableCell className="text-right text-sky-400 text-xs">Rs.{(v.advance || 0).toLocaleString()}</TableCell>
-                  <TableCell className={`text-right font-semibold text-sm ${(v.balance || 0) > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`pv-balance-${v.id}`}>
-                    Rs.{(v.balance || 0).toLocaleString()}
+                  <TableCell className="text-right text-sky-400 text-xs">Rs.{(v.ledger_paid || v.advance || 0).toLocaleString()}</TableCell>
+                  <TableCell className={`text-right font-semibold text-sm ${(v.ledger_balance != null ? v.ledger_balance : (v.balance || 0)) > 0 ? 'text-red-400' : 'text-emerald-400'}`} data-testid={`pv-balance-${v.id}`}>
+                    Rs.{(v.ledger_balance != null ? v.ledger_balance : (v.balance || 0)).toLocaleString()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-1 justify-end">
@@ -519,7 +526,8 @@ export default function PurchaseVouchers({ filters, user }) {
                 <p><span className="text-slate-400">Party:</span> <span className="text-white font-medium">{payDialog.party_name}</span></p>
                 <p><span className="text-slate-400">Invoice:</span> <span className="text-white">{payDialog.invoice_no || '-'}</span></p>
                 <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{payDialog.total?.toLocaleString('en-IN')}</span></p>
-                <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{payDialog.balance?.toLocaleString('en-IN')}</span></p>
+                <p><span className="text-slate-400">Paid:</span> <span className="text-sky-400 font-bold">Rs.{(payDialog.ledger_paid || payDialog.advance || 0).toLocaleString('en-IN')}</span></p>
+                <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{(payDialog.ledger_balance != null ? payDialog.ledger_balance : payDialog.balance)?.toLocaleString('en-IN')}</span></p>
               </div>
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-date" /></div>
