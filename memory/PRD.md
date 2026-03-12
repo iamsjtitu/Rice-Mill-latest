@@ -23,9 +23,14 @@ NAVKAR AGRO Mill Entry System - A comprehensive rice mill management application
    - **Sale Vouchers**: Tally-style sales with GST, multi-part accounting
    - **Purchase Vouchers**: Any custom item purchase, auto accounting
    - **Paddy Purchase**: Weight calculations, payment tracking
-   - **Stock Summary**: All stocks - Paddy (from mill_entries + pvt purchase), Rice, By-products, FRK, Custom items
-   - **Party Summary**: Aggregated from sale_vouchers + purchase_vouchers + paddy_purchase + rice_sales
+   - **Stock Summary**: All stocks - Paddy, Rice, By-products, FRK, Custom items, **Gunny Bags**
+   - **Party Summary**: Aggregated from sale_vouchers + purchase_vouchers + paddy_purchase
 9. **Mill Parts, Staff, FY Summary, Settings, GST, Opening Balance**
+10. **Gunny Bags Management** (Enhanced - Mar 2026):
+    - Full purchase form with Invoice No, Truck No, RST No, Party Name, GST (CGST+SGST / IGST), Advance
+    - Automatic accounting entries (Party Ledger JAMA, Advance NIKASI, Cash NIKASI)
+    - Integrated into Stock Summary under "Raw Material" category
+    - Stock Summary category filter (All, Raw Material, Finished, By-Product, Custom)
 
 ### Bug Fixes (Mar 2026)
 - Stock Summary: Fixed `db.entries` → `db.mill_entries` for correct paddy stock
@@ -38,8 +43,17 @@ NAVKAR AGRO Mill Entry System - A comprehensive rice mill management application
 - `private_paddy` - Private paddy purchases
 - `sale_vouchers` - Sale book vouchers
 - `purchase_vouchers` - Purchase vouchers with custom items
-- `cash_transactions` - Cash book entries
+- `gunny_bags` - Gunny bag purchases and tracking (enhanced with invoice_no, truck_no, rst_no, party_name, gst, advance)
+- `cash_transactions` - Cash book entries (includes gunny_purchase, gunny_advance, gunny_cash references)
 - `truck_payments`, `diesel_accounts`, `rice_sales`, `byproduct_sales`, etc.
+
+## Key API Endpoints
+- `POST/GET/PUT/DELETE /api/gunny-bags` - Gunny bag CRUD with GST + accounting
+- `GET /api/gunny-bags/summary` - Summary by bag type
+- `GET /api/stock-summary` - Consolidated stock (includes Gunny Bags)
+- `GET /api/private-trading/party-summary` - 3-section party summary with search
+- `POST/GET/PUT/DELETE /api/purchase-book` - Purchase vouchers
+- `GET /api/stock-summary/export/pdf|excel` - Stock exports
 
 ## Credentials
 - Admin: admin / admin123
