@@ -28,6 +28,11 @@ Comprehensive Mill Entry System (rice mill management) web + desktop app.
   - Fixed KeyError 'id' in `_create_purchase_ledger_entries` (line 163) - d["id"] changed to doc_id
   - Advance Paid now correctly deducted from total (balance = total - advance)
 - **Frontend Export URL Fix:** PurchaseVouchers handleExport now includes kms_year/season/search query params
+- **Stock Items Dropdown in Purchase Voucher (12-Mar-2026):**
+  - Backend: New `/api/purchase-book/stock-items` endpoint returns all stock items with available quantities
+  - Frontend: Stock overview cards on Purchase Vouchers page showing all items (Paddy, Rice, FRK, Bran, etc.)
+  - Frontend: Select dropdown in form shows stock items with quantities + "Other/Custom Item" option
+  - Frontend: Stock column shows available qty for selected item
 
 ## Backlog
 - P1: Full regression test of all payment modules
