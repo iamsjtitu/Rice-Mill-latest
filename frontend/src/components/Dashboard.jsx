@@ -302,10 +302,6 @@ export const Dashboard = ({ filters, user }) => {
             {paddyStock ? (
               <div className="space-y-2">
                 <div className="flex justify-between items-center py-1 border-b border-slate-700">
-                  <span className="text-slate-400 text-xs">Total Paddy In (CMR + Pvt)</span>
-                  <span className="text-white font-semibold text-sm" data-testid="paddy-total-in">{paddyStock.total_paddy_in_qntl} Qntl</span>
-                </div>
-                <div className="flex justify-between items-center py-1 border-b border-slate-700">
                   <span className="text-slate-400 text-xs">CMR Paddy</span>
                   <span className="text-cyan-400 text-sm">{paddyStock.cmr_paddy_in_qntl} Qntl</span>
                 </div>
@@ -313,6 +309,12 @@ export const Dashboard = ({ filters, user }) => {
                   <span className="text-slate-400 text-xs">Pvt Paddy</span>
                   <span className="text-purple-400 text-sm">{paddyStock.pvt_paddy_in_qntl} Qntl</span>
                 </div>
+                {paddyStock.pv_paddy_in_qntl > 0 && (
+                <div className="flex justify-between items-center py-1 border-b border-slate-700">
+                  <span className="text-slate-400 text-xs">Purchase se kharida</span>
+                  <span className="text-emerald-400 font-semibold text-sm" data-testid="paddy-purchased">+ {paddyStock.pv_paddy_in_qntl} Qntl</span>
+                </div>
+                )}
                 <div className="flex justify-between items-center py-1 border-b border-slate-700">
                   <span className="text-slate-400 text-xs">Milling mein use hua</span>
                   <span className="text-red-400 font-semibold text-sm" data-testid="paddy-used">- {paddyStock.total_paddy_used_qntl} Qntl</span>

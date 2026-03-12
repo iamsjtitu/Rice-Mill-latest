@@ -516,7 +516,7 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
 
     g = {"total": 0, "adv": 0, "cash": 0, "diesel": 0, "paid": 0, "bal": 0}
     for v in vouchers:
-        items_str = ', '.join(f"{i['item_name']}({i['quantity']}Q)" for i in v.get('items', []))
+        items_str = ', '.join(f"{i['item_name']} ({i['quantity']} Qntl)" for i in v.get('items', []))
         dp = str(v.get('date', '')).split('-')
         fd = f"{dp[2]}/{dp[1]}/{dp[0]}" if len(dp) == 3 else v.get('date', '')
         truck_rst = v.get('truck_no', '')
@@ -611,102 +611,122 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
     vouchers = await db.sale_vouchers.find(query, {"_id": 0}).sort("voucher_no", 1).to_list(10000)
     branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
     company = branding.get("company_name", "NAVKAR AGRO")
+
+    # Ledger-based paid amounts
+    party_names = list(set(v.get("party_name", "") for v in vouchers if v.get("party_name")))
+    ledger_paid_map = {}
+    if party_names:
+        ledger_q = {"account": "ledger", "txn_type": "nikasi", "category": {"$in": party_names}, "party_type": "Sale Book"}
+        if kms_year: ledger_q["kms_year"] = kms_year
+        ledger_txns = await db.cash_transactions.find(ledger_q, {"_id": 0}).to_list(50000)
+        for lt in ledger_txns:
+            pn = lt.get("category", "")
+            ledger_paid_map[pn] = ledger_paid_map.get(pn, 0) + lt.get("amount", 0)
     
     wb = Workbook()
     ws = wb.active
     ws.title = "Sale Book"
     
-    # Page setup for A4
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.orientation = 'landscape'
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
-    ws.print_options.horizontalCentered = True
+    
+    # Colors
+    blue = '1A5276'
+    light_blue = 'D6EAF8'
+    green = '27AE60'
+    red = 'E74C3C'
     
     # Styles
-    header_font = Font(name='Calibri', size=14, bold=True, color='1a5276')
+    title_font = Font(name='Calibri', size=14, bold=True, color=blue)
     sub_font = Font(name='Calibri', size=9, color='666666')
-    col_header_font = Font(name='Calibri', size=9, bold=True, color='FFFFFF')
-    col_header_fill = PatternFill(start_color='1a5276', end_color='1a5276', fill_type='solid')
-    data_font = Font(name='Calibri', size=9)
-    bold_font = Font(name='Calibri', size=9, bold=True)
-    total_font = Font(name='Calibri', size=10, bold=True, color='FFFFFF')
-    total_fill = PatternFill(start_color='1a5276', end_color='1a5276', fill_type='solid')
-    thin_border = Border(bottom=Side(style='thin', color='E0E0E0'))
+    hd_font = Font(name='Calibri', size=8, bold=True, color='FFFFFF')
+    hd_fill = PatternFill(start_color=blue, end_color=blue, fill_type='solid')
+    data_font = Font(name='Calibri', size=8)
+    bold_font = Font(name='Calibri', size=8, bold=True)
+    amt_font = Font(name='Calibri', size=8, bold=True, color=blue)
+    paid_font = Font(name='Calibri', size=8, bold=True, color=green)
+    bal_font = Font(name='Calibri', size=8, bold=True, color=red)
+    total_font = Font(name='Calibri', size=9, bold=True, color='FFFFFF')
+    total_fill = PatternFill(start_color=blue, end_color=blue, fill_type='solid')
+    alt_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
+    thin = Border(bottom=Side(style='thin', color='E0E0E0'))
     
     # Header
-    ws.merge_cells('A1:N1')
+    cols = ['#', 'Date', 'Inv No.', 'Party', 'Items (Qntl)', 'Truck/RST', 'Total', 'Advance', 'Cash', 'Diesel', 'Ledger Paid', 'Balance', 'Status']
+    widths = [5, 9, 9, 16, 30, 12, 10, 9, 8, 8, 10, 10, 7]
+    last_col_letter = chr(64 + len(cols))
+    
+    ws.merge_cells(f'A1:{last_col_letter}1')
     ws['A1'] = company
-    ws['A1'].font = header_font
+    ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal='center')
     
-    ws.merge_cells('A2:N2')
-    ws['A2'] = f"Sale Book Report | {f'FY: {kms_year}' if kms_year else ''} {f'| {season}' if season else ''} | Date: {datetime.now().strftime('%d-%m-%Y')}"
+    ws.merge_cells(f'A2:{last_col_letter}2')
+    ws['A2'] = f"Sale Book | {f'FY: {kms_year}' if kms_year else ''} {f'| {season}' if season else ''} | {datetime.now().strftime('%d-%m-%Y')}"
     ws['A2'].font = sub_font
     ws['A2'].alignment = Alignment(horizontal='center')
     
-    # Column headers
-    cols = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck/RST', 'E-Way Bill', 'Subtotal', 'GST', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance']
-    widths = [6, 10, 10, 18, 28, 14, 14, 10, 8, 10, 10, 8, 8, 10]
     for i, (col, w) in enumerate(zip(cols, widths), 1):
         cell = ws.cell(row=4, column=i, value=col)
-        cell.font = col_header_font
-        cell.fill = col_header_fill
-        cell.alignment = Alignment(horizontal='right' if i >= 8 else 'left', vertical='center')
+        cell.font = hd_font
+        cell.fill = hd_fill
+        cell.alignment = Alignment(horizontal='right' if i >= 7 else 'left', vertical='center', wrap_text=True)
         ws.column_dimensions[cell.column_letter].width = w
     
-    # Data rows
-    g = {"sub": 0, "gst": 0, "total": 0, "adv": 0, "cash": 0, "diesel": 0, "bal": 0}
+    g = {"total": 0, "adv": 0, "cash": 0, "diesel": 0, "paid": 0, "bal": 0}
     for ri, v in enumerate(vouchers, 5):
-        items_str = ', '.join(f"{i['item_name']}({i['quantity']}Q)" for i in v.get('items', []))
-        gst = (v.get('cgst_amount', 0) or 0) + (v.get('sgst_amount', 0) or 0) + (v.get('igst_amount', 0) or 0)
+        items_str = ', '.join(f"{i['item_name']} ({i['quantity']} Qntl)" for i in v.get('items', []))
         dp = str(v.get('date', '')).split('-')
         fd = f"{dp[2]}/{dp[1]}/{dp[0]}" if len(dp) == 3 else v.get('date', '')
         truck_rst = v.get('truck_no', '')
-        if v.get('rst_no'): truck_rst += f" / {v['rst_no']}"
-        
-        g["sub"] += v.get('subtotal', 0) or 0
-        g["gst"] += gst
-        g["total"] += v.get('total', 0) or 0
+        if v.get('rst_no'): truck_rst += f"/{v['rst_no']}"
+        total = v.get('total', 0) or 0
+        pn = v.get('party_name', '')
+        ledger_paid = round(ledger_paid_map.get(pn, 0), 2)
+        ledger_bal = round(total - ledger_paid, 2)
+        status = "Paid" if ledger_bal <= 0 and total > 0 else "Pending"
+        g["total"] += total
         g["adv"] += v.get('advance', 0) or 0
         g["cash"] += v.get('cash_paid', 0) or 0
         g["diesel"] += v.get('diesel_paid', 0) or 0
-        g["bal"] += v.get('balance', 0) or 0
+        g["paid"] += ledger_paid
+        g["bal"] += ledger_bal
         
-        row_data = [f"#{v.get('voucher_no','')}", fd, v.get('invoice_no',''), v.get('party_name',''), items_str, truck_rst,
-                    v.get('eway_bill_no', ''), v.get('subtotal', 0), gst, v.get('total', 0), v.get('advance', 0) or 0,
-                    v.get('cash_paid', 0) or 0, v.get('diesel_paid', 0) or 0, v.get('balance', 0)]
+        row_data = [v.get('voucher_no',''), fd, v.get('invoice_no',''), pn, items_str, truck_rst,
+                    total, v.get('advance', 0) or 0, v.get('cash_paid', 0) or 0, v.get('diesel_paid', 0) or 0,
+                    ledger_paid, ledger_bal, status]
         for ci, val in enumerate(row_data, 1):
             cell = ws.cell(row=ri, column=ci, value=val)
-            cell.font = bold_font if ci in (4, 10, 14) else data_font
-            cell.border = thin_border
-            if ci >= 8: cell.alignment = Alignment(horizontal='right')
-            if ci >= 8 and isinstance(val, (int, float)): cell.number_format = '#,##0'
+            cell.border = thin
+            cell.font = bold_font if ci == 4 else (amt_font if ci == 7 else (paid_font if ci == 11 else (bal_font if ci == 12 else data_font)))
+            if ci >= 7 and ci <= 12:
+                cell.alignment = Alignment(horizontal='right')
+                if isinstance(val, (int, float)): cell.number_format = '#,##0'
+            if ri % 2 == 0: cell.fill = alt_fill
     
-    # Total row
     tr = len(vouchers) + 5
-    ws.merge_cells(f'A{tr}:G{tr}')
-    ws.cell(row=tr, column=1, value=f"TOTAL ({len(vouchers)} vouchers)").font = total_font
-    ws.cell(row=tr, column=1).fill = total_fill
-    for ci, val in enumerate([g['sub'], g['gst'], g['total'], g['adv'], g['cash'], g['diesel'], g['bal']], 8):
+    ws.merge_cells(f'A{tr}:F{tr}')
+    for ci in range(1, len(cols) + 1):
+        cell = ws.cell(row=tr, column=ci)
+        cell.fill = total_fill
+        cell.font = total_font
+    ws.cell(row=tr, column=1, value=f"TOTAL ({len(vouchers)} vouchers)")
+    for ci, val in enumerate([g['total'], g['adv'], g['cash'], g['diesel'], g['paid'], g['bal'], ''], 7):
         cell = ws.cell(row=tr, column=ci, value=val)
         cell.font = total_font
         cell.fill = total_fill
         cell.alignment = Alignment(horizontal='right')
-        cell.number_format = '#,##0'
-    # Fill remaining total cells
-    for ci in range(2, 7):
-        ws.cell(row=tr, column=ci).fill = total_fill
+        if isinstance(val, (int, float)): cell.number_format = '#,##0'
     
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
-    return Response(
-        content=buf.getvalue(),
+    return Response(content=buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=sale_book_{datetime.now().strftime('%Y%m%d')}.xlsx"}
-    )
+        headers={"Content-Disposition": f"attachment; filename=sale_book_{datetime.now().strftime('%Y%m%d')}.xlsx"})
 
 
 # ============ OPENING BALANCE ============
