@@ -211,16 +211,16 @@ async def _create_sale_ledger_entries(d, doc_id, vno, items, username):
         entries.append({
             "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "jama",
             "amount": diesel, "category": pump_name, "party_type": "Diesel",
-            "description": f"Diesel for truck - Sale #{vno}{desc_suffix}",
+            "description": f"Diesel for truck - Sale #{vno} - {party}{desc_suffix}",
             "reference": f"sale_voucher_diesel:{doc_id}", **base
         })
-        # Also create entry in diesel_accounts collection
+        # Also create entry in diesel_accounts collection (txn_type=debit so it counts in summary)
         diesel_entry = {
             "id": str(uuid.uuid4()), "date": d.get('date', ''),
             "pump_id": pump_id, "pump_name": pump_name,
-            "truck_no": truck, "agent_name": "",
-            "amount": diesel, "txn_type": "diesel",
-            "description": f"Diesel for Sale #{vno} - {truck}{desc_suffix}",
+            "truck_no": truck, "agent_name": party,
+            "amount": diesel, "txn_type": "debit",
+            "description": f"Diesel for Sale #{vno} - {party}{desc_suffix}",
             "reference": f"sale_voucher_diesel:{doc_id}",
             **base
         }
@@ -235,20 +235,14 @@ async def _create_sale_ledger_entries(d, doc_id, vno, items, username):
             "description": f"Truck payment - Sale #{vno} (Cash:{cash} + Diesel:{diesel}){desc_suffix}",
             "reference": f"sale_voucher_truck:{doc_id}", **base
         })
-        entries.append({
-            "id": str(uuid.uuid4()), "date": d.get('date', ''), "account": "ledger", "txn_type": "nikasi",
-            "amount": truck_total, "category": truck, "party_type": "Truck",
-            "description": f"Truck paid (Cash:{cash} + Diesel:{diesel}) - Sale #{vno}{desc_suffix}",
-            "reference": f"sale_voucher_truck:{doc_id}", **base
-        })
-        # Also create entry in truck_payments collection
+        # Also create entry in truck_payments collection (status=pending, not auto-paid)
         truck_entry = {
             "entry_id": str(uuid.uuid4()),
             "truck_no": truck, "date": d.get('date', ''),
             "cash_taken": cash, "diesel_taken": diesel,
-            "gross_amount": truck_total, "deductions": 0,
-            "net_amount": truck_total, "paid_amount": truck_total,
-            "balance_amount": 0, "status": "paid",
+            "gross_amount": truck_total, "deductions": truck_total,
+            "net_amount": 0, "paid_amount": 0,
+            "balance_amount": truck_total, "status": "pending",
             "source": "Sale Book",
             "description": f"Sale #{vno} - {party}{desc_suffix}",
             "reference": f"sale_voucher_truck:{doc_id}",
