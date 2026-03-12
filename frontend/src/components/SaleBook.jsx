@@ -316,11 +316,16 @@ export default function SaleBook({ filters, user }) {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Row 1: Invoice No, Date */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div>
                 <Label className="text-xs text-slate-400">Invoice No.</Label>
                 <Input value={form.invoice_no} onChange={e => setForm(p => ({ ...p, invoice_no: e.target.value }))}
                   placeholder="INV-001" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-invoice" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-400">Truck No</Label>
+                <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
+                  placeholder="OD00XX0000" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-truck" />
               </div>
               <div>
                 <Label className="text-xs text-slate-400">Date</Label>
@@ -458,13 +463,8 @@ export default function SaleBook({ filters, user }) {
                 <span className="text-emerald-400" data-testid="sv-grand-total">Rs.{total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
               </div>
 
-              {/* Truck + Advance Row */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <Label className="text-[10px] text-slate-400">Truck No</Label>
-                  <Input value={form.truck_no} onChange={e => setForm(p => ({ ...p, truck_no: e.target.value }))}
-                    placeholder="OD00XX0000" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-form-truck" />
-                </div>
+              {/* Cash + Diesel Row */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-[10px] text-slate-400">Cash (Truck ko)</Label>
                   <Input type="number" step="0.01" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
