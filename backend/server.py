@@ -79,6 +79,20 @@ api_router.include_router(purchase_vouchers_router)
 api_router.include_router(voucher_payments_router)
 api_router.include_router(gst_ledger_router)
 
+@api_router.post("/delete-all-data")
+async def delete_all_data():
+    from database import db as _db
+    collections = ["mill_entries", "dc_entries", "dc_deliveries", "dc_msp_payments",
+                    "sale_vouchers", "purchase_vouchers", "gunny_bags",
+                    "cash_transactions", "opening_balances", "gst_opening_balances",
+                    "local_party_accounts", "party_ledger", "mandi_targets",
+                    "voucher_payments", "stock_summary"]
+    deleted = {}
+    for col in collections:
+        result = await _db[col].delete_many({})
+        deleted[col] = result.deleted_count
+    return {"message": "All data cleared", "deleted": deleted}
+
 # Include the api_router in the main app
 app.include_router(api_router)
 

@@ -151,7 +151,7 @@ const TransactionFormDialog = ({
           </div>
           <div>
             <Label className="text-xs text-slate-600">Party Type (Auto / Manual)</Label>
-            <Select value={form.party_type || "_auto"} onValueChange={(v) => setForm(p => ({ ...p, party_type: v === "_auto" ? "" : v }))}>
+            <Select value={form.party_type || "_auto"} onValueChange={(v) => setForm(p => ({ ...p, party_type: v === "_auto" ? "" : v === "_manual" ? "" : v, _showManualType: v === "_manual" }))}>
               <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-party-type"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_auto">Auto Detect</SelectItem>
@@ -164,8 +164,13 @@ const TransactionFormDialog = ({
                 <SelectItem value="Agent">Agent</SelectItem>
                 <SelectItem value="By-Product Sale">By-Product Sale</SelectItem>
                 <SelectItem value="Staff">Staff</SelectItem>
+                <SelectItem value="_manual">-- Manual (Type karein) --</SelectItem>
               </SelectContent>
             </Select>
+            {form._showManualType && (
+              <Input value={form.party_type} onChange={e => setForm(p => ({ ...p, party_type: e.target.value }))}
+                placeholder="Custom party type likhein..." className="border-slate-300 h-8 text-sm mt-1" autoFocus data-testid="cashbook-form-manual-party-type" />
+            )}
           </div>
           <div>
             <Label className="text-xs text-slate-600">Description</Label>
