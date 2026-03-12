@@ -97,10 +97,29 @@ const TransactionFormDialog = ({
                 onChange={(e) => {
                   const val = e.target.value;
                   const match = allTxns.find(t => t.category && t.category.toLowerCase() === val.toLowerCase() && t.party_type);
-                  setForm(p => ({ ...p, category: val, party_type: match ? match.party_type : "", _showPartySuggestions: true }));
+                  setForm(p => ({ ...p, category: val, party_type: match ? match.party_type : "", _showPartySuggestions: true, _highlightIdx: -1 }));
                 }}
-                onFocus={() => setForm(p => ({ ...p, _showPartySuggestions: true }))}
-                onBlur={() => setTimeout(() => setForm(p => ({ ...p, _showPartySuggestions: false })), 200)}
+                onFocus={() => setForm(p => ({ ...p, _showPartySuggestions: true, _highlightIdx: -1 }))}
+                onBlur={() => setTimeout(() => setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 })), 200)}
+                onKeyDown={(e) => {
+                  const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
+                  if (!form._showPartySuggestions || filtered.length === 0) return;
+                  const idx = form._highlightIdx ?? -1;
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setForm(p => ({ ...p, _highlightIdx: Math.min((idx + 1), filtered.length - 1) }));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setForm(p => ({ ...p, _highlightIdx: Math.max((idx - 1), 0) }));
+                  } else if (e.key === 'Enter' && idx >= 0 && idx < filtered.length) {
+                    e.preventDefault();
+                    const c = filtered[idx];
+                    const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
+                    setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : "", _showPartySuggestions: false, _highlightIdx: -1 }));
+                  } else if (e.key === 'Escape') {
+                    setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 }));
+                  }
+                }}
                 placeholder="Party name search karein..."
                 className="border-slate-300 h-8 text-sm"
                 autoComplete="off"
@@ -111,15 +130,17 @@ const TransactionFormDialog = ({
                   const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
                   return filtered.length > 0 ? (
                     <div className="absolute z-50 w-full mt-1 max-h-40 overflow-auto bg-white border border-slate-200 rounded-md shadow-lg">
-                      {filtered.map(c => {
+                      {filtered.map((c, i) => {
                         const pt = allTxns.find(t => t.category === c && t.party_type);
+                        const isHighlighted = (form._highlightIdx ?? -1) === i;
                         return (
                           <div key={c}
-                            className="px-3 py-1.5 text-sm cursor-pointer hover:bg-amber-50 flex justify-between items-center"
+                            className={`px-3 py-1.5 text-sm cursor-pointer flex justify-between items-center ${isHighlighted ? 'bg-amber-100' : 'hover:bg-amber-50'}`}
                             onMouseDown={() => {
                               const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
-                              setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : "", _showPartySuggestions: false }));
-                            }}>
+                              setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : "", _showPartySuggestions: false, _highlightIdx: -1 }));
+                            }}
+                            onMouseEnter={() => setForm(p => ({ ...p, _highlightIdx: i }))}>
                             <span className="text-slate-800">{c}</span>
                             {pt && pt.party_type && <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                               pt.party_type === 'Truck' ? 'bg-blue-100 text-blue-700' :
