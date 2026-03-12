@@ -1,0 +1,133 @@
+{
+  "summary": "Iteration 79 - Purchase Voucher Stock Integration Tests - ALL PASSED. Backend: 10/10 tests passed. Frontend: All 4 features verified. The bug where PV-purchased Rice (Usna) was not showing in Dashboard/Stock is now FIXED.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration79_pv_stock_integration.py",
+    "/app/test_reports/pytest/pytest_results_iteration79.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration79_pv_stock_integration.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "100% (all 4 features verified)"
+  },
+  "seed_data_creation": "Created and cleaned up test PV with Rice (Usna) 100Q during backend testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Purchase Voucher stock integration complete. Rice (Usna) and other items purchased via PV are now correctly reflected in: (1) Dashboard Rice Stock card with 'Purchase se kharida' line, (2) Sale Book stock-items dropdown, (3) Byproduct stock with purchased_qntl field. Low Stock Alert banner removed from Purchase Vouchers page.",
+  "features_tested": {
+    "feature_1_rice_stock_api_includes_purchased_fields": {
+      "status": "PASSED",
+      "endpoint": "GET /api/rice-stock",
+      "details": [
+        "Returns purchased_qntl field (total PV rice)",
+        "Returns purchased_usna_qntl field (Rice Usna from PV)",
+        "Returns purchased_raw_qntl field (Rice Raw from PV)",
+        "Returns sb_sold_qntl field (Sale Voucher sold)",
+        "available_qntl = produced + purchased - DC - pvt_sold - sb_sold (formula verified)"
+      ]
+    },
+    "feature_2_sale_book_stock_items_api": {
+      "status": "PASSED",
+      "endpoint": "GET /api/sale-book/stock-items",
+      "details": [
+        "Rice (Usna) includes PV purchased quantity in available",
+        "Rice (Raw) includes PV purchased quantity in available",
+        "Byproducts (Bran, Kunda, etc.) include PV purchased quantities",
+        "FRK includes PV purchased quantity",
+        "Custom items from PV are also included"
+      ]
+    },
+    "feature_3_byproduct_stock_api": {
+      "status": "PASSED",
+      "endpoint": "GET /api/byproduct-stock",
+      "details": [
+        "Each byproduct (bran, kunda, broken, kanki, husk) has purchased_qntl field",
+        "available_qntl = produced + purchased - sold (formula verified for all)"
+      ]
+    },
+    "feature_4_dashboard_shows_purchase_se_kharida": {
+      "status": "PASSED",
+      "location": "Dashboard & Targets > Rice Stock card",
+      "details": [
+        "Shows 'Purchase se kharida: + 5000 Qntl' line (green/emerald)",
+        "Available Stock correctly adds PV purchases (5000 Qntl in test)",
+        "data-testid='rice-purchased' present for line item"
+      ]
+    },
+    "feature_5_low_stock_alert_removed_from_pv": {
+      "status": "PASSED",
+      "location": "Vouchers > Purchase Vouchers",
+      "details": [
+        "No [data-testid='pv-low-stock-alert'] element present",
+        "No 'Low Stock Alert' text on the page",
+        "Stock overview cards still visible without alert banner"
+      ]
+    },
+    "feature_6_pv_create_delete_stock_changes": {
+      "status": "PASSED",
+      "details": [
+        "Creating PV with Rice (Usna) 100Q increases rice-stock by 100Q",
+        "Deleting the PV returns stock to original value",
+        "Stock items dropdown reflects changes immediately"
+      ]
+    },
+    "feature_7_existing_pv_rice_data": {
+      "status": "PASSED",
+      "details": [
+        "Existing PV with Rice (Usna) 5000Q (Sahu Ji) is counted in stock",
+        "API purchased_usna_qntl matches sum of all PV Rice (Usna) items"
+      ]
+    }
+  },
+  "backend_test_summary": {
+    "test_file": "/app/backend/tests/test_iteration79_pv_stock_integration.py",
+    "tests_run": 10,
+    "tests_passed": 10,
+    "tests_failed": 0,
+    "test_classes": [
+      "TestRiceStockWithPurchaseVouchers (2 tests) - purchased_qntl fields and formula",
+      "TestPurchaseVoucherCreateDelete (1 test) - Create/delete PV updates stock",
+      "TestSaleBookStockItems (3 tests) - rice, byproducts, FRK in stock-items",
+      "TestByproductStockWithPurchaseVouchers (2 tests) - purchased_qntl per product",
+      "TestPurchaseVouchersLowStockAlertRemoved (1 test) - API endpoint check",
+      "TestExistingPurchaseVoucherRiceData (1 test) - Existing data verification"
+    ]
+  },
+  "frontend_test_summary": {
+    "login": "PASSED",
+    "dashboard_rice_stock_card": "PASSED - Shows 'Purchase se kharida: + 5000 Qntl'",
+    "dashboard_available_stock": "PASSED - Shows 5000 Qntl (produced 134 + purchased 5000 - DC 134)",
+    "purchase_vouchers_low_stock_alert": "PASSED - Alert element count: 0, text count: 0",
+    "purchase_vouchers_stock_overview": "PASSED - Shows Rice (Usna): 5000 Q",
+    "sale_voucher_stock_dropdown": "PASSED - Contains Rice (Usna) option"
+  },
+  "bug_fixed": {
+    "original_issue": "User purchased Rice (Usna) 500Q via Purchase Voucher but it was NOT showing in Dashboard Rice Stock, Sale Voucher stock items, DC stock, or Stock Summary",
+    "root_cause": "Rice stock API did not fetch purchase_vouchers collection to include PV-purchased rice",
+    "fix_applied": [
+      "milling.py get_rice_stock: Added purchase_vouchers fetch and aggregation for Rice items",
+      "milling.py get_byproduct_stock: Added purchase_vouchers fetch for byproduct items",
+      "salebook.py get_stock_items: Added purchase_vouchers fetch for all stock items",
+      "Dashboard.jsx: Added 'Purchase se kharida' line when purchases > 0",
+      "PurchaseVouchers.jsx: Removed Low Stock Alert banner as requested"
+    ],
+    "verification": "Backend API now returns purchased_qntl=5000 for existing PV data. Dashboard shows the line. Stock dropdown has correct quantities."
+  },
+  "screenshots": [
+    ".screenshots/dashboard_rice_stock.png - Dashboard showing 'Purchase se kharida: + 5000 Qntl'",
+    ".screenshots/pv_section.png - Purchase Vouchers page without Low Stock Alert",
+    ".screenshots/vouchers_tab_view.png - Sale Vouchers with stock overview"
+  ]
+}

@@ -306,30 +306,17 @@ export default function PurchaseVouchers({ filters, user }) {
         ))}
       </div>
 
-      {/* Stock Overview + Low Stock Alert */}
+      {/* Stock Overview */}
       {stockItems.length > 0 && (
-        <div className="space-y-2">
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-2" data-testid="pv-stock-overview">
-            {stockItems.map(item => (
-              <Card key={item.name} className={`border p-2 ${item.available_qntl <= 0 ? 'bg-red-900/30 border-red-700' : item.available_qntl <= 10 ? 'bg-amber-900/20 border-amber-700' : 'bg-slate-800/50 border-slate-700'}`}>
-                <div className="text-[10px] text-slate-400 truncate">{item.name}</div>
-                <div className={`text-sm font-bold ${item.available_qntl > 10 ? 'text-emerald-400' : item.available_qntl > 0 ? 'text-amber-400' : 'text-red-400'}`}>
-                  {item.available_qntl} Q
-                </div>
-                {item.available_qntl <= 0 && <div className="text-[9px] text-red-400 font-semibold">OUT OF STOCK</div>}
-                {item.available_qntl > 0 && item.available_qntl <= 10 && <div className="text-[9px] text-amber-400 font-semibold">LOW STOCK</div>}
-              </Card>
-            ))}
-          </div>
-          {stockItems.some(i => i.available_qntl <= 10 && i.available_qntl >= 0) && (
-            <div className="bg-amber-900/20 border border-amber-700 rounded-lg px-3 py-1.5 flex items-center gap-2" data-testid="pv-low-stock-alert">
-              <span className="text-amber-400 text-xs font-semibold">Low Stock Alert:</span>
-              <span className="text-amber-300 text-xs">
-                {stockItems.filter(i => i.available_qntl <= 10 && i.available_qntl >= 0).map(i => `${i.name} (${i.available_qntl}Q)`).join(', ')}
-                {' '}- Re-order karein!
-              </span>
-            </div>
-          )}
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-2" data-testid="pv-stock-overview">
+          {stockItems.map(item => (
+            <Card key={item.name} className={`border p-2 ${item.available_qntl <= 0 ? 'bg-red-900/30 border-red-700' : item.available_qntl <= 10 ? 'bg-amber-900/20 border-amber-700' : 'bg-slate-800/50 border-slate-700'}`}>
+              <div className="text-[10px] text-slate-400 truncate">{item.name}</div>
+              <div className={`text-sm font-bold ${item.available_qntl > 10 ? 'text-emerald-400' : item.available_qntl > 0 ? 'text-amber-400' : 'text-red-400'}`}>
+                {item.available_qntl} Q
+              </div>
+            </Card>
+          ))}
         </div>
       )}
 

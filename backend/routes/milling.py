@@ -199,7 +199,7 @@ async def get_frk_stock(kms_year: Optional[str] = None, season: Optional[str] = 
 
 @router.get("/rice-stock")
 async def get_rice_stock(kms_year: Optional[str] = None, season: Optional[str] = None):
-    """Rice Stock = Milling se produced - Govt ko diya (DC) - Pvt mein becha"""
+    """Rice Stock = Milling se produced + Purchase Voucher se kharida - Govt ko diya (DC) - Pvt mein becha - Sale Book mein becha"""
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -209,6 +209,18 @@ async def get_rice_stock(kms_year: Optional[str] = None, season: Optional[str] =
     total_produced = round(sum(e.get('rice_qntl', 0) for e in milling_entries), 2)
     parboiled_produced = round(sum(e.get('rice_qntl', 0) for e in milling_entries if e.get('rice_type') == 'parboiled'), 2)
     raw_produced = round(sum(e.get('rice_qntl', 0) for e in milling_entries if e.get('rice_type') == 'raw'), 2)
+    
+    # Rice purchased from Purchase Vouchers
+    purchase_vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).to_list(10000)
+    pv_bought = {}
+    for pv in purchase_vouchers:
+        for item in pv.get('items', []):
+            name = item.get('item_name', '')
+            pv_bought[name] = pv_bought.get(name, 0) + (item.get('quantity', 0) or 0)
+    
+    pv_rice_usna = round(pv_bought.get("Rice (Usna)", 0), 2)
+    pv_rice_raw = round(pv_bought.get("Rice (Raw)", 0), 2)
+    pv_rice_total = round(pv_rice_usna + pv_rice_raw, 2)
     
     # Rice delivered to Govt (DC deliveries) - type-wise
     dc_query = {}
@@ -228,16 +240,32 @@ async def get_rice_stock(kms_year: Optional[str] = None, season: Optional[str] =
     parboiled_pvt = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type') in ('Usna', 'parboiled')), 2)
     raw_pvt = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type') in ('Raw', 'raw')), 2)
     
-    available = round(total_produced - total_govt_delivered - total_pvt_sold, 2)
-    parboiled_available = round(parboiled_produced - parboiled_govt - parboiled_pvt, 2)
-    raw_available = round(raw_produced - raw_govt - raw_pvt, 2)
+    # Sale Book sales
+    sale_vouchers = await db.sale_vouchers.find(query, {"_id": 0}).to_list(10000)
+    sb_rice_usna = 0
+    sb_rice_raw = 0
+    for sv in sale_vouchers:
+        for item in sv.get('items', []):
+            name = item.get('item_name', '')
+            qty = item.get('quantity', 0) or 0
+            if name == "Rice (Usna)": sb_rice_usna += qty
+            elif name == "Rice (Raw)": sb_rice_raw += qty
+    sb_rice_total = round(sb_rice_usna + sb_rice_raw, 2)
+    
+    available = round(total_produced + pv_rice_total - total_govt_delivered - total_pvt_sold - sb_rice_total, 2)
+    parboiled_available = round(parboiled_produced + pv_rice_usna - parboiled_govt - parboiled_pvt - sb_rice_usna, 2)
+    raw_available = round(raw_produced + pv_rice_raw - raw_govt - raw_pvt - sb_rice_raw, 2)
     
     return {
         "total_produced_qntl": total_produced,
         "parboiled_produced_qntl": parboiled_produced,
         "raw_produced_qntl": raw_produced,
+        "purchased_qntl": pv_rice_total,
+        "purchased_usna_qntl": pv_rice_usna,
+        "purchased_raw_qntl": pv_rice_raw,
         "govt_delivered_qntl": total_govt_delivered,
         "pvt_sold_qntl": total_pvt_sold,
+        "sb_sold_qntl": sb_rice_total,
         "available_qntl": available,
         "parboiled_available_qntl": parboiled_available,
         "raw_available_qntl": raw_available,
@@ -264,14 +292,22 @@ async def get_byproduct_stock(kms_year: Optional[str] = None, season: Optional[s
         for item in sv.get('items', []):
             name = item.get('item_name', '').lower()
             sb_sold[name] = sb_sold.get(name, 0) + (item.get('quantity', 0) or 0)
+    # Purchase Voucher bought quantities
+    purchase_vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).to_list(10000)
+    pv_bought = {}
+    for pv in purchase_vouchers:
+        for item in pv.get('items', []):
+            name = item.get('item_name', '').lower()
+            pv_bought[name] = pv_bought.get(name, 0) + (item.get('quantity', 0) or 0)
     products = ["bran", "kunda", "broken", "kanki", "husk"]
     stock = {}
     for p in products:
         produced = round(sum(e.get(f'{p}_qntl', 0) for e in milling_entries), 2)
+        purchased = round(pv_bought.get(p, 0), 2)
         sold = round(sum(s.get('quantity_qntl', 0) for s in sales if s.get('product') == p), 2)
         sold_sb = round(sb_sold.get(p, 0), 2)
         revenue = round(sum(s.get('total_amount', 0) for s in sales if s.get('product') == p), 2)
-        stock[p] = {"produced_qntl": produced, "sold_qntl": round(sold + sold_sb, 2), "available_qntl": round(produced - sold - sold_sb, 2), "total_revenue": revenue}
+        stock[p] = {"produced_qntl": produced, "purchased_qntl": purchased, "sold_qntl": round(sold + sold_sb, 2), "available_qntl": round(produced + purchased - sold - sold_sb, 2), "total_revenue": revenue}
     return stock
 
 

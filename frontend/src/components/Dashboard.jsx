@@ -252,6 +252,12 @@ export const Dashboard = ({ filters, user }) => {
                   <span className="text-slate-400 text-xs">Milling se Produced</span>
                   <span className="text-white font-semibold text-sm" data-testid="rice-produced">{riceStock.total_produced_qntl} Qntl</span>
                 </div>
+                {riceStock.purchased_qntl > 0 && (
+                <div className="flex justify-between items-center py-1 border-b border-slate-700">
+                  <span className="text-slate-400 text-xs flex items-center gap-1"><ShoppingCart className="w-3 h-3" /> Purchase se kharida</span>
+                  <span className="text-emerald-400 font-semibold text-sm" data-testid="rice-purchased">+ {riceStock.purchased_qntl} Qntl</span>
+                </div>
+                )}
                 <div className="flex justify-between items-center py-1 border-b border-slate-700">
                   <span className="text-slate-400 text-xs flex items-center gap-1"><Truck className="w-3 h-3" /> Govt ko diya (DC)</span>
                   <span className="text-red-400 font-semibold text-sm" data-testid="rice-govt">- {riceStock.govt_delivered_qntl} Qntl</span>
@@ -260,6 +266,12 @@ export const Dashboard = ({ filters, user }) => {
                   <span className="text-slate-400 text-xs flex items-center gap-1"><ShoppingCart className="w-3 h-3" /> Pvt mein becha</span>
                   <span className="text-red-400 font-semibold text-sm" data-testid="rice-pvt-sold">- {riceStock.pvt_sold_qntl} Qntl</span>
                 </div>
+                {riceStock.sb_sold_qntl > 0 && (
+                <div className="flex justify-between items-center py-1 border-b border-slate-700">
+                  <span className="text-slate-400 text-xs">Sale Voucher se becha</span>
+                  <span className="text-red-400 font-semibold text-sm" data-testid="rice-sb-sold">- {riceStock.sb_sold_qntl} Qntl</span>
+                </div>
+                )}
                 <div className="flex justify-between items-center pt-1">
                   <span className="text-amber-400 font-bold text-sm">Available Stock</span>
                   <span className={`font-bold text-lg ${riceStock.available_qntl > 0 ? 'text-emerald-400' : 'text-red-400'}`} data-testid="rice-available">
@@ -268,8 +280,8 @@ export const Dashboard = ({ filters, user }) => {
                 </div>
                 {(riceStock.parboiled_produced_qntl > 0 || riceStock.raw_produced_qntl > 0) && (
                   <div className="flex gap-3 pt-1 text-[10px]">
-                    <span className="text-sky-400">Parboiled: {riceStock.parboiled_produced_qntl}Q</span>
-                    <span className="text-orange-400">Raw: {riceStock.raw_produced_qntl}Q</span>
+                    <span className="text-sky-400">Parboiled: {riceStock.parboiled_available_qntl}Q</span>
+                    <span className="text-orange-400">Raw: {riceStock.raw_available_qntl}Q</span>
                   </div>
                 )}
               </div>
