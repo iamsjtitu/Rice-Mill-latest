@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from database import db
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
@@ -367,6 +367,25 @@ async def delete_sale_voucher(voucher_id: str, username: str = "", role: str = "
     await db.truck_payments.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     await db.local_party_accounts.delete_many({"reference": {"$regex": f"sale_voucher.*:{voucher_id}"}})
     return {"message": "Sale voucher deleted", "id": voucher_id}
+
+
+@router.post("/sale-book/delete-bulk")
+async def bulk_delete_sale_vouchers(request: Request):
+    data = await request.json()
+    ids = data.get("ids", [])
+    if not ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    deleted = 0
+    for vid in ids:
+        existing = await db.sale_vouchers.find_one({"id": vid}, {"_id": 0})
+        if existing:
+            await db.sale_vouchers.delete_one({"id": vid})
+            await db.cash_transactions.delete_many({"reference": {"$regex": f"sale_voucher.*:{vid}"}})
+            await db.diesel_accounts.delete_many({"reference": {"$regex": f"sale_voucher.*:{vid}"}})
+            await db.truck_payments.delete_many({"reference": {"$regex": f"sale_voucher.*:{vid}"}})
+            await db.local_party_accounts.delete_many({"reference": {"$regex": f"sale_voucher.*:{vid}"}})
+            deleted += 1
+    return {"message": f"{deleted} sale vouchers deleted", "deleted": deleted}
 
 
 @router.put("/sale-book/{voucher_id}")

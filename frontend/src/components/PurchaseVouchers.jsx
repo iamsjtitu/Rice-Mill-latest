@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt, Clock, History,
+  Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt, Clock, History, Undo2,
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
 
@@ -30,6 +30,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState(null);
   const [searchText, setSearchText] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [gstSettings, setGstSettings] = useState({ cgst_percent: 0, sgst_percent: 0, igst_percent: 0 });
   const [payDialog, setPayDialog] = useState(null);
@@ -199,9 +200,23 @@ export default function PurchaseVouchers({ filters, user }) {
     if (!window.confirm("Delete karna chahte hain?")) return;
     try {
       await axios.delete(`${API}/purchase-book/${id}?username=${user.username}&role=${user.role}`);
-      toast.success("Deleted!"); fetchData();
+      toast.success("Deleted!"); setSelectedIds(prev => prev.filter(x => x !== id)); fetchData();
     } catch { toast.error("Delete nahi hua"); }
   };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Kya aap ${selectedIds.length} purchase vouchers delete karna chahte hain? Cash Book entries bhi delete hongi.`)) return;
+    try {
+      await axios.post(`${API}/purchase-book/delete-bulk`, { ids: selectedIds });
+      toast.success(`${selectedIds.length} vouchers delete ho gaye!`);
+      setSelectedIds([]);
+      fetchData();
+    } catch (e) { toast.error("Bulk delete error"); }
+  };
+
+  const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleSelectAll = () => setSelectedIds(prev => prev.length === vouchers.length ? [] : vouchers.map(v => v.id));
 
   const handleExport = (type) => {
     const p = new URLSearchParams();
@@ -279,6 +294,11 @@ export default function PurchaseVouchers({ filters, user }) {
             placeholder="Party / Invoice / RST search..."
             className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8" data-testid="pv-search-input" />
         </div>
+        {selectedIds.length > 0 && (
+          <Button onClick={handleBulkDelete} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30" data-testid="pv-bulk-delete-btn">
+            <Trash2 className="w-3 h-3 mr-1" /> Delete ({selectedIds.length})
+          </Button>
+        )}
       </div>
 
       {/* Voucher List */}
@@ -286,16 +306,24 @@ export default function PurchaseVouchers({ filters, user }) {
         <CardContent className="p-0"><div className="overflow-x-auto">
           <Table>
             <TableHeader><TableRow className="border-slate-700">
+              <TableHead className="text-slate-300 text-xs w-8">
+                <input type="checkbox" checked={vouchers.length > 0 && selectedIds.length === vouchers.length}
+                  onChange={toggleSelectAll} className="accent-emerald-500 w-3.5 h-3.5 cursor-pointer" data-testid="pv-select-all" />
+              </TableHead>
               {['#', 'Date', 'Invoice', 'RST', 'Party', 'Items', 'Truck', 'Subtotal', 'GST', 'Total', 'Paid', 'Balance', ''].map(h =>
                 <TableHead key={h} className={`text-slate-300 text-xs whitespace-nowrap ${['Subtotal', 'GST', 'Total', 'Paid', 'Balance'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
             </TableRow></TableHeader>
             <TableBody>
-              {loading ? <TableRow><TableCell colSpan={13} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-              : vouchers.length === 0 ? <TableRow><TableCell colSpan={13} className="text-center text-slate-400 py-8">Koi purchase voucher nahi mila.</TableCell></TableRow>
+              {loading ? <TableRow><TableCell colSpan={14} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+              : vouchers.length === 0 ? <TableRow><TableCell colSpan={14} className="text-center text-slate-400 py-8">Koi purchase voucher nahi mila.</TableCell></TableRow>
               : vouchers.map(v => {
                 const gst = (v.cgst_amount || 0) + (v.sgst_amount || 0) + (v.igst_amount || 0);
                 return (
-                <TableRow key={v.id} className="border-slate-700" data-testid={`pv-row-${v.id}`}>
+                <TableRow key={v.id} className={`border-slate-700 ${selectedIds.includes(v.id) ? 'bg-emerald-500/10' : ''}`} data-testid={`pv-row-${v.id}`}>
+                  <TableCell>
+                    <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => toggleSelect(v.id)}
+                      className="accent-emerald-500 w-3.5 h-3.5 cursor-pointer" data-testid={`pv-select-${v.id}`} />
+                  </TableCell>
                   <TableCell className="text-slate-400 text-xs">{v.voucher_no}</TableCell>
                   <TableCell className="text-white text-xs whitespace-nowrap">{v.date}</TableCell>
                   <TableCell className="text-cyan-400 text-xs">{v.invoice_no || '-'}</TableCell>

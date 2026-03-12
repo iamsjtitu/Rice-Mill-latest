@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2 } from "lucide-react";
+import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2, CheckSquare } from "lucide-react";
 
 const API = `${(typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -29,6 +29,7 @@ export default function SaleBook({ filters, user }) {
   const [isObOpen, setIsObOpen] = useState(false);
   const [obForm, setObForm] = useState({ party_name: "", party_type: "Cash Party", amount: "", balance_type: "jama", note: "" });
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
   const [payDialog, setPayDialog] = useState(null);
   const [payAmount, setPayAmount] = useState("");
   const [payNotes, setPayNotes] = useState("");
@@ -161,9 +162,23 @@ export default function SaleBook({ filters, user }) {
     if (!window.confirm("Kya aap ye voucher delete karna chahte hain?")) return;
     try {
       await axios.delete(`${API}/sale-book/${id}?username=${user.username}&role=${user.role}`);
-      toast.success("Voucher delete ho gaya"); fetchData();
+      toast.success("Voucher delete ho gaya"); setSelectedIds(prev => prev.filter(x => x !== id)); fetchData();
     } catch { toast.error("Delete error"); }
   };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Kya aap ${selectedIds.length} sale vouchers delete karna chahte hain? Cash Book entries bhi delete hongi.`)) return;
+    try {
+      await axios.post(`${API}/sale-book/delete-bulk`, { ids: selectedIds });
+      toast.success(`${selectedIds.length} vouchers delete ho gaye!`);
+      setSelectedIds([]);
+      fetchData();
+    } catch (e) { toast.error("Bulk delete error"); }
+  };
+
+  const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const toggleSelectAll = () => setSelectedIds(prev => prev.length === vouchers.length ? [] : vouchers.map(v => v.id));
 
   const handleExportPDF = () => {
     const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
@@ -273,6 +288,11 @@ export default function SaleBook({ filters, user }) {
         {searchQuery && (
           <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")} className="text-slate-400 h-8 text-xs">Clear</Button>
         )}
+        {selectedIds.length > 0 && (
+          <Button onClick={handleBulkDelete} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30" data-testid="sv-bulk-delete-btn">
+            <Trash2 className="w-3 h-3 mr-1" /> Delete Selected ({selectedIds.length})
+          </Button>
+        )}
       </div>
 
       {/* Stock Overview */}
@@ -314,6 +334,10 @@ export default function SaleBook({ filters, user }) {
           <Table>
             <TableHeader>
               <TableRow className="border-slate-700">
+                <TableHead className="text-slate-400 text-xs w-8">
+                  <input type="checkbox" checked={vouchers.length > 0 && selectedIds.length === vouchers.length}
+                    onChange={toggleSelectAll} className="accent-amber-500 w-3.5 h-3.5 cursor-pointer" data-testid="sv-select-all" />
+                </TableHead>
                 <TableHead className="text-slate-400 text-xs">No.</TableHead>
                 <TableHead className="text-slate-400 text-xs">Date</TableHead>
                 <TableHead className="text-slate-400 text-xs">Inv No.</TableHead>
@@ -329,12 +353,16 @@ export default function SaleBook({ filters, user }) {
             </TableHeader>
             <TableBody>
               {vouchers.length === 0 && (
-                <TableRow><TableCell colSpan={11} className="text-center text-slate-500 py-8">
+                <TableRow><TableCell colSpan={12} className="text-center text-slate-500 py-8">
                   {searchQuery ? "Koi result nahi mila." : "Koi sale voucher nahi hai."}
                 </TableCell></TableRow>
               )}
               {vouchers.map(v => (
-                <TableRow key={v.id} className="border-slate-700 hover:bg-slate-700/30">
+                <TableRow key={v.id} className={`border-slate-700 hover:bg-slate-700/30 ${selectedIds.includes(v.id) ? 'bg-amber-500/10' : ''}`}>
+                  <TableCell>
+                    <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => toggleSelect(v.id)}
+                      className="accent-amber-500 w-3.5 h-3.5 cursor-pointer" data-testid={`sv-select-${v.id}`} />
+                  </TableCell>
                   <TableCell className="text-amber-400 font-mono text-xs">#{v.voucher_no}</TableCell>
                   <TableCell className="text-white text-xs">{fmtDate(v.date)}</TableCell>
                   <TableCell className="text-slate-300 text-xs">{v.invoice_no || '-'}</TableCell>
