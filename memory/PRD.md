@@ -1,52 +1,34 @@
 # Mill Entry System - PRD
 
 ## Original Problem Statement
-The user wants a comprehensive Mill Entry System (rice mill management) with both a web application and a standalone desktop application. The desktop app must have 100% feature parity with the web app.
+Comprehensive Mill Entry System (rice mill management) web + desktop app.
 
-## Core Requirements
-- Mandi entries with truck, paddy purchase tracking
-- DC (Delivery Challan) management with deliveries
-- Cash Book & Ledgers (Cash, Bank, Party Ledger)
-- Sale/Purchase Voucher system with GST
-- Gunny Bags stock management
-- Reporting (PDF/Excel exports)
-- Desktop standalone app with local JSON database
-- **Ledger as Single Source of Truth**: All payment calculations must derive from the cashbook collection
+## Core Principle
+**Ledger as Single Source of Truth** for all payment calculations.
 
-## What's Been Implemented
+## What's Been Implemented (Stable)
+- Full entry management, DC Tracker, Cash Book, Vouchers, Gunny Bags, Reports
+- Telegram integration, Settings, Staff, FY Summary
+- DC Search by DC Number / Invoice Number
 
-### Web App (Stable)
-- Full entry management with mill entries
-- DC Tracker with deliveries, MSP payments, search by DC/Invoice number
-- Cash Book with bank accounts, party ledger, GST ledger
-- Sale & Purchase vouchers with E-Way Bill
-- Bank account management with per-bank opening balances
-- Reports (PDF/Excel) for all modules
-- Settings, staff management, FY summary
-- Telegram integration for notifications
+## Bug Fixes (March 2026)
+- Cash Paid Ledger Entry: Fixed missing Ledger Nikasi for cash_paid
+- Truck Payments Sync with Cash Book: ledger-based paid_amount
+- Payment Undo → Cash Book Cleanup: delete ALL related entries
+- All Payment Sections → Ledger Source of Truth (Truck, Agent, Diesel, Local Party, Gunny, Purchase, Sale)
+- Gunny/Purchase/Sale Vouchers: "Paid" badge + Payment History when fully paid
+- DC Delivery: Cash → Cash Book + Truck Ledger | Diesel → ONLY Truck Ledger + Diesel Account (NOT Cash Book)
+- DC Delivery trucks now show in Truck Payments & Truck Owner tabs
+- **DC Delivery auto-paid fix**: Rate=0 delivery shows as "Pending", not auto-"Paid"
+- **Undo Paid fix**: truck_no extraction fixed for dc_deliveries (vehicle_no field), delivery deduction refs added to exclusion list
+- **Truck Owner undo**: Now includes dc_deliveries, private_paddy, rice_sales
+- **Truck Owner history**: Includes dc_delivery entry IDs for deduction detection
 
-### Bug Fixes (March 2026)
-- Cash Paid Ledger Entry: Fixed missing Ledger Nikasi for cash_paid in truck entries
-- Truck Payments Sync with Cash Book: Fixed to calculate paid_amount from ledger
-- Payment Undo -> Cash Book Cleanup: Fixed undo-paid to delete ALL related entries
-- All Payment Sections -> Ledger Source of Truth: Fixed Truck, Agent, Diesel, Local Party
-- Gunny Bags/Purchase Vouchers/Sale Vouchers: Paid badge + Payment History when fully paid
-- Payment History API: GET /api/voucher-payment/history/{party_name}
-- **DC Delivery Cash/Diesel Complete Fix**: 
-  - Creates Cash Book nikasi entries ✅
-  - Creates Truck Ledger nikasi entries (shows in Truck Payments) ✅
-  - Creates Diesel Account entries (shows in Diesel Account) ✅
-  - DC Delivery trucks show in Truck Payments & Truck Owner tabs ✅
-  - Delete delivery cleans up ALL auto-created entries ✅
-- **DC Search Filter**: Search by DC Number and Invoice Number on DC page
-
-## Key Architecture
-- Ledger as Single Source of Truth for all payment calculations
-- DC Deliveries create 4 cash_transactions (cash nikasi, ledger nikasi for cash, cash nikasi for diesel, ledger nikasi for diesel) + 1 diesel_accounts entry
-- Truck Payments includes entries from: mill_entries, private_paddy, rice_sales, sale_vouchers, dc_deliveries
-
-## Modules with Ledger Sync
-- Truck Payments, Agent Payments, Diesel Accounts, Local Party, Gunny Bags, Purchase Vouchers, Sale Vouchers - all synced
+## Diesel handling across all modules
+- Mandi Entries: diesel → Ledger (truck) + Diesel Account ✅ (no Cash Book)
+- DC Delivery: diesel → Ledger (truck) + Diesel Account ✅ (no Cash Book)  
+- Pvt Paddy: diesel → Ledger (truck) + Diesel Account ✅ (no Cash Book)
+- Rice Sale: diesel → Ledger (truck) + Diesel Account ✅ (no Cash Book)
 
 ## Backlog
 - P1: Full regression test of all payment modules

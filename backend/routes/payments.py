@@ -333,22 +333,31 @@ async def get_truck_payments(kms_year: Optional[str] = None, season: Optional[st
         label = f"DC Delivery - {dc_num}" if dc_num else "DC Delivery"
         inv = dd.get("invoice_no", "")
         if inv: label += f" ({inv})"
+        qty = round(dd.get("quantity_qntl", 0), 2)
+        tp = await db.truck_payments.find_one({"entry_id": dd["id"]}, {"_id": 0})
+        rate = tp.get("rate_per_qntl", 0) if tp else 0
+        extra_paid = tp.get("paid_amount", 0) if tp else 0
+        tp_status = tp.get("status", "") if tp else ""
+        gross = round(qty * rate, 2) if rate > 0 else 0
+        net = round(gross - deductions, 2) if gross > 0 else 0
+        balance = round(net - extra_paid, 2) if gross > 0 else 0
+        status = tp_status if tp_status else ("paid" if (gross > 0 and balance <= 0) else ("partial" if extra_paid > 0 else "pending"))
         payments.append(TruckPaymentStatus(
             entry_id=dd.get("id", ""),
             truck_no=truck_no,
             date=dd.get("date", ""),
-            total_qntl=round(dd.get("quantity_qntl", 0), 2),
+            total_qntl=qty,
             total_bag=0,
-            final_qntl=round(dd.get("quantity_qntl", 0), 2),
+            final_qntl=qty,
             cash_taken=cash_paid,
             diesel_taken=diesel_paid,
-            rate_per_qntl=0,
-            gross_amount=deductions,
+            rate_per_qntl=rate,
+            gross_amount=gross,
             deductions=deductions,
-            net_amount=0,
-            paid_amount=deductions,
-            balance_amount=0,
-            status="paid",
+            net_amount=net,
+            paid_amount=round(deductions + extra_paid, 2),
+            balance_amount=max(0, balance),
+            status=status,
             kms_year=dd.get("kms_year", ""),
             season=dd.get("season", ""),
             agent_name=dd.get("driver_name", ""),
@@ -955,7 +964,7 @@ async def undo_truck_paid(entry_id: str, username: str = "", role: str = ""):
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     
-    truck_no = entry.get("truck_no", "")
+    truck_no = entry.get("truck_no", "") or entry.get("vehicle_no", "")
     
     # Reset truck_payments if exists
     payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
@@ -993,7 +1002,8 @@ async def undo_truck_paid(entry_id: str, username: str = "", role: str = ""):
     # 5. Delete manual Cash Book entries for this truck that are NOT auto-deductions
     #    (entries with auto_ledger reference or manual entries linked to this truck via linked_entry_id)
     eid_short = entry_id[:8]
-    deduction_refs = [f"truck_cash_ded:{eid_short}", f"truck_diesel_ded:{eid_short}", f"entry_cash:{eid_short}", f"truck_entry:{eid_short}"]
+    deduction_refs = [f"truck_cash_ded:{eid_short}", f"truck_diesel_ded:{eid_short}", f"entry_cash:{eid_short}", f"truck_entry:{eid_short}",
+                      f"delivery:{eid_short}", f"delivery_tcash:{eid_short}", f"delivery_tdiesel:{eid_short}", f"delivery_diesel:{eid_short}"]
     
     # Find and delete non-deduction ledger nikasi entries for this truck that are NOT auto-generated from entry
     all_ledger = await db.cash_transactions.find({
@@ -1364,7 +1374,22 @@ async def undo_truck_owner_paid(truck_no: str, kms_year: str = "", season: str =
     if season: query["season"] = season
     entries = await db.mill_entries.find(query, {"_id": 0}).to_list(None)
     
-    for entry in entries:
+    # Also include dc_deliveries for this truck
+    dc_query = {"vehicle_no": truck_no}
+    if kms_year: dc_query["kms_year"] = kms_year
+    if season: dc_query["season"] = season
+    dc_dels = await db.dc_deliveries.find(dc_query, {"_id": 0}).to_list(None)
+    
+    # Also include pvt_paddy and rice_sales
+    pvt_query = {"truck_no": truck_no}
+    if kms_year: pvt_query["kms_year"] = kms_year
+    if season: pvt_query["season"] = season
+    pvt_entries = await db.private_paddy.find(pvt_query, {"_id": 0}).to_list(None)
+    rice_entries = await db.rice_sales.find(pvt_query, {"_id": 0}).to_list(None)
+    
+    all_entries = entries + dc_dels + pvt_entries + rice_entries
+    
+    for entry in all_entries:
         entry_id = entry.get("id")
         payment_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
         if payment_doc:
@@ -1401,15 +1426,22 @@ async def get_truck_owner_history(truck_no: str, kms_year: str = "", season: str
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     entries = await db.mill_entries.find(query, {"_id": 0, "id": 1}).to_list(None)
-    entry_short_ids = [e["id"][:8] for e in entries]
+    # Also include dc_deliveries
+    dc_query = {"vehicle_no": truck_no}
+    if kms_year: dc_query["kms_year"] = kms_year
+    if season: dc_query["season"] = season
+    dc_entries = await db.dc_deliveries.find(dc_query, {"_id": 0, "id": 1}).to_list(None)
+    entry_short_ids = [e["id"][:8] for e in entries] + [e["id"][:8] for e in dc_entries]
     
     all_history = []
     for txn in ledger_payments:
         ref = txn.get("reference", "")
-        # Skip deduction entries
+        # Skip deduction entries (auto-created from entries/deliveries)
         is_deduction = False
         for eid in entry_short_ids:
-            if ref.startswith(f"truck_cash_ded:{eid}") or ref.startswith(f"truck_diesel_ded:{eid}") or ref.startswith(f"entry_cash:{eid}"):
+            if (ref.startswith(f"truck_cash_ded:{eid}") or ref.startswith(f"truck_diesel_ded:{eid}") or 
+                ref.startswith(f"entry_cash:{eid}") or ref.startswith(f"delivery_tcash:{eid}") or 
+                ref.startswith(f"delivery_tdiesel:{eid}") or ref.startswith(f"delivery:{eid}")):
                 is_deduction = True
                 break
         if is_deduction:
