@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History } from "lucide-react";
+import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2 } from "lucide-react";
 
 const API = `${(typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -33,6 +33,9 @@ export default function SaleBook({ filters, user }) {
   const [payAmount, setPayAmount] = useState("");
   const [payNotes, setPayNotes] = useState("");
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [payAccount, setPayAccount] = useState("cash");
+  const [payBankName, setPayBankName] = useState("");
+  const [bankAccounts, setBankAccounts] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyParty, setHistoryParty] = useState("");
   const [historyData, setHistoryData] = useState([]);
@@ -67,16 +70,18 @@ export default function SaleBook({ filters, user }) {
   const fetchData = useCallback(async () => {
     try {
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
-      const [vRes, sRes, gRes, obRes] = await Promise.all([
+      const [vRes, sRes, gRes, obRes, bRes] = await Promise.all([
         axios.get(`${API}/sale-book?${p}${searchParam}`),
         axios.get(`${API}/sale-book/stock-items?${p}`),
         axios.get(`${API}/gst-settings`),
         axios.get(`${API}/opening-balances?kms_year=${filters.kms_year || ''}`),
+        axios.get(`${API}/bank-accounts`),
       ]);
       setVouchers(vRes.data);
       setStockItems(sRes.data);
       setGstSettings(gRes.data);
       setObList(obRes.data);
+      setBankAccounts(bRes.data || []);
     } catch (e) { console.error(e); }
   }, [p, filters.kms_year, searchQuery]);
 
@@ -179,14 +184,26 @@ export default function SaleBook({ filters, user }) {
 
   const handlePayment = async () => {
     if (!payDialog || !payAmount || parseFloat(payAmount) <= 0) { toast.error("Amount daalna zaroori hai"); return; }
+    if (payAccount === "bank" && !payBankName) { toast.error("Bank account select karein"); return; }
     try {
       await axios.post(`${API}/voucher-payment`, {
         voucher_type: "sale", voucher_id: payDialog.id, amount: parseFloat(payAmount),
         date: payDate, notes: payNotes, username: user.username,
         kms_year: filters.kms_year || "", season: filters.season || "",
+        account: payAccount, bank_name: payAccount === "bank" ? payBankName : "",
       });
-      toast.success("Payment record ho gayi!"); setPayDialog(null); setPayAmount(""); setPayNotes(""); fetchData();
+      toast.success("Payment record ho gayi!"); setPayDialog(null); setPayAmount(""); setPayNotes(""); setPayAccount("cash"); setPayBankName(""); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
+  };
+
+  const handleUndoPayment = async (paymentId) => {
+    if (!window.confirm("Kya aap payment undo karna chahte hain? Cash Book se bhi entry hat jayegi.")) return;
+    try {
+      await axios.post(`${API}/voucher-payment/undo`, { payment_id: paymentId });
+      toast.success("Payment undo ho gayi!");
+      if (historyParty) fetchHistory(historyParty);
+      fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Undo error"); }
   };
 
   const handlePrintInvoice = (v) => {
@@ -337,10 +354,13 @@ export default function SaleBook({ filters, user }) {
                         <Button variant="ghost" size="sm" onClick={() => openHistory(v.party_name)} className="text-sky-400 hover:text-sky-300 h-6 w-6 p-0" title="Payment History" data-testid={`sv-history-${v.id}`}>
                           <Clock className="w-3 h-3" />
                         </Button>
+                        <Button variant="ghost" size="sm" onClick={() => { setPayDialog(v); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); setPayAccount("cash"); setPayBankName(""); }} className="text-emerald-400 hover:text-emerald-300 h-6 w-6 p-0" title="Aur Payment" data-testid={`sv-pay-more-${v.id}`}>
+                          <IndianRupee className="w-3 h-3" />
+                        </Button>
                       </>
                     ) : (
                       <>
-                        <Button variant="ghost" size="sm" onClick={() => { setPayDialog(v); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); }} className="text-emerald-400 hover:text-emerald-300 h-6 w-6 p-0" title="Payment Receive" data-testid={`sv-pay-${v.id}`}>
+                        <Button variant="ghost" size="sm" onClick={() => { setPayDialog(v); setPayAmount(""); setPayNotes(""); setPayDate(new Date().toISOString().split('T')[0]); setPayAccount("cash"); setPayBankName(""); }} className="text-emerald-400 hover:text-emerald-300 h-6 w-6 p-0" title="Payment Receive" data-testid={`sv-pay-${v.id}`}>
                           <IndianRupee className="w-3 h-3" />
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => openHistory(v.party_name)} className="text-sky-400 hover:text-sky-300 h-6 w-6 p-0" title="Payment History" data-testid={`sv-history-${v.id}`}>
@@ -643,13 +663,38 @@ export default function SaleBook({ filters, user }) {
               </div>
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-date" /></div>
+              <div><Label className="text-xs text-slate-400">Payment Mode</Label>
+                <Select value={payAccount} onValueChange={v => { setPayAccount(v); if (v === "cash") setPayBankName(""); }}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-account">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    <SelectItem value="cash" className="text-white">Cash (नकद)</SelectItem>
+                    <SelectItem value="bank" className="text-white">Bank (बैंक)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {payAccount === "bank" && (
+                <div><Label className="text-xs text-slate-400">Bank Account</Label>
+                  <Select value={payBankName} onValueChange={setPayBankName}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-bank">
+                      <SelectValue placeholder="Bank select karein" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-600">
+                      {bankAccounts.map(b => (
+                        <SelectItem key={b.id} value={b.name} className="text-white">{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div><Label className="text-xs text-slate-400">Amount (Rs.) *</Label>
-                <Input type="number" step="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder={`Max: ${payDialog.balance}`}
+                <Input type="number" step="0.01" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder={`Max: ${payDialog.ledger_balance != null ? payDialog.ledger_balance : payDialog.balance}`}
                   className="bg-slate-700 border-slate-600 text-white h-8 text-sm" autoFocus data-testid="sv-pay-amount" /></div>
               <div><Label className="text-xs text-slate-400">Notes</Label>
                 <Input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-pay-notes" /></div>
               <Button onClick={handlePayment} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white" data-testid="sv-pay-submit">
-                Payment Record Karein
+                {payAccount === "bank" ? `Bank (${payBankName || '...'}) mein Record Karein` : "Cash mein Record Karein"}
               </Button>
             </div>
           )}
@@ -677,9 +722,17 @@ export default function SaleBook({ filters, user }) {
                         <p className="text-emerald-400 font-bold">+Rs.{Math.abs(record.amount).toLocaleString('en-IN')}</p>
                         <p className="text-slate-400 text-xs">{record.note || 'Payment'}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-slate-400 text-xs">{new Date(record.date).toLocaleDateString('hi-IN')}</p>
-                        <p className="text-slate-500 text-xs">by {record.by}</p>
+                      <div className="text-right flex items-start gap-2">
+                        <div>
+                          <p className="text-slate-400 text-xs">{new Date(record.date).toLocaleDateString('hi-IN')}</p>
+                          <p className="text-slate-500 text-xs">by {record.by}</p>
+                        </div>
+                        {record.can_undo && (
+                          <Button variant="ghost" size="sm" onClick={() => handleUndoPayment(record.payment_id)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-400/10 h-6 w-6 p-0" title="Undo Payment" data-testid={`sv-undo-${idx}`}>
+                            <Undo2 className="w-3 h-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>

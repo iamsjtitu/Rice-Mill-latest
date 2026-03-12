@@ -1,0 +1,109 @@
+{
+  "summary": "Iteration 73 - Tested Sale Voucher Payment Features: Cash/Bank mode selector, Bank account dropdown, Undo Payment functionality, Payment History with can_undo field. All 3 new features working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration73_payment_modes_undo.py",
+    "/app/test_reports/pytest/pytest_results_iteration73.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration73_payment_modes_undo.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "seed_data_creation": "Created test vouchers for payment flow verification. All test data cleaned up after tests.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Payment features are working correctly. Cash/Bank mode selector in payment dialog works - when Bank is selected, bank account dropdown appears with 'Bank of Baroda' option. Submit button text changes dynamically. Undo payment functionality removes all related entries (cash, ledger, local_party) and restores voucher balance. Payment History shows can_undo=true only for voucher payments (not advance entries).",
+  "features_tested": {
+    "feature_1_cash_bank_selector": {
+      "status": "PASSED",
+      "details": [
+        "Payment dialog shows Payment Mode dropdown",
+        "Default mode is Cash (नकद)",
+        "When Bank selected, Bank Account dropdown appears",
+        "Bank of Baroda available in dropdown",
+        "Submit button text changes: 'Cash mein Record Karein' -> 'Bank (Bank of Baroda) mein Record Karein'"
+      ]
+    },
+    "feature_2_bank_payment_with_bank_name": {
+      "status": "PASSED",
+      "details": [
+        "POST /api/voucher-payment with account='bank', bank_name='Bank of Baroda'",
+        "Cash entry created with account='bank' and bank_name='Bank of Baroda'",
+        "Ledger entry created correctly"
+      ]
+    },
+    "feature_3_undo_payment": {
+      "status": "PASSED",
+      "details": [
+        "POST /api/voucher-payment/undo deletes cash, ledger, and local_party entries",
+        "Voucher paid_amount and balance restored correctly",
+        "Returns deleted_count=3 (cash + ledger + local_party)"
+      ]
+    },
+    "feature_4_payment_history_can_undo": {
+      "status": "PASSED",
+      "details": [
+        "GET /api/voucher-payment/history/{party_name} returns history with can_undo field",
+        "Voucher payments (voucher_payment_ledger:xxx reference) have can_undo=true",
+        "Advance entries have can_undo=false",
+        "UI shows undo button (red arrow) only for undoable payments"
+      ]
+    },
+    "feature_5_paid_badge_and_payment_button": {
+      "status": "PASSED",
+      "details": [
+        "Sale Book shows 'Paid' badge (green) when balance <= 0",
+        "Payment button still shows even when Paid (for additional payments)",
+        "Gayatri Agro voucher correctly shows Paid with Rs.0 balance"
+      ]
+    }
+  },
+  "backend_tests_passed": [
+    "test_get_bank_accounts - GET /api/bank-accounts returns bank list",
+    "test_create_test_sale_voucher - POST /api/sale-book creates voucher",
+    "test_cash_payment_on_sale_voucher - Cash payment creates correct entries",
+    "test_bank_payment_on_sale_voucher - Bank payment creates entry with bank_name",
+    "test_payment_history_returns_can_undo - History includes can_undo field",
+    "test_undo_payment_flow - Full undo flow works correctly",
+    "test_undo_nonexistent_payment - Returns 404 for invalid payment_id",
+    "test_undo_missing_payment_id - Returns 400 for missing payment_id",
+    "test_sale_book_returns_balance_field - API returns balance/ledger_balance",
+    "test_voucher_payment_has_can_undo_true - Voucher payments have can_undo=true"
+  ],
+  "frontend_tests_passed": [
+    "Login with admin/admin123 - Works",
+    "Navigate to Vouchers > Sale Book - Works",
+    "Payment dialog opens from payment button - Works",
+    "Cash/Bank selector visible in payment dialog - Works",
+    "Bank account dropdown appears when Bank selected - Works",
+    "Bank of Baroda selectable - Works",
+    "Submit button text changes dynamically - Works",
+    "Payment History dialog opens - Works",
+    "Undo button visible for voucher payments - Works",
+    "Advance entries have no undo button - Works",
+    "Paid badge visible on Gayatri Agro - Works",
+    "Payment button visible even when Paid - Works"
+  ],
+  "api_endpoints_tested": [
+    "GET /api/bank-accounts",
+    "POST /api/voucher-payment (cash mode)",
+    "POST /api/voucher-payment (bank mode with bank_name)",
+    "GET /api/voucher-payment/history/{party_name}",
+    "POST /api/voucher-payment/undo",
+    "GET /api/sale-book",
+    "GET /api/cash-book"
+  ]
+}

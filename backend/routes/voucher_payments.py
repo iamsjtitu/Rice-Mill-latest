@@ -20,6 +20,8 @@ async def make_voucher_payment(request: Request):
     username = data.get("username", "system")
     kms_year = data.get("kms_year", "")
     season = data.get("season", "")
+    pay_account = data.get("account", "cash")  # cash or bank
+    bank_name = data.get("bank_name", "")
 
     if not voucher_id or amount <= 0:
         raise HTTPException(status_code=400, detail="Voucher ID aur amount (>0) required hai")
@@ -49,13 +51,15 @@ async def make_voucher_payment(request: Request):
         source_label = f"Sale #{voucher.get('voucher_no', '')}"
         party_type = "Sale Book"
 
-        # Cash JAMA - cash coming in
+        # Cash/Bank JAMA - payment coming in
         cash_entry = {
-            "id": str(uuid.uuid4()), "date": date, "account": "cash", "txn_type": "jama",
+            "id": str(uuid.uuid4()), "date": date, "account": pay_account, "txn_type": "jama",
             "amount": round(amount, 2), "category": party, "party_type": party_type,
             "description": f"Payment received - {source_label} - {party}" + (f" ({notes})" if notes else ""),
             "reference": f"voucher_payment:{payment_id}", **base
         }
+        if pay_account == "bank" and bank_name:
+            cash_entry["bank_name"] = bank_name
         # Ledger NIKASI - reduces what party owes us
         ledger_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": "ledger", "txn_type": "nikasi",
@@ -91,13 +95,15 @@ async def make_voucher_payment(request: Request):
             source_label = f"Gunny Bag ({voucher.get('date', '')})"
             party_type = "Gunny Bag"
 
-        # Cash NIKASI - cash going out
+        # Cash/Bank NIKASI - payment going out
         cash_entry = {
-            "id": str(uuid.uuid4()), "date": date, "account": "cash", "txn_type": "nikasi",
+            "id": str(uuid.uuid4()), "date": date, "account": pay_account, "txn_type": "nikasi",
             "amount": round(amount, 2), "category": party, "party_type": party_type,
             "description": f"Payment made - {source_label} - {party}" + (f" ({notes})" if notes else ""),
             "reference": f"voucher_payment:{payment_id}", **base
         }
+        if pay_account == "bank" and bank_name:
+            cash_entry["bank_name"] = bank_name
         # Ledger NIKASI - reduces what we owe the party
         ledger_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": "ledger", "txn_type": "nikasi",
@@ -143,16 +149,67 @@ async def get_voucher_payment_history(party_name: str, party_type: str = ""):
     ledger_payments = await db.cash_transactions.find(query, {"_id": 0}).to_list(50000)
     history = []
     for txn in ledger_payments:
+        ref = txn.get("reference", "")
+        # Extract payment_id from reference like "voucher_payment_ledger:{payment_id}" or "sale_voucher_adv:{id}"
+        payment_id = ""
+        if ref.startswith("voucher_payment_ledger:"):
+            payment_id = ref.replace("voucher_payment_ledger:", "")
         history.append({
+            "id": txn.get("id", ""),
+            "payment_id": payment_id,
             "amount": txn.get("amount", 0),
             "date": txn.get("created_at") or txn.get("date", ""),
             "note": txn.get("description", ""),
             "by": txn.get("created_by", "system"),
-            "source": "ledger"
+            "reference": ref,
+            "source": "ledger",
+            "can_undo": bool(payment_id)
         })
     history.sort(key=lambda h: h.get("date", ""), reverse=True)
     total_paid = round(sum(h.get("amount", 0) for h in history), 2)
     return {"history": history, "total_paid": total_paid}
+
+
+@router.post("/voucher-payment/undo")
+async def undo_voucher_payment(request: Request):
+    """Undo a voucher payment by deleting all related entries (cash, ledger, local_party)"""
+    data = await request.json()
+    payment_id = data.get("payment_id", "")
+    if not payment_id:
+        raise HTTPException(status_code=400, detail="payment_id required hai")
+
+    # Find the cash entry to get the voucher details
+    cash_entry = await db.cash_transactions.find_one(
+        {"reference": f"voucher_payment:{payment_id}"}, {"_id": 0}
+    )
+    if not cash_entry:
+        raise HTTPException(status_code=404, detail="Payment entry not found")
+
+    amount = cash_entry.get("amount", 0)
+    party = cash_entry.get("category", "")
+    party_type = cash_entry.get("party_type", "")
+
+    # Delete cash/bank entry
+    del_cash = await db.cash_transactions.delete_many({"reference": f"voucher_payment:{payment_id}"})
+    # Delete ledger entry
+    del_ledger = await db.cash_transactions.delete_many({"reference": f"voucher_payment_ledger:{payment_id}"})
+    # Delete local_party_accounts entry
+    del_lp = await db.local_party_accounts.delete_many({"reference": f"voucher_payment:{payment_id}"})
+
+    # Update voucher paid_amount
+    collection_map = {"Sale Book": "sale_vouchers", "Purchase Voucher": "purchase_vouchers", "Gunny Bag": "gunny_bags"}
+    coll_name = collection_map.get(party_type)
+    if coll_name and party:
+        coll = db[coll_name]
+        voucher = await coll.find_one({"party_name": party}, {"_id": 0})
+        if voucher:
+            old_paid = voucher.get("paid_amount", 0) or 0
+            new_paid = max(round(old_paid - amount, 2), 0)
+            new_balance = round(voucher.get("total", 0) - new_paid, 2)
+            await coll.update_one({"id": voucher["id"]}, {"$set": {"paid_amount": new_paid, "balance": new_balance}})
+
+    total_deleted = del_cash.deleted_count + del_ledger.deleted_count + del_lp.deleted_count
+    return {"success": True, "deleted_count": total_deleted, "amount": amount, "party": party}
 
 
 
