@@ -23,12 +23,14 @@ Comprehensive Mill Entry System (rice mill management) web + desktop app.
 - **Undo Paid fix**: truck_no extraction fixed for dc_deliveries (vehicle_no field), delivery deduction refs added to exclusion list
 - **Truck Owner undo**: Now includes dc_deliveries, private_paddy, rice_sales
 - **Truck Owner history**: Includes dc_delivery entry IDs for deduction detection
+- **Auto-Ledger Fix (12-Mar-2026)**: Cash Book auto-ledger now always creates Nikasi for any cash/bank entry. Previously Cash In (Jama) wrongly created Ledger Jama instead of Nikasi, causing manual payments to not reflect in Sale Voucher paid status and party ledgers.
+- **Party Summary Ledger Fix (12-Mar-2026)**: Vouchers Party Summary now computes sale/purchase voucher paid amounts from ledger entries instead of voucher document's paid_amount field.
 
 ## Diesel handling across all modules
-- Mandi Entries: diesel → Ledger (truck) + Diesel Account ✅ (no Cash Book)
-- DC Delivery: diesel → Ledger (truck) + Diesel Account ✅ (no Cash Book)  
-- Pvt Paddy: diesel → Ledger (truck) + Diesel Account ✅ (no Cash Book)
-- Rice Sale: diesel → Ledger (truck) + Diesel Account ✅ (no Cash Book)
+- Mandi Entries: diesel → Ledger (truck) + Diesel Account (no Cash Book)
+- DC Delivery: diesel → Ledger (truck) + Diesel Account (no Cash Book)
+- Pvt Paddy: diesel → Ledger (truck) + Diesel Account (no Cash Book)
+- Rice Sale: diesel → Ledger (truck) + Diesel Account (no Cash Book)
 
 ## Backlog
 - P1: Full regression test of all payment modules
