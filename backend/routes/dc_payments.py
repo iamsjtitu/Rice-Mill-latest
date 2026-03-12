@@ -78,6 +78,7 @@ async def get_dc_entries(kms_year: Optional[str] = None, season: Optional[str] =
         e["pending_qntl"] = round(e["quantity_qntl"] - delivered, 2)
         e["delivery_count"] = len(deliveries)
         e["status"] = "completed" if delivered >= e["quantity_qntl"] else ("partial" if delivered > 0 else "pending")
+        e["deliveries"] = deliveries
     return entries
 
 
@@ -118,31 +119,67 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
     dc_num = dc.get("dc_number", "")
     vehicle = d.get("vehicle_no", "")
 
-    # Auto-entry: Cash Paid → Cash Book (Truck payment)
+    # Auto-entry: Cash Paid → Cash Book (Truck payment) + Truck Ledger
     cash_paid = d.get("cash_paid", 0) or 0
     if cash_paid > 0:
+        cash_desc = f"DC Delivery Cash - {dc_num} | {vehicle}"
+        # Cash Book nikasi
         cash_entry = {
             "id": str(uuid.uuid4()), "date": d["date"], "account": "cash", "txn_type": "nikasi",
             "category": vehicle or f"Truck-{dc_num}", "party_type": "Truck",
-            "description": f"DC Delivery Cash - {dc_num} | {vehicle}",
+            "description": cash_desc,
             "amount": round(cash_paid, 2), "reference": f"delivery:{d['id'][:8]}",
-            "bank_name": "", **base
+            "bank_name": "", "linked_entry_id": d["id"], **base
         }
         await db.cash_transactions.insert_one(cash_entry)
         cash_entry.pop("_id", None)
+        # Truck Ledger nikasi (so it shows in Truck Payments)
+        if vehicle:
+            ledger_entry = {
+                "id": str(uuid.uuid4()), "date": d["date"], "account": "ledger", "txn_type": "nikasi",
+                "category": vehicle, "party_type": "Truck",
+                "description": cash_desc,
+                "amount": round(cash_paid, 2), "reference": f"delivery_tcash:{d['id'][:8]}",
+                "bank_name": "", "linked_entry_id": d["id"], **base
+            }
+            await db.cash_transactions.insert_one(ledger_entry)
 
-    # Auto-entry: Diesel Paid → Cash Book (Diesel/Truck payment)
+    # Auto-entry: Diesel Paid → Cash Book + Truck Ledger + Diesel Account
     diesel_paid = d.get("diesel_paid", 0) or 0
     if diesel_paid > 0:
+        diesel_desc = f"DC Delivery Diesel - {dc_num} | {vehicle}"
+        # Cash Book nikasi
         diesel_entry = {
             "id": str(uuid.uuid4()), "date": d["date"], "account": "cash", "txn_type": "nikasi",
             "category": vehicle or f"Truck-{dc_num}", "party_type": "Diesel",
-            "description": f"DC Delivery Diesel - {dc_num} | {vehicle}",
+            "description": diesel_desc,
             "amount": round(diesel_paid, 2), "reference": f"delivery_diesel:{d['id'][:8]}",
-            "bank_name": "", **base
+            "bank_name": "", "linked_entry_id": d["id"], **base
         }
         await db.cash_transactions.insert_one(diesel_entry)
         diesel_entry.pop("_id", None)
+        # Truck Ledger nikasi (so it shows in Truck Payments)
+        if vehicle:
+            ledger_diesel = {
+                "id": str(uuid.uuid4()), "date": d["date"], "account": "ledger", "txn_type": "nikasi",
+                "category": vehicle, "party_type": "Truck",
+                "description": diesel_desc,
+                "amount": round(diesel_paid, 2), "reference": f"delivery_tdiesel:{d['id'][:8]}",
+                "bank_name": "", "linked_entry_id": d["id"], **base
+            }
+            await db.cash_transactions.insert_one(ledger_diesel)
+        # Diesel Account entry
+        default_pump = await db.diesel_pumps.find_one({"is_default": True}, {"_id": 0})
+        pump_name = default_pump["name"] if default_pump else "Default Pump"
+        pump_id = default_pump["id"] if default_pump else "default"
+        await db.diesel_accounts.insert_one({
+            "id": str(uuid.uuid4()), "date": d["date"],
+            "pump_id": pump_id, "pump_name": pump_name,
+            "truck_no": vehicle, "agent_name": "",
+            "mandi_name": "", "amount": round(diesel_paid, 2), "txn_type": "debit",
+            "description": diesel_desc, "linked_entry_id": d["id"],
+            **base
+        })
 
     # Auto-entry: Bags Used → Govt Bags stock minus
     bags_used = d.get("bags_used", 0) or 0
@@ -172,9 +209,14 @@ async def get_dc_deliveries(dc_id: Optional[str] = None, kms_year: Optional[str]
 
 @router.delete("/dc-deliveries/{delivery_id}")
 async def delete_dc_delivery(delivery_id: str):
-    # Also clean up auto-created entries
-    await db.cash_transactions.delete_many({"reference": {"$in": [f"delivery:{delivery_id[:8]}", f"delivery_diesel:{delivery_id[:8]}"]}})
-    await db.gunny_bags.delete_many({"reference": f"delivery:{delivery_id[:8]}"})
+    # Also clean up auto-created entries (cash, ledger, diesel, gunny)
+    ref_prefix = delivery_id[:8]
+    await db.cash_transactions.delete_many({"reference": {"$in": [
+        f"delivery:{ref_prefix}", f"delivery_diesel:{ref_prefix}",
+        f"delivery_tcash:{ref_prefix}", f"delivery_tdiesel:{ref_prefix}"
+    ]}})
+    await db.gunny_bags.delete_many({"reference": f"delivery:{ref_prefix}"})
+    await db.diesel_accounts.delete_many({"linked_entry_id": delivery_id})
     result = await db.dc_deliveries.delete_one({"id": delivery_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Delivery not found")

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package, Edit, Clock, History } from "lucide-react";
+import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package, Edit, Clock, History, Search } from "lucide-react";
 
 const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -27,6 +27,7 @@ const DCEntries = ({ filters, user }) => {
   const [riceStockAvail, setRiceStockAvail] = useState(null);
   const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", godown_name: "", deadline: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
   const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", invoice_no: "", rst_no: "", eway_bill_no: "", bags_used: "", cash_paid: "", diesel_paid: "", cgst_amount: "", sgst_amount: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
@@ -98,6 +99,17 @@ const DCEntries = ({ filters, user }) => {
     return <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${cls}`}>{s === 'completed' ? 'Done' : s === 'partial' ? 'Partial' : 'Pending'}</span>;
   };
 
+  // Filter DCs by search query (DC number or delivery invoice number)
+  const filteredDCs = searchQuery.trim()
+    ? dcs.filter(dc => {
+        const q = searchQuery.trim().toLowerCase();
+        if ((dc.dc_number || "").toLowerCase().includes(q)) return true;
+        // Also match if any delivery of this DC has matching invoice_no
+        if ((dc.deliveries || []).some(d => (d.invoice_no || "").toLowerCase().includes(q))) return true;
+        return false;
+      })
+    : dcs;
+
   return (
     <div className="space-y-3" data-testid="dc-entries-tab">
       {summary && (
@@ -120,11 +132,21 @@ const DCEntries = ({ filters, user }) => {
           </CardContent></Card>
         </div>
       )}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
         <Button onClick={() => setShowForm(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="dc-add-btn"><Plus className="w-4 h-4 mr-1" /> New DC</Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="dc-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="dc-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+        <div className="relative ml-auto">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <Input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="DC No / Invoice No search..."
+            className="bg-slate-700 border-slate-600 text-white h-8 text-sm pl-8 w-56"
+            data-testid="dc-search-input"
+          />
+        </div>
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table className="w-full table-auto"><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
@@ -142,8 +164,8 @@ const DCEntries = ({ filters, user }) => {
         </TableRow></TableHeader>
         <TableBody>
           {loading ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-          : dcs.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">Koi DC nahi hai. "New DC" click karein.</TableCell></TableRow>
-          : dcs.map(dc => (<React.Fragment key={dc.id}>
+          : filteredDCs.length === 0 ? <TableRow><TableCell colSpan={11} className="text-center text-slate-400 py-8">{searchQuery ? "Koi result nahi mila." : 'Koi DC nahi hai. "New DC" click karein.'}</TableCell></TableRow>
+          : filteredDCs.map(dc => (<React.Fragment key={dc.id}>
             <TableRow key={dc.id} className="border-slate-700 cursor-pointer hover:bg-slate-750" onClick={() => handleExpandDC(dc.id)} data-testid={`dc-row-${dc.id}`}>
               <TableCell className="w-8 px-2">{expandedDC === dc.id ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}</TableCell>
               <TableCell className="text-amber-400 font-semibold text-sm">{dc.dc_number}</TableCell>
