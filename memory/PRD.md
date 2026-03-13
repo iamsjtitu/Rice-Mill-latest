@@ -3,41 +3,31 @@
 ## Architecture
 - Frontend: React (Vite) + Shadcn/UI + Tailwind
 - Backend: FastAPI (Python), Database: MongoDB
-- Desktop: Electron + Express + JSON DB
-
-## Credentials: admin / admin123
+- Desktop: Electron + Express + JSON DB (v23.9.2)
+- Credentials: admin / admin123, staff / staff123
 
 ---
 
-## What's Been Implemented
+## Implemented Features (Session 2026-03-13)
 
-### Session 2026-03-13 (v23.9.2)
+### Balance Sheet (Tally-style)
+- Liabilities vs Assets side-by-side layout
+- Drill-down groups (click to expand, ExternalLink to navigate to ledger)
+- Truck, Agent/Mandi, DC Accounts sections
+- Print, PDF (landscape side-by-side), Excel (side-by-side cols) export
+- Auto-balanced via P&L A/c (Surplus/Deficit)
 
-**New Features:**
-- **Balance Sheet** (Tally-style): Liabilities vs Assets with drill-down, auto-balanced via P&L
-  - Capital Account, Sundry Creditors (Local Party, Diesel, Pvt Paddy, Truck, Agent, DC)
-  - Cash & Bank, Stock-in-Hand (Paddy, FRK, Byproducts, Mill Parts), Sundry Debtors, Loans & Advances
-  - PDF + Excel export
-  - Sub-tabs under FY Summary (FY Summary / Balance Sheet)
-- **FY Summary**: Added Ledger Parties section (11 sections total)
-- **FY Carry Forward**: One-click carry forward of all closing balances to next FY
-- **Login Error Message**: Inline error + toast on wrong password
+### FY Summary
+- 11 sections: Cash/Bank, Paddy, Milling, FRK, Byproducts, Mill Parts, Diesel, Local Party, Staff, Private Trading, Ledger Parties
+- Carry Forward button (all closing -> next FY opening)
+- Sub-tabs: FY Summary + Balance Sheet
 
-**Bug Fixes:**
-- Daily Report PDF: Landscape A4 for detail mode (20-column table)
-- Daily Report Excel: Fixed KeyError total_kg -> total_qntl
-- Local Party report: Cashbook payments merged without double-counting
-- Local Party summary bar: Hidden when no party selected
-- Toaster component added to login page wrapper
-- Stock: agent_extra exclusion in desktop milling
-- Truck payments: Move to Pvt Paddy filter in desktop
-
-**Desktop Sync v23.9.2:**
-- fy_summary.js: Complete rewrite with balance sheet, ledger parties, carry forward
-- local_party.js: Cashbook payment linking with dedup
-- milling.js: agent_extra exclusion
-- payments.js: Move to Pvt Paddy filter
-- Frontend rebuilt
+### Bug Fixes
+- Daily Report PDF: Landscape for detail mode
+- Local Party: Cashbook payment linking, summary bar fix
+- Login: Inline error + toast for wrong password
+- Desktop: Users migration for existing data files
+- Stock: agent_extra exclusion, truck payment filtering
 
 ---
 
@@ -45,19 +35,11 @@
 - GET /api/fy-summary/balance-sheet (+ /pdf, /excel)
 - GET /api/fy-summary
 - POST /api/fy-summary/carry-forward
-- GET /api/fy-summary/pdf
 - GET /api/local-party/report/{party_name}
 - GET /api/reports/daily/pdf
-
-## Key Files
-- backend/routes/fy_summary.py
-- frontend/src/components/BalanceSheet.jsx
-- frontend/src/components/FYSummaryDashboard.jsx
-- frontend/src/components/LoginPage.jsx
-- desktop-app/routes/fy_summary.js
 
 ## Pending / Backlog
 - P2: Lokesh Fuels empty descriptions (data issue)
 - P2: Refactor duplicated PDF/Excel logic
-- P2: Break down large frontend components
-- P2: Centralize stock calculation logic
+- P2: Centralize stock calculation
+- P3: Desktop build + release testing
