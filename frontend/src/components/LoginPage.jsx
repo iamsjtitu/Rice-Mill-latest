@@ -16,6 +16,7 @@ const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [branding, setBranding] = useState({ company_name: "Mill Entry System", tagline: "" });
   const [theme, setTheme] = useState(() => localStorage.getItem('mill_theme') || 'dark');
 
@@ -52,6 +53,7 @@ const LoginPage = ({ onLogin }) => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
     try {
       const response = await axios.post(`${API}/auth/login`, { username, password });
       if (response.data.success) {
@@ -59,7 +61,9 @@ const LoginPage = ({ onLogin }) => {
         toast.success(`Welcome ${response.data.role === 'admin' ? 'Admin' : 'Staff'}!`);
       }
     } catch (error) {
-      toast.error("Invalid username or password");
+      const msg = error.response?.data?.detail || "Invalid username or password";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -110,6 +114,11 @@ const LoginPage = ({ onLogin }) => {
                 />
               </div>
             </div>
+            {error && (
+              <div className="bg-red-500/20 border border-red-500/50 text-red-400 text-sm rounded-md px-3 py-2" data-testid="login-error">
+                {error}
+              </div>
+            )}
             <Button 
               type="submit" 
               className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"

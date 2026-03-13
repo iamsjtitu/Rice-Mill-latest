@@ -2692,7 +2692,12 @@ function App() {
   };
 
   if (!user) {
-    return <LoginPage onLogin={handleLogin} />;
+    return (
+      <>
+        <Toaster position="top-right" richColors />
+        <LoginPage onLogin={handleLogin} />
+      </>
+    );
   }
 
   return <MainApp user={user} onLogout={handleLogout} />;
