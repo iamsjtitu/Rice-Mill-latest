@@ -37,22 +37,22 @@ module.exports = function(database) {
 
   router.post('/api/auth/login', safeSync((req, res) => {
     const { username, password } = req.body;
-    console.log(`[LOGIN] Attempt: username="${username}", API URL check: ELECTRON injection active`);
+    console.log(`[LOGIN] Attempt: username="${username}"`);
     // Check database first (supports changed passwords)
     const user = database.getUser(username);
     if (user) {
-      console.log(`[LOGIN] User "${username}" found in DB, password match: ${user.password === password}`);
+      console.log(`[LOGIN] User "${username}" found in DB, stored_pass_len=${(user.password||'').length}, entered_pass_len=${(password||'').length}, match=${user.password === password}`);
       if (user.password === password) {
         return res.json({ success: true, username: user.username, role: user.role, message: 'Login successful' });
       }
-      return res.status(401).json({ detail: 'Invalid username or password' });
+      return res.status(401).json({ detail: `Password galat hai (DB user found, stored=${(user.password||'').length} chars, entered=${(password||'').length} chars)` });
     }
-    console.log(`[LOGIN] User "${username}" NOT in DB, checking defaults...`);
+    console.log(`[LOGIN] User "${username}" NOT in DB, total_users=${(database.data.users||[]).length}, checking defaults...`);
     // Fallback to defaults if user not in database
     if (DEFAULT_USERS[username] && DEFAULT_USERS[username].password === password) {
       return res.json({ success: true, username, role: DEFAULT_USERS[username].role, message: 'Login successful' });
     }
-    res.status(401).json({ detail: 'Invalid username or password' });
+    res.status(401).json({ detail: `User "${username}" nahi mila (total users in DB: ${(database.data.users||[]).length})` });
   }));
 
   router.post('/api/auth/change-password', safeSync((req, res) => {
