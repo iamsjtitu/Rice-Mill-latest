@@ -3,7 +3,7 @@
 ## Architecture
 - Frontend: React (CRA) + Shadcn/UI + Tailwind
 - Backend: FastAPI (Python), Database: MongoDB
-- Desktop: Electron + Express + JSON DB (v24.0.6)
+- Desktop: Electron + Express + JSON DB (v24.0.8)
 - Credentials: admin / admin123, staff / staff123
 
 ---
@@ -32,7 +32,8 @@
 - Lokesh Fuels: Empty descriptions auto-filled (startup migration)
 - Auto-ledger: Description auto-generated when empty
 
-## Desktop App (v24.0.6)
+## Desktop App (v24.0.8)
+- **CRITICAL FIX:** Added `safeHandler` export to `safe_handler.js` - 5 route files were importing non-existent function, causing ALL Express routes to fail loading → 404 on every API call including login
 - Frontend rebuilt with REACT_APP_BACKEND_URL='' (all API calls relative)
 - Debug info panel on login page (shows API URL, electron detection status)
 - HTML injection in main.js sets window.ELECTRON_API_URL as backup
@@ -43,8 +44,9 @@
 - setup-desktop.js updated to build with empty URL
 
 ## Pending / Backlog
-- P1: User must test v24.0.6 desktop login and share debug info screenshot
+- P1: User must test v24.0.8 desktop login
 - P2: Refactor duplicated PDF/Excel logic
 - P2: Centralize stock calculation
 - P2: Break down large App.js into smaller components
 - P3: Remove debug info from login page once desktop login confirmed working
+- P3: Fix preload.js (electronAPI: N) - low priority since HTML injection works as backup
