@@ -107,19 +107,12 @@ class JsonDatabase {
             { username: 'staff', password: 'staff123', role: 'staff' }
           ];
         } else {
-          // Always force default admin/staff credentials on every startup
-          const defaults = [
-            { username: 'admin', password: 'admin123', role: 'admin' },
-            { username: 'staff', password: 'staff123', role: 'staff' }
-          ];
-          for (const def of defaults) {
-            const idx = data.users.findIndex(u => u.username === def.username);
-            if (idx >= 0) {
-              data.users[idx].password = def.password;
-              data.users[idx].role = def.role;
-            } else {
-              data.users.push(def);
-            }
+          // Ensure default users exist (don't overwrite changed passwords)
+          if (!data.users.find(u => u.username === 'admin')) {
+            data.users.push({ username: 'admin', password: 'admin123', role: 'admin' });
+          }
+          if (!data.users.find(u => u.username === 'staff')) {
+            data.users.push({ username: 'staff', password: 'staff123', role: 'staff' });
           }
         }
         return data;
@@ -932,7 +925,11 @@ function createApiServer(database) {
     }));
     apiApp.get('*', safeSync((req, res) => {
       if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(frontendDir, 'index.html'));
+        // Inject ELECTRON_API_URL BEFORE React loads - this fixes the API URL race condition
+        let html = fs.readFileSync(path.join(frontendDir, 'index.html'), 'utf8');
+        const port = server ? server.address().port : DESKTOP_API_PORT;
+        html = html.replace('<head>', `<head><script>window.ELECTRON_API_URL='http://127.0.0.1:${port}';window.REACT_APP_BACKEND_URL='http://127.0.0.1:${port}';</script>`);
+        res.type('html').send(html);
       } else {
         res.status(404).json({ detail: 'API endpoint not found' });
       }

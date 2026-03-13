@@ -30,21 +30,24 @@ module.exports = function(database) {
   }));
 
   // ===== AUTH =====
-  const HARDCODED_USERS = {
+  const DEFAULT_USERS = {
     'admin': { password: 'admin123', role: 'admin' },
     'staff': { password: 'staff123', role: 'staff' }
   };
 
   router.post('/api/auth/login', safeSync((req, res) => {
     const { username, password } = req.body;
-    // Hardcoded default check - ye KABHI fail nahi hoga
-    if (HARDCODED_USERS[username] && HARDCODED_USERS[username].password === password) {
-      return res.json({ success: true, username, role: HARDCODED_USERS[username].role, message: 'Login successful' });
-    }
-    // Then check database for custom/changed passwords
+    // Check database first (supports changed passwords)
     const user = database.getUser(username);
-    if (user && user.password === password) {
-      return res.json({ success: true, username: user.username, role: user.role, message: 'Login successful' });
+    if (user) {
+      if (user.password === password) {
+        return res.json({ success: true, username: user.username, role: user.role, message: 'Login successful' });
+      }
+      return res.status(401).json({ detail: 'Invalid username or password' });
+    }
+    // Fallback to defaults if user not in database
+    if (DEFAULT_USERS[username] && DEFAULT_USERS[username].password === password) {
+      return res.json({ success: true, username, role: DEFAULT_USERS[username].role, message: 'Login successful' });
     }
     res.status(401).json({ detail: 'Invalid username or password' });
   }));
@@ -61,16 +64,15 @@ module.exports = function(database) {
 
   router.get('/api/auth/verify', safeSync((req, res) => {
     const { username, role } = req.query;
-    // Check hardcoded defaults first
-    if (HARDCODED_USERS[username] && HARDCODED_USERS[username].role === role) {
-      return res.json({ valid: true, username, role });
-    }
     const user = database.getUser(username);
     if (user && user.role === role) {
-      res.json({ valid: true, username, role });
-    } else {
-      res.json({ valid: false });
+      return res.json({ valid: true, username, role });
     }
+    // Fallback to defaults
+    if (DEFAULT_USERS[username] && DEFAULT_USERS[username].role === role) {
+      return res.json({ valid: true, username, role });
+    }
+    res.json({ valid: false });
   }));
 
   // ===== FY SETTINGS =====
