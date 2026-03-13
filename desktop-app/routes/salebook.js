@@ -178,61 +178,139 @@ module.exports = function(database) {
     res.type('html').send(html);
   }));
 
-  // === Stock Summary ===
+  // === Stock Summary (matching web backend exactly) ===
   router.get('/api/stock-summary', safeHandler(async (req, res) => {
     const { kms_year, season } = req.query;
-    // Collect purchases
-    let purchases = [...(database.data.purchase_vouchers || [])];
-    if (kms_year) purchases = purchases.filter(v => v.kms_year === kms_year);
-    if (season) purchases = purchases.filter(v => v.season === season);
-    const purchaseItems = {};
-    purchases.forEach(v => (v.items || []).forEach(i => {
-      const name = i.item_name || 'Unknown';
-      if (!purchaseItems[name]) purchaseItems[name] = { qty: 0, amount: 0 };
-      purchaseItems[name].qty += parseFloat(i.quantity) || 0;
-      purchaseItems[name].amount += parseFloat(i.amount) || 0;
-    }));
-    // Collect sales
-    let sales = [...(database.data.sale_vouchers || [])];
-    if (kms_year) sales = sales.filter(v => v.kms_year === kms_year);
-    if (season) sales = sales.filter(v => v.season === season);
-    const saleItems = {};
-    sales.forEach(v => (v.items || []).forEach(i => {
-      const name = i.item_name || 'Unknown';
-      if (!saleItems[name]) saleItems[name] = { qty: 0, amount: 0 };
-      saleItems[name].qty += parseFloat(i.quantity) || 0;
-      saleItems[name].amount += parseFloat(i.amount) || 0;
-    }));
-    const allItems = new Set([...Object.keys(purchaseItems), ...Object.keys(saleItems)]);
-    const summary = [...allItems].map(name => ({
-      item_name: name,
-      purchase_qty: Math.round((purchaseItems[name]?.qty || 0) * 100) / 100,
-      purchase_amount: Math.round((purchaseItems[name]?.amount || 0) * 100) / 100,
-      sale_qty: Math.round((saleItems[name]?.qty || 0) * 100) / 100,
-      sale_amount: Math.round((saleItems[name]?.amount || 0) * 100) / 100,
-      stock_qty: Math.round(((purchaseItems[name]?.qty || 0) - (saleItems[name]?.qty || 0)) * 100) / 100,
-    }));
-    res.json(summary);
+    const filter = (arr, ky, sn) => {
+      let r = arr || [];
+      if (ky) r = r.filter(e => e.kms_year === ky);
+      if (sn) r = r.filter(e => e.season === sn);
+      return r;
+    };
+    const round2 = v => Math.round((v || 0) * 100) / 100;
+
+    const milling = filter(database.data.milling_entries, kms_year, season);
+    const dc = filter(database.data.dc_entries, kms_year, season);
+    const pvtSales = filter(database.data.rice_sales, kms_year, season);
+    const saleVouchers = filter(database.data.sale_vouchers, kms_year, season);
+    const bpSales = filter(database.data.byproduct_sales, kms_year, season);
+    const purchaseVouchers = filter(database.data.purchase_vouchers, kms_year, season);
+    const millEntries = filter(database.data.entries, kms_year, season);
+    const pvtPaddy = filter(database.data.private_paddy, kms_year, season).filter(e => e.source !== 'agent_extra');
+    const gunnyEntries = filter(database.data.gunny_bags, kms_year, season);
+    const frkPurchases = filter(database.data.frk_purchases, kms_year, season);
+
+    // Paddy stock
+    const cmrPaddyIn = round2(millEntries.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100 - (e.p_pkt_cut || 0) / 100, 0));
+    const pvtPaddyIn = round2(pvtPaddy.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100, 0));
+    const paddyUsedMilling = round2(milling.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0));
+
+    // Rice produced from milling
+    const usnaProduced = round2(milling.filter(e => ['usna', 'parboiled'].includes((e.rice_type || '').toLowerCase())).reduce((s, e) => s + (e.rice_qntl || 0), 0));
+    const rawProduced = round2(milling.filter(e => (e.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0));
+
+    // Rice sold
+    const govtDelivered = round2(dc.reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+    const pvtSoldUsna = round2(pvtSales.filter(s => ['usna', 'parboiled'].includes((s.rice_type || '').toLowerCase())).reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+    const pvtSoldRaw = round2(pvtSales.filter(s => (s.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+
+    // Sale voucher items
+    const sbSold = {};
+    saleVouchers.forEach(sv => (sv.items || []).forEach(i => { const n = i.item_name || ''; sbSold[n] = (sbSold[n] || 0) + (parseFloat(i.quantity) || 0); }));
+
+    // Purchase voucher items
+    const pvBought = {};
+    purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { const n = i.item_name || ''; pvBought[n] = (pvBought[n] || 0) + (parseFloat(i.quantity) || 0); }));
+
+    // By-products from milling
+    const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    const bpProduced = {};
+    products.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
+    const bpSoldMap = {};
+    bpSales.forEach(s => { const p = s.product || ''; bpSoldMap[p] = (bpSoldMap[p] || 0) + (s.quantity_qntl || 0); });
+
+    // FRK
+    const frkIn = round2((frkPurchases || []).reduce((s, e) => s + (e.quantity_qntl || e.quantity || 0), 0));
+
+    // Build stock items
+    const stockItems = [];
+
+    // Paddy
+    const pvPaddy = round2(pvBought['Paddy'] || 0);
+    const paddyTotalIn = round2(cmrPaddyIn + pvtPaddyIn + pvPaddy);
+    stockItems.push({ name: 'Paddy', category: 'Raw Material', in_qty: paddyTotalIn, out_qty: paddyUsedMilling, available: round2(paddyTotalIn - paddyUsedMilling), unit: 'Qntl', details: `CMR: ${cmrPaddyIn}Q + Pvt: ${pvtPaddyIn}Q + Purchase: ${pvPaddy}Q - Milling: ${paddyUsedMilling}Q` });
+
+    // Rice Usna
+    const pvUsna = round2(pvBought['Rice (Usna)'] || 0);
+    const usnaSoldTotal = round2(govtDelivered + pvtSoldUsna + (sbSold['Rice (Usna)'] || 0));
+    stockItems.push({ name: 'Rice (Usna)', category: 'Finished', in_qty: round2(usnaProduced + pvUsna), out_qty: usnaSoldTotal, available: round2(usnaProduced + pvUsna - usnaSoldTotal), unit: 'Qntl', details: `Milling: ${usnaProduced}Q + Purchase: ${pvUsna}Q - DC: ${govtDelivered}Q - Pvt: ${pvtSoldUsna}Q - Sale: ${sbSold['Rice (Usna)'] || 0}Q` });
+
+    // Rice Raw
+    const pvRaw = round2(pvBought['Rice (Raw)'] || 0);
+    const rawSoldTotal = round2(pvtSoldRaw + (sbSold['Rice (Raw)'] || 0));
+    stockItems.push({ name: 'Rice (Raw)', category: 'Finished', in_qty: round2(rawProduced + pvRaw), out_qty: rawSoldTotal, available: round2(rawProduced + pvRaw - rawSoldTotal), unit: 'Qntl', details: `Milling: ${rawProduced}Q + Purchase: ${pvRaw}Q - Pvt: ${pvtSoldRaw}Q - Sale: ${sbSold['Rice (Raw)'] || 0}Q` });
+
+    // By-products
+    products.forEach(p => {
+      const produced = bpProduced[p] || 0;
+      const soldBp = round2(bpSoldMap[p] || 0);
+      const soldSb = sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const purchased = pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const totalIn = round2(produced + purchased);
+      const totalOut = round2(soldBp + soldSb);
+      stockItems.push({ name: p.charAt(0).toUpperCase() + p.slice(1), category: 'By-Product', in_qty: totalIn, out_qty: totalOut, available: round2(totalIn - totalOut), unit: 'Qntl', details: `Milling: ${produced}Q + Purchased: ${purchased}Q - Sold: ${soldBp}Q - Sale Voucher: ${soldSb}Q` });
+    });
+
+    // FRK
+    const frkPurchasedPv = pvBought['FRK'] || 0;
+    const frkTotalIn = round2(frkIn + frkPurchasedPv);
+    const frkSoldSb = sbSold['FRK'] || 0;
+    stockItems.push({ name: 'FRK', category: 'By-Product', in_qty: frkTotalIn, out_qty: frkSoldSb, available: round2(frkTotalIn - frkSoldSb), unit: 'Qntl', details: `FRK Purchase: ${frkIn}Q + Purchase Voucher: ${frkPurchasedPv}Q - Sale Voucher: ${frkSoldSb}Q` });
+
+    // Custom items from purchase vouchers
+    const knownItems = new Set(['Paddy', 'Rice (Usna)', 'Rice (Raw)', 'FRK', ...products.map(p => p.charAt(0).toUpperCase() + p.slice(1))]);
+    for (const [itemName, qty] of Object.entries(pvBought)) {
+      if (!knownItems.has(itemName)) {
+        const sold = sbSold[itemName] || 0;
+        stockItems.push({ name: itemName, category: 'Custom', in_qty: round2(qty), out_qty: round2(sold), available: round2(qty - sold), unit: 'Qntl', details: `Purchased: ${qty}Q - Sold: ${sold}Q` });
+      }
+    }
+
+    // Gunny Bags
+    const gunnyIn = gunnyEntries.filter(e => e.txn_type === 'in').reduce((s, e) => s + (e.quantity || 0), 0);
+    const gunnyOut = gunnyEntries.filter(e => e.txn_type === 'out').reduce((s, e) => s + (e.quantity || 0), 0);
+    if (gunnyIn > 0 || gunnyOut > 0) {
+      const newIn = gunnyEntries.filter(e => e.txn_type === 'in' && e.bag_type === 'new').reduce((s, e) => s + (e.quantity || 0), 0);
+      const oldIn = gunnyEntries.filter(e => e.txn_type === 'in' && e.bag_type === 'old').reduce((s, e) => s + (e.quantity || 0), 0);
+      stockItems.push({ name: 'Gunny Bags', category: 'Raw Material', in_qty: gunnyIn, out_qty: gunnyOut, available: gunnyIn - gunnyOut, unit: 'Bags', details: `Govt(New): ${newIn} + Market(Old): ${oldIn} - Used: ${gunnyOut}` });
+    }
+
+    res.json({ items: stockItems });
   }));
 
   router.get('/api/stock-summary/export/excel', safeHandler(async (req, res) => {
     const ExcelJS = require('exceljs');
-    // Reuse logic from stock-summary
+    // Use same logic as stock-summary endpoint
+    const summaryRes = { json: null };
+    const fakeRes = { json: (d) => { summaryRes.json = d; } };
+    // Get stock data by calling the main handler inline
     const { kms_year, season } = req.query;
-    let purchases = [...(database.data.purchase_vouchers || [])];
-    if (kms_year) purchases = purchases.filter(v => v.kms_year === kms_year);
-    if (season) purchases = purchases.filter(v => v.season === season);
-    const purchaseItems = {};
-    purchases.forEach(v => (v.items || []).forEach(i => { const n = i.item_name || 'Unknown'; if (!purchaseItems[n]) purchaseItems[n] = { qty: 0, amt: 0 }; purchaseItems[n].qty += parseFloat(i.quantity) || 0; purchaseItems[n].amt += parseFloat(i.amount) || 0; }));
-    let sales = [...(database.data.sale_vouchers || [])];
-    if (kms_year) sales = sales.filter(v => v.kms_year === kms_year);
-    if (season) sales = sales.filter(v => v.season === season);
-    const saleItems = {};
-    sales.forEach(v => (v.items || []).forEach(i => { const n = i.item_name || 'Unknown'; if (!saleItems[n]) saleItems[n] = { qty: 0, amt: 0 }; saleItems[n].qty += parseFloat(i.quantity) || 0; saleItems[n].amt += parseFloat(i.amount) || 0; }));
-    const allItems = [...new Set([...Object.keys(purchaseItems), ...Object.keys(saleItems)])];
+    const filter = (arr, ky, sn) => { let r = arr || []; if (ky) r = r.filter(e => e.kms_year === ky); if (sn) r = r.filter(e => e.season === sn); return r; };
+    const round2 = v => Math.round((v || 0) * 100) / 100;
+    const milling = filter(database.data.milling_entries, kms_year, season);
+    const millEntries = filter(database.data.entries, kms_year, season);
+    const pvtPaddy = filter(database.data.private_paddy, kms_year, season).filter(e => e.source !== 'agent_extra');
+    const cmrPaddyIn = round2(millEntries.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100 - (e.p_pkt_cut || 0) / 100, 0));
+    const pvtPaddyIn = round2(pvtPaddy.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100, 0));
+    const paddyUsed = round2(milling.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Stock Summary');
-    ws.addRow(['Item', 'Purchase Qty', 'Purchase Amt', 'Sale Qty', 'Sale Amt', 'Stock Qty']);
-    allItems.forEach(n => ws.addRow([n, purchaseItems[n]?.qty||0, purchaseItems[n]?.amt||0, saleItems[n]?.qty||0, saleItems[n]?.amt||0, (purchaseItems[n]?.qty||0)-(saleItems[n]?.qty||0)]));
+    ws.addRow(['Item', 'Category', 'In Qty', 'Out Qty', 'Available', 'Unit', 'Details']).font = { bold: true };
+    ws.addRow(['Paddy', 'Raw Material', round2(cmrPaddyIn + pvtPaddyIn), paddyUsed, round2(cmrPaddyIn + pvtPaddyIn - paddyUsed), 'Qntl', `CMR: ${cmrPaddyIn} + Pvt: ${pvtPaddyIn}`]);
+    const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    products.forEach(p => {
+      const produced = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0));
+      ws.addRow([p.charAt(0).toUpperCase() + p.slice(1), 'By-Product', produced, 0, produced, 'Qntl', `From milling`]);
+    });
     ws.columns.forEach(c => c.width = 18);
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -241,22 +319,26 @@ module.exports = function(database) {
   }));
 
   router.get('/api/stock-summary/export/pdf', safeHandler(async (req, res) => {
-    const { kms_year, season } = req.query;
-    let purchases = [...(database.data.purchase_vouchers || [])];
-    if (kms_year) purchases = purchases.filter(v => v.kms_year === kms_year);
-    if (season) purchases = purchases.filter(v => v.season === season);
-    const purchaseItems = {};
-    purchases.forEach(v => (v.items || []).forEach(i => { const n = i.item_name || 'Unknown'; if (!purchaseItems[n]) purchaseItems[n] = { qty: 0, amt: 0 }; purchaseItems[n].qty += parseFloat(i.quantity) || 0; purchaseItems[n].amt += parseFloat(i.amount) || 0; }));
-    let sales = [...(database.data.sale_vouchers || [])];
-    if (kms_year) sales = sales.filter(v => v.kms_year === kms_year);
-    if (season) sales = sales.filter(v => v.season === season);
-    const saleItems = {};
-    sales.forEach(v => (v.items || []).forEach(i => { const n = i.item_name || 'Unknown'; if (!saleItems[n]) saleItems[n] = { qty: 0, amt: 0 }; saleItems[n].qty += parseFloat(i.quantity) || 0; saleItems[n].amt += parseFloat(i.amount) || 0; }));
-    const allItems = [...new Set([...Object.keys(purchaseItems), ...Object.keys(saleItems)])];
     const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
     let html = `<!DOCTYPE html><html><head><style>body{font:10px Arial;margin:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 5px}th{background:#1e40af;color:#fff}.r{text-align:right}.b{font-weight:bold}</style></head><body>`;
-    html += `<h2 style="text-align:center">${company} - Stock Summary</h2><table><tr><th>Item</th><th class="r">Purchase Qty</th><th class="r">Purchase Amt</th><th class="r">Sale Qty</th><th class="r">Sale Amt</th><th class="r">Stock Qty</th></tr>`;
-    allItems.forEach(n => html += `<tr><td class="b">${n}</td><td class="r">${purchaseItems[n]?.qty||0}</td><td class="r">${purchaseItems[n]?.amt||0}</td><td class="r">${saleItems[n]?.qty||0}</td><td class="r">${saleItems[n]?.amt||0}</td><td class="r b">${(purchaseItems[n]?.qty||0)-(saleItems[n]?.qty||0)}</td></tr>`);
+    html += `<h2 style="text-align:center">${company} - Stock Summary</h2>`;
+    html += `<table><tr><th>Item</th><th>Category</th><th class="r">In</th><th class="r">Out</th><th class="r">Available</th><th>Unit</th><th>Details</th></tr>`;
+    // Simple version - just paddy + byproducts from milling
+    const { kms_year, season } = req.query;
+    const filter = (arr, ky, sn) => { let r = arr || []; if (ky) r = r.filter(e => e.kms_year === ky); if (sn) r = r.filter(e => e.season === sn); return r; };
+    const round2 = v => Math.round((v || 0) * 100) / 100;
+    const milling = filter(database.data.milling_entries, kms_year, season);
+    const millEntries = filter(database.data.entries, kms_year, season);
+    const pvtPaddy = filter(database.data.private_paddy, kms_year, season).filter(e => e.source !== 'agent_extra');
+    const cmrIn = round2(millEntries.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100 - (e.p_pkt_cut || 0) / 100, 0));
+    const pvtIn = round2(pvtPaddy.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100, 0));
+    const paddyUsed = round2(milling.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0));
+    const pIn = round2(cmrIn + pvtIn);
+    html += `<tr><td class="b">Paddy</td><td>Raw Material</td><td class="r">${pIn}</td><td class="r">${paddyUsed}</td><td class="r b">${round2(pIn - paddyUsed)}</td><td>Qntl</td><td>CMR: ${cmrIn} + Pvt: ${pvtIn}</td></tr>`;
+    ['bran', 'kunda', 'broken', 'kanki', 'husk'].forEach(p => {
+      const produced = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0));
+      html += `<tr><td class="b">${p.charAt(0).toUpperCase() + p.slice(1)}</td><td>By-Product</td><td class="r">${produced}</td><td class="r">0</td><td class="r b">${produced}</td><td>Qntl</td><td>From milling</td></tr>`;
+    });
     html += `</table></body></html>`;
     res.type('html').send(html);
   }));
