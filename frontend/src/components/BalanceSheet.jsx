@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import axios from 'axios';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { FileDown, FileSpreadsheet, ChevronDown, ChevronRight, RefreshCw, Printer, ExternalLink } from 'lucide-react';
+import { FileDown, FileSpreadsheet, ChevronDown, ChevronRight, RefreshCw, Printer } from 'lucide-react';
 
 const API = ((typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL) + '/api';
 
@@ -11,36 +11,22 @@ function formatAmt(n) {
   return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
-// Stock group names that should navigate to stock page
-const STOCK_GROUPS = ['Paddy Stock', 'Rice Stock (FRK)', 'Byproducts Stock', 'Rice Stock', 'Stock-in-Trade', 'Stock-in-Hand'];
-const isStockGroup = (name) => STOCK_GROUPS.some(s => name?.toLowerCase().includes(s.toLowerCase()));
-
-function BalanceGroup({ group, side, onPartyClick, onStockClick, expanded, onToggle, focusedChild, onChildFocus }) {
+function BalanceGroup({ group, side, expanded, onToggle, focusedChild }) {
   const hasChildren = group.children && group.children.length > 0;
   const sideColor = side === 'liability' ? 'text-red-400' : 'text-emerald-400';
   const sideBg = side === 'liability' ? 'bg-red-500/10' : 'bg-emerald-500/10';
-  const stockClickable = isStockGroup(group.group);
 
   return (
     <div className="mb-1">
       <div
         className={`flex items-center justify-between px-3 py-2 rounded cursor-pointer hover:bg-slate-700/50 transition ${sideBg} ${focusedChild === -1 ? 'ring-2 ring-amber-400/80 bg-amber-500/10' : ''}`}
-        onClick={() => {
-          if (stockClickable && onStockClick) {
-            onStockClick(group.group);
-          } else if (hasChildren) {
-            onToggle();
-          }
-        }}
+        onClick={() => hasChildren && onToggle()}
         data-testid={`bs-group-${group.group.replace(/\s+/g, '-').toLowerCase()}`}
       >
         <div className="flex items-center gap-2">
           {hasChildren ? (expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />) : <span className="w-3.5" />}
-          <span className={`text-sm font-semibold text-slate-200 ${stockClickable ? 'underline decoration-dotted underline-offset-2 hover:text-amber-300' : ''}`}>
-            {group.group}
-          </span>
+          <span className="text-sm font-semibold text-slate-200">{group.group}</span>
           {hasChildren && <span className="text-[10px] text-slate-500">({group.children.length})</span>}
-          {stockClickable && <ExternalLink className="w-3 h-3 text-amber-400/60" />}
         </div>
         <span className={`text-sm font-bold ${sideColor}`}>{formatAmt(group.amount)}</span>
       </div>
@@ -49,17 +35,11 @@ function BalanceGroup({ group, side, onPartyClick, onStockClick, expanded, onTog
           {group.children.map((c, i) => (
             <div
               key={i}
-              className={`flex items-center justify-between px-2 py-1.5 text-xs hover:bg-slate-800/50 rounded group cursor-pointer ${focusedChild === i ? 'ring-2 ring-amber-400/80 bg-amber-500/10' : ''}`}
-              onClick={() => {
-                if (onPartyClick && !c.name.startsWith('Opening')) onPartyClick(c.name);
-              }}
+              className={`flex items-center justify-between px-2 py-1.5 text-xs hover:bg-slate-800/50 rounded ${focusedChild === i ? 'ring-2 ring-amber-400/80 bg-amber-500/10' : ''}`}
               data-testid={`bs-child-${c.name.replace(/\s+/g, '-').toLowerCase()}`}
             >
-              <span className="text-slate-300 flex items-center gap-1">
+              <span className="text-slate-300">
                 {c.name} {c.unit ? `(${c.unit})` : ''}
-                {onPartyClick && !c.name.startsWith('Opening') && (
-                  <ExternalLink className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 cursor-pointer hover:text-amber-400 transition" />
-                )}
               </span>
               <span className={`font-medium ${sideColor}`}>{formatAmt(c.amount)}</span>
             </div>
@@ -70,16 +50,16 @@ function BalanceGroup({ group, side, onPartyClick, onStockClick, expanded, onTog
   );
 }
 
-export default function BalanceSheet({ filters, onNavigate }) {
+export default function BalanceSheet({ filters }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const containerRef = useRef(null);
 
-  // Keyboard nav state: which column and which row index in the flat list
-  const [focusCol, setFocusCol] = useState('liability'); // 'liability' or 'asset'
+  // Keyboard nav state
+  const [focusCol, setFocusCol] = useState('liability');
   const [focusIdx, setFocusIdx] = useState(0);
-  const [kbActive, setKbActive] = useState(false); // keyboard mode active
+  const [kbActive, setKbActive] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -123,25 +103,11 @@ export default function BalanceSheet({ filters, onNavigate }) {
 
   const currentList = focusCol === 'liability' ? liabList : assetList;
 
-  // Ensure focusIdx is in bounds
   useEffect(() => {
     if (focusIdx >= currentList.length && currentList.length > 0) {
       setFocusIdx(currentList.length - 1);
     }
   }, [currentList.length, focusIdx]);
-
-  const handlePartyClick = useCallback((partyName) => {
-    if (onNavigate) {
-      const cleaned = partyName.replace(/^(Truck|Agent|Diesel|DC|Mill Part|Byproduct)\s*-\s*/, '').trim();
-      onNavigate('ledger', cleaned);
-    }
-  }, [onNavigate]);
-
-  const handleStockClick = useCallback((groupName) => {
-    if (onNavigate) {
-      onNavigate('stock', groupName);
-    }
-  }, [onNavigate]);
 
   // Keyboard handler
   useEffect(() => {
@@ -149,9 +115,7 @@ export default function BalanceSheet({ filters, onNavigate }) {
     if (!el) return;
 
     const handleKey = (e) => {
-      // Don't intercept if focus is in input/textarea
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
       const key = e.key;
       if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(key)) return;
 
@@ -163,63 +127,42 @@ export default function BalanceSheet({ filters, onNavigate }) {
       } else if (key === 'ArrowUp') {
         setFocusIdx(prev => Math.max(prev - 1, 0));
       } else if (key === 'ArrowRight') {
-        // If on a group: expand it. Otherwise switch column
         const item = currentList[focusIdx];
         if (item?.type === 'group' && item.group.children?.length > 0 && !expandedGroups.has(item.name)) {
           toggleGroup(item.name);
-        } else {
-          // Switch to asset column
-          if (focusCol === 'liability') {
-            setFocusCol('asset');
-            setFocusIdx(0);
-          }
+        } else if (focusCol === 'liability') {
+          setFocusCol('asset');
+          setFocusIdx(0);
         }
       } else if (key === 'ArrowLeft') {
-        // If on a group: collapse it. Otherwise switch column
         const item = currentList[focusIdx];
         if (item?.type === 'group' && expandedGroups.has(item.name)) {
           toggleGroup(item.name);
         } else if (item?.type === 'child') {
-          // Collapse parent group
           toggleGroup(item.group.group);
-        } else {
-          // Switch to liability column
-          if (focusCol === 'asset') {
-            setFocusCol('liability');
-            setFocusIdx(0);
-          }
+        } else if (focusCol === 'asset') {
+          setFocusCol('liability');
+          setFocusIdx(0);
         }
       } else if (key === 'Enter' || key === ' ') {
         const item = currentList[focusIdx];
-        if (!item) return;
-        if (item.type === 'group') {
-          if (isStockGroup(item.name)) {
-            handleStockClick(item.name);
-          } else if (item.group.children?.length > 0) {
-            toggleGroup(item.name);
-          }
-        } else if (item.type === 'child') {
-          if (!item.child.name.startsWith('Opening')) {
-            handlePartyClick(item.child.name);
-          }
+        if (item?.type === 'group' && item.group.children?.length > 0) {
+          toggleGroup(item.name);
         }
       }
     };
 
     el.addEventListener('keydown', handleKey);
     return () => el.removeEventListener('keydown', handleKey);
-  }, [currentList, focusIdx, focusCol, expandedGroups, toggleGroup, handlePartyClick, handleStockClick]);
+  }, [currentList, focusIdx, focusCol, expandedGroups, toggleGroup]);
 
   // Scroll focused item into view
   useEffect(() => {
     if (!kbActive) return;
     const focusedEl = containerRef.current?.querySelector('[data-focused="true"]');
-    if (focusedEl) {
-      focusedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
+    if (focusedEl) focusedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [focusIdx, focusCol, kbActive]);
 
-  // Compute which group/child is focused for each side
   const getFocusInfo = useCallback((side) => {
     if (!kbActive || focusCol !== side) return {};
     const item = (side === 'liability' ? liabList : assetList)[focusIdx];
@@ -272,7 +215,7 @@ export default function BalanceSheet({ filters, onNavigate }) {
           <h2 className="text-lg font-bold text-amber-400">Balance Sheet</h2>
           <p className="text-xs text-slate-400">
             As on {data.as_on_date} | KMS {data.kms_year || 'All'} {data.season && `| ${data.season}`}
-            {kbActive && <span className="ml-2 text-amber-400/70 text-[10px]">Keyboard ON - Arrow keys, Enter to navigate</span>}
+            {kbActive && <span className="ml-2 text-amber-400/70 text-[10px]">Keyboard ON - Arrow keys se navigate karein</span>}
           </p>
         </div>
         <div className="flex gap-2">
@@ -305,8 +248,6 @@ export default function BalanceSheet({ filters, onNavigate }) {
                   <BalanceGroup
                     group={g}
                     side="liability"
-                    onPartyClick={handlePartyClick}
-                    onStockClick={handleStockClick}
                     expanded={expandedGroups.has(g.group)}
                     onToggle={() => toggleGroup(g.group)}
                     focusedChild={isFocusedGroup ? liabFocus.focusedChild : null}
@@ -334,8 +275,6 @@ export default function BalanceSheet({ filters, onNavigate }) {
                   <BalanceGroup
                     group={g}
                     side="asset"
-                    onPartyClick={handlePartyClick}
-                    onStockClick={handleStockClick}
                     expanded={expandedGroups.has(g.group)}
                     onToggle={() => toggleGroup(g.group)}
                     focusedChild={isFocusedGroup ? assetFocus.focusedChild : null}
@@ -352,14 +291,14 @@ export default function BalanceSheet({ filters, onNavigate }) {
       </div>
 
       {/* Detailed Account Tables */}
-      {data.truck_accounts?.length > 0 && <DetailTable title="Truck Accounts" data={data.truck_accounts} onPartyClick={handlePartyClick} />}
-      {data.agent_accounts?.length > 0 && <DetailTable title="Agent/Mandi Accounts" data={data.agent_accounts} onPartyClick={handlePartyClick} />}
-      {data.dc_accounts?.length > 0 && <DetailTable title="DC Accounts" data={data.dc_accounts} onPartyClick={handlePartyClick} />}
+      {data.truck_accounts?.length > 0 && <DetailTable title="Truck Accounts" data={data.truck_accounts} />}
+      {data.agent_accounts?.length > 0 && <DetailTable title="Agent/Mandi Accounts" data={data.agent_accounts} />}
+      {data.dc_accounts?.length > 0 && <DetailTable title="DC Accounts" data={data.dc_accounts} />}
     </div>
   );
 }
 
-function DetailTable({ title, data, onPartyClick }) {
+function DetailTable({ title, data }) {
   const [open, setOpen] = useState(false);
   const total = data.reduce((s, d) => s + d.balance, 0);
   return (
@@ -385,11 +324,8 @@ function DetailTable({ title, data, onPartyClick }) {
             </thead>
             <tbody>
               {data.map((d, i) => (
-                <tr key={i} className="border-b border-slate-700/30 hover:bg-slate-700/30 cursor-pointer" onClick={() => onPartyClick && onPartyClick(d.name)}>
-                  <td className="py-1.5 text-slate-300 flex items-center gap-1">
-                    {d.name}
-                    <ExternalLink className="w-3 h-3 text-slate-500 hover:text-amber-400" />
-                  </td>
+                <tr key={i} className="border-b border-slate-700/30 hover:bg-slate-700/30">
+                  <td className="py-1.5 text-slate-300">{d.name}</td>
                   <td className="py-1.5 text-right text-orange-400">{formatAmt(d.total)}</td>
                   <td className="py-1.5 text-right text-green-400">{formatAmt(d.paid)}</td>
                   <td className={`py-1.5 text-right font-bold ${d.balance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>{formatAmt(d.balance)}</td>

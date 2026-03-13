@@ -12,17 +12,12 @@
 
 ### Balance Sheet (Tally-style)
 - Liabilities vs Assets side-by-side layout
-- Drill-down groups (click to expand, ExternalLink to navigate to ledger)
-- Truck, Agent/Mandi, DC Accounts sections
+- Expand/collapse groups with chevron click
+- Keyboard Navigation: ArrowUp/Down (move between rows), ArrowRight (expand/switch column), ArrowLeft (collapse/switch column), Enter/Space (expand/collapse)
 - Print, PDF (landscape side-by-side), Excel (side-by-side cols) export
 - Auto-balanced via P&L A/c (Surplus/Deficit)
-- **Keyboard Navigation (2026-03-13):**
-  - ArrowUp/Down: Navigate between groups/children
-  - ArrowRight: Expand group or switch to Assets column
-  - ArrowLeft: Collapse group or switch to Liabilities column
-  - Enter/Space: Expand/collapse groups, navigate to ledger for children
-  - Stock-in-Hand clickable → navigates to Milling (CMR) tab
-  - Visual focus indicator (amber ring) + "Keyboard ON" status
+- Truck, Agent/Mandi, DC Accounts detail tables
+- No click-to-navigate (user preference - removed)
 
 ### FY Summary
 - 11 sections: Cash/Bank, Paddy, Milling, FRK, Byproducts, Mill Parts, Diesel, Local Party, Staff, Private Trading, Ledger Parties
@@ -46,7 +41,7 @@
 - GET /api/reports/daily/pdf
 
 ## Desktop App
-- Version: v24.0.0 (updated 2026-03-13)
+- Version: v24.0.0
 - Frontend synced with web app build
 
 ## Pending / Backlog
