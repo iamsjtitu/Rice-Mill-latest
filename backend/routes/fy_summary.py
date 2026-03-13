@@ -380,6 +380,346 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
     }
 
 
+@router.get("/fy-summary/balance-sheet")
+async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Tally-style Balance Sheet with Liabilities and Assets"""
+    summary = await get_fy_summary(kms_year=kms_year, season=season)
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+
+    cb = summary["cash_bank"]
+    ps = summary["paddy_stock"]
+    frk = summary["frk_stock"]
+    bp = summary["byproducts"]
+    mp = summary["mill_parts"]
+    diesel_list = summary["diesel"]
+    lp = summary["local_party"]
+    staff_list = summary["staff_advances"]
+    pt = summary["private_trading"]
+    ledger = summary["ledger_parties"]
+
+    # ===== TRUCK ACCOUNTS (from ledger) =====
+    entries = await db.mill_entries.find(query, {"_id": 0, "id": 1, "truck_no": 1, "truck_amount": 1}).to_list(50000)
+    truck_map = {}
+    for e in entries:
+        tn = (e.get("truck_no") or "").strip()
+        if not tn: continue
+        if tn not in truck_map: truck_map[tn] = {"total": 0, "paid": 0}
+        truck_map[tn]["total"] += e.get("truck_amount", 0) or 0
+
+    all_truck_nos = list(truck_map.keys())
+    if all_truck_nos:
+        ledger_nikasi = await db.cash_transactions.find(
+            {**query, "account": "ledger", "txn_type": "nikasi", "category": {"$in": all_truck_nos}}, {"_id": 0}
+        ).to_list(50000)
+        for txn in ledger_nikasi:
+            cat = (txn.get("category") or "").strip()
+            if cat in truck_map:
+                truck_map[cat]["paid"] += txn.get("amount", 0)
+
+    truck_accounts = [{"name": tn, "total": round(v["total"], 2), "paid": round(v["paid"], 2), "balance": round(v["total"] - v["paid"], 2)} for tn, v in sorted(truck_map.items())]
+    truck_total_balance = round(sum(t["balance"] for t in truck_accounts), 2)
+
+    # ===== AGENT/MANDI ACCOUNTS =====
+    agent_docs = await db.agent_payments.find(query, {"_id": 0}).to_list(1000)
+    mandi_map = {}
+    for doc in agent_docs:
+        mn = doc.get("mandi_name", "")
+        if not mn: continue
+        mandi_map[mn] = {"total": doc.get("total_amount", 0), "paid": doc.get("total_paid", 0)}
+    # Also compute from entries if no agent_payments doc
+    mandi_entries = {}
+    for e in entries:
+        mn = (e.get("mandi_name") or "").strip()
+        if not mn: continue
+        if mn not in mandi_entries: mandi_entries[mn] = 0
+        mandi_entries[mn] += e.get("agent_amount", 0) or 0
+    for mn, total in mandi_entries.items():
+        if mn not in mandi_map:
+            # Check ledger for paid
+            paid_txns = await db.cash_transactions.find(
+                {**query, "account": "ledger", "txn_type": "nikasi", "category": {"$regex": f"^{mn}$", "$options": "i"},
+                 "party_type": "Agent"}, {"_id": 0, "amount": 1}
+            ).to_list(5000)
+            paid = sum(t.get("amount", 0) for t in paid_txns)
+            mandi_map[mn] = {"total": total, "paid": paid}
+    agent_accounts = [{"name": mn, "total": round(v["total"], 2), "paid": round(v["paid"], 2), "balance": round(v["total"] - v["paid"], 2)} for mn, v in sorted(mandi_map.items())]
+    agent_total_balance = round(sum(a["balance"] for a in agent_accounts), 2)
+
+    # ===== DC ACCOUNTS =====
+    dc_deliveries = await db.dc_deliveries.find(query, {"_id": 0}).to_list(5000)
+    dc_entries_list = await db.dc_entries.find(query, {"_id": 0}).to_list(5000)
+    dc_map = {}
+    for dc in dc_entries_list:
+        party = dc.get("party_name") or dc.get("supplier_name") or ""
+        if not party: continue
+        if party not in dc_map: dc_map[party] = {"total": 0, "paid": 0}
+        dc_map[party]["total"] += dc.get("total_amount", 0) or 0
+        dc_map[party]["paid"] += dc.get("paid_amount", 0) or 0
+    dc_accounts = [{"name": p, "total": round(v["total"], 2), "paid": round(v["paid"], 2), "balance": round(v["total"] - v["paid"], 2)} for p, v in sorted(dc_map.items())]
+    dc_total_balance = round(sum(d["balance"] for d in dc_accounts), 2)
+
+    # ===== MSP PAYMENTS (Government) =====
+    msp_docs = await db.msp_payments.find(query, {"_id": 0}).to_list(1000)
+    msp_total = round(sum(m.get("amount", 0) for m in msp_docs), 2)
+    msp_received = round(sum(m.get("received_amount", 0) for m in msp_docs), 2)
+
+    # ===== SEPARATE LEDGER PARTIES INTO DEBTORS (positive balance = we gave more) vs CREDITORS (negative = they gave more) =====
+    sundry_debtors = []  # jama > nikasi → they owe us
+    sundry_creditors = []  # nikasi > jama → we owe them
+    for l in ledger["parties"]:
+        bal = l["closing_balance"]
+        if bal > 0:
+            sundry_debtors.append(l)
+        elif bal < 0:
+            sundry_creditors.append({"party_name": l["party_name"], "party_type": l["party_type"], "amount": abs(bal)})
+
+    # ===== BUILD BALANCE SHEET =====
+
+    # --- LIABILITIES ---
+    liabilities = []
+
+    # Capital Account
+    capital = cb["opening_cash"] + cb["opening_bank"]
+    liabilities.append({"group": "Capital Account", "amount": round(capital, 2), "children": [
+        {"name": "Opening Cash", "amount": cb["opening_cash"]},
+        {"name": "Opening Bank", "amount": cb["opening_bank"]},
+    ]})
+
+    # Sundry Creditors (Ledger parties we owe + Local Party + Diesel)
+    creditors_children = []
+    creditors_total = 0
+    if lp["closing_balance"] > 0:
+        creditors_children.append({"name": "Local Party Accounts", "amount": lp["closing_balance"]})
+        creditors_total += lp["closing_balance"]
+    for sc in sundry_creditors:
+        creditors_children.append({"name": sc["party_name"], "amount": sc["amount"]})
+        creditors_total += sc["amount"]
+    for d in diesel_list:
+        if d["closing_balance"] > 0:
+            creditors_children.append({"name": f"Diesel - {d['pump_name']}", "amount": d["closing_balance"]})
+            creditors_total += d["closing_balance"]
+    if pt["paddy_balance"] > 0:
+        creditors_children.append({"name": "Pvt Paddy Purchase Payable", "amount": pt["paddy_balance"]})
+        creditors_total += pt["paddy_balance"]
+    if truck_total_balance > 0:
+        for t in truck_accounts:
+            if t["balance"] > 0:
+                creditors_children.append({"name": f"Truck - {t['name']}", "amount": t["balance"]})
+        creditors_total += sum(t["balance"] for t in truck_accounts if t["balance"] > 0)
+    if agent_total_balance > 0:
+        for a in agent_accounts:
+            if a["balance"] > 0:
+                creditors_children.append({"name": f"Agent - {a['name']}", "amount": a["balance"]})
+        creditors_total += sum(a["balance"] for a in agent_accounts if a["balance"] > 0)
+    if dc_total_balance > 0:
+        for d in dc_accounts:
+            if d["balance"] > 0:
+                creditors_children.append({"name": f"DC - {d['name']}", "amount": d["balance"]})
+        creditors_total += sum(d["balance"] for d in dc_accounts if d["balance"] > 0)
+    liabilities.append({"group": "Sundry Creditors", "amount": round(creditors_total, 2), "children": creditors_children})
+
+    total_liabilities = round(sum(l["amount"] for l in liabilities), 2)
+
+    # --- ASSETS ---
+    assets = []
+
+    # Cash & Bank
+    assets.append({"group": "Cash & Bank Balances", "amount": round(cb["closing_cash"] + cb["closing_bank"], 2), "children": [
+        {"name": "Cash-in-Hand", "amount": cb["closing_cash"]},
+        {"name": "Bank Accounts", "amount": cb["closing_bank"]},
+    ]})
+
+    # Stock-in-Hand
+    stock_children = []
+    stock_total = 0
+    if ps["closing_stock"] > 0:
+        stock_children.append({"name": "Paddy Stock", "amount": ps["closing_stock"], "unit": "Qtl"})
+        stock_total += ps["closing_stock"]
+    if frk["closing_stock"] > 0:
+        stock_children.append({"name": "FRK Stock", "amount": frk["closing_stock"], "unit": "Qtl"})
+        stock_total += frk["closing_stock"]
+    for p_name, v in bp.items():
+        if v["closing_stock"] > 0:
+            stock_children.append({"name": f"Byproduct - {p_name.capitalize()}", "amount": v["closing_stock"], "unit": "Qtl"})
+            stock_total += v["closing_stock"]
+    for p in mp:
+        if p["closing_stock"] > 0:
+            stock_children.append({"name": f"Mill Part - {p['name']}", "amount": p["closing_stock"], "unit": p.get("unit", "Pcs")})
+            stock_total += p["closing_stock"]
+    assets.append({"group": "Stock-in-Hand", "amount": round(stock_total, 2), "children": stock_children})
+
+    # Sundry Debtors (Ledger parties who owe us + Rice sale receivables + MSP)
+    debtors_children = []
+    debtors_total = 0
+    for sd in sundry_debtors:
+        debtors_children.append({"name": sd["party_name"], "amount": sd["closing_balance"]})
+        debtors_total += sd["closing_balance"]
+    if pt["rice_balance"] > 0:
+        debtors_children.append({"name": "Rice Sale Receivable", "amount": pt["rice_balance"]})
+        debtors_total += pt["rice_balance"]
+    if msp_total - msp_received > 0:
+        debtors_children.append({"name": "MSP Receivable", "amount": round(msp_total - msp_received, 2)})
+        debtors_total += msp_total - msp_received
+    if lp["closing_balance"] < 0:
+        debtors_children.append({"name": "Local Party Advance", "amount": abs(lp["closing_balance"])})
+        debtors_total += abs(lp["closing_balance"])
+    assets.append({"group": "Sundry Debtors", "amount": round(debtors_total, 2), "children": debtors_children})
+
+    # Staff Advances
+    staff_total = round(sum(s["closing_balance"] for s in staff_list if s["closing_balance"] > 0), 2)
+    staff_children = [{"name": s["name"], "amount": s["closing_balance"]} for s in staff_list if s["closing_balance"] > 0]
+    if staff_total > 0:
+        assets.append({"group": "Loans & Advances", "amount": staff_total, "children": staff_children})
+
+    total_assets = round(sum(a["amount"] for a in assets), 2)
+
+    # Profit & Loss (difference to balance)
+    diff = round(total_assets - total_liabilities, 2)
+    if diff > 0:
+        liabilities.append({"group": "Profit & Loss A/c (Surplus)", "amount": diff, "children": []})
+        total_liabilities = round(total_liabilities + diff, 2)
+    elif diff < 0:
+        assets.append({"group": "Profit & Loss A/c (Deficit)", "amount": abs(diff), "children": []})
+        total_assets = round(total_assets + abs(diff), 2)
+
+    return {
+        "kms_year": kms_year or "", "season": season or "",
+        "as_on_date": datetime.now().strftime("%d-%m-%Y"),
+        "liabilities": liabilities, "total_liabilities": total_liabilities,
+        "assets": assets, "total_assets": total_assets,
+        "truck_accounts": truck_accounts, "agent_accounts": agent_accounts, "dc_accounts": dc_accounts
+    }
+
+
+@router.get("/fy-summary/balance-sheet/pdf")
+async def export_balance_sheet_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from io import BytesIO
+
+    data = await get_balance_sheet(kms_year=kms_year, season=season)
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=25, rightMargin=25, topMargin=25, bottomMargin=25)
+    elements = []
+    styles = getSampleStyleSheet()
+    hdr_bg = colors.HexColor('#1a365d')
+    total_bg = colors.HexColor('#e0f2fe')
+
+    def fmt(n): return f"{(n or 0):,.2f}"
+
+    elements.append(Paragraph(f"Balance Sheet - {kms_year or 'All'}", styles['Title']))
+    elements.append(Paragraph(f"As on: {data['as_on_date']}", styles['Normal']))
+    elements.append(Spacer(1, 10))
+
+    def build_side(title, groups, total_val):
+        elements.append(Paragraph(f"<b>{title}</b>", styles['Heading2']))
+        elements.append(Spacer(1, 4))
+        rows = [['Particulars', 'Amount (Rs.)']]
+        for g in groups:
+            rows.append([g['group'], fmt(g['amount'])])
+            for c in g.get('children', []):
+                rows.append([f"    {c['name']}", fmt(c['amount'])])
+        rows.append(['TOTAL', fmt(total_val)])
+        t = RLTable(rows, colWidths=[350, 130], repeatRows=1)
+        style_list = [
+            ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), total_bg),
+        ]
+        for i, r in enumerate(rows[1:-1], 1):
+            if not r[0].startswith('    '):
+                style_list.append(('FONTNAME', (0, i), (0, i), 'Helvetica-Bold'))
+                style_list.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f1f5f9')))
+        t.setStyle(TableStyle(style_list))
+        elements.append(t)
+        elements.append(Spacer(1, 12))
+
+    build_side("LIABILITIES", data['liabilities'], data['total_liabilities'])
+    build_side("ASSETS", data['assets'], data['total_assets'])
+
+    doc.build(elements)
+    buffer.seek(0)
+    fname = f"Balance_Sheet_{kms_year or 'all'}_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@router.get("/fy-summary/balance-sheet/excel")
+async def export_balance_sheet_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from io import BytesIO
+
+    data = await get_balance_sheet(kms_year=kms_year, season=season)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Balance Sheet"
+    ws.column_dimensions['A'].width = 45
+    ws.column_dimensions['B'].width = 20
+
+    hdr_font = Font(name='Calibri', bold=True, size=14, color='1a365d')
+    group_font = Font(name='Calibri', bold=True, size=11)
+    child_font = Font(name='Calibri', size=10)
+    total_font = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
+    total_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
+    group_fill = PatternFill(start_color='e2e8f0', end_color='e2e8f0', fill_type='solid')
+    border = Border(bottom=Side(style='thin', color='cccccc'))
+    num_fmt = '#,##0.00'
+
+    row = 1
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
+    ws.cell(row=row, column=1, value=f"Balance Sheet - {kms_year or 'All'}").font = hdr_font
+    row += 1
+    ws.cell(row=row, column=1, value=f"As on: {data['as_on_date']}").font = Font(size=10, color='666666')
+    row += 2
+
+    def write_side(title, groups, total_val):
+        nonlocal row
+        ws.cell(row=row, column=1, value=title).font = Font(bold=True, size=12, color='1a365d')
+        ws.cell(row=row, column=2, value='Amount (Rs.)').font = Font(bold=True, size=10, color='1a365d')
+        ws.cell(row=row, column=2).alignment = Alignment(horizontal='right')
+        row += 1
+        for g in groups:
+            ws.cell(row=row, column=1, value=g['group']).font = group_font
+            ws.cell(row=row, column=2, value=g['amount']).font = group_font
+            ws.cell(row=row, column=2).number_format = num_fmt
+            ws.cell(row=row, column=2).alignment = Alignment(horizontal='right')
+            for c in range(1, 3):
+                ws.cell(row=row, column=c).fill = group_fill
+            row += 1
+            for ch in g.get('children', []):
+                ws.cell(row=row, column=1, value=f"    {ch['name']}").font = child_font
+                ws.cell(row=row, column=2, value=ch['amount']).font = child_font
+                ws.cell(row=row, column=2).number_format = num_fmt
+                ws.cell(row=row, column=2).alignment = Alignment(horizontal='right')
+                ws.cell(row=row, column=1).border = border
+                ws.cell(row=row, column=2).border = border
+                row += 1
+        ws.cell(row=row, column=1, value='TOTAL').font = total_font
+        ws.cell(row=row, column=2, value=total_val).font = total_font
+        ws.cell(row=row, column=2).number_format = num_fmt
+        ws.cell(row=row, column=2).alignment = Alignment(horizontal='right')
+        for c in range(1, 3):
+            ws.cell(row=row, column=c).fill = total_fill
+        row += 2
+
+    write_side("LIABILITIES", data['liabilities'], data['total_liabilities'])
+    write_side("ASSETS", data['assets'], data['total_assets'])
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    fname = f"Balance_Sheet_{kms_year or 'all'}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return Response(content=buffer.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
 @router.post("/fy-summary/carry-forward")
 async def carry_forward_fy(data: dict):
     """Close current FY and carry forward all closing balances as opening balances for next FY"""

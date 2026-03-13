@@ -52,6 +52,7 @@ import Ledgers from "@/components/Ledgers";
 import MillPartsStock from "@/components/MillPartsStock";
 import StaffManagement from "@/components/StaffManagement";
 import FYSummaryDashboard from "@/components/FYSummaryDashboard";
+import BalanceSheet from "@/components/BalanceSheet";
 import ExcelImport from "@/components/ExcelImport";
 import Vouchers from "@/components/Vouchers";
 import { PrintButton } from "@/components/PrintButton";
@@ -66,6 +67,32 @@ const fmtDate = (d) => {
   if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
   return d;
 };
+
+// FY Summary with sub-tabs (Summary + Balance Sheet)
+function FYSummaryWithTabs({ filters, user }) {
+  const [subTab, setSubTab] = useState("summary");
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 border-b border-slate-700 pb-2">
+        <button
+          className={`px-4 py-1.5 rounded-t text-sm font-medium transition ${subTab === 'summary' ? 'bg-amber-500/20 text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
+          onClick={() => setSubTab("summary")}
+          data-testid="fy-tab-summary"
+        >FY Summary</button>
+        <button
+          className={`px-4 py-1.5 rounded-t text-sm font-medium transition ${subTab === 'balance-sheet' ? 'bg-amber-500/20 text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
+          onClick={() => setSubTab("balance-sheet")}
+          data-testid="fy-tab-balance-sheet"
+        >Balance Sheet</button>
+      </div>
+      {subTab === "summary" ? (
+        <FYSummaryDashboard filters={filters} />
+      ) : (
+        <BalanceSheet filters={filters} />
+      )}
+    </div>
+  );
+}
 
 // Safe print helper - uses iframe approach (works in Electron + browser)
 const safePrintHTML = (htmlContent) => {
@@ -2006,7 +2033,7 @@ function MainApp({ user, onLogout }) {
         ) : activeTab === "staff" ? (
           <StaffManagement filters={filters} user={user} />
         ) : activeTab === "fy-summary" ? (
-          <FYSummaryDashboard filters={filters} user={user} />
+          <FYSummaryWithTabs filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">

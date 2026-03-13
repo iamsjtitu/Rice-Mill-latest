@@ -1,0 +1,131 @@
+{
+  "summary": "Iteration 85 - Balance Sheet Feature + Login Error Fix. All features working correctly. Backend: 10/10 tests passed. Frontend: All UI tests passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration85_balance_sheet.py",
+    "/app/test_reports/pytest/pytest_results_iteration85.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration85_balance_sheet.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "100% - All features verified via Playwright"
+  },
+  "seed_data_creation": "None - used existing KMS 2025-26 data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Balance Sheet feature fully working under FY Summary tab. Sub-tabs: FY Summary / Balance Sheet. Balance Sheet shows Tally-style layout with Liabilities (left) and Assets (right), includes Truck/Agent/DC accounts detail tables at bottom. Total Liabilities always equals Total Assets (auto-balanced via P&L adjustment). Login error message now displays inline on the login form.",
+  "features_tested": {
+    "balance_sheet_api": {
+      "status": "PASSED",
+      "endpoint": "GET /api/fy-summary/balance-sheet",
+      "details": [
+        "Returns 200 with liabilities, assets, total_liabilities, total_assets",
+        "total_liabilities == total_assets (balanced: 86,650.00)",
+        "Includes truck_accounts, agent_accounts, dc_accounts arrays",
+        "Has as_on_date and kms_year fields"
+      ]
+    },
+    "balance_sheet_pdf_export": {
+      "status": "PASSED",
+      "endpoint": "GET /api/fy-summary/balance-sheet/pdf",
+      "details": [
+        "Returns valid PDF (Content-Type: application/pdf)",
+        "PDF size: 2668 bytes",
+        "Filename: Balance_Sheet_2025-26_*.pdf"
+      ]
+    },
+    "balance_sheet_excel_export": {
+      "status": "PASSED",
+      "endpoint": "GET /api/fy-summary/balance-sheet/excel",
+      "details": [
+        "Returns valid Excel file (Content-Type: spreadsheetml.sheet)",
+        "XLSX size: 5743 bytes",
+        "Filename: Balance_Sheet_2025-26_*.xlsx"
+      ]
+    },
+    "balance_sheet_frontend": {
+      "status": "PASSED",
+      "details": [
+        "Sub-tabs under FY Summary: 'FY Summary' and 'Balance Sheet' - both visible",
+        "Balance Sheet component loads with data-testid='balance-sheet'",
+        "Liabilities panel (red) shows Capital Account, Sundry Creditors",
+        "Assets panel (green) shows Cash & Bank, Stock-in-Hand, Sundry Debtors, Loans & Advances",
+        "P&L Deficit auto-added to balance the sheet",
+        "Total Liabilities = Total Assets = 86,650.00",
+        "PDF and Excel export buttons present",
+        "Drill-down groups expandable (7 groups found)",
+        "Truck Accounts and Agent/Mandi Accounts detail tables shown"
+      ]
+    },
+    "login_error_message": {
+      "status": "PASSED",
+      "details": [
+        "Wrong password shows inline error with data-testid='login-error'",
+        "Error text: 'Invalid username or password'",
+        "Error displayed in red box below password field",
+        "Toast notification also shown (Toaster added to login page)"
+      ]
+    },
+    "local_party_summary_bar": {
+      "status": "PASSED",
+      "details": [
+        "Code review confirms: {summary && selectedParty && (...)} at lines 267-288",
+        "Summary bar hidden when no party selected",
+        "Placeholder text shown: 'Party select karein upar se dropdown mein'"
+      ]
+    }
+  },
+  "api_verification": {
+    "balance_sheet_api": {
+      "endpoint": "GET /api/fy-summary/balance-sheet?kms_year=2025-26",
+      "status": 200,
+      "response_sample": {
+        "total_liabilities": 86650.0,
+        "total_assets": 86650.0,
+        "liabilities_groups": ["Capital Account", "Sundry Creditors"],
+        "assets_groups": ["Cash & Bank Balances", "Stock-in-Hand", "Sundry Debtors", "Loans & Advances", "Profit & Loss A/c (Deficit)"]
+      }
+    },
+    "balance_sheet_pdf": {
+      "endpoint": "GET /api/fy-summary/balance-sheet/pdf?kms_year=2025-26",
+      "status": 200,
+      "content_type": "application/pdf",
+      "file_size": "2668 bytes"
+    },
+    "balance_sheet_excel": {
+      "endpoint": "GET /api/fy-summary/balance-sheet/excel?kms_year=2025-26",
+      "status": 200,
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "file_size": "5743 bytes"
+    },
+    "login_wrong_password": {
+      "endpoint": "POST /api/auth/login",
+      "payload": {"username": "admin", "password": "wrongpassword"},
+      "status": 401,
+      "response": {"detail": "Invalid username or password"}
+    }
+  },
+  "test_summary": {
+    "total_tests": 10,
+    "passed": 10,
+    "failed": 0,
+    "tests_by_class": {
+      "TestBalanceSheetAPI": 5,
+      "TestBalanceSheetExports": 2,
+      "TestLoginErrorMessage": 2,
+      "TestFYSummarySubTabs": 1
+    }
+  }
+}

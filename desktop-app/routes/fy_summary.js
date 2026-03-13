@@ -256,6 +256,106 @@ module.exports = function(database) {
     }
   });
 
+  router.get('/api/fy-summary/balance-sheet', (req, res) => {
+    try {
+      const summary = computeFySummary(req.query.kms_year, req.query.season);
+      const query = {};
+      if (req.query.kms_year) query.kms_year = req.query.kms_year;
+      if (req.query.season) query.season = req.query.season;
+      const cb = summary.cash_bank, ps = summary.paddy_stock, frk = summary.frk_stock;
+      const bp = summary.byproducts, mp = summary.mill_parts, dieselList = summary.diesel;
+      const lp = summary.local_party, staffList = summary.staff_advances, pt = summary.private_trading, ledger = summary.ledger_parties;
+
+      // Truck Accounts
+      let allEntries = filterByFy(col('entries'), req.query.kms_year, req.query.season);
+      const truckMap = {};
+      for (const e of allEntries) {
+        const tn = (e.truck_no || '').trim(); if (!tn) continue;
+        if (!truckMap[tn]) truckMap[tn] = {total: 0, paid: 0};
+        truckMap[tn].total += e.truck_amount || 0;
+      }
+      const ledgerNikasi = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account === 'ledger' && t.txn_type === 'nikasi');
+      for (const tn of Object.keys(truckMap)) {
+        truckMap[tn].paid = ledgerNikasi.filter(t => (t.category||'').trim() === tn).reduce((s,t) => s + (t.amount||0), 0);
+      }
+      const truckAccounts = Object.entries(truckMap).sort().map(([name, v]) => ({name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid)}));
+
+      // Agent Accounts
+      const agentPayments = filterByFy(col('agent_payments') || [], req.query.kms_year, req.query.season);
+      const mandiMap = {};
+      for (const doc of agentPayments) { const mn = doc.mandi_name || ''; if (mn) mandiMap[mn] = {total: doc.total_amount||0, paid: doc.total_paid||0}; }
+      for (const e of allEntries) {
+        const mn = (e.mandi_name || '').trim(); if (!mn || mandiMap[mn]) continue;
+        if (!mandiMap[mn]) mandiMap[mn] = {total: 0, paid: 0};
+        mandiMap[mn].total += e.agent_amount || 0;
+      }
+      for (const mn of Object.keys(mandiMap)) {
+        if (!mandiMap[mn].paid) mandiMap[mn].paid = ledgerNikasi.filter(t => (t.category||'').toLowerCase() === mn.toLowerCase() && t.party_type === 'Agent').reduce((s,t) => s + (t.amount||0), 0);
+      }
+      const agentAccounts = Object.entries(mandiMap).sort().map(([name, v]) => ({name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid)}));
+
+      // DC Accounts
+      const dcEntries = filterByFy(col('dc_entries') || [], req.query.kms_year, req.query.season);
+      const dcMap = {};
+      for (const dc of dcEntries) { const p = dc.party_name || dc.supplier_name || ''; if (!p) continue; if (!dcMap[p]) dcMap[p] = {total:0,paid:0}; dcMap[p].total += dc.total_amount||0; dcMap[p].paid += dc.paid_amount||0; }
+      const dcAccounts = Object.entries(dcMap).sort().map(([name, v]) => ({name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid)}));
+
+      // Separate debtors vs creditors
+      const sundryDebtors = [], sundryCreds = [];
+      for (const l of ledger.parties) {
+        if (l.closing_balance > 0) sundryDebtors.push(l);
+        else if (l.closing_balance < 0) sundryCreds.push({party_name: l.party_name, amount: Math.abs(l.closing_balance)});
+      }
+
+      // LIABILITIES
+      const liabilities = [];
+      liabilities.push({group: 'Capital Account', amount: rd(cb.opening_cash + cb.opening_bank), children: [{name:'Opening Cash',amount:cb.opening_cash},{name:'Opening Bank',amount:cb.opening_bank}]});
+      const credChildren = []; let credTotal = 0;
+      if (lp.closing_balance > 0) { credChildren.push({name:'Local Party Accounts',amount:lp.closing_balance}); credTotal += lp.closing_balance; }
+      for (const sc of sundryCreds) { credChildren.push({name:sc.party_name,amount:sc.amount}); credTotal += sc.amount; }
+      for (const d of dieselList) { if (d.closing_balance > 0) { credChildren.push({name:`Diesel - ${d.pump_name}`,amount:d.closing_balance}); credTotal += d.closing_balance; } }
+      if (pt.paddy_balance > 0) { credChildren.push({name:'Pvt Paddy Purchase Payable',amount:pt.paddy_balance}); credTotal += pt.paddy_balance; }
+      for (const t of truckAccounts) { if (t.balance > 0) { credChildren.push({name:`Truck - ${t.name}`,amount:t.balance}); credTotal += t.balance; } }
+      for (const a of agentAccounts) { if (a.balance > 0) { credChildren.push({name:`Agent - ${a.name}`,amount:a.balance}); credTotal += a.balance; } }
+      for (const d of dcAccounts) { if (d.balance > 0) { credChildren.push({name:`DC - ${d.name}`,amount:d.balance}); credTotal += d.balance; } }
+      liabilities.push({group:'Sundry Creditors', amount: rd(credTotal), children: credChildren});
+      let totalLiab = rd(liabilities.reduce((s,l) => s + l.amount, 0));
+
+      // ASSETS
+      const assets = [];
+      assets.push({group:'Cash & Bank Balances', amount: rd(cb.closing_cash + cb.closing_bank), children: [{name:'Cash-in-Hand',amount:cb.closing_cash},{name:'Bank Accounts',amount:cb.closing_bank}]});
+      const stockChildren = []; let stockTotal = 0;
+      if (ps.closing_stock > 0) { stockChildren.push({name:'Paddy Stock',amount:ps.closing_stock,unit:'Qtl'}); stockTotal += ps.closing_stock; }
+      if (frk.closing_stock > 0) { stockChildren.push({name:'FRK Stock',amount:frk.closing_stock,unit:'Qtl'}); stockTotal += frk.closing_stock; }
+      for (const [pName, v] of Object.entries(bp)) { if (v.closing_stock > 0) { stockChildren.push({name:`Byproduct - ${pName.charAt(0).toUpperCase()+pName.slice(1)}`,amount:v.closing_stock,unit:'Qtl'}); stockTotal += v.closing_stock; } }
+      for (const p of mp) { if (p.closing_stock > 0) { stockChildren.push({name:`Mill Part - ${p.name}`,amount:p.closing_stock,unit:p.unit}); stockTotal += p.closing_stock; } }
+      assets.push({group:'Stock-in-Hand', amount: rd(stockTotal), children: stockChildren});
+      const debtChildren = []; let debtTotal = 0;
+      for (const sd of sundryDebtors) { debtChildren.push({name:sd.party_name,amount:sd.closing_balance}); debtTotal += sd.closing_balance; }
+      if (pt.rice_balance > 0) { debtChildren.push({name:'Rice Sale Receivable',amount:pt.rice_balance}); debtTotal += pt.rice_balance; }
+      if (lp.closing_balance < 0) { debtChildren.push({name:'Local Party Advance',amount:Math.abs(lp.closing_balance)}); debtTotal += Math.abs(lp.closing_balance); }
+      assets.push({group:'Sundry Debtors', amount: rd(debtTotal), children: debtChildren});
+      const staffTotal = rd(staffList.filter(s => s.closing_balance > 0).reduce((s,x) => s + x.closing_balance, 0));
+      if (staffTotal > 0) { assets.push({group:'Loans & Advances', amount: staffTotal, children: staffList.filter(s => s.closing_balance > 0).map(s => ({name:s.name,amount:s.closing_balance}))}); }
+      let totalAssets = rd(assets.reduce((s,a) => s + a.amount, 0));
+
+      // P&L
+      const diff = rd(totalAssets - totalLiab);
+      if (diff > 0) { liabilities.push({group:'Profit & Loss A/c (Surplus)',amount:diff,children:[]}); totalLiab = rd(totalLiab+diff); }
+      else if (diff < 0) { assets.push({group:'Profit & Loss A/c (Deficit)',amount:Math.abs(diff),children:[]}); totalAssets = rd(totalAssets+Math.abs(diff)); }
+
+      res.json({
+        kms_year: req.query.kms_year||'', season: req.query.season||'',
+        as_on_date: new Date().toLocaleDateString('en-IN', {day:'2-digit',month:'2-digit',year:'numeric'}),
+        liabilities, total_liabilities: totalLiab, assets, total_assets: totalAssets,
+        truck_accounts: truckAccounts, agent_accounts: agentAccounts, dc_accounts: dcAccounts
+      });
+    } catch (err) {
+      console.error('Balance Sheet error:', err);
+      res.status(500).json({ detail: 'Balance Sheet error' });
+    }
+  });
+
   router.post('/api/fy-summary/carry-forward', (req, res) => {
     try {
       const { kms_year } = req.body;
