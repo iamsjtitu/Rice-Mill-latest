@@ -916,6 +916,32 @@ function createApiServer(database) {
     res.json({ loaded: loadedCount, total: routeDefs.length, failed: failedRoutes, version: require('./package.json').version });
   }));
 
+  // ===== ONE-TIME STARTUP: Cleanup orphaned auto-ledger entries =====
+  try {
+    const txns = database.data.cash_transactions || [];
+    // Find all auto_ledger entries
+    const autoLedgers = txns.filter(t => (t.reference || '').startsWith('auto_ledger:'));
+    // Get all non-auto-ledger transaction ID prefixes (first 8 chars)
+    const validIdPrefixes = new Set(txns.filter(t => !(t.reference || '').startsWith('auto_ledger:')).map(t => (t.id || '').slice(0, 8)));
+    // Find orphaned: auto_ledger entries whose parent no longer exists
+    const orphanedRefs = [];
+    autoLedgers.forEach(al => {
+      const parentPrefix = (al.reference || '').replace('auto_ledger:', '');
+      if (parentPrefix && !validIdPrefixes.has(parentPrefix)) {
+        orphanedRefs.push(al.reference);
+      }
+    });
+    if (orphanedRefs.length > 0) {
+      database.data.cash_transactions = txns.filter(t => !orphanedRefs.includes(t.reference));
+      database.save();
+      console.log(`[Cleanup] Removed ${orphanedRefs.length} orphaned auto-ledger entries`);
+    } else {
+      console.log('[Cleanup] No orphaned auto-ledger entries found');
+    }
+  } catch (e) {
+    console.error('[Cleanup] Error:', e.message);
+  }
+
   // ===== EXPRESS ERROR MIDDLEWARE (catches sync errors from routes) =====
   apiApp.use((err, req, res, next) => {
     logError('EXPRESS_ERROR: ' + req.method + ' ' + req.originalUrl, err);
