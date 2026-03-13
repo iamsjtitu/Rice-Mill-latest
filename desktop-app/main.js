@@ -914,8 +914,9 @@ function createApiServer(database) {
   // ===== SERVE FRONTEND STATIC FILES (MUST be after all API routes) =====
   const frontendDir = path.join(__dirname, 'frontend-build');
   if (fs.existsSync(frontendDir)) {
-    // Cache static assets (JS/CSS/images) for 1 year, HTML for no-cache
+    // Serve static assets (JS/CSS/images) but NOT index.html (we inject API URL into it)
     apiApp.use(express.static(frontendDir, {
+      index: false,
       maxAge: '1y',
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('.html')) {
@@ -923,12 +924,12 @@ function createApiServer(database) {
         }
       }
     }));
+    // Serve index.html with API URL injected BEFORE React loads
     apiApp.get('*', safeSync((req, res) => {
       if (!req.path.startsWith('/api')) {
-        // Inject ELECTRON_API_URL BEFORE React loads - this fixes the API URL race condition
         let html = fs.readFileSync(path.join(frontendDir, 'index.html'), 'utf8');
-        const port = server ? server.address().port : DESKTOP_API_PORT;
-        html = html.replace('<head>', `<head><script>window.ELECTRON_API_URL='http://127.0.0.1:${port}';window.REACT_APP_BACKEND_URL='http://127.0.0.1:${port}';</script>`);
+        const activePort = server ? server.address().port : DESKTOP_API_PORT;
+        html = html.replace('<head>', `<head><script>window.ELECTRON_API_URL='http://127.0.0.1:${activePort}';window.REACT_APP_BACKEND_URL='http://127.0.0.1:${activePort}';</script>`);
         res.type('html').send(html);
       } else {
         res.status(404).json({ detail: 'API endpoint not found' });
