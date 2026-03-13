@@ -639,29 +639,44 @@ module.exports = function(database) {
   router.get('/api/truck-owner/:truckNo/history', safeSync((req, res) => {
     const truckNo = decodeURIComponent(req.params.truckNo);
     const { kms_year, season } = req.query;
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    if (!database.data.entries) database.data.entries = [];
 
-    if (!database.data.truck_owner_payments) database.data.truck_owner_payments = [];
-    const ownerDoc = database.data.truck_owner_payments.find(d => d.truck_no === truckNo && d.kms_year === (kms_year||'') && d.season === (season||''));
+    // Get all ledger nikasi entries for this truck (source of truth)
+    let ledgerPayments = database.data.cash_transactions.filter(t =>
+      t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === truckNo
+    );
+    if (kms_year) ledgerPayments = ledgerPayments.filter(t => t.kms_year === kms_year);
+    if (season) ledgerPayments = ledgerPayments.filter(t => t.season === season);
 
+    // Get entry IDs for this truck to identify deductions (not actual payments)
     let entries = database.data.entries.filter(e => e.truck_no === truckNo);
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
     if (season) entries = entries.filter(e => e.season === season);
+    let dcEntries = (database.data.dc_deliveries || []).filter(e => e.vehicle_no === truckNo);
+    if (kms_year) dcEntries = dcEntries.filter(e => e.kms_year === kms_year);
+    if (season) dcEntries = dcEntries.filter(e => e.season === season);
+    const entryShortIds = [...entries.map(e => (e.id || '').slice(0, 8)), ...dcEntries.map(e => (e.id || '').slice(0, 8))];
 
     const allHistory = [];
-    if (ownerDoc) {
-      for (const h of (ownerDoc.payments_history || [])) {
-        allHistory.push({ ...h, source: 'owner' });
-      }
+    for (const txn of ledgerPayments) {
+      const ref = txn.reference || '';
+      // Skip deduction entries (auto-created from entries/deliveries)
+      const isDeduction = entryShortIds.some(eid =>
+        ref.startsWith(`truck_cash_ded:${eid}`) || ref.startsWith(`truck_diesel_ded:${eid}`) ||
+        ref.startsWith(`entry_cash:${eid}`) || ref.startsWith(`delivery_tcash:${eid}`) ||
+        ref.startsWith(`delivery_tdiesel:${eid}`) || ref.startsWith(`delivery:${eid}`)
+      );
+      if (isDeduction) continue;
+      allHistory.push({
+        amount: txn.amount || 0,
+        date: txn.created_at || txn.date || '',
+        note: txn.description || '',
+        by: txn.created_by || 'system',
+        source: 'ledger'
+      });
     }
-    for (const entry of entries) {
-      const payment = database.getTruckPayment(entry.id);
-      for (const h of (payment.payment_history || [])) {
-        if (!(h.note || '').includes('Owner')) {
-          allHistory.push({ ...h, source: 'trip', entry_id: entry.id });
-        }
-      }
-    }
-    allHistory.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
+    allHistory.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     res.json({ history: allHistory });
   }));
 
