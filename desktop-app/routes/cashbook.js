@@ -45,6 +45,13 @@ module.exports = function(database) {
     // Auto-create ledger entry for cash/bank transactions
     if ((txn.account === 'cash' || txn.account === 'bank') && category) {
       const ledgerEntry = { ...txn, id: uuidv4(), account: 'ledger', reference: `auto_ledger:${txn.id.substring(0, 8)}` };
+      // Auto-generate description if empty
+      if (!ledgerEntry.description) {
+        const acct = (txn.account || 'cash').charAt(0).toUpperCase() + (txn.account || 'cash').slice(1);
+        ledgerEntry.description = txn.txn_type === 'jama'
+          ? `${acct} received from ${category}`
+          : `${acct} payment to ${category}`;
+      }
       database.data.cash_transactions.push(ledgerEntry);
     }
     

@@ -141,3 +141,32 @@ async def _telegram_scheduler_loop():
 async def start_telegram_scheduler():
     asyncio.create_task(_telegram_scheduler_loop())
     logger.info("Telegram scheduler started")
+
+@app.on_event("startup")
+async def fix_empty_descriptions():
+    """One-time migration: fill empty descriptions in cash_transactions"""
+    try:
+        from database import db
+        empty_txns = await db.cash_transactions.find(
+            {"$or": [{"description": ""}, {"description": None}, {"description": {"$exists": False}}]}
+        ).to_list(length=500)
+        if not empty_txns:
+            return
+        count = 0
+        for txn in empty_txns:
+            cat = txn.get("category", "Unknown")
+            acct = (txn.get("account", "cash") or "cash").capitalize()
+            ttype = txn.get("txn_type", "nikasi")
+            if ttype == "jama":
+                desc = f"{acct} received from {cat}"
+            else:
+                desc = f"{acct} payment to {cat}"
+            await db.cash_transactions.update_one(
+                {"id": txn["id"]},
+                {"$set": {"description": desc}}
+            )
+            count += 1
+        if count > 0:
+            logger.info(f"Fixed {count} empty descriptions in cash_transactions")
+    except Exception as e:
+        logger.error(f"Empty description migration error: {e}")

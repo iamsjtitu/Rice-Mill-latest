@@ -138,6 +138,14 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
         ledger_entry['account'] = 'ledger'
         ledger_entry['txn_type'] = 'nikasi'
         ledger_entry['reference'] = f"auto_ledger:{txn_dict.get('id', '')[:8]}"
+        # Auto-generate description if empty
+        if not ledger_entry.get('description'):
+            acct = txn_dict.get('account', 'cash').capitalize()
+            ttype = txn_dict.get('txn_type', '')
+            if ttype == 'jama':
+                ledger_entry['description'] = f"{acct} received from {category}"
+            else:
+                ledger_entry['description'] = f"{acct} payment to {category}"
         ledger_entry['created_at'] = datetime.now(timezone.utc).isoformat()
         ledger_entry['updated_at'] = datetime.now(timezone.utc).isoformat()
         await db.cash_transactions.insert_one(ledger_entry)
