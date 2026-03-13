@@ -46,5 +46,45 @@ module.exports = function(database) {
     res.json({ message: 'Payment recorded', id: paymentId });
   }));
 
+  // GET /api/voucher-payment/history/:partyName
+  router.get('/api/voucher-payment/history/:partyName', safeHandler(async (req, res) => {
+    if (!database.data.voucher_payments) database.data.voucher_payments = [];
+    const partyName = decodeURIComponent(req.params.partyName);
+    const partyType = req.query.party_type || '';
+    // Find vouchers for this party
+    const collections = { 'Purchase Voucher': 'purchase_vouchers', 'Sale Book': 'sale_vouchers' };
+    const col = collections[partyType] || 'purchase_vouchers';
+    const vouchers = (database.data[col] || []).filter(v => v.party_name === partyName);
+    const voucherIds = vouchers.map(v => v.id);
+    const payments = database.data.voucher_payments.filter(p => voucherIds.includes(p.voucher_id));
+    payments.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    res.json(payments);
+  }));
+
+  // POST /api/voucher-payment/undo
+  router.post('/api/voucher-payment/undo', safeHandler(async (req, res) => {
+    if (!database.data.voucher_payments) database.data.voucher_payments = [];
+    const { payment_id } = req.body;
+    if (!payment_id) return res.status(400).json({ detail: 'payment_id required' });
+    const idx = database.data.voucher_payments.findIndex(p => p.id === payment_id);
+    if (idx === -1) return res.status(404).json({ detail: 'Payment not found' });
+    const payment = database.data.voucher_payments[idx];
+    // Reverse paid_amount on voucher
+    const collections = { sale: 'sale_vouchers', purchase: 'purchase_vouchers' };
+    const col = collections[payment.voucher_type];
+    if (col && database.data[col]) {
+      const voucher = database.data[col].find(v => v.id === payment.voucher_id);
+      if (voucher) voucher.paid_amount = Math.max(0, (voucher.paid_amount || 0) - payment.amount);
+    }
+    // Remove payment
+    database.data.voucher_payments.splice(idx, 1);
+    // Remove related cash transaction
+    if (database.data.cash_transactions) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== `vpay:${payment_id.slice(0, 8)}`);
+    }
+    database.save();
+    res.json({ message: 'Payment undone' });
+  }));
+
   return router;
 };

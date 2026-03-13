@@ -510,5 +510,67 @@ module.exports = function(database) {
     doc.end();
   }));
 
+  // === Mark Paid / Undo Paid / History for Private Paddy ===
+  router.post('/api/private-paddy/:id/mark-paid', safeSync((req, res) => {
+    if (!database.data.private_paddy) return res.status(404).json({ detail: 'Not found' });
+    const item = database.data.private_paddy.find(p => p.id === req.params.id);
+    if (!item) return res.status(404).json({ detail: 'Not found' });
+    item.is_paid = true;
+    item.paid_at = new Date().toISOString();
+    item.paid_by = req.query.username || '';
+    database.save();
+    res.json({ message: 'Marked as paid', id: req.params.id });
+  }));
+
+  router.post('/api/private-paddy/:id/undo-paid', safeSync((req, res) => {
+    if (!database.data.private_paddy) return res.status(404).json({ detail: 'Not found' });
+    const item = database.data.private_paddy.find(p => p.id === req.params.id);
+    if (!item) return res.status(404).json({ detail: 'Not found' });
+    item.is_paid = false;
+    item.paid_at = null;
+    item.paid_by = null;
+    database.save();
+    res.json({ message: 'Payment undone', id: req.params.id });
+  }));
+
+  router.get('/api/private-paddy/:id/history', safeSync((req, res) => {
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    const payments = database.data.cash_transactions.filter(t =>
+      (t.reference || '').includes(req.params.id.slice(0, 8)) || (t.reference || '').includes(`pvt_paddy`)
+    );
+    res.json(payments);
+  }));
+
+  // === Mark Paid / Undo Paid / History for Rice Sales ===
+  router.post('/api/rice-sales/:id/mark-paid', safeSync((req, res) => {
+    if (!database.data.rice_sales) return res.status(404).json({ detail: 'Not found' });
+    const item = database.data.rice_sales.find(p => p.id === req.params.id);
+    if (!item) return res.status(404).json({ detail: 'Not found' });
+    item.is_paid = true;
+    item.paid_at = new Date().toISOString();
+    item.paid_by = req.query.username || '';
+    database.save();
+    res.json({ message: 'Marked as paid', id: req.params.id });
+  }));
+
+  router.post('/api/rice-sales/:id/undo-paid', safeSync((req, res) => {
+    if (!database.data.rice_sales) return res.status(404).json({ detail: 'Not found' });
+    const item = database.data.rice_sales.find(p => p.id === req.params.id);
+    if (!item) return res.status(404).json({ detail: 'Not found' });
+    item.is_paid = false;
+    item.paid_at = null;
+    item.paid_by = null;
+    database.save();
+    res.json({ message: 'Payment undone', id: req.params.id });
+  }));
+
+  router.get('/api/rice-sales/:id/history', safeSync((req, res) => {
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    const payments = database.data.cash_transactions.filter(t =>
+      (t.reference || '').includes(req.params.id.slice(0, 8)) || (t.reference || '').includes(`rice_sale`)
+    );
+    res.json(payments);
+  }));
+
   return router;
 };

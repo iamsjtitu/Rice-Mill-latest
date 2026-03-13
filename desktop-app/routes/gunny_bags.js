@@ -184,5 +184,54 @@ module.exports = function(database) {
     addPdfTable(doc, headers, rows, [48,52,35,35,150,38,52,65,65]); doc.end();
   }));
 
+  // === Gunny Bags Purchase Report ===
+  router.get('/api/gunny-bags/purchase-report', safeSync((req, res) => {
+    if (!database.data.gunny_bags) database.data.gunny_bags = [];
+    let entries = database.data.gunny_bags.filter(e => e.type === 'purchase' || e.type === 'in');
+    if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+    if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+    // Group by supplier
+    const suppliers = {};
+    entries.forEach(e => {
+      const name = e.supplier || e.party_name || 'Unknown';
+      if (!suppliers[name]) suppliers[name] = { supplier: name, total_qty: 0, total_amount: 0, entries: [] };
+      suppliers[name].total_qty += parseInt(e.quantity) || 0;
+      suppliers[name].total_amount += parseFloat(e.amount) || 0;
+      suppliers[name].entries.push(e);
+    });
+    res.json({ suppliers: Object.values(suppliers), total_entries: entries.length });
+  }));
+
+  router.get('/api/gunny-bags/purchase-report/excel', safeAsync(async (req, res) => {
+    try {
+      const ExcelJS = require('exceljs');
+      if (!database.data.gunny_bags) database.data.gunny_bags = [];
+      let entries = database.data.gunny_bags.filter(e => e.type === 'purchase' || e.type === 'in');
+      if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+      if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Purchase Report');
+      ws.addRow(['Date', 'Supplier', 'Qty', 'Rate', 'Amount', 'Description']);
+      entries.forEach(e => ws.addRow([e.date, e.supplier || e.party_name || '', e.quantity || 0, e.rate || 0, e.amount || 0, e.description || '']));
+      ws.columns.forEach(c => c.width = 15);
+      const buf = await wb.xlsx.writeBuffer();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=gunny_purchase_report.xlsx');
+      res.send(Buffer.from(buf));
+    } catch (e) { res.status(500).json({ detail: e.message }); }
+  }));
+
+  router.get('/api/gunny-bags/purchase-report/pdf', safeSync((req, res) => {
+    if (!database.data.gunny_bags) database.data.gunny_bags = [];
+    let entries = database.data.gunny_bags.filter(e => e.type === 'purchase' || e.type === 'in');
+    if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+    if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+    const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
+    let html = `<!DOCTYPE html><html><head><style>body{font:10px Arial;margin:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 5px}th{background:#1e40af;color:#fff}.r{text-align:right}.b{font-weight:bold}</style></head><body>`;
+    html += `<h2 style="text-align:center">${company} - Gunny Bags Purchase Report</h2><table><tr><th>Date</th><th>Supplier</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th><th>Description</th></tr>`;
+    entries.forEach(e => html += `<tr><td>${e.date||''}</td><td>${e.supplier||e.party_name||''}</td><td class="r">${e.quantity||0}</td><td class="r">${e.rate||0}</td><td class="r">${e.amount||0}</td><td>${e.description||''}</td></tr>`);
+    html += `</table></body></html>`;
+    res.type('html').send(html);
+  }));
+
   return router;
 };

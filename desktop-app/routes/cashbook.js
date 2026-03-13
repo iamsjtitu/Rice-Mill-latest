@@ -361,5 +361,132 @@ module.exports = function(database) {
     res.json(doc);
   }));
 
+  // === Party Summary ===
+  router.get('/api/cash-book/party-summary', safeSync((req, res) => {
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    let txns = database.data.cash_transactions.filter(t => t.account === 'ledger');
+    if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+    if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+    if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+    const parties = {};
+    txns.forEach(t => {
+      const name = t.category || 'Unknown';
+      if (!parties[name]) parties[name] = { party_name: name, party_type: t.party_type || '', jama: 0, nikasi: 0, txn_count: 0 };
+      if (t.txn_type === 'jama') parties[name].jama += t.amount || 0;
+      else if (t.txn_type === 'nikasi') parties[name].nikasi += t.amount || 0;
+      parties[name].txn_count++;
+    });
+    // Add opening balances
+    const obList = database.data.party_opening_balances || [];
+    const ky = req.query.kms_year;
+    if (ky) {
+      obList.filter(ob => ob.kms_year === ky).forEach(ob => {
+        const name = ob.party_name;
+        if (!parties[name]) parties[name] = { party_name: name, party_type: ob.party_type || '', jama: 0, nikasi: 0, txn_count: 0 };
+        if (ob.balance_type === 'jama') parties[name].jama += parseFloat(ob.amount) || 0;
+        else parties[name].nikasi += parseFloat(ob.amount) || 0;
+      });
+    }
+    const result = Object.values(parties).map(p => ({
+      ...p, jama: Math.round(p.jama * 100) / 100, nikasi: Math.round(p.nikasi * 100) / 100,
+      balance: Math.round((p.jama - p.nikasi) * 100) / 100
+    }));
+    const statusFilter = req.query.status;
+    let filtered = result;
+    if (statusFilter === 'jama') filtered = result.filter(p => p.balance > 0);
+    else if (statusFilter === 'nikasi') filtered = result.filter(p => p.balance < 0);
+    else if (statusFilter === 'settled') filtered = result.filter(p => p.balance === 0);
+    filtered.sort((a, b) => a.party_name.localeCompare(b.party_name));
+    res.json(filtered);
+  }));
+
+  router.get('/api/cash-book/party-summary/excel', safeAsync(async (req, res) => {
+    try {
+      if (!database.data.cash_transactions) database.data.cash_transactions = [];
+      let txns = database.data.cash_transactions.filter(t => t.account === 'ledger');
+      if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+      if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+      if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+      const parties = {};
+      txns.forEach(t => {
+        const name = t.category || 'Unknown';
+        if (!parties[name]) parties[name] = { party_name: name, party_type: t.party_type || '', jama: 0, nikasi: 0 };
+        if (t.txn_type === 'jama') parties[name].jama += t.amount || 0;
+        else parties[name].nikasi += t.amount || 0;
+      });
+      const data = Object.values(parties).map(p => ({ ...p, balance: Math.round((p.jama - p.nikasi) * 100) / 100 }));
+      data.sort((a, b) => a.party_name.localeCompare(b.party_name));
+      const ExcelJS = require('exceljs');
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Summary');
+      ws.addRow(['Party', 'Type', 'Jama', 'Nikasi', 'Balance']);
+      data.forEach(p => ws.addRow([p.party_name, p.party_type, p.jama, p.nikasi, p.balance]));
+      ws.columns.forEach(c => c.width = 18);
+      const buf = await wb.xlsx.writeBuffer();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=party_summary.xlsx');
+      res.send(Buffer.from(buf));
+    } catch (e) { res.status(500).json({ detail: e.message }); }
+  }));
+
+  router.get('/api/cash-book/party-summary/pdf', safeSync((req, res) => {
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    let txns = database.data.cash_transactions.filter(t => t.account === 'ledger');
+    if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+    if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+    if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+    const parties = {};
+    txns.forEach(t => {
+      const name = t.category || 'Unknown';
+      if (!parties[name]) parties[name] = { party_name: name, party_type: t.party_type || '', jama: 0, nikasi: 0 };
+      if (t.txn_type === 'jama') parties[name].jama += t.amount || 0;
+      else parties[name].nikasi += t.amount || 0;
+    });
+    const data = Object.values(parties).map(p => ({ ...p, balance: Math.round((p.jama - p.nikasi) * 100) / 100 }));
+    data.sort((a, b) => a.party_name.localeCompare(b.party_name));
+    const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
+    let html = `<!DOCTYPE html><html><head><style>body{font:10px Arial;margin:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 5px}th{background:#1e40af;color:#fff}.r{text-align:right}.b{font-weight:bold}</style></head><body>`;
+    html += `<h2 style="text-align:center">${company} - Party Summary</h2><table><tr><th>Party</th><th>Type</th><th class="r">Jama</th><th class="r">Nikasi</th><th class="r">Balance</th></tr>`;
+    let tJ = 0, tN = 0;
+    data.forEach(p => { tJ += p.jama; tN += p.nikasi; html += `<tr><td class="b">${p.party_name}</td><td>${p.party_type}</td><td class="r">${Math.round(p.jama)}</td><td class="r">${Math.round(p.nikasi)}</td><td class="r b">${Math.round(p.balance)}</td></tr>`; });
+    html += `<tr style="background:#f0f0f0;font-weight:bold"><td>TOTAL (${data.length})</td><td></td><td class="r">${Math.round(tJ)}</td><td class="r">${Math.round(tN)}</td><td class="r">${Math.round(tJ - tN)}</td></tr></table></body></html>`;
+    res.type('html').send(html);
+  }));
+
+  // === Opening Balances (party-level) ===
+  router.get('/api/opening-balances', safeSync((req, res) => {
+    if (!database.data.party_opening_balances) database.data.party_opening_balances = [];
+    let obs = [...database.data.party_opening_balances];
+    if (req.query.kms_year) obs = obs.filter(o => o.kms_year === req.query.kms_year);
+    res.json(obs);
+  }));
+
+  router.post('/api/opening-balances', safeSync((req, res) => {
+    if (!database.data.party_opening_balances) database.data.party_opening_balances = [];
+    const d = { id: uuidv4(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
+    database.data.party_opening_balances.push(d);
+    database.save();
+    res.json(d);
+  }));
+
+  router.delete('/api/opening-balances/:id', safeSync((req, res) => {
+    if (!database.data.party_opening_balances) return res.status(404).json({ detail: 'Not found' });
+    const len = database.data.party_opening_balances.length;
+    database.data.party_opening_balances = database.data.party_opening_balances.filter(o => o.id !== req.params.id);
+    if (database.data.party_opening_balances.length < len) { database.save(); return res.json({ message: 'Deleted' }); }
+    res.status(404).json({ detail: 'Not found' });
+  }));
+
+  // === GST Settings ===
+  router.get('/api/gst-settings', safeSync((req, res) => {
+    if (!database.data.gst_settings) database.data.gst_settings = { gstin: '', state: '', default_cgst: 9, default_sgst: 9, default_igst: 0 };
+    res.json(database.data.gst_settings);
+  }));
+
+  router.put('/api/gst-settings', safeSync((req, res) => {
+    database.data.gst_settings = { ...req.body, updated_at: new Date().toISOString() };
+    database.save();
+    res.json(database.data.gst_settings);
+  }));
+
   return router;
 };

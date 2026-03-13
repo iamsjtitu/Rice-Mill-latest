@@ -137,5 +137,129 @@ module.exports = function(database) {
     res.send(Buffer.from(buf));
   }));
 
+  // Missing endpoints: stock-items, delete-bulk, individual PDF
+  router.get('/api/sale-book/stock-items', safeHandler(async (req, res) => {
+    ensure();
+    const { kms_year, season } = req.query;
+    let vouchers = [...database.data.sale_vouchers];
+    if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
+    if (season) vouchers = vouchers.filter(v => v.season === season);
+    const itemMap = {};
+    vouchers.forEach(v => (v.items || []).forEach(i => {
+      const name = i.item_name || 'Unknown';
+      if (!itemMap[name]) itemMap[name] = { item_name: name, total_qty: 0, total_amount: 0, count: 0 };
+      itemMap[name].total_qty += parseFloat(i.quantity) || 0;
+      itemMap[name].total_amount += parseFloat(i.amount) || 0;
+      itemMap[name].count++;
+    }));
+    res.json(Object.values(itemMap));
+  }));
+
+  router.post('/api/sale-book/delete-bulk', safeHandler(async (req, res) => {
+    ensure();
+    const ids = req.body.ids || [];
+    database.data.sale_vouchers = database.data.sale_vouchers.filter(v => !ids.includes(v.id));
+    database.save();
+    res.json({ message: `${ids.length} deleted` });
+  }));
+
+  router.get('/api/sale-book/:id/pdf', safeHandler(async (req, res) => {
+    ensure();
+    const v = database.data.sale_vouchers.find(x => x.id === req.params.id);
+    if (!v) return res.status(404).json({ detail: 'Not found' });
+    const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
+    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sale Invoice</title><style>body{font-family:Arial;margin:20px;font-size:12px}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{border:1px solid #ccc;padding:5px}th{background:#1e40af;color:#fff}.r{text-align:right}.b{font-weight:bold}</style></head><body>`;
+    html += `<h2 style="text-align:center">${company}</h2><h3 style="text-align:center">Sale Invoice #${v.voucher_no || ''}</h3>`;
+    html += `<p><b>Date:</b> ${v.date || ''} | <b>Party:</b> ${v.party_name || ''} | <b>Invoice:</b> ${v.invoice_no || ''} | <b>Truck:</b> ${v.truck_no || ''}</p>`;
+    html += `<table><tr><th>Item</th><th>HSN</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr>`;
+    (v.items || []).forEach(i => { html += `<tr><td>${i.item_name||''}</td><td>${i.hsn_code||''}</td><td class="r">${i.quantity||0}</td><td class="r">${i.rate||0}</td><td class="r">${i.amount||0}</td></tr>`; });
+    html += `</table><p class="b">Subtotal: ${v.subtotal||0} | CGST: ${v.cgst_amount||0} | SGST: ${v.sgst_amount||0} | Total: ${v.total||0}</p>`;
+    html += `</body></html>`;
+    res.type('html').send(html);
+  }));
+
+  // === Stock Summary ===
+  router.get('/api/stock-summary', safeHandler(async (req, res) => {
+    const { kms_year, season } = req.query;
+    // Collect purchases
+    let purchases = [...(database.data.purchase_vouchers || [])];
+    if (kms_year) purchases = purchases.filter(v => v.kms_year === kms_year);
+    if (season) purchases = purchases.filter(v => v.season === season);
+    const purchaseItems = {};
+    purchases.forEach(v => (v.items || []).forEach(i => {
+      const name = i.item_name || 'Unknown';
+      if (!purchaseItems[name]) purchaseItems[name] = { qty: 0, amount: 0 };
+      purchaseItems[name].qty += parseFloat(i.quantity) || 0;
+      purchaseItems[name].amount += parseFloat(i.amount) || 0;
+    }));
+    // Collect sales
+    let sales = [...(database.data.sale_vouchers || [])];
+    if (kms_year) sales = sales.filter(v => v.kms_year === kms_year);
+    if (season) sales = sales.filter(v => v.season === season);
+    const saleItems = {};
+    sales.forEach(v => (v.items || []).forEach(i => {
+      const name = i.item_name || 'Unknown';
+      if (!saleItems[name]) saleItems[name] = { qty: 0, amount: 0 };
+      saleItems[name].qty += parseFloat(i.quantity) || 0;
+      saleItems[name].amount += parseFloat(i.amount) || 0;
+    }));
+    const allItems = new Set([...Object.keys(purchaseItems), ...Object.keys(saleItems)]);
+    const summary = [...allItems].map(name => ({
+      item_name: name,
+      purchase_qty: Math.round((purchaseItems[name]?.qty || 0) * 100) / 100,
+      purchase_amount: Math.round((purchaseItems[name]?.amount || 0) * 100) / 100,
+      sale_qty: Math.round((saleItems[name]?.qty || 0) * 100) / 100,
+      sale_amount: Math.round((saleItems[name]?.amount || 0) * 100) / 100,
+      stock_qty: Math.round(((purchaseItems[name]?.qty || 0) - (saleItems[name]?.qty || 0)) * 100) / 100,
+    }));
+    res.json(summary);
+  }));
+
+  router.get('/api/stock-summary/export/excel', safeHandler(async (req, res) => {
+    const ExcelJS = require('exceljs');
+    // Reuse logic from stock-summary
+    const { kms_year, season } = req.query;
+    let purchases = [...(database.data.purchase_vouchers || [])];
+    if (kms_year) purchases = purchases.filter(v => v.kms_year === kms_year);
+    if (season) purchases = purchases.filter(v => v.season === season);
+    const purchaseItems = {};
+    purchases.forEach(v => (v.items || []).forEach(i => { const n = i.item_name || 'Unknown'; if (!purchaseItems[n]) purchaseItems[n] = { qty: 0, amt: 0 }; purchaseItems[n].qty += parseFloat(i.quantity) || 0; purchaseItems[n].amt += parseFloat(i.amount) || 0; }));
+    let sales = [...(database.data.sale_vouchers || [])];
+    if (kms_year) sales = sales.filter(v => v.kms_year === kms_year);
+    if (season) sales = sales.filter(v => v.season === season);
+    const saleItems = {};
+    sales.forEach(v => (v.items || []).forEach(i => { const n = i.item_name || 'Unknown'; if (!saleItems[n]) saleItems[n] = { qty: 0, amt: 0 }; saleItems[n].qty += parseFloat(i.quantity) || 0; saleItems[n].amt += parseFloat(i.amount) || 0; }));
+    const allItems = [...new Set([...Object.keys(purchaseItems), ...Object.keys(saleItems)])];
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Stock Summary');
+    ws.addRow(['Item', 'Purchase Qty', 'Purchase Amt', 'Sale Qty', 'Sale Amt', 'Stock Qty']);
+    allItems.forEach(n => ws.addRow([n, purchaseItems[n]?.qty||0, purchaseItems[n]?.amt||0, saleItems[n]?.qty||0, saleItems[n]?.amt||0, (purchaseItems[n]?.qty||0)-(saleItems[n]?.qty||0)]));
+    ws.columns.forEach(c => c.width = 18);
+    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=stock_summary.xlsx');
+    res.send(Buffer.from(buf));
+  }));
+
+  router.get('/api/stock-summary/export/pdf', safeHandler(async (req, res) => {
+    const { kms_year, season } = req.query;
+    let purchases = [...(database.data.purchase_vouchers || [])];
+    if (kms_year) purchases = purchases.filter(v => v.kms_year === kms_year);
+    if (season) purchases = purchases.filter(v => v.season === season);
+    const purchaseItems = {};
+    purchases.forEach(v => (v.items || []).forEach(i => { const n = i.item_name || 'Unknown'; if (!purchaseItems[n]) purchaseItems[n] = { qty: 0, amt: 0 }; purchaseItems[n].qty += parseFloat(i.quantity) || 0; purchaseItems[n].amt += parseFloat(i.amount) || 0; }));
+    let sales = [...(database.data.sale_vouchers || [])];
+    if (kms_year) sales = sales.filter(v => v.kms_year === kms_year);
+    if (season) sales = sales.filter(v => v.season === season);
+    const saleItems = {};
+    sales.forEach(v => (v.items || []).forEach(i => { const n = i.item_name || 'Unknown'; if (!saleItems[n]) saleItems[n] = { qty: 0, amt: 0 }; saleItems[n].qty += parseFloat(i.quantity) || 0; saleItems[n].amt += parseFloat(i.amount) || 0; }));
+    const allItems = [...new Set([...Object.keys(purchaseItems), ...Object.keys(saleItems)])];
+    const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
+    let html = `<!DOCTYPE html><html><head><style>body{font:10px Arial;margin:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 5px}th{background:#1e40af;color:#fff}.r{text-align:right}.b{font-weight:bold}</style></head><body>`;
+    html += `<h2 style="text-align:center">${company} - Stock Summary</h2><table><tr><th>Item</th><th class="r">Purchase Qty</th><th class="r">Purchase Amt</th><th class="r">Sale Qty</th><th class="r">Sale Amt</th><th class="r">Stock Qty</th></tr>`;
+    allItems.forEach(n => html += `<tr><td class="b">${n}</td><td class="r">${purchaseItems[n]?.qty||0}</td><td class="r">${purchaseItems[n]?.amt||0}</td><td class="r">${saleItems[n]?.qty||0}</td><td class="r">${saleItems[n]?.amt||0}</td><td class="r b">${(purchaseItems[n]?.qty||0)-(saleItems[n]?.qty||0)}</td></tr>`);
+    html += `</table></body></html>`;
+    res.type('html').send(html);
+  }));
+
   return router;
 };
