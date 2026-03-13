@@ -69,6 +69,20 @@ const LoginPage = ({ onLogin }) => {
     }
   };
 
+  const handleResetPassword = async () => {
+    try {
+      const response = await axios.post(`${API}/auth/reset-default`);
+      if (response.data.success) {
+        toast.success("Password reset ho gaya! Admin: admin/admin123");
+        setError("");
+        setUsername("admin");
+        setPassword("admin123");
+      }
+    } catch (err) {
+      toast.error("Reset nahi ho paya");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4" data-theme={theme}>
       <Button
@@ -117,6 +131,14 @@ const LoginPage = ({ onLogin }) => {
             {error && (
               <div className="bg-red-500/20 border border-red-500/50 text-red-400 text-sm rounded-md px-3 py-2" data-testid="login-error">
                 {error}
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  className="block mt-1 text-amber-400 hover:text-amber-300 underline text-xs cursor-pointer"
+                  data-testid="login-reset-btn"
+                >
+                  Password bhul gaye? Default reset karein
+                </button>
               </div>
             )}
             <Button 

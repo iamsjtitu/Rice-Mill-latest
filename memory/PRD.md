@@ -10,13 +10,17 @@
 
 ## Implemented Features
 
+### Authentication
+- Login with username/password
+- Password change feature
+- **Password Reset to Default** (permanent fix): Reset button on login page when error occurs. API: POST /api/auth/reset-default
+- Desktop startup ensures default admin/staff users always exist
+
 ### Balance Sheet (Tally-style)
 - Liabilities vs Assets side-by-side layout
 - Expand/collapse groups with chevron click
-- Keyboard Navigation: ArrowUp/Down, ArrowRight (expand/switch col), ArrowLeft (collapse/switch col), Enter/Space (expand/collapse only)
+- Keyboard Navigation: ArrowUp/Down, ArrowRight/Left, Enter/Space
 - Print, PDF (landscape), Excel export
-- Auto-balanced via P&L A/c (Surplus/Deficit)
-- Truck, Agent/Mandi, DC Accounts detail tables
 
 ### FY Summary
 - 11 sections + Carry Forward
@@ -25,16 +29,16 @@
 ### Bug Fixes
 - Daily Report PDF: Landscape for detail mode
 - Local Party: Cashbook payment linking, summary bar fix
-- Login: Inline error + toast for wrong password
-- Lokesh Fuels: Empty descriptions auto-filled (startup migration)
+- Login: Inline error + toast + reset to default
+- Lokesh Fuels: Empty descriptions auto-filled
 - Auto-ledger: Description auto-generated when empty
+- Desktop login: Startup migration ensures users exist + reset button
 
 ## Desktop App (v24.0.0)
-- Frontend build synced with web app
-- cashbook.js: auto-ledger description fix applied
-- fy_summary.js: Balance Sheet + Carry Forward synced
-- local_party.js: Payment linking fix synced
-- auth.js: Login error handling synced
+- Frontend build synced
+- All routes synced: cashbook, fy_summary, local_party, auth
+- Password reset API added
+- Startup migration enhanced
 
 ## Pending / Backlog
 - P2: Refactor duplicated PDF/Excel logic

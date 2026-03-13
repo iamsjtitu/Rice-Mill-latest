@@ -43,6 +43,24 @@ async def login(request: LoginRequest):
     raise HTTPException(status_code=401, detail="Invalid username or password")
 
 
+@router.post("/auth/reset-default")
+async def reset_default_password():
+    """Reset admin & staff passwords to default"""
+    # Reset admin
+    await db.users.update_one(
+        {"username": "admin"},
+        {"$set": {"username": "admin", "password": "admin123", "role": "admin"}},
+        upsert=True
+    )
+    # Reset staff
+    await db.users.update_one(
+        {"username": "staff"},
+        {"$set": {"username": "staff", "password": "staff123", "role": "staff"}},
+        upsert=True
+    )
+    return {"success": True, "message": "Password reset ho gaya. Admin: admin/admin123, Staff: staff/staff123"}
+
+
 @router.get("/auth/verify")
 async def verify_user(username: str, role: str):
     # Check from database first
