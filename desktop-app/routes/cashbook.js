@@ -44,7 +44,7 @@ module.exports = function(database) {
     
     // Auto-create ledger entry for cash/bank transactions
     if ((txn.account === 'cash' || txn.account === 'bank') && category) {
-      const ledgerEntry = { ...txn, id: uuidv4(), account: 'ledger', reference: `auto_ledger:${txn.id.substring(0, 8)}` };
+      const ledgerEntry = { ...txn, id: uuidv4(), account: 'ledger', txn_type: 'nikasi', reference: `auto_ledger:${txn.id.substring(0, 8)}` };
       // Auto-generate description if empty
       if (!ledgerEntry.description) {
         const acct = (txn.account || 'cash').charAt(0).toUpperCase() + (txn.account || 'cash').slice(1);
@@ -53,6 +53,25 @@ module.exports = function(database) {
           : `${acct} payment to ${category}`;
       }
       database.data.cash_transactions.push(ledgerEntry);
+    }
+    
+    // Auto-update private_paddy paid_amount when cashbook payment is made
+    if (partyType === 'Pvt Paddy Purchase' && category && (txn.account === 'cash' || txn.account === 'bank')) {
+      const pvtEntries = database.data.private_paddy || [];
+      let pvtEntry = null;
+      const parts = category.split(' - ');
+      if (parts.length === 2) {
+        pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === parts[0].trim().toLowerCase() && p.mandi_name && p.mandi_name.toLowerCase() === parts[1].trim().toLowerCase() && p.source !== 'agent_extra');
+      }
+      if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === category.toLowerCase() && p.source !== 'agent_extra');
+      if (pvtEntry) {
+        const payAmount = Math.round((txn.amount || 0) * 100) / 100;
+        const newPaid = Math.round(((pvtEntry.paid_amount || 0) + payAmount) * 100) / 100;
+        const newBalance = Math.round((pvtEntry.total_amount || 0) - newPaid);
+        pvtEntry.paid_amount = newPaid;
+        pvtEntry.balance = newBalance;
+        pvtEntry.status = newBalance <= 0 ? 'paid' : (newPaid > 0 ? 'partial' : 'pending');
+      }
     }
     
     database.save(); res.json(txn);
@@ -74,10 +93,36 @@ module.exports = function(database) {
 
   router.delete('/api/cash-book/:id', safeSync((req, res) => {
     if (!database.data.cash_transactions) return res.status(404).json({ detail: 'Not found' });
-    const len = database.data.cash_transactions.length;
-    database.data.cash_transactions = database.data.cash_transactions.filter(t => t.id !== req.params.id);
-    if (database.data.cash_transactions.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
-    res.status(404).json({ detail: 'Not found' });
+    const txn = database.data.cash_transactions.find(t => t.id === req.params.id);
+    if (!txn) return res.status(404).json({ detail: 'Not found' });
+
+    // Revert private_paddy paid_amount if this was a Pvt Paddy Purchase nikasi from cash/bank
+    if (txn.party_type === 'Pvt Paddy Purchase' && (txn.account === 'cash' || txn.account === 'bank') && txn.category) {
+      const pvtEntries = database.data.private_paddy || [];
+      const cat = txn.category;
+      let pvtEntry = null;
+      const parts = cat.split(' - ');
+      if (parts.length === 2) {
+        pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === parts[0].trim().toLowerCase() && p.mandi_name && p.mandi_name.toLowerCase() === parts[1].trim().toLowerCase() && p.source !== 'agent_extra');
+      }
+      if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === cat.toLowerCase() && p.source !== 'agent_extra');
+      if (pvtEntry) {
+        const revAmount = Math.round((txn.amount || 0) * 100) / 100;
+        const newPaid = Math.round(Math.max(0, (pvtEntry.paid_amount || 0) - revAmount) * 100) / 100;
+        const newBalance = Math.round((pvtEntry.total_amount || 0) - newPaid);
+        pvtEntry.paid_amount = newPaid;
+        pvtEntry.balance = newBalance;
+        pvtEntry.status = newBalance <= 0 ? 'paid' : (newPaid > 0 ? 'partial' : 'pending');
+      }
+    }
+
+    // Also delete auto-created ledger entry
+    const txnIdShort = req.params.id.slice(0, 8);
+    database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+      t.id !== req.params.id && t.reference !== `auto_ledger:${txnIdShort}`
+    );
+    database.save();
+    res.json({ message: 'Deleted', id: req.params.id });
   }));
 
   router.put('/api/cash-book/:id', safeSync((req, res) => {
@@ -88,6 +133,13 @@ module.exports = function(database) {
     body.updated_at = new Date().toISOString();
     if (body.amount) body.amount = Math.round(parseFloat(body.amount) * 100) / 100;
     Object.assign(database.data.cash_transactions[idx], body);
+    // Update auto-created ledger entry too (exclude txn_type - auto-ledger always stays nikasi)
+    const txnIdShort = req.params.id.slice(0, 8);
+    const ledgerBody = { ...body };
+    delete ledgerBody.account; delete ledgerBody.reference; delete ledgerBody.txn_type;
+    database.data.cash_transactions.forEach((t, i) => {
+      if (t.reference === `auto_ledger:${txnIdShort}`) Object.assign(database.data.cash_transactions[i], ledgerBody);
+    });
     database.save();
     res.json(database.data.cash_transactions[idx]);
   }));
@@ -97,7 +149,11 @@ module.exports = function(database) {
     if (!ids.length) return res.status(400).json({ detail: 'No ids provided' });
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const before = database.data.cash_transactions.length;
-    database.data.cash_transactions = database.data.cash_transactions.filter(t => !ids.includes(t.id));
+    // Collect auto_ledger references for the deleted transactions
+    const autoLedgerRefs = ids.map(id => `auto_ledger:${id.slice(0, 8)}`);
+    database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+      !ids.includes(t.id) && !autoLedgerRefs.includes(t.reference)
+    );
     const deleted = before - database.data.cash_transactions.length;
     if (deleted > 0) database.save();
     res.json({ message: `${deleted} transactions deleted`, deleted });
