@@ -400,7 +400,7 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
     const cfR = cf.details.map(d => isDetail
       ? [d.desc, d.party, d.category, (d.type||'').toUpperCase(), (d.account||'').toUpperCase(), `Rs.${fmtAmt(d.amount)}`]
       : [d.desc, (d.type||'').toUpperCase(), (d.account||'').toUpperCase(), `Rs.${fmtAmt(d.amount)}`]);
-    const cfW = isDetail ? [150,60,60,50,50,60] : [230,60,60,70];
+    const cfW = isDetail ? [200,80,80,55,55,80] : [330,80,80,100];
     drawTable(cfH, cfR, cfW);
   }
 
@@ -424,7 +424,7 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
     drawTable(
       ['Pump','Type','Truck','Mandi','Description','Amount'],
       pa.details.map(d => [d.pump, d.txn_type === 'payment' || d.txn_type === 'credit' ? 'PAID' : 'DIESEL', d.truck_no, d.mandi, d.desc, `Rs.${fmtAmt(d.amount)}`]),
-      [60,40,60,60,170,60]
+      [80,55,75,75,230,80]
     );
   }
 
@@ -444,7 +444,7 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
         if (isDetail) row.push(d.description||'');
         return row;
       });
-      const ctW = isDetail ? [60,110,50,80,200] : [80,200,70,120];
+      const ctW = isDetail ? [60,150,55,80,250] : [80,280,80,150];
       drawTable(ctH, ctR, ctW);
     }
   }
