@@ -1,7 +1,7 @@
 const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
-const { getColumns, fmtVal, getPdfHeaders, getPdfWidthsMm, getExcelHeaders, getEntryRow } = require('../../shared/report_helper');
+const { getColumns, fmtVal, getPdfHeaders, getPdfWidthsMm, getExcelHeaders, getEntryRow } = require('../shared/report_helper');
 
 module.exports = function(database) {
 

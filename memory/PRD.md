@@ -25,23 +25,25 @@
 - 11 sections + Carry Forward
 - Sub-tabs: FY Summary + Balance Sheet
 
-### Bug Fixes
+### Bug Fixes (Web)
 - Daily Report PDF: Landscape for detail mode
 - Local Party: Cashbook payment linking, summary bar fix
 - Login: Inline error + toast
 - Lokesh Fuels: Empty descriptions auto-filled (startup migration)
 - Auto-ledger: Description auto-generated when empty
 
-## Desktop App (v24.0.8)
-- **CRITICAL FIX:** Added `safeHandler` export to `safe_handler.js` - 5 route files were importing non-existent function, causing ALL Express routes to fail loading → 404 on every API call including login
-- Frontend rebuilt with REACT_APP_BACKEND_URL='' (all API calls relative)
-- Debug info panel on login page (shows API URL, electron detection status)
-- HTML injection in main.js sets window.ELECTRON_API_URL as backup
-- All routes synced (verified via 33-point sync script)
-- Balance Sheet PDF/Excel export endpoints added
-- Auto-ledger empty description fix
-- Clean index.html (no Emergent tracking/badges)
-- setup-desktop.js updated to build with empty URL
+## Desktop App (v24.0.8) - Critical Fixes
+Three ROOT CAUSES found and fixed for persistent login 404 error:
+1. **safe_handler.js missing export**: `safeHandler` function was not exported but 5 route files imported it → crash during route loading
+2. **shared/ directory missing**: 4 route files imported from `../../shared/report_helper` which doesn't exist in packaged app → crash
+3. **private_trading.js syntax error**: Premature `return router; };` at line 372 + dead MongoDB migration code after it → syntax error
+
+Additional improvements:
+- Route loading now isolated (individual try/catch per module) - one failing route won't kill all routes
+- shared/ directory copied into desktop-app/ and added to electron-builder files
+- Debug endpoint `/api/debug/routes` shows which routes loaded/failed
+- Debug info panel on login page shows API URL and electron detection status
+- Frontend rebuilt with REACT_APP_BACKEND_URL='' (relative API calls)
 
 ## Pending / Backlog
 - P1: User must test v24.0.8 desktop login
@@ -49,4 +51,4 @@
 - P2: Centralize stock calculation
 - P2: Break down large App.js into smaller components
 - P3: Remove debug info from login page once desktop login confirmed working
-- P3: Fix preload.js (electronAPI: N) - low priority since HTML injection works as backup
+- P3: Fix preload.js (electronAPI: N) - low priority since HTML injection works

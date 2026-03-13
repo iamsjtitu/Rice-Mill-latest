@@ -849,59 +849,72 @@ function createApiServer(database) {
   apiApp.use(cors());
   apiApp.use(express.json({ limit: '5mb' }));
 
-  // ===== LOAD ALL MODULAR ROUTE MODULES =====
-  try {
-    const routeModules = [
-      require('./routes/auth')(database),
-      require('./routes/entries')(database),
-      require('./routes/dashboard')(database),
-      require('./routes/payments')(database),
-      require('./routes/cashbook')(database),
-      require('./routes/dc_payments')(database),
-      require('./routes/gunny_bags')(database),
-      require('./routes/milling')(database),
-      require('./routes/private_trading')(database),
-      require('./routes/reports')(database),
-      require('./routes/diesel')(database),
-      require('./routes/exports')(database),
-      require('./routes/backups')(database, { getBackupsList, createBackup, restoreBackup, getBackupDir, MAX_BACKUPS }),
-      require('./routes/mill_parts')(database),
-      require('./routes/staff')(database),
-      require('./routes/daily_report')(database),
-      require('./routes/reports_pnl')(database),
-      require('./routes/local_party')(database),
-      require('./routes/import_excel')(database),
-      require('./routes/fy_summary')(database),
-      require('./routes/telegram')(database),
-      require('./routes/bank_accounts')(database),
-      require('./routes/gst_ledger')(database),
-      require('./routes/voucher_payments')(database),
-      require('./routes/salebook')(database),
-      require('./routes/purchase_vouchers')(database),
-    ];
-    routeModules.forEach(r => apiApp.use(r));
-    console.log('[Routes] All modular routes loaded successfully');
+  // ===== LOAD ALL MODULAR ROUTE MODULES (each isolated so one failure doesn't kill all) =====
+  const routeDefs = [
+    { name: 'auth', load: () => require('./routes/auth')(database) },
+    { name: 'entries', load: () => require('./routes/entries')(database) },
+    { name: 'dashboard', load: () => require('./routes/dashboard')(database) },
+    { name: 'payments', load: () => require('./routes/payments')(database) },
+    { name: 'cashbook', load: () => require('./routes/cashbook')(database) },
+    { name: 'dc_payments', load: () => require('./routes/dc_payments')(database) },
+    { name: 'gunny_bags', load: () => require('./routes/gunny_bags')(database) },
+    { name: 'milling', load: () => require('./routes/milling')(database) },
+    { name: 'private_trading', load: () => require('./routes/private_trading')(database) },
+    { name: 'reports', load: () => require('./routes/reports')(database) },
+    { name: 'diesel', load: () => require('./routes/diesel')(database) },
+    { name: 'exports', load: () => require('./routes/exports')(database) },
+    { name: 'backups', load: () => require('./routes/backups')(database, { getBackupsList, createBackup, restoreBackup, getBackupDir, MAX_BACKUPS }) },
+    { name: 'mill_parts', load: () => require('./routes/mill_parts')(database) },
+    { name: 'staff', load: () => require('./routes/staff')(database) },
+    { name: 'daily_report', load: () => require('./routes/daily_report')(database) },
+    { name: 'reports_pnl', load: () => require('./routes/reports_pnl')(database) },
+    { name: 'local_party', load: () => require('./routes/local_party')(database) },
+    { name: 'import_excel', load: () => require('./routes/import_excel')(database) },
+    { name: 'fy_summary', load: () => require('./routes/fy_summary')(database) },
+    { name: 'telegram', load: () => require('./routes/telegram')(database) },
+    { name: 'bank_accounts', load: () => require('./routes/bank_accounts')(database) },
+    { name: 'gst_ledger', load: () => require('./routes/gst_ledger')(database) },
+    { name: 'voucher_payments', load: () => require('./routes/voucher_payments')(database) },
+    { name: 'salebook', load: () => require('./routes/salebook')(database) },
+    { name: 'purchase_vouchers', load: () => require('./routes/purchase_vouchers')(database) },
+  ];
 
-    // Delete all data endpoint
-    apiApp.post('/api/delete-all-data', safeAsync(async (req, res) => {
-      const collections = ['entries', 'dc_entries', 'dc_deliveries', 'dc_msp_payments',
-        'sale_vouchers', 'purchase_vouchers', 'gunny_bags', 'cash_transactions',
-        'opening_balances', 'gst_opening_balances', 'local_party_accounts', 'party_ledger',
-        'mandi_targets', 'voucher_payments', 'stock_summary', 'truck_payments', 'agent_payments',
-        'milling_entries', 'diesel_accounts', 'bank_accounts'];
-      const deleted = {};
-      for (const col of collections) {
-        const count = (database.data[col] || []).length || 0;
-        if (Array.isArray(database.data[col])) database.data[col] = [];
-        else if (typeof database.data[col] === 'object') database.data[col] = {};
-        deleted[col] = count;
-      }
-      database.save();
-      res.json({ message: 'All data cleared', deleted });
-    }));
-  } catch (e) {
-    console.error('[Routes] Error loading modules:', e.message, e.stack);
+  let loadedCount = 0;
+  let failedRoutes = [];
+  for (const rd of routeDefs) {
+    try {
+      apiApp.use(rd.load());
+      loadedCount++;
+    } catch (e) {
+      failedRoutes.push(rd.name);
+      console.error(`[Routes] FAILED to load "${rd.name}":`, e.message);
+      logError('ROUTE_LOAD_FAIL_' + rd.name, e);
+    }
   }
+  console.log(`[Routes] Loaded ${loadedCount}/${routeDefs.length} routes.` + (failedRoutes.length ? ` Failed: ${failedRoutes.join(', ')}` : ''));
+
+  // Delete all data endpoint
+  apiApp.post('/api/delete-all-data', safeAsync(async (req, res) => {
+    const collections = ['entries', 'dc_entries', 'dc_deliveries', 'dc_msp_payments',
+      'sale_vouchers', 'purchase_vouchers', 'gunny_bags', 'cash_transactions',
+      'opening_balances', 'gst_opening_balances', 'local_party_accounts', 'party_ledger',
+      'mandi_targets', 'voucher_payments', 'stock_summary', 'truck_payments', 'agent_payments',
+      'milling_entries', 'diesel_accounts', 'bank_accounts'];
+    const deleted = {};
+    for (const col of collections) {
+      const count = (database.data[col] || []).length || 0;
+      if (Array.isArray(database.data[col])) database.data[col] = [];
+      else if (typeof database.data[col] === 'object') database.data[col] = {};
+      deleted[col] = count;
+    }
+    database.save();
+    res.json({ message: 'All data cleared', deleted });
+  }));
+
+  // Debug endpoint to check route loading status
+  apiApp.get('/api/debug/routes', safeSync((req, res) => {
+    res.json({ loaded: loadedCount, total: routeDefs.length, failed: failedRoutes, version: require('./package.json').version });
+  }));
 
   // ===== EXPRESS ERROR MIDDLEWARE (catches sync errors from routes) =====
   apiApp.use((err, req, res, next) => {

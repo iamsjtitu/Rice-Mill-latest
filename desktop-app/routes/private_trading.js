@@ -1,6 +1,6 @@
 const express = require('express');
 const { safeSync } = require('./safe_handler');
-const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../../shared/report_helper');
+const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../shared/report_helper');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -369,8 +369,6 @@ module.exports = function(database) {
     doc.end();
   }));
 
-  return router;
-};
   router.get('/api/private-paddy/excel', safeSync((req, res) => {
     const ExcelJS = require('exceljs');
     if (!database.data.private_paddy) database.data.private_paddy = [];
@@ -510,48 +508,6 @@ module.exports = function(database) {
       y += 14; if (y > 560) { doc.addPage(); y = 20; }
     });
     doc.end();
-  }));
-
-
-  // Migration: Fix missing ledger nikasi entries
-  router.get('/migrate/fix-missing-ledger-nikasi', asyncHandler(async (req, res) => {
-    const { v4: uuidv4 } = require('uuid');
-    const cashPayments = await db.collection('cash_transactions').find({
-      account: { $in: ['cash', 'bank'] },
-      txn_type: 'nikasi'
-    }).toArray();
-    
-    let fixed = 0, skipped = 0;
-    const details = [];
-    
-    for (const payment of cashPayments) {
-      const cat = (payment.category || '').trim();
-      const amt = payment.amount || 0;
-      if (!cat || amt <= 0) continue;
-      
-      const existing = await db.collection('cash_transactions').findOne({
-        account: 'ledger', txn_type: 'nikasi',
-        category: cat, amount: amt, description: payment.description || ''
-      });
-      
-      if (existing) { skipped++; continue; }
-      
-      await db.collection('cash_transactions').insertOne({
-        id: uuidv4(), date: payment.date || new Date().toISOString().split('T')[0],
-        account: 'ledger', txn_type: 'nikasi',
-        category: cat, party_type: payment.party_type || '',
-        description: payment.description || '', amount: amt,
-        reference: `migration_ledger:${cat.substring(0, 10)}`,
-        kms_year: payment.kms_year || '', season: payment.season || '',
-        created_by: 'migration',
-        linked_payment_id: `migration:${cat}:${uuidv4().substring(0, 6)}`,
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-      });
-      fixed++;
-      details.push(`${cat} (${payment.party_type || ''}) - Rs.${amt} - ${(payment.description || '').substring(0, 50)}`);
-    }
-    
-    res.json({ success: true, message: `Migration complete: ${fixed} ledger entries created, ${skipped} already existed`, fixed_count: fixed, skipped_count: skipped, details });
   }));
 
   return router;

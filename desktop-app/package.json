@@ -42,6 +42,7 @@
       "main.js",
       "preload.js",
       "routes/**/*",
+      "shared/**/*",
       "frontend-build/**/*",
       "package.json",
       "node_modules/**/*"
