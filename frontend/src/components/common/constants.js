@@ -1,4 +1,7 @@
-const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
+// Desktop app: use relative URL (frontend & API on same server)
+// Web app: use baked-in REACT_APP_BACKEND_URL
+const isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const BACKEND_URL = isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 export const API = `${BACKEND_URL}/api`;
 
 export const CURRENT_KMS_YEAR = (() => {

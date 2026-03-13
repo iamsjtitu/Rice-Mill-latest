@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2, CheckSquare } from "lucide-react";
 
-const API = `${(typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL}/api`;
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
 
 const fmtDate = (d) => {
   if (!d) return '';

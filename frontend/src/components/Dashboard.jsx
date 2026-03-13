@@ -18,7 +18,8 @@ import {
   Plus, Trash2, Edit, Calculator, Target, TrendingUp, TrendingDown, Users, IndianRupee, BarChart3, FileText, RefreshCw, Wheat, Package, Truck, ShoppingCart,
 } from "lucide-react";
 
-const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
 const CURRENT_KMS_YEAR = `${new Date().getFullYear() - 1}-${new Date().getFullYear()}`;
 

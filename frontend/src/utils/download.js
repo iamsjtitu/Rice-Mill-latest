@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL || '';
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const API = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 
 /**
  * Universal file download - works in Browser + Electron

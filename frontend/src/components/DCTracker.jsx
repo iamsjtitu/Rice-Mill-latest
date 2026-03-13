@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package, Edit, Clock, History, Search } from "lucide-react";
 
-const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
 
 const CURRENT_KMS = (() => { const n = new Date(), y = n.getFullYear(); return n.getMonth() >= 9 ? `${y}-${y+1}` : `${y-1}-${y}`; })();

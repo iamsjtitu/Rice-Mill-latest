@@ -6,7 +6,8 @@ import { TrendingUp, TrendingDown, Banknote, Package, Fuel, Users, Wheat, Wrench
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 
-const API = ((typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL) + '/api';
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
 
 function SummaryCard({ title, icon: Icon, iconColor, children }) {
   return (

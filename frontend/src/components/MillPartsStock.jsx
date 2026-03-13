@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search, Calendar, Filter } from "lucide-react";
 import { downloadFile } from "../utils/download";
 
-const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
 
 export default function MillPartsStock({ filters, user }) {

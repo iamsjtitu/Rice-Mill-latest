@@ -4,7 +4,8 @@ import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { FileDown, FileSpreadsheet, ChevronDown, ChevronRight, RefreshCw, Printer } from 'lucide-react';
 
-const API = ((typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL) + '/api';
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
 
 function formatAmt(n) {
   if (n === undefined || n === null) return '0.00';

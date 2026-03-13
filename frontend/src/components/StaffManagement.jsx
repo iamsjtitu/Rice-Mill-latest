@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Edit, Users, Calendar, IndianRupee, RefreshCw, Check, X, Clock, Sun, Calculator, Download, FileText } from "lucide-react";
 
-const API = ((typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL) + "/api";
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
 
 // ===== STAFF MASTER =====
 const StaffMaster = ({ staff, fetchStaff }) => {

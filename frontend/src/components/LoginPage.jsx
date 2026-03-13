@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { User, Lock, Sun, Moon } from "lucide-react";
 
-const API = `${(typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL}/api`;
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
 
 /**
  * LoginPage - Authentication component with dynamic branding
@@ -40,7 +41,7 @@ const LoginPage = ({ onLogin }) => {
   }, []);
 
   useEffect(() => {
-    const isElectron = typeof window !== 'undefined' && window.ELECTRON_API_URL;
+    const isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
     if (isElectron) return;
     const removeBadge = () => {
       document.querySelectorAll('a[href*="emergent"], iframe[src*="emergent"]').forEach(el => el.remove());

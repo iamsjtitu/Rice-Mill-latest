@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
 
-const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
 
 const emptyItem = { item_name: "", quantity: "", rate: "", unit: "Qntl", _custom: false };

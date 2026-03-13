@@ -57,7 +57,8 @@ import ExcelImport from "@/components/ExcelImport";
 import Vouchers from "@/components/Vouchers";
 import { PrintButton } from "@/components/PrintButton";
 
-const BACKEND_URL = (typeof window !== 'undefined' && window.ELECTRON_API_URL) || process.env.REACT_APP_BACKEND_URL;
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
 
 // Format date: YYYY-MM-DD → DD-MM-YYYY
@@ -361,7 +362,7 @@ function MainApp({ user, onLogout }) {
 
   // Remove external badges - run only on Electron (desktop app)
   useEffect(() => {
-    const isElectron = typeof window !== 'undefined' && window.ELECTRON_API_URL;
+    const isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
     if (isElectron) return; // No badge on desktop app, skip
     const removeBadge = () => {
       document.querySelectorAll('a[href*="emergent"], iframe[src*="emergent"]').forEach(el => {
