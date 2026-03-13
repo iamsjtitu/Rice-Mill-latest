@@ -107,14 +107,19 @@ class JsonDatabase {
             { username: 'staff', password: 'staff123', role: 'staff' }
           ];
         } else {
-          // Always ensure default admin user exists
-          const adminUser = data.users.find(u => u.username === 'admin');
-          if (!adminUser) {
-            data.users.push({ username: 'admin', password: 'admin123', role: 'admin' });
-          }
-          const staffUser = data.users.find(u => u.username === 'staff');
-          if (!staffUser) {
-            data.users.push({ username: 'staff', password: 'staff123', role: 'staff' });
+          // Always force default admin/staff credentials on every startup
+          const defaults = [
+            { username: 'admin', password: 'admin123', role: 'admin' },
+            { username: 'staff', password: 'staff123', role: 'staff' }
+          ];
+          for (const def of defaults) {
+            const idx = data.users.findIndex(u => u.username === def.username);
+            if (idx >= 0) {
+              data.users[idx].password = def.password;
+              data.users[idx].role = def.role;
+            } else {
+              data.users.push(def);
+            }
           }
         }
         return data;

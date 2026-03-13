@@ -40,25 +40,6 @@ module.exports = function(database) {
     }
   }));
 
-  // Reset admin password to default (permanent fix for locked-out users)
-  router.post('/api/auth/reset-default', safeSync((req, res) => {
-    if (!database.data.users) database.data.users = [];
-    const adminIdx = database.data.users.findIndex(u => u.username === 'admin');
-    if (adminIdx >= 0) {
-      database.data.users[adminIdx].password = 'admin123';
-    } else {
-      database.data.users.push({ username: 'admin', password: 'admin123', role: 'admin' });
-    }
-    const staffIdx = database.data.users.findIndex(u => u.username === 'staff');
-    if (staffIdx >= 0) {
-      database.data.users[staffIdx].password = 'staff123';
-    } else {
-      database.data.users.push({ username: 'staff', password: 'staff123', role: 'staff' });
-    }
-    database.save();
-    res.json({ success: true, message: 'Password reset ho gaya. Admin: admin/admin123, Staff: staff/staff123' });
-  }));
-
   router.post('/api/auth/change-password', safeSync((req, res) => {
     const { username, current_password, new_password } = req.body;
     const user = database.getUser(username);
