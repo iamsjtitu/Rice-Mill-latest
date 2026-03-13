@@ -1,0 +1,150 @@
+{
+  "summary": "Iteration 86 - Balance Sheet Improvements. All features verified working correctly. Backend: 9/9 tests passed. Frontend: All UI tests passed via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration86_balance_sheet_improvements.py",
+    "/app/test_reports/pytest/pytest_results_iteration86.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration86_balance_sheet_improvements.py"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 tests passed)",
+    "frontend": "100% - All features verified via Playwright"
+  },
+  "seed_data_creation": "None - used existing KMS 2025-26 data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Balance Sheet feature improvements all working. PDF uses landscape A4 with side-by-side layout. Excel uses cols A-B for Liabilities and D-E for Assets. Print button present. ExternalLink icons show on hover for drill-down party navigation. Totals balanced at 86,650.00. FY Summary sub-tabs (FY Summary + Balance Sheet) both working. Login error displays inline.",
+  "features_tested": {
+    "balance_sheet_pdf_side_by_side": {
+      "status": "PASSED",
+      "description": "PDF uses landscape A4 (841x595 pts) with single table: [Liab Particulars | Liab Amount | separator | Asset Particulars | Asset Amount]",
+      "endpoint": "GET /api/fy-summary/balance-sheet/pdf?kms_year=2025-26",
+      "verified": [
+        "PDF MediaBox confirms landscape orientation (841.8898 x 595.2756)",
+        "Content-Type: application/pdf",
+        "PDF size: 2915 bytes"
+      ]
+    },
+    "balance_sheet_excel_side_by_side": {
+      "status": "PASSED",
+      "description": "Excel uses cols A-B for Liabilities and cols D-E for Assets",
+      "endpoint": "GET /api/fy-summary/balance-sheet/excel?kms_year=2025-26",
+      "verified": [
+        "Sheet name: Balance Sheet",
+        "Row 4: LIABILITIES(A) | Amount(B) | empty(C) | ASSETS(D) | Amount(E)",
+        "Data rows properly aligned side-by-side",
+        "Excel size: 5783 bytes"
+      ]
+    },
+    "balance_sheet_frontend_print_button": {
+      "status": "PASSED",
+      "description": "Print button exists with data-testid='bs-print-btn'",
+      "verified": [
+        "Print button visible and clickable",
+        "PDF button exists with data-testid='bs-pdf-btn'",
+        "Excel button exists with data-testid='bs-excel-btn'",
+        "Refresh button exists with data-testid='bs-refresh-btn'"
+      ]
+    },
+    "balance_sheet_drill_down_external_link": {
+      "status": "PASSED",
+      "description": "ExternalLink icons show on hover for party navigation to cashbook",
+      "verified": [
+        "7 drill-down groups found",
+        "Groups expandable on click",
+        "ExternalLink icon component imported and used in BalanceGroup and DetailTable",
+        "onClick handler navigates to ledger view with cleaned party name"
+      ]
+    },
+    "balance_sheet_api_balanced_totals": {
+      "status": "PASSED",
+      "description": "GET /api/fy-summary/balance-sheet returns balanced totals",
+      "endpoint": "GET /api/fy-summary/balance-sheet?kms_year=2025-26",
+      "verified": [
+        "total_liabilities == total_assets (balanced via P&L adjustment)",
+        "Sample totals: 86,650.00 = 86,650.00"
+      ]
+    },
+    "fy_summary_sub_tabs": {
+      "status": "PASSED",
+      "description": "Both 'FY Summary' and 'Balance Sheet' tabs work",
+      "verified": [
+        "FY Summary tab visible with data-testid='fy-tab-summary'",
+        "Balance Sheet tab visible with data-testid='fy-tab-balance-sheet'",
+        "Clicking between tabs loads correct component",
+        "FY Summary Dashboard shows Cash & Bank, Paddy Stock, FRK Stock, Milling Summary, etc."
+      ]
+    },
+    "login_wrong_password_inline_error": {
+      "status": "PASSED",
+      "description": "Wrong password shows inline error message on login page",
+      "verified": [
+        "POST /api/auth/login with wrong password returns 401",
+        "Error message: 'Invalid username or password'",
+        "Inline error box displayed with data-testid='login-error'",
+        "Toast notification also shown",
+        "Error displayed in red box below password field"
+      ]
+    }
+  },
+  "api_verification": {
+    "balance_sheet_api": {
+      "endpoint": "GET /api/fy-summary/balance-sheet?kms_year=2025-26",
+      "status": 200,
+      "response_sample": {
+        "total_liabilities": 86650.0,
+        "total_assets": 86650.0,
+        "liabilities_groups": ["Capital Account", "Sundry Creditors"],
+        "assets_groups": ["Cash & Bank Balances", "Stock-in-Hand", "Sundry Debtors", "Loans & Advances", "Profit & Loss A/c (Deficit)"]
+      }
+    },
+    "balance_sheet_pdf": {
+      "endpoint": "GET /api/fy-summary/balance-sheet/pdf?kms_year=2025-26",
+      "status": 200,
+      "content_type": "application/pdf",
+      "page_size": "Landscape A4 (841.89 x 595.28 pts)",
+      "layout": "Side-by-side with 5 columns"
+    },
+    "balance_sheet_excel": {
+      "endpoint": "GET /api/fy-summary/balance-sheet/excel?kms_year=2025-26",
+      "status": 200,
+      "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "layout": "Liabilities (cols A-B) | Gap (col C) | Assets (cols D-E)"
+    },
+    "fy_summary_api": {
+      "endpoint": "GET /api/fy-summary?kms_year=2025-26",
+      "status": 200,
+      "sections": ["cash_bank", "paddy_stock", "milling", "frk_stock", "byproducts", "mill_parts", "diesel", "local_party", "staff_advances", "private_trading", "ledger_parties"]
+    },
+    "login_wrong_password": {
+      "endpoint": "POST /api/auth/login",
+      "payload": {"username": "admin", "password": "wrongpassword"},
+      "status": 401,
+      "response": {"detail": "Invalid username or password"}
+    }
+  },
+  "test_summary": {
+    "total_tests": 9,
+    "passed": 9,
+    "failed": 0,
+    "tests_by_class": {
+      "TestBalanceSheetAPI": 2,
+      "TestBalanceSheetPDF": 2,
+      "TestBalanceSheetExcel": 2,
+      "TestLoginErrorMessage": 2,
+      "TestFYSummaryEndpoint": 1
+    }
+  }
+}

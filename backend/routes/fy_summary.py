@@ -595,52 +595,84 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
 
 @router.get("/fy-summary/balance-sheet/pdf")
 async def export_balance_sheet_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
-    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib import colors
     from io import BytesIO
 
     data = await get_balance_sheet(kms_year=kms_year, season=season)
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=25, rightMargin=25, topMargin=25, bottomMargin=25)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=20, bottomMargin=20)
     elements = []
     styles = getSampleStyleSheet()
-    hdr_bg = colors.HexColor('#1a365d')
-    total_bg = colors.HexColor('#e0f2fe')
 
     def fmt(n): return f"{(n or 0):,.2f}"
 
-    elements.append(Paragraph(f"Balance Sheet - {kms_year or 'All'}", styles['Title']))
+    elements.append(Paragraph(f"<b>Balance Sheet</b> - KMS {kms_year or 'All'}", styles['Title']))
     elements.append(Paragraph(f"As on: {data['as_on_date']}", styles['Normal']))
     elements.append(Spacer(1, 10))
 
-    def build_side(title, groups, total_val):
-        elements.append(Paragraph(f"<b>{title}</b>", styles['Heading2']))
-        elements.append(Spacer(1, 4))
-        rows = [['Particulars', 'Amount (Rs.)']]
+    # Build side data
+    def build_side_rows(groups, total_val):
+        rows = []
         for g in groups:
             rows.append([g['group'], fmt(g['amount'])])
             for c in g.get('children', []):
                 rows.append([f"    {c['name']}", fmt(c['amount'])])
         rows.append(['TOTAL', fmt(total_val)])
-        t = RLTable(rows, colWidths=[350, 130], repeatRows=1)
-        style_list = [
-            ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), total_bg),
-        ]
-        for i, r in enumerate(rows[1:-1], 1):
-            if not r[0].startswith('    '):
-                style_list.append(('FONTNAME', (0, i), (0, i), 'Helvetica-Bold'))
-                style_list.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f1f5f9')))
-        t.setStyle(TableStyle(style_list))
-        elements.append(t)
-        elements.append(Spacer(1, 12))
+        return rows
 
-    build_side("LIABILITIES", data['liabilities'], data['total_liabilities'])
-    build_side("ASSETS", data['assets'], data['total_assets'])
+    liab_rows = build_side_rows(data['liabilities'], data['total_liabilities'])
+    asset_rows = build_side_rows(data['assets'], data['total_assets'])
+
+    # Pad shorter side with empty rows
+    max_rows = max(len(liab_rows), len(asset_rows))
+    while len(liab_rows) < max_rows: liab_rows.append(['', ''])
+    while len(asset_rows) < max_rows: asset_rows.append(['', ''])
+
+    # Build side-by-side table: [Liab Particulars | Liab Amount | | Asset Particulars | Asset Amount]
+    header = ['LIABILITIES', 'Amount (Rs.)', '', 'ASSETS', 'Amount (Rs.)']
+    combined = [header]
+    for i in range(max_rows):
+        combined.append([liab_rows[i][0], liab_rows[i][1], '', asset_rows[i][0], asset_rows[i][1]])
+
+    col_w = [210, 90, 10, 210, 90]
+    t = RLTable(combined, colWidths=col_w, repeatRows=1)
+
+    style_list = [
+        ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#dc2626')),
+        ('BACKGROUND', (3, 0), (4, 0), colors.HexColor('#059669')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('ALIGN', (4, 0), (4, -1), 'RIGHT'),
+        ('GRID', (0, 0), (1, -1), 0.5, colors.HexColor('#e5e7eb')),
+        ('GRID', (3, 0), (4, -1), 0.5, colors.HexColor('#e5e7eb')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]
+
+    # Style group headers (bold, grey bg) and totals
+    for i in range(1, len(combined)):
+        row = combined[i]
+        # Liability side
+        if row[0] and not row[0].startswith('    '):
+            style_list.append(('FONTNAME', (0, i), (1, i), 'Helvetica-Bold'))
+            if row[0] == 'TOTAL':
+                style_list.append(('BACKGROUND', (0, i), (1, i), colors.HexColor('#fecaca')))
+            else:
+                style_list.append(('BACKGROUND', (0, i), (1, i), colors.HexColor('#f1f5f9')))
+        # Asset side
+        if row[3] and not row[3].startswith('    '):
+            style_list.append(('FONTNAME', (3, i), (4, i), 'Helvetica-Bold'))
+            if row[3] == 'TOTAL':
+                style_list.append(('BACKGROUND', (3, i), (4, i), colors.HexColor('#a7f3d0')))
+            else:
+                style_list.append(('BACKGROUND', (3, i), (4, i), colors.HexColor('#f1f5f9')))
+
+    t.setStyle(TableStyle(style_list))
+    elements.append(t)
 
     doc.build(elements)
     buffer.seek(0)
@@ -659,57 +691,92 @@ async def export_balance_sheet_excel(kms_year: Optional[str] = None, season: Opt
     wb = Workbook()
     ws = wb.active
     ws.title = "Balance Sheet"
-    ws.column_dimensions['A'].width = 45
-    ws.column_dimensions['B'].width = 20
+    ws.column_dimensions['A'].width = 40
+    ws.column_dimensions['B'].width = 18
+    ws.column_dimensions['C'].width = 3
+    ws.column_dimensions['D'].width = 40
+    ws.column_dimensions['E'].width = 18
 
     hdr_font = Font(name='Calibri', bold=True, size=14, color='1a365d')
-    group_font = Font(name='Calibri', bold=True, size=11)
-    child_font = Font(name='Calibri', size=10)
+    liab_hdr = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
+    asset_hdr = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
+    group_font = Font(name='Calibri', bold=True, size=10)
+    child_font = Font(name='Calibri', size=9)
     total_font = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
-    total_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
-    group_fill = PatternFill(start_color='e2e8f0', end_color='e2e8f0', fill_type='solid')
-    border = Border(bottom=Side(style='thin', color='cccccc'))
+    liab_fill = PatternFill(start_color='dc2626', end_color='dc2626', fill_type='solid')
+    asset_fill = PatternFill(start_color='059669', end_color='059669', fill_type='solid')
+    liab_total_fill = PatternFill(start_color='fecaca', end_color='fecaca', fill_type='solid')
+    asset_total_fill = PatternFill(start_color='a7f3d0', end_color='a7f3d0', fill_type='solid')
+    group_fill = PatternFill(start_color='f1f5f9', end_color='f1f5f9', fill_type='solid')
     num_fmt = '#,##0.00'
+    right_align = Alignment(horizontal='right')
 
+    # Title
     row = 1
-    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
-    ws.cell(row=row, column=1, value=f"Balance Sheet - {kms_year or 'All'}").font = hdr_font
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+    ws.cell(row=row, column=1, value=f"Balance Sheet - KMS {kms_year or 'All'}").font = hdr_font
     row += 1
     ws.cell(row=row, column=1, value=f"As on: {data['as_on_date']}").font = Font(size=10, color='666666')
     row += 2
 
-    def write_side(title, groups, total_val):
-        nonlocal row
-        ws.cell(row=row, column=1, value=title).font = Font(bold=True, size=12, color='1a365d')
-        ws.cell(row=row, column=2, value='Amount (Rs.)').font = Font(bold=True, size=10, color='1a365d')
-        ws.cell(row=row, column=2).alignment = Alignment(horizontal='right')
-        row += 1
-        for g in groups:
-            ws.cell(row=row, column=1, value=g['group']).font = group_font
-            ws.cell(row=row, column=2, value=g['amount']).font = group_font
-            ws.cell(row=row, column=2).number_format = num_fmt
-            ws.cell(row=row, column=2).alignment = Alignment(horizontal='right')
-            for c in range(1, 3):
-                ws.cell(row=row, column=c).fill = group_fill
-            row += 1
-            for ch in g.get('children', []):
-                ws.cell(row=row, column=1, value=f"    {ch['name']}").font = child_font
-                ws.cell(row=row, column=2, value=ch['amount']).font = child_font
-                ws.cell(row=row, column=2).number_format = num_fmt
-                ws.cell(row=row, column=2).alignment = Alignment(horizontal='right')
-                ws.cell(row=row, column=1).border = border
-                ws.cell(row=row, column=2).border = border
-                row += 1
-        ws.cell(row=row, column=1, value='TOTAL').font = total_font
-        ws.cell(row=row, column=2, value=total_val).font = total_font
-        ws.cell(row=row, column=2).number_format = num_fmt
-        ws.cell(row=row, column=2).alignment = Alignment(horizontal='right')
-        for c in range(1, 3):
-            ws.cell(row=row, column=c).fill = total_fill
-        row += 2
+    # Headers
+    ws.cell(row=row, column=1, value='LIABILITIES').font = liab_hdr
+    ws.cell(row=row, column=2, value='Amount (Rs.)').font = liab_hdr
+    ws.cell(row=row, column=2).alignment = right_align
+    ws.cell(row=row, column=4, value='ASSETS').font = asset_hdr
+    ws.cell(row=row, column=5, value='Amount (Rs.)').font = asset_hdr
+    ws.cell(row=row, column=5).alignment = right_align
+    for c in [1, 2]: ws.cell(row=row, column=c).fill = liab_fill
+    for c in [4, 5]: ws.cell(row=row, column=c).fill = asset_fill
+    row += 1
 
-    write_side("LIABILITIES", data['liabilities'], data['total_liabilities'])
-    write_side("ASSETS", data['assets'], data['total_assets'])
+    # Build side rows
+    def build_rows(groups, total_val):
+        rows = []
+        for g in groups:
+            rows.append(('group', g['group'], g['amount']))
+            for c in g.get('children', []):
+                rows.append(('child', f"    {c['name']}", c['amount']))
+        rows.append(('total', 'TOTAL', total_val))
+        return rows
+
+    liab_rows = build_rows(data['liabilities'], data['total_liabilities'])
+    asset_rows = build_rows(data['assets'], data['total_assets'])
+    max_rows = max(len(liab_rows), len(asset_rows))
+
+    for i in range(max_rows):
+        # Liabilities side
+        if i < len(liab_rows):
+            rtype, name, amt = liab_rows[i]
+            ws.cell(row=row, column=1, value=name).font = group_font if rtype in ('group', 'total') else child_font
+            ws.cell(row=row, column=2, value=amt).font = group_font if rtype in ('group', 'total') else child_font
+            ws.cell(row=row, column=2).number_format = num_fmt
+            ws.cell(row=row, column=2).alignment = right_align
+            if rtype == 'group':
+                ws.cell(row=row, column=1).fill = group_fill
+                ws.cell(row=row, column=2).fill = group_fill
+            elif rtype == 'total':
+                ws.cell(row=row, column=1).fill = liab_total_fill
+                ws.cell(row=row, column=2).fill = liab_total_fill
+                ws.cell(row=row, column=1).font = Font(bold=True, size=11, color='dc2626')
+                ws.cell(row=row, column=2).font = Font(bold=True, size=11, color='dc2626')
+
+        # Assets side
+        if i < len(asset_rows):
+            rtype, name, amt = asset_rows[i]
+            ws.cell(row=row, column=4, value=name).font = group_font if rtype in ('group', 'total') else child_font
+            ws.cell(row=row, column=5, value=amt).font = group_font if rtype in ('group', 'total') else child_font
+            ws.cell(row=row, column=5).number_format = num_fmt
+            ws.cell(row=row, column=5).alignment = right_align
+            if rtype == 'group':
+                ws.cell(row=row, column=4).fill = group_fill
+                ws.cell(row=row, column=5).fill = group_fill
+            elif rtype == 'total':
+                ws.cell(row=row, column=4).fill = asset_total_fill
+                ws.cell(row=row, column=5).fill = asset_total_fill
+                ws.cell(row=row, column=4).font = Font(bold=True, size=11, color='059669')
+                ws.cell(row=row, column=5).font = Font(bold=True, size=11, color='059669')
+        row += 1
 
     buffer = BytesIO()
     wb.save(buffer)

@@ -69,7 +69,7 @@ const fmtDate = (d) => {
 };
 
 // FY Summary with sub-tabs (Summary + Balance Sheet)
-function FYSummaryWithTabs({ filters, user }) {
+function FYSummaryWithTabs({ filters, user, onNavigate }) {
   const [subTab, setSubTab] = useState("summary");
   return (
     <div className="space-y-4">
@@ -88,7 +88,7 @@ function FYSummaryWithTabs({ filters, user }) {
       {subTab === "summary" ? (
         <FYSummaryDashboard filters={filters} />
       ) : (
-        <BalanceSheet filters={filters} />
+        <BalanceSheet filters={filters} onNavigate={onNavigate} />
       )}
     </div>
   );
@@ -2033,7 +2033,16 @@ function MainApp({ user, onLogout }) {
         ) : activeTab === "staff" ? (
           <StaffManagement filters={filters} user={user} />
         ) : activeTab === "fy-summary" ? (
-          <FYSummaryWithTabs filters={filters} user={user} />
+          <FYSummaryWithTabs filters={filters} user={user} onNavigate={(tab, party) => {
+            if (tab === 'ledger') {
+              setActiveTab('cashbook');
+              // Store party name for ledger navigation
+              setTimeout(() => {
+                const searchInput = document.querySelector('[data-testid="cashbook-search"]') || document.querySelector('input[placeholder*="Search"]');
+                if (searchInput) { searchInput.value = party; searchInput.dispatchEvent(new Event('input', { bubbles: true })); searchInput.dispatchEvent(new Event('change', { bubbles: true })); }
+              }, 500);
+            }
+          }} />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">

@@ -99,7 +99,15 @@ class JsonDatabase {
   load() {
     try {
       if (fs.existsSync(this.dbFile)) {
-        return JSON.parse(fs.readFileSync(this.dbFile, 'utf8'));
+        const data = JSON.parse(fs.readFileSync(this.dbFile, 'utf8'));
+        // Ensure users array exists (migration for older data files)
+        if (!data.users || !Array.isArray(data.users) || data.users.length === 0) {
+          data.users = [
+            { username: 'admin', password: 'admin123', role: 'admin' },
+            { username: 'staff', password: 'staff123', role: 'staff' }
+          ];
+        }
+        return data;
       }
     } catch (e) {
       logError('DATABASE_LOAD_ERROR', e);
