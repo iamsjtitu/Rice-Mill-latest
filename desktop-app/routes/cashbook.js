@@ -353,8 +353,11 @@ module.exports = function(database) {
     const { kms_year, cash, bank, bank_details } = req.body;
     if (!kms_year) return res.status(400).json({ detail: 'kms_year is required' });
     if (!database.data.opening_balances) database.data.opening_balances = [];
+    const totalBank = bank_details && Object.keys(bank_details).length > 0
+      ? Object.values(bank_details).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+      : (parseFloat(bank) || 0);
     const idx = database.data.opening_balances.findIndex(ob => ob.kms_year === kms_year);
-    const doc = { kms_year, cash: +(cash || 0), bank: +(bank || 0), bank_details: bank_details || {}, updated_at: new Date().toISOString() };
+    const doc = { kms_year, cash: parseFloat(cash) || 0, bank: Math.round(totalBank * 100) / 100, bank_details: bank_details || {}, updated_at: new Date().toISOString() };
     if (idx >= 0) database.data.opening_balances[idx] = doc;
     else database.data.opening_balances.push(doc);
     database.save();
