@@ -1,0 +1,165 @@
+{
+  "summary": "Iteration 87 - Balance Sheet Keyboard Navigation Testing. All requested features verified working correctly. Frontend-only testing completed via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_87.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor ESLint warning in BalanceSheet.jsx line 96 - missing dependency 'fetchData' in useEffect"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A - frontend only testing",
+    "frontend": "100% - All Balance Sheet features verified"
+  },
+  "seed_data_creation": "None - used existing KMS 2025-26 data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Balance Sheet keyboard navigation fully working. All features tested: ArrowUp/Down for vertical nav, ArrowRight to expand groups or switch columns, ArrowLeft to collapse groups or switch columns, Enter to navigate to ledger or stock page. Stock-in-Hand has dotted underline and external link icon, clicking navigates to Milling (CMR) tab.",
+  "features_tested": {
+    "balance_sheet_renders_correctly": {
+      "status": "PASSED",
+      "description": "Balance Sheet shows Liabilities and Assets columns with proper totals",
+      "verified": [
+        "Liabilities header visible",
+        "Assets header visible",
+        "Total Liabilities: 86,650.00",
+        "Total Assets: 86,650.00",
+        "Both totals balanced"
+      ]
+    },
+    "keyboard_navigation_focus": {
+      "status": "PASSED",
+      "description": "Click on Balance Sheet activates keyboard mode",
+      "verified": [
+        "Clicking balance sheet area activates keyboard mode",
+        "'Keyboard ON - Arrow keys, Enter to navigate' indicator visible",
+        "Yellow ring highlight (ring-amber-400) shows focused item"
+      ]
+    },
+    "keyboard_arrow_down": {
+      "status": "PASSED",
+      "description": "ArrowDown moves focus to next item in list",
+      "verified": [
+        "Focus ring moves down through groups and children",
+        "Works in both Liabilities and Assets columns"
+      ]
+    },
+    "keyboard_arrow_up": {
+      "status": "PASSED",
+      "description": "ArrowUp moves focus to previous item in list",
+      "verified": [
+        "Focus ring moves up through list",
+        "Stops at first item (doesn't wrap)"
+      ]
+    },
+    "keyboard_arrow_right_expand": {
+      "status": "PASSED",
+      "description": "ArrowRight expands collapsed groups with children",
+      "verified": [
+        "Capital Account expanded showing Opening Cash, Opening Bank",
+        "Cash & Bank Balances expanded showing Cash-in-Hand, Bank Accounts",
+        "Sundry Creditors expanded showing 9 child items"
+      ]
+    },
+    "keyboard_arrow_right_switch_column": {
+      "status": "PASSED",
+      "description": "ArrowRight switches from Liabilities to Assets column when no group to expand",
+      "verified": [
+        "After expanding all groups, ArrowRight switches to Assets column",
+        "Focus resets to first item in Assets column"
+      ]
+    },
+    "keyboard_arrow_left_collapse": {
+      "status": "PASSED",
+      "description": "ArrowLeft collapses expanded groups",
+      "verified": [
+        "Groups collapse when ArrowLeft pressed on expanded group",
+        "Children from child item collapses parent group"
+      ]
+    },
+    "keyboard_arrow_left_switch_column": {
+      "status": "PASSED",
+      "description": "ArrowLeft switches from Assets to Liabilities column when nothing to collapse",
+      "verified": [
+        "From first item in Assets with no expansion, ArrowLeft switches to Liabilities",
+        "Focus resets to first item in Liabilities column"
+      ]
+    },
+    "keyboard_enter_child_navigation": {
+      "status": "PASSED",
+      "description": "Enter on child item navigates to Cash Book & Ledgers tab",
+      "verified": [
+        "Pressed Enter on 'Local Party Accounts' child",
+        "Navigated to Cash Book & Ledgers tab",
+        "Active tab changed to 'Cash Book & Ledgers'"
+      ]
+    },
+    "stock_in_hand_clickable": {
+      "status": "PASSED",
+      "description": "Stock-in-Hand group has dotted underline and external link icon",
+      "verified": [
+        "Stock-in-Hand has data-testid='bs-group-stock-in-hand'",
+        "ExternalLink icon (lucide-external-link) present",
+        "Dotted underline style (underline decoration-dotted) applied"
+      ]
+    },
+    "stock_in_hand_navigation": {
+      "status": "PASSED",
+      "description": "Clicking Stock-in-Hand navigates to Milling (CMR) tab",
+      "verified": [
+        "Clicked on Stock-in-Hand group",
+        "Successfully navigated to Milling (CMR) tab",
+        "Milling tab shows stock data with entries"
+      ]
+    },
+    "action_buttons_functional": {
+      "status": "PASSED",
+      "description": "PDF, Excel, Print, Refresh buttons present and functional",
+      "verified": [
+        "Print button (data-testid='bs-print-btn') found",
+        "PDF button (data-testid='bs-pdf-btn') found",
+        "Excel button (data-testid='bs-excel-btn') found",
+        "Refresh button (data-testid='bs-refresh-btn') found"
+      ]
+    },
+    "groups_expand_show_children": {
+      "status": "PASSED",
+      "description": "Expanding groups shows children with party names and amounts",
+      "verified": [
+        "Capital Account children: Opening Cash (-20,000), Opening Bank (-10,000)",
+        "Sundry Creditors: 9 children including Local Party Accounts, Lokesh Fuels, etc.",
+        "Cash & Bank Balances: Cash-in-Hand, Bank Accounts"
+      ]
+    },
+    "external_link_on_child_items": {
+      "status": "PASSED",
+      "description": "ExternalLink icon shows on hover for child items",
+      "verified": [
+        "Child items have ExternalLink icon that appears on hover",
+        "Clicking child item navigates to Cash Book & Ledgers"
+      ]
+    }
+  },
+  "test_credentials": {
+    "username": "admin",
+    "password": "admin123"
+  },
+  "navigation_flow_tested": {
+    "login": "data-testid='login-username', 'login-password', 'login-btn'",
+    "fy_summary_tab": "data-testid='tab-fy-summary'",
+    "balance_sheet_sub_tab": "data-testid='fy-tab-balance-sheet'",
+    "balance_sheet_focus": "data-testid='balance-sheet' (tabIndex=0)",
+    "milling_navigation": "Click Stock-in-Hand -> tab-milling active",
+    "cashbook_navigation": "Click/Enter on child -> tab-cashbook active"
+  }
+}

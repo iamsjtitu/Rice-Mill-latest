@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -11,37 +11,54 @@ function formatAmt(n) {
   return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
-function BalanceGroup({ group, side, onPartyClick }) {
-  const [open, setOpen] = useState(false);
+// Stock group names that should navigate to stock page
+const STOCK_GROUPS = ['Paddy Stock', 'Rice Stock (FRK)', 'Byproducts Stock', 'Rice Stock', 'Stock-in-Trade', 'Stock-in-Hand'];
+const isStockGroup = (name) => STOCK_GROUPS.some(s => name?.toLowerCase().includes(s.toLowerCase()));
+
+function BalanceGroup({ group, side, onPartyClick, onStockClick, expanded, onToggle, focusedChild, onChildFocus }) {
   const hasChildren = group.children && group.children.length > 0;
   const sideColor = side === 'liability' ? 'text-red-400' : 'text-emerald-400';
   const sideBg = side === 'liability' ? 'bg-red-500/10' : 'bg-emerald-500/10';
+  const stockClickable = isStockGroup(group.group);
 
   return (
     <div className="mb-1">
       <div
-        className={`flex items-center justify-between px-3 py-2 rounded cursor-pointer hover:bg-slate-700/50 transition ${sideBg}`}
-        onClick={() => hasChildren && setOpen(!open)}
+        className={`flex items-center justify-between px-3 py-2 rounded cursor-pointer hover:bg-slate-700/50 transition ${sideBg} ${focusedChild === -1 ? 'ring-2 ring-amber-400/80 bg-amber-500/10' : ''}`}
+        onClick={() => {
+          if (stockClickable && onStockClick) {
+            onStockClick(group.group);
+          } else if (hasChildren) {
+            onToggle();
+          }
+        }}
         data-testid={`bs-group-${group.group.replace(/\s+/g, '-').toLowerCase()}`}
       >
         <div className="flex items-center gap-2">
-          {hasChildren ? (open ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />) : <span className="w-3.5" />}
-          <span className="text-sm font-semibold text-slate-200">{group.group}</span>
+          {hasChildren ? (expanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />) : <span className="w-3.5" />}
+          <span className={`text-sm font-semibold text-slate-200 ${stockClickable ? 'underline decoration-dotted underline-offset-2 hover:text-amber-300' : ''}`}>
+            {group.group}
+          </span>
           {hasChildren && <span className="text-[10px] text-slate-500">({group.children.length})</span>}
+          {stockClickable && <ExternalLink className="w-3 h-3 text-amber-400/60" />}
         </div>
         <span className={`text-sm font-bold ${sideColor}`}>{formatAmt(group.amount)}</span>
       </div>
-      {open && hasChildren && (
+      {expanded && hasChildren && (
         <div className="ml-6 border-l border-slate-700/50 pl-3 py-1">
           {group.children.map((c, i) => (
-            <div key={i} className="flex items-center justify-between px-2 py-1.5 text-xs hover:bg-slate-800/50 rounded group">
+            <div
+              key={i}
+              className={`flex items-center justify-between px-2 py-1.5 text-xs hover:bg-slate-800/50 rounded group cursor-pointer ${focusedChild === i ? 'ring-2 ring-amber-400/80 bg-amber-500/10' : ''}`}
+              onClick={() => {
+                if (onPartyClick && !c.name.startsWith('Opening')) onPartyClick(c.name);
+              }}
+              data-testid={`bs-child-${c.name.replace(/\s+/g, '-').toLowerCase()}`}
+            >
               <span className="text-slate-300 flex items-center gap-1">
                 {c.name} {c.unit ? `(${c.unit})` : ''}
                 {onPartyClick && !c.name.startsWith('Opening') && (
-                  <ExternalLink
-                    className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 cursor-pointer hover:text-amber-400 transition"
-                    onClick={(e) => { e.stopPropagation(); onPartyClick(c.name); }}
-                  />
+                  <ExternalLink className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 cursor-pointer hover:text-amber-400 transition" />
                 )}
               </span>
               <span className={`font-medium ${sideColor}`}>{formatAmt(c.amount)}</span>
@@ -56,7 +73,13 @@ function BalanceGroup({ group, side, onPartyClick }) {
 export default function BalanceSheet({ filters, onNavigate }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const printRef = useRef(null);
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const containerRef = useRef(null);
+
+  // Keyboard nav state: which column and which row index in the flat list
+  const [focusCol, setFocusCol] = useState('liability'); // 'liability' or 'asset'
+  const [focusIdx, setFocusIdx] = useState(0);
+  const [kbActive, setKbActive] = useState(false); // keyboard mode active
 
   const fetchData = async () => {
     setLoading(true);
@@ -71,6 +94,140 @@ export default function BalanceSheet({ filters, onNavigate }) {
   };
 
   useEffect(() => { fetchData(); }, [filters.kms_year, filters.season]);
+
+  const toggleGroup = useCallback((groupName) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupName)) next.delete(groupName); else next.add(groupName);
+      return next;
+    });
+  }, []);
+
+  // Build flat navigable list for a side
+  const buildFlatList = useCallback((groups) => {
+    if (!groups) return [];
+    const list = [];
+    for (const g of groups) {
+      list.push({ type: 'group', group: g, name: g.group });
+      if (expandedGroups.has(g.group) && g.children?.length > 0) {
+        for (let ci = 0; ci < g.children.length; ci++) {
+          list.push({ type: 'child', group: g, childIdx: ci, child: g.children[ci], name: g.children[ci].name });
+        }
+      }
+    }
+    return list;
+  }, [expandedGroups]);
+
+  const liabList = useMemo(() => data ? buildFlatList(data.liabilities) : [], [data, buildFlatList]);
+  const assetList = useMemo(() => data ? buildFlatList(data.assets) : [], [data, buildFlatList]);
+
+  const currentList = focusCol === 'liability' ? liabList : assetList;
+
+  // Ensure focusIdx is in bounds
+  useEffect(() => {
+    if (focusIdx >= currentList.length && currentList.length > 0) {
+      setFocusIdx(currentList.length - 1);
+    }
+  }, [currentList.length, focusIdx]);
+
+  const handlePartyClick = useCallback((partyName) => {
+    if (onNavigate) {
+      const cleaned = partyName.replace(/^(Truck|Agent|Diesel|DC|Mill Part|Byproduct)\s*-\s*/, '').trim();
+      onNavigate('ledger', cleaned);
+    }
+  }, [onNavigate]);
+
+  const handleStockClick = useCallback((groupName) => {
+    if (onNavigate) {
+      onNavigate('stock', groupName);
+    }
+  }, [onNavigate]);
+
+  // Keyboard handler
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleKey = (e) => {
+      // Don't intercept if focus is in input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      const key = e.key;
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(key)) return;
+
+      e.preventDefault();
+      setKbActive(true);
+
+      if (key === 'ArrowDown') {
+        setFocusIdx(prev => Math.min(prev + 1, currentList.length - 1));
+      } else if (key === 'ArrowUp') {
+        setFocusIdx(prev => Math.max(prev - 1, 0));
+      } else if (key === 'ArrowRight') {
+        // If on a group: expand it. Otherwise switch column
+        const item = currentList[focusIdx];
+        if (item?.type === 'group' && item.group.children?.length > 0 && !expandedGroups.has(item.name)) {
+          toggleGroup(item.name);
+        } else {
+          // Switch to asset column
+          if (focusCol === 'liability') {
+            setFocusCol('asset');
+            setFocusIdx(0);
+          }
+        }
+      } else if (key === 'ArrowLeft') {
+        // If on a group: collapse it. Otherwise switch column
+        const item = currentList[focusIdx];
+        if (item?.type === 'group' && expandedGroups.has(item.name)) {
+          toggleGroup(item.name);
+        } else if (item?.type === 'child') {
+          // Collapse parent group
+          toggleGroup(item.group.group);
+        } else {
+          // Switch to liability column
+          if (focusCol === 'asset') {
+            setFocusCol('liability');
+            setFocusIdx(0);
+          }
+        }
+      } else if (key === 'Enter' || key === ' ') {
+        const item = currentList[focusIdx];
+        if (!item) return;
+        if (item.type === 'group') {
+          if (isStockGroup(item.name)) {
+            handleStockClick(item.name);
+          } else if (item.group.children?.length > 0) {
+            toggleGroup(item.name);
+          }
+        } else if (item.type === 'child') {
+          if (!item.child.name.startsWith('Opening')) {
+            handlePartyClick(item.child.name);
+          }
+        }
+      }
+    };
+
+    el.addEventListener('keydown', handleKey);
+    return () => el.removeEventListener('keydown', handleKey);
+  }, [currentList, focusIdx, focusCol, expandedGroups, toggleGroup, handlePartyClick, handleStockClick]);
+
+  // Scroll focused item into view
+  useEffect(() => {
+    if (!kbActive) return;
+    const focusedEl = containerRef.current?.querySelector('[data-focused="true"]');
+    if (focusedEl) {
+      focusedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [focusIdx, focusCol, kbActive]);
+
+  // Compute which group/child is focused for each side
+  const getFocusInfo = useCallback((side) => {
+    if (!kbActive || focusCol !== side) return {};
+    const item = (side === 'liability' ? liabList : assetList)[focusIdx];
+    if (!item) return {};
+    if (item.type === 'group') return { focusedGroup: item.name, focusedChild: -1 };
+    if (item.type === 'child') return { focusedGroup: item.group.group, focusedChild: item.childIdx };
+    return {};
+  }, [kbActive, focusCol, focusIdx, liabList, assetList]);
 
   const downloadPdf = () => {
     const p = new URLSearchParams();
@@ -95,23 +252,28 @@ export default function BalanceSheet({ filters, onNavigate }) {
     printWindow.onload = () => { printWindow.print(); };
   };
 
-  const handlePartyClick = (partyName) => {
-    if (onNavigate) {
-      // Clean party name (remove prefixes like "Truck - ", "Agent - ", "Diesel - ", "DC - ")
-      const cleaned = partyName.replace(/^(Truck|Agent|Diesel|DC|Mill Part|Byproduct)\s*-\s*/, '').trim();
-      onNavigate('ledger', cleaned);
-    }
-  };
-
   if (loading) return <div className="text-center text-slate-400 py-20">Loading Balance Sheet...</div>;
   if (!data) return <div className="text-center text-red-400 py-20">Data load nahi hua</div>;
 
+  const liabFocus = getFocusInfo('liability');
+  const assetFocus = getFocusInfo('asset');
+
   return (
-    <div className="space-y-4" data-testid="balance-sheet" ref={printRef}>
+    <div
+      className="space-y-4 outline-none"
+      data-testid="balance-sheet"
+      ref={containerRef}
+      tabIndex={0}
+      onFocus={() => setKbActive(true)}
+      onBlur={() => setKbActive(false)}
+    >
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-amber-400">Balance Sheet</h2>
-          <p className="text-xs text-slate-400">As on {data.as_on_date} | KMS {data.kms_year || 'All'} {data.season && `| ${data.season}`}</p>
+          <p className="text-xs text-slate-400">
+            As on {data.as_on_date} | KMS {data.kms_year || 'All'} {data.season && `| ${data.season}`}
+            {kbActive && <span className="ml-2 text-amber-400/70 text-[10px]">Keyboard ON - Arrow keys, Enter to navigate</span>}
+          </p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700" onClick={handlePrint} data-testid="bs-print-btn">
@@ -131,14 +293,27 @@ export default function BalanceSheet({ filters, onNavigate }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* LIABILITIES */}
-        <Card className="bg-slate-800/80 border-slate-700/50 backdrop-blur">
+        <Card className={`bg-slate-800/80 border-slate-700/50 backdrop-blur ${kbActive && focusCol === 'liability' ? 'ring-1 ring-amber-500/40' : ''}`}>
           <div className="px-4 pt-4 pb-2 border-b border-slate-700/50">
             <h3 className="text-sm font-bold text-red-400 uppercase tracking-wider">Liabilities</h3>
           </div>
           <CardContent className="px-3 py-3 space-y-1">
-            {data.liabilities.map((g, i) => (
-              <BalanceGroup key={i} group={g} side="liability" onPartyClick={handlePartyClick} />
-            ))}
+            {data.liabilities.map((g, i) => {
+              const isFocusedGroup = liabFocus.focusedGroup === g.group;
+              return (
+                <div key={i} data-focused={isFocusedGroup && liabFocus.focusedChild === -1 ? 'true' : undefined}>
+                  <BalanceGroup
+                    group={g}
+                    side="liability"
+                    onPartyClick={handlePartyClick}
+                    onStockClick={handleStockClick}
+                    expanded={expandedGroups.has(g.group)}
+                    onToggle={() => toggleGroup(g.group)}
+                    focusedChild={isFocusedGroup ? liabFocus.focusedChild : null}
+                  />
+                </div>
+              );
+            })}
             <div className="flex items-center justify-between px-3 py-2.5 bg-red-500/20 rounded-md mt-2 border border-red-500/30">
               <span className="text-sm font-bold text-white">TOTAL</span>
               <span className="text-sm font-bold text-red-400" data-testid="bs-total-liabilities">{formatAmt(data.total_liabilities)}</span>
@@ -147,14 +322,27 @@ export default function BalanceSheet({ filters, onNavigate }) {
         </Card>
 
         {/* ASSETS */}
-        <Card className="bg-slate-800/80 border-slate-700/50 backdrop-blur">
+        <Card className={`bg-slate-800/80 border-slate-700/50 backdrop-blur ${kbActive && focusCol === 'asset' ? 'ring-1 ring-amber-500/40' : ''}`}>
           <div className="px-4 pt-4 pb-2 border-b border-slate-700/50">
             <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider">Assets</h3>
           </div>
           <CardContent className="px-3 py-3 space-y-1">
-            {data.assets.map((g, i) => (
-              <BalanceGroup key={i} group={g} side="asset" onPartyClick={handlePartyClick} />
-            ))}
+            {data.assets.map((g, i) => {
+              const isFocusedGroup = assetFocus.focusedGroup === g.group;
+              return (
+                <div key={i} data-focused={isFocusedGroup && assetFocus.focusedChild === -1 ? 'true' : undefined}>
+                  <BalanceGroup
+                    group={g}
+                    side="asset"
+                    onPartyClick={handlePartyClick}
+                    onStockClick={handleStockClick}
+                    expanded={expandedGroups.has(g.group)}
+                    onToggle={() => toggleGroup(g.group)}
+                    focusedChild={isFocusedGroup ? assetFocus.focusedChild : null}
+                  />
+                </div>
+              );
+            })}
             <div className="flex items-center justify-between px-3 py-2.5 bg-emerald-500/20 rounded-md mt-2 border border-emerald-500/30">
               <span className="text-sm font-bold text-white">TOTAL</span>
               <span className="text-sm font-bold text-emerald-400" data-testid="bs-total-assets">{formatAmt(data.total_assets)}</span>

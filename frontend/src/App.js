@@ -2036,11 +2036,12 @@ function MainApp({ user, onLogout }) {
           <FYSummaryWithTabs filters={filters} user={user} onNavigate={(tab, party) => {
             if (tab === 'ledger') {
               setActiveTab('cashbook');
-              // Store party name for ledger navigation
               setTimeout(() => {
                 const searchInput = document.querySelector('[data-testid="cashbook-search"]') || document.querySelector('input[placeholder*="Search"]');
                 if (searchInput) { searchInput.value = party; searchInput.dispatchEvent(new Event('input', { bubbles: true })); searchInput.dispatchEvent(new Event('change', { bubbles: true })); }
               }, 500);
+            } else if (tab === 'stock') {
+              setActiveTab('milling');
             }
           }} />
         ) : activeTab === "settings" ? (
