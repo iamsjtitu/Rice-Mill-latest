@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { User, Lock, Sun, Moon } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
-const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
+const _builtInUrl = process.env.REACT_APP_BACKEND_URL || '';
+const API = `${_isElectron ? '' : _builtInUrl}/api`;
 
 /**
  * LoginPage - Authentication component with dynamic branding
@@ -129,6 +130,12 @@ const LoginPage = ({ onLogin }) => {
               {loading ? "Logging in..." : "Login"}
             </Button>
           </form>
+          {_isElectron && (
+            <div className="mt-4 p-2 rounded bg-slate-900/50 border border-slate-700" data-testid="desktop-debug">
+              <p className="text-xs text-slate-500 font-mono">Desktop Mode | API: {API}</p>
+              <p className="text-xs text-slate-500 font-mono">electronAPI: {window.electronAPI ? 'Y' : 'N'} | ELECTRON_URL: {window.ELECTRON_API_URL || 'N'} | Built: {_builtInUrl || '(empty)'}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -43,10 +43,10 @@ try { execSync('yarn install', { cwd: FRONTEND_DIR, stdio: 'inherit' }); } catch
   try { execSync('npm install ajv@8 --legacy-peer-deps', { cwd: FRONTEND_DIR, stdio: 'inherit' }); } catch(e2) {}
 }
 
-console.log('\nBuilding frontend (REACT_APP_BACKEND_URL=http://127.0.0.1:9876)...');
+console.log('\nBuilding frontend (REACT_APP_BACKEND_URL= empty for relative URLs)...');
 execSync('npm run build', {
   cwd: FRONTEND_DIR, stdio: 'inherit',
-  env: { ...process.env, REACT_APP_BACKEND_URL: 'http://127.0.0.1:9876' }
+  env: { ...process.env, REACT_APP_BACKEND_URL: '' }
 });
 
 console.log('\nCopying build to frontend-build/...');
