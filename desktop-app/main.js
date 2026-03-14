@@ -150,12 +150,28 @@ class JsonDatabase {
       agent_payments: [],
       milling_entries: [],
       bank_accounts: [],
+      opening_balances: [],
       gst_opening_balances: {},
       sale_vouchers: [],
       purchase_vouchers: [],
       local_party_accounts: [],
       voucher_payments: [],
-      stock_summary: []
+      stock_summary: [],
+      cash_transactions: [],
+      dc_entries: [],
+      dc_deliveries: [],
+      dc_msp_payments: [],
+      gunny_bags: [],
+      diesel_accounts: [],
+      private_paddy: [],
+      truck_owner_payments: [],
+      rice_sales: [],
+      byproduct_sales: [],
+      frk_purchases: [],
+      truck_leases: [],
+      truck_lease_payments: [],
+      staff: [],
+      mill_parts: []
     };
   }
 
