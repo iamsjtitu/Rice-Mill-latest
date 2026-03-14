@@ -411,6 +411,19 @@ async def delete_cash_transaction(txn_id: str):
             if ref_prefix:
                 await db.cash_transactions.delete_many({"reference": ref_prefix})
     
+    # Revert truck_lease_payments if this was a lease payment entry
+    if linked_id.startswith('truck_lease:'):
+        parts = linked_id.split(':')
+        if len(parts) >= 4:
+            lease_id = parts[1]
+            payment_id = parts[3] if len(parts) > 3 else ""
+            if payment_id:
+                await db.truck_lease_payments.delete_one({"id": payment_id})
+            # Also delete linked ledger entry
+            ref_prefix = txn.get('reference', '').replace('lease_pay:', 'auto_ledger:')
+            if ref_prefix:
+                await db.cash_transactions.delete_many({"reference": ref_prefix})
+    
     # Also delete auto-created ledger entry
     await db.cash_transactions.delete_many({"reference": f"auto_ledger:{txn_id[:8]}"})
     await db.cash_transactions.delete_one({"id": txn_id})

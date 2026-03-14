@@ -467,7 +467,9 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
         if bal > 0:
             sundry_debtors.append(l)
         elif bal < 0:
-            sundry_creditors.append({"party_name": l["party_name"], "party_type": l["party_type"], "amount": abs(bal)})
+            # Exclude Truck Lease from general creditors (handled separately)
+            if l.get("party_type") != "Truck Lease":
+                sundry_creditors.append({"party_name": l["party_name"], "party_type": l["party_type"], "amount": abs(bal)})
 
     # ===== BUILD BALANCE SHEET =====
 
@@ -512,6 +514,24 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
             if d["balance"] > 0:
                 creditors_children.append({"name": f"DC - {d['name']}", "amount": d["balance"]})
         creditors_total += sum(d["balance"] for d in dc_accounts if d["balance"] > 0)
+    # Truck Lease balances
+    lease_query = {}
+    if kms_year: lease_query["kms_year"] = kms_year
+    if season: lease_query["season"] = season
+    lease_query["status"] = "active"
+    active_leases = await db.truck_leases.find(lease_query, {"_id": 0}).to_list(500)
+    lease_total_balance = 0
+    for lease in active_leases:
+        from routes.truck_lease import get_months_between
+        months = get_months_between(lease.get("start_date", ""), lease.get("end_date", ""))
+        total_rent = len(months) * lease.get("monthly_rent", 0)
+        lease_payments = await db.truck_lease_payments.find({"lease_id": lease["id"]}, {"_id": 0, "amount": 1}).to_list(5000)
+        paid = sum(p.get("amount", 0) for p in lease_payments)
+        balance = round(total_rent - paid, 2)
+        if balance > 0:
+            creditors_children.append({"name": f"Truck Lease - {lease['truck_no']}", "amount": balance})
+            lease_total_balance += balance
+    creditors_total += lease_total_balance
     liabilities.append({"group": "Sundry Creditors", "amount": round(creditors_total, 2), "children": creditors_children})
 
     total_liabilities = round(sum(l["amount"] for l in liabilities), 2)

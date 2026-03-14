@@ -303,7 +303,7 @@ module.exports = function(database) {
       const sundryDebtors = [], sundryCreds = [];
       for (const l of ledger.parties) {
         if (l.closing_balance > 0) sundryDebtors.push(l);
-        else if (l.closing_balance < 0) sundryCreds.push({party_name: l.party_name, amount: Math.abs(l.closing_balance)});
+        else if (l.closing_balance < 0 && l.party_type !== 'Truck Lease') sundryCreds.push({party_name: l.party_name, amount: Math.abs(l.closing_balance)});
       }
 
       // LIABILITIES
@@ -317,6 +317,16 @@ module.exports = function(database) {
       for (const t of truckAccounts) { if (t.balance > 0) { credChildren.push({name:`Truck - ${t.name}`,amount:t.balance}); credTotal += t.balance; } }
       for (const a of agentAccounts) { if (a.balance > 0) { credChildren.push({name:`Agent - ${a.name}`,amount:a.balance}); credTotal += a.balance; } }
       for (const d of dcAccounts) { if (d.balance > 0) { credChildren.push({name:`DC - ${d.name}`,amount:d.balance}); credTotal += d.balance; } }
+      // Truck Lease balances
+      const activeLeases = (database.data.truck_leases || []).filter(l => l.status === 'active' && (!req.query.kms_year || l.kms_year === req.query.kms_year) && (!req.query.season || l.season === req.query.season));
+      const allLeasePayments = database.data.truck_lease_payments || [];
+      for (const lease of activeLeases) {
+        const months = []; const s = new Date((lease.start_date||'').slice(0,7)+'-01'); const e = lease.end_date ? new Date((lease.end_date||'').slice(0,7)+'-01') : new Date(); const c = new Date(s); while(c<=e){months.push(c.toISOString().slice(0,7));c.setMonth(c.getMonth()+1);}
+        const totalRent = months.length * (lease.monthly_rent || 0);
+        const paid = allLeasePayments.filter(p => p.lease_id === lease.id).reduce((s,p) => s+(p.amount||0), 0);
+        const balance = rd(totalRent - paid);
+        if (balance > 0) { credChildren.push({name:`Truck Lease - ${lease.truck_no}`,amount:balance}); credTotal += balance; }
+      }
       liabilities.push({group:'Sundry Creditors', amount: rd(credTotal), children: credChildren});
       let totalLiab = rd(liabilities.reduce((s,l) => s + l.amount, 0));
 

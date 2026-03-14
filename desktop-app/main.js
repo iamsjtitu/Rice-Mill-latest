@@ -877,6 +877,7 @@ function createApiServer(database) {
     { name: 'voucher_payments', load: () => require('./routes/voucher_payments')(database) },
     { name: 'salebook', load: () => require('./routes/salebook')(database) },
     { name: 'purchase_vouchers', load: () => require('./routes/purchase_vouchers')(database) },
+    { name: 'truck_lease', load: () => require('./routes/truck_lease')(database) },
   ];
 
   let loadedCount = 0;

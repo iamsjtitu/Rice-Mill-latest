@@ -183,6 +183,17 @@ module.exports = function(database) {
       }
     }
 
+    // Revert truck_lease_payments if this was a lease payment entry
+    if (linkedId.startsWith('truck_lease:')) {
+      const parts = linkedId.split(':');
+      if (parts.length >= 4) {
+        const paymentId = parts[3] || '';
+        if (paymentId) {
+          database.data.truck_lease_payments = (database.data.truck_lease_payments || []).filter(p => p.id !== paymentId);
+        }
+      }
+    }
+
     // Also delete auto-created ledger entry
     const txnIdShort = req.params.id.slice(0, 8);
     database.data.cash_transactions = database.data.cash_transactions.filter(t =>

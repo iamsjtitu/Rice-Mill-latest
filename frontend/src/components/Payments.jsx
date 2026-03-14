@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import LocalPartyAccount from "./payments/LocalPartyAccount";
 import { GunnyBags } from "./DCTracker";
+import LeasedTruck from "./LeasedTruck";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -867,6 +868,18 @@ export const Payments = ({ filters, user, branding }) => {
           <Package className="w-4 h-4 mr-1" />
           Gunny Bags
         </Button>
+        <Button
+          onClick={() => setActivePaymentTab("leased-truck")}
+          variant={activePaymentTab === "leased-truck" ? "default" : "ghost"}
+          size="sm"
+          className={activePaymentTab === "leased-truck" 
+            ? "bg-violet-500 hover:bg-violet-600 text-white" 
+            : "text-slate-300 hover:bg-slate-700"}
+          data-testid="tab-leased-truck"
+        >
+          <Truck className="w-4 h-4 mr-1" />
+          Leased Truck
+        </Button>
       </div>
 
       {/* Truck Filter & Export - Only for Truck Tab */}
@@ -1472,6 +1485,7 @@ export const Payments = ({ filters, user, branding }) => {
       {activePaymentTab === "diesel" && <DieselAccount filters={filters} user={user} />}
       {activePaymentTab === "local-party" && <LocalPartyAccount filters={filters} user={user} />}
       {activePaymentTab === "gunny" && <GunnyBags filters={filters} user={user} />}
+      {activePaymentTab === "leased-truck" && <LeasedTruck filters={filters} />}
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
