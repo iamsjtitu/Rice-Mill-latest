@@ -231,6 +231,18 @@ module.exports = function(database) {
     res.json([...database.data.cash_book_categories]);
   }));
 
+  router.get('/api/cash-book/agent-names', safeSync((req, res) => {
+    const { kms_year, season } = req.query;
+    // Get mandi names from targets
+    const targets = (database.data.mandi_targets || []).filter(t => (!kms_year || t.kms_year === kms_year) && (!season || t.season === season));
+    const mandiNames = [...new Set(targets.map(t => t.mandi_name).filter(Boolean))].sort();
+    // Get unique truck_no and agent_name from entries
+    const entries = (database.data.entries || []).filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
+    const truckNumbers = [...new Set(entries.map(e => e.truck_no).filter(Boolean))].sort();
+    const agentNames = [...new Set(entries.map(e => e.agent_name).filter(Boolean))].sort();
+    res.json({ mandi_names: mandiNames, truck_numbers: truckNumbers, agent_names: agentNames });
+  }));
+
   router.post('/api/cash-book/categories', safeSync((req, res) => {
     if (!database.data.cash_book_categories) database.data.cash_book_categories = [];
     const name = (req.body.name || '').trim();

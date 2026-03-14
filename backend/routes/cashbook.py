@@ -442,6 +442,21 @@ async def get_cash_book_categories():
     return cats
 
 
+@router.get("/cash-book/agent-names")
+async def get_agent_names_for_cashbook(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Return mandi names from mandi_targets and unique agent names from entries for Cash Book suggestions"""
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    # Get mandi names from targets
+    targets = await db.mandi_targets.find(query, {"_id": 0, "mandi_name": 1}).to_list(200)
+    mandi_names = list(set(t["mandi_name"] for t in targets if t.get("mandi_name")))
+    # Also get unique truck_no and agent_name from entries
+    trucks = await db.mill_entries.distinct("truck_no", query) if query else await db.mill_entries.distinct("truck_no")
+    agents = await db.mill_entries.distinct("agent_name", query) if query else await db.mill_entries.distinct("agent_name")
+    return {"mandi_names": sorted(mandi_names), "truck_numbers": sorted([t for t in trucks if t]), "agent_names": sorted([a for a in agents if a])}
+
+
 @router.post("/cash-book/categories")
 async def add_cash_book_category(request: Request):
     data = await request.json()

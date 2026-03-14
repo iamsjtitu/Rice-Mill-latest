@@ -25,25 +25,23 @@ Web application + Desktop application (Electron) for managing mill entries, cash
 ```
 /app
 ├── desktop-app/
-│   ├── src/api/routes/      # Desktop Express backend
+│   ├── routes/              # Desktop Express backend
 │   ├── frontend-build/      # Rebuilt React frontend for desktop
-│   ├── main.js              # Electron main process + cleanup scripts
-│   └── package.json
+│   ├── main.js              # Electron main + cleanup + error reporting
+│   ├── preload.js           # Enhanced with error logging IPC
+│   └── package.json         # v25.1.2
 ├── frontend/src/
-│   ├── components/          # Shared React components
-│   │   ├── ErrorBoundary.jsx  # NEW: Prevents blank page crashes
-│   │   ├── PrintButton.jsx    # UPDATED: Electron-compatible printing
-│   │   ├── CashBook.jsx
-│   │   ├── Ledgers.jsx
+│   ├── components/
+│   │   ├── ErrorBoundary.jsx  # Prevents blank page crashes + Electron error logging
+│   │   ├── PrintButton.jsx    # Electron-compatible printing
+│   │   ├── CashBook.jsx       # Now includes agent/mandi names in dropdown
 │   │   └── cashbook/
-│   └── App.js               # UPDATED: ErrorBoundary wraps all tabs
+│   └── App.js                 # ErrorBoundary wraps all tabs
 ├── backend/routes/
-│   ├── cashbook.py           # UPDATED: Truck/Agent payment revert on delete
-│   ├── fy_summary.py         # UPDATED: Balance sheet agent calc from entries+ledger
-│   ├── payments.py
-│   └── reports.py
-└── memory/
-    └── PRD.md
+│   ├── cashbook.py            # Agent-names endpoint + truck/agent payment revert
+│   ├── fy_summary.py          # Balance sheet: agent calc from entries+ledger
+│   └── payments.py            # Agent_name from entries (not mandi_targets)
+└── memory/PRD.md
 ```
 
 ## What's Been Implemented
@@ -55,26 +53,32 @@ Web application + Desktop application (Electron) for managing mill entries, cash
 - Data cleanup script for orphaned ledger entries ✅
 - Frontend rebuild workflow established ✅
 
-### Session 2 (2026-03-14) - Current
-- **ErrorBoundary** added to prevent blank page crashes ✅
-- **Balance Sheet Fix**: Agent accounts now correctly calculated from mill_entries (total) + ledger nikasi (paid), instead of wrong field names from agent_payments ✅
-- **Cash Book DELETE Fix**: Now properly reverts truck/agent payment amounts when deleting linked cash book entries ✅
-- **Desktop cashbook.js**: Case-insensitive agent detection + retroactive party_type fix ✅
-- **Desktop reports.js**: Added Agent party type to Party Ledger + safety checks ✅
-- **Desktop cleanup script**: Enhanced to fix wrong txn_type auto-ledger entries + fill missing party_types ✅
-- **PrintButton**: Improved for Electron compatibility ✅
-- **Frontend rebuilt** and copied to desktop-app ✅
-- **Version bumped** to 25.1.1 ✅
-- **All tests passed**: 12/12 backend + all frontend (iteration_88) ✅
+### Session 2 (2026-03-14)
+- ErrorBoundary added to prevent blank page crashes ✅
+- Balance Sheet Fix: Agent accounts from entries+ledger ✅
+- Cash Book DELETE: Truck/agent payment revert ✅
+- Desktop cashbook: Case-insensitive agent detection ✅
+- Cleanup script: Fix wrong txn_type + missing party_type ✅
+- PrintButton: Electron compatibility ✅
+
+### Session 2.1 (2026-03-14) - Current
+- **Agent name in Agent/Mandi Payments**: Now fetched from entries (first entry for that mandi) instead of mandi_targets ✅
+- **Cash Book agent suggestions**: New `/api/cash-book/agent-names` endpoint returns mandi names, truck numbers, agent names from entries ✅
+- **Desktop error reporting**: 
+  - Enhanced preload.js: catches renderer errors, sends to main process ✅
+  - IPC handlers for frontend error logging ✅
+  - Help menu: "Error Log Dekhein" (Ctrl+Shift+L), "Developer Console" (Ctrl+Shift+I), "Error Log Clear Karein" ✅
+  - ErrorBoundary sends errors to desktop log ✅
+- Frontend rebuilt, v25.1.2 ✅
 
 ## Pending Issues
-- P0: Blank page crash - ErrorBoundary added as safety net. Root cause needs console screenshot from user (Party Ledger search)
-- P1: Print preview in Electron - improved but needs user testing on desktop
+- P0: Blank page crash in Party Ledger - ErrorBoundary added as safety net + error reporting for debugging. Needs user testing with console screenshot.
+- P1: Print preview in Electron - improved, needs user testing
 
 ## Prioritized Backlog
 
 ### P0 (Critical)
-- Verify blank page crash is resolved after ErrorBoundary + desktop fixes
+- Verify blank page crash resolved after ErrorBoundary + desktop fixes
 
 ### P1 (Important)
 - Comprehensive audit: Compare all desktop features vs web features

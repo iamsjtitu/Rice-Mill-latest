@@ -288,6 +288,8 @@ module.exports = function(database) {
     const payments = targets.map(target => {
       const mandiEntries = entries.filter(e => (e.mandi_name||'').toLowerCase() === (target.mandi_name||'').toLowerCase());
       const achieved_qntl = mandiEntries.reduce((sum, e) => sum + (e.final_w || 0) / 100, 0);
+      // Get agent_name from entries (first entry with this mandi), matching web backend logic
+      const agentName = (mandiEntries.length > 0 && mandiEntries[0].agent_name) ? mandiEntries[0].agent_name : (target.mandi_name || '');
       const cutting_qntl = target.target_qntl * target.cutting_percent / 100;
       const target_amount = target.target_qntl * (target.base_rate ?? 10);
       const cutting_amount = cutting_qntl * (target.cutting_rate ?? 5);
@@ -307,7 +309,7 @@ module.exports = function(database) {
       if (balance_amount < 0.01) status = 'paid';
       else if (paidAmount > 0) status = 'partial';
       return {
-        mandi_name: target.mandi_name, agent_name: target.agent_name || '',
+        mandi_name: target.mandi_name, agent_name: agentName,
         target_qntl: target.target_qntl, cutting_percent: target.cutting_percent,
         cutting_qntl: Math.round(cutting_qntl * 100) / 100,
         base_rate: target.base_rate ?? 10, cutting_rate: target.cutting_rate ?? 5,

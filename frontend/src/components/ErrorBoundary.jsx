@@ -12,6 +12,10 @@ class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+    // Send to desktop error log if in Electron
+    if (window.electronAPI && window.electronAPI.logError) {
+      window.electronAPI.logError('REACT_ERROR_BOUNDARY', error.message, error.stack + '\n\nComponent Stack:\n' + (errorInfo.componentStack || ''));
+    }
   }
 
   render() {

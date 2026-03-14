@@ -1374,12 +1374,31 @@ async function createMainWindow(port) {
         });
       }},
       { type: 'separator' },
+      { label: 'Error Log Dekhein', accelerator: 'Ctrl+Shift+L', click: () => {
+        try {
+          if (fs.existsSync(errorLogPath)) {
+            shell.openPath(errorLogPath);
+          } else {
+            dialog.showMessageBox(mainWindow, { type: 'info', title: 'Error Log', message: 'Koi error log nahi mila. App sahi chal raha hai!' });
+          }
+        } catch (err) { logError('MENU_OPEN_LOG', err); }
+      }},
+      { label: 'Developer Console', accelerator: 'Ctrl+Shift+I', click: () => {
+        if (mainWindow) mainWindow.webContents.toggleDevTools();
+      }},
+      { label: 'Error Log Clear Karein', click: () => {
+        try {
+          fs.writeFileSync(errorLogPath, `[${new Date().toISOString()}] Error log cleared by user\n`);
+          dialog.showMessageBox(mainWindow, { type: 'info', title: 'Error Log', message: 'Error log clear ho gaya!' });
+        } catch (err) { logError('CLEAR_LOG', err); }
+      }},
+      { type: 'separator' },
       { label: 'About', click: () => {
         dialog.showMessageBox(mainWindow, {
           type: 'info',
           title: 'About - Mill Entry System',
           message: 'Mill Entry System',
-          detail: 'Version: v' + app.getVersion() + '\n\nDesigned By: 9x.Design\nContact: +91 72059 30002',
+          detail: 'Version: v' + app.getVersion() + '\n\nDesigned By: 9x.Design\nContact: +91 72059 30002\n\nError Log: ' + errorLogPath,
           buttons: ['OK']
         });
       }}
@@ -1569,6 +1588,23 @@ ipcMain.on('remove-recent', (event, folderPath) => {
 
 ipcMain.on('close-app', () => {
   app.quit();
+});
+
+// ============ ERROR REPORTING IPC HANDLERS ============
+ipcMain.on('log-frontend-error', (event, { context, message, stack }) => {
+  logError(`FRONTEND:${context}`, `${message}\n${stack || ''}`);
+});
+
+ipcMain.on('open-error-log', () => {
+  try {
+    if (fs.existsSync(errorLogPath)) {
+      shell.openPath(errorLogPath);
+    } else {
+      dialog.showMessageBox({ type: 'info', title: 'Error Log', message: 'Koi error log nahi mila. App sahi chal raha hai!' });
+    }
+  } catch (err) {
+    logError('OPEN_ERROR_LOG', err);
+  }
 });
 
 // ============ APPLICATION STARTUP ============

@@ -66,6 +66,7 @@ const CashBook = ({ filters, user }) => {
   const [isPvPayOpen, setIsPvPayOpen] = useState(false);
   const [pvVouchers, setPvVouchers] = useState([]);
   const [pvPayForm, setPvPayForm] = useState({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
+  const [agentSuggestions, setAgentSuggestions] = useState({ mandi_names: [], truck_numbers: [], agent_names: [] });
 
   const fetchPartySummary = useCallback(async () => {
     try {
@@ -84,6 +85,16 @@ const CashBook = ({ filters, user }) => {
       setCustomCategories(res.data);
     } catch (e) { /* ignore */ }
   }, []);
+
+  const fetchAgentNames = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append('kms_year', filters.kms_year);
+      if (filters.season) params.append('season', filters.season);
+      const res = await axios.get(`${API}/cash-book/agent-names?${params}`);
+      setAgentSuggestions(res.data);
+    } catch (e) { /* ignore */ }
+  }, [filters.kms_year, filters.season]);
 
   const fetchBankAccounts = useCallback(async () => {
     try {
@@ -130,6 +141,7 @@ const CashBook = ({ filters, user }) => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
+  useEffect(() => { fetchAgentNames(); }, [fetchAgentNames]);
   useEffect(() => { fetchBankAccounts(); }, [fetchBankAccounts]);
   useEffect(() => { if (activeView === "party-summary") fetchPartySummary(); }, [activeView, fetchPartySummary]);
 
@@ -227,7 +239,9 @@ const CashBook = ({ filters, user }) => {
   const defaultCats = DEFAULT_CATEGORIES[catKey] || [];
   const customCats = customCategories.filter(c => c.type === catKey);
   const txnCategories = [...new Set(allTxns.map(t => t.category).filter(Boolean))];
-  const categories = [...new Set([...defaultCats, ...customCats.map(c => c.name), ...txnCategories])].sort();
+  // Include mandi names (agents) and truck numbers from entries for easier payment
+  const entryNames = [...(agentSuggestions.mandi_names || []), ...(agentSuggestions.truck_numbers || [])];
+  const categories = [...new Set([...defaultCats, ...customCats.map(c => c.name), ...txnCategories, ...entryNames])].sort();
 
   const allCategoriesForFilter = [...new Set(
     allTxns
