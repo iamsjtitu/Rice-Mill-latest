@@ -383,13 +383,10 @@ module.exports = function(database) {
       for (const tn of Object.keys(truckMap)) { truckMap[tn].paid = ledgerNikasi.filter(t => (t.category||'').trim()===tn).reduce((s,t) => s+(t.amount||0), 0); }
       const truckAccounts = Object.entries(truckMap).sort().map(([name,v]) => ({name,total:rd(v.total),paid:rd(v.paid),balance:rd(v.total-v.paid)}));
       
-      const agentPayments = filterByFy(col('agent_payments')||[], req.query.kms_year, req.query.season);
+      // Agent Accounts - Always calculate total from entries and paid from ledger (source of truth)
       const mandiMap = {};
-      for (const doc of agentPayments) { const mn=doc.mandi_name||''; if(mn) mandiMap[mn]={total:doc.total_amount||0,paid:doc.total_paid||0}; }
-      const mandiEntries2 = {};
-      for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!mandiEntries2[mn]) mandiEntries2[mn]=0; mandiEntries2[mn] += e.agent_amount||0; }
-      for (const [mn, total] of Object.entries(mandiEntries2)) { if(!mandiMap[mn]) { const paid=ledgerNikasi.filter(t=>(t.category||'').toLowerCase()===mn.toLowerCase()&&t.party_type==='Agent').reduce((s,t)=>s+(t.amount||0),0); mandiMap[mn]={total,paid}; } }
-      for (const mn of Object.keys(mandiMap)) { if(!mandiMap[mn].paid) mandiMap[mn].paid = ledgerNikasi.filter(t => (t.category||'').toLowerCase()===mn.toLowerCase() && t.party_type==='Agent').reduce((s,t) => s+(t.amount||0), 0); }
+      for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!mandiMap[mn]) mandiMap[mn]={total:0,paid:0}; mandiMap[mn].total += e.agent_amount||0; }
+      for (const mn of Object.keys(mandiMap)) { mandiMap[mn].paid = ledgerNikasi.filter(t => (t.category||'').toLowerCase()===mn.toLowerCase() && t.party_type==='Agent').reduce((s,t) => s+(t.amount||0), 0); }
       const agentAccounts = Object.entries(mandiMap).sort().map(([name,v]) => ({name,total:rd(v.total),paid:rd(v.paid),balance:rd(v.total-v.paid)}));
       
       const dcEntries = filterByFy(col('dc_entries')||[], req.query.kms_year, req.query.season);
@@ -511,9 +508,9 @@ module.exports = function(database) {
       const ledgerNikasi = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account==='ledger' && t.txn_type==='nikasi');
       for (const tn of Object.keys(truckMap)) { truckMap[tn].paid = ledgerNikasi.filter(t => (t.category||'').trim()===tn).reduce((s,t) => s+(t.amount||0), 0); }
       
-      const agentPayments = filterByFy(col('agent_payments')||[], req.query.kms_year, req.query.season);
-      const mandiMap = {};
-      for (const doc of agentPayments) { const mn=doc.mandi_name||''; if(mn) mandiMap[mn]={total:doc.total_amount||0,paid:doc.total_paid||0}; }
+      const agentPayments2 = {};
+      for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!agentPayments2[mn]) agentPayments2[mn]={total:0,paid:0}; agentPayments2[mn].total += e.agent_amount||0; }
+      for (const mn of Object.keys(agentPayments2)) { agentPayments2[mn].paid = ledgerNikasi.filter(t => (t.category||'').toLowerCase()===mn.toLowerCase() && t.party_type==='Agent').reduce((s,t) => s+(t.amount||0), 0); }
       
       const dcEntries = filterByFy(col('dc_entries')||[], req.query.kms_year, req.query.season);
       const dcMap = {};
