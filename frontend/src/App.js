@@ -56,6 +56,7 @@ import BalanceSheet from "@/components/BalanceSheet";
 import ExcelImport from "@/components/ExcelImport";
 import Vouchers from "@/components/Vouchers";
 import { PrintButton } from "@/components/PrintButton";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -2037,6 +2038,7 @@ function MainApp({ user, onLogout }) {
             {activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')} | {filters.kms_year} {filters.season || ''}
           </div>
         </div>
+        <ErrorBoundary key={activeTab}>
         {activeTab === "dashboard" ? (
           <Dashboard filters={filters} user={user} />
         ) : activeTab === "payments" ? (
@@ -2669,6 +2671,7 @@ function MainApp({ user, onLogout }) {
         </Card>
           </>
         )}
+        </ErrorBoundary>
       </main>
 
       {/* Footer */}

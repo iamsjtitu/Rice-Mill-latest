@@ -16,7 +16,7 @@ module.exports = function(database) {
   // Helper to get full ledger data
   function getLedgerData(party_name, party_type, kms_year, season, date_from, date_to) {
     const dateFilter = (d) => (!date_from || d >= date_from) && (!date_to || d <= date_to);
-    const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season) && dateFilter(e.date || ''));
+    const entries = (database.data.entries || []).filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season) && dateFilter(e.date || ''));
     const ledger = [];
 
     if (!party_type || party_type === 'truck') {
@@ -30,7 +30,7 @@ module.exports = function(database) {
     }
 
     if (!party_type || party_type === 'cash_party') {
-      const cashTxns = (database.data.cash_transactions||[]).filter(t => (!kms_year||t.kms_year===kms_year) && (!season||t.season===season) && dateFilter(t.date || ''));
+      const cashTxns = (database.data.cash_transactions||[]).filter(t => (!kms_year||t.kms_year===kms_year) && (!season||t.season===season) && dateFilter(t.date || '') && t.party_type !== 'Agent');
       for (const t of cashTxns) {
         const cat = (t.category||'').trim();
         if (!cat) continue;
@@ -85,6 +85,24 @@ module.exports = function(database) {
           ledger.push({ date: pay.date||'', party_name: pn, party_type: 'Rice Buyer', description: `Payment Received: Rs.${pay.amount||0} (${pay.mode||'cash'})`, debit: Math.round((pay.amount||0)*100)/100, credit: 0, ref: (pay.id||'').substring(0,8) });
         }
       });
+    }
+
+    // Agent payments (from cash_transactions with party_type=Agent)
+    if (!party_type || party_type === 'Agent') {
+      const agentTxns = (database.data.cash_transactions||[]).filter(t =>
+        t.party_type === 'Agent' &&
+        (!kms_year||t.kms_year===kms_year) && (!season||t.season===season) && dateFilter(t.date || ''));
+      for (const t of agentTxns) {
+        const cat = (t.category||'').trim();
+        if (!cat) continue;
+        if (party_name && cat.toLowerCase() !== party_name.toLowerCase()) continue;
+        const isJama = t.txn_type === 'jama';
+        ledger.push({ date: t.date||'', party_name: cat, party_type: 'Agent',
+          description: t.description || `${isJama?'Jama':'Nikasi'}: Rs.${t.amount||0}`,
+          debit: isJama ? 0 : Math.round((t.amount||0)*100)/100,
+          credit: isJama ? Math.round((t.amount||0)*100)/100 : 0,
+          ref: (t.id||'').substring(0,8) });
+      }
     }
 
     ledger.sort((a, b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));

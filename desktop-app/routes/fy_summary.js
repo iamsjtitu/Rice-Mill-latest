@@ -280,26 +280,16 @@ module.exports = function(database) {
       }
       const truckAccounts = Object.entries(truckMap).sort().map(([name, v]) => ({name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid)}));
 
-      // Agent Accounts
-      const agentPayments = filterByFy(col('agent_payments') || [], req.query.kms_year, req.query.season);
+      // Agent Accounts - Always calculate total from entries and paid from ledger (source of truth)
       const mandiMap = {};
-      for (const doc of agentPayments) { const mn = doc.mandi_name || ''; if (mn) mandiMap[mn] = {total: doc.total_amount||0, paid: doc.total_paid||0}; }
-      // First accumulate ALL entries per mandi
-      const mandiEntries = {};
       for (const e of allEntries) {
         const mn = (e.mandi_name || '').trim(); if (!mn) continue;
-        if (!mandiEntries[mn]) mandiEntries[mn] = 0;
-        mandiEntries[mn] += e.agent_amount || 0;
+        if (!mandiMap[mn]) mandiMap[mn] = {total: 0, paid: 0};
+        mandiMap[mn].total += e.agent_amount || 0;
       }
-      // Then add mandis NOT already in mandiMap (from agent_payments)
-      for (const [mn, total] of Object.entries(mandiEntries)) {
-        if (!mandiMap[mn]) {
-          const paid = ledgerNikasi.filter(t => (t.category||'').toLowerCase() === mn.toLowerCase() && t.party_type === 'Agent').reduce((s,t) => s + (t.amount||0), 0);
-          mandiMap[mn] = {total, paid};
-        }
-      }
+      // Calculate paid from ledger nikasi transactions for each mandi
       for (const mn of Object.keys(mandiMap)) {
-        if (!mandiMap[mn].paid) mandiMap[mn].paid = ledgerNikasi.filter(t => (t.category||'').toLowerCase() === mn.toLowerCase() && t.party_type === 'Agent').reduce((s,t) => s + (t.amount||0), 0);
+        mandiMap[mn].paid = ledgerNikasi.filter(t => (t.category||'').toLowerCase() === mn.toLowerCase() && t.party_type === 'Agent').reduce((s,t) => s + (t.amount||0), 0);
       }
       const agentAccounts = Object.entries(mandiMap).sort().map(([name, v]) => ({name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid)}));
 

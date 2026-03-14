@@ -422,28 +422,22 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
     truck_total_balance = round(sum(t["balance"] for t in truck_accounts), 2)
 
     # ===== AGENT/MANDI ACCOUNTS =====
-    agent_docs = await db.agent_payments.find(query, {"_id": 0}).to_list(1000)
+    # Always calculate total from entries and paid from ledger (source of truth)
+    entries_with_mandi = await db.mill_entries.find(query, {"_id": 0, "mandi_name": 1, "agent_amount": 1}).to_list(50000)
     mandi_map = {}
-    for doc in agent_docs:
-        mn = doc.get("mandi_name", "")
-        if not mn: continue
-        mandi_map[mn] = {"total": doc.get("total_amount", 0), "paid": doc.get("total_paid", 0)}
-    # Also compute from entries if no agent_payments doc
-    mandi_entries = {}
-    for e in entries:
+    for e in entries_with_mandi:
         mn = (e.get("mandi_name") or "").strip()
         if not mn: continue
-        if mn not in mandi_entries: mandi_entries[mn] = 0
-        mandi_entries[mn] += e.get("agent_amount", 0) or 0
-    for mn, total in mandi_entries.items():
-        if mn not in mandi_map:
-            # Check ledger for paid
-            paid_txns = await db.cash_transactions.find(
-                {**query, "account": "ledger", "txn_type": "nikasi", "category": {"$regex": f"^{mn}$", "$options": "i"},
-                 "party_type": "Agent"}, {"_id": 0, "amount": 1}
-            ).to_list(5000)
-            paid = sum(t.get("amount", 0) for t in paid_txns)
-            mandi_map[mn] = {"total": total, "paid": paid}
+        if mn not in mandi_map: mandi_map[mn] = {"total": 0, "paid": 0}
+        mandi_map[mn]["total"] += e.get("agent_amount", 0) or 0
+    # Calculate paid from ledger nikasi transactions for each mandi
+    for mn in list(mandi_map.keys()):
+        paid_txns = await db.cash_transactions.find(
+            {**query, "account": "ledger", "txn_type": "nikasi",
+             "category": {"$regex": f"^{mn}$", "$options": "i"},
+             "party_type": "Agent"}, {"_id": 0, "amount": 1}
+        ).to_list(5000)
+        mandi_map[mn]["paid"] = sum(t.get("amount", 0) for t in paid_txns)
     agent_accounts = [{"name": mn, "total": round(v["total"], 2), "paid": round(v["paid"], 2), "balance": round(v["total"] - v["paid"], 2)} for mn, v in sorted(mandi_map.items())]
     agent_total_balance = round(sum(a["balance"] for a in agent_accounts), 2)
 

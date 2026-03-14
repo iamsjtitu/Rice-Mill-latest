@@ -330,7 +330,7 @@ async def delete_cash_transactions_bulk(request: Request):
 
 @router.delete("/cash-book/{txn_id}")
 async def delete_cash_transaction(txn_id: str):
-    # Find the transaction first to check if we need to revert private_paddy paid_amount
+    # Find the transaction first to check if we need to revert payment amounts
     txn = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -360,6 +360,56 @@ async def delete_cash_transaction(txn_id: str):
                 {"id": pvt_entry["id"]},
                 {"$set": {"paid_amount": new_paid, "balance": new_balance, "status": new_status}}
             )
+    
+    # Revert truck_payments paid_amount if this was a truck payment entry
+    linked_id = txn.get('linked_payment_id', '')
+    if linked_id.startswith('truck:'):
+        entry_id = linked_id.replace('truck:', '')
+        tp_doc = await db.truck_payments.find_one({"entry_id": entry_id}, {"_id": 0})
+        if tp_doc:
+            rev_amount = round(txn.get('amount', 0), 2)
+            new_paid = round(max(0, tp_doc.get("paid_amount", 0) - rev_amount), 2)
+            history = tp_doc.get("payments_history", [])
+            # Remove matching history entry (latest with same amount)
+            for i in range(len(history) - 1, -1, -1):
+                if round(history[i].get("amount", 0), 2) == rev_amount:
+                    history.pop(i)
+                    break
+            await db.truck_payments.update_one(
+                {"entry_id": entry_id},
+                {"$set": {"paid_amount": new_paid, "payments_history": history, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+        # Also delete the linked ledger entry
+        ref_prefix = txn.get('reference', '').replace('truck_pay:', 'truck_pay_ledger:')
+        if ref_prefix:
+            await db.cash_transactions.delete_many({"reference": ref_prefix})
+    
+    # Revert agent_payments paid_amount if this was an agent payment entry
+    if linked_id.startswith('agent:'):
+        parts = linked_id.split(':')
+        if len(parts) >= 4:
+            mandi_name = parts[1]
+            kms_year = parts[2]
+            season = parts[3]
+            ap_doc = await db.agent_payments.find_one(
+                {"mandi_name": mandi_name, "kms_year": kms_year, "season": season}, {"_id": 0}
+            )
+            if ap_doc:
+                rev_amount = round(txn.get('amount', 0), 2)
+                new_paid = round(max(0, ap_doc.get("paid_amount", 0) - rev_amount), 2)
+                history = ap_doc.get("payments_history", [])
+                for i in range(len(history) - 1, -1, -1):
+                    if round(history[i].get("amount", 0), 2) == rev_amount:
+                        history.pop(i)
+                        break
+                await db.agent_payments.update_one(
+                    {"mandi_name": mandi_name, "kms_year": kms_year, "season": season},
+                    {"$set": {"paid_amount": new_paid, "payments_history": history, "updated_at": datetime.now(timezone.utc).isoformat()}}
+                )
+            # Also delete the linked ledger entry
+            ref_prefix = txn.get('reference', '').replace('agent_pay:', 'agent_pay_ledger:')
+            if ref_prefix:
+                await db.cash_transactions.delete_many({"reference": ref_prefix})
     
     # Also delete auto-created ledger entry
     await db.cash_transactions.delete_many({"reference": f"auto_ledger:{txn_id[:8]}"})

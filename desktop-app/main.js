@@ -916,14 +916,14 @@ function createApiServer(database) {
     res.json({ loaded: loadedCount, total: routeDefs.length, failed: failedRoutes, version: require('./package.json').version });
   }));
 
-  // ===== ONE-TIME STARTUP: Cleanup orphaned auto-ledger entries =====
+  // ===== ONE-TIME STARTUP: Cleanup orphaned auto-ledger entries & fix data issues =====
   try {
     const txns = database.data.cash_transactions || [];
-    // Find all auto_ledger entries
+    let fixCount = 0;
+    
+    // 1. Find and remove orphaned auto_ledger entries
     const autoLedgers = txns.filter(t => (t.reference || '').startsWith('auto_ledger:'));
-    // Get all non-auto-ledger transaction ID prefixes (first 8 chars)
     const validIdPrefixes = new Set(txns.filter(t => !(t.reference || '').startsWith('auto_ledger:')).map(t => (t.id || '').slice(0, 8)));
-    // Find orphaned: auto_ledger entries whose parent no longer exists
     const orphanedRefs = [];
     autoLedgers.forEach(al => {
       const parentPrefix = (al.reference || '').replace('auto_ledger:', '');
@@ -932,11 +932,51 @@ function createApiServer(database) {
       }
     });
     if (orphanedRefs.length > 0) {
-      database.data.cash_transactions = txns.filter(t => !orphanedRefs.includes(t.reference));
-      database.save();
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => !orphanedRefs.includes(t.reference));
+      fixCount += orphanedRefs.length;
       console.log(`[Cleanup] Removed ${orphanedRefs.length} orphaned auto-ledger entries`);
+    }
+    
+    // 2. Fix auto-ledger entries that have wrong txn_type (should always be 'nikasi')
+    let fixedTxnType = 0;
+    (database.data.cash_transactions || []).forEach(t => {
+      if ((t.reference || '').startsWith('auto_ledger:') && t.account === 'ledger' && t.txn_type !== 'nikasi') {
+        t.txn_type = 'nikasi';
+        fixedTxnType++;
+      }
+    });
+    if (fixedTxnType > 0) {
+      fixCount += fixedTxnType;
+      console.log(`[Cleanup] Fixed ${fixedTxnType} auto-ledger entries with wrong txn_type`);
+    }
+    
+    // 3. Retroactive party_type fix - fill empty party_type from same category entries
+    let fixedPartyType = 0;
+    const partyTypeMap = {};
+    (database.data.cash_transactions || []).forEach(t => {
+      if (t.category && t.party_type) {
+        partyTypeMap[t.category.toLowerCase()] = t.party_type;
+      }
+    });
+    (database.data.cash_transactions || []).forEach(t => {
+      if (t.category && (!t.party_type || t.party_type === '')) {
+        const knownType = partyTypeMap[t.category.toLowerCase()];
+        if (knownType) {
+          t.party_type = knownType;
+          fixedPartyType++;
+        }
+      }
+    });
+    if (fixedPartyType > 0) {
+      fixCount += fixedPartyType;
+      console.log(`[Cleanup] Fixed ${fixedPartyType} entries with missing party_type`);
+    }
+    
+    if (fixCount > 0) {
+      database.save();
+      console.log(`[Cleanup] Total ${fixCount} fixes applied and saved`);
     } else {
-      console.log('[Cleanup] No orphaned auto-ledger entries found');
+      console.log('[Cleanup] No data issues found');
     }
   } catch (e) {
     console.error('[Cleanup] Error:', e.message);
