@@ -171,7 +171,13 @@ class JsonDatabase {
       truck_leases: [],
       truck_lease_payments: [],
       staff: [],
-      mill_parts: []
+      mill_parts: [],
+      diesel_pumps: [],
+      truck_owner_payments: [],
+      msp_payments: [],
+      staff_payments: [],
+      staff_advances: [],
+      staff_attendance: []
     };
   }
 

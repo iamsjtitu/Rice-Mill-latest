@@ -202,7 +202,8 @@ router.post('/api/local-party/settle', safeSync((req, res) => {
   database.data.local_party_accounts.push(payTxn);
 
   const cb = {
-    id: uuidv4(), date, account: 'cash', txn_type: 'nikasi', category: 'Local Party Payment',
+    id: uuidv4(), date, account: 'cash', txn_type: 'nikasi', category: party_name,
+    party_type: 'Local Party',
     description: `Local Party Payment: ${party_name} - Rs.${amount}${notes ? ' (' + notes + ')' : ''}`,
     amount: Math.round(amount * 100) / 100, reference: `local_party:${payTxn.id.slice(0, 8)}`,
     kms_year, season, created_by: username,
@@ -210,6 +211,16 @@ router.post('/api/local-party/settle', safeSync((req, res) => {
     created_at: new Date().toISOString(), updated_at: new Date().toISOString()
   };
   database.data.cash_transactions.push(cb);
+  // Ledger nikasi - for party summary paid calculation + Party Ledger
+  database.data.cash_transactions.push({
+    id: uuidv4(), date, account: 'ledger', txn_type: 'nikasi', category: party_name,
+    party_type: 'Local Party',
+    description: `Local Party Payment: ${party_name} - Rs.${amount}${notes ? ' (' + notes + ')' : ''}`,
+    amount: Math.round(amount * 100) / 100, reference: `local_party_ledger:${payTxn.id.slice(0, 8)}`,
+    kms_year, season, created_by: username,
+    linked_local_party_id: payTxn.id,
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+  });
   database.save();
 
   res.json({ success: true, message: `Rs.${amount} payment to ${party_name} recorded`, txn_id: payTxn.id });

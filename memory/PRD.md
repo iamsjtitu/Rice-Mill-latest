@@ -14,39 +14,41 @@ Web + Desktop (Electron) mill entry management system. Web app is source of trut
 ### Session 1 - Desktop Sync
 - Desktop login fix, 35+ endpoints synced, rebuild workflow
 
-### Session 2 - Bug Fixes
+### Session 2 - Bug Fixes & Features
 - ErrorBoundary, Balance Sheet fix, Cash Book DELETE payment revert
-- Desktop cashbook case-insensitive agent detection
-- Enhanced cleanup script, PrintButton Electron compatibility
-
-### Session 2.1 - Agent Name + Error Reporting
 - Agent name from entries, Cash Book agent suggestions
-- Desktop error reporting via IPC
-
-### Session 2.2 - Comprehensive Audit
-- Route parity 98%, Balance Sheet PDF/Excel agent fix
-- Agent party type in desktop Party Ledger
+- Desktop error reporting via IPC, Comprehensive audit
 
 ### Session 2.3 - Truck Lease Management
 - Full CRUD APIs (web + desktop), LeasedTruck.jsx UI
 - Monthly payment grid, Balance Sheet integration
-- Auto-detect leased trucks in entries, "Leased" badge
-- Search/filter + PDF/Excel export for leased trucks
+- Auto-detect leased trucks, "Leased" badge, Search/filter + PDF/Excel export
 
-### Session 2.4 (2026-03-14) - UI Fixes + Export Fixes
-- **Cash Book form field reorder:** Party/Category moved after Account, before Type/Amount
-- **Dashboard PDF Export for Desktop:** Added `/api/export/dashboard-pdf` endpoint
-- **Stock Summary PDF fix:** Desktop was returning HTML → Rewrote with pdfkit (colorful category headers, styled tables)
-- **Stock Summary Excel fix:** Desktop was basic text → Rewrote with ExcelJS (all items, colored headers, styled columns, matching page design)
+### Session 2.4 (2026-03-14) - Comprehensive Payment Audit + Fixes
+**Critical Bug Pattern Found:** Multiple payment endpoints created `cash nikasi` but NOT `ledger nikasi`. Summary/consolidation views read from ledger → payments showed as Paid: ₹0
 
-**Tests:** iteration_91: Backend 8/8 + Frontend 100% pass
-**Version:** 25.1.7
+**Fixed Endpoints:**
+- `diesel-accounts/pay` → Added ledger nikasi (diesel.js)
+- `local-party/settle` → Fixed category (party name) + added ledger nikasi (local_party.js)
+- `truck-owner/:truckNo/pay` → Added ledger nikasi (payments.js)
+- `truck-owner/:truckNo/mark-paid` → Added ledger nikasi (payments.js)
+- `truck-owner/:truckNo/undo-paid` → Added ledger cleanup (payments.js)
+- Diesel Excel/PDF exports → Aligned paid calculation to use ledger
 
-## Data Models
-```
-truck_leases: {id, truck_no, owner_name, monthly_rent, start_date, end_date, advance_deposit, status, kms_year, season}
-truck_lease_payments: {id, lease_id, truck_no, owner_name, month, amount, account, bank_name, payment_date, notes, kms_year, season}
-```
+**Already Correct:**
+- truck-payments/:id/pay, mark-paid
+- agent-payments/:mandi/pay, mark-paid
+- truck-leases/:id/pay
+- private-payments, voucher-payment
+
+**Other Fixes:**
+- Cash Book form: Type change no longer resets Party/Category field
+- Stock Summary PDF: Proper pdfkit PDF (was HTML)
+- Stock Summary Excel: Full colorful export with all items
+- Dashboard PDF export for desktop
+- main.js: Added 23 missing default collections
+
+**Version:** 25.1.11
 
 ## Pending Issues
 - None currently open
@@ -56,7 +58,7 @@ truck_lease_payments: {id, lease_id, truck_no, owner_name, month, amount, accoun
 - Login debug panel removal
 ### P2
 - PDF/Excel refactor (reduce duplicate code)
-- App.js breakdown (file too large at 2775 lines)
+- App.js breakdown (2775+ lines)
 - Stock calculation centralize
 
 ## Credentials
