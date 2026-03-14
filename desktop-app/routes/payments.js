@@ -537,7 +537,7 @@ module.exports = function(database) {
       remaining = Math.round((remaining - allot) * 100) / 100;
     }
 
-    // Cash book nikasi only (no ledger jama)
+    // Cash book nikasi
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     database.data.cash_transactions.push({
       id: uuidv4(), date: new Date().toISOString().split('T')[0],
@@ -546,6 +546,17 @@ module.exports = function(database) {
       description: `Truck Owner Payment: ${truckNo}` + (note ? ` - ${note}` : ''),
       amount: amount, reference: `truck_owner:${truckNo}`,
       linked_payment_id: `truck_owner:${truckNo}:${kms_year || ''}:${season || ''}`,
+      kms_year: kms_year || '', season: season || '',
+      created_at: new Date().toISOString()
+    });
+    // Ledger nikasi - reduce truck outstanding (needed for paid_amount calculation)
+    database.data.cash_transactions.push({
+      id: uuidv4(), date: new Date().toISOString().split('T')[0],
+      account: 'ledger', txn_type: 'nikasi',
+      category: truckNo, party_type: 'Truck',
+      description: `Truck Owner Payment: ${truckNo}` + (note ? ` - ${note}` : ''),
+      amount: amount, reference: `truck_owner_ledger:${truckNo}`,
+      linked_payment_id: `truck_owner_ledger:${truckNo}:${kms_year || ''}:${season || ''}:${uuidv4().substring(0,6)}`,
       kms_year: kms_year || '', season: season || '',
       created_at: new Date().toISOString()
     });
@@ -593,7 +604,7 @@ module.exports = function(database) {
 
     if (totalMarked > 0) {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
-      // Cash book nikasi only (no ledger jama)
+      // Cash book nikasi
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0],
         account: 'cash', txn_type: 'nikasi',
@@ -601,6 +612,17 @@ module.exports = function(database) {
         description: `Truck Owner Full Payment: ${truckNo}`,
         amount: totalMarked, reference: `truck_owner:${truckNo}`,
         linked_payment_id: `truck_owner:${truckNo}:${kms_year || ''}:${season || ''}`,
+        kms_year: kms_year || '', season: season || '',
+        created_at: new Date().toISOString()
+      });
+      // Ledger nikasi - reduce truck outstanding
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: new Date().toISOString().split('T')[0],
+        account: 'ledger', txn_type: 'nikasi',
+        category: truckNo, party_type: 'Truck',
+        description: `Truck Owner Full Payment: ${truckNo}`,
+        amount: totalMarked, reference: `truck_owner_ledger:${truckNo}`,
+        linked_payment_id: `truck_owner_ledger:${truckNo}:${kms_year || ''}:${season || ''}:${uuidv4().substring(0,6)}`,
         kms_year: kms_year || '', season: season || '',
         created_at: new Date().toISOString()
       });
@@ -632,7 +654,14 @@ module.exports = function(database) {
     }
     // Delete owner-level cash transactions
     if (database.data.cash_transactions) {
-      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== `truck_owner:${truckNo}:${kms_year || ''}:${season || ''}`);
+      database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+        t.linked_payment_id !== `truck_owner:${truckNo}:${kms_year || ''}:${season || ''}`
+      );
+      // Also remove owner ledger entries
+      database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+        !(t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === truckNo &&
+          (t.reference || '').startsWith(`truck_owner_ledger:${truckNo}`))
+      );
     }
     database.save();
     res.json({ success: true, message: `${truckNo} ke saare payments undo ho gaye` });
