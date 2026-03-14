@@ -142,7 +142,7 @@ const TransactionFormDialog = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-slate-600">Type</Label>
-              <Select value={form.txn_type} onValueChange={(v) => setForm(p => ({ ...p, txn_type: v, category: "" }))}>
+              <Select value={form.txn_type} onValueChange={(v) => setForm(p => ({ ...p, txn_type: v }))}>
                 <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="jama">Jama (In)</SelectItem>
