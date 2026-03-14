@@ -11,7 +11,7 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://web-app-mirror-2.preview.emergentagent.com"
+    BASE_URL = "https://desktop-sync-fix.preview.emergentagent.com"
 
 class TestPaddyStockCalculation:
     """Test Paddy stock calculation fix - should be ~297Q not 461.96Q"""
