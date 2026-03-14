@@ -1,0 +1,56 @@
+{
+  "summary": "Completed testing of Leased Truck module new features for iteration 91. Backend: 8/8 tests passed (100%). Frontend: All UI features verified working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration91_leased_truck_features.py",
+    "/app/test_reports/pytest/pytest_results_iteration91.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration91_leased_truck_features.py"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 tests passed)",
+    "frontend": "100% (all UI features verified)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "None - used existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Leased Truck module features fully tested. Active leased trucks: OD15B5678, TEST_LEASE_5502CB, TEST_LEASE_7A966C, TEST_LEASE_D21395. Entry OD15A1234 is NOT leased so no badge shows (correct). Badge will show for entries with leased truck numbers.",
+  "features_tested": {
+    "backend_apis": [
+      "GET /api/truck-leases - returns list of leases ✓",
+      "GET /api/truck-leases?status=active - returns only active leases ✓",
+      "GET /api/truck-leases/export/pdf - returns valid PDF (200, correct headers) ✓",
+      "GET /api/truck-leases/export/pdf?kms_year=2025-2026 - with filters ✓",
+      "GET /api/truck-leases/export/excel - returns valid Excel (200, .xlsx format) ✓",
+      "GET /api/truck-leases/export/excel?kms_year=2025-2026 - with filters ✓",
+      "Login with admin/admin123 ✓",
+      "Known leased truck OD15B5678 exists with correct data ✓"
+    ],
+    "frontend_ui": [
+      "Login with admin/admin123 works ✓",
+      "Navigate to Payments tab ✓",
+      "Leased Truck sub-tab exists under Payments ✓",
+      "Summary cards (Active Leases=4, Monthly Rent Total=Rs.2,70,000, Daily Rate=Rs.9,000/day) ✓",
+      "Search input filters leases by truck_no ✓",
+      "Search input filters leases by owner_name ✓",
+      "PDF export button visible ✓",
+      "Excel export button visible ✓",
+      "Entry form shows 'Leased Truck' indicator for OD15B5678 ✓",
+      "Entry form shows 'Leased Truck' indicator for TEST_LEASE_5502CB ✓",
+      "Entry form does NOT show indicator for non-leased truck OD15A1234 ✓",
+      "Entry table shows no badge for OD15A1234 (correct - not leased) ✓"
+    ]
+  }
+}
