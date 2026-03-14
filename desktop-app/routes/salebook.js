@@ -288,59 +288,302 @@ module.exports = function(database) {
     res.json({ items: stockItems });
   }));
 
-  router.get('/api/stock-summary/export/excel', safeHandler(async (req, res) => {
-    const ExcelJS = require('exceljs');
-    // Use same logic as stock-summary endpoint
-    const summaryRes = { json: null };
-    const fakeRes = { json: (d) => { summaryRes.json = d; } };
-    // Get stock data by calling the main handler inline
+  // Helper to get full stock data
+  const getStockItems = (req) => {
     const { kms_year, season } = req.query;
     const filter = (arr, ky, sn) => { let r = arr || []; if (ky) r = r.filter(e => e.kms_year === ky); if (sn) r = r.filter(e => e.season === sn); return r; };
     const round2 = v => Math.round((v || 0) * 100) / 100;
     const milling = filter(database.data.milling_entries, kms_year, season);
+    const dc = filter(database.data.dc_entries, kms_year, season);
+    const pvtSales = filter(database.data.rice_sales, kms_year, season);
+    const saleVouchers = filter(database.data.sale_vouchers, kms_year, season);
+    const bpSales = filter(database.data.byproduct_sales, kms_year, season);
+    const purchaseVouchers = filter(database.data.purchase_vouchers, kms_year, season);
     const millEntries = filter(database.data.entries, kms_year, season);
     const pvtPaddy = filter(database.data.private_paddy, kms_year, season).filter(e => e.source !== 'agent_extra');
+    const gunnyEntries = filter(database.data.gunny_bags, kms_year, season);
+    const frkPurchases = filter(database.data.frk_purchases, kms_year, season);
     const cmrPaddyIn = round2(millEntries.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100 - (e.p_pkt_cut || 0) / 100, 0));
     const pvtPaddyIn = round2(pvtPaddy.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100, 0));
-    const paddyUsed = round2(milling.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0));
-    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Stock Summary');
-    ws.addRow(['Item', 'Category', 'In Qty', 'Out Qty', 'Available', 'Unit', 'Details']).font = { bold: true };
-    ws.addRow(['Paddy', 'Raw Material', round2(cmrPaddyIn + pvtPaddyIn), paddyUsed, round2(cmrPaddyIn + pvtPaddyIn - paddyUsed), 'Qntl', `CMR: ${cmrPaddyIn} + Pvt: ${pvtPaddyIn}`]);
+    const paddyUsedMilling = round2(milling.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0));
+    const usnaProduced = round2(milling.filter(e => ['usna', 'parboiled'].includes((e.rice_type || '').toLowerCase())).reduce((s, e) => s + (e.rice_qntl || 0), 0));
+    const rawProduced = round2(milling.filter(e => (e.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0));
+    const govtDelivered = round2(dc.reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+    const pvtSoldUsna = round2(pvtSales.filter(s => ['usna', 'parboiled'].includes((s.rice_type || '').toLowerCase())).reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+    const pvtSoldRaw = round2(pvtSales.filter(s => (s.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+    const sbSold = {}; saleVouchers.forEach(sv => (sv.items || []).forEach(i => { const n = i.item_name || ''; sbSold[n] = (sbSold[n] || 0) + (parseFloat(i.quantity) || 0); }));
+    const pvBought = {}; purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { const n = i.item_name || ''; pvBought[n] = (pvBought[n] || 0) + (parseFloat(i.quantity) || 0); }));
     const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    const bpProduced = {}; products.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
+    const bpSoldMap = {}; bpSales.forEach(s => { const p = s.product || ''; bpSoldMap[p] = (bpSoldMap[p] || 0) + (s.quantity_qntl || 0); });
+    const frkIn = round2((frkPurchases || []).reduce((s, e) => s + (e.quantity_qntl || e.quantity || 0), 0));
+    const stockItems = [];
+    const pvPaddy = round2(pvBought['Paddy'] || 0);
+    const paddyTotalIn = round2(cmrPaddyIn + pvtPaddyIn + pvPaddy);
+    stockItems.push({ name: 'Paddy', category: 'Raw Material', in_qty: paddyTotalIn, out_qty: paddyUsedMilling, available: round2(paddyTotalIn - paddyUsedMilling), unit: 'Qntl', details: `CMR: ${cmrPaddyIn}Q + Pvt: ${pvtPaddyIn}Q + Purchase: ${pvPaddy}Q - Milling: ${paddyUsedMilling}Q` });
+    const pvUsna = round2(pvBought['Rice (Usna)'] || 0);
+    const usnaSoldTotal = round2(govtDelivered + pvtSoldUsna + (sbSold['Rice (Usna)'] || 0));
+    stockItems.push({ name: 'Rice (Usna)', category: 'Finished', in_qty: round2(usnaProduced + pvUsna), out_qty: usnaSoldTotal, available: round2(usnaProduced + pvUsna - usnaSoldTotal), unit: 'Qntl', details: `Milling: ${usnaProduced}Q + Purchase: ${pvUsna}Q - DC: ${govtDelivered}Q - Pvt: ${pvtSoldUsna}Q - Sale: ${sbSold['Rice (Usna)'] || 0}Q` });
+    const pvRaw = round2(pvBought['Rice (Raw)'] || 0);
+    const rawSoldTotal = round2(pvtSoldRaw + (sbSold['Rice (Raw)'] || 0));
+    stockItems.push({ name: 'Rice (Raw)', category: 'Finished', in_qty: round2(rawProduced + pvRaw), out_qty: rawSoldTotal, available: round2(rawProduced + pvRaw - rawSoldTotal), unit: 'Qntl', details: `Milling: ${rawProduced}Q + Purchase: ${pvRaw}Q - Pvt: ${pvtSoldRaw}Q - Sale: ${sbSold['Rice (Raw)'] || 0}Q` });
     products.forEach(p => {
-      const produced = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0));
-      ws.addRow([p.charAt(0).toUpperCase() + p.slice(1), 'By-Product', produced, 0, produced, 'Qntl', `From milling`]);
+      const produced = bpProduced[p] || 0; const soldBp = round2(bpSoldMap[p] || 0);
+      const soldSb = sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const purchased = pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const totalIn = round2(produced + purchased); const totalOut = round2(soldBp + soldSb);
+      stockItems.push({ name: p.charAt(0).toUpperCase() + p.slice(1), category: 'By-Product', in_qty: totalIn, out_qty: totalOut, available: round2(totalIn - totalOut), unit: 'Qntl', details: `Milling: ${produced}Q + Purchased: ${purchased}Q - Sold: ${soldBp}Q - Sale Voucher: ${soldSb}Q` });
     });
-    ws.columns.forEach(c => c.width = 18);
+    const frkPurchasedPv = pvBought['FRK'] || 0;
+    const frkTotalIn = round2(frkIn + frkPurchasedPv); const frkSoldSb = sbSold['FRK'] || 0;
+    stockItems.push({ name: 'FRK', category: 'By-Product', in_qty: frkTotalIn, out_qty: frkSoldSb, available: round2(frkTotalIn - frkSoldSb), unit: 'Qntl', details: `FRK Purchase: ${frkIn}Q + Purchase Voucher: ${frkPurchasedPv}Q - Sale Voucher: ${frkSoldSb}Q` });
+    const knownItems = new Set(['Paddy', 'Rice (Usna)', 'Rice (Raw)', 'FRK', ...products.map(p => p.charAt(0).toUpperCase() + p.slice(1))]);
+    for (const [itemName, qty] of Object.entries(pvBought)) {
+      if (!knownItems.has(itemName)) { const sold = sbSold[itemName] || 0; stockItems.push({ name: itemName, category: 'Custom', in_qty: round2(qty), out_qty: round2(sold), available: round2(qty - sold), unit: 'Qntl', details: `Purchased: ${qty}Q - Sold: ${sold}Q` }); }
+    }
+    const gunnyIn = gunnyEntries.filter(e => e.txn_type === 'in').reduce((s, e) => s + (e.quantity || 0), 0);
+    const gunnyOut = gunnyEntries.filter(e => e.txn_type === 'out').reduce((s, e) => s + (e.quantity || 0), 0);
+    if (gunnyIn > 0 || gunnyOut > 0) {
+      const newIn = gunnyEntries.filter(e => e.txn_type === 'in' && e.bag_type === 'new').reduce((s, e) => s + (e.quantity || 0), 0);
+      const oldIn = gunnyEntries.filter(e => e.txn_type === 'in' && e.bag_type === 'old').reduce((s, e) => s + (e.quantity || 0), 0);
+      stockItems.push({ name: 'Gunny Bags', category: 'Raw Material', in_qty: gunnyIn, out_qty: gunnyOut, available: gunnyIn - gunnyOut, unit: 'Bags', details: `Govt(New): ${newIn} + Market(Old): ${oldIn} - Used: ${gunnyOut}` });
+    }
+    return stockItems;
+  };
+
+  // ===== STOCK SUMMARY EXCEL (COLORFUL) =====
+  router.get('/api/stock-summary/export/excel', safeHandler(async (req, res) => {
+    const ExcelJS = require('exceljs');
+    const items = getStockItems(req);
+    const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Stock Summary');
+
+    const thinBorder = { style: 'thin', color: { argb: 'FFCBD5E1' } };
+    const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+
+    // Title
+    ws.mergeCells('A1:F1');
+    const titleCell = ws.getCell('A1');
+    titleCell.value = `${company} - Stock Summary`;
+    titleCell.font = { bold: true, size: 14, color: { argb: 'FF1565C0' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(1).height = 28;
+
+    // Meta
+    ws.mergeCells('A2:F2');
+    const metaCell = ws.getCell('A2');
+    const parts = ['Stock Summary Report'];
+    if (req.query.kms_year) parts.push(`FY: ${req.query.kms_year}`);
+    if (req.query.season) parts.push(req.query.season);
+    parts.push(`Date: ${new Date().toLocaleDateString('en-IN')}`);
+    metaCell.value = parts.join(' | ');
+    metaCell.font = { size: 8, color: { argb: 'FF666666' } };
+    metaCell.alignment = { horizontal: 'center' };
+
+    // Group items
+    const grouped = {};
+    items.forEach(item => { const c = item.category || 'Other'; if (!grouped[c]) grouped[c] = []; grouped[c].push(item); });
+
+    const catFills = {
+      'Raw Material': { argb: 'FFFFF7ED' }, 'Finished': { argb: 'FFF0FDF4' },
+      'By-Product': { argb: 'FFEFF6FF' }, 'Custom': { argb: 'FFF5F3FF' },
+    };
+    const catHeaderFills = {
+      'Raw Material': { argb: 'FFFEF3C7' }, 'Finished': { argb: 'FFD1FAE5' },
+      'By-Product': { argb: 'FFDBEAFE' }, 'Custom': { argb: 'FFEDE9FE' },
+    };
+    const catTextColors = {
+      'Raw Material': { argb: 'FFD97706' }, 'Finished': { argb: 'FF059669' },
+      'By-Product': { argb: 'FF2563EB' }, 'Custom': { argb: 'FF7C3AED' },
+    };
+
+    let row = 4;
+    for (const [catName, catItems] of Object.entries(grouped)) {
+      // Category header row
+      ws.mergeCells(`A${row}:F${row}`);
+      const catCell = ws.getCell(`A${row}`);
+      catCell.value = `${catName} (${catItems.length} items)`;
+      catCell.font = { bold: true, size: 11, color: catTextColors[catName] || { argb: 'FF1E293B' } };
+      catCell.fill = { type: 'pattern', pattern: 'solid', fgColor: catHeaderFills[catName] || { argb: 'FFF1F5F9' } };
+      catCell.border = border;
+      ws.getRow(row).height = 24;
+      row++;
+
+      // Column headers
+      const headers = ['Item', 'In (Qntl)', 'Out (Qntl)', 'Available', 'Unit', 'Details'];
+      const hdrRow = ws.getRow(row);
+      headers.forEach((h, i) => {
+        const cell = hdrRow.getCell(i + 1);
+        cell.value = h;
+        cell.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+        cell.alignment = { horizontal: ['In (Qntl)', 'Out (Qntl)', 'Available'].includes(h) ? 'right' : 'left', vertical: 'middle' };
+        cell.border = border;
+      });
+      ws.getRow(row).height = 20;
+      row++;
+
+      // Data rows
+      catItems.forEach((item, idx) => {
+        const dataRow = ws.getRow(row);
+        const vals = [item.name, item.in_qty, item.out_qty, `${item.available} ${item.unit}`, item.unit, item.details];
+        const rowFill = idx % 2 === 0 ? { argb: 'FFFFFFFF' } : (catFills[catName] || { argb: 'FFF8FAFC' });
+        vals.forEach((val, i) => {
+          const cell = dataRow.getCell(i + 1);
+          cell.value = val;
+          cell.border = border;
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowFill };
+          if (i === 0) {
+            cell.font = { bold: true, size: 9, color: { argb: 'FF1E293B' } };
+          } else if (i === 1) {
+            cell.font = { size: 9, color: { argb: 'FF059669' } };
+            cell.alignment = { horizontal: 'right' };
+          } else if (i === 2) {
+            cell.font = { size: 9, color: { argb: 'FFDC2626' } };
+            cell.alignment = { horizontal: 'right' };
+          } else if (i === 3) {
+            cell.font = { bold: true, size: 10, color: { argb: item.available < 0 ? 'FFDC2626' : 'FF059669' } };
+            cell.alignment = { horizontal: 'right' };
+          } else if (i === 5) {
+            cell.font = { size: 7, color: { argb: 'FF888888' } };
+          }
+        });
+        ws.getRow(row).height = 20;
+        row++;
+      });
+      row++; // gap
+    }
+
+    // Column widths
+    [22, 14, 14, 18, 8, 50].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+
+    // Footer
+    ws.mergeCells(`A${row}:F${row}`);
+    const footCell = ws.getCell(`A${row}`);
+    footCell.value = `${company} - Stock Summary | Generated: ${new Date().toLocaleDateString('en-IN')}`;
+    footCell.font = { size: 7, color: { argb: 'FF999999' }, italic: true };
+    footCell.alignment = { horizontal: 'center' };
+
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=stock_summary.xlsx');
     res.send(Buffer.from(buf));
   }));
 
+  // ===== STOCK SUMMARY PDF (COLORFUL with pdfkit) =====
   router.get('/api/stock-summary/export/pdf', safeHandler(async (req, res) => {
+    const { addPdfHeader } = require('./pdf_helpers');
+    const items = getStockItems(req);
     const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
-    let html = `<!DOCTYPE html><html><head><style>body{font:10px Arial;margin:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 5px}th{background:#1e40af;color:#fff}.r{text-align:right}.b{font-weight:bold}</style></head><body>`;
-    html += `<h2 style="text-align:center">${company} - Stock Summary</h2>`;
-    html += `<table><tr><th>Item</th><th>Category</th><th class="r">In</th><th class="r">Out</th><th class="r">Available</th><th>Unit</th><th>Details</th></tr>`;
-    // Simple version - just paddy + byproducts from milling
-    const { kms_year, season } = req.query;
-    const filter = (arr, ky, sn) => { let r = arr || []; if (ky) r = r.filter(e => e.kms_year === ky); if (sn) r = r.filter(e => e.season === sn); return r; };
-    const round2 = v => Math.round((v || 0) * 100) / 100;
-    const milling = filter(database.data.milling_entries, kms_year, season);
-    const millEntries = filter(database.data.entries, kms_year, season);
-    const pvtPaddy = filter(database.data.private_paddy, kms_year, season).filter(e => e.source !== 'agent_extra');
-    const cmrIn = round2(millEntries.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100 - (e.p_pkt_cut || 0) / 100, 0));
-    const pvtIn = round2(pvtPaddy.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100, 0));
-    const paddyUsed = round2(milling.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0));
-    const pIn = round2(cmrIn + pvtIn);
-    html += `<tr><td class="b">Paddy</td><td>Raw Material</td><td class="r">${pIn}</td><td class="r">${paddyUsed}</td><td class="r b">${round2(pIn - paddyUsed)}</td><td>Qntl</td><td>CMR: ${cmrIn} + Pvt: ${pvtIn}</td></tr>`;
-    ['bran', 'kunda', 'broken', 'kanki', 'husk'].forEach(p => {
-      const produced = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0));
-      html += `<tr><td class="b">${p.charAt(0).toUpperCase() + p.slice(1)}</td><td>By-Product</td><td class="r">${produced}</td><td class="r">0</td><td class="r b">${produced}</td><td>Qntl</td><td>From milling</td></tr>`;
-    });
-    html += `</table></body></html>`;
-    res.type('html').send(html);
+
+    const doc = new PDFDocument({ size: 'A4', margin: 30 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=stock_summary.pdf`);
+    doc.pipe(res);
+
+    // Header
+    addPdfHeader(doc, 'Stock Summary Report');
+    const metaParts = [];
+    if (req.query.kms_year) metaParts.push(`FY: ${req.query.kms_year}`);
+    if (req.query.season) metaParts.push(req.query.season);
+    metaParts.push(`Date: ${new Date().toLocaleDateString('en-IN')}`);
+    doc.fontSize(8).font('Helvetica').fillColor('#666666').text(metaParts.join(' | '), { align: 'center' });
+    doc.moveDown(0.8);
+
+    // Group items
+    const grouped = {};
+    items.forEach(item => { const c = item.category || 'Other'; if (!grouped[c]) grouped[c] = []; grouped[c].push(item); });
+
+    const catColors = { 'Raw Material': '#D97706', 'Finished': '#059669', 'By-Product': '#2563EB', 'Custom': '#7C3AED' };
+    const catBgs = { 'Raw Material': '#FEF3C7', 'Finished': '#D1FAE5', 'By-Product': '#DBEAFE', 'Custom': '#EDE9FE' };
+
+    const pageW = 535; // A4 width - margins
+    const cols = [120, 70, 70, 90, 185]; // Item, In, Out, Available, Details
+
+    for (const [catName, catItems] of Object.entries(grouped)) {
+      // Check page space
+      if (doc.y > 680) doc.addPage();
+
+      // Category header with colored background
+      const catColor = catColors[catName] || '#666666';
+      const catBg = catBgs[catName] || '#F1F5F9';
+      doc.save();
+      doc.roundedRect(30, doc.y, pageW, 22, 3).fill(catBg);
+      doc.restore();
+      doc.fillColor(catColor).fontSize(10).font('Helvetica-Bold')
+        .text(`${catName} (${catItems.length} items)`, 40, doc.y + 5, { width: pageW - 20 });
+      doc.y += 12;
+
+      // Table header
+      const headerY = doc.y;
+      doc.save();
+      doc.rect(30, headerY, pageW, 18).fill('#1E293B');
+      doc.restore();
+      doc.fillColor('#FFFFFF').fontSize(8).font('Helvetica-Bold');
+      let xPos = 35;
+      ['Item', 'In (Qntl)', 'Out (Qntl)', 'Available', 'Details'].forEach((h, i) => {
+        const align = [1, 2, 3].includes(i) ? 'right' : 'left';
+        doc.text(h, xPos, headerY + 4, { width: cols[i] - 10, align });
+        xPos += cols[i];
+      });
+      doc.y = headerY + 20;
+
+      // Data rows
+      catItems.forEach((item, idx) => {
+        if (doc.y > 750) { doc.addPage(); doc.y = 40; }
+        const rowY = doc.y;
+        const rowH = 18;
+
+        // Alternating row bg
+        if (idx % 2 === 1) {
+          doc.save();
+          doc.rect(30, rowY, pageW, rowH).fill('#F8FAFC');
+          doc.restore();
+        }
+
+        // Grid lines
+        doc.save();
+        doc.rect(30, rowY, pageW, rowH).stroke('#E2E8F0');
+        doc.restore();
+
+        xPos = 35;
+        // Item name
+        doc.fillColor('#1E293B').fontSize(8).font('Helvetica-Bold')
+          .text(item.name, xPos, rowY + 4, { width: cols[0] - 10 });
+        xPos += cols[0];
+
+        // In qty (green)
+        doc.fillColor('#059669').fontSize(8).font('Helvetica')
+          .text(`${item.in_qty} ${item.unit}`, xPos, rowY + 4, { width: cols[1] - 10, align: 'right' });
+        xPos += cols[1];
+
+        // Out qty (red)
+        doc.fillColor('#DC2626').fontSize(8).font('Helvetica')
+          .text(`${item.out_qty} ${item.unit}`, xPos, rowY + 4, { width: cols[2] - 10, align: 'right' });
+        xPos += cols[2];
+
+        // Available (bold, colored)
+        const availColor = item.available < 0 ? '#DC2626' : '#059669';
+        doc.fillColor(availColor).fontSize(9).font('Helvetica-Bold')
+          .text(`${item.available} ${item.unit}`, xPos, rowY + 3, { width: cols[3] - 10, align: 'right' });
+        xPos += cols[3];
+
+        // Details (grey, small)
+        doc.fillColor('#888888').fontSize(6).font('Helvetica')
+          .text(item.details || '', xPos, rowY + 5, { width: cols[4] - 10 });
+
+        doc.y = rowY + rowH;
+      });
+      doc.moveDown(0.5);
+    }
+
+    // Footer
+    doc.moveDown(1);
+    doc.fontSize(7).font('Helvetica').fillColor('#999999')
+      .text(`${company} - Stock Summary | Generated: ${new Date().toLocaleDateString('en-IN')}`, { align: 'center' });
+
+    doc.end();
   }));
 
   return router;
