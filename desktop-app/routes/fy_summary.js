@@ -266,32 +266,54 @@ module.exports = function(database) {
       const bp = summary.byproducts, mp = summary.mill_parts, dieselList = summary.diesel;
       const lp = summary.local_party, staffList = summary.staff_advances, pt = summary.private_trading, ledger = summary.ledger_parties;
 
-      // Truck Accounts
+      // Truck Accounts - Calculate from ledger entries (jama = gross, nikasi with ded refs = deductions, other nikasi = paid)
       let allEntries = filterByFy(col('entries'), req.query.kms_year, req.query.season);
+      const ledgerTxnsAll = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account === 'ledger');
       const truckMap = {};
       for (const e of allEntries) {
         const tn = (e.truck_no || '').trim(); if (!tn) continue;
-        if (!truckMap[tn]) truckMap[tn] = {total: 0, paid: 0};
-        truckMap[tn].total += e.truck_amount || 0;
+        if (!truckMap[tn]) truckMap[tn] = { total: 0, deductions: 0, paid: 0 };
       }
-      const ledgerNikasi = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account === 'ledger' && t.txn_type === 'nikasi');
-      for (const tn of Object.keys(truckMap)) {
-        truckMap[tn].paid = ledgerNikasi.filter(t => (t.category||'').trim() === tn).reduce((s,t) => s + (t.amount||0), 0);
+      for (const t of ledgerTxnsAll) {
+        const cat = (t.category || '').trim();
+        if (!cat || !truckMap[cat]) continue;
+        if ((t.party_type || '') !== 'Truck') continue;
+        const ref = t.reference || '';
+        if (t.txn_type === 'jama') {
+          truckMap[cat].total += t.amount || 0;
+        } else if (t.txn_type === 'nikasi') {
+          if (ref.startsWith('truck_diesel_ded:') || ref.startsWith('truck_cash_ded:') || ref.startsWith('truck_deposit_ded:')) {
+            truckMap[cat].deductions += t.amount || 0;
+          } else {
+            truckMap[cat].paid += t.amount || 0;
+          }
+        }
       }
-      const truckAccounts = Object.entries(truckMap).sort().map(([name, v]) => ({name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid)}));
+      const truckAccounts = Object.entries(truckMap).sort().map(([name, v]) => {
+        const netPayable = rd(v.total - v.deductions);
+        return { name, total: netPayable, paid: rd(v.paid), balance: rd(netPayable - v.paid) };
+      });
 
-      // Agent Accounts - Always calculate total from entries and paid from ledger (source of truth)
+      // Agent Accounts - Total from mandi targets, paid from ledger nikasi
       const mandiMap = {};
+      const targets = filterByFy(col('mandi_targets') || [], req.query.kms_year, req.query.season);
+      for (const t of targets) {
+        const mn = (t.mandi_name || '').trim(); if (!mn) continue;
+        if (!mandiMap[mn]) mandiMap[mn] = { total: 0, paid: 0 };
+        const cutting_qntl = (t.target_qntl || 0) * (t.cutting_percent || 0) / 100;
+        mandiMap[mn].total += (t.target_qntl || 0) * (t.base_rate || 10) + cutting_qntl * (t.cutting_rate || 5);
+      }
       for (const e of allEntries) {
         const mn = (e.mandi_name || '').trim(); if (!mn) continue;
-        if (!mandiMap[mn]) mandiMap[mn] = {total: 0, paid: 0};
-        mandiMap[mn].total += e.agent_amount || 0;
+        if (!mandiMap[mn]) mandiMap[mn] = { total: 0, paid: 0 };
       }
-      // Calculate paid from ledger nikasi transactions for each mandi
       for (const mn of Object.keys(mandiMap)) {
-        mandiMap[mn].paid = ledgerNikasi.filter(t => (t.category||'').toLowerCase() === mn.toLowerCase() && t.party_type === 'Agent').reduce((s,t) => s + (t.amount||0), 0);
+        mandiMap[mn].paid = ledgerTxnsAll.filter(t =>
+          t.txn_type === 'nikasi' && (t.party_type || '') === 'Agent' &&
+          (t.category || '').toLowerCase() === mn.toLowerCase()
+        ).reduce((s, t) => s + (t.amount || 0), 0);
       }
-      const agentAccounts = Object.entries(mandiMap).sort().map(([name, v]) => ({name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid)}));
+      const agentAccounts = Object.entries(mandiMap).sort().map(([name, v]) => ({ name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid) }));
 
       // DC Accounts
       const dcEntries = filterByFy(col('dc_entries') || [], req.query.kms_year, req.query.season);
@@ -387,16 +409,27 @@ module.exports = function(database) {
       const lp = summary.local_party, staffList = summary.staff_advances, pt = summary.private_trading, ledger = summary.ledger_parties;
       
       let allEntries = filterByFy(col('entries'), req.query.kms_year, req.query.season);
+      const ledgerTxnsAllPdf = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account === 'ledger');
       const truckMap = {};
-      for (const e of allEntries) { const tn = (e.truck_no||'').trim(); if (!tn) continue; if (!truckMap[tn]) truckMap[tn]={total:0,paid:0}; truckMap[tn].total += e.truck_amount||0; }
-      const ledgerNikasi = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account==='ledger' && t.txn_type==='nikasi');
-      for (const tn of Object.keys(truckMap)) { truckMap[tn].paid = ledgerNikasi.filter(t => (t.category||'').trim()===tn).reduce((s,t) => s+(t.amount||0), 0); }
-      const truckAccounts = Object.entries(truckMap).sort().map(([name,v]) => ({name,total:rd(v.total),paid:rd(v.paid),balance:rd(v.total-v.paid)}));
+      for (const e of allEntries) { const tn = (e.truck_no||'').trim(); if (!tn) continue; if (!truckMap[tn]) truckMap[tn]={total:0,deductions:0,paid:0}; }
+      for (const t of ledgerTxnsAllPdf) {
+        const cat = (t.category||'').trim(); if (!cat || !truckMap[cat]) continue;
+        if ((t.party_type||'') !== 'Truck') continue;
+        const ref = t.reference || '';
+        if (t.txn_type === 'jama') { truckMap[cat].total += t.amount || 0; }
+        else if (t.txn_type === 'nikasi') {
+          if (ref.startsWith('truck_diesel_ded:') || ref.startsWith('truck_cash_ded:') || ref.startsWith('truck_deposit_ded:')) { truckMap[cat].deductions += t.amount||0; }
+          else { truckMap[cat].paid += t.amount||0; }
+        }
+      }
+      const truckAccounts = Object.entries(truckMap).sort().map(([name,v]) => { const net=rd(v.total-v.deductions); return {name,total:net,paid:rd(v.paid),balance:rd(net-v.paid)}; });
       
-      // Agent Accounts - Always calculate total from entries and paid from ledger (source of truth)
+      // Agent Accounts - Total from mandi targets, paid from ledger nikasi
       const mandiMap = {};
-      for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!mandiMap[mn]) mandiMap[mn]={total:0,paid:0}; mandiMap[mn].total += e.agent_amount||0; }
-      for (const mn of Object.keys(mandiMap)) { mandiMap[mn].paid = ledgerNikasi.filter(t => (t.category||'').toLowerCase()===mn.toLowerCase() && t.party_type==='Agent').reduce((s,t) => s+(t.amount||0), 0); }
+      const pdfTargets = filterByFy(col('mandi_targets')||[], req.query.kms_year, req.query.season);
+      for (const t of pdfTargets) { const mn=(t.mandi_name||'').trim(); if(!mn) continue; if(!mandiMap[mn]) mandiMap[mn]={total:0,paid:0}; const cq=(t.target_qntl||0)*(t.cutting_percent||0)/100; mandiMap[mn].total += (t.target_qntl||0)*(t.base_rate||10)+cq*(t.cutting_rate||5); }
+      for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!mandiMap[mn]) mandiMap[mn]={total:0,paid:0}; }
+      for (const mn of Object.keys(mandiMap)) { mandiMap[mn].paid = ledgerTxnsAllPdf.filter(t => t.txn_type==='nikasi' && (t.party_type||'')==='Agent' && (t.category||'').toLowerCase()===mn.toLowerCase()).reduce((s,t) => s+(t.amount||0), 0); }
       const agentAccounts = Object.entries(mandiMap).sort().map(([name,v]) => ({name,total:rd(v.total),paid:rd(v.paid),balance:rd(v.total-v.paid)}));
       
       const dcEntries = filterByFy(col('dc_entries')||[], req.query.kms_year, req.query.season);
@@ -513,14 +546,22 @@ module.exports = function(database) {
       const lp = summary.local_party, staffList = summary.staff_advances, pt = summary.private_trading, ledger = summary.ledger_parties;
       
       let allEntries = filterByFy(col('entries'), req.query.kms_year, req.query.season);
+      const ledgerTxnsAllXl = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account === 'ledger');
       const truckMap = {};
-      for (const e of allEntries) { const tn=(e.truck_no||'').trim(); if(!tn) continue; if(!truckMap[tn]) truckMap[tn]={total:0,paid:0}; truckMap[tn].total += e.truck_amount||0; }
-      const ledgerNikasi = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account==='ledger' && t.txn_type==='nikasi');
-      for (const tn of Object.keys(truckMap)) { truckMap[tn].paid = ledgerNikasi.filter(t => (t.category||'').trim()===tn).reduce((s,t) => s+(t.amount||0), 0); }
+      for (const e of allEntries) { const tn=(e.truck_no||'').trim(); if(!tn) continue; if(!truckMap[tn]) truckMap[tn]={total:0,deductions:0,paid:0}; }
+      for (const t of ledgerTxnsAllXl) {
+        const cat=(t.category||'').trim(); if(!cat||!truckMap[cat]) continue;
+        if((t.party_type||'')!=='Truck') continue;
+        const ref=t.reference||'';
+        if(t.txn_type==='jama') truckMap[cat].total+=t.amount||0;
+        else if(t.txn_type==='nikasi') { if(ref.startsWith('truck_diesel_ded:')||ref.startsWith('truck_cash_ded:')||ref.startsWith('truck_deposit_ded:')) truckMap[cat].deductions+=t.amount||0; else truckMap[cat].paid+=t.amount||0; }
+      }
       
       const agentPayments2 = {};
-      for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!agentPayments2[mn]) agentPayments2[mn]={total:0,paid:0}; agentPayments2[mn].total += e.agent_amount||0; }
-      for (const mn of Object.keys(agentPayments2)) { agentPayments2[mn].paid = ledgerNikasi.filter(t => (t.category||'').toLowerCase()===mn.toLowerCase() && t.party_type==='Agent').reduce((s,t) => s+(t.amount||0), 0); }
+      const xlTargets = filterByFy(col('mandi_targets')||[], req.query.kms_year, req.query.season);
+      for (const t of xlTargets) { const mn=(t.mandi_name||'').trim(); if(!mn) continue; if(!agentPayments2[mn]) agentPayments2[mn]={total:0,paid:0}; const cq=(t.target_qntl||0)*(t.cutting_percent||0)/100; agentPayments2[mn].total+=(t.target_qntl||0)*(t.base_rate||10)+cq*(t.cutting_rate||5); }
+      for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!agentPayments2[mn]) agentPayments2[mn]={total:0,paid:0}; }
+      for (const mn of Object.keys(agentPayments2)) { agentPayments2[mn].paid = ledgerTxnsAllXl.filter(t => t.txn_type==='nikasi' && (t.party_type||'')==='Agent' && (t.category||'').toLowerCase()===mn.toLowerCase()).reduce((s,t) => s+(t.amount||0), 0); }
       
       const dcEntries = filterByFy(col('dc_entries')||[], req.query.kms_year, req.query.season);
       const dcMap = {};
@@ -536,6 +577,10 @@ module.exports = function(database) {
       if(lp.closing_balance>0) { credChildren.push({name:'Local Party Accounts',amount:lp.closing_balance}); credTotal += lp.closing_balance; }
       for(const sc of sundryCreds) { credChildren.push({name:sc.party_name,amount:sc.amount}); credTotal += sc.amount; }
       for(const d of dieselList) { if(d.closing_balance>0) { credChildren.push({name:`Diesel - ${d.pump_name}`,amount:d.closing_balance}); credTotal += d.closing_balance; } }
+      // Add truck accounts to creditors
+      for (const [tn,v] of Object.entries(truckMap)) { const net=rd(v.total-v.deductions); const bal=rd(net-v.paid); if(bal>0) { credChildren.push({name:`Truck - ${tn}`,amount:bal}); credTotal+=bal; } }
+      // Add agent accounts to creditors
+      for (const [mn,v] of Object.entries(agentPayments2)) { const bal=rd(v.total-v.paid); if(bal>0) { credChildren.push({name:`Agent - ${mn}`,amount:bal}); credTotal+=bal; } }
       liabilities.push({group:'Sundry Creditors', amount:rd(credTotal), children:credChildren});
       let totalLiab = rd(liabilities.reduce((s,l) => s+l.amount, 0));
       
