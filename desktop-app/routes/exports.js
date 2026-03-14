@@ -106,6 +106,119 @@ module.exports = function(database) {
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
+  // ===== DASHBOARD PDF EXPORT =====
+  router.get('/api/export/dashboard-pdf', safeSync((req, res) => {
+    try {
+      const { addPdfTable: _addTbl, addSectionTitle, fmtAmt, C } = require('./pdf_helpers');
+      const entries = database.getEntries(req.query);
+      const filterLabel = req.query.filter || 'all';
+      const showStock = !req.query.filter || req.query.filter === 'all' || req.query.filter === 'stock';
+      const showTargets = !req.query.filter || req.query.filter !== 'stock';
+      const targetMandi = req.query.filter && req.query.filter !== 'all' && req.query.filter !== 'stock' ? req.query.filter : null;
+
+      const doc = new PDFDocument({ size: 'A4', margin: 30 });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=dashboard_${filterLabel}_${Date.now()}.pdf`);
+      doc.pipe(res);
+      addPdfHeader(doc, 'Dashboard Report');
+
+      // Sub-header
+      doc.fontSize(8).font('Helvetica').fillColor('grey')
+        .text(`KMS: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'} | Filter: ${filterLabel}`, { align: 'center' });
+      doc.moveDown(0.5);
+
+      // ---- STOCK SECTION ----
+      if (showStock) {
+        addSectionTitle(doc, 'STOCK OVERVIEW');
+
+        // Paddy from CMR (mill entries final_w)
+        const cmrPaddy = Math.round(entries.reduce((s, e) => s + (e.final_w || 0), 0) / 100 * 100) / 100;
+
+        // Private paddy
+        let pvtEntries = database.data.private_paddy || [];
+        if (req.query.kms_year) pvtEntries = pvtEntries.filter(e => e.kms_year === req.query.kms_year);
+        if (req.query.season) pvtEntries = pvtEntries.filter(e => e.season === req.query.season);
+        pvtEntries = pvtEntries.filter(e => e.source !== 'agent_extra');
+        const pvtPaddy = Math.round(pvtEntries.reduce((s, e) => s + ((e.qntl || 0) - (e.bag || 0) / 100), 0) * 100) / 100;
+
+        const totalPaddyIn = Math.round((cmrPaddy + pvtPaddy) * 100) / 100;
+
+        // Milling data
+        const millingEntries = database.getMillingEntries(req.query);
+        const paddyUsed = Math.round(millingEntries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0) * 100) / 100;
+        const riceRaw = Math.round(millingEntries.filter(e => !e.product_type || e.product_type === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0) * 100) / 100;
+        const riceUsna = Math.round(millingEntries.filter(e => e.product_type === 'usna').reduce((s, e) => s + (e.rice_qntl || 0), 0) * 100) / 100;
+        const frk = Math.round(millingEntries.reduce((s, e) => s + (e.frk_used_qntl || 0), 0) * 100) / 100;
+        const byproduct = Math.round(millingEntries.reduce((s, e) => s + (e.bran_qntl || 0) + (e.kunda_qntl || 0), 0) * 100) / 100;
+        const paddyAvail = Math.round((totalPaddyIn - paddyUsed) * 100) / 100;
+
+        // Gunny bags
+        let gunnyEntries = database.data.gunny_bags || [];
+        if (req.query.kms_year) gunnyEntries = gunnyEntries.filter(e => e.kms_year === req.query.kms_year);
+        if (req.query.season) gunnyEntries = gunnyEntries.filter(e => e.season === req.query.season);
+        const gunnyIn = gunnyEntries.filter(e => e.txn_type === 'in').reduce((s, e) => s + (e.quantity || 0), 0);
+        const gunnyOut = gunnyEntries.filter(e => e.txn_type === 'out').reduce((s, e) => s + (e.quantity || 0), 0);
+
+        const stockHeaders = ['Item', 'Source', 'IN', 'OUT/Used', 'Available', 'Unit'];
+        const stockRows = [
+          ['Paddy', 'CMR (Mill Entry)', cmrPaddy, '-', '-', 'Qntl'],
+          ['Paddy', 'Private Purchase', pvtPaddy, '-', '-', 'Qntl'],
+          ['Paddy Total', '', totalPaddyIn, paddyUsed, paddyAvail, 'Qntl'],
+          ['Rice (Raw)', 'Milling', riceRaw, '-', riceRaw, 'Qntl'],
+          ['Rice (Usna)', 'Milling', riceUsna, '-', riceUsna, 'Qntl'],
+          ['FRK', 'Milling', frk, '-', frk, 'Qntl'],
+          ['By-Products', 'Milling', byproduct, '-', byproduct, 'Qntl'],
+          ['Gunny Bags', 'All Sources', gunnyIn, gunnyOut, gunnyIn - gunnyOut, 'Bags'],
+        ];
+        _addTbl(doc, stockHeaders, stockRows, [75, 80, 70, 70, 80, 50]);
+        doc.moveDown(0.5);
+      }
+
+      // ---- TARGETS SECTION ----
+      if (showTargets) {
+        addSectionTitle(doc, targetMandi ? `MANDI TARGETS - ${targetMandi}` : 'MANDI TARGETS');
+
+        let targets = database.getMandiTargets(req.query);
+        if (targetMandi) targets = targets.filter(t => t.mandi_name === targetMandi);
+
+        if (targets.length > 0) {
+          const tgtHeaders = ['Mandi', 'Target (Q)', 'Cut %', 'Expected (Q)', 'Achieved (Q)', 'Pending (Q)', 'Progress', 'Agent Amt'];
+          const tgtRows = [];
+          let totTarget = 0, totExpected = 0, totAchieved = 0, totPending = 0, totAgent = 0;
+
+          for (const t of targets) {
+            const mandiEntries = entries.filter(e => (e.mandi_name || '').toLowerCase() === (t.mandi_name || '').toLowerCase());
+            const achieved = Math.round(mandiEntries.reduce((s, e) => s + (e.final_w || 0) / 100, 0) * 100) / 100;
+            const expected = t.expected_total || t.target_qntl;
+            const pending = Math.round(Math.max(0, expected - achieved) * 100) / 100;
+            const progress = expected > 0 ? Math.round(achieved / expected * 1000) / 10 : 0;
+            const cuttingQ = Math.round(t.target_qntl * t.cutting_percent / 100 * 100) / 100;
+            const agentAmt = Math.round((t.target_qntl * (t.base_rate || 10)) + (cuttingQ * (t.cutting_rate || 5)));
+
+            totTarget += t.target_qntl; totExpected += expected;
+            totAchieved += achieved; totPending += pending; totAgent += agentAmt;
+
+            tgtRows.push([t.mandi_name, t.target_qntl, `${t.cutting_percent}%`, expected, achieved, pending, `${progress}%`, `Rs.${fmtAmt(agentAmt)}`]);
+          }
+
+          const totProg = totExpected > 0 ? Math.round(totAchieved / totExpected * 1000) / 10 : 0;
+          tgtRows.push(['TOTAL', Math.round(totTarget * 100) / 100, '-', Math.round(totExpected * 100) / 100, Math.round(totAchieved * 100) / 100, Math.round(totPending * 100) / 100, `${totProg}%`, `Rs.${fmtAmt(totAgent)}`]);
+
+          _addTbl(doc, tgtHeaders, tgtRows, [60, 50, 35, 55, 55, 55, 45, 60]);
+        } else {
+          doc.fontSize(9).font('Helvetica').fillColor('#64748b').text('Koi target set nahi hai', { align: 'center' });
+        }
+      }
+
+      // Footer
+      doc.moveDown(1);
+      const branding = database.getBranding ? database.getBranding() : {};
+      doc.fontSize(7).font('Helvetica').fillColor('#94a3b8')
+        .text(`Generated by ${branding.company_name || 'Mill Entry System'} | ${new Date().toLocaleDateString('en-IN')}`, { align: 'center' });
+      doc.end();
+    } catch (err) { res.status(500).json({ detail: err.message }); }
+  }));
+
   // ===== SUMMARY REPORT =====
   router.get('/api/export/summary-report-pdf', safeSync((req, res) => {
     try {
