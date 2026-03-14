@@ -56,37 +56,6 @@ const TransactionFormDialog = ({
               </Select>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-slate-600">Type</Label>
-              <Select value={form.txn_type} onValueChange={(v) => setForm(p => ({ ...p, txn_type: v, category: "" }))}>
-                <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-type"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="jama">Jama (In)</SelectItem>
-                  <SelectItem value="nikasi">Nikasi (Out)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs text-slate-600">Amount (Rs.)</Label>
-              <Input type="number" step="0.01" value={form.amount}
-                onChange={(e) => setForm(p => ({ ...p, amount: e.target.value }))}
-                placeholder="0.00" className="border-slate-300 h-8 text-sm" required data-testid="cashbook-form-amount" />
-              {summary && form.amount && parseFloat(form.amount) > 0 && (
-                <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-new-balance">
-                  After: <span className={`font-bold ${
-                    ((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)) >= 0
-                      ? 'text-emerald-600' : 'text-red-600'
-                  }`}>
-                    Rs.{((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)).toLocaleString('en-IN')}
-                  </span>
-                  <span className={`ml-1 ${form.txn_type === 'jama' ? 'text-emerald-600' : 'text-red-600'}`}>
-                    ({form.txn_type === 'jama' ? '+' : '-'}Rs.{parseFloat(form.amount).toLocaleString('en-IN')})
-                  </span>
-                </p>
-              )}
-            </div>
-          </div>
           <div>
             <div className="flex items-center justify-between mb-1">
               <Label className="text-xs text-slate-600 font-semibold">Party / Category (Ledger ke liye zaroori)</Label>
@@ -169,6 +138,37 @@ const TransactionFormDialog = ({
               </div>
             )}
             <p className="text-[9px] text-amber-600 mt-0.5">* Yahan jo name doge wo Party Ledger mein automatically aayega</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-slate-600">Type</Label>
+              <Select value={form.txn_type} onValueChange={(v) => setForm(p => ({ ...p, txn_type: v, category: "" }))}>
+                <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="jama">Jama (In)</SelectItem>
+                  <SelectItem value="nikasi">Nikasi (Out)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-600">Amount (Rs.)</Label>
+              <Input type="number" step="0.01" value={form.amount}
+                onChange={(e) => setForm(p => ({ ...p, amount: e.target.value }))}
+                placeholder="0.00" className="border-slate-300 h-8 text-sm" required data-testid="cashbook-form-amount" />
+              {summary && form.amount && parseFloat(form.amount) > 0 && (
+                <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-new-balance">
+                  After: <span className={`font-bold ${
+                    ((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)) >= 0
+                      ? 'text-emerald-600' : 'text-red-600'
+                  }`}>
+                    Rs.{((form.account === 'cash' ? summary.cash_balance : summary.bank_balance) + (form.txn_type === 'jama' ? 1 : -1) * parseFloat(form.amount)).toLocaleString('en-IN')}
+                  </span>
+                  <span className={`ml-1 ${form.txn_type === 'jama' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    ({form.txn_type === 'jama' ? '+' : '-'}Rs.{parseFloat(form.amount).toLocaleString('en-IN')})
+                  </span>
+                </p>
+              )}
+            </div>
           </div>
           <div>
             <Label className="text-xs text-slate-600">Party Type (Auto / Manual)</Label>
