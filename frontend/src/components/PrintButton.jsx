@@ -2,10 +2,17 @@ import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const PrintButton = ({ title, className = "" }) => {
+  const isElectronEnv = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+  
   const handlePrint = () => {
-    // Set print title if provided
     if (title) document.title = title + " - Mill Entry System";
-    window.print();
+    if (isElectronEnv) {
+      const content = document.documentElement.outerHTML;
+      const w = window.open('', '_blank', 'width=900,height=700');
+      if (w) { w.document.open(); w.document.write(content); w.document.close(); w.onload = () => w.focus(); }
+    } else {
+      window.print();
+    }
   };
 
   return (
