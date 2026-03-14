@@ -227,6 +227,7 @@ function MainApp({ user, onLogout }) {
 
   // Suggestions state
   const [truckSuggestions, setTruckSuggestions] = useState([]);
+  const [leasedTruckNos, setLeasedTruckNos] = useState(new Set());
   const [agentSuggestions, setAgentSuggestions] = useState([]);
   const [mandiSuggestions, setMandiSuggestions] = useState([]);
   const [mandiTargets, setMandiTargets] = useState([]);
@@ -484,6 +485,10 @@ function MainApp({ user, onLogout }) {
         });
       }
     }).catch(err => { console.error('[MILL] Mandi targets fetch FAILED:', err.message || err); });
+    // Fetch leased truck numbers for badge display
+    axios.get(`${API}/truck-leases?status=active`).then(res => {
+      setLeasedTruckNos(new Set((res.data || []).map(l => l.truck_no.toUpperCase())));
+    }).catch(() => {});
   }, [fetchEntries, fetchTotals, fetchSuggestions, filters.kms_year]);
 
   // Reset selection when entries change
@@ -1589,6 +1594,11 @@ function MainApp({ user, onLogout }) {
                       label="Truck No."
                       testId="input-truck-no"
                     />
+                    {leasedTruckNos.has((formData.truck_no || '').toUpperCase()) && (
+                      <div className="mt-1 flex items-center gap-1 text-xs text-violet-400 bg-violet-500/10 border border-violet-500/30 rounded px-2 py-1" data-testid="leased-truck-indicator">
+                        <span className="font-medium">Leased Truck</span> - Yeh truck lease par hai
+                      </div>
+                    )}
                   </div>
 
                   {/* RST No. & TP No. */}
@@ -2587,7 +2597,12 @@ function MainApp({ user, onLogout }) {
                         </TableCell>
                         <TableCell className="text-white whitespace-nowrap px-1">{fmtDate(entry.date)}</TableCell>
                         <TableCell className="text-white whitespace-nowrap px-1">{entry.season}</TableCell>
-                        <TableCell className="text-white font-mono whitespace-nowrap px-1">{entry.truck_no}</TableCell>
+                        <TableCell className="text-white font-mono whitespace-nowrap px-1">
+                          {entry.truck_no}
+                          {leasedTruckNos.has((entry.truck_no || '').toUpperCase()) && (
+                            <span className="ml-1 inline-block text-[10px] px-1 py-0.5 rounded bg-violet-500/20 text-violet-400 border border-violet-500/30 font-sans" data-testid={`leased-badge-${entry.id}`}>Leased</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.rst_no || '-'}</TableCell>
                         <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.tp_no || '-'}</TableCell>
                         <TableCell className="text-white whitespace-nowrap px-1">{entry.agent_name}</TableCell>

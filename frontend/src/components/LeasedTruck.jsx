@@ -35,6 +35,13 @@ export default function LeasedTruck({ filters }) {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
+  const [searchText, setSearchText] = useState("");
+
+  const filteredLeases = leases.filter(l => {
+    if (!searchText) return true;
+    const q = searchText.toLowerCase();
+    return (l.truck_no || "").toLowerCase().includes(q) || (l.owner_name || "").toLowerCase().includes(q);
+  });
 
   const fetchLeases = useCallback(async () => {
     try {
@@ -150,10 +157,18 @@ export default function LeasedTruck({ filters }) {
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-white text-base">Leased Trucks</CardTitle>
-          <Button onClick={() => { setEditLease(null); setForm({ truck_no: "", owner_name: "", monthly_rent: "", start_date: "", end_date: "", advance_deposit: "" }); setShowAddLease(true); }}
-            size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900" data-testid="add-lease-btn">
-            <Plus className="w-4 h-4 mr-1" /> New Lease
-          </Button>
+          <div className="flex items-center gap-2">
+            <Input placeholder="Search truck no. / owner..." value={searchText} onChange={e => setSearchText(e.target.value)}
+              className="bg-slate-700 border-slate-600 text-white w-52 h-8 text-xs" data-testid="lease-search" />
+            <Button onClick={() => window.open(`${API}/truck-leases/export/pdf?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, '_blank')}
+              variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:text-white h-8 text-xs" data-testid="lease-export-pdf">PDF</Button>
+            <Button onClick={() => window.open(`${API}/truck-leases/export/excel?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, '_blank')}
+              variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:text-white h-8 text-xs" data-testid="lease-export-excel">Excel</Button>
+            <Button onClick={() => { setEditLease(null); setForm({ truck_no: "", owner_name: "", monthly_rent: "", start_date: "", end_date: "", advance_deposit: "" }); setShowAddLease(true); }}
+              size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-8" data-testid="add-lease-btn">
+              <Plus className="w-4 h-4 mr-1" /> New Lease
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -165,8 +180,8 @@ export default function LeasedTruck({ filters }) {
                 <th className="text-center p-3">Status</th><th className="text-center p-3">Actions</th>
               </tr></thead>
               <tbody>
-                {leases.length === 0 && <tr><td colSpan={8} className="text-center text-slate-500 py-8">Koi lease nahi mila</td></tr>}
-                {leases.map(l => (
+                {filteredLeases.length === 0 && <tr><td colSpan={8} className="text-center text-slate-500 py-8">Koi lease nahi mila</td></tr>}
+                {filteredLeases.map(l => (
                   <tr key={l.id} className={`border-b border-slate-700/50 hover:bg-slate-700/30 cursor-pointer ${selectedLease?.id === l.id ? "bg-amber-500/10" : ""}`}
                     onClick={() => handleSelectLease(l)} data-testid={`lease-row-${l.truck_no}`}>
                     <td className="p-3 font-mono text-white font-medium">{l.truck_no}</td>

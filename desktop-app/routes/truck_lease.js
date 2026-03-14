@@ -172,5 +172,86 @@ module.exports = function(database) {
     res.json({ leases: summary, total_rent: Math.round(totalRent * 100) / 100, total_paid: Math.round(totalPaid * 100) / 100, total_balance: Math.round(Math.max(0, totalRent - totalPaid) * 100) / 100 });
   }));
 
+  // ========== PDF EXPORT ==========
+
+  router.get('/api/truck-leases/export/pdf', safeSync((req, res) => {
+    const PDFDocument = require('pdfkit');
+    let leases = database.data.truck_leases || [];
+    if (req.query.kms_year) leases = leases.filter(l => l.kms_year === req.query.kms_year);
+    if (req.query.season) leases = leases.filter(l => l.season === req.query.season);
+    const allPayments = database.data.truck_lease_payments || [];
+    const doc = new PDFDocument({ size: 'A4', margin: 30, layout: 'landscape' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=truck_lease_report.pdf');
+    doc.pipe(res);
+    doc.fontSize(16).text('Truck Lease Report', { align: 'center' });
+    if (req.query.kms_year) doc.fontSize(10).text(`Year: ${req.query.kms_year} | Season: ${req.query.season || 'All'}`, { align: 'center' });
+    doc.moveDown();
+    const headers = ['Truck No.', 'Owner', 'Rent/Mo', 'Start', 'End', 'Advance', 'Status', 'Total Due', 'Paid', 'Balance'];
+    const colW = [70, 90, 65, 65, 65, 60, 50, 70, 65, 70];
+    let y = doc.y; let x = 30;
+    doc.fontSize(8).fillColor('#1e293b');
+    headers.forEach((h, i) => { doc.text(h, x, y, { width: colW[i], align: 'center' }); x += colW[i]; });
+    y += 15; doc.moveTo(30, y).lineTo(700, y).stroke();
+    doc.fillColor('black');
+    let grandTotal = 0, grandPaid = 0;
+    for (const lease of leases) {
+      const months = getMonthsBetween(lease.start_date, lease.end_date);
+      const totalRent = months.length * (lease.monthly_rent || 0);
+      const paid = allPayments.filter(p => p.lease_id === lease.id).reduce((s, p) => s + (p.amount || 0), 0);
+      const balance = Math.max(0, totalRent - paid);
+      grandTotal += totalRent; grandPaid += paid;
+      y += 3; x = 30;
+      const vals = [lease.truck_no, lease.owner_name||'', `Rs.${(lease.monthly_rent||0).toLocaleString('en-IN')}`, lease.start_date||'', lease.end_date||'Ongoing', `Rs.${(lease.advance_deposit||0).toLocaleString('en-IN')}`, (lease.status||'').toUpperCase(), `Rs.${totalRent.toLocaleString('en-IN')}`, `Rs.${Math.round(paid).toLocaleString('en-IN')}`, `Rs.${Math.round(balance).toLocaleString('en-IN')}`];
+      doc.fontSize(7);
+      vals.forEach((v, i) => { doc.text(v, x, y, { width: colW[i], align: i >= 2 ? 'right' : 'left' }); x += colW[i]; });
+      y += 12;
+    }
+    y += 3; doc.moveTo(30, y).lineTo(700, y).stroke(); y += 3; x = 30;
+    doc.fontSize(8).font('Helvetica-Bold');
+    const totals = ['', '', '', '', '', '', 'TOTAL', `Rs.${grandTotal.toLocaleString('en-IN')}`, `Rs.${Math.round(grandPaid).toLocaleString('en-IN')}`, `Rs.${Math.round(Math.max(0, grandTotal - grandPaid)).toLocaleString('en-IN')}`];
+    totals.forEach((v, i) => { doc.text(v, x, y, { width: colW[i], align: i >= 2 ? 'right' : 'left' }); x += colW[i]; });
+    doc.end();
+  }));
+
+  // ========== EXCEL EXPORT ==========
+
+  router.get('/api/truck-leases/export/excel', safeSync((req, res) => {
+    const ExcelJS = require('exceljs');
+    let leases = database.data.truck_leases || [];
+    if (req.query.kms_year) leases = leases.filter(l => l.kms_year === req.query.kms_year);
+    if (req.query.season) leases = leases.filter(l => l.season === req.query.season);
+    const allPayments = database.data.truck_lease_payments || [];
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Truck Leases');
+    ws.columns = [
+      { header: 'Truck No.', key: 'truck_no', width: 15 },
+      { header: 'Owner', key: 'owner_name', width: 18 },
+      { header: 'Monthly Rent', key: 'monthly_rent', width: 15 },
+      { header: 'Start Date', key: 'start_date', width: 12 },
+      { header: 'End Date', key: 'end_date', width: 12 },
+      { header: 'Advance', key: 'advance', width: 12 },
+      { header: 'Status', key: 'status', width: 10 },
+      { header: 'Total Months', key: 'months', width: 12 },
+      { header: 'Total Due', key: 'total_due', width: 15 },
+      { header: 'Total Paid', key: 'total_paid', width: 15 },
+      { header: 'Balance', key: 'balance', width: 15 },
+    ];
+    ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1e293b' } };
+    for (const lease of leases) {
+      const months = getMonthsBetween(lease.start_date, lease.end_date);
+      const totalRent = months.length * (lease.monthly_rent || 0);
+      const paid = allPayments.filter(p => p.lease_id === lease.id).reduce((s, p) => s + (p.amount || 0), 0);
+      ws.addRow({ truck_no: lease.truck_no, owner_name: lease.owner_name||'', monthly_rent: lease.monthly_rent||0, start_date: lease.start_date||'', end_date: lease.end_date||'Ongoing', advance: lease.advance_deposit||0, status: (lease.status||'').toUpperCase(), months: months.length, total_due: totalRent, total_paid: Math.round(paid), balance: Math.max(0, Math.round(totalRent - paid)) });
+    }
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=truck_lease_report.xlsx');
+    wb.xlsx.write(res).then(() => res.end());
+  }));
+
   return router;
 };
+
+// Re-export getMonthsBetween for use in fy_summary
+module.exports.getMonthsBetween = getMonthsBetween;

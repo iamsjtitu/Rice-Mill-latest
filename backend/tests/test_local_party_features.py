@@ -9,7 +9,7 @@ import os
 import uuid
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://desktop-sync-fix.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://truck-sync-build.preview.emergentagent.com').rstrip('/')
 
 class TestLogin:
     """Verify admin login works"""

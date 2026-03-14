@@ -272,3 +272,128 @@ async def get_leases_summary(kms_year: Optional[str] = None, season: Optional[st
         total_paid += paid
     
     return {"leases": summary, "total_rent": round(total_rent, 2), "total_paid": round(total_paid, 2), "total_balance": round(max(0, total_rent - total_paid), 2)}
+
+
+
+# ========== PDF EXPORT ==========
+
+@router.get("/truck-leases/export/pdf")
+async def export_leases_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from fastapi.responses import StreamingResponse
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    import io
+
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    leases = await db.truck_leases.find(query, {"_id": 0}).to_list(500)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=30, bottomMargin=30)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("Truck Lease Report", styles['Title']))
+    if kms_year: elements.append(Paragraph(f"Year: {kms_year} | Season: {season or 'All'}", styles['Normal']))
+    elements.append(Spacer(1, 12))
+
+    header = ['Truck No.', 'Owner', 'Monthly Rent', 'Start', 'End', 'Advance', 'Status', 'Total Due', 'Paid', 'Balance']
+    data = [header]
+    grand_total = 0
+    grand_paid = 0
+
+    for lease in leases:
+        months = get_months_between(lease.get("start_date", ""), lease.get("end_date", ""))
+        total_rent = len(months) * lease.get("monthly_rent", 0)
+        payments = await db.truck_lease_payments.find({"lease_id": lease["id"]}, {"_id": 0, "amount": 1}).to_list(5000)
+        paid = sum(p.get("amount", 0) for p in payments)
+        balance = round(total_rent - paid, 2)
+        grand_total += total_rent
+        grand_paid += paid
+        data.append([
+            lease.get("truck_no", ""), lease.get("owner_name", ""),
+            f"Rs.{lease.get('monthly_rent', 0):,.0f}", lease.get("start_date", ""),
+            lease.get("end_date", "") or "Ongoing", f"Rs.{lease.get('advance_deposit', 0):,.0f}",
+            lease.get("status", "").upper(),
+            f"Rs.{total_rent:,.0f}", f"Rs.{paid:,.0f}", f"Rs.{max(0, balance):,.0f}"
+        ])
+
+    data.append(['', '', '', '', '', '', 'TOTAL', f"Rs.{grand_total:,.0f}", f"Rs.{grand_paid:,.0f}", f"Rs.{max(0, grand_total - grand_paid):,.0f}"])
+
+    col_w = [65, 80, 70, 65, 65, 60, 45, 65, 60, 65]
+    t = Table(data, colWidths=col_w)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f1f5f9')),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": f"attachment; filename=truck_lease_report.pdf"})
+
+
+# ========== EXCEL EXPORT ==========
+
+@router.get("/truck-leases/export/excel")
+async def export_leases_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from fastapi.responses import StreamingResponse
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill
+    import io
+
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    leases = await db.truck_leases.find(query, {"_id": 0}).to_list(500)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Truck Leases"
+
+    # Header
+    headers = ['Truck No.', 'Owner', 'Monthly Rent', 'Start Date', 'End Date', 'Advance Deposit', 'Status', 'Total Months', 'Total Due', 'Total Paid', 'Balance']
+    header_fill = PatternFill(start_color='1e293b', end_color='1e293b', fill_type='solid')
+    header_font = Font(color='FFFFFF', bold=True, size=10)
+    for c, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=c, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+
+    row = 2
+    for lease in leases:
+        months = get_months_between(lease.get("start_date", ""), lease.get("end_date", ""))
+        total_rent = len(months) * lease.get("monthly_rent", 0)
+        payments = await db.truck_lease_payments.find({"lease_id": lease["id"]}, {"_id": 0, "amount": 1}).to_list(5000)
+        paid = sum(p.get("amount", 0) for p in payments)
+        balance = round(total_rent - paid, 2)
+        ws.cell(row=row, column=1, value=lease.get("truck_no", ""))
+        ws.cell(row=row, column=2, value=lease.get("owner_name", ""))
+        ws.cell(row=row, column=3, value=lease.get("monthly_rent", 0))
+        ws.cell(row=row, column=4, value=lease.get("start_date", ""))
+        ws.cell(row=row, column=5, value=lease.get("end_date", "") or "Ongoing")
+        ws.cell(row=row, column=6, value=lease.get("advance_deposit", 0))
+        ws.cell(row=row, column=7, value=lease.get("status", "").upper())
+        ws.cell(row=row, column=8, value=len(months))
+        ws.cell(row=row, column=9, value=total_rent)
+        ws.cell(row=row, column=10, value=paid)
+        ws.cell(row=row, column=11, value=max(0, balance))
+        row += 1
+
+    for c in range(1, 12):
+        ws.column_dimensions[chr(64 + c)].width = 15
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                           headers={"Content-Disposition": f"attachment; filename=truck_lease_report.xlsx"})
