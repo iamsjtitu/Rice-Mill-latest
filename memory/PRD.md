@@ -1,39 +1,91 @@
 # NAVKAR AGRO - Mill Entry System PRD
 
+## Original Problem Statement
+Web application + Desktop application (Electron) for managing mill entries, cash book, payments, reports and balance sheet for a rice mill operation. The web app is the "source of truth" for correct behavior. All bug reports and feature requests pertain to the desktop application. After every fix, frontend must be rebuilt and copied to the desktop app.
+
+## User Personas
+- Mill owner/admin: Uses the desktop app daily for financial tracking, entries, and reporting.
+
+## Core Requirements
+- Mill Entry management (paddy purchase tracking)
+- Cash Book (jama/nikasi transactions with auto-ledger)
+- Payments (truck, agent, private paddy)
+- Reports (Party Ledger, Outstanding Report, DC Tracker)
+- Balance Sheet (FY Summary with accurate calculations)
+- Print functionality across all sections
+- Desktop app must match web app behavior
+
+## Tech Stack
+- Frontend: React + Shadcn UI + Tailwind CSS
+- Web Backend: FastAPI + MongoDB
+- Desktop Backend: Express + NeDB/JSON
+- Desktop: Electron
+
 ## Architecture
-- Frontend: React (CRA) + Shadcn/UI + Tailwind
-- Backend: FastAPI (Python), Database: MongoDB
-- Desktop: Electron + Express + JSON DB (v25.0.2)
-- Credentials: admin / admin123, staff / staff123
+```
+/app
+├── desktop-app/
+│   ├── src/api/routes/      # Desktop Express backend
+│   ├── frontend-build/      # Rebuilt React frontend for desktop
+│   ├── main.js              # Electron main process + cleanup scripts
+│   └── package.json
+├── frontend/src/
+│   ├── components/          # Shared React components
+│   │   ├── ErrorBoundary.jsx  # NEW: Prevents blank page crashes
+│   │   ├── PrintButton.jsx    # UPDATED: Electron-compatible printing
+│   │   ├── CashBook.jsx
+│   │   ├── Ledgers.jsx
+│   │   └── cashbook/
+│   └── App.js               # UPDATED: ErrorBoundary wraps all tabs
+├── backend/routes/
+│   ├── cashbook.py           # UPDATED: Truck/Agent payment revert on delete
+│   ├── fy_summary.py         # UPDATED: Balance sheet agent calc from entries+ledger
+│   ├── payments.py
+│   └── reports.py
+└── memory/
+    └── PRD.md
+```
 
-## Desktop App v25.0.2 - Complete Sync Audit
+## What's Been Implemented
 
-### Critical Fixes (v25.0.0 - v25.0.2)
-1. **Login 404 Fix**: 3 root causes - missing `safeHandler` export, missing `shared/` directory, `private_trading.js` syntax error
-2. **Resilient Route Loading**: Each route module loads independently (individual try/catch)
-3. **Cashbook Filter Fix**: Added missing `txn_type`, `category`, `party_type` filters to GET `/api/cash-book`
-4. **35+ Missing Endpoints Added**:
-   - Purchase Book: Full CRUD (`/api/purchase-book`) + item-suggestions, stock-items, individual PDF, delete-bulk
-   - Cash Book: Party Summary (JSON/Excel/PDF), Opening Balances (CRUD), GST Settings
-   - Sale Book: stock-items, delete-bulk, individual PDF
-   - Stock Summary: JSON/Excel/PDF
-   - Private Paddy: mark-paid, undo-paid, history
-   - Rice Sales: mark-paid, undo-paid, history
-   - Voucher Payments: history, undo
-   - Gunny Bags: Purchase Report (JSON/Excel/PDF)
-5. **Frontend rebuilt** with empty REACT_APP_BACKEND_URL (relative API calls)
-6. **Debug endpoint**: `/api/debug/routes` shows loaded/failed routes
+### Session 1 (Previous)
+- Desktop app login fix ✅
+- 35+ missing API endpoints synced ✅
+- Cash Book & Payment logic fixes ✅
+- Data cleanup script for orphaned ledger entries ✅
+- Frontend rebuild workflow established ✅
 
-### Endpoint Audit Result
-- Web backend: 270 endpoints
-- Desktop backend: 270+ endpoints (was 243, now fully synced)
-- Missing endpoints: 0 (was 36)
+### Session 2 (2026-03-14) - Current
+- **ErrorBoundary** added to prevent blank page crashes ✅
+- **Balance Sheet Fix**: Agent accounts now correctly calculated from mill_entries (total) + ledger nikasi (paid), instead of wrong field names from agent_payments ✅
+- **Cash Book DELETE Fix**: Now properly reverts truck/agent payment amounts when deleting linked cash book entries ✅
+- **Desktop cashbook.js**: Case-insensitive agent detection + retroactive party_type fix ✅
+- **Desktop reports.js**: Added Agent party type to Party Ledger + safety checks ✅
+- **Desktop cleanup script**: Enhanced to fix wrong txn_type auto-ledger entries + fill missing party_types ✅
+- **PrintButton**: Improved for Electron compatibility ✅
+- **Frontend rebuilt** and copied to desktop-app ✅
+- **Version bumped** to 25.1.1 ✅
+- **All tests passed**: 12/12 backend + all frontend (iteration_88) ✅
 
-## Workflow (from now on)
-- User reports desktop issue → fix in desktop code → auto rebuild frontend → version bump → auto release
+## Pending Issues
+- P0: Blank page crash - ErrorBoundary added as safety net. Root cause needs console screenshot from user (Party Ledger search)
+- P1: Print preview in Electron - improved but needs user testing on desktop
 
-## Backlog
-- P2: Remove login debug panel after confirmed stable
-- P2: Refactor duplicated PDF/Excel logic
-- P2: Centralize stock calculation
-- P2: App.js breakdown (2700+ lines)
+## Prioritized Backlog
+
+### P0 (Critical)
+- Verify blank page crash is resolved after ErrorBoundary + desktop fixes
+
+### P1 (Important)
+- Comprehensive audit: Compare all desktop features vs web features
+- Test all print buttons across the application
+
+### P2 (Nice to have)
+- Login debug panel removal
+- PDF/Excel generation logic refactor
+- Stock calculation centralization
+- App.js breakdown (2700+ lines)
+
+## Credentials
+- Username: admin
+- Password: admin123
