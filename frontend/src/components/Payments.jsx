@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
+import { fmtDate } from "@/utils/date";
 import { toast } from "sonner";
 
-const fmtDate = (d) => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

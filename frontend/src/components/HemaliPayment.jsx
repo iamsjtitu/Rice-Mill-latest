@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Edit, Users, IndianRupee, RefreshCw, Undo2, Download, FileText, Settings, Calculator, CheckCircle, Printer } from "lucide-react";
+import { fmtDate } from "@/utils/date";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -297,14 +298,22 @@ export default function HemaliPayment({ filters, user }) {
   useEffect(() => { fetchItems(); fetchSardars(); }, [fetchItems, fetchSardars]);
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
 
-  // Fetch advance when sardar_name changes
+  // Fetch advance when sardar_name changes (auto)
   const fetchAdvance = useCallback(async (name) => {
-    if (!name) { setAdvanceInfo({ advance: 0, sardar_name: "" }); return; }
+    if (!name || name.trim().length < 2) { setAdvanceInfo({ advance: 0, sardar_name: "" }); return; }
     try {
-      const res = await axios.get(`${API}/hemali/advance?sardar_name=${encodeURIComponent(name)}&kms_year=${filters.kms_year || ""}&season=${filters.season || ""}`);
+      const res = await axios.get(`${API}/hemali/advance?sardar_name=${encodeURIComponent(name.trim())}&kms_year=${filters.kms_year || ""}&season=${filters.season || ""}`);
       setAdvanceInfo(res.data);
     } catch { setAdvanceInfo({ advance: 0, sardar_name: name }); }
   }, [filters.kms_year, filters.season]);
+
+  // Auto-fetch advance when sardar name changes in form
+  useEffect(() => {
+    if (showCreate && form.sardar_name.trim().length >= 2) {
+      const t = setTimeout(() => fetchAdvance(form.sardar_name), 400);
+      return () => clearTimeout(t);
+    }
+  }, [form.sardar_name, showCreate, fetchAdvance]);
 
   const openCreate = () => {
     setForm({
@@ -518,7 +527,7 @@ export default function HemaliPayment({ filters, user }) {
                     <tbody>{payments.map((p, idx) => (
                       <tr key={p.id} className={`border-b border-slate-700/50 hover:bg-slate-800/50 ${p.status === "undone" ? "opacity-50" : ""}`} data-testid={`hemali-payment-row-${idx}`}>
                         <td className="py-2 px-3 text-slate-500">{idx + 1}</td>
-                        <td className="py-2 px-3 text-white">{p.date}</td>
+                        <td className="py-2 px-3 text-white">{fmtDate(p.date)}</td>
                         <td className="py-2 px-3 text-white font-medium">{p.sardar_name}</td>
                         <td className="py-2 px-3 text-slate-300 text-xs max-w-[200px] truncate">
                           {(p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(", ")}
@@ -572,7 +581,6 @@ export default function HemaliPayment({ filters, user }) {
                 <Label className="text-xs text-slate-400">Sardar Name / सरदार का नाम</Label>
                 <Input value={form.sardar_name}
                   onChange={e => { setForm(p => ({ ...p, sardar_name: e.target.value })); }}
-                  onBlur={() => fetchAdvance(form.sardar_name)}
                   placeholder="e.g. Ramesh" className="bg-slate-700 border-slate-600 text-white" data-testid="hemali-sardar-name"
                   list="sardar-suggestions" />
                 <datalist id="sardar-suggestions">

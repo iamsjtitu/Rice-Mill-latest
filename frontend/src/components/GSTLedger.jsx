@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -114,7 +115,7 @@ const GSTLedger = ({ filters }) => {
           {entries.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi GST transaction nahi hai</TableCell></TableRow>
           : entries.map((e, i) => (
             <TableRow key={i} className="border-slate-700">
-              <TableCell className="text-slate-200 text-xs">{e.date}</TableCell>
+              <TableCell className="text-slate-200 text-xs">{fmtDate(e.date)}</TableCell>
               <TableCell className="text-xs">
                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${e.direction === 'credit' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                   {e.voucher_type} ({e.direction === 'credit' ? '+' : '-'})

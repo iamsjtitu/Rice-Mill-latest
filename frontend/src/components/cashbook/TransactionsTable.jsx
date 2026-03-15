@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Pencil, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 
-const fmtDate = (d) => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
+import { fmtDate } from "@/utils/date";
 
 const TransactionsTable = ({
   txns, loading, user,

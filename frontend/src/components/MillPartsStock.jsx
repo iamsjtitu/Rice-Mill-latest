@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -313,7 +314,7 @@ export default function MillPartsStock({ filters, user }) {
                 {filteredStock.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Koi transaction nahi{searchPart ? ` "${searchPart}" ke liye` : ''}</TableCell></TableRow>
                 : filteredStock.map(t => (
                   <TableRow key={t.id} className="border-slate-700">
-                    <TableCell className="text-white text-xs">{t.date}</TableCell>
+                    <TableCell className="text-white text-xs">{fmtDate(t.date)}</TableCell>
                     <TableCell className="text-white font-semibold">{t.part_name}</TableCell>
                     <TableCell><span className={`px-2 py-0.5 text-xs rounded-full ${t.txn_type === 'in' ? 'bg-emerald-900/40 text-emerald-400' : 'bg-red-900/40 text-red-400'}`}>{t.txn_type === 'in' ? 'IN' : 'USED'}</span></TableCell>
                     <TableCell className="text-amber-400 font-semibold">{t.quantity}</TableCell>
@@ -457,7 +458,7 @@ export default function MillPartsStock({ filters, user }) {
                         <TableBody>
                           {partTxns.map(t => (
                             <TableRow key={t.id} className="border-slate-700/40">
-                              <TableCell className="text-xs text-white py-1.5">{t.date}</TableCell>
+                              <TableCell className="text-xs text-white py-1.5">{fmtDate(t.date)}</TableCell>
                               <TableCell className="py-1.5"><span className={`px-2 py-0.5 text-xs rounded-full font-medium ${t.txn_type === 'in' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-red-900/30 text-red-400'}`}>{t.txn_type === 'in' ? 'IN' : 'USED'}</span></TableCell>
                               <TableCell className={`text-xs py-1.5 font-bold ${t.txn_type === 'in' ? 'text-emerald-400' : 'text-red-400'}`}>{t.quantity}</TableCell>
                               <TableCell className="text-xs py-1.5 text-slate-300">{t.rate ? `Rs.${t.rate}` : '-'}</TableCell>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { fmtDate } from "@/utils/date";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,6 @@ import {
   IndianRupee, FileSpreadsheet, BookOpen, ClipboardList, Receipt, Wallet
 } from "lucide-react";
 
-const fmtDate = (d) => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');

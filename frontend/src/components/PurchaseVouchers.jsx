@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -376,7 +377,7 @@ export default function PurchaseVouchers({ filters, user }) {
                       className="accent-emerald-500 w-3.5 h-3.5 cursor-pointer" data-testid={`pv-select-${v.id}`} />
                   </TableCell>
                   <TableCell className="text-slate-400 text-xs">{v.voucher_no}</TableCell>
-                  <TableCell className="text-white text-xs whitespace-nowrap">{v.date}</TableCell>
+                  <TableCell className="text-white text-xs whitespace-nowrap">{fmtDate(v.date)}</TableCell>
                   <TableCell className="text-cyan-400 text-xs">{v.invoice_no || '-'}</TableCell>
                   <TableCell className="text-purple-400 text-xs">{v.rst_no || '-'}</TableCell>
                   <TableCell className="text-white font-semibold text-sm">{v.party_name}</TableCell>

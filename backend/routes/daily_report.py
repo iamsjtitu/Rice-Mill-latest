@@ -317,6 +317,12 @@ def _fmt_amt(val):
     return f"{val:,.0f}"
 
 
+def _fmt_date(d):
+    if not d: return ''
+    parts = str(d).split('-')
+    return f"{parts[2]}-{parts[1]}-{parts[0]}" if len(parts) == 3 else d
+
+
 @router.get("/reports/daily/pdf")
 async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Optional[str] = None, mode: str = "normal"):
     data = await get_daily_report(date, kms_year, season, mode)
@@ -378,7 +384,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     mode_label = "DETAILED" if is_detail else "SUMMARY"
 
     # Title
-    elements.append(Paragraph(f"Daily Report - {date}", title_style))
+    elements.append(Paragraph(f"Daily Report - {_fmt_date(date)}", title_style))
     elements.append(Paragraph(f"Mode: {mode_label} | KMS Year: {kms_year or 'All'} | Season: {season or 'All'}", subtitle_style))
     elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e2e8f0')))
     elements.append(Spacer(1, 6))
@@ -752,7 +758,7 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     is_detail = mode == "detail"
     wb = Workbook()
     ws = wb.active
-    ws.title = f"Daily Report {date}"
+    ws.title = f"Daily Report {_fmt_date(date)}"
     hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
     hdr_font = Font(bold=True, color='FFFFFF', size=9)
     bold = Font(bold=True)
@@ -764,7 +770,7 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     mode_label = "DETAILED" if is_detail else "SUMMARY"
 
     ws.merge_cells('A1:F1')
-    ws['A1'] = f"Daily Report - {date} ({mode_label})"
+    ws['A1'] = f"Daily Report - {_fmt_date(date)} ({mode_label})"
     ws['A1'].font = Font(bold=True, size=14, color='1a365d')
     ws.merge_cells('A2:F2')
     ws['A2'] = f"KMS Year: {kms_year or 'All'} | Season: {season or 'All'}"

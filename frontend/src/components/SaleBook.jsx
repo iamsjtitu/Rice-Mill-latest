@@ -13,12 +13,7 @@ import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpread
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
 
-const fmtDate = (d) => {
-  if (!d) return '';
-  const parts = String(d).split('-');
-  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-  return d;
-};
+import { fmtDate } from "@/utils/date";
 
 export default function SaleBook({ filters, user }) {
   const [vouchers, setVouchers] = useState([]);

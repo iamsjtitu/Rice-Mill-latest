@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -875,7 +876,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
               </tr></thead>
               <tbody>{payments.map(p => (
                 <tr key={p.id} className="border-b border-slate-700/50">
-                  <td className="py-2 px-2 text-slate-300">{p.date}</td>
+                  <td className="py-2 px-2 text-slate-300">{fmtDate(p.date)}</td>
                   <td className="py-2 px-2 text-white font-medium">{p.staff_name}</td>
                   <td className="py-2 px-2 text-slate-400">{p.period_from} to {p.period_to}</td>
                   <td className="py-2 px-2 text-right text-slate-300">{p.days_worked}</td>

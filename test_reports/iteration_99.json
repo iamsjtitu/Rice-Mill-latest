@@ -1,0 +1,121 @@
+{
+  "summary": "Testing iteration 99: Bug fixes for date format DD-MM-YYYY, print receipt PDF (English only), and advance auto-fetch. Backend: 14/14 tests passed (100%). Frontend: All 3 bug fixes verified working.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration99_date_format_bugs.py",
+    "/app/test_reports/pytest/pytest_results_iteration99.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "fmtDate utility (/app/frontend/src/utils/date.js) correctly converts YYYY-MM-DD to DD-MM-YYYY",
+    "Backend fmt_d helper functions in hemali.py and daily_report.py match frontend logic",
+    "Advance auto-fetch uses 400ms debounce via setTimeout/clearTimeout pattern in useEffect",
+    "Print receipt PDF uses Helvetica font (English only) - no Hindi text to avoid ReportLab font issues"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration99_date_format_bugs.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 passed)",
+    "frontend": "100% (all bug fixes verified)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "Marked payment 3c43b130 as paid to create Rs.400 advance for Ramesh (to test advance auto-fetch)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 3 bug fixes working: (1) Date format DD-MM-YYYY displays correctly across all pages, (2) Print receipt PDF generates valid English-only PDF, (3) Advance auto-fetch triggers on 400ms debounce when typing sardar name in create dialog.",
+  "features_tested": {
+    "date_format_hemali_table": {
+      "status": "PASS",
+      "details": "Dates display as DD-MM-YYYY (e.g., 15-03-2026)"
+    },
+    "date_format_cashbook": {
+      "status": "PASS",
+      "details": "Cash transactions show dates in DD-MM-YYYY format"
+    },
+    "date_format_ledgers": {
+      "status": "PASS",
+      "details": "Party Ledgers show dates in DD-MM-YYYY format"
+    },
+    "date_format_salebook": {
+      "status": "PASS",
+      "details": "Sale Book dates display as DD-MM-YYYY"
+    },
+    "print_receipt_pdf": {
+      "status": "PASS",
+      "endpoint": "GET /api/hemali/payments/{id}/print",
+      "details": "Valid PDF generated with English text only, date in DD-MM-YYYY format"
+    },
+    "hemali_export_pdf_dates": {
+      "status": "PASS",
+      "endpoint": "GET /api/hemali/export/pdf",
+      "details": "PDF export uses DD-MM-YYYY date format in table"
+    },
+    "advance_auto_fetch": {
+      "status": "PASS",
+      "details": "When typing 'Ramesh' in sardar name field, advance info (Rs.400) appears automatically after 400ms debounce"
+    },
+    "advance_api_known_sardar": {
+      "status": "PASS",
+      "endpoint": "GET /api/hemali/advance?sardar_name=Ramesh",
+      "details": "Returns advance balance for known sardar"
+    },
+    "advance_api_unknown_sardar": {
+      "status": "PASS",
+      "details": "Returns 0 for unknown sardar"
+    },
+    "daily_report_date": {
+      "status": "PASS",
+      "details": "Daily report API returns date field correctly"
+    },
+    "monthly_summary_month_format": {
+      "status": "PASS",
+      "details": "Groups data by YYYY-MM month format"
+    }
+  },
+  "verified_ui_elements": {
+    "hemali_payments_table": {
+      "date_column": "Shows DD-MM-YYYY (e.g., 15-03-2026, 15-02-2026)",
+      "print_button": "Available for each row"
+    },
+    "create_payment_dialog": {
+      "sardar_name_input": "data-testid='hemali-sardar-name'",
+      "advance_info_box": "data-testid='hemali-advance-info' - shows when advance > 0",
+      "debounce_behavior": "400ms delay before API call on sardar name change"
+    },
+    "cashbook_transactions_table": {
+      "date_column": "Shows DD-MM-YYYY format"
+    },
+    "party_ledgers": {
+      "date_column": "Shows DD-MM-YYYY format"
+    },
+    "sale_book": {
+      "date_column": "Shows DD-MM-YYYY format"
+    }
+  },
+  "bug_fixes_verified": {
+    "bug_1_pdf_hindi_boxes": {
+      "status": "FIXED",
+      "solution": "PDF now uses English only text with Helvetica font",
+      "verification": "Print receipt endpoint returns valid PDF without encoding issues"
+    },
+    "bug_2_date_format": {
+      "status": "FIXED",
+      "solution": "fmtDate utility converts YYYY-MM-DD to DD-MM-YYYY for display",
+      "verification": "All tables show dates as DD-MM-YYYY (e.g., 15-03-2026)"
+    },
+    "bug_3_advance_auto_fetch": {
+      "status": "FIXED",
+      "solution": "useEffect with 400ms debounce triggers fetchAdvance when sardar_name changes",
+      "verification": "Typing 'Ramesh' shows 'Pichla Advance: Rs.400' automatically"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -276,7 +277,7 @@ export const PaddyPurchase = ({ filters, user }) => {
                 return (
                 <TableRow key={item.id} className={`border-slate-700 ${selectedIds.includes(item.id) ? 'bg-amber-900/20' : ''}`} data-testid={`paddy-row-${item.id}`}>
                   <TableCell><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelect(item.id)} className="accent-amber-500" /></TableCell>
-                  <TableCell className="text-white text-xs whitespace-nowrap">{item.date}</TableCell>
+                  <TableCell className="text-white text-xs whitespace-nowrap">{fmtDate(item.date)}</TableCell>
                   <TableCell className="text-white font-semibold text-sm">{item.party_name}</TableCell>
                   <TableCell className="text-cyan-400 text-xs">{item.mandi_name || '-'}</TableCell>
                   <TableCell className="text-purple-400 text-xs">{item.agent_name || '-'}</TableCell>
@@ -515,7 +516,7 @@ export const PaddyPurchase = ({ filters, user }) => {
                   <CardContent className="p-3 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold text-white">Rs.{h.amount?.toLocaleString()}</p>
-                      <p className="text-[10px] text-slate-400">{h.date} | {h.mode || 'cash'} {h.reference ? `| ${h.reference}` : ''}</p>
+                      <p className="text-[10px] text-slate-400">{fmtDate(h.date)} | {h.mode || 'cash'} {h.reference ? `| ${h.reference}` : ''}</p>
                       {h.remark && <p className="text-[10px] text-slate-500 italic">{h.remark}</p>}
                     </div>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${h.payment_type === 'paid' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>

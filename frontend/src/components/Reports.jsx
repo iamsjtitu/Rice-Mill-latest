@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { fmtDate } from "@/utils/date";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -911,7 +912,6 @@ const AgentMandiReport = ({ filters }) => {
   };
 
   const fmtNum = (v) => typeof v === 'number' ? v.toLocaleString('en-IN') : v;
-  const fmtDate = (d) => { if (!d) return ''; const p = String(d).split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
 
   if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;
 

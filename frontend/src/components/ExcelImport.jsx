@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -137,7 +138,7 @@ const ExcelImport = ({ filters, user, onImportDone }) => {
                   <TableBody>
                     {preview.sample?.map((e, i) => (
                       <TableRow key={i} className="border-slate-700">
-                        <TableCell className="text-xs text-white">{e.date}</TableCell>
+                        <TableCell className="text-xs text-white">{fmtDate(e.date)}</TableCell>
                         <TableCell className="text-xs text-white">{e.truck_no}</TableCell>
                         <TableCell className="text-xs text-white">{e.agent_name}</TableCell>
                         <TableCell className="text-xs text-white">{e.mandi_name}</TableCell>

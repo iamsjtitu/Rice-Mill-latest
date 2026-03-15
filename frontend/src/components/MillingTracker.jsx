@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -239,7 +240,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
           : entries.length === 0 ? <TableRow><TableCell colSpan={12} className="text-center text-slate-400 py-8">Koi milling entry nahi hai</TableCell></TableRow>
           : entries.map(e => (
             <TableRow key={e.id} className="border-slate-700">
-              <TableCell className="text-white text-xs">{e.date}</TableCell>
+              <TableCell className="text-white text-xs">{fmtDate(e.date)}</TableCell>
               <TableCell className="text-xs"><span className={`px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${e.rice_type === 'parboiled' ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40' : 'bg-sky-500/25 text-sky-300 border border-sky-500/40'}`}>{e.rice_type === 'parboiled' ? 'Usna' : 'Arwa'}</span></TableCell>
               <TableCell className="text-blue-300 text-xs text-right font-medium">{e.paddy_input_qntl}</TableCell>
               <TableCell className="text-slate-300 text-xs text-right">{e.rice_percent}%</TableCell>
@@ -396,7 +397,7 @@ const FrkPurchaseTab = ({ filters, user, frkStock, onRefresh }) => {
           : purchases.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center text-slate-400 py-6">Koi FRK purchase nahi hai</TableCell></TableRow>
           : purchases.map(p => (
             <TableRow key={p.id} className="border-slate-700">
-              <TableCell className="text-white text-xs">{p.date}</TableCell>
+              <TableCell className="text-white text-xs">{fmtDate(p.date)}</TableCell>
               <TableCell className="text-slate-300 text-xs">{p.party_name}</TableCell>
               <TableCell className="text-cyan-300 text-xs text-right font-medium">{p.quantity_qntl}</TableCell>
               <TableCell className="text-slate-300 text-xs text-right">₹{p.rate_per_qntl}</TableCell>
@@ -504,7 +505,7 @@ const ByProductTab = ({ filters, user, onRefresh }) => {
           {loading ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-6">Loading...</TableCell></TableRow>
           : sales.length === 0 ? <TableRow><TableCell colSpan={8} className="text-center text-slate-400 py-6">Koi sale nahi</TableCell></TableRow>
           : sales.map(s => (<TableRow key={s.id} className="border-slate-700">
-            <TableCell className="text-white text-xs">{s.date}</TableCell>
+            <TableCell className="text-white text-xs">{fmtDate(s.date)}</TableCell>
             <TableCell className="text-xs"><span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-400">{PRODUCT_LABELS[s.product]||s.product}</span></TableCell>
             <TableCell className="text-blue-300 text-xs">{s.quantity_qntl}</TableCell>
             <TableCell className="text-slate-300 text-xs">₹{s.rate_per_qntl}</TableCell>
@@ -606,7 +607,7 @@ const PaddyCustodyTab = ({ filters }) => {
           : (!register || register.rows.length === 0) ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">Koi entry nahi</TableCell></TableRow>
           : register.rows.map((r, i) => (
             <TableRow key={i} className={`border-slate-700 ${r.type === 'received' ? 'bg-green-900/5' : 'bg-red-900/5'}`}>
-              <TableCell className="text-white text-xs">{r.date}</TableCell>
+              <TableCell className="text-white text-xs">{fmtDate(r.date)}</TableCell>
               <TableCell className="text-slate-300 text-xs">{r.description}</TableCell>
               <TableCell className={`text-xs text-right font-medium ${r.received_qntl > 0 ? 'text-green-400' : 'text-slate-600'}`}>{r.received_qntl > 0 ? r.received_qntl : '-'}</TableCell>
               <TableCell className={`text-xs text-right font-medium ${r.issued_qntl > 0 ? 'text-orange-400' : 'text-slate-600'}`}>{r.issued_qntl > 0 ? r.issued_qntl : '-'}</TableCell>

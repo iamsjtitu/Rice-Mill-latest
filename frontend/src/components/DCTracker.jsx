@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -170,7 +171,7 @@ const DCEntries = ({ filters, user }) => {
             <TableRow key={dc.id} className="border-slate-700 cursor-pointer hover:bg-slate-750" onClick={() => handleExpandDC(dc.id)} data-testid={`dc-row-${dc.id}`}>
               <TableCell className="w-8 px-2">{expandedDC === dc.id ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}</TableCell>
               <TableCell className="text-amber-400 font-semibold text-sm">{dc.dc_number}</TableCell>
-              <TableCell className="text-slate-200 text-xs">{dc.date}</TableCell>
+              <TableCell className="text-slate-200 text-xs">{fmtDate(dc.date)}</TableCell>
               <TableCell className="text-xs"><span className={`px-2 py-0.5 rounded text-xs font-bold ${(dc.rice_type||'')==='parboiled' ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/40' : 'bg-sky-500/25 text-sky-300 border border-sky-500/40'}`}>{(dc.rice_type||'')==='parboiled' ? 'Usna' : 'Arwa'}</span></TableCell>
               <TableCell className="text-white text-sm text-right font-medium">{dc.quantity_qntl} Q</TableCell>
               <TableCell className="text-green-400 text-sm text-right font-medium">{dc.delivered_qntl} Q</TableCell>
@@ -194,7 +195,7 @@ const DCEntries = ({ filters, user }) => {
                     </TableRow></TableHeader>
                     <TableBody>{deliveries.map(d => (
                       <TableRow key={d.id} className="border-slate-700" data-testid={`delivery-row-${d.id}`}>
-                        <TableCell className="text-slate-200 text-[11px] py-1">{d.date}</TableCell>
+                        <TableCell className="text-slate-200 text-[11px] py-1">{fmtDate(d.date)}</TableCell>
                         <TableCell className="text-green-400 text-[11px] py-1 font-semibold">{d.quantity_qntl} Q</TableCell>
                         <TableCell className="text-slate-300 text-[11px] py-1">{d.invoice_no || '-'}</TableCell>
                         <TableCell className="text-slate-300 text-[11px] py-1">{d.rst_no || '-'}</TableCell>
@@ -399,7 +400,7 @@ const MSPPayments = ({ filters, user, dcList }) => {
           : payments.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Koi payment nahi hai.</TableCell></TableRow>
           : payments.map(p => (
             <TableRow key={p.id} className="border-slate-700" data-testid={`msp-row-${p.id}`}>
-              <TableCell className="text-white text-xs">{p.date}</TableCell>
+              <TableCell className="text-white text-xs">{fmtDate(p.date)}</TableCell>
               <TableCell className="text-amber-400 text-xs">{p.dc_number || '-'}</TableCell>
               <TableCell className="text-white text-xs text-right">{p.quantity_qntl}</TableCell>
               <TableCell className="text-slate-300 text-xs text-right">{p.rate_per_qntl}</TableCell>
@@ -700,7 +701,7 @@ export const GunnyBags = ({ filters, user }) => {
               return true;
             }).map(e => (
             <TableRow key={e.id} className={`border-slate-700 ${e.txn_type === 'in' ? 'bg-green-900/5' : 'bg-red-900/5'}`} data-testid={`gunny-row-${e.id}`}>
-              <TableCell className="text-white text-xs">{e.date}</TableCell>
+              <TableCell className="text-white text-xs">{fmtDate(e.date)}</TableCell>
               <TableCell className="text-white text-xs font-medium">{e.party_name || e.source || '-'}</TableCell>
               <TableCell className="text-slate-400 text-xs">{e.invoice_no || '-'}</TableCell>
               <TableCell className="text-slate-400 text-xs">{e.truck_no || '-'}</TableCell>
