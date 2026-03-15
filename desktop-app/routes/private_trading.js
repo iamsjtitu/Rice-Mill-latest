@@ -169,7 +169,9 @@ module.exports = function(database) {
     d.bags = parseInt(d.bags) || 0; d.paid_amount = parseFloat(d.paid_amount) || 0;
     d.total_amount = Math.round(d.quantity_qntl * d.rate_per_qntl * 100) / 100;
     d.balance = Math.round(d.total_amount - d.paid_amount, 2);
-    database.data.rice_sales.push(d); database.save(); res.json(d);
+    database.data.rice_sales.push(d);
+    _createCashForRiceSale(database, d, req.query.username || '');
+    database.save(); res.json(d);
   }));
 
   router.get('/api/rice-sales', safeSync((req, res) => {
