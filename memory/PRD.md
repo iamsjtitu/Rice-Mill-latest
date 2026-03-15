@@ -11,40 +11,46 @@ Web + Desktop (Electron) mill entry management system. Web app is source of trut
 
 ## What's Been Implemented
 
-### Session 2.5 (2026-02-22) - Balance Sheet P0 Bug Fixes (Round 1)
-- cutting_rate=0 falsy bug fixed in fy_summary.js/py (3+1 places)
-- Truck Total/Paid display fixed (Total=gross, Paid=deductions+external)
-- Version: 25.1.15
+### Session 2.7 (2026-03-15) - Full Balance Sheet Audit & Fix (Round 3)
+**Three bugs FIXED:**
 
-### Session 2.6 (2026-03-15) - Balance Sheet P0 Bug Fixes (Round 2)
-**Three critical root-cause bugs FIXED:**
+**Bug 1: Diesel Payment Not Reflecting in Balance Sheet**
+- Root cause: FY summary only checked `diesel_accounts.payment` entries, missing `ledger nikasi` entries
+- Fix: Uses `max(diesel_accounts_payment, ledger_nikasi)` - captures ALL payment sources
+- Also matches by reference prefix `diesel_pay` for backward compatibility
+- Result: Lokesh Fuels fully paid → closing_balance=0, removed from Sundry Creditors
 
-**Bug 1: Truck Gross Formula Mismatch**
-- Root cause: Balance sheet used `final_w/100` but entry creation uses `(qntl - bag/100)` → different values
-- Fix: Changed fy_summary.js (3 places) and fy_summary.py to use `(qntl - bag/100) * rate`
-- Result: Truck OD15A1234 balance=0 (was -1,121.28)
+**Bug 2: Cash Book "total_parties" Error**
+- Root cause: Desktop party-summary returned flat array, frontend expected `{parties:[], summary:{total_parties,...}}`
+- Fix: Desktop cashbook.js party-summary now returns correct format with summary stats
+- Result: No more JS error on Cash Book page
 
-**Bug 2: Diesel Not Showing in Balance Sheet**
-- Root cause: Only iterated over diesel_pumps collection. When pumps empty but diesel_accounts has entries with default pump_id, they were skipped
-- Fix: Added orphan pump handling in both fy_summary.js and fy_summary.py
-- Result: Diesel Lokesh Fuels ₹4,400 now shows in Sundry Creditors
-
-**Bug 3: cutting_rate=0 Bug in entries.js**
-- Root cause: Same `||` falsy bug existed in entries.js (lines 86, 106) where ledger jama entries were created
-- Fix: Changed to nullish check `cutting_rate != null ? cutting_rate : 5`
-- Result: New entries/targets will calculate correctly
+**Bug 3: Stale Agent Jama Amount (Utkela 4,100 → 4,000)**
+- Root cause: Old buggy `cutting_rate||5` created ledger entries with wrong amounts, never corrected
+- Fix: Balance sheet auto-reconciles agent jama ledger entries against correct mandi_target calculation
+- Both web (MongoDB) and desktop (JSON DB) reconciliation added
+- Result: Utkela now shows correct 4,000 (not 4,100)
 
 **Testing:** 11/11 backend + frontend tests passed
-**Version:** 25.1.16
+**Version:** 25.1.17
 
-### Earlier Sessions (Summary)
+### Session 2.6 (2026-03-15) - Balance Sheet P0 Fixes (Round 2)
+- Truck gross formula: `final_w/100` → `(qntl - bag/100)` to match entry creation
+- Diesel orphan pump handling for missing diesel_pumps
+- cutting_rate nullish check in entries.js
+
+### Session 2.5 - Balance Sheet P0 Fixes (Round 1)
+- cutting_rate=0 falsy bug fixed in fy_summary.js/py
+- Truck Total/Paid display: Total=gross, Paid=deductions+external
+
+### Earlier Sessions
 - Desktop sync, 35+ endpoints, ErrorBoundary, Cash Book fixes
 - Truck Lease Management (CRUD, PDF/Excel)
-- Payment audit: Fixed diesel, local-party, truck-owner ledger nikasi
-- Stock Summary PDF/Excel rewrite, Dashboard PDF export
+- Payment audit: diesel, local-party, truck-owner ledger nikasi fixes
+- Stock Summary PDF/Excel, Dashboard PDF export
 
 ## Pending Issues
-- Opening Balance "Save failed" on desktop - could not reproduce (works on web). May be user's old version.
+- Opening Balance "Save failed" on desktop - could not reproduce on web. May be user's old version.
 
 ## Prioritized Backlog
 ### P1
@@ -53,7 +59,6 @@ Web + Desktop (Electron) mill entry management system. Web app is source of trut
 - PDF/Excel refactor (reduce duplicate code)
 - App.js breakdown (2775+ lines)
 - Stock calculation centralize
-- Refactor truck/agent payment calculation into shared utility
 
 ## Credentials
 - Username: admin / Password: admin123
