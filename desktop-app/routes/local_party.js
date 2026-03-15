@@ -177,13 +177,15 @@ router.post('/api/local-party/manual', safeSync((req, res) => {
   res.json(doc);
 }));
 
-// ============ SETTLEMENT / PAY ============
+// ============ SETTLEMENT / PAY / RECEIVE ============
 router.post('/api/local-party/settle', safeSync((req, res) => {
   ensureCollection('local_party_accounts');
   ensureCollection('cash_transactions');
   const d = req.body;
   const party_name = (d.party_name || '').trim();
   const amount = parseFloat(d.amount) || 0;
+  const type = d.type || 'paid'; // 'paid' or 'received'
+
   if (!party_name || amount <= 0) return res.status(400).json({ detail: 'Party name aur amount (>0) required hai' });
 
   const date = d.date || new Date().toISOString().split('T')[0];
@@ -192,30 +194,39 @@ router.post('/api/local-party/settle', safeSync((req, res) => {
   const season = d.season || '';
   const username = d.created_by || 'system';
 
+  // In Local Party Account: Payment/Receipt both REDUCE the running balance (which tracks 'Outstanding')
+  // If it's a Vendor: We pay (Balance reduces)
+  // If it's a Customer: They pay us (Balance reduces)
+  // So txn_type 'payment' is used for both settlements in local_party_accounts
   const payTxn = {
     id: uuidv4(), date, party_name, txn_type: 'payment',
     amount: Math.round(amount * 100) / 100,
-    description: `Payment to ${party_name}${notes ? ' - ' + notes : ''}`,
+    description: `${type === 'received' ? 'Received from' : 'Payment to'} ${party_name}${notes ? ' - ' + notes : ''}`,
     source_type: 'settlement', reference: '', kms_year, season,
     created_by: username, created_at: new Date().toISOString()
   };
   database.data.local_party_accounts.push(payTxn);
 
+  // Cash Book Logic
+  const cashTxnType = type === 'received' ? 'jama' : 'nikasi';
+  const descPrefix = type === 'received' ? 'Received from' : 'Payment to';
+
   const cb = {
-    id: uuidv4(), date, account: 'cash', txn_type: 'nikasi', category: party_name,
+    id: uuidv4(), date, account: 'cash', txn_type: cashTxnType, category: party_name,
     party_type: 'Local Party',
-    description: `Local Party Payment: ${party_name} - Rs.${amount}${notes ? ' (' + notes + ')' : ''}`,
+    description: `Local Party: ${descPrefix} ${party_name} - Rs.${amount}${notes ? ' (' + notes + ')' : ''}`,
     amount: Math.round(amount * 100) / 100, reference: `local_party:${payTxn.id.slice(0, 8)}`,
     kms_year, season, created_by: username,
     linked_local_party_id: payTxn.id,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString()
   };
   database.data.cash_transactions.push(cb);
-  // Ledger nikasi - for party summary paid calculation + Party Ledger
+  
+  // Ledger Entry (Counter-entry for party ledger summary)
   database.data.cash_transactions.push({
-    id: uuidv4(), date, account: 'ledger', txn_type: 'nikasi', category: party_name,
+    id: uuidv4(), date, account: 'ledger', txn_type: cashTxnType, category: party_name,
     party_type: 'Local Party',
-    description: `Local Party Payment: ${party_name} - Rs.${amount}${notes ? ' (' + notes + ')' : ''}`,
+    description: `Local Party: ${descPrefix} ${party_name} - Rs.${amount}${notes ? ' (' + notes + ')' : ''}`,
     amount: Math.round(amount * 100) / 100, reference: `local_party_ledger:${payTxn.id.slice(0, 8)}`,
     kms_year, season, created_by: username,
     linked_local_party_id: payTxn.id,
@@ -223,7 +234,7 @@ router.post('/api/local-party/settle', safeSync((req, res) => {
   });
   database.save();
 
-  res.json({ success: true, message: `Rs.${amount} payment to ${party_name} recorded`, txn_id: payTxn.id });
+  res.json({ success: true, message: `Rs.${amount} ${type} recorded for ${party_name}`, txn_id: payTxn.id });
 }));
 
 // ============ DELETE TRANSACTION ============
