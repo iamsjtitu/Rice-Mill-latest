@@ -106,6 +106,124 @@ const ItemsConfig = ({ items, fetchItems }) => {
   );
 };
 
+// ===== MONTHLY SUMMARY =====
+const MonthlySummary = ({ filters }) => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [filterSardar, setFilterSardar] = useState("");
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append("kms_year", filters.kms_year);
+      if (filters.season) params.append("season", filters.season);
+      if (filterSardar) params.append("sardar_name", filterSardar);
+      const res = await axios.get(`${API}/hemali/monthly-summary?${params}`);
+      setData(res.data || []);
+    } catch { toast.error("Monthly summary load error"); }
+    setLoading(false);
+  }, [filters.kms_year, filters.season, filterSardar]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleExport = async (format) => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append("kms_year", filters.kms_year);
+    if (filters.season) params.append("season", filters.season);
+    if (filterSardar) params.append("sardar_name", filterSardar);
+    const { downloadFile } = await import("@/utils/download");
+    downloadFile(`/api/hemali/monthly-summary/${format}?${params}`, `hemali_monthly.${format === "pdf" ? "pdf" : "xlsx"}`);
+    toast.success(`${format.toUpperCase()} download ho raha hai!`);
+  };
+
+  return (
+    <div className="space-y-4" data-testid="hemali-monthly-summary">
+      <div className="flex flex-wrap gap-2 items-center">
+        <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+          <RefreshCw className="w-4 h-4 mr-1" /> Refresh
+        </Button>
+        <Button onClick={() => handleExport("pdf")} variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-900/30" data-testid="monthly-export-pdf">
+          <FileText className="w-4 h-4 mr-1" /> PDF
+        </Button>
+        <Button onClick={() => handleExport("excel")} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="monthly-export-excel">
+          <Download className="w-4 h-4 mr-1" /> Excel
+        </Button>
+        <div className="ml-auto">
+          <Input value={filterSardar} onChange={e => setFilterSardar(e.target.value)}
+            placeholder="Sardar name filter..." className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-[180px]" data-testid="monthly-filter-sardar" />
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-slate-400 text-center py-8">Loading...</p>
+      ) : data.length === 0 ? (
+        <p className="text-slate-500 text-center py-8">Koi data nahi mila.</p>
+      ) : (
+        <div className="space-y-6">
+          {data.map((sardar, si) => (
+            <Card key={sardar.sardar_name} className="bg-slate-800 border-slate-700" data-testid={`monthly-sardar-${si}`}>
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-amber-400 text-sm flex items-center gap-2">
+                    <Users className="w-4 h-4" /> {sardar.sardar_name}
+                  </CardTitle>
+                  <div className="flex gap-4 text-xs">
+                    <span className="text-slate-400">Total Work: <span className="text-amber-400 font-semibold">Rs.{sardar.grand_total_work.toLocaleString("en-IN")}</span></span>
+                    <span className="text-slate-400">Total Paid: <span className="text-red-400 font-semibold">Rs.{sardar.grand_total_paid.toLocaleString("en-IN")}</span></span>
+                    <span className={`font-semibold ${sardar.current_advance_balance > 0 ? "text-yellow-400" : "text-green-400"}`}>
+                      Advance Balance: Rs.{sardar.current_advance_balance.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-slate-700 text-slate-400 text-xs">
+                      <th className="text-left py-2 px-3">Month</th>
+                      <th className="text-center py-2 px-3">Payments (Paid/Total)</th>
+                      <th className="text-right py-2 px-3">Total Work</th>
+                      <th className="text-right py-2 px-3">Total Paid</th>
+                      <th className="text-right py-2 px-3">Advance Given</th>
+                      <th className="text-right py-2 px-3">Advance Deducted</th>
+                      <th className="text-left py-2 px-3">Items Breakdown</th>
+                    </tr></thead>
+                    <tbody>
+                      {sardar.months.map((m, mi) => (
+                        <tr key={m.month} className="border-b border-slate-700/50 hover:bg-slate-800/50">
+                          <td className="py-2 px-3 text-white font-medium">{m.month}</td>
+                          <td className="py-2 px-3 text-center text-slate-300">{m.paid_payments}/{m.total_payments}</td>
+                          <td className="py-2 px-3 text-right text-amber-400">Rs.{m.total_work.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-3 text-right text-red-400">Rs.{m.total_paid.toLocaleString("en-IN")}</td>
+                          <td className="py-2 px-3 text-right text-yellow-400">{m.advance_given > 0 ? `Rs.${m.advance_given.toLocaleString("en-IN")}` : "-"}</td>
+                          <td className="py-2 px-3 text-right text-orange-400">{m.advance_deducted > 0 ? `Rs.${m.advance_deducted.toLocaleString("en-IN")}` : "-"}</td>
+                          <td className="py-2 px-3 text-xs text-slate-400 max-w-[200px]">
+                            {Object.entries(m.items_breakdown || {}).map(([name, v]) => `${name}: ${v.quantity}`).join(", ")}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-slate-900/50 font-semibold">
+                        <td className="py-2 px-3 text-white">TOTAL</td>
+                        <td className="py-2 px-3"></td>
+                        <td className="py-2 px-3 text-right text-amber-400">Rs.{sardar.grand_total_work.toLocaleString("en-IN")}</td>
+                        <td className="py-2 px-3 text-right text-red-400">Rs.{sardar.grand_total_paid.toLocaleString("en-IN")}</td>
+                        <td className="py-2 px-3 text-right text-yellow-400">Rs.{sardar.grand_total_advance_given.toLocaleString("en-IN")}</td>
+                        <td className="py-2 px-3 text-right text-orange-400">Rs.{sardar.grand_total_advance_deducted.toLocaleString("en-IN")}</td>
+                        <td className="py-2 px-3"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ===== MAIN HEMALI PAYMENT =====
 export default function HemaliPayment({ filters, user }) {
   const [subTab, setSubTab] = useState("payments");
@@ -273,6 +391,10 @@ export default function HemaliPayment({ filters, user }) {
           className={`px-4 py-1.5 rounded-t text-sm font-medium transition ${subTab === "payments" ? "bg-amber-500/20 text-amber-400 border-b-2 border-amber-400" : "text-slate-400 hover:text-slate-200"}`}>
           Hemali Payments
         </button>
+        <button onClick={() => setSubTab("monthly")} data-testid="hemali-tab-monthly"
+          className={`px-4 py-1.5 rounded-t text-sm font-medium transition ${subTab === "monthly" ? "bg-amber-500/20 text-amber-400 border-b-2 border-amber-400" : "text-slate-400 hover:text-slate-200"}`}>
+          Monthly Summary
+        </button>
         <button onClick={() => setSubTab("items")} data-testid="hemali-tab-items"
           className={`px-4 py-1.5 rounded-t text-sm font-medium transition ${subTab === "items" ? "bg-amber-500/20 text-amber-400 border-b-2 border-amber-400" : "text-slate-400 hover:text-slate-200"}`}>
           Items Config
@@ -281,6 +403,8 @@ export default function HemaliPayment({ filters, user }) {
 
       {subTab === "items" ? (
         <ItemsConfig items={items} fetchItems={fetchItems} />
+      ) : subTab === "monthly" ? (
+        <MonthlySummary filters={filters} />
       ) : (
         <div className="space-y-4">
           {/* Summary Cards */}

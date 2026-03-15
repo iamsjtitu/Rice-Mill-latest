@@ -1,0 +1,113 @@
+{
+  "summary": "Testing new Hemali features: Monthly Summary sub-tab and Party Ledger Hemali integration. Backend: 14/14 tests passed (100%). Frontend: All 3 sub-tabs working (Hemali Payments, Monthly Summary, Items Config). Monthly Summary shows sardar-wise data with items breakdown. Party Ledger has Hemali as a selectable party type.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_monthly_summary_party_ledger.py",
+    "/app/test_reports/pytest/pytest_results_iteration97.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Monthly Summary API correctly aggregates by sardar + month and only counts paid payments",
+    "Items breakdown shows quantity per item per sardar per month",
+    "current_advance_balance calculation is correct (new_advance - advance_deducted for paid payments)",
+    "Party Ledger correctly reads from hemali_payments collection with individual sardar names",
+    "Hemali entries excluded from 'Cash Party' section to avoid duplicates",
+    "PDF and Excel exports for monthly summary work correctly"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_monthly_summary_party_ledger.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 passed)",
+    "frontend": "100% (all UI elements verified working)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "Created TEST_ prefixed items and payments for testing, cleanup performed via fixtures",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Monthly Summary and Party Ledger Hemali features fully functional. Existing sardars: Ramesh (2026-03) and Suresh (2026-02) visible in Monthly Summary. Party Ledger has Hemali as filterable party type showing individual sardar names.",
+  "features_tested": {
+    "monthly_summary_api": {
+      "status": "PASS",
+      "details": "GET /api/hemali/monthly-summary returns sardar-wise monthly data with items_breakdown"
+    },
+    "monthly_summary_only_counts_paid": {
+      "status": "PASS",
+      "details": "total_work/total_paid only includes status='paid' payments"
+    },
+    "monthly_summary_items_breakdown": {
+      "status": "PASS",
+      "details": "items_breakdown shows quantity per item per month (e.g., 'Paddy Bag Unload: 150')"
+    },
+    "monthly_summary_current_advance_balance": {
+      "status": "PASS",
+      "details": "current_advance_balance calculated correctly per sardar"
+    },
+    "monthly_summary_sardar_filter": {
+      "status": "PASS",
+      "details": "sardar_name query param filters results correctly"
+    },
+    "monthly_summary_pdf_export": {
+      "status": "PASS",
+      "details": "GET /api/hemali/monthly-summary/pdf returns valid PDF"
+    },
+    "monthly_summary_excel_export": {
+      "status": "PASS",
+      "details": "GET /api/hemali/monthly-summary/excel returns valid Excel file"
+    },
+    "party_ledger_hemali_individual_sardars": {
+      "status": "PASS",
+      "details": "GET /api/reports/party-ledger?party_type=Hemali shows individual sardar names (not generic 'Hemali Payment')"
+    },
+    "party_ledger_hemali_debit_credit": {
+      "status": "PASS",
+      "details": "Hemali entries show correct credit (amount_paid) and debit (new_advance)"
+    },
+    "party_ledger_no_hemali_in_cash_party": {
+      "status": "PASS",
+      "details": "Hemali entries excluded from party_type=cash_party to avoid duplicates"
+    },
+    "party_ledger_no_duplicates": {
+      "status": "PASS",
+      "details": "All sardar entries are party_type='Hemali' only (no duplicate in other types)"
+    },
+    "frontend_3_subtabs": {
+      "status": "PASS",
+      "details": "Hemali Payments, Monthly Summary, Items Config tabs all visible and working"
+    },
+    "frontend_monthly_summary_component": {
+      "status": "PASS",
+      "details": "MonthlySummary component renders with sardar cards showing months, totals, items breakdown"
+    },
+    "frontend_monthly_summary_exports": {
+      "status": "PASS",
+      "details": "PDF and Excel export buttons present with data-testid attributes"
+    },
+    "frontend_party_ledger_hemali_filter": {
+      "status": "PASS",
+      "details": "Party Type dropdown includes Hemali option for filtering"
+    }
+  },
+  "verified_monthly_summary_data": {
+    "sardars_found": ["Ramesh", "Suresh"],
+    "ramesh_sample": {
+      "month": "2026-03",
+      "payments": "1/2 (1 paid, 1 unpaid)",
+      "total_work": "Rs.300",
+      "items_breakdown": "Paddy Bag Unload: 150, Rice Loading: 50, Gathan Loading: 100"
+    },
+    "suresh_sample": {
+      "month": "2026-02",
+      "payments": "1/1",
+      "total_work": "Rs.1,100"
+    }
+  }
+}

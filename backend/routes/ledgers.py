@@ -121,6 +121,8 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
             if not cat: continue
             # Skip system categories (Cash Payment, Diesel Payment etc.)
             if cat.lower() in ("cash payment", "diesel payment", "cash paid", "diesel", "cash paid (entry)", "diesel (entry)"): continue
+            # Skip types that have their own dedicated sections
+            if t.get("party_type") in ("Agent", "Hemali"): continue
             if party_name and cat.lower() != party_name.lower(): continue
             is_jama = t.get("txn_type") == "jama"
             ledger.append({"date": t.get("date", ""), "party_name": cat, "party_type": "Cash Party",
@@ -215,6 +217,31 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
                 ledger.append({"date": pay.get("date", ""), "party_name": pn, "party_type": "Rice Buyer",
                     "description": f"Payment Received: Rs.{pay.get('amount',0)} ({pay.get('mode','cash')})",
                     "debit": round(pay.get("amount", 0), 2), "credit": 0, "ref": pay.get("id", "")[:8]})
+
+    # Hemali Sardar payments (from hemali_payments directly)
+    if not party_type or party_type == "Hemali":
+        hemali_query = dict(query)
+        hemali_query["status"] = "paid"
+        hemali_payments = await db.hemali_payments.find(hemali_query, {"_id": 0}).to_list(10000)
+        for p in hemali_payments:
+            sn = p.get("sardar_name", "")
+            if not sn: continue
+            if party_name and sn.lower() != party_name.lower(): continue
+            items_desc = ", ".join(f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in p.get("items", []))
+            # Credit: amount paid to sardar (we paid, so credit in their account)
+            ledger.append({"date": p.get("date", ""), "party_name": sn, "party_type": "Hemali",
+                "description": f"Hemali Payment: {items_desc} | Total: Rs.{p.get('total',0)} | Paid: Rs.{p.get('amount_paid',0)}",
+                "debit": 0, "credit": round(p.get("amount_paid", 0), 2), "ref": p.get("id", "")[:8]})
+            # Debit: if advance given (sardar owes us)
+            if p.get("new_advance", 0) > 0:
+                ledger.append({"date": p.get("date", ""), "party_name": sn, "party_type": "Hemali",
+                    "description": f"Advance Given: Rs.{p.get('new_advance',0)} (extra paid)",
+                    "debit": round(p.get("new_advance", 0), 2), "credit": 0, "ref": p.get("id", "")[:8]})
+            # Credit: if advance deducted (reduces what sardar owes)
+            if p.get("advance_deducted", 0) > 0:
+                ledger.append({"date": p.get("date", ""), "party_name": sn, "party_type": "Hemali",
+                    "description": f"Advance Deducted: Rs.{p.get('advance_deducted',0)}",
+                    "debit": 0, "credit": round(p.get("advance_deducted", 0), 2), "ref": p.get("id", "")[:8]})
 
     ledger.sort(key=lambda x: x.get("date", ""), reverse=True)
 

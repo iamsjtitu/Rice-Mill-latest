@@ -297,6 +297,181 @@ async def get_hemali_sardars():
     return [r["_id"] for r in results if r["_id"]]
 
 
+# ============ MONTHLY SUMMARY ============
+
+@router.get("/hemali/monthly-summary")
+async def hemali_monthly_summary(kms_year: str = "", season: str = "", sardar_name: str = ""):
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    if season:
+        query["season"] = season
+    if sardar_name:
+        query["sardar_name"] = sardar_name
+
+    payments = await db.hemali_payments.find(query, {"_id": 0}).to_list(50000)
+
+    # Group by sardar -> month
+    sardars = {}
+    for p in payments:
+        sn = p.get("sardar_name", "Unknown")
+        date_str = p.get("date", "")
+        month_key = date_str[:7] if len(date_str) >= 7 else "Unknown"  # YYYY-MM
+
+        if sn not in sardars:
+            sardars[sn] = {"sardar_name": sn, "months": {}, "grand_total_work": 0, "grand_total_paid": 0, "grand_total_advance_given": 0, "grand_total_advance_deducted": 0}
+
+        if month_key not in sardars[sn]["months"]:
+            sardars[sn]["months"][month_key] = {
+                "month": month_key,
+                "total_payments": 0, "paid_payments": 0, "unpaid_payments": 0,
+                "total_work": 0, "total_paid": 0,
+                "advance_given": 0, "advance_deducted": 0,
+                "items_breakdown": {},
+            }
+
+        m = sardars[sn]["months"][month_key]
+        m["total_payments"] += 1
+        is_paid = p.get("status") == "paid"
+        if is_paid:
+            m["paid_payments"] += 1
+            m["total_work"] += p.get("total", 0)
+            m["total_paid"] += p.get("amount_paid", 0)
+            m["advance_given"] += p.get("new_advance", 0)
+            m["advance_deducted"] += p.get("advance_deducted", 0)
+            sardars[sn]["grand_total_work"] += p.get("total", 0)
+            sardars[sn]["grand_total_paid"] += p.get("amount_paid", 0)
+            sardars[sn]["grand_total_advance_given"] += p.get("new_advance", 0)
+            sardars[sn]["grand_total_advance_deducted"] += p.get("advance_deducted", 0)
+        else:
+            m["unpaid_payments"] += 1
+
+        # Items breakdown
+        for item in p.get("items", []):
+            iname = item.get("item_name", "")
+            if iname not in m["items_breakdown"]:
+                m["items_breakdown"][iname] = {"quantity": 0, "amount": 0}
+            m["items_breakdown"][iname]["quantity"] += item.get("quantity", 0)
+            m["items_breakdown"][iname]["amount"] += item.get("amount", 0)
+
+    # Convert months dict to sorted list
+    result = []
+    for sn, data in sorted(sardars.items()):
+        months_list = sorted(data["months"].values(), key=lambda x: x["month"], reverse=True)
+        for m in months_list:
+            m["total_work"] = round(m["total_work"], 2)
+            m["total_paid"] = round(m["total_paid"], 2)
+            m["advance_given"] = round(m["advance_given"], 2)
+            m["advance_deducted"] = round(m["advance_deducted"], 2)
+        # Current advance balance
+        current_advance = 0
+        for p in payments:
+            if p.get("sardar_name") == sn and p.get("status") == "paid":
+                current_advance += (p.get("new_advance") or 0) - (p.get("advance_deducted") or 0)
+
+        result.append({
+            "sardar_name": sn,
+            "months": months_list,
+            "grand_total_work": round(data["grand_total_work"], 2),
+            "grand_total_paid": round(data["grand_total_paid"], 2),
+            "grand_total_advance_given": round(data["grand_total_advance_given"], 2),
+            "grand_total_advance_deducted": round(data["grand_total_advance_deducted"], 2),
+            "current_advance_balance": round(current_advance, 2),
+        })
+
+    return result
+
+
+@router.get("/hemali/monthly-summary/pdf")
+async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sardar_name: str = ""):
+    data = await hemali_monthly_summary(kms_year=kms_year, season=season, sardar_name=sardar_name)
+
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
+    styles = getSampleStyleSheet()
+    elements = []
+    elements.append(Paragraph("Hemali Monthly Summary", ParagraphStyle("t", parent=styles["Title"], fontSize=14, textColor=colors.HexColor("#1a365d"))))
+    elements.append(Spacer(1, 8))
+
+    for sardar in data:
+        elements.append(Paragraph(f"Sardar: {sardar['sardar_name']}  |  Current Advance: Rs.{sardar['current_advance_balance']:,.2f}", ParagraphStyle("s", parent=styles["Heading3"], fontSize=10, textColor=colors.HexColor("#d97706"))))
+        headers = ["Month", "Payments", "Total Work", "Total Paid", "Adv Given", "Adv Deducted"]
+        rows = [headers]
+        for m in sardar["months"]:
+            rows.append([m["month"], f"{m['paid_payments']}/{m['total_payments']}", f"Rs.{m['total_work']:,.2f}", f"Rs.{m['total_paid']:,.2f}", f"Rs.{m['advance_given']:,.2f}", f"Rs.{m['advance_deducted']:,.2f}"])
+        rows.append(["TOTAL", "", f"Rs.{sardar['grand_total_work']:,.2f}", f"Rs.{sardar['grand_total_paid']:,.2f}", f"Rs.{sardar['grand_total_advance_given']:,.2f}", f"Rs.{sardar['grand_total_advance_deducted']:,.2f}"])
+        t = RTable(rows, colWidths=[80, 60, 90, 90, 90, 90], repeatRows=1)
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e293b")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+            ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e0e7ff")),
+            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 12))
+
+    doc.build(elements)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=hemali_monthly_summary.pdf"})
+
+
+@router.get("/hemali/monthly-summary/excel")
+async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sardar_name: str = ""):
+    data = await hemali_monthly_summary(kms_year=kms_year, season=season, sardar_name=sardar_name)
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Monthly Summary"
+    hdr_fill = PatternFill(start_color="1e293b", end_color="1e293b", fill_type="solid")
+    hdr_font = Font(bold=True, color="FFFFFF", size=9)
+    tb = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+
+    ws.merge_cells("A1:G1")
+    ws["A1"] = "Hemali Monthly Summary"
+    ws["A1"].font = Font(bold=True, size=12, color="1e293b")
+    row_n = 3
+
+    for sardar in data:
+        ws.cell(row=row_n, column=1, value=f"Sardar: {sardar['sardar_name']}").font = Font(bold=True, size=10, color="d97706")
+        ws.cell(row=row_n, column=5, value=f"Current Advance: Rs.{sardar['current_advance_balance']}").font = Font(bold=True, size=9)
+        row_n += 1
+        for ci, h in enumerate(["Month", "Payments", "Total Work", "Total Paid", "Adv Given", "Adv Deducted"], 1):
+            c = ws.cell(row=row_n, column=ci, value=h)
+            c.fill = hdr_fill; c.font = hdr_font; c.border = tb
+        row_n += 1
+        for m in sardar["months"]:
+            vals = [m["month"], f"{m['paid_payments']}/{m['total_payments']}", m["total_work"], m["total_paid"], m["advance_given"], m["advance_deducted"]]
+            for ci, v in enumerate(vals, 1):
+                c = ws.cell(row=row_n, column=ci, value=v)
+                c.border = tb; c.font = Font(size=9)
+            row_n += 1
+        ws.cell(row=row_n, column=1, value="TOTAL").font = Font(bold=True, size=9)
+        ws.cell(row=row_n, column=3, value=sardar["grand_total_work"]).font = Font(bold=True, size=9)
+        ws.cell(row=row_n, column=4, value=sardar["grand_total_paid"]).font = Font(bold=True, size=9)
+        row_n += 2
+
+    for w, col_letter in [(12, "A"), (10, "B"), (14, "C"), (14, "D"), (14, "E"), (14, "F")]:
+        ws.column_dimensions[col_letter].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=hemali_monthly_summary.xlsx"})
+
+
 # ============ PRINT RECEIPT ============
 
 @router.get("/hemali/payments/{payment_id}/print")

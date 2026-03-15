@@ -178,6 +178,44 @@ module.exports = (database) => {
     res.json(names.sort());
   }));
 
+  // ============ MONTHLY SUMMARY ============
+  router.get('/api/hemali/monthly-summary', safeHandler(async (req, res) => {
+    const { kms_year, season, sardar_name } = req.query;
+    let payments = filterByFy(col('hemali_payments'), kms_year, season);
+    if (sardar_name) payments = payments.filter(p => p.sardar_name === sardar_name);
+
+    const sardars = {};
+    for (const p of payments) {
+      const sn = p.sardar_name || 'Unknown';
+      const monthKey = (p.date || '').substring(0, 7) || 'Unknown';
+      if (!sardars[sn]) sardars[sn] = { sardar_name: sn, months: {}, grand_total_work: 0, grand_total_paid: 0, grand_total_advance_given: 0, grand_total_advance_deducted: 0 };
+      if (!sardars[sn].months[monthKey]) sardars[sn].months[monthKey] = { month: monthKey, total_payments: 0, paid_payments: 0, unpaid_payments: 0, total_work: 0, total_paid: 0, advance_given: 0, advance_deducted: 0, items_breakdown: {} };
+      const m = sardars[sn].months[monthKey];
+      m.total_payments++;
+      if (p.status === 'paid') {
+        m.paid_payments++;
+        m.total_work += p.total || 0; m.total_paid += p.amount_paid || 0;
+        m.advance_given += p.new_advance || 0; m.advance_deducted += p.advance_deducted || 0;
+        sardars[sn].grand_total_work += p.total || 0; sardars[sn].grand_total_paid += p.amount_paid || 0;
+        sardars[sn].grand_total_advance_given += p.new_advance || 0; sardars[sn].grand_total_advance_deducted += p.advance_deducted || 0;
+      } else { m.unpaid_payments++; }
+      for (const item of (p.items || [])) {
+        const iname = item.item_name || '';
+        if (!m.items_breakdown[iname]) m.items_breakdown[iname] = { quantity: 0, amount: 0 };
+        m.items_breakdown[iname].quantity += item.quantity || 0;
+        m.items_breakdown[iname].amount += item.amount || 0;
+      }
+    }
+    const result = Object.values(sardars).sort((a, b) => a.sardar_name.localeCompare(b.sardar_name)).map(s => {
+      const currentAdvance = payments.filter(p => p.sardar_name === s.sardar_name && p.status === 'paid')
+        .reduce((acc, p) => acc + (p.new_advance || 0) - (p.advance_deducted || 0), 0);
+      return { ...s, months: Object.values(s.months).sort((a, b) => b.month.localeCompare(a.month)),
+        grand_total_work: Math.round(s.grand_total_work * 100) / 100, grand_total_paid: Math.round(s.grand_total_paid * 100) / 100,
+        current_advance_balance: Math.round(currentAdvance * 100) / 100 };
+    });
+    res.json(result);
+  }));
+
   // ============ PDF EXPORT ============
   router.get('/api/hemali/export/pdf', safeHandler(async (req, res) => {
     const { addPdfHeader } = require('./pdf_helpers');
