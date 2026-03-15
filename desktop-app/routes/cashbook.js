@@ -361,6 +361,12 @@ module.exports = function(database) {
       bankDetails[bn].opening = obVal;
       bankDetails[bn].balance = +(obVal + bankDetails[bn].in - bankDetails[bn].out).toFixed(2);
     }
+    // Add banks that have opening balance but no transactions yet
+    for (const bn in openingBankDetails) {
+      if (!bankDetails[bn] && (openingBankDetails[bn] || 0) > 0) {
+        bankDetails[bn] = { in: 0, out: 0, opening: openingBankDetails[bn], balance: openingBankDetails[bn] };
+      }
+    }
 
     res.json({
       opening_cash: openingCash, opening_bank: openingBank,

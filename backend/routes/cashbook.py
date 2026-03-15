@@ -263,6 +263,10 @@ async def get_cash_book_summary(kms_year: Optional[str] = None, season: Optional
         ob_val = opening_bank_details.get(bn, 0)
         bank_details[bn]["opening"] = ob_val
         bank_details[bn]["balance"] = round(ob_val + bank_details[bn]["in"] - bank_details[bn]["out"], 2)
+    # Add banks that have opening balance but no transactions yet
+    for bn, ob_val in opening_bank_details.items():
+        if bn not in bank_details and (ob_val or 0) > 0:
+            bank_details[bn] = {"in": 0, "out": 0, "opening": ob_val, "balance": ob_val}
     
     return {
         "opening_cash": opening_cash,
