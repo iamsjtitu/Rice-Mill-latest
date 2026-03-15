@@ -13,7 +13,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://farm-accounts-6.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://party-payment-qa.preview.emergentagent.com').rstrip('/')
 API = f"{BASE_URL}/api"
 
 

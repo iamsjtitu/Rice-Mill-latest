@@ -13,7 +13,7 @@ const SummaryCards = ({ summary, onNewTransaction, onExport }) => {
           <CardContent className="p-4">
             <p className="text-xs text-purple-600 font-medium mb-1">Opening Balance</p>
             <p className="text-lg font-bold text-purple-800">
-              Rs.{((summary.opening_cash || 0) + (summary.opening_bank || 0)).toLocaleString('en-IN')}
+              Rs.{(((summary.opening_cash || 0) + (summary.opening_bank || 0)) || 0).toLocaleString('en-IN')}
             </p>
             <div className="flex gap-3 mt-1 text-[10px]">
               <span className="text-green-700 font-medium">Cash: Rs.{(summary.opening_cash || 0).toLocaleString('en-IN')}</span>
@@ -27,12 +27,12 @@ const SummaryCards = ({ summary, onNewTransaction, onExport }) => {
               <Wallet className="w-4 h-4 text-green-600" />
               <p className="text-xs text-green-700 font-medium">Cash in Hand</p>
             </div>
-            <p className={`text-2xl font-bold ${summary.cash_balance >= 0 ? 'text-green-800' : 'text-red-600'}`}>
-              Rs.{summary.cash_balance.toLocaleString('en-IN')}
+            <p className={`text-2xl font-bold ${(summary.cash_balance || 0) >= 0 ? 'text-green-800' : 'text-red-600'}`}>
+              Rs.{(summary.cash_balance || 0).toLocaleString('en-IN')}
             </p>
             <div className="flex gap-3 mt-1 text-[10px]">
-              <span className="text-green-700 font-medium">In: Rs.{summary.cash_in.toLocaleString('en-IN')}</span>
-              <span className="text-red-600 font-medium">Out: Rs.{summary.cash_out.toLocaleString('en-IN')}</span>
+              <span className="text-green-700 font-medium">In: Rs.{(summary.cash_in || 0).toLocaleString('en-IN')}</span>
+              <span className="text-red-600 font-medium">Out: Rs.{(summary.cash_out || 0).toLocaleString('en-IN')}</span>
             </div>
           </CardContent>
         </Card>
@@ -42,20 +42,20 @@ const SummaryCards = ({ summary, onNewTransaction, onExport }) => {
               <Landmark className="w-4 h-4 text-blue-600" />
               <p className="text-xs text-blue-700 font-medium">Total Bank Balance</p>
             </div>
-            <p className={`text-2xl font-bold ${summary.bank_balance >= 0 ? 'text-blue-800' : 'text-red-600'}`}>
-              Rs.{summary.bank_balance.toLocaleString('en-IN')}
+            <p className={`text-2xl font-bold ${(summary.bank_balance || 0) >= 0 ? 'text-blue-800' : 'text-red-600'}`}>
+              Rs.{(summary.bank_balance || 0).toLocaleString('en-IN')}
             </p>
             <div className="flex gap-3 mt-1 text-[10px]">
-              <span className="text-green-700 font-medium">In: Rs.{summary.bank_in.toLocaleString('en-IN')}</span>
-              <span className="text-red-600 font-medium">Out: Rs.{summary.bank_out.toLocaleString('en-IN')}</span>
+              <span className="text-green-700 font-medium">In: Rs.{(summary.bank_in || 0).toLocaleString('en-IN')}</span>
+              <span className="text-red-600 font-medium">Out: Rs.{(summary.bank_out || 0).toLocaleString('en-IN')}</span>
             </div>
           </CardContent>
         </Card>
         <Card className="bg-amber-50 border-amber-200 shadow-sm" data-testid="total-balance-card">
           <CardContent className="p-4">
             <p className="text-xs text-amber-700 font-medium mb-1">Total Balance</p>
-            <p className={`text-2xl font-bold ${summary.total_balance >= 0 ? 'text-amber-800' : 'text-red-600'}`}>
-              Rs.{summary.total_balance.toLocaleString('en-IN')}
+            <p className={`text-2xl font-bold ${(summary.total_balance || 0) >= 0 ? 'text-amber-800' : 'text-red-600'}`}>
+              Rs.{(summary.total_balance || 0).toLocaleString('en-IN')}
             </p>
             <p className="text-[10px] text-slate-600 mt-1">{summary.total_transactions} transactions</p>
           </CardContent>
@@ -84,13 +84,13 @@ const SummaryCards = ({ summary, onNewTransaction, onExport }) => {
             return (
               <div key={bn} className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 min-w-[180px]">
                 <p className="text-[10px] text-blue-600 font-semibold truncate">{bn}</p>
-                <p className={`text-sm font-bold ${bd.balance >= 0 ? 'text-blue-800' : 'text-red-600'}`}>
-                  Rs.{bd.balance.toLocaleString('en-IN')}
+                <p className={`text-sm font-bold ${(bd.balance || 0) >= 0 ? 'text-blue-800' : 'text-red-600'}`}>
+                  Rs.{(bd.balance || 0).toLocaleString('en-IN')}
                 </p>
                 <div className="flex gap-2 text-[9px]">
-                  {bd.opening > 0 && <span className="text-purple-600">OB: Rs.{bd.opening.toLocaleString('en-IN')}</span>}
-                  <span className="text-green-700">In: Rs.{bd.in.toLocaleString('en-IN')}</span>
-                  <span className="text-red-600">Out: Rs.{bd.out.toLocaleString('en-IN')}</span>
+                  {(bd.opening || 0) > 0 && <span className="text-purple-600">OB: Rs.{(bd.opening || 0).toLocaleString('en-IN')}</span>}
+                  <span className="text-green-700">In: Rs.{(bd.in || 0).toLocaleString('en-IN')}</span>
+                  <span className="text-red-600">Out: Rs.{(bd.out || 0).toLocaleString('en-IN')}</span>
                 </div>
               </div>
             );

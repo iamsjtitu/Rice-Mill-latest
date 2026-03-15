@@ -12,7 +12,7 @@ import requests
 import os
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://farm-accounts-6.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://party-payment-qa.preview.emergentagent.com').rstrip('/')
 
 # Raju entry ID from context
 RAJU_ENTRY_ID = "326b1eb2-1c7d-43e5-9b0c-f20f56a63dda"

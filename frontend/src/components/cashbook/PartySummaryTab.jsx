@@ -19,8 +19,8 @@ const PartySummaryTab = ({
     return true;
   }) || [];
 
-  const fJama = filteredParties.reduce((s, p) => s + p.total_jama, 0);
-  const fNikasi = filteredParties.reduce((s, p) => s + p.total_nikasi, 0);
+  const fJama = filteredParties.reduce((s, p) => s + (p.total_jama || p.jama || 0), 0);
+  const fNikasi = filteredParties.reduce((s, p) => s + (p.total_nikasi || p.nikasi || 0), 0);
   const fBalance = fJama - fNikasi;
 
   return (
@@ -164,10 +164,10 @@ const PartySummaryTab = ({
                           }`}>{p.party_type}</span>}
                         </td>
                         <td className="text-right px-3 py-3">
-                          <span className="text-emerald-400 font-semibold text-sm">Rs.{p.total_jama.toLocaleString('en-IN')}</span>
+                          <span className="text-emerald-400 font-semibold text-sm">Rs.{(p.total_jama || p.jama || 0).toLocaleString('en-IN')}</span>
                         </td>
                         <td className="text-right px-3 py-3">
-                          <span className="text-red-400 font-semibold text-sm">Rs.{p.total_nikasi.toLocaleString('en-IN')}</span>
+                          <span className="text-red-400 font-semibold text-sm">Rs.{(p.total_nikasi || p.nikasi || 0).toLocaleString('en-IN')}</span>
                         </td>
                         <td className={`text-right font-bold text-sm px-3 py-3 ${p.balance === 0 ? 'text-emerald-400' : p.balance > 0 ? 'text-amber-400' : 'text-red-400'}`}>
                           <span className="inline-flex items-center gap-1">

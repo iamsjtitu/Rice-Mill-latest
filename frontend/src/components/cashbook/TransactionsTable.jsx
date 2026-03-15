@@ -102,10 +102,10 @@ const TransactionsTable = ({
               </td>
               <td className="px-3 py-2.5 text-slate-600 text-xs truncate">{t.description}</td>
               <td className="px-3 py-2.5 text-right text-xs font-medium text-green-700">
-                {t.txn_type === 'jama' ? `₹${t.amount.toLocaleString('en-IN')}` : '-'}
+                {t.txn_type === 'jama' ? `₹${(t.amount || 0).toLocaleString('en-IN')}` : '-'}
               </td>
               <td className="px-3 py-2.5 text-right text-xs font-medium text-red-600">
-                {t.txn_type === 'nikasi' ? `₹${t.amount.toLocaleString('en-IN')}` : '-'}
+                {t.txn_type === 'nikasi' ? `₹${(t.amount || 0).toLocaleString('en-IN')}` : '-'}
               </td>
               <td className={`px-3 py-2.5 text-right text-xs font-bold ${(balMap[t.id] || 0) >= 0 ? 'text-amber-700' : 'text-red-700'}`} data-testid={`txn-balance-${t.id}`}>
                 ₹{(balMap[t.id] || 0).toLocaleString('en-IN')}
