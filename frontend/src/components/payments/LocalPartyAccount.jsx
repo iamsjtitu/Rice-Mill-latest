@@ -31,6 +31,7 @@ const LocalPartyAccount = ({ filters, user }) => {
   const [showSettleDialog, setShowSettleDialog] = useState(false);
   const [showManualDialog, setShowManualDialog] = useState(false);
   const [settleAmount, setSettleAmount] = useState("");
+  const [settleType, setSettleType] = useState("paid");
   const [settleDate, setSettleDate] = useState(new Date().toISOString().split('T')[0]);
   const [settleNotes, setSettleNotes] = useState("");
   const [manualForm, setManualForm] = useState({
