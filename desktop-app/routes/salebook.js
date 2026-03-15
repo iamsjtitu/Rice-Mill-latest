@@ -1,6 +1,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { safeHandler } = require('./safe_handler');
+const PDFDocument = require('pdfkit');
 
 module.exports = function(database) {
   const router = express.Router();
