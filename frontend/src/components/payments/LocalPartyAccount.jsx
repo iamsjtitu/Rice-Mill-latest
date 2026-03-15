@@ -433,6 +433,18 @@ const LocalPartyAccount = ({ filters, user }) => {
                 Pending: <span className="text-red-400 font-bold">Rs.{partyInfo.balance.toLocaleString('en-IN')}</span>
               </div>
             )}
+            <div>
+              <Label className="text-xs text-slate-400">Transaction Type</Label>
+              <Select value={settleType} onValueChange={setSettleType}>
+                <SelectTrigger className="h-8 text-xs bg-slate-700 border-slate-600 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  <SelectItem value="paid" className="text-white hover:bg-slate-700">Paid (Humne Diya)</SelectItem>
+                  <SelectItem value="received" className="text-white hover:bg-slate-700">Received (Humko Mila)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-slate-400">Amount (Rs.)</Label>
