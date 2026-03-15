@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://party-payment-qa.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://worker-settlement-1.preview.emergentagent.com').rstrip('/')
 
 class TestFYSummaryAPI:
     """FY Summary Dashboard API Tests - All 10 Sections"""

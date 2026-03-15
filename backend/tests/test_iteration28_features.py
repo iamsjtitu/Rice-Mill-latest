@@ -11,7 +11,7 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = 'https://party-payment-qa.preview.emergentagent.com'
+    BASE_URL = 'https://worker-settlement-1.preview.emergentagent.com'
 
 
 class TestLocalPartyDateFilter:
