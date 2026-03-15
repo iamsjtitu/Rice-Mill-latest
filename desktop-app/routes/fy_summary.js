@@ -103,23 +103,30 @@ module.exports = function(database) {
       byproducts[p] = { opening_stock: ob, produced, sold, closing_stock: rd(ob + produced - sold), revenue };
     }
 
-    // 6. MILL PARTS
+    // 6. MILL PARTS (track BOTH quantity and value)
     const partsStock = filterByFy(col('mill_parts_stock') || [], kms_year, season);
     const savedMp = (savedOb && savedOb.mill_parts) || {};
+    const savedMpVal = (savedOb && savedOb.mill_parts_value) || {};
     const prevPartsS = (!Object.keys(savedMp).length && prevFy) ? filterByFy(col('mill_parts_stock') || [], prevFy, season) : [];
     const millParts = (col('mill_parts') || []).map(part => {
       const pn = part.name;
       const sIn = rd(partsStock.filter(t => t.part_name === pn && t.txn_type === 'in').reduce((s,t) => s + (t.quantity||0), 0));
       const sOut = rd(partsStock.filter(t => t.part_name === pn && t.txn_type !== 'in').reduce((s,t) => s + (t.quantity||0), 0));
-      let ob = 0;
-      if (Object.keys(savedMp).length) { ob = savedMp[pn] || 0; }
+      // Value in Rupees
+      const valIn = rd(partsStock.filter(t => t.part_name === pn && t.txn_type === 'in').reduce((s,t) => s + (t.total_amount || (t.quantity||0) * (t.rate||0)), 0));
+      const valOut = rd(partsStock.filter(t => t.part_name === pn && t.txn_type !== 'in').reduce((s,t) => s + (t.total_amount || (t.quantity||0) * (t.rate||0)), 0));
+      let ob = 0, obVal = 0;
+      if (Object.keys(savedMp).length) { ob = savedMp[pn] || 0; obVal = savedMpVal[pn] || 0; }
       else if (prevFy) {
         const prevSaved = (col('opening_balances') || []).find(o => o.kms_year === prevFy);
         const prevOb = prevSaved && prevSaved.mill_parts ? (prevSaved.mill_parts[pn] || 0) : 0;
+        const prevObVal = prevSaved && prevSaved.mill_parts_value ? (prevSaved.mill_parts_value[pn] || 0) : 0;
         ob = rd(prevOb + prevPartsS.filter(t => t.part_name === pn && t.txn_type === 'in').reduce((s,t) => s + (t.quantity||0), 0)
           - prevPartsS.filter(t => t.part_name === pn && t.txn_type !== 'in').reduce((s,t) => s + (t.quantity||0), 0));
+        obVal = rd(prevObVal + prevPartsS.filter(t => t.part_name === pn && t.txn_type === 'in').reduce((s,t) => s + (t.total_amount || (t.quantity||0) * (t.rate||0)), 0)
+          - prevPartsS.filter(t => t.part_name === pn && t.txn_type !== 'in').reduce((s,t) => s + (t.total_amount || (t.quantity||0) * (t.rate||0)), 0));
       }
-      return { name: pn, unit: part.unit || 'Pcs', opening_stock: ob, stock_in: sIn, stock_used: sOut, closing_stock: rd(ob + sIn - sOut) };
+      return { name: pn, unit: part.unit || 'Pcs', opening_stock: ob, stock_in: sIn, stock_used: sOut, closing_stock: rd(ob + sIn - sOut), opening_value: obVal, value_in: valIn, value_out: valOut, closing_value: rd(obVal + valIn - valOut) };
     });
 
     // 7. DIESEL
@@ -375,9 +382,12 @@ module.exports = function(database) {
       for (const dc of dcEntries) { const p = dc.party_name || dc.supplier_name || ''; if (!p) continue; if (!dcMap[p]) dcMap[p] = {total:0,paid:0}; dcMap[p].total += dc.total_amount||0; dcMap[p].paid += dc.paid_amount||0; }
       const dcAccounts = Object.entries(dcMap).sort().map(([name, v]) => ({name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid)}));
 
-      // Separate debtors vs creditors
+      // Separate debtors vs creditors (EXCLUDE parties already tracked in other sections)
+      const excludedLedgerTypes = new Set(['Local Party', 'Sale Book', 'Purchase Voucher', 'Staff', 'Diesel', 'Truck']);
       const sundryDebtors = [], sundryCreds = [];
       for (const l of ledger.parties) {
+        // Skip parties already counted in other balance sheet sections
+        if (excludedLedgerTypes.has(l.party_type)) continue;
         if (l.closing_balance > 0) sundryDebtors.push(l);
         else if (l.closing_balance < 0 && l.party_type !== 'Truck Lease') sundryCreds.push({party_name: l.party_name, amount: Math.abs(l.closing_balance)});
       }
@@ -413,7 +423,7 @@ module.exports = function(database) {
       if (ps.closing_stock > 0) { stockChildren.push({name:'Paddy Stock',amount:ps.closing_stock,unit:'Qtl'}); stockTotal += ps.closing_stock; }
       if (frk.closing_stock > 0) { stockChildren.push({name:'FRK Stock',amount:frk.closing_stock,unit:'Qtl'}); stockTotal += frk.closing_stock; }
       for (const [pName, v] of Object.entries(bp)) { if (v.closing_stock > 0) { stockChildren.push({name:`Byproduct - ${pName.charAt(0).toUpperCase()+pName.slice(1)}`,amount:v.closing_stock,unit:'Qtl'}); stockTotal += v.closing_stock; } }
-      for (const p of mp) { if (p.closing_stock > 0) { stockChildren.push({name:`Mill Part - ${p.name}`,amount:p.closing_stock,unit:p.unit}); stockTotal += p.closing_stock; } }
+      for (const p of mp) { if (p.closing_value > 0) { stockChildren.push({name:`Mill Part - ${p.name} (${p.closing_stock} ${p.unit})`,amount:p.closing_value,unit:'Rs'}); stockTotal += p.closing_value; } }
       assets.push({group:'Stock-in-Hand', amount: rd(stockTotal), children: stockChildren});
       const debtChildren = []; let debtTotal = 0;
       for (const sd of sundryDebtors) { debtChildren.push({name:sd.party_name,amount:sd.closing_balance}); debtTotal += sd.closing_balance; }

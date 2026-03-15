@@ -174,19 +174,30 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
         pn = part["name"]
         s_in = sum(t.get("quantity", 0) for t in parts_txns if t.get("part_name") == pn and t.get("txn_type") == "in")
         s_out = sum(t.get("quantity", 0) for t in parts_txns if t.get("part_name") == pn and t.get("txn_type") != "in")
+        # Value in Rupees
+        val_in = sum(t.get("total_amount", 0) or (t.get("quantity", 0) * t.get("rate", 0)) for t in parts_txns if t.get("part_name") == pn and t.get("txn_type") == "in")
+        val_out = sum(t.get("total_amount", 0) or (t.get("quantity", 0) * t.get("rate", 0)) for t in parts_txns if t.get("part_name") == pn and t.get("txn_type") != "in")
         ob = 0.0
+        ob_val = 0.0
         if saved_mp:
             ob = saved_mp.get(pn, 0.0)
+            ob_val = saved_ob.get("mill_parts_value", {}).get(pn, 0.0) if saved_ob else 0.0
         elif prev_fy:
             prev_saved = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
             prev_mp_ob = prev_saved.get("mill_parts", {}).get(pn, 0) if prev_saved else 0
+            prev_mp_ob_val = prev_saved.get("mill_parts_value", {}).get(pn, 0) if prev_saved else 0
             p_in = sum(t.get("quantity", 0) for t in prev_parts_txns if t.get("part_name") == pn and t.get("txn_type") == "in")
             p_out = sum(t.get("quantity", 0) for t in prev_parts_txns if t.get("part_name") == pn and t.get("txn_type") != "in")
+            p_val_in = sum(t.get("total_amount", 0) or (t.get("quantity", 0) * t.get("rate", 0)) for t in prev_parts_txns if t.get("part_name") == pn and t.get("txn_type") == "in")
+            p_val_out = sum(t.get("total_amount", 0) or (t.get("quantity", 0) * t.get("rate", 0)) for t in prev_parts_txns if t.get("part_name") == pn and t.get("txn_type") != "in")
             ob = round(prev_mp_ob + p_in - p_out, 2)
+            ob_val = round(prev_mp_ob_val + p_val_in - p_val_out, 2)
         parts_section.append({
             "name": pn, "unit": part.get("unit", "Pcs"), "opening_stock": ob,
             "stock_in": round(s_in, 2), "stock_used": round(s_out, 2),
-            "closing_stock": round(ob + s_in - s_out, 2)
+            "closing_stock": round(ob + s_in - s_out, 2),
+            "opening_value": round(ob_val, 2), "value_in": round(val_in, 2), "value_out": round(val_out, 2),
+            "closing_value": round(ob_val + val_in - val_out, 2)
         })
 
     # ===== 7. DIESEL ACCOUNTS =====
@@ -522,10 +533,14 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
     msp_total = round(sum(m.get("amount", 0) for m in msp_docs), 2)
     msp_received = round(sum(m.get("received_amount", 0) for m in msp_docs), 2)
 
-    # ===== SEPARATE LEDGER PARTIES INTO DEBTORS (positive balance = we gave more) vs CREDITORS (negative = they gave more) =====
+    # ===== SEPARATE LEDGER PARTIES INTO DEBTORS vs CREDITORS (EXCLUDE already-tracked party types) =====
+    excluded_ledger_types = {'Local Party', 'Sale Book', 'Purchase Voucher', 'Staff', 'Diesel', 'Truck'}
     sundry_debtors = []  # jama > nikasi → they owe us
     sundry_creditors = []  # nikasi > jama → we owe them
     for l in ledger["parties"]:
+        # Skip parties already counted in other balance sheet sections
+        if l.get("party_type") in excluded_ledger_types:
+            continue
         bal = l["closing_balance"]
         if bal > 0:
             sundry_debtors.append(l)
@@ -622,9 +637,9 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
             stock_children.append({"name": f"Byproduct - {p_name.capitalize()}", "amount": v["closing_stock"], "unit": "Qtl"})
             stock_total += v["closing_stock"]
     for p in mp:
-        if p["closing_stock"] > 0:
-            stock_children.append({"name": f"Mill Part - {p['name']}", "amount": p["closing_stock"], "unit": p.get("unit", "Pcs")})
-            stock_total += p["closing_stock"]
+        if p.get("closing_value", 0) > 0:
+            stock_children.append({"name": f"Mill Part - {p['name']} ({p['closing_stock']} {p.get('unit', 'Pcs')})", "amount": p["closing_value"], "unit": "Rs"})
+            stock_total += p["closing_value"]
     assets.append({"group": "Stock-in-Hand", "amount": round(stock_total, 2), "children": stock_children})
 
     # Sundry Debtors (Ledger parties who owe us + Rice sale receivables + MSP)
