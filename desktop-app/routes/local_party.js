@@ -160,6 +160,7 @@ router.get('/api/local-party/report/:partyName', safeSync((req, res) => {
 // ============ MANUAL PURCHASE ============
 router.post('/api/local-party/manual', safeSync((req, res) => {
   ensureCollection('local_party_accounts');
+  ensureCollection('cash_transactions');
   const d = req.body;
   const party_name = (d.party_name || '').trim();
   const amount = parseFloat(d.amount) || 0;
@@ -173,6 +174,18 @@ router.post('/api/local-party/manual', safeSync((req, res) => {
     created_by: d.created_by || 'system', created_at: new Date().toISOString()
   };
   database.data.local_party_accounts.push(doc);
+
+  // Auto create Cash Book Ledger Jama entry (purchase from local party)
+  database.data.cash_transactions.push({
+    id: uuidv4(), date: doc.date, account: 'ledger', txn_type: 'jama',
+    category: party_name, party_type: 'Local Party',
+    description: `Purchase: ${party_name} - ${d.description || 'Manual Purchase'} Rs.${amount}`,
+    amount: Math.round(amount * 100) / 100, reference: `lp_purchase:${doc.id.slice(0,8)}`,
+    kms_year: d.kms_year || '', season: d.season || '',
+    created_by: d.created_by || 'system', linked_local_party_id: doc.id,
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+  });
+
   database.save();
   res.json(doc);
 }));
@@ -240,13 +253,13 @@ router.post('/api/local-party/settle', safeSync((req, res) => {
 // ============ DELETE TRANSACTION ============
 router.delete('/api/local-party/:id', safeSync((req, res) => {
   ensureCollection('local_party_accounts');
+  ensureCollection('cash_transactions');
   const txn = database.data.local_party_accounts.find(t => t.id === req.params.id);
   if (!txn) return res.status(404).json({ detail: 'Transaction not found' });
 
-  if (txn.txn_type === 'payment' && txn.source_type === 'settlement') {
-    ensureCollection('cash_transactions');
-    database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_local_party_id !== txn.id);
-  }
+  // Remove all linked cash_transactions entries (both settlement and purchase jama)
+  database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_local_party_id !== txn.id);
+
   database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.id !== req.params.id);
   database.save();
   res.json({ message: 'Deleted', id: req.params.id });

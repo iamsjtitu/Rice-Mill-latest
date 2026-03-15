@@ -53,12 +53,25 @@ router.post('/api/mill-parts-stock', safeSync((req, res) => {
   // Auto-create local party entry for purchases with party
   if (doc.txn_type === 'in' && doc.party_name && doc.total_amount > 0) {
     if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+    const lpId = uuidv4();
     database.data.local_party_accounts.push({
-      id: uuidv4(), date: doc.date, party_name: doc.party_name, txn_type: 'debit',
+      id: lpId, date: doc.date, party_name: doc.party_name, txn_type: 'debit',
       amount: doc.total_amount, description: `${doc.part_name} x${doc.quantity} @ Rs.${doc.rate}`,
       source_type: 'mill_part', reference: `mill_part:${doc.id.slice(0,8)}`,
       kms_year: doc.kms_year, season: doc.season, created_by: doc.created_by || 'system',
       linked_stock_id: doc.id, created_at: new Date().toISOString()
+    });
+
+    // Auto create Cash Book Ledger Jama entry (purchase from local party via mill part)
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    database.data.cash_transactions.push({
+      id: uuidv4(), date: doc.date, account: 'ledger', txn_type: 'jama',
+      category: doc.party_name, party_type: 'Local Party',
+      description: `Mill Part: ${doc.part_name} x${doc.quantity} @ Rs.${doc.rate} - ${doc.party_name}`,
+      amount: doc.total_amount, reference: `lp_mill_part:${doc.id.slice(0,8)}`,
+      kms_year: doc.kms_year || '', season: doc.season || '',
+      created_by: doc.created_by || 'system', linked_local_party_id: lpId,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
     });
   }
 
@@ -82,7 +95,20 @@ router.delete('/api/mill-parts-stock/:id', safeSync((req, res) => {
   if (!database.data.mill_parts_stock) return res.status(404).json({ detail: 'Not found' });
   // Remove linked local party entry
   if (database.data.local_party_accounts) {
+    // Get linked local party IDs before deleting (for cash_transactions cleanup)
+    const linkedLpIds = database.data.local_party_accounts
+      .filter(t => t.linked_stock_id === req.params.id)
+      .map(t => t.id);
     database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.linked_stock_id !== req.params.id);
+    // Remove linked cash_transactions ledger jama entries
+    if (database.data.cash_transactions && linkedLpIds.length > 0) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+        !linkedLpIds.includes(t.linked_local_party_id) || t.reference?.startsWith('lp_mill_part:') === false
+      );
+      // Also cleanup by reference
+      const refPrefix = `lp_mill_part:${req.params.id.slice(0,8)}`;
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== refPrefix);
+    }
   }
   const len = database.data.mill_parts_stock.length;
   database.data.mill_parts_stock = database.data.mill_parts_stock.filter(t => t.id !== req.params.id);
@@ -113,15 +139,42 @@ router.put('/api/mill-parts-stock/:id', safeSync((req, res) => {
 
   // Update linked local party entry
   if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+  // Get old linked LP IDs for cleanup
+  const oldLpIds = database.data.local_party_accounts
+    .filter(t => t.linked_stock_id === req.params.id)
+    .map(t => t.id);
   database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.linked_stock_id !== req.params.id);
+  // Remove old linked cash_transactions ledger jama entries
+  if (database.data.cash_transactions) {
+    const refPrefix = `lp_mill_part:${req.params.id.slice(0,8)}`;
+    database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== refPrefix);
+    if (oldLpIds.length > 0) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+        !(oldLpIds.includes(t.linked_local_party_id) && t.account === 'ledger' && t.txn_type === 'jama')
+      );
+    }
+  }
   if (update.txn_type === 'in' && update.party_name && update.total_amount > 0) {
+    const lpId = uuidv4();
     database.data.local_party_accounts.push({
-      id: uuidv4(), date: update.date, party_name: update.party_name, txn_type: 'debit',
+      id: lpId, date: update.date, party_name: update.party_name, txn_type: 'debit',
       amount: update.total_amount, description: `${update.part_name} x${update.quantity} @ Rs.${update.rate}`,
       source_type: 'mill_part', reference: `mill_part:${req.params.id.slice(0,8)}`,
       kms_year: d.kms_year || existing.kms_year || '', season: d.season || existing.season || '',
       created_by: d.created_by || 'system', linked_stock_id: req.params.id,
       created_at: new Date().toISOString()
+    });
+
+    // Auto create Cash Book Ledger Jama entry
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    database.data.cash_transactions.push({
+      id: uuidv4(), date: update.date, account: 'ledger', txn_type: 'jama',
+      category: update.party_name, party_type: 'Local Party',
+      description: `Mill Part: ${update.part_name} x${update.quantity} @ Rs.${update.rate} - ${update.party_name}`,
+      amount: update.total_amount, reference: `lp_mill_part:${req.params.id.slice(0,8)}`,
+      kms_year: d.kms_year || existing.kms_year || '', season: d.season || existing.season || '',
+      created_by: d.created_by || 'system', linked_local_party_id: lpId,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
     });
   }
 
