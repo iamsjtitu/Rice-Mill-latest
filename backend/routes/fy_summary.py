@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from database import db
 
@@ -200,11 +200,19 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
 
     diesel_section = []
     known_pump_ids = set(pump["id"] for pump in pumps)
+    # Get ledger nikasi for diesel as source of truth for paid
+    diesel_ledger_txns = await db.cash_transactions.find(
+        {**query, "account": "ledger", "txn_type": "nikasi",
+         "$or": [{"party_type": "Diesel"}, {"reference": {"$regex": "^diesel_pay"}}]},
+        {"_id": 0}
+    ).to_list(10000)
     for pump in pumps:
         pid = pump["id"]
         pt_txns = [t for t in diesel_txns if t.get("pump_id") == pid]
         td = sum(t.get("amount", 0) for t in pt_txns if t.get("txn_type") == "debit")
-        tp = sum(t.get("amount", 0) for t in pt_txns if t.get("txn_type") == "payment")
+        diesel_acc_paid = sum(t.get("amount", 0) for t in pt_txns if t.get("txn_type") == "payment")
+        ledger_paid = sum(t.get("amount", 0) for t in diesel_ledger_txns if (t.get("category") or "") == pump["name"])
+        tp = max(diesel_acc_paid, ledger_paid)
         ob = 0.0
         if saved_diesel:
             ob = saved_diesel.get(pid, 0.0)
@@ -233,10 +241,12 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
                 orphan_pumps[pid]["payment"] += dt.get("amount", 0)
     for pid, v in orphan_pumps.items():
         ob = saved_diesel.get(pid, 0.0)
+        orphan_ledger_paid = sum(t.get("amount", 0) for t in diesel_ledger_txns if (t.get("category") or "") == v["pump_name"])
+        orphan_tp = max(v["payment"], orphan_ledger_paid)
         diesel_section.append({
             "pump_name": v["pump_name"], "pump_id": pid, "opening_balance": ob,
-            "total_diesel": round(v["debit"], 2), "total_paid": round(v["payment"], 2),
-            "closing_balance": round(ob + v["debit"] - v["payment"], 2)
+            "total_diesel": round(v["debit"], 2), "total_paid": round(orphan_tp, 2),
+            "closing_balance": round(ob + v["debit"] - orphan_tp, 2)
         })
 
     # ===== 8. LOCAL PARTY ACCOUNTS =====
@@ -464,7 +474,16 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
         if mn not in mandi_map: mandi_map[mn] = {"total": 0, "paid": 0}
         cutting_qntl = (t.get("target_qntl") or 0) * (t.get("cutting_percent") or 0) / 100
         cr = t.get("cutting_rate")
-        mandi_map[mn]["total"] += (t.get("target_qntl") or 0) * (t.get("base_rate") or 10) + cutting_qntl * (cr if cr is not None else 5)
+        correct_total = round((t.get("target_qntl") or 0) * (t.get("base_rate") or 10) + cutting_qntl * (cr if cr is not None else 5), 2)
+        mandi_map[mn]["total"] += correct_total
+        # Auto-fix stale agent jama ledger entry
+        linked_id = f"agent_jama:{mn}:{kms_year or ''}:{query.get('season', '')}"
+        existing = await db.cash_transactions.find_one({"linked_payment_id": linked_id}, {"_id": 1, "amount": 1})
+        if existing and round((existing.get("amount") or 0) * 100) != round(correct_total * 100):
+            await db.cash_transactions.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"amount": correct_total, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
     # Also include mandis from entries without targets
     entries_with_mandi = await db.mill_entries.find(query, {"_id": 0, "mandi_name": 1}).to_list(50000)
     for e in entries_with_mandi:

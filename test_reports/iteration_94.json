@@ -1,0 +1,74 @@
+{
+  "summary": "Verified three P0 bug fixes in Balance Sheet for iteration 94. All three bugs are FIXED and working correctly. Backend: 11/11 tests passed (100%). Frontend: All calculations verified via UI screenshots - Balance Sheet balances, Party Summary format correct, no JS errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration94_balance_sheet_bugs.py",
+    "/app/test_reports/pytest/pytest_results_iteration94.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Bug Fix 1 (Diesel payment): backend/routes/fy_summary.py lines 204-215 now queries ledger nikasi for diesel payments and uses max(diesel_accounts_payment, ledger_nikasi) to get correct paid amount",
+    "Bug Fix 2 (Party summary format): backend/routes/cashbook.py lines 580-590 returns {parties: [], summary: {total_parties, settled_count, pending_count, total_outstanding}} matching PartySummaryTab.jsx line 78 access pattern",
+    "Bug Fix 3 (Agent jama reconciliation): backend/routes/fy_summary.py lines 479-486 auto-corrects stale agent jama ledger entries when balance sheet loads"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration94_balance_sheet_bugs.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (all UI verifications passed)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "Used existing test data: kms_year=2025-2026, Lokesh Fuels diesel pump, Gokul mandi (cutting_rate=0), Barsana (cutting_rate=10), truck OD15A1234",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Three Balance Sheet bugs confirmed fixed. Diesel Lokesh Fuels: paid=17900 via ledger nikasi, closing=0 (not in Sundry Creditors). Party Summary: returns {parties, summary} format - no 'Cannot read total_parties' error. Agent jama: Gokul (cutting_rate=0) total=4000 (correct), Barsana (cutting_rate=10) total=4200 (correct). Balance sheet balances at Rs 11,68,450.",
+  "bugs_verified_fixed": {
+    "bug_1_diesel_payment_reflection": {
+      "description": "Diesel payment not reflecting in Balance Sheet when paid via ledger nikasi",
+      "root_cause": "Original code only checked diesel_accounts.payment, missing ledger nikasi entries",
+      "fix_applied": "Uses max(diesel_accounts_payment, ledger_nikasi) - Lines 204-215 in fy_summary.py",
+      "verification": "Lokesh Fuels: total_diesel=17900, total_paid=17900, closing_balance=0.00 (not in Sundry Creditors)",
+      "status": "FIXED"
+    },
+    "bug_2_party_summary_format": {
+      "description": "GET /api/cash-book/party-summary returned flat array instead of {parties, summary} object",
+      "root_cause": "Desktop cashbook.js party-summary returned wrong format - Frontend expected partySummary.summary.total_parties",
+      "fix_applied": "Returns {parties: [], summary: {total_parties, settled_count, pending_count, total_outstanding}}",
+      "verification": "Party Summary tab shows Total Parties: 25, Settled: 16, Pending: 9 - No JS error",
+      "status": "FIXED"
+    },
+    "bug_3_agent_jama_reconciliation": {
+      "description": "Stale agent jama amounts from old buggy cutting_rate calculation persisted in ledger",
+      "root_cause": "Previous cutting_rate bug created ledger entries with wrong amounts - not auto-corrected",
+      "fix_applied": "Balance sheet load auto-corrects stale agent jama ledger entries - Lines 479-486",
+      "verification": "Gokul (cutting_rate=0): total=4000 (not 4100). Barsana (cutting_rate=10): total=4200",
+      "status": "FIXED"
+    }
+  },
+  "balance_sheet_verification": {
+    "total_liabilities": 1168450.0,
+    "total_assets": 1168450.0,
+    "balances": true,
+    "kms_year_tested": "2025-2026",
+    "sundry_creditors_diesel_excluded": "Lokesh Fuels not in Sundry Creditors (balance=0)",
+    "truck_accounts_balance": 0.0,
+    "agent_accounts_balance": 200.0
+  },
+  "party_summary_verification": {
+    "total_parties": 25,
+    "settled_count": 16,
+    "pending_count": 9,
+    "total_outstanding": -227000.0,
+    "format_correct": true,
+    "no_js_errors": true
+  }
+}

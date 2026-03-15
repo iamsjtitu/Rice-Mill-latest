@@ -546,7 +546,20 @@ module.exports = function(database) {
     else if (statusFilter === 'nikasi') filtered = result.filter(p => p.balance < 0);
     else if (statusFilter === 'settled') filtered = result.filter(p => p.balance === 0);
     filtered.sort((a, b) => a.party_name.localeCompare(b.party_name));
-    res.json(filtered);
+    const settled_count = filtered.filter(p => p.balance === 0).length;
+    const pending_count = filtered.filter(p => p.balance !== 0).length;
+    const total_outstanding = Math.round(filtered.filter(p => p.balance !== 0).reduce((s, p) => s + p.balance, 0) * 100) / 100;
+    res.json({
+      parties: filtered,
+      summary: {
+        total_parties: filtered.length,
+        settled_count,
+        pending_count,
+        total_jama: Math.round(filtered.reduce((s, p) => s + p.jama, 0) * 100) / 100,
+        total_nikasi: Math.round(filtered.reduce((s, p) => s + p.nikasi, 0) * 100) / 100,
+        total_outstanding
+      }
+    });
   }));
 
   router.get('/api/cash-book/party-summary/excel', safeAsync(async (req, res) => {

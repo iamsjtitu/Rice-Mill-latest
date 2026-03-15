@@ -124,13 +124,19 @@ module.exports = function(database) {
 
     // 7. DIESEL
     const dieselTxns = filterByFy(col('diesel_accounts') || [], kms_year, season);
+    const allCashTxnsForDiesel = filterByFy(col('cash_transactions') || [], kms_year, season);
     const savedDiesel = (savedOb && savedOb.diesel) || {};
     const prevDieselTxns = (!Object.keys(savedDiesel).length && prevFy) ? filterByFy(col('diesel_accounts') || [], prevFy, season) : [];
     const knownPumpIds = new Set((col('diesel_pumps') || []).map(p => p.id));
     const diesel = (col('diesel_pumps') || []).map(pump => {
       const pt = dieselTxns.filter(t => t.pump_id === pump.id);
       const td = rd(pt.filter(t => t.txn_type === 'debit').reduce((s,t) => s + (t.amount||0), 0));
-      const tp = rd(pt.filter(t => t.txn_type === 'payment').reduce((s,t) => s + (t.amount||0), 0));
+      // Use ledger nikasi as source of truth for paid (consistent with diesel summary endpoint)
+      const dieselAccPaid = pt.filter(t => t.txn_type === 'payment').reduce((s,t) => s + (t.amount||0), 0);
+      const ledgerPaid = allCashTxnsForDiesel.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && (t.category || '') === pump.name
+        && ((t.party_type || '') === 'Diesel' || (t.reference || '').startsWith('diesel_pay'))
+      ).reduce((s,t) => s + (t.amount||0), 0);
+      const tp = rd(Math.max(dieselAccPaid, ledgerPaid));
       let ob = 0;
       if (Object.keys(savedDiesel).length) { ob = savedDiesel[pump.id] || 0; }
       else if (prevFy) {
@@ -154,7 +160,11 @@ module.exports = function(database) {
     }
     for (const [pid, v] of Object.entries(orphanPumps)) {
       const ob = savedDiesel[pid] || 0;
-      diesel.push({ pump_name: v.pump_name, pump_id: pid, opening_balance: ob, total_diesel: rd(v.debit), total_paid: rd(v.payment), closing_balance: rd(ob + v.debit - v.payment) });
+      const orphanLedgerPaid = allCashTxnsForDiesel.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && (t.category || '') === v.pump_name
+        && ((t.party_type || '') === 'Diesel' || (t.reference || '').startsWith('diesel_pay'))
+      ).reduce((s,t) => s + (t.amount||0), 0);
+      const orphanTp = rd(Math.max(v.payment, orphanLedgerPaid));
+      diesel.push({ pump_name: v.pump_name, pump_id: pid, opening_balance: ob, total_diesel: rd(v.debit), total_paid: orphanTp, closing_balance: rd(ob + v.debit - orphanTp) });
     }
 
     // 8. LOCAL PARTY
@@ -323,11 +333,21 @@ module.exports = function(database) {
       // Agent Accounts - Total from mandi targets, paid from ALL nikasi cash_transactions for this mandi
       const mandiMap = {};
       const targets = filterByFy(col('mandi_targets') || [], req.query.kms_year, req.query.season);
+      // Reconcile agent jama entries - fix any stale amounts from previous buggy calculations
       for (const t of targets) {
         const mn = (t.mandi_name || '').trim(); if (!mn) continue;
         if (!mandiMap[mn]) mandiMap[mn] = { total: 0, paid: 0 };
         const cutting_qntl = (t.target_qntl || 0) * (t.cutting_percent || 0) / 100;
-        mandiMap[mn].total += (t.target_qntl || 0) * (t.base_rate || 10) + cutting_qntl * (t.cutting_rate != null ? t.cutting_rate : 5);
+        const correctTotal = Math.round(((t.target_qntl || 0) * (t.base_rate || 10) + cutting_qntl * (t.cutting_rate != null ? t.cutting_rate : 5)) * 100) / 100;
+        mandiMap[mn].total += correctTotal;
+        // Auto-fix stale agent jama ledger entry
+        const linkedId = `agent_jama:${mn}:${req.query.kms_year || ''}:${req.query.season || ''}`;
+        const jamaIdx = database.data.cash_transactions.findIndex(ct => ct.linked_payment_id === linkedId);
+        if (jamaIdx !== -1 && Math.round(database.data.cash_transactions[jamaIdx].amount * 100) !== Math.round(correctTotal * 100)) {
+          database.data.cash_transactions[jamaIdx].amount = correctTotal;
+          database.data.cash_transactions[jamaIdx].updated_at = new Date().toISOString();
+          database.save();
+        }
       }
       for (const e of allEntries) {
         const mn = (e.mandi_name || '').trim(); if (!mn) continue;
