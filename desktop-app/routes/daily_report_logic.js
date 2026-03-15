@@ -204,6 +204,7 @@ function getDailyReportData(database, query) {
 function generateDailyReportPdf(doc, data, query) {
   const isDetail = data.mode === 'detail';
   const modeLabel = isDetail ? 'DETAILED' : 'SUMMARY';
+  const isTelegram = query.source === 'telegram';
 
   // Colors
   const C = {
@@ -247,7 +248,7 @@ function generateDailyReportPdf(doc, data, query) {
       row.forEach((cell, ci) => {
         doc.rect(x, y, colWidths[ci], rowH).stroke(C.border);
         doc.fillColor('#1e293b').font('Helvetica').fontSize(fs)
-          .text(String(cell ?? ''), x + 3, y + 3, { width: colWidths[ci] - 6, height: rowH - 2, lineBreak: false });
+          .text(String(cell ?? ''), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false });
         x += colWidths[ci];
       });
       y += rowH;
@@ -303,7 +304,7 @@ function generateDailyReportPdf(doc, data, query) {
   }
 
   // ===== TITLE =====
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.section).text(`Daily Report - ${fmtDate(data.date)}`, { align: 'center' });
+  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.section).text(`Detail Report - ${fmtDate(data.date)}`, { align: 'center' });
   doc.fontSize(8.5).font('Helvetica').fillColor('grey').text(`Mode: ${modeLabel} | KMS: ${query.kms_year || 'All'} | Season: ${query.season || 'All'}`, { align: 'center' });
   doc.moveDown(0.2);
   doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(25, doc.y).lineTo(doc.page.width - 25, doc.y).stroke();
@@ -324,15 +325,27 @@ function generateDailyReportPdf(doc, data, query) {
   );
 
   if (p.details.length) {
-    const colKey = isDetail ? 'detail_mode_columns' : 'summary_mode_columns';
-    const dailyCols = getColumns('daily_paddy_entries_report', colKey);
-    const pdfHdrs = getPdfHeaders(dailyCols);
-    const pdfWidths = getPdfWidthsMm(dailyCols);
-    drawTable(
-      pdfHdrs,
-      p.details.map(d => dailyCols.map(c => String(fmtVal(d[c.field], c.type)))),
-      pdfWidths, { fontSize: isDetail ? 6 : 7 }
-    );
+    if (isTelegram) {
+        // Simplified columns for Telegram (Truck, Agent, Mandi, RST, TP, QNTL, Bags, Mill W, Final W, Cash, Diesel)
+        const simpleHeaders = ['Truck', 'Agent', 'Mandi', 'RST', 'TP', 'QNTL', 'Bags', 'Mill W', 'Final W', 'Cash', 'Diesel'];
+        const simpleRows = p.details.map(d => [
+            d.truck_no, d.agent, d.mandi, d.rst_no, d.tp_no,
+            (d.kg/100).toFixed(2), d.bags, (d.mill_w/100).toFixed(2), (d.final_w/100).toFixed(2),
+            d.cash_paid, d.diesel_paid
+        ]);
+        const simpleWidths = [60, 50, 60, 40, 40, 50, 40, 50, 50, 50, 50];
+        drawTable(simpleHeaders, simpleRows, simpleWidths, { fontSize: 7 });
+    } else {
+        const colKey = isDetail ? 'detail_mode_columns' : 'summary_mode_columns';
+        const dailyCols = getColumns('daily_paddy_entries_report', colKey);
+        const pdfHdrs = getPdfHeaders(dailyCols);
+        const pdfWidths = getPdfWidthsMm(dailyCols);
+        drawTable(
+          pdfHdrs,
+          p.details.map(d => dailyCols.map(c => String(fmtVal(d[c.field], c.type)))),
+          pdfWidths, { fontSize: isDetail ? 6 : 7 }
+        );
+    }
   }
 
   // ===== 2. MILLING =====
@@ -432,14 +445,14 @@ function generateDailyReportPdf(doc, data, query) {
     drawTable(
       ['Pump','Type','Truck','Mandi','Description','Amount'],
       pa.details.map(d => [d.pump, d.txn_type === 'payment' || d.txn_type === 'credit' ? 'PAID' : 'DIESEL', d.truck_no, d.mandi, d.desc, `Rs.${fmtAmt(d.amount)}`]),
-      [80,55,75,75,230,80]
+      [90, 60, 90, 90, 300, 90]
     );
   }
 
-  // ===== 6.5 CASH TRANSACTIONS =====
+  // ===== 7. CASH TRANSACTIONS =====
   const ctxn = data.cash_transactions;
   if (ctxn && ctxn.count > 0) {
-    sectionTitle(0, `Cash Transactions (${ctxn.count})`);
+    sectionTitle(7, `Cash Transactions (${ctxn.count})`);
     drawSummaryBox(
       ['Total Jama', 'Total Nikasi', 'Balance'],
       [`Rs.${fmtAmt(ctxn.total_jama)}`, `Rs.${fmtAmt(ctxn.total_nikasi)}`, `Rs.${fmtAmt(ctxn.total_jama - ctxn.total_nikasi)}`],
@@ -457,10 +470,10 @@ function generateDailyReportPdf(doc, data, query) {
     }
   }
 
-  // ===== 7. DC DELIVERIES =====
+  // ===== 8. DC DELIVERIES =====
   const dc = data.dc_deliveries;
   if (dc.count) {
-    sectionTitle(7, `DC Deliveries (${dc.count}) - ${dc.total_qntl} Q`);
+    sectionTitle(8, `DC Deliveries (${dc.count}) - ${dc.total_qntl} Q`);
     if (isDetail && dc.details.length) {
       drawTable(
         ['DC No','Type','Bags','Qntl','Destination'],
@@ -470,10 +483,10 @@ function generateDailyReportPdf(doc, data, query) {
     }
   }
 
-  // ===== 8. BY-PRODUCTS =====
+  // ===== 9. BY-PRODUCTS =====
   const bp = data.byproducts;
   if (bp.count) {
-    sectionTitle(8, `By-Product Sales (${bp.count}) - Rs. ${fmtAmt(bp.total_amount)}`);
+    sectionTitle(9, `By-Product Sales (${bp.count}) - Rs. ${fmtAmt(bp.total_amount)}`);
     if (isDetail && bp.details.length) {
       drawTable(
         ['Type','Buyer','Amount'],
@@ -483,10 +496,10 @@ function generateDailyReportPdf(doc, data, query) {
     }
   }
 
-  // ===== 9. FRK =====
+  // ===== 10. FRK =====
   const fk = data.frk;
   if (fk.count) {
-    sectionTitle(9, `FRK Purchase (${fk.count}) - ${fk.total_qntl} Q | Rs. ${fmtAmt(fk.total_amount)}`);
+    sectionTitle(10, `FRK Purchase (${fk.count}) - ${fk.total_qntl} Q | Rs. ${fmtAmt(fk.total_amount)}`);
     if (isDetail && fk.details.length) {
       drawTable(
         ['Party','Qntl','Rate','Amount'],
@@ -496,10 +509,10 @@ function generateDailyReportPdf(doc, data, query) {
     }
   }
 
-  // ===== 10. MILL PARTS =====
+  // ===== 11. MILL PARTS =====
   const mp = data.mill_parts;
   if (mp.in_count || mp.used_count) {
-    sectionTitle(10, `Mill Parts Stock (In: ${mp.in_count} | Used: ${mp.used_count}) | Purchase: Rs. ${fmtAmt(mp.in_amount)}`);
+    sectionTitle(11, `Mill Parts Stock (In: ${mp.in_count} | Used: ${mp.used_count}) | Purchase: Rs. ${fmtAmt(mp.in_amount)}`);
     if (mp.in_details.length) {
       subText('Parts Purchased:');
       drawTable(
@@ -518,10 +531,10 @@ function generateDailyReportPdf(doc, data, query) {
     }
   }
 
-  // ===== 11. STAFF ATTENDANCE =====
+  // ===== 12. STAFF ATTENDANCE =====
   const sa = data.staff_attendance;
   if (sa.total) {
-    sectionTitle(11, `Staff Attendance (${sa.total})`);
+    sectionTitle(12, `Staff Attendance (${sa.total})`);
     drawSummaryBox(
       ['Present','Half Day','Holiday','Absent','Not Marked'],
       [sa.present, sa.half_day, sa.holiday, sa.absent, sa.not_marked],
