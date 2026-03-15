@@ -1,0 +1,66 @@
+{
+  "summary": "Verified three P0 bug fixes in Balance Sheet for iteration 93. All three bugs are FIXED and working correctly. Backend: 11/11 tests passed (100%). Frontend: All calculations verified via screenshots.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration93_balance_sheet_bugs.py",
+    "/app/test_reports/pytest/pytest_results_iteration93.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Bug Fix 1 (Truck calculation): backend/routes/fy_summary.py line 431 now uses (qntl - bag/100) * rate, matching entry creation formula in main.js line 272",
+    "Bug Fix 2 (Diesel orphan pump): Lines 223-240 in fy_summary.py handle diesel accounts when pump_id not in diesel_pumps collection",
+    "Bug Fix 3 (cutting_rate=0): Lines 86, 106 in desktop-app/routes/entries.js use nullish check (cutting_rate != null ? cutting_rate : 5) instead of falsy check"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration93_balance_sheet_bugs.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (all calculations verified via UI)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "Used existing test data: kms_year=2025-2026, Gokul mandi (cutting_rate=0), Barsana (cutting_rate=10), truck OD15A1234",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Three Balance Sheet bugs confirmed fixed. Truck OD15A1234: total=15904, paid=15904, balance=0 (was -1121.28 before fix). Gokul agent: total=4000 (with cutting_rate=0, not 4100). Diesel Lokesh Fuels: shows 4400 in Sundry Creditors. Balance sheet balances at Rs 11,72,850.",
+  "bugs_verified_fixed": {
+    "bug_1_truck_calculation": {
+      "description": "Truck gross calculation used final_w/100 but entry creation uses (qntl - bag/100)",
+      "root_cause": "Formula mismatch between entry creation (main.js line 272: qntl - bag/100) and balance sheet calculation (used final_w/100)",
+      "fix_applied": "Changed to use (qntl - bag/100) * rate in fy_summary.py line 431 and fy_summary.js line 295",
+      "verification": "OD15A1234: total=15904, paid=15904, balance=0.00 (previously -1121.28)",
+      "status": "FIXED"
+    },
+    "bug_2_diesel_orphan_pumps": {
+      "description": "Diesel accounts not showing when diesel_pumps collection is empty but diesel_accounts has entries",
+      "root_cause": "Only iterated over diesel_pumps collection, missing orphaned entries",
+      "fix_applied": "Added orphan pump handling (lines 223-240 in fy_summary.py) to include diesel entries with pump_id not in diesel_pumps",
+      "verification": "Lokesh Fuels appears in Sundry Creditors with 4,400.00",
+      "status": "FIXED"
+    },
+    "bug_3_cutting_rate_zero": {
+      "description": "cutting_rate=0 treated as falsy in entries.js, defaulting to 5",
+      "root_cause": "JavaScript || operator treats 0 as falsy (cutting_rate || 5 becomes 5 when cutting_rate=0)",
+      "fix_applied": "Changed to nullish check: cutting_rate != null ? cutting_rate : 5",
+      "verification": "Gokul: total=4000 (correct), not 4100 (buggy). Barsana: total=4200 (correct as control)",
+      "status": "FIXED"
+    }
+  },
+  "balance_sheet_verification": {
+    "total_liabilities": 1172850.0,
+    "total_assets": 1172850.0,
+    "balances": true,
+    "kms_year_tested": "2025-2026",
+    "sundry_creditors_includes_diesel": true,
+    "truck_accounts_balance": 0.0,
+    "agent_accounts_balance": 200.0
+  }
+}

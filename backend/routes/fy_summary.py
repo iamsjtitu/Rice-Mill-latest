@@ -199,6 +199,7 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
         prev_diesel = await db.diesel_accounts.find(prev_q, {"_id": 0}).to_list(5000)
 
     diesel_section = []
+    known_pump_ids = set(pump["id"] for pump in pumps)
     for pump in pumps:
         pid = pump["id"]
         pt_txns = [t for t in diesel_txns if t.get("pump_id") == pid]
@@ -218,6 +219,24 @@ async def get_fy_summary(kms_year: Optional[str] = None, season: Optional[str] =
             "pump_name": pump["name"], "pump_id": pid, "opening_balance": ob,
             "total_diesel": round(td, 2), "total_paid": round(tp, 2),
             "closing_balance": round(ob + td - tp, 2)
+        })
+    # Include orphaned diesel accounts (entries with pump_id not in diesel_pumps)
+    orphan_pumps = {}
+    for dt in diesel_txns:
+        pid = dt.get("pump_id") or "default"
+        if pid not in known_pump_ids:
+            if pid not in orphan_pumps:
+                orphan_pumps[pid] = {"pump_name": dt.get("pump_name") or "Default Pump", "debit": 0, "payment": 0}
+            if dt.get("txn_type") == "debit":
+                orphan_pumps[pid]["debit"] += dt.get("amount", 0)
+            elif dt.get("txn_type") == "payment":
+                orphan_pumps[pid]["payment"] += dt.get("amount", 0)
+    for pid, v in orphan_pumps.items():
+        ob = saved_diesel.get(pid, 0.0)
+        diesel_section.append({
+            "pump_name": v["pump_name"], "pump_id": pid, "opening_balance": ob,
+            "total_diesel": round(v["debit"], 2), "total_paid": round(v["payment"], 2),
+            "closing_balance": round(ob + v["debit"] - v["payment"], 2)
         })
 
     # ===== 8. LOCAL PARTY ACCOUNTS =====
@@ -400,7 +419,7 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
     ledger = summary["ledger_parties"]
 
     # ===== TRUCK ACCOUNTS (calculated from entries + truck_payments) =====
-    entries = await db.mill_entries.find(query, {"_id": 0, "id": 1, "truck_no": 1, "final_w": 1, "diesel_paid": 1, "cash_paid": 1, "g_deposite": 1, "rate_per_qntl": 1}).to_list(50000)
+    entries = await db.mill_entries.find(query, {"_id": 0, "id": 1, "truck_no": 1, "final_w": 1, "qntl": 1, "bag": 1, "diesel_paid": 1, "cash_paid": 1, "g_deposite": 1, "rate_per_qntl": 1}).to_list(50000)
     truck_map = {}
     for e in entries:
         tn = (e.get("truck_no") or "").strip()
@@ -409,8 +428,8 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
         # Get rate from truck_payments or use default
         tp_doc = await db.truck_payments.find_one({"entry_id": e.get("id")}, {"_id": 0, "rate_per_qntl": 1})
         rate = (tp_doc or {}).get("rate_per_qntl") or e.get("rate_per_qntl") or 32
-        qntl = (e.get("final_w") or 0) / 100
-        truck_map[tn]["gross"] += qntl * rate
+        qntl = round((e.get("qntl") or 0) - (e.get("bag") or 0) / 100, 2)
+        truck_map[tn]["gross"] += round(qntl * rate, 2)
         truck_map[tn]["deductions"] += (e.get("diesel_paid") or 0) + (e.get("cash_paid") or 0) + (e.get("g_deposite") or 0)
 
     all_truck_nos = list(truck_map.keys())

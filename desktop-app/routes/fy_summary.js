@@ -126,6 +126,7 @@ module.exports = function(database) {
     const dieselTxns = filterByFy(col('diesel_accounts') || [], kms_year, season);
     const savedDiesel = (savedOb && savedOb.diesel) || {};
     const prevDieselTxns = (!Object.keys(savedDiesel).length && prevFy) ? filterByFy(col('diesel_accounts') || [], prevFy, season) : [];
+    const knownPumpIds = new Set((col('diesel_pumps') || []).map(p => p.id));
     const diesel = (col('diesel_pumps') || []).map(pump => {
       const pt = dieselTxns.filter(t => t.pump_id === pump.id);
       const td = rd(pt.filter(t => t.txn_type === 'debit').reduce((s,t) => s + (t.amount||0), 0));
@@ -141,6 +142,20 @@ module.exports = function(database) {
       }
       return { pump_name: pump.name, pump_id: pump.id, opening_balance: ob, total_diesel: td, total_paid: tp, closing_balance: rd(ob + td - tp) };
     });
+    // Include orphaned diesel accounts (entries with pump_id not in diesel_pumps)
+    const orphanPumps = {};
+    for (const dt of dieselTxns) {
+      if (!knownPumpIds.has(dt.pump_id)) {
+        const pid = dt.pump_id || 'default';
+        if (!orphanPumps[pid]) orphanPumps[pid] = { pump_name: dt.pump_name || 'Default Pump', pump_id: pid, debit: 0, payment: 0 };
+        if (dt.txn_type === 'debit') orphanPumps[pid].debit += dt.amount || 0;
+        else if (dt.txn_type === 'payment') orphanPumps[pid].payment += dt.amount || 0;
+      }
+    }
+    for (const [pid, v] of Object.entries(orphanPumps)) {
+      const ob = savedDiesel[pid] || 0;
+      diesel.push({ pump_name: v.pump_name, pump_id: pid, opening_balance: ob, total_diesel: rd(v.debit), total_paid: rd(v.payment), closing_balance: rd(ob + v.debit - v.payment) });
+    }
 
     // 8. LOCAL PARTY
     const lpTxns = filterByFy(col('local_party_accounts') || [], kms_year, season);
@@ -277,8 +292,8 @@ module.exports = function(database) {
         // Get rate from truck_payments or default 32
         const tpDoc = truckPaymentDocs.find(tp => tp.entry_id === e.id);
         const rate = (tpDoc && tpDoc.rate_per_qntl) || e.rate_per_qntl || e.rate || 32;
-        const qntl = (e.final_w || 0) / 100;
-        const gross = qntl * rate;
+        const qntl = Math.round(((e.qntl || 0) - (e.bag || 0) / 100) * 100) / 100;
+        const gross = Math.round(qntl * rate * 100) / 100;
         const deductions = (e.diesel_paid || 0) + (e.cash_paid || 0) + (e.g_deposite || 0);
         truckMap[tn].gross += gross;
         truckMap[tn].deductions += deductions;
@@ -436,7 +451,7 @@ module.exports = function(database) {
         if (!truckMap[tn]) truckMap[tn]={gross:0,deductions:0,paid:0};
         const tpDoc = truckPaymentDocsPdf.find(tp => tp.entry_id === e.id);
         const rate = (tpDoc && tpDoc.rate_per_qntl) || e.rate_per_qntl || e.rate || 32;
-        truckMap[tn].gross += (e.final_w||0)/100 * rate;
+        truckMap[tn].gross += Math.round(((e.qntl||0)-(e.bag||0)/100) * rate * 100) / 100;
         truckMap[tn].deductions += (e.diesel_paid||0) + (e.cash_paid||0) + (e.g_deposite||0);
       }
       for (const tn of Object.keys(truckMap)) {
@@ -581,7 +596,7 @@ module.exports = function(database) {
         if(!truckMap[tn]) truckMap[tn]={gross:0,deductions:0,paid:0};
         const tpDoc = truckPaymentDocsXl.find(tp => tp.entry_id === e.id);
         const rate = (tpDoc && tpDoc.rate_per_qntl) || e.rate_per_qntl || e.rate || 32;
-        truckMap[tn].gross += (e.final_w||0)/100 * rate;
+        truckMap[tn].gross += Math.round(((e.qntl||0)-(e.bag||0)/100) * rate * 100) / 100;
         truckMap[tn].deductions += (e.diesel_paid||0) + (e.cash_paid||0) + (e.g_deposite||0);
       }
       for (const tn of Object.keys(truckMap)) {

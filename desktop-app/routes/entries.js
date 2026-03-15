@@ -83,7 +83,7 @@ module.exports = function(database) {
     const target = database.addMandiTarget({ ...req.body, created_by: req.query.username || 'admin' });
     // Create ledger jama entry for agent (so Party Ledger shows what's owed)
     const cutting_qntl = (target.target_qntl || 0) * (target.cutting_percent || 0) / 100;
-    const agentAmount = Math.round(((target.target_qntl || 0) * (target.base_rate || 10) + cutting_qntl * (target.cutting_rate || 5)) * 100) / 100;
+    const agentAmount = Math.round(((target.target_qntl || 0) * (target.base_rate || 10) + cutting_qntl * (target.cutting_rate != null ? target.cutting_rate : 5)) * 100) / 100;
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     database.data.cash_transactions.push({
       id: uuidv4(), date: new Date().toISOString().split('T')[0],
@@ -103,7 +103,7 @@ module.exports = function(database) {
     if (target) {
       // Update corresponding ledger jama entry
       const cutting_qntl = (target.target_qntl || 0) * (target.cutting_percent || 0) / 100;
-      const agentAmount = Math.round(((target.target_qntl || 0) * (target.base_rate || 10) + cutting_qntl * (target.cutting_rate || 5)) * 100) / 100;
+      const agentAmount = Math.round(((target.target_qntl || 0) * (target.base_rate || 10) + cutting_qntl * (target.cutting_rate != null ? target.cutting_rate : 5)) * 100) / 100;
       if (database.data.cash_transactions) {
         const idx = database.data.cash_transactions.findIndex(t => t.linked_target_id === req.params.id);
         if (idx !== -1) {
