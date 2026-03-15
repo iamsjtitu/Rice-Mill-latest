@@ -266,35 +266,47 @@ module.exports = function(database) {
       const bp = summary.byproducts, mp = summary.mill_parts, dieselList = summary.diesel;
       const lp = summary.local_party, staffList = summary.staff_advances, pt = summary.private_trading, ledger = summary.ledger_parties;
 
-      // Truck Accounts - Calculate from ledger entries (jama = gross, nikasi with ded refs = deductions, other nikasi = paid)
+      // Truck Accounts - Calculate TOTAL from entries data, PAID from all cash_transactions
       let allEntries = filterByFy(col('entries'), req.query.kms_year, req.query.season);
-      const ledgerTxnsAll = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account === 'ledger');
+      const allCashTxns = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season);
+      const truckPaymentDocs = col('truck_payments') || [];
       const truckMap = {};
       for (const e of allEntries) {
         const tn = (e.truck_no || '').trim(); if (!tn) continue;
-        if (!truckMap[tn]) truckMap[tn] = { total: 0, deductions: 0, paid: 0 };
+        if (!truckMap[tn]) truckMap[tn] = { gross: 0, deductions: 0, paid: 0 };
+        // Get rate from truck_payments or default 32
+        const tpDoc = truckPaymentDocs.find(tp => tp.entry_id === e.id);
+        const rate = (tpDoc && tpDoc.rate_per_qntl) || e.rate_per_qntl || e.rate || 32;
+        const qntl = (e.final_w || 0) / 100;
+        const gross = qntl * rate;
+        const deductions = (e.diesel_paid || 0) + (e.cash_paid || 0) + (e.g_deposite || 0);
+        truckMap[tn].gross += gross;
+        truckMap[tn].deductions += deductions;
       }
-      for (const t of ledgerTxnsAll) {
-        const cat = (t.category || '').trim();
-        if (!cat || !truckMap[cat]) continue;
-        if ((t.party_type || '') !== 'Truck') continue;
-        const ref = t.reference || '';
-        if (t.txn_type === 'jama') {
-          truckMap[cat].total += t.amount || 0;
-        } else if (t.txn_type === 'nikasi') {
-          if (ref.startsWith('truck_diesel_ded:') || ref.startsWith('truck_cash_ded:') || ref.startsWith('truck_deposit_ded:')) {
-            truckMap[cat].deductions += t.amount || 0;
-          } else {
-            truckMap[cat].paid += t.amount || 0;
-          }
-        }
+      // Calculate paid from ALL cash_transactions (both ledger nikasi and cash nikasi with truck category)
+      for (const tn of Object.keys(truckMap)) {
+        // Paid = ledger nikasi for this truck (excluding entry-level deductions) + cash nikasi for truck_owner payments
+        const truckTxns = allCashTxns.filter(t => (t.category || '').trim() === tn);
+        // Ledger nikasi that are actual payments (not deductions from entry creation)
+        const ledgerPaid = truckTxns.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi'
+          && !(t.reference || '').startsWith('truck_diesel_ded:')
+          && !(t.reference || '').startsWith('truck_cash_ded:')
+          && !(t.reference || '').startsWith('truck_deposit_ded:')
+        ).reduce((s, t) => s + (t.amount || 0), 0);
+        // Cash/bank nikasi that are owner payments (reference starts with truck_owner:)
+        const ownerCashPaid = truckTxns.filter(t =>
+          (t.account === 'cash' || t.account === 'bank') && t.txn_type === 'nikasi'
+          && ((t.reference || '').startsWith('truck_owner:') || (t.reference || '').startsWith('truck_pay:'))
+        ).reduce((s, t) => s + (t.amount || 0), 0);
+        // Use max of ledger-based or direct payment tracking
+        truckMap[tn].paid = Math.max(ledgerPaid, ownerCashPaid);
       }
       const truckAccounts = Object.entries(truckMap).sort().map(([name, v]) => {
-        const netPayable = rd(v.total - v.deductions);
+        const netPayable = rd(v.gross - v.deductions);
         return { name, total: netPayable, paid: rd(v.paid), balance: rd(netPayable - v.paid) };
       });
 
-      // Agent Accounts - Total from mandi targets, paid from ledger nikasi
+      // Agent Accounts - Total from mandi targets, paid from ALL nikasi cash_transactions for this mandi
       const mandiMap = {};
       const targets = filterByFy(col('mandi_targets') || [], req.query.kms_year, req.query.season);
       for (const t of targets) {
@@ -307,11 +319,19 @@ module.exports = function(database) {
         const mn = (e.mandi_name || '').trim(); if (!mn) continue;
         if (!mandiMap[mn]) mandiMap[mn] = { total: 0, paid: 0 };
       }
+      // Calculate agent paid from ALL nikasi transactions matching mandi name
       for (const mn of Object.keys(mandiMap)) {
-        mandiMap[mn].paid = ledgerTxnsAll.filter(t =>
-          t.txn_type === 'nikasi' && (t.party_type || '') === 'Agent' &&
-          (t.category || '').toLowerCase() === mn.toLowerCase()
+        const mandiTxns = allCashTxns.filter(t =>
+          t.txn_type === 'nikasi' && (t.category || '').toLowerCase() === mn.toLowerCase()
+        );
+        // Ledger nikasi (from agent pay endpoints and auto_ledger from cash book)
+        const ledgerPaid = mandiTxns.filter(t => t.account === 'ledger').reduce((s, t) => s + (t.amount || 0), 0);
+        // Cash/bank nikasi with agent reference
+        const cashPaid = mandiTxns.filter(t =>
+          (t.account === 'cash' || t.account === 'bank') &&
+          ((t.reference || '').startsWith('agent_pay:') || (t.reference || '').startsWith('agent_markpaid:'))
         ).reduce((s, t) => s + (t.amount || 0), 0);
+        mandiMap[mn].paid = Math.max(ledgerPaid, cashPaid);
       }
       const agentAccounts = Object.entries(mandiMap).sort().map(([name, v]) => ({ name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid) }));
 
@@ -409,27 +429,35 @@ module.exports = function(database) {
       const lp = summary.local_party, staffList = summary.staff_advances, pt = summary.private_trading, ledger = summary.ledger_parties;
       
       let allEntries = filterByFy(col('entries'), req.query.kms_year, req.query.season);
-      const ledgerTxnsAllPdf = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account === 'ledger');
+      const allCashTxnsPdf = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season);
+      const truckPaymentDocsPdf = col('truck_payments') || [];
       const truckMap = {};
-      for (const e of allEntries) { const tn = (e.truck_no||'').trim(); if (!tn) continue; if (!truckMap[tn]) truckMap[tn]={total:0,deductions:0,paid:0}; }
-      for (const t of ledgerTxnsAllPdf) {
-        const cat = (t.category||'').trim(); if (!cat || !truckMap[cat]) continue;
-        if ((t.party_type||'') !== 'Truck') continue;
-        const ref = t.reference || '';
-        if (t.txn_type === 'jama') { truckMap[cat].total += t.amount || 0; }
-        else if (t.txn_type === 'nikasi') {
-          if (ref.startsWith('truck_diesel_ded:') || ref.startsWith('truck_cash_ded:') || ref.startsWith('truck_deposit_ded:')) { truckMap[cat].deductions += t.amount||0; }
-          else { truckMap[cat].paid += t.amount||0; }
-        }
+      for (const e of allEntries) {
+        const tn = (e.truck_no||'').trim(); if (!tn) continue;
+        if (!truckMap[tn]) truckMap[tn]={gross:0,deductions:0,paid:0};
+        const tpDoc = truckPaymentDocsPdf.find(tp => tp.entry_id === e.id);
+        const rate = (tpDoc && tpDoc.rate_per_qntl) || e.rate_per_qntl || e.rate || 32;
+        truckMap[tn].gross += (e.final_w||0)/100 * rate;
+        truckMap[tn].deductions += (e.diesel_paid||0) + (e.cash_paid||0) + (e.g_deposite||0);
       }
-      const truckAccounts = Object.entries(truckMap).sort().map(([name,v]) => { const net=rd(v.total-v.deductions); return {name,total:net,paid:rd(v.paid),balance:rd(net-v.paid)}; });
+      for (const tn of Object.keys(truckMap)) {
+        const truckTxns = allCashTxnsPdf.filter(t => (t.category||'').trim() === tn);
+        const lp = truckTxns.filter(t => t.account==='ledger' && t.txn_type==='nikasi' && !(t.reference||'').startsWith('truck_diesel_ded:') && !(t.reference||'').startsWith('truck_cash_ded:') && !(t.reference||'').startsWith('truck_deposit_ded:')).reduce((s,t)=>s+(t.amount||0),0);
+        const cp = truckTxns.filter(t => (t.account==='cash'||t.account==='bank') && t.txn_type==='nikasi' && ((t.reference||'').startsWith('truck_owner:')||(t.reference||'').startsWith('truck_pay:'))).reduce((s,t)=>s+(t.amount||0),0);
+        truckMap[tn].paid = Math.max(lp, cp);
+      }
+      const truckAccounts = Object.entries(truckMap).sort().map(([name,v]) => { const net=rd(v.gross-v.deductions); return {name,total:net,paid:rd(v.paid),balance:rd(net-v.paid)}; });
       
-      // Agent Accounts - Total from mandi targets, paid from ledger nikasi
       const mandiMap = {};
       const pdfTargets = filterByFy(col('mandi_targets')||[], req.query.kms_year, req.query.season);
       for (const t of pdfTargets) { const mn=(t.mandi_name||'').trim(); if(!mn) continue; if(!mandiMap[mn]) mandiMap[mn]={total:0,paid:0}; const cq=(t.target_qntl||0)*(t.cutting_percent||0)/100; mandiMap[mn].total += (t.target_qntl||0)*(t.base_rate||10)+cq*(t.cutting_rate||5); }
       for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!mandiMap[mn]) mandiMap[mn]={total:0,paid:0}; }
-      for (const mn of Object.keys(mandiMap)) { mandiMap[mn].paid = ledgerTxnsAllPdf.filter(t => t.txn_type==='nikasi' && (t.party_type||'')==='Agent' && (t.category||'').toLowerCase()===mn.toLowerCase()).reduce((s,t) => s+(t.amount||0), 0); }
+      for (const mn of Object.keys(mandiMap)) {
+        const mt = allCashTxnsPdf.filter(t => t.txn_type==='nikasi' && (t.category||'').toLowerCase()===mn.toLowerCase());
+        const lp = mt.filter(t=>t.account==='ledger').reduce((s,t)=>s+(t.amount||0),0);
+        const cp = mt.filter(t=>(t.account==='cash'||t.account==='bank')&&((t.reference||'').startsWith('agent_pay:')||(t.reference||'').startsWith('agent_markpaid:'))).reduce((s,t)=>s+(t.amount||0),0);
+        mandiMap[mn].paid = Math.max(lp, cp);
+      }
       const agentAccounts = Object.entries(mandiMap).sort().map(([name,v]) => ({name,total:rd(v.total),paid:rd(v.paid),balance:rd(v.total-v.paid)}));
       
       const dcEntries = filterByFy(col('dc_entries')||[], req.query.kms_year, req.query.season);
@@ -546,22 +574,34 @@ module.exports = function(database) {
       const lp = summary.local_party, staffList = summary.staff_advances, pt = summary.private_trading, ledger = summary.ledger_parties;
       
       let allEntries = filterByFy(col('entries'), req.query.kms_year, req.query.season);
-      const ledgerTxnsAllXl = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season).filter(t => t.account === 'ledger');
+      const allCashTxnsXl = filterByFy(col('cash_transactions'), req.query.kms_year, req.query.season);
+      const truckPaymentDocsXl = col('truck_payments') || [];
       const truckMap = {};
-      for (const e of allEntries) { const tn=(e.truck_no||'').trim(); if(!tn) continue; if(!truckMap[tn]) truckMap[tn]={total:0,deductions:0,paid:0}; }
-      for (const t of ledgerTxnsAllXl) {
-        const cat=(t.category||'').trim(); if(!cat||!truckMap[cat]) continue;
-        if((t.party_type||'')!=='Truck') continue;
-        const ref=t.reference||'';
-        if(t.txn_type==='jama') truckMap[cat].total+=t.amount||0;
-        else if(t.txn_type==='nikasi') { if(ref.startsWith('truck_diesel_ded:')||ref.startsWith('truck_cash_ded:')||ref.startsWith('truck_deposit_ded:')) truckMap[cat].deductions+=t.amount||0; else truckMap[cat].paid+=t.amount||0; }
+      for (const e of allEntries) {
+        const tn=(e.truck_no||'').trim(); if(!tn) continue;
+        if(!truckMap[tn]) truckMap[tn]={gross:0,deductions:0,paid:0};
+        const tpDoc = truckPaymentDocsXl.find(tp => tp.entry_id === e.id);
+        const rate = (tpDoc && tpDoc.rate_per_qntl) || e.rate_per_qntl || e.rate || 32;
+        truckMap[tn].gross += (e.final_w||0)/100 * rate;
+        truckMap[tn].deductions += (e.diesel_paid||0) + (e.cash_paid||0) + (e.g_deposite||0);
+      }
+      for (const tn of Object.keys(truckMap)) {
+        const tt = allCashTxnsXl.filter(t => (t.category||'').trim() === tn);
+        const lp = tt.filter(t => t.account==='ledger' && t.txn_type==='nikasi' && !(t.reference||'').startsWith('truck_diesel_ded:') && !(t.reference||'').startsWith('truck_cash_ded:') && !(t.reference||'').startsWith('truck_deposit_ded:')).reduce((s,t)=>s+(t.amount||0),0);
+        const cp = tt.filter(t => (t.account==='cash'||t.account==='bank') && t.txn_type==='nikasi' && ((t.reference||'').startsWith('truck_owner:')||(t.reference||'').startsWith('truck_pay:'))).reduce((s,t)=>s+(t.amount||0),0);
+        truckMap[tn].paid = Math.max(lp, cp);
       }
       
       const agentPayments2 = {};
       const xlTargets = filterByFy(col('mandi_targets')||[], req.query.kms_year, req.query.season);
       for (const t of xlTargets) { const mn=(t.mandi_name||'').trim(); if(!mn) continue; if(!agentPayments2[mn]) agentPayments2[mn]={total:0,paid:0}; const cq=(t.target_qntl||0)*(t.cutting_percent||0)/100; agentPayments2[mn].total+=(t.target_qntl||0)*(t.base_rate||10)+cq*(t.cutting_rate||5); }
       for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!agentPayments2[mn]) agentPayments2[mn]={total:0,paid:0}; }
-      for (const mn of Object.keys(agentPayments2)) { agentPayments2[mn].paid = ledgerTxnsAllXl.filter(t => t.txn_type==='nikasi' && (t.party_type||'')==='Agent' && (t.category||'').toLowerCase()===mn.toLowerCase()).reduce((s,t) => s+(t.amount||0), 0); }
+      for (const mn of Object.keys(agentPayments2)) {
+        const mt = allCashTxnsXl.filter(t => t.txn_type==='nikasi' && (t.category||'').toLowerCase()===mn.toLowerCase());
+        const lp = mt.filter(t=>t.account==='ledger').reduce((s,t)=>s+(t.amount||0),0);
+        const cp = mt.filter(t=>(t.account==='cash'||t.account==='bank')&&((t.reference||'').startsWith('agent_pay:')||(t.reference||'').startsWith('agent_markpaid:'))).reduce((s,t)=>s+(t.amount||0),0);
+        agentPayments2[mn].paid = Math.max(lp, cp);
+      }
       
       const dcEntries = filterByFy(col('dc_entries')||[], req.query.kms_year, req.query.season);
       const dcMap = {};
@@ -578,7 +618,7 @@ module.exports = function(database) {
       for(const sc of sundryCreds) { credChildren.push({name:sc.party_name,amount:sc.amount}); credTotal += sc.amount; }
       for(const d of dieselList) { if(d.closing_balance>0) { credChildren.push({name:`Diesel - ${d.pump_name}`,amount:d.closing_balance}); credTotal += d.closing_balance; } }
       // Add truck accounts to creditors
-      for (const [tn,v] of Object.entries(truckMap)) { const net=rd(v.total-v.deductions); const bal=rd(net-v.paid); if(bal>0) { credChildren.push({name:`Truck - ${tn}`,amount:bal}); credTotal+=bal; } }
+      for (const [tn,v] of Object.entries(truckMap)) { const net=rd(v.gross-v.deductions); const bal=rd(net-v.paid); if(bal>0) { credChildren.push({name:`Truck - ${tn}`,amount:bal}); credTotal+=bal; } }
       // Add agent accounts to creditors
       for (const [mn,v] of Object.entries(agentPayments2)) { const bal=rd(v.total-v.paid); if(bal>0) { credChildren.push({name:`Agent - ${mn}`,amount:bal}); credTotal+=bal; } }
       liabilities.push({group:'Sundry Creditors', amount:rd(credTotal), children:credChildren});

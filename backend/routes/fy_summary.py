@@ -399,45 +399,69 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
     pt = summary["private_trading"]
     ledger = summary["ledger_parties"]
 
-    # ===== TRUCK ACCOUNTS (from ledger) =====
-    entries = await db.mill_entries.find(query, {"_id": 0, "id": 1, "truck_no": 1, "truck_amount": 1}).to_list(50000)
+    # ===== TRUCK ACCOUNTS (calculated from entries + truck_payments) =====
+    entries = await db.mill_entries.find(query, {"_id": 0, "id": 1, "truck_no": 1, "final_w": 1, "diesel_paid": 1, "cash_paid": 1, "g_deposite": 1, "rate_per_qntl": 1}).to_list(50000)
     truck_map = {}
     for e in entries:
         tn = (e.get("truck_no") or "").strip()
         if not tn: continue
-        if tn not in truck_map: truck_map[tn] = {"total": 0, "paid": 0}
-        truck_map[tn]["total"] += e.get("truck_amount", 0) or 0
+        if tn not in truck_map: truck_map[tn] = {"gross": 0, "deductions": 0, "paid": 0}
+        # Get rate from truck_payments or use default
+        tp_doc = await db.truck_payments.find_one({"entry_id": e.get("id")}, {"_id": 0, "rate_per_qntl": 1})
+        rate = (tp_doc or {}).get("rate_per_qntl") or e.get("rate_per_qntl") or 32
+        qntl = (e.get("final_w") or 0) / 100
+        truck_map[tn]["gross"] += qntl * rate
+        truck_map[tn]["deductions"] += (e.get("diesel_paid") or 0) + (e.get("cash_paid") or 0) + (e.get("g_deposite") or 0)
 
     all_truck_nos = list(truck_map.keys())
     if all_truck_nos:
-        ledger_nikasi = await db.cash_transactions.find(
-            {**query, "account": "ledger", "txn_type": "nikasi", "category": {"$in": all_truck_nos}}, {"_id": 0}
+        # Get paid from all cash_transactions for these trucks
+        all_truck_txns = await db.cash_transactions.find(
+            {**query, "txn_type": "nikasi", "category": {"$in": all_truck_nos}}, {"_id": 0}
         ).to_list(50000)
-        for txn in ledger_nikasi:
-            cat = (txn.get("category") or "").strip()
-            if cat in truck_map:
-                truck_map[cat]["paid"] += txn.get("amount", 0)
+        for tn in all_truck_nos:
+            truck_txns = [t for t in all_truck_txns if (t.get("category") or "").strip() == tn]
+            # Ledger nikasi (excluding deduction refs)
+            ledger_paid = sum(t.get("amount", 0) for t in truck_txns
+                if t.get("account") == "ledger"
+                and not (t.get("reference") or "").startswith("truck_diesel_ded:")
+                and not (t.get("reference") or "").startswith("truck_cash_ded:")
+                and not (t.get("reference") or "").startswith("truck_deposit_ded:"))
+            # Cash/bank owner payments
+            cash_paid = sum(t.get("amount", 0) for t in truck_txns
+                if t.get("account") in ("cash", "bank")
+                and ((t.get("reference") or "").startswith("truck_owner:") or (t.get("reference") or "").startswith("truck_pay:")))
+            truck_map[tn]["paid"] = max(ledger_paid, cash_paid)
 
-    truck_accounts = [{"name": tn, "total": round(v["total"], 2), "paid": round(v["paid"], 2), "balance": round(v["total"] - v["paid"], 2)} for tn, v in sorted(truck_map.items())]
+    truck_accounts = [{"name": tn, "total": round(v["gross"] - v["deductions"], 2), "paid": round(v["paid"], 2), "balance": round(v["gross"] - v["deductions"] - v["paid"], 2)} for tn, v in sorted(truck_map.items())]
     truck_total_balance = round(sum(t["balance"] for t in truck_accounts), 2)
 
-    # ===== AGENT/MANDI ACCOUNTS =====
-    # Always calculate total from entries and paid from ledger (source of truth)
-    entries_with_mandi = await db.mill_entries.find(query, {"_id": 0, "mandi_name": 1, "agent_amount": 1}).to_list(50000)
+    # ===== AGENT/MANDI ACCOUNTS (total from targets, paid from cash_transactions) =====
     mandi_map = {}
+    mandi_targets = await db.mandi_targets.find(query, {"_id": 0}).to_list(5000)
+    for t in mandi_targets:
+        mn = (t.get("mandi_name") or "").strip()
+        if not mn: continue
+        if mn not in mandi_map: mandi_map[mn] = {"total": 0, "paid": 0}
+        cutting_qntl = (t.get("target_qntl") or 0) * (t.get("cutting_percent") or 0) / 100
+        mandi_map[mn]["total"] += (t.get("target_qntl") or 0) * (t.get("base_rate") or 10) + cutting_qntl * (t.get("cutting_rate") or 5)
+    # Also include mandis from entries without targets
+    entries_with_mandi = await db.mill_entries.find(query, {"_id": 0, "mandi_name": 1}).to_list(50000)
     for e in entries_with_mandi:
         mn = (e.get("mandi_name") or "").strip()
         if not mn: continue
         if mn not in mandi_map: mandi_map[mn] = {"total": 0, "paid": 0}
-        mandi_map[mn]["total"] += e.get("agent_amount", 0) or 0
-    # Calculate paid from ledger nikasi transactions for each mandi
+    # Calculate paid from ALL nikasi transactions matching mandi name
     for mn in list(mandi_map.keys()):
         paid_txns = await db.cash_transactions.find(
-            {**query, "account": "ledger", "txn_type": "nikasi",
-             "category": {"$regex": f"^{mn}$", "$options": "i"},
-             "party_type": "Agent"}, {"_id": 0, "amount": 1}
+            {**query, "txn_type": "nikasi",
+             "category": {"$regex": f"^{mn}$", "$options": "i"}}, {"_id": 0, "amount": 1, "account": 1, "reference": 1}
         ).to_list(5000)
-        mandi_map[mn]["paid"] = sum(t.get("amount", 0) for t in paid_txns)
+        ledger_paid = sum(t.get("amount", 0) for t in paid_txns if t.get("account") == "ledger")
+        cash_paid = sum(t.get("amount", 0) for t in paid_txns
+            if t.get("account") in ("cash", "bank")
+            and ((t.get("reference") or "").startswith("agent_pay:") or (t.get("reference") or "").startswith("agent_markpaid:")))
+        mandi_map[mn]["paid"] = max(ledger_paid, cash_paid)
     agent_accounts = [{"name": mn, "total": round(v["total"], 2), "paid": round(v["paid"], 2), "balance": round(v["total"] - v["paid"], 2)} for mn, v in sorted(mandi_map.items())]
     agent_total_balance = round(sum(a["balance"] for a in agent_accounts), 2)
 
