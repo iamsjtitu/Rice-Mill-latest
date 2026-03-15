@@ -11,52 +11,44 @@ Web + Desktop (Electron) mill entry management system. Web app is source of trut
 
 ## What's Been Implemented
 
-### Session 2.7 (2026-03-15) - Full Balance Sheet Audit & Fix (Round 3)
-**Three bugs FIXED:**
+### Session 2.8 (2026-03-15) - Opening Balance "Save Failed" Fix
+**Root cause: Express route ordering conflict**
+- `PUT /api/cash-book/:id` (line 206) was defined BEFORE `PUT /api/cash-book/opening-balance` (line 498)
+- Express matched "opening-balance" as `:id` parameter → tried to edit nonexistent entry → 404/500 → "Save failed"
+- Fix: Moved opening-balance PUT route BEFORE `:id` route
+- Version: 25.1.18
 
-**Bug 1: Diesel Payment Not Reflecting in Balance Sheet**
-- Root cause: FY summary only checked `diesel_accounts.payment` entries, missing `ledger nikasi` entries
-- Fix: Uses `max(diesel_accounts_payment, ledger_nikasi)` - captures ALL payment sources
-- Also matches by reference prefix `diesel_pay` for backward compatibility
-- Result: Lokesh Fuels fully paid → closing_balance=0, removed from Sundry Creditors
+### Session 2.7 - Full Balance Sheet Audit (Round 3)
+- Diesel payment: uses max(diesel_accounts, ledger_nikasi) for paid
+- Cash Book "total_parties" error: party-summary returns correct format
+- Stale agent jama auto-reconciliation on balance sheet load
+- Version: 25.1.17
 
-**Bug 2: Cash Book "total_parties" Error**
-- Root cause: Desktop party-summary returned flat array, frontend expected `{parties:[], summary:{total_parties,...}}`
-- Fix: Desktop cashbook.js party-summary now returns correct format with summary stats
-- Result: No more JS error on Cash Book page
-
-**Bug 3: Stale Agent Jama Amount (Utkela 4,100 → 4,000)**
-- Root cause: Old buggy `cutting_rate||5` created ledger entries with wrong amounts, never corrected
-- Fix: Balance sheet auto-reconciles agent jama ledger entries against correct mandi_target calculation
-- Both web (MongoDB) and desktop (JSON DB) reconciliation added
-- Result: Utkela now shows correct 4,000 (not 4,100)
-
-**Testing:** 11/11 backend + frontend tests passed
-**Version:** 25.1.17
-
-### Session 2.6 (2026-03-15) - Balance Sheet P0 Fixes (Round 2)
-- Truck gross formula: `final_w/100` → `(qntl - bag/100)` to match entry creation
-- Diesel orphan pump handling for missing diesel_pumps
+### Session 2.6 - Balance Sheet Fixes (Round 2)
+- Truck gross: `final_w/100` → `(qntl - bag/100)` matching entry creation
+- Diesel orphan pump handling
 - cutting_rate nullish check in entries.js
+- Version: 25.1.16
 
-### Session 2.5 - Balance Sheet P0 Fixes (Round 1)
-- cutting_rate=0 falsy bug fixed in fy_summary.js/py
-- Truck Total/Paid display: Total=gross, Paid=deductions+external
+### Session 2.5 - Balance Sheet Fixes (Round 1)
+- cutting_rate=0 falsy bug in fy_summary
+- Truck Total/Paid display correction
+- Version: 25.1.15
 
 ### Earlier Sessions
-- Desktop sync, 35+ endpoints, ErrorBoundary, Cash Book fixes
-- Truck Lease Management (CRUD, PDF/Excel)
-- Payment audit: diesel, local-party, truck-owner ledger nikasi fixes
-- Stock Summary PDF/Excel, Dashboard PDF export
+- Desktop sync, 35+ endpoints
+- Truck Lease Management
+- Payment audit fixes
+- Stock Summary exports
 
 ## Pending Issues
-- Opening Balance "Save failed" on desktop - could not reproduce on web. May be user's old version.
+- None currently open
 
 ## Prioritized Backlog
 ### P1
 - Login debug panel removal
 ### P2
-- PDF/Excel refactor (reduce duplicate code)
+- PDF/Excel refactor
 - App.js breakdown (2775+ lines)
 - Stock calculation centralize
 

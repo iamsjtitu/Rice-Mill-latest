@@ -203,6 +203,22 @@ module.exports = function(database) {
     res.json({ message: 'Deleted', id: req.params.id });
   }));
 
+  // Opening Balance PUT - MUST be before /:id route to avoid Express route conflict
+  router.put('/api/cash-book/opening-balance', safeSync((req, res) => {
+    const { kms_year, cash, bank, bank_details } = req.body;
+    if (!kms_year) return res.status(400).json({ detail: 'kms_year is required' });
+    if (!database.data.opening_balances) database.data.opening_balances = [];
+    const totalBank = bank_details && Object.keys(bank_details).length > 0
+      ? Object.values(bank_details).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+      : (parseFloat(bank) || 0);
+    const idx = database.data.opening_balances.findIndex(ob => ob.kms_year === kms_year);
+    const doc = { kms_year, cash: parseFloat(cash) || 0, bank: Math.round(totalBank * 100) / 100, bank_details: bank_details || {}, updated_at: new Date().toISOString() };
+    if (idx >= 0) database.data.opening_balances[idx] = doc;
+    else database.data.opening_balances.push(doc);
+    database.save();
+    res.json(doc);
+  }));
+
   router.put('/api/cash-book/:id', safeSync((req, res) => {
     if (!database.data.cash_transactions) return res.status(404).json({ detail: 'Not found' });
     const idx = database.data.cash_transactions.findIndex(t => t.id === req.params.id);
@@ -493,21 +509,6 @@ module.exports = function(database) {
       } catch(e) {}
     }
     res.json({ cash: 0, bank: 0, bank_details: {}, source: 'none' });
-  }));
-
-  router.put('/api/cash-book/opening-balance', safeSync((req, res) => {
-    const { kms_year, cash, bank, bank_details } = req.body;
-    if (!kms_year) return res.status(400).json({ detail: 'kms_year is required' });
-    if (!database.data.opening_balances) database.data.opening_balances = [];
-    const totalBank = bank_details && Object.keys(bank_details).length > 0
-      ? Object.values(bank_details).reduce((s, v) => s + (parseFloat(v) || 0), 0)
-      : (parseFloat(bank) || 0);
-    const idx = database.data.opening_balances.findIndex(ob => ob.kms_year === kms_year);
-    const doc = { kms_year, cash: parseFloat(cash) || 0, bank: Math.round(totalBank * 100) / 100, bank_details: bank_details || {}, updated_at: new Date().toISOString() };
-    if (idx >= 0) database.data.opening_balances[idx] = doc;
-    else database.data.opening_balances.push(doc);
-    database.save();
-    res.json(doc);
   }));
 
   // === Party Summary ===
