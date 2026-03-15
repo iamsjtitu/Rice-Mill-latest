@@ -54,6 +54,45 @@ module.exports = function(database) {
     if (db.data.diesel_accounts) db.data.diesel_accounts = db.data.diesel_accounts.filter(t => t.linked_entry_id !== entryId);
   }
 
+  // Helper: Create cash entries for rice sales (Auto-receipt)
+  function _createCashForRiceSale(db, doc, username) {
+    if (!db.data.cash_transactions) db.data.cash_transactions = [];
+    const entryId = doc.id;
+    const party = doc.party_name || '';
+    const date = doc.date || new Date().toISOString().slice(0, 10);
+    const amount = parseFloat(doc.paid_amount) || 0;
+    const base = { kms_year: doc.kms_year || '', season: doc.season || '', created_by: username || 'system', linked_entry_id: entryId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+
+    if (amount > 0) {
+      const desc = `Rice Sale - ${party} - Rs.${amount}`;
+      // Cash Book (Jama = Money In)
+      db.data.cash_transactions.push({
+        id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'jama',
+        category: party, party_type: 'Rice Sale', description: desc,
+        amount: Math.round(amount * 100) / 100,
+        reference: `rice_sale_cash:${entryId.slice(0,8)}`,
+        ...base
+      });
+      // Ledger (Jama = Payment Received from Party)
+      db.data.cash_transactions.push({
+        id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'jama',
+        category: party, party_type: 'Rice Sale', description: desc,
+        amount: Math.round(amount * 100) / 100,
+        reference: `rice_sale_lcash:${entryId.slice(0,8)}`,
+        ...base
+      });
+    }
+  }
+
+  // Helper: Delete linked cash entries for rice sales
+  function _deleteCashForRiceSale(db, entryId) {
+    if (db.data.cash_transactions) {
+      db.data.cash_transactions = db.data.cash_transactions.filter(t => 
+        !(t.linked_entry_id === entryId && (t.reference || '').startsWith('rice_sale_'))
+      );
+    }
+  }
+
 
   function calcPaddyAutoDesktop(d) {
     d.qntl = Math.round((d.kg || 0) / 100 * 100) / 100;
