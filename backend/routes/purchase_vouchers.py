@@ -592,21 +592,7 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
                 "details": f"Purchased: {qty}Q - Sold: {sold}Q"
             })
 
-    # Gunny Bags stock
-    gunny_entries = await db.gunny_bags.find(query, {"_id": 0}).to_list(10000)
-    gunny_in = sum(e.get('quantity', 0) for e in gunny_entries if e.get('txn_type') == 'in')
-    gunny_out = sum(e.get('quantity', 0) for e in gunny_entries if e.get('txn_type') == 'out')
-    gunny_avail = gunny_in - gunny_out
-    if gunny_in > 0 or gunny_out > 0:
-        # Split by bag type for details
-        new_in = sum(e.get('quantity', 0) for e in gunny_entries if e.get('txn_type') == 'in' and e.get('bag_type') == 'new')
-        old_in = sum(e.get('quantity', 0) for e in gunny_entries if e.get('txn_type') == 'in' and e.get('bag_type') == 'old')
-        stock_items.append({
-            "name": "Gunny Bags", "category": "Raw Material",
-            "in_qty": gunny_in, "out_qty": gunny_out,
-            "available": gunny_avail, "unit": "Bags",
-            "details": f"Govt(New): {new_in} + Market(Old): {old_in} - Used: {gunny_out}"
-        })
+    # Gunny Bags excluded from stock summary (tracked separately)
 
     return {"items": stock_items}
 

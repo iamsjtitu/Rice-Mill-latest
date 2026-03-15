@@ -3,26 +3,22 @@
 ## Original Problem Statement
 Desktop app (Electron) synced with web app for rice mill data management. Web app is source of truth.
 
-## Architecture
-- **Web**: React frontend + FastAPI backend + MongoDB
-- **Desktop**: Electron + Express.js + JSON file database
-
 ## Versions
 
-### v25.1.32 (2026-03-15) - BALANCE SHEET FIX
-- **Mill Parts Stock Value**: Balance sheet now shows Rs. VALUE (quantity * rate) instead of quantity
-- **Double Counting Fix**: Excluded Local Party, Sale Book, Purchase Voucher, Staff, Diesel, Truck types from ledger section (already counted in their own sections)
-- Fixed BOTH web backend (fy_summary.py) AND desktop backend (fy_summary.js)
-- Balance sheet now correctly balances: Assets = Liabilities
+### v25.1.33 (2026-03-15) - STOCK SUMMARY FIX
+- Header totals now show only Paddy (Raw Material): "Paddy In", "Paddy Used", "Paddy Stock"
+- Removed Gunny Bags from stock summary (both web + desktop backend)
+- Fixed in: StockSummary.jsx (frontend), salebook.js (desktop), purchase_vouchers.py (web)
 
-### v25.1.31 (2026-03-15) - MIGRATION SCRIPT
+### v25.1.32 - BALANCE SHEET FIX
+- Mill Parts stock shows VALUE (Rs.) not quantity
+- Double-counting fix: excluded already-tracked party types from ledger section
+
+### v25.1.31 - MIGRATION SCRIPT
 - Auto-migration on startup for old entries missing jama/nikasi
 
-### v25.1.30 (2026-03-15) - COMPREHENSIVE ACCOUNTING FIX
+### v25.1.30 - COMPREHENSIVE ACCOUNTING FIX
 - 7 route files: every transaction auto-creates proper jama/nikasi entries
-
-### v25.1.28-29 - Previous fixes
-- toLocaleString crash fix, Local Party jama entries
 
 ## Prioritized Backlog
 ### P1
