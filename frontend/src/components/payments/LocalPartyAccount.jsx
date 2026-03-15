@@ -89,10 +89,11 @@ const LocalPartyAccount = ({ filters, user }) => {
     try {
       await axios.post(`${API}/local-party/settle`, {
         party_name: selectedParty, amount: amt, date: settleDate,
+        type: settleType,
         kms_year: filters.kms_year || "", season: filters.season || "",
         notes: settleNotes, created_by: user.username
       });
-      toast.success(`Rs.${amt} payment to ${selectedParty} recorded!`);
+      toast.success(`Rs.${amt} (${settleType}) for ${selectedParty} recorded!`);
       setShowSettleDialog(false);
       setSettleAmount(""); setSettleNotes("");
       fetchSummary();
