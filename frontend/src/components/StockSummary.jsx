@@ -59,9 +59,14 @@ export default function StockSummary({ filters }) {
     grouped[cat].push(item);
   });
 
-  const totalAvail = filteredItems.reduce((s, i) => s + (i.available || 0), 0);
-  const totalIn = filteredItems.reduce((s, i) => s + (i.in_qty || 0), 0);
-  const totalOut = filteredItems.reduce((s, i) => s + (i.out_qty || 0), 0);
+  const qntlItems = filteredItems.filter(i => (i.unit || 'Qntl') === 'Qntl');
+  const bagItems = filteredItems.filter(i => (i.unit || '') === 'Bags');
+  const totalIn = qntlItems.reduce((s, i) => s + (i.in_qty || 0), 0);
+  const totalOut = qntlItems.reduce((s, i) => s + (i.out_qty || 0), 0);
+  const totalAvail = qntlItems.reduce((s, i) => s + (i.available || 0), 0);
+  const totalBagsIn = bagItems.reduce((s, i) => s + (i.in_qty || 0), 0);
+  const totalBagsOut = bagItems.reduce((s, i) => s + (i.out_qty || 0), 0);
+  const totalBagsAvail = bagItems.reduce((s, i) => s + (i.available || 0), 0);
 
   return (
     <div className="space-y-4" data-testid="stock-summary-section">
@@ -69,9 +74,9 @@ export default function StockSummary({ filters }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           ["Total Items", items.length, "text-white"],
-          ["Total In", `${totalIn.toFixed(2)} Q`, "text-emerald-400"],
-          ["Total Out", `${totalOut.toFixed(2)} Q`, "text-red-400"],
-          ["Net Available", `${totalAvail.toFixed(2)} Q`, totalAvail >= 0 ? "text-sky-400" : "text-red-400"],
+          ["Total In", `${totalIn.toFixed(2)} Q` + (totalBagsIn > 0 ? ` + ${totalBagsIn} Bags` : ''), "text-emerald-400"],
+          ["Total Out", `${totalOut.toFixed(2)} Q` + (totalBagsOut > 0 ? ` + ${totalBagsOut} Bags` : ''), "text-red-400"],
+          ["Net Available", `${totalAvail.toFixed(2)} Q` + (totalBagsAvail !== 0 ? ` + ${totalBagsAvail} Bags` : ''), totalAvail >= 0 ? "text-sky-400" : "text-red-400"],
         ].map(([label, val, color]) => (
           <Card key={label} className="bg-slate-800 border-slate-700">
             <CardContent className="p-3 text-center">
