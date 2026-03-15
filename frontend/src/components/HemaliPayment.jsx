@@ -111,6 +111,18 @@ const MonthlySummary = ({ filters }) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filterSardar, setFilterSardar] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+
+  // Generate month options for last 12 months
+  const monthOptions = (() => {
+    const opts = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      opts.push(d.toISOString().slice(0, 7));
+    }
+    return opts;
+  })();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -119,11 +131,12 @@ const MonthlySummary = ({ filters }) => {
       if (filters.kms_year) params.append("kms_year", filters.kms_year);
       if (filters.season) params.append("season", filters.season);
       if (filterSardar) params.append("sardar_name", filterSardar);
+      if (filterMonth) params.append("month", filterMonth);
       const res = await axios.get(`${API}/hemali/monthly-summary?${params}`);
       setData(res.data || []);
     } catch { toast.error("Monthly summary load error"); }
     setLoading(false);
-  }, [filters.kms_year, filters.season, filterSardar]);
+  }, [filters.kms_year, filters.season, filterSardar, filterMonth]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -132,6 +145,7 @@ const MonthlySummary = ({ filters }) => {
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
     if (filters.season) params.append("season", filters.season);
     if (filterSardar) params.append("sardar_name", filterSardar);
+    if (filterMonth) params.append("month", filterMonth);
     const { downloadFile } = await import("@/utils/download");
     downloadFile(`/api/hemali/monthly-summary/${format}?${params}`, `hemali_monthly.${format === "pdf" ? "pdf" : "xlsx"}`);
     toast.success(`${format.toUpperCase()} download ho raha hai!`);
@@ -149,7 +163,16 @@ const MonthlySummary = ({ filters }) => {
         <Button onClick={() => handleExport("excel")} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="monthly-export-excel">
           <Download className="w-4 h-4 mr-1" /> Excel
         </Button>
-        <div className="ml-auto">
+        <div className="flex items-center gap-2 ml-auto">
+          <Select value={filterMonth || "all"} onValueChange={v => setFilterMonth(v === "all" ? "" : v)}>
+            <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-[140px]" data-testid="monthly-filter-month">
+              <SelectValue placeholder="All Months" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-800 border-slate-600">
+              <SelectItem value="all" className="text-white">All Months</SelectItem>
+              {monthOptions.map(m => <SelectItem key={m} value={m} className="text-white">{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Input value={filterSardar} onChange={e => setFilterSardar(e.target.value)}
             placeholder="Sardar name filter..." className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-[180px]" data-testid="monthly-filter-sardar" />
         </div>

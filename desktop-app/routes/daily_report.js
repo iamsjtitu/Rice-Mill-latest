@@ -134,6 +134,19 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
     sa.details.forEach(d => writeRow([d.name, statusMap[d.status] || d.status]));
   }
 
+  // 12. Hemali Payments
+  const hp = data.hemali_payments;
+  if (hp && hp.count) {
+    writeSection(`12. Hemali Payments (${hp.count})`);
+    writeHeaders(['Paid', 'Unpaid', 'Total Work', 'Total Paid']);
+    writeRow([hp.paid_count, hp.unpaid_count, hp.total_work, hp.total_paid]);
+    row++;
+    if (hp.details.length) {
+      writeHeaders(['Sardar', 'Items', 'Total', 'Adv Deducted', 'Paid', 'New Advance', 'Status']);
+      hp.details.forEach(d => writeRow([d.sardar, d.items, d.total, d.advance_deducted, d.amount_paid, d.new_advance, d.status.toUpperCase()]));
+    }
+  }
+
   // Auto-fit column widths
   for (let i = 1; i <= ws.columnCount; i++) {
     let maxLen = 0;

@@ -702,6 +702,48 @@ const DailyReport = ({ filters }) => {
             </Section>
           )}
 
+          {/* Hemali Payments */}
+          {data.hemali_payments && data.hemali_payments.count > 0 && (
+            <Section title="Hemali Payments / हेमाली" icon={Users} color="text-amber-400" count={data.hemali_payments.count}>
+              <div className="grid grid-cols-4 gap-2 mb-2">
+                {[
+                  ["Paid", data.hemali_payments.paid_count, "text-green-400 bg-green-900/20"],
+                  ["Unpaid", data.hemali_payments.unpaid_count, "text-orange-400 bg-orange-900/20"],
+                  ["Total Work", `₹${(data.hemali_payments.total_work || 0).toLocaleString('en-IN')}`, "text-amber-400 bg-amber-900/20"],
+                  ["Total Paid", `₹${(data.hemali_payments.total_paid || 0).toLocaleString('en-IN')}`, "text-red-400 bg-red-900/20"],
+                ].map(([l,v,c]) => (
+                  <div key={l} className={`text-center p-2 rounded ${c.split(' ').slice(1).join(' ')}`}>
+                    <p className="text-[10px] text-slate-400">{l}</p>
+                    <p className={`text-lg font-bold ${c.split(' ')[0]}`}>{v}</p>
+                  </div>
+                ))}
+              </div>
+              {data.hemali_payments.details && data.hemali_payments.details.length > 0 && (
+                <DetailTable
+                  headers={[
+                    {key:'sardar',label:'Sardar',align:'left'}, {key:'items',label:'Items',align:'left'},
+                    {key:'total',label:'Total',align:'right'}, {key:'adv',label:'Adv Deduct',align:'right'},
+                    {key:'paid',label:'Paid',align:'right'}, {key:'newadv',label:'New Adv',align:'right'},
+                    {key:'status',label:'Status',align:'left'},
+                  ]}
+                  rows={data.hemali_payments.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-white font-medium">{d.sardar}</td>
+                    <td className="py-1 px-2 text-slate-300 max-w-[150px] truncate">{d.items}</td>
+                    <td className="py-1 px-2 text-right text-amber-400">₹{(d.total || 0).toLocaleString('en-IN')}</td>
+                    <td className="py-1 px-2 text-right text-orange-400">{d.advance_deducted > 0 ? `₹${d.advance_deducted.toLocaleString('en-IN')}` : '-'}</td>
+                    <td className="py-1 px-2 text-right text-red-400 font-semibold">₹{(d.amount_paid || 0).toLocaleString('en-IN')}</td>
+                    <td className="py-1 px-2 text-right text-yellow-400">{d.new_advance > 0 ? `₹${d.new_advance.toLocaleString('en-IN')}` : '-'}</td>
+                    <td className="py-1 px-2">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${d.status === 'paid' ? 'text-green-400 bg-green-900/40' : 'text-orange-400 bg-orange-900/40'}`}>
+                        {d.status === 'paid' ? 'PAID' : 'UNPAID'}
+                      </span>
+                    </td>
+                  </>))}
+                />
+              )}
+            </Section>
+          )}
+
           {/* Sale Vouchers */}
           {data.sale_vouchers && data.sale_vouchers.count > 0 && (
             <Section title="Sale Vouchers / बिक्री वाउचर" icon={IndianRupee} color="text-green-400">

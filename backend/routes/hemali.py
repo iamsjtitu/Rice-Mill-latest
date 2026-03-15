@@ -300,7 +300,7 @@ async def get_hemali_sardars():
 # ============ MONTHLY SUMMARY ============
 
 @router.get("/hemali/monthly-summary")
-async def hemali_monthly_summary(kms_year: str = "", season: str = "", sardar_name: str = ""):
+async def hemali_monthly_summary(kms_year: str = "", season: str = "", sardar_name: str = "", month: str = ""):
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
@@ -308,6 +308,8 @@ async def hemali_monthly_summary(kms_year: str = "", season: str = "", sardar_na
         query["season"] = season
     if sardar_name:
         query["sardar_name"] = sardar_name
+    if month:
+        query["date"] = {"$regex": f"^{month}"}
 
     payments = await db.hemali_payments.find(query, {"_id": 0}).to_list(50000)
 
@@ -383,8 +385,8 @@ async def hemali_monthly_summary(kms_year: str = "", season: str = "", sardar_na
 
 
 @router.get("/hemali/monthly-summary/pdf")
-async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sardar_name: str = ""):
-    data = await hemali_monthly_summary(kms_year=kms_year, season=season, sardar_name=sardar_name)
+async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sardar_name: str = "", month: str = ""):
+    data = await hemali_monthly_summary(kms_year=kms_year, season=season, sardar_name=sardar_name, month=month)
 
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
@@ -425,8 +427,8 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
 
 
 @router.get("/hemali/monthly-summary/excel")
-async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sardar_name: str = ""):
-    data = await hemali_monthly_summary(kms_year=kms_year, season=season, sardar_name=sardar_name)
+async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sardar_name: str = "", month: str = ""):
+    data = await hemali_monthly_summary(kms_year=kms_year, season=season, sardar_name=sardar_name, month=month)
 
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -482,62 +484,117 @@ async def print_hemali_receipt(payment_id: str):
 
     from reportlab.lib.pagesizes import A5
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer, HRFlowable
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A5, leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
+    doc = SimpleDocTemplate(buf, pagesize=A5, leftMargin=25, rightMargin=25, topMargin=20, bottomMargin=20)
     styles = getSampleStyleSheet()
     elements = []
+    orange = colors.HexColor("#d97706")
+    dark = colors.HexColor("#1a365d")
+    red_c = colors.HexColor("#dc2626")
+    green_c = colors.HexColor("#16a34a")
+    grey_c = colors.HexColor("#6b7280")
 
-    elements.append(Paragraph("HEMALI PAYMENT RECEIPT", ParagraphStyle("t", parent=styles["Title"], fontSize=14, textColor=colors.HexColor("#1a365d"), alignment=1)))
-    elements.append(Spacer(1, 6))
-    elements.append(Paragraph(f"Date: {p.get('date', '')}  |  Sardar: {p.get('sardar_name', '')}  |  Status: {(p.get('status', '')).upper()}", ParagraphStyle("m", parent=styles["Normal"], fontSize=9, textColor=colors.grey, alignment=1)))
-    elements.append(Spacer(1, 10))
+    # Header: NAVKAR AGRO
+    elements.append(Paragraph("NAVKAR AGRO", ParagraphStyle("brand", parent=styles["Title"], fontSize=18, textColor=orange, alignment=1, spaceAfter=2)))
+    elements.append(Paragraph("JOLKO, KESINGA - Mill Entry System", ParagraphStyle("sub", parent=styles["Normal"], fontSize=8, textColor=grey_c, alignment=1, spaceAfter=4)))
+    elements.append(HRFlowable(width="100%", thickness=1.5, color=orange, spaceAfter=8))
 
-    # Items table
-    rows = [["Item", "Qty", "Rate", "Amount"]]
-    for i in p.get("items", []):
-        rows.append([i.get("item_name", ""), str(i.get("quantity", 0)), f"Rs.{i.get('rate', 0)}", f"Rs.{i.get('amount', 0):,.2f}"])
-    t = RTable(rows, colWidths=[140, 50, 60, 80], repeatRows=1)
-    t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e293b")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
-        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-    ]))
-    elements.append(t)
+    # Title
+    elements.append(Paragraph("HEMALI PAYMENT RECEIPT / हेमाली भुगतान रसीद", ParagraphStyle("title", parent=styles["Heading2"], fontSize=12, textColor=dark, alignment=1, spaceAfter=10)))
+
+    # Info fields (2-column)
+    label_s = ParagraphStyle("lbl", parent=styles["Normal"], fontSize=7, textColor=grey_c)
+    val_s = ParagraphStyle("val", parent=styles["Normal"], fontSize=10, textColor=dark, fontName="Helvetica-Bold")
+    info_data = [
+        [Paragraph("RECEIPT DATE / रसीद दिनांक", label_s), Paragraph("SARDAR NAME / सरदार का नाम", label_s)],
+        [Paragraph(p.get("date", ""), val_s), Paragraph(p.get("sardar_name", ""), val_s)],
+    ]
+    info_t = RTable(info_data, colWidths=[155, 155])
+    info_t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
+    elements.append(info_t)
     elements.append(Spacer(1, 8))
 
-    # Summary
-    summary_data = [
-        ["Total Work:", f"Rs.{p.get('total', 0):,.2f}"],
+    # Items table
+    items_rows = [["Item / काम", "Qty / मात्रा", "Rate / दर", "Amount / राशि"]]
+    for i in p.get("items", []):
+        items_rows.append([i.get("item_name", ""), str(int(i.get("quantity", 0))), f"Rs.{i.get('rate', 0)}/{p.get('items',[{}])[0].get('unit','bag') if False else 'unit'}", f"Rs. {i.get('amount', 0):,.0f}"])
+    # Fix unit display
+    for idx_r in range(1, len(items_rows)):
+        items_rows[idx_r][2] = f"Rs. {p['items'][idx_r-1].get('rate', 0)}"
+
+    it = RTable(items_rows, colWidths=[110, 55, 60, 85], repeatRows=1)
+    it.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    elements.append(it)
+    elements.append(Spacer(1, 10))
+
+    # Calculation summary
+    calc_label = ParagraphStyle("cl", parent=styles["Normal"], fontSize=9, textColor=dark)
+    calc_val = ParagraphStyle("cv", parent=styles["Normal"], fontSize=9, textColor=dark, alignment=2, fontName="Helvetica-Bold")
+    calc_red = ParagraphStyle("cr", parent=styles["Normal"], fontSize=9, textColor=red_c, alignment=2, fontName="Helvetica-Bold")
+    calc_green = ParagraphStyle("cg", parent=styles["Normal"], fontSize=9, textColor=green_c, alignment=2, fontName="Helvetica-Bold")
+    calc_red_l = ParagraphStyle("crl", parent=styles["Normal"], fontSize=9, textColor=red_c)
+    calc_bold_l = ParagraphStyle("cbl", parent=styles["Normal"], fontSize=11, textColor=dark, fontName="Helvetica-Bold")
+    calc_bold_v = ParagraphStyle("cbv", parent=styles["Normal"], fontSize=11, textColor=dark, alignment=2, fontName="Helvetica-Bold")
+
+    calc_rows = [
+        [Paragraph("Gross Amount / कुल राशि", calc_label), Paragraph(f"Rs. {p.get('total', 0):,.0f}", calc_val)],
     ]
     if p.get("advance_deducted", 0) > 0:
-        summary_data.append(["Advance Deducted:", f"- Rs.{p.get('advance_deducted', 0):,.2f}"])
-    summary_data.append(["Amount Payable:", f"Rs.{p.get('amount_payable', 0):,.2f}"])
-    summary_data.append(["Amount Paid:", f"Rs.{p.get('amount_paid', 0):,.2f}"])
-    if p.get("new_advance", 0) > 0:
-        summary_data.append(["New Advance:", f"Rs.{p.get('new_advance', 0):,.2f}"])
+        calc_rows.append([Paragraph("Advance Deducted / अग्रिम कटौती", calc_red_l), Paragraph(f"- Rs. {p.get('advance_deducted', 0):,.0f}", calc_red)])
 
-    st = RTable(summary_data, colWidths=[200, 130])
-    st.setStyle(TableStyle([
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("LINEABOVE", (0, -2 if p.get("new_advance", 0) > 0 else -1), (-1, -2 if p.get("new_advance", 0) > 0 else -1), 0.5, colors.grey),
-    ]))
-    elements.append(st)
+    ct = RTable(calc_rows, colWidths=[200, 110])
+    ct.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+    elements.append(ct)
+
+    # Orange separator
+    elements.append(HRFlowable(width="100%", thickness=1, color=orange, spaceBefore=4, spaceAfter=4))
+
+    # Net amount (bold)
+    net_rows = [
+        [Paragraph("Net Amount / शुद्ध राशि", calc_bold_l), Paragraph(f"Rs. {p.get('amount_payable', 0):,.0f}", calc_bold_v)],
+        [Paragraph("Amount Paid / भुगतान किया", calc_label), Paragraph(f"Rs. {p.get('amount_paid', 0):,.0f}", calc_green)],
+    ]
+    if p.get("new_advance", 0) > 0:
+        net_rows.append([Paragraph("New Advance / नया अग्रिम", calc_label), Paragraph(f"Rs. {p.get('new_advance', 0):,.0f}", calc_val)])
+
+    nt = RTable(net_rows, colWidths=[200, 110])
+    nt.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+    elements.append(nt)
+    elements.append(Spacer(1, 12))
+
+    # Status
+    status_text = "PAID / भुगतान हो गया" if p.get("status") == "paid" else "UNPAID / भुगतान बाकी"
+    status_color = green_c if p.get("status") == "paid" else red_c
+    elements.append(Paragraph(status_text, ParagraphStyle("st", parent=styles["Normal"], fontSize=10, textColor=status_color, alignment=1, fontName="Helvetica-Bold", spaceAfter=20)))
+
+    # Signature lines
+    sig_rows = [[
+        Paragraph("Sardar Signature / सरदार हस्ताक्षर", ParagraphStyle("sig", parent=styles["Normal"], fontSize=7, textColor=grey_c)),
+        Paragraph("Authorized Signature / अधिकृत हस्ताक्षर", ParagraphStyle("sig2", parent=styles["Normal"], fontSize=7, textColor=grey_c, alignment=2)),
+    ]]
+    sig_t = RTable(sig_rows, colWidths=[155, 155])
+    sig_t.setStyle(TableStyle([("LINEABOVE", (0, 0), (0, 0), 0.5, grey_c), ("LINEABOVE", (1, 0), (1, 0), 0.5, grey_c), ("TOPPADDING", (0, 0), (-1, -1), 6)]))
+    elements.append(sig_t)
+    elements.append(Spacer(1, 8))
+
+    # Footer
+    elements.append(Paragraph("This is a computer generated receipt / यह कंप्यूटर जनित रसीद है", ParagraphStyle("ft", parent=styles["Normal"], fontSize=6, textColor=grey_c, alignment=1)))
 
     doc.build(elements)
     buf.seek(0)
-    return StreamingResponse(
-        buf,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=hemali_receipt_{payment_id[:8]}.pdf"},
-    )
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=hemali_receipt_{payment_id[:8]}.pdf"})
 
 
 # ============ PDF EXPORT ============

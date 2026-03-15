@@ -32,6 +32,11 @@ function getDailyReportData(database, query) {
   const partsTxns = col('mill_parts_stock').filter(t => t.date === date);
   const staffAtt = col('staff_attendance').filter(a => a.date === date);
   const allStaff = col('staff').filter(s => s.active !== false).sort((a, b) => (a.name||'').localeCompare(b.name||''));
+  const hemaliPayments = col('hemali_payments').filter(h => h.date === date);
+  const hemaliPaid = hemaliPayments.filter(h => h.status === 'paid');
+  const hemaliUnpaid = hemaliPayments.filter(h => h.status !== 'paid');
+  const hemaliTotalPaid = hemaliPaid.reduce((s, h) => s + (h.amount_paid || 0), 0);
+  const hemaliTotalWork = hemaliPaid.reduce((s, h) => s + (h.total || 0), 0);
   const dieselTxns = filterFy(col('diesel_accounts'));
   const saleVouchers = (col('sale_vouchers') || []).filter(sv => sv.date === date);
   const purchaseVouchers = (col('purchase_vouchers') || []).filter(pv => pv.date === date);
@@ -181,6 +186,18 @@ function getDailyReportData(database, query) {
     staff_attendance: {
       total: allStaff.length, present: presentC, absent: absentC, half_day: halfC, holiday: holidayC, not_marked: notMarkedC,
       details: staffDetails
+    },
+    hemali_payments: {
+      count: hemaliPayments.length,
+      paid_count: hemaliPaid.length,
+      unpaid_count: hemaliUnpaid.length,
+      total_work: Math.round(hemaliTotalWork * 100) / 100,
+      total_paid: Math.round(hemaliTotalPaid * 100) / 100,
+      details: hemaliPayments.map(h => ({
+        sardar: h.sardar_name || '', items: (h.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', '),
+        total: h.total || 0, advance_deducted: h.advance_deducted || 0,
+        amount_paid: h.amount_paid || 0, new_advance: h.new_advance || 0, status: h.status || '',
+      }))
     },
     sale_vouchers: {
       count: saleVouchers.length,
@@ -545,6 +562,22 @@ function generateDailyReportPdf(doc, data, query) {
       drawTable(['Staff Name','Status'],
         sa.details.map(d => [d.name, statusMap[d.status] || d.status]),
         [250, 100]);
+    }
+  }
+
+  // ===== 13. HEMALI PAYMENTS =====
+  const hp = data.hemali_payments;
+  if (hp && hp.count) {
+    sectionTitle(13, `Hemali Payments (${hp.count}) - Paid: ${hp.paid_count} | Work: Rs. ${fmtAmt(hp.total_work)} | Paid: Rs. ${fmtAmt(hp.total_paid)}`);
+    if (hp.details.length) {
+      drawTable(
+        ['Sardar','Items','Total','Adv Deduct','Paid','New Adv','Status'],
+        hp.details.map(d => [d.sardar, d.items.substring(0, 40), `Rs.${fmtAmt(d.total)}`,
+          d.advance_deducted ? `Rs.${fmtAmt(d.advance_deducted)}` : '-',
+          `Rs.${fmtAmt(d.amount_paid)}`, d.new_advance ? `Rs.${fmtAmt(d.new_advance)}` : '-',
+          d.status.toUpperCase()]),
+        [65, 130, 55, 55, 55, 50, 45]
+      );
     }
   }
 }

@@ -93,6 +93,18 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
     parts_used = [t for t in parts_txns if t.get("txn_type") == "used"]
     parts_in_amount = sum(t.get("total_amount", 0) for t in parts_in)
 
+    # Hemali Payments
+    hemali_q = {"date": date}
+    if kms_year:
+        hemali_q["kms_year"] = kms_year
+    if season:
+        hemali_q["season"] = season
+    hemali_payments = await db.hemali_payments.find(hemali_q, {"_id": 0}).to_list(500)
+    hemali_paid = [h for h in hemali_payments if h.get("status") == "paid"]
+    hemali_unpaid = [h for h in hemali_payments if h.get("status") != "paid"]
+    hemali_total_paid = sum(h.get("amount_paid", 0) for h in hemali_paid)
+    hemali_total_work = sum(h.get("total", 0) for h in hemali_paid)
+
     # Staff Attendance - always show all active staff
     staff_att = await db.staff_attendance.find(q_date, {"_id": 0}).to_list(500)
     all_staff = await db.staff.find({"active": True}, {"_id": 0}).sort("name", 1).to_list(500)
@@ -256,6 +268,22 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
             "present": present_c, "absent": absent_c,
             "half_day": half_c, "holiday": holiday_c, "not_marked": not_marked_c,
             "details": staff_details
+        },
+        "hemali_payments": {
+            "count": len(hemali_payments),
+            "paid_count": len(hemali_paid),
+            "unpaid_count": len(hemali_unpaid),
+            "total_work": round(hemali_total_work, 2),
+            "total_paid": round(hemali_total_paid, 2),
+            "details": [{
+                "sardar": h.get("sardar_name", ""),
+                "items": ", ".join(f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in h.get("items", [])),
+                "total": h.get("total", 0),
+                "advance_deducted": h.get("advance_deducted", 0),
+                "amount_paid": h.get("amount_paid", 0),
+                "new_advance": h.get("new_advance", 0),
+                "status": h.get("status", ""),
+            } for h in hemali_payments],
         },
         "pump_account": {
             "total_diesel": round(diesel_total_amount, 2),
@@ -661,6 +689,21 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 [300, 150]
             ))
 
+    # ===== HEMALI PAYMENTS =====
+    hp = data.get("hemali_payments", {})
+    if hp.get("count", 0):
+        elements.append(Spacer(1, 4))
+        elements.append(Paragraph(f"Hemali Payments ({hp['count']}) - Paid: {hp['paid_count']} | Work: Rs. {_fmt_amt(hp['total_work'])} | Paid: Rs. {_fmt_amt(hp['total_paid'])}", section_style))
+        if hp.get("details"):
+            elements.append(make_table(
+                ['Sardar', 'Items', 'Total', 'Adv Deduct', 'Paid', 'New Adv', 'Status'],
+                [[d.get("sardar",""), d.get("items","")[:40], f"Rs.{_fmt_amt(d.get('total',0))}",
+                  f"Rs.{_fmt_amt(d.get('advance_deducted',0))}" if d.get('advance_deducted',0) else "-",
+                  f"Rs.{_fmt_amt(d.get('amount_paid',0))}", f"Rs.{_fmt_amt(d.get('new_advance',0))}" if d.get('new_advance',0) else "-",
+                  d.get("status","").upper()] for d in hp["details"]],
+                [70, 130, 65, 65, 65, 60, 45], font_size=6
+            ))
+
     # ===== CASH TRANSACTIONS =====
     ct = data.get("cash_transactions", {})
     if ct.get("count", 0) > 0:
@@ -906,6 +949,18 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
             write_headers(['Staff Name', 'Status'])
             for d in sa["details"]:
                 write_row([d.get("name",""), status_map.get(d.get("status",""), d.get("status",""))])
+
+    # Hemali Payments
+    hp = data.get("hemali_payments", {})
+    if hp.get("count", 0):
+        row += 1
+        write_section(f"Hemali Payments ({hp['count']})")
+        write_sub(f"Paid: {hp['paid_count']} | Unpaid: {hp['unpaid_count']} | Work: Rs.{hp['total_work']:,.0f} | Paid: Rs.{hp['total_paid']:,.0f}")
+        if hp.get("details"):
+            write_headers(['Sardar', 'Items', 'Total', 'Adv Deducted', 'Paid', 'New Advance', 'Status'])
+            for d in hp["details"]:
+                write_row([d.get("sardar",""), d.get("items",""), d.get("total",0),
+                    d.get("advance_deducted",0), d.get("amount_paid",0), d.get("new_advance",0), d.get("status","").upper()])
 
     # Cash Transactions
     ct = data.get("cash_transactions", {})
