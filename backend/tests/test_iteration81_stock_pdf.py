@@ -11,7 +11,7 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://truck-sync-build.preview.emergentagent.com"
+    BASE_URL = "https://truck-payment-debug.preview.emergentagent.com"
 
 class TestPaddyStockCalculation:
     """Test Paddy stock calculation fix - should be ~297Q not 461.96Q"""

@@ -302,8 +302,7 @@ module.exports = function(database) {
         truckMap[tn].paid = Math.max(ledgerPaid, ownerCashPaid);
       }
       const truckAccounts = Object.entries(truckMap).sort().map(([name, v]) => {
-        const netPayable = rd(v.gross - v.deductions);
-        return { name, total: netPayable, paid: rd(v.paid), balance: rd(netPayable - v.paid) };
+        return { name, total: rd(v.gross), paid: rd(v.deductions + v.paid), balance: rd(v.gross - v.deductions - v.paid) };
       });
 
       // Agent Accounts - Total from mandi targets, paid from ALL nikasi cash_transactions for this mandi
@@ -313,7 +312,7 @@ module.exports = function(database) {
         const mn = (t.mandi_name || '').trim(); if (!mn) continue;
         if (!mandiMap[mn]) mandiMap[mn] = { total: 0, paid: 0 };
         const cutting_qntl = (t.target_qntl || 0) * (t.cutting_percent || 0) / 100;
-        mandiMap[mn].total += (t.target_qntl || 0) * (t.base_rate || 10) + cutting_qntl * (t.cutting_rate || 5);
+        mandiMap[mn].total += (t.target_qntl || 0) * (t.base_rate || 10) + cutting_qntl * (t.cutting_rate != null ? t.cutting_rate : 5);
       }
       for (const e of allEntries) {
         const mn = (e.mandi_name || '').trim(); if (!mn) continue;
@@ -446,11 +445,11 @@ module.exports = function(database) {
         const cp = truckTxns.filter(t => (t.account==='cash'||t.account==='bank') && t.txn_type==='nikasi' && ((t.reference||'').startsWith('truck_owner:')||(t.reference||'').startsWith('truck_pay:'))).reduce((s,t)=>s+(t.amount||0),0);
         truckMap[tn].paid = Math.max(lp, cp);
       }
-      const truckAccounts = Object.entries(truckMap).sort().map(([name,v]) => { const net=rd(v.gross-v.deductions); return {name,total:net,paid:rd(v.paid),balance:rd(net-v.paid)}; });
+      const truckAccounts = Object.entries(truckMap).sort().map(([name,v]) => ({name,total:rd(v.gross),paid:rd(v.deductions+v.paid),balance:rd(v.gross-v.deductions-v.paid)}));
       
       const mandiMap = {};
       const pdfTargets = filterByFy(col('mandi_targets')||[], req.query.kms_year, req.query.season);
-      for (const t of pdfTargets) { const mn=(t.mandi_name||'').trim(); if(!mn) continue; if(!mandiMap[mn]) mandiMap[mn]={total:0,paid:0}; const cq=(t.target_qntl||0)*(t.cutting_percent||0)/100; mandiMap[mn].total += (t.target_qntl||0)*(t.base_rate||10)+cq*(t.cutting_rate||5); }
+      for (const t of pdfTargets) { const mn=(t.mandi_name||'').trim(); if(!mn) continue; if(!mandiMap[mn]) mandiMap[mn]={total:0,paid:0}; const cq=(t.target_qntl||0)*(t.cutting_percent||0)/100; mandiMap[mn].total += (t.target_qntl||0)*(t.base_rate||10)+cq*(t.cutting_rate!=null?t.cutting_rate:5); }
       for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!mandiMap[mn]) mandiMap[mn]={total:0,paid:0}; }
       for (const mn of Object.keys(mandiMap)) {
         const mt = allCashTxnsPdf.filter(t => t.txn_type==='nikasi' && (t.category||'').toLowerCase()===mn.toLowerCase());
@@ -594,7 +593,7 @@ module.exports = function(database) {
       
       const agentPayments2 = {};
       const xlTargets = filterByFy(col('mandi_targets')||[], req.query.kms_year, req.query.season);
-      for (const t of xlTargets) { const mn=(t.mandi_name||'').trim(); if(!mn) continue; if(!agentPayments2[mn]) agentPayments2[mn]={total:0,paid:0}; const cq=(t.target_qntl||0)*(t.cutting_percent||0)/100; agentPayments2[mn].total+=(t.target_qntl||0)*(t.base_rate||10)+cq*(t.cutting_rate||5); }
+      for (const t of xlTargets) { const mn=(t.mandi_name||'').trim(); if(!mn) continue; if(!agentPayments2[mn]) agentPayments2[mn]={total:0,paid:0}; const cq=(t.target_qntl||0)*(t.cutting_percent||0)/100; agentPayments2[mn].total+=(t.target_qntl||0)*(t.base_rate||10)+cq*(t.cutting_rate!=null?t.cutting_rate:5); }
       for (const e of allEntries) { const mn=(e.mandi_name||'').trim(); if(!mn) continue; if(!agentPayments2[mn]) agentPayments2[mn]={total:0,paid:0}; }
       for (const mn of Object.keys(agentPayments2)) {
         const mt = allCashTxnsXl.filter(t => t.txn_type==='nikasi' && (t.category||'').toLowerCase()===mn.toLowerCase());

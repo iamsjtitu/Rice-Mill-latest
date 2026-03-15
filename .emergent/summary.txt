@@ -1,122 +1,145 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to synchronize a web application with a standalone desktop app. The project's focus has now fully pivoted to fixing bugs and ensuring feature parity in the desktop application, with the web app serving as the source of truth.
+The user's initial goal was to synchronize a web application with a standalone desktop app. The project's focus has now fully pivoted to fixing bugs and ensuring feature parity in the desktop application, with the web app serving as the source of truth. The user has mandated a strict workflow for all future changes: after every implemented fix, the agent must automatically perform a full sync and rebuild of the desktop application (rebuild frontend, copy artifacts, increment version, release).
 
-The user has mandated a strict workflow for all future changes: after every implemented fix, the agent must automatically perform a full sync and rebuild of the desktop application (rebuild frontend, copy artifacts, increment version, release).
-
-Most recently, the user requested several new features:
-1.  A comprehensive feature audit between the desktop and web apps.
-2.  A full Truck Lease Management feature.
-3.  Auto-identification of leased trucks in mill entries.
-4.  PDF/Excel export capabilities for the leased truck module, with search filters.
-5.  Dashboard PDF export for the desktop application.
+The user has reported numerous bugs related to financial calculations, payment reflections, and data display, expressing significant frustration with recurring issues, especially in the Balance Sheet. The primary goal is to achieve stability and accuracy in the desktop application.
 
 **User's preferred language**: Hindi
 
 **what currently exists?**
-A functional web application (acting as the reference) and a desktop application. In this session, numerous critical and recurring bugs related to the balance sheet, payment statuses, printing, and data display were resolved. The agent also successfully implemented a major Truck Lease Management feature from scratch, including backend APIs, a new frontend UI, and integration into the balance sheet. An automatic error logging system was also added to the desktop app to simplify future debugging. A comprehensive feature audit was performed, and several discrepancies found were fixed. The application is now stable.
+A functional web application (acting as the reference) and a desktop application. In this session, a large number of bugs and feature enhancements were addressed. Key completed items include:
+- Completion and verification of the Leased Truck module features (auto-detection, search, export).
+- Implementation of the Dashboard PDF Export feature.
+- Fixing the layout of the Cash Book transaction form.
+- A complete rewrite of the Stock Summary PDF/Excel exports to be more accurate and visually appealing.
+- Fixing a regression in the Cash Book form where selecting a transaction type would incorrectly reset the category.
+- Fixing numerous payment reflection issues across different modules (truck owner payments, bank account creation, diesel accounts, local party settlements).
+- Addressing an issue where Gunny Bags (unit: Bags) were incorrectly added to stock totals measured in Quintals.
+
+Despite these fixes, critical and recurring bugs in the Balance Sheet calculation persist, causing significant user frustration.
 
 **Last working item**:
--   Last item agent was working: Implementing a batch of user-requested features for the Leased Truck module. This included:
-    1.  Auto-detecting leased trucks in the entry form and showing a Leased badge in the entry table ().
-    2.  Adding search/filter functionality to the  component.
-    3.  Creating backend endpoints for PDF and Excel exports for the Leased Truck data.
+-   Last item agent was working: Investigating and identifying the root cause of two critical and recurring bugs in the Balance Sheet reported by the user.
+    1.  **Mandi Target Calculation Error:** An agent's target amount was calculated as ₹4,100 instead of the correct ₹4,000.
+    2.  **Truck Payments Not Reflecting:** Payments made to a truck owner (₹2,500 cash + ₹3,500 diesel) were not appearing in the Paid column of the Balance Sheet.
 -   Status: IN PROGRESS
 -   Agent Testing Done: N
--   Which testing method agent to use? manual testing by curl/ python -c. The agent has already written the code. The next agent needs to verify the services are running, rebuild the frontend, copy it to the desktop app, and then manually test the new features on the frontend (checking for the Leased badge and indicator, using the new search filter, and clicking the export buttons).
+-   Which testing method agent to use? backend testing agent. The next agent needs to implement the fixes identified by the previous agent in both the web () and desktop () backends and then thoroughly test the Balance Sheet functionality to confirm the permanent resolution of these recurring problems.
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   There are no outstanding bugs. All issues from the previous handoff and those reported by the user during this session have been resolved and verified with the testing agent.
+-   **Issue 1: Incorrect Mandi Target Calculation (P0)**
+-   **Issue 2: Truck Payments Not Reflected in Balance Sheet (P0)**
+
+**Issues Detail:**
+-   **Issue 1: Incorrect Mandi Target Calculation (P0)**
+    -   **Attempted fixes:** The root cause was identified. The code uses , which incorrectly defaults to  when  is  (since  is a falsy value). This added an extra ₹100 (20 bags * 5) to the agent's total.
+    -   **Next debug checklist:**
+        -   Modify the calculation logic in .
+        -   Modify the same logic in .
+        -   Change  to an explicit check like  or  (in JS) to correctly handle the value .
+    -   **Why fix this issue and what will be achieved with the fix?** To ensure accurate financial calculations for agent commissions and resolve a critical, user-reported bug.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** Y
+    -   **Should Test frontend/backend/both after fix?** Backend
+    -   **Blocked on other issue:** None
+
+-   **Issue 2: Truck Payments Not Reflected in Balance Sheet (P0)**
+    -   **Attempted fixes:** The root cause was identified. Cash payments and diesel costs are treated as deductions from the truck's gross earnings but are not being summed into the Paid column in the Balance Sheet summary. The user expects these to be counted as payments.
+    -   **Next debug checklist:**
+        -   Modify the Balance Sheet aggregation logic in .
+        -   Modify the same logic in .
+        -   The  amount for a truck should be calculated as the sum of all  plus any specific owner payments and deductions (like diesel). The  should be the gross amount earned.
+    -   **Why fix this issue and what will be achieved with the fix?** This is a critical financial reporting error and a major source of user frustration. Fixing it will make the Balance Sheet accurate and trustworthy.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** Y
+    -   **Should Test frontend/backend/both after fix?** Backend
+    -   **Blocked on other issue:** None
 
 **In progress Task List**:
--   **Task 1: Complete and Verify New Leased Truck Features (P0)**
-    -   **Where to resume:** The code for auto-detection, filtering, and exporting has been written across , , and the backend route files (, ). The next steps are to build and deploy these changes to the desktop app for testing.
-    -   **What will be achieved with this?** This will complete the user's request for enhanced functionality within the new Leased Truck module.
-    -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** Both.
-    -   **Blocked on something:** None.
+-   None. The current focus is entirely on fixing the pending P0 issues.
 
 **Upcoming and Future Tasks**
-- **Upcoming Tasks:**
-    - **P0: Implement Dashboard PDF export for the desktop app.** This was part of the user's last request but has not been started. The endpoint needs to be added to .
 - **Future Tasks:**
-    - **P1: Refactor duplicated PDF/Excel generation logic.** The creation of new export endpoints for leased trucks has increased the amount of duplicated code. Centralizing this logic would improve maintainability.
-    - **P1: Centralize stock calculation logic.** The stock calculation logic is scattered and could be consolidated into a single, authoritative function.
+    - **P1: Refactor duplicated PDF/Excel generation logic.** The creation of new export endpoints has increased the amount of duplicated code. Centralizing this logic would improve maintainability.
+    - **P1: Centralize stock calculation logic.** The user has inquired about this. The logic is scattered and could be consolidated into a single, authoritative function for consistency and easier maintenance.
 
 **Completed work in this session**
+-   **Features & Enhancements:**
+    -   Leased Truck Module: Implemented auto-detection, search/filter, and PDF/Excel exports.
+    -   Dashboard: Added PDF export capability for the desktop app.
+    -   Stock Summary: Rewrote PDF/Excel exports to be accurate (separating units) and visually styled.
+    -   Cash Book UI: Reordered form fields as per user request.
 -   **Bug Fixes (All RESOLVED):**
-    -   **Blank Page Crashes:** Implemented a global React  in  to catch rendering errors and prevent the app from crashing.
-    -   **Incorrect Balance Sheet:** Corrected the agent/mandi balance calculation logic in  and its PDF/Excel exports.
-    -   **Payment Status on Deletion:** Fixed the  endpoint in both web and desktop backends to correctly revert the paid status of associated agent/truck payments.
-    -   **Missing Agent Names:** Fixed the Agent/Mandi payments page to show the correct agent name from entries. Added a new endpoint () and updated  to populate agent names in the payment dropdown.
-    -   **Print Preview:** Improved the  component for better Electron compatibility.
--   **New Features (All DONE & Tested):**
-    -   **Truck Lease Management:** Implemented a full-featured module for managing leased trucks, including a new UI tab, backend CRUD APIs, and integration with the Balance Sheet and Cash Book.
-    -   **Automatic Desktop Error Reporting:** Added a system to automatically log frontend and backend errors to a file on the desktop, with a View Error Log menu item for easy access (, ).
--   **Audit and Verification:**
-    -   Performed a comprehensive audit comparing all web vs. desktop API routes and critical business logic, fixing discrepancies found in the process ().
-    -   Successfully ran the  multiple times, confirming the stability of the application after major changes.
+    -   Fixed a regression in the Cash Book form where the Party/Category field was being reset.
+    -   Fixed Save failed error when creating a new Bank Account due to missing default data collections.
+    -   Fixed numerous payment reflection bugs across , , and  modules by ensuring  entries were created correctly.
+    -   Corrected a calculation error in the Dashboard summary where Gunny Bags (unit: Bags) were being added to Paddy stock (unit: Qntl).
+-   **Bug Fixes (Attempted but still PENDING):**
+    -   Multiple attempts were made to fix the Balance Sheet calculation for Truck and Agent accounts. While some underlying data issues were fixed, the final aggregation logic remains incorrect.
 
 **Earlier issues found/mentioned but not fixed**
--   None. All identified issues were resolved in this session.
+-   None. All issues were addressed, but the Balance Sheet fix remains incomplete.
 
 **Known issue recurrence from previous fork**
--   The recurring issues from the previous fork (Balance Sheet, payment status, printing) were addressed with more robust, root-cause fixes and have not recurred in subsequent tests. Status: RESOLVED.
+-   **Balance Sheet Inaccuracy:** This is a major recurring issue. The agent has made several attempts to fix it by correcting how payments are recorded (ensuring ledger entries are made). However, the final aggregation logic in the  route is still flawed, leading to user frustration. The latest analysis points to a logical error in how Total vs Paid (including deductions) is calculated.
+-   **Recurrence count:** 3+
+-   **Status:** IN PROGRESS
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Comprehensive Auditing:** The agent successfully compared two different codebases (Python/JS) to find and fix subtle but critical bugs in business logic.
--   **Electron IPC for Error Handling:** A robust error logging mechanism was implemented for the desktop app using Inter-Process Communication (IPC) between the renderer process () and the main process ().
--   **Data-Driven UI:** The application now fetches data (like leased trucks) and uses it to dynamically alter the UI in multiple places (entry form indicator, entry table badge).
+-   **Cross-Platform Logic Sync:** A primary source of bugs is the inconsistency between the Python (web) and Node.js (desktop) backends. Ensuring identical business logic in both is crucial.
+-   **Financial Aggregation Logic:** The core difficulty lies in correctly aggregating disparate data sources (entries, cash book, ledger entries, deductions) into a single, accurate financial summary like the Balance Sheet.
+-   **Stateful UI vs. Backend Calculation:** Some issues arose from the UI expecting certain data structures that the backend was not providing, or from calculations being performed inconsistently between the two.
 
 **key DB schema**
 -   **truck_leases**: { truck_no, owner_name, monthly_rent, start_date, end_date, advance_deposit }
 -   **truck_lease_payments**: { lease_id, month, year, amount, status, cash_book_entry_id }
+-   **ledger_entries**: { date, account, party_name, type (jama/nikasi), amount, ref, kms_year }
 
 **changes in tech stack**
 -   None.
 
 **All files of reference**
--   : Contains the UI for the new lease feature and the pending search/filter/export implementations.
--   : Contains the pending leased truck auto-detection logic.
--   : Web backend for the lease feature.
--   : Desktop backend for the lease feature.
--   : Target file for the upcoming Dashboard PDF export task.
+-   : **CRITICAL FILE.** Contains the flawed Balance Sheet logic that must be fixed.
+-   : **CRITICAL FILE.** The web backend equivalent of the above, which must also be fixed for consistency.
+-   : Contains the form where many payment transactions originate.
+-   : The frontend component that displays the Balance Sheet data.
 
 **Areas that need refactoring**:
--   **PDF/Excel Logic Duplication:** With the addition of exports for Leased Trucks, the duplicated code for generating reports across different modules has grown. This is a good candidate for future refactoring.
+-   PDF/Excel report generation logic is heavily duplicated across different routes.
+-   Stock calculation logic is not centralized.
 
 **key api endpoints**
--   
--   
--   
--   
--   
+-    (Both web and desktop): The endpoint that provides data for the Balance Sheet. This is the source of the current critical bugs.
+-    (Both web and desktop): Where mill entries are created, which should trigger ledger updates.
+-    (Both web and desktop): Where manual payments are created.
 
 **Critical Info for New Agent**
 -   **Language:** You **MUST** communicate with the user in **Hindi**.
+-   **User Frustration:** The user is extremely frustrated with recurring bugs, especially in the Balance Sheet. Acknowledge this and prioritize delivering a permanent, robust fix. Do not finish until the Balance Sheet is confirmed to be 100% accurate.
 -   **Workflow:** The mandatory workflow (rebuild frontend, copy to desktop, bump version) must be followed for every change made to the desktop application.
--   **Task Order:** First, complete the In progress Task by building and testing the already-coded features. After that, address the Upcoming Task to implement the dashboard PDF export.
+-   **Task Order:** Your absolute highest priority (P0) is to fix the two pending Balance Sheet issues. Do not move on to other tasks until this is resolved and verified.
 
 **documents and test reports created in this job**
 -   /app/memory/PRD.md
--   /app/memory/AUDIT_REPORT.md
--   /app/test_reports/iteration_1.json
--   /app/test_reports/iteration_2.json
+-   /app/test_reports/iteration_3.json
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Requests features: leased truck auto-id in entries, dashboard PDF for desktop, PDF/Excel export for leased trucks with filters, and a Leased badge. (IN PROGRESS)
-2.  **User:** Defines requirements for the Truck Lease Management feature. (DONE)
-3.  **User:** Asks how to add a truck lease feature. (DONE)
-4.  **User:** Requests a comprehensive feature audit between the desktop and web apps. (DONE)
-5.  **User:** Provides feedback on the agent name issue in Agent/Mandi Payments and the Cash Book dropdown. (DONE)
-6.  **User:** Asks to add automatic error reporting to the desktop app. (DONE)
-7.  **User:** Reports the blank page crash occurs when searching in the Party Ledger. (DONE)
+10. **User:** Reports that the Balance Sheet is still wrong for truck and mandi accounts, with  showing as 0. (IN PROGRESS)
+9.  **User:** Reports that Gunny Bags (in Bags) are being added to Paddy (in Qntl) in the Dashboard summary. (RESOLVED)
+8.  **User:** Reports that after paying an agent from the cashbook, the ledger is incorrect and the party balance doesn't show in the form. (RESOLVED, but led to discovery of deeper Balance Sheet issues)
+7.  **User:** Reports that the Balance Sheet is showing incorrect  and  amounts for trucks and agents. (ATTEMPTED FIX, RECURRED)
+6.  **User:** Frustratedly asks the agent to do a full check of the desktop software because of constant issues, specifically citing a diesel payment not reflecting. (ATTEMPTED FIX, RECURRED IN BALANCE SHEET)
+5.  **User:** Reports a Save failed error when creating a new bank name. (RESOLVED)
+4.  **User:** Reports a regression where moving the Party/Category field up in the form caused it to be reset when selecting a transaction Type. (RESOLVED)
+3.  **User:** Reports a truck payment is not reflected anywhere. (ATTEMPTED FIX, RECURRED IN BALANCE SHEET)
+2.  **User:** Asks for the current version number. (RESOLVED)
+1.  **User:** Reports that PDF and Excel exports are blank or ugly. (RESOLVED)
 
 **Project Health Check:**
--   **Healthy:** The desktop application is stable, major bugs and regressions have been resolved, and significant new features have been successfully implemented and tested.
+-   **Broken:** Despite numerous fixes, a critical, user-facing financial feature (the Balance Sheet) is fundamentally broken and has been a recurring problem. This is causing a high degree of user dissatisfaction and must be the sole focus until resolved.
 
 **3rd Party Integrations**
 -   electron-builder / electron-updater
@@ -127,13 +150,12 @@ A functional web application (acting as the reference) and a desktop application
 -   Testing agent used after significant changes: YES
 -   Troubleshoot agent used after agent stuck in loop: NO
 -   Test files created:
-    -   /app/test_reports/iteration_1.json
-    -   /app/test_reports/iteration_2.json
--   Known regressions: None.
+    -   /app/test_reports/iteration_3.json
+-   Known regressions: The Balance Sheet calculation has been a persistent, recurring regression after multiple fix attempts.
 
 **Credentials to test flow:**
 -   **Username:** 
 -   **Password:** 
 
 **What agent forgot to execute**
--   The agent planned to implement the Dashboard PDF export for desktop as part of the user's last batch of requests but did not start it. This is now the highest priority upcoming task.</analysis>
+-   The agent did not forget to execute a specific task but failed to deliver a *permanent fix* for the recurring Balance Sheet inaccuracies. The root causes were identified in the last step, but the implementation of the fix is pending for the next agent.</analysis>

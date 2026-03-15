@@ -433,7 +433,7 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
                 and ((t.get("reference") or "").startswith("truck_owner:") or (t.get("reference") or "").startswith("truck_pay:")))
             truck_map[tn]["paid"] = max(ledger_paid, cash_paid)
 
-    truck_accounts = [{"name": tn, "total": round(v["gross"] - v["deductions"], 2), "paid": round(v["paid"], 2), "balance": round(v["gross"] - v["deductions"] - v["paid"], 2)} for tn, v in sorted(truck_map.items())]
+    truck_accounts = [{"name": tn, "total": round(v["gross"], 2), "paid": round(v["deductions"] + v["paid"], 2), "balance": round(v["gross"] - v["deductions"] - v["paid"], 2)} for tn, v in sorted(truck_map.items())]
     truck_total_balance = round(sum(t["balance"] for t in truck_accounts), 2)
 
     # ===== AGENT/MANDI ACCOUNTS (total from targets, paid from cash_transactions) =====
@@ -444,7 +444,8 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
         if not mn: continue
         if mn not in mandi_map: mandi_map[mn] = {"total": 0, "paid": 0}
         cutting_qntl = (t.get("target_qntl") or 0) * (t.get("cutting_percent") or 0) / 100
-        mandi_map[mn]["total"] += (t.get("target_qntl") or 0) * (t.get("base_rate") or 10) + cutting_qntl * (t.get("cutting_rate") or 5)
+        cr = t.get("cutting_rate")
+        mandi_map[mn]["total"] += (t.get("target_qntl") or 0) * (t.get("base_rate") or 10) + cutting_qntl * (cr if cr is not None else 5)
     # Also include mandis from entries without targets
     entries_with_mandi = await db.mill_entries.find(query, {"_id": 0, "mandi_name": 1}).to_list(50000)
     for e in entries_with_mandi:

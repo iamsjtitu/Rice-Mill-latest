@@ -16,7 +16,7 @@ import requests
 import json
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://truck-sync-build.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://truck-payment-debug.preview.emergentagent.com').rstrip('/')
 
 
 class TestPartySummaryAPI:
