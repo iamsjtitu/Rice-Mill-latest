@@ -14,7 +14,7 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://truck-payment-debug.preview.emergentagent.com"
+    BASE_URL = "https://farm-accounts-6.preview.emergentagent.com"
 
 API_URL = f"{BASE_URL}/api"
 
