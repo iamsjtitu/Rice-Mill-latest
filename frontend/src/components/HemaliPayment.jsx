@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Edit, Users, IndianRupee, RefreshCw, Undo2, Download, FileText, Settings, Calculator } from "lucide-react";
+import { Plus, Trash2, Edit, Users, IndianRupee, RefreshCw, Undo2, Download, FileText, Settings, Calculator, CheckCircle, Printer } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -211,6 +211,21 @@ export default function HemaliPayment({ filters, user }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Undo error"); }
   };
 
+  const handleMarkPaid = async (id) => {
+    if (!window.confirm("Payment ko PAID mark karein? Cash book mein entry hogi.")) return;
+    try {
+      await axios.put(`${API}/hemali/payments/${id}/mark-paid`, {});
+      toast.success("Payment marked as Paid!");
+      fetchPayments();
+    } catch (e) { toast.error(e.response?.data?.detail || "Mark paid error"); }
+  };
+
+  const handlePrint = async (id) => {
+    const { downloadFile } = await import("@/utils/download");
+    downloadFile(`/api/hemali/payments/${id}/print`, `hemali_receipt_${id.slice(0,8)}.pdf`);
+    toast.success("Receipt download ho rahi hai!");
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm("Payment delete karein? Yeh permanent hai.")) return;
     try {
@@ -367,16 +382,24 @@ export default function HemaliPayment({ filters, user }) {
                         <td className="py-2 px-3 text-right text-red-400 font-semibold">Rs.{(p.amount_paid || 0).toLocaleString("en-IN")}</td>
                         <td className="py-2 px-3 text-right text-yellow-400">{p.new_advance > 0 ? `Rs.${(p.new_advance || 0).toLocaleString("en-IN")}` : "-"}</td>
                         <td className="py-2 px-3 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${p.status === "paid" ? "bg-green-900/40 text-green-400" : "bg-slate-700 text-slate-400"}`}>
-                            {p.status === "paid" ? "Paid" : "Undone"}
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${p.status === "paid" ? "bg-green-900/40 text-green-400" : "bg-orange-900/40 text-orange-400"}`}>
+                            {p.status === "paid" ? "Paid" : "Unpaid"}
                           </span>
                         </td>
                         <td className="py-2 px-3 text-center whitespace-nowrap">
+                          {p.status === "unpaid" && (
+                            <Button onClick={() => handleMarkPaid(p.id)} variant="ghost" size="sm" className="text-green-400 h-7 px-2" title="Mark Paid" data-testid={`hemali-mark-paid-${idx}`}>
+                              <CheckCircle className="w-3 h-3" />
+                            </Button>
+                          )}
                           {p.status === "paid" && (
-                            <Button onClick={() => handleUndo(p.id)} variant="ghost" size="sm" className="text-orange-400 h-7 px-2" title="Undo" data-testid={`hemali-undo-${idx}`}>
+                            <Button onClick={() => handleUndo(p.id)} variant="ghost" size="sm" className="text-orange-400 h-7 px-2" title="Undo Payment" data-testid={`hemali-undo-${idx}`}>
                               <Undo2 className="w-3 h-3" />
                             </Button>
                           )}
+                          <Button onClick={() => handlePrint(p.id)} variant="ghost" size="sm" className="text-blue-400 h-7 px-2" title="Print Receipt" data-testid={`hemali-print-${idx}`}>
+                            <Printer className="w-3 h-3" />
+                          </Button>
                           <Button onClick={() => handleDelete(p.id)} variant="ghost" size="sm" className="text-red-400 h-7 px-2" title="Delete" data-testid={`hemali-delete-${idx}`}>
                             <Trash2 className="w-3 h-3" />
                           </Button>

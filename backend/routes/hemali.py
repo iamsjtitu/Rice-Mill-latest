@@ -167,7 +167,7 @@ async def create_hemali_payment(request: Request):
         "amount_payable": amount_payable,
         "amount_paid": amount_paid,
         "new_advance": new_advance,
-        "status": "paid",
+        "status": "unpaid",
         "kms_year": kms_year,
         "season": season,
         "created_by": created_by,
@@ -175,81 +175,50 @@ async def create_hemali_payment(request: Request):
         "updated_at": now,
     }
     await db.hemali_payments.insert_one(payment)
-
-    # Cash Book: Nikasi (cash going out)
-    cash_txn = {
-        "id": str(uuid.uuid4()),
-        "date": payment["date"],
-        "account": "cash",
-        "txn_type": "nikasi",
-        "amount": amount_paid,
-        "category": "Hemali Payment",
-        "party_type": "Hemali",
-        "description": f"Hemali: {sardar_name} - {', '.join(i['item_name'] + ' x' + str(i['quantity']) for i in items)}",
-        "reference": f"hemali_payment:{payment_id}",
-        "kms_year": kms_year,
-        "season": season,
-        "created_by": created_by,
-        "created_at": now,
-        "updated_at": now,
-    }
-    await db.cash_transactions.insert_one(cash_txn)
-
-    # Ledger: Jama if new advance (sardar owes us)
-    if new_advance > 0:
-        await db.cash_transactions.insert_one({
-            "id": str(uuid.uuid4()),
-            "date": payment["date"],
-            "account": "ledger",
-            "txn_type": "jama",
-            "amount": new_advance,
-            "category": sardar_name,
-            "party_type": "Hemali",
-            "description": f"Hemali Advance: {sardar_name} (extra paid Rs.{new_advance})",
-            "reference": f"hemali_advance:{payment_id}",
-            "kms_year": kms_year,
-            "season": season,
-            "created_by": created_by,
-            "created_at": now,
-            "updated_at": now,
-        })
-
-    # Ledger: Nikasi if advance deducted (reduces sardar's debt)
-    if advance_deducted > 0:
-        await db.cash_transactions.insert_one({
-            "id": str(uuid.uuid4()),
-            "date": payment["date"],
-            "account": "ledger",
-            "txn_type": "nikasi",
-            "amount": advance_deducted,
-            "category": sardar_name,
-            "party_type": "Hemali",
-            "description": f"Hemali Advance Deducted: {sardar_name} (Rs.{advance_deducted} adjusted)",
-            "reference": f"hemali_adv_deduct:{payment_id}",
-            "kms_year": kms_year,
-            "season": season,
-            "created_by": created_by,
-            "created_at": now,
-            "updated_at": now,
-        })
-
     payment.pop("_id", None)
     return payment
 
 
-@router.put("/hemali/payments/{payment_id}/undo")
-async def undo_hemali_payment(payment_id: str):
-    p = await db.hemali_payments.find_one({"id": payment_id}, {"_id": 0})
-    if not p:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    if p.get("status") != "paid":
-        raise HTTPException(status_code=400, detail="Payment already undone")
+async def _create_cash_entries(p):
+    """Create cash book + ledger entries for a paid hemali payment."""
+    now = datetime.now(timezone.utc).isoformat()
+    pid = p["id"]
+    sardar = p["sardar_name"]
+    items_desc = ", ".join(f"{i['item_name']} x{i['quantity']}" for i in p.get("items", []))
 
-    await db.hemali_payments.update_one(
-        {"id": payment_id},
-        {"$set": {"status": "undone", "updated_at": datetime.now(timezone.utc).isoformat()}},
-    )
-    # Remove linked cash_transactions
+    # Cash Book: Nikasi (cash going out)
+    await db.cash_transactions.insert_one({
+        "id": str(uuid.uuid4()), "date": p["date"], "account": "cash", "txn_type": "nikasi",
+        "amount": p["amount_paid"], "category": "Hemali Payment", "party_type": "Hemali",
+        "description": f"Hemali: {sardar} - {items_desc}",
+        "reference": f"hemali_payment:{pid}",
+        "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
+        "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now,
+    })
+    # Ledger: Jama if new advance (sardar owes us)
+    if p.get("new_advance", 0) > 0:
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": p["date"], "account": "ledger", "txn_type": "jama",
+            "amount": p["new_advance"], "category": sardar, "party_type": "Hemali",
+            "description": f"Hemali Advance: {sardar} (extra paid Rs.{p['new_advance']})",
+            "reference": f"hemali_advance:{pid}",
+            "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
+            "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now,
+        })
+    # Ledger: Nikasi if advance deducted (reduces sardar's debt)
+    if p.get("advance_deducted", 0) > 0:
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": p["date"], "account": "ledger", "txn_type": "nikasi",
+            "amount": p["advance_deducted"], "category": sardar, "party_type": "Hemali",
+            "description": f"Hemali Advance Deducted: {sardar} (Rs.{p['advance_deducted']} adjusted)",
+            "reference": f"hemali_adv_deduct:{pid}",
+            "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
+            "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now,
+        })
+
+
+async def _remove_cash_entries(payment_id):
+    """Remove all cash book + ledger entries linked to a hemali payment."""
     await db.cash_transactions.delete_many({
         "reference": {"$in": [
             f"hemali_payment:{payment_id}",
@@ -257,6 +226,51 @@ async def undo_hemali_payment(payment_id: str):
             f"hemali_adv_deduct:{payment_id}",
         ]}
     })
+
+
+# ============ MARK PAID ============
+
+@router.put("/hemali/payments/{payment_id}/mark-paid")
+async def mark_hemali_paid(payment_id: str, request: Request):
+    p = await db.hemali_payments.find_one({"id": payment_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if p.get("status") == "paid":
+        raise HTTPException(status_code=400, detail="Payment already paid")
+
+    d = await request.json() if request.headers.get("content-type") == "application/json" else {}
+    amount_paid = float(d.get("amount_paid") or p.get("amount_paid") or p.get("amount_payable", 0))
+    new_advance = round(max(0, amount_paid - p.get("amount_payable", 0)), 2)
+
+    await db.hemali_payments.update_one(
+        {"id": payment_id},
+        {"$set": {
+            "status": "paid",
+            "amount_paid": amount_paid,
+            "new_advance": new_advance,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    updated = await db.hemali_payments.find_one({"id": payment_id}, {"_id": 0})
+    await _create_cash_entries(updated)
+    return {"message": "Payment marked as paid", "id": payment_id, "amount_paid": amount_paid, "new_advance": new_advance}
+
+
+# ============ UNDO PAYMENT ============
+
+@router.put("/hemali/payments/{payment_id}/undo")
+async def undo_hemali_payment(payment_id: str):
+    p = await db.hemali_payments.find_one({"id": payment_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if p.get("status") != "paid":
+        raise HTTPException(status_code=400, detail="Payment already unpaid")
+
+    await db.hemali_payments.update_one(
+        {"id": payment_id},
+        {"$set": {"status": "unpaid", "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await _remove_cash_entries(payment_id)
     return {"message": "Payment undone", "id": payment_id}
 
 
@@ -265,13 +279,7 @@ async def delete_hemali_payment(payment_id: str):
     p = await db.hemali_payments.find_one({"id": payment_id})
     if not p:
         raise HTTPException(status_code=404, detail="Payment not found")
-    await db.cash_transactions.delete_many({
-        "reference": {"$in": [
-            f"hemali_payment:{payment_id}",
-            f"hemali_advance:{payment_id}",
-            f"hemali_adv_deduct:{payment_id}",
-        ]}
-    })
+    await _remove_cash_entries(payment_id)
     await db.hemali_payments.delete_one({"id": payment_id})
     return {"message": "Deleted", "id": payment_id}
 
@@ -287,6 +295,74 @@ async def get_hemali_sardars():
     ]
     results = await db.hemali_payments.aggregate(pipeline).to_list(500)
     return [r["_id"] for r in results if r["_id"]]
+
+
+# ============ PRINT RECEIPT ============
+
+@router.get("/hemali/payments/{payment_id}/print")
+async def print_hemali_receipt(payment_id: str):
+    p = await db.hemali_payments.find_one({"id": payment_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    from reportlab.lib.pagesizes import A5
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A5, leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("HEMALI PAYMENT RECEIPT", ParagraphStyle("t", parent=styles["Title"], fontSize=14, textColor=colors.HexColor("#1a365d"), alignment=1)))
+    elements.append(Spacer(1, 6))
+    elements.append(Paragraph(f"Date: {p.get('date', '')}  |  Sardar: {p.get('sardar_name', '')}  |  Status: {(p.get('status', '')).upper()}", ParagraphStyle("m", parent=styles["Normal"], fontSize=9, textColor=colors.grey, alignment=1)))
+    elements.append(Spacer(1, 10))
+
+    # Items table
+    rows = [["Item", "Qty", "Rate", "Amount"]]
+    for i in p.get("items", []):
+        rows.append([i.get("item_name", ""), str(i.get("quantity", 0)), f"Rs.{i.get('rate', 0)}", f"Rs.{i.get('amount', 0):,.2f}"])
+    t = RTable(rows, colWidths=[140, 50, 60, 80], repeatRows=1)
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e293b")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 8))
+
+    # Summary
+    summary_data = [
+        ["Total Work:", f"Rs.{p.get('total', 0):,.2f}"],
+    ]
+    if p.get("advance_deducted", 0) > 0:
+        summary_data.append(["Advance Deducted:", f"- Rs.{p.get('advance_deducted', 0):,.2f}"])
+    summary_data.append(["Amount Payable:", f"Rs.{p.get('amount_payable', 0):,.2f}"])
+    summary_data.append(["Amount Paid:", f"Rs.{p.get('amount_paid', 0):,.2f}"])
+    if p.get("new_advance", 0) > 0:
+        summary_data.append(["New Advance:", f"Rs.{p.get('new_advance', 0):,.2f}"])
+
+    st = RTable(summary_data, colWidths=[200, 130])
+    st.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("LINEABOVE", (0, -2 if p.get("new_advance", 0) > 0 else -1), (-1, -2 if p.get("new_advance", 0) > 0 else -1), 0.5, colors.grey),
+    ]))
+    elements.append(st)
+
+    doc.build(elements)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=hemali_receipt_{payment_id[:8]}.pdf"},
+    )
 
 
 # ============ PDF EXPORT ============

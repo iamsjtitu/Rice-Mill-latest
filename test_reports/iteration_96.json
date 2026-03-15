@@ -1,0 +1,104 @@
+{
+  "summary": "Hemali Payment workflow testing complete - all NEW features working: Mark Paid, Undo, Print, Delete. Full cycle verified: Create (unpaid) → Mark Paid (creates cash entry) → Undo (removes cash entry) → Mark Paid again. Backend: 13/13 tests passed (100%). Frontend: All action buttons working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_hemali_payment_workflow.py",
+    "/app/test_reports/pytest/pytest_results_iteration96.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Mark Paid endpoint correctly changes status and creates cash book nikasi entry",
+    "Undo endpoint correctly reverts status and removes cash book entries using reference matching",
+    "Print Receipt returns valid PDF with payment details",
+    "Summary cards correctly count only 'paid' payments",
+    "Frontend buttons correctly toggle based on payment status (CheckCircle for unpaid, Undo2 for paid)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_hemali_payment_workflow.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 passed)",
+    "frontend": "100% (all UI elements verified working)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "Created multiple TEST_ prefixed items and payments for testing, cleanup performed via autouse fixture",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Hemali payment workflow fully functional. Ramesh payment currently has status=paid with cash book entry. Key workflow: Create → unpaid (no cash entry) → Mark Paid (cash nikasi entry) → Undo (removes cash entry) → Mark Paid again (new cash entry).",
+  "features_tested": {
+    "create_payment_unpaid": {
+      "status": "PASS",
+      "details": "New payments created with status='unpaid', NO cash book entries created"
+    },
+    "mark_paid_endpoint": {
+      "status": "PASS",
+      "details": "PUT /api/hemali/payments/{id}/mark-paid changes status to 'paid' and creates cash book nikasi entry"
+    },
+    "mark_paid_validation": {
+      "status": "PASS",
+      "details": "Returns 400 if payment already paid"
+    },
+    "undo_payment_endpoint": {
+      "status": "PASS",
+      "details": "PUT /api/hemali/payments/{id}/undo changes status to 'unpaid' and removes cash book entries"
+    },
+    "undo_payment_validation": {
+      "status": "PASS",
+      "details": "Returns 400 if payment already unpaid"
+    },
+    "print_receipt_endpoint": {
+      "status": "PASS",
+      "details": "GET /api/hemali/payments/{id}/print returns PDF with content-type application/pdf"
+    },
+    "delete_payment": {
+      "status": "PASS",
+      "details": "Removes payment and any associated cash book entries"
+    },
+    "advance_only_counts_paid": {
+      "status": "PASS",
+      "details": "GET /api/hemali/advance only considers payments with status='paid'"
+    },
+    "full_workflow_cycle": {
+      "status": "PASS",
+      "details": "Create → Mark Paid → Undo → Mark Paid Again - all transitions work correctly"
+    },
+    "frontend_mark_paid_button": {
+      "status": "PASS",
+      "details": "Green CheckCircle button shown for unpaid payments, clicking changes to Undo button"
+    },
+    "frontend_undo_button": {
+      "status": "PASS",
+      "details": "Orange Undo2 button shown for paid payments, clicking changes to Mark Paid button"
+    },
+    "frontend_print_button": {
+      "status": "PASS",
+      "details": "Blue Printer button always visible for all payments"
+    },
+    "frontend_delete_button": {
+      "status": "PASS",
+      "details": "Red Trash2 button always visible for all payments"
+    },
+    "frontend_summary_cards": {
+      "status": "PASS",
+      "details": "Summary cards (Total Payments, Total Work, Total Paid) only count status='paid' payments"
+    },
+    "cash_book_integration": {
+      "status": "PASS",
+      "details": "Cash book nikasi entry created with reference 'hemali_payment:{id}' on mark-paid, removed on undo/delete"
+    }
+  },
+  "verified_cash_book_entry": {
+    "date": "2026-03-15",
+    "txn_type": "nikasi",
+    "amount": 300.0,
+    "description": "Hemali: Ramesh - Paddy Bag Unload x100.0"
+  }
+}

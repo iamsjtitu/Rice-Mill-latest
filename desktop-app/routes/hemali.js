@@ -93,42 +93,53 @@ module.exports = (database) => {
       items: items.map(i => ({ item_name: i.item_name, rate: parseFloat(i.rate) || 0, quantity: parseFloat(i.quantity) || 0, amount: Math.round((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0) * 100) / 100 })),
       total, advance_before: prevAdvance, advance_deducted: advanceDeducted,
       amount_payable: amountPayable, amount_paid: amountPaid, new_advance: newAdvance,
-      status: 'paid', kms_year: d.kms_year || '', season: d.season || '',
+      status: 'unpaid', kms_year: d.kms_year || '', season: d.season || '',
       created_by: d.created_by || req.query.username || '', created_at: now, updated_at: now
     };
     col('hemali_payments').push(payment);
-
-    // Cash Book: Nikasi (cash going out)
-    col('cash_transactions').push({
-      id: uuidv4(), date: payment.date, account: 'cash', txn_type: 'nikasi',
-      amount: amountPaid, category: 'Hemali Payment', party_type: 'Hemali',
-      description: `Hemali: ${sardarName} - ${items.map(i => `${i.item_name} x${i.quantity}`).join(', ')}`,
-      reference: `hemali_payment:${paymentId}`, kms_year: d.kms_year || '', season: d.season || '',
-      created_by: payment.created_by, created_at: now, updated_at: now
-    });
-    // Ledger: Jama if advance exists (sardar owes us advance)
-    if (newAdvance > 0) {
-      col('cash_transactions').push({
-        id: uuidv4(), date: payment.date, account: 'ledger', txn_type: 'jama',
-        amount: newAdvance, category: sardarName, party_type: 'Hemali',
-        description: `Hemali Advance: ${sardarName} (extra paid Rs.${newAdvance})`,
-        reference: `hemali_advance:${paymentId}`, kms_year: d.kms_year || '', season: d.season || '',
-        created_by: payment.created_by, created_at: now, updated_at: now
-      });
-    }
-    // Ledger: Nikasi if advance was deducted (reduces sardar's debt)
-    if (advanceDeducted > 0) {
-      col('cash_transactions').push({
-        id: uuidv4(), date: payment.date, account: 'ledger', txn_type: 'nikasi',
-        amount: advanceDeducted, category: sardarName, party_type: 'Hemali',
-        description: `Hemali Advance Deducted: ${sardarName} (Rs.${advanceDeducted} adjusted)`,
-        reference: `hemali_adv_deduct:${paymentId}`, kms_year: d.kms_year || '', season: d.season || '',
-        created_by: payment.created_by, created_at: now, updated_at: now
-      });
-    }
-
     database.save();
     res.json(payment);
+  }));
+
+  // MARK PAID
+  router.put('/api/hemali/payments/:id/mark-paid', safeHandler(async (req, res) => {
+    const payments = col('hemali_payments');
+    const p = payments.find(p => p.id === req.params.id);
+    if (!p) return res.status(404).json({ detail: 'Payment not found' });
+    if (p.status === 'paid') return res.status(400).json({ detail: 'Payment already paid' });
+    const amountPaid = parseFloat(req.body.amount_paid) || p.amount_paid || p.amount_payable || 0;
+    const newAdvance = Math.round(Math.max(0, amountPaid - (p.amount_payable || 0)) * 100) / 100;
+    p.status = 'paid';
+    p.amount_paid = amountPaid;
+    p.new_advance = newAdvance;
+    p.updated_at = new Date().toISOString();
+    // Create cash entries
+    const itemsDesc = (p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
+    const base = { kms_year: p.kms_year || '', season: p.season || '', created_by: p.created_by || '', created_at: p.updated_at, updated_at: p.updated_at };
+    col('cash_transactions').push({
+      id: uuidv4(), date: p.date, account: 'cash', txn_type: 'nikasi',
+      amount: amountPaid, category: 'Hemali Payment', party_type: 'Hemali',
+      description: `Hemali: ${p.sardar_name} - ${itemsDesc}`,
+      reference: `hemali_payment:${p.id}`, ...base
+    });
+    if (newAdvance > 0) {
+      col('cash_transactions').push({
+        id: uuidv4(), date: p.date, account: 'ledger', txn_type: 'jama',
+        amount: newAdvance, category: p.sardar_name, party_type: 'Hemali',
+        description: `Hemali Advance: ${p.sardar_name} (extra paid Rs.${newAdvance})`,
+        reference: `hemali_advance:${p.id}`, ...base
+      });
+    }
+    if ((p.advance_deducted || 0) > 0) {
+      col('cash_transactions').push({
+        id: uuidv4(), date: p.date, account: 'ledger', txn_type: 'nikasi',
+        amount: p.advance_deducted, category: p.sardar_name, party_type: 'Hemali',
+        description: `Hemali Advance Deducted: ${p.sardar_name} (Rs.${p.advance_deducted} adjusted)`,
+        reference: `hemali_adv_deduct:${p.id}`, ...base
+      });
+    }
+    database.save();
+    res.json({ message: 'Payment marked as paid', id: p.id, amount_paid: amountPaid, new_advance: newAdvance });
   }));
 
   // UNDO PAYMENT
@@ -137,7 +148,7 @@ module.exports = (database) => {
     const p = payments.find(p => p.id === req.params.id);
     if (!p) return res.status(404).json({ detail: 'Payment not found' });
     if (p.status !== 'paid') return res.status(400).json({ detail: 'Payment already undone' });
-    p.status = 'undone';
+    p.status = 'unpaid';
     p.updated_at = new Date().toISOString();
     // Remove linked cash_transactions
     database.data.cash_transactions = col('cash_transactions').filter(t =>
