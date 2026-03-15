@@ -194,14 +194,19 @@ module.exports = function(database) {
     merged.bags = parseInt(merged.bags) || 0; merged.paid_amount = parseFloat(merged.paid_amount) || 0;
     merged.total_amount = Math.round(merged.quantity_qntl * merged.rate_per_qntl * 100) / 100;
     merged.balance = Math.round(merged.total_amount - merged.paid_amount, 2);
-    database.data.rice_sales[idx] = merged; database.save(); res.json(merged);
+    database.data.rice_sales[idx] = merged;
+    _deleteCashForRiceSale(database, req.params.id);
+    _createCashForRiceSale(database, merged, req.query.username || '');
+    database.save(); res.json(merged);
   }));
 
   router.delete('/api/rice-sales/:id', safeSync((req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
-    database.data.rice_sales.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
+    database.data.rice_sales.splice(idx, 1);
+    _deleteCashForRiceSale(database, req.params.id);
+    database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
 
   // ===== PRIVATE PAYMENTS =====
