@@ -248,7 +248,7 @@ function generateDailyReportPdf(doc, data, query) {
       row.forEach((cell, ci) => {
         doc.rect(x, y, colWidths[ci], rowH).stroke(C.border);
         doc.fillColor('#1e293b').font('Helvetica').fontSize(fs)
-          .text(String(cell ?? ''), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false });
+          .text(String(cell ?? ''), x + 3, y + 3, { width: colWidths[ci] - 6, height: rowH - 2, lineBreak: false });
         x += colWidths[ci];
       });
       y += rowH;
