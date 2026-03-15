@@ -211,7 +211,8 @@ router.post('/api/telegram/send-report', safeAsync(async (req, res) => {
   // Generate PDF
   let pdfBuffer;
   try {
-    pdfBuffer = await generateDetailReportPDF({ date: reportDate, kms_year: kmsYear, season: season, mode: 'detail' });
+    const query = { date: reportDate, kms_year: kmsYear, season: season, mode: 'detail', source: 'telegram' };
+    pdfBuffer = await generateDetailReportPDF(query);
   } catch (e) {
     return res.status(500).json({ detail: 'PDF generate nahi hua: ' + e.message });
   }
