@@ -75,7 +75,22 @@ const CashBook = ({ filters, user }) => {
       if (filters.season) params.append('season', filters.season);
       if (partySummaryFilter) params.append('party_type', partySummaryFilter);
       const res = await axios.get(`${API}/cash-book/party-summary?${params}`);
-      setPartySummary(res.data);
+      const data = res.data;
+      if (Array.isArray(data)) {
+        setPartySummary({
+          parties: data,
+          summary: {
+            total_parties: data.length,
+            settled_count: data.filter(p => p.balance === 0).length,
+            pending_count: data.filter(p => p.balance !== 0).length,
+            total_jama: Math.round(data.reduce((s, p) => s + (p.jama || 0), 0) * 100) / 100,
+            total_nikasi: Math.round(data.reduce((s, p) => s + (p.nikasi || 0), 0) * 100) / 100,
+            total_outstanding: Math.round(data.filter(p => p.balance !== 0).reduce((s, p) => s + (p.balance || 0), 0) * 100) / 100
+          }
+        });
+      } else {
+        setPartySummary(data);
+      }
     } catch (e) { toast.error("Party summary load failed"); }
   }, [filters.kms_year, filters.season, partySummaryFilter]);
 

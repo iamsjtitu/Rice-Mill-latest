@@ -66,7 +66,7 @@ const PartySummaryTab = ({
       </CardContent></Card>
 
       {/* Summary Cards */}
-      {partySummary && (
+      {partySummary && partySummary.summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="bg-gradient-to-br from-slate-800 to-slate-800/60 border-slate-600/40 shadow-lg">
             <CardContent className="p-4 flex items-center gap-3">
