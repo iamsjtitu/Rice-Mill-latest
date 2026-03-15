@@ -57,6 +57,7 @@ from routes.purchase_vouchers import router as purchase_vouchers_router
 from routes.voucher_payments import router as voucher_payments_router
 from routes.gst_ledger import router as gst_ledger_router
 from routes.truck_lease import router as truck_lease_router
+from routes.hemali import router as hemali_router
 
 api_router.include_router(auth_router)
 api_router.include_router(entries_router)
@@ -80,6 +81,7 @@ api_router.include_router(purchase_vouchers_router)
 api_router.include_router(voucher_payments_router)
 api_router.include_router(gst_ledger_router)
 api_router.include_router(truck_lease_router)
+api_router.include_router(hemali_router)
 
 @api_router.post("/delete-all-data")
 async def delete_all_data():

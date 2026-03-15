@@ -57,6 +57,7 @@ import ExcelImport from "@/components/ExcelImport";
 import Vouchers from "@/components/Vouchers";
 import { PrintButton } from "@/components/PrintButton";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import HemaliPayment from "@/components/HemaliPayment";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -1444,6 +1445,18 @@ function MainApp({ user, onLogout }) {
               Staff
             </Button>
             <Button
+              onClick={() => setActiveTab("hemali")}
+              variant={activeTab === "hemali" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "hemali" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-hemali"
+            >
+              <Users className="w-4 h-4 mr-1" />
+              Hemali
+            </Button>
+            <Button
               onClick={() => setActiveTab("fy-summary")}
               variant={activeTab === "fy-summary" ? "default" : "ghost"}
               size="sm"
@@ -2067,6 +2080,8 @@ function MainApp({ user, onLogout }) {
           <MillPartsStock filters={filters} user={user} />
         ) : activeTab === "staff" ? (
           <StaffManagement filters={filters} user={user} />
+        ) : activeTab === "hemali" ? (
+          <HemaliPayment filters={filters} user={user} />
         ) : activeTab === "fy-summary" ? (
           <FYSummaryWithTabs filters={filters} user={user} />
         ) : activeTab === "settings" ? (
