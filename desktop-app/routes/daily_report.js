@@ -38,6 +38,8 @@ function getDailyReportData(query) {
   const staffAtt = col('staff_attendance').filter(a => a.date === date);
   const allStaff = col('staff').filter(s => s.active !== false).sort((a, b) => (a.name||'').localeCompare(b.name||''));
   const dieselTxns = filterFy(col('diesel_accounts'));
+  const saleVouchers = (col('sale_vouchers') || []).filter(sv => sv.date === date);
+  const purchaseVouchers = (col('purchase_vouchers') || []).filter(pv => pv.date === date);
   const dieselTotalAmount = dieselTxns.filter(t => t.txn_type === 'diesel' || t.txn_type === 'debit').reduce((s, t) => s + (t.amount || 0), 0);
   const dieselTotalPaid = dieselTxns.filter(t => t.txn_type === 'payment' || t.txn_type === 'credit').reduce((s, t) => s + (t.amount || 0), 0);
 
@@ -99,15 +101,15 @@ function getDailyReportData(query) {
     },
     pvt_paddy: {
       count: pvtPaddy.length,
-      total_kg: pvtPaddy.reduce((s, e) => s + (e.kg || 0), 0),
-      total_amount: pvtPaddy.reduce((s, e) => s + (e.amount || 0), 0),
-      details: isDetail ? pvtPaddy.map(p => ({ party: p.party_name||'', type: p.paddy_type||'', kg: p.kg||0, rate: p.rate||0, amount: p.amount||0 })) : []
+      total_qntl: +pvtPaddy.reduce((s, e) => s + (e.qntl || 0), 0).toFixed(2),
+      total_amount: pvtPaddy.reduce((s, e) => s + (e.total_amount || e.amount || 0), 0),
+      details: pvtPaddy.map(p => ({ party: p.party_name||'', mandi: p.mandi_name||'', truck_no: p.truck_no||'', qntl: +(p.qntl||0).toFixed(2), rate: p.rate||0, amount: p.total_amount||p.amount||0, cash_paid: p.cash_paid||0, diesel_paid: p.diesel_paid||0 }))
     },
     rice_sales: {
       count: riceSales.length,
-      total_qntl: riceSales.reduce((s, e) => s + (e.qntl || 0), 0),
-      total_amount: riceSales.reduce((s, e) => s + (e.amount || 0), 0),
-      details: isDetail ? riceSales.map(r => ({ buyer: r.buyer_name||'', type: r.rice_type||'', qntl: r.qntl||0, rate: r.rate||0, amount: r.amount||0 })) : []
+      total_qntl: +riceSales.reduce((s, e) => s + (e.quantity_qntl || e.qntl || 0), 0).toFixed(2),
+      total_amount: riceSales.reduce((s, e) => s + (e.total_amount || e.amount || 0), 0),
+      details: riceSales.map(r => ({ party: r.buyer_name||r.party_name||'', qntl: +(r.quantity_qntl||r.qntl||0).toFixed(2), type: r.rice_type||'', rate: r.rate||0, amount: r.total_amount||r.amount||0, vehicle: r.vehicle_no||'' }))
     },
     milling: {
       count: milling.length,
@@ -126,7 +128,7 @@ function getDailyReportData(query) {
       cash_jama: +cashJama.toFixed(2), cash_nikasi: +cashNikasi.toFixed(2),
       bank_jama: +bankJama.toFixed(2), bank_nikasi: +bankNikasi.toFixed(2),
       net_cash: +(cashJama - cashNikasi).toFixed(2), net_bank: +(bankJama - bankNikasi).toFixed(2),
-      details: cashTxns.map(t => ({ desc: t.description||'', type: t.txn_type||'', account: t.account||'', category: t.category||'', amount: t.amount||0, party: t.party_name||'' }))
+      details: cashTxns.map(t => ({ desc: t.description||'', type: t.txn_type||'', account: t.account||'', category: t.category||'', amount: t.amount||0, party: t.party_name||'', description: t.description||'', payment_mode: (t.account||'cash').charAt(0).toUpperCase() + (t.account||'cash').slice(1) }))
     },
     payments: {
       msp_received: +mspAmount.toFixed(2), pvt_paddy_paid: +pvtPaid.toFixed(2), rice_sale_received: +pvtReceived.toFixed(2),
@@ -177,6 +179,22 @@ function getDailyReportData(query) {
     staff_attendance: {
       total: allStaff.length, present: presentC, absent: absentC, half_day: halfC, holiday: holidayC, not_marked: notMarkedC,
       details: staffDetails
+    },
+    sale_vouchers: {
+      count: saleVouchers.length,
+      total_amount: Math.round(saleVouchers.reduce((s, sv) => s + (sv.total || sv.subtotal || 0), 0) * 100) / 100,
+      details: saleVouchers.map(sv => ({
+        voucher_no: sv.voucher_no || '', date: sv.date || '', party: sv.party_name || sv.buyer_name || '',
+        items_count: (sv.items || []).length, amount: sv.total || sv.subtotal || 0
+      }))
+    },
+    purchase_vouchers: {
+      count: purchaseVouchers.length,
+      total_amount: Math.round(purchaseVouchers.reduce((s, pv) => s + (pv.total || pv.subtotal || 0), 0) * 100) / 100,
+      details: purchaseVouchers.map(pv => ({
+        voucher_no: pv.voucher_no || '', date: pv.date || '', party: pv.party_name || pv.seller_name || '',
+        items_count: (pv.items || []).length, amount: pv.total || pv.subtotal || 0
+      }))
     }
   };
 }
