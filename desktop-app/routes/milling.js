@@ -100,8 +100,22 @@ module.exports = function(database) {
 
   router.post('/api/byproduct-sales', safeSync((req, res) => {
     if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const sale = { id: uuidv4(), ...req.body, total_amount: +((req.body.quantity_qntl || 0) * (req.body.rate_per_qntl || 0)).toFixed(2), created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     database.data.byproduct_sales.push(sale);
+
+    // Auto-create Ledger JAMA entry (buyer owes us for byproduct sale)
+    const buyer = (req.body.buyer_name || '').trim();
+    if (buyer && sale.total_amount > 0) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: req.body.date || '', account: 'ledger', txn_type: 'jama',
+        amount: sale.total_amount, category: buyer, party_type: 'By-Product Sale',
+        description: `${(req.body.product || '').charAt(0).toUpperCase() + (req.body.product || '').slice(1)} sale - ${req.body.quantity_qntl || 0} Qntl @ Rs.${req.body.rate_per_qntl || 0}/Q`,
+        reference: `byproduct:${sale.id}`, kms_year: req.body.kms_year || '', season: req.body.season || '',
+        created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+      });
+    }
+
     database.save();
     res.json(sale);
   }));
@@ -119,6 +133,10 @@ module.exports = function(database) {
     if (!database.data.byproduct_sales) return res.status(404).json({ detail: 'Sale not found' });
     const len = database.data.byproduct_sales.length;
     database.data.byproduct_sales = database.data.byproduct_sales.filter(s => s.id !== req.params.id);
+    // Also delete linked ledger entry
+    if (database.data.cash_transactions) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== `byproduct:${req.params.id}`);
+    }
     if (database.data.byproduct_sales.length < len) { database.save(); return res.json({ message: 'Sale deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Sale not found' });
   }));

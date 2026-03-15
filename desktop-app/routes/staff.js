@@ -101,12 +101,27 @@ router.post('/api/staff/advance', safeSync((req, res) => {
     created_at: new Date().toISOString()
   };
   col('staff_advances').push(adv);
-  // Also add to cash book as nikasi
+  const staffName = adv.staff_name || 'Staff';
+  const now = new Date().toISOString();
+  // Cash Book Nikasi entry (cash going out)
   col('cash_transactions').push({
     id: uuidv4(), date: adv.date, account: 'cash', txn_type: 'nikasi',
-    category: 'Staff Advance', description: `Advance: ${adv.staff_name} - ${adv.description}`,
-    amount: adv.amount, reference: adv.id, kms_year: adv.kms_year, season: adv.season,
-    party_name: adv.staff_name, created_by: d.created_by || '', created_at: new Date().toISOString()
+    category: staffName, party_type: 'Staff',
+    description: `Staff Advance: ${staffName} - ${adv.description}`,
+    amount: adv.amount, reference: `staff_advance:${adv.id}`,
+    kms_year: adv.kms_year, season: adv.season,
+    created_by: d.created_by || '', linked_payment_id: adv.id,
+    created_at: now, updated_at: now
+  });
+  // Ledger Jama entry (staff owes us the advance)
+  col('cash_transactions').push({
+    id: uuidv4(), date: adv.date, account: 'ledger', txn_type: 'jama',
+    category: staffName, party_type: 'Staff',
+    description: `Staff Advance: ${staffName} - ${adv.description}`,
+    amount: adv.amount, reference: `staff_advance_ledger:${adv.id}`,
+    kms_year: adv.kms_year, season: adv.season,
+    created_by: d.created_by || '', linked_payment_id: adv.id,
+    created_at: now, updated_at: now
   });
   database.save(); res.json(adv);
 }));
@@ -123,8 +138,12 @@ router.delete('/api/staff/advance/:id', safeSync((req, res) => {
   const adv = list.find(a => a.id === req.params.id);
   if (!adv) return res.status(404).json({ detail: 'Not found' });
   database.data.staff_advances = list.filter(a => a.id !== req.params.id);
-  // Remove linked cash transaction
-  database.data.cash_transactions = col('cash_transactions').filter(t => t.reference !== req.params.id);
+  // Remove linked cash transaction + ledger entry
+  database.data.cash_transactions = col('cash_transactions').filter(t =>
+    t.linked_payment_id !== req.params.id &&
+    t.reference !== `staff_advance:${req.params.id}` &&
+    t.reference !== `staff_advance_ledger:${req.params.id}`
+  );
   database.save(); res.json({ message: 'Deleted', id: req.params.id });
 }));
 
@@ -244,16 +263,21 @@ router.post('/api/staff/payments', safeSync((req, res) => {
     total_days: d.total_days || 0, days_worked: d.days_worked || 0,
     gross_salary: parseFloat(d.gross_salary) || 0, advance_deducted: parseFloat(d.advance_deducted) || 0,
     net_payment: parseFloat(d.net_payment) || 0, kms_year: d.kms_year || '', season: d.season || '',
+    date: d.date || new Date().toISOString().split('T')[0],
     created_at: new Date().toISOString()
   };
   col('staff_payments').push(payment);
-  // Also add to cash book
-  col('cash_transactions').push({
-    id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
-    category: 'Staff Salary', description: `Salary: ${payment.staff_name} (${payment.from_date} to ${payment.to_date})`,
-    amount: payment.net_payment, reference: payment.id, kms_year: payment.kms_year, season: payment.season,
-    party_name: payment.staff_name, created_by: d.created_by || '', created_at: new Date().toISOString()
-  });
+  // Cash Book Nikasi entry
+  if (payment.net_payment > 0) {
+    col('cash_transactions').push({
+      id: uuidv4(), date: payment.date, account: 'cash', txn_type: 'nikasi',
+      category: 'Staff Salary',
+      description: `Salary: ${payment.staff_name} (${payment.from_date} to ${payment.to_date})`,
+      amount: payment.net_payment, reference: `staff_payment:${payment.id}`,
+      kms_year: payment.kms_year, season: payment.season,
+      created_by: d.created_by || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    });
+  }
   database.save(); res.json(payment);
 }));
 
@@ -269,7 +293,7 @@ router.delete('/api/staff/payments/:id', safeSync((req, res) => {
   const payment = list.find(p => p.id === req.params.id);
   if (!payment) return res.status(404).json({ detail: 'Not found' });
   database.data.staff_payments = list.filter(p => p.id !== req.params.id);
-  database.data.cash_transactions = col('cash_transactions').filter(t => t.reference !== req.params.id);
+  database.data.cash_transactions = col('cash_transactions').filter(t => t.reference !== `staff_payment:${req.params.id}`);
   database.save(); res.json({ message: 'Deleted', id: req.params.id });
 }));
 

@@ -154,15 +154,48 @@ module.exports = function(database) {
         amount: Math.round(del.cash_paid * 100) / 100, reference: `delivery:${del.id.slice(0,8)}`,
         bank_name: '', ...base
       });
+      // Truck Ledger Nikasi for cash deduction
+      if (vehicle) {
+        database.data.cash_transactions.push({
+          id: uuidv4(), date: del.date, account: 'ledger', txn_type: 'nikasi',
+          category: vehicle, party_type: 'Truck',
+          description: `DC Delivery Cash Deduction - ${dcNum} | ${vehicle}`,
+          amount: Math.round(del.cash_paid * 100) / 100, reference: `delivery_tcash:${del.id.slice(0,8)}`,
+          ...base
+        });
+      }
     }
-    // Auto-entry: Diesel Paid → Cash Book Nikasi
+    // Auto-entry: Diesel Paid → Diesel Pump Ledger JAMA + diesel_accounts + Truck Ledger Nikasi
     if (del.diesel_paid > 0) {
+      if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
+      if (!database.data.diesel_pumps) database.data.diesel_pumps = [];
+      const defPump = (database.data.diesel_pumps || []).find(p => p.is_default) || (database.data.diesel_pumps || [])[0];
+      const pumpName = defPump?.name || (database.data.diesel_accounts.length > 0 ? database.data.diesel_accounts[database.data.diesel_accounts.length-1].pump_name : 'Diesel Pump');
+      const pumpId = defPump?.id || '';
+      // Truck Ledger Nikasi for diesel deduction
+      if (vehicle) {
+        database.data.cash_transactions.push({
+          id: uuidv4(), date: del.date, account: 'ledger', txn_type: 'nikasi',
+          category: vehicle, party_type: 'Truck',
+          description: `DC Delivery Diesel Deduction - ${dcNum} | ${vehicle}`,
+          amount: Math.round(del.diesel_paid * 100) / 100, reference: `delivery_tdiesel:${del.id.slice(0,8)}`,
+          ...base
+        });
+      }
+      // Diesel account entry
+      database.data.diesel_accounts.push({
+        id: uuidv4(), date: del.date, pump_id: pumpId, pump_name: pumpName,
+        truck_no: vehicle, agent_name: '', amount: Math.round(del.diesel_paid * 100) / 100,
+        txn_type: 'debit', description: `DC Delivery Diesel - ${dcNum} | ${vehicle}`,
+        reference: `delivery_dfill:${del.id.slice(0,8)}`, ...base
+      });
+      // Diesel Pump Ledger JAMA
       database.data.cash_transactions.push({
-        id: uuidv4(), date: del.date, account: 'cash', txn_type: 'nikasi',
-        category: vehicle || `Truck-${dcNum}`, party_type: 'Diesel',
-        description: `DC Delivery Diesel - ${dcNum} | ${vehicle}`,
-        amount: Math.round(del.diesel_paid * 100) / 100, reference: `delivery_diesel:${del.id.slice(0,8)}`,
-        bank_name: '', ...base
+        id: uuidv4(), date: del.date, account: 'ledger', txn_type: 'jama',
+        category: pumpName, party_type: 'Diesel',
+        description: `Diesel for DC Delivery - ${dcNum} | ${vehicle}`,
+        amount: Math.round(del.diesel_paid * 100) / 100, reference: `delivery_jama:${del.id.slice(0,8)}`,
+        ...base
       });
     }
     // Auto-entry: Bags Used → Gunny Bags stock out
@@ -195,14 +228,22 @@ module.exports = function(database) {
     const len = database.data.dc_deliveries.length;
     database.data.dc_deliveries = database.data.dc_deliveries.filter(d => d.id !== deliveryId);
     if (database.data.dc_deliveries.length < len) {
-      // Cascading delete: remove auto-created cash and bag entries
-      const refCash = `delivery:${deliveryId.slice(0,8)}`;
-      const refDiesel = `delivery_diesel:${deliveryId.slice(0,8)}`;
+      // Cascading delete: remove auto-created cash, ledger, diesel, and bag entries
+      const refPrefix = deliveryId.slice(0,8);
       if (database.data.cash_transactions) {
-        database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== refCash && t.reference !== refDiesel);
+        database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+          ![`delivery:${refPrefix}`, `delivery_diesel:${refPrefix}`, `delivery_tcash:${refPrefix}`,
+            `delivery_tdiesel:${refPrefix}`, `delivery_dfill:${refPrefix}`, `delivery_jama:${refPrefix}`
+          ].includes(t.reference)
+        );
+      }
+      if (database.data.diesel_accounts) {
+        database.data.diesel_accounts = database.data.diesel_accounts.filter(t =>
+          t.reference !== `delivery_dfill:${refPrefix}`
+        );
       }
       if (database.data.gunny_bags) {
-        database.data.gunny_bags = database.data.gunny_bags.filter(b => b.reference !== refCash);
+        database.data.gunny_bags = database.data.gunny_bags.filter(b => b.reference !== `delivery:${refPrefix}`);
       }
       database.save();
       return res.json({ message: 'Delivery deleted', id: deliveryId });

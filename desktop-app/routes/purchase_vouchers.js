@@ -18,11 +18,161 @@ module.exports = function(database) {
     res.json(vouchers);
   }));
 
+  // Helper: get default diesel pump name
+  function getDefaultPump() {
+    const dAccounts = database.data.diesel_accounts || [];
+    const last = dAccounts[dAccounts.length - 1];
+    return last ? (last.pump_name || 'Diesel Pump') : 'Diesel Pump';
+  }
+
+  // Helper: create all accounting entries for a purchase voucher (matching web backend)
+  function createPurchaseLedgerEntries(d, docId, vno, items) {
+    const party = (d.party_name || '').trim();
+    const cash = parseFloat(d.cash_paid) || 0;
+    const diesel = parseFloat(d.diesel_paid) || 0;
+    const advance = parseFloat(d.advance) || 0;
+    const total = parseFloat(d.total) || 0;
+    const truck = (d.truck_no || '').trim();
+    const now = new Date().toISOString();
+    const base = { kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by || '', created_at: now, updated_at: now };
+    const inv = d.invoice_no || '';
+    const descSuffix = inv ? ` | Inv:${inv}` : '';
+    const itemsStr = (items || []).map(i => i.item_name).join(', ');
+
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+    if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
+    if (!database.data.truck_payments) database.data.truck_payments = [];
+
+    // 1. Party Ledger JAMA: total purchase amount (we owe the party)
+    if (party && total > 0) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: d.date || '', account: 'ledger', txn_type: 'jama',
+        amount: total, category: party, party_type: 'Purchase Voucher',
+        description: `Purchase #${vno} - ${itemsStr}${descSuffix}`,
+        reference: `purchase_voucher:${docId}`, ...base
+      });
+    }
+
+    // 2. Advance paid to party: Ledger NIKASI (reduces what we owe) + Cash NIKASI (cash going out)
+    if (advance > 0 && party) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: d.date || '', account: 'ledger', txn_type: 'nikasi',
+        amount: advance, category: party, party_type: 'Purchase Voucher',
+        description: `Advance paid - Purchase #${vno}${descSuffix}`,
+        reference: `purchase_voucher_adv:${docId}`, ...base
+      });
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: d.date || '', account: 'cash', txn_type: 'nikasi',
+        amount: advance, category: party, party_type: 'Purchase Voucher',
+        description: `Advance paid - Purchase #${vno}${descSuffix}`,
+        reference: `purchase_voucher_adv_cash:${docId}`, ...base
+      });
+    }
+
+    // 3. Cash paid → Cash NIKASI (cash going out)
+    if (cash > 0) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: d.date || '', account: 'cash', txn_type: 'nikasi',
+        amount: cash, category: truck || party, party_type: truck ? 'Truck' : 'Purchase Voucher',
+        description: `Truck cash - Purchase #${vno}${descSuffix}`,
+        reference: `purchase_voucher_cash:${docId}`, ...base
+      });
+    }
+
+    // 4. Diesel paid → Diesel Pump Ledger JAMA + diesel_accounts entry
+    if (diesel > 0) {
+      const pumpName = getDefaultPump();
+      const pumpDoc = database.data.diesel_accounts.find(da => da.pump_name === pumpName);
+      const pumpId = pumpDoc ? (pumpDoc.pump_id || '') : '';
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: d.date || '', account: 'ledger', txn_type: 'jama',
+        amount: diesel, category: pumpName, party_type: 'Diesel',
+        description: `Diesel for truck - Purchase #${vno} - ${party}${descSuffix}`,
+        reference: `purchase_voucher_diesel:${docId}`, ...base
+      });
+      database.data.diesel_accounts.push({
+        id: uuidv4(), date: d.date || '', pump_id: pumpId, pump_name: pumpName,
+        truck_no: truck, agent_name: party, amount: diesel, txn_type: 'debit',
+        description: `Diesel for Purchase #${vno} - ${party}${descSuffix}`,
+        reference: `purchase_voucher_diesel:${docId}`, ...base
+      });
+    }
+
+    // 5. Truck cash+diesel → Truck Ledger NIKASI (deductions from future bhada)
+    if (cash > 0 && truck) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: d.date || '', account: 'ledger', txn_type: 'nikasi',
+        amount: cash, category: truck, party_type: 'Truck',
+        description: `Truck cash deduction - Purchase #${vno}${descSuffix}`,
+        reference: `purchase_truck_cash:${docId}`, ...base
+      });
+    }
+    if (diesel > 0 && truck) {
+      database.data.cash_transactions.push({
+        id: uuidv4(), date: d.date || '', account: 'ledger', txn_type: 'nikasi',
+        amount: diesel, category: truck, party_type: 'Truck',
+        description: `Truck diesel deduction - Purchase #${vno}${descSuffix}`,
+        reference: `purchase_truck_diesel:${docId}`, ...base
+      });
+    }
+    const truckTotal = cash + diesel;
+    if (truckTotal > 0 && truck) {
+      database.data.truck_payments.push({
+        entry_id: docId, truck_no: truck, date: d.date || '',
+        cash_taken: cash, diesel_taken: diesel,
+        gross_amount: 0, deductions: truckTotal, net_amount: 0, paid_amount: 0,
+        balance_amount: 0, status: 'pending', source: 'Purchase Voucher',
+        description: `Purchase #${vno} - ${party}${descSuffix}`,
+        reference: `purchase_voucher_truck:${docId}`, ...base
+      });
+    }
+
+    // 6. Local party accounts: debit for total purchase (we owe them)
+    if (party && total > 0) {
+      database.data.local_party_accounts.push({
+        id: uuidv4(), date: d.date || '', party_name: party, txn_type: 'debit',
+        amount: total, description: `Purchase #${vno} - ${itemsStr}${descSuffix}`,
+        source_type: 'purchase_voucher', reference: `purchase_voucher:${docId}`, ...base
+      });
+    }
+    // Advance paid = payment entry in local_party
+    if (advance > 0 && party) {
+      database.data.local_party_accounts.push({
+        id: uuidv4(), date: d.date || '', party_name: party, txn_type: 'payment',
+        amount: advance, description: `Advance paid - Purchase #${vno}${descSuffix}`,
+        source_type: 'purchase_voucher_advance', reference: `purchase_voucher_adv:${docId}`, ...base
+      });
+    }
+  }
+
+  // Helper: cleanup all accounting entries for a purchase voucher
+  function cleanupPurchaseEntries(docId) {
+    if (database.data.cash_transactions) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+        !(t.reference && t.reference.match && t.reference.match(new RegExp(`purchase_voucher.*:${docId}|purchase_truck.*:${docId}|purchase:${docId.slice(0,8)}`)))
+      );
+    }
+    if (database.data.local_party_accounts) {
+      database.data.local_party_accounts = database.data.local_party_accounts.filter(t =>
+        !(t.reference && t.reference.match && t.reference.match(new RegExp(`purchase_voucher.*:${docId}`)))
+      );
+    }
+    if (database.data.diesel_accounts) {
+      database.data.diesel_accounts = database.data.diesel_accounts.filter(t =>
+        !(t.reference && t.reference === `purchase_voucher_diesel:${docId}`)
+      );
+    }
+    if (database.data.truck_payments) {
+      database.data.truck_payments = database.data.truck_payments.filter(t =>
+        !(t.reference && t.reference === `purchase_voucher_truck:${docId}`)
+      );
+    }
+  }
+
   // POST /api/purchase-vouchers
   router.post('/api/purchase-vouchers', safeHandler(async (req, res) => {
     ensure();
-    if (!database.data.cash_transactions) database.data.cash_transactions = [];
-    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
     const d = { id: uuidv4(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
     const items = d.items || [];
     d.subtotal = Math.round(items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) * 100) / 100;
@@ -33,8 +183,8 @@ module.exports = function(database) {
     d.total = Math.round((d.subtotal + d.cgst_amount + d.sgst_amount + d.igst_amount) * 100) / 100;
     d.balance = Math.round((d.total - (parseFloat(d.advance) || 0) - (parseFloat(d.cash_paid) || 0) - (parseFloat(d.diesel_paid) || 0)) * 100) / 100;
     database.data.purchase_vouchers.push(d);
-    if (d.cash_paid > 0) database.data.cash_transactions.push({ id: uuidv4(), date: d.date, account: 'cash', txn_type: 'nikasi', category: d.party_name, party_type: 'Pvt Paddy Purchase', description: `Purchase #${d.voucher_no} cash`, amount: d.cash_paid, reference: `purchase:${d.id.slice(0,8)}`, bank_name: '', kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by, created_at: d.created_at, updated_at: d.created_at });
-    if (d.party_name) database.data.local_party_accounts.push({ id: uuidv4(), party_name: d.party_name, party_type: 'Pvt Paddy Purchase', voucher_type: 'purchase', voucher_id: d.id, voucher_no: d.voucher_no, date: d.date, amount: d.total, type: 'credit', kms_year: d.kms_year, season: d.season, created_at: d.created_at });
+    // Create all accounting entries
+    createPurchaseLedgerEntries(d, d.id, d.voucher_no, items);
     database.save();
     res.json(d);
   }));
@@ -53,6 +203,9 @@ module.exports = function(database) {
     d.total = Math.round((d.subtotal + d.cgst_amount + d.sgst_amount + d.igst_amount) * 100) / 100;
     d.balance = Math.round((d.total - (parseFloat(d.advance) || 0) - (parseFloat(d.cash_paid) || 0) - (parseFloat(d.diesel_paid) || 0) - (parseFloat(d.paid_amount) || 0)) * 100) / 100;
     database.data.purchase_vouchers[idx] = d;
+    // Cleanup old entries and recreate
+    cleanupPurchaseEntries(d.id);
+    createPurchaseLedgerEntries(d, d.id, d.voucher_no, items);
     database.save();
     res.json(d);
   }));
@@ -62,6 +215,8 @@ module.exports = function(database) {
     ensure();
     const idx = database.data.purchase_vouchers.findIndex(v => v.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+    // Cleanup all accounting entries
+    cleanupPurchaseEntries(req.params.id);
     database.data.purchase_vouchers.splice(idx, 1);
     database.save();
     res.json({ message: 'Deleted', id: req.params.id });
@@ -81,8 +236,6 @@ module.exports = function(database) {
 
   router.post('/api/purchase-book', safeHandler(async (req, res) => {
     ensure();
-    if (!database.data.cash_transactions) database.data.cash_transactions = [];
-    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
     const d = { id: uuidv4(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
     const items = d.items || [];
     d.subtotal = Math.round(items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) * 100) / 100;
@@ -93,8 +246,7 @@ module.exports = function(database) {
     d.total = Math.round((d.subtotal + d.cgst_amount + d.sgst_amount + d.igst_amount) * 100) / 100;
     d.balance = Math.round((d.total - (parseFloat(d.advance) || 0) - (parseFloat(d.cash_paid) || 0) - (parseFloat(d.diesel_paid) || 0)) * 100) / 100;
     database.data.purchase_vouchers.push(d);
-    if (d.cash_paid > 0) database.data.cash_transactions.push({ id: uuidv4(), date: d.date, account: 'cash', txn_type: 'nikasi', category: d.party_name, party_type: 'Pvt Paddy Purchase', description: `Purchase #${d.voucher_no} cash`, amount: d.cash_paid, reference: `purchase:${d.id.slice(0,8)}`, bank_name: '', kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by, created_at: d.created_at, updated_at: d.created_at });
-    if (d.party_name) database.data.local_party_accounts.push({ id: uuidv4(), party_name: d.party_name, party_type: 'Pvt Paddy Purchase', voucher_type: 'purchase', voucher_id: d.id, voucher_no: d.voucher_no, date: d.date, amount: d.total, type: 'credit', kms_year: d.kms_year, season: d.season, created_at: d.created_at });
+    createPurchaseLedgerEntries(d, d.id, d.voucher_no, items);
     database.save();
     res.json(d);
   }));
@@ -112,6 +264,8 @@ module.exports = function(database) {
     d.total = Math.round((d.subtotal + d.cgst_amount + d.sgst_amount + d.igst_amount) * 100) / 100;
     d.balance = Math.round((d.total - (parseFloat(d.advance) || 0) - (parseFloat(d.cash_paid) || 0) - (parseFloat(d.diesel_paid) || 0) - (parseFloat(d.paid_amount) || 0)) * 100) / 100;
     database.data.purchase_vouchers[idx] = d;
+    cleanupPurchaseEntries(d.id);
+    createPurchaseLedgerEntries(d, d.id, d.voucher_no, items);
     database.save();
     res.json(d);
   }));
@@ -120,6 +274,7 @@ module.exports = function(database) {
     ensure();
     const idx = database.data.purchase_vouchers.findIndex(v => v.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+    cleanupPurchaseEntries(req.params.id);
     database.data.purchase_vouchers.splice(idx, 1);
     database.save();
     res.json({ message: 'Deleted', id: req.params.id });
@@ -128,6 +283,7 @@ module.exports = function(database) {
   router.post('/api/purchase-book/delete-bulk', safeHandler(async (req, res) => {
     ensure();
     const ids = req.body.ids || [];
+    ids.forEach(id => cleanupPurchaseEntries(id));
     database.data.purchase_vouchers = database.data.purchase_vouchers.filter(v => !ids.includes(v.id));
     database.save();
     res.json({ message: `${ids.length} deleted` });
