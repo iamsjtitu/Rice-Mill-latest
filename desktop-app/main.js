@@ -115,6 +115,8 @@ class JsonDatabase {
             data.users.push({ username: 'staff', password: 'staff123', role: 'staff' });
           }
         }
+        // Run data migration for old entries missing jama/nikasi
+        this.migrateOldEntries(data);
         return data;
       }
     } catch (e) {
@@ -179,6 +181,152 @@ class JsonDatabase {
       staff_advances: [],
       staff_attendance: []
     };
+  }
+
+  // ============ DATA MIGRATION: Fix old entries missing jama/nikasi ============
+  migrateOldEntries(data) {
+    if (!data) return;
+    // Track migration version to avoid re-running
+    if (!data._migrations) data._migrations = {};
+    if (data._migrations.accounting_entries_v2) return; // Already migrated
+
+    console.log('[Migration] Starting accounting entries migration (v2)...');
+    let created = 0;
+    const now = new Date().toISOString();
+    if (!data.cash_transactions) data.cash_transactions = [];
+    if (!data.local_party_accounts) data.local_party_accounts = [];
+    if (!data.diesel_accounts) data.diesel_accounts = [];
+    if (!data.truck_payments) data.truck_payments = [];
+
+    // Helper: check if reference exists in cash_transactions
+    const refExists = (ref) => data.cash_transactions.some(t => t.reference === ref);
+
+    // 1. Sale Vouchers → create missing ledger entries
+    (data.sale_vouchers || []).forEach(sv => {
+      const party = (sv.party_name || '').trim();
+      const total = parseFloat(sv.total) || 0;
+      const cash = parseFloat(sv.cash_paid) || 0;
+      const diesel = parseFloat(sv.diesel_paid) || 0;
+      const advance = parseFloat(sv.advance) || 0;
+      const truck = (sv.truck_no || '').trim();
+      const vno = sv.voucher_no || '';
+      const base = { kms_year: sv.kms_year || '', season: sv.season || '', created_by: sv.created_by || '', created_at: now, updated_at: now };
+
+      // Party Ledger JAMA
+      if (party && total > 0 && !refExists(`sale_voucher:${sv.id}`)) {
+        data.cash_transactions.push({ id: uuidv4(), date: sv.date || '', account: 'ledger', txn_type: 'jama', amount: total, category: party, party_type: 'Sale Book', description: `Sale #${vno} [migrated]`, reference: `sale_voucher:${sv.id}`, ...base });
+        created++;
+      }
+      // Advance
+      if (advance > 0 && party && !refExists(`sale_voucher_adv:${sv.id}`)) {
+        data.cash_transactions.push({ id: uuidv4(), date: sv.date || '', account: 'ledger', txn_type: 'nikasi', amount: advance, category: party, party_type: 'Sale Book', description: `Advance - Sale #${vno} [migrated]`, reference: `sale_voucher_adv:${sv.id}`, ...base });
+        data.cash_transactions.push({ id: uuidv4(), date: sv.date || '', account: 'cash', txn_type: 'jama', amount: advance, category: party, party_type: 'Sale Book', description: `Advance - Sale #${vno} [migrated]`, reference: `sale_voucher_adv_cash:${sv.id}`, ...base });
+        created += 2;
+      }
+      // Truck cash
+      if (cash > 0 && !refExists(`sale_voucher_cash:${sv.id}`)) {
+        data.cash_transactions.push({ id: uuidv4(), date: sv.date || '', account: 'cash', txn_type: 'nikasi', amount: cash, category: truck || party, party_type: truck ? 'Truck' : 'Sale Book', description: `Truck cash - Sale #${vno} [migrated]`, reference: `sale_voucher_cash:${sv.id}`, ...base });
+        created++;
+        // Truck ledger nikasi
+        if (truck) {
+          data.cash_transactions.push({ id: uuidv4(), date: sv.date || '', account: 'ledger', txn_type: 'nikasi', amount: cash, category: truck, party_type: 'Truck', description: `Truck cash deduction - Sale #${vno} [migrated]`, reference: `sale_truck_cash:${sv.id}`, ...base });
+          created++;
+        }
+      }
+      // Diesel
+      if (diesel > 0 && !refExists(`sale_voucher_diesel:${sv.id}`)) {
+        const pumpName = (data.diesel_accounts || []).length > 0 ? data.diesel_accounts[data.diesel_accounts.length-1].pump_name || 'Diesel Pump' : 'Diesel Pump';
+        data.cash_transactions.push({ id: uuidv4(), date: sv.date || '', account: 'ledger', txn_type: 'jama', amount: diesel, category: pumpName, party_type: 'Diesel', description: `Diesel - Sale #${vno} [migrated]`, reference: `sale_voucher_diesel:${sv.id}`, ...base });
+        created++;
+        if (truck) {
+          data.cash_transactions.push({ id: uuidv4(), date: sv.date || '', account: 'ledger', txn_type: 'nikasi', amount: diesel, category: truck, party_type: 'Truck', description: `Truck diesel deduction - Sale #${vno} [migrated]`, reference: `sale_truck_diesel:${sv.id}`, ...base });
+          created++;
+        }
+      }
+    });
+
+    // 2. Purchase Vouchers → create missing ledger entries
+    (data.purchase_vouchers || []).forEach(pv => {
+      const party = (pv.party_name || '').trim();
+      const total = parseFloat(pv.total) || 0;
+      const cash = parseFloat(pv.cash_paid) || 0;
+      const diesel = parseFloat(pv.diesel_paid) || 0;
+      const advance = parseFloat(pv.advance) || 0;
+      const truck = (pv.truck_no || '').trim();
+      const vno = pv.voucher_no || '';
+      const base = { kms_year: pv.kms_year || '', season: pv.season || '', created_by: pv.created_by || '', created_at: now, updated_at: now };
+
+      if (party && total > 0 && !refExists(`purchase_voucher:${pv.id}`)) {
+        data.cash_transactions.push({ id: uuidv4(), date: pv.date || '', account: 'ledger', txn_type: 'jama', amount: total, category: party, party_type: 'Purchase Voucher', description: `Purchase #${vno} [migrated]`, reference: `purchase_voucher:${pv.id}`, ...base });
+        created++;
+      }
+      if (advance > 0 && party && !refExists(`purchase_voucher_adv:${pv.id}`)) {
+        data.cash_transactions.push({ id: uuidv4(), date: pv.date || '', account: 'ledger', txn_type: 'nikasi', amount: advance, category: party, party_type: 'Purchase Voucher', description: `Advance - Purchase #${vno} [migrated]`, reference: `purchase_voucher_adv:${pv.id}`, ...base });
+        data.cash_transactions.push({ id: uuidv4(), date: pv.date || '', account: 'cash', txn_type: 'nikasi', amount: advance, category: party, party_type: 'Purchase Voucher', description: `Advance - Purchase #${vno} [migrated]`, reference: `purchase_voucher_adv_cash:${pv.id}`, ...base });
+        created += 2;
+      }
+      if (cash > 0 && !refExists(`purchase_voucher_cash:${pv.id}`)) {
+        data.cash_transactions.push({ id: uuidv4(), date: pv.date || '', account: 'cash', txn_type: 'nikasi', amount: cash, category: truck || party, party_type: truck ? 'Truck' : 'Purchase Voucher', description: `Truck cash - Purchase #${vno} [migrated]`, reference: `purchase_voucher_cash:${pv.id}`, ...base });
+        created++;
+        if (truck) {
+          data.cash_transactions.push({ id: uuidv4(), date: pv.date || '', account: 'ledger', txn_type: 'nikasi', amount: cash, category: truck, party_type: 'Truck', description: `Truck cash deduction - Purchase #${vno} [migrated]`, reference: `purchase_truck_cash:${pv.id}`, ...base });
+          created++;
+        }
+      }
+      if (diesel > 0 && !refExists(`purchase_voucher_diesel:${pv.id}`)) {
+        const pumpName = (data.diesel_accounts || []).length > 0 ? data.diesel_accounts[data.diesel_accounts.length-1].pump_name || 'Diesel Pump' : 'Diesel Pump';
+        data.cash_transactions.push({ id: uuidv4(), date: pv.date || '', account: 'ledger', txn_type: 'jama', amount: diesel, category: pumpName, party_type: 'Diesel', description: `Diesel - Purchase #${vno} [migrated]`, reference: `purchase_voucher_diesel:${pv.id}`, ...base });
+        created++;
+        if (truck) {
+          data.cash_transactions.push({ id: uuidv4(), date: pv.date || '', account: 'ledger', txn_type: 'nikasi', amount: diesel, category: truck, party_type: 'Truck', description: `Truck diesel deduction - Purchase #${vno} [migrated]`, reference: `purchase_truck_diesel:${pv.id}`, ...base });
+          created++;
+        }
+      }
+    });
+
+    // 3. Staff Advances → add missing Ledger JAMA
+    (data.staff_advances || []).forEach(adv => {
+      const staffName = adv.staff_name || 'Staff';
+      if (adv.amount > 0 && !refExists(`staff_advance_ledger:${adv.id}`)) {
+        data.cash_transactions.push({ id: uuidv4(), date: adv.date || '', account: 'ledger', txn_type: 'jama', amount: adv.amount, category: staffName, party_type: 'Staff', description: `Staff Advance: ${staffName} [migrated]`, reference: `staff_advance_ledger:${adv.id}`, linked_payment_id: adv.id, kms_year: adv.kms_year || '', season: adv.season || '', created_by: '', created_at: now, updated_at: now });
+        created++;
+      }
+    });
+
+    // 4. Byproduct Sales → add missing Ledger JAMA
+    (data.byproduct_sales || []).forEach(bp => {
+      const buyer = (bp.buyer_name || '').trim();
+      const total = parseFloat(bp.total_amount) || 0;
+      if (buyer && total > 0 && !refExists(`byproduct:${bp.id}`)) {
+        data.cash_transactions.push({ id: uuidv4(), date: bp.date || '', account: 'ledger', txn_type: 'jama', amount: total, category: buyer, party_type: 'By-Product Sale', description: `${(bp.product || 'Byproduct')} sale [migrated]`, reference: `byproduct:${bp.id}`, kms_year: bp.kms_year || '', season: bp.season || '', created_by: bp.created_by || '', created_at: now, updated_at: now });
+        created++;
+      }
+    });
+
+    // 5. Mill Parts (purchases with party) → add missing Ledger JAMA
+    (data.mill_parts_stock || []).forEach(mp => {
+      const party = (mp.party_name || '').trim();
+      const total = parseFloat(mp.total_amount) || 0;
+      if (mp.txn_type === 'in' && party && total > 0 && !refExists(`lp_mill_part:${mp.id.slice(0,8)}`)) {
+        data.cash_transactions.push({ id: uuidv4(), date: mp.date || '', account: 'ledger', txn_type: 'jama', amount: total, category: party, party_type: 'Local Party', description: `Mill Part: ${mp.part_name || ''} [migrated]`, reference: `lp_mill_part:${mp.id.slice(0,8)}`, kms_year: mp.kms_year || '', season: mp.season || '', created_by: mp.created_by || '', created_at: now, updated_at: now });
+        created++;
+      }
+    });
+
+    // 6. Local Party Manual Purchases → add missing Ledger JAMA
+    (data.local_party_accounts || []).forEach(lp => {
+      if (lp.txn_type === 'debit' && lp.source_type === 'manual') {
+        const party = (lp.party_name || '').trim();
+        const amt = parseFloat(lp.amount) || 0;
+        if (party && amt > 0 && !refExists(`lp_purchase:${lp.id.slice(0,8)}`)) {
+          data.cash_transactions.push({ id: uuidv4(), date: lp.date || '', account: 'ledger', txn_type: 'jama', amount: amt, category: party, party_type: 'Local Party', description: `Purchase: ${party} [migrated]`, reference: `lp_purchase:${lp.id.slice(0,8)}`, linked_local_party_id: lp.id, kms_year: lp.kms_year || '', season: lp.season || '', created_by: lp.created_by || '', created_at: now, updated_at: now });
+          created++;
+        }
+      }
+    });
+
+    data._migrations.accounting_entries_v2 = { date: now, entries_created: created };
+    console.log(`[Migration] Complete: ${created} accounting entries created`);
   }
 
   save() {
