@@ -111,175 +111,18 @@ function telegramSendDocument(botToken, chatId, caption, pdfBuffer, filename) {
 // Generate PDF buffer using pdfkit (reuses daily_report logic)
 function generateDetailReportPDF(query) {
   const PDFDocument = require('pdfkit');
-  const getDailyReportData = require('./daily_report').__getDailyReportData;
+  const { getDailyReportData, generateDailyReportPdf } = require('./daily_report_logic');
 
-  // If getDailyReportData is not exported, build it inline
   return new Promise((resolve, reject) => {
     try {
-      const data = buildReportData(query);
+      const data = getDailyReportData(database, query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       const buffers = [];
       doc.on('data', (chunk) => buffers.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', reject);
 
-      const C = {
-        hdrBg: '#1a365d', hdrText: '#ffffff', border: '#cbd5e1',
-        altRow: '#f8fafc', blueBg: '#e0f2fe', greenBg: '#dcfce7',
-        yellowBg: '#fef3c7', purpleBg: '#e0e7ff', orangeBg: '#fff7ed',
-        staffBg: '#dbeafe', section: '#1a365d', sub: '#475569'
-      };
-
-      function fmtAmt(val) { return val === 0 ? '0' : val.toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
-      function fmtDate(d) { if (!d) return ''; const s = String(d).split('T')[0]; const p = s.split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : s; }
-
-      function drawTable(headers, rows, colWidths, opts) {
-        opts = opts || {};
-        const fs = opts.fontSize || 7;
-        const hdrBg = opts.headerBg || C.hdrBg;
-        const hdrTextColor = opts.headerTextColor || C.hdrText;
-        let y = doc.y;
-        const rowH = fs + 8;
-        const totalW = colWidths.reduce((a,b) => a+b, 0);
-        const startX = Math.max(25, (doc.page.width - totalW) / 2);
-
-        if (y + rowH * (rows.length + 1) + 20 > doc.page.height - 25) { doc.addPage(); y = 25; }
-
-        // Header
-        doc.save().rect(startX, y, totalW, rowH).fill(hdrBg);
-        let x = startX;
-        headers.forEach((h, i) => {
-          doc.font('Helvetica-Bold').fontSize(fs).fillColor(hdrTextColor)
-            .text(h, x + 2, y + 3, { width: colWidths[i] - 4, align: opts.align && opts.align[i] || 'center' });
-          x += colWidths[i];
-        });
-        doc.restore();
-        y += rowH;
-
-        // Rows
-        rows.forEach((row, ri) => {
-          if (y + rowH > doc.page.height - 25) { doc.addPage(); y = 25; }
-          if (ri % 2 === 1) doc.save().rect(startX, y, totalW, rowH).fill(C.altRow).restore();
-          // Grid
-          doc.save().lineWidth(0.3).strokeColor(C.border);
-          x = startX;
-          for (let i = 0; i <= headers.length; i++) {
-            doc.moveTo(x, y).lineTo(x, y + rowH).stroke();
-            x += (colWidths[i] || 0);
-          }
-          doc.moveTo(startX, y + rowH).lineTo(startX + totalW, y + rowH).stroke();
-          doc.restore();
-
-          x = startX;
-          (Array.isArray(row) ? row : []).forEach((cell, ci) => {
-            const isLast = opts.isTotal && ri === rows.length - 1;
-            doc.font(isLast ? 'Helvetica-Bold' : 'Helvetica').fontSize(fs).fillColor('#1e293b')
-              .text(String(cell || ''), x + 2, y + 3, { width: colWidths[ci] - 4, align: opts.align && opts.align[ci] || 'center' });
-            x += colWidths[ci];
-          });
-          y += rowH;
-        });
-        doc.y = y + 4;
-      }
-
-      // Title
-      doc.font('Helvetica-Bold').fontSize(18).fillColor(C.section)
-        .text(`Detail Report - ${data.date}`, 25, 25);
-      doc.font('Helvetica').fontSize(9).fillColor(C.sub)
-        .text(`Mode: DETAILED | KMS Year: ${query.kms_year || 'All'} | Season: ${query.season || 'All'}`);
-      doc.moveDown(0.5);
-
-      // 1. Paddy Entries
-      const p = data.paddy_entries;
-      doc.font('Helvetica-Bold').fontSize(11).fillColor(C.section).text(`1. Paddy Entries (${p.count})`);
-      doc.moveDown(0.3);
-      drawTable(
-        ['Total Mill W (QNTL)', 'Total BAG', 'Final W. QNTL', 'Bag Deposite', 'Bag Issued'],
-        [[(p.total_mill_w/100).toFixed(2), String(p.total_bags), (p.total_final_w/100).toFixed(2), String(p.total_g_deposite || 0), String(p.total_g_issued || 0)]],
-        [100, 90, 100, 80, 80],
-        { headerBg: C.blueBg, headerTextColor: '#1e293b' }
-      );
-      if (p.details && p.details.length > 0) {
-        drawTable(
-          ['Truck', 'Agent', 'Mandi', 'RST', 'TP', 'QNTL', 'Bags', 'Mill W', 'Final W', 'Cash', 'Diesel'],
-          p.details.map(d => [d.truck_no||'', d.agent||'', d.mandi||'', d.rst_no||'', d.tp_no||'',
-            (d.kg/100).toFixed(2), String(d.bags||0), (d.mill_w/100).toFixed(2), (d.final_w/100).toFixed(2),
-            String(d.cash_paid||0), String(d.diesel_paid||0)]),
-          [55, 45, 50, 30, 30, 38, 30, 42, 42, 42, 42],
-          { fontSize: 6 }
-        );
-      }
-
-      // 2. Milling
-      const ml = data.milling;
-      if (ml.count > 0) {
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(C.section).text(`2. Milling (${ml.count})`);
-        doc.moveDown(0.3);
-        drawTable(
-          ['Paddy In (Q)', 'Rice Out (Q)', 'FRK Used (Q)'],
-          [[String(ml.paddy_input_qntl), String(ml.rice_output_qntl), String(ml.frk_used_qntl)]],
-          [170, 170, 170],
-          { headerBg: C.yellowBg, headerTextColor: '#1e293b' }
-        );
-      }
-
-      // 3. Cash Flow
-      const cf = data.cash_flow;
-      doc.font('Helvetica-Bold').fontSize(11).fillColor(C.section).text('3. Cash Flow');
-      doc.moveDown(0.3);
-      drawTable(
-        ['', 'Jama (In)', 'Nikasi (Out)', 'Net'],
-        [
-          ['Cash', `Rs.${fmtAmt(cf.cash_jama)}`, `Rs.${fmtAmt(cf.cash_nikasi)}`, `Rs.${fmtAmt(cf.net_cash)}`],
-          ['Bank', `Rs.${fmtAmt(cf.bank_jama)}`, `Rs.${fmtAmt(cf.bank_nikasi)}`, `Rs.${fmtAmt(cf.net_bank)}`]
-        ],
-        [80, 130, 130, 130],
-        { headerBg: C.greenBg, headerTextColor: '#1e293b', align: ['left', 'right', 'right', 'right'] }
-      );
-
-      // 4. Cash Transactions
-      const ct = data.cash_transactions || {};
-      if (ct.count > 0) {
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(C.section).text(`4. Cash Transactions (${ct.count})`);
-        doc.moveDown(0.3);
-        drawTable(
-          ['Total Jama', 'Total Nikasi', 'Balance'],
-          [[`Rs.${fmtAmt(ct.total_jama)}`, `Rs.${fmtAmt(ct.total_nikasi)}`, `Rs.${fmtAmt(ct.total_jama - ct.total_nikasi)}`]],
-          [170, 170, 170],
-          { headerBg: C.yellowBg, headerTextColor: '#1e293b' }
-        );
-        if (ct.details && ct.details.length > 0) {
-          drawTable(
-            ['Date', 'Party Name', 'Type', 'Amount (Rs.)', 'Description'],
-            ct.details.map(d => [fmtDate(d.date), d.party_name||d.category||'', d.txn_type==='jama'?'JAMA':'NIKASI', `Rs.${fmtAmt(d.amount||0)}`, d.description||'']),
-            [60, 110, 50, 80, 200]
-          );
-        }
-      }
-
-      // 5. Payments
-      const pay = data.payments;
-      doc.font('Helvetica-Bold').fontSize(11).fillColor(C.section).text('5. Payments');
-      doc.moveDown(0.3);
-      drawTable(
-        ['MSP Received', 'Pvt Paddy Paid', 'Rice Sale Received'],
-        [[`Rs.${fmtAmt(pay.msp_received)}`, `Rs.${fmtAmt(pay.pvt_paddy_paid)}`, `Rs.${fmtAmt(pay.rice_sale_received)}`]],
-        [170, 170, 170],
-        { headerBg: C.purpleBg, headerTextColor: '#1e293b' }
-      );
-
-      // 6. Staff
-      const sa = data.staff_attendance || {};
-      if (sa.total > 0) {
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(C.section).text(`6. Staff (${sa.total})`);
-        doc.moveDown(0.3);
-        drawTable(
-          ['Present', 'Half Day', 'Absent', 'Holiday', 'Not Marked'],
-          [[String(sa.present||0), String(sa.half_day||0), String(sa.absent||0), String(sa.holiday||0), String(sa.not_marked||0)]],
-          [95, 95, 95, 95, 95],
-          { headerBg: C.staffBg, headerTextColor: '#1e293b' }
-        );
-      }
+      generateDailyReportPdf(doc, data, query);
 
       doc.end();
     } catch (err) {
