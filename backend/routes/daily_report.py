@@ -55,10 +55,15 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
     # Diesel / Pump Account
     diesel_txns = await db.diesel_accounts.find(q, {"_id": 0}).to_list(500)
     diesel_total_amount = sum(t.get("amount", 0) for t in diesel_txns if t.get("txn_type") in ("diesel", "debit"))
-    diesel_total_paid = sum(t.get("amount", 0) for t in diesel_txns if t.get("txn_type") in ("payment", "credit"))
+    diesel_acc_paid = sum(t.get("amount", 0) for t in diesel_txns if t.get("txn_type") in ("payment", "credit"))
 
     # Cash Book
     cash_txns = await db.cash_transactions.find(q, {"_id": 0}).to_list(500)
+    # Also check ledger nikasi for diesel payments (handles manual cashbook payments)
+    diesel_ledger_paid = sum(t.get("amount", 0) for t in cash_txns
+        if t.get("account") == "ledger" and t.get("txn_type") == "nikasi"
+        and ((t.get("party_type") or "") == "Diesel" or (t.get("reference") or "").startswith("diesel_pay")))
+    diesel_total_paid = max(diesel_acc_paid, diesel_ledger_paid)
     cash_jama = sum(t.get("amount", 0) for t in cash_txns if t.get("txn_type") == "jama" and t.get("account") == "cash")
     cash_nikasi = sum(t.get("amount", 0) for t in cash_txns if t.get("txn_type") == "nikasi" and t.get("account") == "cash")
     bank_jama = sum(t.get("amount", 0) for t in cash_txns if t.get("txn_type") == "jama" and t.get("account") == "bank")

@@ -41,7 +41,13 @@ function getDailyReportData(query) {
   const saleVouchers = (col('sale_vouchers') || []).filter(sv => sv.date === date);
   const purchaseVouchers = (col('purchase_vouchers') || []).filter(pv => pv.date === date);
   const dieselTotalAmount = dieselTxns.filter(t => t.txn_type === 'diesel' || t.txn_type === 'debit').reduce((s, t) => s + (t.amount || 0), 0);
-  const dieselTotalPaid = dieselTxns.filter(t => t.txn_type === 'payment' || t.txn_type === 'credit').reduce((s, t) => s + (t.amount || 0), 0);
+  // Use max of diesel_accounts payments OR ledger nikasi (handles manual cashbook payments)
+  const dieselAccPaid = dieselTxns.filter(t => t.txn_type === 'payment' || t.txn_type === 'credit').reduce((s, t) => s + (t.amount || 0), 0);
+  const allCashTxnsFy = filterFy(col('cash_transactions'));
+  const dieselLedgerPaid = allCashTxnsFy.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi'
+    && ((t.party_type || '') === 'Diesel' || (t.reference || '').startsWith('diesel_pay'))
+  ).reduce((s, t) => s + (t.amount || 0), 0);
+  const dieselTotalPaid = Math.max(dieselAccPaid, dieselLedgerPaid);
 
   // Build entry_id -> mandi_name map for diesel mandi lookup
   const entryMandiMap = {};
@@ -122,7 +128,7 @@ function getDailyReportData(query) {
       count: dcDeliveries.length,
       total_bags: dcDeliveries.reduce((s, e) => s + (e.bags || 0), 0),
       total_qntl: dcDeliveries.reduce((s, e) => s + (e.qntl || 0), 0),
-      details: isDetail ? dcDeliveries.map(d => ({ dc_no: d.dc_no||'', type: d.rice_type||'', bags: d.bags||0, qntl: d.qntl||0, destination: d.destination||'' })) : []
+      details: isDetail ? dcDeliveries.map(d => ({ dc_no: d.dc_no||'', godown: d.godown||d.destination||'', vehicle: d.vehicle_no||d.vehicle||'', bags: d.bags||0, qntl: d.qntl||0, type: d.rice_type||'' })) : []
     },
     cash_flow: {
       cash_jama: +cashJama.toFixed(2), cash_nikasi: +cashNikasi.toFixed(2),
@@ -132,6 +138,9 @@ function getDailyReportData(query) {
     },
     payments: {
       msp_received: +mspAmount.toFixed(2), pvt_paddy_paid: +pvtPaid.toFixed(2), rice_sale_received: +pvtReceived.toFixed(2),
+      msp_details: msp.map(p => ({ party: p.party_name||'', amount: p.amount||0, mode: p.payment_mode||'Cash' })),
+      pvt_payment_details: pvtPayments.filter(p => p.ref_type === 'paddy_purchase').map(p => ({ party: p.party_name||'', amount: p.amount||0, mode: p.payment_mode||'Cash' })),
+      rice_sale_details: pvtPayments.filter(p => p.ref_type === 'rice_sale').map(p => ({ party: p.party_name||p.buyer_name||'', amount: p.amount||0, mode: p.payment_mode||'Cash' }))
     },
     byproducts: {
       count: bpSales.length,
@@ -149,7 +158,7 @@ function getDailyReportData(query) {
       used_count: partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').length,
       in_amount: partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').reduce((s, t) => s + (t.amount || t.total_cost || 0), 0),
       in_details: isDetail ? partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').map(t => ({ part: t.part_name||'', qty: t.quantity||0, rate: t.rate||0, party: t.party_name||'', bill_no: t.bill_no||'', amount: t.amount||t.total_cost||t.total_amount||0 })) : [],
-      used_details: isDetail ? partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').map(t => ({ part: t.part_name||'', qty: t.quantity||0 })) : []
+      used_details: isDetail ? partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').map(t => ({ part: t.part_name||'', qty: t.quantity||0, remark: t.remark||t.description||'' })) : []
     },
     pump_account: {
       total_diesel: +dieselTotalAmount.toFixed(2),
