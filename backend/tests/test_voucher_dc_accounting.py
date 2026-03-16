@@ -8,7 +8,7 @@ import time
 import os
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://worker-settlement-1.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://sardar-ledger.preview.emergentagent.com')
 BASE_URL = BASE_URL.rstrip('/')
 
 TEST_PREFIX = "TEST_VP_"
