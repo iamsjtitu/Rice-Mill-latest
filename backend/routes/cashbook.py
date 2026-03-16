@@ -328,6 +328,19 @@ async def delete_cash_transactions_bulk(request: Request):
     ids = body.get("ids", [])
     if not ids:
         raise HTTPException(status_code=400, detail="No ids provided")
+    # Revert hemali payments for any hemali cashbook entries being deleted
+    hemali_txns = await db.cash_transactions.find(
+        {"id": {"$in": ids}, "reference": {"$regex": "^hemali_payment:"}}, {"_id": 0}
+    ).to_list(1000)
+    for txn in hemali_txns:
+        hemali_pid = txn["reference"].replace("hemali_payment:", "")
+        await db.hemali_payments.update_one(
+            {"id": hemali_pid},
+            {"$set": {"status": "unpaid", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        await db.local_party_accounts.delete_many({
+            "reference": {"$in": [f"hemali_work:{hemali_pid}", f"hemali_paid:{hemali_pid}"]}
+        })
     result = await db.cash_transactions.delete_many({"id": {"$in": ids}})
     return {"message": f"{result.deleted_count} transactions deleted", "deleted": result.deleted_count}
 
@@ -430,6 +443,20 @@ async def delete_cash_transaction(txn_id: str):
     
     # Also delete auto-created ledger entry
     await db.cash_transactions.delete_many({"reference": f"auto_ledger:{txn_id[:8]}"})
+
+    # Revert hemali payment to unpaid if this was a hemali cashbook entry
+    ref = txn.get("reference", "")
+    if ref.startswith("hemali_payment:"):
+        hemali_pid = ref.replace("hemali_payment:", "")
+        await db.hemali_payments.update_one(
+            {"id": hemali_pid},
+            {"$set": {"status": "unpaid", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        # Remove linked party ledger entries
+        await db.local_party_accounts.delete_many({
+            "reference": {"$in": [f"hemali_work:{hemali_pid}", f"hemali_paid:{hemali_pid}"]}
+        })
+
     await db.cash_transactions.delete_one({"id": txn_id})
     return {"message": "Transaction deleted", "id": txn_id}
 

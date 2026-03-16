@@ -174,3 +174,61 @@ async def fix_empty_descriptions():
             logger.info(f"Fixed {count} empty descriptions in cash_transactions")
     except Exception as e:
         logger.error(f"Empty description migration error: {e}")
+
+
+@app.on_event("startup")
+async def hemali_integrity_check():
+    """Startup: reconcile hemali payments with cashbook entries"""
+    try:
+        from database import db
+        fixed = 0
+        # 1. Paid hemali payments without cashbook entry → revert to unpaid
+        paid_payments = await db.hemali_payments.find({"status": "paid"}, {"_id": 0}).to_list(5000)
+        for p in paid_payments:
+            cash_entry = await db.cash_transactions.find_one({"reference": f"hemali_payment:{p['id']}"}, {"_id": 0})
+            if not cash_entry:
+                await db.hemali_payments.update_one({"id": p["id"]}, {"$set": {"status": "unpaid"}})
+                await db.local_party_accounts.delete_many({
+                    "reference": {"$in": [f"hemali_work:{p['id']}", f"hemali_paid:{p['id']}"]}
+                })
+                fixed += 1
+                logger.info(f"Hemali integrity: reverted payment {p['id']} to unpaid (no cashbook entry)")
+
+        # 2. Paid hemali payments without party ledger → create party ledger entries
+        paid_payments = await db.hemali_payments.find({"status": "paid"}, {"_id": 0}).to_list(5000)
+        for p in paid_payments:
+            ledger_entry = await db.local_party_accounts.find_one({"reference": f"hemali_work:{p['id']}"}, {"_id": 0})
+            if not ledger_entry:
+                from datetime import datetime, timezone
+                now = datetime.now(timezone.utc).isoformat()
+                import uuid
+                items_desc = ", ".join(f"{i['item_name']} x{i['quantity']}" for i in p.get("items", []))
+                sardar = p.get("sardar_name", "")
+                adv_info = ""
+                if p.get("advance_deducted", 0) > 0:
+                    adv_info += f" | Adv Deducted: Rs.{p['advance_deducted']:.0f}"
+                if p.get("new_advance", 0) > 0:
+                    adv_info += f" | New Advance: Rs.{p['new_advance']:.0f}"
+                await db.local_party_accounts.insert_one({
+                    "id": str(uuid.uuid4()), "date": p["date"], "party_name": "Hemali Payment",
+                    "txn_type": "debit", "amount": p.get("total", 0),
+                    "description": f"{sardar} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
+                    "reference": f"hemali_work:{p['id']}", "source_type": "hemali",
+                    "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
+                    "created_by": p.get("created_by", ""), "created_at": now,
+                })
+                await db.local_party_accounts.insert_one({
+                    "id": str(uuid.uuid4()), "date": p["date"], "party_name": "Hemali Payment",
+                    "txn_type": "payment", "amount": p.get("amount_paid", 0),
+                    "description": f"{sardar} - Paid Rs.{p.get('amount_paid',0):.0f}{adv_info}",
+                    "reference": f"hemali_paid:{p['id']}", "source_type": "hemali",
+                    "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
+                    "created_by": p.get("created_by", ""), "created_at": now,
+                })
+                fixed += 1
+                logger.info(f"Hemali integrity: created missing party ledger for payment {p['id']}")
+
+        if fixed > 0:
+            logger.info(f"Hemali integrity check: fixed {fixed} payments")
+    except Exception as e:
+        logger.error(f"Hemali integrity check error: {e}")

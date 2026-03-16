@@ -196,6 +196,23 @@ module.exports = function(database) {
 
     // Also delete auto-created ledger entry
     const txnIdShort = req.params.id.slice(0, 8);
+
+    // Revert hemali payment to unpaid if this was a hemali cashbook entry
+    const ref = txn.reference || '';
+    if (ref.startsWith('hemali_payment:')) {
+      const hemaliPid = ref.replace('hemali_payment:', '');
+      const hemaliPayments = database.data.hemali_payments || [];
+      const hp = hemaliPayments.find(p => p.id === hemaliPid);
+      if (hp) {
+        hp.status = 'unpaid';
+        hp.updated_at = new Date().toISOString();
+      }
+      // Remove linked party ledger entries
+      database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
+        t.reference !== `hemali_work:${hemaliPid}` && t.reference !== `hemali_paid:${hemaliPid}`
+      );
+    }
+
     database.data.cash_transactions = database.data.cash_transactions.filter(t =>
       t.id !== req.params.id && t.reference !== `auto_ledger:${txnIdShort}`
     );
@@ -242,6 +259,15 @@ module.exports = function(database) {
     const ids = req.body.ids || [];
     if (!ids.length) return res.status(400).json({ detail: 'No ids provided' });
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    // Revert hemali payments for any hemali cashbook entries being deleted
+    database.data.cash_transactions.filter(t => ids.includes(t.id) && (t.reference || '').startsWith('hemali_payment:')).forEach(txn => {
+      const hemaliPid = txn.reference.replace('hemali_payment:', '');
+      const hp = (database.data.hemali_payments || []).find(p => p.id === hemaliPid);
+      if (hp) { hp.status = 'unpaid'; hp.updated_at = new Date().toISOString(); }
+      database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
+        t.reference !== `hemali_work:${hemaliPid}` && t.reference !== `hemali_paid:${hemaliPid}`
+      );
+    });
     const before = database.data.cash_transactions.length;
     // Collect auto_ledger references for the deleted transactions
     const autoLedgerRefs = ids.map(id => `auto_ledger:${id.slice(0, 8)}`);

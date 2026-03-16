@@ -1143,6 +1143,59 @@ function createApiServer(database) {
       fixCount += fixedPartyType;
       console.log(`[Cleanup] Fixed ${fixedPartyType} entries with missing party_type`);
     }
+
+    // 4. Hemali integrity check - reconcile hemali payments with cashbook
+    let hemaliFixed = 0;
+    const hemaliPayments = database.data.hemali_payments || [];
+    const cashTxns = database.data.cash_transactions || [];
+    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+
+    // 4a. Paid hemali payments without cashbook entry → revert to unpaid
+    hemaliPayments.filter(p => p.status === 'paid').forEach(p => {
+      const hasCashEntry = cashTxns.some(t => t.reference === `hemali_payment:${p.id}`);
+      if (!hasCashEntry) {
+        p.status = 'unpaid';
+        p.updated_at = new Date().toISOString();
+        database.data.local_party_accounts = database.data.local_party_accounts.filter(t =>
+          t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
+        );
+        hemaliFixed++;
+        console.log(`[Hemali] Reverted payment ${p.id} to unpaid (no cashbook entry)`);
+      }
+    });
+
+    // 4b. Paid hemali payments without party ledger → create entries
+    hemaliPayments.filter(p => p.status === 'paid').forEach(p => {
+      const hasLedger = database.data.local_party_accounts.some(t => t.reference === `hemali_work:${p.id}`);
+      if (!hasLedger) {
+        const { v4: _uuid } = require('uuid');
+        const itemsDesc = (p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
+        const sardar = p.sardar_name || '';
+        let advInfo = '';
+        if ((p.advance_deducted || 0) > 0) advInfo += ` | Adv Deducted: Rs.${Math.round(p.advance_deducted)}`;
+        if ((p.new_advance || 0) > 0) advInfo += ` | New Advance: Rs.${Math.round(p.new_advance)}`;
+        const base = { kms_year: p.kms_year || '', season: p.season || '', created_by: p.created_by || '', created_at: new Date().toISOString() };
+        database.data.local_party_accounts.push({
+          id: _uuid(), date: p.date, party_name: 'Hemali Payment',
+          txn_type: 'debit', amount: p.total || 0,
+          description: `${sardar} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`,
+          reference: `hemali_work:${p.id}`, source_type: 'hemali', ...base
+        });
+        database.data.local_party_accounts.push({
+          id: _uuid(), date: p.date, party_name: 'Hemali Payment',
+          txn_type: 'payment', amount: p.amount_paid || 0,
+          description: `${sardar} - Paid Rs.${Math.round(p.amount_paid || 0)}${advInfo}`,
+          reference: `hemali_paid:${p.id}`, source_type: 'hemali', ...base
+        });
+        hemaliFixed++;
+        console.log(`[Hemali] Created missing party ledger for payment ${p.id}`);
+      }
+    });
+
+    if (hemaliFixed > 0) {
+      fixCount += hemaliFixed;
+      console.log(`[Hemali] Integrity check: fixed ${hemaliFixed} payments`);
+    }
     
     if (fixCount > 0) {
       database.save();
