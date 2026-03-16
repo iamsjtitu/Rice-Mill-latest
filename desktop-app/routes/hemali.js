@@ -145,7 +145,7 @@ module.exports = (database) => {
     p.amount_paid = amountPaid;
     p.new_advance = newAdvance;
     p.updated_at = new Date().toISOString();
-    // Create cash entries
+    // Create cash entry (cashbook nikasi only)
     const itemsDesc = (p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
     const base = { kms_year: p.kms_year || '', season: p.season || '', created_by: p.created_by || '', created_at: p.updated_at, updated_at: p.updated_at };
     col('cash_transactions').push({
@@ -154,22 +154,6 @@ module.exports = (database) => {
       description: `Hemali: ${p.sardar_name} - ${itemsDesc}`,
       reference: `hemali_payment:${p.id}`, ...base
     });
-    if (newAdvance > 0) {
-      col('cash_transactions').push({
-        id: uuidv4(), date: p.date, account: 'ledger', txn_type: 'jama',
-        amount: newAdvance, category: p.sardar_name, party_type: 'Hemali',
-        description: `Hemali Advance: ${p.sardar_name} (extra paid Rs.${newAdvance})`,
-        reference: `hemali_advance:${p.id}`, ...base
-      });
-    }
-    if ((p.advance_deducted || 0) > 0) {
-      col('cash_transactions').push({
-        id: uuidv4(), date: p.date, account: 'ledger', txn_type: 'nikasi',
-        amount: p.advance_deducted, category: p.sardar_name, party_type: 'Hemali',
-        description: `Hemali Advance Deducted: ${p.sardar_name} (Rs.${p.advance_deducted} adjusted)`,
-        reference: `hemali_adv_deduct:${p.id}`, ...base
-      });
-    }
     // Party Ledger entries
     if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
     database.data.local_party_accounts.push({
@@ -198,7 +182,7 @@ module.exports = (database) => {
     p.updated_at = new Date().toISOString();
     // Remove linked cash_transactions
     database.data.cash_transactions = col('cash_transactions').filter(t =>
-      t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_advance:${p.id}` && t.reference !== `hemali_adv_deduct:${p.id}`
+      t.reference !== `hemali_payment:${p.id}`
     );
     // Remove party ledger entries
     database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
@@ -216,7 +200,7 @@ module.exports = (database) => {
     const p = payments[idx];
     // Remove cash entries
     database.data.cash_transactions = col('cash_transactions').filter(t =>
-      t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_advance:${p.id}` && t.reference !== `hemali_adv_deduct:${p.id}`
+      t.reference !== `hemali_payment:${p.id}`
     );
     // Remove party ledger entries
     database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>

@@ -180,7 +180,7 @@ async def create_hemali_payment(request: Request):
 
 
 async def _create_cash_entries(p):
-    """Create cash book + ledger + party ledger entries for a paid hemali payment."""
+    """Create cash book + party ledger entries for a paid hemali payment."""
     now = datetime.now(timezone.utc).isoformat()
     pid = p["id"]
     sardar = p["sardar_name"]
@@ -195,26 +195,6 @@ async def _create_cash_entries(p):
         "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
         "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now,
     })
-    # Ledger: Jama if new advance (sardar owes us)
-    if p.get("new_advance", 0) > 0:
-        await db.cash_transactions.insert_one({
-            "id": str(uuid.uuid4()), "date": p["date"], "account": "ledger", "txn_type": "jama",
-            "amount": p["new_advance"], "category": sardar, "party_type": "Hemali",
-            "description": f"Hemali Advance: {sardar} (extra paid Rs.{p['new_advance']})",
-            "reference": f"hemali_advance:{pid}",
-            "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
-            "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now,
-        })
-    # Ledger: Nikasi if advance deducted (reduces sardar's debt)
-    if p.get("advance_deducted", 0) > 0:
-        await db.cash_transactions.insert_one({
-            "id": str(uuid.uuid4()), "date": p["date"], "account": "ledger", "txn_type": "nikasi",
-            "amount": p["advance_deducted"], "category": sardar, "party_type": "Hemali",
-            "description": f"Hemali Advance Deducted: {sardar} (Rs.{p['advance_deducted']} adjusted)",
-            "reference": f"hemali_adv_deduct:{pid}",
-            "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
-            "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now,
-        })
 
     # Party Ledger: Debit entry (work done by sardar)
     await db.local_party_accounts.insert_one({
@@ -249,13 +229,9 @@ async def _create_cash_entries(p):
 
 
 async def _remove_cash_entries(payment_id):
-    """Remove all cash book + ledger + party ledger entries linked to a hemali payment."""
+    """Remove all cash book + party ledger entries linked to a hemali payment."""
     await db.cash_transactions.delete_many({
-        "reference": {"$in": [
-            f"hemali_payment:{payment_id}",
-            f"hemali_advance:{payment_id}",
-            f"hemali_adv_deduct:{payment_id}",
-        ]}
+        "reference": f"hemali_payment:{payment_id}"
     })
     await db.local_party_accounts.delete_many({
         "reference": {"$in": [
