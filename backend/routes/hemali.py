@@ -180,7 +180,7 @@ async def create_hemali_payment(request: Request):
 
 
 async def _create_cash_entries(p):
-    """Create cash book + ledger entries for a paid hemali payment."""
+    """Create cash book + ledger + party ledger entries for a paid hemali payment."""
     now = datetime.now(timezone.utc).isoformat()
     pid = p["id"]
     sardar = p["sardar_name"]
@@ -216,14 +216,51 @@ async def _create_cash_entries(p):
             "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now,
         })
 
+    # Party Ledger: Debit entry (work done by sardar)
+    await db.local_party_accounts.insert_one({
+        "id": str(uuid.uuid4()),
+        "date": p["date"],
+        "party_name": sardar,
+        "txn_type": "debit",
+        "amount": p.get("total", 0),
+        "description": f"Hemali Work: {items_desc}",
+        "reference": f"hemali_work:{pid}",
+        "source_type": "hemali",
+        "kms_year": p.get("kms_year", ""),
+        "season": p.get("season", ""),
+        "created_by": p.get("created_by", ""),
+        "created_at": now,
+    })
+    # Party Ledger: Payment entry (paid to sardar)
+    await db.local_party_accounts.insert_one({
+        "id": str(uuid.uuid4()),
+        "date": p["date"],
+        "party_name": sardar,
+        "txn_type": "payment",
+        "amount": p.get("amount_paid", 0),
+        "description": f"Hemali Payment: {items_desc}",
+        "reference": f"hemali_paid:{pid}",
+        "source_type": "hemali",
+        "kms_year": p.get("kms_year", ""),
+        "season": p.get("season", ""),
+        "created_by": p.get("created_by", ""),
+        "created_at": now,
+    })
+
 
 async def _remove_cash_entries(payment_id):
-    """Remove all cash book + ledger entries linked to a hemali payment."""
+    """Remove all cash book + ledger + party ledger entries linked to a hemali payment."""
     await db.cash_transactions.delete_many({
         "reference": {"$in": [
             f"hemali_payment:{payment_id}",
             f"hemali_advance:{payment_id}",
             f"hemali_adv_deduct:{payment_id}",
+        ]}
+    })
+    await db.local_party_accounts.delete_many({
+        "reference": {"$in": [
+            f"hemali_work:{payment_id}",
+            f"hemali_paid:{payment_id}",
         ]}
     })
 
@@ -272,6 +309,55 @@ async def undo_hemali_payment(payment_id: str):
     )
     await _remove_cash_entries(payment_id)
     return {"message": "Payment undone", "id": payment_id}
+
+
+@router.put("/hemali/payments/{payment_id}")
+async def update_hemali_payment(payment_id: str, request: Request):
+    """Edit an unpaid hemali payment (items, sardar, date etc.)"""
+    p = await db.hemali_payments.find_one({"id": payment_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if p.get("status") == "paid":
+        raise HTTPException(status_code=400, detail="Paid payment edit nahi ho sakti. Pehle undo karein.")
+
+    d = await request.json()
+    sardar_name = (d.get("sardar_name") or p.get("sardar_name", "")).strip()
+    items = d.get("items") or p.get("items", [])
+    date_val = d.get("date") or p.get("date", "")
+    kms_year = d.get("kms_year") or p.get("kms_year", "")
+    season = d.get("season") or p.get("season", "")
+
+    total = round(sum((float(i.get("quantity") or 0)) * (float(i.get("rate") or 0)) for i in items), 2)
+    prev_advance = await get_advance_balance(sardar_name, kms_year, season)
+    advance_deducted = min(prev_advance, total)
+    amount_payable = round(total - advance_deducted, 2)
+    amount_paid = float(d.get("amount_paid") or amount_payable)
+    new_advance = round(max(0, amount_paid - amount_payable), 2)
+
+    update_doc = {
+        "sardar_name": sardar_name,
+        "date": date_val,
+        "items": [
+            {
+                "item_name": i.get("item_name", ""),
+                "rate": float(i.get("rate") or 0),
+                "quantity": float(i.get("quantity") or 0),
+                "amount": round(float(i.get("quantity") or 0) * float(i.get("rate") or 0), 2),
+            }
+            for i in items
+        ],
+        "total": total,
+        "advance_before": prev_advance,
+        "advance_deducted": advance_deducted,
+        "amount_payable": amount_payable,
+        "amount_paid": amount_paid,
+        "new_advance": new_advance,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    await db.hemali_payments.update_one({"id": payment_id}, {"$set": update_doc})
+    updated = await db.hemali_payments.find_one({"id": payment_id}, {"_id": 0})
+    return updated
 
 
 @router.delete("/hemali/payments/{payment_id}")

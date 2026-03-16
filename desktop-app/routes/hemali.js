@@ -101,6 +101,38 @@ module.exports = (database) => {
     res.json(payment);
   }));
 
+  // EDIT PAYMENT (unpaid only)
+  router.put('/api/hemali/payments/:id', safeHandler(async (req, res) => {
+    const payments = col('hemali_payments');
+    const p = payments.find(p => p.id === req.params.id);
+    if (!p) return res.status(404).json({ detail: 'Payment not found' });
+    if (p.status === 'paid') return res.status(400).json({ detail: 'Paid payment edit nahi ho sakti. Pehle undo karein.' });
+
+    const d = req.body;
+    const sardarName = (d.sardar_name || p.sardar_name || '').trim();
+    const items = d.items || p.items || [];
+    const dateVal = d.date || p.date || '';
+    const kmsYear = d.kms_year || p.kms_year || '';
+    const season = d.season || p.season || '';
+
+    const total = Math.round(items.reduce((s, i) => s + ((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0)), 0) * 100) / 100;
+    const prevAdvance = getAdvanceBalance(sardarName, kmsYear, season);
+    const advanceDeducted = Math.min(prevAdvance, total);
+    const amountPayable = Math.round((total - advanceDeducted) * 100) / 100;
+    const amountPaid = parseFloat(d.amount_paid) || amountPayable;
+    const newAdvance = Math.round(Math.max(0, amountPaid - amountPayable) * 100) / 100;
+
+    Object.assign(p, {
+      sardar_name: sardarName, date: dateVal,
+      items: items.map(i => ({ item_name: i.item_name, rate: parseFloat(i.rate) || 0, quantity: parseFloat(i.quantity) || 0, amount: Math.round((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0) * 100) / 100 })),
+      total, advance_before: prevAdvance, advance_deducted: advanceDeducted,
+      amount_payable: amountPayable, amount_paid: amountPaid, new_advance: newAdvance,
+      updated_at: new Date().toISOString()
+    });
+    database.save();
+    res.json(p);
+  }));
+
   // MARK PAID
   router.put('/api/hemali/payments/:id/mark-paid', safeHandler(async (req, res) => {
     const payments = col('hemali_payments');
@@ -138,6 +170,20 @@ module.exports = (database) => {
         reference: `hemali_adv_deduct:${p.id}`, ...base
       });
     }
+    // Party Ledger entries
+    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+    database.data.local_party_accounts.push({
+      id: uuidv4(), date: p.date, party_name: p.sardar_name,
+      txn_type: 'debit', amount: p.total || 0,
+      description: `Hemali Work: ${itemsDesc}`,
+      reference: `hemali_work:${p.id}`, source_type: 'hemali', ...base
+    });
+    database.data.local_party_accounts.push({
+      id: uuidv4(), date: p.date, party_name: p.sardar_name,
+      txn_type: 'payment', amount: amountPaid,
+      description: `Hemali Payment: ${itemsDesc}`,
+      reference: `hemali_paid:${p.id}`, source_type: 'hemali', ...base
+    });
     database.save();
     res.json({ message: 'Payment marked as paid', id: p.id, amount_paid: amountPaid, new_advance: newAdvance });
   }));
@@ -154,6 +200,10 @@ module.exports = (database) => {
     database.data.cash_transactions = col('cash_transactions').filter(t =>
       t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_advance:${p.id}` && t.reference !== `hemali_adv_deduct:${p.id}`
     );
+    // Remove party ledger entries
+    database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
+      t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
+    );
     database.save();
     res.json({ message: 'Payment undone', id: p.id });
   }));
@@ -164,8 +214,13 @@ module.exports = (database) => {
     const idx = payments.findIndex(p => p.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Payment not found' });
     const p = payments[idx];
+    // Remove cash entries
     database.data.cash_transactions = col('cash_transactions').filter(t =>
       t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_advance:${p.id}` && t.reference !== `hemali_adv_deduct:${p.id}`
+    );
+    // Remove party ledger entries
+    database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
+      t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
     );
     payments.splice(idx, 1);
     database.save();

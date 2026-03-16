@@ -125,6 +125,12 @@ const MonthlySummary = ({ filters }) => {
     return opts;
   })();
 
+  // Format YYYY-MM to MM-YYYY
+  const fmtMonth = (m) => {
+    if (!m || m.length < 7) return m;
+    return `${m.slice(5, 7)}-${m.slice(0, 4)}`;
+  };
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -171,7 +177,7 @@ const MonthlySummary = ({ filters }) => {
             </SelectTrigger>
             <SelectContent className="bg-slate-800 border-slate-600">
               <SelectItem value="all" className="text-white">All Months</SelectItem>
-              {monthOptions.map(m => <SelectItem key={m} value={m} className="text-white">{m}</SelectItem>)}
+              {monthOptions.map(m => <SelectItem key={m} value={m} className="text-white">{fmtMonth(m)}</SelectItem>)}
             </SelectContent>
           </Select>
           <Input value={filterSardar} onChange={e => setFilterSardar(e.target.value)}
@@ -216,7 +222,7 @@ const MonthlySummary = ({ filters }) => {
                     <tbody>
                       {sardar.months.map((m, mi) => (
                         <tr key={m.month} className="border-b border-slate-700/50 hover:bg-slate-800/50">
-                          <td className="py-2 px-3 text-white font-medium">{m.month}</td>
+                          <td className="py-2 px-3 text-white font-medium">{fmtMonth(m.month)}</td>
                           <td className="py-2 px-3 text-center text-slate-300">{m.paid_payments}/{m.total_payments}</td>
                           <td className="py-2 px-3 text-right text-amber-400">Rs.{m.total_work.toLocaleString("en-IN")}</td>
                           <td className="py-2 px-3 text-right text-red-400">Rs.{m.total_paid.toLocaleString("en-IN")}</td>
@@ -256,6 +262,12 @@ export default function HemaliPayment({ filters, user }) {
   const [sardars, setSardars] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [editId, setEditId] = useState(null);
+
+  // Mark Paid dialog
+  const [showMarkPaid, setShowMarkPaid] = useState(false);
+  const [markPaidPayment, setMarkPaidPayment] = useState(null);
+  const [markPaidAmount, setMarkPaidAmount] = useState("");
 
   // Filters
   const [dateFrom, setDateFrom] = useState("");
@@ -316,6 +328,7 @@ export default function HemaliPayment({ filters, user }) {
   }, [form.sardar_name, showCreate, fetchAdvance]);
 
   const openCreate = () => {
+    setEditId(null);
     setForm({
       sardar_name: "",
       date: new Date().toISOString().split("T")[0],
@@ -323,6 +336,26 @@ export default function HemaliPayment({ filters, user }) {
       amount_paid: "",
     });
     setAdvanceInfo({ advance: 0, sardar_name: "" });
+    setShowCreate(true);
+  };
+
+  const openEdit = (p) => {
+    setEditId(p.id);
+    // Map existing items + any new items from config
+    const existingNames = new Set((p.items || []).map(i => i.item_name));
+    const formItems = (p.items || []).map(i => ({ item_name: i.item_name, rate: i.rate, quantity: String(i.quantity) }));
+    for (const ci of items) {
+      if (!existingNames.has(ci.name)) {
+        formItems.push({ item_name: ci.name, rate: ci.rate, quantity: "" });
+      }
+    }
+    setForm({
+      sardar_name: p.sardar_name,
+      date: p.date,
+      items: formItems,
+      amount_paid: String(p.amount_paid || ""),
+    });
+    setAdvanceInfo({ advance: p.advance_before || 0, sardar_name: p.sardar_name });
     setShowCreate(true);
   };
 
@@ -336,7 +369,7 @@ export default function HemaliPayment({ filters, user }) {
     const usedItems = form.items.filter(i => parseFloat(i.quantity) > 0);
     if (!usedItems.length) return toast.error("Kam se kam ek item ki quantity bharein");
     try {
-      await axios.post(`${API}/hemali/payments`, {
+      const payload = {
         sardar_name: form.sardar_name.trim(),
         date: form.date,
         items: usedItems,
@@ -344,12 +377,19 @@ export default function HemaliPayment({ filters, user }) {
         kms_year: filters.kms_year || "",
         season: filters.season || "",
         created_by: user?.username || "",
-      });
-      toast.success("Hemali payment created!");
+      };
+      if (editId) {
+        await axios.put(`${API}/hemali/payments/${editId}`, payload);
+        toast.success("Hemali payment updated!");
+      } else {
+        await axios.post(`${API}/hemali/payments`, payload);
+        toast.success("Hemali payment created!");
+      }
       setShowCreate(false);
+      setEditId(null);
       fetchPayments();
       fetchSardars();
-    } catch (e) { toast.error(e.response?.data?.detail || "Error creating payment"); }
+    } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
   };
 
   const handleUndo = async (id) => {
@@ -361,11 +401,21 @@ export default function HemaliPayment({ filters, user }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Undo error"); }
   };
 
-  const handleMarkPaid = async (id) => {
-    if (!window.confirm("Payment ko PAID mark karein? Cash book mein entry hogi.")) return;
+  const handleMarkPaid = (p) => {
+    setMarkPaidPayment(p);
+    setMarkPaidAmount(String(p.amount_payable || p.amount_paid || 0));
+    setShowMarkPaid(true);
+  };
+
+  const confirmMarkPaid = async () => {
+    if (!markPaidPayment) return;
+    const amt = parseFloat(markPaidAmount) || 0;
+    if (amt <= 0) return toast.error("Amount 0 se zyada hona chahiye");
     try {
-      await axios.put(`${API}/hemali/payments/${id}/mark-paid`, {});
+      await axios.put(`${API}/hemali/payments/${markPaidPayment.id}/mark-paid`, { amount_paid: amt });
       toast.success("Payment marked as Paid!");
+      setShowMarkPaid(false);
+      setMarkPaidPayment(null);
       fetchPayments();
     } catch (e) { toast.error(e.response?.data?.detail || "Mark paid error"); }
   };
@@ -544,9 +594,14 @@ export default function HemaliPayment({ filters, user }) {
                         </td>
                         <td className="py-2 px-3 text-center whitespace-nowrap">
                           {p.status === "unpaid" && (
-                            <Button onClick={() => handleMarkPaid(p.id)} variant="ghost" size="sm" className="text-green-400 h-7 px-2" title="Mark Paid" data-testid={`hemali-mark-paid-${idx}`}>
-                              <CheckCircle className="w-3 h-3" />
-                            </Button>
+                            <>
+                              <Button onClick={() => handleMarkPaid(p)} variant="ghost" size="sm" className="text-green-400 h-7 px-2" title="Make Payment" data-testid={`hemali-mark-paid-${idx}`}>
+                                <CheckCircle className="w-3 h-3" />
+                              </Button>
+                              <Button onClick={() => openEdit(p)} variant="ghost" size="sm" className="text-blue-400 h-7 px-2" title="Edit" data-testid={`hemali-edit-${idx}`}>
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                            </>
                           )}
                           {p.status === "paid" && (
                             <Button onClick={() => handleUndo(p.id)} variant="ghost" size="sm" className="text-orange-400 h-7 px-2" title="Undo Payment" data-testid={`hemali-undo-${idx}`}>
@@ -573,7 +628,7 @@ export default function HemaliPayment({ filters, user }) {
       {/* Create Payment Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="hemali-create-dialog">
-          <DialogHeader><DialogTitle className="text-amber-400 flex items-center gap-2"><Calculator className="w-5 h-5" /> Nayi Hemali Payment</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-amber-400 flex items-center gap-2"><Calculator className="w-5 h-5" /> {editId ? 'Edit' : 'Nayi'} Hemali Payment</DialogTitle></DialogHeader>
           <div className="space-y-4">
             {/* Sardar + Date */}
             <div className="grid grid-cols-2 gap-3">
@@ -651,9 +706,43 @@ export default function HemaliPayment({ filters, user }) {
             </div>
 
             <Button onClick={handleCreate} className="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold" data-testid="hemali-submit-payment">
-              <IndianRupee className="w-4 h-4 mr-1" /> Payment Create Karein
+              <IndianRupee className="w-4 h-4 mr-1" /> {editId ? 'Payment Update Karein' : 'Payment Create Karein'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark Paid Dialog */}
+      <Dialog open={showMarkPaid} onOpenChange={setShowMarkPaid}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md" data-testid="hemali-mark-paid-dialog">
+          <DialogHeader><DialogTitle className="text-green-400 flex items-center gap-2"><CheckCircle className="w-5 h-5" /> Make Payment</DialogTitle></DialogHeader>
+          {markPaidPayment && (
+            <div className="space-y-4">
+              <div className="bg-slate-900 rounded p-3 space-y-1 text-sm">
+                <div className="flex justify-between"><span className="text-slate-400">Sardar:</span><span className="text-white font-semibold">{markPaidPayment.sardar_name}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Date:</span><span className="text-white">{fmtDate(markPaidPayment.date)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Total Work:</span><span className="text-amber-400 font-semibold">Rs.{(markPaidPayment.total || 0).toLocaleString("en-IN")}</span></div>
+                {markPaidPayment.advance_deducted > 0 && (
+                  <div className="flex justify-between"><span className="text-yellow-400">Advance Deducted:</span><span className="text-yellow-400">- Rs.{(markPaidPayment.advance_deducted || 0).toLocaleString("en-IN")}</span></div>
+                )}
+                <div className="flex justify-between border-t border-slate-700 pt-1"><span className="text-slate-300 font-medium">Amount Payable:</span><span className="text-amber-400 font-bold">Rs.{(markPaidPayment.amount_payable || 0).toLocaleString("en-IN")}</span></div>
+              </div>
+              <div>
+                <Label className="text-xs text-slate-400">Payment Amount (Rs.) / भुगतान राशि</Label>
+                <Input type="number" value={markPaidAmount} onChange={e => setMarkPaidAmount(e.target.value)}
+                  placeholder="Full or partial amount" className="bg-slate-700 border-slate-600 text-white" data-testid="hemali-mark-paid-amount" />
+                {parseFloat(markPaidAmount) > (markPaidPayment.amount_payable || 0) && (
+                  <p className="text-yellow-400 text-xs mt-1">New Advance: Rs.{(parseFloat(markPaidAmount) - (markPaidPayment.amount_payable || 0)).toFixed(2)}</p>
+                )}
+                {parseFloat(markPaidAmount) < (markPaidPayment.amount_payable || 0) && parseFloat(markPaidAmount) > 0 && (
+                  <p className="text-orange-400 text-xs mt-1">Partial Payment: Rs.{(markPaidPayment.amount_payable - parseFloat(markPaidAmount)).toFixed(2)} remaining</p>
+                )}
+              </div>
+              <Button onClick={confirmMarkPaid} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold" data-testid="hemali-confirm-mark-paid">
+                <CheckCircle className="w-4 h-4 mr-1" /> Payment Confirm Karein
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
