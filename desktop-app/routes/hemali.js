@@ -157,15 +157,15 @@ module.exports = (database) => {
     // Party Ledger entries
     if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
     database.data.local_party_accounts.push({
-      id: uuidv4(), date: p.date, party_name: p.sardar_name,
+      id: uuidv4(), date: p.date, party_name: 'Hemali Payment',
       txn_type: 'debit', amount: p.total || 0,
-      description: `Hemali Work: ${itemsDesc}`,
+      description: `Hemali Work: ${p.sardar_name} - ${itemsDesc}`,
       reference: `hemali_work:${p.id}`, source_type: 'hemali', ...base
     });
     database.data.local_party_accounts.push({
-      id: uuidv4(), date: p.date, party_name: p.sardar_name,
+      id: uuidv4(), date: p.date, party_name: 'Hemali Payment',
       txn_type: 'payment', amount: amountPaid,
-      description: `Hemali Payment: ${itemsDesc}`,
+      description: `Hemali Payment: ${p.sardar_name} - ${itemsDesc}`,
       reference: `hemali_paid:${p.id}`, source_type: 'hemali', ...base
     });
     database.save();
