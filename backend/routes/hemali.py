@@ -203,7 +203,7 @@ async def _create_cash_entries(p):
         "party_name": "Hemali Payment",
         "txn_type": "debit",
         "amount": p.get("total", 0),
-        "description": f"Hemali Work: {sardar} - {items_desc}",
+        "description": f"{sardar} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
         "reference": f"hemali_work:{pid}",
         "source_type": "hemali",
         "kms_year": p.get("kms_year", ""),
@@ -212,13 +212,18 @@ async def _create_cash_entries(p):
         "created_at": now,
     })
     # Party Ledger: Payment entry (paid to sardar)
+    adv_info = ""
+    if p.get("advance_deducted", 0) > 0:
+        adv_info += f" | Adv Deducted: Rs.{p['advance_deducted']:.0f}"
+    if p.get("new_advance", 0) > 0:
+        adv_info += f" | New Advance: Rs.{p['new_advance']:.0f}"
     await db.local_party_accounts.insert_one({
         "id": str(uuid.uuid4()),
         "date": p["date"],
         "party_name": "Hemali Payment",
         "txn_type": "payment",
         "amount": p.get("amount_paid", 0),
-        "description": f"Hemali Payment: {sardar} - {items_desc}",
+        "description": f"{sardar} - Paid Rs.{p.get('amount_paid',0):.0f}{adv_info}",
         "reference": f"hemali_paid:{pid}",
         "source_type": "hemali",
         "kms_year": p.get("kms_year", ""),

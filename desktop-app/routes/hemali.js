@@ -159,13 +159,16 @@ module.exports = (database) => {
     database.data.local_party_accounts.push({
       id: uuidv4(), date: p.date, party_name: 'Hemali Payment',
       txn_type: 'debit', amount: p.total || 0,
-      description: `Hemali Work: ${p.sardar_name} - ${itemsDesc}`,
+      description: `${p.sardar_name} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`,
       reference: `hemali_work:${p.id}`, source_type: 'hemali', ...base
     });
+    let advInfo = '';
+    if ((p.advance_deducted || 0) > 0) advInfo += ` | Adv Deducted: Rs.${Math.round(p.advance_deducted)}`;
+    if (newAdvance > 0) advInfo += ` | New Advance: Rs.${Math.round(newAdvance)}`;
     database.data.local_party_accounts.push({
       id: uuidv4(), date: p.date, party_name: 'Hemali Payment',
       txn_type: 'payment', amount: amountPaid,
-      description: `Hemali Payment: ${p.sardar_name} - ${itemsDesc}`,
+      description: `${p.sardar_name} - Paid Rs.${Math.round(amountPaid)}${advInfo}`,
       reference: `hemali_paid:${p.id}`, source_type: 'hemali', ...base
     });
     database.save();
