@@ -171,6 +171,14 @@ module.exports = (database) => {
       description: `${p.sardar_name} - Paid Rs.${Math.round(amountPaid)}${advInfo}`,
       reference: `hemali_paid:${p.id}`, ...base
     });
+    // Local Party: Debit only (for party discovery)
+    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+    database.data.local_party_accounts.push({
+      id: uuidv4(), date: p.date, party_name: 'Hemali Payment',
+      txn_type: 'debit', amount: p.total || 0,
+      description: `${p.sardar_name} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`,
+      reference: `hemali_debit:${p.id}`, source_type: 'hemali', ...base
+    });
     database.save();
     res.json({ message: 'Payment marked as paid', id: p.id, amount_paid: amountPaid, new_advance: newAdvance });
   }));
@@ -187,6 +195,10 @@ module.exports = (database) => {
     database.data.cash_transactions = col('cash_transactions').filter(t =>
       t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
     );
+    // Remove local party debit entry
+    database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
+      t.reference !== `hemali_debit:${p.id}`
+    );
     database.save();
     res.json({ message: 'Payment undone', id: p.id });
   }));
@@ -200,6 +212,10 @@ module.exports = (database) => {
     // Remove cash + ledger entries
     database.data.cash_transactions = col('cash_transactions').filter(t =>
       t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
+    );
+    // Remove local party debit entry
+    database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
+      t.reference !== `hemali_debit:${p.id}`
     );
     payments.splice(idx, 1);
     database.save();

@@ -180,7 +180,7 @@ async def create_hemali_payment(request: Request):
 
 
 async def _create_cash_entries(p):
-    """Create cash book + ledger entries for a paid hemali payment."""
+    """Create cash book + ledger + local party entries for a paid hemali payment."""
     now = datetime.now(timezone.utc).isoformat()
     pid = p["id"]
     sardar = p["sardar_name"]
@@ -190,7 +190,7 @@ async def _create_cash_entries(p):
         "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now,
     }
 
-    # 1. Cash Book: Nikasi (cash going out)
+    # 1. Cash Book: Nikasi (cash going out) - shows in Cash Transactions tab
     await db.cash_transactions.insert_one({
         "id": str(uuid.uuid4()), "date": p["date"], "account": "cash", "txn_type": "nikasi",
         "amount": p["amount_paid"], "category": "Hemali Payment", "party_type": "Hemali",
@@ -198,7 +198,7 @@ async def _create_cash_entries(p):
         "reference": f"hemali_payment:{pid}", **base,
     })
 
-    # 2. Ledger: Jama (work done = mill owes sardar)
+    # 2. Ledger: Jama (work amount) - shows in Party Ledger tab
     await db.cash_transactions.insert_one({
         "id": str(uuid.uuid4()), "date": p["date"], "account": "ledger", "txn_type": "jama",
         "amount": p.get("total", 0), "category": "Hemali Payment", "party_type": "Hemali",
@@ -206,7 +206,7 @@ async def _create_cash_entries(p):
         "reference": f"hemali_work:{pid}", **base,
     })
 
-    # 3. Ledger: Nikasi (payment to sardar)
+    # 3. Ledger: Nikasi (payment) - shows in Party Ledger tab + Local Party transactions
     adv_info = ""
     if p.get("advance_deducted", 0) > 0:
         adv_info += f" | Adv Deducted: Rs.{p['advance_deducted']:.0f}"
@@ -219,15 +219,28 @@ async def _create_cash_entries(p):
         "reference": f"hemali_paid:{pid}", **base,
     })
 
+    # 4. Local Party: Debit entry only (makes party visible in Local Party summary)
+    await db.local_party_accounts.insert_one({
+        "id": str(uuid.uuid4()), "date": p["date"],
+        "party_name": "Hemali Payment", "txn_type": "debit",
+        "amount": p.get("total", 0),
+        "description": f"{sardar} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
+        "reference": f"hemali_debit:{pid}", "source_type": "hemali",
+        **{k: base[k] for k in ("kms_year", "season", "created_by", "created_at")},
+    })
+
 
 async def _remove_cash_entries(payment_id):
-    """Remove all cash book + ledger entries linked to a hemali payment."""
+    """Remove all cash book + ledger + local party entries linked to a hemali payment."""
     await db.cash_transactions.delete_many({
         "reference": {"$in": [
             f"hemali_payment:{payment_id}",
             f"hemali_work:{payment_id}",
             f"hemali_paid:{payment_id}",
         ]}
+    })
+    await db.local_party_accounts.delete_many({
+        "reference": f"hemali_debit:{payment_id}"
     })
 
 

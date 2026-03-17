@@ -1159,6 +1159,9 @@ function createApiServer(database) {
         database.data.cash_transactions = database.data.cash_transactions.filter(t =>
           t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
         );
+        database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
+          t.reference !== `hemali_debit:${p.id}`
+        );
         hemaliFixed++;
         console.log(`[Hemali] Reverted payment ${p.id} to unpaid (no cashbook entry)`);
       }
@@ -1187,6 +1190,15 @@ function createApiServer(database) {
           description: `${sardar} - Paid Rs.${Math.round(p.amount_paid || 0)}${advInfo}`,
           reference: `hemali_paid:${p.id}`, ...base
         });
+        // Also create local_party_accounts debit if missing
+        if (!(database.data.local_party_accounts || []).some(t => t.reference === `hemali_debit:${p.id}`)) {
+          database.data.local_party_accounts.push({
+            id: _uuid(), date: p.date, party_name: 'Hemali Payment',
+            txn_type: 'debit', amount: p.total || 0,
+            description: `${sardar} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`,
+            reference: `hemali_debit:${p.id}`, source_type: 'hemali', ...base
+          });
+        }
         hemaliFixed++;
         console.log(`[Hemali] Created missing ledger entries for payment ${p.id}`);
       }

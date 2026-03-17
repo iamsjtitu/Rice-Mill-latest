@@ -192,6 +192,9 @@ async def hemali_integrity_check():
                 await db.cash_transactions.delete_many({
                     "reference": {"$in": [f"hemali_work:{p['id']}", f"hemali_paid:{p['id']}"]}
                 })
+                await db.local_party_accounts.delete_many({
+                    "reference": f"hemali_debit:{p['id']}"
+                })
                 fixed += 1
                 logger.info(f"Hemali integrity: reverted payment {p['id']} to unpaid (no cashbook entry)")
 
@@ -222,6 +225,18 @@ async def hemali_integrity_check():
                     "description": f"{sardar} - Paid Rs.{p.get('amount_paid',0):.0f}{adv_info}",
                     "reference": f"hemali_paid:{p['id']}", **base,
                 })
+                # Also create local_party_accounts debit if missing
+                lp_entry = await db.local_party_accounts.find_one({"reference": f"hemali_debit:{p['id']}"}, {"_id": 0})
+                if not lp_entry:
+                    await db.local_party_accounts.insert_one({
+                        "id": str(_uuid.uuid4()), "date": p["date"],
+                        "party_name": "Hemali Payment", "txn_type": "debit",
+                        "amount": p.get("total", 0),
+                        "description": f"{sardar} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
+                        "reference": f"hemali_debit:{p['id']}", "source_type": "hemali",
+                        "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
+                        "created_by": p.get("created_by", ""), "created_at": now,
+                    })
                 fixed += 1
                 logger.info(f"Hemali integrity: created missing ledger entries for payment {p['id']}")
 
