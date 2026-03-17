@@ -342,7 +342,7 @@ async def delete_cash_transactions_bulk(request: Request):
             "reference": {"$in": [f"hemali_work:{hemali_pid}", f"hemali_paid:{hemali_pid}"]}
         })
         await db.local_party_accounts.delete_many({
-            "reference": f"hemali_debit:{hemali_pid}"
+            "reference": {"$in": [f"hemali_debit:{hemali_pid}", f"hemali_paid:{hemali_pid}"]}
         })
     result = await db.cash_transactions.delete_many({"id": {"$in": ids}})
     return {"message": f"{result.deleted_count} transactions deleted", "deleted": result.deleted_count}
@@ -455,12 +455,12 @@ async def delete_cash_transaction(txn_id: str):
             {"id": hemali_pid},
             {"$set": {"status": "unpaid", "updated_at": datetime.now(timezone.utc).isoformat()}}
         )
-        # Remove linked ledger entries + local party debit
+        # Remove linked ledger entries + local party entries
         await db.cash_transactions.delete_many({
             "reference": {"$in": [f"hemali_work:{hemali_pid}", f"hemali_paid:{hemali_pid}"]}
         })
         await db.local_party_accounts.delete_many({
-            "reference": f"hemali_debit:{hemali_pid}"
+            "reference": {"$in": [f"hemali_debit:{hemali_pid}", f"hemali_paid:{hemali_pid}"]}
         })
 
     await db.cash_transactions.delete_one({"id": txn_id})

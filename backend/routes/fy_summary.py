@@ -534,7 +534,7 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
     msp_received = round(sum(m.get("received_amount", 0) for m in msp_docs), 2)
 
     # ===== SEPARATE LEDGER PARTIES INTO DEBTORS vs CREDITORS (EXCLUDE already-tracked party types) =====
-    excluded_ledger_types = {'Local Party', 'Sale Book', 'Purchase Voucher', 'Staff', 'Diesel', 'Truck'}
+    excluded_ledger_types = {'Local Party', 'Sale Book', 'Purchase Voucher', 'Staff', 'Diesel', 'Truck', 'Hemali'}
     sundry_debtors = []  # jama > nikasi → they owe us
     sundry_creditors = []  # nikasi > jama → we owe them
     for l in ledger["parties"]:

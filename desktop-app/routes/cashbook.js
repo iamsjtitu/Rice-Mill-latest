@@ -211,9 +211,9 @@ module.exports = function(database) {
       database.data.cash_transactions = (database.data.cash_transactions || []).filter(t =>
         t.reference !== `hemali_work:${hemaliPid}` && t.reference !== `hemali_paid:${hemaliPid}`
       );
-      // Remove local party debit entry
+      // Remove local party entries (debit + payment)
       database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
-        t.reference !== `hemali_debit:${hemaliPid}`
+        t.reference !== `hemali_debit:${hemaliPid}` && t.reference !== `hemali_paid:${hemaliPid}`
       );
     }
 
@@ -272,9 +272,9 @@ module.exports = function(database) {
       ids.push(...database.data.cash_transactions.filter(t =>
         t.reference === `hemali_work:${hemaliPid}` || t.reference === `hemali_paid:${hemaliPid}`
       ).map(t => t.id));
-      // Remove local party debit
+      // Remove local party entries (debit + payment)
       database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
-        t.reference !== `hemali_debit:${hemaliPid}`
+        t.reference !== `hemali_debit:${hemaliPid}` && t.reference !== `hemali_paid:${hemaliPid}`
       );
     });
     const before = database.data.cash_transactions.length;

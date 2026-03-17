@@ -383,7 +383,7 @@ module.exports = function(database) {
       const dcAccounts = Object.entries(dcMap).sort().map(([name, v]) => ({name, total: rd(v.total), paid: rd(v.paid), balance: rd(v.total - v.paid)}));
 
       // Separate debtors vs creditors (EXCLUDE parties already tracked in other sections)
-      const excludedLedgerTypes = new Set(['Local Party', 'Sale Book', 'Purchase Voucher', 'Staff', 'Diesel', 'Truck']);
+      const excludedLedgerTypes = new Set(['Local Party', 'Sale Book', 'Purchase Voucher', 'Staff', 'Diesel', 'Truck', 'Hemali']);
       const sundryDebtors = [], sundryCreds = [];
       for (const l of ledger.parties) {
         // Skip parties already counted in other balance sheet sections

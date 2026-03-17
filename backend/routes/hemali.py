@@ -219,13 +219,21 @@ async def _create_cash_entries(p):
         "reference": f"hemali_paid:{pid}", **base,
     })
 
-    # 4. Local Party: Debit entry only (makes party visible in Local Party summary)
+    # 4. Local Party: Debit + Payment entries (for party visibility & FY summary)
     await db.local_party_accounts.insert_one({
         "id": str(uuid.uuid4()), "date": p["date"],
         "party_name": "Hemali Payment", "txn_type": "debit",
         "amount": p.get("total", 0),
         "description": f"{sardar} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
         "reference": f"hemali_debit:{pid}", "source_type": "hemali",
+        **{k: base[k] for k in ("kms_year", "season", "created_by", "created_at")},
+    })
+    await db.local_party_accounts.insert_one({
+        "id": str(uuid.uuid4()), "date": p["date"],
+        "party_name": "Hemali Payment", "txn_type": "payment",
+        "amount": p.get("amount_paid", 0),
+        "description": f"{sardar} - Paid Rs.{p.get('amount_paid',0):.0f}{adv_info}",
+        "reference": f"hemali_paid:{pid}", "source_type": "hemali",
         **{k: base[k] for k in ("kms_year", "season", "created_by", "created_at")},
     })
 
@@ -240,7 +248,10 @@ async def _remove_cash_entries(payment_id):
         ]}
     })
     await db.local_party_accounts.delete_many({
-        "reference": f"hemali_debit:{payment_id}"
+        "reference": {"$in": [
+            f"hemali_debit:{payment_id}",
+            f"hemali_paid:{payment_id}",
+        ]}
     })
 
 
