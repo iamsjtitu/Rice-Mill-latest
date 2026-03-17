@@ -1688,6 +1688,29 @@ async function createMainWindow(port) {
     }
   });
 
+  // Fix: Aggressive focus recovery - inject click handler to force focus
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.webContents.executeJavaScript(`
+      // Fix typing issue: force focus on any click
+      document.addEventListener('mousedown', () => {
+        window.focus();
+      }, true);
+      // Fix: periodic focus check every 2 seconds
+      setInterval(() => {
+        if (document.hasFocus && !document.hasFocus()) {
+          window.focus();
+        }
+      }, 2000);
+      // Fix: re-focus after select/dropdown close
+      document.addEventListener('keydown', (e) => {
+        if (!document.activeElement || document.activeElement === document.body) {
+          const firstInput = document.querySelector('input:not([disabled]),textarea:not([disabled])');
+          if (firstInput) firstInput.focus();
+        }
+      }, true);
+    `).catch(() => {});
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
     if (server) server.close();
