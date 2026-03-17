@@ -181,6 +181,7 @@ async def hemali_integrity_check():
     """Startup: reconcile hemali payments with cashbook entries"""
     try:
         from database import db
+        import uuid as _uuid
         fixed = 0
         # 1. Paid hemali payments without cashbook entry → revert to unpaid
         paid_payments = await db.hemali_payments.find({"status": "paid"}, {"_id": 0}).to_list(5000)
@@ -188,20 +189,18 @@ async def hemali_integrity_check():
             cash_entry = await db.cash_transactions.find_one({"reference": f"hemali_payment:{p['id']}"}, {"_id": 0})
             if not cash_entry:
                 await db.hemali_payments.update_one({"id": p["id"]}, {"$set": {"status": "unpaid"}})
-                await db.local_party_accounts.delete_many({
+                await db.cash_transactions.delete_many({
                     "reference": {"$in": [f"hemali_work:{p['id']}", f"hemali_paid:{p['id']}"]}
                 })
                 fixed += 1
                 logger.info(f"Hemali integrity: reverted payment {p['id']} to unpaid (no cashbook entry)")
 
-        # 2. Paid hemali payments without party ledger → create party ledger entries
+        # 2. Paid hemali payments without ledger entries → create them
         paid_payments = await db.hemali_payments.find({"status": "paid"}, {"_id": 0}).to_list(5000)
         for p in paid_payments:
-            ledger_entry = await db.local_party_accounts.find_one({"reference": f"hemali_work:{p['id']}"}, {"_id": 0})
+            ledger_entry = await db.cash_transactions.find_one({"reference": f"hemali_work:{p['id']}"}, {"_id": 0})
             if not ledger_entry:
-                from datetime import datetime, timezone
                 now = datetime.now(timezone.utc).isoformat()
-                import uuid
                 items_desc = ", ".join(f"{i['item_name']} x{i['quantity']}" for i in p.get("items", []))
                 sardar = p.get("sardar_name", "")
                 adv_info = ""
@@ -209,24 +208,22 @@ async def hemali_integrity_check():
                     adv_info += f" | Adv Deducted: Rs.{p['advance_deducted']:.0f}"
                 if p.get("new_advance", 0) > 0:
                     adv_info += f" | New Advance: Rs.{p['new_advance']:.0f}"
-                await db.local_party_accounts.insert_one({
-                    "id": str(uuid.uuid4()), "date": p["date"], "party_name": "Hemali Payment",
-                    "txn_type": "debit", "amount": p.get("total", 0),
+                base = {"kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
+                        "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now}
+                await db.cash_transactions.insert_one({
+                    "id": str(_uuid.uuid4()), "date": p["date"], "account": "ledger", "txn_type": "jama",
+                    "amount": p.get("total", 0), "category": "Hemali Payment", "party_type": "Hemali",
                     "description": f"{sardar} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
-                    "reference": f"hemali_work:{p['id']}", "source_type": "hemali",
-                    "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
-                    "created_by": p.get("created_by", ""), "created_at": now,
+                    "reference": f"hemali_work:{p['id']}", **base,
                 })
-                await db.local_party_accounts.insert_one({
-                    "id": str(uuid.uuid4()), "date": p["date"], "party_name": "Hemali Payment",
-                    "txn_type": "payment", "amount": p.get("amount_paid", 0),
+                await db.cash_transactions.insert_one({
+                    "id": str(_uuid.uuid4()), "date": p["date"], "account": "ledger", "txn_type": "nikasi",
+                    "amount": p.get("amount_paid", 0), "category": "Hemali Payment", "party_type": "Hemali",
                     "description": f"{sardar} - Paid Rs.{p.get('amount_paid',0):.0f}{adv_info}",
-                    "reference": f"hemali_paid:{p['id']}", "source_type": "hemali",
-                    "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
-                    "created_by": p.get("created_by", ""), "created_at": now,
+                    "reference": f"hemali_paid:{p['id']}", **base,
                 })
                 fixed += 1
-                logger.info(f"Hemali integrity: created missing party ledger for payment {p['id']}")
+                logger.info(f"Hemali integrity: created missing ledger entries for payment {p['id']}")
 
         if fixed > 0:
             logger.info(f"Hemali integrity check: fixed {fixed} payments")

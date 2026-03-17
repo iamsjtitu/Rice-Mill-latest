@@ -207,8 +207,8 @@ module.exports = function(database) {
         hp.status = 'unpaid';
         hp.updated_at = new Date().toISOString();
       }
-      // Remove linked party ledger entries
-      database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
+      // Remove linked ledger entries
+      database.data.cash_transactions = (database.data.cash_transactions || []).filter(t =>
         t.reference !== `hemali_work:${hemaliPid}` && t.reference !== `hemali_paid:${hemaliPid}`
       );
     }
@@ -264,9 +264,10 @@ module.exports = function(database) {
       const hemaliPid = txn.reference.replace('hemali_payment:', '');
       const hp = (database.data.hemali_payments || []).find(p => p.id === hemaliPid);
       if (hp) { hp.status = 'unpaid'; hp.updated_at = new Date().toISOString(); }
-      database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
-        t.reference !== `hemali_work:${hemaliPid}` && t.reference !== `hemali_paid:${hemaliPid}`
-      );
+      // Also add hemali ledger refs to be cleaned up
+      ids.push(...database.data.cash_transactions.filter(t =>
+        t.reference === `hemali_work:${hemaliPid}` || t.reference === `hemali_paid:${hemaliPid}`
+      ).map(t => t.id));
     });
     const before = database.data.cash_transactions.length;
     // Collect auto_ledger references for the deleted transactions

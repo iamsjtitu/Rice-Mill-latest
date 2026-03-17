@@ -1156,7 +1156,7 @@ function createApiServer(database) {
       if (!hasCashEntry) {
         p.status = 'unpaid';
         p.updated_at = new Date().toISOString();
-        database.data.local_party_accounts = database.data.local_party_accounts.filter(t =>
+        database.data.cash_transactions = database.data.cash_transactions.filter(t =>
           t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
         );
         hemaliFixed++;
@@ -1164,9 +1164,9 @@ function createApiServer(database) {
       }
     });
 
-    // 4b. Paid hemali payments without party ledger → create entries
+    // 4b. Paid hemali payments without ledger entries → create them
     hemaliPayments.filter(p => p.status === 'paid').forEach(p => {
-      const hasLedger = database.data.local_party_accounts.some(t => t.reference === `hemali_work:${p.id}`);
+      const hasLedger = database.data.cash_transactions.some(t => t.reference === `hemali_work:${p.id}`);
       if (!hasLedger) {
         const { v4: _uuid } = require('uuid');
         const itemsDesc = (p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
@@ -1174,21 +1174,21 @@ function createApiServer(database) {
         let advInfo = '';
         if ((p.advance_deducted || 0) > 0) advInfo += ` | Adv Deducted: Rs.${Math.round(p.advance_deducted)}`;
         if ((p.new_advance || 0) > 0) advInfo += ` | New Advance: Rs.${Math.round(p.new_advance)}`;
-        const base = { kms_year: p.kms_year || '', season: p.season || '', created_by: p.created_by || '', created_at: new Date().toISOString() };
-        database.data.local_party_accounts.push({
-          id: _uuid(), date: p.date, party_name: 'Hemali Payment',
-          txn_type: 'debit', amount: p.total || 0,
+        const base = { kms_year: p.kms_year || '', season: p.season || '', created_by: p.created_by || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        col('cash_transactions').push({
+          id: _uuid(), date: p.date, account: 'ledger', txn_type: 'jama',
+          amount: p.total || 0, category: 'Hemali Payment', party_type: 'Hemali',
           description: `${sardar} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`,
-          reference: `hemali_work:${p.id}`, source_type: 'hemali', ...base
+          reference: `hemali_work:${p.id}`, ...base
         });
-        database.data.local_party_accounts.push({
-          id: _uuid(), date: p.date, party_name: 'Hemali Payment',
-          txn_type: 'payment', amount: p.amount_paid || 0,
+        col('cash_transactions').push({
+          id: _uuid(), date: p.date, account: 'ledger', txn_type: 'nikasi',
+          amount: p.amount_paid || 0, category: 'Hemali Payment', party_type: 'Hemali',
           description: `${sardar} - Paid Rs.${Math.round(p.amount_paid || 0)}${advInfo}`,
-          reference: `hemali_paid:${p.id}`, source_type: 'hemali', ...base
+          reference: `hemali_paid:${p.id}`, ...base
         });
         hemaliFixed++;
-        console.log(`[Hemali] Created missing party ledger for payment ${p.id}`);
+        console.log(`[Hemali] Created missing ledger entries for payment ${p.id}`);
       }
     });
 

@@ -145,7 +145,7 @@ module.exports = (database) => {
     p.amount_paid = amountPaid;
     p.new_advance = newAdvance;
     p.updated_at = new Date().toISOString();
-    // Create cash entry (cashbook nikasi only)
+    // Create cash entry (cashbook nikasi)
     const itemsDesc = (p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
     const base = { kms_year: p.kms_year || '', season: p.season || '', created_by: p.created_by || '', created_at: p.updated_at, updated_at: p.updated_at };
     col('cash_transactions').push({
@@ -154,22 +154,22 @@ module.exports = (database) => {
       description: `Hemali: ${p.sardar_name} - ${itemsDesc}`,
       reference: `hemali_payment:${p.id}`, ...base
     });
-    // Party Ledger entries
-    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
-    database.data.local_party_accounts.push({
-      id: uuidv4(), date: p.date, party_name: 'Hemali Payment',
-      txn_type: 'debit', amount: p.total || 0,
+    // Ledger: Jama (work done)
+    col('cash_transactions').push({
+      id: uuidv4(), date: p.date, account: 'ledger', txn_type: 'jama',
+      amount: p.total || 0, category: 'Hemali Payment', party_type: 'Hemali',
       description: `${p.sardar_name} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`,
-      reference: `hemali_work:${p.id}`, source_type: 'hemali', ...base
+      reference: `hemali_work:${p.id}`, ...base
     });
+    // Ledger: Nikasi (payment)
     let advInfo = '';
     if ((p.advance_deducted || 0) > 0) advInfo += ` | Adv Deducted: Rs.${Math.round(p.advance_deducted)}`;
     if (newAdvance > 0) advInfo += ` | New Advance: Rs.${Math.round(newAdvance)}`;
-    database.data.local_party_accounts.push({
-      id: uuidv4(), date: p.date, party_name: 'Hemali Payment',
-      txn_type: 'payment', amount: amountPaid,
+    col('cash_transactions').push({
+      id: uuidv4(), date: p.date, account: 'ledger', txn_type: 'nikasi',
+      amount: amountPaid, category: 'Hemali Payment', party_type: 'Hemali',
       description: `${p.sardar_name} - Paid Rs.${Math.round(amountPaid)}${advInfo}`,
-      reference: `hemali_paid:${p.id}`, source_type: 'hemali', ...base
+      reference: `hemali_paid:${p.id}`, ...base
     });
     database.save();
     res.json({ message: 'Payment marked as paid', id: p.id, amount_paid: amountPaid, new_advance: newAdvance });
@@ -183,13 +183,9 @@ module.exports = (database) => {
     if (p.status !== 'paid') return res.status(400).json({ detail: 'Payment already undone' });
     p.status = 'unpaid';
     p.updated_at = new Date().toISOString();
-    // Remove linked cash_transactions
+    // Remove linked cash_transactions (cash + ledger entries)
     database.data.cash_transactions = col('cash_transactions').filter(t =>
-      t.reference !== `hemali_payment:${p.id}`
-    );
-    // Remove party ledger entries
-    database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
-      t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
+      t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
     );
     database.save();
     res.json({ message: 'Payment undone', id: p.id });
@@ -201,13 +197,9 @@ module.exports = (database) => {
     const idx = payments.findIndex(p => p.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Payment not found' });
     const p = payments[idx];
-    // Remove cash entries
+    // Remove cash + ledger entries
     database.data.cash_transactions = col('cash_transactions').filter(t =>
-      t.reference !== `hemali_payment:${p.id}`
-    );
-    // Remove party ledger entries
-    database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
-      t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
+      t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
     );
     payments.splice(idx, 1);
     database.save();
