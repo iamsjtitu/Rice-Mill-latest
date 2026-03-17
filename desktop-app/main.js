@@ -1216,6 +1216,46 @@ function createApiServer(database) {
       fixCount += hemaliFixed;
       console.log(`[Hemali] Integrity check: fixed ${hemaliFixed} payments`);
     }
+
+    // 4c. Clean orphaned local_party_accounts with old hemali references
+    const hemaliIds = new Set(hemaliPayments.map(p => p.id));
+    const beforeLpCount = database.data.local_party_accounts.length;
+    database.data.local_party_accounts = database.data.local_party_accounts.filter(t => {
+      const ref = t.reference || '';
+      // Clean old-style hemali entries (hemali_work, hemali_paid from local_party_accounts that aren't in new format)
+      if (t.source_type === 'hemali' || ref.startsWith('hemali_')) {
+        const pidMatch = ref.match(/hemali_(?:debit|paid|work):(.+)/);
+        if (pidMatch && !hemaliIds.has(pidMatch[1])) {
+          console.log(`[Hemali] Removed orphaned local_party entry: ${ref}`);
+          return false;
+        }
+      }
+      return true;
+    });
+    const removedLp = beforeLpCount - database.data.local_party_accounts.length;
+    if (removedLp > 0) {
+      fixCount += removedLp;
+      console.log(`[Hemali] Removed ${removedLp} orphaned local_party_accounts entries`);
+    }
+
+    // Also clean orphaned cash_transactions with hemali references
+    const beforeCashCount = database.data.cash_transactions.length;
+    database.data.cash_transactions = database.data.cash_transactions.filter(t => {
+      const ref = t.reference || '';
+      if (ref.startsWith('hemali_')) {
+        const pidMatch = ref.match(/hemali_(?:payment|work|paid):(.+)/);
+        if (pidMatch && !hemaliIds.has(pidMatch[1])) {
+          console.log(`[Hemali] Removed orphaned cash_transaction: ${ref}`);
+          return false;
+        }
+      }
+      return true;
+    });
+    const removedCash = beforeCashCount - database.data.cash_transactions.length;
+    if (removedCash > 0) {
+      fixCount += removedCash;
+      console.log(`[Hemali] Removed ${removedCash} orphaned cash_transactions entries`);
+    }
     
     if (fixCount > 0) {
       database.save();
@@ -1688,27 +1728,14 @@ async function createMainWindow(port) {
     }
   });
 
-  // Fix: Aggressive focus recovery - inject click handler to force focus
-  mainWindow.webContents.on('did-finish-load', () => {
-    mainWindow.webContents.executeJavaScript(`
-      // Fix typing issue: force focus on any click
-      document.addEventListener('mousedown', () => {
-        window.focus();
-      }, true);
-      // Fix: periodic focus check every 2 seconds
-      setInterval(() => {
-        if (document.hasFocus && !document.hasFocus()) {
-          window.focus();
-        }
-      }, 2000);
-      // Fix: re-focus after select/dropdown close
-      document.addEventListener('keydown', (e) => {
-        if (!document.activeElement || document.activeElement === document.body) {
-          const firstInput = document.querySelector('input:not([disabled]),textarea:not([disabled])');
-          if (firstInput) firstInput.focus();
-        }
-      }, true);
-    `).catch(() => {});
+  // Fix: IPC force-focus handler - most reliable approach
+  ipcMain.on('force-focus', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (!mainWindow.isFocused()) mainWindow.focus();
+      if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.focus();
+      }
+    }
   });
 
   mainWindow.on('closed', () => {

@@ -5,18 +5,37 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   isElectron: true,
-  // Error reporting: send frontend errors to main process for logging
   logError: (context, message, stack) => {
     ipcRenderer.send('log-frontend-error', { context, message, stack });
   },
-  // Open error log file
   openErrorLog: () => {
     ipcRenderer.send('open-error-log');
   },
-  // Print support
   print: () => {
     window.print();
+  },
+  forceFocus: () => {
+    ipcRenderer.send('force-focus');
   }
+});
+
+// Fix typing issue: detect when keyboard stops working and force focus
+let lastKeyTime = 0;
+let focusCheckInterval = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  // On any click, request focus from main process
+  document.addEventListener('mousedown', () => {
+    ipcRenderer.send('force-focus');
+  }, true);
+
+  // Detect stuck focus: if clicks happen but no keydown for 5s, force focus
+  document.addEventListener('click', () => {
+    lastKeyTime = Date.now();
+  });
+  document.addEventListener('keydown', () => {
+    lastKeyTime = Date.now();
+  });
 });
 
 // Catch unhandled errors in renderer and send to main process

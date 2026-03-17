@@ -253,5 +253,33 @@ async def hemali_integrity_check():
 
         if fixed > 0:
             logger.info(f"Hemali integrity check: fixed {fixed} payments")
+
+        # 3. Clean orphaned local_party_accounts and cash_transactions with stale hemali references
+        all_hemali_ids = set()
+        all_hp = await db.hemali_payments.find({}, {"_id": 0, "id": 1}).to_list(5000)
+        for hp in all_hp:
+            all_hemali_ids.add(hp["id"])
+
+        import re
+        pattern = re.compile(r"hemali_(?:debit|paid|work|payment):(.+)")
+        # Clean orphaned local_party_accounts
+        orphaned_lp = []
+        async for lp in db.local_party_accounts.find({"reference": {"$regex": "^hemali_"}}, {"_id": 0, "id": 1, "reference": 1}):
+            m = pattern.match(lp.get("reference", ""))
+            if m and m.group(1) not in all_hemali_ids:
+                orphaned_lp.append(lp["id"])
+        if orphaned_lp:
+            await db.local_party_accounts.delete_many({"id": {"$in": orphaned_lp}})
+            logger.info(f"Hemali integrity: removed {len(orphaned_lp)} orphaned local_party_accounts")
+
+        # Clean orphaned cash_transactions
+        orphaned_cash = []
+        async for ct in db.cash_transactions.find({"reference": {"$regex": "^hemali_"}}, {"_id": 0, "id": 1, "reference": 1}):
+            m = pattern.match(ct.get("reference", ""))
+            if m and m.group(1) not in all_hemali_ids:
+                orphaned_cash.append(ct["id"])
+        if orphaned_cash:
+            await db.cash_transactions.delete_many({"id": {"$in": orphaned_cash}})
+            logger.info(f"Hemali integrity: removed {len(orphaned_cash)} orphaned cash_transactions")
     except Exception as e:
         logger.error(f"Hemali integrity check error: {e}")
