@@ -1,41 +1,38 @@
-# Mill Entry System - PRD
+# Mill Entry System - Product Requirements Document
 
 ## Original Problem Statement
-Desktop app (Electron) synced with web app for rice mill data management. Web app is source of truth.
+Full-stack mill management software with desktop (Electron/Node.js) and web (Python/FastAPI) backends. The "Hemali Payment" feature manages payments for Hemali Sardars (Lead Laborers) with configurable items, payment workflow, advance management, and reporting integration.
 
-## Versions
+## Core Features (All Completed)
+1. **Hemali Payment** - Full CRUD with Unpaid → Paid → Undo workflow
+2. **Edit Payment** - Edit unpaid payments (items, sardar, date, amount)
+3. **Make Payment Dialog** - Partial/full payment amount input
+4. **Party Ledger Integration** - Debit on create, payment on mark-paid
+5. **Cash Book Integration** - Auto cashbook nikasi entry on mark-paid
+6. **Balance Sheet Integration** - Hemali excluded from ledger double-counting
+7. **Monthly Summary** - Month filter with MM-YYYY format
+8. **Daily/Detail Reports** - Hemali section included
+9. **Advance Management** - Auto-fetch, deduction, new advance tracking
+10. **PDF Print Receipt** - English format, well-formatted
+11. **Date Format** - DD-MM-YYYY standardized globally
+12. **Startup Integrity Check** - Reconciles hemali with cashbook, cleans orphans
+13. **Cashbook Delete → Auto Undo** - Hemali reverts to unpaid
+14. **Desktop-Web Backend Sync** - 100% feature parity (17+ endpoints)
+15. **Focus Fix** - IPC-based force-focus for Electron typing issue
 
-### v25.1.38 (2026-03-15) - DATE FORMAT + PDF FIX
-- **Date format**: DD-MM-YYYY across entire software (15 frontend files + PDF/Excel exports)
-- **PDF Receipt fix**: Removed Hindi text (ReportLab font limitation), English-only with NAVKAR AGRO branding
-- **Advance auto-fetch**: 400ms debounced auto-fetch when typing sardar name in create dialog
-- Shared utility: `/app/frontend/src/utils/date.js`
-- Backend helper: `_fmt_date()` in daily_report.py, `fmt_d()` in hemali.py
-- Backend: 100% (14/14), Frontend: 100%
+## Architecture
+- Web Backend: Python/FastAPI (backend/routes/hemali.py)
+- Desktop Backend: Node.js/Express (desktop-app/routes/hemali.js)
+- Frontend: React (frontend/src/components/HemaliPayment.jsx)
+- Database: MongoDB (web) / JSON file (desktop)
 
-### v25.1.37 (2026-03-15) - HEMALI ENHANCEMENTS
-- Print receipt NAVKAR AGRO branded, Daily/Detail Report Hemali section, Monthly Summary month filter
+## Current Version: 25.1.47
 
-### v25.1.36 (2026-03-15) - MONTHLY SUMMARY + PARTY LEDGER
-### v25.1.35 (2026-03-15) - HEMALI PAYMENT WORKFLOW
-### v25.1.34 (2026-03-15) - HEMALI PAYMENT FEATURE
-### v25.1.33 - STOCK SUMMARY FIX
-### v25.1.32 - BALANCE SHEET FIX
-### v25.1.31 - MIGRATION SCRIPT
-### v25.1.30 - COMPREHENSIVE ACCOUNTING FIX
+## Data Flow (Hemali Payment)
+1. **Create** → hemali_payments (unpaid) + local_party_accounts (debit)
+2. **Mark Paid** → cash_transactions (cash nikasi + ledger jama + ledger nikasi) + local_party_accounts (payment)
+3. **Undo** → Remove cash_transactions + local_party_accounts payment (keep debit)
+4. **Delete** → Remove everything (all cash_transactions + all local_party_accounts)
 
-## Key DB Models
-### Hemali
-- **hemali_items**: {id, name, rate, unit, is_active, created_at}
-- **hemali_payments**: {id, sardar_name, date, items, total, advance_before, advance_deducted, amount_payable, amount_paid, new_advance, status(unpaid/paid), kms_year, season}
-
-## Prioritized Backlog
-### P1
-- Refactor duplicated PDF/Excel generation logic
-- Centralize stock calculation logic
-- Stock Summary PDF download verification pending
-### P2
-- All completed
-
-## Credentials
-- Username: admin, Password: admin123
+## Status: COMPLETE ✅
+All features implemented, tested, and user verified.
