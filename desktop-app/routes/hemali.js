@@ -97,6 +97,17 @@ module.exports = (database) => {
       created_by: d.created_by || req.query.username || '', created_at: now, updated_at: now
     };
     col('hemali_payments').push(payment);
+    // Create local_party_accounts debit entry on creation (so party is visible)
+    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
+    const itemsDesc = items.map(i => `${i.item_name} x${parseFloat(i.quantity) || 0}`).join(', ');
+    database.data.local_party_accounts.push({
+      id: uuidv4(), date: payment.date, party_name: 'Hemali Payment',
+      txn_type: 'debit', amount: total,
+      description: `${sardarName} - ${itemsDesc} | Total: Rs.${Math.round(total)}`,
+      reference: `hemali_debit:${paymentId}`, source_type: 'hemali',
+      kms_year: d.kms_year || '', season: d.season || '',
+      created_by: d.created_by || '', created_at: now
+    });
     database.save();
     res.json(payment);
   }));
@@ -171,14 +182,13 @@ module.exports = (database) => {
       description: `${p.sardar_name} - Paid Rs.${Math.round(amountPaid)}${advInfo}`,
       reference: `hemali_paid:${p.id}`, ...base
     });
-    // Local Party: Debit + Payment entries (for party visibility & FY summary)
+    // Local Party: Update debit + add payment entry
     if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
-    database.data.local_party_accounts.push({
-      id: uuidv4(), date: p.date, party_name: 'Hemali Payment',
-      txn_type: 'debit', amount: p.total || 0,
-      description: `${p.sardar_name} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`,
-      reference: `hemali_debit:${p.id}`, source_type: 'hemali', ...base
-    });
+    const debitEntry = database.data.local_party_accounts.find(t => t.reference === `hemali_debit:${p.id}`);
+    if (debitEntry) {
+      debitEntry.amount = p.total || 0;
+      debitEntry.description = `${p.sardar_name} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`;
+    }
     database.data.local_party_accounts.push({
       id: uuidv4(), date: p.date, party_name: 'Hemali Payment',
       txn_type: 'payment', amount: amountPaid,
@@ -201,9 +211,9 @@ module.exports = (database) => {
     database.data.cash_transactions = col('cash_transactions').filter(t =>
       t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
     );
-    // Remove local party entries (debit + payment)
+    // Remove local party payment entry only (keep debit)
     database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
-      t.reference !== `hemali_debit:${p.id}` && t.reference !== `hemali_paid:${p.id}`
+      t.reference !== `hemali_paid:${p.id}`
     );
     database.save();
     res.json({ message: 'Payment undone', id: p.id });
@@ -219,7 +229,7 @@ module.exports = (database) => {
     database.data.cash_transactions = col('cash_transactions').filter(t =>
       t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
     );
-    // Remove local party entries (debit + payment)
+    // Remove ALL local party entries (debit + payment) on delete
     database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
       t.reference !== `hemali_debit:${p.id}` && t.reference !== `hemali_paid:${p.id}`
     );

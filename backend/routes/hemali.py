@@ -176,6 +176,24 @@ async def create_hemali_payment(request: Request):
     }
     await db.hemali_payments.insert_one(payment)
     payment.pop("_id", None)
+
+    # Create local_party_accounts debit entry on creation (so party is visible)
+    items_desc = ", ".join(f"{i['item_name']} x{i['quantity']}" for i in payment["items"])
+    await db.local_party_accounts.insert_one({
+        "id": str(uuid.uuid4()),
+        "date": payment["date"],
+        "party_name": "Hemali Payment",
+        "txn_type": "debit",
+        "amount": total,
+        "description": f"{sardar_name} - {items_desc} | Total: Rs.{total:.0f}",
+        "reference": f"hemali_debit:{payment_id}",
+        "source_type": "hemali",
+        "kms_year": kms_year,
+        "season": season,
+        "created_by": created_by,
+        "created_at": now,
+    })
+
     return payment
 
 
@@ -219,15 +237,15 @@ async def _create_cash_entries(p):
         "reference": f"hemali_paid:{pid}", **base,
     })
 
-    # 4. Local Party: Debit + Payment entries (for party visibility & FY summary)
-    await db.local_party_accounts.insert_one({
-        "id": str(uuid.uuid4()), "date": p["date"],
-        "party_name": "Hemali Payment", "txn_type": "debit",
-        "amount": p.get("total", 0),
-        "description": f"{sardar} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
-        "reference": f"hemali_debit:{pid}", "source_type": "hemali",
-        **{k: base[k] for k in ("kms_year", "season", "created_by", "created_at")},
-    })
+    # 4. Local Party: Update debit amount if changed, and add payment entry
+    # Debit was already created on payment creation, just update if needed
+    await db.local_party_accounts.update_one(
+        {"reference": f"hemali_debit:{pid}"},
+        {"$set": {
+            "amount": p.get("total", 0),
+            "description": f"{sardar} - {items_desc} | Total: Rs.{p.get('total',0):.0f}",
+        }}
+    )
     await db.local_party_accounts.insert_one({
         "id": str(uuid.uuid4()), "date": p["date"],
         "party_name": "Hemali Payment", "txn_type": "payment",
@@ -239,7 +257,7 @@ async def _create_cash_entries(p):
 
 
 async def _remove_cash_entries(payment_id):
-    """Remove all cash book + ledger + local party entries linked to a hemali payment."""
+    """Remove cashbook + ledger + local party PAYMENT entries (undo). Keeps debit entry."""
     await db.cash_transactions.delete_many({
         "reference": {"$in": [
             f"hemali_payment:{payment_id}",
@@ -247,11 +265,9 @@ async def _remove_cash_entries(payment_id):
             f"hemali_paid:{payment_id}",
         ]}
     })
+    # Only remove payment entry, keep debit (it was created on payment creation)
     await db.local_party_accounts.delete_many({
-        "reference": {"$in": [
-            f"hemali_debit:{payment_id}",
-            f"hemali_paid:{payment_id}",
-        ]}
+        "reference": f"hemali_paid:{payment_id}"
     })
 
 
@@ -356,6 +372,8 @@ async def delete_hemali_payment(payment_id: str):
     if not p:
         raise HTTPException(status_code=404, detail="Payment not found")
     await _remove_cash_entries(payment_id)
+    # Also remove debit entry (delete = full removal)
+    await db.local_party_accounts.delete_many({"reference": f"hemali_debit:{payment_id}"})
     await db.hemali_payments.delete_one({"id": payment_id})
     return {"message": "Deleted", "id": payment_id}
 
