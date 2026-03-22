@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "25.1.50";
+const APP_VERSION = "25.1.52";
 
 const CHANGELOG = [
+  {
+    version: "25.1.52",
+    date: "22 Mar 2026",
+    title: "Footer Redesign + Version Bump",
+    items: [
+      { type: "imp", text: "Footer centered layout - clean aur professional look" },
+      { type: "imp", text: "Version, Designer, Contact info centered mein" },
+    ],
+  },
   {
     version: "25.1.50",
     date: "22 Mar 2026",
