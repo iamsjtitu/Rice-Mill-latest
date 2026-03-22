@@ -731,6 +731,20 @@ async def make_truck_payment(entry_id: str, request: MakePaymentRequest, usernam
         }
         await db.cash_transactions.insert_one(ledger_entry)
     
+    # Create round-off entry if provided
+    if request.round_off and request.round_off != 0:
+        from utils.round_off import create_round_off_entry
+        truck_no = entry.get("truck_no", "") or entry.get("vehicle_no", "")
+        await create_round_off_entry(
+            round_off_amount=request.round_off,
+            date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            category=f"Truck - {truck_no}",
+            kms_year=entry.get("kms_year", ""),
+            season=entry.get("season", ""),
+            created_by=username,
+            reference=f"round_off:truck:{entry_id[:8]}",
+        )
+
     return {"success": True, "message": f"Rs.{request.amount} payment recorded", "total_paid": new_paid}
 
 
@@ -1025,6 +1039,19 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
         }
         await db.cash_transactions.insert_one(ledger_nikasi)
     
+    # Create round-off entry if provided
+    if request.round_off and request.round_off != 0:
+        from utils.round_off import create_round_off_entry
+        await create_round_off_entry(
+            round_off_amount=request.round_off,
+            date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            category=f"Agent - {mandi_name}",
+            kms_year=kms_year,
+            season=season,
+            created_by=username,
+            reference=f"round_off:agent:{mandi_name[:10]}",
+        )
+
     return {"success": True, "message": f"Rs.{request.amount} payment recorded", "total_paid": new_paid}
 
 
@@ -1488,6 +1515,21 @@ async def pay_truck_owner(truck_no: str, request: Request, kms_year: str = "", s
         upsert=True
     )
     
+    # Create round-off entry if provided
+    round_off = float(body.get("round_off", 0))
+    if round_off and round_off != 0:
+        from utils.round_off import create_round_off_entry
+        await create_round_off_entry(
+            round_off_amount=round_off,
+            date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            category=f"Truck Owner - {truck_no}",
+            account=payment_mode,
+            kms_year=kms_year,
+            season=season,
+            created_by=username,
+            reference=f"round_off:truck_owner:{truck_no[:10]}",
+        )
+
     return {"success": True, "message": f"₹{amount:,.0f} payment ho gaya! ({round(amount - remaining, 0)} distributed)"}
 
 

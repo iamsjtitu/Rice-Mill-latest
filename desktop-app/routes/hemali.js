@@ -196,6 +196,17 @@ module.exports = (database) => {
       reference: `hemali_paid:${p.id}`, source_type: 'hemali', ...base
     });
     database.save();
+    // Create round-off entry if provided
+    const roundOff = parseFloat(req.body.round_off) || 0;
+    if (roundOff !== 0) {
+      const { createRoundOffEntry } = require('../utils/round_off');
+      createRoundOffEntry(database.data, roundOff, p.date, `Hemali - ${p.sardar_name}`, {
+        kms_year: p.kms_year || '', season: p.season || '',
+        created_by: req.body.username || p.created_by || '',
+        reference: `round_off:hemali:${p.id.substring(0, 8)}`,
+      });
+      database.save();
+    }
     res.json({ message: 'Payment marked as paid', id: p.id, amount_paid: amountPaid, new_advance: newAdvance });
   }));
 

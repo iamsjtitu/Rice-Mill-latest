@@ -64,7 +64,7 @@ class CashTransaction(BaseModel):
 
 
 @router.post("/cash-book")
-async def add_cash_transaction(txn: CashTransaction, username: str = "", role: str = ""):
+async def add_cash_transaction(txn: CashTransaction, username: str = "", role: str = "", round_off: float = 0):
     txn_dict = txn.model_dump()
     txn_dict['created_by'] = username
     txn_dict['amount'] = round(txn_dict['amount'], 2)
@@ -178,6 +178,21 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
                 {"$set": {"paid_amount": new_paid, "balance": new_balance, "status": new_status}}
             )
     
+    # Create round-off entry if provided
+    if round_off and round_off != 0:
+        from utils.round_off import create_round_off_entry
+        await create_round_off_entry(
+            round_off_amount=round_off,
+            date=txn_dict.get('date', ''),
+            category=category or 'General',
+            account=txn_dict.get('account', 'cash'),
+            bank_name=txn_dict.get('bank_name', ''),
+            kms_year=txn_dict.get('kms_year', ''),
+            season=txn_dict.get('season', ''),
+            created_by=username,
+            reference=f"round_off:{txn_dict.get('id', '')[:8]}",
+        )
+
     return txn_dict
 
 

@@ -174,6 +174,18 @@ module.exports = function(database) {
       });
     }
     database.save();
+    // Create round-off entry if provided
+    const roundOff = parseFloat(req.body.round_off) || 0;
+    if (roundOff !== 0) {
+      const { createRoundOffEntry } = require('../utils/round_off');
+      const truckNo = entry?.truck_no || '';
+      createRoundOffEntry(database.data, roundOff, new Date().toISOString().split('T')[0], `Truck - ${truckNo}`, {
+        kms_year: entry?.kms_year || '', season: entry?.season || '',
+        created_by: req.query.username || 'system',
+        reference: `round_off:truck:${req.params.entryId.substring(0,8)}`,
+      });
+      database.save();
+    }
     res.json({ success: true, message: 'Payment recorded', total_paid: newPaidAmount });
   }));
 
@@ -389,6 +401,17 @@ module.exports = function(database) {
       });
     }
     database.save();
+    // Create round-off entry if provided
+    const roundOff1 = parseFloat(req.body.round_off) || 0;
+    if (roundOff1 !== 0) {
+      const { createRoundOffEntry } = require('../utils/round_off');
+      createRoundOffEntry(database.data, roundOff1, new Date().toISOString().split('T')[0], `Agent - ${mandiName}`, {
+        kms_year: kms_year || '', season: season || '',
+        created_by: req.query.username || 'system',
+        reference: `round_off:agent:${mandiName.substring(0,10)}`,
+      });
+      database.save();
+    }
     res.json({ success: true, message: 'Payment recorded', total_paid: newPaidAmount });
   }));
 
@@ -572,6 +595,17 @@ module.exports = function(database) {
     ownerDoc.updated_at = new Date().toISOString();
 
     database.save();
+    // Create round-off entry if provided
+    const roundOff2 = parseFloat(req.body.round_off) || 0;
+    if (roundOff2 !== 0) {
+      const { createRoundOffEntry } = require('../utils/round_off');
+      createRoundOffEntry(database.data, roundOff2, new Date().toISOString().split('T')[0], `Truck Owner - ${truckNo}`, {
+        account: payment_mode || 'cash', kms_year: kms_year || '', season: season || '',
+        created_by: username || 'system',
+        reference: `round_off:truck_owner:${truckNo.substring(0,10)}`,
+      });
+      database.save();
+    }
     res.json({ success: true, message: `₹${amount} payment ho gaya! (${Math.round(amount - remaining)} distributed)` });
   }));
 

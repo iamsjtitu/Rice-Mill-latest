@@ -23,6 +23,7 @@ import {
 import LocalPartyAccount from "./payments/LocalPartyAccount";
 import { GunnyBags } from "./DCTracker";
 import LeasedTruck from "./LeasedTruck";
+import RoundOffInput from "./common/RoundOffInput";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -72,6 +73,7 @@ export const Payments = ({ filters, user, branding }) => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNote, setPaymentNote] = useState("");
+  const [paymentRoundOff, setPaymentRoundOff] = useState("");
   const [newRate, setNewRate] = useState("");
   const [truckSearchFilter, setTruckSearchFilter] = useState("");
   const [paymentHistory, setPaymentHistory] = useState([]);
@@ -82,6 +84,7 @@ export const Payments = ({ filters, user, branding }) => {
   const [ownerPayAmount, setOwnerPayAmount] = useState("");
   const [ownerPayNote, setOwnerPayNote] = useState("");
   const [ownerPayMode, setOwnerPayMode] = useState("cash");
+  const [ownerPayRoundOff, setOwnerPayRoundOff] = useState("");
   const [ownerHistory, setOwnerHistory] = useState([]);
 
   const fetchPayments = useCallback(async () => {
@@ -217,10 +220,11 @@ export const Payments = ({ filters, user, branding }) => {
     try {
       const params = `kms_year=${filters.kms_year||''}&season=${filters.season||''}&username=${user.username}&role=${user.role}`;
       const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(selectedOwnerTruck.truck_no)}/pay?${params}`, {
-        amount: parseFloat(ownerPayAmount), note: ownerPayNote, payment_mode: ownerPayMode
+        amount: parseFloat(ownerPayAmount), note: ownerPayNote, payment_mode: ownerPayMode,
+        round_off: parseFloat(ownerPayRoundOff) || 0,
       });
       toast.success(res.data.message);
-      setShowOwnerPayDialog(false); setOwnerPayAmount(""); setOwnerPayNote(""); setOwnerPayMode("cash");
+      setShowOwnerPayDialog(false); setOwnerPayAmount(""); setOwnerPayNote(""); setOwnerPayMode("cash"); setOwnerPayRoundOff("");
       fetchPayments();
     } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
   };
@@ -283,21 +287,23 @@ export const Payments = ({ filters, user, branding }) => {
   const handleMakePayment = async () => {
     if (!paymentAmount || !selectedItem) return;
     try {
+      const roundOff = parseFloat(paymentRoundOff) || 0;
       if (activePaymentTab === "truck") {
         await axios.post(
           `${API}/truck-payments/${selectedItem.entry_id}/pay?username=${user.username}&role=${user.role}`,
-          { amount: parseFloat(paymentAmount), note: paymentNote }
+          { amount: parseFloat(paymentAmount), note: paymentNote, round_off: roundOff }
         );
       } else {
         await axios.post(
           `${API}/agent-payments/${encodeURIComponent(selectedItem.mandi_name)}/pay?kms_year=${selectedItem.kms_year}&season=${selectedItem.season}&username=${user.username}&role=${user.role}`,
-          { amount: parseFloat(paymentAmount), note: paymentNote }
+          { amount: parseFloat(paymentAmount), note: paymentNote, round_off: roundOff }
         );
       }
       toast.success("Payment recorded!");
       setShowPaymentDialog(false);
       setPaymentAmount("");
       setPaymentNote("");
+      setPaymentRoundOff("");
       fetchPayments();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Payment karne mein error");
@@ -1523,6 +1529,11 @@ export const Payments = ({ filters, user, branding }) => {
                 className="bg-slate-700 border-slate-600 text-white"
               />
             </div>
+            <RoundOffInput
+              value={paymentRoundOff}
+              onChange={setPaymentRoundOff}
+              amount={parseFloat(paymentAmount) || 0}
+            />
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setShowPaymentDialog(false)} className="border-slate-600 text-slate-300">
                 Cancel
@@ -1571,6 +1582,11 @@ export const Payments = ({ filters, user, branding }) => {
               <Input value={ownerPayNote} onChange={(e) => setOwnerPayNote(e.target.value)}
                 placeholder="Payment details..." className="bg-slate-700 border-slate-600 text-white mt-1" />
             </div>
+            <RoundOffInput
+              value={ownerPayRoundOff}
+              onChange={setOwnerPayRoundOff}
+              amount={parseFloat(ownerPayAmount) || 0}
+            />
             <Button onClick={handleOwnerPay} disabled={!ownerPayAmount || parseFloat(ownerPayAmount) <= 0}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="owner-pay-submit">
               Pay ₹{ownerPayAmount ? parseFloat(ownerPayAmount).toLocaleString() : '0'}
@@ -1628,6 +1644,7 @@ const DieselAccount = ({ filters, user }) => {
   const [payAmount, setPayAmount] = useState("");
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
   const [payNotes, setPayNotes] = useState("");
+  const [payRoundOff, setPayRoundOff] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
@@ -1682,10 +1699,11 @@ const DieselAccount = ({ filters, user }) => {
     try {
       await axios.post(`${API}/diesel-accounts/pay?username=${user.username}`, {
         pump_id: payPumpId, amount: amt, date: payDate,
-        kms_year: filters.kms_year || "", season: filters.season || "", notes: payNotes
+        kms_year: filters.kms_year || "", season: filters.season || "", notes: payNotes,
+        round_off: parseFloat(payRoundOff) || 0,
       });
       toast.success(`Rs.${amt} payment recorded!`);
-      setShowPayDialog(false); setPayAmount(""); setPayNotes(""); fetchData();
+      setShowPayDialog(false); setPayAmount(""); setPayNotes(""); setPayRoundOff(""); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
   };
 
@@ -1895,6 +1913,11 @@ const DieselAccount = ({ filters, user }) => {
               const ps = summary.pumps.find(p => p.pump_id === payPumpId);
               return ps ? <p className="text-xs text-slate-400">Pending: <span className="text-red-400 font-bold">Rs.{ps.balance.toLocaleString('en-IN')}</span></p> : null;
             })()}
+            <RoundOffInput
+              value={payRoundOff}
+              onChange={setPayRoundOff}
+              amount={parseFloat(payAmount) || 0}
+            />
             <div className="flex gap-2">
               <Button onClick={handlePay} className="bg-emerald-600 hover:bg-emerald-700 text-white flex-1" data-testid="diesel-pay-submit">
                 <IndianRupee className="w-4 h-4 mr-1" /> Pay

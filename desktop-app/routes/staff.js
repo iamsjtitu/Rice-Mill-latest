@@ -278,6 +278,16 @@ router.post('/api/staff/payments', safeSync((req, res) => {
       created_by: d.created_by || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString()
     });
   }
+  // Create round-off entry if provided
+  const roundOff = parseFloat(d.round_off) || 0;
+  if (roundOff !== 0) {
+    const { createRoundOffEntry } = require('../utils/round_off');
+    createRoundOffEntry(database.data, roundOff, payment.date, `Staff - ${payment.staff_name}`, {
+      kms_year: payment.kms_year || '', season: payment.season || '',
+      created_by: d.created_by || '',
+      reference: `round_off:staff:${payment.id.substring(0, 8)}`,
+    });
+  }
   database.save(); res.json(payment);
 }));
 

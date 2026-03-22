@@ -7,6 +7,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import RoundOffInput from "@/components/common/RoundOffInput";
 
 const TransactionFormDialog = ({
   isOpen, onOpenChange, editingId,
@@ -203,6 +204,12 @@ const TransactionFormDialog = ({
             <Input value={form.reference} onChange={(e) => setForm(p => ({ ...p, reference: e.target.value }))}
               placeholder="Optional" className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-ref" />
           </div>
+          <RoundOffInput
+            value={form.round_off || ""}
+            onChange={(val) => setForm(p => ({ ...p, round_off: val }))}
+            amount={parseFloat(form.amount) || 0}
+            darkMode={false}
+          />
           {parseFloat(form.amount) > 0 && (
             <div className={`p-2 rounded text-sm font-medium ${form.txn_type === 'jama' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
               {form.account === 'cash' ? 'Cash' : `Bank${form.bank_name ? ` (${form.bank_name})` : ''}`} {form.txn_type === 'jama' ? 'Jama' : 'Nikasi'}: Rs.{parseFloat(form.amount).toLocaleString('en-IN')}

@@ -337,6 +337,7 @@ class SetRateRequest(BaseModel):
 class MakePaymentRequest(BaseModel):
     amount: float
     note: str = ""
+    round_off: float = 0
 
 
 # ===== Utility Functions =====

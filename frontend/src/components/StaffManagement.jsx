@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Edit, Users, Calendar, IndianRupee, RefreshCw, Check, X, Clock, Sun, Calculator, Download, FileText } from "lucide-react";
+import RoundOffInput from "./common/RoundOffInput";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -597,6 +598,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
   const [advDeduct, setAdvDeduct] = useState(0);
   const [calculating, setCalculating] = useState(false);
   const [settlingAll, setSettlingAll] = useState(false);
+  const [roundOff, setRoundOff] = useState("");
 
   const calculate = async () => {
     if (!periodFrom || !periodTo) return toast.error("Period select karein");
@@ -652,10 +654,11 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
         advance_deducted: advDeduct,
         net_payment: net,
         date: new Date().toISOString().split('T')[0],
-        kms_year: filters.kms_year || "", season: filters.season || ""
+        kms_year: filters.kms_year || "", season: filters.season || "",
+        round_off: parseFloat(roundOff) || 0
       });
       toast.success(`₹${net.toLocaleString('en-IN')} payment done + Cash Book entry created!`);
-      setCalcData(null); setStaffId(""); setPeriodFrom(""); setPeriodTo("");
+      setCalcData(null); setStaffId(""); setPeriodFrom(""); setPeriodTo(""); setRoundOff("");
       fetchPayments();
     } catch { toast.error("Payment error"); }
   };
@@ -842,6 +845,13 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
                   <Button onClick={settle} className="bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base" data-testid="settle-btn">
                     <IndianRupee className="w-5 h-5 mr-1" /> Pay & Settle
                   </Button>
+                </div>
+                <div className="mt-2">
+                  <RoundOffInput
+                    value={roundOff}
+                    onChange={setRoundOff}
+                    amount={calcData.gross_salary - advDeduct}
+                  />
                 </div>
                 <p className="text-[10px] text-slate-500 mt-2">* Cash Book mein auto Nikasi entry banega</p>
               </div>

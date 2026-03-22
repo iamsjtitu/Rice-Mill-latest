@@ -5,6 +5,48 @@ const { v4: uuidv4 } = require('uuid');
 
 module.exports = function(database) {
 
+// ============ STORE ROOMS ============
+router.get('/api/store-rooms', safeSync((req, res) => {
+  if (!database.data.store_rooms) database.data.store_rooms = [];
+  res.json([...database.data.store_rooms].sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+}));
+
+router.post('/api/store-rooms', safeSync((req, res) => {
+  if (!database.data.store_rooms) database.data.store_rooms = [];
+  const name = (req.body.name || '').trim();
+  if (!name) return res.status(400).json({ detail: 'Store Room name is required' });
+  const existing = database.data.store_rooms.find(r => r.name.toLowerCase() === name.toLowerCase());
+  if (existing) return res.status(400).json({ detail: 'Store Room already exists' });
+  const doc = { id: uuidv4(), name, created_at: new Date().toISOString() };
+  database.data.store_rooms.push(doc); database.save(); res.json(doc);
+}));
+
+router.put('/api/store-rooms/:id', safeSync((req, res) => {
+  if (!database.data.store_rooms) return res.status(404).json({ detail: 'Not found' });
+  const room = database.data.store_rooms.find(r => r.id === req.params.id);
+  if (!room) return res.status(404).json({ detail: 'Not found' });
+  const name = (req.body.name || '').trim();
+  if (!name) return res.status(400).json({ detail: 'Store Room name is required' });
+  room.name = name;
+  // Update references
+  (database.data.mill_parts || []).forEach(p => { if (p.store_room === req.params.id) p.store_room_name = name; });
+  (database.data.mill_parts_stock || []).forEach(t => { if (t.store_room === req.params.id) t.store_room_name = name; });
+  database.save(); res.json({ message: 'Updated', id: req.params.id });
+}));
+
+router.delete('/api/store-rooms/:id', safeSync((req, res) => {
+  if (!database.data.store_rooms) return res.status(404).json({ detail: 'Not found' });
+  const len = database.data.store_rooms.length;
+  database.data.store_rooms = database.data.store_rooms.filter(r => r.id !== req.params.id);
+  if (database.data.store_rooms.length < len) {
+    // Unassign parts
+    (database.data.mill_parts || []).forEach(p => { if (p.store_room === req.params.id) { p.store_room = ''; p.store_room_name = ''; } });
+    (database.data.mill_parts_stock || []).forEach(t => { if (t.store_room === req.params.id) { t.store_room = ''; t.store_room_name = ''; } });
+    database.save(); return res.json({ message: 'Deleted', id: req.params.id });
+  }
+  res.status(404).json({ detail: 'Not found' });
+}));
+
 // ============ MILL PARTS MASTER ============
 router.post('/api/mill-parts', safeSync((req, res) => {
   if (!database.data.mill_parts) database.data.mill_parts = [];
@@ -15,7 +57,8 @@ router.post('/api/mill-parts', safeSync((req, res) => {
   if (existing) return res.status(400).json({ detail: 'Part already exists' });
   const doc = {
     id: uuidv4(), name, category: d.category || 'General', unit: d.unit || 'Pcs',
-    min_stock: parseFloat(d.min_stock) || 0, created_at: new Date().toISOString()
+    min_stock: parseFloat(d.min_stock) || 0, store_room: d.store_room || '', store_room_name: d.store_room_name || '',
+    created_at: new Date().toISOString()
   };
   database.data.mill_parts.push(doc); database.save(); res.json(doc);
 }));
@@ -34,6 +77,21 @@ router.delete('/api/mill-parts/:id', safeSync((req, res) => {
   res.status(404).json({ detail: 'Not found' });
 }));
 
+// PUT /api/mill-parts/:id
+router.put('/api/mill-parts/:id', safeSync((req, res) => {
+  if (!database.data.mill_parts) return res.status(404).json({ detail: 'Not found' });
+  const part = database.data.mill_parts.find(p => p.id === req.params.id);
+  if (!part) return res.status(404).json({ detail: 'Not found' });
+  const d = req.body;
+  if (d.name !== undefined) part.name = (d.name || '').trim();
+  if (d.category !== undefined) part.category = d.category;
+  if (d.unit !== undefined) part.unit = d.unit;
+  if (d.min_stock !== undefined) part.min_stock = parseFloat(d.min_stock) || 0;
+  if (d.store_room !== undefined) part.store_room = d.store_room;
+  if (d.store_room_name !== undefined) part.store_room_name = d.store_room_name;
+  database.save(); res.json(part);
+}));
+
 // ============ MILL PARTS STOCK TRANSACTIONS ============
 router.post('/api/mill-parts-stock', safeSync((req, res) => {
   if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
@@ -45,6 +103,7 @@ router.post('/api/mill-parts-stock', safeSync((req, res) => {
     id: uuidv4(), date: d.date || '', part_name: d.part_name || '', txn_type: d.txn_type || 'in',
     quantity: qty, rate, total_amount: Math.round(qty * rate * 100) / 100,
     party_name: d.party_name || '', bill_no: d.bill_no || '', remark: d.remark || '',
+    store_room: d.store_room || '', store_room_name: d.store_room_name || '',
     kms_year: d.kms_year || '', season: d.season || '',
     created_by: d.created_by || '', created_at: new Date().toISOString()
   };
@@ -133,6 +192,8 @@ router.put('/api/mill-parts-stock/:id', safeSync((req, res) => {
     party_name: d.party_name !== undefined ? d.party_name : existing.party_name,
     bill_no: d.bill_no !== undefined ? d.bill_no : existing.bill_no,
     remark: d.remark !== undefined ? d.remark : existing.remark,
+    store_room: d.store_room !== undefined ? d.store_room : (existing.store_room || ''),
+    store_room_name: d.store_room_name !== undefined ? d.store_room_name : (existing.store_room_name || ''),
     updated_at: new Date().toISOString()
   };
   database.data.mill_parts_stock[idx] = update;
@@ -212,7 +273,8 @@ function getStockSummary(query) {
   for (const p of parts) {
     const ob = Math.round((openingStock[p.name] || 0) * 100) / 100;
     summary[p.name] = { part_name: p.name, category: p.category || '', unit: p.unit || 'Pcs',
-      min_stock: p.min_stock || 0, opening_stock: ob, stock_in: 0, stock_used: 0, current_stock: 0,
+      min_stock: p.min_stock || 0, store_room: p.store_room || '', store_room_name: p.store_room_name || '',
+      opening_stock: ob, stock_in: 0, stock_used: 0, current_stock: 0,
       total_purchase_amount: 0, parties: {} };
   }
   for (const t of txns) {
@@ -250,6 +312,58 @@ function getStockSummary(query) {
 
 router.get('/api/mill-parts/summary', safeSync((req, res) => {
   res.json(getStockSummary(req.query));
+}));
+
+// ============ STORE ROOM WISE REPORT ============
+router.get('/api/mill-parts/store-room-report', safeSync((req, res) => {
+  if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
+  if (!database.data.mill_parts) database.data.mill_parts = [];
+  if (!database.data.store_rooms) database.data.store_rooms = [];
+
+  let txns = [...database.data.mill_parts_stock];
+  if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+  if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+  const parts = [...database.data.mill_parts];
+
+  const partStore = {};
+  for (const p of parts) {
+    partStore[p.name] = { store_room: p.store_room || '', store_room_name: p.store_room_name || '', category: p.category || '', unit: p.unit || 'Pcs' };
+  }
+
+  const stock = {};
+  for (const t of txns) {
+    const pn = t.part_name || '';
+    if (!stock[pn]) {
+      const info = partStore[pn] || {};
+      stock[pn] = { part_name: pn, store_room: info.store_room || t.store_room || '', store_room_name: info.store_room_name || t.store_room_name || '', category: info.category || '', unit: info.unit || 'Pcs', stock_in: 0, stock_used: 0, current_stock: 0 };
+    }
+    if (t.txn_type === 'in') stock[pn].stock_in += t.quantity || 0;
+    else stock[pn].stock_used += t.quantity || 0;
+  }
+
+  for (const p of parts) {
+    if (!stock[p.name]) {
+      stock[p.name] = { part_name: p.name, store_room: p.store_room || '', store_room_name: p.store_room_name || '', category: p.category || '', unit: p.unit || 'Pcs', stock_in: 0, stock_used: 0, current_stock: 0 };
+    }
+  }
+
+  const roomGroups = {};
+  for (const [pn, s] of Object.entries(stock)) {
+    s.stock_in = Math.round(s.stock_in * 100) / 100;
+    s.stock_used = Math.round(s.stock_used * 100) / 100;
+    s.current_stock = Math.round((s.stock_in - s.stock_used) * 100) / 100;
+    const rid = s.store_room || '__unassigned__';
+    const rname = s.store_room_name || 'Unassigned';
+    if (!roomGroups[rid]) roomGroups[rid] = { store_room_id: rid, store_room_name: rname, parts: [] };
+    roomGroups[rid].parts.push(s);
+  }
+
+  for (const g of Object.values(roomGroups)) {
+    g.parts.sort((a, b) => a.part_name.localeCompare(b.part_name));
+  }
+
+  const result = Object.values(roomGroups).sort((a, b) => a.store_room_name.localeCompare(b.store_room_name));
+  res.json(result);
 }));
 
 // ============ STOCK EXPORT (Excel) ============

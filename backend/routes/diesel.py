@@ -204,6 +204,20 @@ async def make_diesel_payment(request: Request, username: str = "", role: str = 
     }
     await db.cash_transactions.insert_one(ledger_cb)
     
+    # Create round-off entry if provided
+    round_off = float(data.get("round_off", 0))
+    if round_off and round_off != 0:
+        from utils.round_off import create_round_off_entry
+        await create_round_off_entry(
+            round_off_amount=round_off,
+            date=date,
+            category=f"Diesel - {pump['name']}",
+            kms_year=kms_year,
+            season=season,
+            created_by=username,
+            reference=f"round_off:diesel:{pay_txn['id'][:8]}",
+        )
+
     return {"success": True, "message": f"Rs.{amount} payment to {pump['name']} recorded", "txn_id": pay_txn["id"]}
 
 @router.delete("/diesel-accounts/{txn_id}")

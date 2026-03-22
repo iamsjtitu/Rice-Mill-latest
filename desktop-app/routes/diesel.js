@@ -105,6 +105,17 @@ module.exports = function(database) {
     // Ledger nikasi - for diesel summary paid calculation
     database.data.cash_transactions.push({ id:uuidv4(), date:txn.date, account:'ledger', txn_type:'nikasi', category:pump.name, party_type:'Diesel', description:`Diesel Payment: ${pump.name} - Rs.${amt}${notes?' ('+notes+')':''}`, amount:+amt.toFixed(2), reference:`diesel_pay_ledger:${txn.id.slice(0,8)}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', linked_diesel_payment_id:txn.id, created_at:new Date().toISOString(), updated_at:new Date().toISOString() });
     database.save();
+    // Create round-off entry if provided
+    const roundOff = parseFloat(req.body.round_off) || 0;
+    if (roundOff !== 0) {
+      const { createRoundOffEntry } = require('../utils/round_off');
+      createRoundOffEntry(database.data, roundOff, txn.date, `Diesel - ${pump.name}`, {
+        kms_year: kms_year || '', season: season || '',
+        created_by: req.query.username || 'system',
+        reference: `round_off:diesel:${txn.id.slice(0,8)}`,
+      });
+      database.save();
+    }
     res.json({ success:true, message:`Rs.${amt} payment to ${pump.name} recorded`, txn_id:txn.id });
   }));
 

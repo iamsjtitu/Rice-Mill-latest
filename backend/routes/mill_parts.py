@@ -6,6 +6,53 @@ import uuid
 
 router = APIRouter()
 
+# ============ STORE ROOMS ============
+
+@router.get("/store-rooms")
+async def get_store_rooms():
+    items = await db.store_rooms.find({}, {"_id": 0}).sort("name", 1).to_list(100)
+    return items
+
+@router.post("/store-rooms")
+async def create_store_room(data: dict):
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Store Room name is required")
+    existing = await db.store_rooms.find_one({"name": {"$regex": f"^{name}$", "$options": "i"}})
+    if existing:
+        raise HTTPException(status_code=400, detail="Store Room already exists")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.store_rooms.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@router.put("/store-rooms/{room_id}")
+async def update_store_room(room_id: str, data: dict):
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Store Room name is required")
+    result = await db.store_rooms.update_one({"id": room_id}, {"$set": {"name": name}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Not found")
+    # Update references in mill_parts and stock entries
+    await db.mill_parts.update_many({"store_room": room_id}, {"$set": {"store_room_name": name}})
+    await db.mill_parts_stock.update_many({"store_room": room_id}, {"$set": {"store_room_name": name}})
+    return {"message": "Updated", "id": room_id}
+
+@router.delete("/store-rooms/{room_id}")
+async def delete_store_room(room_id: str):
+    result = await db.store_rooms.delete_one({"id": room_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Not found")
+    # Unassign parts from this store room
+    await db.mill_parts.update_many({"store_room": room_id}, {"$set": {"store_room": "", "store_room_name": ""}})
+    await db.mill_parts_stock.update_many({"store_room": room_id}, {"$set": {"store_room": "", "store_room_name": ""}})
+    return {"message": "Deleted", "id": room_id}
+
 # ============ MILL PARTS MASTER ============
 
 @router.post("/mill-parts")
@@ -16,6 +63,8 @@ async def create_mill_part(data: dict):
         "category": data.get("category", "General"),
         "unit": data.get("unit", "Pcs"),
         "min_stock": float(data.get("min_stock", 0)),
+        "store_room": data.get("store_room", ""),
+        "store_room_name": data.get("store_room_name", ""),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     if not doc["name"]:
@@ -39,6 +88,23 @@ async def delete_mill_part(part_id: str):
         raise HTTPException(status_code=404, detail="Not found")
     return {"message": "Deleted", "id": part_id}
 
+@router.put("/mill-parts/{part_id}")
+async def update_mill_part(part_id: str, data: dict):
+    existing = await db.mill_parts.find_one({"id": part_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Not found")
+    update = {}
+    if "name" in data: update["name"] = data["name"].strip()
+    if "category" in data: update["category"] = data["category"]
+    if "unit" in data: update["unit"] = data["unit"]
+    if "min_stock" in data: update["min_stock"] = float(data["min_stock"])
+    if "store_room" in data: update["store_room"] = data["store_room"]
+    if "store_room_name" in data: update["store_room_name"] = data["store_room_name"]
+    if update:
+        await db.mill_parts.update_one({"id": part_id}, {"$set": update})
+    doc = await db.mill_parts.find_one({"id": part_id}, {"_id": 0})
+    return doc
+
 # ============ MILL PARTS STOCK TRANSACTIONS ============
 
 @router.post("/mill-parts-stock")
@@ -54,6 +120,8 @@ async def create_stock_entry(data: dict):
         "party_name": data.get("party_name", ""),
         "bill_no": data.get("bill_no", ""),
         "remark": data.get("remark", ""),
+        "store_room": data.get("store_room", ""),
+        "store_room_name": data.get("store_room_name", ""),
         "kms_year": data.get("kms_year", ""),
         "season": data.get("season", ""),
         "created_by": data.get("created_by", ""),
@@ -140,6 +208,8 @@ async def update_stock_entry(entry_id: str, data: dict):
         "party_name": data.get("party_name", existing.get("party_name", "")),
         "bill_no": data.get("bill_no", existing.get("bill_no", "")),
         "remark": data.get("remark", existing.get("remark", "")),
+        "store_room": data.get("store_room", existing.get("store_room", "")),
+        "store_room_name": data.get("store_room_name", existing.get("store_room_name", "")),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     update["total_amount"] = round(update["quantity"] * update["rate"], 2)
@@ -215,6 +285,7 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
         ob = round(opening_stock.get(p["name"], 0), 2)
         summary[p["name"]] = {"part_name": p["name"], "category": p.get("category", ""),
             "unit": p.get("unit", "Pcs"), "min_stock": p.get("min_stock", 0),
+            "store_room": p.get("store_room", ""), "store_room_name": p.get("store_room_name", ""),
             "opening_stock": ob,
             "stock_in": 0, "stock_used": 0, "current_stock": 0,
             "total_purchase_amount": 0, "parties": {}}
@@ -250,6 +321,80 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
 
     result.sort(key=lambda x: x["part_name"])
     return result
+
+
+# ============ STORE ROOM WISE REPORT ============
+
+@router.get("/mill-parts/store-room-report")
+async def get_store_room_report(kms_year: Optional[str] = None, season: Optional[str] = None):
+    """Get inventory grouped by store room."""
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    txns = await db.mill_parts_stock.find(query, {"_id": 0}).to_list(10000)
+    parts = await db.mill_parts.find({}, {"_id": 0}).to_list(1000)
+
+    # Build part -> store_room mapping from master
+    part_store = {}
+    for p in parts:
+        part_store[p["name"]] = {
+            "store_room": p.get("store_room", ""),
+            "store_room_name": p.get("store_room_name", ""),
+            "category": p.get("category", ""),
+            "unit": p.get("unit", "Pcs"),
+            "min_stock": p.get("min_stock", 0),
+        }
+
+    # Compute stock per part
+    stock = {}
+    for t in txns:
+        pn = t.get("part_name", "")
+        if pn not in stock:
+            info = part_store.get(pn, {})
+            stock[pn] = {
+                "part_name": pn,
+                "store_room": info.get("store_room", t.get("store_room", "")),
+                "store_room_name": info.get("store_room_name", t.get("store_room_name", "")),
+                "category": info.get("category", ""),
+                "unit": info.get("unit", "Pcs"),
+                "stock_in": 0, "stock_used": 0, "current_stock": 0,
+            }
+        if t.get("txn_type") == "in":
+            stock[pn]["stock_in"] += t.get("quantity", 0)
+        else:
+            stock[pn]["stock_used"] += t.get("quantity", 0)
+
+    # Include parts from master that have no txns
+    for p in parts:
+        if p["name"] not in stock:
+            stock[p["name"]] = {
+                "part_name": p["name"],
+                "store_room": p.get("store_room", ""),
+                "store_room_name": p.get("store_room_name", ""),
+                "category": p.get("category", ""),
+                "unit": p.get("unit", "Pcs"),
+                "stock_in": 0, "stock_used": 0, "current_stock": 0,
+            }
+
+    # Finalize and group by store room
+    room_groups = {}
+    for pn, s in stock.items():
+        s["stock_in"] = round(s["stock_in"], 2)
+        s["stock_used"] = round(s["stock_used"], 2)
+        s["current_stock"] = round(s["stock_in"] - s["stock_used"], 2)
+        room_id = s["store_room"] or "__unassigned__"
+        room_name = s["store_room_name"] or "Unassigned"
+        if room_id not in room_groups:
+            room_groups[room_id] = {"store_room_id": room_id, "store_room_name": room_name, "parts": []}
+        room_groups[room_id]["parts"].append(s)
+
+    # Sort parts within each room
+    for g in room_groups.values():
+        g["parts"].sort(key=lambda x: x["part_name"])
+
+    result = sorted(room_groups.values(), key=lambda x: x["store_room_name"])
+    return result
+
 
 # ============ STOCK EXPORT ============
 

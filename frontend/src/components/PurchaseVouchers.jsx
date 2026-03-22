@@ -19,6 +19,7 @@ import {
   Plus, Trash2, RefreshCw, Search, FileText, FileSpreadsheet, Eye, ShoppingBag, IndianRupee, Receipt, Clock, History, Undo2, Printer,
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
+import RoundOffInput from "./common/RoundOffInput";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -42,6 +43,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
   const [payAccount, setPayAccount] = useState("cash");
   const [payBankName, setPayBankName] = useState("");
+  const [payRoundOff, setPayRoundOff] = useState("");
   const [bankAccounts, setBankAccounts] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyParty, setHistoryParty] = useState("");
@@ -261,8 +263,9 @@ export default function PurchaseVouchers({ filters, user }) {
         date: payDate, notes: payNotes, username: user.username,
         kms_year: filters.kms_year || "", season: filters.season || "",
         account: payAccount, bank_name: payAccount === "bank" ? payBankName : "",
+        round_off: parseFloat(payRoundOff) || 0,
       });
-      toast.success("Payment record ho gayi!"); setPayDialog(null); setPayAmount(""); setPayNotes(""); setPayAccount("cash"); setPayBankName(""); fetchData();
+      toast.success("Payment record ho gayi!"); setPayDialog(null); setPayAmount(""); setPayNotes(""); setPayAccount("cash"); setPayBankName(""); setPayRoundOff(""); fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || "Payment error"); }
   };
 
@@ -721,6 +724,11 @@ export default function PurchaseVouchers({ filters, user }) {
                   className="bg-slate-700 border-slate-600 text-white h-8 text-sm" autoFocus data-testid="pv-pay-amount" /></div>
               <div><Label className="text-xs text-slate-400">Notes</Label>
                 <Input value={payNotes} onChange={e => setPayNotes(e.target.value)} placeholder="Optional" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="pv-pay-notes" /></div>
+              <RoundOffInput
+                value={payRoundOff}
+                onChange={setPayRoundOff}
+                amount={parseFloat(payAmount) || 0}
+              />
               <Button onClick={handlePayment} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white" data-testid="pv-pay-submit">
                 {payAccount === "bank" ? `Bank (${payBankName || '...'}) mein Record Karein` : "Cash mein Record Karein"}
               </Button>

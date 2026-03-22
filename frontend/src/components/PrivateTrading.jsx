@@ -19,6 +19,7 @@ import {
   Plus, Trash2, RefreshCw, ShoppingCart, Wheat, IndianRupee, Eye, Calculator, Search, FileText, FileSpreadsheet, Download, Calendar, Users, CheckCircle, Undo2, History,
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
+import RoundOffInput from "./common/RoundOffInput";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -169,9 +170,10 @@ const PaddyPurchase = ({ filters, user }) => {
         payment_type: "paid", ref_type: "paddy_purchase", ref_id: payDialog.item.id,
         amount: amt, mode: payForm.mode, reference: payForm.reference, remark: payForm.remark,
         kms_year: payDialog.item.kms_year, season: payDialog.item.season,
+        round_off: parseFloat(payForm.round_off) || 0,
       });
       toast.success("Payment save ho gaya!");
-      setPayDialog({ open: false, item: null }); setPayForm({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
+      setPayDialog({ open: false, item: null }); setPayForm({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "", round_off: "" });
       fetchData();
     } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
   };
@@ -488,6 +490,11 @@ const PaddyPurchase = ({ filters, user }) => {
               </Select>
             </div>
             <div><Label className="text-xs text-slate-400">Reference</Label><Input value={payForm.reference} onChange={e => setPayForm(p => ({ ...p, reference: e.target.value }))} placeholder="Cheque no / UTR" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
+            <RoundOffInput
+              value={payForm.round_off || ""}
+              onChange={(val) => setPayForm(p => ({ ...p, round_off: val }))}
+              amount={parseFloat(payForm.amount) || 0}
+            />
             <div className="flex gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setPayDialog({ open: false, item: null })} className="border-slate-600 text-slate-300 flex-1">Cancel</Button>
               <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white flex-1" data-testid="paddy-pay-submit">Pay</Button>
@@ -656,9 +663,10 @@ const RiceSale = ({ filters, user }) => {
         payment_type: "received", ref_type: "rice_sale", ref_id: payDialog.item.id,
         amount: amt, mode: payForm.mode, reference: payForm.reference, remark: payForm.remark,
         kms_year: payDialog.item.kms_year, season: payDialog.item.season,
+        round_off: parseFloat(payForm.round_off) || 0,
       });
       toast.success("Payment received!");
-      setPayDialog({ open: false, item: null }); setPayForm({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
+      setPayDialog({ open: false, item: null }); setPayForm({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "", round_off: "" });
       fetchData();
     } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
   };
@@ -919,6 +927,11 @@ const RiceSale = ({ filters, user }) => {
               </Select>
             </div>
             <div><Label className="text-xs text-slate-400">Reference</Label><Input value={payForm.reference} onChange={e => setPayForm(p => ({ ...p, reference: e.target.value }))} placeholder="Cheque no / UTR" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
+            <RoundOffInput
+              value={payForm.round_off || ""}
+              onChange={(val) => setPayForm(p => ({ ...p, round_off: val }))}
+              amount={parseFloat(payForm.amount) || 0}
+            />
             <div className="flex gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setPayDialog({ open: false, item: null })} className="border-slate-600 text-slate-300 flex-1">Cancel</Button>
               <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white flex-1" data-testid="rice-pay-submit">Receive</Button>

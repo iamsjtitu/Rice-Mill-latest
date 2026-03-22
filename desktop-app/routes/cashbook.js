@@ -100,6 +100,18 @@ module.exports = function(database) {
       }
     }
     
+    // Create round-off entry if provided
+    const roundOff = parseFloat(req.query.round_off) || 0;
+    if (roundOff !== 0) {
+      const { createRoundOffEntry } = require('../utils/round_off');
+      createRoundOffEntry(database.data, roundOff, txn.date, category || 'General', {
+        account: txn.account, bank_name: txn.bank_name || '',
+        kms_year: txn.kms_year || '', season: txn.season || '',
+        created_by: req.query.username || '',
+        reference: `round_off:${txn.id.substring(0, 8)}`,
+      });
+    }
+
     database.save(); res.json(txn);
   }));
 

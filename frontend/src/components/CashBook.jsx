@@ -171,12 +171,13 @@ const CashBook = ({ filters, user }) => {
     e.preventDefault();
     const amt = parseFloat(form.amount);
     if (!amt || amt <= 0) { toast.error("Amount 0 se zyada hona chahiye"); return; }
+    const roundOff = parseFloat(form.round_off) || 0;
     try {
       if (editingId) {
         await axios.put(`${API}/cash-book/${editingId}?username=${user.username}&role=${user.role}`, { ...form, amount: amt });
         toast.success("Transaction update ho gayi!");
       } else {
-        await axios.post(`${API}/cash-book?username=${user.username}&role=${user.role}`, { ...form, amount: amt });
+        await axios.post(`${API}/cash-book?username=${user.username}&role=${user.role}&round_off=${roundOff}`, { ...form, amount: amt });
         toast.success("Transaction save ho gayi!");
       }
       setIsDialogOpen(false);

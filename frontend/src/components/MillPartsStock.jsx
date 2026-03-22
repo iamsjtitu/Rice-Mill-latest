@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search, Calendar, Filter } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search, Calendar, Filter, Warehouse } from "lucide-react";
 import { downloadFile } from "../utils/download";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -32,6 +32,10 @@ export default function MillPartsStock({ filters, user }) {
   const [editingStock, setEditingStock] = useState(null);
   const [editDialog, setEditDialog] = useState(false);
   const [searchPart, setSearchPart] = useState("");
+  const [storeRooms, setStoreRooms] = useState([]);
+  const [storeRoomForm, setStoreRoomForm] = useState({ name: "" });
+  const [editingRoom, setEditingRoom] = useState(null);
+  const [storeRoomReport, setStoreRoomReport] = useState([]);
   const [txnFilters, setTxnFilters] = useState({ date_from: "", date_to: "", part_name: "", txn_type: "", party_name: "" });
 
   const fetchAll = useCallback(async () => {
@@ -46,14 +50,16 @@ export default function MillPartsStock({ filters, user }) {
       if (txnFilters.part_name) tp.append('part_name', txnFilters.part_name);
       if (txnFilters.txn_type) tp.append('txn_type', txnFilters.txn_type);
       if (txnFilters.party_name) tp.append('party_name', txnFilters.party_name);
-      const [partsRes, summaryRes, stockRes] = await Promise.all([
+      const [partsRes, summaryRes, stockRes, roomsRes] = await Promise.all([
         axios.get(`${API}/mill-parts`),
         axios.get(`${API}/mill-parts/summary?${p}`),
         axios.get(`${API}/mill-parts-stock?${tp}`),
+        axios.get(`${API}/store-rooms`),
       ]);
       setParts(partsRes.data);
       setSummary(summaryRes.data);
       setStockEntries(stockRes.data);
+      setStoreRooms(roomsRes.data);
     } catch { toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season, txnFilters]);
@@ -64,9 +70,10 @@ export default function MillPartsStock({ filters, user }) {
     e.preventDefault();
     if (!partForm.name.trim()) { toast.error("Part name bharo"); return; }
     try {
-      await axios.post(`${API}/mill-parts`, partForm);
+      const room = storeRooms.find(r => r.id === partForm.store_room);
+      await axios.post(`${API}/mill-parts`, { ...partForm, store_room_name: room?.name || "" });
       toast.success("Part add ho gaya!"); setPartDialog(false);
-      setPartForm({ name: "", category: "General", unit: "Pcs", min_stock: "0" }); fetchAll();
+      setPartForm({ name: "", category: "General", unit: "Pcs", min_stock: "0", store_room: "" }); fetchAll();
     } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
   };
 
@@ -80,7 +87,13 @@ export default function MillPartsStock({ filters, user }) {
     e.preventDefault();
     if (!stockForm.part_name || !parseFloat(stockForm.quantity)) { toast.error("Part aur quantity bharo"); return; }
     try {
-      await axios.post(`${API}/mill-parts-stock`, { ...stockForm, kms_year: filters.kms_year, season: filters.season, created_by: user.username });
+      const part = parts.find(p => p.name === stockForm.part_name);
+      await axios.post(`${API}/mill-parts-stock`, {
+        ...stockForm,
+        store_room: part?.store_room || stockForm.store_room || "",
+        store_room_name: part?.store_room_name || stockForm.store_room_name || "",
+        kms_year: filters.kms_year, season: filters.season, created_by: user.username
+      });
       toast.success(`Stock ${stockForm.txn_type === 'in' ? 'aya' : 'use hua'}!`);
       setStockDialog(false);
       setStockForm({ date: new Date().toISOString().split('T')[0], part_name: "", txn_type: "in", quantity: "", rate: "", party_name: "", bill_no: "", remark: "" });
@@ -101,6 +114,50 @@ export default function MillPartsStock({ filters, user }) {
       bill_no: t.bill_no || "", remark: t.remark || "",
     });
     setEditDialog(true);
+  };
+
+  // Store Room CRUD
+  const handleAddRoom = async (e) => {
+    e.preventDefault();
+    if (!storeRoomForm.name.trim()) return toast.error("Store Room name bharo");
+    try {
+      if (editingRoom) {
+        await axios.put(`${API}/store-rooms/${editingRoom.id}`, { name: storeRoomForm.name });
+        toast.success("Store Room update ho gaya!");
+      } else {
+        await axios.post(`${API}/store-rooms`, { name: storeRoomForm.name });
+        toast.success("Store Room add ho gaya!");
+      }
+      setStoreRoomForm({ name: "" }); setEditingRoom(null); fetchAll();
+    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+  };
+
+  const handleDeleteRoom = async (id) => {
+    if (!window.confirm("Store Room delete karein? Isme assigned parts unassigned ho jayenge.")) return;
+    try { await axios.delete(`${API}/store-rooms/${id}`); toast.success("Deleted!"); fetchAll(); }
+    catch { toast.error("Delete nahi hua"); }
+  };
+
+  const fetchStoreRoomReport = async () => {
+    try {
+      const p = new URLSearchParams();
+      if (filters.kms_year) p.append('kms_year', filters.kms_year);
+      if (filters.season) p.append('season', filters.season);
+      const res = await axios.get(`${API}/mill-parts/store-room-report?${p}`);
+      setStoreRoomReport(res.data);
+    } catch { toast.error("Report load nahi hua"); }
+  };
+
+  const handleEditPart = async (part, field, value) => {
+    try {
+      const update = { [field]: value };
+      if (field === "store_room") {
+        const room = storeRooms.find(r => r.id === value);
+        update.store_room_name = room?.name || "";
+      }
+      await axios.put(`${API}/mill-parts/${part.id}`, update);
+      toast.success("Updated!"); fetchAll();
+    } catch { toast.error("Update nahi hua"); }
   };
 
   const handleEditStock = async (e) => {
@@ -154,14 +211,16 @@ export default function MillPartsStock({ filters, user }) {
   return (
     <div className="space-y-4" data-testid="mill-parts-page">
       {/* Sub-tabs */}
-      <div className="flex gap-2 border-b border-slate-700 pb-2">
+      <div className="flex gap-2 border-b border-slate-700 pb-2 flex-wrap">
         {[
           { id: "summary", label: "Stock Summary", icon: Package },
           { id: "transactions", label: "Transactions", icon: ArrowDown },
           { id: "partwise", label: "Part-wise Summary", icon: Filter },
           { id: "parts", label: "Parts Master", icon: Settings },
+          { id: "storerooms", label: "Store Rooms", icon: Warehouse },
+          { id: "roomreport", label: "Room-wise Report", icon: Warehouse },
         ].map(({ id, label, icon: Icon }) => (
-          <Button key={id} onClick={() => setActiveTab(id)}
+          <Button key={id} onClick={() => { setActiveTab(id); if (id === "roomreport") fetchStoreRoomReport(); }}
             variant={activeTab === id ? "default" : "ghost"} size="sm"
             className={activeTab === id ? "bg-cyan-500 hover:bg-cyan-600 text-white" : "text-slate-300 hover:bg-slate-700"}
             data-testid={`parts-tab-${id}`}>
@@ -480,26 +539,117 @@ export default function MillPartsStock({ filters, user }) {
       {/* ===== PARTS MASTER TAB ===== */}
       {activeTab === "parts" && (
         <div className="space-y-4">
-          <Button onClick={() => setPartDialog(true)} className="bg-cyan-500 hover:bg-cyan-600 text-white" size="sm" data-testid="add-part-btn"><Plus className="w-4 h-4 mr-1" /> Naya Part Add</Button>
+          <Button onClick={() => { setPartForm({ name: "", category: "General", unit: "Pcs", min_stock: "0", store_room: "" }); setPartDialog(true); }} className="bg-cyan-500 hover:bg-cyan-600 text-white" size="sm" data-testid="add-part-btn"><Plus className="w-4 h-4 mr-1" /> Naya Part Add</Button>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
             <Table>
               <TableHeader><TableRow className="border-slate-700">
-                {['Part Name', 'Category', 'Unit', 'Min Stock', ''].map(h => <TableHead key={h} className="text-slate-300 text-xs">{h}</TableHead>)}
+                {['Part Name', 'Category', 'Unit', 'Min Stock', 'Store Room', ''].map(h => <TableHead key={h} className="text-slate-300 text-xs">{h}</TableHead>)}
               </TableRow></TableHeader>
               <TableBody>
-                {parts.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">Koi part nahi. Add karein.</TableCell></TableRow>
+                {parts.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-slate-400 py-8">Koi part nahi. Add karein.</TableCell></TableRow>
                 : parts.map(p => (
                   <TableRow key={p.id} className="border-slate-700">
                     <TableCell className="text-white font-semibold">{p.name}</TableCell>
                     <TableCell className="text-slate-300">{p.category}</TableCell>
                     <TableCell className="text-slate-300">{p.unit}</TableCell>
                     <TableCell className="text-amber-400">{p.min_stock}</TableCell>
+                    <TableCell>
+                      <select value={p.store_room || ""} onChange={e => handleEditPart(p, "store_room", e.target.value)}
+                        className="h-7 rounded border border-slate-600 bg-slate-700 px-2 text-xs text-white" data-testid={`part-room-${p.id}`}>
+                        <option value="">-- None --</option>
+                        {storeRooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                      </select>
+                    </TableCell>
                     <TableCell>{user.role === 'admin' && <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDeletePart(p.id)}><Trash2 className="w-3 h-3" /></Button>}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div></CardContent></Card>
+        </div>
+      )}
+
+      {/* ===== STORE ROOMS TAB ===== */}
+      {activeTab === "storerooms" && (
+        <div className="space-y-4">
+          <Card className="bg-slate-800 border-slate-700">
+            <CardHeader className="p-4 pb-3"><CardTitle className="text-sm text-cyan-400">Store Rooms / स्टोर रूम</CardTitle></CardHeader>
+            <CardContent className="p-4 pt-0 space-y-4">
+              <form onSubmit={handleAddRoom} className="flex gap-2 items-end" data-testid="store-room-form">
+                <div className="flex-1">
+                  <Label className="text-xs text-slate-400">{editingRoom ? "Edit Room Name" : "Naya Store Room"}</Label>
+                  <Input value={storeRoomForm.name} onChange={e => setStoreRoomForm({ name: e.target.value })}
+                    placeholder="Store Room 1, Main Godown..." className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="store-room-name-input" />
+                </div>
+                <Button type="submit" size="sm" className="bg-cyan-500 hover:bg-cyan-600 text-white h-8" data-testid="store-room-save-btn">
+                  {editingRoom ? "Update" : "Add"}
+                </Button>
+                {editingRoom && <Button type="button" size="sm" variant="outline" onClick={() => { setEditingRoom(null); setStoreRoomForm({ name: "" }); }} className="border-slate-600 text-slate-300 h-8">Cancel</Button>}
+              </form>
+
+              <div className="space-y-2">
+                {storeRooms.length === 0 ? <p className="text-slate-400 text-sm text-center py-4">Koi store room nahi hai. Add karein.</p>
+                : storeRooms.map(r => (
+                  <div key={r.id} className="flex items-center justify-between bg-slate-700/50 rounded-lg px-4 py-2.5 border border-slate-600/40" data-testid={`store-room-${r.id}`}>
+                    <div className="flex items-center gap-3">
+                      <Warehouse className="w-4 h-4 text-cyan-400" />
+                      <span className="text-white font-medium">{r.name}</span>
+                      <span className="text-xs text-slate-400 ml-2">
+                        ({parts.filter(p => p.store_room === r.id).length} parts)
+                      </span>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-blue-400 hover:text-blue-300"
+                        onClick={() => { setEditingRoom(r); setStoreRoomForm({ name: r.name }); }}><Edit className="w-3 h-3" /></Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-red-400 hover:text-red-300"
+                        onClick={() => handleDeleteRoom(r.id)} data-testid={`delete-room-${r.id}`}><Trash2 className="w-3 h-3" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ===== ROOM-WISE REPORT TAB ===== */}
+      {activeTab === "roomreport" && (
+        <div className="space-y-4">
+          <div className="flex gap-2 items-center">
+            <h3 className="text-white font-semibold text-base">Store Room-wise Inventory Report</h3>
+            <Button onClick={fetchStoreRoomReport} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+          </div>
+          {storeRoomReport.length === 0 ? (
+            <p className="text-slate-400 text-center py-8">Report load ho raha hai ya koi data nahi...</p>
+          ) : storeRoomReport.map(group => (
+            <Card key={group.store_room_id} className="bg-slate-800 border-slate-700" data-testid={`room-report-${group.store_room_id}`}>
+              <CardHeader className="p-3 pb-2 flex flex-row items-center gap-2">
+                <Warehouse className="w-4 h-4 text-cyan-400" />
+                <CardTitle className="text-sm text-cyan-400 font-bold">{group.store_room_name}</CardTitle>
+                <span className="text-xs text-slate-400 ml-auto">{group.parts.length} parts</span>
+              </CardHeader>
+              <CardContent className="p-0"><div className="overflow-x-auto">
+                <Table>
+                  <TableHeader><TableRow className="border-slate-700">
+                    {['Part Name', 'Category', 'Unit', 'Stock In', 'Used', 'Current Stock'].map(h =>
+                      <TableHead key={h} className={`text-slate-300 text-xs ${['Stock In', 'Used', 'Current Stock'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {group.parts.map(p => (
+                      <TableRow key={p.part_name} className={`border-slate-700/50 ${p.current_stock <= 0 ? 'bg-red-900/10' : ''}`}>
+                        <TableCell className="text-white font-medium text-sm">{p.part_name}</TableCell>
+                        <TableCell className="text-slate-400 text-xs">{p.category}</TableCell>
+                        <TableCell className="text-slate-400 text-xs">{p.unit}</TableCell>
+                        <TableCell className="text-right text-emerald-400">{p.stock_in}</TableCell>
+                        <TableCell className="text-right text-red-400">{p.stock_used}</TableCell>
+                        <TableCell className={`text-right font-bold ${p.current_stock <= 0 ? 'text-red-400' : 'text-amber-400'}`}>{p.current_stock} {p.unit}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div></CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
@@ -522,6 +672,13 @@ export default function MillPartsStock({ filters, user }) {
               </div>
             </div>
             <div><Label className="text-xs text-slate-400">Min Stock (Alert)</Label><Input type="number" value={partForm.min_stock} onChange={e => setPartForm(p => ({ ...p, min_stock: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
+            <div><Label className="text-xs text-slate-400">Store Room</Label>
+              <select value={partForm.store_room || ""} onChange={e => setPartForm(p => ({ ...p, store_room: e.target.value }))}
+                className="flex h-8 w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-1 text-sm text-white shadow-sm focus:outline-none focus:ring-1 focus:ring-ring" data-testid="part-store-room-select">
+                <option value="" className="bg-slate-700">-- None --</option>
+                {storeRooms.map(r => <option key={r.id} value={r.id} className="bg-slate-700">{r.name}</option>)}
+              </select>
+            </div>
             <div className="flex gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setPartDialog(false)} className="border-slate-600 text-slate-300 flex-1">Cancel</Button>
               <Button type="submit" className="bg-cyan-500 hover:bg-cyan-600 text-white flex-1" data-testid="part-save-btn">Save</Button>

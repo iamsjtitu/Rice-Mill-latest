@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Edit, Users, IndianRupee, RefreshCw, Undo2, Download, FileText, Settings, Calculator, CheckCircle, Printer } from "lucide-react";
 import { fmtDate } from "@/utils/date";
+import RoundOffInput from "@/components/common/RoundOffInput";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -268,6 +269,7 @@ export default function HemaliPayment({ filters, user }) {
   const [showMarkPaid, setShowMarkPaid] = useState(false);
   const [markPaidPayment, setMarkPaidPayment] = useState(null);
   const [markPaidAmount, setMarkPaidAmount] = useState("");
+  const [markPaidRoundOff, setMarkPaidRoundOff] = useState("");
 
   // Filters
   const [dateFrom, setDateFrom] = useState("");
@@ -404,6 +406,7 @@ export default function HemaliPayment({ filters, user }) {
   const handleMarkPaid = (p) => {
     setMarkPaidPayment(p);
     setMarkPaidAmount(String(p.amount_payable || p.amount_paid || 0));
+    setMarkPaidRoundOff("");
     setShowMarkPaid(true);
   };
 
@@ -412,10 +415,14 @@ export default function HemaliPayment({ filters, user }) {
     const amt = parseFloat(markPaidAmount) || 0;
     if (amt <= 0) return toast.error("Amount 0 se zyada hona chahiye");
     try {
-      await axios.put(`${API}/hemali/payments/${markPaidPayment.id}/mark-paid`, { amount_paid: amt });
+      await axios.put(`${API}/hemali/payments/${markPaidPayment.id}/mark-paid`, {
+        amount_paid: amt,
+        round_off: parseFloat(markPaidRoundOff) || 0,
+      });
       toast.success("Payment marked as Paid!");
       setShowMarkPaid(false);
       setMarkPaidPayment(null);
+      setMarkPaidRoundOff("");
       fetchPayments();
     } catch (e) { toast.error(e.response?.data?.detail || "Mark paid error"); }
   };
@@ -738,6 +745,11 @@ export default function HemaliPayment({ filters, user }) {
                   <p className="text-orange-400 text-xs mt-1">Partial Payment: Rs.{(markPaidPayment.amount_payable - parseFloat(markPaidAmount)).toFixed(2)} remaining</p>
                 )}
               </div>
+              <RoundOffInput
+                value={markPaidRoundOff}
+                onChange={setMarkPaidRoundOff}
+                amount={parseFloat(markPaidAmount) || 0}
+              />
               <Button onClick={confirmMarkPaid} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold" data-testid="hemali-confirm-mark-paid">
                 <CheckCircle className="w-4 h-4 mr-1" /> Payment Confirm Karein
               </Button>

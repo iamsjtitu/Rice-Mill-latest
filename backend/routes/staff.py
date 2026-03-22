@@ -63,6 +63,7 @@ class StaffPayment(BaseModel):
     date: str = ""
     kms_year: str = ""
     season: str = ""
+    round_off: float = 0
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -381,6 +382,20 @@ async def settle_salary(pay: StaffPayment):
         await db.cash_transactions.insert_one(cb_entry)
         cb_entry.pop("_id", None)
         doc["cash_book_entry"] = cb_entry
+
+    # Create round-off entry if provided
+    round_off = doc.get("round_off", 0)
+    if round_off and round_off != 0:
+        from utils.round_off import create_round_off_entry
+        await create_round_off_entry(
+            round_off_amount=round_off,
+            date=doc["date"],
+            category=f"Staff - {doc['staff_name']}",
+            kms_year=doc.get("kms_year", ""),
+            season=doc.get("season", ""),
+            created_by="system",
+            reference=f"round_off:staff:{doc['id'][:8]}",
+        )
 
     return doc
 

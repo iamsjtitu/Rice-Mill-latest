@@ -249,7 +249,19 @@ module.exports = function(database) {
       category: partyLabel, party_type: partyType, description: desc,
       amount: d.amount, reference: d.reference || `pvt_pay_ledger:${d.id.substring(0, 8)}`, ...baseCb
     });
-    database.save(); res.json(d);
+    database.save();
+    // Create round-off entry if provided
+    const roundOff = parseFloat(req.body.round_off) || 0;
+    if (roundOff !== 0) {
+      const { createRoundOffEntry } = require('../utils/round_off');
+      createRoundOffEntry(database.data, roundOff, d.date, `Pvt Trading - ${d.party_name}`, {
+        account, kms_year: d.kms_year || '', season: d.season || '',
+        created_by: d.created_by || '',
+        reference: `round_off:pvt:${d.id.substring(0, 8)}`,
+      });
+      database.save();
+    }
+    res.json(d);
   }));
 
   router.get('/api/private-payments', safeSync((req, res) => {

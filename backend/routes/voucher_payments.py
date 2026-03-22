@@ -136,6 +136,22 @@ async def make_voucher_payment(request: Request):
             new_advance = round(old_advance + amount, 2)
             await coll.update_one({"id": voucher_id}, {"$set": {"advance": new_advance}})
 
+    # Create round-off entry if provided
+    round_off = float(data.get("round_off", 0))
+    if round_off and round_off != 0:
+        from utils.round_off import create_round_off_entry
+        await create_round_off_entry(
+            round_off_amount=round_off,
+            date=date,
+            category=f"Voucher - {party}",
+            account=pay_account,
+            bank_name=bank_name if pay_account == "bank" else "",
+            kms_year=kms_year or voucher.get("kms_year", ""),
+            season=season or voucher.get("season", ""),
+            created_by=username,
+            reference=f"round_off:voucher:{payment_id[:8]}",
+        )
+
     return {"success": True, "payment_id": payment_id, "amount": amount, "party": party}
 
 
