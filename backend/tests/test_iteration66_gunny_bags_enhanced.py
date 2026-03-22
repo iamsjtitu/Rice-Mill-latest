@@ -15,7 +15,7 @@ import uuid
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://payment-adjustments.preview.emergentagent.com"
+    BASE_URL = "https://round-off-feature.preview.emergentagent.com"
 
 
 class TestGunnyBagsEnhancedCRUD:

@@ -259,9 +259,10 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
             "in_amount": round(parts_in_amount, 2),
             "in_details": [{"part": t.get("part_name", ""), "qty": t.get("quantity", 0),
                 "rate": t.get("rate", 0), "party": t.get("party_name", ""),
-                "bill_no": t.get("bill_no", ""), "amount": t.get("total_amount", 0)} for t in parts_in],
+                "bill_no": t.get("bill_no", ""), "amount": t.get("total_amount", 0),
+                "store_room": t.get("store_room_name", "")} for t in parts_in],
             "used_details": [{"part": t.get("part_name", ""), "qty": t.get("quantity", 0),
-                "remark": t.get("remark", "")} for t in parts_used]
+                "remark": t.get("remark", ""), "store_room": t.get("store_room_name", "")} for t in parts_used]
         },
         "staff_attendance": {
             "total": len(all_staff),
@@ -657,18 +658,18 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         if mp["in_details"]:
             elements.append(Paragraph("<b>Parts Purchased:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=2, spaceAfter=2)))
             elements.append(make_table(
-                ['Part', 'Qty', 'Rate', 'Party', 'Bill No', 'Amount'],
+                ['Part', 'Qty', 'Rate', 'Party', 'Bill No', 'Store Room', 'Amount'],
                 [[d.get("part",""), str(d.get("qty",0)), str(d.get("rate",0)),
-                  d.get("party",""), d.get("bill_no",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in mp["in_details"]],
-                [100, 60, 65, 100, 80, 85]
+                  d.get("party",""), d.get("bill_no",""), d.get("store_room",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in mp["in_details"]],
+                [90, 50, 55, 85, 70, 70, 75]
             ))
         if mp["used_details"]:
             elements.append(Spacer(1, 3))
             elements.append(Paragraph("<b>Parts Used:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=2, spaceAfter=2)))
             elements.append(make_table(
-                ['Part', 'Qty', 'Remark'],
-                [[d.get("part",""), str(d.get("qty",0)), d.get("remark","")] for d in mp["used_details"]],
-                [180, 100, 220]
+                ['Part', 'Qty', 'Store Room', 'Remark'],
+                [[d.get("part",""), str(d.get("qty",0)), d.get("store_room",""), d.get("remark","")] for d in mp["used_details"]],
+                [150, 80, 100, 170]
             ))
 
     # ===== STAFF ATTENDANCE =====
@@ -913,15 +914,15 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
         write_section(f"7. Mill Parts Stock (In: {mp['in_count']} | Used: {mp['used_count']})")
         if mp["in_details"]:
             write_sub(f"Parts Purchased - Total: Rs. {mp.get('in_amount',0):,.0f}")
-            write_headers(['Part', 'Qty', 'Rate', 'Party', 'Bill No', 'Amount'])
+            write_headers(['Part', 'Qty', 'Rate', 'Party', 'Bill No', 'Store Room', 'Amount'])
             for d in mp["in_details"]:
                 write_row([d.get("part",""), d.get("qty",0), d.get("rate",0),
-                    d.get("party",""), d.get("bill_no",""), d.get("amount",0)])
+                    d.get("party",""), d.get("bill_no",""), d.get("store_room",""), d.get("amount",0)])
         if mp["used_details"]:
             write_sub("Parts Used:")
-            write_headers(['Part', 'Qty', 'Remark'])
+            write_headers(['Part', 'Qty', 'Store Room', 'Remark'])
             for d in mp["used_details"]:
-                write_row([d.get("part",""), d.get("qty",0), d.get("remark","")])
+                write_row([d.get("part",""), d.get("qty",0), d.get("store_room",""), d.get("remark","")])
     row += 1
 
     # By-products & FRK

@@ -155,8 +155,8 @@ function getDailyReportData(database, query) {
       in_count: partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').length,
       used_count: partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').length,
       in_amount: partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').reduce((s, t) => s + (t.amount || t.total_cost || 0), 0),
-      in_details: isDetail ? partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').map(t => ({ part: t.part_name||'', qty: t.quantity||0, rate: t.rate||0, party: t.party_name||'', bill_no: t.bill_no||'', amount: t.amount||t.total_cost||t.total_amount||0 })) : [],
-      used_details: isDetail ? partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').map(t => ({ part: t.part_name||'', qty: t.quantity||0, remark: t.remark||t.description||'' })) : []
+      in_details: isDetail ? partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').map(t => ({ part: t.part_name||'', qty: t.quantity||0, rate: t.rate||0, party: t.party_name||'', bill_no: t.bill_no||'', store_room: t.store_room_name||'', amount: t.amount||t.total_cost||t.total_amount||0 })) : [],
+      used_details: isDetail ? partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').map(t => ({ part: t.part_name||'', qty: t.quantity||0, store_room: t.store_room_name||'', remark: t.remark||t.description||'' })) : []
     },
     pump_account: {
       total_diesel: +dieselTotalAmount.toFixed(2),
@@ -533,17 +533,17 @@ function generateDailyReportPdf(doc, data, query) {
     if (mp.in_details.length) {
       subText('Parts Purchased:');
       drawTable(
-        ['Part','Qty','Rate','Party','Bill No','Amount'],
-        mp.in_details.map(d => [d.part, d.qty, d.rate||0, d.party||'', d.bill_no||'', `Rs.${fmtAmt(d.amount)}`]),
-        [80, 45, 55, 80, 60, 70]
+        ['Part','Qty','Rate','Party','Bill No','Store Room','Amount'],
+        mp.in_details.map(d => [d.part, d.qty, d.rate||0, d.party||'', d.bill_no||'', d.store_room||'', `Rs.${fmtAmt(d.amount)}`]),
+        [70, 40, 50, 70, 55, 65, 65]
       );
     }
     if (mp.used_details.length) {
       subText('Parts Used:');
       drawTable(
-        ['Part','Qty'],
-        mp.used_details.map(d => [d.part, d.qty]),
-        [200, 100]
+        ['Part','Qty','Store Room','Remark'],
+        mp.used_details.map(d => [d.part, d.qty, d.store_room||'', d.remark||'']),
+        [150, 70, 90, 100]
       );
     }
   }

@@ -14,7 +14,7 @@ import requests
 import os
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://payment-adjustments.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://round-off-feature.preview.emergentagent.com').rstrip('/')
 
 
 class TestSaleBookKeyErrorFix:

@@ -638,11 +638,13 @@ const DailyReport = ({ filters }) => {
                 <div className="mb-2">
                   <p className="text-[10px] text-emerald-400 font-semibold mb-1">Parts Purchased:</p>
                   <DetailTable
-                    headers={[{key:'part',label:'Part',align:'left'},{key:'qty',label:'Qty',align:'right'},
-                      {key:'rate',label:'Rate',align:'right'},{key:'party',label:'Party',align:'left'},
-                      {key:'bill',label:'Bill No',align:'left'},{key:'amt',label:'Amount',align:'right'}]}
+                    headers={[{key:'part',label:'Part',align:'left'},{key:'room',label:'Store Room',align:'left'},
+                      {key:'qty',label:'Qty',align:'right'},{key:'rate',label:'Rate',align:'right'},
+                      {key:'party',label:'Party',align:'left'},{key:'bill',label:'Bill No',align:'left'},
+                      {key:'amt',label:'Amount',align:'right'}]}
                     rows={data.mill_parts.in_details.map((d,i) => (<>
                       <td className="py-1 px-2 text-white font-semibold">{d.part}</td>
+                      <td className="py-1 px-2 text-cyan-400 text-[11px]">{d.store_room || '-'}</td>
                       <td className="py-1 px-2 text-right text-amber-400">{d.qty}</td>
                       <td className="py-1 px-2 text-right text-slate-300">₹{d.rate}</td>
                       <td className="py-1 px-2 text-slate-300">{d.party}</td>
@@ -656,9 +658,11 @@ const DailyReport = ({ filters }) => {
                 <div>
                   <p className="text-[10px] text-red-400 font-semibold mb-1">Parts Used:</p>
                   <DetailTable
-                    headers={[{key:'part',label:'Part',align:'left'},{key:'qty',label:'Qty',align:'right'},{key:'remark',label:'Remark',align:'left'}]}
+                    headers={[{key:'part',label:'Part',align:'left'},{key:'room',label:'Store Room',align:'left'},
+                      {key:'qty',label:'Qty',align:'right'},{key:'remark',label:'Remark',align:'left'}]}
                     rows={data.mill_parts.used_details.map((d,i) => (<>
                       <td className="py-1 px-2 text-white font-semibold">{d.part}</td>
+                      <td className="py-1 px-2 text-cyan-400 text-[11px]">{d.store_room || '-'}</td>
                       <td className="py-1 px-2 text-right text-red-400">{d.qty}</td>
                       <td className="py-1 px-2 text-slate-400">{d.remark}</td>
                     </>))}

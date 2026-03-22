@@ -36,7 +36,7 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
 // ============ DAILY REPORT EXCEL ============
 router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
-  const data = getDailyReportData(req.query);
+  const data = getDailyReportData(database, req.query);
   const isDetail = data.mode === 'detail';
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet(`Daily Report ${data.date}`);
@@ -118,6 +118,23 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
         writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)']);
         ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount]));
       }
+    }
+    row++;
+  }
+
+  // 7. Mill Parts Stock
+  const mp = data.mill_parts;
+  if (mp && (mp.in_count || mp.used_count)) {
+    writeSection(`7. Mill Parts Stock (In: ${mp.in_count} | Used: ${mp.used_count})`);
+    if (mp.in_details && mp.in_details.length) {
+      writeSummary(`Parts Purchased - Total: Rs. ${fmtAmt(mp.in_amount || 0)}`);
+      writeHeaders(['Part', 'Qty', 'Rate', 'Party', 'Bill No', 'Store Room', 'Amount']);
+      mp.in_details.forEach(d => writeRow([d.part||'', d.qty||0, d.rate||0, d.party||'', d.bill_no||'', d.store_room||'', d.amount||0]));
+    }
+    if (mp.used_details && mp.used_details.length) {
+      writeSummary('Parts Used:');
+      writeHeaders(['Part', 'Qty', 'Store Room', 'Remark']);
+      mp.used_details.forEach(d => writeRow([d.part||'', d.qty||0, d.store_room||'', d.remark||'']));
     }
     row++;
   }

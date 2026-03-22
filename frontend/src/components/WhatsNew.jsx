@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "25.1.53";
+const APP_VERSION = "25.1.54";
 
 const CHANGELOG = [
+  {
+    version: "25.1.54",
+    date: "22 Mar 2026",
+    title: "Daily Report Export mein Store Room",
+    items: [
+      { type: "new", text: "Daily Report PDF/Excel export mein Mill Parts ka Store Room column" },
+      { type: "imp", text: "Desktop app mein bhi Store Room export support" },
+    ],
+  },
   {
     version: "25.1.53",
     date: "22 Mar 2026",
