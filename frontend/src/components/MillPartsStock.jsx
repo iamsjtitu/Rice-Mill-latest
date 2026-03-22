@@ -160,6 +160,16 @@ export default function MillPartsStock({ filters, user }) {
     } catch { toast.error("Update nahi hua"); }
   };
 
+  const exportRoomReport = async (type) => {
+    try {
+      const p = new URLSearchParams();
+      if (filters.kms_year) p.append('kms_year', filters.kms_year);
+      if (filters.season) p.append('season', filters.season);
+      const url = `${API}/mill-parts/store-room-report/${type}?${p}`;
+      downloadFile(url, `store_room_report.${type === 'excel' ? 'xlsx' : 'pdf'}`);
+    } catch { toast.error("Export nahi hua"); }
+  };
+
   const handleEditStock = async (e) => {
     e.preventDefault();
     if (!editingStock) return;
@@ -615,9 +625,13 @@ export default function MillPartsStock({ filters, user }) {
       {/* ===== ROOM-WISE REPORT TAB ===== */}
       {activeTab === "roomreport" && (
         <div className="space-y-4">
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             <h3 className="text-white font-semibold text-base">Store Room-wise Inventory Report</h3>
             <Button onClick={fetchStoreRoomReport} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
+            <div className="ml-auto flex gap-2">
+              <Button onClick={() => exportRoomReport('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="room-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
+              <Button onClick={() => exportRoomReport('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="room-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+            </div>
           </div>
           {storeRoomReport.length === 0 ? (
             <p className="text-slate-400 text-center py-8">Report load ho raha hai ya koi data nahi...</p>

@@ -29,40 +29,34 @@ Navkar Agro Mill Entry System - A comprehensive accounting and management applic
 13. Settings & Configuration
 14. Authentication & Authorization
 
-## Latest Features (v25.1.49) - March 22, 2026
+## Latest Features (v25.1.50) - March 22, 2026
 
 ### Round Off Feature (P0 - COMPLETE)
 - Round Off input added to ALL payment dialogs across the entire software
 - Creates a SEPARATE "Round Off" entry in Cash Book (category: "Round Off")
 - Positive round_off = nikasi (extra paid), Negative = jama (less paid)
-- Affected payment sections:
-  - CashBook transactions
-  - Hemali Mark Paid
-  - Truck/Agent payments
-  - Truck Owner payments
-  - Diesel payments
-  - Purchase Voucher payments
-  - Staff Salary settlements
-  - Private Trading payments (Paddy + Rice)
+- All 9 payment sections covered
 - Backend utility: `/app/backend/utils/round_off.py`
 - Frontend component: `/app/frontend/src/components/common/RoundOffInput.jsx`
-- Desktop synced: All desktop-app routes updated
+- Desktop synced: All routes updated
 
 ### Mill Parts Store Room Feature (P1 - COMPLETE)
 - Store Room CRUD (Add/Edit/Delete)
 - Store Room assignment to mill parts via Parts Master
-- Delete store room → unassigns all linked parts
+- Delete store room -> unassigns all linked parts
 - Store Room-wise Inventory Report (new tab)
-- Backend: `/api/store-rooms` CRUD + `/api/mill-parts/store-room-report`
+- **Excel and PDF export** for Store Room report
+- Backend: `/api/store-rooms` CRUD + `/api/mill-parts/store-room-report` + `/excel` + `/pdf`
 - Desktop synced: All desktop routes updated
 
 ## Backlog
 - P1: Refactor PDF/Excel generation logic (duplicate code)
 - P1: Centralize stock calculation logic
 - P2: Sardar-wise monthly breakdown report
-- P2: Centralize payment logic (hemali.py + cashbook.py → service layer)
+- P2: Centralize payment logic (hemali.py + cashbook.py -> service layer)
 
 ## Testing Status
-- Round Off: Backend curl tests ✅, Frontend screenshot ✅
-- Store Rooms: Backend curl tests ✅, Frontend screenshot ✅
-- Desktop: Code-level verification ✅
+- Round Off: Backend curl tests PASS, Frontend screenshot PASS
+- Store Rooms: Backend curl tests PASS, Frontend screenshot PASS
+- Store Room Export: Excel 200 OK, PDF 200 OK
+- Desktop: Code-level verification done

@@ -366,6 +366,151 @@ router.get('/api/mill-parts/store-room-report', safeSync((req, res) => {
   res.json(result);
 }));
 
+// ============ STORE ROOM REPORT EXPORT (Excel) ============
+router.get('/api/mill-parts/store-room-report/excel', safeAsync(async (req, res) => {
+  const ExcelJS = require('exceljs');
+  // Re-fetch report data
+  if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
+  if (!database.data.mill_parts) database.data.mill_parts = [];
+  let txns = [...database.data.mill_parts_stock];
+  if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+  if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+  const parts = [...database.data.mill_parts];
+  const partStore = {};
+  for (const p of parts) { partStore[p.name] = { store_room: p.store_room || '', store_room_name: p.store_room_name || '', category: p.category || '', unit: p.unit || 'Pcs' }; }
+  const stock = {};
+  for (const t of txns) {
+    const pn = t.part_name || '';
+    if (!stock[pn]) { const info = partStore[pn] || {}; stock[pn] = { part_name: pn, store_room: info.store_room || '', store_room_name: info.store_room_name || '', category: info.category || '', unit: info.unit || 'Pcs', stock_in: 0, stock_used: 0 }; }
+    if (t.txn_type === 'in') stock[pn].stock_in += t.quantity || 0; else stock[pn].stock_used += t.quantity || 0;
+  }
+  for (const p of parts) { if (!stock[p.name]) { stock[p.name] = { part_name: p.name, store_room: p.store_room || '', store_room_name: p.store_room_name || '', category: p.category || '', unit: p.unit || 'Pcs', stock_in: 0, stock_used: 0 }; } }
+  const roomGroups = {};
+  for (const s of Object.values(stock)) {
+    s.current_stock = Math.round((s.stock_in - s.stock_used) * 100) / 100;
+    s.stock_in = Math.round(s.stock_in * 100) / 100;
+    s.stock_used = Math.round(s.stock_used * 100) / 100;
+    const rid = s.store_room || '__unassigned__'; const rname = s.store_room_name || 'Unassigned';
+    if (!roomGroups[rid]) roomGroups[rid] = { store_room_name: rname, parts: [] };
+    roomGroups[rid].parts.push(s);
+  }
+  for (const g of Object.values(roomGroups)) g.parts.sort((a, b) => a.part_name.localeCompare(b.part_name));
+  const report = Object.values(roomGroups).sort((a, b) => a.store_room_name.localeCompare(b.store_room_name));
+
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Store Room Report');
+  const title = `Store Room-wise Inventory Report${req.query.kms_year ? ' - ' + req.query.kms_year : ''}${req.query.season ? ' (' + req.query.season + ')' : ''}`;
+  ws.mergeCells('A1:F1');
+  ws.getCell('A1').value = title;
+  ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1a365d' } };
+  ws.getCell('A1').alignment = { horizontal: 'center' };
+
+  const hdrFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
+  const hdrFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+  const roomFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0e7490' } };
+  const roomFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+
+  let row = 3;
+  for (const group of report) {
+    ws.mergeCells(row, 1, row, 6);
+    const rc = ws.getCell(row, 1);
+    rc.value = `  ${group.store_room_name} (${group.parts.length} parts)`;
+    rc.fill = roomFill; rc.font = roomFont;
+    row++;
+
+    const headers = ['Part Name', 'Category', 'Unit', 'Stock In', 'Used', 'Current Stock'];
+    headers.forEach((h, i) => { const c = ws.getCell(row, i + 1); c.value = h; c.fill = hdrFill; c.font = hdrFont; c.alignment = { horizontal: 'center' }; });
+    row++;
+
+    let roomIn = 0, roomUsed = 0;
+    for (const p of group.parts) {
+      const vals = [p.part_name, p.category, p.unit, p.stock_in, p.stock_used, p.current_stock];
+      vals.forEach((v, i) => { ws.getCell(row, i + 1).value = v; ws.getCell(row, i + 1).font = { size: 9 }; });
+      if (p.current_stock <= 0) { for (let i = 1; i <= 6; i++) ws.getCell(row, i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFfee2e2' } }; }
+      roomIn += p.stock_in; roomUsed += p.stock_used; row++;
+    }
+    ws.getCell(row, 1).value = '  Subtotal'; ws.getCell(row, 1).font = { bold: true, size: 9 };
+    ws.getCell(row, 4).value = Math.round(roomIn * 100) / 100; ws.getCell(row, 5).value = Math.round(roomUsed * 100) / 100;
+    ws.getCell(row, 6).value = Math.round((roomIn - roomUsed) * 100) / 100;
+    row += 2;
+  }
+
+  ws.columns = [{ width: 22 }, { width: 14 }, { width: 8 }, { width: 12 }, { width: 12 }, { width: 14 }];
+  const buf = await wb.xlsx.writeBuffer();
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename=store_room_report.xlsx`);
+  res.send(Buffer.from(buf));
+}));
+
+// ============ STORE ROOM REPORT EXPORT (PDF) ============
+router.get('/api/mill-parts/store-room-report/pdf', safeAsync(async (req, res) => {
+  const PDFDocument = require('pdfkit');
+  // Re-fetch report data (same logic as excel)
+  if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
+  if (!database.data.mill_parts) database.data.mill_parts = [];
+  let txns = [...database.data.mill_parts_stock];
+  if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+  if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+  const parts = [...database.data.mill_parts];
+  const partStore = {};
+  for (const p of parts) { partStore[p.name] = { store_room: p.store_room || '', store_room_name: p.store_room_name || '', category: p.category || '', unit: p.unit || 'Pcs' }; }
+  const stock = {};
+  for (const t of txns) {
+    const pn = t.part_name || '';
+    if (!stock[pn]) { const info = partStore[pn] || {}; stock[pn] = { part_name: pn, store_room: info.store_room || '', store_room_name: info.store_room_name || '', category: info.category || '', unit: info.unit || 'Pcs', stock_in: 0, stock_used: 0 }; }
+    if (t.txn_type === 'in') stock[pn].stock_in += t.quantity || 0; else stock[pn].stock_used += t.quantity || 0;
+  }
+  for (const p of parts) { if (!stock[p.name]) { stock[p.name] = { part_name: p.name, store_room: p.store_room || '', store_room_name: p.store_room_name || '', category: p.category || '', unit: p.unit || 'Pcs', stock_in: 0, stock_used: 0 }; } }
+  const roomGroups = {};
+  for (const s of Object.values(stock)) {
+    s.current_stock = Math.round((s.stock_in - s.stock_used) * 100) / 100;
+    s.stock_in = Math.round(s.stock_in * 100) / 100;
+    s.stock_used = Math.round(s.stock_used * 100) / 100;
+    const rid = s.store_room || '__unassigned__'; const rname = s.store_room_name || 'Unassigned';
+    if (!roomGroups[rid]) roomGroups[rid] = { store_room_name: rname, parts: [] };
+    roomGroups[rid].parts.push(s);
+  }
+  for (const g of Object.values(roomGroups)) g.parts.sort((a, b) => a.part_name.localeCompare(b.part_name));
+  const report = Object.values(roomGroups).sort((a, b) => a.store_room_name.localeCompare(b.store_room_name));
+
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename=store_room_report.pdf');
+  doc.pipe(res);
+
+  const title = `Store Room-wise Inventory Report${req.query.kms_year ? ' - ' + req.query.kms_year : ''}${req.query.season ? ' (' + req.query.season + ')' : ''}`;
+  doc.fontSize(16).fillColor('#1a365d').text(title, { align: 'center' });
+  doc.moveDown(0.5);
+
+  const colX = [30, 170, 260, 310, 380, 440];
+  const colW = [140, 90, 50, 70, 60, 100];
+  const headers = ['Part Name', 'Category', 'Unit', 'Stock In', 'Used', 'Current Stock'];
+
+  for (const group of report) {
+    if (doc.y > 450) doc.addPage();
+    doc.fontSize(12).fillColor('#0e7490').text(`${group.store_room_name} (${group.parts.length} parts)`, 30);
+    doc.moveDown(0.3);
+
+    // Header row
+    const hy = doc.y;
+    doc.rect(30, hy, 510, 16).fill('#1a365d');
+    headers.forEach((h, i) => { doc.fontSize(8).fillColor('white').text(h, colX[i], hy + 3, { width: colW[i], align: i >= 3 ? 'right' : 'left' }); });
+    doc.y = hy + 18;
+
+    for (const p of group.parts) {
+      if (doc.y > 520) { doc.addPage(); }
+      const y = doc.y;
+      if (p.current_stock <= 0) doc.rect(30, y - 1, 510, 14).fill('#fee2e2');
+      const vals = [p.part_name, p.category, p.unit, String(p.stock_in), String(p.stock_used), String(p.current_stock)];
+      vals.forEach((v, i) => { doc.fontSize(7).fillColor('#333').text(v, colX[i], y + 2, { width: colW[i], align: i >= 3 ? 'right' : 'left' }); });
+      doc.y = y + 14;
+    }
+    doc.moveDown(0.5);
+  }
+
+  doc.end();
+}));
+
 // ============ STOCK EXPORT (Excel) ============
 router.get('/api/mill-parts/summary/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');

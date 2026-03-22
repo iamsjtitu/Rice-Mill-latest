@@ -396,6 +396,178 @@ async def get_store_room_report(kms_year: Optional[str] = None, season: Optional
     return result
 
 
+@router.get("/mill-parts/store-room-report/excel")
+async def export_store_room_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from fastapi.responses import StreamingResponse
+    import io
+
+    report = await get_store_room_report(kms_year, season)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Store Room Report"
+    title = "Store Room-wise Inventory Report"
+    if kms_year:
+        title += f" - {kms_year}"
+    if season:
+        title += f" ({season})"
+    ws.merge_cells('A1:F1')
+    ws['A1'] = title
+    ws['A1'].font = Font(bold=True, size=14, color='1a365d')
+    ws['A1'].alignment = Alignment(horizontal='center')
+
+    hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
+    hdr_font = Font(bold=True, color='FFFFFF', size=10)
+    room_fill = PatternFill(start_color='0e7490', end_color='0e7490', fill_type='solid')
+    room_font = Font(bold=True, color='FFFFFF', size=11)
+    thin_border = Border(
+        left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
+        top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1')
+    )
+    alt_fill = PatternFill(start_color='f8fafc', end_color='f8fafc', fill_type='solid')
+    low_fill = PatternFill(start_color='fee2e2', end_color='fee2e2', fill_type='solid')
+
+    row = 3
+    grand_total_in = 0
+    grand_total_used = 0
+
+    for group in report:
+        # Store Room header
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+        c = ws.cell(row=row, column=1, value=f"  {group['store_room_name']} ({len(group['parts'])} parts)")
+        c.fill = room_fill
+        c.font = room_font
+        c.alignment = Alignment(horizontal='left', vertical='center')
+        for ci in range(1, 7):
+            ws.cell(row=row, column=ci).border = thin_border
+        row += 1
+
+        # Column headers
+        headers = ['Part Name', 'Category', 'Unit', 'Stock In', 'Used', 'Current Stock']
+        for i, h in enumerate(headers, 1):
+            c = ws.cell(row=row, column=i, value=h)
+            c.fill = hdr_fill
+            c.font = hdr_font
+            c.border = thin_border
+            c.alignment = Alignment(horizontal='center')
+        row += 1
+
+        room_total_in = 0
+        room_total_used = 0
+        for idx, p in enumerate(group['parts']):
+            vals = [p['part_name'], p.get('category', ''), p.get('unit', 'Pcs'),
+                    p['stock_in'], p['stock_used'], p['current_stock']]
+            room_total_in += p['stock_in']
+            room_total_used += p['stock_used']
+            for ci, v in enumerate(vals, 1):
+                c = ws.cell(row=row, column=ci, value=v)
+                c.border = thin_border
+                c.font = Font(size=9)
+                if p['current_stock'] <= 0:
+                    c.fill = low_fill
+                elif idx % 2 == 1:
+                    c.fill = alt_fill
+            row += 1
+
+        # Room subtotal
+        ws.cell(row=row, column=1, value="  Subtotal").font = Font(bold=True, size=9, color='0e7490')
+        ws.cell(row=row, column=4, value=round(room_total_in, 2)).font = Font(bold=True, size=9)
+        ws.cell(row=row, column=5, value=round(room_total_used, 2)).font = Font(bold=True, size=9)
+        ws.cell(row=row, column=6, value=round(room_total_in - room_total_used, 2)).font = Font(bold=True, size=9)
+        for ci in range(1, 7):
+            ws.cell(row=row, column=ci).border = thin_border
+        row += 2
+        grand_total_in += room_total_in
+        grand_total_used += room_total_used
+
+    # Grand total
+    ws.cell(row=row, column=1, value="GRAND TOTAL").font = Font(bold=True, size=11, color='1a365d')
+    ws.cell(row=row, column=4, value=round(grand_total_in, 2)).font = Font(bold=True, size=11)
+    ws.cell(row=row, column=5, value=round(grand_total_used, 2)).font = Font(bold=True, size=11)
+    ws.cell(row=row, column=6, value=round(grand_total_in - grand_total_used, 2)).font = Font(bold=True, size=11)
+    for ci in range(1, 7):
+        ws.cell(row=row, column=ci).border = thin_border
+
+    widths = [22, 14, 8, 12, 12, 14]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[chr(64 + i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=store_room_report_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+
+@router.get("/mill-parts/store-room-report/pdf")
+async def export_store_room_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from fastapi.responses import StreamingResponse
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    import io
+
+    report = await get_store_room_report(kms_year, season)
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30)
+    styles = getSampleStyleSheet()
+    title_text = "Store Room-wise Inventory Report"
+    if kms_year:
+        title_text += f" - {kms_year}"
+    if season:
+        title_text += f" ({season})"
+    elements = [Paragraph(title_text, styles['Title']), Spacer(1, 12)]
+
+    col_widths = [140, 80, 50, 70, 70, 90]
+
+    for group in report:
+        # Room header
+        room_style = ParagraphStyle('room', parent=styles['Heading3'], textColor=colors.HexColor('#0e7490'))
+        elements.append(Paragraph(f"{group['store_room_name']} ({len(group['parts'])} parts)", room_style))
+        elements.append(Spacer(1, 4))
+
+        data = [['Part Name', 'Category', 'Unit', 'Stock In', 'Used', 'Current Stock']]
+        room_in = 0
+        room_used = 0
+        for p in group['parts']:
+            data.append([p['part_name'], p.get('category', ''), p.get('unit', 'Pcs'),
+                         str(p['stock_in']), str(p['stock_used']), str(p['current_stock'])])
+            room_in += p['stock_in']
+            room_used += p['stock_used']
+
+        data.append(['Subtotal', '', '', str(round(room_in, 2)), str(round(room_used, 2)),
+                      str(round(room_in - room_used, 2))])
+
+        t = RTable(data, colWidths=col_widths, repeatRows=1)
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8fafc')]),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('ALIGN', (3, 0), (5, -1), 'RIGHT'),
+        ]
+        # Highlight zero/negative stock rows
+        for ri, p in enumerate(group['parts'], 1):
+            if p['current_stock'] <= 0:
+                style_cmds.append(('BACKGROUND', (0, ri), (-1, ri), colors.HexColor('#fee2e2')))
+
+        t.setStyle(TableStyle(style_cmds))
+        elements.append(t)
+        elements.append(Spacer(1, 14))
+
+    doc.build(elements)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=store_room_report_{datetime.now().strftime('%Y%m%d')}.pdf"})
+
+
 # ============ STOCK EXPORT ============
 
 @router.get("/mill-parts/summary/excel")
