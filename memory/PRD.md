@@ -5,13 +5,16 @@
 - **Backend (Web)**: FastAPI + MongoDB
 - **Backend (Desktop)**: Electron + Node.js/Express + JSON file DB
 
-## Latest (v25.1.54)
+## Latest (v25.1.55)
 
-### Daily Report Export - Store Room Column
-- Daily Report PDF export: Mill Parts section includes Store Room column for both "Parts Purchased" and "Parts Used" tables
-- Daily Report Excel export: Same Store Room column added
-- Desktop app: Store Room added to data layer, PDF, and Excel exports
-- Version bumped to v25.1.54 with changelog entry
+### Round Off Filter + Telegram Share
+- Cash Transactions: Round Off entries hidden by default, toggle to show/hide
+- Daily Report: "Share via Telegram" button in Detail mode
+- Backend: `exclude_round_off` param added to GET /cash-book endpoint
+- Desktop backend synced with same filter
+
+### Previous (v25.1.54)
+- Daily Report PDF/Excel export: Store Room column for Mill Parts
 
 ### Previous (v25.1.53)
 - Store Room in Stock forms (In/Used), Stock Summary, Part-wise Summary
