@@ -1,63 +1,61 @@
 <analysis>**original_problem_statement:**
-The user's initial goal was to fix bugs and ensure feature parity between a desktop (Node.js) and web (Python) application. This evolved into a major feature request: **Hemali Payment**.
+After confirming that all previous work on the Hemali Payment feature was 100% complete, the user has requested two new major features:
 
-**PRODUCT REQUIREMENTS (Hemali Payment & Follow-ups):**
-1.  **Core Feature**: A system to manage payments for Hemali Sardars (Lead Laborers).
-2.  **Configurable Items**: A settings section for fixed-rate items (e.g., Paddy Bag Unload - ₹3/bag).
-3.  **Payment Workflow**:
-    *   Create payments with an Unpaid status.
-    *   A Mark as Paid action to finalize the payment, which triggers accounting entries.
-    *   Undo and Print actions for each payment.
-4.  **Advance Management**: The system must show a Sardar's outstanding advance when creating a new payment, allowing for automatic deduction.
-5.  **Reporting & Integrations**:
-    *   Paid amounts must integrate with the Cash Book and create Party Ledger entries for each Sardar.
-    *   A new Hemali Payments section must appear in the Daily and Detail reports (UI, PDF, and Excel).
-    *   A dedicated Monthly Summary report for Hemali payments, filterable by month.
-6.  **UI/UX & Bug Fixes**:
-    *   A new top-level Hemali tab with sub-tabs for Payments, Monthly Summary, and Item Configuration.
-    *   A specific, well-formatted PDF print receipt for individual payments.
-    *   Fix PDF rendering issues where Hindi characters appeared as boxes.
-    *   Standardize the date format to  across the entire software.
-7.  **Backend Parity**: All features and fixes must be implemented on *both* the web (Python/FastAPI) and desktop (Node.js/Express) backends.
+**PRODUCT REQUIREMENTS:**
+1.  **Round Off Feature:**
+    *   Implement a Round Off option in all payment sections of the application.
+    *   This should allow users to adjust the final payment amount (e.g., round  up to  by adding , or round  down to  by subtracting ).
+    *   The round-off amount must be explicitly tracked as a separate entry in the Cash Book.
+2.  **Mill Parts Store Room:**
+    *   Create a configuration section to define Store Rooms (e.g., Store Room 1, Store Room 2).
+    *   When adding or editing mill parts, allow users to select which store room the part belongs to.
+    *   Create a new report that displays mill parts inventory filtered by store room.
 
 **User's preferred language**: Hindi
 
 **what currently exists?**
-The Hemali Payment feature is fully implemented from end-to-end. This includes the core payment workflow, advance management, a monthly summary report, and integration into the party ledger and daily reports. All requested bug fixes, including the global date format standardization and PDF report improvements, have been completed. Crucially, all these changes have been mirrored across both the web (Python) and desktop (Node.js) backends, ensuring complete feature parity, which was the user's final request.
+The Hemali Payment feature is fully implemented, tested, and verified by the user. All associated bug fixes, including complex data integrity and backend synchronization issues, have been resolved. The application is stable. The previous agent had just begun exploring the codebase to plan the implementation of the new Round Off and Store Room features.
 
 **Last working item**:
--   Last item agent was working: Performing a final, comprehensive verification to ensure complete feature and logic parity between the web (Python) and desktop (Node.js) backends. The agent identified 3 missing endpoints in the desktop backend, implemented them, and confirmed that all 17 related endpoints now match.
--   Status: USER VERIFICATION PENDING
--   Agent Testing Done: Y
--   Which testing method agent to use? NA
+-   Last item agent was working: The agent was performing initial code exploration for the two new feature requests (Round Off and Store Rooms). Files like , , , and  were viewed to understand the scope of changes required.
+-   Status: NOT STARTED
+-   Agent Testing Done: N
+-   Which testing method agent to use? After implementation, use the testing agent for both frontend and backend flows, as these are significant new features.
 -   User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   None. All user requests and identified issues from this session have been resolved.
+-   None.
 
 **In progress Task List**:
 -   None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **P0: User Verification of All Completed Work:** The next step is to get the user's confirmation that the Hemali Payment feature, all associated reports, bug fixes (date format, PDF), and the complete backend sync meet their expectations.
+    -   **P0: Implement Round Off Feature:**
+        -   Add UI elements to all payment dialogs (Cashbook, Hemali, etc.) for entering a round-off amount.
+        -   Modify backend payment endpoints (web and desktop) to process the round-off amount.
+        -   Create a new, separate transaction in the  collection to record the round-off amount, ensuring it appears distinctly in the cash book report.
+    -   **P1: Implement Mill Parts Store Room Feature:**
+        -   Create a new DB collection for .
+        -   Implement a UI for adding/editing store rooms.
+        -   Add a  field to the  schema and UI form.
+        -   Create a new report for viewing parts inventory by store room.
 
 -   **Future Tasks:**
-    -   **P1: Refactor duplicated PDF/Excel generation logic.** The report generation code is duplicated across several files and could be centralized.
-    -   **P1: Centralize stock calculation logic.** The logic is scattered and could be consolidated for better maintainability.
+    -   P1: Refactor duplicated PDF/Excel generation logic.
+    -   P1: Centralize stock calculation logic.
+    -   P2: Add more granular hemali reports (sardar-wise monthly breakdown).
 
 **Completed work in this session**
--   **Hemali Payment Feature (Full Implementation):**
-    -   Created backend endpoints (, ) and frontend components ().
-    -   Implemented the full  ->  ->  payment workflow.
-    -   Added a Monthly Summary report and integrated Hemali payments into the Party Ledger and Daily/Detail Reports.
--   **Critical Bug Fixes & UX Improvements:**
-    -   **Global Date Format Standardization:** Changed the date format to  across the entire application by creating and using a shared utility ().
-    -   **PDF Receipt Overhaul:** Redesigned the Hemali payment receipt to match user's reference and resolved font rendering issues by using English.
-    -   **Advance Logic Fix:** Improved the UI to auto-fetch a Sardar's advance when they are selected in the payment form.
--   **Complete Backend Sync (Web & Desktop):**
-    -   Performed a full audit comparing the Python and Node.js backends.
-    -   Identified and implemented 3 missing endpoints in  to achieve 100% feature parity.
+-   **Hemali Feature Finalization:**
+    -   Fixed numerous data integrity issues related to payment creation, deletion, and ledger reporting. The final, stable logic ensures consistency across , , and .
+    -   Implemented robust startup integrity checks (for both web and desktop) to automatically reconcile data and clean up orphaned entries.
+    -   Ensured Hemali payments and advances are correctly reflected in all relevant reports, including the Balance Sheet and Daily Report.
+-   **Electron UI Bug Fix:**
+    -   Resolved a recurring UI bug where input fields would lose focus. The final fix uses an IPC channel () for a more reliable, native-level solution.
+-   **Versioning and Sync:**
+    -   Consistently bumped the version number after each fix, reaching .
+    -   Ensured 100% feature and logic parity between the Python (web) and Node.js (desktop) backends for all changes.
 
 **Earlier issues found/mentioned but not fixed**
 -   None.
@@ -69,69 +67,55 @@ The Hemali Payment feature is fully implemented from end-to-end. This includes t
 
 
 **Key Technical Concepts**
--   **Full-Stack Feature Development:** Building a complete feature across a Python/FastAPI backend, a Node.js/Express backend, and a React frontend.
--   **Cross-Platform Synchronization:** Methodically ensuring logic and feature parity between two distinct backends.
--   **Global Code Refactoring:** Executing a software-wide change (date formatting) by creating and applying a shared utility function.
--   **Dynamic PDF/Excel Generation:** Creating complex, formatted reports using  (Python) and / (Node.js).
+-   **Data Reconciliation:** Implementing startup scripts and transactional handlers to ensure data consistency across multiple database collections.
+-   **Complex Transactional Logic:** The payment flow now correctly handles creation, payment (full/partial), undo, and deletion by creating/deleting linked entries in different collections (, , ).
+-   **Electron IPC:** Using  and  to solve a native window focus issue that was not solvable from the renderer process alone.
 
 **key DB schema**
--   **hemali_sardars**: 
--   **hemali_items**: 
--   **hemali_payments**: 
+-   : Unchanged.
+-   : Heavily used for Hemali ledger entries. **Will be modified** to include  transactions.
+-   : Used to mirror Hemali debit/payment for summary calculations.
+-   **Upcoming:**
+    -   : (New) 
+    -   : (Modification) Add  field.
 
 **changes in tech stack**
 -   None.
 
 **All files of reference**
--    (Primary web backend logic)
--    (Primary desktop backend logic, now in sync)
--    (Main UI component for the feature)
--    (The shared date utility)
--    (Daily report integration point)
+-   **Round Off Feature:** , , 
+-   **Store Room Feature:** , 
+-   **General Backend:**  (for syncing changes)
 
 **Areas that need refactoring**:
--   PDF/Excel report generation logic is duplicated across multiple endpoints.
+-   PDF/Excel report generation logic remains duplicated.
+-   The payment logic, now spread across  and  with links to , could be centralized into a dedicated service/utility on both backends for better maintainability.
 
 **key api endpoints**
--    (GET, POST)
--    (PUT, DELETE)
--    (POST)
--    (POST)
--    (GET)
--    (GET)
--    (GET)
--    (GET, and PDF/Excel exports)
--    (Now includes Hemali data)
+-   No new endpoints. Existing payment endpoints (, ) will need modification to handle the  amount.
+-   New CRUD endpoints will be required for .
 
 **Critical Info for New Agent**
 -   **Language**: You **MUST** communicate with the user in **Hindi**.
--   **Project State**: The application is stable. The large Hemali Payment feature and several associated fixes are complete and, most importantly, synced across both desktop and web backends as per the user's final instruction.
--   **Next Action**: The user has been informed that the backend synchronization is complete. Await their next instruction. Do not propose new work; let the user drive the next step, which will likely be their own verification of the implemented features.
+-   **Project State**: The user has approved all prior work and requested two new, distinct features. The codebase is stable.
+-   **Next Action**: Begin with the Round Off feature. Plan and implement the necessary UI and backend changes across all relevant payment modules. After completing and testing it, proceed to the Mill Parts Store Room feature.
+-   **Versioning**: The user is diligent about versioning. Remember to bump the version in  (last was ) after implementing each feature.
+-   **Desktop Sync**: All backend logic changes must be mirrored in the  Node.js code.
 
 **documents and test reports created in this job**
--   
--   
--   
--   
--   
--   
+-   /app/memory/PRD.md
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **ek baar verify karlo sab changes aya ya nai...**: User asked to verify that all changes from the web preview are also on the desktop build. (Status: DONE)
-2.  **maine phle bhi 100 baar bola hai ye tumhare system mai fit karlo ki jo b changes honge wo sab disktop mai automatic sybce hoga**: User expressed frustration and reiterated that all changes must be synced to the desktop backend. (Status: ADDRESSED)
-3.  **desktop codes synce frontend rebuild and all sab ho gaya jaisa mera phle instruction tha ?**: User asked if the desktop code was synced and the frontend rebuilt per their instructions. (Status: ADDRESSED)
-4.  **areh bhai ye sab mujhe pata hai version kya h maine pucha , naye ho kya tum ?**: User asked for the version number, annoyed at the agent's explanation of deployment. (Status: ADDRESSED)
-5.  **release the version**: User asked to release the current version. (Status: ADDRESSED by explaining platform tools)
-6.  **maine kaha tha advance aopne aap aa jana chahiye...date format...fix karo**: User reported 3 bugs: PDF boxes, incorrect advance logic, and wrong date format. (Status: RESOLVED)
-7.  **hemal ka print format aisa banao...**: User requested a new print format, integration into daily reports, and a month filter. (Status: RESOLVED)
-8.  **hemal ka payment party ledger mai ayega ya nai ayega mujhe idea nai h**: User asked about Party Ledger integration and requested a new monthly summary report. (Status: RESOLVED)
-9.  **Cross-platform logic sync improvements kardo ye b**: User asked to begin the task of syncing the two backends. (Status: ADDRESSED)
-10. **Cross-platform logic sync improvements matlab**: User asked for clarification on the sync task. (Status: ADDRESSED)
+-   User confirmed 100% completion of the software.
+-   User requested a Round Off feature for all payments.
+-   User requested a Store Room feature for mill parts with a corresponding report.
+-   User clarified that the round-off amount should be a separate entry in the cash book.
+-   User clarified that a store-room-wise report is required.
 
 **Project Health Check:**
 -   **Broken:** None
 -   **Mocked:** None
--   **Health**: Stable. Major features are complete and key UX issues have been resolved across the stack.
+-   **Health**: Stable. Ready for new feature development.
 
 **3rd Party Integrations**
 -   electron-builder / electron-updater
@@ -140,7 +124,7 @@ The Hemali Payment feature is fully implemented from end-to-end. This includes t
 -   Telegram (for sending reports)
 
 **Testing status**
--   Testing agent used after significant changes: YES
+-   Testing agent used after significant changes: YES (in previous sessions)
 -   Troubleshoot agent used after agent stuck in loop: NO
 -   Test files created: []
 -   Known regressions: None
@@ -150,4 +134,4 @@ The Hemali Payment feature is fully implemented from end-to-end. This includes t
 -   **Password:** 
 
 **What agent forgot to execute**
--   Nothing. The agent successfully addressed all user requests from the session, including the final explicit instruction to sync both backends.</analysis>
+-   Nothing. The previous agent correctly identified the start of a new workstream and began exploration.</analysis>
