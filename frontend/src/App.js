@@ -58,6 +58,7 @@ import Vouchers from "@/components/Vouchers";
 import { PrintButton } from "@/components/PrintButton";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import HemaliPayment from "@/components/HemaliPayment";
+import WhatsNew, { APP_VERSION } from "@/components/WhatsNew";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -220,6 +221,7 @@ function MainApp({ user, onLogout }) {
   // Error log state
   const [errorLog, setErrorLog] = useState("");
   const [errorLogAvailable, setErrorLogAvailable] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
 
   // Telegram state
   const [telegramConfig, setTelegramConfig] = useState({ bot_token: "", chat_ids: [], schedule_time: "21:00", enabled: false });
@@ -1121,6 +1123,17 @@ function MainApp({ user, onLogout }) {
                 title="Keyboard Shortcuts (Press '?' for help)"
               >
                 <Keyboard className="w-4 h-4" />
+              </Button>
+              <Button
+                onClick={() => setShowWhatsNew(true)}
+                variant="outline"
+                size="sm"
+                className="border-amber-600/50 text-amber-400 hover:bg-amber-900/30"
+                data-testid="whats-new-btn"
+                title="What's New"
+              >
+                <Info className="w-4 h-4 mr-1" />
+                v{APP_VERSION}
               </Button>
               <PrintButton title={activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} />
               <Button
@@ -2706,11 +2719,26 @@ function MainApp({ user, onLogout }) {
 
       {/* Footer */}
       <footer className="bg-slate-800/50 border-t border-slate-700 py-4 mt-8 no-print">
-        <div className="max-w-[1600px] mx-auto px-4 text-center text-slate-400 text-sm">
-          <p>{branding.company_name} - {branding.tagline}</p>
-          <p className="text-xs mt-1">1 Quintal = 100 KG | P.Pkt = 0.50 kg/bag</p>
+        <div className="max-w-[1600px] mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
+            <div className="text-slate-400 text-center sm:text-left">
+              <p className="font-semibold text-slate-300">{branding.company_name} <span className="text-slate-500">- {branding.tagline}</span></p>
+              <p className="text-xs mt-0.5">1 Quintal = 100 KG | P.Pkt = 0.50 kg/bag</p>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-slate-500">
+              <span className="text-amber-400/80 font-mono" data-testid="footer-version">v{APP_VERSION}</span>
+              <span className="hidden sm:inline text-slate-700">|</span>
+              <span>Designed By: <a href="https://www.9x.design" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 transition-colors" data-testid="footer-designer">9x.design</a></span>
+              <span className="hidden sm:inline text-slate-700">|</span>
+              <span>Contact: <a href="tel:+917205930002" className="text-cyan-400 hover:text-cyan-300 transition-colors" data-testid="footer-contact">+91 72059 30002</a></span>
+            </div>
+          </div>
         </div>
       </footer>
+
+      {/* What's New Dialog - auto shows on version update */}
+      <WhatsNew />
+      {showWhatsNew && <WhatsNew forceOpen onClose={() => setShowWhatsNew(false)} />}
     </div>
   );
 }
