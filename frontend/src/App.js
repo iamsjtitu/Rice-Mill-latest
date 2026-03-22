@@ -2718,20 +2718,18 @@ function MainApp({ user, onLogout }) {
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-800/50 border-t border-slate-700 py-4 mt-8 no-print">
-        <div className="max-w-[1600px] mx-auto px-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
-            <div className="text-slate-400 text-center sm:text-left">
-              <p className="font-semibold text-slate-300">{branding.company_name} <span className="text-slate-500">- {branding.tagline}</span></p>
-              <p className="text-xs mt-0.5">1 Quintal = 100 KG | P.Pkt = 0.50 kg/bag</p>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-slate-500">
-              <span className="text-amber-400/80 font-mono" data-testid="footer-version">v{APP_VERSION}</span>
-              <span className="hidden sm:inline text-slate-700">|</span>
-              <span>Designed By: <a href="https://www.9x.design" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 transition-colors" data-testid="footer-designer">9x.design</a></span>
-              <span className="hidden sm:inline text-slate-700">|</span>
-              <span>Contact: <a href="tel:+917205930002" className="text-cyan-400 hover:text-cyan-300 transition-colors" data-testid="footer-contact">+91 72059 30002</a></span>
-            </div>
+      <footer className="border-t border-slate-600/60 mt-10 no-print">
+        <div className="max-w-[1600px] mx-auto px-4 py-6 text-center space-y-2">
+          <p className="text-slate-300 text-sm font-semibold tracking-wide">
+            Mill Entry System <span className="text-slate-500 font-normal">- Data Management Software</span>
+          </p>
+          <p className="text-slate-500 text-xs">1 Quintal = 100 KG | P.Pkt = 0.50 kg/bag</p>
+          <div className="flex items-center justify-center gap-3 text-xs text-slate-500 pt-1">
+            <span className="text-amber-400/70 font-mono" data-testid="footer-version">v{APP_VERSION}</span>
+            <span className="text-slate-700">|</span>
+            <span>Designed By: <a href="https://www.9x.design" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 transition-colors" data-testid="footer-designer">9x.design</a></span>
+            <span className="text-slate-700">|</span>
+            <span>Contact: <a href="tel:+917205930002" className="text-cyan-400 hover:text-cyan-300 transition-colors" data-testid="footer-contact">+91 72059 30002</a></span>
           </div>
         </div>
       </footer>
