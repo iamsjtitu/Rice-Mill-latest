@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "25.1.52";
+const APP_VERSION = "25.1.53";
 
 const CHANGELOG = [
+  {
+    version: "25.1.53",
+    date: "22 Mar 2026",
+    title: "Store Room Everywhere + Export Update",
+    items: [
+      { type: "new", text: "Stock In/Used form mein Store Room select option" },
+      { type: "new", text: "Stock Summary table mein Store Room column" },
+      { type: "new", text: "Part-wise Summary mein Store Room info" },
+      { type: "imp", text: "Sabhi Excel aur PDF exports mein Store Room column add" },
+    ],
+  },
   {
     version: "25.1.52",
     date: "22 Mar 2026",

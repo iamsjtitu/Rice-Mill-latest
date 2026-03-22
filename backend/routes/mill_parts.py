@@ -581,12 +581,12 @@ async def export_stock_excel(kms_year: Optional[str] = None, season: Optional[st
     wb = Workbook()
     ws = wb.active
     ws.title = "Mill Parts Stock"
-    ws.merge_cells('A1:H1')
+    ws.merge_cells('A1:I1')
     ws['A1'] = f"Mill Parts Stock Summary{' - ' + kms_year if kms_year else ''}{' - ' + season if season else ''}"
     ws['A1'].font = Font(bold=True, size=14, color='1a365d')
     ws['A1'].alignment = Alignment(horizontal='center')
 
-    headers = ['Part Name', 'Category', 'Unit', 'Stock In', 'Stock Used', 'Current Stock', 'Purchase Amount (Rs)', 'Parties']
+    headers = ['Part Name', 'Category', 'Store Room', 'Unit', 'Stock In', 'Stock Used', 'Current Stock', 'Purchase Amount (Rs)', 'Parties']
     hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
     hdr_font = Font(bold=True, color='FFFFFF', size=10)
     thin_border = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'), top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
@@ -602,7 +602,7 @@ async def export_stock_excel(kms_year: Optional[str] = None, season: Optional[st
     total_purchase = 0
     for idx, s in enumerate(summary):
         row = idx + 4
-        vals = [s["part_name"], s["category"], s["unit"], s["stock_in"], s["stock_used"], s["current_stock"], s["total_purchase_amount"], ', '.join(p['name'] for p in s.get('parties', []))]
+        vals = [s["part_name"], s["category"], s.get("store_room_name", ""), s["unit"], s["stock_in"], s["stock_used"], s["current_stock"], s["total_purchase_amount"], ', '.join(p['name'] for p in s.get('parties', []))]
         total_purchase += s["total_purchase_amount"]
         for ci, v in enumerate(vals, 1):
             c = ws.cell(row=row, column=ci, value=v)
@@ -613,11 +613,11 @@ async def export_stock_excel(kms_year: Optional[str] = None, season: Optional[st
     # Totals row
     tr = len(summary) + 4
     ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True, size=10, color='1a365d')
-    ws.cell(row=tr, column=7, value=total_purchase).font = Font(bold=True, size=10, color='1a365d')
-    for ci in range(1, 9):
+    ws.cell(row=tr, column=8, value=total_purchase).font = Font(bold=True, size=10, color='1a365d')
+    for ci in range(1, 10):
         ws.cell(row=tr, column=ci).border = thin_border
 
-    widths = [20, 14, 8, 12, 12, 14, 18, 25]
+    widths = [20, 14, 14, 8, 12, 12, 14, 18, 25]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[chr(64 + i)].width = w
 
@@ -645,27 +645,27 @@ async def export_stock_pdf(kms_year: Optional[str] = None, season: Optional[str]
     if season: title_text += f" ({season})"
     elements = [Paragraph(title_text, styles['Title']), Spacer(1, 12)]
 
-    data = [['Part', 'Category', 'Unit', 'In', 'Used', 'Stock', 'Amount (Rs)', 'Parties']]
+    data = [['Part', 'Category', 'Store Room', 'Unit', 'In', 'Used', 'Stock', 'Amount (Rs)', 'Parties']]
     total_purchase = 0
     for s in summary:
         total_purchase += s["total_purchase_amount"]
-        data.append([s["part_name"], s["category"], s["unit"], s["stock_in"], s["stock_used"], s["current_stock"],
+        data.append([s["part_name"], s["category"], s.get("store_room_name", ""), s["unit"], s["stock_in"], s["stock_used"], s["current_stock"],
             f'Rs.{s["total_purchase_amount"]:,.0f}', ', '.join(p['name'] for p in s.get('parties', []))])
-    data.append(['TOTAL', '', '', '', '', '', f'Rs.{total_purchase:,.0f}', ''])
+    data.append(['TOTAL', '', '', '', '', '', '', f'Rs.{total_purchase:,.0f}', ''])
 
-    col_widths = [90, 60, 40, 45, 45, 55, 80, 120]
+    col_widths = [85, 55, 65, 35, 40, 40, 50, 75, 100]
     t = RTable(data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
         ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8fafc')]),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('ALIGN', (3, 0), (6, -1), 'RIGHT'),
+        ('ALIGN', (4, 0), (7, -1), 'RIGHT'),
     ]))
     elements.append(t)
     doc.build(elements)
@@ -699,12 +699,12 @@ async def export_transactions_excel(kms_year: Optional[str] = None, season: Opti
     title = "Mill Parts Transactions"
     if part_name: title += f" - {part_name}"
     if date_from or date_to: title += f" ({date_from or '...'} to {date_to or '...'})"
-    ws.merge_cells('A1:I1')
+    ws.merge_cells('A1:J1')
     ws['A1'] = title
     ws['A1'].font = Font(bold=True, size=14, color='1a365d')
     ws['A1'].alignment = Alignment(horizontal='center')
 
-    headers = ['Date', 'Part Name', 'Type', 'Qty', 'Rate', 'Amount (Rs)', 'Party', 'Bill No', 'Remark']
+    headers = ['Date', 'Part Name', 'Store Room', 'Type', 'Qty', 'Rate', 'Amount (Rs)', 'Party', 'Bill No', 'Remark']
     hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
     hdr_font = Font(bold=True, color='FFFFFF', size=10)
     thin_border = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'), top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
@@ -729,21 +729,21 @@ async def export_transactions_excel(kms_year: Optional[str] = None, season: Opti
             total_in_qty += qty
         else:
             total_used_qty += qty
-        vals = [t.get('date',''), t.get('part_name',''), typ, qty, t.get('rate',0), amt, t.get('party_name',''), t.get('bill_no',''), t.get('remark','')]
+        vals = [t.get('date',''), t.get('part_name',''), t.get('store_room_name','') or '', typ, qty, t.get('rate',0), amt, t.get('party_name',''), t.get('bill_no',''), t.get('remark','')]
         for ci, v in enumerate(vals, 1):
             c = ws.cell(row=row, column=ci, value=v)
             c.border = thin_border; c.font = Font(size=9)
-            if ci == 3: c.fill = in_fill if typ == 'IN' else used_fill
+            if ci == 4: c.fill = in_fill if typ == 'IN' else used_fill
 
     # Totals row
     tr = len(items) + 4
     ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True, size=10, color='1a365d')
-    ws.cell(row=tr, column=3, value=f"In:{total_in_qty} / Used:{total_used_qty}").font = Font(bold=True, size=9)
-    ws.cell(row=tr, column=6, value=total_in_amt).font = Font(bold=True, size=10, color='1a365d')
-    for ci in range(1, 10):
+    ws.cell(row=tr, column=4, value=f"In:{total_in_qty} / Used:{total_used_qty}").font = Font(bold=True, size=9)
+    ws.cell(row=tr, column=7, value=total_in_amt).font = Font(bold=True, size=10, color='1a365d')
+    for ci in range(1, 11):
         ws.cell(row=tr, column=ci).border = thin_border
 
-    widths = [12, 18, 8, 8, 10, 14, 18, 12, 18]
+    widths = [12, 18, 12, 8, 8, 10, 14, 18, 12, 18]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[chr(64 + i)].width = w
 
@@ -788,17 +788,17 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
         elements.append(Paragraph(' | '.join(subtitle_parts), styles['Normal']))
     elements.append(Spacer(1, 12))
 
-    data = [['Date', 'Part Name', 'Type', 'Qty', 'Rate', 'Amount (Rs)', 'Party', 'Bill No', 'Remark']]
+    data = [['Date', 'Part Name', 'Store Room', 'Type', 'Qty', 'Rate', 'Amount (Rs)', 'Party', 'Bill No', 'Remark']]
     total_amt = 0
     for t in items:
         typ = 'IN' if t.get('txn_type') == 'in' else 'USED'
         amt = t.get('total_amount') or t.get('total_cost') or 0
         if t.get('txn_type') == 'in': total_amt += amt
-        data.append([t.get('date',''), t.get('part_name',''), typ, t.get('quantity',0), t.get('rate',0),
+        data.append([t.get('date',''), t.get('part_name',''), t.get('store_room_name','') or '', typ, t.get('quantity',0), t.get('rate',0),
             f'Rs.{amt:,.0f}' if amt else '-', t.get('party_name',''), t.get('bill_no',''), t.get('remark','')])
-    data.append(['TOTAL', '', '', '', '', f'Rs.{total_amt:,.0f}', '', '', ''])
+    data.append(['TOTAL', '', '', '', '', '', f'Rs.{total_amt:,.0f}', '', '', ''])
 
-    col_widths = [60, 80, 35, 35, 45, 65, 80, 55, 80]
+    col_widths = [55, 75, 55, 30, 30, 40, 60, 70, 50, 70]
     tbl = RTable(data, colWidths=col_widths, repeatRows=1)
 
     # Style with colored IN/USED rows
@@ -806,12 +806,12 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
-        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('FONTSIZE', (0, 0), (-1, 0), 7),
+        ('FONTSIZE', (0, 1), (-1, -1), 6),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('ALIGN', (3, 0), (5, -1), 'RIGHT'),
+        ('ALIGN', (4, 0), (6, -1), 'RIGHT'),
     ]
     # Alternating row colors and IN/USED highlighting
     for i, t in enumerate(items, 1):
@@ -875,7 +875,8 @@ async def export_part_summary_excel(part_name: str, kms_year: Optional[str] = No
     ws['A1'].font = Font(bold=True, size=16, color='1a365d')
     ws['A1'].alignment = Alignment(horizontal='center')
     ws.merge_cells('A2:F2')
-    ws['A2'] = f"Category: {category} | Unit: {unit} | {kms_year or ''} {season or ''}"
+    store_room_name = (part_info or {}).get("store_room_name", "")
+    ws['A2'] = f"Category: {category} | Unit: {unit} | Store Room: {store_room_name or 'N/A'} | {kms_year or ''} {season or ''}"
     ws['A2'].font = Font(size=10, italic=True, color='666666')
     ws['A2'].alignment = Alignment(horizontal='center')
 
@@ -997,9 +998,10 @@ async def export_part_summary_pdf(part_name: str, kms_year: Optional[str] = None
     subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#666666'), alignment=1, spaceAfter=10)
     section_style = ParagraphStyle('Section', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a365d'), spaceBefore=14, spaceAfter=6)
 
+    store_room_name = (part_info or {}).get("store_room_name", "")
     elements = [
         Paragraph(f"{part_name} - Part Summary", title_style),
-        Paragraph(f"Category: {category} | Unit: {unit} | {kms_year or ''} {season or ''}", subtitle_style),
+        Paragraph(f"Category: {category} | Unit: {unit} | Store Room: {store_room_name or 'N/A'} | {kms_year or ''} {season or ''}", subtitle_style),
     ]
 
     # Stock Overview

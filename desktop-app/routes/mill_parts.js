@@ -517,13 +517,13 @@ router.get('/api/mill-parts/summary/excel', safeAsync(async (req, res) => {
   const summary = getStockSummary(req.query);
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Mill Parts Stock');
-  ws.mergeCells('A1:H1');
+  ws.mergeCells('A1:I1');
   const title = `Mill Parts Stock Summary${req.query.kms_year ? ' - ' + req.query.kms_year : ''}${req.query.season ? ' (' + req.query.season + ')' : ''}`;
   ws.getCell('A1').value = title;
   ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1a365d' } };
   ws.getCell('A1').alignment = { horizontal: 'center' };
 
-  const headers = ['Part Name', 'Category', 'Unit', 'Stock In', 'Stock Used', 'Current Stock', 'Purchase Amount (Rs)', 'Parties'];
+  const headers = ['Part Name', 'Category', 'Store Room', 'Unit', 'Stock In', 'Stock Used', 'Current Stock', 'Purchase Amount (Rs)', 'Parties'];
   const hdrRow = ws.addRow([]); const hr = ws.addRow(headers);
   hr.eachCell(c => {
     c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
@@ -537,13 +537,13 @@ router.get('/api/mill-parts/summary/excel', safeAsync(async (req, res) => {
   let totalPurchase = 0;
   summary.forEach((s, idx) => {
     totalPurchase += s.total_purchase_amount;
-    const r = ws.addRow([s.part_name, s.category, s.unit, s.stock_in, s.stock_used, s.current_stock, s.total_purchase_amount, (s.parties||[]).map(p => p.name).join(', ')]);
+    const r = ws.addRow([s.part_name, s.category, s.store_room_name || '', s.unit, s.stock_in, s.stock_used, s.current_stock, s.total_purchase_amount, (s.parties||[]).map(p => p.name).join(', ')]);
     r.eachCell(c => { c.border = thinB; c.font = { size: 9 }; if (idx % 2 === 1) c.fill = altFill; });
   });
-  const tr = ws.addRow(['TOTAL','','','','','',totalPurchase,'']);
+  const tr = ws.addRow(['TOTAL','','','','','','',totalPurchase,'']);
   tr.eachCell(c => { c.border = thinB; c.font = { bold: true, size: 10, color: { argb: 'FF1a365d' } }; });
 
-  [20, 14, 8, 12, 12, 14, 18, 25].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  [20, 14, 14, 8, 12, 12, 14, 18, 25].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_stock.xlsx');
   await wb.xlsx.write(res); res.end();
@@ -563,8 +563,8 @@ router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
   doc.fontSize(16).font('Helvetica-Bold').fillColor(C.hdr).text(title, { align: 'center' });
   doc.moveDown(0.5);
 
-  const headers = ['Part', 'Category', 'Unit', 'In', 'Used', 'Stock', 'Amount (Rs)', 'Parties'];
-  const colW = [90, 65, 40, 50, 50, 55, 80, 120];
+  const headers = ['Part', 'Category', 'Store Room', 'Unit', 'In', 'Used', 'Stock', 'Amount (Rs)', 'Parties'];
+  const colW = [80, 55, 60, 35, 45, 45, 50, 75, 100];
   const startX = 25; let y = doc.y; const rowH = 16;
   const totalW = colW.reduce((a,b)=>a+b,0);
 
@@ -573,7 +573,7 @@ router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
   doc.rect(x, y, totalW, rowH).fill(C.hdr);
   headers.forEach((h, i) => {
     doc.rect(x, y, colW[i], rowH).stroke(C.border);
-    doc.fillColor('white').font('Helvetica-Bold').fontSize(8).text(h, x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(7).text(h, x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
     x += colW[i];
   });
   y += rowH;
@@ -584,10 +584,10 @@ router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
     totalPurchase += s.total_purchase_amount;
     x = startX;
     doc.rect(x, y, totalW, rowH).fill(ri%2===0?'#ffffff':C.alt);
-    const vals = [s.part_name, s.category, s.unit, s.stock_in, s.stock_used, s.current_stock, `Rs.${Math.round(s.total_purchase_amount).toLocaleString()}`, (s.parties||[]).map(p=>p.name).join(', ')];
+    const vals = [s.part_name, s.category, s.store_room_name || '', s.unit, s.stock_in, s.stock_used, s.current_stock, `Rs.${Math.round(s.total_purchase_amount).toLocaleString()}`, (s.parties||[]).map(p=>p.name).join(', ')];
     vals.forEach((v, i) => {
       doc.rect(x, y, colW[i], rowH).stroke(C.border);
-      doc.fillColor('#1e293b').font('Helvetica').fontSize(7).text(String(v??''), x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+      doc.fillColor('#1e293b').font('Helvetica').fontSize(6).text(String(v??''), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
       x += colW[i];
     });
     y += rowH;
@@ -596,9 +596,9 @@ router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
   // Totals
   x = startX;
   doc.rect(x, y, totalW, rowH).fill(C.blue);
-  ['TOTAL','','','','','',`Rs.${Math.round(totalPurchase).toLocaleString()}`,''].forEach((v,i) => {
+  ['TOTAL','','','','','','',`Rs.${Math.round(totalPurchase).toLocaleString()}`,''].forEach((v,i) => {
     doc.rect(x, y, colW[i], rowH).stroke(C.border);
-    doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(8).text(String(v), x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+    doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(7).text(String(v), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
     x += colW[i];
   });
 
@@ -622,12 +622,12 @@ router.get('/api/mill-parts-stock/export/excel', safeAsync(async (req, res) => {
   let title = 'Mill Parts Transactions';
   if (req.query.part_name) title += ` - ${req.query.part_name}`;
   if (req.query.date_from || req.query.date_to) title += ` (${req.query.date_from||'...'} to ${req.query.date_to||'...'})`;
-  ws.mergeCells('A1:I1');
+  ws.mergeCells('A1:J1');
   ws.getCell('A1').value = title;
   ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1a365d' } };
   ws.getCell('A1').alignment = { horizontal: 'center' };
 
-  const headers = ['Date','Part Name','Type','Qty','Rate','Amount (Rs)','Party','Bill No','Remark'];
+  const headers = ['Date','Part Name','Store Room','Type','Qty','Rate','Amount (Rs)','Party','Bill No','Remark'];
   ws.addRow([]); const hr = ws.addRow(headers);
   hr.eachCell(c => {
     c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
@@ -644,13 +644,13 @@ router.get('/api/mill-parts-stock/export/excel', safeAsync(async (req, res) => {
     const typ = t.txn_type === 'in' ? 'IN' : 'USED';
     const amt = t.total_amount || t.total_cost || 0;
     if (t.txn_type === 'in') totalAmt += amt;
-    const r = ws.addRow([t.date, t.part_name, typ, t.quantity, t.rate||0, amt, t.party_name||'', t.bill_no||'', t.remark||'']);
-    r.eachCell((c, ci) => { c.border = thinB; c.font = { size: 9 }; if (ci === 3) c.fill = typ === 'IN' ? inFill : usedFill; });
+    const r = ws.addRow([t.date, t.part_name, t.store_room_name||'', typ, t.quantity, t.rate||0, amt, t.party_name||'', t.bill_no||'', t.remark||'']);
+    r.eachCell((c, ci) => { c.border = thinB; c.font = { size: 9 }; if (ci === 4) c.fill = typ === 'IN' ? inFill : usedFill; });
   });
-  const tr = ws.addRow(['TOTAL','','','','',totalAmt,'','','']);
+  const tr = ws.addRow(['TOTAL','','','','','',totalAmt,'','','']);
   tr.eachCell(c => { c.border = thinB; c.font = { bold: true, size: 10, color: { argb: 'FF1a365d' } }; });
 
-  [12, 18, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  [12, 18, 12, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_transactions.xlsx');
   await wb.xlsx.write(res); res.end();
@@ -683,8 +683,8 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
   if (sub.length) doc.fontSize(8).font('Helvetica').fillColor('grey').text(sub.join(' | '), { align: 'center' });
   doc.moveDown(0.5);
 
-  const headers = ['Date','Part Name','Type','Qty','Rate','Amount (Rs)','Party','Bill No','Remark'];
-  const colW = [55, 75, 35, 35, 45, 60, 75, 50, 75];
+  const headers = ['Date','Part','Store Room','Type','Qty','Rate','Amount','Party','Bill No','Remark'];
+  const colW = [50, 65, 55, 30, 30, 40, 55, 65, 45, 65];
   const startX = 25; let y = doc.y; const rowH = 15;
   const totalW = colW.reduce((a,b)=>a+b,0);
 
@@ -692,7 +692,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
   doc.rect(x, y, totalW, rowH).fill(C.hdr);
   headers.forEach((h, i) => {
     doc.rect(x, y, colW[i], rowH).stroke(C.border);
-    doc.fillColor('white').font('Helvetica-Bold').fontSize(7.5).text(h, x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(6.5).text(h, x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
     x += colW[i];
   });
   y += rowH;
@@ -706,10 +706,10 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
     x = startX;
     const bg = ri%2===0 ? (isIn?C.inBg:C.usedBg) : (isIn?C.inBg2:C.usedBg2);
     doc.rect(x, y, totalW, rowH).fill(bg);
-    const vals = [t.date, t.part_name, isIn?'IN':'USED', t.quantity, t.rate||0, amt?`Rs.${Math.round(amt).toLocaleString()}`:'-', t.party_name||'', t.bill_no||'', t.remark||''];
+    const vals = [t.date, t.part_name, t.store_room_name||'', isIn?'IN':'USED', t.quantity, t.rate||0, amt?`Rs.${Math.round(amt).toLocaleString()}`:'-', t.party_name||'', t.bill_no||'', t.remark||''];
     vals.forEach((v, i) => {
       doc.rect(x, y, colW[i], rowH).stroke(C.border);
-      doc.fillColor('#1e293b').font('Helvetica').fontSize(7).text(String(v??''), x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+      doc.fillColor('#1e293b').font('Helvetica').fontSize(6).text(String(v??''), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
       x += colW[i];
     });
     y += rowH;
@@ -718,9 +718,9 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
   // Total row
   x = startX;
   doc.rect(x, y, totalW, rowH).fill(C.blue);
-  ['TOTAL','','','','',`Rs.${Math.round(totalAmt).toLocaleString()}`,'','',''].forEach((v,i) => {
+  ['TOTAL','','','','','',`Rs.${Math.round(totalAmt).toLocaleString()}`,'','',''].forEach((v,i) => {
     doc.rect(x, y, colW[i], rowH).stroke(C.border);
-    doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(8).text(String(v), x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+    doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(7).text(String(v), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
     x += colW[i];
   });
 
@@ -757,7 +757,7 @@ router.get('/api/mill-parts/part-summary/excel', safeAsync(async (req, res) => {
   ws.mergeCells('A1:F1'); ws.getCell('A1').value = `${part_name} - Part Summary`;
   ws.getCell('A1').font = { bold: true, size: 16, color: { argb: 'FF1a365d' } };
   ws.getCell('A1').alignment = { horizontal: 'center' };
-  ws.mergeCells('A2:F2'); ws.getCell('A2').value = `Category: ${category} | Unit: ${unit}`;
+  ws.mergeCells('A2:F2'); ws.getCell('A2').value = `Category: ${category} | Unit: ${unit} | Store Room: ${partInfo.store_room_name || 'N/A'}`;
   ws.getCell('A2').font = { size: 10, italic: true, color: { argb: 'FF666666' } };
   ws.getCell('A2').alignment = { horizontal: 'center' };
   // Overview
@@ -846,7 +846,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.pdf`);
   doc.pipe(res);
   _addPdfH(doc, `${part_name} - Part Summary`, branding);
-  doc.fontSize(9).fillColor('#666666').text(`Category: ${category} | Unit: ${unit}`, { align: 'center' });
+  doc.fontSize(9).fillColor('#666666').text(`Category: ${category} | Unit: ${unit} | Store Room: ${partInfo.store_room_name || 'N/A'}`, { align: 'center' });
   doc.moveDown(0.5);
   // Overview
   doc.fontSize(11).fillColor('#1a365d').font('Helvetica-Bold').text('Stock Overview');

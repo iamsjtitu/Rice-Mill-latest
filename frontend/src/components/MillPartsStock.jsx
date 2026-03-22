@@ -294,16 +294,17 @@ export default function MillPartsStock({ filters, user }) {
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
             <Table>
               <TableHeader><TableRow className="border-slate-700">
-                {['Part Name', 'Category', 'Unit', 'OB', 'Stock In', 'Used', 'Current Stock', 'Purchase ₹', 'Parties'].map(h =>
+                {['Part Name', 'Category', 'Store Room', 'Unit', 'OB', 'Stock In', 'Used', 'Current Stock', 'Purchase ₹', 'Parties'].map(h =>
                   <TableHead key={h} className={`text-slate-300 text-xs ${['OB', 'Stock In', 'Used', 'Current Stock', 'Purchase ₹'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
               </TableRow></TableHeader>
               <TableBody>
-                {loading ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
-                : summary.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Parts Master se pehle parts add karein</TableCell></TableRow>
+                {loading ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Loading...</TableCell></TableRow>
+                : summary.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Parts Master se pehle parts add karein</TableCell></TableRow>
                 : filteredSummary.map(s => (
                   <TableRow key={s.part_name} className={`border-slate-700 ${s.min_stock > 0 && s.current_stock < s.min_stock ? 'bg-red-900/10' : ''}`} data-testid={`stock-row-${s.part_name}`}>
                     <TableCell className="text-white font-semibold">{s.part_name} {s.min_stock > 0 && s.current_stock < s.min_stock && <AlertTriangle className="w-3 h-3 text-red-400 inline ml-1" />}</TableCell>
                     <TableCell className="text-slate-400 text-xs">{s.category}</TableCell>
+                    <TableCell className="text-cyan-400 text-xs">{s.store_room_name || '-'}</TableCell>
                     <TableCell className="text-slate-400 text-xs">{s.unit}</TableCell>
                     <TableCell className="text-right text-yellow-400">{s.opening_stock || 0}</TableCell>
                     <TableCell className="text-right text-emerald-400">{s.stock_in}</TableCell>
@@ -453,7 +454,7 @@ export default function MillPartsStock({ filters, user }) {
                         </div>
                         <div>
                           <h3 className="text-xl font-bold text-white">{s.part_name}</h3>
-                          <p className="text-xs text-slate-400">{s.category} | {s.unit}</p>
+                          <p className="text-xs text-slate-400">{s.category} | {s.unit} {s.store_room_name ? <span className="text-cyan-400 ml-1">| {s.store_room_name}</span> : ''}</p>
                         </div>
                       </div>
                     </div>
@@ -755,6 +756,16 @@ export default function MillPartsStock({ filters, user }) {
               <p className="text-emerald-400 font-bold text-sm">Total: ₹{(parseFloat(stockForm.quantity || 0) * parseFloat(stockForm.rate || 0)).toLocaleString()}</p>
             )}
             <div><Label className="text-xs text-slate-400">Remark</Label><Input value={stockForm.remark} onChange={e => setStockForm(p => ({ ...p, remark: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" /></div>
+            <div><Label className="text-xs text-slate-400">Store Room</Label>
+              <select value={stockForm.store_room || ""} onChange={e => {
+                const room = storeRooms.find(r => r.id === e.target.value);
+                setStockForm(p => ({ ...p, store_room: e.target.value, store_room_name: room?.name || "" }));
+              }}
+                className="flex h-8 w-full rounded-md border border-slate-600 bg-slate-700 px-3 py-1 text-sm text-white shadow-sm focus:outline-none focus:ring-1 focus:ring-ring" data-testid="stock-store-room-select">
+                <option value="" className="bg-slate-700">-- Auto (Part se) --</option>
+                {storeRooms.map(r => <option key={r.id} value={r.id} className="bg-slate-700">{r.name}</option>)}
+              </select>
+            </div>
             <div className="flex gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setStockDialog(false)} className="border-slate-600 text-slate-300 flex-1">Cancel</Button>
               <Button type="submit" className={`flex-1 ${stockForm.txn_type === 'in' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'} text-white`} data-testid="stock-save-btn">Save</Button>
