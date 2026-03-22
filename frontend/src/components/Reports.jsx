@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel, Send } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel, Send, AlertTriangle } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -201,10 +202,25 @@ const DailyReport = ({ filters }) => {
   };
 
   const [sendingTelegram, setSendingTelegram] = useState(false);
+  const [tgConfirmOpen, setTgConfirmOpen] = useState(false);
+  const [tgRecipients, setTgRecipients] = useState([]);
+  const [tgLoading, setTgLoading] = useState(false);
+
+  const openTelegramConfirm = async () => {
+    setTgLoading(true);
+    setTgConfirmOpen(true);
+    try {
+      const res = await axios.get(`${API}/telegram/config`);
+      setTgRecipients(res.data.chat_ids || []);
+    } catch {
+      setTgRecipients([]);
+    } finally { setTgLoading(false); }
+  };
 
   const sendToTelegram = async () => {
     try {
       setSendingTelegram(true);
+      setTgConfirmOpen(false);
       const payload = { date };
       if (filters.kms_year) payload.kms_year = filters.kms_year;
       if (filters.season) payload.season = filters.season;
@@ -264,7 +280,7 @@ const DailyReport = ({ filters }) => {
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="daily-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="daily-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
         {isDetail && (
-          <Button onClick={sendToTelegram} disabled={sendingTelegram} variant="outline" size="sm"
+          <Button onClick={openTelegramConfirm} disabled={sendingTelegram} variant="outline" size="sm"
             className="border-blue-500 text-blue-400 hover:bg-blue-500/10 h-9" data-testid="daily-send-telegram">
             <Send className={`w-4 h-4 mr-1 ${sendingTelegram ? 'animate-pulse' : ''}`} />
             {sendingTelegram ? "Sending..." : "Telegram"}
@@ -857,6 +873,68 @@ const DailyReport = ({ filters }) => {
           </div>
         </div>
       )}
+
+      {/* Telegram Confirmation Dialog */}
+      <Dialog open={tgConfirmOpen} onOpenChange={setTgConfirmOpen}>
+        <DialogContent className="max-w-sm bg-slate-800 border-slate-700 text-white" data-testid="telegram-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-blue-400 flex items-center gap-2">
+              <Send className="w-5 h-5" /> Telegram par Report Bhejein?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="bg-slate-900/60 rounded-lg p-3 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">Date / तारीख</span>
+                <span className="text-white font-medium">{date.split('-').reverse().join('-')}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">Mode</span>
+                <span className="text-amber-400 font-medium">Detail PDF</span>
+              </div>
+              {filters.kms_year && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">KMS Year</span>
+                  <span className="text-white">{filters.kms_year}</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="text-xs text-slate-400 mb-2">Recipients / प्राप्तकर्ता:</p>
+              {tgLoading ? (
+                <p className="text-xs text-slate-500">Loading...</p>
+              ) : tgRecipients.length > 0 ? (
+                <div className="space-y-1.5">
+                  {tgRecipients.map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-slate-700/50 px-3 py-1.5 rounded text-sm">
+                      <Send className="w-3 h-3 text-blue-400 shrink-0" />
+                      <span className="text-white">{r.label || r.chat_id}</span>
+                      <span className="text-slate-500 text-xs ml-auto">{r.chat_id}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-amber-400 text-xs bg-amber-500/10 p-2 rounded">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>Telegram configured nahi hai. Settings mein setup karein.</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-slate-700">
+              <Button onClick={() => setTgConfirmOpen(false)} variant="outline" size="sm"
+                className="flex-1 border-slate-600 text-slate-300" data-testid="telegram-confirm-cancel">
+                Cancel
+              </Button>
+              <Button onClick={sendToTelegram} disabled={tgRecipients.length === 0} size="sm"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" data-testid="telegram-confirm-send">
+                <Send className="w-4 h-4 mr-1" /> Bhejein
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

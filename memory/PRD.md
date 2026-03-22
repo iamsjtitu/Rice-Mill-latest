@@ -5,24 +5,25 @@
 - **Backend (Web)**: FastAPI + MongoDB
 - **Backend (Desktop)**: Electron + Node.js/Express + JSON file DB
 
-## Latest (v25.1.55)
+## Latest (v25.1.56)
 
-### Round Off Filter + Telegram Share
+### Telegram Confirmation Dialog
+- Telegram button click par confirmation dialog: date, mode, KMS year, recipients list dikhata hai
+- Recipients Telegram config se auto-fetch hote hain
+- Agar Telegram configured nahi hai to warning dikhta hai aur "Bhejein" disabled
+- Cancel button se galti se report send nahi hogi
+
+### Previous (v25.1.55)
 - Cash Transactions: Round Off entries hidden by default, toggle to show/hide
 - Daily Report: "Share via Telegram" button in Detail mode
-- Backend: `exclude_round_off` param added to GET /cash-book endpoint
-- Desktop backend synced with same filter
 
 ### Previous (v25.1.54)
 - Daily Report PDF/Excel export: Store Room column for Mill Parts
 
-### Previous (v25.1.53)
-- Store Room in Stock forms (In/Used), Stock Summary, Part-wise Summary
-- ALL Mill Parts Excel/PDF exports updated with Store Room
-
-### Previous (v25.1.49-52)
+### Previous (v25.1.49-53)
 - Round Off in ALL payment sections (separate Cash Book entry)
 - Store Room CRUD + Room-wise Report + Excel/PDF export
+- Store Room in Stock forms, Summary, Part-wise Summary
 - What's New auto-popup + Footer (9x.design, contact)
 
 ## Backlog

@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "25.1.55";
+const APP_VERSION = "25.1.56";
 
 const CHANGELOG = [
+  {
+    version: "25.1.56",
+    date: "22 Mar 2026",
+    title: "Telegram Confirmation Dialog",
+    items: [
+      { type: "imp", text: "Telegram bhejne se pehle confirmation - date aur recipients dikhein" },
+      { type: "imp", text: "Galti se wrong report na jaye, Cancel ka option" },
+    ],
+  },
   {
     version: "25.1.55",
     date: "22 Mar 2026",
