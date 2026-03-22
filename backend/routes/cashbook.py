@@ -200,7 +200,8 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
 async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional[str] = None,
                                  account: Optional[str] = None, txn_type: Optional[str] = None,
                                  category: Optional[str] = None, party_type: Optional[str] = None,
-                                 date_from: Optional[str] = None, date_to: Optional[str] = None):
+                                 date_from: Optional[str] = None, date_to: Optional[str] = None,
+                                 exclude_round_off: Optional[str] = None):
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -208,6 +209,8 @@ async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional
     if txn_type: query["txn_type"] = txn_type
     if category: query["category"] = category
     if party_type: query["party_type"] = party_type
+    if exclude_round_off == "true" and not party_type:
+        query["party_type"] = {"$ne": "Round Off"}
     if date_from or date_to:
         date_q = {}
         if date_from: date_q["$gte"] = date_from

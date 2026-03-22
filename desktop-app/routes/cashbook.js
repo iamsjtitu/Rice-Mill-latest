@@ -124,6 +124,7 @@ module.exports = function(database) {
     if (req.query.txn_type) txns = txns.filter(t => t.txn_type === req.query.txn_type);
     if (req.query.category) txns = txns.filter(t => t.category === req.query.category);
     if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+    if (req.query.exclude_round_off === 'true' && !req.query.party_type) txns = txns.filter(t => t.party_type !== 'Round Off');
     if (req.query.date_from) txns = txns.filter(t => t.date >= req.query.date_from);
     if (req.query.date_to) txns = txns.filter(t => t.date <= req.query.date_to);
     res.json(txns.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||'')));

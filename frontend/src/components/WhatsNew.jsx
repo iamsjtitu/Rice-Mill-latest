@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "25.1.54";
+const APP_VERSION = "25.1.55";
 
 const CHANGELOG = [
+  {
+    version: "25.1.55",
+    date: "22 Mar 2026",
+    title: "Round Off Filter + Telegram Share",
+    items: [
+      { type: "new", text: "Daily Report mein Telegram Share button (Detail mode)" },
+      { type: "imp", text: "Cash Transactions se Round Off entries hide (alag toggle se dikhein)" },
+    ],
+  },
   {
     version: "25.1.54",
     date: "22 Mar 2026",

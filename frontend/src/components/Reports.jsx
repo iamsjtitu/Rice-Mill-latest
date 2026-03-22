@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel } from "lucide-react";
+import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel, Send } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -200,6 +200,26 @@ const DailyReport = ({ filters }) => {
     downloadFile(`/api/reports/daily/${format}?${p}`, `daily_report_${mode}_${date}.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
+  const [sendingTelegram, setSendingTelegram] = useState(false);
+
+  const sendToTelegram = async () => {
+    try {
+      setSendingTelegram(true);
+      const payload = { date };
+      if (filters.kms_year) payload.kms_year = filters.kms_year;
+      if (filters.season) payload.season = filters.season;
+      const res = await axios.post(`${API}/telegram/send-report`, payload);
+      if (res.data.success) {
+        toast.success(res.data.message || "Telegram par bhej diya!");
+      } else {
+        toast.error(res.data.message || "Telegram send failed");
+      }
+    } catch (e) {
+      const msg = e.response?.data?.detail || "Telegram send failed";
+      toast.error(msg);
+    } finally { setSendingTelegram(false); }
+  };
+
   const isDetail = mode === "detail";
 
   const Section = ({ title, icon: Icon, color, children, count }) => (
@@ -243,6 +263,13 @@ const DailyReport = ({ filters }) => {
         <Button onClick={fetchReport} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-9"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="daily-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="daily-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+        {isDetail && (
+          <Button onClick={sendToTelegram} disabled={sendingTelegram} variant="outline" size="sm"
+            className="border-blue-500 text-blue-400 hover:bg-blue-500/10 h-9" data-testid="daily-send-telegram">
+            <Send className={`w-4 h-4 mr-1 ${sendingTelegram ? 'animate-pulse' : ''}`} />
+            {sendingTelegram ? "Sending..." : "Telegram"}
+          </Button>
+        )}
       </div>
 
       {loading ? <div className="text-center py-8 text-slate-400">Loading...</div>

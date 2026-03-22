@@ -3,7 +3,7 @@ import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark, Receipt, FileText } from "lucide-react";
+import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark, Receipt, FileText, Scale } from "lucide-react";
 import SummaryCards from "./cashbook/SummaryCards";
 import CashBookFilters from "./cashbook/CashBookFilters";
 import TransactionsTable from "./cashbook/TransactionsTable";
@@ -67,6 +67,7 @@ const CashBook = ({ filters, user }) => {
   const [isPvPayOpen, setIsPvPayOpen] = useState(false);
   const [pvVouchers, setPvVouchers] = useState([]);
   const [pvPayForm, setPvPayForm] = useState({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
+  const [showRoundOff, setShowRoundOff] = useState(false);
   const [agentSuggestions, setAgentSuggestions] = useState({ mandi_names: [], truck_numbers: [], agent_names: [] });
 
   const fetchPartySummary = useCallback(async () => {
@@ -127,6 +128,7 @@ const CashBook = ({ filters, user }) => {
       if (filters.season) params.append('season', filters.season);
       if (activeView === 'cash-transactions') {
         params.append('account', 'cash');
+        if (!showRoundOff) params.append('exclude_round_off', 'true');
       } else {
         if (txnFilters.account) params.append('account', txnFilters.account);
       }
@@ -153,7 +155,7 @@ const CashBook = ({ filters, user }) => {
       } catch {}
     } catch (e) { toast.error("Cash book load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, txnFilters, activeView]);
+  }, [filters.kms_year, filters.season, txnFilters, activeView, showRoundOff]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
@@ -436,6 +438,13 @@ const CashBook = ({ filters, user }) => {
         <Button onClick={() => activeView === "party-summary" ? fetchPartySummary() : fetchData()} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
+        {activeView === "cash-transactions" && (
+          <Button onClick={() => setShowRoundOff(!showRoundOff)} variant="outline" size="sm"
+            className={showRoundOff ? "border-amber-500 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20" : "border-slate-600 text-slate-400 hover:bg-slate-700"}
+            data-testid="cashbook-toggle-roundoff">
+            <Scale className="w-4 h-4 mr-1" /> {showRoundOff ? "Round Off Hide" : "Round Off Show"}
+          </Button>
+        )}
       </div>
 
       {/* Opening Balances Display */}
