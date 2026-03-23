@@ -206,24 +206,23 @@ router.post('/api/local-party/settle', safeSync((req, res) => {
   const kms_year = d.kms_year || '';
   const season = d.season || '';
   const username = d.created_by || 'system';
+  const roundOff = parseFloat(d.round_off) || 0;
+  const totalSettled = Math.round((amount + roundOff) * 100) / 100;
 
-  // In Local Party Account: Payment/Receipt both REDUCE the running balance (which tracks 'Outstanding')
-  // If it's a Vendor: We pay (Balance reduces)
-  // If it's a Customer: They pay us (Balance reduces)
-  // So txn_type 'payment' is used for both settlements in local_party_accounts
+  // Local Party Account: payment = total (amount + round_off) so balance clears
+  const cashTxnType = type === 'received' ? 'jama' : 'nikasi';
+  const descPrefix = type === 'received' ? 'Received from' : 'Payment to';
+
   const payTxn = {
     id: uuidv4(), date, party_name, txn_type: 'payment',
-    amount: Math.round(amount * 100) / 100,
-    description: `${type === 'received' ? 'Received from' : 'Payment to'} ${party_name}${notes ? ' - ' + notes : ''}`,
+    amount: totalSettled,
+    description: `${descPrefix} ${party_name} - Rs.${amount}${roundOff ? ' (Round Off: ' + (roundOff > 0 ? '+' : '') + roundOff + ')' : ''}${notes ? ' - ' + notes : ''}`,
     source_type: 'settlement', reference: '', kms_year, season,
     created_by: username, created_at: new Date().toISOString()
   };
   database.data.local_party_accounts.push(payTxn);
 
-  // Cash Book Logic
-  const cashTxnType = type === 'received' ? 'jama' : 'nikasi';
-  const descPrefix = type === 'received' ? 'Received from' : 'Payment to';
-
+  // Cash Book - only actual cash amount
   const cb = {
     id: uuidv4(), date, account: 'cash', txn_type: cashTxnType, category: party_name,
     party_type: 'Local Party',
@@ -235,20 +234,19 @@ router.post('/api/local-party/settle', safeSync((req, res) => {
   };
   database.data.cash_transactions.push(cb);
   
-  // Ledger Entry (Counter-entry for party ledger summary)
+  // Ledger Entry - total (amount + round_off) so party ledger balances
   database.data.cash_transactions.push({
     id: uuidv4(), date, account: 'ledger', txn_type: cashTxnType, category: party_name,
     party_type: 'Local Party',
-    description: `Local Party: ${descPrefix} ${party_name} - Rs.${amount}${notes ? ' (' + notes + ')' : ''}`,
-    amount: Math.round(amount * 100) / 100, reference: `local_party_ledger:${payTxn.id.slice(0, 8)}`,
+    description: `Local Party: ${descPrefix} ${party_name} - Rs.${totalSettled}${roundOff ? ' (Cash: ' + amount + ', Round Off: ' + roundOff + ')' : ''}${notes ? ' (' + notes + ')' : ''}`,
+    amount: totalSettled, reference: `local_party_ledger:${payTxn.id.slice(0, 8)}`,
     kms_year, season, created_by: username,
     linked_local_party_id: payTxn.id,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString()
   });
   database.save();
 
-  // Handle Round Off
-  const roundOff = parseFloat(d.round_off) || 0;
+  // Handle Round Off - separate cash book entry
   if (roundOff !== 0) {
     const { createRoundOffEntry } = require('../utils/round_off');
     createRoundOffEntry(database, {

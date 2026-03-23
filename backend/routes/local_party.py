@@ -326,15 +326,17 @@ async def settle_local_party(request: Request):
     kms_year = data.get("kms_year", "")
     season = data.get("season", "")
     username = data.get("created_by", "system")
+    round_off = float(data.get("round_off", 0))
+    total_settled = round(amount + round_off, 2)  # Total amount party ke hisaab se
 
-    # Create payment entry in local party accounts
+    # Create payment entry in local party accounts (TOTAL including round off)
     pay_txn = {
         "id": str(uuid.uuid4()),
         "date": date,
         "party_name": party_name,
         "txn_type": "payment",
-        "amount": round(amount, 2),
-        "description": f"Payment to {party_name}" + (f" - {notes}" if notes else ""),
+        "amount": total_settled,
+        "description": f"Payment to {party_name} - Rs.{amount}" + (f" (Round Off: {'+' if round_off > 0 else ''}{round_off})" if round_off else "") + (f" - {notes}" if notes else ""),
         "source_type": "settlement",
         "reference": "",
         "kms_year": kms_year,
@@ -344,7 +346,7 @@ async def settle_local_party(request: Request):
     }
     await db.local_party_accounts.insert_one(pay_txn)
 
-    # Auto create Cash Book entry (Nikasi)
+    # Auto create Cash Book entry (Nikasi) - only actual cash amount
     cb = {
         "id": str(uuid.uuid4()),
         "date": date,
@@ -364,7 +366,7 @@ async def settle_local_party(request: Request):
     }
     await db.cash_transactions.insert_one(cb)
 
-    # Ledger Nikasi - reduce party outstanding
+    # Ledger Nikasi - reduce party outstanding (TOTAL including round off)
     ledger_cb = {
         "id": str(uuid.uuid4()),
         "date": date,
@@ -372,8 +374,8 @@ async def settle_local_party(request: Request):
         "txn_type": "nikasi",
         "category": party_name,
         "party_type": "Local Party",
-        "description": f"Local Party Payment: {party_name} - Rs.{amount}" + (f" ({notes})" if notes else ""),
-        "amount": round(amount, 2),
+        "description": f"Local Party Payment: {party_name} - Rs.{total_settled}" + (f" (Cash: {amount}, Round Off: {round_off})" if round_off else "") + (f" ({notes})" if notes else ""),
+        "amount": total_settled,
         "reference": f"local_party_ledger:{pay_txn['id'][:8]}",
         "kms_year": kms_year,
         "season": season,
@@ -384,8 +386,7 @@ async def settle_local_party(request: Request):
     }
     await db.cash_transactions.insert_one(ledger_cb)
 
-    # Handle Round Off if provided
-    round_off = float(data.get("round_off", 0))
+    # Handle Round Off - separate cash book entry
     if round_off and round_off != 0:
         from utils.round_off import create_round_off_entry
         await create_round_off_entry(
