@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "25.1.56";
+const APP_VERSION = "25.1.57";
 
 const CHANGELOG = [
+  {
+    version: "25.1.57",
+    date: "23 Mar 2026",
+    title: "Store Room Bug Fixes",
+    items: [
+      { type: "fix", text: "Stock In mein Store Room select karne par Part master bhi update hota hai" },
+      { type: "new", text: "Transactions table mein Store Room column add kiya" },
+    ],
+  },
   {
     version: "25.1.56",
     date: "22 Mar 2026",
