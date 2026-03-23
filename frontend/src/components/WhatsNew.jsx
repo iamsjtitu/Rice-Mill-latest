@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "26.0.1";
+const APP_VERSION = "26.0.2";
 
 const CHANGELOG = [
+  {
+    version: "26.0.2",
+    date: "23 Mar 2026",
+    title: "Desktop Round Off Sync Fix",
+    items: [
+      { type: "fix", text: "Desktop app ke sabhi routes mein Round Off ledger balance fix kiya" },
+      { type: "fix", text: "CashBook, Truck, Agent, Owner, Diesel, Hemali, Voucher, Private Trading - sab sync" },
+    ],
+  },
   {
     version: "26.0.1",
     date: "23 Mar 2026",
