@@ -237,21 +237,23 @@ module.exports = function(database) {
     const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : `Rs.${d.amount}`;
     const desc = `${partyLabel} - ${detail}`;
     const baseCb = { date: d.date, kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by, linked_payment_id: d.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    // Cash Book entry
+    const roundOff = parseFloat(req.body.round_off) || 0;
+    const totalSettled = Math.round((d.amount + roundOff) * 100) / 100;
+    // Cash Book entry - actual cash
     database.data.cash_transactions.push({
       id: require('crypto').randomUUID(), account, txn_type: txnType,
       category: partyLabel, party_type: partyType, description: desc,
       amount: d.amount, reference: d.reference || `pvt_pay:${d.id.substring(0, 8)}`, ...baseCb
     });
-    // Party Ledger entry
+    // Party Ledger entry - total including round off
     database.data.cash_transactions.push({
       id: require('crypto').randomUUID(), account: 'ledger', txn_type: txnType,
-      category: partyLabel, party_type: partyType, description: desc,
-      amount: d.amount, reference: d.reference || `pvt_pay_ledger:${d.id.substring(0, 8)}`, ...baseCb
+      category: partyLabel, party_type: partyType,
+      description: desc + (roundOff ? ` (Cash: ${d.amount}, RoundOff: ${roundOff})` : ''),
+      amount: totalSettled, reference: d.reference || `pvt_pay_ledger:${d.id.substring(0, 8)}`, ...baseCb
     });
     database.save();
-    // Create round-off entry if provided
-    const roundOff = parseFloat(req.body.round_off) || 0;
+    // Create round-off cash entry if provided
     if (roundOff !== 0) {
       const { createRoundOffEntry } = require('../utils/round_off');
       createRoundOffEntry(database.data, roundOff, d.date, `Pvt Trading - ${d.party_name}`, {

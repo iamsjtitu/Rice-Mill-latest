@@ -34,69 +34,68 @@ module.exports = function(database) {
 
     const payAccount = payment_mode === 'Cash' ? 'cash' : 'bank';
     const base = { kms_year: kms_year || '', season: season || '', created_by: username, created_at: now, updated_at: now };
+    const roundOff = parseFloat(req.body.round_off) || 0;
+    const totalSettled = Math.round((parseFloat(amount) + roundOff) * 100) / 100;
 
     if (voucher_type === 'sale') {
-      // Sale: party pays us → Cash/Bank JAMA + Ledger NIKASI (reduces party debt)
       const sourceLabel = `Sale #${voucherNo}`;
       const desc = `Payment received - ${sourceLabel} - ${party}` + (notes ? ` (${notes})` : '');
-      // Cash/Bank JAMA
+      // Cash/Bank JAMA - actual cash
       const cashEntry = { id: uuidv4(), date: payDate, account: payAccount, txn_type: 'jama',
         amount: parseFloat(amount), category: party, party_type: 'Sale Book',
         description: desc, reference: `voucher_payment:${paymentId}`, ...base };
       if (payAccount === 'bank' && bank_name) cashEntry.bank_name = bank_name;
       database.data.cash_transactions.push(cashEntry);
-      // Ledger NIKASI
+      // Ledger NIKASI - total including round off
       database.data.cash_transactions.push({
         id: uuidv4(), date: payDate, account: 'ledger', txn_type: 'nikasi',
-        amount: parseFloat(amount), category: party, party_type: 'Sale Book',
-        description: desc, reference: `voucher_payment_ledger:${paymentId}`, ...base
+        amount: totalSettled, category: party, party_type: 'Sale Book',
+        description: `${desc} - Rs.${totalSettled}${roundOff ? ' (Cash: '+amount+', RoundOff: '+roundOff+')' : ''}`, reference: `voucher_payment_ledger:${paymentId}`, ...base
       });
-      // Local party payment entry
+      // Local party payment entry (total including round off)
       if (party) {
         database.data.local_party_accounts.push({
           id: uuidv4(), date: payDate, party_name: party,
-          txn_type: 'payment', amount: parseFloat(amount),
+          txn_type: 'payment', amount: totalSettled,
           description: `Payment received - ${sourceLabel}` + (notes ? ` (${notes})` : ''),
           source_type: 'sale_voucher_payment', reference: `voucher_payment:${paymentId}`, ...base
         });
       }
     } else {
-      // Purchase/Gunny: we pay the party → Cash/Bank NIKASI + Ledger NIKASI (reduces our debt)
       const sourceLabel = voucher_type === 'purchase' ? `Purchase #${voucherNo}` : `Gunny Bag (${payDate})`;
       const partyType = voucher_type === 'purchase' ? 'Purchase Voucher' : 'Gunny Bag';
       const desc = `Payment made - ${sourceLabel} - ${party}` + (notes ? ` (${notes})` : '');
-      // Cash/Bank NIKASI
+      // Cash/Bank NIKASI - actual cash
       const cashEntry = { id: uuidv4(), date: payDate, account: payAccount, txn_type: 'nikasi',
         amount: parseFloat(amount), category: party, party_type: partyType,
         description: desc, reference: `voucher_payment:${paymentId}`, ...base };
       if (payAccount === 'bank' && bank_name) cashEntry.bank_name = bank_name;
       database.data.cash_transactions.push(cashEntry);
-      // Ledger NIKASI
+      // Ledger NIKASI - total including round off
       database.data.cash_transactions.push({
         id: uuidv4(), date: payDate, account: 'ledger', txn_type: 'nikasi',
-        amount: parseFloat(amount), category: party, party_type: partyType,
-        description: desc, reference: `voucher_payment_ledger:${paymentId}`, ...base
+        amount: totalSettled, category: party, party_type: partyType,
+        description: `${desc} - Rs.${totalSettled}${roundOff ? ' (Cash: '+amount+', RoundOff: '+roundOff+')' : ''}`, reference: `voucher_payment_ledger:${paymentId}`, ...base
       });
-      // Local party settlement entry
+      // Local party settlement entry (total including round off)
       if (party) {
         database.data.local_party_accounts.push({
           id: uuidv4(), date: payDate, party_name: party,
-          txn_type: 'payment', amount: parseFloat(amount),
+          txn_type: 'payment', amount: totalSettled,
           description: `Payment made - ${sourceLabel}` + (notes ? ` (${notes})` : ''),
           source_type: `${voucher_type}_voucher_payment`, reference: `voucher_payment:${paymentId}`, ...base
         });
       }
     }
 
-    // Update paid_amount on the voucher
+    // Update paid_amount on the voucher (total including round off)
     if (voucher) {
       const oldPaid = voucher.paid_amount || voucher.advance || 0;
-      voucher.paid_amount = Math.round((oldPaid + parseFloat(amount)) * 100) / 100;
+      voucher.paid_amount = Math.round((oldPaid + totalSettled) * 100) / 100;
       voucher.balance = Math.round(((voucher.total || 0) - voucher.paid_amount) * 100) / 100;
     }
     database.save();
-    // Create round-off entry if provided
-    const roundOff = parseFloat(req.body.round_off) || 0;
+    // Create round-off cash entry if provided
     if (roundOff !== 0) {
       const { createRoundOffEntry } = require('../utils/round_off');
       createRoundOffEntry(database.data, roundOff, payDate, `Voucher - ${party}`, {
