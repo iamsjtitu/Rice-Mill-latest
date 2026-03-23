@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "25.1.58";
+const APP_VERSION = "25.1.59";
 
 const CHANGELOG = [
+  {
+    version: "25.1.59",
+    date: "23 Mar 2026",
+    title: "Desktop Round Off Bug Fix",
+    items: [
+      { type: "fix", text: "Desktop app mein Round Off ka 'module not found' error fix kiya" },
+      { type: "fix", text: "Build config mein utils folder include kiya" },
+    ],
+  },
   {
     version: "25.1.58",
     date: "23 Mar 2026",
