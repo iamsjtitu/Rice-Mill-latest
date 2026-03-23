@@ -109,6 +109,16 @@ router.post('/api/mill-parts-stock', safeSync((req, res) => {
   };
   database.data.mill_parts_stock.push(doc);
 
+  // Update part's store_room in master when stock-in has a store_room selected
+  if (doc.store_room && doc.part_name && database.data.mill_parts) {
+    database.data.mill_parts.forEach(p => {
+      if (p.name === doc.part_name) {
+        p.store_room = doc.store_room;
+        p.store_room_name = doc.store_room_name;
+      }
+    });
+  }
+
   // Auto-create local party entry for purchases with party
   if (doc.txn_type === 'in' && doc.party_name && doc.total_amount > 0) {
     if (!database.data.local_party_accounts) database.data.local_party_accounts = [];

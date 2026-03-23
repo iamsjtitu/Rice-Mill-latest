@@ -132,6 +132,13 @@ async def create_stock_entry(data: dict):
     await db.mill_parts_stock.insert_one(doc)
     doc.pop("_id", None)
 
+    # Update part's store_room in master when stock-in has a store_room selected
+    if doc["store_room"] and doc["part_name"]:
+        await db.mill_parts.update_many(
+            {"name": doc["part_name"]},
+            {"$set": {"store_room": doc["store_room"], "store_room_name": doc["store_room_name"]}}
+        )
+
     # Auto-create local party account entry for purchases (txn_type=in) with party
     if doc["txn_type"] == "in" and doc["party_name"] and doc["total_amount"] > 0:
         lp = {

@@ -377,11 +377,11 @@ export default function MillPartsStock({ filters, user }) {
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
             <Table>
               <TableHeader><TableRow className="border-slate-700">
-                {['Date', 'Part', 'Type', 'Qty', 'Rate', 'Amount ₹', 'Party', 'Bill No', ''].map(h =>
+                {['Date', 'Part', 'Type', 'Qty', 'Rate', 'Amount ₹', 'Party', 'Store Room', 'Bill No', ''].map(h =>
                   <TableHead key={h} className="text-slate-300 text-xs">{h}</TableHead>)}
               </TableRow></TableHeader>
               <TableBody>
-                {filteredStock.length === 0 ? <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">Koi transaction nahi{searchPart ? ` "${searchPart}" ke liye` : ''}</TableCell></TableRow>
+                {filteredStock.length === 0 ? <TableRow><TableCell colSpan={10} className="text-center text-slate-400 py-8">Koi transaction nahi{searchPart ? ` "${searchPart}" ke liye` : ''}</TableCell></TableRow>
                 : filteredStock.map(t => (
                   <TableRow key={t.id} className="border-slate-700">
                     <TableCell className="text-white text-xs">{fmtDate(t.date)}</TableCell>
@@ -391,6 +391,7 @@ export default function MillPartsStock({ filters, user }) {
                     <TableCell className="text-slate-300">₹{t.rate || '-'}</TableCell>
                     <TableCell className="text-white">{t.total_amount ? `₹${t.total_amount.toLocaleString()}` : '-'}</TableCell>
                     <TableCell className="text-slate-300 text-xs">{t.party_name || '-'}</TableCell>
+                    <TableCell className="text-cyan-400 text-xs">{t.store_room_name || '-'}</TableCell>
                     <TableCell className="text-slate-400 text-xs">{t.bill_no || '-'}</TableCell>
                     <TableCell>{user.role === 'admin' && <div className="flex gap-1"><Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => openEditStock(t)} data-testid={`edit-stock-${t.id}`}><Edit className="w-3 h-3" /></Button><Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDeleteStock(t.id)}><Trash2 className="w-3 h-3" /></Button></div>}</TableCell>
                   </TableRow>

@@ -7,14 +7,11 @@
 
 ## Latest (v25.1.56)
 
-### Telegram Confirmation Dialog
-- Telegram button click par confirmation dialog: date, mode, KMS year, recipients list dikhata hai
-- Recipients Telegram config se auto-fetch hote hain
-- Agar Telegram configured nahi hai to warning dikhta hai aur "Bhejein" disabled
-- Cancel button se galti se report send nahi hogi
-
-### Previous (v25.1.55)
-- Cash Transactions: Round Off entries hidden by default, toggle to show/hide
+### Bug Fixes
+- Stock In transaction mein Store Room select karne par Part master ki store_room bhi update hoti hai
+- Transactions table mein "Store Room" column add kiya gaya
+- Telegram confirmation dialog: date, mode, KMS year, recipients dikhata hai
+- Cash Transactions: Round Off entries hidden by default, toggle se show/hide
 - Daily Report: "Share via Telegram" button in Detail mode
 
 ### Previous (v25.1.54)
