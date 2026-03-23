@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "26.0.0";
+const APP_VERSION = "26.0.1";
 
 const CHANGELOG = [
+  {
+    version: "26.0.1",
+    date: "23 Mar 2026",
+    title: "Round Off Balance Fix - Sabhi Payments",
+    items: [
+      { type: "fix", text: "Round Off balance bug fix - Truck, Agent, Owner, Diesel, Hemali, Voucher, CashBook, Local Party" },
+      { type: "fix", text: "Ledger mein ab total (amount + round off) record hota hai, balance sahi aata hai" },
+      { type: "fix", text: "Desktop build mein utils folder include kiya" },
+    ],
+  },
   {
     version: "26.0.0",
     date: "23 Mar 2026",
