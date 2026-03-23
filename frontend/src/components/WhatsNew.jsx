@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "25.1.59";
+const APP_VERSION = "26.0.0";
 
 const CHANGELOG = [
+  {
+    version: "26.0.0",
+    date: "23 Mar 2026",
+    title: "Local Party Round Off Fix + Desktop Build Fix",
+    items: [
+      { type: "fix", text: "Local Party payment mein Round Off balance sahi hota hai ab" },
+      { type: "fix", text: "Desktop app mein utils folder build mein include kiya" },
+      { type: "new", text: "Local Party Settlement mein Round Off option" },
+    ],
+  },
   {
     version: "25.1.59",
     date: "23 Mar 2026",
