@@ -5,20 +5,24 @@
 - **Backend (Web)**: FastAPI + MongoDB
 - **Backend (Desktop)**: Electron + Node.js/Express + JSON file DB
 
-## Latest (v25.1.56)
+## Latest (v25.1.58)
 
-### Bug Fixes
-- Stock In transaction mein Store Room select karne par Part master ki store_room bhi update hoti hai
-- Transactions table mein "Store Room" column add kiya gaya
-- Telegram confirmation dialog: date, mode, KMS year, recipients dikhata hai
-- Cash Transactions: Round Off entries hidden by default, toggle se show/hide
-- Daily Report: "Share via Telegram" button in Detail mode
+### Local Party Round Off + Store Room Fixes
+- Local Party Settlement dialog mein Round Off option add kiya (RoundOffInput component reuse)
+- Backend (web + desktop) round_off handle karta hai - separate Cash Book entry banti hai
+- Store Room bug fix: Stock In par Part master ki store_room auto-update
+- Transactions table mein Store Room column add kiya
+
+### Previous (v25.1.56)
+- Telegram confirmation dialog with date, mode, recipients
+- Cash Transactions: Round Off toggle (show/hide)
+- Daily Report: Telegram Share button in Detail mode
 
 ### Previous (v25.1.54)
 - Daily Report PDF/Excel export: Store Room column for Mill Parts
 
 ### Previous (v25.1.49-53)
-- Round Off in ALL payment sections (separate Cash Book entry)
+- Round Off in ALL 9 payment sections (separate Cash Book entry)
 - Store Room CRUD + Room-wise Report + Excel/PDF export
 - Store Room in Stock forms, Summary, Part-wise Summary
 - What's New auto-popup + Footer (9x.design, contact)

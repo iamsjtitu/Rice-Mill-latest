@@ -14,6 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import RoundOffInput from "../common/RoundOffInput";
 import {
   IndianRupee, RefreshCw, Download, FileText, Plus, Trash2, Handshake, Printer, Search, Loader2,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const LocalPartyAccount = ({ filters, user }) => {
   const [settleType, setSettleType] = useState("paid");
   const [settleDate, setSettleDate] = useState(new Date().toISOString().split('T')[0]);
   const [settleNotes, setSettleNotes] = useState("");
+  const [settleRoundOff, setSettleRoundOff] = useState("");
   const [manualForm, setManualForm] = useState({
     party_name: "", amount: "", date: new Date().toISOString().split('T')[0], description: ""
   });
@@ -86,16 +88,17 @@ const LocalPartyAccount = ({ filters, user }) => {
   const handleSettle = async () => {
     const amt = parseFloat(settleAmount);
     if (!selectedParty || !amt || amt <= 0) { toast.error("Amount bharein"); return; }
+    const roundOff = parseFloat(settleRoundOff) || 0;
     try {
       await axios.post(`${API}/local-party/settle`, {
         party_name: selectedParty, amount: amt, date: settleDate,
-        type: settleType,
+        type: settleType, round_off: roundOff,
         kms_year: filters.kms_year || "", season: filters.season || "",
         notes: settleNotes, created_by: user.username
       });
       toast.success(`Rs.${amt} (${settleType}) for ${selectedParty} recorded!`);
       setShowSettleDialog(false);
-      setSettleAmount(""); setSettleNotes("");
+      setSettleAmount(""); setSettleNotes(""); setSettleRoundOff("");
       fetchSummary();
       fetchPartyReport(selectedParty);
     } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
@@ -462,6 +465,7 @@ const LocalPartyAccount = ({ filters, user }) => {
               <Input value={settleNotes} onChange={e => setSettleNotes(e.target.value)}
                 placeholder="Optional notes" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="settle-notes-input" />
             </div>
+            <RoundOffInput value={settleRoundOff} onChange={setSettleRoundOff} amount={parseFloat(settleAmount) || 0} />
             <div className="flex gap-2">
               <Button onClick={handleSettle} className="bg-emerald-600 hover:bg-emerald-700 text-white flex-1" data-testid="settle-submit-btn">
                 <IndianRupee className="w-4 h-4 mr-1" /> Pay

@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "25.1.57";
+const APP_VERSION = "25.1.58";
 
 const CHANGELOG = [
+  {
+    version: "25.1.58",
+    date: "23 Mar 2026",
+    title: "Local Party mein Round Off",
+    items: [
+      { type: "new", text: "Local Party Settlement mein Round Off ka option add kiya" },
+      { type: "fix", text: "Store Room - Stock In par Part master update hota hai" },
+      { type: "new", text: "Transactions table mein Store Room column" },
+    ],
+  },
   {
     version: "25.1.57",
     date: "23 Mar 2026",

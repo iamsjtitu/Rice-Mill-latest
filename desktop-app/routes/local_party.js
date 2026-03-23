@@ -247,6 +247,18 @@ router.post('/api/local-party/settle', safeSync((req, res) => {
   });
   database.save();
 
+  // Handle Round Off
+  const roundOff = parseFloat(d.round_off) || 0;
+  if (roundOff !== 0) {
+    const { createRoundOffEntry } = require('../utils/round_off');
+    createRoundOffEntry(database, {
+      round_off_amount: roundOff, date, category: party_name,
+      account: 'cash', kms_year, season, created_by: username,
+      reference: `round_off/local_party/${payTxn.id.slice(0,8)}`,
+      description: `Round Off (${roundOff > 0 ? '+' : ''}${roundOff}) - Local Party - ${party_name}`,
+    });
+  }
+
   res.json({ success: true, message: `Rs.${amount} ${type} recorded for ${party_name}`, txn_id: payTxn.id });
 }));
 
