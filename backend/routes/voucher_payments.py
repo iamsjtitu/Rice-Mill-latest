@@ -44,6 +44,8 @@ async def make_voucher_payment(request: Request):
     now_iso = datetime.now(timezone.utc).isoformat()
     base = {"kms_year": kms_year or voucher.get("kms_year", ""), "season": season or voucher.get("season", ""), "created_by": username, "created_at": now_iso, "updated_at": now_iso}
     payment_id = str(uuid.uuid4())
+    round_off = float(data.get("round_off", 0))
+    total_settled = round(amount + round_off, 2)
 
     # Determine if this is payment received (sale) or payment made (purchase/gunny)
     if voucher_type == "sale":
@@ -51,7 +53,7 @@ async def make_voucher_payment(request: Request):
         source_label = f"Sale #{voucher.get('voucher_no', '')}"
         party_type = "Sale Book"
 
-        # Cash/Bank JAMA - payment coming in
+        # Cash/Bank JAMA - payment coming in (actual cash)
         cash_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": pay_account, "txn_type": "jama",
             "amount": round(amount, 2), "category": party, "party_type": party_type,
@@ -60,29 +62,29 @@ async def make_voucher_payment(request: Request):
         }
         if pay_account == "bank" and bank_name:
             cash_entry["bank_name"] = bank_name
-        # Ledger NIKASI - reduces what party owes us
+        # Ledger NIKASI - reduces what party owes us (total including round off)
         ledger_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": "ledger", "txn_type": "nikasi",
-            "amount": round(amount, 2), "category": party, "party_type": party_type,
-            "description": f"Payment received - {source_label} - {party}" + (f" ({notes})" if notes else ""),
+            "amount": total_settled, "category": party, "party_type": party_type,
+            "description": f"Payment received - {source_label} - {party} - Rs.{total_settled}" + (f" (Cash: {amount}, RoundOff: {round_off})" if round_off else "") + (f" ({notes})" if notes else ""),
             "reference": f"voucher_payment_ledger:{payment_id}", **base
         }
         await db.cash_transactions.insert_one(cash_entry)
         await db.cash_transactions.insert_one(ledger_entry)
 
-        # Local party payment entry (txn_type=payment since party is paying us)
+        # Local party payment entry (total including round off)
         lp_entry = {
             "id": str(uuid.uuid4()), "date": date, "party_name": party,
-            "txn_type": "payment", "amount": round(amount, 2),
+            "txn_type": "payment", "amount": total_settled,
             "description": f"Payment received - {source_label}" + (f" ({notes})" if notes else ""),
             "source_type": "sale_voucher_payment", "reference": f"voucher_payment:{payment_id}",
             **base
         }
         await db.local_party_accounts.insert_one(lp_entry)
 
-        # Update voucher paid_amount and balance
+        # Update voucher paid_amount and balance (total including round off)
         old_paid = voucher.get("paid_amount", 0) or voucher.get("advance", 0) or 0
-        new_paid = round(old_paid + amount, 2)
+        new_paid = round(old_paid + total_settled, 2)
         new_balance = round(voucher.get("total", 0) - new_paid, 2)
         await coll.update_one({"id": voucher_id}, {"$set": {"paid_amount": new_paid, "balance": new_balance}})
 
@@ -95,7 +97,7 @@ async def make_voucher_payment(request: Request):
             source_label = f"Gunny Bag ({voucher.get('date', '')})"
             party_type = "Gunny Bag"
 
-        # Cash/Bank NIKASI - payment going out
+        # Cash/Bank NIKASI - payment going out (actual cash)
         cash_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": pay_account, "txn_type": "nikasi",
             "amount": round(amount, 2), "category": party, "party_type": party_type,
@@ -104,40 +106,39 @@ async def make_voucher_payment(request: Request):
         }
         if pay_account == "bank" and bank_name:
             cash_entry["bank_name"] = bank_name
-        # Ledger NIKASI - reduces what we owe the party
+        # Ledger NIKASI - reduces what we owe (total including round off)
         ledger_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": "ledger", "txn_type": "nikasi",
-            "amount": round(amount, 2), "category": party, "party_type": party_type,
-            "description": f"Payment made - {source_label} - {party}" + (f" ({notes})" if notes else ""),
+            "amount": total_settled, "category": party, "party_type": party_type,
+            "description": f"Payment made - {source_label} - {party} - Rs.{total_settled}" + (f" (Cash: {amount}, RoundOff: {round_off})" if round_off else "") + (f" ({notes})" if notes else ""),
             "reference": f"voucher_payment_ledger:{payment_id}", **base
         }
         await db.cash_transactions.insert_one(cash_entry)
         await db.cash_transactions.insert_one(ledger_entry)
 
-        # Local party settlement entry (txn_type=payment means we paid them)
+        # Local party settlement entry (total including round off)
         lp_entry = {
             "id": str(uuid.uuid4()), "date": date, "party_name": party,
-            "txn_type": "payment", "amount": round(amount, 2),
+            "txn_type": "payment", "amount": total_settled,
             "description": f"Payment made - {source_label}" + (f" ({notes})" if notes else ""),
             "source_type": f"{voucher_type}_voucher_payment", "reference": f"voucher_payment:{payment_id}",
             **base
         }
         await db.local_party_accounts.insert_one(lp_entry)
 
-        # Update voucher
+        # Update voucher (total including round off)
         if voucher_type == "purchase":
             old_paid = voucher.get("paid_amount", 0) or voucher.get("advance", 0) or 0
-            new_paid = round(old_paid + amount, 2)
+            new_paid = round(old_paid + total_settled, 2)
             new_balance = round(voucher.get("total", 0) - new_paid, 2)
             await coll.update_one({"id": voucher_id}, {"$set": {"paid_amount": new_paid, "balance": new_balance}})
         else:
             # Gunny bag - update advance
             old_advance = voucher.get("advance", 0) or 0
-            new_advance = round(old_advance + amount, 2)
+            new_advance = round(old_advance + total_settled, 2)
             await coll.update_one({"id": voucher_id}, {"$set": {"advance": new_advance}})
 
     # Create round-off entry if provided
-    round_off = float(data.get("round_off", 0))
     if round_off and round_off != 0:
         from utils.round_off import create_round_off_entry
         await create_round_off_entry(

@@ -667,9 +667,9 @@ async def make_truck_payment(entry_id: str, request: MakePaymentRequest, usernam
     current_paid = payment_doc.get("paid_amount", 0) if payment_doc else 0
     payments_history = payment_doc.get("payments_history", []) if payment_doc else []
     
-    new_paid = current_paid + request.amount
+    new_paid = current_paid + request.amount + (request.round_off or 0)
     payments_history.append({
-        "amount": request.amount,
+        "amount": request.amount + (request.round_off or 0),
         "date": datetime.now(timezone.utc).isoformat(),
         "note": request.note,
         "by": username
@@ -687,6 +687,8 @@ async def make_truck_payment(entry_id: str, request: MakePaymentRequest, usernam
     )
     
     # Auto-create Cash Book Nikasi entry for truck payment
+    round_off_amt = request.round_off or 0
+    total_settled = round(request.amount + round_off_amt, 2)
     if request.amount > 0:
         truck_no = entry.get("truck_no", "") or entry.get("vehicle_no", "")
         kms_year = entry.get("kms_year", "")
@@ -711,7 +713,7 @@ async def make_truck_payment(entry_id: str, request: MakePaymentRequest, usernam
         }
         await db.cash_transactions.insert_one(cb_entry)
 
-        # Ledger Nikasi - reduce truck outstanding
+        # Ledger Nikasi - reduce truck outstanding (includes round off)
         ledger_entry = {
             "id": str(uuid.uuid4()),
             "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -719,8 +721,8 @@ async def make_truck_payment(entry_id: str, request: MakePaymentRequest, usernam
             "txn_type": "nikasi",
             "category": truck_no,
             "party_type": "Truck",
-            "description": f"Truck Payment: {truck_no} - Rs.{request.amount}",
-            "amount": round(request.amount, 2),
+            "description": f"Truck Payment: {truck_no} - Rs.{total_settled}" + (f" (Cash: {request.amount}, Round Off: {round_off_amt})" if round_off_amt else ""),
+            "amount": round(total_settled, 2),
             "reference": f"truck_pay_ledger:{entry_id[:8]}",
             "kms_year": kms_year,
             "season": season,
@@ -934,9 +936,9 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
     current_paid = payment_doc.get("paid_amount", 0) if payment_doc else 0
     payments_history = payment_doc.get("payments_history", []) if payment_doc else []
     
-    new_paid = current_paid + request.amount
+    new_paid = current_paid + request.amount + (request.round_off or 0)
     payments_history.append({
-        "amount": request.amount,
+        "amount": request.amount + (request.round_off or 0),
         "date": datetime.now(timezone.utc).isoformat(),
         "note": request.note,
         "by": username
@@ -1019,7 +1021,9 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
         }
         await db.cash_transactions.insert_one(cb_entry)
 
-        # NIKASI (Ledger) - Reduce agent outstanding in party ledger
+        # NIKASI (Ledger) - Reduce agent outstanding in party ledger (includes round off)
+        agent_ro = request.round_off or 0
+        agent_total = round(request.amount + agent_ro, 2)
         ledger_nikasi = {
             "id": str(uuid.uuid4()),
             "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -1027,8 +1031,8 @@ async def make_agent_payment(mandi_name: str, request: MakePaymentRequest, kms_y
             "txn_type": "nikasi",
             "category": mandi_name,
             "party_type": "Agent",
-            "description": f"Agent Payment: {mandi_name} - Rs.{request.amount}",
-            "amount": round(request.amount, 2),
+            "description": f"Agent Payment: {mandi_name} - Rs.{agent_total}" + (f" (Cash: {request.amount}, Round Off: {agent_ro})" if agent_ro else ""),
+            "amount": agent_total,
             "reference": f"agent_pay_ledger:{mandi_name[:10]}",
             "kms_year": kms_year,
             "season": season,
@@ -1466,6 +1470,8 @@ async def pay_truck_owner(truck_no: str, request: Request, kms_year: str = "", s
         remaining = round(remaining - allot, 2)
     
     # Create cash book entry (Cash/Bank Nikasi)
+    round_off = float(body.get("round_off", 0))
+    owner_total = round(amount + round_off, 2)
     txn_id = f"txn_{datetime.now().strftime('%Y%m%d%H%M%S')}_{truck_no}"
     cash_txn = {
         "id": txn_id,
@@ -1484,7 +1490,7 @@ async def pay_truck_owner(truck_no: str, request: Request, kms_year: str = "", s
     }
     await db.cash_transactions.insert_one(cash_txn)
 
-    # Ledger Nikasi - reduce truck outstanding
+    # Ledger Nikasi - reduce truck outstanding (includes round off)
     ledger_txn = {
         "id": f"txn_ledger_{datetime.now().strftime('%Y%m%d%H%M%S')}_{truck_no}",
         "date": datetime.now().strftime("%Y-%m-%d"),
@@ -1492,8 +1498,8 @@ async def pay_truck_owner(truck_no: str, request: Request, kms_year: str = "", s
         "txn_type": "nikasi",
         "category": truck_no,
         "party_type": "Truck",
-        "description": f"Truck Owner Payment: {truck_no}" + (f" - {note}" if note else ""),
-        "amount": amount,
+        "description": f"Truck Owner Payment: {truck_no} - Rs.{owner_total}" + (f" (Cash: {amount}, Round Off: {round_off})" if round_off else "") + (f" - {note}" if note else ""),
+        "amount": owner_total,
         "reference": f"truck_owner_ledger:{truck_no}",
         "linked_payment_id": f"truck_owner_ledger:{truck_no}:{kms_year}:{season}:{uuid.uuid4().hex[:6]}",
         "kms_year": kms_year,
@@ -1516,7 +1522,6 @@ async def pay_truck_owner(truck_no: str, request: Request, kms_year: str = "", s
     )
     
     # Create round-off entry if provided
-    round_off = float(body.get("round_off", 0))
     if round_off and round_off != 0:
         from utils.round_off import create_round_off_entry
         await create_round_off_entry(

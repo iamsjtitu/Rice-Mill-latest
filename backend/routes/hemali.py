@@ -197,18 +197,19 @@ async def create_hemali_payment(request: Request):
     return payment
 
 
-async def _create_cash_entries(p):
+async def _create_cash_entries(p, round_off=0):
     """Create cash book + ledger + local party entries for a paid hemali payment."""
     now = datetime.now(timezone.utc).isoformat()
     pid = p["id"]
     sardar = p["sardar_name"]
     items_desc = ", ".join(f"{i['item_name']} x{i['quantity']}" for i in p.get("items", []))
+    total_settled = round(p.get("amount_paid", 0) + round_off, 2)
     base = {
         "kms_year": p.get("kms_year", ""), "season": p.get("season", ""),
         "created_by": p.get("created_by", ""), "created_at": now, "updated_at": now,
     }
 
-    # 1. Cash Book: Nikasi (cash going out) - shows in Cash Transactions tab
+    # 1. Cash Book: Nikasi (cash going out) - actual cash amount
     await db.cash_transactions.insert_one({
         "id": str(uuid.uuid4()), "date": p["date"], "account": "cash", "txn_type": "nikasi",
         "amount": p["amount_paid"], "category": "Hemali Payment", "party_type": "Hemali",
@@ -224,7 +225,7 @@ async def _create_cash_entries(p):
         "reference": f"hemali_work:{pid}", **base,
     })
 
-    # 3. Ledger: Nikasi (payment) - shows in Party Ledger tab + Local Party transactions
+    # 3. Ledger: Nikasi (payment) - includes round off for correct balance
     adv_info = ""
     if p.get("advance_deducted", 0) > 0:
         adv_info += f" | Adv Deducted: Rs.{p['advance_deducted']:.0f}"
@@ -232,13 +233,12 @@ async def _create_cash_entries(p):
         adv_info += f" | New Advance: Rs.{p['new_advance']:.0f}"
     await db.cash_transactions.insert_one({
         "id": str(uuid.uuid4()), "date": p["date"], "account": "ledger", "txn_type": "nikasi",
-        "amount": p.get("amount_paid", 0), "category": "Hemali Payment", "party_type": "Hemali",
-        "description": f"{sardar} - Paid Rs.{p.get('amount_paid',0):.0f}{adv_info}",
+        "amount": total_settled, "category": "Hemali Payment", "party_type": "Hemali",
+        "description": f"{sardar} - Paid Rs.{total_settled:.0f}{adv_info}" + (f" (Cash: {p.get('amount_paid',0):.0f}, RoundOff: {round_off})" if round_off else ""),
         "reference": f"hemali_paid:{pid}", **base,
     })
 
-    # 4. Local Party: Update debit amount if changed, and add payment entry
-    # Debit was already created on payment creation, just update if needed
+    # 4. Local Party: payment entry with total (includes round off)
     await db.local_party_accounts.update_one(
         {"reference": f"hemali_debit:{pid}"},
         {"$set": {
@@ -249,8 +249,8 @@ async def _create_cash_entries(p):
     await db.local_party_accounts.insert_one({
         "id": str(uuid.uuid4()), "date": p["date"],
         "party_name": "Hemali Payment", "txn_type": "payment",
-        "amount": p.get("amount_paid", 0),
-        "description": f"{sardar} - Paid Rs.{p.get('amount_paid',0):.0f}{adv_info}",
+        "amount": total_settled,
+        "description": f"{sardar} - Paid Rs.{total_settled:.0f}{adv_info}",
         "reference": f"hemali_paid:{pid}", "source_type": "hemali",
         **{k: base[k] for k in ("kms_year", "season", "created_by", "created_at")},
     })
@@ -296,7 +296,7 @@ async def mark_hemali_paid(payment_id: str, request: Request):
         }},
     )
     updated = await db.hemali_payments.find_one({"id": payment_id}, {"_id": 0})
-    await _create_cash_entries(updated)
+    await _create_cash_entries(updated, round_off=round_off)
 
     # Create round-off entry if provided
     if round_off and round_off != 0:

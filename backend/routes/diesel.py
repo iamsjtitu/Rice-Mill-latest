@@ -160,21 +160,23 @@ async def make_diesel_payment(request: Request, username: str = "", role: str = 
     season = data.get("season", "")
     date = data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     notes = data.get("notes", "")
+    round_off = float(data.get("round_off", 0))
+    total_settled = round(amount + round_off, 2)
     
-    # Create payment transaction in diesel account
+    # Create payment transaction in diesel account (total including round off)
     pay_txn = {
         "id": str(uuid.uuid4()), "date": date,
         "pump_id": pump_id, "pump_name": pump["name"],
         "truck_no": "", "agent_name": "",
-        "amount": round(amount, 2), "txn_type": "payment",
-        "description": f"Payment to {pump['name']}" + (f" - {notes}" if notes else ""),
+        "amount": total_settled, "txn_type": "payment",
+        "description": f"Payment to {pump['name']} - Rs.{amount}" + (f" (Round Off: {'+' if round_off > 0 else ''}{round_off})" if round_off else "") + (f" - {notes}" if notes else ""),
         "kms_year": kms_year, "season": season,
         "created_by": username or "system",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.diesel_accounts.insert_one(pay_txn)
     
-    # Auto create Cash Book entry (Nikasi)
+    # Auto create Cash Book entry (Nikasi) - only actual cash
     cb = {
         "id": str(uuid.uuid4()), "date": date,
         "account": "cash", "txn_type": "nikasi", "category": pump['name'],
@@ -189,13 +191,13 @@ async def make_diesel_payment(request: Request, username: str = "", role: str = 
     }
     await db.cash_transactions.insert_one(cb)
 
-    # Ledger Nikasi - reduce diesel outstanding
+    # Ledger Nikasi - reduce diesel outstanding (includes round off)
     ledger_cb = {
         "id": str(uuid.uuid4()), "date": date,
         "account": "ledger", "txn_type": "nikasi", "category": pump['name'],
         "party_type": "Diesel",
-        "description": f"Diesel Payment: {pump['name']} - Rs.{amount}" + (f" ({notes})" if notes else ""),
-        "amount": round(amount, 2), "reference": f"diesel_pay_ledger:{pay_txn['id'][:8]}",
+        "description": f"Diesel Payment: {pump['name']} - Rs.{total_settled}" + (f" (Cash: {amount}, Round Off: {round_off})" if round_off else "") + (f" ({notes})" if notes else ""),
+        "amount": total_settled, "reference": f"diesel_pay_ledger:{pay_txn['id'][:8]}",
         "kms_year": kms_year, "season": season,
         "created_by": username or "system",
         "linked_diesel_payment_id": pay_txn["id"],
@@ -205,7 +207,6 @@ async def make_diesel_payment(request: Request, username: str = "", role: str = 
     await db.cash_transactions.insert_one(ledger_cb)
     
     # Create round-off entry if provided
-    round_off = float(data.get("round_off", 0))
     if round_off and round_off != 0:
         from utils.round_off import create_round_off_entry
         await create_round_off_entry(

@@ -145,14 +145,16 @@ module.exports = function(database) {
   router.post('/api/truck-payments/:entryId/pay', safeSync((req, res) => {
     const entry = database.data.entries.find(e => e.id === req.params.entryId);
     const current = database.getTruckPayment(req.params.entryId);
-    const newPaidAmount = current.paid_amount + req.body.amount;
+    const roundOff = parseFloat(req.body.round_off) || 0;
+    const totalSettled = Math.round((req.body.amount + roundOff) * 100) / 100;
+    const newPaidAmount = current.paid_amount + totalSettled;
     const history = current.payment_history || [];
-    history.push({ amount: req.body.amount, date: new Date().toISOString(), note: req.body.note || '', by: req.query.username || 'admin' });
+    history.push({ amount: totalSettled, date: new Date().toISOString(), note: req.body.note || '', by: req.query.username || 'admin' });
     database.updateTruckPayment(req.params.entryId, { paid_amount: newPaidAmount, payment_history: history });
     if (req.body.amount > 0) {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
       const truckNo = entry?.truck_no || '';
-      // Cash Book Nikasi
+      // Cash Book Nikasi - actual cash
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
         category: truckNo, party_type: 'Truck',
@@ -162,12 +164,12 @@ module.exports = function(database) {
         created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
-      // Ledger Nikasi - reduce truck outstanding
+      // Ledger Nikasi - total including round off
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'nikasi',
         category: truckNo, party_type: 'Truck',
-        description: `Truck Payment: ${truckNo} - Rs.${req.body.amount}`,
-        amount: Math.round(req.body.amount * 100) / 100, reference: `truck_pay_ledger:${req.params.entryId.substring(0,8)}`,
+        description: `Truck Payment: ${truckNo} - Rs.${totalSettled}${roundOff ? ' (Cash: '+req.body.amount+', RoundOff: '+roundOff+')' : ''}`,
+        amount: totalSettled, reference: `truck_pay_ledger:${req.params.entryId.substring(0,8)}`,
         kms_year: entry?.kms_year || '', season: entry?.season || '',
         created_by: req.query.username || 'system', linked_payment_id: `truck_ledger:${req.params.entryId}:${uuidv4().substring(0,6)}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
@@ -175,7 +177,6 @@ module.exports = function(database) {
     }
     database.save();
     // Create round-off entry if provided
-    const roundOff = parseFloat(req.body.round_off) || 0;
     if (roundOff !== 0) {
       const { createRoundOffEntry } = require('../utils/round_off');
       const truckNo = entry?.truck_no || '';
@@ -341,9 +342,11 @@ module.exports = function(database) {
     const { kms_year, season } = req.query;
     const mandiName = decodeURIComponent(req.params.mandiName);
     const current = database.getAgentPayment(mandiName, kms_year, season);
-    const newPaidAmount = current.paid_amount + req.body.amount;
+    const roundOff1 = parseFloat(req.body.round_off) || 0;
+    const agentTotal = Math.round((req.body.amount + roundOff1) * 100) / 100;
+    const newPaidAmount = current.paid_amount + agentTotal;
     const history = current.payment_history || [];
-    history.push({ amount: req.body.amount, date: new Date().toISOString(), note: req.body.note || '', by: req.query.username || 'admin' });
+    history.push({ amount: agentTotal, date: new Date().toISOString(), note: req.body.note || '', by: req.query.username || 'admin' });
     database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: newPaidAmount, payment_history: history });
     if (req.body.amount > 0) {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
@@ -379,7 +382,7 @@ module.exports = function(database) {
         }
       }
 
-      // NIKASI (Cash) - Agent Payment
+      // NIKASI (Cash) - actual cash
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
         category: mandiName, party_type: 'Agent',
@@ -389,20 +392,18 @@ module.exports = function(database) {
         created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
-      // NIKASI (Ledger) - Reduce agent outstanding
+      // NIKASI (Ledger) - total including round off
       database.data.cash_transactions.push({
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'nikasi',
         category: mandiName, party_type: 'Agent',
-        description: `Agent Payment: ${mandiName} - Rs.${req.body.amount}`,
-        amount: Math.round(req.body.amount * 100) / 100, reference: `agent_pay_ledger:${mandiName.substring(0,10)}`,
+        description: `Agent Payment: ${mandiName} - Rs.${agentTotal}${roundOff1 ? ' (Cash: '+req.body.amount+', RoundOff: '+roundOff1+')' : ''}`,
+        amount: agentTotal, reference: `agent_pay_ledger:${mandiName.substring(0,10)}`,
         kms_year: kms_year || '', season: season || '',
         created_by: req.query.username || 'system', linked_payment_id: `agent_ledger_pay:${mandiName}:${kms_year}:${season}:${uuidv4().substring(0,6)}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
       });
     }
     database.save();
-    // Create round-off entry if provided
-    const roundOff1 = parseFloat(req.body.round_off) || 0;
     if (roundOff1 !== 0) {
       const { createRoundOffEntry } = require('../utils/round_off');
       createRoundOffEntry(database.data, roundOff1, new Date().toISOString().split('T')[0], `Agent - ${mandiName}`, {
@@ -560,7 +561,9 @@ module.exports = function(database) {
       remaining = Math.round((remaining - allot) * 100) / 100;
     }
 
-    // Cash book nikasi
+    // Cash book nikasi - actual cash
+    const roundOff2 = parseFloat(req.body.round_off) || 0;
+    const ownerTotal = Math.round((amount + roundOff2) * 100) / 100;
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     database.data.cash_transactions.push({
       id: uuidv4(), date: new Date().toISOString().split('T')[0],
@@ -572,13 +575,13 @@ module.exports = function(database) {
       kms_year: kms_year || '', season: season || '',
       created_at: new Date().toISOString()
     });
-    // Ledger nikasi - reduce truck outstanding (needed for paid_amount calculation)
+    // Ledger nikasi - total including round off
     database.data.cash_transactions.push({
       id: uuidv4(), date: new Date().toISOString().split('T')[0],
       account: 'ledger', txn_type: 'nikasi',
       category: truckNo, party_type: 'Truck',
-      description: `Truck Owner Payment: ${truckNo}` + (note ? ` - ${note}` : ''),
-      amount: amount, reference: `truck_owner_ledger:${truckNo}`,
+      description: `Truck Owner Payment: ${truckNo} - Rs.${ownerTotal}${roundOff2 ? ' (Cash: '+amount+', RoundOff: '+roundOff2+')' : ''}` + (note ? ` - ${note}` : ''),
+      amount: ownerTotal, reference: `truck_owner_ledger:${truckNo}`,
       linked_payment_id: `truck_owner_ledger:${truckNo}:${kms_year || ''}:${season || ''}:${uuidv4().substring(0,6)}`,
       kms_year: kms_year || '', season: season || '',
       created_at: new Date().toISOString()
@@ -591,12 +594,10 @@ module.exports = function(database) {
       ownerDoc = { truck_no: truckNo, kms_year: kms_year || '', season: season || '', payments_history: [] };
       database.data.truck_owner_payments.push(ownerDoc);
     }
-    ownerDoc.payments_history.push({ amount, date: new Date().toISOString(), note: note || '', by: username || '', payment_mode: payment_mode || 'cash' });
+    ownerDoc.payments_history.push({ amount: ownerTotal, date: new Date().toISOString(), note: note || '', by: username || '', payment_mode: payment_mode || 'cash' });
     ownerDoc.updated_at = new Date().toISOString();
 
     database.save();
-    // Create round-off entry if provided
-    const roundOff2 = parseFloat(req.body.round_off) || 0;
     if (roundOff2 !== 0) {
       const { createRoundOffEntry } = require('../utils/round_off');
       createRoundOffEntry(database.data, roundOff2, new Date().toISOString().split('T')[0], `Truck Owner - ${truckNo}`, {

@@ -133,10 +133,12 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
     # Cash In (Jama) from party = party paid us → Ledger Nikasi (reduces their debt)
     # Cash Out (Nikasi) to party = we paid them → Ledger Nikasi (reduces our debt)
     if txn_dict.get('account') in ('cash', 'bank') and category:
+        ledger_amount = round(txn_dict['amount'] + round_off, 2) if round_off else txn_dict['amount']
         ledger_entry = {**txn_dict}
         ledger_entry['id'] = str(uuid.uuid4())
         ledger_entry['account'] = 'ledger'
         ledger_entry['txn_type'] = 'nikasi'
+        ledger_entry['amount'] = ledger_amount
         ledger_entry['reference'] = f"auto_ledger:{txn_dict.get('id', '')[:8]}"
         # Auto-generate description if empty
         if not ledger_entry.get('description'):

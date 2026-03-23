@@ -99,14 +99,15 @@ module.exports = function(database) {
     if (!pump) return res.status(404).json({ detail: 'Pump not found' });
     if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
-    const txn = { id:uuidv4(), date:date||new Date().toISOString().split('T')[0], pump_id, pump_name:pump.name, truck_no:'', agent_name:'', amount:+amt.toFixed(2), txn_type:'payment', description:`Payment to ${pump.name}${notes?' - '+notes:''}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', created_at:new Date().toISOString() };
-    database.data.diesel_accounts.push(txn);
-    database.data.cash_transactions.push({ id:uuidv4(), date:txn.date, account:'cash', txn_type:'nikasi', category:pump.name, party_type:'Diesel', description:`Diesel Payment: ${pump.name} - Rs.${amt}${notes?' ('+notes+')':''}`, amount:+amt.toFixed(2), reference:`diesel_pay:${txn.id.slice(0,8)}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', linked_diesel_payment_id:txn.id, created_at:new Date().toISOString(), updated_at:new Date().toISOString() });
-    // Ledger nikasi - for diesel summary paid calculation
-    database.data.cash_transactions.push({ id:uuidv4(), date:txn.date, account:'ledger', txn_type:'nikasi', category:pump.name, party_type:'Diesel', description:`Diesel Payment: ${pump.name} - Rs.${amt}${notes?' ('+notes+')':''}`, amount:+amt.toFixed(2), reference:`diesel_pay_ledger:${txn.id.slice(0,8)}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', linked_diesel_payment_id:txn.id, created_at:new Date().toISOString(), updated_at:new Date().toISOString() });
-    database.save();
-    // Create round-off entry if provided
     const roundOff = parseFloat(req.body.round_off) || 0;
+    const totalSettled = Math.round((amt + roundOff) * 100) / 100;
+    const txn = { id:uuidv4(), date:date||new Date().toISOString().split('T')[0], pump_id, pump_name:pump.name, truck_no:'', agent_name:'', amount:totalSettled, txn_type:'payment', description:`Payment to ${pump.name} - Rs.${amt}${roundOff?' (Round Off: '+(roundOff>0?'+':'')+roundOff+')':''}${notes?' - '+notes:''}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', created_at:new Date().toISOString() };
+    database.data.diesel_accounts.push(txn);
+    // Cash nikasi - actual cash
+    database.data.cash_transactions.push({ id:uuidv4(), date:txn.date, account:'cash', txn_type:'nikasi', category:pump.name, party_type:'Diesel', description:`Diesel Payment: ${pump.name} - Rs.${amt}${notes?' ('+notes+')':''}`, amount:+amt.toFixed(2), reference:`diesel_pay:${txn.id.slice(0,8)}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', linked_diesel_payment_id:txn.id, created_at:new Date().toISOString(), updated_at:new Date().toISOString() });
+    // Ledger nikasi - total including round off
+    database.data.cash_transactions.push({ id:uuidv4(), date:txn.date, account:'ledger', txn_type:'nikasi', category:pump.name, party_type:'Diesel', description:`Diesel Payment: ${pump.name} - Rs.${totalSettled}${roundOff?' (Cash: '+amt+', RoundOff: '+roundOff+')':''}${notes?' ('+notes+')':''}`, amount:totalSettled, reference:`diesel_pay_ledger:${txn.id.slice(0,8)}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', linked_diesel_payment_id:txn.id, created_at:new Date().toISOString(), updated_at:new Date().toISOString() });
+    database.save();
     if (roundOff !== 0) {
       const { createRoundOffEntry } = require('../utils/round_off');
       createRoundOffEntry(database.data, roundOff, txn.date, `Diesel - ${pump.name}`, {

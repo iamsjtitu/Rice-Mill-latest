@@ -5,30 +5,26 @@
 - **Backend (Web)**: FastAPI + MongoDB
 - **Backend (Desktop)**: Electron + Node.js/Express + JSON file DB
 
-## Latest (v25.1.58)
+## Latest (v26.0.0)
 
-### Local Party Round Off + Store Room Fixes
-- Local Party Settlement dialog mein Round Off option add kiya (RoundOffInput component reuse)
-- Backend (web + desktop) round_off handle karta hai - separate Cash Book entry banti hai
-- Store Room bug fix: Stock In par Part master ki store_room auto-update
-- Transactions table mein Store Room column add kiya
+### Critical Bug Fix: Round Off Balance in ALL Payment Types
+- **Bug**: Round off amount was NOT included in ledger/payment entries, causing incorrect balances
+- **Fix Applied to ALL routes** (web + desktop): Truck, Agent, Owner, Diesel, Hemali, Voucher, CashBook, Local Party
+- **Pattern**: Cash entry = actual amount paid, Ledger entry = total (amount + round_off)
+- Payment records (truck_payments, agent_payments, diesel_accounts, etc.) now store total_settled
+- Desktop build config: utils/**/* added to electron-builder files array
 
-### Previous (v25.1.56)
-- Telegram confirmation dialog with date, mode, recipients
+### Previous Features
+- Local Party Settlement mein Round Off option
+- Telegram confirmation dialog with date/recipients
 - Cash Transactions: Round Off toggle (show/hide)
-- Daily Report: Telegram Share button in Detail mode
-
-### Previous (v25.1.54)
-- Daily Report PDF/Excel export: Store Room column for Mill Parts
-
-### Previous (v25.1.49-53)
-- Round Off in ALL 9 payment sections (separate Cash Book entry)
-- Store Room CRUD + Room-wise Report + Excel/PDF export
-- Store Room in Stock forms, Summary, Part-wise Summary
-- What's New auto-popup + Footer (9x.design, contact)
+- Daily Report: Telegram Share + Store Room in exports
+- Store Room CRUD + Room-wise Report + All exports
+- Round Off in ALL 9 payment sections
+- What's New auto-popup + Footer
 
 ## Backlog
-- P1: Refactor PDF/Excel generation logic (duplication across files)
+- P1: Refactor PDF/Excel generation logic (duplication)
 - P1: Centralize stock calculation logic
 - P2: Sardar-wise monthly breakdown report
 - P2: Centralize payment logic into service layer
