@@ -68,15 +68,22 @@ module.exports = function(database) {
       created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     database.data.cash_transactions.push(txn);
     
+    // Create round-off entry if provided
+    const roundOff = parseFloat(req.query.round_off) || 0;
+
     // Auto-create ledger entry for cash/bank transactions
     if ((txn.account === 'cash' || txn.account === 'bank') && category) {
-      const ledgerEntry = { ...txn, id: uuidv4(), account: 'ledger', txn_type: 'nikasi', reference: `auto_ledger:${txn.id.substring(0, 8)}` };
+      const ledgerAmount = roundOff ? Math.round((txn.amount + roundOff) * 100) / 100 : txn.amount;
+      const ledgerEntry = { ...txn, id: uuidv4(), account: 'ledger', txn_type: 'nikasi', amount: ledgerAmount, reference: `auto_ledger:${txn.id.substring(0, 8)}` };
       // Auto-generate description if empty
       if (!ledgerEntry.description) {
         const acct = (txn.account || 'cash').charAt(0).toUpperCase() + (txn.account || 'cash').slice(1);
         ledgerEntry.description = txn.txn_type === 'jama'
           ? `${acct} received from ${category}`
           : `${acct} payment to ${category}`;
+      }
+      if (roundOff) {
+        ledgerEntry.description += ` (Cash: ${txn.amount}, Round Off: ${roundOff > 0 ? '+' : ''}${roundOff})`;
       }
       database.data.cash_transactions.push(ledgerEntry);
     }
@@ -91,7 +98,7 @@ module.exports = function(database) {
       }
       if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === category.toLowerCase() && p.source !== 'agent_extra');
       if (pvtEntry) {
-        const payAmount = Math.round((txn.amount || 0) * 100) / 100;
+        const payAmount = Math.round(((txn.amount || 0) + roundOff) * 100) / 100;
         const newPaid = Math.round(((pvtEntry.paid_amount || 0) + payAmount) * 100) / 100;
         const newBalance = Math.round((pvtEntry.total_amount || 0) - newPaid);
         pvtEntry.paid_amount = newPaid;
@@ -100,8 +107,7 @@ module.exports = function(database) {
       }
     }
     
-    // Create round-off entry if provided
-    const roundOff = parseFloat(req.query.round_off) || 0;
+    // Create round-off cash entry if provided
     if (roundOff !== 0) {
       const { createRoundOffEntry } = require('../utils/round_off');
       createRoundOffEntry(database.data, roundOff, txn.date, category || 'General', {
