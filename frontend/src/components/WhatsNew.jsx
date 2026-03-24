@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "26.0.2";
+const APP_VERSION = "26.0.3";
 
 const CHANGELOG = [
+  {
+    version: "26.0.3",
+    date: "23 Mar 2026",
+    title: "Sundar Auto Update UI",
+    items: [
+      { type: "imp", text: "Auto update notification ab sundar glassmorphism card mein dikhta hai" },
+      { type: "imp", text: "Download progress bar, version comparison, Hindi buttons" },
+    ],
+  },
   {
     version: "26.0.2",
     date: "23 Mar 2026",

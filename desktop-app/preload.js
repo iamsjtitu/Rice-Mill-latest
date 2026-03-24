@@ -16,7 +16,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   forceFocus: () => {
     ipcRenderer.send('force-focus');
-  }
+  },
+  // Auto-update IPC
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_e, info) => callback(info)),
+  onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (_e, progress) => callback(progress)),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', () => callback()),
+  onUpdateError: (callback) => ipcRenderer.on('update-error', (_e, msg) => callback(msg)),
+  startDownload: () => ipcRenderer.send('start-update-download'),
+  installUpdate: () => ipcRenderer.send('install-update'),
+  dismissUpdate: () => ipcRenderer.send('dismiss-update'),
 });
 
 // Fix typing issue: detect when keyboard stops working and force focus

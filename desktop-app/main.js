@@ -1770,26 +1770,10 @@ function setupAutoUpdater() {
   autoUpdater.on('update-available', (info) => {
     console.log('Update available:', info.version);
     if (!mainWindow || mainWindow.isDestroyed()) return;
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Update Available',
-      message: `New version ${info.version} available!`,
-      detail: `Current: v${app.getVersion()}\nNew: v${info.version}\n\nKya aap download karna chahte hain?`,
-      buttons: ['Download Now', 'Later'],
-      defaultId: 0
-    }).then(result => {
-      if (result.response === 0) {
-        autoUpdater.downloadUpdate();
-        safeExecuteJS(`
-          if (!document.getElementById('update-banner')) {
-            const b = document.createElement('div');
-            b.id = 'update-banner';
-            b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#f59e0b;color:#000;text-align:center;padding:8px;font-size:14px;font-weight:bold;';
-            b.textContent = 'Downloading update... Please wait';
-            document.body.prepend(b);
-          }
-        `);
-      }
+    mainWindow.webContents.send('update-available', {
+      version: info.version,
+      currentVersion: app.getVersion(),
+      releaseDate: info.releaseDate || '',
     });
   });
 
@@ -1800,35 +1784,36 @@ function setupAutoUpdater() {
   autoUpdater.on('download-progress', (progress) => {
     const pct = Math.round(progress.percent);
     console.log('Download progress: ' + pct + '%');
-    safeExecuteJS('var b = document.getElementById("update-banner"); if (b) b.textContent = "Downloading update... ' + pct + '%";');
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('download-progress', {
+      percent: pct,
+      bytesPerSecond: progress.bytesPerSecond || 0,
+      transferred: progress.transferred || 0,
+      total: progress.total || 0,
+    });
   });
 
   autoUpdater.on('update-downloaded', () => {
     console.log('Update downloaded');
-    safeExecuteJS('var b = document.getElementById("update-banner"); if (b) { b.style.background = "#22c55e"; b.textContent = "Update download complete!"; }');
     if (!mainWindow || mainWindow.isDestroyed()) return;
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Update Ready',
-      message: 'Update download ho gaya!',
-      detail: 'App restart hoga update install karne ke liye.',
-      buttons: ['Restart Now', 'Restart Later'],
-      defaultId: 0
-    }).then(result => {
-      if (result.response === 0) {
-        autoUpdater.quitAndInstall(false, true);
-      } else {
-        safeExecuteJS(`
-          const b = document.getElementById('update-banner');
-          if (b) { b.style.background = '#22c55e'; b.textContent = 'Update ready! App close karne par install ho jayega.'; }
-        `);
-      }
-    });
+    mainWindow.webContents.send('update-downloaded');
   });
 
   autoUpdater.on('error', (err) => {
     console.log('Auto-updater error:', err.message);
-    // Don't show error to user on automatic checks - only on manual check
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('update-error', err.message);
+  });
+
+  // IPC handlers for update actions from renderer
+  ipcMain.on('start-update-download', () => {
+    autoUpdater.downloadUpdate();
+  });
+  ipcMain.on('install-update', () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
+  ipcMain.on('dismiss-update', () => {
+    // User dismissed - do nothing
   });
 
   // Check for updates after 5 seconds (silent - no error dialogs)

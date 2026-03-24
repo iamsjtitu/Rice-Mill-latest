@@ -59,6 +59,7 @@ import { PrintButton } from "@/components/PrintButton";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import HemaliPayment from "@/components/HemaliPayment";
 import WhatsNew, { APP_VERSION } from "@/components/WhatsNew";
+import AutoUpdate from "@/components/AutoUpdate";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -2737,6 +2738,9 @@ function MainApp({ user, onLogout }) {
       {/* What's New Dialog - auto shows on version update */}
       <WhatsNew />
       {showWhatsNew && <WhatsNew forceOpen onClose={() => setShowWhatsNew(false)} />}
+
+      {/* Auto Update Notification */}
+      <AutoUpdate />
     </div>
   );
 }
