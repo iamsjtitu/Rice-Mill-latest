@@ -139,8 +139,8 @@ class JsonDatabase {
     // Default data structure
     return {
       branding: {
-        company_name: 'Mill Entry System',
-        tagline: 'Data Management Software',
+        company_name: 'NAVKAR AGRO',
+        tagline: 'JOLKO, KESINGA',
         updated_at: new Date().toISOString()
       },
       users: [

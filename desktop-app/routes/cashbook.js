@@ -572,47 +572,45 @@ module.exports = function(database) {
       if (req.query.account) titleParts.push(`(${req.query.account})`);
       const exportTitle = titleParts.join(' ');
       
-      const cols = getColumns('cashbook_report');
-      const headers = getPdfHeaders(cols);
-      const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
+      // Build subtitle with date range
+      const subtitleParts = [];
+      if (req.query.kms_year) subtitleParts.push(`KMS: ${req.query.kms_year}`);
+      if (req.query.season) subtitleParts.push(`Season: ${req.query.season}`);
+      if (req.query.date_from) subtitleParts.push(`From: ${req.query.date_from}`);
+      if (req.query.date_to) subtitleParts.push(`To: ${req.query.date_to}`);
+      const subtitle = subtitleParts.join(' | ');
       
-      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+      
+      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
-      doc.pipe(res); addPdfHeader(doc, exportTitle);
+      doc.pipe(res);
       
-      // Pre-process rows
-      let runBal = 0;
+      const brandingData = database.getBranding ? database.getBranding() : {};
+      __addPdfHeader(doc, exportTitle, brandingData, subtitle);
+      
+      const headers = ['Date', 'Account', 'Type', 'Category', 'Party Type', 'Description', 'Jama (In)', 'Nikasi (Out)', 'Balance', 'Ref'];
+      const colW = [55, 50, 40, 60, 55, 120, 60, 60, 60, 60];
+      
+      // Build data rows with running balance
+      let runBal = 0; let totalJama = 0; let totalNikasi = 0;
       const rows = txns.map(t => {
-        const jama = t.txn_type === 'jama' ? t.amount : 0;
-        const nikasi = t.txn_type === 'nikasi' ? t.amount : 0;
+        const jama = t.txn_type === 'jama' ? (t.amount || 0) : 0;
+        const nikasi = t.txn_type === 'nikasi' ? (t.amount || 0) : 0;
         runBal += jama - nikasi;
-        return {
-          date: t.date, account_label: t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
-          type_label: t.txn_type === 'jama' ? 'Jama' : 'Nikasi', category: t.category || '', party_type: t.party_type || '',
-          description: t.description || '', jama: t.txn_type === 'jama' ? t.amount : '-', nikasi: t.txn_type === 'nikasi' ? t.amount : '-',
-          balance: +runBal.toFixed(2), reference: t.reference || ''
-        };
+        totalJama += jama; totalNikasi += nikasi;
+        return [
+          t.date || '', t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
+          t.txn_type === 'jama' ? 'Jama' : 'Nikasi', t.category || '', t.party_type || '',
+          t.description || '', jama ? pFmt(jama) : '-', nikasi ? pFmt(nikasi) : '-',
+          pFmt(+runBal.toFixed(2)), t.reference || ''
+        ];
       });
       
-      let y = doc.y;
-      // Headers
-      doc.fontSize(7);
-      headers.forEach((h, i) => {
-        let x = 30 + colW.slice(0, i).reduce((a, b) => a + b, 0);
-        doc.fillColor('#1a365d').rect(x, y, colW[i], 14).fill();
-        doc.fillColor('#FFF').text(h, x + 2, y + 3, { width: colW[i] - 4 });
-      });
-      y += 16; doc.fillColor('#333');
-      // Data rows
-      rows.forEach(r => {
-        const vals = getEntryRow(r, cols);
-        vals.forEach((v, i) => {
-          let x = 30 + colW.slice(0, i).reduce((a, b) => a + b, 0);
-          doc.text(String(v), x + 2, y + 2, { width: colW[i] - 4 });
-        });
-        y += 14; if (y > 560) { doc.addPage(); y = 20; }
-      });
+      addPdfTable(doc, headers, rows, colW, { fontSize: 7 });
+      addTotalsRow(doc, ['', '', '', '', '', 'TOTAL', pFmt(totalJama), pFmt(totalNikasi), pFmt(+(totalJama - totalNikasi).toFixed(2)), `(${txns.length} entries)`], colW, { fontSize: 7 });
+      
       doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
@@ -736,13 +734,23 @@ module.exports = function(database) {
     });
     const data = Object.values(parties).map(p => ({ ...p, balance: Math.round((p.jama - p.nikasi) * 100) / 100 }));
     data.sort((a, b) => a.party_name.localeCompare(b.party_name));
-    const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
-    let html = `<!DOCTYPE html><html><head><style>body{font:10px Arial;margin:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 5px}th{background:#1e40af;color:#fff}.r{text-align:right}.b{font-weight:bold}</style></head><body>`;
-    html += `<h2 style="text-align:center">${company} - Party Summary</h2><table><tr><th>Party</th><th>Type</th><th class="r">Jama</th><th class="r">Nikasi</th><th class="r">Balance</th></tr>`;
+    const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+    const doc = new PDFDocument({ size: 'A4', margin: 25 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=party_summary.pdf');
+    doc.pipe(res);
+    const brandingData = database.getBranding ? database.getBranding() : {};
+    let subtitle = '';
+    if (req.query.kms_year) subtitle = `KMS: ${req.query.kms_year}`;
+    if (req.query.season) subtitle += ` | Season: ${req.query.season}`;
+    __addPdfHeader(doc, 'Party Summary', brandingData, subtitle);
+    const headers = ['Party Name', 'Type', 'Jama (In)', 'Nikasi (Out)', 'Balance'];
+    const colW = [180, 80, 90, 90, 90];
     let tJ = 0, tN = 0;
-    data.forEach(p => { tJ += p.jama; tN += p.nikasi; html += `<tr><td class="b">${p.party_name}</td><td>${p.party_type}</td><td class="r">${Math.round(p.jama)}</td><td class="r">${Math.round(p.nikasi)}</td><td class="r b">${Math.round(p.balance)}</td></tr>`; });
-    html += `<tr style="background:#f0f0f0;font-weight:bold"><td>TOTAL (${data.length})</td><td></td><td class="r">${Math.round(tJ)}</td><td class="r">${Math.round(tN)}</td><td class="r">${Math.round(tJ - tN)}</td></tr></table></body></html>`;
-    res.type('html').send(html);
+    const rows = data.map(p => { tJ += p.jama; tN += p.nikasi; return [p.party_name, p.party_type, pFmt(Math.round(p.jama)), pFmt(Math.round(p.nikasi)), pFmt(Math.round(p.balance))]; });
+    addPdfTable(doc, headers, rows, colW);
+    addTotalsRow(doc, [`TOTAL (${data.length})`, '', pFmt(Math.round(tJ)), pFmt(Math.round(tN)), pFmt(Math.round(tJ - tN))], colW);
+    doc.end();
   }));
 
   // === Opening Balances (party-level) ===

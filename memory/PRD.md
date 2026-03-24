@@ -63,6 +63,13 @@ A comprehensive rice mill management system with features for paddy procurement,
   - cashbook.py (party_summary, Excel + PDF - already had main cashbook done)
   - daily_report.py (daily report, Excel + PDF)
 
+#### Cashbook PDF Major Fix (Current Session - Complete)
+- Fixed cashbook PDF to use `addPdfTable` + `addTotalsRow` helpers instead of manual drawing
+- Added from/to date range display in PDF header subtitle
+- Added Total row (Jama, Nikasi, Balance) at bottom of table
+- Fixed party-summary PDF to use PDFKit helpers (was HTML before)
+- Updated default branding in main.js: "Mill Entry System" → "NAVKAR AGRO"
+
 #### Version Bump (Current Session - Complete)
 - Desktop app version bumped: 32.0.0 → 33.0.0
 
