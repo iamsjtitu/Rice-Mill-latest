@@ -1931,6 +1931,34 @@ async function startApplication(folderPath) {
   console.log('[Startup] Loading database...');
   db = new JsonDatabase(folderPath);
   console.log(`[Startup] Database loaded in ${Date.now() - startTime}ms`);
+
+  // === MIGRATION: Fix auto_ledger txn_type (v31 - double-entry fix) ===
+  try {
+    const migrationKey = 'migration_auto_ledger_v31';
+    if (!db.data._migrations || !db.data._migrations[migrationKey]) {
+      console.log('[Migration] Running auto_ledger txn_type fix...');
+      let fixed = 0;
+      const txns = db.data.cash_transactions || [];
+      const autoLedgers = txns.filter(t => t.reference && t.reference.startsWith('auto_ledger:'));
+      for (const al of autoLedgers) {
+        const origIdShort = al.reference.replace('auto_ledger:', '');
+        const orig = txns.find(t => t.id && t.id.startsWith(origIdShort) && t.account !== 'ledger');
+        if (orig) {
+          const correctType = orig.txn_type === 'jama' ? 'nikasi' : 'jama';
+          if (al.txn_type !== correctType) {
+            al.txn_type = correctType;
+            fixed++;
+          }
+        }
+      }
+      if (!db.data._migrations) db.data._migrations = {};
+      db.data._migrations[migrationKey] = { date: new Date().toISOString(), fixed };
+      db.save();
+      console.log(`[Migration] Fixed ${fixed} auto_ledger entries`);
+    }
+  } catch (migErr) {
+    console.error('[Migration] Error:', migErr.message);
+  }
   
   // Update loading status
   if (splashWindow && !splashWindow.isDestroyed()) {
