@@ -34,6 +34,54 @@ let lastKeyTime = 0;
 let focusCheckInterval = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+  // === FIX: Radix UI pointer-events stuck after window.confirm() ===
+  // Patch window.confirm to restore pointer-events after native dialog closes
+  const _origConfirm = window.confirm.bind(window);
+  window.confirm = function(msg) {
+    const result = _origConfirm(msg);
+    // Aggressively restore pointer-events
+    document.body.style.pointerEvents = '';
+    document.body.style.removeProperty('pointer-events');
+    // Also after next frames
+    requestAnimationFrame(() => {
+      document.body.style.removeProperty('pointer-events');
+      requestAnimationFrame(() => {
+        document.body.style.removeProperty('pointer-events');
+      });
+    });
+    setTimeout(() => { document.body.style.removeProperty('pointer-events'); }, 100);
+    setTimeout(() => { document.body.style.removeProperty('pointer-events'); }, 300);
+    return result;
+  };
+
+  // MutationObserver: detect stuck pointer-events:none on body when no dialog is open
+  const peObserver = new MutationObserver(() => {
+    if (document.body.style.pointerEvents === 'none') {
+      setTimeout(() => {
+        const hasOverlay = document.querySelector(
+          '[data-radix-dialog-overlay],[data-radix-alert-dialog-overlay],[data-radix-select-content],[data-radix-popover-content],[data-radix-dropdown-menu-content]'
+        );
+        if (!hasOverlay && document.body.style.pointerEvents === 'none') {
+          document.body.style.removeProperty('pointer-events');
+          console.log('[PointerFix] Removed stuck pointer-events:none from body');
+        }
+      }, 200);
+    }
+  });
+  peObserver.observe(document.body, { attributeFilter: ['style'], attributes: true });
+
+  // Periodic safety check every 2 seconds
+  setInterval(() => {
+    if (document.body.style.pointerEvents === 'none') {
+      const hasOverlay = document.querySelector(
+        '[data-radix-dialog-overlay],[data-radix-alert-dialog-overlay],[data-radix-select-content],[data-radix-popover-content],[data-radix-dropdown-menu-content]'
+      );
+      if (!hasOverlay) {
+        document.body.style.removeProperty('pointer-events');
+      }
+    }
+  }, 2000);
+
   // On any click, request focus from main process
   document.addEventListener('mousedown', () => {
     ipcRenderer.send('force-focus');
