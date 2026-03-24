@@ -957,29 +957,24 @@ async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Opt
     widths = get_excel_widths(cols)
 
     wb = Workbook(); ws = wb.active; ws.title = "Pvt Paddy Purchase"
-    hf = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=9)
-    tf = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
 
-    title = "Private Paddy Purchase"
+    title = "Private Paddy Purchase / निजी धान खरीद"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
-    ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14, color="D97706"); ws['A1'].alignment = Alignment(horizontal='center')
+    style_excel_title(ws, title, ncols, "Mill Entry System")
 
-    # Headers row 3
     for col_idx, h in enumerate(headers, 1):
-        c = ws.cell(row=3, column=col_idx, value=h)
-        c.fill = hf; c.font = hfont; c.alignment = Alignment(horizontal='center'); c.border = tb
+        ws.cell(row=4, column=col_idx, value=h)
+    style_excel_header_row(ws, 4, ncols)
 
-    row = 4
+    data_start = 5; row = data_start
     totals = {"total_kg": 0, "total_final_qntl": 0, "total_amount": 0, "total_paid": 0, "total_balance": 0, "total_g_issued": 0, "total_cash": 0, "total_diesel": 0}
     for item in items:
         vals = get_entry_row(item, cols)
         for col_idx, v in enumerate(vals, 1):
             c = ws.cell(row=row, column=col_idx, value=v)
-            c.border = tb
             if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
         totals["total_kg"] += item.get("kg", 0) or 0
         totals["total_final_qntl"] += item.get("final_qntl", 0) or 0
@@ -991,15 +986,17 @@ async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Opt
         totals["total_diesel"] += item.get("diesel_paid", 0) or 0
         row += 1
 
-    # Totals row
+    if items:
+        style_excel_data_rows(ws, data_start, row - 1, ncols, headers)
+
     for k in totals: totals[k] = round(totals[k], 2)
     total_vals = get_total_row(totals, cols)
-    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
+    ws.cell(row=row, column=1, value="TOTAL / कुल")
     for col_idx, val in enumerate(total_vals, 1):
         if val is not None:
             c = ws.cell(row=row, column=col_idx, value=val)
-            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
+            c.alignment = Alignment(horizontal='right')
+    style_excel_total_row(ws, row, ncols)
 
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
@@ -1044,7 +1041,8 @@ async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optio
     title = "Private Paddy Purchase"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
-    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#D97706'), alignment=TA_CENTER)
+    from utils.export_helpers import get_pdf_table_style
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1B4F72'), alignment=TA_CENTER)
     elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
 
     table_data = [headers]
@@ -1063,27 +1061,16 @@ async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optio
     total_vals = get_total_row(totals, cols)
     total_row = []
     for i, val in enumerate(total_vals):
-        if i == 0: total_row.append("TOTAL")
+        if i == 0: total_row.append("TOTAL / कुल")
         elif val is not None: total_row.append(str(val))
         else: total_row.append("")
     table_data.append(total_row)
 
     first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 2)
     tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
-    style_cmds = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 7),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-    ]
-    for i in range(1, len(table_data) - 1):
-        if i % 2 == 0: style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F1F5F9')))
+    cols_info = [{'header': h} for h in headers]
+    style_cmds = get_pdf_table_style(len(table_data), cols_info)
+    style_cmds.append(('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'))
     tbl.setStyle(TableStyle(style_cmds))
     elements.append(tbl)
     doc.build(elements); buffer.seek(0)
@@ -1111,28 +1098,24 @@ async def export_rice_sales_excel(kms_year: Optional[str] = None, season: Option
     widths = get_excel_widths(cols)
 
     wb = Workbook(); ws = wb.active; ws.title = "Rice Sales"
-    hf = PatternFill(start_color="065F46", end_color="065F46", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=9)
-    tf = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS)
 
-    title = "Rice Sales Report"
+    title = "Rice Sales Report / चावल बिक्री"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
-    ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14, color="065F46"); ws['A1'].alignment = Alignment(horizontal='center')
+    style_excel_title(ws, title, ncols, "Mill Entry System")
 
     for col_idx, h in enumerate(headers, 1):
-        c = ws.cell(row=3, column=col_idx, value=h)
-        c.fill = hf; c.font = hfont; c.alignment = Alignment(horizontal='center'); c.border = tb
+        ws.cell(row=4, column=col_idx, value=h)
+    style_excel_header_row(ws, 4, ncols)
 
-    row = 4
+    data_start = 5; row = data_start
     totals = {"total_qntl": 0, "total_amount": 0, "total_paid": 0, "total_balance": 0}
     for item in items:
         vals = get_entry_row(item, cols)
         for col_idx, v in enumerate(vals, 1):
             c = ws.cell(row=row, column=col_idx, value=v)
-            c.border = tb
             if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
         totals["total_qntl"] += item.get("quantity_qntl", 0) or 0
         totals["total_amount"] += item.get("total_amount", 0) or 0
@@ -1140,14 +1123,17 @@ async def export_rice_sales_excel(kms_year: Optional[str] = None, season: Option
         totals["total_balance"] += item.get("balance", 0) or 0
         row += 1
 
+    if items:
+        style_excel_data_rows(ws, data_start, row - 1, ncols, headers)
+
     for k in totals: totals[k] = round(totals[k], 2)
     total_vals = get_total_row(totals, cols)
-    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
+    ws.cell(row=row, column=1, value="TOTAL / कुल")
     for col_idx, val in enumerate(total_vals, 1):
         if val is not None:
             c = ws.cell(row=row, column=col_idx, value=val)
-            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
+            c.alignment = Alignment(horizontal='right')
+    style_excel_total_row(ws, row, ncols)
 
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
@@ -1190,7 +1176,8 @@ async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional
     title = "Rice Sales Report"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
-    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#065F46'), alignment=TA_CENTER)
+    from utils.export_helpers import get_pdf_table_style
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1B4F72'), alignment=TA_CENTER)
     elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
 
     table_data = [headers]
@@ -1205,27 +1192,16 @@ async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional
     total_vals = get_total_row(totals, cols)
     total_row = []
     for i, val in enumerate(total_vals):
-        if i == 0: total_row.append("TOTAL")
+        if i == 0: total_row.append("TOTAL / कुल")
         elif val is not None: total_row.append(str(val))
         else: total_row.append("")
     table_data.append(total_row)
 
     first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 2)
     tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
-    style_cmds = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#065F46')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 7),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#D1FAE5')),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-    ]
-    for i in range(1, len(table_data) - 1):
-        if i % 2 == 0: style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F1F5F9')))
+    cols_info = [{'header': h} for h in headers]
+    style_cmds = get_pdf_table_style(len(table_data), cols_info)
+    style_cmds.append(('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'))
     tbl.setStyle(TableStyle(style_cmds))
     elements.append(tbl)
     doc.build(elements); buffer.seek(0)

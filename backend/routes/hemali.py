@@ -516,17 +516,12 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
         for m in sardar["months"]:
             rows.append([m["month"], f"{m['paid_payments']}/{m['total_payments']}", f"Rs.{m['total_work']:,.2f}", f"Rs.{m['total_paid']:,.2f}", f"Rs.{m['advance_given']:,.2f}", f"Rs.{m['advance_deducted']:,.2f}"])
         rows.append(["TOTAL", "", f"Rs.{sardar['grand_total_work']:,.2f}", f"Rs.{sardar['grand_total_paid']:,.2f}", f"Rs.{sardar['grand_total_advance_given']:,.2f}", f"Rs.{sardar['grand_total_advance_deducted']:,.2f}"])
+        from utils.export_helpers import get_pdf_table_style
         t = RTable(rows, colWidths=[80, 60, 90, 90, 90, 90], repeatRows=1)
-        t.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e293b")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
-            ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e0e7ff")),
-            ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ]))
+        cols_info = [{'header': h} for h in headers]
+        style_cmds = get_pdf_table_style(len(rows), cols_info)
+        style_cmds.append(("ALIGN", (1, 0), (-1, -1), "RIGHT"))
+        t.setStyle(TableStyle(style_cmds))
         elements.append(t)
         elements.append(Spacer(1, 12))
 
@@ -545,32 +540,34 @@ async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sar
     wb = Workbook()
     ws = wb.active
     ws.title = "Monthly Summary"
-    hdr_fill = PatternFill(start_color="1e293b", end_color="1e293b", fill_type="solid")
-    hdr_font = Font(bold=True, color="FFFFFF", size=9)
-    tb = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
 
-    ws.merge_cells("A1:G1")
-    ws["A1"] = "Hemali Monthly Summary"
-    ws["A1"].font = Font(bold=True, size=12, color="1e293b")
-    row_n = 3
+    ncols = 6
+    style_excel_title(ws, "Hemali Monthly Summary / हेमाली मासिक", ncols, "Mill Entry System")
+    row_n = 4
 
     for sardar in data:
-        ws.cell(row=row_n, column=1, value=f"Sardar: {sardar['sardar_name']}").font = Font(bold=True, size=10, color="d97706")
+        ws.cell(row=row_n, column=1, value=f"Sardar: {sardar['sardar_name']}").font = Font(bold=True, size=10, color=COLORS['subtitle_text'])
         ws.cell(row=row_n, column=5, value=f"Current Advance: Rs.{sardar['current_advance_balance']}").font = Font(bold=True, size=9)
         row_n += 1
-        for ci, h in enumerate(["Month", "Payments", "Total Work", "Total Paid", "Adv Given", "Adv Deducted"], 1):
-            c = ws.cell(row=row_n, column=ci, value=h)
-            c.fill = hdr_fill; c.font = hdr_font; c.border = tb
+        headers_list = ["Month", "Payments", "Total Work", "Total Paid", "Adv Given", "Adv Deducted"]
+        for ci, h in enumerate(headers_list, 1):
+            ws.cell(row=row_n, column=ci, value=h)
+        style_excel_header_row(ws, row_n, ncols)
         row_n += 1
+        data_start = row_n
         for m in sardar["months"]:
             vals = [m["month"], f"{m['paid_payments']}/{m['total_payments']}", m["total_work"], m["total_paid"], m["advance_given"], m["advance_deducted"]]
             for ci, v in enumerate(vals, 1):
-                c = ws.cell(row=row_n, column=ci, value=v)
-                c.border = tb; c.font = Font(size=9)
+                ws.cell(row=row_n, column=ci, value=v)
             row_n += 1
-        ws.cell(row=row_n, column=1, value="TOTAL").font = Font(bold=True, size=9)
-        ws.cell(row=row_n, column=3, value=sardar["grand_total_work"]).font = Font(bold=True, size=9)
-        ws.cell(row=row_n, column=4, value=sardar["grand_total_paid"]).font = Font(bold=True, size=9)
+        if sardar["months"]:
+            style_excel_data_rows(ws, data_start, row_n - 1, ncols, headers_list)
+        ws.cell(row=row_n, column=1, value="TOTAL")
+        ws.cell(row=row_n, column=3, value=sardar["grand_total_work"])
+        ws.cell(row=row_n, column=4, value=sardar["grand_total_paid"])
+        style_excel_total_row(ws, row_n, ncols)
         row_n += 2
 
     for w, col_letter in [(12, "A"), (10, "B"), (14, "C"), (14, "D"), (14, "E"), (14, "F")]:
@@ -780,23 +777,17 @@ async def export_hemali_pdf(
         grand_paid += p.get("amount_paid", 0)
     rows.append(["", "", "TOTAL", "", f"Rs.{grand_total:,.2f}", "", "", f"Rs.{grand_paid:,.2f}", ""])
 
+    from utils.export_helpers import get_pdf_table_style
+    
     t = RTable(rows, colWidths=[25, 60, 70, 200, 65, 65, 65, 65, 65], repeatRows=1)
-    style_cmds = [
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e293b")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 7),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cbd5e1")),
+    cols_info = [{'header': h} for h in headers]
+    style_cmds = get_pdf_table_style(len(rows), cols_info)
+    style_cmds.extend([
         ("ALIGN", (4, 0), (-1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e0e7ff")),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-    ]
-    for i in range(1, len(rows) - 1):
-        if i % 2 == 0:
-            style_cmds.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#f5f5f5")))
+    ])
     t.setStyle(TableStyle(style_cmds))
     elements.append(t)
 
@@ -840,28 +831,18 @@ async def export_hemali_excel(
     wb = Workbook()
     ws = wb.active
     ws.title = "Hemali Payments"
-    hdr_fill = PatternFill(start_color="1e293b", end_color="1e293b", fill_type="solid")
-    hdr_font = Font(bold=True, color="FFFFFF", size=9)
-    tb = Border(
-        left=Side(style="thin", color="cbd5e1"),
-        right=Side(style="thin", color="cbd5e1"),
-        top=Side(style="thin", color="cbd5e1"),
-        bottom=Side(style="thin", color="cbd5e1"),
-    )
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS)
 
-    ws.merge_cells("A1:I1")
-    ws["A1"] = "Hemali Payment Report"
-    ws["A1"].font = Font(bold=True, size=12, color="1e293b")
+    ncols = 9
+    style_excel_title(ws, "Hemali Payment Report / हेमाली भुगतान", ncols, "Mill Entry System")
 
     headers = ["#", "Date", "Sardar", "Items", "Total", "Adv Deducted", "Payable", "Paid", "New Advance"]
     for i, h in enumerate(headers, 1):
-        c = ws.cell(row=3, column=i, value=h)
-        c.fill = hdr_fill
-        c.font = hdr_font
-        c.border = tb
-        c.alignment = Alignment(horizontal="center")
+        ws.cell(row=4, column=i, value=h)
+    style_excel_header_row(ws, 4, ncols)
 
-    row_n = 4
+    data_start = 5; row_n = data_start
     grand_total = grand_paid = 0
     for idx, p in enumerate(payments, 1):
         items_str = ", ".join(f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in p.get("items", []))
@@ -869,16 +850,18 @@ async def export_hemali_excel(
                 p.get("total", 0), p.get("advance_deducted", 0), p.get("amount_payable", 0),
                 p.get("amount_paid", 0), p.get("new_advance", 0)]
         for ci, v in enumerate(vals, 1):
-            c = ws.cell(row=row_n, column=ci, value=v)
-            c.border = tb
-            c.font = Font(size=9)
+            ws.cell(row=row_n, column=ci, value=v)
         grand_total += p.get("total", 0)
         grand_paid += p.get("amount_paid", 0)
         row_n += 1
 
-    ws.cell(row=row_n, column=3, value="TOTAL").font = Font(bold=True, size=9)
-    ws.cell(row=row_n, column=5, value=grand_total).font = Font(bold=True, size=9)
-    ws.cell(row=row_n, column=8, value=grand_paid).font = Font(bold=True, size=9)
+    if payments:
+        style_excel_data_rows(ws, data_start, row_n - 1, ncols, headers)
+
+    ws.cell(row=row_n, column=3, value="TOTAL")
+    ws.cell(row=row_n, column=5, value=grand_total)
+    ws.cell(row=row_n, column=8, value=grand_paid)
+    style_excel_total_row(ws, row_n, ncols)
 
     for w, col_letter in [(5, "A"), (12, "B"), (16, "C"), (35, "D"), (12, "E"), (14, "F"), (12, "G"), (12, "H"), (14, "I")]:
         ws.column_dimensions[col_letter].width = w

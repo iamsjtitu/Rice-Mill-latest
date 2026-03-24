@@ -623,6 +623,9 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
             pn = lt.get("category", "")
             ledger_paid_map[pn] = ledger_paid_map.get(pn, 0) + lt.get("amount", 0)
     
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
+    
     wb = Workbook()
     ws = wb.active
     ws.title = "Sale Book"
@@ -633,51 +636,23 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
     
-    # Colors
-    blue = '1A5276'
-    light_blue = 'D6EAF8'
-    green = '27AE60'
-    red = 'E74C3C'
-    
-    # Styles
-    title_font = Font(name='Calibri', size=14, bold=True, color=blue)
-    sub_font = Font(name='Calibri', size=9, color='666666')
-    hd_font = Font(name='Calibri', size=8, bold=True, color='FFFFFF')
-    hd_fill = PatternFill(start_color=blue, end_color=blue, fill_type='solid')
-    data_font = Font(name='Calibri', size=8)
-    bold_font = Font(name='Calibri', size=8, bold=True)
-    amt_font = Font(name='Calibri', size=8, bold=True, color=blue)
-    paid_font = Font(name='Calibri', size=8, bold=True, color=green)
-    bal_font = Font(name='Calibri', size=8, bold=True, color=red)
-    total_font = Font(name='Calibri', size=9, bold=True, color='FFFFFF')
-    total_fill = PatternFill(start_color=blue, end_color=blue, fill_type='solid')
-    alt_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
-    thin = Border(bottom=Side(style='thin', color='E0E0E0'))
-    
     # Header
     cols = ['#', 'Date', 'Inv No.', 'Party', 'Items (Qntl)', 'Truck/RST', 'Total', 'Advance', 'Cash', 'Diesel', 'Ledger Paid', 'Balance', 'Status']
     widths = [5, 9, 9, 16, 30, 12, 10, 9, 8, 8, 10, 10, 7]
-    last_col_letter = chr(64 + len(cols))
+    ncols = len(cols)
     
-    ws.merge_cells(f'A1:{last_col_letter}1')
-    ws['A1'] = company
-    ws['A1'].font = title_font
-    ws['A1'].alignment = Alignment(horizontal='center')
-    
-    ws.merge_cells(f'A2:{last_col_letter}2')
-    ws['A2'] = f"Sale Book | {f'FY: {kms_year}' if kms_year else ''} {f'| {season}' if season else ''} | {datetime.now().strftime('%d-%m-%Y')}"
-    ws['A2'].font = sub_font
-    ws['A2'].alignment = Alignment(horizontal='center')
+    title = f"{company} - Sale Book / बिक्री बही"
+    subtitle = f"FY: {kms_year or 'All'} | {season or 'All'} | {datetime.now().strftime('%d-%m-%Y')}"
+    style_excel_title(ws, title, ncols, subtitle)
     
     for i, (col, w) in enumerate(zip(cols, widths), 1):
-        cell = ws.cell(row=4, column=i, value=col)
-        cell.font = hd_font
-        cell.fill = hd_fill
-        cell.alignment = Alignment(horizontal='right' if i >= 7 else 'left', vertical='center', wrap_text=True)
-        ws.column_dimensions[cell.column_letter].width = w
+        ws.cell(row=4, column=i, value=col)
+        ws.column_dimensions[ws.cell(row=4, column=i).column_letter].width = w
+    style_excel_header_row(ws, 4, ncols)
     
     g = {"total": 0, "adv": 0, "cash": 0, "diesel": 0, "paid": 0, "bal": 0}
-    for ri, v in enumerate(vouchers, 5):
+    data_start = 5
+    for ri, v in enumerate(vouchers, data_start):
         items_str = ', '.join(f"{i['item_name']} ({i['quantity']} Qntl)" for i in v.get('items', []))
         dp = str(v.get('date', '')).split('-')
         fd = f"{dp[2]}/{dp[1]}/{dp[0]}" if len(dp) == 3 else v.get('date', '')
@@ -700,26 +675,20 @@ async def export_sale_book_excel(kms_year: Optional[str] = None, season: Optiona
                     ledger_paid, ledger_bal, status]
         for ci, val in enumerate(row_data, 1):
             cell = ws.cell(row=ri, column=ci, value=val)
-            cell.border = thin
-            cell.font = bold_font if ci == 4 else (amt_font if ci == 7 else (paid_font if ci == 11 else (bal_font if ci == 12 else data_font)))
             if ci >= 7 and ci <= 12:
                 cell.alignment = Alignment(horizontal='right')
                 if isinstance(val, (int, float)): cell.number_format = '#,##0'
-            if ri % 2 == 0: cell.fill = alt_fill
     
-    tr = len(vouchers) + 5
-    ws.merge_cells(f'A{tr}:F{tr}')
-    for ci in range(1, len(cols) + 1):
-        cell = ws.cell(row=tr, column=ci)
-        cell.fill = total_fill
-        cell.font = total_font
+    if vouchers:
+        style_excel_data_rows(ws, data_start, data_start + len(vouchers) - 1, ncols, cols)
+    
+    tr = len(vouchers) + data_start
     ws.cell(row=tr, column=1, value=f"TOTAL ({len(vouchers)} vouchers)")
     for ci, val in enumerate([g['total'], g['adv'], g['cash'], g['diesel'], g['paid'], g['bal'], ''], 7):
         cell = ws.cell(row=tr, column=ci, value=val)
-        cell.font = total_font
-        cell.fill = total_fill
         cell.alignment = Alignment(horizontal='right')
         if isinstance(val, (int, float)): cell.number_format = '#,##0'
+    style_excel_total_row(ws, tr, ncols)
     
     buf = io.BytesIO()
     wb.save(buf)

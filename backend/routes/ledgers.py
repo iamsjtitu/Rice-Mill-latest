@@ -257,40 +257,77 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
 @router.get("/reports/outstanding/excel")
 async def export_outstanding_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Alignment
+    from openpyxl.utils import get_column_letter
     from io import BytesIO
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
+    
     data = await report_outstanding(kms_year=kms_year, season=season)
     wb = Workbook(); ws = wb.active; ws.title = "Outstanding Report"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=10)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    ws.merge_cells('A1:F1'); ws['A1'] = "Outstanding Report"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    ncols = 6
+    
+    title = "Outstanding Report / बकाया रिपोर्ट"
+    if kms_year: title += f" | KMS {kms_year}"
+    style_excel_title(ws, title, ncols, "Mill Entry System")
+    
     # DC Outstanding
-    row = 3; ws.cell(row=row, column=1, value="DC PENDING DELIVERIES").font = Font(bold=True, size=11, color="dc2626"); row += 1
-    for col, h in enumerate(['DC No', 'Allotted(Q)', 'Delivered(Q)', 'Pending(Q)', 'Deadline', 'Type'], 1):
-        c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+    row = 4
+    ws.cell(row=row, column=1, value="DC PENDING DELIVERIES").font = Font(bold=True, size=11, color=COLORS['nikasi_text'])
     row += 1
+    dc_headers = ['DC No', 'Allotted(Q)', 'Delivered(Q)', 'Pending(Q)', 'Deadline', 'Type']
+    for col, h in enumerate(dc_headers, 1):
+        ws.cell(row=row, column=col, value=h)
+    style_excel_header_row(ws, row, ncols)
+    row += 1; dc_data_start = row
     for d in data["dc_outstanding"]["items"]:
         for col, v in enumerate([d["dc_number"], d["allotted"], d["delivered"], d["pending"], d["deadline"], d["rice_type"]], 1):
-            ws.cell(row=row, column=col, value=v).border = tb
+            ws.cell(row=row, column=col, value=v)
         row += 1
-    ws.cell(row=row, column=1, value="Total Pending").font = Font(bold=True)
-    ws.cell(row=row, column=4, value=data["dc_outstanding"]["total_pending_qntl"]).font = Font(bold=True)
+    if data["dc_outstanding"]["items"]:
+        style_excel_data_rows(ws, dc_data_start, row - 1, ncols, dc_headers)
+    ws.cell(row=row, column=1, value="Total Pending")
+    ws.cell(row=row, column=4, value=data["dc_outstanding"]["total_pending_qntl"])
+    style_excel_total_row(ws, row, ncols)
+    
     # MSP Outstanding
-    row += 2; ws.cell(row=row, column=1, value="MSP PAYMENT PENDING").font = Font(bold=True, size=11, color="d97706"); row += 1
-    for label, val in [("Total Delivered (Q)", data["msp_outstanding"]["total_delivered_qntl"]), ("Paid Qty (Q)", data["msp_outstanding"]["total_paid_qty"]),
-                        ("Paid Amount (₹)", data["msp_outstanding"]["total_paid_amount"]), ("Pending Qty (Q)", data["msp_outstanding"]["pending_qty"])]:
-        ws.cell(row=row, column=1, value=label).border = tb; ws.cell(row=row, column=2, value=val).border = tb; row += 1
-    # Trucks
-    row += 1; ws.cell(row=row, column=1, value="TRUCK SUMMARY").font = Font(bold=True, size=11, color="2563eb"); row += 1
-    for col, h in enumerate(['Truck No', 'Trips', 'Qty(Q)', 'Cash Paid', 'Diesel Paid'], 1):
-        c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+    row += 2
+    ws.cell(row=row, column=1, value="MSP PAYMENT PENDING").font = Font(bold=True, size=11, color=COLORS['subtitle_text'])
     row += 1
+    msp_headers = ['Metric', 'Value']
+    for col, h in enumerate(msp_headers, 1):
+        ws.cell(row=row, column=col, value=h)
+    style_excel_header_row(ws, row, 2)
+    row += 1; msp_start = row
+    for label, val in [("Total Delivered (Q)", data["msp_outstanding"]["total_delivered_qntl"]),
+                        ("Paid Qty (Q)", data["msp_outstanding"]["total_paid_qty"]),
+                        ("Paid Amount (Rs.)", data["msp_outstanding"]["total_paid_amount"]),
+                        ("Pending Qty (Q)", data["msp_outstanding"]["pending_qty"])]:
+        ws.cell(row=row, column=1, value=label); ws.cell(row=row, column=2, value=val)
+        row += 1
+    style_excel_data_rows(ws, msp_start, row - 1, 2, msp_headers)
+    
+    # Trucks
+    row += 1
+    ws.cell(row=row, column=1, value="TRUCK SUMMARY").font = Font(bold=True, size=11, color=COLORS['date_text'])
+    row += 1
+    truck_headers = ['Truck No', 'Trips', 'Qty(Q)', 'Cash Paid', 'Diesel Paid']
+    for col, h in enumerate(truck_headers, 1):
+        ws.cell(row=row, column=col, value=h)
+    style_excel_header_row(ws, row, 5)
+    row += 1; truck_start = row
     for t in data["trucks"]:
         for col, v in enumerate([t["truck_no"], t["total_trips"], t["total_qty_qntl"], t["total_cash_paid"], t["total_diesel_paid"]], 1):
-            ws.cell(row=row, column=col, value=v).border = tb
+            ws.cell(row=row, column=col, value=v)
         row += 1
-    for letter in ['A','B','C','D','E','F']: ws.column_dimensions[letter].width = 18
+    if data["trucks"]:
+        style_excel_data_rows(ws, truck_start, row - 1, 5, truck_headers)
+    
+    for i in range(1, ncols + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 18
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
+    
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=outstanding_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -303,11 +340,12 @@ async def export_outstanding_pdf(kms_year: Optional[str] = None, season: Optiona
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib import colors
     from io import BytesIO
+    from utils.export_helpers import get_pdf_table_style
     data = await report_outstanding(kms_year=kms_year, season=season)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
-    elements.append(Paragraph("Outstanding Report", styles['Title'])); elements.append(Spacer(1, 12))
+    elements.append(Paragraph("Outstanding Report / बकाया रिपोर्ट", styles['Title'])); elements.append(Spacer(1, 12))
     # DC pending
     elements.append(Paragraph("DC Pending Deliveries", styles['Heading2'])); elements.append(Spacer(1, 4))
     ddata = [['DC No', 'Allotted(Q)', 'Delivered(Q)', 'Pending(Q)', 'Deadline', 'Type']]
@@ -315,16 +353,14 @@ async def export_outstanding_pdf(kms_year: Optional[str] = None, season: Optiona
         ddata.append([d["dc_number"], d["allotted"], d["delivered"], d["pending"], d["deadline"], d["rice_type"]])
     ddata.append(['TOTAL', '', '', data["dc_outstanding"]["total_pending_qntl"], '', ''])
     dt = RLTable(ddata, colWidths=[60, 60, 60, 60, 60, 50])
-    dt.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#991b1b')),('TEXTCOLOR',(0,0),(-1,0),colors.white),('FONTSIZE',(0,0),(-1,-1),8),
-        ('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold')]))
+    dt.setStyle(TableStyle(get_pdf_table_style(len(ddata))))
     elements.append(dt); elements.append(Spacer(1, 12))
     # MSP
     elements.append(Paragraph("MSP Payment Pending", styles['Heading2'])); elements.append(Spacer(1, 4))
     mdata = [['Metric', 'Value'], ['Delivered(Q)', data['msp_outstanding']['total_delivered_qntl']], ['Paid Qty(Q)', data['msp_outstanding']['total_paid_qty']],
-             ['Paid Amount(₹)', data['msp_outstanding']['total_paid_amount']], ['Pending Qty(Q)', data['msp_outstanding']['pending_qty']]]
+             ['Paid Amount(Rs.)', data['msp_outstanding']['total_paid_amount']], ['Pending Qty(Q)', data['msp_outstanding']['pending_qty']]]
     mt = RLTable(mdata, colWidths=[150, 100])
-    mt.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#92400e')),('TEXTCOLOR',(0,0),(-1,0),colors.white),('FONTSIZE',(0,0),(-1,-1),8),
-        ('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold')]))
+    mt.setStyle(TableStyle(get_pdf_table_style(len(mdata))))
     elements.append(mt); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=outstanding_{datetime.now().strftime('%Y%m%d')}.pdf"})
@@ -335,6 +371,9 @@ async def export_party_ledger_excel(party_name: Optional[str] = None, party_type
                                      kms_year: Optional[str] = None, season: Optional[str] = None,
                                      date_from: Optional[str] = None, date_to: Optional[str] = None):
     from io import BytesIO
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS)
+    
     data = await report_party_ledger(party_name=party_name, party_type=party_type, kms_year=kms_year, season=season, date_from=date_from, date_to=date_to)
     
     cols = get_columns("party_ledger_report")
@@ -343,44 +382,54 @@ async def export_party_ledger_excel(party_name: Optional[str] = None, party_type
     widths = get_excel_widths(cols)
     
     wb = Workbook(); ws = wb.active; ws.title = "Party Ledger"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=10)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    title = "Party Ledger"
+    
+    title = "Party Ledger / खाता बही"
     if party_name: title += f" - {party_name}"
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
-    ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    if kms_year: title += f" | KMS {kms_year}"
+    subtitle = "Mill Entry System"
+    if date_from or date_to:
+        date_parts = []
+        if date_from: date_parts.append(f"From: {date_from}")
+        if date_to: date_parts.append(f"To: {date_to}")
+        subtitle = " | ".join(date_parts)
+    style_excel_title(ws, title, ncols, subtitle)
     
+    header_row = 4
     for col_idx, h in enumerate(headers, 1):
-        c = ws.cell(row=3, column=col_idx, value=h)
-        c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
+        ws.cell(row=header_row, column=col_idx, value=h)
+    style_excel_header_row(ws, header_row, ncols)
     
-    for i, l in enumerate(data["ledger"], 4):
+    data_start = header_row + 1
+    row_num = data_start
+    for l in data["ledger"]:
         row_data = dict(l)
         if row_data.get("debit", 0) == 0: row_data["debit"] = ""
         if row_data.get("credit", 0) == 0: row_data["credit"] = ""
-        # Add [Pvt] tag to party name for Pvt Paddy entries
         if row_data.get("party_type") == "Pvt Paddy Purchase":
             row_data["party_name"] = f"[Pvt] {row_data.get('party_name', '')}"
         vals = get_entry_row(row_data, cols)
         for col_idx, v in enumerate(vals, 1):
-            c = ws.cell(row=i, column=col_idx, value=v); c.border = tb
+            c = ws.cell(row=row_num, column=col_idx, value=v)
             if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
             if cols[col_idx-1]["type"] == "number" and isinstance(v, (int, float)): c.number_format = '#,##0.00'
+        row_num += 1
     
-    row = len(data["ledger"]) + 4
-    tf = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+    if data["ledger"]:
+        style_excel_data_rows(ws, data_start, row_num - 1, ncols, headers)
+    
     totals = {"total_debit": data["total_debit"], "total_credit": data["total_credit"]}
     total_vals = get_total_row(totals, cols)
-    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
+    ws.cell(row=row_num, column=1, value="TOTAL / कुल")
     for col_idx, val in enumerate(total_vals, 1):
         if val is not None:
-            c = ws.cell(row=row, column=col_idx, value=val)
-            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
+            c = ws.cell(row=row_num, column=col_idx, value=val)
+            c.alignment = Alignment(horizontal='right')
+    style_excel_total_row(ws, row_num, ncols)
     
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
     
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -398,6 +447,7 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_LEFT, TA_CENTER
     from io import BytesIO
+    from utils.export_helpers import get_pdf_table_style
     data = await report_party_ledger(party_name=party_name, party_type=party_type, kms_year=kms_year, season=season, date_from=date_from, date_to=date_to)
     
     cols = get_columns("party_ledger_report")
@@ -407,8 +457,13 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = getSampleStyleSheet()
-    title = "Party Ledger"
+    title = "Party Ledger / खाता बही"
     if party_name: title += f" - {party_name}"
+    if date_from or date_to:
+        date_parts = []
+        if date_from: date_parts.append(f"From: {date_from}")
+        if date_to: date_parts.append(f"To: {date_to}")
+        title += f" ({' | '.join(date_parts)})"
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1a365d'), alignment=TA_CENTER)
     elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
     
@@ -420,7 +475,6 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
         row_data = dict(l)
         if row_data.get("debit", 0) == 0: row_data["debit"] = "-"
         if row_data.get("credit", 0) == 0: row_data["credit"] = "-"
-        # Add [Pvt] tag to party name for Pvt Paddy entries
         if row_data.get("party_type") == "Pvt Paddy Purchase":
             row_data["party_name"] = f"[Pvt] {row_data.get('party_name', '')}"
         row_vals = get_entry_row(row_data, cols)
@@ -438,22 +492,18 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
     total_vals = get_total_row(totals, cols)
     total_row = []
     for i, val in enumerate(total_vals):
-        if i == 0: total_row.append("TOTAL")
+        if i == 0: total_row.append("TOTAL / कुल")
         elif val is not None: total_row.append(str(val))
         else: total_row.append("")
     table_data.append(total_row)
     
     first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 4)
+    cols_info = [{'header': h} for h in headers]
+    pdf_style = get_pdf_table_style(len(table_data), cols_info)
+    pdf_style.append(('ALIGN', (first_right, 0), (-1, -1), 'RIGHT'))
+    pdf_style.append(('VALIGN', (0,0), (-1,-1), 'TOP'))
     table = RLTable(table_data, colWidths=col_widths, repeatRows=1)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,-1), 7),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('ALIGN', (first_right, 0), (-1, -1), 'RIGHT'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
-    ]))
+    table.setStyle(TableStyle(pdf_style))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=party_ledger_{datetime.now().strftime('%Y%m%d')}.pdf"})

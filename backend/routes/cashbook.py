@@ -708,7 +708,7 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     elements = []
     
     # Title
-    elements.append(Paragraph("Party Summary", styles['Title']))
+    elements.append(Paragraph("Party Summary / पार्टी सारांश", styles['Title']))
     filter_text = ""
     if party_type: filter_text += f"Party Type: {party_type} | "
     if kms_year: filter_text += f"Year: {kms_year} | "
@@ -722,12 +722,9 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
         [str(summary['total_parties']), str(summary['settled_count']), str(summary['pending_count']),
          f"Rs.{summary['total_jama']:,.2f}", f"Rs.{summary['total_nikasi']:,.2f}", f"Rs.{summary['total_outstanding']:,.2f}"]
     ]
+    from utils.export_helpers import get_pdf_table_style
     t = RLTable(sum_data, colWidths=[80, 90, 60, 90, 90, 90])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,-1), 8),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey), ('ALIGN', (3,0), (-1,-1), 'RIGHT'),
-    ]))
+    t.setStyle(TableStyle(get_pdf_table_style(len(sum_data))))
     elements.append(t); elements.append(Spacer(1, 16))
     
     # Party table
@@ -742,14 +739,14 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
                       f"{p['balance']:,.2f}", str(p['txn_count']), status])
     
     table = RLTable(data, colWidths=[25, 120, 70, 75, 75, 75, 35, 50], repeatRows=1)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,-1), 7),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+    cols_info = [{'header': h} for h in data[0]]
+    style_cmds = get_pdf_table_style(len(data), cols_info)
+    style_cmds.extend([
         ('ALIGN', (3,0), (5,-1), 'RIGHT'), ('ALIGN', (6,0), (6,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-    ]))
+    ])
+    table.setStyle(TableStyle(style_cmds))
     # Color rows based on status
     for i, p in enumerate(parties, 1):
         if p['balance'] == 0:
@@ -768,8 +765,10 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
 @router.get("/cash-book/party-summary/excel")
 async def export_party_summary_excel(kms_year: Optional[str] = None, season: Optional[str] = None, party_type: Optional[str] = None, status: Optional[str] = None):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, PatternFill, Alignment
     from io import BytesIO
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, COLORS, BORDER_THIN)
     
     result = await get_party_summary(kms_year, season, party_type)
     parties = result["parties"]
@@ -778,39 +777,38 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
     summary = result["summary"]
     
     wb = Workbook(); ws = wb.active; ws.title = "Party Summary"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    hfont = Font(color="FFFFFF", bold=True, size=9)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    ncols = 8
     
-    ws.merge_cells('A1:H1'); ws['A1'] = "Party Summary / पार्टी सारांश"
-    ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    style_excel_title(ws, "Party Summary / पार्टी सारांश", ncols, "Mill Entry System")
     
     # Summary
-    ws.cell(row=3, column=1, value="Total Parties").font = Font(bold=True)
-    ws.cell(row=3, column=2, value=summary['total_parties'])
-    ws.cell(row=3, column=3, value="Settled").font = Font(bold=True)
-    ws.cell(row=3, column=4, value=summary['settled_count'])
-    ws.cell(row=3, column=5, value="Pending").font = Font(bold=True)
-    ws.cell(row=3, column=6, value=summary['pending_count'])
-    ws.cell(row=4, column=1, value="Total Outstanding").font = Font(bold=True, color="FF0000")
-    ws.cell(row=4, column=2, value=summary['total_outstanding']).number_format = '#,##0.00'
+    ws.cell(row=4, column=1, value="Total Parties").font = Font(bold=True)
+    ws.cell(row=4, column=2, value=summary['total_parties'])
+    ws.cell(row=4, column=3, value="Settled").font = Font(bold=True)
+    ws.cell(row=4, column=4, value=summary['settled_count'])
+    ws.cell(row=4, column=5, value="Pending").font = Font(bold=True)
+    ws.cell(row=4, column=6, value=summary['pending_count'])
+    ws.cell(row=5, column=1, value="Total Outstanding").font = Font(bold=True, color=COLORS['nikasi_text'])
+    ws.cell(row=5, column=2, value=summary['total_outstanding']).number_format = '#,##0.00'
     
     # Headers
-    row = 6
-    for col, h in enumerate(['#', 'Party Name', 'Party Type', 'Jama (Rs)', 'Nikasi (Rs)', 'Balance (Rs)', 'Transactions', 'Status'], 1):
-        c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
+    row = 7
+    headers = ['#', 'Party Name', 'Party Type', 'Jama (Rs)', 'Nikasi (Rs)', 'Balance (Rs)', 'Transactions', 'Status']
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=row, column=col, value=h)
+    style_excel_header_row(ws, row, ncols)
     
-    settled_fill = PatternFill(start_color="f0fff4", end_color="f0fff4", fill_type="solid")
-    pending_fill = PatternFill(start_color="fff5f5", end_color="fff5f5", fill_type="solid")
-    
+    data_start = row + 1
     for i, p in enumerate(parties, 1):
         row += 1
-        status = 'Settled' if p['balance'] == 0 else 'Pending'
-        fill = settled_fill if p['balance'] == 0 else pending_fill
-        for col, v in enumerate([i, p['party_name'], p['party_type'], p['total_jama'], p['total_nikasi'], p['balance'], p['txn_count'], status], 1):
-            c = ws.cell(row=row, column=col, value=v); c.border = tb
+        status_val = 'Settled' if p['balance'] == 0 else 'Pending'
+        for col, v in enumerate([i, p['party_name'], p['party_type'], p['total_jama'], p['total_nikasi'], p['balance'], p['txn_count'], status_val], 1):
+            c = ws.cell(row=row, column=col, value=v)
+            c.border = BORDER_THIN
             if col in [4,5,6]: c.number_format = '#,##0.00'; c.alignment = Alignment(horizontal='right')
-            if fill: c.fill = fill
+    
+    if parties:
+        style_excel_data_rows(ws, data_start, row, ncols, headers)
     
     ws.column_dimensions['A'].width = 6
     ws.column_dimensions['B'].width = 35
@@ -820,6 +818,8 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
     ws.column_dimensions['F'].width = 16
     ws.column_dimensions['G'].width = 12
     ws.column_dimensions['H'].width = 12
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
     
     buf = BytesIO(); wb.save(buf); buf.seek(0)
     from starlette.responses import Response

@@ -252,8 +252,12 @@ async def delete_diesel_transactions_bulk(request: Request):
 @router.get("/diesel-accounts/excel")
 async def export_diesel_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, Alignment
+    from openpyxl.utils import get_column_letter
     from io import BytesIO
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
+    
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -261,40 +265,58 @@ async def export_diesel_excel(kms_year: Optional[str] = None, season: Optional[s
     summary = await get_diesel_summary(kms_year=kms_year, season=season)
 
     wb = Workbook(); ws = wb.active; ws.title = "Diesel Account"
-    hf = PatternFill(start_color="7c2d12", end_color="7c2d12", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=10)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    ncols = 7
+    
+    # Title
+    title = "Diesel Account / डीजल खाता"
+    if kms_year: title += f" | KMS {kms_year}"
+    style_excel_title(ws, title, ncols, "Mill Entry System")
 
-    ws.merge_cells('A1:G1'); ws['A1'] = "Diesel Account / डीजल खाता"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
-
-    # Summary
-    ws.cell(row=3, column=1, value="Pump Summary").font = Font(bold=True, size=11)
-    for col, h in enumerate(['Pump Name', 'Total Diesel (Rs.)', 'Total Paid (Rs.)', 'Balance (Rs.)', 'Entries'], 1):
-        c = ws.cell(row=4, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
-    row = 5
+    # Summary section
+    ws.cell(row=4, column=1, value="Pump Summary").font = Font(bold=True, size=11, color=COLORS['title_text'])
+    sum_headers = ['Pump Name', 'Total Diesel (Rs.)', 'Total Paid (Rs.)', 'Balance (Rs.)', 'Entries']
+    for col, h in enumerate(sum_headers, 1):
+        ws.cell(row=5, column=col, value=h)
+    style_excel_header_row(ws, 5, 5)
+    
+    row = 6
+    sum_start = row
     for p in summary.get("pumps", []):
         for col, v in enumerate([p["pump_name"] + (" (Default)" if p.get("is_default") else ""), p["total_diesel"], p["total_paid"], p["balance"], p["txn_count"]], 1):
-            ws.cell(row=row, column=col, value=v).border = tb
+            c = ws.cell(row=row, column=col, value=v); c.border = BORDER_THIN
         row += 1
-    ws.cell(row=row, column=1, value="GRAND TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=2, value=summary.get("grand_total_diesel", 0)).font = Font(bold=True); ws.cell(row=row, column=2).border = tb
-    ws.cell(row=row, column=3, value=summary.get("grand_total_paid", 0)).font = Font(bold=True); ws.cell(row=row, column=3).border = tb
-    ws.cell(row=row, column=4, value=summary.get("grand_balance", 0)).font = Font(bold=True, color="FF0000"); ws.cell(row=row, column=4).border = tb
+    style_excel_data_rows(ws, sum_start, row - 1, 5, sum_headers)
+    
+    ws.cell(row=row, column=1, value="GRAND TOTAL")
+    ws.cell(row=row, column=2, value=summary.get("grand_total_diesel", 0))
+    ws.cell(row=row, column=3, value=summary.get("grand_total_paid", 0))
+    ws.cell(row=row, column=4, value=summary.get("grand_balance", 0))
+    style_excel_total_row(ws, row, 5)
     row += 2
 
-    # Transactions
-    ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11); row += 1
-    for col, h in enumerate(['Date', 'Pump', 'Type', 'Truck No', 'Agent', 'Amount (Rs.)', 'Description'], 1):
-        c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+    # Transactions section
+    ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11, color=COLORS['title_text'])
     row += 1
+    txn_headers = ['Date', 'Pump', 'Type', 'Truck No', 'Agent', 'Amount (Rs.)', 'Description']
+    for col, h in enumerate(txn_headers, 1):
+        ws.cell(row=row, column=col, value=h)
+    style_excel_header_row(ws, row, ncols)
+    row += 1
+    data_start = row
     for t in txns:
         vals = [t.get("date",""), t.get("pump_name",""), "Payment" if t.get("txn_type")=="payment" else "Diesel",
                 t.get("truck_no",""), t.get("agent_name",""), t.get("amount",0), t.get("description","")]
         for col, v in enumerate(vals, 1):
-            ws.cell(row=row, column=col, value=v).border = tb
+            ws.cell(row=row, column=col, value=v)
         row += 1
+    if txns:
+        style_excel_data_rows(ws, data_start, row - 1, ncols, txn_headers)
 
-    for letter in ['A','B','C','D','E','F','G']: ws.column_dimensions[letter].width = 18
+    for i in range(1, ncols + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 18
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
+    
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=diesel_account_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -313,6 +335,8 @@ async def export_diesel_pdf(kms_year: Optional[str] = None, season: Optional[str
     txns = await db.diesel_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_diesel_summary(kms_year=kms_year, season=season)
 
+    from utils.export_helpers import get_pdf_table_style
+    
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     styles = getSampleStyleSheet()
@@ -328,12 +352,7 @@ async def export_diesel_pdf(kms_year: Optional[str] = None, season: Optional[str
                          f"Rs.{p['total_diesel']}", f"Rs.{p['total_paid']}", f"Rs.{p['balance']}", str(p["txn_count"])])
     sum_data.append(['GRAND TOTAL', f"Rs.{summary.get('grand_total_diesel',0)}", f"Rs.{summary.get('grand_total_paid',0)}", f"Rs.{summary.get('grand_balance',0)}", ''])
     st = Table(sum_data, colWidths=[180, 100, 100, 100, 60])
-    st.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#7c2d12')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTSIZE', (0,0), (-1,-1), 9), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
-        ('TEXTCOLOR', (3,-1), (3,-1), colors.red),
-    ]))
+    st.setStyle(TableStyle(get_pdf_table_style(len(sum_data))))
     elements.append(st)
     elements.append(Spacer(1, 20))
 
@@ -346,11 +365,7 @@ async def export_diesel_pdf(kms_year: Optional[str] = None, season: Optional[str
                        t.get("truck_no",""), t.get("agent_name","")[:12],
                        f"Rs.{t.get('amount',0)}", t.get("description","")[:30]])
     tt = Table(t_data, colWidths=[70, 100, 55, 80, 80, 70, 180])
-    tt.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#7c2d12')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTSIZE', (0,0), (-1,-1), 8), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#fff7ed')]),
-    ]))
+    tt.setStyle(TableStyle(get_pdf_table_style(len(t_data))))
     elements.append(tt)
 
     doc.build(elements)

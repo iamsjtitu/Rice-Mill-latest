@@ -349,9 +349,10 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     section_style = ParagraphStyle('SectionHead', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a365d'),
         spaceBefore=12, spaceAfter=4, borderWidth=0, leftIndent=0)
 
+    from utils.export_helpers import get_pdf_table_style
+
     hdr_bg = colors.HexColor('#1a365d')
     hdr_font_color = colors.white
-    alt_row = colors.HexColor('#f5f5f5')
     green = colors.HexColor('#166534')
     red = colors.HexColor('#991b1b')
     border_color = colors.HexColor('#cbd5e1')
@@ -359,21 +360,11 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     def make_table(headers, rows, col_widths=None, font_size=7):
         data_rows = [headers] + rows
         t = RTable(data_rows, colWidths=col_widths, repeatRows=1)
-        style_cmds = [
-            ('BACKGROUND', (0, 0), (-1, 0), hdr_bg),
-            ('TEXTCOLOR', (0, 0), (-1, 0), hdr_font_color),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), font_size + 1),
-            ('FONTSIZE', (0, 1), (-1, -1), font_size),
-            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-            ('GRID', (0, 0), (-1, -1), 0.5, border_color),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ]
-        for i in range(1, len(data_rows)):
-            if i % 2 == 0:
-                style_cmds.append(('BACKGROUND', (0, i), (-1, i), alt_row))
+        style_cmds = get_pdf_table_style(len(data_rows))
+        style_cmds.append(('FONTSIZE', (0, 0), (-1, -1), font_size))
+        style_cmds.append(('FONTSIZE', (0, 0), (-1, 0), font_size + 1))
+        style_cmds.append(('TOPPADDING', (0, 0), (-1, -1), 3))
+        style_cmds.append(('BOTTOMPADDING', (0, 0), (-1, -1), 3))
         t.setStyle(TableStyle(style_cmds))
         return t
 
@@ -753,53 +744,58 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
 @router.get("/reports/daily/excel")
 async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: Optional[str] = None, mode: str = "normal"):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, Alignment
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
 
     data = await get_daily_report(date, kms_year, season, mode)
     is_detail = mode == "detail"
     wb = Workbook()
     ws = wb.active
     ws.title = f"Daily Report {_fmt_date(date)}"
-    hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
-    hdr_font = Font(bold=True, color='FFFFFF', size=9)
-    bold = Font(bold=True)
-    section_font = Font(bold=True, size=11, color='1a365d')
-    sub_font = Font(bold=True, size=9, color='475569')
-    tb = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
-                top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
-    amt_fmt = '#,##0'
     mode_label = "DETAILED" if is_detail else "SUMMARY"
+    ncols = 8
 
-    ws.merge_cells('A1:F1')
-    ws['A1'] = f"Daily Report - {_fmt_date(date)} ({mode_label})"
-    ws['A1'].font = Font(bold=True, size=14, color='1a365d')
-    ws.merge_cells('A2:F2')
-    ws['A2'] = f"KMS Year: {kms_year or 'All'} | Season: {season or 'All'}"
-    ws['A2'].font = Font(size=9, color='64748b')
+    title = f"Daily Report / दैनिक रिपोर्ट - {_fmt_date(date)} ({mode_label})"
+    subtitle = f"KMS Year: {kms_year or 'All'} | Season: {season or 'All'}"
+    style_excel_title(ws, title, ncols, subtitle)
     row = 4
 
-    def write_section(title):
+    section_font = Font(bold=True, size=11, color=COLORS['title_text'])
+    sub_font = Font(bold=True, size=9, color='475569')
+
+    def write_section(title_text):
         nonlocal row
-        ws.cell(row=row, column=1, value=title).font = section_font
+        ws.cell(row=row, column=1, value=title_text).font = section_font
         row += 1
 
     def write_headers(headers_list):
         nonlocal row
         for i, h in enumerate(headers_list, 1):
-            c = ws.cell(row=row, column=i, value=h)
-            c.fill = hdr_fill; c.font = hdr_font; c.border = tb; c.alignment = Alignment(horizontal='center')
+            ws.cell(row=row, column=i, value=h)
+        style_excel_header_row(ws, row, len(headers_list))
+        row += 1
+
+    def write_data_rows(data_rows, header_count):
+        nonlocal row
+        start = row
+        for vals in data_rows:
+            for i, v in enumerate(vals, 1):
+                ws.cell(row=row, column=i, value=v)
+            row += 1
+        if data_rows:
+            style_excel_data_rows(ws, start, row - 1, header_count)
+
+    def write_sub(text):
+        nonlocal row
+        ws.cell(row=row, column=1, value=text).font = sub_font
         row += 1
 
     def write_row(values, bold_row=False):
         nonlocal row
         for i, v in enumerate(values, 1):
             c = ws.cell(row=row, column=i, value=v)
-            c.border = tb; c.font = Font(bold=bold_row, size=9)
-        row += 1
-
-    def write_sub(text):
-        nonlocal row
-        ws.cell(row=row, column=1, value=text).font = sub_font
+            c.border = BORDER_THIN; c.font = Font(bold=bold_row, size=9)
         row += 1
 
     # Paddy Entries

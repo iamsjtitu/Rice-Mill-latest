@@ -1781,55 +1781,49 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
         })
     
     # Create Excel
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS)
+    
     wb = Workbook()
     ws = wb.active
     ws.title = "Agent Payments"
+    ncols = 13
     
-    header_fill = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=10)
-    total_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
-    paid_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
-    pending_fill = PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid")
-    
-    ws.merge_cells('A1:M1')
     company_name, tagline = await get_company_name()
-    ws['A1'] = f"AGENT/MANDI PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}"
-    ws['A1'].font = Font(bold=True, size=14, color="D97706")
-    ws['A1'].alignment = Alignment(horizontal='center')
+    title = f"Agent/Mandi Payments - {company_name}"
+    subtitle = f"KMS: {kms_year or 'All'} | {season or 'All'}"
+    style_excel_title(ws, title, ncols, subtitle)
     
     headers = ["Mandi", "Agent", "Target QNTL", "Cutting QNTL", "Base Rate", "Cut Rate", "Target Amt", "Cut Amt", "Total Amt", "Achieved", "Paid", "Balance", "Status"]
     for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=3, column=col, value=header)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal='center')
+        ws.cell(row=4, column=col, value=header)
+    style_excel_header_row(ws, 4, ncols)
     
-    for row_idx, p in enumerate(payments_data, 4):
-        ws.cell(row=row_idx, column=1, value=p["mandi_name"]).font = Font(bold=True)
+    data_start = 5
+    for row_idx, p in enumerate(payments_data, data_start):
+        ws.cell(row=row_idx, column=1, value=p["mandi_name"])
         ws.cell(row=row_idx, column=2, value=p["agent_name"])
         ws.cell(row=row_idx, column=3, value=p["target_qntl"])
         ws.cell(row=row_idx, column=4, value=p["cutting_qntl"])
-        ws.cell(row=row_idx, column=5, value=f"₹{p['base_rate']}")
-        ws.cell(row=row_idx, column=6, value=f"₹{p['cutting_rate']}")
+        ws.cell(row=row_idx, column=5, value=p["base_rate"])
+        ws.cell(row=row_idx, column=6, value=p["cutting_rate"])
         ws.cell(row=row_idx, column=7, value=p["target_amount"])
         ws.cell(row=row_idx, column=8, value=p["cutting_amount"])
-        ws.cell(row=row_idx, column=9, value=p["total_amount"]).font = Font(bold=True)
+        ws.cell(row=row_idx, column=9, value=p["total_amount"])
         ws.cell(row=row_idx, column=10, value=p["achieved_qntl"])
         ws.cell(row=row_idx, column=11, value=p["paid"])
-        ws.cell(row=row_idx, column=12, value=p["balance"]).font = Font(bold=True, color="DC2626" if p["balance"] > 0 else "059669")
-        status_cell = ws.cell(row=row_idx, column=13, value=p["status"])
-        if p["status"] == "Paid":
-            status_cell.fill = paid_fill
-        elif p["status"] == "Pending":
-            status_cell.fill = pending_fill
+        ws.cell(row=row_idx, column=12, value=p["balance"])
+        ws.cell(row=row_idx, column=13, value=p["status"])
     
-    total_row = len(payments_data) + 4
-    ws.cell(row=total_row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=total_row, column=9, value=round(total_amount_sum, 2)).font = Font(bold=True)
-    ws.cell(row=total_row, column=11, value=round(total_paid_sum, 2)).font = Font(bold=True)
-    ws.cell(row=total_row, column=12, value=round(total_balance_sum, 2)).font = Font(bold=True, color="DC2626")
-    for col in range(1, 14):
-        ws.cell(row=total_row, column=col).fill = total_fill
+    if payments_data:
+        style_excel_data_rows(ws, data_start, data_start + len(payments_data) - 1, ncols, headers)
+    
+    total_row = data_start + len(payments_data)
+    ws.cell(row=total_row, column=1, value="TOTAL")
+    ws.cell(row=total_row, column=9, value=round(total_amount_sum, 2))
+    ws.cell(row=total_row, column=11, value=round(total_paid_sum, 2))
+    ws.cell(row=total_row, column=12, value=round(total_balance_sum, 2))
+    style_excel_total_row(ws, total_row, ncols)
     
     col_widths = [14, 12, 12, 12, 10, 10, 12, 10, 12, 10, 10, 12, 10]
     for i, width in enumerate(col_widths, 1):
@@ -1915,11 +1909,13 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     styles = getSampleStyleSheet()
     
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)
+    from utils.export_helpers import get_pdf_table_style
+    
     company_name, tagline = await get_company_name()
     title_data = [[Paragraph(f"<b>AGENT/MANDI PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 20*mm])
     title_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1B4F72')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
@@ -1934,28 +1930,12 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     col_widths = [30*mm, 20*mm, 18*mm, 25*mm, 25*mm, 20*mm, 22*mm, 22*mm, 18*mm]
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     
-    style_commands = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-    ]
-    
-    for i in range(1, len(table_data) - 1):
-        if i % 2 == 0:
-            style_commands.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8FAFC')))
-        if payments_data[i-1][-1] == "Paid":
-            style_commands.append(('BACKGROUND', (-1, i), (-1, i), colors.HexColor('#D1FAE5')))
-        elif payments_data[i-1][-1] == "Pending":
-            style_commands.append(('BACKGROUND', (-1, i), (-1, i), colors.HexColor('#FEE2E2')))
+    cols_info = [{'header': h} for h in headers]
+    style_commands = get_pdf_table_style(len(table_data), cols_info)
+    style_commands.append(('ALIGN', (1, 1), (-1, -1), 'RIGHT'))
+    style_commands.append(('ALIGN', (0, 0), (0, -1), 'LEFT'))
+    style_commands.append(('TOPPADDING', (0, 0), (-1, -1), 4))
+    style_commands.append(('BOTTOMPADDING', (0, 0), (-1, -1), 4))
     
     main_table.setStyle(TableStyle(style_commands))
     elements.append(main_table)

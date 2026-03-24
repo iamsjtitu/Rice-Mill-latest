@@ -296,41 +296,54 @@ async def get_dc_summary(kms_year: Optional[str] = None, season: Optional[str] =
 @router.get("/dc-entries/excel")
 async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, Alignment
+    from openpyxl.utils import get_column_letter
     from io import BytesIO
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
+    
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     dcs = await db.dc_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     all_deliveries = await db.dc_deliveries.find(query, {"_id": 0}).to_list(5000)
     wb = Workbook(); ws = wb.active; ws.title = "DC Register"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=10)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    ws.merge_cells('A1:I1'); ws['A1'] = "DC (Delivery Challan) Register"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    ncols = 9
+    title = "DC Register / डीसी रजिस्टर"
+    if kms_year: title += f" | KMS {kms_year}"
+    style_excel_title(ws, title, ncols, "Mill Entry System")
+    
     headers = ['DC No', 'Date', 'Rice Type', 'Allotted (Q)', 'Delivered (Q)', 'Pending (Q)', 'Status', 'Deadline', 'Godown']
     for col, h in enumerate(headers, 1):
-        c = ws.cell(row=3, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
-    row = 4
+        ws.cell(row=4, column=col, value=h)
+    style_excel_header_row(ws, 4, ncols)
+    
+    data_start = 5; row = data_start
     for dc in dcs:
         deld = round(sum(d.get("quantity_qntl", 0) for d in all_deliveries if d.get("dc_id") == dc["id"]), 2)
         pend = round(dc["quantity_qntl"] - deld, 2)
         status = "Completed" if deld >= dc["quantity_qntl"] else ("Partial" if deld > 0 else "Pending")
         for col, v in enumerate([dc.get("dc_number",""), dc.get("date",""), (dc.get("rice_type","")).capitalize(), dc["quantity_qntl"], deld, pend, status, dc.get("deadline",""), dc.get("godown_name","")], 1):
-            c = ws.cell(row=row, column=col, value=v); c.border = tb
-            if col in [4,5,6]: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
+            ws.cell(row=row, column=col, value=v)
+            if col in [4,5,6]: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
         row += 1
+    if dcs:
+        style_excel_data_rows(ws, data_start, row - 1, ncols, headers)
+    
     total_allot = round(sum(d["quantity_qntl"] for d in dcs), 2)
     total_del = round(sum(d.get("quantity_qntl",0) for d in all_deliveries), 2)
-    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=4, value=total_allot).font = Font(bold=True)
-    ws.cell(row=row, column=5, value=total_del).font = Font(bold=True)
-    ws.cell(row=row, column=6, value=round(total_allot-total_del, 2)).font = Font(bold=True)
+    ws.cell(row=row, column=1, value="TOTAL")
+    ws.cell(row=row, column=4, value=total_allot)
+    ws.cell(row=row, column=5, value=total_del)
+    ws.cell(row=row, column=6, value=round(total_allot-total_del, 2))
+    style_excel_total_row(ws, row, ncols)
+    
     # Delivery detail sheet
     ws2 = wb.create_sheet("Deliveries")
     dheaders = ['DC No', 'Date', 'Invoice No', 'RST No', 'E-Way Bill', 'Qty (Q)', 'Vehicle', 'Driver', 'Bags', 'Cash Paid', 'Diesel Paid', 'CGST', 'SGST', 'Godown', 'Note']
     for col, h in enumerate(dheaders, 1):
-        c = ws2.cell(row=1, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+        ws2.cell(row=1, column=col, value=h)
+    style_excel_header_row(ws2, 1, len(dheaders))
     dc_map = {d["id"]: d.get("dc_number","") for d in dcs}
     for i, dl in enumerate(sorted(all_deliveries, key=lambda x: x.get("date","")), 2):
         vals = [dc_map.get(dl.get("dc_id",""),""), dl.get("date",""), dl.get("invoice_no",""), dl.get("rst_no",""),
@@ -338,9 +351,13 @@ async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] 
                 dl.get("bags_used",0), dl.get("cash_paid",0), dl.get("diesel_paid",0),
                 dl.get("cgst_amount",0), dl.get("sgst_amount",0), dl.get("godown_name",""), dl.get("notes","")]
         for col, v in enumerate(vals, 1):
-            ws2.cell(row=i, column=col, value=v).border = tb
+            ws2.cell(row=i, column=col, value=v)
+    if all_deliveries:
+        style_excel_data_rows(ws2, 2, len(all_deliveries) + 1, len(dheaders), dheaders)
+    
     for letter in 'ABCDEFGHIJKLMNO':
         ws.column_dimensions[letter].width = 16; ws2.column_dimensions[letter].width = 16
+    ws.page_setup.orientation = 'landscape'; ws.page_setup.fitToWidth = 1
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=dc_register_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -358,10 +375,12 @@ async def export_dc_pdf(kms_year: Optional[str] = None, season: Optional[str] = 
     if season: query["season"] = season
     dcs = await db.dc_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     all_deliveries = await db.dc_deliveries.find(query, {"_id": 0}).to_list(5000)
+    from utils.export_helpers import get_pdf_table_style
+    
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
-    elements.append(Paragraph("DC (Delivery Challan) Register", styles['Title'])); elements.append(Spacer(1, 12))
+    elements.append(Paragraph("DC Register / डीसी रजिस्टर", styles['Title'])); elements.append(Spacer(1, 12))
     data = [['DC No','Date','Type','Allotted(Q)','Delivered(Q)','Pending(Q)','Status','Deadline','Godown']]
     ta = td = 0
     for dc in dcs:
@@ -371,9 +390,9 @@ async def export_dc_pdf(kms_year: Optional[str] = None, season: Optional[str] = 
         data.append([dc.get("dc_number",""), dc.get("date",""), (dc.get("rice_type","")).capitalize()[:5], dc["quantity_qntl"], deld, pend, status, dc.get("deadline",""), dc.get("godown_name","")[:12]])
     data.append(['TOTAL','','', round(ta,2), round(td,2), round(ta-td,2), '','',''])
     table = RLTable(data, colWidths=[55,55,40,55,55,50,40,55,60], repeatRows=1)
-    table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1a365d')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,-1),7),('ALIGN',(3,0),(5,-1),'RIGHT'),('GRID',(0,0),(-1,-1),0.5,colors.grey),
-        ('BACKGROUND',(0,-1),(-1,-1),colors.HexColor('#f0f0f0')),('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold')]))
+    style_cmds = get_pdf_table_style(len(data))
+    style_cmds.append(('ALIGN',(3,0),(5,-1),'RIGHT'))
+    table.setStyle(TableStyle(style_cmds))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=dc_register_{datetime.now().strftime('%Y%m%d')}.pdf"})
@@ -495,22 +514,31 @@ async def export_msp_excel(kms_year: Optional[str] = None, season: Optional[str]
         dc_docs = await db.dc_entries.find({"id": {"$in": dc_ids}}, {"_id": 0}).to_list(500)
         dcs = {d["id"]: d.get("dc_number","") for d in dc_docs}
     wb = Workbook(); ws = wb.active; ws.title = "MSP Payments"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=10)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    ws.merge_cells('A1:H1'); ws['A1'] = "MSP Payment Register"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
+    
+    ncols = 8
+    title = "MSP Payment Register / एमएसपी भुगतान"
+    style_excel_title(ws, title, ncols, "Mill Entry System")
+    
     headers = ['Date','DC No','Qty (Q)','Rate (Rs/Q)','Amount (Rs)','Mode','Reference','Bank']
     for col, h in enumerate(headers, 1):
-        c = ws.cell(row=3, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
-    row = 4
+        ws.cell(row=4, column=col, value=h)
+    style_excel_header_row(ws, 4, ncols)
+    
+    data_start = 5; row = data_start
     for p in payments:
         for col, v in enumerate([p.get("date",""), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("reference",""), p.get("bank_name","")], 1):
-            c = ws.cell(row=row, column=col, value=v); c.border = tb
-            if col in [3,4,5]: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
+            ws.cell(row=row, column=col, value=v)
+            if col in [3,4,5]: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
         row += 1
-    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=3, value=round(sum(p.get("quantity_qntl",0) for p in payments),2)).font = Font(bold=True)
-    ws.cell(row=row, column=5, value=round(sum(p.get("amount",0) for p in payments),2)).font = Font(bold=True)
+    if payments:
+        style_excel_data_rows(ws, data_start, row - 1, ncols, headers)
+    
+    ws.cell(row=row, column=1, value="TOTAL")
+    ws.cell(row=row, column=3, value=round(sum(p.get("quantity_qntl",0) for p in payments),2))
+    ws.cell(row=row, column=5, value=round(sum(p.get("amount",0) for p in payments),2))
+    style_excel_total_row(ws, row, ncols)
     for letter in ['A','B','C','D','E','F','G','H']: ws.column_dimensions[letter].width = 18
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -536,7 +564,9 @@ async def export_msp_pdf(kms_year: Optional[str] = None, season: Optional[str] =
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
-    elements.append(Paragraph("MSP Payment Register", styles['Title'])); elements.append(Spacer(1, 12))
+    from utils.export_helpers import get_pdf_table_style
+    
+    elements.append(Paragraph("MSP Payment Register / एमएसपी भुगतान", styles['Title'])); elements.append(Spacer(1, 12))
     data = [['Date','DC No','Qty(Q)','Rate(Rs/Q)','Amount(Rs)','Mode','Reference','Bank']]
     tq = ta = 0
     for p in payments:
@@ -544,9 +574,9 @@ async def export_msp_pdf(kms_year: Optional[str] = None, season: Optional[str] =
         data.append([p.get("date",""), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("reference",""), p.get("bank_name","")])
     data.append(['TOTAL','',round(tq,2),'',round(ta,2),'','',''])
     table = RLTable(data, colWidths=[60,55,45,55,60,40,75,100], repeatRows=1)
-    table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1a365d')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,-1),7),('ALIGN',(2,0),(4,-1),'RIGHT'),('GRID',(0,0),(-1,-1),0.5,colors.grey),
-        ('BACKGROUND',(0,-1),(-1,-1),colors.HexColor('#f0f0f0')),('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold')]))
+    style_cmds = get_pdf_table_style(len(data))
+    style_cmds.append(('ALIGN',(2,0),(4,-1),'RIGHT'))
+    table.setStyle(TableStyle(style_cmds))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=msp_payments_{datetime.now().strftime('%Y%m%d')}.pdf"})
@@ -867,21 +897,25 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     filtered = apply_filters(entries)
 
     wb = Workbook(); ws = wb.active; ws.title = "Gunny Bags"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=10)
-    bf = Font(bold=True)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    ws.merge_cells('A1:I1'); ws['A1'] = "Gunny Bag Register"; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
+    
+    ncols = 9
+    title = "Gunny Bag Register / बोरी रजिस्टर"
+    style_excel_title(ws, title, ncols, "Mill Entry System")
     filter_txt = f"KMS: {kms_year or 'All'} | Season: {season or 'All'}"
     if bag_filter and bag_filter != 'all': filter_txt += f" | Type: {bag_filter}"
     if txn_filter and txn_filter != 'all': filter_txt += f" | Txn: {txn_filter.upper()}"
-    ws.merge_cells('A2:I2'); ws['A2'] = filter_txt; ws['A2'].font = Font(size=9, italic=True); ws['A2'].alignment = Alignment(horizontal='center')
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ncols)
+    ws.cell(row=3, column=1, value=filter_txt).font = Font(size=9, italic=True)
 
     # Summary
-    ws.cell(row=4, column=1, value="Summary").font = Font(bold=True, size=11)
-    for col, h in enumerate(['Category', 'In', 'Out', 'Balance', 'Cost (Rs.)'], 1):
-        c = ws.cell(row=5, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
-    row = 6
+    ws.cell(row=5, column=1, value="Summary").font = Font(bold=True, size=11, color=COLORS['title_text'])
+    sum_headers = ['Category', 'In', 'Out', 'Balance', 'Cost (Rs.)']
+    for col, h in enumerate(sum_headers, 1):
+        ws.cell(row=6, column=col, value=h)
+    style_excel_header_row(ws, 6, 5)
+    row = 7; sum_start = row
     am = summary.get("auto_mill", {})
     for label, tin, tout, bal, cost in [
         ("Bag Received (Mill)", am.get("total_in",0), am.get("total_out",0), am.get("balance",0), "-"),
@@ -889,42 +923,41 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
         ("Govt Bags (Free)", summary.get("new",{}).get("total_in",0), summary.get("new",{}).get("total_out",0), summary.get("new",{}).get("balance",0), "-"),
     ]:
         for col, v in enumerate([label, tin, tout, bal, cost], 1):
-            c = ws.cell(row=row, column=col, value=v); c.border = tb
+            ws.cell(row=row, column=col, value=v)
         row += 1
-    ws.cell(row=row, column=1, value="Total G.Issued").font = bf
-    ws.cell(row=row, column=1).border = tb
-    ws.cell(row=row, column=4, value=summary.get("g_issued_total",0)).font = bf
-    ws.cell(row=row, column=4).border = tb
+    style_excel_data_rows(ws, sum_start, row - 1, 5, sum_headers)
+    ws.cell(row=row, column=1, value="Total G.Issued"); ws.cell(row=row, column=4, value=summary.get("g_issued_total",0))
+    style_excel_total_row(ws, row, 5)
     row += 1
-    ws.cell(row=row, column=1, value="Total (Excl Govt)").font = bf
-    ws.cell(row=row, column=1).border = tb
-    ws.cell(row=row, column=4, value=summary.get("grand_total",0)).font = bf
-    ws.cell(row=row, column=4).border = tb
+    ws.cell(row=row, column=1, value="Total (Excl Govt)"); ws.cell(row=row, column=4, value=summary.get("grand_total",0))
+    style_excel_total_row(ws, row, 5)
     row += 1
-    ws.cell(row=row, column=1, value="P.Pkt (Plastic)").border = tb
-    ws.cell(row=row, column=4, value=summary.get("ppkt",{}).get("total",0)).border = tb
+    ws.cell(row=row, column=1, value="P.Pkt (Plastic)"); ws.cell(row=row, column=4, value=summary.get("ppkt",{}).get("total",0))
     row += 2
 
     # Transactions
-    ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11); row += 1
-    for col, h in enumerate(['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount (Rs.)','Reference','Notes'], 1):
-        c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
-    row += 1
+    ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11, color=COLORS['title_text']); row += 1
+    txn_headers = ['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount (Rs.)','Reference','Notes']
+    for col, h in enumerate(txn_headers, 1):
+        ws.cell(row=row, column=col, value=h)
+    style_excel_header_row(ws, row, ncols)
+    row += 1; txn_start = row
     for e in filtered:
         bt = "New (Govt)" if e.get("bag_type")=="new" else "Old (Market)"
         src = (e.get("source","") + (" [Auto]" if e.get("linked_entry_id") else ""))
         for col, v in enumerate([e.get("date",""), bt, "In" if e.get("txn_type")=="in" else "Out",
             e.get("quantity",0), src, e.get("rate",0), e.get("amount",0), e.get("reference",""), e.get("notes","")], 1):
-            c = ws.cell(row=row, column=col, value=v); c.border = tb
-            if e.get("txn_type") == "in": c.font = Font(color="008000")
-            elif e.get("txn_type") == "out": c.font = Font(color="CC0000")
+            ws.cell(row=row, column=col, value=v)
         row += 1
+    if filtered:
+        style_excel_data_rows(ws, txn_start, row - 1, ncols, txn_headers)
     # Totals
     total_in = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "in")
     total_out = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "out")
-    ws.cell(row=row, column=1, value="TOTAL").font = bf; ws.cell(row=row, column=1).border = tb
-    ws.cell(row=row, column=3, value=f"In: {total_in} | Out: {total_out}").font = bf; ws.cell(row=row, column=3).border = tb
-    ws.cell(row=row, column=4, value=total_in - total_out).font = bf; ws.cell(row=row, column=4).border = tb
+    ws.cell(row=row, column=1, value="TOTAL")
+    ws.cell(row=row, column=3, value=f"In: {total_in} | Out: {total_out}")
+    ws.cell(row=row, column=4, value=total_in - total_out)
+    style_excel_total_row(ws, row, ncols)
 
     ws.column_dimensions['A'].width = 12
     ws.column_dimensions['B'].width = 15
@@ -984,12 +1017,13 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
     sdata.append(["Total G.Issued", "", "", summary.get("g_issued_total",0), ""])
     sdata.append(["Total (Excl Govt)", "", "", summary.get("grand_total",0), ""])
     sdata.append(["P.Pkt (Plastic)", "", "", summary.get("ppkt",{}).get("total",0), ""])
+    from utils.export_helpers import get_pdf_table_style
+    
     st = RLTable(sdata, colWidths=[120,50,50,55,65])
-    st.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1a365d')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,-1),8),('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-        ('FONTNAME',(0,-3),(-1,-1),'Helvetica-Bold'),('BACKGROUND',(0,-2),(-1,-1),colors.HexColor('#f0f0f0')),
-        ('ALIGN',(1,0),(-1,-1),'RIGHT'),('VALIGN',(0,0),(-1,-1),'TOP'),
-        ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2)]))
+    style_cmds = get_pdf_table_style(len(sdata))
+    style_cmds.extend([('ALIGN',(1,0),(-1,-1),'RIGHT'),('VALIGN',(0,0),(-1,-1),'TOP'),
+        ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2)])
+    st.setStyle(TableStyle(style_cmds))
     elements.append(st); elements.append(Spacer(1, 12))
 
     # Transactions
@@ -1007,12 +1041,10 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
     data.append(['TOTAL', '', f'In:{total_in} Out:{total_out}', total_in - total_out, '', '', '', '', ''])
 
     table = RLTable(data, colWidths=[48,52,35,35,150,38,52,65,65], repeatRows=1)
-    table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1a365d')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,0),7),('FONTSIZE',(0,1),(-1,-1),6.5),
-        ('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-        ('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('BACKGROUND',(0,-1),(-1,-1),colors.HexColor('#f0f0f0')),
-        ('ALIGN',(3,0),(6,-1),'RIGHT'),('VALIGN',(0,0),(-1,-1),'TOP'),
-        ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2)]))
+    txn_style = get_pdf_table_style(len(data))
+    txn_style.extend([('ALIGN',(3,0),(6,-1),'RIGHT'),('VALIGN',(0,0),(-1,-1),'TOP'),
+        ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2)])
+    table.setStyle(TableStyle(txn_style))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=gunny_bags_{datetime.now().strftime('%Y%m%d')}.pdf"})

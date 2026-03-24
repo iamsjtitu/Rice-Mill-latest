@@ -406,103 +406,77 @@ async def get_store_room_report(kms_year: Optional[str] = None, season: Optional
 @router.get("/mill-parts/store-room-report/excel")
 async def export_store_room_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, Alignment
+    from openpyxl.utils import get_column_letter
     from fastapi.responses import StreamingResponse
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
     import io
 
     report = await get_store_room_report(kms_year, season)
     wb = Workbook()
     ws = wb.active
     ws.title = "Store Room Report"
-    title = "Store Room-wise Inventory Report"
-    if kms_year:
-        title += f" - {kms_year}"
-    if season:
-        title += f" ({season})"
-    ws.merge_cells('A1:F1')
-    ws['A1'] = title
-    ws['A1'].font = Font(bold=True, size=14, color='1a365d')
-    ws['A1'].alignment = Alignment(horizontal='center')
+    ncols = 6
+    title = "Store Room Inventory / स्टोर रूम"
+    if kms_year: title += f" - {kms_year}"
+    if season: title += f" ({season})"
+    style_excel_title(ws, title, ncols, "Mill Entry System")
 
-    hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
-    hdr_font = Font(bold=True, color='FFFFFF', size=10)
-    room_fill = PatternFill(start_color='0e7490', end_color='0e7490', fill_type='solid')
-    room_font = Font(bold=True, color='FFFFFF', size=11)
-    thin_border = Border(
-        left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
-        top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1')
-    )
-    alt_fill = PatternFill(start_color='f8fafc', end_color='f8fafc', fill_type='solid')
-    low_fill = PatternFill(start_color='fee2e2', end_color='fee2e2', fill_type='solid')
-
-    row = 3
+    row = 4
     grand_total_in = 0
     grand_total_used = 0
 
     for group in report:
-        # Store Room header
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=ncols)
         c = ws.cell(row=row, column=1, value=f"  {group['store_room_name']} ({len(group['parts'])} parts)")
-        c.fill = room_fill
-        c.font = room_font
-        c.alignment = Alignment(horizontal='left', vertical='center')
-        for ci in range(1, 7):
-            ws.cell(row=row, column=ci).border = thin_border
+        c.font = Font(bold=True, size=11, color=COLORS['header_text'])
+        from openpyxl.styles import PatternFill
+        c.fill = PatternFill(start_color='0e7490', fill_type='solid')
         row += 1
 
-        # Column headers
         headers = ['Part Name', 'Category', 'Unit', 'Stock In', 'Used', 'Current Stock']
         for i, h in enumerate(headers, 1):
-            c = ws.cell(row=row, column=i, value=h)
-            c.fill = hdr_fill
-            c.font = hdr_font
-            c.border = thin_border
-            c.alignment = Alignment(horizontal='center')
+            ws.cell(row=row, column=i, value=h)
+        style_excel_header_row(ws, row, ncols)
         row += 1
 
-        room_total_in = 0
-        room_total_used = 0
-        for idx, p in enumerate(group['parts']):
+        room_total_in = 0; room_total_used = 0
+        data_start = row
+        for p in group['parts']:
             vals = [p['part_name'], p.get('category', ''), p.get('unit', 'Pcs'),
                     p['stock_in'], p['stock_used'], p['current_stock']]
             room_total_in += p['stock_in']
             room_total_used += p['stock_used']
             for ci, v in enumerate(vals, 1):
-                c = ws.cell(row=row, column=ci, value=v)
-                c.border = thin_border
-                c.font = Font(size=9)
-                if p['current_stock'] <= 0:
-                    c.fill = low_fill
-                elif idx % 2 == 1:
-                    c.fill = alt_fill
+                ws.cell(row=row, column=ci, value=v)
             row += 1
+        if group['parts']:
+            style_excel_data_rows(ws, data_start, row - 1, ncols, headers)
 
-        # Room subtotal
-        ws.cell(row=row, column=1, value="  Subtotal").font = Font(bold=True, size=9, color='0e7490')
-        ws.cell(row=row, column=4, value=round(room_total_in, 2)).font = Font(bold=True, size=9)
-        ws.cell(row=row, column=5, value=round(room_total_used, 2)).font = Font(bold=True, size=9)
-        ws.cell(row=row, column=6, value=round(room_total_in - room_total_used, 2)).font = Font(bold=True, size=9)
-        for ci in range(1, 7):
-            ws.cell(row=row, column=ci).border = thin_border
+        ws.cell(row=row, column=1, value="  Subtotal")
+        ws.cell(row=row, column=4, value=round(room_total_in, 2))
+        ws.cell(row=row, column=5, value=round(room_total_used, 2))
+        ws.cell(row=row, column=6, value=round(room_total_in - room_total_used, 2))
+        style_excel_total_row(ws, row, ncols)
         row += 2
         grand_total_in += room_total_in
         grand_total_used += room_total_used
 
-    # Grand total
-    ws.cell(row=row, column=1, value="GRAND TOTAL").font = Font(bold=True, size=11, color='1a365d')
-    ws.cell(row=row, column=4, value=round(grand_total_in, 2)).font = Font(bold=True, size=11)
-    ws.cell(row=row, column=5, value=round(grand_total_used, 2)).font = Font(bold=True, size=11)
-    ws.cell(row=row, column=6, value=round(grand_total_in - grand_total_used, 2)).font = Font(bold=True, size=11)
-    for ci in range(1, 7):
-        ws.cell(row=row, column=ci).border = thin_border
+    ws.cell(row=row, column=1, value="GRAND TOTAL")
+    ws.cell(row=row, column=4, value=round(grand_total_in, 2))
+    ws.cell(row=row, column=5, value=round(grand_total_used, 2))
+    ws.cell(row=row, column=6, value=round(grand_total_in - grand_total_used, 2))
+    style_excel_total_row(ws, row, ncols)
 
     widths = [22, 14, 8, 12, 12, 14]
     for i, w in enumerate(widths, 1):
-        ws.column_dimensions[chr(64 + i)].width = w
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
 
     buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
+    wb.save(buf); buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=store_room_report_{datetime.now().strftime('%Y%m%d')}.xlsx"})
 
@@ -516,55 +490,40 @@ async def export_store_room_pdf(kms_year: Optional[str] = None, season: Optional
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     import io
 
+    from utils.export_helpers import get_pdf_table_style
+
     report = await get_store_room_report(kms_year, season)
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30)
     styles = getSampleStyleSheet()
-    title_text = "Store Room-wise Inventory Report"
-    if kms_year:
-        title_text += f" - {kms_year}"
-    if season:
-        title_text += f" ({season})"
+    title_text = "Store Room Inventory / स्टोर रूम"
+    if kms_year: title_text += f" - {kms_year}"
+    if season: title_text += f" ({season})"
     elements = [Paragraph(title_text, styles['Title']), Spacer(1, 12)]
 
     col_widths = [140, 80, 50, 70, 70, 90]
 
     for group in report:
-        # Room header
         room_style = ParagraphStyle('room', parent=styles['Heading3'], textColor=colors.HexColor('#0e7490'))
         elements.append(Paragraph(f"{group['store_room_name']} ({len(group['parts'])} parts)", room_style))
         elements.append(Spacer(1, 4))
 
         data = [['Part Name', 'Category', 'Unit', 'Stock In', 'Used', 'Current Stock']]
-        room_in = 0
-        room_used = 0
+        room_in = 0; room_used = 0
         for p in group['parts']:
             data.append([p['part_name'], p.get('category', ''), p.get('unit', 'Pcs'),
                          str(p['stock_in']), str(p['stock_used']), str(p['current_stock'])])
-            room_in += p['stock_in']
-            room_used += p['stock_used']
+            room_in += p['stock_in']; room_used += p['stock_used']
 
         data.append(['Subtotal', '', '', str(round(room_in, 2)), str(round(room_used, 2)),
                       str(round(room_in - room_used, 2))])
 
         t = RTable(data, colWidths=col_widths, repeatRows=1)
-        style_cmds = [
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 8),
-            ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8fafc')]),
-            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-            ('ALIGN', (3, 0), (5, -1), 'RIGHT'),
-        ]
-        # Highlight zero/negative stock rows
+        style_cmds = get_pdf_table_style(len(data))
+        style_cmds.append(('ALIGN', (3, 0), (5, -1), 'RIGHT'))
         for ri, p in enumerate(group['parts'], 1):
             if p['current_stock'] <= 0:
                 style_cmds.append(('BACKGROUND', (0, ri), (-1, ri), colors.HexColor('#fee2e2')))
-
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
         elements.append(Spacer(1, 14))
@@ -580,57 +539,50 @@ async def export_store_room_pdf(kms_year: Optional[str] = None, season: Optional
 @router.get("/mill-parts/summary/excel")
 async def export_stock_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, Alignment
+    from openpyxl.utils import get_column_letter
     from fastapi.responses import StreamingResponse
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS)
     import io
 
     summary = await get_stock_summary(kms_year, season)
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Mill Parts Stock"
-    ws.merge_cells('A1:I1')
-    ws['A1'] = f"Mill Parts Stock Summary{' - ' + kms_year if kms_year else ''}{' - ' + season if season else ''}"
-    ws['A1'].font = Font(bold=True, size=14, color='1a365d')
-    ws['A1'].alignment = Alignment(horizontal='center')
+    wb = Workbook(); ws = wb.active; ws.title = "Mill Parts Stock"
+    ncols = 9
+    title = "Mill Parts Stock Summary / मिल पार्ट्स स्टॉक"
+    if kms_year: title += f" - {kms_year}"
+    if season: title += f" ({season})"
+    style_excel_title(ws, title, ncols, "Mill Entry System")
 
     headers = ['Part Name', 'Category', 'Store Room', 'Unit', 'Stock In', 'Stock Used', 'Current Stock', 'Purchase Amount (Rs)', 'Parties']
-    hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
-    hdr_font = Font(bold=True, color='FFFFFF', size=10)
-    thin_border = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'), top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
-    alt_fill = PatternFill(start_color='f8fafc', end_color='f8fafc', fill_type='solid')
-
     for i, h in enumerate(headers, 1):
-        c = ws.cell(row=3, column=i, value=h)
-        c.fill = hdr_fill
-        c.font = hdr_font
-        c.border = thin_border
-        c.alignment = Alignment(horizontal='center')
+        ws.cell(row=4, column=i, value=h)
+    style_excel_header_row(ws, 4, ncols)
 
     total_purchase = 0
+    data_start = 5
     for idx, s in enumerate(summary):
-        row = idx + 4
+        row = idx + data_start
         vals = [s["part_name"], s["category"], s.get("store_room_name", ""), s["unit"], s["stock_in"], s["stock_used"], s["current_stock"], s["total_purchase_amount"], ', '.join(p['name'] for p in s.get('parties', []))]
         total_purchase += s["total_purchase_amount"]
         for ci, v in enumerate(vals, 1):
-            c = ws.cell(row=row, column=ci, value=v)
-            c.border = thin_border
-            c.font = Font(size=9)
-            if idx % 2 == 1: c.fill = alt_fill
+            ws.cell(row=row, column=ci, value=v)
 
-    # Totals row
-    tr = len(summary) + 4
-    ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True, size=10, color='1a365d')
-    ws.cell(row=tr, column=8, value=total_purchase).font = Font(bold=True, size=10, color='1a365d')
-    for ci in range(1, 10):
-        ws.cell(row=tr, column=ci).border = thin_border
+    if summary:
+        style_excel_data_rows(ws, data_start, data_start + len(summary) - 1, ncols, headers)
+
+    tr = data_start + len(summary)
+    ws.cell(row=tr, column=1, value="TOTAL")
+    ws.cell(row=tr, column=8, value=total_purchase)
+    style_excel_total_row(ws, tr, ncols)
 
     widths = [20, 14, 14, 8, 12, 12, 14, 18, 25]
     for i, w in enumerate(widths, 1):
-        ws.column_dimensions[chr(64 + i)].width = w
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
 
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=mill_parts_stock_{datetime.now().strftime('%Y%m%d')}.xlsx"})
 
@@ -643,11 +595,13 @@ async def export_stock_pdf(kms_year: Optional[str] = None, season: Optional[str]
     from reportlab.lib.styles import getSampleStyleSheet
     import io
 
+    from utils.export_helpers import get_pdf_table_style
+
     summary = await get_stock_summary(kms_year, season)
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30)
     styles = getSampleStyleSheet()
-    title_text = f"Mill Parts Stock Summary"
+    title_text = "Mill Parts Stock Summary / मिल पार्ट्स स्टॉक"
     if kms_year: title_text += f" - {kms_year}"
     if season: title_text += f" ({season})"
     elements = [Paragraph(title_text, styles['Title']), Spacer(1, 12)]
@@ -662,18 +616,9 @@ async def export_stock_pdf(kms_year: Optional[str] = None, season: Optional[str]
 
     col_widths = [85, 55, 65, 35, 40, 40, 50, 75, 100]
     t = RTable(data, colWidths=col_widths, repeatRows=1)
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
-        ('FONTSIZE', (0, 1), (-1, -1), 7),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8fafc')]),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('ALIGN', (4, 0), (7, -1), 'RIGHT'),
-    ]))
+    style_cmds = get_pdf_table_style(len(data))
+    style_cmds.append(('ALIGN', (4, 0), (7, -1), 'RIGHT'))
+    t.setStyle(TableStyle(style_cmds))
     elements.append(t)
     doc.build(elements)
     buf.seek(0)
@@ -685,8 +630,11 @@ async def export_transactions_excel(kms_year: Optional[str] = None, season: Opti
                                      part_name: Optional[str] = None, txn_type: Optional[str] = None,
                                      date_from: Optional[str] = None, date_to: Optional[str] = None):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, Alignment
+    from openpyxl.utils import get_column_letter
     from fastapi.responses import StreamingResponse
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS)
     import io
 
     query = {}
@@ -700,62 +648,54 @@ async def export_transactions_excel(kms_year: Optional[str] = None, season: Opti
         if date_to: query["date"]["$lte"] = date_to
     items = await db.mill_parts_stock.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Parts Transactions"
-    title = "Mill Parts Transactions"
+    wb = Workbook(); ws = wb.active; ws.title = "Parts Transactions"
+    ncols = 10
+    title = "Mill Parts Transactions / मिल पार्ट्स लेनदेन"
     if part_name: title += f" - {part_name}"
-    if date_from or date_to: title += f" ({date_from or '...'} to {date_to or '...'})"
-    ws.merge_cells('A1:J1')
-    ws['A1'] = title
-    ws['A1'].font = Font(bold=True, size=14, color='1a365d')
-    ws['A1'].alignment = Alignment(horizontal='center')
+    subtitle = "Mill Entry System"
+    if date_from or date_to:
+        date_parts = []
+        if date_from: date_parts.append(f"From: {date_from}")
+        if date_to: date_parts.append(f"To: {date_to}")
+        subtitle = " | ".join(date_parts)
+    style_excel_title(ws, title, ncols, subtitle)
 
     headers = ['Date', 'Part Name', 'Store Room', 'Type', 'Qty', 'Rate', 'Amount (Rs)', 'Party', 'Bill No', 'Remark']
-    hdr_fill = PatternFill(start_color='1a365d', end_color='1a365d', fill_type='solid')
-    hdr_font = Font(bold=True, color='FFFFFF', size=10)
-    thin_border = Border(left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'), top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
-    alt_fill = PatternFill(start_color='f8fafc', end_color='f8fafc', fill_type='solid')
-    in_fill = PatternFill(start_color='dcfce7', end_color='dcfce7', fill_type='solid')
-    used_fill = PatternFill(start_color='fee2e2', end_color='fee2e2', fill_type='solid')
-
     for i, h in enumerate(headers, 1):
-        c = ws.cell(row=3, column=i, value=h)
-        c.fill = hdr_fill; c.font = hdr_font; c.border = thin_border; c.alignment = Alignment(horizontal='center')
+        ws.cell(row=4, column=i, value=h)
+    style_excel_header_row(ws, 4, ncols)
 
-    total_in_amt = 0
-    total_in_qty = 0
-    total_used_qty = 0
+    total_in_amt = 0; total_in_qty = 0; total_used_qty = 0
+    data_start = 5
     for idx, t in enumerate(items):
-        row = idx + 4
+        row = idx + data_start
         typ = 'IN' if t.get('txn_type') == 'in' else 'USED'
         amt = t.get('total_amount') or t.get('total_cost') or 0
         qty = t.get('quantity', 0)
         if t.get('txn_type') == 'in':
-            total_in_amt += amt
-            total_in_qty += qty
+            total_in_amt += amt; total_in_qty += qty
         else:
             total_used_qty += qty
         vals = [t.get('date',''), t.get('part_name',''), t.get('store_room_name','') or '', typ, qty, t.get('rate',0), amt, t.get('party_name',''), t.get('bill_no',''), t.get('remark','')]
         for ci, v in enumerate(vals, 1):
-            c = ws.cell(row=row, column=ci, value=v)
-            c.border = thin_border; c.font = Font(size=9)
-            if ci == 4: c.fill = in_fill if typ == 'IN' else used_fill
+            ws.cell(row=row, column=ci, value=v)
 
-    # Totals row
-    tr = len(items) + 4
-    ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True, size=10, color='1a365d')
-    ws.cell(row=tr, column=4, value=f"In:{total_in_qty} / Used:{total_used_qty}").font = Font(bold=True, size=9)
-    ws.cell(row=tr, column=7, value=total_in_amt).font = Font(bold=True, size=10, color='1a365d')
-    for ci in range(1, 11):
-        ws.cell(row=tr, column=ci).border = thin_border
+    if items:
+        style_excel_data_rows(ws, data_start, data_start + len(items) - 1, ncols, headers)
+
+    tr = data_start + len(items)
+    ws.cell(row=tr, column=1, value="TOTAL")
+    ws.cell(row=tr, column=4, value=f"In:{total_in_qty} / Used:{total_used_qty}")
+    ws.cell(row=tr, column=7, value=total_in_amt)
+    style_excel_total_row(ws, tr, ncols)
 
     widths = [12, 18, 12, 8, 8, 10, 14, 18, 12, 18]
     for i, w in enumerate(widths, 1):
-        ws.column_dimensions[chr(64 + i)].width = w
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
 
-    buf = io.BytesIO()
-    wb.save(buf); buf.seek(0)
+    buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=mill_parts_transactions_{datetime.now().strftime('%Y%m%d')}.xlsx"})
 
@@ -795,6 +735,8 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
         elements.append(Paragraph(' | '.join(subtitle_parts), styles['Normal']))
     elements.append(Spacer(1, 12))
 
+    from utils.export_helpers import get_pdf_table_style
+    
     data = [['Date', 'Part Name', 'Store Room', 'Type', 'Qty', 'Rate', 'Amount (Rs)', 'Party', 'Bill No', 'Remark']]
     total_amt = 0
     for t in items:
@@ -808,19 +750,8 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
     col_widths = [55, 75, 55, 30, 30, 40, 60, 70, 50, 70]
     tbl = RTable(data, colWidths=col_widths, repeatRows=1)
 
-    # Style with colored IN/USED rows
-    style_cmds = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 7),
-        ('FONTSIZE', (0, 1), (-1, -1), 6),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('ALIGN', (4, 0), (6, -1), 'RIGHT'),
-    ]
-    # Alternating row colors and IN/USED highlighting
+    style_cmds = get_pdf_table_style(len(data))
+    style_cmds.append(('ALIGN', (4, 0), (6, -1), 'RIGHT'))
     for i, t in enumerate(items, 1):
         bg = colors.HexColor('#f0fdf4') if t.get('txn_type') == 'in' else colors.HexColor('#fef2f2')
         if i % 2 == 0: bg = colors.HexColor('#dcfce7') if t.get('txn_type') == 'in' else colors.HexColor('#fee2e2')

@@ -758,49 +758,22 @@ async def export_excel(
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
     # Create workbook
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
+    
     wb = Workbook()
     ws = wb.active
     ws.title = "Mill Entries"
     
-    # Styles
-    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=9)
-    
-    title_fill = PatternFill(start_color="D97706", end_color="D97706", fill_type="solid")
-    title_font = Font(bold=True, color="FFFFFF", size=14)
-    
-    total_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
-    total_font = Font(bold=True, size=9)
-    
-    qntl_fill = PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid")
-    final_fill = PatternFill(start_color="FDE68A", end_color="FDE68A", fill_type="solid")
-    gunny_fill = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")
-    cash_fill = PatternFill(start_color="FCE7F3", end_color="FCE7F3", fill_type="solid")
-    
-    thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
-    
+    ncols = 21
     center_align = Alignment(horizontal='center', vertical='center')
     right_align = Alignment(horizontal='right', vertical='center')
     
     # Title
-    ws.merge_cells('A1:U1')
     company_name, tagline = await get_company_name()
-    ws['A1'] = f"{company_name} - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
-    ws['A1'].fill = title_fill
-    ws['A1'].font = title_font
-    ws['A1'].alignment = center_align
-    ws.row_dimensions[1].height = 30
-    
-    # Date row
-    ws.merge_cells('A2:U2')
-    ws['A2'] = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
-    ws['A2'].alignment = center_align
-    ws.row_dimensions[2].height = 20
+    title = f"{company_name} - Mill Entries / मिल एंट्री"
+    subtitle = f"KMS: {kms_year or 'All'} | {season or 'All Seasons'} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+    style_excel_title(ws, title, ncols, subtitle)
     
     # Headers
     headers = [
@@ -810,16 +783,12 @@ async def export_excel(
     ]
     
     for col, header in enumerate(headers, 1):
-        cell = ws.cell(row=3, column=col, value=header)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.border = thin_border
-        cell.alignment = center_align
-    ws.row_dimensions[3].height = 22
+        ws.cell(row=4, column=col, value=header)
+    style_excel_header_row(ws, 4, ncols)
     
     # Data rows
-    row_num = 4
-    alt_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+    data_start = 5
+    row_num = data_start
     
     for idx, entry in enumerate(entries):
         row_data = [
@@ -848,32 +817,13 @@ async def export_excel(
         
         for col, value in enumerate(row_data, 1):
             cell = ws.cell(row=row_num, column=col, value=value)
-            cell.border = thin_border
-            
-            if idx % 2 == 1:
-                cell.fill = alt_fill
-            
-            # Special column colors
-            if col == 5:  # QNTL
-                cell.fill = qntl_fill
-                cell.alignment = right_align
-            elif col == 7:  # G.Deposite
-                cell.fill = gunny_fill
-                cell.alignment = right_align
-            elif col == 16:  # Final W
-                cell.fill = final_fill
-                cell.font = Font(bold=True)
-                cell.alignment = right_align
-            elif col == 18:  # Cash
-                cell.fill = cash_fill
-                cell.alignment = right_align
-            elif col == 19:  # Diesel
-                cell.fill = cash_fill
-                cell.alignment = right_align
-            elif col in [6, 8, 9, 10, 11, 12, 13, 14, 15, 17]:
-                cell.alignment = right_align
+            cell.border = BORDER_THIN
+            if col >= 6: cell.alignment = right_align
         
         row_num += 1
+    
+    if entries:
+        style_excel_data_rows(ws, data_start, row_num - 1, ncols, headers)
     
     # Totals row
     totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season)
@@ -897,12 +847,10 @@ async def export_excel(
     ]
     
     for col, value in enumerate(totals_data, 1):
-        cell = ws.cell(row=row_num, column=col, value=value)
-        cell.fill = total_fill
-        cell.font = total_font
-        cell.border = thin_border
+        ws.cell(row=row_num, column=col, value=value)
         if col >= 7:
-            cell.alignment = right_align
+            ws.cell(row=row_num, column=col).alignment = right_align
+    style_excel_total_row(ws, row_num, ncols)
     
     # Column widths - A4 optimized (21 cols)
     col_widths = [9, 11, 8, 8, 9, 9, 8, 5, 5, 6, 5, 6, 7, 5, 6, 5, 5, 8, 6, 7, 7]
@@ -992,13 +940,15 @@ async def export_pdf(
         spaceAfter=3*mm
     )
     
-    # Title table with orange background
+    from utils.export_helpers import get_pdf_table_style
+    
+    # Title table with themed background
     company_name, tagline = await get_company_name()
-    title_text = f"{company_name} - Mill Entries | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
+    title_text = f"{company_name} - Mill Entries / मिल एंट्री | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
     title_data = [[Paragraph(f"<b>{title_text}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 16*mm])
     title_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1B4F72')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 4),
@@ -1074,57 +1024,19 @@ async def export_pdf(
     # Create table
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     
-    # Define colors
-    header_bg = colors.HexColor('#1E293B')
-    alt_row_bg = colors.HexColor('#F8FAFC')
-    qntl_bg = colors.HexColor('#D1FAE5')
-    gunny_bg = colors.HexColor('#DBEAFE')
-    final_bg = colors.HexColor('#FDE68A')
-    cash_bg = colors.HexColor('#FCE7F3')
-    total_bg = colors.HexColor('#FEF3C7')
-    
-    # Table styles
-    style_commands = [
-        # Header row
-        ('BACKGROUND', (0, 0), (-1, 0), header_bg),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+    # Use centralized styling
+    cols_info = [{'header': h} for h in headers]
+    style_commands = get_pdf_table_style(len(table_data), cols_info)
+    style_commands.extend([
         ('FONTSIZE', (0, 0), (-1, 0), 6),
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        
-        # All cells
         ('FONTSIZE', (0, 1), (-1, -1), 6),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 2),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ('LEFTPADDING', (0, 0), (-1, -1), 2),
         ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        
-        # Right align numeric columns
         ('ALIGN', (6, 1), (-1, -1), 'RIGHT'),
-        
-        # Totals row (last row)
-        ('BACKGROUND', (0, -1), (-1, -1), total_bg),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, -1), (-1, -1), 6),
-    ]
-    
-    # Add alternating row colors for data rows
-    for i in range(1, len(table_data) - 1):  # Exclude header and totals
-        if i % 2 == 0:
-            style_commands.append(('BACKGROUND', (0, i), (-1, i), alt_row_bg))
-    
-    # Highlight special columns for all data rows
-    for i in range(1, len(table_data) - 1):
-        style_commands.append(('BACKGROUND', (4, i), (4, i), qntl_bg))  # QNTL
-        style_commands.append(('BACKGROUND', (6, i), (6, i), gunny_bg))  # G.Dep
-        style_commands.append(('BACKGROUND', (15, i), (15, i), final_bg))  # Final W
-        style_commands.append(('BACKGROUND', (17, i), (18, i), cash_bg))  # Cash, Diesel
-    
-    # Bold Final W column
-    style_commands.append(('FONTNAME', (15, 1), (15, -1), 'Helvetica-Bold'))
+    ])
     
     main_table.setStyle(TableStyle(style_commands))
     elements.append(main_table)

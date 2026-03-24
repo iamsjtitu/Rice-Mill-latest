@@ -806,7 +806,7 @@ async def export_balance_sheet_excel(kms_year: Optional[str] = None, season: Opt
     # Title
     row = 1
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
-    ws.cell(row=row, column=1, value=f"Balance Sheet - KMS {kms_year or 'All'}").font = hdr_font
+    ws.cell(row=row, column=1, value=f"Balance Sheet / बैलेंस शीट - KMS {kms_year or 'All'}").font = hdr_font
     row += 1
     ws.cell(row=row, column=1, value=f"As on: {data['as_on_date']}").font = Font(size=10, color='666666')
     row += 2

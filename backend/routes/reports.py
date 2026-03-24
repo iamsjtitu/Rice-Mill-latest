@@ -83,41 +83,41 @@ async def report_season_pnl(kms_year: Optional[str] = None, season: Optional[str
 @router.get("/reports/cmr-vs-dc/excel")
 async def export_cmr_vs_dc_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, Alignment
     from io import BytesIO
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, COLORS, BORDER_THIN)
     data = await report_cmr_vs_dc(kms_year=kms_year, season=season)
     wb = Workbook(); ws = wb.active; ws.title = "CMR vs DC"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=10)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    title = "CMR vs DC Report"
+    ncols = 4
+    title = "CMR vs DC Report / सीएमआर vs डीसी"
     if kms_year: title += f" - KMS {kms_year}"
-    ws.merge_cells('A1:D1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
-    # Milling
-    ws.cell(row=3, column=1, value="MILLING OUTPUT").font = Font(bold=True, size=11, color="2563eb")
+    style_excel_title(ws, title, ncols, "Mill Entry System")
+    
+    ws.cell(row=4, column=1, value="MILLING OUTPUT").font = Font(bold=True, size=11, color=COLORS['title_text'])
     items = [("Paddy Milled (Q)", data["milling"]["total_paddy_milled"]), ("Rice Produced (Q)", data["milling"]["total_rice_produced"]),
              ("FRK Used (Q)", data["milling"]["total_frk_used"]), ("CMR Ready (Q)", data["milling"]["total_cmr_ready"]),
              ("Avg Outturn %", data["milling"]["avg_outturn_pct"]), ("Milling Count", data["milling"]["milling_count"])]
-    for i, (label, val) in enumerate(items, 4):
-        ws.cell(row=i, column=1, value=label).border = tb
-        c = ws.cell(row=i, column=2, value=val); c.border = tb; c.alignment = Alignment(horizontal='right')
-    # DC
-    row = 11
-    ws.cell(row=row, column=1, value="DC ALLOTMENT & DELIVERY").font = Font(bold=True, size=11, color="16a34a")
+    for i, (label, val) in enumerate(items, 5):
+        ws.cell(row=i, column=1, value=label).border = BORDER_THIN
+        c = ws.cell(row=i, column=2, value=val); c.border = BORDER_THIN; c.alignment = Alignment(horizontal='right')
+    
+    row = 12
+    ws.cell(row=row, column=1, value="DC ALLOTMENT & DELIVERY").font = Font(bold=True, size=11, color=COLORS['subtitle_text'])
     items2 = [("DC Allotted (Q)", data["dc"]["total_allotted"]), ("DC Delivered (Q)", data["dc"]["total_delivered"]),
               ("DC Pending (Q)", data["dc"]["total_pending"]), ("Total DCs", data["dc"]["dc_count"]), ("Total Deliveries", data["dc"]["delivery_count"])]
     for i, (label, val) in enumerate(items2, row+1):
-        ws.cell(row=i, column=1, value=label).border = tb
-        c = ws.cell(row=i, column=2, value=val); c.border = tb; c.alignment = Alignment(horizontal='right')
-    # Comparison
-    row = 18
-    ws.cell(row=row, column=1, value="COMPARISON").font = Font(bold=True, size=11, color="d97706")
-    ws.cell(row=row+1, column=1, value="CMR vs DC Allotted").border = tb
-    ws.cell(row=row+1, column=2, value=data["comparison"]["cmr_vs_dc_allotted"]).border = tb
-    ws.cell(row=row+2, column=1, value="CMR vs DC Delivered").border = tb
-    ws.cell(row=row+2, column=2, value=data["comparison"]["cmr_vs_dc_delivered"]).border = tb
-    ws.cell(row=row+3, column=1, value="By-Product Revenue (₹)").border = tb
-    ws.cell(row=row+3, column=2, value=data["byproduct_revenue"]).border = tb
+        ws.cell(row=i, column=1, value=label).border = BORDER_THIN
+        c = ws.cell(row=i, column=2, value=val); c.border = BORDER_THIN; c.alignment = Alignment(horizontal='right')
+    
+    row = 19
+    ws.cell(row=row, column=1, value="COMPARISON").font = Font(bold=True, size=11, color=COLORS['date_text'])
+    ws.cell(row=row+1, column=1, value="CMR vs DC Allotted").border = BORDER_THIN
+    ws.cell(row=row+1, column=2, value=data["comparison"]["cmr_vs_dc_allotted"]).border = BORDER_THIN
+    ws.cell(row=row+2, column=1, value="CMR vs DC Delivered").border = BORDER_THIN
+    ws.cell(row=row+2, column=2, value=data["comparison"]["cmr_vs_dc_delivered"]).border = BORDER_THIN
+    ws.cell(row=row+3, column=1, value="By-Product Revenue (Rs.)").border = BORDER_THIN
+    ws.cell(row=row+3, column=2, value=data["byproduct_revenue"]).border = BORDER_THIN
     for letter in ['A','B','C','D']: ws.column_dimensions[letter].width = 22
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -131,20 +131,22 @@ async def export_cmr_vs_dc_pdf(kms_year: Optional[str] = None, season: Optional[
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib import colors
     from io import BytesIO
+    from utils.export_helpers import get_pdf_table_style
     data = await report_cmr_vs_dc(kms_year=kms_year, season=season)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
-    elements.append(Paragraph("CMR vs DC Report", styles['Title'])); elements.append(Spacer(1, 12))
+    elements.append(Paragraph("CMR vs DC Report / सीएमआर vs डीसी", styles['Title'])); elements.append(Spacer(1, 12))
     rows = [['Metric', 'Value'],
         ['--- MILLING ---', ''], ['Paddy Milled (Q)', data['milling']['total_paddy_milled']], ['Rice Produced (Q)', data['milling']['total_rice_produced']],
         ['FRK Used (Q)', data['milling']['total_frk_used']], ['CMR Ready (Q)', data['milling']['total_cmr_ready']], ['Outturn %', data['milling']['avg_outturn_pct']],
         ['--- DC ---', ''], ['DC Allotted (Q)', data['dc']['total_allotted']], ['DC Delivered (Q)', data['dc']['total_delivered']], ['DC Pending (Q)', data['dc']['total_pending']],
         ['--- COMPARISON ---', ''], ['CMR vs DC Allotted', data['comparison']['cmr_vs_dc_allotted']], ['CMR vs DC Delivered', data['comparison']['cmr_vs_dc_delivered']],
-        ['By-Product Revenue', f"₹{data['byproduct_revenue']}"]]
+        ['By-Product Revenue', f"Rs.{data['byproduct_revenue']}"]]
     table = RLTable(rows, colWidths=[200, 150])
-    table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#1a365d')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,-1),9),('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),('ALIGN',(1,0),(1,-1),'RIGHT')]))
+    style_cmds = get_pdf_table_style(len(rows))
+    style_cmds.append(('ALIGN',(1,0),(1,-1),'RIGHT'))
+    table.setStyle(TableStyle(style_cmds))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=cmr_vs_dc_{datetime.now().strftime('%Y%m%d')}.pdf"})
@@ -153,35 +155,36 @@ async def export_cmr_vs_dc_pdf(kms_year: Optional[str] = None, season: Optional[
 @router.get("/reports/season-pnl/excel")
 async def export_season_pnl_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.styles import Font, Alignment
     from io import BytesIO
+    from utils.export_helpers import (style_excel_title, COLORS, BORDER_THIN)
     data = await report_season_pnl(kms_year=kms_year, season=season)
     wb = Workbook(); ws = wb.active; ws.title = "Season P&L"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    title = "Season P&L Report"
+    ncols = 3
+    title = "Season P&L Report / मौसम लाभ-हानि"
     if kms_year: title += f" - KMS {kms_year}"
-    ws.merge_cells('A1:C1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
-    row = 3
-    ws.cell(row=row, column=1, value="INCOME").font = Font(bold=True, size=11, color="16a34a")
+    style_excel_title(ws, title, ncols, "Mill Entry System")
+    
+    row = 4
+    ws.cell(row=row, column=1, value="INCOME").font = Font(bold=True, size=11, color=COLORS['jama_text'])
     for label, val in [("MSP Payments", data["income"]["msp_payments"]), ("By-Product Sales", data["income"]["byproduct_sales"]),
                         ("Cash Book Jama", data["income"]["cash_book_jama"]), ("TOTAL INCOME", data["income"]["total"])]:
         row += 1
-        ws.cell(row=row, column=1, value=label).border = tb
-        c = ws.cell(row=row, column=2, value=val); c.border = tb; c.number_format = '#,##0.00'
+        ws.cell(row=row, column=1, value=label).border = BORDER_THIN
+        c = ws.cell(row=row, column=2, value=val); c.border = BORDER_THIN; c.number_format = '#,##0.00'
         if label.startswith("TOTAL"): ws.cell(row=row, column=1).font = Font(bold=True); c.font = Font(bold=True)
     row += 2
-    ws.cell(row=row, column=1, value="EXPENSES").font = Font(bold=True, size=11, color="dc2626")
+    ws.cell(row=row, column=1, value="EXPENSES").font = Font(bold=True, size=11, color=COLORS['nikasi_text'])
     for label, val in [("FRK Purchases", data["expenses"]["frk_purchases"]), ("Gunny Bags", data["expenses"]["gunny_bags"]),
                         ("Cash Book Nikasi", data["expenses"]["cash_book_nikasi"]), ("Truck Payments", data["expenses"]["truck_payments"]),
                         ("Agent Payments", data["expenses"]["agent_payments"]), ("TOTAL EXPENSES", data["expenses"]["total"])]:
         row += 1
-        ws.cell(row=row, column=1, value=label).border = tb
-        c = ws.cell(row=row, column=2, value=val); c.border = tb; c.number_format = '#,##0.00'
+        ws.cell(row=row, column=1, value=label).border = BORDER_THIN
+        c = ws.cell(row=row, column=2, value=val); c.border = BORDER_THIN; c.number_format = '#,##0.00'
         if label.startswith("TOTAL"): ws.cell(row=row, column=1).font = Font(bold=True); c.font = Font(bold=True)
     row += 2
     pnl_label = "NET PROFIT" if data["profit"] else "NET LOSS"
-    ws.cell(row=row, column=1, value=pnl_label).font = Font(bold=True, size=12, color="16a34a" if data["profit"] else "dc2626")
+    ws.cell(row=row, column=1, value=pnl_label).font = Font(bold=True, size=12, color=COLORS['jama_text'] if data["profit"] else COLORS['nikasi_text'])
     ws.cell(row=row, column=2, value=data["net_pnl"]).font = Font(bold=True, size=12)
     ws.cell(row=row, column=2).number_format = '#,##0.00'
     for letter in ['A','B','C']: ws.column_dimensions[letter].width = 22
@@ -197,33 +200,27 @@ async def export_season_pnl_pdf(kms_year: Optional[str] = None, season: Optional
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib import colors
     from io import BytesIO
+    from utils.export_helpers import get_pdf_table_style
     data = await report_season_pnl(kms_year=kms_year, season=season)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
-    elements.append(Paragraph("Season P&L Report", styles['Title'])); elements.append(Spacer(1, 12))
-    # Income
+    elements.append(Paragraph("Season P&L Report / मौसम लाभ-हानि", styles['Title'])); elements.append(Spacer(1, 12))
     elements.append(Paragraph("INCOME", styles['Heading2'])); elements.append(Spacer(1, 4))
-    idata = [['Source', 'Amount (₹)'], ['MSP Payments', data['income']['msp_payments']], ['By-Product Sales', data['income']['byproduct_sales']],
+    idata = [['Source', 'Amount (Rs.)'], ['MSP Payments', data['income']['msp_payments']], ['By-Product Sales', data['income']['byproduct_sales']],
              ['Cash Book Jama', data['income']['cash_book_jama']], ['TOTAL', data['income']['total']]]
     it = RLTable(idata, colWidths=[200, 120])
-    it.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#166534')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,-1),9),('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-        ('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('ALIGN',(1,0),(1,-1),'RIGHT')]))
+    it.setStyle(TableStyle(get_pdf_table_style(len(idata))))
     elements.append(it); elements.append(Spacer(1, 12))
-    # Expenses
     elements.append(Paragraph("EXPENSES", styles['Heading2'])); elements.append(Spacer(1, 4))
-    edata = [['Category', 'Amount (₹)'], ['FRK Purchases', data['expenses']['frk_purchases']], ['Gunny Bags', data['expenses']['gunny_bags']],
+    edata = [['Category', 'Amount (Rs.)'], ['FRK Purchases', data['expenses']['frk_purchases']], ['Gunny Bags', data['expenses']['gunny_bags']],
              ['Cash Book Nikasi', data['expenses']['cash_book_nikasi']], ['Truck Payments', data['expenses']['truck_payments']],
              ['Agent Payments', data['expenses']['agent_payments']], ['TOTAL', data['expenses']['total']]]
     et = RLTable(edata, colWidths=[200, 120])
-    et.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#991b1b')),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,-1),9),('GRID',(0,0),(-1,-1),0.5,colors.grey),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),
-        ('FONTNAME',(0,-1),(-1,-1),'Helvetica-Bold'),('ALIGN',(1,0),(1,-1),'RIGHT')]))
+    et.setStyle(TableStyle(get_pdf_table_style(len(edata))))
     elements.append(et); elements.append(Spacer(1, 15))
-    # Net P&L
     pnl_color = colors.HexColor('#166534') if data['profit'] else colors.HexColor('#991b1b')
-    pdata = [['NET ' + ('PROFIT' if data['profit'] else 'LOSS'), f"₹{data['net_pnl']}"]]
+    pdata = [['NET ' + ('PROFIT' if data['profit'] else 'LOSS'), f"Rs.{data['net_pnl']}"]]
     pt = RLTable(pdata, colWidths=[200, 120])
     pt.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),pnl_color),('TEXTCOLOR',(0,0),(-1,0),colors.white),
         ('FONTSIZE',(0,0),(-1,0),14),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),('ALIGN',(1,0),(1,0),'RIGHT')]))
@@ -455,81 +452,72 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
             gt["entry_count"] = sum(m["totals"]["entry_count"] for m in data["mandis"])
             gt["total_extra_qntl"] = round(sum(m.get("extra_qntl", 0) for m in data["mandis"]), 2)
             data["grand_totals"] = gt
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
+    
     wb = Workbook(); ws = wb.active; ws.title = "Agent Mandi Report"
-    hf = PatternFill(start_color="1E3A5F", end_color="1E3A5F", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=9)
-    mf = PatternFill(start_color="D97706", end_color="D97706", fill_type="solid")
-    mfont = Font(bold=True, color="FFFFFF", size=10)
-    tf = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
-    gf = PatternFill(start_color="065F46", end_color="065F46", fill_type="solid")
-    gfont = Font(bold=True, color="FFFFFF", size=10)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
     cols = get_columns("agent_mandi_report")
     ncols = col_count(cols)
     headers = get_excel_headers(cols)
     widths = get_excel_widths(cols)
 
-    # Title
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
-    title = f"Agent & Mandi Wise Report"
+    title = "Agent & Mandi Wise Report / एजेंट और मंडी"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
-    ws['A1'] = title
-    ws['A1'].font = Font(bold=True, size=14, color="D97706")
-    ws['A1'].alignment = Alignment(horizontal='center')
+    style_excel_title(ws, title, ncols, "Mill Entry System")
 
-    row = 3
+    row = 4
     for mandi_data in data["mandis"]:
-        # Mandi header row
         ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=ncols)
         lbl = f"{mandi_data['mandi_name']} - Agent: {mandi_data['agent_name']} ({mandi_data['totals']['entry_count']} entries)"
         if mandi_data.get("target_qntl"):
             lbl += f" | Target: {mandi_data['target_qntl']}Q | Final W: {mandi_data.get('actual_final_qntl',0)}Q | Extra: {mandi_data.get('extra_qntl',0)}Q"
+        from openpyxl.styles import PatternFill
         cell = ws.cell(row=row, column=1, value=lbl)
-        cell.fill = mf; cell.font = mfont; cell.alignment = Alignment(horizontal='left')
+        cell.fill = PatternFill(start_color=COLORS['header_bg'], fill_type='solid')
+        cell.font = Font(bold=True, color=COLORS['header_text'], size=10)
         row += 1
 
-        # Column headers
         for col_idx, h in enumerate(headers, 1):
-            c = ws.cell(row=row, column=col_idx, value=h)
-            c.fill = hf; c.font = hfont; c.alignment = Alignment(horizontal='center'); c.border = tb
+            ws.cell(row=row, column=col_idx, value=h)
+        style_excel_header_row(ws, row, ncols)
         row += 1
 
-        # Entries - values come from shared config
+        data_start = row
         for entry in mandi_data["entries"]:
             vals = get_entry_row(entry, cols)
             for col_idx, v in enumerate(vals, 1):
                 c = ws.cell(row=row, column=col_idx, value=v)
-                c.border = tb
                 if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
             row += 1
+        if mandi_data["entries"]:
+            style_excel_data_rows(ws, data_start, row - 1, ncols, headers)
 
-        # Mandi total row - values come from shared config
         t = mandi_data["totals"]
         total_vals = get_total_row(t, cols)
-        ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-        ws.cell(row=row, column=1).fill = tf; ws.cell(row=row, column=1).border = tb
+        ws.cell(row=row, column=1, value="TOTAL / कुल")
         for col_idx, val in enumerate(total_vals, 1):
             if val is not None:
                 c = ws.cell(row=row, column=col_idx, value=val)
-                c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
-        row += 2  # gap
+                c.alignment = Alignment(horizontal='right')
+        style_excel_total_row(ws, row, ncols)
+        row += 2
 
-    # Grand total - values come from shared config
     g = data["grand_totals"]
     grand_vals = get_total_row(g, cols)
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
-    ws.cell(row=row, column=1, value=f"GRAND TOTAL ({g['entry_count']} entries)").font = gfont
-    ws.cell(row=row, column=1).fill = gf
+    ws.cell(row=row, column=1, value=f"GRAND TOTAL ({g['entry_count']} entries)")
     for col_idx, val in enumerate(grand_vals, 1):
         if val is not None:
             c = ws.cell(row=row, column=col_idx, value=val)
-            c.fill = gf; c.font = gfont; c.border = tb; c.alignment = Alignment(horizontal='right')
+            c.alignment = Alignment(horizontal='right')
+    style_excel_total_row(ws, row, ncols)
 
-    # Column widths from shared config
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
 
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -575,58 +563,42 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
     cols = get_columns("agent_mandi_report")
     ncols = col_count(cols)
     headers = get_pdf_headers(cols)
+    from utils.export_helpers import get_pdf_table_style
     col_widths = [w*mm for w in get_pdf_widths_mm(cols)]
 
     for mandi_data in report_data["mandis"]:
-        # Mandi header
         mandi_label = f"{mandi_data['mandi_name']} - Agent: {mandi_data['agent_name']} ({mandi_data['totals']['entry_count']} entries)"
         if mandi_data.get("target_qntl"):
             mandi_label += f" | Target: {mandi_data['target_qntl']}Q | Final W: {mandi_data.get('actual_final_qntl',0)}Q | Extra: {mandi_data.get('extra_qntl',0)}Q"
         mandi_row = [[Paragraph(f"<b>{mandi_label}</b>", styles['Normal'])] + [''] * (ncols - 1)]
         mt = RLTable(mandi_row, colWidths=col_widths)
-        mt.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#D97706')),
+        mt.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1B4F72')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('SPAN', (0, 0), (-1, 0)),
             ('TOPPADDING', (0, 0), (-1, 0), 4), ('BOTTOMPADDING', (0, 0), (-1, 0), 4)]))
         elements.append(mt)
 
-        # Data table - entries from shared config
         table_data = [headers]
         for entry in mandi_data["entries"]:
             table_data.append([str(v) for v in get_entry_row(entry, cols)])
 
-        # Mandi totals from shared config
         t = mandi_data["totals"]
         total_vals = get_total_row(t, cols)
         total_row = []
         for i, val in enumerate(total_vals):
-            if i == 0: total_row.append("TOTAL")
+            if i == 0: total_row.append("TOTAL / कुल")
             elif val is not None: total_row.append(str(val))
             else: total_row.append("")
         table_data.append(total_row)
 
         tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
-        # Find first right-aligned column index
         first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 2)
-        style_cmds = [
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 7),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-            ('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'),
-            ('TOPPADDING', (0, 0), (-1, -1), 2),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ]
-        for i in range(1, len(table_data) - 1):
-            if i % 2 == 0:
-                style_cmds.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F1F5F9')))
+        cols_info = [{'header': h} for h in headers]
+        style_cmds = get_pdf_table_style(len(table_data), cols_info)
+        style_cmds.append(('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'))
         tbl.setStyle(TableStyle(style_cmds))
         elements.append(tbl)
         elements.append(Spacer(1, 8))
 
-    # Grand total from shared config
     g = report_data["grand_totals"]
     grand_vals = get_total_row(g, cols)
     grand_row = []
@@ -637,7 +609,7 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
         else: grand_row.append("")
     grand_data = [grand_row]
     gt = RLTable(grand_data, colWidths=col_widths)
-    gt.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#065F46')),
+    gt.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1B4F72')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 8), ('ALIGN', (first_right, 0), (-1, 0), 'RIGHT'),
         ('TOPPADDING', (0, 0), (-1, 0), 4), ('BOTTOMPADDING', (0, 0), (-1, 0), 4)]))

@@ -4,7 +4,9 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
-import uuid, io, csv
+import uuid
+import io
+import csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -431,63 +433,53 @@ async def get_paddy_custody_register(kms_year: Optional[str] = None, season: Opt
 
 @router.get("/milling-report/excel")
 async def export_milling_report_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS)
     
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     entries = await db.milling_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Milling Report"
-    
-    # Header
-    header_fill = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=10)
-    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    
-    title = f"Milling Report"
+    wb = Workbook(); ws = wb.active; ws.title = "Milling Report"
+    ncols = 12
+    title = "Milling Report / मिलिंग रिपोर्ट"
     if kms_year: title += f" - KMS {kms_year}"
     if season: title += f" ({season})"
-    ws.merge_cells('A1:L1')
-    ws['A1'] = title
-    ws['A1'].font = Font(bold=True, size=14)
-    ws['A1'].alignment = Alignment(horizontal='center')
+    style_excel_title(ws, title, ncols, "Mill Entry System")
     
     headers = ['Date', 'Type', 'Paddy (Q)', 'Rice %', 'Rice (Q)', 'FRK Used (Q)', 'CMR (Q)', 'Outturn %', 'Bran (Q)', 'Kunda (Q)', 'Husk %', 'Note']
     for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=3, column=col, value=h)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.border = thin_border
-        cell.alignment = Alignment(horizontal='center')
+        ws.cell(row=4, column=col, value=h)
+    style_excel_header_row(ws, 4, ncols)
     
-    for i, e in enumerate(entries, 4):
+    data_start = 5
+    for idx, e in enumerate(entries):
+        row = idx + data_start
         vals = [e.get('date',''), e.get('rice_type','').title(), e.get('paddy_input_qntl',0), e.get('rice_percent',0),
             e.get('rice_qntl',0), e.get('frk_used_qntl',0), e.get('cmr_delivery_qntl',0), e.get('outturn_ratio',0),
             e.get('bran_qntl',0), e.get('kunda_qntl',0), e.get('husk_percent',0), e.get('note','')]
         for col, v in enumerate(vals, 1):
-            cell = ws.cell(row=i, column=col, value=v)
-            cell.border = thin_border
-            if col >= 3: cell.alignment = Alignment(horizontal='right')
+            ws.cell(row=row, column=col, value=v)
+            if col >= 3: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
     
-    # Totals row
-    tr = len(entries) + 4
-    ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True)
+    if entries:
+        style_excel_data_rows(ws, data_start, data_start + len(entries) - 1, ncols, headers)
+    
+    tr = data_start + len(entries)
+    ws.cell(row=tr, column=1, value="TOTAL")
     if entries:
         for col, key in [(3,'paddy_input_qntl'),(5,'rice_qntl'),(6,'frk_used_qntl'),(7,'cmr_delivery_qntl'),(9,'bran_qntl'),(10,'kunda_qntl')]:
-            ws.cell(row=tr, column=col, value=round(sum(e.get(key,0) for e in entries),2)).font = Font(bold=True)
+            ws.cell(row=tr, column=col, value=round(sum(e.get(key,0) for e in entries),2))
+    style_excel_total_row(ws, tr, ncols)
     
-    from openpyxl.utils import get_column_letter as gcl
-    for i in range(1, 13):  # 12 columns
-        ws.column_dimensions[gcl(i)].width = 14
+    for i in range(1, ncols + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 14
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
     
-    buffer = BytesIO()
-    wb.save(buffer)
-    buffer.seek(0)
+    buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     fn = f"milling_report_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={fn}"})
@@ -528,20 +520,13 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
             e.get('cmr_delivery_qntl',0), f"{e.get('outturn_ratio',0)}%", e.get('bran_qntl',0), e.get('kunda_qntl',0), f"{e.get('husk_percent',0)}%"])
     data.append(['TOTAL', '', round(tp,2), '', round(tr,2), round(tf,2), round(tc,2), '', round(tb,2), round(tk,2), ''])
     
+    from utils.export_helpers import get_pdf_table_style
+    
     col_widths = [65, 35, 55, 40, 50, 45, 50, 55, 45, 50, 40]
     table = RLTable(data, colWidths=col_widths, repeatRows=1)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTSIZE', (0,0), (-1,-1), 7),
-        ('FONTSIZE', (0,0), (-1,0), 8),
-        ('ALIGN', (2,0), (-1,-1), 'RIGHT'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
-        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('ROWBACKGROUNDS', (0,1), (-1,-2), [colors.white, colors.HexColor('#f8f8f8')]),
-    ]))
+    style_cmds = get_pdf_table_style(len(data))
+    style_cmds.append(('ALIGN', (2,0), (-1,-1), 'RIGHT'))
+    table.setStyle(TableStyle(style_cmds))
     elements.append(table)
     
     doc.build(elements)
@@ -553,8 +538,6 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
 
 @router.get("/paddy-custody-register/excel")
 async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
     
     register = await get_paddy_custody_register(kms_year=kms_year, season=season)
@@ -564,39 +547,39 @@ async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Opt
     ws = wb.active
     ws.title = "Paddy Custody Register"
     
-    header_fill = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=10)
-    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    from openpyxl.utils import get_column_letter
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
     
-    title = "Paddy Custody Maintenance Register"
+    title = "Paddy Custody Register / धान कस्टडी"
     if kms_year: title += f" - KMS {kms_year}"
     if season: title += f" ({season})"
-    ws.merge_cells('A1:E1')
-    ws['A1'] = title
-    ws['A1'].font = Font(bold=True, size=14)
-    ws['A1'].alignment = Alignment(horizontal='center')
+    ncols = 5
+    style_excel_title(ws, title, ncols, "Mill Entry System")
     
     headers = ['Date', 'Description', 'Received (QNTL)', 'Released (QNTL)', 'Balance (QNTL)']
     for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=3, column=col, value=h)
-        cell.fill = header_fill; cell.font = header_font; cell.border = thin_border
-        cell.alignment = Alignment(horizontal='center')
+        ws.cell(row=4, column=col, value=h)
+    style_excel_header_row(ws, 4, ncols)
     
-    for i, r in enumerate(rows, 4):
+    data_start = 5
+    for idx, r in enumerate(rows):
+        row_num = idx + data_start
         vals = [r['date'], r['description'], r['received_qntl'] if r['received_qntl'] > 0 else '',
             r['issued_qntl'] if r['issued_qntl'] > 0 else '', r['balance_qntl']]
         for col, v in enumerate(vals, 1):
-            cell = ws.cell(row=i, column=col, value=v)
-            cell.border = thin_border
+            cell = ws.cell(row=row_num, column=col, value=v)
             if col >= 3: cell.alignment = Alignment(horizontal='right')
-            if r['type'] == 'received': cell.font = Font(color="006600")
-            elif r['type'] == 'issued': cell.font = Font(color="CC0000")
     
-    tr = len(rows) + 4
-    ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=tr, column=3, value=register['total_received']).font = Font(bold=True)
-    ws.cell(row=tr, column=4, value=register['total_issued']).font = Font(bold=True)
-    ws.cell(row=tr, column=5, value=register['final_balance']).font = Font(bold=True)
+    if rows:
+        style_excel_data_rows(ws, data_start, data_start + len(rows) - 1, ncols, headers)
+    
+    tr = data_start + len(rows)
+    ws.cell(row=tr, column=1, value="TOTAL")
+    ws.cell(row=tr, column=3, value=register['total_received'])
+    ws.cell(row=tr, column=4, value=register['total_issued'])
+    ws.cell(row=tr, column=5, value=register['final_balance'])
+    style_excel_total_row(ws, tr, ncols)
     
     ws.column_dimensions['A'].width = 14; ws.column_dimensions['B'].width = 50
     ws.column_dimensions['C'].width = 16; ws.column_dimensions['D'].width = 16; ws.column_dimensions['E'].width = 16
@@ -631,6 +614,8 @@ async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optio
     elements.append(Paragraph(title, styles['Title']))
     elements.append(Spacer(1, 12))
     
+    from utils.export_helpers import get_pdf_table_style
+    
     data = [['Date', 'Description', 'Received (Q)', 'Released (Q)', 'Balance (Q)']]
     for r in rows:
         data.append([r['date'], r['description'][:60], r['received_qntl'] if r['received_qntl'] > 0 else '-',
@@ -638,14 +623,9 @@ async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optio
     data.append(['TOTAL', '', register['total_received'], register['total_issued'], register['final_balance']])
     
     table = RLTable(data, colWidths=[65, 300, 70, 70, 70], repeatRows=1)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTSIZE', (0,0), (-1,-1), 7), ('FONTSIZE', (0,0), (-1,0), 8),
-        ('ALIGN', (2,0), (-1,-1), 'RIGHT'), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
-        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('ROWBACKGROUNDS', (0,1), (-1,-2), [colors.white, colors.HexColor('#f8f8f8')]),
-    ]))
+    style_cmds = get_pdf_table_style(len(data))
+    style_cmds.append(('ALIGN', (2,0), (-1,-1), 'RIGHT'))
+    table.setStyle(TableStyle(style_cmds))
     elements.append(table)
     doc.build(elements)
     buffer.seek(0)
@@ -655,8 +635,6 @@ async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optio
 
 @router.get("/frk-purchases/excel")
 async def export_frk_purchases_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
     
     query = {}
@@ -665,26 +643,34 @@ async def export_frk_purchases_excel(kms_year: Optional[str] = None, season: Opt
     purchases = await db.frk_purchases.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     
     wb = Workbook(); ws = wb.active; ws.title = "FRK Purchases"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=10)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
     
-    title = "FRK Purchase Register"
+    ncols = 6
+    title = "FRK Purchase Register / एफआरके खरीद"
     if kms_year: title += f" - KMS {kms_year}"
-    ws.merge_cells('A1:F1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    style_excel_title(ws, title, ncols, "Mill Entry System")
     
-    for col, h in enumerate(['Date', 'Party Name', 'Qty (QNTL)', 'Rate (₹/Q)', 'Amount (₹)', 'Note'], 1):
-        c = ws.cell(row=3, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
+    headers = ['Date', 'Party Name', 'Qty (QNTL)', 'Rate (Rs/Q)', 'Amount (Rs)', 'Note']
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=4, column=col, value=h)
+    style_excel_header_row(ws, 4, ncols)
     
-    for i, p in enumerate(purchases, 4):
+    data_start = 5
+    for idx, p in enumerate(purchases):
+        row = idx + data_start
         for col, v in enumerate([p.get('date',''), p.get('party_name',''), p.get('quantity_qntl',0), p.get('rate_per_qntl',0), p.get('total_amount',0), p.get('note','')], 1):
-            c = ws.cell(row=i, column=col, value=v); c.border = tb
-            if col >= 3: c.alignment = Alignment(horizontal='right')
+            ws.cell(row=row, column=col, value=v)
+            if col >= 3: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
     
-    tr = len(purchases) + 4
-    ws.cell(row=tr, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=tr, column=3, value=round(sum(p.get('quantity_qntl',0) for p in purchases),2)).font = Font(bold=True)
-    ws.cell(row=tr, column=5, value=round(sum(p.get('total_amount',0) for p in purchases),2)).font = Font(bold=True)
+    if purchases:
+        style_excel_data_rows(ws, data_start, data_start + len(purchases) - 1, ncols, headers)
+    
+    tr = data_start + len(purchases)
+    ws.cell(row=tr, column=1, value="TOTAL")
+    ws.cell(row=tr, column=3, value=round(sum(p.get('quantity_qntl',0) for p in purchases),2))
+    ws.cell(row=tr, column=5, value=round(sum(p.get('total_amount',0) for p in purchases),2))
+    style_excel_total_row(ws, tr, ncols)
     for letter in ['A','B','C','D','E','F']: ws.column_dimensions[letter].width = 16
     
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
@@ -712,7 +698,9 @@ async def export_frk_purchases_pdf(kms_year: Optional[str] = None, season: Optio
     if kms_year: title += f" - KMS {kms_year}"
     elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
     
-    data = [['Date', 'Party', 'Qty(Q)', 'Rate(₹)', 'Amount(₹)', 'Note']]
+    from utils.export_helpers import get_pdf_table_style
+    
+    data = [['Date', 'Party', 'Qty(Q)', 'Rate(Rs)', 'Amount(Rs)', 'Note']]
     tq = ta = 0
     for p in purchases:
         tq += p.get('quantity_qntl',0); ta += p.get('total_amount',0)
@@ -720,13 +708,9 @@ async def export_frk_purchases_pdf(kms_year: Optional[str] = None, season: Optio
     data.append(['TOTAL', '', round(tq,2), '', round(ta,2), ''])
     
     table = RLTable(data, colWidths=[60, 120, 55, 55, 70, 80], repeatRows=1)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTSIZE', (0,0), (-1,-1), 7), ('ALIGN', (2,0), (-1,-1), 'RIGHT'),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
-        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-    ]))
+    style_cmds = get_pdf_table_style(len(data))
+    style_cmds.append(('ALIGN', (2,0), (-1,-1), 'RIGHT'))
+    table.setStyle(TableStyle(style_cmds))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=frk_purchases_{datetime.now().strftime('%Y%m%d')}.pdf"})
@@ -734,8 +718,6 @@ async def export_frk_purchases_pdf(kms_year: Optional[str] = None, season: Optio
 
 @router.get("/byproduct-sales/excel")
 async def export_byproduct_sales_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from io import BytesIO
     
     query = {}
@@ -745,42 +727,52 @@ async def export_byproduct_sales_excel(kms_year: Optional[str] = None, season: O
     stock_data = await get_byproduct_stock(kms_year=kms_year, season=season)
     
     wb = Workbook(); ws = wb.active; ws.title = "By-Product Sales"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=10)
-    tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
     
-    title = "By-Product Stock & Sales Report"
+    ncols = 7
+    title = "By-Product Stock & Sales / उप-उत्पाद बिक्री"
     if kms_year: title += f" - KMS {kms_year}"
-    ws.merge_cells('A1:G1'); ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    style_excel_title(ws, title, ncols, "Mill Entry System")
     
     # Stock summary section
-    ws.cell(row=3, column=1, value="Stock Summary").font = Font(bold=True, size=11)
-    for col, h in enumerate(['Product', 'Produced (Q)', 'Sold (Q)', 'Available (Q)', 'Revenue (₹)'], 1):
-        c = ws.cell(row=4, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
-    row = 5
+    ws.cell(row=4, column=1, value="Stock Summary").font = Font(bold=True, size=11, color=COLORS['title_text'])
+    stock_headers = ['Product', 'Produced (Q)', 'Sold (Q)', 'Available (Q)', 'Revenue (Rs)']
+    for col, h in enumerate(stock_headers, 1):
+        ws.cell(row=5, column=col, value=h)
+    style_excel_header_row(ws, 5, 5)
+    row = 6
+    stock_start = row
     for prod, label in [('bran','Bran'), ('kunda','Kunda'), ('broken','Broken'), ('kanki','Kanki'), ('husk','Husk')]:
         s = stock_data.get(prod, {})
         for col, v in enumerate([label, s.get('produced_qntl',0), s.get('sold_qntl',0), s.get('available_qntl',0), s.get('total_revenue',0)], 1):
-            c = ws.cell(row=row, column=col, value=v); c.border = tb
-            if col >= 2: c.alignment = Alignment(horizontal='right')
+            ws.cell(row=row, column=col, value=v)
+            if col >= 2: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
         row += 1
+    style_excel_data_rows(ws, stock_start, row - 1, 5, stock_headers)
     
     # Sales detail section
     row += 1
-    ws.cell(row=row, column=1, value="Sales Detail").font = Font(bold=True, size=11)
+    ws.cell(row=row, column=1, value="Sales Detail").font = Font(bold=True, size=11, color=COLORS['title_text'])
     row += 1
-    for col, h in enumerate(['Date', 'Product', 'Qty (Q)', 'Rate (₹/Q)', 'Amount (₹)', 'Buyer', 'Note'], 1):
-        c = ws.cell(row=row, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
+    sale_headers = ['Date', 'Product', 'Qty (Q)', 'Rate (Rs/Q)', 'Amount (Rs)', 'Buyer', 'Note']
+    for col, h in enumerate(sale_headers, 1):
+        ws.cell(row=row, column=col, value=h)
+    style_excel_header_row(ws, row, ncols)
     row += 1
+    sale_start = row
     for s in sales:
         for col, v in enumerate([s.get('date',''), s.get('product','').title(), s.get('quantity_qntl',0), s.get('rate_per_qntl',0), s.get('total_amount',0), s.get('buyer_name',''), s.get('note','')], 1):
-            c = ws.cell(row=row, column=col, value=v); c.border = tb
-            if col >= 3 and col <= 5: c.alignment = Alignment(horizontal='right')
+            ws.cell(row=row, column=col, value=v)
+            if col >= 3 and col <= 5: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
         row += 1
+    if sales:
+        style_excel_data_rows(ws, sale_start, row - 1, ncols, sale_headers)
     
-    ws.cell(row=row, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row, column=3, value=round(sum(s.get('quantity_qntl',0) for s in sales),2)).font = Font(bold=True)
-    ws.cell(row=row, column=5, value=round(sum(s.get('total_amount',0) for s in sales),2)).font = Font(bold=True)
+    ws.cell(row=row, column=1, value="TOTAL")
+    ws.cell(row=row, column=3, value=round(sum(s.get('quantity_qntl',0) for s in sales),2))
+    ws.cell(row=row, column=5, value=round(sum(s.get('total_amount',0) for s in sales),2))
+    style_excel_total_row(ws, row, ncols)
     for letter in ['A','B','C','D','E','F','G']: ws.column_dimensions[letter].width = 16
     
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
@@ -809,21 +801,23 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
     if kms_year: title += f" - KMS {kms_year}"
     elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
     
+    from utils.export_helpers import get_pdf_table_style
+    
     # Stock summary table
     elements.append(Paragraph("Stock Summary", styles['Heading2'])); elements.append(Spacer(1, 6))
-    sdata = [['Product', 'Produced(Q)', 'Sold(Q)', 'Available(Q)', 'Revenue(₹)']]
+    sdata = [['Product', 'Produced(Q)', 'Sold(Q)', 'Available(Q)', 'Revenue(Rs)']]
     for prod, label in [('bran','Bran'), ('kunda','Kunda'), ('broken','Broken'), ('kanki','Kanki'), ('husk','Husk')]:
         s = stock_data.get(prod, {})
         sdata.append([label, s.get('produced_qntl',0), s.get('sold_qntl',0), s.get('available_qntl',0), s.get('total_revenue',0)])
     st = RLTable(sdata, colWidths=[70, 70, 60, 70, 70])
-    st.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTSIZE', (0,0), (-1,-1), 8), ('ALIGN', (1,0), (-1,-1), 'RIGHT'), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]))
+    style_cmds = get_pdf_table_style(len(sdata))
+    style_cmds.append(('ALIGN', (1,0), (-1,-1), 'RIGHT'))
+    st.setStyle(TableStyle(style_cmds))
     elements.append(st); elements.append(Spacer(1, 15))
     
     # Sales table
     elements.append(Paragraph("Sales Detail", styles['Heading2'])); elements.append(Spacer(1, 6))
-    data = [['Date', 'Product', 'Qty(Q)', 'Rate(₹)', 'Amount(₹)', 'Buyer']]
+    data = [['Date', 'Product', 'Qty(Q)', 'Rate(Rs)', 'Amount(Rs)', 'Buyer']]
     tq = ta = 0
     for s in sales:
         tq += s.get('quantity_qntl',0); ta += s.get('total_amount',0)
@@ -831,10 +825,9 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
     data.append(['TOTAL', '', round(tq,2), '', round(ta,2), ''])
     
     table = RLTable(data, colWidths=[55, 55, 45, 50, 60, 90], repeatRows=1)
-    table.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTSIZE', (0,0), (-1,-1), 7), ('ALIGN', (2,0), (-1,-1), 'RIGHT'), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
-        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'), ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]))
+    style_cmds2 = get_pdf_table_style(len(data))
+    style_cmds2.append(('ALIGN', (2,0), (-1,-1), 'RIGHT'))
+    table.setStyle(TableStyle(style_cmds2))
     elements.append(table); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=byproduct_sales_{datetime.now().strftime('%Y%m%d')}.pdf"})

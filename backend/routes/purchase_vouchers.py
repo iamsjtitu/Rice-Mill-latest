@@ -763,7 +763,9 @@ async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Opt
 
     try:
         from openpyxl import Workbook
-        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.styles import Font, Alignment
+        from utils.export_helpers import (style_excel_title, style_excel_header_row,
+            style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
 
         wb = Workbook()
         ws = wb.active
@@ -775,49 +777,22 @@ async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Opt
         ws.page_setup.fitToHeight = 0
         ws.sheet_properties.pageSetUpPr.fitToPage = True
 
-        # Colors
-        dark_green = '2E7D32'
-        light_green = 'E8F5E9'
-        green = '27AE60'
-        red = 'E74C3C'
-
-        title_font = Font(name='Calibri', size=14, bold=True, color=dark_green)
-        sub_font = Font(name='Calibri', size=9, color='666666')
-        hd_font = Font(name='Calibri', size=8, bold=True, color='FFFFFF')
-        hd_fill = PatternFill(start_color=dark_green, end_color=dark_green, fill_type='solid')
-        data_font = Font(name='Calibri', size=8)
-        bold_font = Font(name='Calibri', size=8, bold=True)
-        amt_font = Font(name='Calibri', size=8, bold=True, color=dark_green)
-        paid_font = Font(name='Calibri', size=8, bold=True, color=green)
-        bal_font = Font(name='Calibri', size=8, bold=True, color=red)
-        total_font = Font(name='Calibri', size=9, bold=True, color='FFFFFF')
-        total_fill = PatternFill(start_color=dark_green, end_color=dark_green, fill_type='solid')
-        alt_fill = PatternFill(start_color='F8FAFC', end_color='F8FAFC', fill_type='solid')
-        thin = Border(bottom=Side(style='thin', color='E0E0E0'))
-
         cols = ['#', 'Date', 'Inv No.', 'Party', 'Items (Qntl)', 'Truck', 'Total', 'Advance', 'Cash', 'Diesel', 'Ledger Paid', 'Balance', 'Status']
         widths = [5, 9, 9, 16, 30, 10, 10, 9, 8, 8, 10, 10, 7]
-        last_col = chr(64 + len(cols))
+        ncols = len(cols)
 
-        ws.merge_cells(f'A1:{last_col}1')
-        ws['A1'] = company
-        ws['A1'].font = title_font
-        ws['A1'].alignment = Alignment(horizontal='center')
-
-        ws.merge_cells(f'A2:{last_col}2')
-        ws['A2'] = f"Purchase Book | {f'FY: {kms_year}' if kms_year else ''} {f'| {season}' if season else ''} | {datetime.now().strftime('%d-%m-%Y')}"
-        ws['A2'].font = sub_font
-        ws['A2'].alignment = Alignment(horizontal='center')
+        title = f"{company} - Purchase Book / खरीद बही"
+        subtitle = f"FY: {kms_year or 'All'} | {season or 'All'} | {datetime.now().strftime('%d-%m-%Y')}"
+        style_excel_title(ws, title, ncols, subtitle)
 
         for i, (col, w) in enumerate(zip(cols, widths), 1):
-            cell = ws.cell(row=4, column=i, value=col)
-            cell.font = hd_font
-            cell.fill = hd_fill
-            cell.alignment = Alignment(horizontal='right' if i >= 7 else 'left', vertical='center', wrap_text=True)
-            ws.column_dimensions[cell.column_letter].width = w
+            ws.cell(row=4, column=i, value=col)
+            ws.column_dimensions[ws.cell(row=4, column=i).column_letter].width = w
+        style_excel_header_row(ws, 4, ncols)
 
         g = {"total": 0, "adv": 0, "cash": 0, "diesel": 0, "paid": 0, "bal": 0}
-        for ri, v in enumerate(vouchers, 5):
+        data_start = 5
+        for ri, v in enumerate(vouchers, data_start):
             items_str = ', '.join(f"{i['item_name']} ({i.get('quantity', 0)} Qntl)" for i in v.get('items', []))
             dp = str(v.get('date', '')).split('-')
             dt = f"{dp[2]}/{dp[1]}/{dp[0]}" if len(dp) == 3 else v.get('date', '')
@@ -838,26 +813,20 @@ async def export_purchase_book_excel(kms_year: Optional[str] = None, season: Opt
                         v.get('diesel_paid', 0) or 0, ledger_paid, ledger_bal, status]
             for ci, val in enumerate(row_data, 1):
                 cell = ws.cell(row=ri, column=ci, value=val)
-                cell.border = thin
-                cell.font = bold_font if ci == 4 else (amt_font if ci == 7 else (paid_font if ci == 11 else (bal_font if ci == 12 else data_font)))
                 if ci >= 7 and ci <= 12:
                     cell.alignment = Alignment(horizontal='right')
                     if isinstance(val, (int, float)): cell.number_format = '#,##0'
-                if ri % 2 == 0: cell.fill = alt_fill
 
-        tr = len(vouchers) + 5
-        ws.merge_cells(f'A{tr}:F{tr}')
-        for ci in range(1, len(cols) + 1):
-            cell = ws.cell(row=tr, column=ci)
-            cell.fill = total_fill
-            cell.font = total_font
+        if vouchers:
+            style_excel_data_rows(ws, data_start, data_start + len(vouchers) - 1, ncols, cols)
+
+        tr = len(vouchers) + data_start
         ws.cell(row=tr, column=1, value=f"TOTAL ({len(vouchers)} vouchers)")
         for ci, val in enumerate([g['total'], g['adv'], g['cash'], g['diesel'], g['paid'], g['bal'], ''], 7):
             cell = ws.cell(row=tr, column=ci, value=val)
-            cell.font = total_font
-            cell.fill = total_fill
             cell.alignment = Alignment(horizontal='right')
             if isinstance(val, (int, float)): cell.number_format = '#,##0'
+        style_excel_total_row(ws, tr, ncols)
 
         buf = io.BytesIO()
         wb.save(buf)
@@ -1151,49 +1120,25 @@ async def export_stock_summary_excel(kms_year: Optional[str] = None, season: Opt
     company = branding.get("company_name", "NAVKAR AGRO")
 
     from openpyxl import Workbook
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.styles import Font, Alignment, PatternFill
     from openpyxl.utils import get_column_letter
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, COLORS, BORDER_THIN)
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Stock Summary"
+    ncols = 6
 
-    thin = Side(style='thin', color='CBD5E1')
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    title = f"{company} - Stock Summary / स्टॉक सारांश"
+    subtitle = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+    style_excel_title(ws, title, ncols, subtitle)
 
-    # Title row
-    ws.merge_cells('A1:F1')
-    ws['A1'] = f"{company} - Stock Summary"
-    ws['A1'].font = Font(bold=True, size=14, color="1565C0")
-    ws['A1'].alignment = Alignment(horizontal='center')
-
-    meta = f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
-    ws.merge_cells('A2:F2')
-    ws['A2'] = meta
-    ws['A2'].font = Font(size=8, color="666666")
-    ws['A2'].alignment = Alignment(horizontal='center')
-
-    # Headers
     headers = ["Item", "Category", "In (Qntl)", "Out (Qntl)", "Available (Qntl)", "Details"]
-    hfill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=9)
-
     for c, h in enumerate(headers, 1):
-        cell = ws.cell(row=4, column=c, value=h)
-        cell.fill = hfill
-        cell.font = hfont
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = border
+        ws.cell(row=4, column=c, value=h)
+    style_excel_header_row(ws, 4, ncols)
 
-    # Category fills
-    cat_fills = {
-        "Raw Material": PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"),
-        "Finished": PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid"),
-        "By-Product": PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid"),
-        "Custom": PatternFill(start_color="EDE9FE", end_color="EDE9FE", fill_type="solid"),
-    }
-
-    # Group items
     grouped = {}
     for item in items:
         cat = item.get('category', 'Other')
@@ -1202,37 +1147,32 @@ async def export_stock_summary_excel(kms_year: Optional[str] = None, season: Opt
 
     row = 5
     for cat_name, cat_items in grouped.items():
-        # Category header row
         ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
         cell = ws.cell(row=row, column=1, value=cat_name)
-        cell.font = Font(bold=True, size=10, color="1E293B")
-        cat_fill = cat_fills.get(cat_name, PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid"))
-        cell.fill = cat_fill
-        cell.border = border
+        cell.font = Font(bold=True, size=10, color=COLORS['header_text'])
+        cell.fill = PatternFill(start_color=COLORS['header_bg'], fill_type='solid')
         row += 1
+        data_start = row
 
         for item in cat_items:
             avail = item.get('available', 0)
             vals = [item['name'], item.get('category', ''), item.get('in_qty', 0), item.get('out_qty', 0), avail, item.get('details', '')]
             for c, val in enumerate(vals, 1):
                 cell = ws.cell(row=row, column=c, value=val)
-                cell.border = border
-                if c == 1:
-                    cell.font = Font(bold=True, size=9)
-                elif c == 5:
-                    cell.font = Font(bold=True, size=10, color="DC2626" if avail < 0 else "059669")
+                cell.border = BORDER_THIN
+                if c in (3, 4, 5):
                     cell.alignment = Alignment(horizontal='right')
-                elif c in (3, 4):
-                    cell.alignment = Alignment(horizontal='right')
-                elif c == 6:
-                    cell.font = Font(size=7, color="888888")
             row += 1
-        row += 1  # gap between categories
 
-    # Column widths
+        if cat_items:
+            style_excel_data_rows(ws, data_start, row - 1, ncols, headers)
+        row += 1
+
     widths = [22, 14, 14, 14, 18, 50]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
 
     buf = io.BytesIO()
     wb.save(buf)
