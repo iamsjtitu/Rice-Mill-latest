@@ -129,15 +129,19 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
     txn_dict.pop('_id', None)
     
     # Auto-create corresponding ledger entry if this is a cash/bank transaction
-    # Ledger perspective: any cash movement (in or out) is a settlement/payment → always Nikasi
-    # Cash In (Jama) from party = party paid us → Ledger Nikasi (reduces their debt)
-    # Cash Out (Nikasi) to party = we paid them → Ledger Nikasi (reduces our debt)
+    # Double-entry: Cash movement creates opposite ledger entry for the party
+    # Cash In (Jama) from party = party paid us → Ledger Nikasi (reduces party's debt)
+    # Cash Out (Nikasi) to party = we paid them → Ledger Jama (increases party's receivable/debt)
     if txn_dict.get('account') in ('cash', 'bank') and category:
         ledger_amount = round(txn_dict['amount'] + round_off, 2) if round_off else txn_dict['amount']
         ledger_entry = {**txn_dict}
         ledger_entry['id'] = str(uuid.uuid4())
         ledger_entry['account'] = 'ledger'
-        ledger_entry['txn_type'] = 'nikasi'
+        # Reverse the txn_type for double-entry
+        if txn_dict.get('txn_type') == 'jama':
+            ledger_entry['txn_type'] = 'nikasi'
+        else:
+            ledger_entry['txn_type'] = 'jama'
         ledger_entry['amount'] = ledger_amount
         ledger_entry['reference'] = f"auto_ledger:{txn_dict.get('id', '')[:8]}"
         # Auto-generate description if empty
@@ -533,8 +537,11 @@ async def update_cash_transaction(txn_id: str, request: Request, username: str =
     result = await db.cash_transactions.update_one({"id": txn_id}, {"$set": body})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    # Update auto-created ledger entry too (exclude txn_type - auto-ledger always stays nikasi)
-    ledger_body = {k: v for k, v in body.items() if k not in ('account', 'reference', 'txn_type')}
+    # Update auto-created ledger entry too
+    ledger_body = {k: v for k, v in body.items() if k not in ('account', 'reference')}
+    # If txn_type changed, reverse it for auto-ledger (double-entry)
+    if 'txn_type' in ledger_body:
+        ledger_body['txn_type'] = 'nikasi' if body.get('txn_type') == 'jama' else 'jama'
     await db.cash_transactions.update_many({"reference": f"auto_ledger:{txn_id[:8]}"}, {"$set": ledger_body})
     updated = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
     return updated

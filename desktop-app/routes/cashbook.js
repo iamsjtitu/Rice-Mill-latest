@@ -74,7 +74,7 @@ module.exports = function(database) {
     // Auto-create ledger entry for cash/bank transactions
     if ((txn.account === 'cash' || txn.account === 'bank') && category) {
       const ledgerAmount = roundOff ? Math.round((txn.amount + roundOff) * 100) / 100 : txn.amount;
-      const ledgerEntry = { ...txn, id: uuidv4(), account: 'ledger', txn_type: 'nikasi', amount: ledgerAmount, reference: `auto_ledger:${txn.id.substring(0, 8)}` };
+      const ledgerEntry = { ...txn, id: uuidv4(), account: 'ledger', txn_type: txn.txn_type === 'jama' ? 'nikasi' : 'jama', amount: ledgerAmount, reference: `auto_ledger:${txn.id.substring(0, 8)}` };
       // Auto-generate description if empty
       if (!ledgerEntry.description) {
         const acct = (txn.account || 'cash').charAt(0).toUpperCase() + (txn.account || 'cash').slice(1);
@@ -290,10 +290,14 @@ module.exports = function(database) {
     body.updated_at = new Date().toISOString();
     if (body.amount) body.amount = Math.round(parseFloat(body.amount) * 100) / 100;
     Object.assign(database.data.cash_transactions[idx], body);
-    // Update auto-created ledger entry too (exclude txn_type - auto-ledger always stays nikasi)
+    // Update auto-created ledger entry too
     const txnIdShort = req.params.id.slice(0, 8);
     const ledgerBody = { ...body };
-    delete ledgerBody.account; delete ledgerBody.reference; delete ledgerBody.txn_type;
+    delete ledgerBody.account; delete ledgerBody.reference;
+    // If txn_type changed, reverse it for auto-ledger (double-entry)
+    if (ledgerBody.txn_type) {
+      ledgerBody.txn_type = body.txn_type === 'jama' ? 'nikasi' : 'jama';
+    }
     database.data.cash_transactions.forEach((t, i) => {
       if (t.reference === `auto_ledger:${txnIdShort}`) Object.assign(database.data.cash_transactions[i], ledgerBody);
     });
