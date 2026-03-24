@@ -259,22 +259,24 @@ async def get_cash_book_summary(kms_year: Optional[str] = None, season: Optional
     if season: query["season"] = season
     txns = await db.cash_transactions.find(query, {"_id": 0}).to_list(10000)
     
-    cash_in = sum(t['amount'] for t in txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
-    cash_out = sum(t['amount'] for t in txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
-    bank_in = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
-    bank_out = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
+    # Exclude Round Off entries from cash/bank balance - round off is discount, not actual cash
+    real_txns = [t for t in txns if t.get('party_type') != 'Round Off']
+    cash_in = sum(t['amount'] for t in real_txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
+    cash_out = sum(t['amount'] for t in real_txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
+    bank_in = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
+    bank_out = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
     
     # Per-bank breakdowns
     bank_accounts = await db.bank_accounts.find({}, {"_id": 0}).sort("name", 1).to_list(100)
     bank_names = [b["name"] for b in bank_accounts]
     bank_details = {}
     for bn in bank_names:
-        b_in = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama' and t.get('bank_name') == bn)
-        b_out = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi' and t.get('bank_name') == bn)
+        b_in = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama' and t.get('bank_name') == bn)
+        b_out = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi' and t.get('bank_name') == bn)
         bank_details[bn] = {"in": round(b_in, 2), "out": round(b_out, 2), "balance": round(b_in - b_out, 2)}
     # Also capture bank txns without a bank_name
-    unlinked_in = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama' and not t.get('bank_name'))
-    unlinked_out = sum(t['amount'] for t in txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi' and not t.get('bank_name'))
+    unlinked_in = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama' and not t.get('bank_name'))
+    unlinked_out = sum(t['amount'] for t in real_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi' and not t.get('bank_name'))
     if unlinked_in > 0 or unlinked_out > 0:
         bank_details["Other"] = {"in": round(unlinked_in, 2), "out": round(unlinked_out, 2), "balance": round(unlinked_in - unlinked_out, 2)}
     
@@ -294,10 +296,11 @@ async def get_cash_book_summary(kms_year: Optional[str] = None, season: Optional
                 try:
                     prev_fy = f"{int(parts[0])-1}-{int(parts[1])-1}"
                     prev_txns = await db.cash_transactions.find({"kms_year": prev_fy}, {"_id": 0}).to_list(10000)
-                    prev_cash_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
-                    prev_cash_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
-                    prev_bank_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
-                    prev_bank_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
+                    prev_real = [t for t in prev_txns if t.get('party_type') != 'Round Off']
+                    prev_cash_in = sum(t['amount'] for t in prev_real if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
+                    prev_cash_out = sum(t['amount'] for t in prev_real if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
+                    prev_bank_in = sum(t['amount'] for t in prev_real if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
+                    prev_bank_out = sum(t['amount'] for t in prev_real if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
                     prev_ob = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
                     if prev_ob:
                         opening_cash = round((prev_ob.get("cash", 0) + prev_cash_in - prev_cash_out), 2)
@@ -343,10 +346,11 @@ async def get_opening_balance(kms_year: str):
         try:
             prev_fy = f"{int(parts[0])-1}-{int(parts[1])-1}"
             prev_txns = await db.cash_transactions.find({"kms_year": prev_fy}, {"_id": 0}).to_list(10000)
-            prev_cash_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
-            prev_cash_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
-            prev_bank_in = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
-            prev_bank_out = sum(t['amount'] for t in prev_txns if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
+            prev_real = [t for t in prev_txns if t.get('party_type') != 'Round Off']
+            prev_cash_in = sum(t['amount'] for t in prev_real if t.get('account') == 'cash' and t.get('txn_type') == 'jama')
+            prev_cash_out = sum(t['amount'] for t in prev_real if t.get('account') == 'cash' and t.get('txn_type') == 'nikasi')
+            prev_bank_in = sum(t['amount'] for t in prev_real if t.get('account') == 'bank' and t.get('txn_type') == 'jama')
+            prev_bank_out = sum(t['amount'] for t in prev_real if t.get('account') == 'bank' and t.get('txn_type') == 'nikasi')
             prev_ob = await db.opening_balances.find_one({"kms_year": prev_fy}, {"_id": 0})
             ob_cash = prev_ob.get("cash", 0) if prev_ob else 0
             ob_bank = prev_ob.get("bank", 0) if prev_ob else 0

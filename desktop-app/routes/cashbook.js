@@ -371,10 +371,12 @@ module.exports = function(database) {
     const kmsYear = req.query.kms_year;
     if (kmsYear) txns = txns.filter(t => t.kms_year === kmsYear);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
-    const cashIn = +txns.filter(t => t.account === 'cash' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
-    const cashOut = +txns.filter(t => t.account === 'cash' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
-    const bankIn = +txns.filter(t => t.account === 'bank' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
-    const bankOut = +txns.filter(t => t.account === 'bank' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
+    // Exclude Round Off entries from cash/bank balance - round off is discount, not actual cash
+    const realTxns = txns.filter(t => t.party_type !== 'Round Off');
+    const cashIn = +realTxns.filter(t => t.account === 'cash' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
+    const cashOut = +realTxns.filter(t => t.account === 'cash' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
+    const bankIn = +realTxns.filter(t => t.account === 'bank' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
+    const bankOut = +realTxns.filter(t => t.account === 'bank' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2);
 
     // Opening balance from previous FY (Tally-style carry forward)
     let openingCash = 0, openingBank = 0;
@@ -390,10 +392,11 @@ module.exports = function(database) {
             openingBank = savedOb.bank || 0;
           } else {
             const prevTxns = database.data.cash_transactions.filter(t => t.kms_year === prevFy);
-            const pCashIn = prevTxns.filter(t => t.account === 'cash' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
-            const pCashOut = prevTxns.filter(t => t.account === 'cash' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
-            const pBankIn = prevTxns.filter(t => t.account === 'bank' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
-            const pBankOut = prevTxns.filter(t => t.account === 'bank' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
+            const prevReal = prevTxns.filter(t => t.party_type !== 'Round Off');
+            const pCashIn = prevReal.filter(t => t.account === 'cash' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
+            const pCashOut = prevReal.filter(t => t.account === 'cash' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
+            const pBankIn = prevReal.filter(t => t.account === 'bank' && t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0);
+            const pBankOut = prevReal.filter(t => t.account === 'bank' && t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0);
             const prevOb = database.data.opening_balances.find(ob => ob.kms_year === prevFy);
             if (prevOb) {
               openingCash = +((prevOb.cash || 0) + pCashIn - pCashOut).toFixed(2);
@@ -407,8 +410,8 @@ module.exports = function(database) {
       }
     }
 
-    // Per-bank breakdown for bank account transactions
-    const bankTxns = txns.filter(t => t.account === 'bank');
+    // Per-bank breakdown for bank account transactions (exclude Round Off)
+    const bankTxns = realTxns.filter(t => t.account === 'bank');
     const bankNames = [...new Set(bankTxns.map(t => t.bank_name).filter(Boolean))];
     const bankDetails = {};
     let linkedBankIn = 0, linkedBankOut = 0;
