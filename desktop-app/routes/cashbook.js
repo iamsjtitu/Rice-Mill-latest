@@ -470,11 +470,22 @@ module.exports = function(database) {
       if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
       if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
       if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
+      if (req.query.txn_type) txns = txns.filter(t => t.txn_type === req.query.txn_type);
+      if (req.query.category) txns = txns.filter(t => t.category === req.query.category);
+      if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+      if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
+      if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
       txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
       
       const cols = getColumns('cashbook_report');
       const headers = getExcelHeaders(cols);
       const widths = getExcelWidths(cols);
+      
+      // Title with filter info
+      const titleParts = ['Daily Cash Book'];
+      if (req.query.category) titleParts.push(`- ${req.query.category}`);
+      if (req.query.account) titleParts.push(`(${req.query.account})`);
+      const exportTitle = titleParts.join(' ');
       
       // Pre-process rows with derived fields
       let runBal = 0;
@@ -493,7 +504,7 @@ module.exports = function(database) {
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Cash Book');
       // Title
       ws.mergeCells(1, 1, 1, cols.length);
-      ws.getCell('A1').value = 'Daily Cash Book'; ws.getCell('A1').font = { bold: true, size: 14 };
+      ws.getCell('A1').value = exportTitle; ws.getCell('A1').font = { bold: true, size: 14 };
       // Headers row 3
       headers.forEach((h, i) => {
         const c = ws.getCell(3, i + 1); c.value = h;
@@ -530,7 +541,17 @@ module.exports = function(database) {
       if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
       if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
       if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
+      if (req.query.txn_type) txns = txns.filter(t => t.txn_type === req.query.txn_type);
+      if (req.query.category) txns = txns.filter(t => t.category === req.query.category);
+      if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+      if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
+      if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
       txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      const titleParts = ['Daily Cash Book'];
+      if (req.query.category) titleParts.push(`- ${req.query.category}`);
+      if (req.query.account) titleParts.push(`(${req.query.account})`);
+      const exportTitle = titleParts.join(' ');
       
       const cols = getColumns('cashbook_report');
       const headers = getPdfHeaders(cols);
@@ -539,7 +560,7 @@ module.exports = function(database) {
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
-      doc.pipe(res); addPdfHeader(doc, 'Daily Cash Book');
+      doc.pipe(res); addPdfHeader(doc, exportTitle);
       
       // Pre-process rows
       let runBal = 0;
