@@ -1123,6 +1123,8 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
                                   category: Optional[str] = None, party_type: Optional[str] = None,
                                   date_from: Optional[str] = None, date_to: Optional[str] = None):
     from io import BytesIO
+    from utils.export_helpers import (style_excel_title, style_excel_header_row, 
+        style_excel_data_rows, style_excel_total_row, style_excel_summary_header, COLORS)
     
     query = {}
     if kms_year: query["kms_year"] = kms_year
@@ -1139,7 +1141,6 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     txns = await db.cash_transactions.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_cash_book_summary(kms_year=kms_year, season=season)
     
-    # Pre-process rows with derived fields
     run_bal = 0
     rows = []
     for t in txns:
@@ -1165,45 +1166,58 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     widths = get_excel_widths(cols)
     
     wb = Workbook(); ws = wb.active; ws.title = "Cash Book"
-    hf = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
-    hfont = Font(bold=True, color="FFFFFF", size=10)
     tb = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
     
+    # Title section
     title = "Daily Cash Book / रोज़नामचा"
-    if kms_year: title += f" - KMS {kms_year}"
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
-    ws['A1'] = title; ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
+    if category: title += f" - {category}"
+    if kms_year: title += f" | KMS {kms_year}"
+    style_excel_title(ws, title, ncols)
     
     # Summary section
-    ws.cell(row=3, column=1, value="Summary").font = Font(bold=True, size=11)
+    ws.cell(row=4, column=1, value="Summary / सारांश").font = Font(bold=True, size=11, color=COLORS['title_text'])
+    style_excel_summary_header(ws, 5, 4)
     for col, h in enumerate(['', 'Jama (In)', 'Nikasi (Out)', 'Balance'], 1):
-        c = ws.cell(row=4, column=col, value=h); c.fill = hf; c.font = hfont; c.border = tb
-    for col, v in enumerate(['Cash (नकद)', summary['cash_in'], summary['cash_out'], summary['cash_balance']], 1):
-        c = ws.cell(row=5, column=col, value=v); c.border = tb
-        if col >= 2: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
-    for col, v in enumerate(['Bank (बैंक)', summary['bank_in'], summary['bank_out'], summary['bank_balance']], 1):
-        c = ws.cell(row=6, column=col, value=v); c.border = tb
-        if col >= 2: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
-    ws.cell(row=7, column=1, value="Total").font = Font(bold=True)
-    ws.cell(row=7, column=4, value=summary['total_balance']).font = Font(bold=True)
-    ws.cell(row=7, column=4).number_format = '#,##0.00'
+        ws.cell(row=5, column=col, value=h)
     
-    # Transactions - using shared config columns
-    row_num = 9
-    ws.cell(row=row_num, column=1, value="Transactions").font = Font(bold=True, size=11)
+    summary_fill = PatternFill(start_color='F0F7FF', fill_type='solid')
+    for col, v in enumerate(['Cash (नकद)', summary['cash_in'], summary['cash_out'], summary['cash_balance']], 1):
+        c = ws.cell(row=6, column=col, value=v); c.border = tb; c.fill = summary_fill
+        if col >= 2: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
+        if col == 4 and isinstance(v, (int, float)):
+            c.font = Font(bold=True, color=COLORS['jama_text'] if v >= 0 else COLORS['nikasi_text'])
+    for col, v in enumerate(['Bank (बैंक)', summary['bank_in'], summary['bank_out'], summary['bank_balance']], 1):
+        c = ws.cell(row=7, column=col, value=v); c.border = tb
+        if col >= 2: c.alignment = Alignment(horizontal='right'); c.number_format = '#,##0.00'
+    
+    style_excel_total_row(ws, 8, 4)
+    ws.cell(row=8, column=1, value="Total / कुल")
+    ws.cell(row=8, column=4, value=summary['total_balance']).number_format = '#,##0.00'
+    
+    # Transactions section
+    row_num = 10
+    ws.cell(row=row_num, column=1, value="Transactions / लेनदेन").font = Font(bold=True, size=11, color=COLORS['title_text'])
+    ws.cell(row=row_num, column=ncols, value=f"{len(rows)} entries").font = Font(size=9, italic=True, color='888888')
+    ws.cell(row=row_num, column=ncols).alignment = Alignment(horizontal='right')
     row_num += 1
+    
+    # Header row
     for col_idx, h in enumerate(headers, 1):
-        c = ws.cell(row=row_num, column=col_idx, value=h)
-        c.fill = hf; c.font = hfont; c.border = tb; c.alignment = Alignment(horizontal='center')
+        ws.cell(row=row_num, column=col_idx, value=h)
+    style_excel_header_row(ws, row_num, ncols)
+    data_start = row_num + 1
     row_num += 1
     
     for r in rows:
         vals = get_entry_row(r, cols)
         for col_idx, v in enumerate(vals, 1):
-            c = ws.cell(row=row_num, column=col_idx, value=v); c.border = tb
+            c = ws.cell(row=row_num, column=col_idx, value=v)
             if cols[col_idx-1]["align"] == "right": c.alignment = Alignment(horizontal='right')
             if cols[col_idx-1]["type"] == "number" and isinstance(v, (int, float)): c.number_format = '#,##0.00'
         row_num += 1
+    
+    # Style data rows with color coding
+    style_excel_data_rows(ws, data_start, row_num - 1, ncols, headers)
     
     # Total row
     totals = {
@@ -1212,16 +1226,21 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
         "closing_balance": round(run_bal, 2),
     }
     total_vals = get_total_row(totals, cols)
-    tf = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
-    ws.cell(row=row_num, column=1, value="TOTAL").font = Font(bold=True)
-    ws.cell(row=row_num, column=1).fill = tf; ws.cell(row=row_num, column=1).border = tb
+    ws.cell(row=row_num, column=1, value="TOTAL / कुल")
     for col_idx, val in enumerate(total_vals, 1):
         if val is not None:
             c = ws.cell(row=row_num, column=col_idx, value=val)
-            c.fill = tf; c.font = Font(bold=True); c.border = tb; c.alignment = Alignment(horizontal='right')
+            c.alignment = Alignment(horizontal='right')
+    style_excel_total_row(ws, row_num, ncols)
     
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
+    
+    ws.sheet_properties.pageSetUpPr = None
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
     
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1240,6 +1259,7 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_LEFT, TA_CENTER
     from io import BytesIO
+    from utils.export_helpers import get_pdf_table_style
     
     query = {}
     if kms_year: query["kms_year"] = kms_year
@@ -1256,7 +1276,6 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     txns = await db.cash_transactions.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_cash_book_summary(kms_year=kms_year, season=season)
     
-    # Pre-process rows
     run_bal = 0
     rows = []
     for t in txns:
@@ -1283,31 +1302,45 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = getSampleStyleSheet()
-    title = "Daily Cash Book"
-    if kms_year: title += f" - KMS {kms_year}"
-    title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1a365d'), alignment=TA_CENTER)
-    elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 6))
     
-    # Summary table
+    # Title with Mill Entry System branding
+    brand_style = ParagraphStyle('Brand', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1a365d'), 
+        alignment=TA_CENTER, spaceAfter=2, backColor=colors.HexColor('#FEF3C7'))
+    title = "Daily Cash Book / रोज़नामचा"
+    if category: title += f" - {category}"
+    title_style = ParagraphStyle('Title', parent=styles['Normal'], fontSize=11, textColor=colors.white,
+        alignment=TA_CENTER, backColor=colors.HexColor('#0891b2'), spaceAfter=4, spaceBefore=2)
+    
+    elements.append(Paragraph("Mill Entry System", brand_style))
+    elements.append(Paragraph(title + (f" | KMS {kms_year}" if kms_year else ""), title_style))
+    elements.append(Spacer(1, 6))
+    
+    # Summary table with colors
     sdata = [['', 'Jama (In)', 'Nikasi (Out)', 'Balance'],
-             ['Cash', summary['cash_in'], summary['cash_out'], summary['cash_balance']],
-             ['Bank', summary['bank_in'], summary['bank_out'], summary['bank_balance']],
-             ['Total', round(summary['cash_in']+summary['bank_in'],2), round(summary['cash_out']+summary['bank_out'],2), summary['total_balance']]]
+             ['Cash (नकद)', summary['cash_in'], summary['cash_out'], summary['cash_balance']],
+             ['Bank (बैंक)', summary['bank_in'], summary['bank_out'], summary['bank_balance']],
+             ['Total / कुल', round(summary['cash_in']+summary['bank_in'],2), round(summary['cash_out']+summary['bank_out'],2), summary['total_balance']]]
     st = RLTable(sdata, colWidths=[80, 80, 80, 80])
-    st.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTSIZE', (0,0), (-1,-1), 8), ('ALIGN', (1,0), (-1,-1), 'RIGHT'), ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+    st.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTSIZE', (0,0), (-1,-1), 8), ('ALIGN', (1,0), (-1,-1), 'RIGHT'), 
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#D0D5DD')),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
-        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0'))]))
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#FEF3C7')),
+        ('LINEABOVE', (0,-1), (-1,-1), 1.5, colors.HexColor('#F59E0B')),
+        ('TEXTCOLOR', (1,1), (1,-2), colors.HexColor('#16A34A')),
+        ('TEXTCOLOR', (2,1), (2,-2), colors.HexColor('#DC2626')),
+        ('BACKGROUND', (0,1), (-1,1), colors.HexColor('#F0F7FF')),
+    ]))
     elements.append(st); elements.append(Spacer(1, 10))
     
-    # Transactions table using shared config
+    # Transactions table
     desc_style = ParagraphStyle('desc', fontName='Helvetica', fontSize=6, leading=7.5, alignment=TA_LEFT)
     party_style = ParagraphStyle('party', fontName='Helvetica', fontSize=6, leading=7.5, alignment=TA_LEFT)
     
     table_data = [headers]
     for r in rows:
         row_vals = get_entry_row(r, cols)
-        # Wrap long text fields in Paragraph
         out = []
         for i, v in enumerate(row_vals):
             if cols[i]["field"] == "description":
@@ -1318,30 +1351,24 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
                 out.append(str(v) if v != "" else "")
         table_data.append(out)
     
-    # Total row
     tj = round(sum(t['amount'] for t in txns if t['txn_type'] == 'jama'), 2)
     tn = round(sum(t['amount'] for t in txns if t['txn_type'] == 'nikasi'), 2)
     totals = {"total_jama": tj, "total_nikasi": tn, "closing_balance": round(run_bal, 2)}
     total_vals = get_total_row(totals, cols)
     total_row = []
     for i, val in enumerate(total_vals):
-        if i == 0: total_row.append("TOTAL")
+        if i == 0: total_row.append("TOTAL / कुल")
         elif val is not None: total_row.append(str(val))
         else: total_row.append("")
     table_data.append(total_row)
     
     first_right = next((i for i, c in enumerate(cols) if c["align"] == "right"), 3)
+    num_rows = len(table_data)
+    style_cmds = get_pdf_table_style(num_rows)
+    style_cmds.append(('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'))
+    
     tbl = RLTable(table_data, colWidths=col_widths, repeatRows=1)
-    tbl.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,-1), 6),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-        ('ALIGN', (first_right, 1), (-1, -1), 'RIGHT'),
-        ('VALIGN', (0,0), (-1,-1), 'TOP'),
-        ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f0f0f0')),
-        ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
-    ]))
+    tbl.setStyle(TableStyle(style_cmds))
     elements.append(tbl)
     doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
