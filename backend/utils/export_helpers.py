@@ -37,20 +37,38 @@ BORDER_HAIR = Border(left=_hair, right=_hair, top=_hair, bottom=_hair)
 BORDER_HEADER = Border(left=_thin, right=_thin, top=_med, bottom=_med)
 
 
-def style_excel_title(ws, title, ncols, subtitle=""):
-    """Add a colorful title section at top of worksheet."""
+def style_excel_title(ws, title, ncols, subtitle="", branding=None):
+    """Add a colorful 3-row title section: Company Name, Tagline, Report Title."""
+    branding = branding or {}
+    company = branding.get("company_name", "NAVKAR AGRO")
+    tagline = branding.get("tagline", "JOLKO, KESINGA")
+
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncols)
-    
-    c = ws.cell(row=1, column=1, value=title)
-    c.font = Font(bold=True, size=16, color=COLORS['title_text'])
-    c.fill = PatternFill(start_color=COLORS['title_bg'], fill_type='solid')
-    c.alignment = Alignment(horizontal='center', vertical='center')
-    ws.row_dimensions[1].height = 34
-    
-    c2 = ws.cell(row=2, column=1, value=subtitle or "Mill Entry System")
-    c2.font = Font(size=9, italic=True, color='666666')
-    c2.alignment = Alignment(horizontal='center')
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ncols)
+
+    # Row 1: Company Name (big, bold, centered, amber bg)
+    c1 = ws.cell(row=1, column=1, value=company)
+    c1.font = Font(bold=True, size=18, color=COLORS['title_text'])
+    c1.fill = PatternFill(start_color=COLORS['title_bg'], fill_type='solid')
+    c1.alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[1].height = 36
+
+    # Row 2: Tagline (small, italic, centered)
+    c2 = ws.cell(row=2, column=1, value=tagline)
+    c2.font = Font(size=10, italic=True, color='666666')
+    c2.alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[2].height = 20
+
+    # Row 3: Report Title + date (medium, bold, centered, orange bg)
+    from datetime import datetime
+    date_str = datetime.now().strftime('%d/%m/%Y')
+    title_text = f"{title} | {date_str}" if subtitle == "" else f"{title} | {subtitle} | {date_str}"
+    c3 = ws.cell(row=3, column=1, value=title_text)
+    c3.font = Font(bold=True, size=12, color=COLORS['subtitle_text'])
+    c3.fill = PatternFill(start_color=COLORS['subtitle_bg'], fill_type='solid')
+    c3.alignment = Alignment(horizontal='center', vertical='center')
+    ws.row_dimensions[3].height = 26
 
 
 def style_excel_header_row(ws, row_num, ncols):
@@ -195,3 +213,74 @@ def get_pdf_table_style(num_rows, cols_info=None):
                     style.append(('TEXTCOLOR', (ci, ri), (ci, ri), rl_colors.HexColor('#DC2626')))
     
     return style
+
+
+def get_pdf_header_elements(title, branding=None, subtitle=""):
+    """Return ReportLab Paragraph elements for company name, tagline, and report title."""
+    from reportlab.platypus import Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib import colors as rl_colors
+
+    branding = branding or {}
+    company = branding.get("company_name", "NAVKAR AGRO")
+    tagline = branding.get("tagline", "JOLKO, KESINGA")
+
+    company_style = ParagraphStyle(
+        'CompanyHeader', fontSize=18, fontName='Helvetica-Bold',
+        textColor=rl_colors.HexColor('#1B4F72'), alignment=TA_CENTER,
+        spaceAfter=2, backColor=rl_colors.HexColor('#FFFBEB'),
+        borderWidth=1, borderColor=rl_colors.HexColor('#F59E0B'),
+        borderPadding=(6, 4, 6, 4),
+    )
+    tagline_style = ParagraphStyle(
+        'TaglineHeader', fontSize=9, fontName='Helvetica-Oblique',
+        textColor=rl_colors.HexColor('#6B7280'), alignment=TA_CENTER,
+        spaceAfter=4,
+    )
+    title_style = ParagraphStyle(
+        'ReportTitle', fontSize=12, fontName='Helvetica-Bold',
+        textColor=rl_colors.white, alignment=TA_CENTER,
+        backColor=rl_colors.HexColor('#0891B2'),
+        borderPadding=(4, 3, 4, 3), spaceAfter=6,
+    )
+
+    elements = [
+        Paragraph(company, company_style),
+        Spacer(1, 2),
+    ]
+    if tagline:
+        elements.append(Paragraph(tagline, tagline_style))
+    elements.append(Paragraph(title if not subtitle else f"{title} | {subtitle}", title_style))
+    elements.append(Spacer(1, 6))
+    return elements
+
+
+def get_pdf_company_header(branding=None):
+    """Return just the company name + tagline paragraphs for PDF (no title)."""
+    from reportlab.platypus import Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib import colors as rl_colors
+
+    branding = branding or {}
+    company = branding.get("company_name", "NAVKAR AGRO")
+    tagline = branding.get("tagline", "JOLKO, KESINGA")
+
+    company_style = ParagraphStyle(
+        'CompanyHdr', fontSize=18, fontName='Helvetica-Bold',
+        textColor=rl_colors.HexColor('#1B4F72'), alignment=TA_CENTER,
+        spaceAfter=2, backColor=rl_colors.HexColor('#FFFBEB'),
+        borderWidth=1, borderColor=rl_colors.HexColor('#F59E0B'),
+        borderPadding=(6, 4, 6, 4),
+    )
+    tagline_style = ParagraphStyle(
+        'TaglineHdr', fontSize=9, fontName='Helvetica-Oblique',
+        textColor=rl_colors.HexColor('#6B7280'), alignment=TA_CENTER,
+        spaceAfter=6,
+    )
+
+    elements = [Paragraph(company, company_style), Spacer(1, 2)]
+    if tagline:
+        elements.append(Paragraph(tagline, tagline_style))
+    return elements

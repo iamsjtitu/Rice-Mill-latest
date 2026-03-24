@@ -421,7 +421,7 @@ async def export_store_room_excel(kms_year: Optional[str] = None, season: Option
     title = "Store Room Inventory / स्टोर रूम"
     if kms_year: title += f" - {kms_year}"
     if season: title += f" ({season})"
-    style_excel_title(ws, title, ncols, "Mill Entry System")
+    style_excel_title(ws, title, ncols)
 
     row = 4
     grand_total_in = 0
@@ -499,7 +499,9 @@ async def export_store_room_pdf(kms_year: Optional[str] = None, season: Optional
     title_text = "Store Room Inventory / स्टोर रूम"
     if kms_year: title_text += f" - {kms_year}"
     if season: title_text += f" ({season})"
-    elements = [Paragraph(title_text, styles['Title']), Spacer(1, 12)]
+    from utils.export_helpers import get_pdf_company_header
+    elements = list(get_pdf_company_header())
+    elements.extend([Paragraph(title_text, styles['Title']), Spacer(1, 12)])
 
     col_widths = [140, 80, 50, 70, 70, 90]
 
@@ -552,7 +554,7 @@ async def export_stock_excel(kms_year: Optional[str] = None, season: Optional[st
     title = "Mill Parts Stock Summary / मिल पार्ट्स स्टॉक"
     if kms_year: title += f" - {kms_year}"
     if season: title += f" ({season})"
-    style_excel_title(ws, title, ncols, "Mill Entry System")
+    style_excel_title(ws, title, ncols)
 
     headers = ['Part Name', 'Category', 'Store Room', 'Unit', 'Stock In', 'Stock Used', 'Current Stock', 'Purchase Amount (Rs)', 'Parties']
     for i, h in enumerate(headers, 1):
@@ -604,7 +606,9 @@ async def export_stock_pdf(kms_year: Optional[str] = None, season: Optional[str]
     title_text = "Mill Parts Stock Summary / मिल पार्ट्स स्टॉक"
     if kms_year: title_text += f" - {kms_year}"
     if season: title_text += f" ({season})"
-    elements = [Paragraph(title_text, styles['Title']), Spacer(1, 12)]
+    from utils.export_helpers import get_pdf_company_header
+    elements = list(get_pdf_company_header())
+    elements.extend([Paragraph(title_text, styles['Title']), Spacer(1, 12)])
 
     data = [['Part', 'Category', 'Store Room', 'Unit', 'In', 'Used', 'Stock', 'Amount (Rs)', 'Parties']]
     total_purchase = 0
@@ -652,7 +656,7 @@ async def export_transactions_excel(kms_year: Optional[str] = None, season: Opti
     ncols = 10
     title = "Mill Parts Transactions / मिल पार्ट्स लेनदेन"
     if part_name: title += f" - {part_name}"
-    subtitle = "Mill Entry System"
+    subtitle = ""
     if date_from or date_to:
         date_parts = []
         if date_from: date_parts.append(f"From: {date_from}")
@@ -730,7 +734,9 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
     if date_from or date_to: subtitle_parts.append(f"Date: {date_from or '...'} to {date_to or '...'}")
     if kms_year: subtitle_parts.append(f"KMS: {kms_year}")
     if season: subtitle_parts.append(f"Season: {season}")
-    elements = [Paragraph(title, styles['Title'])]
+    from utils.export_helpers import get_pdf_company_header
+    elements = list(get_pdf_company_header())
+    elements.append(Paragraph(title, styles['Title']))
     if subtitle_parts:
         elements.append(Paragraph(' | '.join(subtitle_parts), styles['Normal']))
     elements.append(Spacer(1, 12))

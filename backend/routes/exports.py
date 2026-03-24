@@ -88,16 +88,10 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
     elements = []; styles = getSampleStyleSheet()
     pw = A4[0] - 30*mm  # page width minus margins
 
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     company, tagline = await get_company_name()
     filter_label = "All" if not filter or filter == "all" else ("Stock Only" if filter == "stock" else filter)
-
-    # Header
-    header_data = [[
-        Paragraph(f"<b>{company}</b>", ParagraphStyle('H', parent=styles['Heading1'], fontSize=18, textColor=colors.white, alignment=TA_CENTER)),
-    ]]
-    ht = RLTable(header_data, colWidths=[pw])
-    ht.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1a365d')), ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10)]))
-    elements.append(ht)
 
     # Sub-header
     sub = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#475569'), alignment=TA_CENTER)
@@ -252,6 +246,8 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     pw = A4[0] - 24*mm
     elements = []; styles = getSampleStyleSheet()
 
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     company, tagline = await get_company_name()
     hdr_bg = colors.HexColor('#1a365d')
     hdr_fg = colors.white
@@ -655,11 +651,12 @@ async def export_truck_owner_pdf(
     elements = []
     styles = getSampleStyleSheet()
     
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     # Title
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#0891B2'), alignment=1)
     company_name, tagline = await get_company_name()
     elements.append(Paragraph(f"TRUCK OWNER CONSOLIDATED PAYMENTS - {company_name}", title_style))
-    elements.append(Paragraph(f"{company_name} - {tagline}", ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=10, alignment=1)))
     elements.append(Paragraph(f"KMS Year: {kms_year or 'All'} | Season: {season or 'All'} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", ParagraphStyle('Info', parent=styles['Normal'], fontSize=9, alignment=1, textColor=colors.gray)))
     elements.append(Spacer(1, 20))
     

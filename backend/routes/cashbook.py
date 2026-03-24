@@ -707,7 +707,9 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     styles = getSampleStyleSheet()
     elements = []
     
-    # Title
+    # Company Header + Title
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     elements.append(Paragraph("Party Summary / पार्टी सारांश", styles['Title']))
     filter_text = ""
     if party_type: filter_text += f"Party Type: {party_type} | "
@@ -779,7 +781,7 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
     wb = Workbook(); ws = wb.active; ws.title = "Party Summary"
     ncols = 8
     
-    style_excel_title(ws, "Party Summary / पार्टी सारांश", ncols, "Mill Entry System")
+    style_excel_title(ws, "Party Summary / पार्टी सारांश", ncols)
     
     # Summary
     ws.cell(row=4, column=1, value="Total Parties").font = Font(bold=True)
@@ -1172,7 +1174,7 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     title = "Daily Cash Book / रोज़नामचा"
     if category: title += f" - {category}"
     if kms_year: title += f" | KMS {kms_year}"
-    subtitle = "Mill Entry System"
+    subtitle = ""
     if date_from or date_to:
         date_parts = []
         if date_from: date_parts.append(f"From: {date_from}")
@@ -1309,15 +1311,14 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = getSampleStyleSheet()
     
-    # Title with Mill Entry System branding
-    brand_style = ParagraphStyle('Brand', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1a365d'), 
-        alignment=TA_CENTER, spaceAfter=2, backColor=colors.HexColor('#FEF3C7'))
+    # Company Header + Title
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     title = "Daily Cash Book / रोज़नामचा"
     if category: title += f" - {category}"
     title_style = ParagraphStyle('Title', parent=styles['Normal'], fontSize=11, textColor=colors.white,
         alignment=TA_CENTER, backColor=colors.HexColor('#0891b2'), spaceAfter=4, spaceBefore=2)
     
-    elements.append(Paragraph("Mill Entry System", brand_style))
     subtitle_parts = [title + (f" | KMS {kms_year}" if kms_year else "")]
     if date_from or date_to:
         dp = []

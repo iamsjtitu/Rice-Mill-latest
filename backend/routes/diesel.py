@@ -270,7 +270,7 @@ async def export_diesel_excel(kms_year: Optional[str] = None, season: Optional[s
     # Title
     title = "Diesel Account / डीजल खाता"
     if kms_year: title += f" | KMS {kms_year}"
-    style_excel_title(ws, title, ncols, "Mill Entry System")
+    style_excel_title(ws, title, ncols)
 
     # Summary section
     ws.cell(row=4, column=1, value="Pump Summary").font = Font(bold=True, size=11, color=COLORS['title_text'])
@@ -335,13 +335,14 @@ async def export_diesel_pdf(kms_year: Optional[str] = None, season: Optional[str
     txns = await db.diesel_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_diesel_summary(kms_year=kms_year, season=season)
 
-    from utils.export_helpers import get_pdf_table_style
+    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     styles = getSampleStyleSheet()
     elements = []
 
+    elements.extend(get_pdf_company_header())
     elements.append(Paragraph("Diesel Account / डीजल खाता", styles['Title']))
     elements.append(Spacer(1, 12))
 

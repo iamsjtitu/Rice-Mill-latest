@@ -640,11 +640,8 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
     elements = []
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle('PurchTitle', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#2e7d32'), alignment=TA_CENTER, spaceAfter=1)
-    elements.append(Paragraph(company, title_style))
-    if tagline:
-        sub_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceAfter=1)
-        elements.append(Paragraph(tagline, sub_style))
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
 
     meta_parts = ["Purchase Book"]
     if kms_year: meta_parts.append(f"FY: {kms_year}")
@@ -868,8 +865,9 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
     styles = getSampleStyleSheet()
     green = '#2e7d32'
 
-    title_s = ParagraphStyle('T', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor(green), alignment=TA_CENTER, spaceAfter=2)
-    sub_s = ParagraphStyle('S', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666'), alignment=TA_CENTER, spaceAfter=1)
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
+
     label_s = ParagraphStyle('L', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555'))
     val_s = ParagraphStyle('V', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
     cell_s = ParagraphStyle('C', parent=styles['Normal'], fontSize=9, leading=12)
@@ -877,13 +875,6 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
     cell_rb = ParagraphStyle('CRB', parent=styles['Normal'], fontSize=10, leading=12, alignment=TA_RIGHT, fontName='Helvetica-Bold')
     hd_s = ParagraphStyle('H', parent=styles['Normal'], fontSize=9, leading=12, fontName='Helvetica-Bold', textColor=colors.white)
 
-    elements.append(Paragraph(company, title_s))
-    if tagline: elements.append(Paragraph(tagline, sub_s))
-    if address: elements.append(Paragraph(address, sub_s))
-    contact = []
-    if phone: contact.append(f"Ph: {phone}")
-    if gstin: contact.append(f"GSTIN: {gstin}")
-    if contact: elements.append(Paragraph(" | ".join(contact), sub_s))
     elements.append(Spacer(1, 4*mm))
 
     inv_title = ParagraphStyle('IT', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor(green), alignment=TA_CENTER, spaceAfter=3)
@@ -1014,12 +1005,9 @@ async def export_stock_summary_pdf(kms_year: Optional[str] = None, season: Optio
     elements = []
     styles = getSampleStyleSheet()
 
-    # Title
-    title_style = ParagraphStyle('StockTitle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#1565C0'), alignment=TA_CENTER, spaceAfter=4)
-    elements.append(Paragraph(company, title_style))
-    if tagline:
-        sub_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceAfter=2)
-        elements.append(Paragraph(tagline, sub_style))
+    # Company header
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
 
     meta_parts = ["Stock Summary Report"]
     if kms_year: meta_parts.append(f"FY: {kms_year}")

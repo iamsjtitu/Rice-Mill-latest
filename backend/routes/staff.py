@@ -466,6 +466,8 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         styles = getSampleStyleSheet()
         elements = []
 
+        from utils.export_helpers import get_pdf_company_header
+        elements.extend(get_pdf_company_header())
         elements.append(Paragraph(f"Staff Attendance: {date_from} to {date_to}", ParagraphStyle('t', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#1a365d'), spaceAfter=2, fontName='Helvetica-Bold')))
 
         # Column-wise: dates as rows, staff as columns
@@ -866,6 +868,8 @@ async def export_payments(fmt: str = "excel", kms_year: Optional[str] = None, se
         styles = getSampleStyleSheet()
         elements = []
 
+        from utils.export_helpers import get_pdf_company_header
+        elements.extend(get_pdf_company_header())
         elements.append(Paragraph(f"Staff Payment Report", ParagraphStyle('t', parent=styles['Title'], fontSize=14, textColor=colors.HexColor('#1a365d'))))
         elements.append(Spacer(1, 8))
 

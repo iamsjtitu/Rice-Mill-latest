@@ -517,6 +517,8 @@ async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optiona
     styles = getSampleStyleSheet()
     elements = []
 
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     elements.append(Paragraph("Local Party Account / स्थानीय पार्टी खाता", styles['Title']))
     elements.append(Spacer(1, 12))
 

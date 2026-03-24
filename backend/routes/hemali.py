@@ -506,6 +506,8 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
     styles = getSampleStyleSheet()
     elements = []
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     elements.append(Paragraph("Hemali Monthly Summary", ParagraphStyle("t", parent=styles["Title"], fontSize=14, textColor=colors.HexColor("#1a365d"))))
     elements.append(Spacer(1, 8))
 
@@ -544,7 +546,7 @@ async def hemali_monthly_summary_excel(kms_year: str = "", season: str = "", sar
         style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
 
     ncols = 6
-    style_excel_title(ws, "Hemali Monthly Summary / हेमाली मासिक", ncols, "Mill Entry System")
+    style_excel_title(ws, "Hemali Monthly Summary / हेमाली मासिक", ncols)
     row_n = 4
 
     for sardar in data:
@@ -608,10 +610,9 @@ async def print_hemali_receipt(payment_id: str):
     green_c = colors.HexColor("#16a34a")
     grey_c = colors.HexColor("#6b7280")
 
-    # Header: NAVKAR AGRO
-    elements.append(Paragraph("NAVKAR AGRO", ParagraphStyle("brand", parent=styles["Title"], fontSize=18, textColor=orange, alignment=1, spaceAfter=2)))
-    elements.append(Paragraph("JOLKO, KESINGA - Mill Entry System", ParagraphStyle("sub", parent=styles["Normal"], fontSize=8, textColor=grey_c, alignment=1, spaceAfter=4)))
-    elements.append(HRFlowable(width="100%", thickness=1.5, color=orange, spaceAfter=8))
+    # Header: Company branding from helper
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
 
     # Title
     elements.append(Paragraph("HEMALI PAYMENT RECEIPT", ParagraphStyle("title", parent=styles["Heading2"], fontSize=13, textColor=dark, alignment=1, spaceAfter=10)))
@@ -750,6 +751,8 @@ async def export_hemali_pdf(
     styles = getSampleStyleSheet()
     elements = []
 
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     elements.append(Paragraph("Hemali Payment Report", ParagraphStyle("t", parent=styles["Title"], fontSize=14, textColor=colors.HexColor("#1a365d"))))
     meta_parts = []
     if kms_year:
@@ -835,7 +838,7 @@ async def export_hemali_excel(
         style_excel_data_rows, style_excel_total_row, COLORS)
 
     ncols = 9
-    style_excel_title(ws, "Hemali Payment Report / हेमाली भुगतान", ncols, "Mill Entry System")
+    style_excel_title(ws, "Hemali Payment Report / हेमाली भुगतान", ncols)
 
     headers = ["#", "Date", "Sardar", "Items", "Total", "Adv Deducted", "Payable", "Paid", "New Advance"]
     for i, h in enumerate(headers, 1):

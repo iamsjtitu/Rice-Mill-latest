@@ -920,6 +920,9 @@ async def export_pdf(
     elements = []
     styles = getSampleStyleSheet()
     
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
+    
     # Title style
     title_style = ParagraphStyle(
         'CustomTitle',
@@ -1259,6 +1262,9 @@ async def export_truck_payments_pdf(
     
     elements = []
     styles = getSampleStyleSheet()
+    
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     
     # Title
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)

@@ -1908,8 +1908,10 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     elements = []
     styles = getSampleStyleSheet()
     
+    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
+    elements.extend(get_pdf_company_header())
+    
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)
-    from utils.export_helpers import get_pdf_table_style
     
     company_name, tagline = await get_company_name()
     title_data = [[Paragraph(f"<b>AGENT/MANDI PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]

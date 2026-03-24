@@ -296,6 +296,8 @@ async def export_leases_pdf(kms_year: Optional[str] = None, season: Optional[str
     styles = getSampleStyleSheet()
     elements = []
 
+    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     elements.append(Paragraph("Truck Lease Report", styles['Title']))
     if kms_year: elements.append(Paragraph(f"Year: {kms_year} | Season: {season or 'All'}", styles['Normal']))
     elements.append(Spacer(1, 12))
@@ -325,16 +327,8 @@ async def export_leases_pdf(kms_year: Optional[str] = None, season: Optional[str
 
     col_w = [65, 80, 70, 65, 65, 60, 45, 65, 60, 65]
     t = Table(data, colWidths=col_w)
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e293b')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f1f5f9')),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
-    ]))
+    pdf_style = get_pdf_table_style(len(data))
+    t.setStyle(TableStyle(pdf_style))
     elements.append(t)
     doc.build(elements)
     buf.seek(0)
@@ -359,17 +353,17 @@ async def export_leases_excel(kms_year: Optional[str] = None, season: Optional[s
     ws = wb.active
     ws.title = "Truck Leases"
 
-    # Header
-    headers = ['Truck No.', 'Owner', 'Monthly Rent', 'Start Date', 'End Date', 'Advance Deposit', 'Status', 'Total Months', 'Total Due', 'Total Paid', 'Balance']
-    header_fill = PatternFill(start_color='1e293b', end_color='1e293b', fill_type='solid')
-    header_font = Font(color='FFFFFF', bold=True, size=10)
-    for c, h in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=c, value=h)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal='center')
+    from utils.export_helpers import style_excel_title, style_excel_header_row, style_excel_data_rows
+    ncols = 11
+    style_excel_title(ws, "Truck Lease Report", ncols)
 
-    row = 2
+    # Header at row 4
+    headers = ['Truck No.', 'Owner', 'Monthly Rent', 'Start Date', 'End Date', 'Advance Deposit', 'Status', 'Total Months', 'Total Due', 'Total Paid', 'Balance']
+    for c, h in enumerate(headers, 1):
+        ws.cell(row=4, column=c, value=h)
+    style_excel_header_row(ws, 4, ncols)
+
+    row = 5
     for lease in leases:
         months = get_months_between(lease.get("start_date", ""), lease.get("end_date", ""))
         total_rent = len(months) * lease.get("monthly_rent", 0)
@@ -391,6 +385,8 @@ async def export_leases_excel(kms_year: Optional[str] = None, season: Optional[s
 
     for c in range(1, 12):
         ws.column_dimensions[chr(64 + c)].width = 15
+
+    style_excel_data_rows(ws, 5, row - 1, ncols)
 
     buf = io.BytesIO()
     wb.save(buf)

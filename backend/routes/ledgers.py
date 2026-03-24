@@ -269,7 +269,7 @@ async def export_outstanding_excel(kms_year: Optional[str] = None, season: Optio
     
     title = "Outstanding Report / बकाया रिपोर्ट"
     if kms_year: title += f" | KMS {kms_year}"
-    style_excel_title(ws, title, ncols, "Mill Entry System")
+    style_excel_title(ws, title, ncols)
     
     # DC Outstanding
     row = 4
@@ -340,11 +340,12 @@ async def export_outstanding_pdf(kms_year: Optional[str] = None, season: Optiona
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib import colors
     from io import BytesIO
-    from utils.export_helpers import get_pdf_table_style
+    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
     data = await report_outstanding(kms_year=kms_year, season=season)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
+    elements.extend(get_pdf_company_header())
     elements.append(Paragraph("Outstanding Report / बकाया रिपोर्ट", styles['Title'])); elements.append(Spacer(1, 12))
     # DC pending
     elements.append(Paragraph("DC Pending Deliveries", styles['Heading2'])); elements.append(Spacer(1, 4))
@@ -386,7 +387,7 @@ async def export_party_ledger_excel(party_name: Optional[str] = None, party_type
     title = "Party Ledger / खाता बही"
     if party_name: title += f" - {party_name}"
     if kms_year: title += f" | KMS {kms_year}"
-    subtitle = "Mill Entry System"
+    subtitle = ""
     if date_from or date_to:
         date_parts = []
         if date_from: date_parts.append(f"From: {date_from}")
@@ -457,6 +458,8 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = getSampleStyleSheet()
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     title = "Party Ledger / खाता बही"
     if party_name: title += f" - {party_name}"
     if date_from or date_to:

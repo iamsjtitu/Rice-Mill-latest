@@ -63,6 +63,13 @@ A comprehensive rice mill management system with features for paddy procurement,
   - cashbook.py (party_summary, Excel + PDF - already had main cashbook done)
   - daily_report.py (daily report, Excel + PDF)
 
+#### Company Name + Tagline in All Exports (Current Session - Complete)
+- Updated `export_helpers.py` to add Company Name (Row 1), Tagline (Row 2), Report Title (Row 3) in Excel exports
+- Added `get_pdf_company_header()` helper for consistent PDF headers with company name + tagline
+- Updated ALL 15+ Python route files to use centralized company header
+- Updated Python `truck_lease.py` exports to use centralized helpers
+- Verified all 56 export endpoints return 200 OK with company headers
+
 #### Desktop-App Export Redesign (Current Session - Complete)
 - Applied new "sundar" styling to ALL remaining desktop-app Node.js route files:
   - `daily_report.js` - Excel export with addExcelTitle, COLORS, styled headers

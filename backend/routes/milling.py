@@ -447,7 +447,7 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
     title = "Milling Report / मिलिंग रिपोर्ट"
     if kms_year: title += f" - KMS {kms_year}"
     if season: title += f" ({season})"
-    style_excel_title(ws, title, ncols, "Mill Entry System")
+    style_excel_title(ws, title, ncols)
     
     headers = ['Date', 'Type', 'Paddy (Q)', 'Rice %', 'Rice (Q)', 'FRK Used (Q)', 'CMR (Q)', 'Outturn %', 'Bran (Q)', 'Kunda (Q)', 'Husk %', 'Note']
     for col, h in enumerate(headers, 1):
@@ -503,6 +503,8 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
     elements = []
     styles = getSampleStyleSheet()
     
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     title = "Milling Report"
     if kms_year: title += f" - KMS {kms_year}"
     if season: title += f" ({season})"
@@ -555,7 +557,7 @@ async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Opt
     if kms_year: title += f" - KMS {kms_year}"
     if season: title += f" ({season})"
     ncols = 5
-    style_excel_title(ws, title, ncols, "Mill Entry System")
+    style_excel_title(ws, title, ncols)
     
     headers = ['Date', 'Description', 'Received (QNTL)', 'Released (QNTL)', 'Balance (QNTL)']
     for col, h in enumerate(headers, 1):
@@ -608,6 +610,8 @@ async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optio
     elements = []
     styles = getSampleStyleSheet()
     
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     title = "Paddy Custody Maintenance Register"
     if kms_year: title += f" - KMS {kms_year}"
     if season: title += f" ({season})"
@@ -649,7 +653,7 @@ async def export_frk_purchases_excel(kms_year: Optional[str] = None, season: Opt
     ncols = 6
     title = "FRK Purchase Register / एफआरके खरीद"
     if kms_year: title += f" - KMS {kms_year}"
-    style_excel_title(ws, title, ncols, "Mill Entry System")
+    style_excel_title(ws, title, ncols)
     
     headers = ['Date', 'Party Name', 'Qty (QNTL)', 'Rate (Rs/Q)', 'Amount (Rs)', 'Note']
     for col, h in enumerate(headers, 1):
@@ -694,6 +698,8 @@ async def export_frk_purchases_pdf(kms_year: Optional[str] = None, season: Optio
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     title = "FRK Purchase Register"
     if kms_year: title += f" - KMS {kms_year}"
     elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
@@ -733,7 +739,7 @@ async def export_byproduct_sales_excel(kms_year: Optional[str] = None, season: O
     ncols = 7
     title = "By-Product Stock & Sales / उप-उत्पाद बिक्री"
     if kms_year: title += f" - KMS {kms_year}"
-    style_excel_title(ws, title, ncols, "Mill Entry System")
+    style_excel_title(ws, title, ncols)
     
     # Stock summary section
     ws.cell(row=4, column=1, value="Stock Summary").font = Font(bold=True, size=11, color=COLORS['title_text'])
@@ -797,6 +803,8 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = getSampleStyleSheet()
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     title = "By-Product Stock & Sales Report"
     if kms_year: title += f" - KMS {kms_year}"
     elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))

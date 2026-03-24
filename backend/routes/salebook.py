@@ -491,11 +491,8 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
     elements = []
     styles = getSampleStyleSheet()
 
-    title_style = ParagraphStyle('SaleTitle', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1a5276'), alignment=TA_CENTER, spaceAfter=1)
-    elements.append(Paragraph(company, title_style))
-    if tagline:
-        sub_style = ParagraphStyle('SubTitle', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666666'), alignment=TA_CENTER, spaceAfter=1)
-        elements.append(Paragraph(tagline, sub_style))
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
 
     meta_parts = ["Sale Book"]
     if kms_year: meta_parts.append(f"FY: {kms_year}")
@@ -739,8 +736,9 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
     styles = getSampleStyleSheet()
     blue = '#1a5276'
 
-    title_s = ParagraphStyle('T', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor(blue), alignment=TA_CENTER, spaceAfter=2)
-    sub_s = ParagraphStyle('S', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#666'), alignment=TA_CENTER, spaceAfter=1)
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
+
     label_s = ParagraphStyle('L', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555'))
     val_s = ParagraphStyle('V', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
     cell_s = ParagraphStyle('C', parent=styles['Normal'], fontSize=9, leading=12)
@@ -749,13 +747,8 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
     hd_s = ParagraphStyle('H', parent=styles['Normal'], fontSize=9, leading=12, fontName='Helvetica-Bold', textColor=colors.white)
 
     # Company Header
-    elements.append(Paragraph(company, title_s))
-    if tagline: elements.append(Paragraph(tagline, sub_s))
-    if address: elements.append(Paragraph(address, sub_s))
-    contact = []
-    if phone: contact.append(f"Ph: {phone}")
-    if gstin: contact.append(f"GSTIN: {gstin}")
-    if contact: elements.append(Paragraph(" | ".join(contact), sub_s))
+    from utils.export_helpers import get_pdf_company_header
+    elements.extend(get_pdf_company_header())
     elements.append(Spacer(1, 4*mm))
 
     # Invoice Title
