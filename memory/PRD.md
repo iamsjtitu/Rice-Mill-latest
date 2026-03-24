@@ -5,38 +5,36 @@
 - **Backend (Web)**: FastAPI + MongoDB
 - **Backend (Desktop)**: Electron + Node.js/Express + JSON file DB
 
-## Latest (v27.0.0)
+## Latest (v28.0.0)
 
 ### Bug Fix: Round Off Not Counted in Cash Balance
-- **Bug**: Round Off entries (party_type: "Round Off") were being included in the Cash in Hand / Bank balance summary calculation, inflating the cash balance. E.g., ₹12,400 cash paid + ₹68 round off showed Cash in Hand as -₹12,468 instead of -₹12,400.
-- **Fix**: Excluded `party_type === "Round Off"` entries from cash_in/cash_out/bank_in/bank_out calculations in the summary endpoint. Applied to all three backends (web, desktop, local-server) including opening balance carry-forward calculations.
-- **Files**: `backend/routes/cashbook.py`, `desktop-app/routes/cashbook.js`, `local-server/routes/cashbook.js`
+- Round Off entries excluded from Cash in Hand / Bank balance summary
+- Applied to all three backends (web, desktop, local-server)
+
+### Fix: Round Off visible in Party Ledgers
+- Added "All" option to Account filter in Party Ledgers
+- Auto-switches Account to "All" when "Round Off" party type is selected
+- Default filter changed from "Ledger" to "All"
+
+### UI: Auto Update redesigned
+- Modern glassmorphism with gradient accents and shimmer animations
+- Better version comparison layout
+- Pulse ring notification indicator
 
 ### Bug Fix: UI Freeze After Delete (Radix pointer-events)
-- **Bug**: `window.confirm()` blocks JS execution while Radix UI has `pointer-events: none` on body. After confirm closes, pointer-events stay stuck, freezing the entire UI.
-- **Fix**: Global monkey-patch of `window.confirm` in `index.js` that restores `pointer-events` after every native confirm dialog.
-- **File**: `frontend/src/index.js`
+- Global patch on window.confirm restores pointer-events
 
-### Critical Bug Fix: Round Off Balance in ALL Payment Types
-- **Bug**: Round off amount was NOT included in ledger/payment entries, causing incorrect balances
-- **Fix Applied to ALL routes** (web + desktop): Truck, Agent, Owner, Diesel, Hemali, Voucher, CashBook, Local Party
-- **Pattern**: Cash entry = actual amount paid, Ledger entry = total (amount + round_off)
-
-### Previous Features
+### Previous (v27.0.0)
 - Diesel Account Sync from CashBook
-- Local Party Settlement mein Round Off option
-- Telegram confirmation dialog with date/recipients
-- Cash Transactions: Round Off toggle (show/hide)
-- Daily Report: Telegram Share + Store Room in exports
-- Store Room CRUD + Room-wise Report + All exports
+- Critical Round Off Balance fix in ALL payment types
 - Round Off in ALL 9 payment sections
-- What's New auto-popup + Footer
+- Store Room CRUD + exports
+- Telegram Share + confirmation dialog
 
 ## Round Off Design
 - **Amount field**: Actual cash paid (affects Cash in Hand)
 - **Round Off field**: Discount/adjustment (does NOT affect Cash in Hand)
 - **Ledger entry**: amount + round_off (party's full balance settled)
-- **Separate Round Off cash_transaction**: Created for record-keeping but excluded from balance calculations
 
 ## Backlog
 - P0: New desktop build required for all recent fixes
