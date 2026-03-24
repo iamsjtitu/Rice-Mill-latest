@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "26.0.3";
+const APP_VERSION = "27.0.0";
 
 const CHANGELOG = [
+  {
+    version: "27.0.0",
+    date: "24 Mar 2026",
+    title: "Major Release - Round Off Fix + Auto Update UI",
+    items: [
+      { type: "fix", text: "Sabhi payments mein Round Off balance fix - Truck, Agent, Owner, Diesel, Hemali, Voucher, CashBook, Local Party" },
+      { type: "imp", text: "Auto Update notification ab sundar glassmorphism card mein" },
+      { type: "fix", text: "Desktop build config fix - utils folder include" },
+      { type: "fix", text: "Deployment blockers fix - .gitignore aur server.py" },
+    ],
+  },
   {
     version: "26.0.3",
     date: "23 Mar 2026",
