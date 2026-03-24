@@ -35,17 +35,17 @@ class TestReportConfigStructure:
         assert "columns" in report_config["cashbook_report"], "cashbook_report should have columns array"
         print(f"PASSED: cashbook_report found with {len(report_config['cashbook_report']['columns'])} columns")
     
-    def test_02_cashbook_report_has_10_columns(self, report_config):
-        """Verify cashbook_report has exactly 10 columns"""
+    def test_02_cashbook_report_has_9_columns(self, report_config):
+        """Verify cashbook_report has exactly 9 columns (reference removed)"""
         columns = report_config["cashbook_report"]["columns"]
-        assert len(columns) == 10, f"cashbook_report should have 10 columns, found {len(columns)}"
+        assert len(columns) == 9, f"cashbook_report should have 9 columns, found {len(columns)}"
         
         # Verify column fields
         expected_fields = ["date", "account_label", "type_label", "category", "party_type", 
-                         "description", "jama", "nikasi", "balance", "reference"]
+                         "description", "jama", "nikasi", "balance"]
         actual_fields = [c["field"] for c in columns]
         assert actual_fields == expected_fields, f"Expected fields {expected_fields}, got {actual_fields}"
-        print(f"PASSED: cashbook_report has correct 10 columns: {actual_fields}")
+        print(f"PASSED: cashbook_report has correct 9 columns: {actual_fields}")
     
     def test_03_config_has_party_ledger_report(self, report_config):
         """Verify party_ledger_report exists in config"""
@@ -53,16 +53,16 @@ class TestReportConfigStructure:
         assert "columns" in report_config["party_ledger_report"], "party_ledger_report should have columns array"
         print(f"PASSED: party_ledger_report found with {len(report_config['party_ledger_report']['columns'])} columns")
     
-    def test_04_party_ledger_report_has_7_columns(self, report_config):
-        """Verify party_ledger_report has exactly 7 columns"""
+    def test_04_party_ledger_report_has_6_columns(self, report_config):
+        """Verify party_ledger_report has exactly 6 columns (ref removed)"""
         columns = report_config["party_ledger_report"]["columns"]
-        assert len(columns) == 7, f"party_ledger_report should have 7 columns, found {len(columns)}"
+        assert len(columns) == 6, f"party_ledger_report should have 6 columns, found {len(columns)}"
         
         # Verify column fields
-        expected_fields = ["date", "party_name", "party_type", "description", "debit", "credit", "ref"]
+        expected_fields = ["date", "party_name", "party_type", "description", "debit", "credit"]
         actual_fields = [c["field"] for c in columns]
         assert actual_fields == expected_fields, f"Expected fields {expected_fields}, got {actual_fields}"
-        print(f"PASSED: party_ledger_report has correct 7 columns: {actual_fields}")
+        print(f"PASSED: party_ledger_report has correct 6 columns: {actual_fields}")
     
     def test_05_config_has_daily_paddy_entries_report(self, report_config):
         """Verify daily_paddy_entries_report exists with summary and detail modes"""

@@ -518,18 +518,18 @@ async def export_msp_excel(kms_year: Optional[str] = None, season: Optional[str]
     from utils.export_helpers import (style_excel_title, style_excel_header_row,
         style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
     
-    ncols = 8
+    ncols = 7
     title = "MSP Payment Register / एमएसपी भुगतान"
     style_excel_title(ws, title, ncols)
     
-    headers = ['Date','DC No','Qty (Q)','Rate (Rs/Q)','Amount (Rs)','Mode','Reference','Bank']
+    headers = ['Date','DC No','Qty (Q)','Rate (Rs/Q)','Amount (Rs)','Mode','Bank']
     for col, h in enumerate(headers, 1):
         ws.cell(row=4, column=col, value=h)
     style_excel_header_row(ws, 4, ncols)
     
     data_start = 5; row = data_start
     for p in payments:
-        for col, v in enumerate([p.get("date",""), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("reference",""), p.get("bank_name","")], 1):
+        for col, v in enumerate([p.get("date",""), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("bank_name","")], 1):
             ws.cell(row=row, column=col, value=v)
             if col in [3,4,5]: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
         row += 1
@@ -540,7 +540,7 @@ async def export_msp_excel(kms_year: Optional[str] = None, season: Optional[str]
     ws.cell(row=row, column=3, value=round(sum(p.get("quantity_qntl",0) for p in payments),2))
     ws.cell(row=row, column=5, value=round(sum(p.get("amount",0) for p in payments),2))
     style_excel_total_row(ws, row, ncols)
-    for letter in ['A','B','C','D','E','F','G','H']: ws.column_dimensions[letter].width = 18
+    for letter in ['A','B','C','D','E','F','G']: ws.column_dimensions[letter].width = 18
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=msp_payments_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -569,13 +569,13 @@ async def export_msp_pdf(kms_year: Optional[str] = None, season: Optional[str] =
     
     elements.extend(get_pdf_company_header())
     elements.append(Paragraph("MSP Payment Register / एमएसपी भुगतान", styles['Title'])); elements.append(Spacer(1, 12))
-    data = [['Date','DC No','Qty(Q)','Rate(Rs/Q)','Amount(Rs)','Mode','Reference','Bank']]
+    data = [['Date','DC No','Qty(Q)','Rate(Rs/Q)','Amount(Rs)','Mode','Bank']]
     tq = ta = 0
     for p in payments:
         tq += p.get("quantity_qntl",0); ta += p.get("amount",0)
-        data.append([p.get("date",""), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("reference",""), p.get("bank_name","")])
-    data.append(['TOTAL','',round(tq,2),'',round(ta,2),'','',''])
-    table = RLTable(data, colWidths=[60,55,45,55,60,40,75,100], repeatRows=1)
+        data.append([p.get("date",""), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("bank_name","")])
+    data.append(['TOTAL','',round(tq,2),'',round(ta,2),'',''])
+    table = RLTable(data, colWidths=[60,55,45,55,60,40,100], repeatRows=1)
     style_cmds = get_pdf_table_style(len(data))
     style_cmds.append(('ALIGN',(2,0),(4,-1),'RIGHT'))
     table.setStyle(TableStyle(style_cmds))
@@ -902,7 +902,7 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     from utils.export_helpers import (style_excel_title, style_excel_header_row,
         style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
     
-    ncols = 9
+    ncols = 8
     title = "Gunny Bag Register / बोरी रजिस्टर"
     style_excel_title(ws, title, ncols)
     filter_txt = f"KMS: {kms_year or 'All'} | Season: {season or 'All'}"
@@ -939,7 +939,7 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
 
     # Transactions
     ws.cell(row=row, column=1, value="Transactions").font = Font(bold=True, size=11, color=COLORS['title_text']); row += 1
-    txn_headers = ['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount (Rs.)','Reference','Notes']
+    txn_headers = ['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount (Rs.)','Notes']
     for col, h in enumerate(txn_headers, 1):
         ws.cell(row=row, column=col, value=h)
     style_excel_header_row(ws, row, ncols)
@@ -948,7 +948,7 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
         bt = "New (Govt)" if e.get("bag_type")=="new" else "Old (Market)"
         src = (e.get("source","") + (" [Auto]" if e.get("linked_entry_id") else ""))
         for col, v in enumerate([e.get("date",""), bt, "In" if e.get("txn_type")=="in" else "Out",
-            e.get("quantity",0), src, e.get("rate",0), e.get("amount",0), e.get("reference",""), e.get("notes","")], 1):
+            e.get("quantity",0), src, e.get("rate",0), e.get("amount",0), e.get("notes","")], 1):
             ws.cell(row=row, column=col, value=v)
         row += 1
     if filtered:
@@ -968,8 +968,7 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     ws.column_dimensions['E'].width = 35
     ws.column_dimensions['F'].width = 10
     ws.column_dimensions['G'].width = 14
-    ws.column_dimensions['H'].width = 18
-    ws.column_dimensions['I'].width = 25
+    ws.column_dimensions['H'].width = 25
     buffer = BytesIO(); wb.save(buffer); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=gunny_bags_{datetime.now().strftime('%Y%m%d')}.xlsx"})
@@ -1032,19 +1031,19 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
 
     # Transactions
     elements.append(Paragraph("Transactions", styles['Heading2'])); elements.append(Spacer(1, 6))
-    data = [['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount(Rs.)','Reference','Notes']]
+    data = [['Date','Bag Type','In/Out','Qty','Source/To','Rate','Amount(Rs.)','Notes']]
     for e in filtered:
         bt = "New(Govt)" if e.get("bag_type")=="new" else "Old(Mkt)"
         src = e.get("source","")
         if e.get("linked_entry_id"): src += " [Auto]"
         data.append([e.get("date",""), bt, "In" if e.get("txn_type")=="in" else "Out",
             e.get("quantity",0), Paragraph(src, src_style), e.get("rate",0), e.get("amount",0),
-            e.get("reference",""), e.get("notes","")])
+            e.get("notes","")])
     total_in = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "in")
     total_out = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "out")
-    data.append(['TOTAL', '', f'In:{total_in} Out:{total_out}', total_in - total_out, '', '', '', '', ''])
+    data.append(['TOTAL', '', f'In:{total_in} Out:{total_out}', total_in - total_out, '', '', '', ''])
 
-    table = RLTable(data, colWidths=[48,52,35,35,150,38,52,65,65], repeatRows=1)
+    table = RLTable(data, colWidths=[48,52,35,35,150,38,52,65], repeatRows=1)
     txn_style = get_pdf_table_style(len(data))
     txn_style.extend([('ALIGN',(3,0),(6,-1),'RIGHT'),('VALIGN',(0,0),(-1,-1),'TOP'),
         ('TOPPADDING',(0,0),(-1,-1),2),('BOTTOMPADDING',(0,0),(-1,-1),2)])

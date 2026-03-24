@@ -16,7 +16,7 @@ import os
 import uuid
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://styled-exports-node.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://column-refactor.preview.emergentagent.com')
 
 # Test data prefix for cleanup
 TEST_PREFIX = "TEST_ITR67_"

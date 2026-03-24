@@ -10,7 +10,7 @@ A comprehensive rice mill management system with features for paddy procurement,
 - **Desktop**: Electron + Node.js (separate codebase)
 - **Local Server**: Node.js (separate from web backend)
 
-## Current Version: v32.0.0
+## Current Version: v33.0.0
 
 ## What's Been Implemented
 
@@ -94,6 +94,18 @@ A comprehensive rice mill management system with features for paddy procurement,
   - `truck_lease.js` - 2 exports (Excel+PDF)
 - All 17 desktop-app route files now use centralized `excel_helpers.js` and `pdf_helpers.js`
 - All 34+ export endpoints verified working (200 OK)
+
+#### Remove Ref Column from All Exports (March 2026 - Complete)
+- Removed "Reference"/"Ref" column from ALL PDF and Excel exports across both backends
+- Config-driven reports: Updated `shared/report_config.json` and `desktop-app/shared/report_config.json`
+  - cashbook_report: 10→9 columns (removed reference)
+  - party_ledger_report: 7→6 columns (removed ref)
+  - msp_payments_report: 8→7 columns (removed reference)
+  - gunny_bags_report: 9→8 columns (removed reference)
+- Hardcoded Python exports: Updated `dc_payments.py` (MSP Excel/PDF, Gunny Bags Excel/PDF)
+- Desktop-app exports: Updated `cashbook.js` (PDF), `dc_payments.js` (Excel+PDF), `gunny_bags.js` (Excel+PDF), `reports.js` (Party Ledger Excel)
+- Updated test expectations in `test_report_config_refactoring.py`
+- All 8 affected export endpoints verified returning 200 OK with no Ref/Reference columns
 
 ## Pending Items
 ### P0

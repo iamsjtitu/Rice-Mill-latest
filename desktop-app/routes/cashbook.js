@@ -590,8 +590,8 @@ module.exports = function(database) {
       const brandingData = database.getBranding ? database.getBranding() : {};
       __addPdfHeader(doc, exportTitle, brandingData, subtitle);
       
-      const headers = ['Date', 'Account', 'Type', 'Category', 'Party Type', 'Description', 'Jama (In)', 'Nikasi (Out)', 'Balance', 'Ref'];
-      const colW = [55, 50, 40, 60, 55, 120, 60, 60, 60, 60];
+      const headers = ['Date', 'Account', 'Type', 'Category', 'Party Type', 'Description', 'Jama (In)', 'Nikasi (Out)', 'Balance'];
+      const colW = [55, 50, 40, 60, 55, 120, 60, 60, 60];
       
       // Build data rows with running balance
       let runBal = 0; let totalJama = 0; let totalNikasi = 0;
@@ -604,12 +604,12 @@ module.exports = function(database) {
           t.date || '', t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
           t.txn_type === 'jama' ? 'Jama' : 'Nikasi', t.category || '', t.party_type || '',
           t.description || '', jama ? pFmt(jama) : '-', nikasi ? pFmt(nikasi) : '-',
-          pFmt(+runBal.toFixed(2)), t.reference || ''
+          pFmt(+runBal.toFixed(2))
         ];
       });
       
       addPdfTable(doc, headers, rows, colW, { fontSize: 7 });
-      addTotalsRow(doc, ['', '', '', '', '', 'TOTAL', pFmt(totalJama), pFmt(totalNikasi), pFmt(+(totalJama - totalNikasi).toFixed(2)), `(${txns.length} entries)`], colW, { fontSize: 7 });
+      addTotalsRow(doc, ['', '', '', '', '', 'TOTAL', pFmt(totalJama), pFmt(totalNikasi), pFmt(+(totalJama - totalNikasi).toFixed(2))], colW, { fontSize: 7 });
       
       doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }

@@ -143,14 +143,14 @@ module.exports = function(database) {
       { header: 'Date', key: 'date', width: 12 }, { header: 'Bag Type', key: 'bag_type', width: 15 },
       { header: 'In/Out', key: 'txn_type', width: 8 }, { header: 'Qty', key: 'quantity', width: 10 },
       { header: 'Source/To', key: 'source', width: 35 }, { header: 'Rate', key: 'rate', width: 10 },
-      { header: 'Amount (Rs.)', key: 'amount', width: 14 }, { header: 'Reference', key: 'reference', width: 18 },
+      { header: 'Amount (Rs.)', key: 'amount', width: 14 },
       { header: 'Notes', key: 'notes', width: 25 }
     ];
     filtered.forEach(e => ws.addRow({
       date: e.date||'', bag_type: e.bag_type==='new'?'New (Govt)':'Old (Market)',
       txn_type: e.txn_type==='in'?'In':'Out', quantity: e.quantity||0,
       source: (e.source||'') + (e.linked_entry_id ? ' [Auto]' : ''),
-      rate: e.rate||0, amount: e.amount||0, reference: e.reference||'', notes: e.notes||''
+      rate: e.rate||0, amount: e.amount||0, notes: e.notes||''
     }));
     const totalIn = filtered.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0);
     const totalOut = filtered.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
@@ -171,17 +171,17 @@ module.exports = function(database) {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'attachment; filename=gunny_bags.pdf');
     doc.pipe(res); addPdfHeader(doc, 'Gunny Bags Report');
-    const headers = ['Date', 'Bag Type', 'In/Out', 'Qty', 'Source/To', 'Rate', 'Amount(Rs.)', 'Reference', 'Notes'];
+    const headers = ['Date', 'Bag Type', 'In/Out', 'Qty', 'Source/To', 'Rate', 'Amount(Rs.)', 'Notes'];
     const rows = filtered.map(e => [
       e.date||'', e.bag_type==='new'?'New(Govt)':'Old(Mkt)',
       e.txn_type==='in'?'In':'Out', e.quantity||0,
       (e.source||'') + (e.linked_entry_id ? ' [Auto]' : ''),
-      e.rate||0, e.amount||0, e.reference||'', e.notes||''
+      e.rate||0, e.amount||0, e.notes||''
     ]);
     const totalIn = filtered.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0);
     const totalOut = filtered.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
-    rows.push(['TOTAL', '', `In:${totalIn} Out:${totalOut}`, totalIn-totalOut, '', '', '', '', '']);
-    addPdfTable(doc, headers, rows, [48,52,35,35,150,38,52,65,65]); doc.end();
+    rows.push(['TOTAL', '', `In:${totalIn} Out:${totalOut}`, totalIn-totalOut, '', '', '', '']);
+    addPdfTable(doc, headers, rows, [48,52,35,35,150,38,52,65]); doc.end();
   }));
 
   // === Gunny Bags Purchase Report ===

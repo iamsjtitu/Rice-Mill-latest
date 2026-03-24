@@ -372,7 +372,7 @@ module.exports = function(database) {
     let payments = [...database.data.msp_payments];
     if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('MSP Payments');
-    ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rate/Q', key: 'rate_per_qntl', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Mode', key: 'payment_mode', width: 10 }, { header: 'Reference', key: 'reference', width: 15 }, { header: 'Bank', key: 'bank_name', width: 15 }];
+    ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rate/Q', key: 'rate_per_qntl', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Mode', key: 'payment_mode', width: 10 }, { header: 'Bank', key: 'bank_name', width: 15 }];
     payments.forEach(p => ws.addRow(p));
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=msp_payments.xlsx');
@@ -386,9 +386,9 @@ module.exports = function(database) {
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'attachment; filename=msp_payments.pdf');
     doc.pipe(res); addPdfHeader(doc, 'MSP Payments Report');
-    const headers = ['Date', 'Qty(Q)', 'Rate(Rs./Q)', 'Amount(Rs.)', 'Mode', 'Reference', 'Bank'];
-    const rows = payments.map(p => [p.date||'', p.quantity_qntl||0, p.rate_per_qntl||0, p.amount||0, p.payment_mode||'', (p.reference||'').substring(0,15), (p.bank_name||'').substring(0,15)]);
-    addPdfTable(doc, headers, rows, [60, 50, 60, 70, 50, 80, 80]); doc.end();
+    const headers = ['Date', 'Qty(Q)', 'Rate(Rs./Q)', 'Amount(Rs.)', 'Mode', 'Bank'];
+    const rows = payments.map(p => [p.date||'', p.quantity_qntl||0, p.rate_per_qntl||0, p.amount||0, p.payment_mode||'', (p.bank_name||'').substring(0,15)]);
+    addPdfTable(doc, headers, rows, [60, 50, 60, 70, 50, 80]); doc.end();
   }));
 
   return router;
