@@ -63,12 +63,22 @@ A comprehensive rice mill management system with features for paddy procurement,
   - cashbook.py (party_summary, Excel + PDF - already had main cashbook done)
   - daily_report.py (daily report, Excel + PDF)
 
+#### Desktop-App Export Redesign (Current Session - Complete)
+- Applied new "sundar" styling to ALL remaining desktop-app Node.js route files:
+  - `daily_report.js` - Excel export with addExcelTitle, COLORS, styled headers
+  - `private_trading.js` - 6 exports (party-summary, pvt-paddy, rice-sales × Excel+PDF)
+  - `purchase_vouchers.js` - 3 exports (purchase-book Excel+PDF, individual voucher PDF)
+  - `truck_lease.js` - 2 exports (Excel+PDF)
+- All 17 desktop-app route files now use centralized `excel_helpers.js` and `pdf_helpers.js`
+- All 34+ export endpoints verified working (200 OK)
+
 ## Pending Items
 ### P0
 - Desktop app build required for all recent fixes to take effect (UI freeze, data migration, export filters)
 
 ### P1
-- Apply export styling to desktop-app Node.js routes (partially done by previous agent)
+- Export Preview feature (user requested)
+- Version bump (user requested)
 - Centralize stock calculation logic
 - Staff.py attendance export has specialized per-cell styling (P/A/H/CH colors) - skipped for generic helper
 

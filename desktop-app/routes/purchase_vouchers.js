@@ -317,53 +317,92 @@ module.exports = function(database) {
     ensure();
     const v = database.data.purchase_vouchers.find(x => x.id === req.params.id);
     if (!v) return res.status(404).json({ detail: 'Not found' });
-    const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
-    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Purchase Voucher</title><style>body{font-family:Arial;margin:20px;font-size:12px}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{border:1px solid #ccc;padding:5px}th{background:#2E7D32;color:#fff}.r{text-align:right}.b{font-weight:bold}</style></head><body>`;
-    html += `<h2 style="text-align:center">${company}</h2><h3 style="text-align:center">Purchase Voucher #${v.voucher_no || ''}</h3>`;
-    html += `<p><b>Date:</b> ${v.date || ''} | <b>Party:</b> ${v.party_name || ''} | <b>Invoice:</b> ${v.invoice_no || ''} | <b>Truck:</b> ${v.truck_no || ''}</p>`;
-    html += `<table><tr><th>Item</th><th>HSN</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr>`;
-    (v.items || []).forEach(i => { html += `<tr><td>${i.item_name||''}</td><td>${i.hsn_code||''}</td><td class="r">${i.quantity||0}</td><td class="r">${i.rate||0}</td><td class="r">${i.amount||0}</td></tr>`; });
-    html += `</table><p class="b">Subtotal: ${v.subtotal||0} | CGST: ${v.cgst_amount||0} | SGST: ${v.sgst_amount||0} | Total: ${v.total||0}</p>`;
-    html += `</body></html>`;
-    res.type('html').send(html);
+    const PDFDocument = require('pdfkit');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addSummaryBox, fmtAmt: pFmt } = require('./pdf_helpers');
+    const branding = database.getBranding ? database.getBranding() : {};
+    const doc = new PDFDocument({ size: 'A4', margin: 25 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=purchase_voucher_${v.voucher_no || ''}.pdf`);
+    doc.pipe(res);
+    _addPdfHeader(doc, `Purchase Voucher #${v.voucher_no || ''}`, branding, `Date: ${v.date || ''} | Party: ${v.party_name || ''} | Invoice: ${v.invoice_no || ''} | Truck: ${v.truck_no || ''}`);
+    const headers = ['Item', 'HSN', 'Qty', 'Rate', 'Amount'];
+    const rows = (v.items || []).map(i => [i.item_name||'', i.hsn_code||'', i.quantity||0, i.rate||0, i.amount||0]);
+    addPdfTable(doc, headers, rows, [180, 80, 60, 60, 80]);
+    addSummaryBox(doc, ['Subtotal', 'CGST', 'SGST', 'IGST', 'Total'], [pFmt(v.subtotal||0), pFmt(v.cgst_amount||0), pFmt(v.sgst_amount||0), pFmt(v.igst_amount||0), pFmt(v.total||0)], [90, 90, 90, 90, 90]);
+    doc.end();
   }));
 
   // PDF export (legacy path)
   router.get('/api/purchase-book/export/pdf', safeHandler(async (req, res) => {
     ensure();
+    const PDFDocument = require('pdfkit');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+    const branding = database.getBranding ? database.getBranding() : {};
     let vouchers = [...database.data.purchase_vouchers];
     const { kms_year, season } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
     vouchers.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
-    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Purchase Book</title><style>body{font-family:Arial;margin:10px;font-size:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 5px}th{background:#2E7D32;color:#fff;font-size:9px}.r{text-align:right}.b{font-weight:bold}.c{text-align:center}.total-row{background:#f0f0f0;font-weight:bold}@media print{body{margin:0}}</style></head><body><h2 style="text-align:center">${company} - Purchase Book</h2>
-    <table><tr><th class="c">No.</th><th>Date</th><th>Inv No.</th><th>Party</th><th>Items</th><th>Truck</th><th>E-Way Bill</th><th class="r">Total</th><th class="r">Advance</th><th class="r">Cash</th><th class="r">Diesel</th><th class="r">Balance</th></tr>`;
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=purchase_book.pdf');
+    doc.pipe(res);
+    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | Season: ${season}`;
+    _addPdfHeader(doc, 'Purchase Book', branding, subtitle);
+    const headers = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck', 'E-Way', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance'];
+    const colW = [35, 55, 50, 80, 100, 55, 55, 60, 55, 50, 50, 60];
     const g = { total: 0, adv: 0, cash: 0, diesel: 0, bal: 0 };
-    for (const v of vouchers) {
+    const rows = vouchers.map(v => {
       const itemsStr = (v.items || []).map(i => `${i.item_name}(${i.quantity||0})`).join(', ');
       g.total += v.total || 0; g.adv += v.advance || 0; g.cash += v.cash_paid || 0; g.diesel += v.diesel_paid || 0; g.bal += v.balance || 0;
-      html += `<tr><td class="c">${v.voucher_no||''}</td><td>${v.date||''}</td><td>${v.invoice_no||''}</td><td class="b">${v.party_name||''}</td><td>${itemsStr}</td><td>${v.truck_no||''}</td><td>${v.eway_bill_no||''}</td><td class="r b">${v.total||0}</td><td class="r">${v.advance||0}</td><td class="r">${v.cash_paid||0}</td><td class="r">${v.diesel_paid||0}</td><td class="r b">${v.balance||0}</td></tr>`;
-    }
-    html += `<tr class="total-row"><td colspan="7" class="b">TOTAL (${vouchers.length})</td><td class="r">${Math.round(g.total)}</td><td class="r">${Math.round(g.adv)}</td><td class="r">${Math.round(g.cash)}</td><td class="r">${Math.round(g.diesel)}</td><td class="r">${Math.round(g.bal)}</td></tr></table></body></html>`;
-    res.type('html').send(html);
+      return [v.voucher_no||'', v.date||'', v.invoice_no||'', v.party_name||'', itemsStr, v.truck_no||'', v.eway_bill_no||'', pFmt(v.total||0), pFmt(v.advance||0), pFmt(v.cash_paid||0), pFmt(v.diesel_paid||0), pFmt(v.balance||0)];
+    });
+    addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
+    addTotalsRow(doc, [`TOTAL (${vouchers.length})`, '', '', '', '', '', '', pFmt(Math.round(g.total)), pFmt(Math.round(g.adv)), pFmt(Math.round(g.cash)), pFmt(Math.round(g.diesel)), pFmt(Math.round(g.bal))], colW, { fontSize: 6.5 });
+    doc.end();
   }));
 
   // Excel export
   router.get('/api/purchase-book/export/excel', safeHandler(async (req, res) => {
     ensure();
     const ExcelJS = require('exceljs');
+    const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     let vouchers = [...database.data.purchase_vouchers];
     const { kms_year, season } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
+    vouchers.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Purchase Book');
-    ws.addRow(['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck', 'E-Way Bill', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance']);
-    for (const v of vouchers) {
+    const colCount = 12;
+    let title = 'Purchase Book'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
+    addExcelTitle(ws, title, colCount, database);
+    const hdrs = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck', 'E-Way Bill', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance'];
+    hdrs.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
+    const hRow = ws.getRow(4);
+    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+    hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    hRow.height = 30;
+    const g = { total: 0, adv: 0, cash: 0, diesel: 0, bal: 0 };
+    vouchers.forEach((v, idx) => {
       const itemsStr = (v.items || []).map(i => `${i.item_name}(${i.quantity||0})`).join(', ');
-      ws.addRow([v.voucher_no, v.date, v.invoice_no, v.party_name, itemsStr, v.truck_no, v.eway_bill_no || '', v.total||0, v.advance||0, v.cash_paid||0, v.diesel_paid||0, v.balance||0]);
+      const vals = [v.voucher_no, v.date, v.invoice_no, v.party_name, itemsStr, v.truck_no, v.eway_bill_no || '', v.total||0, v.advance||0, v.cash_paid||0, v.diesel_paid||0, v.balance||0];
+      vals.forEach((val, ci) => { ws.getCell(5 + idx, ci + 1).value = val; });
+      g.total += v.total || 0; g.adv += v.advance || 0; g.cash += v.cash_paid || 0; g.diesel += v.diesel_paid || 0; g.bal += v.balance || 0;
+    });
+    styleExcelData(ws, 5);
+    // Total row
+    const trow = 5 + vouchers.length;
+    ws.getCell(trow, 1).value = `TOTAL (${vouchers.length})`; ws.getCell(trow, 1).font = { bold: true, size: 11 };
+    [null, null, null, null, null, null, null, Math.round(g.total), Math.round(g.adv), Math.round(g.cash), Math.round(g.diesel), Math.round(g.bal)].forEach((v, i) => {
+      if (v !== null) { ws.getCell(trow, i + 1).value = v; ws.getCell(trow, i + 1).font = { bold: true, size: 11 }; }
+    });
+    for (let c = 1; c <= colCount; c++) {
+      const cell = ws.getCell(trow, c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+      cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
     }
-    ws.columns.forEach(c => c.width = 15);
+    [10, 12, 12, 18, 20, 12, 14, 14, 12, 12, 12, 14].forEach((w, i) => ws.getColumn(i + 1).width = w);
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=purchase_book.xlsx');

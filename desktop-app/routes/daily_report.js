@@ -36,23 +36,25 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
 // ============ DAILY REPORT EXCEL ============
 router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
+  const { styleExcelData, addExcelTitle, COLORS } = require('./excel_helpers');
   const data = getDailyReportData(database, req.query);
   const isDetail = data.mode === 'detail';
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet(`Daily Report ${data.date}`);
-  const hdrFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
-  const hdrFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+  const colCount = 6;
+
+  addExcelTitle(ws, `Daily Report - ${data.date} (${isDetail ? 'DETAILED' : 'SUMMARY'})`, colCount, database);
+  ws.getCell('A4').value = `KMS Year: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`;
+  ws.getCell('A4').font = { italic: true, size: 9, color: { argb: 'FF666666' } };
+  let row = 6;
+
+  const hdrFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.headerBg } };
+  const hdrFont = { bold: true, color: { argb: COLORS.headerText }, size: 9 };
   const subFont = { bold: true, size: 9, color: { argb: 'FF475569' } };
+  const sectionFont = { bold: true, size: 11, color: { argb: COLORS.titleText } };
 
-  ws.mergeCells('A1:F1');
-  ws.getCell('A1').value = `Daily Report - ${data.date} (${isDetail ? 'DETAILED' : 'SUMMARY'})`;
-  ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1a365d' } };
-  ws.getCell('A2').value = `KMS Year: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`;
-  ws.getCell('A2').font = { italic: true, size: 9, color: { argb: 'FF666666' } };
-  let row = 4;
-
-  function writeSection(title) { ws.getCell(`A${row}`).value = title; ws.getCell(`A${row}`).font = { bold: true, size: 11, color: { argb: 'FF1a365d' } }; row++; }
-  function writeHeaders(hdrs) { hdrs.forEach((h, i) => { const c = ws.getCell(row, i + 1); c.value = h; c.fill = hdrFill; c.font = hdrFont; }); row++; }
+  function writeSection(title) { ws.getCell(`A${row}`).value = title; ws.getCell(`A${row}`).font = sectionFont; row++; }
+  function writeHeaders(hdrs) { hdrs.forEach((h, i) => { const c = ws.getCell(row, i + 1); c.value = h; c.fill = hdrFill; c.font = hdrFont; c.alignment = { horizontal: 'center', vertical: 'middle' }; }); ws.getRow(row).height = 24; row++; }
   function writeRow(vals) { vals.forEach((v, i) => { ws.getCell(row, i + 1).value = v; }); row++; }
   function writeSummary(text) { ws.getCell(`A${row}`).value = text; ws.getCell(`A${row}`).font = subFont; row++; }
 
@@ -168,7 +170,22 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   for (let i = 1; i <= ws.columnCount; i++) {
     let maxLen = 0;
     ws.getColumn(i).eachCell(c => { if (c.value) maxLen = Math.max(maxLen, String(c.value).length); });
-    ws.getColumn(i).width = Math.min(Math.max(maxLen + 2, 8), 25);
+    ws.getColumn(i).width = Math.min(Math.max(maxLen + 2, 10), 28);
+  }
+  // Apply alternating row colors to data rows
+  for (let r = 6; r <= ws.rowCount; r++) {
+    const rowObj = ws.getRow(r);
+    let isHdr = false;
+    rowObj.eachCell(c => { if (c.fill && c.fill.fgColor && c.fill.fgColor.argb === COLORS.headerBg) isHdr = true; });
+    if (!isHdr && !rowObj.getCell(1).font?.bold) {
+      const isEven = r % 2 === 0;
+      rowObj.eachCell({ includeEmpty: true }, (cell, colNum) => {
+        if (!cell.fill || !cell.fill.fgColor || cell.fill.fgColor.argb === 'FF000000') {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFF0F7FF' : 'FFFFFFFF' } };
+          cell.border = { top: { style: 'hair', color: { argb: 'FFD0D5DD' } }, bottom: { style: 'hair', color: { argb: 'FFD0D5DD' } } };
+        }
+      });
+    }
   }
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

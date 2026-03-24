@@ -350,7 +350,7 @@ module.exports = function(database) {
   // ===== PARTY SUMMARY EXCEL =====
   router.get('/api/private-trading/party-summary/excel', safeSync((req, res) => {
     const ExcelJS = require('exceljs');
-    // Reuse the logic from the GET endpoint
+    const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     if (!database.data.private_paddy) database.data.private_paddy = [];
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, date_from, date_to, search } = req.query;
@@ -371,21 +371,32 @@ module.exports = function(database) {
     const widths = getExcelWidths(cols);
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Summary');
     let title = 'Party-wise Summary'; if (kms_year) title += ` | KMS: ${kms_year}`;
-    ws.mergeCells(1,1,1,cols.length); ws.getCell('A1').value = title; ws.getCell('A1').font = { bold: true, size: 14 };
-    headers.forEach((h,i) => { const c = ws.getCell(3,i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }; });
+    addExcelTitle(ws, title, cols.length, database);
+    headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
+    const hRow = ws.getRow(4);
+    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+    hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    hRow.height = 30;
     const totals = { total_purchase: 0, total_purchase_paid: 0, total_purchase_balance: 0, total_sale: 0, total_sale_received: 0, total_sale_balance: 0, total_net_balance: 0 };
     result.forEach((item, idx) => {
       const vals = getEntryRow(item, cols);
-      vals.forEach((v, ci) => ws.getCell(4+idx, ci+1).value = v);
+      vals.forEach((v, ci) => ws.getCell(5+idx, ci+1).value = v);
       totals.total_purchase += item.purchase_amount||0; totals.total_purchase_paid += item.purchase_paid||0;
       totals.total_purchase_balance += item.purchase_balance||0; totals.total_sale += item.sale_amount||0;
       totals.total_sale_received += item.sale_received||0; totals.total_sale_balance += item.sale_balance||0;
       totals.total_net_balance += item.net_balance||0;
     });
-    const trow = 4 + result.length;
-    ws.getCell(trow,1).value = 'TOTAL'; ws.getCell(trow,1).font = { bold: true };
+    styleExcelData(ws, 5);
+    const trow = 5 + result.length;
+    ws.getCell(trow,1).value = 'TOTAL'; ws.getCell(trow,1).font = { bold: true, size: 11 };
     const totalVals = getTotalRow(totals, cols);
-    totalVals.forEach((v,i) => { if (v !== null) { ws.getCell(trow,i+1).value = v; ws.getCell(trow,i+1).font = { bold: true }; } });
+    totalVals.forEach((v,i) => { if (v !== null) { ws.getCell(trow,i+1).value = v; ws.getCell(trow,i+1).font = { bold: true, size: 11 }; } });
+    for (let c = 1; c <= cols.length; c++) {
+      const cell = ws.getCell(trow, c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+      cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
+    }
     widths.forEach((w,i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=party_summary.xlsx');
@@ -395,6 +406,8 @@ module.exports = function(database) {
   // ===== PARTY SUMMARY PDF =====
   router.get('/api/private-trading/party-summary/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+    const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.private_paddy) database.data.private_paddy = [];
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, search } = req.query;
@@ -414,23 +427,17 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=party_summary.pdf');
     doc.pipe(res);
-    let title = 'Party-wise Summary'; if (kms_year) title += ` | KMS: ${kms_year}`;
-    doc.fontSize(14).fillColor('#D97706').text(title, { align: 'center' }); doc.moveDown(0.5);
-    doc.fontSize(7).fillColor('#333');
+    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | ${season}`;
+    _addPdfHeader(doc, 'Party-wise Summary', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
-    let y = doc.y;
-    headers.forEach((h,i) => { let x = 20 + colW.slice(0,i).reduce((a,b)=>a+b,0); doc.fillColor('#1E293B').rect(x,y,colW[i],14).fill(); doc.fillColor('#FFF').text(h,x+2,y+3,{width:colW[i]-4}); });
-    y += 16; doc.fillColor('#333');
-    result.forEach(item => {
-      const vals = getEntryRow(item, cols);
-      vals.forEach((v,i) => { let x = 20 + colW.slice(0,i).reduce((a,b)=>a+b,0); doc.text(String(v),x+2,y+2,{width:colW[i]-4}); });
-      y += 14; if (y > 560) { doc.addPage(); y = 20; }
-    });
+    const rows = result.map(item => getEntryRow(item, cols).map(v => String(v)));
+    addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
     doc.end();
   }));
 
   router.get('/api/private-paddy/excel', safeSync((req, res) => {
     const ExcelJS = require('exceljs');
+    const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const { kms_year, season, search } = req.query;
     let items = [...database.data.private_paddy];
@@ -447,20 +454,31 @@ module.exports = function(database) {
     const widths = getExcelWidths(cols);
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Pvt Paddy');
     let title = 'Private Paddy Purchase'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
-    ws.mergeCells(1, 1, 1, cols.length); ws.getCell('A1').value = title; ws.getCell('A1').font = { bold: true, size: 14 };
-    headers.forEach((h, i) => { const c = ws.getCell(3, i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }; });
+    addExcelTitle(ws, title, cols.length, database);
+    headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
+    const hRow = ws.getRow(4);
+    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+    hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    hRow.height = 30;
     const totals = { total_kg: 0, total_final_qntl: 0, total_amount: 0, total_paid: 0, total_balance: 0 };
     items.forEach((item, idx) => {
       const vals = getEntryRow(item, cols);
-      vals.forEach((v, ci) => ws.getCell(4+idx, ci+1).value = v);
+      vals.forEach((v, ci) => ws.getCell(5+idx, ci+1).value = v);
       totals.total_kg += item.kg || 0; totals.total_final_qntl += item.final_qntl || 0;
       totals.total_amount += item.total_amount || 0; totals.total_paid += item.paid_amount || 0; totals.total_balance += item.balance || 0;
     });
     Object.keys(totals).forEach(k => totals[k] = Math.round(totals[k]*100)/100);
-    const trow = 4 + items.length;
-    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true };
+    styleExcelData(ws, 5);
+    const trow = 5 + items.length;
+    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true, size: 11 };
     const totalVals = getTotalRow(totals, cols);
-    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true }; } });
+    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true, size: 11 }; } });
+    for (let c = 1; c <= cols.length; c++) {
+      const cell = ws.getCell(trow, c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+      cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
+    }
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=pvt_paddy.xlsx');
@@ -470,6 +488,8 @@ module.exports = function(database) {
   // ===== EXPORT: Private Paddy PDF =====
   router.get('/api/private-paddy/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
+    const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+    const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const { kms_year, season, search } = req.query;
     let items = [...database.data.private_paddy];
@@ -487,24 +507,18 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=pvt_paddy.pdf');
     doc.pipe(res);
-    let title = 'Private Paddy Purchase'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
-    doc.fontSize(14).fillColor('#D97706').text(title, { align: 'center' }); doc.moveDown(0.5);
-    doc.fontSize(7).fillColor('#333');
+    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | ${season}`;
+    _addPdfHeader(doc, 'Private Paddy Purchase', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
-    let y = doc.y;
-    headers.forEach((h, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.fillColor('#1E293B').rect(x, y, colW[i], 14).fill(); doc.fillColor('#FFF').text(h, x+2, y+3, { width: colW[i]-4 }); });
-    y += 16; doc.fillColor('#333');
-    items.forEach(item => {
-      const vals = getEntryRow(item, cols);
-      vals.forEach((v, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.text(String(v), x+2, y+2, { width: colW[i]-4 }); });
-      y += 14; if (y > 560) { doc.addPage(); y = 20; }
-    });
+    const rows = items.map(item => getEntryRow(item, cols).map(v => String(v)));
+    addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
     doc.end();
   }));
 
   // ===== EXPORT: Rice Sales Excel =====
   router.get('/api/rice-sales/excel', safeSync((req, res) => {
     const ExcelJS = require('exceljs');
+    const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, search } = req.query;
     let items = [...database.data.rice_sales];
@@ -518,20 +532,31 @@ module.exports = function(database) {
     const widths = getExcelWidths(cols);
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Rice Sales');
     let title = 'Rice Sales Report'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
-    ws.mergeCells(1, 1, 1, cols.length); ws.getCell('A1').value = title; ws.getCell('A1').font = { bold: true, size: 14 };
-    headers.forEach((h, i) => { const c = ws.getCell(3, i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065F46' } }; });
+    addExcelTitle(ws, title, cols.length, database);
+    headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
+    const hRow = ws.getRow(4);
+    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+    hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    hRow.height = 30;
     const totals = { total_qntl: 0, total_amount: 0, total_paid: 0, total_balance: 0 };
     items.forEach((item, idx) => {
       const vals = getEntryRow(item, cols);
-      vals.forEach((v, ci) => ws.getCell(4+idx, ci+1).value = v);
+      vals.forEach((v, ci) => ws.getCell(5+idx, ci+1).value = v);
       totals.total_qntl += item.quantity_qntl || 0; totals.total_amount += item.total_amount || 0;
       totals.total_paid += item.paid_amount || 0; totals.total_balance += item.balance || 0;
     });
     Object.keys(totals).forEach(k => totals[k] = Math.round(totals[k]*100)/100);
-    const trow = 4 + items.length;
-    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true };
+    styleExcelData(ws, 5);
+    const trow = 5 + items.length;
+    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true, size: 11 };
     const totalVals = getTotalRow(totals, cols);
-    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true }; } });
+    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true, size: 11 }; } });
+    for (let c = 1; c <= cols.length; c++) {
+      const cell = ws.getCell(trow, c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+      cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
+    }
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=rice_sales.xlsx');
@@ -541,6 +566,8 @@ module.exports = function(database) {
   // ===== EXPORT: Rice Sales PDF =====
   router.get('/api/rice-sales/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
+    const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+    const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, search } = req.query;
     let items = [...database.data.rice_sales];
@@ -555,18 +582,11 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=rice_sales.pdf');
     doc.pipe(res);
-    let title = 'Rice Sales Report'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
-    doc.fontSize(14).fillColor('#065F46').text(title, { align: 'center' }); doc.moveDown(0.5);
-    doc.fontSize(7).fillColor('#333');
+    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | ${season}`;
+    _addPdfHeader(doc, 'Rice Sales Report', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
-    let y = doc.y;
-    headers.forEach((h, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.fillColor('#065F46').rect(x, y, colW[i], 14).fill(); doc.fillColor('#FFF').text(h, x+2, y+3, { width: colW[i]-4 }); });
-    y += 16; doc.fillColor('#333');
-    items.forEach(item => {
-      const vals = getEntryRow(item, cols);
-      vals.forEach((v, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.text(String(v), x+2, y+2, { width: colW[i]-4 }); });
-      y += 14; if (y > 560) { doc.addPage(); y = 20; }
-    });
+    const rows = items.map(item => getEntryRow(item, cols).map(v => String(v)));
+    addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
     doc.end();
   }));
 

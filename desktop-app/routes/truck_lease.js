@@ -176,41 +176,33 @@ module.exports = function(database) {
 
   router.get('/api/truck-leases/export/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+    const branding = database.getBranding ? database.getBranding() : {};
     let leases = database.data.truck_leases || [];
     if (req.query.kms_year) leases = leases.filter(l => l.kms_year === req.query.kms_year);
     if (req.query.season) leases = leases.filter(l => l.season === req.query.season);
     const allPayments = database.data.truck_lease_payments || [];
-    const doc = new PDFDocument({ size: 'A4', margin: 30, layout: 'landscape' });
+    const doc = new PDFDocument({ size: 'A4', margin: 25, layout: 'landscape' });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=truck_lease_report.pdf');
     doc.pipe(res);
-    doc.fontSize(16).text('Truck Lease Report', { align: 'center' });
-    if (req.query.kms_year) doc.fontSize(10).text(`Year: ${req.query.kms_year} | Season: ${req.query.season || 'All'}`, { align: 'center' });
-    doc.moveDown();
+    let subtitle = '';
+    if (req.query.kms_year) subtitle = `Year: ${req.query.kms_year} | Season: ${req.query.season || 'All'}`;
+    _addPdfHeader(doc, 'Truck Lease Report', branding, subtitle);
     const headers = ['Truck No.', 'Owner', 'Rent/Mo', 'Start', 'End', 'Advance', 'Status', 'Total Due', 'Paid', 'Balance'];
     const colW = [70, 90, 65, 65, 65, 60, 50, 70, 65, 70];
-    let y = doc.y; let x = 30;
-    doc.fontSize(8).fillColor('#1e293b');
-    headers.forEach((h, i) => { doc.text(h, x, y, { width: colW[i], align: 'center' }); x += colW[i]; });
-    y += 15; doc.moveTo(30, y).lineTo(700, y).stroke();
-    doc.fillColor('black');
     let grandTotal = 0, grandPaid = 0;
+    const rows = [];
     for (const lease of leases) {
       const months = getMonthsBetween(lease.start_date, lease.end_date);
       const totalRent = months.length * (lease.monthly_rent || 0);
       const paid = allPayments.filter(p => p.lease_id === lease.id).reduce((s, p) => s + (p.amount || 0), 0);
       const balance = Math.max(0, totalRent - paid);
       grandTotal += totalRent; grandPaid += paid;
-      y += 3; x = 30;
-      const vals = [lease.truck_no, lease.owner_name||'', `Rs.${(lease.monthly_rent||0).toLocaleString('en-IN')}`, lease.start_date||'', lease.end_date||'Ongoing', `Rs.${(lease.advance_deposit||0).toLocaleString('en-IN')}`, (lease.status||'').toUpperCase(), `Rs.${totalRent.toLocaleString('en-IN')}`, `Rs.${Math.round(paid).toLocaleString('en-IN')}`, `Rs.${Math.round(balance).toLocaleString('en-IN')}`];
-      doc.fontSize(7);
-      vals.forEach((v, i) => { doc.text(v, x, y, { width: colW[i], align: i >= 2 ? 'right' : 'left' }); x += colW[i]; });
-      y += 12;
+      rows.push([lease.truck_no, lease.owner_name||'', pFmt(lease.monthly_rent||0), lease.start_date||'', lease.end_date||'Ongoing', pFmt(lease.advance_deposit||0), (lease.status||'').toUpperCase(), pFmt(totalRent), pFmt(Math.round(paid)), pFmt(Math.round(balance))]);
     }
-    y += 3; doc.moveTo(30, y).lineTo(700, y).stroke(); y += 3; x = 30;
-    doc.fontSize(8).font('Helvetica-Bold');
-    const totals = ['', '', '', '', '', '', 'TOTAL', `Rs.${grandTotal.toLocaleString('en-IN')}`, `Rs.${Math.round(grandPaid).toLocaleString('en-IN')}`, `Rs.${Math.round(Math.max(0, grandTotal - grandPaid)).toLocaleString('en-IN')}`];
-    totals.forEach((v, i) => { doc.text(v, x, y, { width: colW[i], align: i >= 2 ? 'right' : 'left' }); x += colW[i]; });
+    addPdfTable(doc, headers, rows, colW);
+    addTotalsRow(doc, ['', '', '', '', '', '', 'TOTAL', pFmt(grandTotal), pFmt(Math.round(grandPaid)), pFmt(Math.round(Math.max(0, grandTotal - grandPaid)))], colW);
     doc.end();
   }));
 
@@ -218,33 +210,37 @@ module.exports = function(database) {
 
   router.get('/api/truck-leases/export/excel', safeSync((req, res) => {
     const ExcelJS = require('exceljs');
+    const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     let leases = database.data.truck_leases || [];
     if (req.query.kms_year) leases = leases.filter(l => l.kms_year === req.query.kms_year);
     if (req.query.season) leases = leases.filter(l => l.season === req.query.season);
     const allPayments = database.data.truck_lease_payments || [];
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Truck Leases');
-    ws.columns = [
-      { header: 'Truck No.', key: 'truck_no', width: 15 },
-      { header: 'Owner', key: 'owner_name', width: 18 },
-      { header: 'Monthly Rent', key: 'monthly_rent', width: 15 },
-      { header: 'Start Date', key: 'start_date', width: 12 },
-      { header: 'End Date', key: 'end_date', width: 12 },
-      { header: 'Advance', key: 'advance', width: 12 },
-      { header: 'Status', key: 'status', width: 10 },
-      { header: 'Total Months', key: 'months', width: 12 },
-      { header: 'Total Due', key: 'total_due', width: 15 },
-      { header: 'Total Paid', key: 'total_paid', width: 15 },
-      { header: 'Balance', key: 'balance', width: 15 },
-    ];
-    ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1e293b' } };
+    const colCount = 11;
+    let title = 'Truck Lease Report';
+    if (req.query.kms_year) title += ` | KMS: ${req.query.kms_year}`;
+    if (req.query.season) title += ` | ${req.query.season}`;
+    addExcelTitle(ws, title, colCount, database);
+    // Headers at row 4
+    const hdrs = ['Truck No.', 'Owner', 'Monthly Rent', 'Start Date', 'End Date', 'Advance', 'Status', 'Total Months', 'Total Due', 'Total Paid', 'Balance'];
+    hdrs.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
+    const hRow = ws.getRow(4);
+    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+    hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    hRow.height = 30;
+    let r = 5;
     for (const lease of leases) {
       const months = getMonthsBetween(lease.start_date, lease.end_date);
       const totalRent = months.length * (lease.monthly_rent || 0);
       const paid = allPayments.filter(p => p.lease_id === lease.id).reduce((s, p) => s + (p.amount || 0), 0);
-      ws.addRow({ truck_no: lease.truck_no, owner_name: lease.owner_name||'', monthly_rent: lease.monthly_rent||0, start_date: lease.start_date||'', end_date: lease.end_date||'Ongoing', advance: lease.advance_deposit||0, status: (lease.status||'').toUpperCase(), months: months.length, total_due: totalRent, total_paid: Math.round(paid), balance: Math.max(0, Math.round(totalRent - paid)) });
+      const vals = [lease.truck_no, lease.owner_name||'', lease.monthly_rent||0, lease.start_date||'', lease.end_date||'Ongoing', lease.advance_deposit||0, (lease.status||'').toUpperCase(), months.length, totalRent, Math.round(paid), Math.max(0, Math.round(totalRent - paid))];
+      vals.forEach((v, i) => { ws.getCell(r, i + 1).value = v; });
+      r++;
     }
+    styleExcelData(ws, 5);
+    [15, 18, 15, 12, 12, 12, 10, 12, 15, 15, 15].forEach((w, i) => ws.getColumn(i + 1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=truck_lease_report.xlsx');
     wb.xlsx.write(res).then(() => res.end());
