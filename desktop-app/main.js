@@ -62,6 +62,7 @@ let splashWindow = null;
 let dataPath = null;
 let db = null;
 let server = null;
+let manualCheckInProgress = false;
 const DESKTOP_API_PORT = 9876;
 const MAX_BACKUPS = 7;
 
@@ -1650,12 +1651,23 @@ async function createMainWindow(port) {
     ]},
     { label: 'Help', submenu: [
       { label: 'Check for Updates', click: () => {
+        // Use IPC to show update status in custom React UI instead of native dialog
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('update-checking');
+        }
+        manualCheckInProgress = true;
         autoUpdater.checkForUpdates().then(result => {
-          if (!result || !result.updateInfo) {
-            dialog.showMessageBox(mainWindow, { type: 'info', title: 'Update Check', message: 'App already latest version hai! (v' + app.getVersion() + ')' });
+          if (!result || !result.updateInfo || !result.updateInfo.version) {
+            manualCheckInProgress = false;
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('update-not-available', { currentVersion: app.getVersion() });
+            }
           }
         }).catch(() => {
-          dialog.showMessageBox(mainWindow, { type: 'info', title: 'Update Check', message: 'Abhi koi update available nahi hai.\n\nCurrent version: v' + app.getVersion() });
+          manualCheckInProgress = false;
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('update-not-available', { currentVersion: app.getVersion() });
+          }
         });
       }},
       { type: 'separator' },
@@ -1777,8 +1789,15 @@ function setupAutoUpdater() {
     });
   });
 
+  // Track manual check in the global variable (manualCheckInProgress)
+
   autoUpdater.on('update-not-available', () => {
     console.log('App is up to date');
+    // Only show "up to date" UI if manually triggered
+    if (manualCheckInProgress && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-not-available', { currentVersion: app.getVersion() });
+    }
+    manualCheckInProgress = false;
   });
 
   autoUpdater.on('download-progress', (progress) => {
@@ -1801,8 +1820,11 @@ function setupAutoUpdater() {
 
   autoUpdater.on('error', (err) => {
     console.log('Auto-updater error:', err.message);
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    mainWindow.webContents.send('update-error', err.message);
+    // Only show error UI if manually triggered, skip silent auto-check errors
+    if (manualCheckInProgress && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-error', err.message);
+    }
+    manualCheckInProgress = false;
   });
 
   // IPC handlers for update actions from renderer
