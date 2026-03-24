@@ -1010,7 +1010,7 @@ async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Opt
 async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_CENTER
@@ -1036,7 +1036,7 @@ async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optio
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
 
     from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -1148,7 +1148,7 @@ async def export_rice_sales_excel(kms_year: Optional[str] = None, season: Option
 async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_CENTER
@@ -1172,7 +1172,7 @@ async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
 
     from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -1397,7 +1397,7 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
 async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, search: Optional[str] = None, view_type: Optional[str] = None):
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT
@@ -1409,7 +1409,7 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=10*mm)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
 
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -1452,7 +1452,7 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, 0), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
             ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
             ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),

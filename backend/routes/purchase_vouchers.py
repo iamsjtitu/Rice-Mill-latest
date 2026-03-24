@@ -604,7 +604,7 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
     from fastapi.responses import Response
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT
@@ -638,7 +638,7 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=6*mm, rightMargin=6*mm, topMargin=8*mm, bottomMargin=6*mm)
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
 
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -652,7 +652,7 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
 
     cell_s = ParagraphStyle('Cell', parent=styles['Normal'], fontSize=6, leading=8)
     cell_r = ParagraphStyle('CellR', parent=styles['Normal'], fontSize=6, leading=8, alignment=TA_RIGHT)
-    cell_rb = ParagraphStyle('CellRB', parent=styles['Normal'], fontSize=6, leading=8, alignment=TA_RIGHT, fontName='Helvetica-Bold')
+    cell_rb = ParagraphStyle('CellRB', parent=styles['Normal'], fontSize=6, leading=8, alignment=TA_RIGHT, fontName='FreeSansBold')
 
     headers = ['#', 'Date', 'Inv', 'Party', 'Items', 'Truck', 'Total', 'Adv', 'Cash', 'Diesel', 'Ledger Paid', 'Balance', 'Status']
     table_data = [headers]
@@ -706,7 +706,7 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
     style_cmds = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2e7d32')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
         ('FONTSIZE', (0, 0), (-1, 0), 6),
         ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CBD5E1')),
         ('TOPPADDING', (0, 0), (-1, -1), 1),
@@ -843,7 +843,7 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
     from fastapi.responses import Response
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT
@@ -862,18 +862,18 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=12*mm, bottomMargin=12*mm)
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     green = '#2e7d32'
 
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
 
     label_s = ParagraphStyle('L', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555'))
-    val_s = ParagraphStyle('V', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
+    val_s = ParagraphStyle('V', parent=styles['Normal'], fontSize=10, fontName='FreeSansBold')
     cell_s = ParagraphStyle('C', parent=styles['Normal'], fontSize=9, leading=12)
     cell_r = ParagraphStyle('CR', parent=styles['Normal'], fontSize=9, leading=12, alignment=TA_RIGHT)
-    cell_rb = ParagraphStyle('CRB', parent=styles['Normal'], fontSize=10, leading=12, alignment=TA_RIGHT, fontName='Helvetica-Bold')
-    hd_s = ParagraphStyle('H', parent=styles['Normal'], fontSize=9, leading=12, fontName='Helvetica-Bold', textColor=colors.white)
+    cell_rb = ParagraphStyle('CRB', parent=styles['Normal'], fontSize=10, leading=12, alignment=TA_RIGHT, fontName='FreeSansBold')
+    hd_s = ParagraphStyle('H', parent=styles['Normal'], fontSize=9, leading=12, fontName='FreeSansBold', textColor=colors.white)
 
     elements.append(Spacer(1, 4*mm))
 
@@ -895,7 +895,7 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
         info_data.append([Paragraph('<b>E-Way Bill:</b>', label_s), Paragraph(v.get('eway_bill_no', ''), val_s), '', ''])
 
     info_tbl = RLTable(info_data, colWidths=[30*mm, 55*mm, 30*mm, 55*mm])
-    info_tbl.setStyle(TableStyle([
+    info_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 2),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
@@ -945,7 +945,7 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
     balance = v.get('balance', 0) or 0
 
     tot_s = ParagraphStyle('TS', parent=styles['Normal'], fontSize=9, alignment=TA_RIGHT)
-    tot_b = ParagraphStyle('TB', parent=styles['Normal'], fontSize=11, alignment=TA_RIGHT, fontName='Helvetica-Bold', textColor=colors.HexColor(green))
+    tot_b = ParagraphStyle('TB', parent=styles['Normal'], fontSize=11, alignment=TA_RIGHT, fontName='FreeSansBold', textColor=colors.HexColor(green))
 
     total_data = [[Paragraph('Subtotal:', tot_s), Paragraph(f"Rs. {subtotal:,.2f}", tot_s)]]
     if cgst > 0: total_data.append([Paragraph(f"CGST ({v.get('cgst_percent',0)}%):", tot_s), Paragraph(f"Rs. {cgst:,.2f}", tot_s)])
@@ -956,7 +956,7 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
     total_data.append([Paragraph('<b>Balance Due:</b>', tot_b), Paragraph(f"<b>Rs. {balance:,.2f}</b>", tot_b)])
 
     tot_tbl = RLTable(total_data, colWidths=[120*mm, 50*mm])
-    tot_tbl.setStyle(TableStyle([
+    tot_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
         ('TOPPADDING', (0, 0), (-1, -1), 2),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor(green)),
@@ -969,10 +969,10 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
 
     elements.append(Spacer(1, 15*mm))
     sig_s = ParagraphStyle('Sig', alignment=TA_CENTER, fontSize=9)
-    sig_b = ParagraphStyle('SigB', alignment=TA_CENTER, fontSize=9, fontName='Helvetica-Bold')
+    sig_b = ParagraphStyle('SigB', alignment=TA_CENTER, fontSize=9, fontName='FreeSansBold')
     sig_data = [[Paragraph('Received By', sig_s), Paragraph(f'For {company}', sig_b)]]
     sig_tbl = RLTable(sig_data, colWidths=[85*mm, 85*mm])
-    sig_tbl.setStyle(TableStyle([('LINEABOVE', (0, 0), (0, 0), 0.5, colors.black), ('LINEABOVE', (1, 0), (1, 0), 0.5, colors.black)]))
+    sig_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('LINEABOVE', (0, 0), (0, 0), 0.5, colors.black), ('LINEABOVE', (1, 0), (1, 0), 0.5, colors.black)]))
     elements.append(sig_tbl)
 
     doc.build(elements)
@@ -987,7 +987,7 @@ async def export_stock_summary_pdf(kms_year: Optional[str] = None, season: Optio
     from fastapi.responses import Response
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT
@@ -1003,7 +1003,7 @@ async def export_stock_summary_pdf(kms_year: Optional[str] = None, season: Optio
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=15*mm, bottomMargin=12*mm)
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
 
     # Company header
     from utils.export_helpers import get_pdf_company_header
@@ -1062,7 +1062,7 @@ async def export_stock_summary_pdf(kms_year: Optional[str] = None, season: Optio
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
             ('FONTSIZE', (0, 0), (-1, 0), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
             ('TOPPADDING', (0, 0), (-1, -1), 3),

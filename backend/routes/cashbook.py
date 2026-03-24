@@ -693,7 +693,7 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from reportlab.lib import colors
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from io import BytesIO
     
     result = await get_party_summary(kms_year, season, party_type)
@@ -704,7 +704,7 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     
     buf = BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     elements = []
     
     # Company Header + Title
@@ -732,7 +732,7 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     # Party table
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.enums import TA_LEFT
-    name_style = ParagraphStyle('name', fontName='Helvetica', fontSize=7, leading=8.5, alignment=TA_LEFT)
+    name_style = ParagraphStyle('name', fontName='FreeSans', fontSize=7, leading=8.5, alignment=TA_LEFT)
     
     data = [['#', 'Party Name', 'Party Type', 'Jama (Rs)', 'Nikasi (Rs)', 'Balance (Rs)', 'Txns', 'Status']]
     for i, p in enumerate(parties, 1):
@@ -752,9 +752,9 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     # Color rows based on status
     for i, p in enumerate(parties, 1):
         if p['balance'] == 0:
-            table.setStyle(TableStyle([('BACKGROUND', (0,i), (-1,i), colors.HexColor('#f0fff4'))]))
+            table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('BACKGROUND', (0,i), (-1,i), colors.HexColor('#f0fff4'))]))
         elif p['balance'] < 0:
-            table.setStyle(TableStyle([('BACKGROUND', (0,i), (-1,i), colors.HexColor('#fff5f5'))]))
+            table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('BACKGROUND', (0,i), (-1,i), colors.HexColor('#fff5f5'))]))
     
     elements.append(table)
     doc.build(elements)
@@ -1262,7 +1262,7 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
                                 date_from: Optional[str] = None, date_to: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_LEFT, TA_CENTER
@@ -1309,7 +1309,7 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
     
     # Company Header + Title
     from utils.export_helpers import get_pdf_company_header
@@ -1336,9 +1336,10 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     st = RLTable(sdata, colWidths=[80, 80, 80, 80])
     st.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('FONTNAME', (0,0), (-1,-1), 'FreeSans'),
         ('FONTSIZE', (0,0), (-1,-1), 8), ('ALIGN', (1,0), (-1,-1), 'RIGHT'), 
         ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#D0D5DD')),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTNAME', (0,-1), (-1,-1), 'Helvetica-Bold'),
+        ('FONTNAME', (0,0), (-1,0), 'FreeSansBold'), ('FONTNAME', (0,-1), (-1,-1), 'FreeSansBold'),
         ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#FEF3C7')),
         ('LINEABOVE', (0,-1), (-1,-1), 1.5, colors.HexColor('#F59E0B')),
         ('TEXTCOLOR', (1,1), (1,-2), colors.HexColor('#16A34A')),
@@ -1348,8 +1349,8 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     elements.append(st); elements.append(Spacer(1, 10))
     
     # Transactions table
-    desc_style = ParagraphStyle('desc', fontName='Helvetica', fontSize=6, leading=7.5, alignment=TA_LEFT)
-    party_style = ParagraphStyle('party', fontName='Helvetica', fontSize=6, leading=7.5, alignment=TA_LEFT)
+    desc_style = ParagraphStyle('desc', fontName='FreeSans', fontSize=6, leading=7.5, alignment=TA_LEFT)
+    party_style = ParagraphStyle('party', fontName='FreeSans', fontSize=6, leading=7.5, alignment=TA_LEFT)
     
     table_data = [headers]
     for r in rows:

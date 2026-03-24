@@ -63,6 +63,15 @@ A comprehensive rice mill management system with features for paddy procurement,
   - cashbook.py (party_summary, Excel + PDF - already had main cashbook done)
   - daily_report.py (daily report, Excel + PDF)
 
+#### Version Bump (Current Session - Complete)
+- Desktop app version bumped: 32.0.0 → 33.0.0
+
+#### Hindi Font Fix for PDFs (Current Session - Complete)
+- Registered FreeSans font family (supports Hindi/Devanagari) for all ReportLab PDFs
+- Created `get_pdf_styles()` helper that replaces Helvetica with FreeSans globally
+- Updated ALL 19 route files to use FreeSans for PDF generation
+- All ■■■ box characters eliminated from Hindi text in PDFs
+
 #### Company Name + Tagline in All Exports (Current Session - Complete)
 - Updated `export_helpers.py` to add Company Name (Row 1), Tagline (Row 2), Report Title (Row 3) in Excel exports
 - Added `get_pdf_company_header()` helper for consistent PDF headers with company name + tagline
@@ -81,13 +90,11 @@ A comprehensive rice mill management system with features for paddy procurement,
 
 ## Pending Items
 ### P0
-- Desktop app build required for all recent fixes to take effect (UI freeze, data migration, export filters)
+- Desktop app build required for all recent fixes to take effect (UI freeze, data migration, export filters, company headers)
 
 ### P1
 - Export Preview feature (user requested)
-- Version bump (user requested)
 - Centralize stock calculation logic
-- Staff.py attendance export has specialized per-cell styling (P/A/H/CH colors) - skipped for generic helper
 
 ### P2
 - Sardar-wise monthly Hemali report breakdown

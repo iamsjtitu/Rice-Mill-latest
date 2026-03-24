@@ -367,7 +367,7 @@ async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] 
 async def export_dc_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
     query = {}
@@ -379,7 +379,7 @@ async def export_dc_pdf(kms_year: Optional[str] = None, season: Optional[str] = 
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
     elements.extend(get_pdf_company_header())
     elements.append(Paragraph("DC Register / डीसी रजिस्टर", styles['Title'])); elements.append(Spacer(1, 12))
     data = [['DC No','Date','Type','Allotted(Q)','Delivered(Q)','Pending(Q)','Status','Deadline','Godown']]
@@ -550,7 +550,7 @@ async def export_msp_excel(kms_year: Optional[str] = None, season: Optional[str]
 async def export_msp_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
     query = {}
@@ -564,7 +564,7 @@ async def export_msp_pdf(kms_year: Optional[str] = None, season: Optional[str] =
         dcs = {d["id"]: d.get("dc_number","") for d in dc_docs}
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
     from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
     
     elements.extend(get_pdf_company_header())
@@ -980,7 +980,7 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
                                  bag_filter: Optional[str] = None, txn_filter: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.enums import TA_LEFT
     from reportlab.lib import colors
     from io import BytesIO
@@ -1000,8 +1000,8 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
-    elements = []; styles = getSampleStyleSheet()
-    src_style = ParagraphStyle('src', fontName='Helvetica', fontSize=7, leading=8.5, alignment=TA_LEFT)
+    elements = []; styles = get_pdf_styles()
+    src_style = ParagraphStyle('src', fontName='FreeSans', fontSize=7, leading=8.5, alignment=TA_LEFT)
 
     from utils.export_helpers import get_pdf_company_header
     title = "Gunny Bag Register"
@@ -1186,7 +1186,7 @@ async def export_gunny_purchase_report_excel(kms_year: Optional[str] = None, sea
 async def export_gunny_purchase_report_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
 
@@ -1196,7 +1196,7 @@ async def export_gunny_purchase_report_pdf(kms_year: Optional[str] = None, seaso
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=25, bottomMargin=25)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
 
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -1220,8 +1220,8 @@ async def export_gunny_purchase_report_pdf(kms_year: Optional[str] = None, seaso
     style = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTSIZE', (0, 0), (-1, 0), 7.5), ('FONTSIZE', (0, 1), (-1, -1), 7),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f0f0')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
+        ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'), ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f0f0')),
         ('ALIGN', (1, 0), (-1, -1), 'RIGHT'), ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]

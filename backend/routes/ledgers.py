@@ -337,14 +337,14 @@ async def export_outstanding_excel(kms_year: Optional[str] = None, season: Optio
 async def export_outstanding_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
     from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
     data = await report_outstanding(kms_year=kms_year, season=season)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
     elements.extend(get_pdf_company_header())
     elements.append(Paragraph("Outstanding Report / बकाया रिपोर्ट", styles['Title'])); elements.append(Spacer(1, 12))
     # DC pending
@@ -443,7 +443,7 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
                                     date_from: Optional[str] = None, date_to: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_LEFT, TA_CENTER
@@ -457,7 +457,7 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
     title = "Party Ledger / खाता बही"
@@ -470,8 +470,8 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1a365d'), alignment=TA_CENTER)
     elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
     
-    desc_style = ParagraphStyle('desc', fontName='Helvetica', fontSize=6.5, leading=8, alignment=TA_LEFT)
-    party_style = ParagraphStyle('party', fontName='Helvetica', fontSize=6.5, leading=8, alignment=TA_LEFT)
+    desc_style = ParagraphStyle('desc', fontName='FreeSans', fontSize=6.5, leading=8, alignment=TA_LEFT)
+    party_style = ParagraphStyle('party', fontName='FreeSans', fontSize=6.5, leading=8, alignment=TA_LEFT)
     
     table_data = [headers]
     for l in data["ledger"]:

@@ -489,7 +489,7 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
 async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from io import BytesIO
     
@@ -501,7 +501,7 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=30, bottomMargin=30)
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -598,7 +598,7 @@ async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Opt
 async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
     
@@ -608,7 +608,7 @@ async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optio
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -686,7 +686,7 @@ async def export_frk_purchases_excel(kms_year: Optional[str] = None, season: Opt
 async def export_frk_purchases_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
     
@@ -697,7 +697,7 @@ async def export_frk_purchases_pdf(kms_year: Optional[str] = None, season: Optio
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
     title = "FRK Purchase Register"
@@ -790,7 +790,7 @@ async def export_byproduct_sales_excel(kms_year: Optional[str] = None, season: O
 async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
     
@@ -802,7 +802,7 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
     title = "By-Product Stock & Sales Report"

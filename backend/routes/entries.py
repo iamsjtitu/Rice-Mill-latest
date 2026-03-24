@@ -882,7 +882,7 @@ async def export_pdf(
     """Export entries to styled PDF file (A4 Landscape)"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT
@@ -918,7 +918,7 @@ async def export_pdf(
     )
     
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -950,7 +950,7 @@ async def export_pdf(
     title_text = f"{company_name} - Mill Entries / मिल एंट्री | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
     title_data = [[Paragraph(f"<b>{title_text}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 16*mm])
-    title_table.setStyle(TableStyle([
+    title_table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1B4F72')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -1199,7 +1199,7 @@ async def export_truck_payments_pdf(
     """Export truck payments to PDF"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
     from reportlab.lib.enums import TA_CENTER
@@ -1261,7 +1261,7 @@ async def export_truck_payments_pdf(
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
     
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -1271,7 +1271,7 @@ async def export_truck_payments_pdf(
     company_name, tagline = await get_company_name()
     title_data = [[Paragraph(f"<b>TRUCK PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 20*mm])
-    title_table.setStyle(TableStyle([
+    title_table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('TOPPADDING', (0, 0), (-1, -1), 6),
@@ -1293,7 +1293,7 @@ async def export_truck_payments_pdf(
     style_commands = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
         ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('ALIGN', (3, 1), (-1, -1), 'RIGHT'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
@@ -1301,7 +1301,7 @@ async def export_truck_payments_pdf(
         ('TOPPADDING', (0, 0), (-1, -1), 3),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'),
     ]
     
     # Alternating rows and status colors

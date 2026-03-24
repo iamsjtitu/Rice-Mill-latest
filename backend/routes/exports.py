@@ -70,7 +70,7 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
     """Export Dashboard PDF with optional filter (all, stock, or mandi_name)"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -85,7 +85,7 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
     pw = A4[0] - 30*mm  # page width minus margins
 
     from utils.export_helpers import get_pdf_company_header
@@ -148,9 +148,9 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
         t = RLTable(data, colWidths=cw, repeatRows=1)
         st = [
             ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (2, 1), (-1, -1), 'RIGHT'),
-            ('FONTNAME', (0, 3), (-1, 3), 'Helvetica-Bold'), ('BACKGROUND', (0, 3), (-1, 3), tot_bg),
+            ('FONTNAME', (0, 3), (-1, 3), 'FreeSansBold'), ('BACKGROUND', (0, 3), (-1, 3), tot_bg),
             ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]
         t.setStyle(TableStyle(st))
@@ -201,9 +201,9 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
             t = RLTable(data, colWidths=cw, repeatRows=1)
             st = [
                 ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
+                ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
                 ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]
             for i, tgt in enumerate(targets, 1):
@@ -232,7 +232,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     """Export complete summary report - Stock + Targets + Truck + Agent Payments + Grand Total"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -244,7 +244,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=12*mm)
     pw = A4[0] - 24*mm
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
 
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -260,7 +260,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
 
     # ---- HEADER ----
     ht = Table([[Paragraph(f"<b>{company} - COMPLETE SUMMARY REPORT</b>", ParagraphStyle('H', parent=styles['Heading1'], fontSize=16, textColor=colors.white, alignment=TA_CENTER))]], colWidths=[pw])
-    ht.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, -1), amber_bg), ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10)]))
+    ht.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('BACKGROUND', (0, 0), (-1, -1), amber_bg), ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10)]))
     elements.append(ht)
     elements.append(Paragraph(f"{tagline}", sub))
     elements.append(Paragraph(f"KMS: {kms_year or 'All'} | Season: {season or 'All'} | {datetime.now().strftime('%d-%m-%Y %H:%M')}", sub))
@@ -298,9 +298,9 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     st = Table(stock_data, colWidths=[35*mm, 28*mm, 28*mm, 30*mm, 18*mm])
     st.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-        ('FONTNAME', (0, 3), (-1, 3), 'Helvetica-Bold'), ('BACKGROUND', (0, 3), (-1, 3), tot_bg),
+        ('FONTNAME', (0, 3), (-1, 3), 'FreeSansBold'), ('BACKGROUND', (0, 3), (-1, 3), tot_bg),
         ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
     elements.append(st)
@@ -335,9 +335,9 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
         tt = Table(tdata, colWidths=[28*mm, 22*mm, 14*mm, 24*mm, 24*mm, 24*mm, 18*mm])
         tts = [
             ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
+            ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
             ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ]
         for i in range(1, len(targets) + 1):
@@ -376,9 +376,9 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
         tt = Table(tdata, colWidths=[20*mm, 22*mm, 18*mm, 16*mm, 22*mm, 20*mm, 22*mm, 16*mm])
         tts = [
             ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (3, 1), (-1, -1), 'RIGHT'),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
+            ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
             ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ]
         tt.setStyle(TableStyle(tts))
@@ -409,9 +409,9 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
         at = Table(adata, colWidths=[25*mm, 18*mm, 16*mm, 24*mm, 22*mm, 20*mm, 22*mm, 16*mm])
         at.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
+            ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'), ('BACKGROUND', (0, -1), (-1, -1), tot_bg),
             ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ]))
         elements.append(at)
@@ -433,10 +433,10 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     gt = Table(gdata, colWidths=[40*mm, 35*mm, 35*mm, 35*mm])
     gt.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
         ('BACKGROUND', (0, -1), (-1, -1), amber_bg), ('TEXTCOLOR', (0, -1), (-1, -1), hdr_fg),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'),
         ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
     elements.append(gt)
@@ -593,7 +593,7 @@ async def export_truck_owner_pdf(
     """Export truck owner consolidated payments to PDF"""
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     
     query = {}
@@ -649,7 +649,7 @@ async def export_truck_owner_pdf(
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=30, bottomMargin=30)
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -701,14 +701,14 @@ async def export_truck_owner_pdf(
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0891B2')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
         ('FONTSIZE', (0, 0), (-1, 0), 9),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTNAME', (0, 1), (-1, -1), 'FreeSans'),
         ('FONTSIZE', (0, 1), (-1, -1), 8),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
         ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FEF3C7')),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'),
     ]))
     elements.append(table)
     

@@ -500,11 +500,11 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     elements = []
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -593,7 +593,7 @@ async def print_hemali_receipt(payment_id: str):
     from reportlab.lib.pagesizes import A5
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer, HRFlowable
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
 
     def fmt_d(d):
         if not d: return ''
@@ -602,7 +602,7 @@ async def print_hemali_receipt(payment_id: str):
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A5, leftMargin=25, rightMargin=25, topMargin=20, bottomMargin=20)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     elements = []
     orange = colors.HexColor("#d97706")
     dark = colors.HexColor("#1a365d")
@@ -625,7 +625,7 @@ async def print_hemali_receipt(payment_id: str):
         [Paragraph(fmt_d(p.get("date", "")), val_s), Paragraph(p.get("sardar_name", ""), val_s)],
     ]
     info_t = RTable(info_data, colWidths=[155, 155])
-    info_t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
+    info_t.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
     elements.append(info_t)
     elements.append(Spacer(1, 8))
 
@@ -668,7 +668,7 @@ async def print_hemali_receipt(payment_id: str):
         calc_rows.append([Paragraph("Advance Deducted", calc_red_l), Paragraph(f"- Rs. {p.get('advance_deducted', 0):,.0f}", calc_red)])
 
     ct = RTable(calc_rows, colWidths=[200, 110])
-    ct.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+    ct.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
     elements.append(ct)
 
     # Orange separator
@@ -683,7 +683,7 @@ async def print_hemali_receipt(payment_id: str):
         net_rows.append([Paragraph("New Advance", calc_label), Paragraph(f"Rs. {p.get('new_advance', 0):,.0f}", calc_val)])
 
     nt = RTable(net_rows, colWidths=[200, 110])
-    nt.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+    nt.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
     elements.append(nt)
     elements.append(Spacer(1, 12))
 
@@ -698,7 +698,7 @@ async def print_hemali_receipt(payment_id: str):
         Paragraph("Authorized Signature", ParagraphStyle("sig2", parent=styles["Normal"], fontSize=7, textColor=grey_c, alignment=2)),
     ]]
     sig_t = RTable(sig_rows, colWidths=[155, 155])
-    sig_t.setStyle(TableStyle([("LINEABOVE", (0, 0), (0, 0), 0.5, grey_c), ("LINEABOVE", (1, 0), (1, 0), 0.5, grey_c), ("TOPPADDING", (0, 0), (-1, -1), 6)]))
+    sig_t.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ("LINEABOVE", (0, 0), (0, 0), 0.5, grey_c), ("LINEABOVE", (1, 0), (1, 0), 0.5, grey_c), ("TOPPADDING", (0, 0), (-1, -1), 6)]))
     elements.append(sig_t)
     elements.append(Spacer(1, 8))
 
@@ -744,11 +744,11 @@ async def export_hemali_pdf(
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     elements = []
 
     from utils.export_helpers import get_pdf_company_header

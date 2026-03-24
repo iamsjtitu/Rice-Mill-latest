@@ -459,16 +459,16 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib import colors
         from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer, PageBreak
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
 
         buf = io.BytesIO()
         doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10, rightMargin=10, topMargin=10, bottomMargin=10)
-        styles = getSampleStyleSheet()
+        styles = get_pdf_styles()
         elements = []
 
         from utils.export_helpers import get_pdf_company_header
         elements.extend(get_pdf_company_header())
-        elements.append(Paragraph(f"Staff Attendance: {date_from} to {date_to}", ParagraphStyle('t', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#1a365d'), spaceAfter=2, fontName='Helvetica-Bold')))
+        elements.append(Paragraph(f"Staff Attendance: {date_from} to {date_to}", ParagraphStyle('t', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#1a365d'), spaceAfter=2, fontName='FreeSansBold')))
 
         # Column-wise: dates as rows, staff as columns
         headers = ["Date"] + [s["name"] for s in staff_list]
@@ -512,7 +512,7 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
             ('FONTSIZE', (0, 0), (-1, -1), 5.5),
             ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cbd5e1')),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -521,7 +521,7 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
             ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
             ('LEFTPADDING', (0, 0), (-1, -1), 2),
             ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 1), (0, -1), 'FreeSansBold'),
         ]
 
         n_date_rows = len(dates)
@@ -531,18 +531,18 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
                 if val in bg_map:
                     style_cmds.append(('BACKGROUND', (ci, ri), (ci, ri), bg_map[val]))
                     style_cmds.append(('TEXTCOLOR', (ci, ri), (ci, ri), tx_map[val]))
-                    style_cmds.append(('FONTNAME', (ci, ri), (ci, ri), 'Helvetica-Bold'))
+                    style_cmds.append(('FONTNAME', (ci, ri), (ci, ri), 'FreeSansBold'))
 
         total_start = 1 + n_date_rows
         style_cmds.append(('BACKGROUND', (0, total_start), (-1, -1), colors.HexColor('#e0e7ff')))
-        style_cmds.append(('FONTNAME', (0, total_start), (-1, -1), 'Helvetica-Bold'))
+        style_cmds.append(('FONTNAME', (0, total_start), (-1, -1), 'FreeSansBold'))
 
         t.setStyle(TableStyle(style_cmds))
         elements.append(t)
 
         # ---- PAGE 2: MONTHLY SUMMARY ----
         elements.append(PageBreak())
-        elements.append(Paragraph("Monthly Summary / Masik Saransh", ParagraphStyle('ms', parent=styles['Normal'], fontSize=12, textColor=colors.HexColor('#1a365d'), spaceAfter=8, fontName='Helvetica-Bold')))
+        elements.append(Paragraph("Monthly Summary / Masik Saransh", ParagraphStyle('ms', parent=styles['Normal'], fontSize=12, textColor=colors.HexColor('#1a365d'), spaceAfter=8, fontName='FreeSansBold')))
 
         ms_headers = ["Staff", "Sal.Type", "Rate"] + [f"{month_names.get(m[5:7], m[5:7])} {m[:4]}" for m in sorted_months] + ["Total Days", "Est. Salary"]
         ms_rows = [ms_headers]
@@ -615,21 +615,21 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         ms_style = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#065f46')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
             ('FONTSIZE', (0, 0), (-1, -1), 6.5),
             ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
             ('ALIGN', (2, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('TOPPADDING', (0, 0), (-1, -1), 2),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-            ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 1), (0, -1), 'FreeSansBold'),
         ]
         # Color worked days & salary columns
         for ri in range(1, 1 + len(staff_list)):
             ms_style.append(('BACKGROUND', (-2, ri), (-2, ri), colors.HexColor('#d1fae5')))
-            ms_style.append(('FONTNAME', (-2, ri), (-2, ri), 'Helvetica-Bold'))
+            ms_style.append(('FONTNAME', (-2, ri), (-2, ri), 'FreeSansBold'))
             ms_style.append(('BACKGROUND', (-1, ri), (-1, ri), colors.HexColor('#fef3c7')))
-            ms_style.append(('FONTNAME', (-1, ri), (-1, ri), 'Helvetica-Bold'))
+            ms_style.append(('FONTNAME', (-1, ri), (-1, ri), 'FreeSansBold'))
             ms_style.append(('TEXTCOLOR', (-1, ri), (-1, ri), colors.HexColor('#92400e')))
             if ri % 2 == 0:
                 ms_style.append(('BACKGROUND', (0, ri), (-3, ri), colors.HexColor('#f0fdf4')))
@@ -638,20 +638,20 @@ async def export_attendance(date_from: str, date_to: str, fmt: str = "excel",
         breakdown_start = 2 + len(staff_list)
         if breakdown_start < len(ms_rows):
             ms_style.append(('BACKGROUND', (0, breakdown_start), (-1, breakdown_start), colors.HexColor('#fef3c7')))
-            ms_style.append(('FONTNAME', (0, breakdown_start), (-1, breakdown_start), 'Helvetica-Bold'))
+            ms_style.append(('FONTNAME', (0, breakdown_start), (-1, breakdown_start), 'FreeSansBold'))
             ms_style.append(('SPAN', (0, breakdown_start), (-1, breakdown_start)))
 
         # Month-wise salary section header
         salary_section_start = breakdown_start + 1 + len(staff_list) + 1
         if salary_section_start < len(ms_rows):
             ms_style.append(('BACKGROUND', (0, salary_section_start), (-1, salary_section_start), colors.HexColor('#dbeafe')))
-            ms_style.append(('FONTNAME', (0, salary_section_start), (-1, salary_section_start), 'Helvetica-Bold'))
+            ms_style.append(('FONTNAME', (0, salary_section_start), (-1, salary_section_start), 'FreeSansBold'))
             ms_style.append(('SPAN', (0, salary_section_start), (-1, salary_section_start)))
             # Salary rows styling
             for ri in range(salary_section_start + 1, salary_section_start + 1 + len(staff_list)):
                 if ri < len(ms_rows):
                     ms_style.append(('BACKGROUND', (-1, ri), (-1, ri), colors.HexColor('#fef3c7')))
-                    ms_style.append(('FONTNAME', (-1, ri), (-1, ri), 'Helvetica-Bold'))
+                    ms_style.append(('FONTNAME', (-1, ri), (-1, ri), 'FreeSansBold'))
 
         ms_table.setStyle(TableStyle(ms_style))
         elements.append(ms_table)
@@ -861,11 +861,11 @@ async def export_payments(fmt: str = "excel", kms_year: Optional[str] = None, se
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib import colors
         from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
 
         buf = io.BytesIO()
         doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
-        styles = getSampleStyleSheet()
+        styles = get_pdf_styles()
         elements = []
 
         from utils.export_helpers import get_pdf_company_header
@@ -892,14 +892,14 @@ async def export_payments(fmt: str = "excel", kms_year: Optional[str] = None, se
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
             ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
             ('ALIGN', (3, 0), (-1, -1), 'RIGHT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
             ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0e7ff')),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'),
         ]
         for i in range(1, len(rows)-1):
             if i % 2 == 0:

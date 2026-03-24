@@ -689,7 +689,7 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
 async def export_balance_sheet_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
 
@@ -697,7 +697,7 @@ async def export_balance_sheet_pdf(kms_year: Optional[str] = None, season: Optio
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=20, bottomMargin=20)
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
 
     def fmt(n): return f"{(n or 0):,.2f}"
 
@@ -738,7 +738,7 @@ async def export_balance_sheet_pdf(kms_year: Optional[str] = None, season: Optio
         ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#dc2626')),
         ('BACKGROUND', (3, 0), (4, 0), colors.HexColor('#059669')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
         ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
         ('ALIGN', (4, 0), (4, -1), 'RIGHT'),
@@ -752,14 +752,14 @@ async def export_balance_sheet_pdf(kms_year: Optional[str] = None, season: Optio
         row = combined[i]
         # Liability side
         if row[0] and not row[0].startswith('    '):
-            style_list.append(('FONTNAME', (0, i), (1, i), 'Helvetica-Bold'))
+            style_list.append(('FONTNAME', (0, i), (1, i), 'FreeSansBold'))
             if row[0] == 'TOTAL':
                 style_list.append(('BACKGROUND', (0, i), (1, i), colors.HexColor('#fecaca')))
             else:
                 style_list.append(('BACKGROUND', (0, i), (1, i), colors.HexColor('#f1f5f9')))
         # Asset side
         if row[3] and not row[3].startswith('    '):
-            style_list.append(('FONTNAME', (3, i), (4, i), 'Helvetica-Bold'))
+            style_list.append(('FONTNAME', (3, i), (4, i), 'FreeSansBold'))
             if row[3] == 'TOTAL':
                 style_list.append(('BACKGROUND', (3, i), (4, i), colors.HexColor('#a7f3d0')))
             else:
@@ -966,7 +966,7 @@ async def carry_forward_fy(data: dict):
 async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
 
@@ -974,7 +974,7 @@ async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=25, rightMargin=25, topMargin=25, bottomMargin=25)
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
 
     from utils.export_helpers import get_pdf_company_header
 
@@ -994,7 +994,7 @@ async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional
         style = [
             ('BACKGROUND', (0, 0), (-1, 0), hdr_bg),
             ('TEXTCOLOR', (0, 0), (-1, 0), hdr_text),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
             ('FONTSIZE', (0, 0), (-1, -1), 7),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
@@ -1004,7 +1004,7 @@ async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional
             if i % 2 == 0:
                 style.append(('BACKGROUND', (0, i), (-1, i), colors.HexColor('#f8fafc')))
         if len(rows) > 1:
-            style.append(('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'))
+            style.append(('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'))
             style.append(('BACKGROUND', (0, -1), (-1, -1), total_bg))
         t.setStyle(TableStyle(style))
         elements.append(t)

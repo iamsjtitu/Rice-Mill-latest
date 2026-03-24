@@ -4,6 +4,46 @@ Used by all backend export endpoints.
 """
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 
+# === REGISTER HINDI-CAPABLE FONTS FOR PDF ===
+_fonts_registered = False
+
+def register_hindi_fonts():
+    """Register FreeSans font family for Hindi/Devanagari support in PDFs."""
+    global _fonts_registered
+    if _fonts_registered:
+        return
+    try:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        pdfmetrics.registerFont(TTFont('FreeSans', '/usr/share/fonts/truetype/freefont/FreeSans.ttf'))
+        pdfmetrics.registerFont(TTFont('FreeSansBold', '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf'))
+        pdfmetrics.registerFont(TTFont('FreeSansOblique', '/usr/share/fonts/truetype/freefont/FreeSansOblique.ttf'))
+        pdfmetrics.registerFont(TTFont('FreeSansBoldOblique', '/usr/share/fonts/truetype/freefont/FreeSansBoldOblique.ttf'))
+        from reportlab.pdfbase.pdfmetrics import registerFontFamily
+        registerFontFamily('FreeSans', normal='FreeSans', bold='FreeSansBold', italic='FreeSansOblique', boldItalic='FreeSansBoldOblique')
+        _fonts_registered = True
+    except Exception:
+        pass
+
+
+def get_pdf_styles():
+    """Return getSampleStyleSheet() with FreeSans (Hindi-capable) as default font."""
+    register_hindi_fonts()
+    from reportlab.lib.styles import getSampleStyleSheet
+    styles = getSampleStyleSheet()
+    for name in styles.byName:
+        style = styles[name]
+        if hasattr(style, 'fontName'):
+            if style.fontName == 'Helvetica':
+                style.fontName = 'FreeSans'
+            elif style.fontName == 'Helvetica-Bold':
+                style.fontName = 'FreeSansBold'
+            elif style.fontName == 'Helvetica-Oblique':
+                style.fontName = 'FreeSansOblique'
+            elif style.fontName == 'Helvetica-BoldOblique':
+                style.fontName = 'FreeSansBoldOblique'
+    return styles
+
 # === COLOR PALETTE ===
 COLORS = {
     'header_bg': '1B4F72',
@@ -178,11 +218,14 @@ def get_pdf_table_style(num_rows, cols_info=None):
     """Generate a colorful ReportLab TableStyle for PDF tables."""
     from reportlab.lib import colors as rl_colors
     
+    register_hindi_fonts()
     style = [
+        # Base font for all cells (Hindi support)
+        ('FONTNAME', (0, 0), (-1, -1), 'FreeSans'),
         # Header
         ('BACKGROUND', (0, 0), (-1, 0), rl_colors.HexColor('#1B4F72')),
         ('TEXTCOLOR', (0, 0), (-1, 0), rl_colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
         ('FONTSIZE', (0, 0), (-1, -1), 6.5),
         ('FONTSIZE', (0, 0), (-1, 0), 7),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
@@ -192,7 +235,7 @@ def get_pdf_table_style(num_rows, cols_info=None):
         ('GRID', (0, 0), (-1, -1), 0.4, rl_colors.HexColor('#D0D5DD')),
         # Total row (last row)
         ('BACKGROUND', (0, -1), (-1, -1), rl_colors.HexColor('#FEF3C7')),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'),
         ('LINEABOVE', (0, -1), (-1, -1), 1.5, rl_colors.HexColor('#F59E0B')),
     ]
     
@@ -217,6 +260,7 @@ def get_pdf_table_style(num_rows, cols_info=None):
 
 def get_pdf_header_elements(title, branding=None, subtitle=""):
     """Return ReportLab Paragraph elements for company name, tagline, and report title."""
+    register_hindi_fonts()
     from reportlab.platypus import Paragraph, Spacer
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.enums import TA_CENTER
@@ -227,19 +271,18 @@ def get_pdf_header_elements(title, branding=None, subtitle=""):
     tagline = branding.get("tagline", "JOLKO, KESINGA")
 
     company_style = ParagraphStyle(
-        'CompanyHeader', fontSize=18, fontName='Helvetica-Bold',
+        'CompanyHeader', fontSize=18, fontName='FreeSansBold',
         textColor=rl_colors.HexColor('#1B4F72'), alignment=TA_CENTER,
         spaceAfter=2, backColor=rl_colors.HexColor('#FFFBEB'),
-        borderWidth=1, borderColor=rl_colors.HexColor('#F59E0B'),
         borderPadding=(6, 4, 6, 4),
     )
     tagline_style = ParagraphStyle(
-        'TaglineHeader', fontSize=9, fontName='Helvetica-Oblique',
+        'TaglineHeader', fontSize=9, fontName='FreeSansOblique',
         textColor=rl_colors.HexColor('#6B7280'), alignment=TA_CENTER,
         spaceAfter=4,
     )
     title_style = ParagraphStyle(
-        'ReportTitle', fontSize=12, fontName='Helvetica-Bold',
+        'ReportTitle', fontSize=12, fontName='FreeSansBold',
         textColor=rl_colors.white, alignment=TA_CENTER,
         backColor=rl_colors.HexColor('#0891B2'),
         borderPadding=(4, 3, 4, 3), spaceAfter=6,
@@ -258,6 +301,7 @@ def get_pdf_header_elements(title, branding=None, subtitle=""):
 
 def get_pdf_company_header(branding=None):
     """Return just the company name + tagline paragraphs for PDF (no title)."""
+    register_hindi_fonts()
     from reportlab.platypus import Paragraph, Spacer
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.enums import TA_CENTER
@@ -268,14 +312,13 @@ def get_pdf_company_header(branding=None):
     tagline = branding.get("tagline", "JOLKO, KESINGA")
 
     company_style = ParagraphStyle(
-        'CompanyHdr', fontSize=18, fontName='Helvetica-Bold',
+        'CompanyHdr', fontSize=18, fontName='FreeSansBold',
         textColor=rl_colors.HexColor('#1B4F72'), alignment=TA_CENTER,
         spaceAfter=2, backColor=rl_colors.HexColor('#FFFBEB'),
-        borderWidth=1, borderColor=rl_colors.HexColor('#F59E0B'),
         borderPadding=(6, 4, 6, 4),
     )
     tagline_style = ParagraphStyle(
-        'TaglineHdr', fontSize=9, fontName='Helvetica-Oblique',
+        'TaglineHdr', fontSize=9, fontName='FreeSansOblique',
         textColor=rl_colors.HexColor('#6B7280'), alignment=TA_CENTER,
         spaceAfter=6,
     )

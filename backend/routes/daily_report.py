@@ -331,7 +331,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer, HRFlowable
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
 
     is_detail = mode == "detail"
@@ -340,7 +340,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=15, rightMargin=15, topMargin=20, bottomMargin=20)
     else:
         doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=25, rightMargin=25, topMargin=20, bottomMargin=20)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     elements = []
 
     from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
@@ -395,7 +395,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     st = RTable(summary_data, colWidths=[100, 90, 100, 80, 80])
     st.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0f2fe')),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
@@ -408,7 +408,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     cd_t = RTable(cash_diesel_row, colWidths=[250, 250])
     cd_t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dcfce7')),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
@@ -434,7 +434,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         st2 = RTable(sm, colWidths=[170, 170, 170])
         st2.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fef3c7')),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
@@ -500,9 +500,9 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     cft = RTable(cf_sum, colWidths=[80, 130, 130, 130])
     cf_style = [
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dcfce7')),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
         ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
-        ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 1), (0, -1), 'FreeSansBold'),
         ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]
     cft.setStyle(TableStyle(cf_style))
@@ -533,7 +533,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     pt = RTable(pay_data, colWidths=[170, 170, 170])
     pt.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e7ff')),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
         ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
     ]))
@@ -563,7 +563,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         pat = RTable(pa_sum, colWidths=[170, 170, 170])
         pat.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fff7ed')),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
@@ -677,7 +677,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         sat = RTable(sa_sum, colWidths=[95, 95, 95, 95, 95])
         sat.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#dbeafe')),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))
@@ -718,7 +718,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         ctt = RTable(ct_sum, colWidths=[170, 170, 170])
         ctt.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fef3c7')),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ]))

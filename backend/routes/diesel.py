@@ -326,7 +326,7 @@ async def export_diesel_excel(kms_year: Optional[str] = None, season: Optional[s
 async def export_diesel_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
     query = {}
@@ -339,7 +339,7 @@ async def export_diesel_pdf(kms_year: Optional[str] = None, season: Optional[str
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     elements = []
 
     elements.extend(get_pdf_company_header())

@@ -502,7 +502,7 @@ async def export_local_party_excel(kms_year: Optional[str] = None, season: Optio
 async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
 
@@ -514,7 +514,7 @@ async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optiona
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     elements = []
 
     from utils.export_helpers import get_pdf_company_header
@@ -533,7 +533,7 @@ async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optiona
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'),
         ('TEXTCOLOR', (3, -1), (3, -1), colors.red),
     ]))
     elements.append(st)
@@ -552,7 +552,7 @@ async def export_local_party_pdf(kms_year: Optional[str] = None, season: Optiona
             t.get("source_type", "")
         ])
     tt = Table(t_data, colWidths=[70, 120, 55, 70, 200, 70])
-    tt.setStyle(TableStyle([
+    tt.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#065f46')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTSIZE', (0, 0), (-1, -1), 8),

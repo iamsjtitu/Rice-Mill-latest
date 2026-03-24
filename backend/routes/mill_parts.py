@@ -487,7 +487,7 @@ async def export_store_room_pdf(kms_year: Optional[str] = None, season: Optional
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     import io
 
     from utils.export_helpers import get_pdf_table_style
@@ -495,7 +495,7 @@ async def export_store_room_pdf(kms_year: Optional[str] = None, season: Optional
     report = await get_store_room_report(kms_year, season)
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     title_text = "Store Room Inventory / स्टोर रूम"
     if kms_year: title_text += f" - {kms_year}"
     if season: title_text += f" ({season})"
@@ -594,7 +594,7 @@ async def export_stock_pdf(kms_year: Optional[str] = None, season: Optional[str]
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     import io
 
     from utils.export_helpers import get_pdf_table_style
@@ -602,7 +602,7 @@ async def export_stock_pdf(kms_year: Optional[str] = None, season: Optional[str]
     summary = await get_stock_summary(kms_year, season)
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     title_text = "Mill Parts Stock Summary / मिल पार्ट्स स्टॉक"
     if kms_year: title_text += f" - {kms_year}"
     if season: title_text += f" ({season})"
@@ -711,7 +711,7 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     import io
 
     query = {}
@@ -727,7 +727,7 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     title = "Mill Parts Transactions"
     if part_name: title += f" - {part_name}"
     subtitle_parts = []
@@ -907,7 +907,7 @@ async def export_part_summary_pdf(part_name: str, kms_year: Optional[str] = None
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     import io
 
     if not part_name:
@@ -936,7 +936,7 @@ async def export_part_summary_pdf(part_name: str, kms_year: Optional[str] = None
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=25, bottomMargin=25)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
 
     title_style = ParagraphStyle('CustomTitle', parent=styles['Title'], fontSize=18, textColor=colors.HexColor('#1a365d'), spaceAfter=4)
     subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#666666'), alignment=1, spaceAfter=10)
@@ -959,9 +959,9 @@ async def export_part_summary_pdf(part_name: str, kms_year: Optional[str] = None
     ot.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
         ('FONTSIZE', (0, 0), (-1, 0), 9),
-        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 1), (-1, 1), 'FreeSansBold'),
         ('FONTSIZE', (0, 1), (-1, 1), 11),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -983,13 +983,13 @@ async def export_part_summary_pdf(part_name: str, kms_year: Optional[str] = None
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
             ('FONTSIZE', (0, 0), (-1, 0), 9),
             ('FONTSIZE', (0, 1), (-1, -1), 9),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
             ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
             ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e0f2fe')),
-            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (0, -1), (-1, -1), 'FreeSansBold'),
         ]
         for i in range(1, len(party_data) - 1):
             if i % 2 == 0:
@@ -1013,7 +1013,7 @@ async def export_part_summary_pdf(part_name: str, kms_year: Optional[str] = None
         style_cmds = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
             ('FONTSIZE', (0, 0), (-1, 0), 8),
             ('FONTSIZE', (0, 1), (-1, -1), 7),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),

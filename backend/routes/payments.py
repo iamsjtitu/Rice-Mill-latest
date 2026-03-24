@@ -1846,7 +1846,7 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     """Export agent/mandi payments to PDF"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
     from reportlab.lib.enums import TA_CENTER
@@ -1906,7 +1906,7 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
     
     elements = []
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     
     from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -1916,7 +1916,7 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     company_name, tagline = await get_company_name()
     title_data = [[Paragraph(f"<b>AGENT/MANDI PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 20*mm])
-    title_table.setStyle(TableStyle([
+    title_table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1B4F72')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('TOPPADDING', (0, 0), (-1, -1), 6),

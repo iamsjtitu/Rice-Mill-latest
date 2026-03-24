@@ -128,14 +128,14 @@ async def export_cmr_vs_dc_excel(kms_year: Optional[str] = None, season: Optiona
 async def export_cmr_vs_dc_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
     from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
     data = await report_cmr_vs_dc(kms_year=kms_year, season=season)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=30, bottomMargin=30)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
     elements.extend(get_pdf_company_header())
     elements.append(Paragraph("CMR vs DC Report / सीएमआर vs डीसी", styles['Title'])); elements.append(Spacer(1, 12))
     rows = [['Metric', 'Value'],
@@ -198,14 +198,14 @@ async def export_season_pnl_excel(kms_year: Optional[str] = None, season: Option
 async def export_season_pnl_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
     from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
     data = await report_season_pnl(kms_year=kms_year, season=season)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=30, bottomMargin=30)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
     elements.extend(get_pdf_company_header())
     elements.append(Paragraph("Season P&L Report / मौसम लाभ-हानि", styles['Title'])); elements.append(Spacer(1, 12))
     elements.append(Paragraph("INCOME", styles['Heading2'])); elements.append(Spacer(1, 4))
@@ -225,7 +225,7 @@ async def export_season_pnl_pdf(kms_year: Optional[str] = None, season: Optional
     pdata = [['NET ' + ('PROFIT' if data['profit'] else 'LOSS'), f"Rs.{data['net_pnl']}"]]
     pt = RLTable(pdata, colWidths=[200, 120])
     pt.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),pnl_color),('TEXTCOLOR',(0,0),(-1,0),colors.white),
-        ('FONTSIZE',(0,0),(-1,0),14),('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),('ALIGN',(1,0),(1,0),'RIGHT')]))
+        ('FONTSIZE',(0,0),(-1,0),14),('FONTNAME',(0,0),(-1,0),'FreeSansBold'),('ALIGN',(1,0),(1,0),'RIGHT')]))
     elements.append(pt); doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=season_pnl_{datetime.now().strftime('%Y%m%d')}.pdf"})
@@ -530,7 +530,7 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
 async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, search: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, mandis: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_CENTER
@@ -553,7 +553,7 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
             report_data["grand_totals"] = gt
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
-    elements = []; styles = getSampleStyleSheet()
+    elements = []; styles = get_pdf_styles()
 
     from utils.export_helpers import get_pdf_company_header
     elements.extend(get_pdf_company_header())
@@ -576,7 +576,7 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
             mandi_label += f" | Target: {mandi_data['target_qntl']}Q | Final W: {mandi_data.get('actual_final_qntl',0)}Q | Extra: {mandi_data.get('extra_qntl',0)}Q"
         mandi_row = [[Paragraph(f"<b>{mandi_label}</b>", styles['Normal'])] + [''] * (ncols - 1)]
         mt = RLTable(mandi_row, colWidths=col_widths)
-        mt.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1B4F72')),
+        mt.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1B4F72')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('SPAN', (0, 0), (-1, 0)),
             ('TOPPADDING', (0, 0), (-1, 0), 4), ('BOTTOMPADDING', (0, 0), (-1, 0), 4)]))
         elements.append(mt)
@@ -614,7 +614,7 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
     grand_data = [grand_row]
     gt = RLTable(grand_data, colWidths=col_widths)
     gt.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1B4F72')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
         ('FONTSIZE', (0, 0), (-1, 0), 8), ('ALIGN', (first_right, 0), (-1, 0), 'RIGHT'),
         ('TOPPADDING', (0, 0), (-1, 0), 4), ('BOTTOMPADDING', (0, 0), (-1, 0), 4)]))
     elements.append(gt)

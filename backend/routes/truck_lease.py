@@ -283,7 +283,7 @@ async def export_leases_pdf(kms_year: Optional[str] = None, season: Optional[str
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    from reportlab.lib.styles import getSampleStyleSheet
+    from utils.export_helpers import get_pdf_styles
     import io
 
     query = {}
@@ -293,7 +293,7 @@ async def export_leases_pdf(kms_year: Optional[str] = None, season: Optional[str
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=30, bottomMargin=30)
-    styles = getSampleStyleSheet()
+    styles = get_pdf_styles()
     elements = []
 
     from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
