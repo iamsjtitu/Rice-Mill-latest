@@ -7,6 +7,20 @@ const APP_VERSION = "32.0.0";
 
 const CHANGELOG = [
   {
+    version: "32.0.0",
+    date: "24 Mar 2026",
+    title: "Ledger Fix + UI Freeze Fix",
+    items: [
+      { type: "fix", text: "Party Ledger balance sahi dikhta hai ab - Auto-ledger double-entry fix (Jama/Nikasi correct)" },
+      { type: "fix", text: "Delete karne ke baad screen freeze hona band - Radix UI pointer-events fix" },
+      { type: "fix", text: "Round Off ab Cash in Hand balance mein count nahi hota (sirf discount hai)" },
+      { type: "imp", text: "Account filter mein 'All' option add - Round Off entries bhi dikh sakte hain" },
+      { type: "imp", text: "Auto Update UI - native dialog hata, custom React UI (checking, downloading, installed states)" },
+      { type: "imp", text: "Truck Lease receipt ab Truck Payment jaisa sundar print hota hai" },
+      { type: "fix", text: "Desktop pe purane wrong ledger entries automatically fix hote hain (migration script)" },
+    ],
+  },
+  {
     version: "27.0.0",
     date: "24 Mar 2026",
     title: "Major Release - Round Off Fix + Auto Update UI",
