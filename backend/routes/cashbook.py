@@ -153,6 +153,36 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
         await db.cash_transactions.insert_one(ledger_entry)
         ledger_entry.pop('_id', None)
     
+    # Auto-create diesel_accounts payment entry when Cash Book payment is for a Diesel pump
+    detected_party_type = txn_dict.get('party_type', '')
+    if detected_party_type == "Diesel" and category and txn_dict.get('account') in ('cash', 'bank'):
+        import re as _re
+        cat_rgx = _re.compile(f"^{_re.escape(category)}$", _re.IGNORECASE)
+        pump = await db.diesel_pumps.find_one({"name": cat_rgx}, {"_id": 0})
+        if not pump:
+            cat_contains = {"$regex": _re.escape(category), "$options": "i"}
+            pump = await db.diesel_pumps.find_one({"name": cat_contains}, {"_id": 0})
+        if pump:
+            total_settled = round(txn_dict['amount'] + round_off, 2) if round_off else round(txn_dict['amount'], 2)
+            diesel_pay = {
+                "id": str(uuid.uuid4()),
+                "date": txn_dict.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                "pump_id": pump["id"],
+                "pump_name": pump["name"],
+                "truck_no": "", "agent_name": "",
+                "amount": total_settled,
+                "txn_type": "payment",
+                "description": f"Payment: Rs.{txn_dict['amount']}" + (f" (Round Off: {'+' if round_off > 0 else ''}{round_off})" if round_off else "") + (f" - {txn_dict.get('description','')}" if txn_dict.get('description') else ""),
+                "kms_year": txn_dict.get("kms_year", ""),
+                "season": txn_dict.get("season", ""),
+                "created_by": username or "system",
+                "source": "cashbook",
+                "linked_cashbook_id": txn_dict.get("id", ""),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.diesel_accounts.insert_one(diesel_pay)
+            diesel_pay.pop('_id', None)
+
     # Auto-update private_paddy paid_amount when cashbook payment is made for Pvt Paddy Purchase party
     detected_party_type = txn_dict.get('party_type', '')
     if detected_party_type == "Pvt Paddy Purchase" and category and txn_dict.get('account') in ('cash', 'bank'):

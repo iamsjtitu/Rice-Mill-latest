@@ -87,7 +87,30 @@ module.exports = function(database) {
       }
       database.data.cash_transactions.push(ledgerEntry);
     }
-    
+
+    // Auto-create diesel_accounts payment entry when Cash Book payment is for a Diesel pump
+    if (partyType === 'Diesel' && category && (txn.account === 'cash' || txn.account === 'bank')) {
+      const pumps = database.data.diesel_pumps || [];
+      const pump = pumps.find(p => p.name && p.name.toLowerCase() === category.toLowerCase())
+        || pumps.find(p => p.name && category.toLowerCase().includes(p.name.toLowerCase()));
+      if (pump) {
+        if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
+        const totalSettled = roundOff ? Math.round((txn.amount + roundOff) * 100) / 100 : Math.round(txn.amount * 100) / 100;
+        database.data.diesel_accounts.push({
+          id: uuidv4(),
+          date: txn.date || new Date().toISOString().split('T')[0],
+          pump_id: pump.id, pump_name: pump.name,
+          truck_no: '', agent_name: '',
+          amount: totalSettled, txn_type: 'payment',
+          description: `Payment: Rs.${txn.amount}${roundOff ? ' (Round Off: '+(roundOff>0?'+':'')+roundOff+')' : ''}${txn.description ? ' - '+txn.description : ''}`,
+          kms_year: txn.kms_year || '', season: txn.season || '',
+          created_by: req.query.username || 'system',
+          source: 'cashbook', linked_cashbook_id: txn.id,
+          created_at: new Date().toISOString()
+        });
+      }
+    }
+
     // Auto-update private_paddy paid_amount when cashbook payment is made
     if (partyType === 'Pvt Paddy Purchase' && category && (txn.account === 'cash' || txn.account === 'bank')) {
       const pvtEntries = database.data.private_paddy || [];

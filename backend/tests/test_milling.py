@@ -9,7 +9,7 @@ import time
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://round-off-feature.preview.emergentagent.com"
+    BASE_URL = "https://v27-stable.preview.emergentagent.com"
 
 API_URL = f"{BASE_URL}/api"
 
