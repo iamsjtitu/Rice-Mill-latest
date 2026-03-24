@@ -16,7 +16,7 @@ import requests
 import json
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://ui-freeze-patch.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://styled-exports-node.preview.emergentagent.com').rstrip('/')
 
 
 class TestPartySummaryAPI:
