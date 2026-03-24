@@ -67,7 +67,7 @@ const CashBookFilters = ({
         {activeView === "transactions" && (
         <div>
           <Label className="text-xs text-slate-400">Account</Label>
-          <Select value={txnFilters.account || "ledger"} onValueChange={(v) => setTxnFilters(p => ({ ...p, account: v === "all" ? "" : v }))}>
+          <Select value={txnFilters.account || "all"} onValueChange={(v) => setTxnFilters(p => ({ ...p, account: v === "all" ? "" : v }))}>
             <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-account"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
