@@ -590,7 +590,7 @@ module.exports = function(database) {
       const brandingData = database.getBranding ? database.getBranding() : {};
       __addPdfHeader(doc, exportTitle, brandingData, subtitle);
       
-      const headers = ['Date', 'Account', 'Type', 'Category', 'Party Type', 'Description', 'Jama (In)', 'Nikasi (Out)', 'Balance'];
+      const headers = ['Date', 'Account', 'Type', 'Category', 'Party Type', 'Description', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'];
       const colW = [55, 50, 40, 60, 55, 120, 60, 60, 60];
       
       // Build data rows with running balance
@@ -744,7 +744,7 @@ module.exports = function(database) {
     if (req.query.kms_year) subtitle = `KMS: ${req.query.kms_year}`;
     if (req.query.season) subtitle += ` | Season: ${req.query.season}`;
     __addPdfHeader(doc, 'Party Summary', brandingData, subtitle);
-    const headers = ['Party Name', 'Type', 'Jama (In)', 'Nikasi (Out)', 'Balance'];
+    const headers = ['Party Name', 'Type', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'];
     const colW = [180, 80, 90, 90, 90];
     let tJ = 0, tN = 0;
     const rows = data.map(p => { tJ += p.jama; tN += p.nikasi; return [p.party_name, p.party_type, pFmt(Math.round(p.jama)), pFmt(Math.round(p.nikasi)), pFmt(Math.round(p.balance))]; });

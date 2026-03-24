@@ -107,6 +107,18 @@ A comprehensive rice mill management system with features for paddy procurement,
 - Updated test expectations in `test_report_config_refactoring.py`
 - All 8 affected export endpoints verified returning 200 OK with no Ref/Reference columns
 
+#### Jama (Cr) / Nikasi (Dr) Label Change (March 2026 - Complete)
+- Changed all Jama/Nikasi labels across entire software:
+  - "Jama (₹)" / "Jama (Rs.)" / "Jama (In)" → "Jama (Cr)"
+  - "Nikasi (₹)" / "Nikasi (Rs.)" / "Nikasi (Out)" → "Nikasi (Dr)"
+- Files updated:
+  - Frontend: TransactionsTable.jsx, PartySummaryTab.jsx, CashBookFilters.jsx, TransactionFormDialog.jsx, CashBook.jsx
+  - Config: shared/report_config.json (×2)
+  - Python Backend: cashbook.py, daily_report.py
+  - Desktop-app: cashbook.js, daily_report.js, daily_report_logic.js
+  - Local-server: telegram.js, daily_report.js
+- Verified in Excel exports, PDF exports, and frontend UI
+
 ## Pending Items
 ### P0
 - Desktop app build required for all recent fixes to take effect (UI freeze, data migration, export filters, company headers)

@@ -380,14 +380,14 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
   const cf = data.cash_flow;
   sectionTitle(4, 'Cash Flow');
   drawSummaryBox(
-    ['', 'Jama (In)', 'Nikasi (Out)', 'Net'],
+    ['', 'Jama (Cr)', 'Nikasi (Dr)', 'Net'],
     ['', '', '', ''],
     [80, 130, 130, 130], C.greenBg
   );
   // Overwrite with actual cash/bank rows
   doc.y -= 2;
   drawTable(
-    ['','Jama (In)','Nikasi (Out)','Net'],
+    ['','Jama (Cr)','Nikasi (Dr)','Net'],
     [
       ['Cash', `Rs.${fmtAmt(cf.cash_jama)}`, `Rs.${fmtAmt(cf.cash_nikasi)}`, `Rs.${fmtAmt(cf.net_cash)}`],
       ['Bank', `Rs.${fmtAmt(cf.bank_jama)}`, `Rs.${fmtAmt(cf.bank_nikasi)}`, `Rs.${fmtAmt(cf.net_bank)}`]
@@ -570,7 +570,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   // 4. Cash Flow
   writeSection('4. Cash Flow');
   const cf = data.cash_flow;
-  writeHeaders(['','Jama (In)','Nikasi (Out)','Net']);
+  writeHeaders(['','Jama (Cr)','Nikasi (Dr)','Net']);
   writeRow(['Cash', cf.cash_jama, cf.cash_nikasi, cf.net_cash]);
   writeRow(['Bank', cf.bank_jama, cf.bank_nikasi, cf.net_bank]);
   row++;

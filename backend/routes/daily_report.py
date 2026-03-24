@@ -493,7 +493,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     cf = data["cash_flow"]
     elements.append(Paragraph("4. Cash Flow", section_style))
     cf_sum = [
-        ['', 'Jama (In)', 'Nikasi (Out)', 'Net'],
+        ['', 'Jama (Cr)', 'Nikasi (Dr)', 'Net'],
         ['Cash', f"Rs.{_fmt_amt(cf['cash_jama'])}", f"Rs.{_fmt_amt(cf['cash_nikasi'])}", f"Rs.{_fmt_amt(cf['net_cash'])}"],
         ['Bank', f"Rs.{_fmt_amt(cf['bank_jama'])}", f"Rs.{_fmt_amt(cf['bank_nikasi'])}", f"Rs.{_fmt_amt(cf['net_bank'])}"],
     ]
@@ -862,7 +862,7 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     # Cash Flow
     cf = data["cash_flow"]
     write_section("4. Cash Flow")
-    write_headers(['', 'Jama (In)', 'Nikasi (Out)', 'Net'])
+    write_headers(['', 'Jama (Cr)', 'Nikasi (Dr)', 'Net'])
     write_row(['Cash', cf['cash_jama'], cf['cash_nikasi'], cf['net_cash']])
     write_row(['Bank', cf['bank_jama'], cf['bank_nikasi'], cf['net_bank']])
     if cf["details"]:

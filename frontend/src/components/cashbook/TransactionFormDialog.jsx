@@ -146,8 +146,8 @@ const TransactionFormDialog = ({
               <Select value={form.txn_type} onValueChange={(v) => setForm(p => ({ ...p, txn_type: v }))}>
                 <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="jama">Jama (In)</SelectItem>
-                  <SelectItem value="nikasi">Nikasi (Out)</SelectItem>
+                  <SelectItem value="jama">Jama (Cr)</SelectItem>
+                  <SelectItem value="nikasi">Nikasi (Dr)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

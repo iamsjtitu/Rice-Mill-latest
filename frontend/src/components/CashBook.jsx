@@ -519,8 +519,8 @@ const CashBook = ({ filters, user }) => {
                 <Select value={obForm.balance_type} onValueChange={v => setObForm(p => ({ ...p, balance_type: v }))}>
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="ob-bal-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="jama">Jama (party par baaki)</SelectItem>
-                    <SelectItem value="nikasi">Nikasi (hamara dena)</SelectItem>
+                    <SelectItem value="jama">Jama (Cr)</SelectItem>
+                    <SelectItem value="nikasi">Nikasi (Dr)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

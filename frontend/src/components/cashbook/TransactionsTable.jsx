@@ -62,7 +62,7 @@ const TransactionsTable = ({
           {[
             { label: 'Date', align: 'left' }, { label: 'Account', align: 'left' }, { label: 'Type', align: 'left' },
             { label: 'Party / पार्टी', align: 'left' }, { label: 'Party Type', align: 'left' }, { label: 'Description', align: 'left' },
-            { label: 'Jama (₹)', align: 'right' }, { label: 'Nikasi (₹)', align: 'right' }, { label: 'Balance (₹)', align: 'right' },
+            { label: 'Jama (Cr)', align: 'right' }, { label: 'Nikasi (Dr)', align: 'right' }, { label: 'Balance (₹)', align: 'right' },
             { label: 'Reference', align: 'left' }, { label: '', align: 'left' }
           ].map(h =>
             <th key={h.label} className={`px-3 py-2.5 text-${h.align} text-slate-600 text-xs font-semibold`}>{h.label}</th>)}

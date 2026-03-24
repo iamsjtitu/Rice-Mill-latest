@@ -75,7 +75,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   // 4. Cash Flow
   writeSection('4. Cash Flow');
   const cf = data.cash_flow;
-  writeHeaders(['','Jama (In)','Nikasi (Out)','Net']);
+  writeHeaders(['','Jama (Cr)','Nikasi (Dr)','Net']);
   writeRow(['Cash', cf.cash_jama, cf.cash_nikasi, cf.net_cash]);
   writeRow(['Bank', cf.bank_jama, cf.bank_nikasi, cf.net_bank]);
   row++;

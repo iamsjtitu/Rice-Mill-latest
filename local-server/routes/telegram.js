@@ -228,7 +228,7 @@ function generateDetailReportPDF(query) {
       doc.font('Helvetica-Bold').fontSize(11).fillColor(C.section).text('3. Cash Flow');
       doc.moveDown(0.3);
       drawTable(
-        ['', 'Jama (In)', 'Nikasi (Out)', 'Net'],
+        ['', 'Jama (Cr)', 'Nikasi (Dr)', 'Net'],
         [
           ['Cash', `Rs.${fmtAmt(cf.cash_jama)}`, `Rs.${fmtAmt(cf.cash_nikasi)}`, `Rs.${fmtAmt(cf.net_cash)}`],
           ['Bank', `Rs.${fmtAmt(cf.bank_jama)}`, `Rs.${fmtAmt(cf.bank_nikasi)}`, `Rs.${fmtAmt(cf.net_bank)}`]

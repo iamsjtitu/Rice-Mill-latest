@@ -84,8 +84,8 @@ const CashBookFilters = ({
             <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="cashbook-filter-type"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              <SelectItem value="jama">Jama (In)</SelectItem>
-              <SelectItem value="nikasi">Nikasi (Out)</SelectItem>
+              <SelectItem value="jama">Jama (Cr)</SelectItem>
+              <SelectItem value="nikasi">Nikasi (Dr)</SelectItem>
             </SelectContent>
           </Select>
         </div>

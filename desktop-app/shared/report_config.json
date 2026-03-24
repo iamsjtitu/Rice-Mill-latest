@@ -97,8 +97,8 @@
       {"field": "category", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 35},
       {"field": "party_type", "header": "Party Type", "pdf_header": "P.Type", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 20},
       {"field": "description", "header": "Description", "pdf_header": "Desc", "type": "text", "align": "left", "width_excel": 40, "width_pdf_mm": 65},
-      {"field": "jama", "header": "Jama (Rs.)", "pdf_header": "Jama", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 22, "show_total": true, "total_key": "total_jama"},
-      {"field": "nikasi", "header": "Nikasi (Rs.)", "pdf_header": "Nikasi", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 22, "show_total": true, "total_key": "total_nikasi"},
+      {"field": "jama", "header": "Jama (Cr)", "pdf_header": "Jama(Cr)", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 22, "show_total": true, "total_key": "total_jama"},
+      {"field": "nikasi", "header": "Nikasi (Dr)", "pdf_header": "Nikasi(Dr)", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 22, "show_total": true, "total_key": "total_nikasi"},
       {"field": "balance", "header": "Balance (Rs.)", "pdf_header": "Balance", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 22, "show_total": true, "total_key": "closing_balance"}
     ]
   },

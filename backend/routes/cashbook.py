@@ -734,7 +734,7 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     from reportlab.lib.enums import TA_LEFT
     name_style = ParagraphStyle('name', fontName='FreeSans', fontSize=7, leading=8.5, alignment=TA_LEFT)
     
-    data = [['#', 'Party Name', 'Party Type', 'Jama (Rs)', 'Nikasi (Rs)', 'Balance (Rs)', 'Txns', 'Status']]
+    data = [['#', 'Party Name', 'Party Type', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance (Rs)', 'Txns', 'Status']]
     for i, p in enumerate(parties, 1):
         status = 'Settled' if p['balance'] == 0 else 'Pending'
         data.append([str(i), Paragraph(p['party_name'], name_style), p['party_type'], f"{p['total_jama']:,.2f}", f"{p['total_nikasi']:,.2f}",
@@ -795,7 +795,7 @@ async def export_party_summary_excel(kms_year: Optional[str] = None, season: Opt
     
     # Headers
     row = 7
-    headers = ['#', 'Party Name', 'Party Type', 'Jama (Rs)', 'Nikasi (Rs)', 'Balance (Rs)', 'Transactions', 'Status']
+    headers = ['#', 'Party Name', 'Party Type', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance (Rs)', 'Transactions', 'Status']
     for col, h in enumerate(headers, 1):
         ws.cell(row=row, column=col, value=h)
     style_excel_header_row(ws, row, ncols)
@@ -1185,7 +1185,7 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     # Summary section
     ws.cell(row=4, column=1, value="Summary / सारांश").font = Font(bold=True, size=11, color=COLORS['title_text'])
     style_excel_summary_header(ws, 5, 4)
-    for col, h in enumerate(['', 'Jama (In)', 'Nikasi (Out)', 'Balance'], 1):
+    for col, h in enumerate(['', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'], 1):
         ws.cell(row=5, column=col, value=h)
     
     summary_fill = PatternFill(start_color='F0F7FF', fill_type='solid')
@@ -1329,7 +1329,7 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     elements.append(Spacer(1, 6))
     
     # Summary table with colors
-    sdata = [['', 'Jama (In)', 'Nikasi (Out)', 'Balance'],
+    sdata = [['', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'],
              ['Cash (नकद)', summary['cash_in'], summary['cash_out'], summary['cash_balance']],
              ['Bank (बैंक)', summary['bank_in'], summary['bank_out'], summary['bank_balance']],
              ['Total / कुल', round(summary['cash_in']+summary['bank_in'],2), round(summary['cash_out']+summary['bank_out'],2), summary['total_balance']]]
