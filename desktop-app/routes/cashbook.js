@@ -502,30 +502,49 @@ module.exports = function(database) {
       });
       
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Cash Book');
-      // Title
-      ws.mergeCells(1, 1, 1, cols.length);
-      ws.getCell('A1').value = exportTitle; ws.getCell('A1').font = { bold: true, size: 14 };
-      // Headers row 3
-      headers.forEach((h, i) => {
-        const c = ws.getCell(3, i + 1); c.value = h;
-        c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
-      });
+      
+      // Title with date range
+      const { addExcelTitle, styleExcelHeader, styleExcelData } = require('./excel_helpers');
+      const dateParts = [];
+      if (req.query.date_from) dateParts.push(`From: ${req.query.date_from}`);
+      if (req.query.date_to) dateParts.push(`To: ${req.query.date_to}`);
+      const dateStr = dateParts.length ? ` | ${dateParts.join(' | ')}` : '';
+      
+      addExcelTitle(ws, `${exportTitle}${dateStr}`, cols.length, database);
+      
+      // Headers row 4 (after 3 title rows)
+      headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
+      styleExcelHeader(ws);
+      // Fix header row to row 4
+      const hRow = ws.getRow(4);
+      hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+      hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+      hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      hRow.height = 30;
+      
       // Data rows
       rows.forEach((r, idx) => {
         const vals = getEntryRow(r, cols);
-        vals.forEach((v, ci) => ws.getCell(4 + idx, ci + 1).value = v);
+        vals.forEach((v, ci) => ws.getCell(5 + idx, ci + 1).value = v);
       });
+      styleExcelData(ws, 5);
+      
       // Total row
-      const trow = 4 + rows.length;
+      const trow = 5 + rows.length;
       const totals = {
         total_jama: +txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
         total_nikasi: +txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
         closing_balance: +runBal.toFixed(2)
       };
-      ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true };
+      ws.getCell(trow, 1).value = 'TOTAL / कुल'; ws.getCell(trow, 1).font = { bold: true, size: 11 };
       const totalVals = getTotalRow(totals, cols);
-      totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i + 1).value = v; ws.getCell(trow, i + 1).font = { bold: true }; } });
+      totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i + 1).value = v; ws.getCell(trow, i + 1).font = { bold: true, size: 11 }; } });
+      // Style total row amber
+      for (let c = 1; c <= cols.length; c++) {
+        const cell = ws.getCell(trow, c);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
+      }
       widths.forEach((w, i) => ws.getColumn(i + 1).width = w);
       
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

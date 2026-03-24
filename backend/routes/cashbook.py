@@ -1172,7 +1172,13 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     title = "Daily Cash Book / रोज़नामचा"
     if category: title += f" - {category}"
     if kms_year: title += f" | KMS {kms_year}"
-    style_excel_title(ws, title, ncols)
+    subtitle = "Mill Entry System"
+    if date_from or date_to:
+        date_parts = []
+        if date_from: date_parts.append(f"From: {date_from}")
+        if date_to: date_parts.append(f"To: {date_to}")
+        subtitle = " | ".join(date_parts)
+    style_excel_title(ws, title, ncols, subtitle)
     
     # Summary section
     ws.cell(row=4, column=1, value="Summary / सारांश").font = Font(bold=True, size=11, color=COLORS['title_text'])
@@ -1312,7 +1318,13 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
         alignment=TA_CENTER, backColor=colors.HexColor('#0891b2'), spaceAfter=4, spaceBefore=2)
     
     elements.append(Paragraph("Mill Entry System", brand_style))
-    elements.append(Paragraph(title + (f" | KMS {kms_year}" if kms_year else ""), title_style))
+    subtitle_parts = [title + (f" | KMS {kms_year}" if kms_year else "")]
+    if date_from or date_to:
+        dp = []
+        if date_from: dp.append(f"From: {date_from}")
+        if date_to: dp.append(f"To: {date_to}")
+        subtitle_parts.append(" | ".join(dp))
+    elements.append(Paragraph(" | ".join(subtitle_parts), title_style))
     elements.append(Spacer(1, 6))
     
     # Summary table with colors
