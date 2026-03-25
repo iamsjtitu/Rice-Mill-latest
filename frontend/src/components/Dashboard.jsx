@@ -17,6 +17,7 @@ import {
 import {
   Plus, Trash2, Edit, Calculator, Target, TrendingUp, TrendingDown, Users, IndianRupee, BarChart3, FileText, RefreshCw, Wheat, Package, Truck, ShoppingCart,
 } from "lucide-react";
+import { useConfirm } from "./ConfirmProvider";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -37,6 +38,7 @@ const KMS_YEARS = generateKMSYears();
 const SEASONS = ["Kharif", "Rabi"];
 
 export const Dashboard = ({ filters, user }) => {
+  const showConfirm = useConfirm();
   const [agentTotals, setAgentTotals] = useState([]);
   const [mandiTargets, setMandiTargets] = useState([]);
   const [plData, setPlData] = useState(null);
@@ -144,7 +146,7 @@ export const Dashboard = ({ filters, user }) => {
   };
 
   const handleDeleteTarget = async (targetId) => {
-    if (!window.confirm("Kya aap ye target delete karna chahte hain?")) return;
+    if (!await showConfirm("Delete Target", "Kya aap ye target delete karna chahte hain?")) return;
     try {
       await axios.delete(`${API}/mandi-targets/${targetId}?username=${user.username}&role=${user.role}`);
       toast.success("Target delete ho gaya!");

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
 import RoundOffInput from "./common/RoundOffInput";
+import { useConfirm } from "./ConfirmProvider";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -28,6 +29,7 @@ const API = `${BACKEND_URL}/api`;
 const emptyItem = { item_name: "", quantity: "", rate: "", unit: "Qntl", _custom: false };
 
 export default function PurchaseVouchers({ filters, user }) {
+  const showConfirm = useConfirm();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -220,7 +222,7 @@ export default function PurchaseVouchers({ filters, user }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete karna chahte hain?")) return;
+    if (!await showConfirm("Delete", "Delete karna chahte hain?")) return;
     try {
       await axios.delete(`${API}/purchase-book/${id}?username=${user.username}&role=${user.role}`);
       toast.success("Deleted!"); setSelectedIds(prev => prev.filter(x => x !== id)); fetchData();
@@ -229,7 +231,7 @@ export default function PurchaseVouchers({ filters, user }) {
 
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`Kya aap ${selectedIds.length} purchase vouchers delete karna chahte hain? Cash Book entries bhi delete hongi.`)) return;
+    if (!await showConfirm("Bulk Delete", `Kya aap ${selectedIds.length} purchase vouchers delete karna chahte hain? Cash Book entries bhi delete hongi.`)) return;
     try {
       await axios.post(`${API}/purchase-book/delete-bulk`, { ids: selectedIds });
       toast.success(`${selectedIds.length} vouchers delete ho gaye!`);
@@ -270,7 +272,7 @@ export default function PurchaseVouchers({ filters, user }) {
   };
 
   const handleUndoPayment = async (paymentId) => {
-    if (!window.confirm("Kya aap payment undo karna chahte hain? Cash Book se bhi entry hat jayegi.")) return;
+    if (!await showConfirm("Undo Payment", "Kya aap payment undo karna chahte hain? Cash Book se bhi entry hat jayegi.")) return;
     try {
       await axios.post(`${API}/voucher-payment/undo`, { payment_id: paymentId });
       toast.success("Payment undo ho gayi!");

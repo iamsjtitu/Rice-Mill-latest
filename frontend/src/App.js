@@ -2846,6 +2846,8 @@ function GSTSettingsForm() {
   );
 }
 
+import { ConfirmProvider } from "@/components/ConfirmProvider";
+
 // Main App with Auth
 function App() {
   const [user, setUser] = useState(() => {
@@ -2874,7 +2876,11 @@ function App() {
     );
   }
 
-  return <MainApp user={user} onLogout={handleLogout} />;
+  return (
+    <ConfirmProvider>
+      <MainApp user={user} onLogout={handleLogout} />
+    </ConfirmProvider>
+  );
 }
 
 export default App;

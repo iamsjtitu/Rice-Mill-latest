@@ -10,12 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Edit, Users, Calendar, IndianRupee, RefreshCw, Check, X, Clock, Sun, Calculator, Download, FileText } from "lucide-react";
 import RoundOffInput from "./common/RoundOffInput";
+import { useConfirm } from "./ConfirmProvider";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
 
 // ===== STAFF MASTER =====
 const StaffMaster = ({ staff, fetchStaff }) => {
+  const showConfirm = useConfirm();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: "", salary_type: "monthly", salary_amount: "" });
@@ -37,7 +39,7 @@ const StaffMaster = ({ staff, fetchStaff }) => {
   };
 
   const remove = async (id) => {
-    if (!window.confirm("Staff deactivate karein?")) return;
+    if (!await showConfirm("Deactivate", "Staff deactivate karein?")) return;
     await axios.delete(`${API}/staff/${id}`);
     toast.success("Staff deactivated"); fetchStaff();
   };
@@ -401,6 +403,7 @@ const QuickMonthlyReport = ({ staff, filters }) => {
 
 // ===== ADVANCE LEDGER =====
 const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) => {
+  const showConfirm = useConfirm();
   const [showAdd, setShowAdd] = useState(false);
   const [filterStaff, setFilterStaff] = useState("");
   const [form, setForm] = useState({ staff_id: "", amount: "", date: new Date().toISOString().split('T')[0], description: "" });
@@ -420,7 +423,7 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
   };
 
   const remove = async (id) => {
-    if (!window.confirm("Delete advance?")) return;
+    if (!await showConfirm("Delete Advance", "Delete advance?")) return;
     await axios.delete(`${API}/staff/advance/${id}`);
     toast.success("Deleted"); fetchAdvances();
   };
@@ -590,6 +593,7 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
 
 // ===== SALARY PAYMENT =====
 const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
+  const showConfirm = useConfirm();
   const [staffId, setStaffId] = useState("");
   const [periodFrom, setPeriodFrom] = useState("");
   const [periodTo, setPeriodTo] = useState("");
@@ -665,7 +669,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
 
   const settleAll = async () => {
     if (!allCalcData || allCalcData.length === 0) return;
-    if (!window.confirm(`${allCalcData.length} staff ki salary settle karein?`)) return;
+    if (!await showConfirm("Settle Salary", `${allCalcData.length} staff ki salary settle karein?`)) return;
     setSettlingAll(true);
     let success = 0;
     for (const d of allCalcData) {
@@ -695,7 +699,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
   };
 
   const deletePayment = async (id) => {
-    if (!window.confirm("Payment delete karein? Cash Book se bhi hatega.")) return;
+    if (!await showConfirm("Delete Payment", "Payment delete karein? Cash Book se bhi hatega.")) return;
     await axios.delete(`${API}/staff/payments/${id}`);
     toast.success("Payment deleted"); fetchPayments();
   };

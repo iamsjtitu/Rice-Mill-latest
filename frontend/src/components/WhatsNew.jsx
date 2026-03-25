@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "38.1.0";
+const APP_VERSION = "38.2.0";
 
 const CHANGELOG = [
+  {
+    version: "38.2.0",
+    date: "25 Mar 2026",
+    title: "UI Freeze Fix - Global window.confirm Replacement",
+    items: [
+      { type: "fix", text: "Sabhi components mein window.confirm ko React AlertDialog se replace kiya - ab UI freeze nahi hoga" },
+      { type: "fix", text: "Delete, Undo, Mark Paid, Bulk Delete - sabhi actions mein fix laga" },
+    ],
+  },
   {
     version: "38.1.0",
     date: "25 Mar 2026",

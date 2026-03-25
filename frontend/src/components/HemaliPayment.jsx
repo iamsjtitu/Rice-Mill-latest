@@ -10,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Edit, Users, IndianRupee, RefreshCw, Undo2, Download, FileText, Settings, Calculator, CheckCircle, Printer } from "lucide-react";
 import { fmtDate } from "@/utils/date";
 import RoundOffInput from "@/components/common/RoundOffInput";
+import { useConfirm } from "./ConfirmProvider";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
 
 // ===== ITEMS CONFIG =====
 const ItemsConfig = ({ items, fetchItems }) => {
+  const showConfirm = useConfirm();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ name: "", rate: "", unit: "bag" });
@@ -37,7 +39,7 @@ const ItemsConfig = ({ items, fetchItems }) => {
   };
 
   const remove = async (id) => {
-    if (!window.confirm("Item deactivate karein?")) return;
+    if (!await showConfirm("Deactivate", "Item deactivate karein?")) return;
     try {
       await axios.delete(`${API}/hemali/items/${id}`);
       toast.success("Item deactivated"); fetchItems();
@@ -257,6 +259,7 @@ const MonthlySummary = ({ filters }) => {
 
 // ===== MAIN HEMALI PAYMENT =====
 export default function HemaliPayment({ filters, user }) {
+  const showConfirm = useConfirm();
   const [subTab, setSubTab] = useState("payments");
   const [items, setItems] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -395,7 +398,7 @@ export default function HemaliPayment({ filters, user }) {
   };
 
   const handleUndo = async (id) => {
-    if (!window.confirm("Payment undo karein? Cash book se bhi hat jaayega.")) return;
+    if (!await showConfirm("Undo Payment", "Payment undo karein? Cash book se bhi hat jaayega.")) return;
     try {
       await axios.put(`${API}/hemali/payments/${id}/undo`);
       toast.success("Payment undone");
@@ -434,7 +437,7 @@ export default function HemaliPayment({ filters, user }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Payment delete karein? Yeh permanent hai.")) return;
+    if (!await showConfirm("Delete Payment", "Payment delete karein? Yeh permanent hai.")) return;
     try {
       await axios.delete(`${API}/hemali/payments/${id}`);
       toast.success("Payment deleted");

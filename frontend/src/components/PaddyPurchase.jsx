@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
 import RoundOffInput from "./common/RoundOffInput";
+import { useConfirm } from "./ConfirmProvider";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -56,6 +57,7 @@ const calcPaddyFields = (f) => {
 
 // ===== Paddy Purchase Component =====
 export const PaddyPurchase = ({ filters, user }) => {
+  const showConfirm = useConfirm();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -142,14 +144,14 @@ export const PaddyPurchase = ({ filters, user }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete karna chahte hain?")) return;
+    if (!await showConfirm("Delete", "Delete karna chahte hain?")) return;
     try { await axios.delete(`${API}/private-paddy/${id}`); toast.success("Deleted!"); fetchData(); }
     catch { toast.error("Delete nahi hua"); }
   };
 
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`${selectedIds.length} entries delete karna chahte hain?`)) return;
+    if (!await showConfirm("Bulk Delete", `${selectedIds.length} entries delete karna chahte hain?`)) return;
     try {
       await Promise.all(selectedIds.map(id => axios.delete(`${API}/private-paddy/${id}`)));
       toast.success(`${selectedIds.length} entries deleted!`);
@@ -180,7 +182,7 @@ export const PaddyPurchase = ({ filters, user }) => {
 
   const handleMarkPaid = async (item) => {
     const bal = Math.round((item.total_amount || 0) - (item.paid_amount || 0));
-    if (!window.confirm(`${item.party_name} ko fully paid mark karna chahte hain? Balance Rs.${bal.toLocaleString()} clear hoga.`)) return;
+    if (!await showConfirm("Mark Paid", `${item.party_name} ko fully paid mark karna chahte hain? Balance Rs.${bal.toLocaleString()} clear hoga.`)) return;
     try {
       await axios.post(`${API}/private-paddy/${item.id}/mark-paid?username=${user.username}&role=${user.role}`);
       toast.success("Mark Paid ho gaya!"); fetchData();
@@ -188,7 +190,7 @@ export const PaddyPurchase = ({ filters, user }) => {
   };
 
   const handleUndoPaid = async (item) => {
-    if (!window.confirm(`${item.party_name} ka payment undo karna chahte hain? Sab reset ho jayega.`)) return;
+    if (!await showConfirm("Undo Payment", `${item.party_name} ka payment undo karna chahte hain? Sab reset ho jayega.`)) return;
     try {
       await axios.post(`${API}/private-paddy/${item.id}/undo-paid?username=${user.username}&role=${user.role}`);
       toast.success("Undo ho gaya!"); fetchData();

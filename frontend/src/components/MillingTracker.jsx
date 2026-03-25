@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Trash2, Edit, Plus, RefreshCw, Filter, X, ShoppingCart, Package, Download, FileText, ClipboardList } from "lucide-react";
+import { useConfirm } from "./ConfirmProvider";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -33,6 +34,7 @@ const PRODUCT_LABELS = {
 
 // ===== Sub-tab: Milling Entries =====
 const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) => {
+  const showConfirm = useConfirm();
   const [entries, setEntries] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -111,7 +113,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Kya aap ye milling entry delete karna chahte hain?")) return;
+    if (!await showConfirm("Delete Milling Entry", "Kya aap ye milling entry delete karna chahte hain?")) return;
     try {
       await axios.delete(`${API}/milling-entries/${id}?username=${user.username}&role=${user.role}`);
       toast.success("Delete ho gayi!"); fetchEntries(); onRefresh();
@@ -331,6 +333,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
 
 // ===== Sub-tab: FRK Purchases =====
 const FrkPurchaseTab = ({ filters, user, frkStock, onRefresh }) => {
+  const showConfirm = useConfirm();
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -360,7 +363,7 @@ const FrkPurchaseTab = ({ filters, user, frkStock, onRefresh }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete karna chahte hain?")) return;
+    if (!await showConfirm("Delete", "Delete karna chahte hain?")) return;
     try { await axios.delete(`${API}/frk-purchases/${id}`); toast.success("Deleted!"); fetch(); onRefresh(); } catch (e) { toast.error("Delete nahi hua"); }
   };
 
@@ -438,6 +441,7 @@ const FrkPurchaseTab = ({ filters, user, frkStock, onRefresh }) => {
 
 // ===== Sub-tab: By-Product Stock & Sales =====
 const ByProductTab = ({ filters, user, onRefresh }) => {
+  const showConfirm = useConfirm();
   const [stock, setStock] = useState(null);
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -467,7 +471,7 @@ const ByProductTab = ({ filters, user, onRefresh }) => {
   };
 
   const handleDeleteSale = async (id) => {
-    if (!window.confirm("Delete karna chahte hain?")) return;
+    if (!await showConfirm("Delete", "Delete karna chahte hain?")) return;
     try { await axios.delete(`${API}/byproduct-sales/${id}`); toast.success("Deleted!"); fetchData(); onRefresh(); } catch (e) { toast.error("Delete nahi hua"); }
   };
 

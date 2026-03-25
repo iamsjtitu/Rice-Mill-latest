@@ -14,8 +14,10 @@ const _isElectron = typeof window !== 'undefined' && (window.electronAPI || wind
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
 
 import { fmtDate } from "@/utils/date";
+import { useConfirm } from "./ConfirmProvider";
 
 export default function SaleBook({ filters, user }) {
+  const showConfirm = useConfirm();
   const [vouchers, setVouchers] = useState([]);
   const [stockItems, setStockItems] = useState([]);
   const [gstSettings, setGstSettings] = useState({ cgst_percent: 0, sgst_percent: 0, igst_percent: 0 });
@@ -155,7 +157,7 @@ export default function SaleBook({ filters, user }) {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Kya aap ye voucher delete karna chahte hain?")) return;
+    if (!await showConfirm("Delete Voucher", "Kya aap ye voucher delete karna chahte hain?")) return;
     try {
       await axios.delete(`${API}/sale-book/${id}?username=${user.username}&role=${user.role}`);
       toast.success("Voucher delete ho gaya"); setSelectedIds(prev => prev.filter(x => x !== id)); fetchData();
@@ -164,7 +166,7 @@ export default function SaleBook({ filters, user }) {
 
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`Kya aap ${selectedIds.length} sale vouchers delete karna chahte hain? Cash Book entries bhi delete hongi.`)) return;
+    if (!await showConfirm("Bulk Delete", `Kya aap ${selectedIds.length} sale vouchers delete karna chahte hain? Cash Book entries bhi delete hongi.`)) return;
     try {
       await axios.post(`${API}/sale-book/delete-bulk`, { ids: selectedIds });
       toast.success(`${selectedIds.length} vouchers delete ho gaye!`);
@@ -208,7 +210,7 @@ export default function SaleBook({ filters, user }) {
   };
 
   const handleUndoPayment = async (paymentId) => {
-    if (!window.confirm("Kya aap payment undo karna chahte hain? Cash Book se bhi entry hat jayegi.")) return;
+    if (!await showConfirm("Undo Payment", "Kya aap payment undo karna chahte hain? Cash Book se bhi entry hat jayegi.")) return;
     try {
       await axios.post(`${API}/voucher-payment/undo`, { payment_id: paymentId });
       toast.success("Payment undo ho gayi!");
@@ -243,7 +245,7 @@ export default function SaleBook({ filters, user }) {
   };
 
   const handleObDelete = async (id) => {
-    if (!window.confirm("Delete opening balance?")) return;
+    if (!await showConfirm("Delete", "Delete opening balance?")) return;
     try {
       await axios.delete(`${API}/opening-balances/${id}?username=${user.username}&role=${user.role}`);
       toast.success("Deleted"); fetchData();

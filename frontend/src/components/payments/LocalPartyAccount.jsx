@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import RoundOffInput from "../common/RoundOffInput";
+import { useConfirm } from "../ConfirmProvider";
 import {
   IndianRupee, RefreshCw, Download, FileText, Plus, Trash2, Handshake, Printer, Search, Loader2,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')
 const API = `${BACKEND_URL}/api`;
 
 const LocalPartyAccount = ({ filters, user }) => {
+  const showConfirm = useConfirm();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedParty, setSelectedParty] = useState("");
@@ -126,7 +128,7 @@ const LocalPartyAccount = ({ filters, user }) => {
   };
 
   const handleDeleteTxn = async (id) => {
-    if (!window.confirm("Transaction delete karein?")) return;
+    if (!await showConfirm("Delete", "Transaction delete karein?")) return;
     try {
       await axios.delete(`${API}/local-party/${id}`);
       toast.success("Deleted");

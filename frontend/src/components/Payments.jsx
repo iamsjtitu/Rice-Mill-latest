@@ -23,6 +23,7 @@ import {
 import LocalPartyAccount from "./payments/LocalPartyAccount";
 import { GunnyBags } from "./DCTracker";
 import LeasedTruck from "./LeasedTruck";
+import { useConfirm } from "./ConfirmProvider";
 import RoundOffInput from "./common/RoundOffInput";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -63,6 +64,7 @@ const safePrintHTML = (htmlContent) => {
 };
 
 export const Payments = ({ filters, user, branding }) => {
+  const showConfirm = useConfirm();
   const [truckPayments, setTruckPayments] = useState([]);
   const [agentPayments, setAgentPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -177,7 +179,7 @@ export const Payments = ({ filters, user, branding }) => {
 
   // Undo paid
   const handleUndoPaid = async (item) => {
-    if (!window.confirm("Kya aap is payment ko undo karna chahte hain? Paid amount 0 ho jayega.")) return;
+    if (!await showConfirm("Undo Payment", "Kya aap is payment ko undo karna chahte hain? Paid amount 0 ho jayega.")) return;
     try {
       if (activePaymentTab === "truck") {
         await axios.post(
@@ -230,7 +232,7 @@ export const Payments = ({ filters, user, branding }) => {
   };
 
   const handleOwnerMarkPaid = async (truck) => {
-    if (!window.confirm(`${truck.truck_no} ke saare trips mark paid karna chahte hain?`)) return;
+    if (!await showConfirm("Mark All Paid", `${truck.truck_no} ke saare trips mark paid karna chahte hain?`)) return;
     try {
       const params = `kms_year=${filters.kms_year||''}&season=${filters.season||''}&username=${user.username}&role=${user.role}`;
       const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(truck.truck_no)}/mark-paid?${params}`);
@@ -239,7 +241,7 @@ export const Payments = ({ filters, user, branding }) => {
   };
 
   const handleOwnerUndoPaid = async (truck) => {
-    if (!window.confirm(`${truck.truck_no} ke saare payments undo karna chahte hain?`)) return;
+    if (!await showConfirm("Undo All Payments", `${truck.truck_no} ke saare payments undo karna chahte hain?`)) return;
     try {
       const params = `kms_year=${filters.kms_year||''}&season=${filters.season||''}&username=${user.username}&role=${user.role}`;
       const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(truck.truck_no)}/undo-paid?${params}`);
@@ -311,7 +313,7 @@ export const Payments = ({ filters, user, branding }) => {
   };
 
   const handleMarkPaid = async (item) => {
-    if (!window.confirm("Kya aap isko fully paid mark karna chahte hain?")) return;
+    if (!await showConfirm("Mark Paid", "Kya aap isko fully paid mark karna chahte hain?")) return;
     try {
       if (activePaymentTab === "truck") {
         await axios.post(
@@ -1686,7 +1688,7 @@ const DieselAccount = ({ filters, user }) => {
   };
 
   const handleDeletePump = async (pumpId) => {
-    if (!window.confirm("Pump delete karein?")) return;
+    if (!await showConfirm("Delete Pump", "Pump delete karein?")) return;
     try {
       await axios.delete(`${API}/diesel-pumps/${pumpId}`);
       toast.success("Pump deleted"); fetchData();
@@ -1708,7 +1710,7 @@ const DieselAccount = ({ filters, user }) => {
   };
 
   const handleDeleteTxn = async (id) => {
-    if (!window.confirm("Transaction delete karein?")) return;
+    if (!await showConfirm("Delete", "Transaction delete karein?")) return;
     try { await axios.delete(`${API}/diesel-accounts/${id}`); toast.success("Deleted"); setDieselSelectedIds(prev => prev.filter(x => x !== id)); fetchData(); }
     catch (e) { toast.error("Error"); }
   };
@@ -1716,7 +1718,7 @@ const DieselAccount = ({ filters, user }) => {
   const [dieselSelectedIds, setDieselSelectedIds] = useState([]);
   const handleDieselBulkDelete = async () => {
     if (dieselSelectedIds.length === 0) return;
-    if (!window.confirm(`Kya aap ${dieselSelectedIds.length} transactions delete karna chahte hain?`)) return;
+    if (!await showConfirm("Bulk Delete", `Kya aap ${dieselSelectedIds.length} transactions delete karna chahte hain?`)) return;
     try {
       await axios.post(`${API}/diesel-accounts/delete-bulk`, { ids: dieselSelectedIds });
       toast.success(`${dieselSelectedIds.length} transactions deleted!`);

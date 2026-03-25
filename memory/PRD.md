@@ -10,7 +10,7 @@ A comprehensive rice mill management system with features for paddy procurement,
 - **Desktop**: Electron + Node.js Express (separate codebase with local JSON storage)
 - **Local Server**: Node.js Express (separate from web backend)
 
-## Current Version: v38.1.0
+## Current Version: v38.2.0
 
 ## What's Been Implemented
 
@@ -34,65 +34,41 @@ A comprehensive rice mill management system with features for paddy procurement,
 - Auto-update system for desktop app
 - "What's New" changelog component
 - Global keyboard shortcuts (Ctrl+N, Ctrl+S, Alt+*, Backspace navigation)
+- ConfirmProvider context for UI-safe confirmation dialogs
 
-### Bug Fixes (25 March 2026 - v38.1.0)
-- **Ctrl+N Keyboard Shortcut Fix**: Changed selector from `[data-testid*="new-btn"]` (matched whats-new-btn) to `[data-testid$="-add-btn"]` (ends-with match)
-- **Pvt Paddy Party Name Fix**: 
-  - Fixed `_deleteCashDieselForPvtPaddy` in ALL three backends (Python, Desktop, Local-server) to also delete `pvt_party_jama:` and `pvt_truck_jama:` reference entries
-  - Fixed `qntl` field to use `final_qntl` (correct calculated field) instead of `qntl` 
-  - Fixed `rate` field to use `rate_per_qntl` (correct form field) instead of `rate`
-  - Added missing Party Jama entry creation in local-server backend
-  - Fixed migration/auto-fix regex patterns for completeness
+### Bug Fixes (25 March 2026)
 
-### Previous Session Work (25 March 2026 - v38.0.0)
-- Desktop build pipeline fix
-- UI Freeze on delete fix (React AlertDialog)
-- Auto-ledger Cr/Dr direction fix
-- Party Summary UI redesign
-- Removed global Round Off separate ledger entries
-- Added Round Off input to Pvt Paddy Make Payment
-- Auto-fix startup script for historical data
-- Global Keyboard Shortcuts
-- Backspace navigation for empty fields
-- Replaced "Total QNTL" with "Total Final W" in reports
-- Mandi-specific dropdown filter in Agent/Mandi reports
+**v38.2.0 - UI Freeze Fix (Global)**
+- Replaced ALL `window.confirm` calls across all components with React AlertDialog via `useConfirm()` hook
+- Components fixed: PaddyPurchase, CashBook, DCTracker, Dashboard, FYSummaryDashboard, HemaliPayment, LeasedTruck, MillPartsStock, MillingTracker, Payments, PurchaseVouchers, StaffManagement, PrivateTrading, SaleBook, LocalPartyAccount
+- Created reusable `ConfirmProvider` component with `useConfirm()` hook
+
+**v38.1.0 - Ctrl+N + Pvt Paddy Party Name**
+- Ctrl+N selector fixed (was matching whats-new-btn)
+- Pvt Paddy delete function fixed to clean up pvt_party_jama entries
+- qntl/rate fields corrected in all three backends
 
 ## Pending Items
 ### P0
-- None currently
+- None
 
 ### P1
-- Export Preview feature (user requested)
+- Export Preview feature
 - Centralize stock calculation logic
 
 ### P2
 - Sardar-wise monthly Hemali report breakdown
 - Refactor payment logic into service layer
 
-### Refactoring Needs
+### Refactoring
 - `App.js` is 2800+ lines - needs component extraction
-- Payment logic should be centralized into service layer
-
-## Key API Endpoints
-- `/api/cash-book/*` - Cash book CRUD + exports
-- `/api/private-paddy/*` - Private paddy CRUD + auto-ledger
-- `/api/rice-sales/*` - Rice sales CRUD
-- `/api/dc-entries/*` - DC register + exports
-- `/api/msp-payments/*` - MSP payments + exports
-- `/api/gunny-bags/*` - Gunny bag inventory
-- `/api/milling-report/*` - Milling operations
-- `/api/reports/*` - Various reports
-- `/api/hemali/*` - Hemali payments
-- `/api/sale-book/*`, `/api/purchase-book/*` - Sale/Purchase book
-- `/api/mill-parts/*` - Mill parts
-- `/api/diesel-accounts/*` - Diesel account
-- `/api/staff/*` - Staff management
+- App.js still has its own confirmDialog state (can be migrated to use ConfirmProvider)
 
 ## Credentials
 - Username: admin
 - Password: admin123
 
 ## Critical Technical Notes
-- **Dual Backend Rule**: Any logic change to Python routes MUST be replicated in desktop-app Node.js routes AND local-server routes
-- **Build Pipeline**: Frontend changes need `yarn build` + copy to `desktop-app/frontend-build/`
-- **Reference Patterns**: Pvt Paddy uses `pvt_paddy_*`, `pvt_party_jama:*`, and `pvt_truck_jama:*` references
+- **Dual Backend Rule**: Any logic change to Python routes MUST be replicated in desktop-app AND local-server routes
+- **Build Pipeline**: `cd /app/frontend && yarn build && cp -r build/* ../desktop-app/frontend-build/`
+- **ConfirmProvider**: All components use `useConfirm()` hook instead of `window.confirm()`

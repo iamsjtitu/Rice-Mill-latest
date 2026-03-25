@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package, Edit, Clock, History, Search } from "lucide-react";
+import { useConfirm } from "./ConfirmProvider";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -19,6 +20,7 @@ const CURRENT_KMS = (() => { const n = new Date(), y = n.getFullYear(); return n
 
 // ===== DC ENTRIES SUB-TAB =====
 const DCEntries = ({ filters, user }) => {
+  const showConfirm = useConfirm();
   const [dcs, setDcs] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -85,8 +87,8 @@ const DCEntries = ({ filters, user }) => {
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
 
-  const handleDeleteDC = async (id) => { if (!window.confirm("DC delete karein?")) return; try { await axios.delete(`${API}/dc-entries/${id}`); toast.success("DC deleted"); fetchData(); } catch (e) { toast.error("Delete nahi hua"); } };
-  const handleDeleteDelivery = async (id) => { if (!window.confirm("Delivery delete karein?")) return; try { await axios.delete(`${API}/dc-deliveries/${id}`); toast.success("Deleted"); fetchDeliveries(expandedDC); fetchData(); } catch (e) { toast.error("Delete nahi hua"); } };
+  const handleDeleteDC = async (id) => { if (!await showConfirm("Delete DC", "DC delete karein?")) return; try { await axios.delete(`${API}/dc-entries/${id}`); toast.success("DC deleted"); fetchData(); } catch (e) { toast.error("Delete nahi hua"); } };
+  const handleDeleteDelivery = async (id) => { if (!await showConfirm("Delete Delivery", "Delivery delete karein?")) return; try { await axios.delete(`${API}/dc-deliveries/${id}`); toast.success("Deleted"); fetchDeliveries(expandedDC); fetchData(); } catch (e) { toast.error("Delete nahi hua"); } };
   const exportData = async (format) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
@@ -317,6 +319,7 @@ const DCEntries = ({ filters, user }) => {
 
 // ===== MSP PAYMENTS SUB-TAB =====
 const MSPPayments = ({ filters, user, dcList }) => {
+  const showConfirm = useConfirm();
   const [payments, setPayments] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -346,7 +349,7 @@ const MSPPayments = ({ filters, user, dcList }) => {
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
 
-  const handleDelete = async (id) => { if (!window.confirm("Payment delete karein?")) return; try { await axios.delete(`${API}/msp-payments/${id}`); toast.success("Deleted!"); fetchData(); } catch (e) { toast.error("Delete nahi hua"); } };
+  const handleDelete = async (id) => { if (!await showConfirm("Delete Payment", "Payment delete karein?")) return; try { await axios.delete(`${API}/msp-payments/${id}`); toast.success("Deleted!"); fetchData(); } catch (e) { toast.error("Delete nahi hua"); } };
   const exportData = async (format) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
@@ -480,6 +483,7 @@ const MSPPayments = ({ filters, user, dcList }) => {
 
 // ===== GUNNY BAGS SUB-TAB =====
 export const GunnyBags = ({ filters, user }) => {
+  const showConfirm = useConfirm();
   const [entries, setEntries] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -559,7 +563,7 @@ export const GunnyBags = ({ filters, user }) => {
     } catch (e) { toast.error(e.response?.data?.detail || e.message); }
   };
 
-  const handleDelete = async (id) => { if (!window.confirm("Delete karein?")) return; try { await axios.delete(`${API}/gunny-bags/${id}`); toast.success("Deleted!"); fetchData(); } catch (e) { toast.error("Delete nahi hua"); } };
+  const handleDelete = async (id) => { if (!await showConfirm("Delete", "Delete karein?")) return; try { await axios.delete(`${API}/gunny-bags/${id}`); toast.success("Deleted!"); fetchData(); } catch (e) { toast.error("Delete nahi hua"); } };
   const [payDialog, setPayDialog] = useState(null);
   const [payAmount, setPayAmount] = useState("");
   const [payNotes, setPayNotes] = useState("");

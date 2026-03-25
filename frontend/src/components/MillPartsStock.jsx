@@ -11,12 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search, Calendar, Filter, Warehouse } from "lucide-react";
 import { downloadFile } from "../utils/download";
+import { useConfirm } from "./ConfirmProvider";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
 
 export default function MillPartsStock({ filters, user }) {
+  const showConfirm = useConfirm();
   const [parts, setParts] = useState([]);
   const [summary, setSummary] = useState([]);
   const [stockEntries, setStockEntries] = useState([]);
@@ -78,7 +80,7 @@ export default function MillPartsStock({ filters, user }) {
   };
 
   const handleDeletePart = async (id) => {
-    if (!window.confirm("Part delete karein?")) return;
+    if (!await showConfirm("Delete Part", "Part delete karein?")) return;
     try { await axios.delete(`${API}/mill-parts/${id}`); toast.success("Deleted!"); fetchAll(); }
     catch { toast.error("Delete nahi hua"); }
   };
@@ -102,7 +104,7 @@ export default function MillPartsStock({ filters, user }) {
   };
 
   const handleDeleteStock = async (id) => {
-    if (!window.confirm("Entry delete karein?")) return;
+    if (!await showConfirm("Delete Entry", "Entry delete karein?")) return;
     try { await axios.delete(`${API}/mill-parts-stock/${id}`); toast.success("Deleted!"); fetchAll(); }
     catch { toast.error("Delete nahi hua"); }
   };
@@ -133,7 +135,7 @@ export default function MillPartsStock({ filters, user }) {
   };
 
   const handleDeleteRoom = async (id) => {
-    if (!window.confirm("Store Room delete karein? Isme assigned parts unassigned ho jayenge.")) return;
+    if (!await showConfirm("Delete Store Room", "Store Room delete karein? Isme assigned parts unassigned ho jayenge.")) return;
     try { await axios.delete(`${API}/store-rooms/${id}`); toast.success("Deleted!"); fetchAll(); }
     catch { toast.error("Delete nahi hua"); }
   };

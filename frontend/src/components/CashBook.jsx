@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useConfirm } from "./ConfirmProvider";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -33,6 +34,7 @@ const DEFAULT_CATEGORIES = {
 };
 
 const CashBook = ({ filters, user }) => {
+  const showConfirm = useConfirm();
   const [txns, setTxns] = useState([]);
   const [allTxns, setAllTxns] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -200,7 +202,7 @@ const CashBook = ({ filters, user }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Kya aap ye transaction delete karna chahte hain?")) return;
+    if (!await showConfirm("Delete", "Kya aap ye transaction delete karna chahte hain?")) return;
     try {
       await axios.delete(`${API}/cash-book/${id}`);
       toast.success("Deleted!"); setSelectedIds(prev => prev.filter(x => x !== id)); fetchData();
@@ -209,7 +211,7 @@ const CashBook = ({ filters, user }) => {
 
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`Kya aap ${selectedIds.length} transactions delete karna chahte hain?`)) return;
+    if (!await showConfirm("Bulk Delete", `Kya aap ${selectedIds.length} transactions delete karna chahte hain?`)) return;
     try {
       await axios.post(`${API}/cash-book/delete-bulk`, { ids: selectedIds });
       toast.success(`${selectedIds.length} transactions deleted!`);
@@ -307,7 +309,7 @@ const CashBook = ({ filters, user }) => {
   };
 
   const handleObDelete = async (id) => {
-    if (!window.confirm("Delete opening balance?")) return;
+    if (!await showConfirm("Delete", "Delete opening balance?")) return;
     try {
       await axios.delete(`${API}/opening-balances/${id}?username=${user.username}&role=${user.role}`);
       toast.success("Deleted"); fetchData();
@@ -582,7 +584,7 @@ const CashBook = ({ filters, user }) => {
                     <span className="text-sm text-white">{b.name}</span>
                   </div>
                   <button onClick={async () => {
-                    if (!window.confirm(`"${b.name}" delete karna hai?`)) return;
+                    if (!await showConfirm("Delete Bank", `"${b.name}" delete karna hai?`)) return;
                     try { await axios.delete(`${API}/bank-accounts/${b.id}`); toast.success("Deleted"); fetchBankAccounts(); }
                     catch { toast.error("Delete failed"); }
                   }} className="text-red-400 hover:text-red-300">

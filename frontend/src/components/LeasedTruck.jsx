@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truck, Edit } from "lucide-react";
 import { printHtml } from "@/components/PrintButton";
+import { useConfirm } from "./ConfirmProvider";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -23,6 +24,7 @@ function fmtMonth(m) { const [y, mo] = m.split("-"); return `${MONTH_NAMES[parse
 function fmtAmt(n) { return new Intl.NumberFormat("en-IN").format(Math.round(n)); }
 
 export default function LeasedTruck({ filters }) {
+  const showConfirm = useConfirm();
   const [leases, setLeases] = useState([]);
   const [showAddLease, setShowAddLease] = useState(false);
   const [editLease, setEditLease] = useState(null);
@@ -77,7 +79,7 @@ export default function LeasedTruck({ filters }) {
   };
 
   const handleDeleteLease = async (id) => {
-    if (!window.confirm("Kya aap sure hain? Lease aur uske saare payments delete ho jayenge!")) return;
+    if (!await showConfirm("Delete Lease", "Kya aap sure hain? Lease aur uske saare payments delete ho jayenge!")) return;
     try {
       await axios.delete(`${API}/truck-leases/${id}`);
       toast.success("Lease delete ho gaya");

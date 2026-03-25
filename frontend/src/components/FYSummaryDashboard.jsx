@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { TrendingUp, TrendingDown, Banknote, Package, Fuel, Users, Wheat, Wrench, ArrowRightLeft, RefreshCw, FileDown, BookOpen, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
+import { useConfirm } from './ConfirmProvider';
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -51,6 +52,7 @@ function MiniTable({ headers, children }) {
 }
 
 export default function FYSummaryDashboard({ filters }) {
+  const showConfirm = useConfirm();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [carryingForward, setCarryingForward] = useState(false);
@@ -85,7 +87,7 @@ export default function FYSummaryDashboard({ filters }) {
     }
     const parts = filters.kms_year.split('-');
     const nextFY = `${parseInt(parts[0])+1}-${parseInt(parts[1])+1}`;
-    if (!window.confirm(`${filters.kms_year} ka closing balance ${nextFY} mein opening balance ke roop mein carry forward karein?`)) return;
+    if (!await showConfirm("Carry Forward", `${filters.kms_year} ka closing balance ${nextFY} mein opening balance ke roop mein carry forward karein?`)) return;
 
     setCarryingForward(true);
     try {
