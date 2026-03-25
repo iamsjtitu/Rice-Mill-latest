@@ -3,9 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "36.0.0";
+const APP_VERSION = "37.0.0";
 
 const CHANGELOG = [
+  {
+    version: "37.0.0",
+    date: "25 Mar 2026",
+    title: "Credit/Debit Fix + UI Freeze Fix",
+    items: [
+      { type: "fix", text: "Party Ledger mein Credit/Debit direction fix - ab Jama (Cr) aur Nikasi (Dr) sahi dikhte hain" },
+      { type: "fix", text: "Auto-ledger entries ab sahi direction mein banti hain (Jama = party ne diya, Nikasi = humne diya)" },
+      { type: "fix", text: "Purani galat entries automatic fix ho jaayengi (migration)" },
+      { type: "fix", text: "UI freeze on delete - permanent fix with React AlertDialog + aggressive cleanup" },
+      { type: "imp", text: "Delete confirm dialog ab sundar React dialog hai, native browser dialog nahi" },
+    ],
+  },
   {
     version: "36.0.0",
     date: "25 Mar 2026",

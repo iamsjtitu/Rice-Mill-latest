@@ -129,19 +129,15 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
     txn_dict.pop('_id', None)
     
     # Auto-create corresponding ledger entry if this is a cash/bank transaction
-    # Double-entry: Cash movement creates opposite ledger entry for the party
-    # Cash In (Jama) from party = party paid us → Ledger Nikasi (reduces party's debt)
-    # Cash Out (Nikasi) to party = we paid them → Ledger Jama (increases party's receivable/debt)
+    # Double-entry: Cash movement creates same-direction ledger entry for the party
+    # Cash In (Jama) from party = party paid us → Ledger Jama (Cr) for party
+    # Cash Out (Nikasi) to party = we paid them → Ledger Nikasi (Dr) for party
     if txn_dict.get('account') in ('cash', 'bank') and category:
         ledger_amount = round(txn_dict['amount'] + round_off, 2) if round_off else txn_dict['amount']
         ledger_entry = {**txn_dict}
         ledger_entry['id'] = str(uuid.uuid4())
         ledger_entry['account'] = 'ledger'
-        # Reverse the txn_type for double-entry
-        if txn_dict.get('txn_type') == 'jama':
-            ledger_entry['txn_type'] = 'nikasi'
-        else:
-            ledger_entry['txn_type'] = 'jama'
+        # Keep same txn_type for party ledger (Jama from party = Jama in their khata)
         ledger_entry['amount'] = ledger_amount
         ledger_entry['reference'] = f"auto_ledger:{txn_dict.get('id', '')[:8]}"
         # Auto-generate description if empty
@@ -539,9 +535,7 @@ async def update_cash_transaction(txn_id: str, request: Request, username: str =
         raise HTTPException(status_code=404, detail="Transaction not found")
     # Update auto-created ledger entry too
     ledger_body = {k: v for k, v in body.items() if k not in ('account', 'reference')}
-    # If txn_type changed, reverse it for auto-ledger (double-entry)
-    if 'txn_type' in ledger_body:
-        ledger_body['txn_type'] = 'nikasi' if body.get('txn_type') == 'jama' else 'jama'
+    # Keep same txn_type for auto-ledger (no reversal - party's khata matches direction)
     await db.cash_transactions.update_many({"reference": f"auto_ledger:{txn_id[:8]}"}, {"$set": ledger_body})
     updated = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
     return updated
@@ -896,6 +890,40 @@ async def fix_empty_party_types():
     
     return {"success": True, "fixed_count": fixed, "categories_processed": len(cats)}
 
+
+
+@router.post("/cash-book/fix-auto-ledger-direction")
+async def fix_auto_ledger_direction():
+    """Fix existing auto_ledger entries that had reversed txn_type.
+    Old logic: Cash Jama → Ledger Nikasi (wrong)
+    New logic: Cash Jama → Ledger Jama (correct - party's khata matches direction)
+    This flips all auto_ledger entries to match the original cash/bank entry's txn_type."""
+    fixed = 0
+    auto_ledger_entries = await db.cash_transactions.find(
+        {"reference": {"$regex": "^auto_ledger:"}},
+        {"_id": 0, "id": 1, "reference": 1, "txn_type": 1}
+    ).to_list(100000)
+    
+    for entry in auto_ledger_entries:
+        # Find the original cash/bank entry by matching the reference prefix
+        ref = entry.get("reference", "")
+        orig_id_prefix = ref.replace("auto_ledger:", "")
+        if not orig_id_prefix:
+            continue
+        # Find original entry
+        original = await db.cash_transactions.find_one(
+            {"id": {"$regex": f"^{orig_id_prefix}"}, "account": {"$in": ["cash", "bank"]}},
+            {"_id": 0, "txn_type": 1}
+        )
+        if original and original.get("txn_type") != entry.get("txn_type"):
+            # The auto_ledger has reversed txn_type - fix it to match original
+            await db.cash_transactions.update_one(
+                {"id": entry["id"]},
+                {"$set": {"txn_type": original["txn_type"]}}
+            )
+            fixed += 1
+    
+    return {"success": True, "fixed_count": fixed, "total_auto_ledger": len(auto_ledger_entries)}
 
 @router.post("/cash-book/migrate-ledger-entries")
 async def migrate_ledger_entries():

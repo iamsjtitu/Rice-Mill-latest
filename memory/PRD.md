@@ -10,7 +10,7 @@ A comprehensive rice mill management system with features for paddy procurement,
 - **Desktop**: Electron + Node.js (separate codebase)
 - **Local Server**: Node.js (separate from web backend)
 
-## Current Version: v36.0.0
+## Current Version: v37.0.0
 
 ## What's Been Implemented
 
@@ -82,7 +82,8 @@ A comprehensive rice mill management system with features for paddy procurement,
 
 ## Pending Items
 ### P0
-- ~~UI freeze on delete~~ FIXED - Replaced window.confirm with React AlertDialog in App.js + strengthened global pointer-events fix in index.js
+- ~~UI freeze on delete~~ FIXED - Replaced window.confirm with React AlertDialog + aggressive global cleanup
+- ~~Credit/Debit direction in auto_ledger~~ FIXED - Removed txn_type reversal + migration for existing entries
 
 ### P1
 - Export Preview feature (user requested)

@@ -272,6 +272,13 @@ function MainApp({ user, onLogout }) {
       } catch {}
     };
     loadFySetting();
+    // One-time migration: fix auto_ledger direction (v36 fix)
+    const migKey = "auto_ledger_direction_fixed_v36";
+    if (!localStorage.getItem(migKey)) {
+      axios.post(`${API}/cash-book/fix-auto-ledger-direction`).then(r => {
+        if (r.data?.success) localStorage.setItem(migKey, "1");
+      }).catch(() => {});
+    }
   }, []);
 
   // Save FY setting when kms_year changes
