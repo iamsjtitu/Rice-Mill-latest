@@ -599,7 +599,6 @@ async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
     if party_type: query["party_type"] = party_type
-    query["account"] = "ledger"  # Only count ledger entries for party balance
     
     txns = await db.cash_transactions.find(query, {"_id": 0}).to_list(100000)
     
@@ -608,6 +607,8 @@ async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str
     for t in txns:
         cat = t.get("category", "").strip()
         if not cat: continue
+        # Skip auto-ledger entries (duplicates with reversed txn_type)
+        if (t.get("reference") or "").startswith("auto_ledger:"): continue
         if cat not in party_map:
             party_map[cat] = {"party_name": cat, "party_type": t.get("party_type", ""), "total_jama": 0, "total_nikasi": 0, "balance": 0, "txn_count": 0}
         if t.get("txn_type") == "jama":

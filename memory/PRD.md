@@ -119,6 +119,16 @@ A comprehensive rice mill management system with features for paddy procurement,
   - Local-server: telegram.js, daily_report.js
 - Verified in Excel exports, PDF exports, and frontend UI
 
+#### Party Ledger Accounting Bug Fix (March 2026 - Complete)
+- Fixed double-counting bug: Party Ledger was including both cash/bank entries AND auto-ledger entries, causing 2x entries per transaction with reversed debit/credit
+- Root cause: auto-ledger entries (created by Cash Book double-entry system) have reversed txn_type, making debit/credit appear wrong in Party Ledger
+- Fix: Exclude entries with reference starting with "auto_ledger:" from Party Ledger and Party Summary queries
+- Files fixed:
+  - Python Backend: ledgers.py (party ledger), cashbook.py (party summary)
+  - Desktop-app: reports.js (party ledger), cashbook.js (party summary ×3)
+  - Local-server: reports.js (party ledger)
+- Result: "Titu se liya" now shows as Credit, "Titu ko diya" shows as Debit (correct accounting)
+
 ## Pending Items
 ### P0
 - Desktop app build required for all recent fixes to take effect (UI freeze, data migration, export filters, company headers)

@@ -36,6 +36,8 @@ module.exports = function(database) {
         if (!cat) continue;
         if (['cash payment','diesel payment','cash paid','diesel','cash paid (entry)','diesel (entry)'].includes(cat.toLowerCase())) continue;
         if (party_name && cat.toLowerCase() !== party_name.toLowerCase()) continue;
+        // Skip auto-ledger entries (duplicates with reversed txn_type)
+        if ((t.reference||'').startsWith('auto_ledger:')) continue;
         const isJama = t.txn_type === 'jama';
         ledger.push({ date: t.date||'', party_name: cat, party_type: 'Cash Party', description: t.description || `${isJama?'Jama':'Nikasi'}: Rs.${t.amount||0}`, debit: isJama ? 0 : Math.round((t.amount||0)*100)/100, credit: isJama ? Math.round((t.amount||0)*100)/100 : 0, ref: (t.id||'').substring(0,8) });
       }
