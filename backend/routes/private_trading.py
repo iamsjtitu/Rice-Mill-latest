@@ -559,20 +559,6 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
             **base_cb
         })
     doc.pop("_id", None)
-    # Create round-off entry if provided
-    round_off = float(data.get("round_off", 0))
-    if round_off and round_off != 0:
-        from utils.round_off import create_round_off_entry
-        await create_round_off_entry(
-            round_off_amount=round_off,
-            date=doc["date"],
-            category=f"Pvt Trading - {doc['party_name']}",
-            account=account,
-            kms_year=doc["kms_year"],
-            season=doc["season"],
-            created_by=username,
-            reference=f"round_off:pvt:{doc['id'][:8]}",
-        )
     return doc
 
 @router.get("/private-payments")

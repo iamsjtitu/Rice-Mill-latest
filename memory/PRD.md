@@ -10,7 +10,7 @@ A comprehensive rice mill management system with features for paddy procurement,
 - **Desktop**: Electron + Node.js (separate codebase)
 - **Local Server**: Node.js (separate from web backend)
 
-## Current Version: v37.0.0
+## Current Version: v37.1.0
 
 ## What's Been Implemented
 
@@ -35,6 +35,29 @@ A comprehensive rice mill management system with features for paddy procurement,
 - "What's New" changelog component
 
 ### Session Work (March 2026)
+
+#### Credit/Debit Direction Fix (25 March 2026 - Complete)
+- Auto-ledger entries no longer reverse txn_type
+- Party Ledger now shows correct Jama (Cr) / Nikasi (Dr) direction
+- Migration endpoint to fix existing reversed entries
+- Fixed across Python backend + Desktop-app + Local-server
+
+#### Round Off Entries Removed (25 March 2026 - Complete)
+- Separate Round Off entries no longer created in any payment flow
+- "Round Off Show/Hide" button removed from Cash Book UI
+- Round off info preserved only in transaction descriptions
+- Cleanup migration to delete existing round_off entries
+- Round off INPUT field still works - only the separate entry is removed
+
+#### Move to Paddy Purchase Fix (25 March 2026 - Complete)
+- Fixed missing `uuidv4` import in desktop-app/routes/reports.js
+
+#### UI Freeze on Delete Fix (25 March 2026 - Complete)
+- Replaced window.confirm with React AlertDialog in App.js
+- Strengthened global pointer-events cleanup in index.js
+
+#### Party Summary UI Cleanup (25 March 2026 - Complete)
+- Redesigned from bulky cards to compact inline stats + clean table
 
 #### Critical Bug Fixes (Previous Session - Complete)
 - Auto-Ledger double-entry logic fix (all backends)

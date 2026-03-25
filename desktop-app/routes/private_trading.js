@@ -253,16 +253,6 @@ module.exports = function(database) {
       amount: totalSettled, reference: d.reference || `pvt_pay_ledger:${d.id.substring(0, 8)}`, ...baseCb
     });
     database.save();
-    // Create round-off cash entry if provided
-    if (roundOff !== 0) {
-      const { createRoundOffEntry } = require('../utils/round_off');
-      createRoundOffEntry(database.data, roundOff, d.date, `Pvt Trading - ${d.party_name}`, {
-        account, kms_year: d.kms_year || '', season: d.season || '',
-        created_by: d.created_by || '',
-        reference: `round_off:pvt:${d.id.substring(0, 8)}`,
-      });
-      database.save();
-    }
     res.json(d);
   }));
 

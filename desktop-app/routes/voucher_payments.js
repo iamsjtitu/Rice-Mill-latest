@@ -95,17 +95,6 @@ module.exports = function(database) {
       voucher.balance = Math.round(((voucher.total || 0) - voucher.paid_amount) * 100) / 100;
     }
     database.save();
-    // Create round-off cash entry if provided
-    if (roundOff !== 0) {
-      const { createRoundOffEntry } = require('../utils/round_off');
-      createRoundOffEntry(database.data, roundOff, payDate, `Voucher - ${party}`, {
-        account: payAccount, bank_name: bank_name || '',
-        kms_year: kms_year || '', season: season || '',
-        created_by: username,
-        reference: `round_off:voucher:${paymentId.substring(0, 8)}`,
-      });
-      database.save();
-    }
     res.json({ message: 'Payment recorded', id: paymentId });
   }));
 

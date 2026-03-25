@@ -210,20 +210,8 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
                 {"$set": {"paid_amount": new_paid, "balance": new_balance, "status": new_status}}
             )
     
-    # Create round-off entry if provided
-    if round_off and round_off != 0:
-        from utils.round_off import create_round_off_entry
-        await create_round_off_entry(
-            round_off_amount=round_off,
-            date=txn_dict.get('date', ''),
-            category=category or 'General',
-            account=txn_dict.get('account', 'cash'),
-            bank_name=txn_dict.get('bank_name', ''),
-            kms_year=txn_dict.get('kms_year', ''),
-            season=txn_dict.get('season', ''),
-            created_by=username,
-            reference=f"round_off:{txn_dict.get('id', '')[:8]}",
-        )
+    # Round off info is already included in the main transaction's ledger entry amount
+    # and in the description text. No separate round_off entry needed.
 
     return txn_dict
 
@@ -924,6 +912,19 @@ async def fix_auto_ledger_direction():
             fixed += 1
     
     return {"success": True, "fixed_count": fixed, "total_auto_ledger": len(auto_ledger_entries)}
+
+@router.post("/cash-book/cleanup-round-off-entries")
+async def cleanup_round_off_entries():
+    """Delete all separate round_off entries from cash_transactions.
+    Round off info is preserved in the main transaction's description."""
+    result = await db.cash_transactions.delete_many({
+        "$or": [
+            {"party_type": "Round Off"},
+            {"category": "Round Off"},
+            {"reference": {"$regex": "^round_off:"}},
+        ]
+    })
+    return {"success": True, "deleted_count": result.deleted_count}
 
 @router.post("/cash-book/migrate-ledger-entries")
 async def migrate_ledger_entries():

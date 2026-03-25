@@ -130,17 +130,6 @@ module.exports = function(database) {
       }
     }
     
-    // Create round-off cash entry if provided
-    if (roundOff !== 0) {
-      const { createRoundOffEntry } = require('../utils/round_off');
-      createRoundOffEntry(database.data, roundOff, txn.date, category || 'General', {
-        account: txn.account, bank_name: txn.bank_name || '',
-        kms_year: txn.kms_year || '', season: txn.season || '',
-        created_by: req.query.username || '',
-        reference: `round_off:${txn.id.substring(0, 8)}`,
-      });
-    }
-
     database.save(); res.json(txn);
   }));
 
@@ -352,6 +341,19 @@ module.exports = function(database) {
   router.get('/api/cash-book/categories', safeSync((req, res) => {
     if (!database.data.cash_book_categories) database.data.cash_book_categories = [];
     res.json([...database.data.cash_book_categories]);
+  }));
+
+
+  // Cleanup round_off entries
+  router.post('/api/cash-book/cleanup-round-off-entries', safeSync((req, res) => {
+    if (!database.data.cash_transactions) return res.json({ success: true, deleted_count: 0 });
+    const before = database.data.cash_transactions.length;
+    database.data.cash_transactions = database.data.cash_transactions.filter(t => {
+      return t.party_type !== 'Round Off' && t.category !== 'Round Off' && !(t.reference || '').startsWith('round_off:');
+    });
+    const deleted = before - database.data.cash_transactions.length;
+    if (deleted > 0) database.save();
+    res.json({ success: true, deleted_count: deleted });
   }));
 
   router.get('/api/cash-book/agent-names', safeSync((req, res) => {

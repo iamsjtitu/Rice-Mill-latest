@@ -279,6 +279,13 @@ function MainApp({ user, onLogout }) {
         if (r.data?.success) localStorage.setItem(migKey, "1");
       }).catch(() => {});
     }
+    // One-time cleanup: remove separate round_off entries (v37 fix)
+    const roKey = "round_off_entries_cleaned_v37";
+    if (!localStorage.getItem(roKey)) {
+      axios.post(`${API}/cash-book/cleanup-round-off-entries`).then(r => {
+        if (r.data?.success) localStorage.setItem(roKey, "1");
+      }).catch(() => {});
+    }
   }, []);
 
   // Save FY setting when kms_year changes

@@ -298,19 +298,6 @@ async def mark_hemali_paid(payment_id: str, request: Request):
     updated = await db.hemali_payments.find_one({"id": payment_id}, {"_id": 0})
     await _create_cash_entries(updated, round_off=round_off)
 
-    # Create round-off entry if provided
-    if round_off and round_off != 0:
-        from utils.round_off import create_round_off_entry
-        await create_round_off_entry(
-            round_off_amount=round_off,
-            date=p.get("date", ""),
-            category=f"Hemali - {p.get('sardar_name', '')}",
-            kms_year=p.get("kms_year", ""),
-            season=p.get("season", ""),
-            created_by=d.get("username", ""),
-            reference=f"round_off:hemali:{payment_id[:8]}",
-        )
-
     return {"message": "Payment marked as paid", "id": payment_id, "amount_paid": amount_paid, "new_advance": new_advance}
 
 
