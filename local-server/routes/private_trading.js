@@ -21,10 +21,26 @@ module.exports = function(database) {
     const partyLabel = (party && mandi) ? `${party} - ${mandi}` : party || 'Pvt Paddy';
     const truckNo = doc.truck_no || '';
     const date = doc.date || new Date().toISOString().slice(0, 10);
-    const qntl = doc.qntl || 0;
-    const rate = doc.rate || ((qntl && doc.total_amount) ? Math.round(doc.total_amount / qntl * 100) / 100 : 0);
+    const qntl = doc.final_qntl || doc.qntl || 0;
+    const rate = doc.rate_per_qntl || doc.rate || ((qntl && doc.total_amount) ? Math.round(doc.total_amount / qntl * 100) / 100 : 0);
     const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : '';
     const base = { kms_year: doc.kms_year || '', season: doc.season || '', created_by: username || 'system', linked_entry_id: entryId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+
+    // --- Party Jama (Ledger) --- what we owe the party for paddy purchase
+    const totalAmount = parseFloat(doc.total_amount) || 0;
+    const isAgentExtra = doc.source === 'agent_extra';
+    if (totalAmount > 0 && !isAgentExtra) {
+      const partyJamaDesc = detail ? `Paddy Purchase: ${partyLabel} - ${detail}` : `Paddy Purchase: ${partyLabel} - Rs.${totalAmount}`;
+      db.data.cash_transactions.push({
+        id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'jama',
+        category: partyLabel, party_type: 'Pvt Paddy Purchase',
+        description: partyJamaDesc,
+        amount: Math.round(totalAmount * 100) / 100,
+        reference: `pvt_party_jama:${entryId.slice(0,8)}`,
+        ...base
+      });
+    }
+
     const cashPaid = parseFloat(doc.cash_paid) || 0;
     if (cashPaid > 0 && truckNo) {
       const cashDesc = detail ? `${partyLabel} - ${detail}` : `${partyLabel} - Rs.${cashPaid}`;
@@ -50,7 +66,12 @@ module.exports = function(database) {
 
   // Helper: Delete linked cash book + diesel entries for pvt paddy
   function _deleteCashDieselForPvtPaddy(db, entryId) {
-    if (db.data.cash_transactions) db.data.cash_transactions = db.data.cash_transactions.filter(t => !(t.linked_entry_id === entryId && (t.reference || '').startsWith('pvt_paddy')));
+    if (db.data.cash_transactions) db.data.cash_transactions = db.data.cash_transactions.filter(t => {
+      if (t.linked_entry_id !== entryId) return true;
+      const ref = (t.reference || '');
+      if (ref.startsWith('pvt_paddy') || ref.startsWith('pvt_party_jama:')) return false;
+      return true;
+    });
     if (db.data.diesel_accounts) db.data.diesel_accounts = db.data.diesel_accounts.filter(t => t.linked_entry_id !== entryId);
   }
 

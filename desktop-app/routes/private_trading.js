@@ -21,8 +21,8 @@ module.exports = function(database) {
     const partyLabel = party || 'Pvt Paddy';
     const truckNo = doc.truck_no || '';
     const date = doc.date || new Date().toISOString().slice(0, 10);
-    const qntl = doc.qntl || 0;
-    const rate = doc.rate || ((qntl && doc.total_amount) ? Math.round(doc.total_amount / qntl * 100) / 100 : 0);
+    const qntl = doc.final_qntl || doc.qntl || 0;
+    const rate = doc.rate_per_qntl || doc.rate || ((qntl && doc.total_amount) ? Math.round(doc.total_amount / qntl * 100) / 100 : 0);
     const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : '';
     const base = { kms_year: doc.kms_year || '', season: doc.season || '', created_by: username || 'system', linked_entry_id: entryId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
 
@@ -66,7 +66,13 @@ module.exports = function(database) {
 
   // Helper: Delete linked cash book + diesel entries for pvt paddy
   function _deleteCashDieselForPvtPaddy(db, entryId) {
-    if (db.data.cash_transactions) db.data.cash_transactions = db.data.cash_transactions.filter(t => !(t.linked_entry_id === entryId && (t.reference || '').startsWith('pvt_paddy')));
+    if (db.data.cash_transactions) db.data.cash_transactions = db.data.cash_transactions.filter(t => {
+      if (t.linked_entry_id !== entryId) return true;
+      const ref = (t.reference || '');
+      // Delete both pvt_paddy_* and pvt_party_jama:* entries
+      if (ref.startsWith('pvt_paddy') || ref.startsWith('pvt_party_jama:')) return false;
+      return true;
+    });
     if (db.data.diesel_accounts) db.data.diesel_accounts = db.data.diesel_accounts.filter(t => t.linked_entry_id !== entryId);
   }
 

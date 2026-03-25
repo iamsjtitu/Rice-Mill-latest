@@ -741,8 +741,8 @@ function MainApp({ user, onLogout }) {
         if (activeTab === "entries") {
           setIsDialogOpen(true); setEditingId(null); setFormData(initialFormState);
         } else {
-          // Click any visible "New"/"Add" button on current tab
-          const addBtn = document.querySelector('[data-testid*="add-btn"], [data-testid*="new-btn"], button:has(.lucide-plus)');
+          // Click any visible "Add" button on current tab (exclude whats-new-btn)
+          const addBtn = document.querySelector('[data-testid$="-add-btn"]');
           if (addBtn) addBtn.click();
         }
         toast.info("New (Ctrl+N)");

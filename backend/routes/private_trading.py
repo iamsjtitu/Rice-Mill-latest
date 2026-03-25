@@ -110,7 +110,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
     party_label = party or "Pvt Paddy"
     truck_no = doc.get("truck_no", "")
     date = doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
-    qntl = doc.get("qntl", 0) or 0
+    qntl = doc.get("final_qntl", 0) or doc.get("qntl", 0) or 0
     rate = doc.get("rate_per_qntl", 0) or doc.get("rate", 0) or 0
     if not rate and qntl:
         rate = round(float(doc.get("total_amount", 0) or 0) / float(qntl), 2)
@@ -244,7 +244,7 @@ async def migrate_pvt_paddy_cashbook():
         advance_paid = float(doc.get("paid_amount", 0) or 0)
         if cash_paid <= 0 and diesel_paid <= 0 and advance_paid <= 0:
             continue
-        existing = await db.cash_transactions.find_one({"linked_entry_id": doc["id"], "reference": {"$regex": "^pvt_paddy"}})
+        existing = await db.cash_transactions.find_one({"linked_entry_id": doc["id"], "reference": {"$regex": "^(pvt_paddy|pvt_party_jama:|pvt_truck_jama:)"}})
         if existing:
             continue
         await _create_cashbook_diesel_for_pvt_paddy(doc, "migration")
@@ -289,8 +289,8 @@ async def update_private_paddy(item_id: str, data: dict, username: str = ""):
     # Re-create gunny bag entries
     await db.gunny_bags.delete_many({"linked_entry_id": item_id})
     await _create_gunny_entries_for_pvt_paddy(merged, username)
-    # Re-create cash book + diesel entries
-    await db.cash_transactions.delete_many({"linked_entry_id": item_id, "reference": {"$regex": "^pvt_paddy"}})
+    # Re-create cash book + diesel entries (delete both pvt_paddy*, pvt_party_jama:*, and pvt_truck_jama:* refs)
+    await db.cash_transactions.delete_many({"linked_entry_id": item_id, "reference": {"$regex": "^(pvt_paddy|pvt_party_jama:|pvt_truck_jama:)"}})
     await db.diesel_accounts.delete_many({"linked_entry_id": item_id})
     await _create_cashbook_diesel_for_pvt_paddy(merged, username)
     return merged
@@ -300,7 +300,7 @@ async def delete_private_paddy(item_id: str):
     result = await db.private_paddy.delete_one({"id": item_id})
     if result.deleted_count == 0: raise HTTPException(status_code=404, detail="Not found")
     await db.gunny_bags.delete_many({"linked_entry_id": item_id})
-    await db.cash_transactions.delete_many({"linked_entry_id": item_id, "reference": {"$regex": "^pvt_paddy"}})
+    await db.cash_transactions.delete_many({"linked_entry_id": item_id, "reference": {"$regex": "^(pvt_paddy|pvt_party_jama:|pvt_truck_jama:)"}})
     await db.diesel_accounts.delete_many({"linked_entry_id": item_id})
     await db.truck_payments.delete_many({"entry_id": item_id})
     return {"message": "Deleted", "id": item_id}

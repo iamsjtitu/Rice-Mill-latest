@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "38.0.0";
+const APP_VERSION = "38.1.0";
 
 const CHANGELOG = [
+  {
+    version: "38.1.0",
+    date: "25 Mar 2026",
+    title: "Bug Fixes - Ctrl+N + Pvt Paddy Party Name",
+    items: [
+      { type: "fix", text: "Ctrl+N ab sahi kaam karta hai - New Transaction khulta hai, What's New nahi" },
+      { type: "fix", text: "Pvt Paddy Purchase mein party name ab Cash Book mein sahi dikhta hai" },
+      { type: "fix", text: "Pvt Paddy delete/update pe party jama entry sahi se clean hoti hai (orphan fix)" },
+      { type: "fix", text: "Quantity aur Rate ab sahi detail ke saath Cash Book description mein dikhte hain" },
+    ],
+  },
   {
     version: "37.0.0",
     date: "25 Mar 2026",
