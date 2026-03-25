@@ -11,7 +11,7 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = 'https://frontend-rebuild-11.preview.emergentagent.com'
+    BASE_URL = 'https://rice-mill-debug.preview.emergentagent.com'
 
 
 class TestLocalPartyDateFilter:

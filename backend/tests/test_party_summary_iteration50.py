@@ -16,7 +16,7 @@ import requests
 import json
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://frontend-rebuild-11.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://rice-mill-debug.preview.emergentagent.com').rstrip('/')
 
 
 class TestPartySummaryAPI:
