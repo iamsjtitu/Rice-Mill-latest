@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "38.4.0";
+const APP_VERSION = "38.5.0";
 
 const CHANGELOG = [
+  {
+    version: "38.5.0",
+    date: "25 Mar 2026",
+    title: "Agent Extra Paddy - Cash Book & Daily Report Fix",
+    items: [
+      { type: "fix", text: "Agent ka Extra Qntl 'Move to Paddy Purchase' ab Cash Book mein party name ke saath dikhega" },
+      { type: "fix", text: "Daily Report mein Private Trading ka Qntl aur Rate ab sahi dikhega (0 nahi)" },
+      { type: "fix", text: "PDF Report mein Qntl column fix kiya (pehle KG field reference galat tha)" },
+      { type: "fix", text: "Auto-fix purani agent_extra entries ko bhi Cash Book mein add karega" },
+    ],
+  },
   {
     version: "38.4.0",
     date: "25 Mar 2026",
