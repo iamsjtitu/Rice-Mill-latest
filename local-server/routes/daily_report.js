@@ -99,9 +99,9 @@ function getDailyReportData(query) {
     },
     pvt_paddy: {
       count: pvtPaddy.length,
-      total_qntl: +pvtPaddy.reduce((s, e) => s + (e.final_qntl || e.qntl || 0), 0).toFixed(2),
+      total_qntl: +pvtPaddy.reduce((s, e) => s + (e.final_qntl || e.qntl || e.quantity_qntl || 0), 0).toFixed(2),
       total_amount: pvtPaddy.reduce((s, e) => s + (e.total_amount || e.amount || 0), 0),
-      details: isDetail ? pvtPaddy.map(p => ({ party: p.party_name||'', type: p.paddy_type||'', kg: p.kg||0, qntl: +(p.final_qntl||p.qntl||0).toFixed(2), rate: p.rate_per_qntl||p.rate||0, amount: p.total_amount||p.amount||0 })) : []
+      details: isDetail ? pvtPaddy.map(p => ({ party: p.party_name||'', type: p.paddy_type||'', kg: p.kg||0, qntl: +(p.final_qntl||p.qntl||p.quantity_qntl||0).toFixed(2), rate: p.rate_per_qntl||p.rate||0, amount: p.total_amount||p.amount||0 })) : []
     },
     rice_sales: {
       count: riceSales.length,
@@ -351,13 +351,13 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
   if (pp.count || rs.count) {
     sectionTitle(3, 'Private Trading');
     if (pp.count) {
-      subText(`Paddy Purchase (${pp.count}): ${pp.total_kg} KG | Rs. ${fmtAmt(pp.total_amount)}`);
+      subText(`Paddy Purchase (${pp.count}): ${pp.total_qntl} Qntl | Rs. ${fmtAmt(pp.total_amount)}`);
       if (pp.details.length) {
         drawTable(
-          isDetail ? ['Party','Variety','KG','Rate','Amount'] : ['Party','KG','Amount'],
+          isDetail ? ['Party','Variety','Qntl','Rate','Amount'] : ['Party','Qntl','Amount'],
           pp.details.map(d => isDetail
-            ? [d.party, d.type||'', d.kg, d.rate||0, `Rs.${fmtAmt(d.amount)}`]
-            : [d.party, d.kg, `Rs.${fmtAmt(d.amount)}`]),
+            ? [d.party, d.type||'', d.qntl, d.rate||0, `Rs.${fmtAmt(d.amount)}`]
+            : [d.party, d.qntl, `Rs.${fmtAmt(d.amount)}`]),
           isDetail ? [90,60,55,55,75] : [200,100,120]
         );
       }

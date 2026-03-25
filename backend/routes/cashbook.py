@@ -953,9 +953,9 @@ async def auto_fix_all():
     })
     fixes["round_off_cleaned"] = ro.deleted_count
 
-    # 3. Create missing pvt_party_jama entries for private paddy purchases
+    # 3. Create missing pvt_party_jama entries for private paddy purchases (including agent_extra)
     pvt_entries = await db.private_paddy.find(
-        {"source": {"$ne": "agent_extra"}}, {"_id": 0}
+        {}, {"_id": 0}
     ).to_list(100000)
     for pvt in pvt_entries:
         total_amt = float(pvt.get("total_amount", 0) or 0)
@@ -964,6 +964,19 @@ async def auto_fix_all():
         entry_id = pvt.get("id", "")
         if not entry_id:
             continue
+        # Fix missing qntl/final_qntl fields for agent_extra entries
+        if pvt.get("source") == "agent_extra" and not pvt.get("final_qntl") and pvt.get("quantity_qntl"):
+            qty = float(pvt.get("quantity_qntl", 0))
+            await db.private_paddy.update_one(
+                {"id": entry_id},
+                {"$set": {
+                    "final_qntl": round(qty, 2),
+                    "qntl": round(qty, 2),
+                    "kg": round(qty * 100, 2),
+                    "balance": round(total_amt - float(pvt.get("paid_amount", 0) or 0), 2)
+                }}
+            )
+            fixes["agent_extra_fields_fixed"] = fixes.get("agent_extra_fields_fixed", 0) + 1
         # Check if jama entry already exists
         existing = await db.cash_transactions.find_one(
             {"reference": f"pvt_party_jama:{entry_id[:8]}"}, {"_id": 0, "id": 1}

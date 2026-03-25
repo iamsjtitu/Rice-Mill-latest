@@ -382,14 +382,34 @@ module.exports = function(database) {
     if (existing) return res.json({ success: false, detail: `${mandi_name} ka extra QNTL pehle se Pvt Purchase mein move ho chuka hai` });
     const total_amount = Math.round(extra_qntl * rate * 100) / 100;
     const lt = last_truck || {};
-    database.data.private_paddy.push({
+    const pvtEntry = {
       id: uuidv4(), date: lt.date || new Date().toISOString().split('T')[0],
       party_name: `${agent_name} (${mandi_name})`, mandi_name, agent_name,
       truck_no: lt.truck_no || '',
-      quantity_qntl: Math.round(extra_qntl * 100) / 100, rate_per_qntl: Math.round(rate * 100) / 100,
-      total_amount, bag: lt.bag || 0, paid_amount: 0, status: 'pending', source: 'agent_extra',
+      kg: Math.round(extra_qntl * 100 * 100) / 100,
+      qntl: Math.round(extra_qntl * 100) / 100,
+      final_qntl: Math.round(extra_qntl * 100) / 100,
+      quantity_qntl: Math.round(extra_qntl * 100) / 100,
+      rate_per_qntl: Math.round(rate * 100) / 100,
+      total_amount, balance: total_amount, bag: lt.bag || 0, paid_amount: 0, status: 'pending', source: 'agent_extra',
       note: `Agent extra - Target se ${extra_qntl}Q zyada (${lt.truck_no || ''})`,
       kms_year: kms_year || '', season: season || '', created_by: username || 'admin',
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    };
+    database.data.private_paddy.push(pvtEntry);
+    // Auto-create Cash Book Jama entry
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    const partyLabel = pvtEntry.party_name;
+    database.data.cash_transactions.push({
+      id: require('crypto').randomUUID(),
+      date: pvtEntry.date,
+      account: 'cash', txn_type: 'jama',
+      category: partyLabel, party_type: 'Pvt Paddy Purchase',
+      description: `Paddy Purchase: ${partyLabel} - ${extra_qntl}Q @ Rs.${rate}/Q = Rs.${total_amount}`,
+      amount: Math.round(total_amount * 100) / 100,
+      reference: `pvt_party_jama:${pvtEntry.id.slice(0, 8)}`,
+      kms_year: kms_year || '', season: season || '',
+      created_by: username || 'admin', linked_entry_id: pvtEntry.id,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString()
     });
     database.save();

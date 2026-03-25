@@ -24,7 +24,7 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
 
     # Private Paddy
     pvt_paddy = await db.private_paddy.find(q, {"_id": 0}).to_list(500)
-    pvt_paddy_qntl = round(sum(e.get("final_qntl", 0) or e.get("qntl", 0) or 0 for e in pvt_paddy), 2)
+    pvt_paddy_qntl = round(sum(e.get("final_qntl", 0) or e.get("qntl", 0) or e.get("quantity_qntl", 0) or 0 for e in pvt_paddy), 2)
     pvt_paddy_amount = sum(e.get("total_amount", 0) for e in pvt_paddy)
 
     # Sale Vouchers
@@ -156,12 +156,12 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
             "count": len(pvt_paddy), "total_qntl": round(pvt_paddy_qntl, 2),
             "total_amount": round(pvt_paddy_amount, 2),
             "details": [{"party": p.get("party_name", ""), "mandi": p.get("mandi_name", ""),
-                "truck_no": p.get("truck_no", ""), "qntl": round(p.get("final_qntl", 0) or p.get("qntl", 0) or 0, 2),
+                "truck_no": p.get("truck_no", ""), "qntl": round(p.get("final_qntl", 0) or p.get("qntl", 0) or p.get("quantity_qntl", 0) or 0, 2),
                 "rate": p.get("rate_per_qntl", 0) or p.get("rate", 0),
                 "amount": p.get("total_amount", 0), "bag": p.get("bag", 0),
                 "cash_paid": p.get("cash_paid", 0), "diesel_paid": p.get("diesel_paid", 0)} for p in pvt_paddy] if is_detail else
                 [{"party": p.get("party_name", ""), "mandi": p.get("mandi_name", ""),
-                "qntl": round(p.get("final_qntl", 0) or p.get("qntl", 0) or 0, 2), "amount": p.get("total_amount", 0)} for p in pvt_paddy]
+                "qntl": round(p.get("final_qntl", 0) or p.get("qntl", 0) or p.get("quantity_qntl", 0) or 0, 2), "amount": p.get("total_amount", 0)} for p in pvt_paddy]
         },
         "rice_sales": {
             "count": len(rice_sales), "total_qntl": round(rice_sale_qntl, 2),

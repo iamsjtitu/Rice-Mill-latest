@@ -28,8 +28,7 @@ module.exports = function(database) {
 
     // --- Party Jama (Ledger) --- what we owe the party for paddy purchase
     const totalAmount = parseFloat(doc.total_amount) || 0;
-    const isAgentExtra = doc.source === 'agent_extra';
-    if (totalAmount > 0 && !isAgentExtra) {
+    if (totalAmount > 0) {
       const partyJamaDesc = detail ? `Paddy Purchase: ${partyLabel} - ${detail}` : `Paddy Purchase: ${partyLabel} - Rs.${totalAmount}`;
       db.data.cash_transactions.push({
         id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'jama',
@@ -68,7 +67,7 @@ module.exports = function(database) {
   function _ensurePartyJamaExists(db, doc, username) {
     if (!db.data.cash_transactions) db.data.cash_transactions = [];
     const totalAmt = parseFloat(doc.total_amount) || 0;
-    if (totalAmt <= 0 || doc.source === 'agent_extra' || !doc.id) return;
+    if (totalAmt <= 0 || !doc.id) return;
     const ref = `pvt_party_jama:${doc.id.slice(0, 8)}`;
     const exists = db.data.cash_transactions.find(t => t.reference === ref);
     if (exists) return;

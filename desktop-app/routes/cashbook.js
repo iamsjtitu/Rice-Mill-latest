@@ -381,11 +381,18 @@ module.exports = function(database) {
     );
     fixes.round_off_cleaned = before - database.data.cash_transactions.length;
 
-    // 3. Create missing pvt_party_jama entries
+    // 3. Create missing pvt_party_jama entries (including agent_extra)
     for (const pvt of pvtEntries) {
-      if (pvt.source === 'agent_extra') continue;
       const totalAmt = parseFloat(pvt.total_amount) || 0;
       if (totalAmt <= 0 || !pvt.id) continue;
+      // Fix missing qntl/final_qntl fields for agent_extra entries
+      if (pvt.source === 'agent_extra' && !pvt.final_qntl && pvt.quantity_qntl) {
+        pvt.final_qntl = pvt.quantity_qntl;
+        pvt.qntl = pvt.quantity_qntl;
+        if (!pvt.kg) pvt.kg = Math.round(pvt.quantity_qntl * 100 * 100) / 100;
+        if (!pvt.balance) pvt.balance = Math.round((totalAmt - (pvt.paid_amount || 0)) * 100) / 100;
+        fixes.agent_extra_fields_fixed = (fixes.agent_extra_fields_fixed || 0) + 1;
+      }
       const ref = `pvt_party_jama:${pvt.id.slice(0, 8)}`;
       const exists = database.data.cash_transactions.find(t => t.reference === ref);
       if (!exists) {

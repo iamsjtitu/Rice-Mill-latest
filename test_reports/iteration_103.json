@@ -1,0 +1,120 @@
+{
+  "summary": "Iteration 103: P0 Bug Fix Testing - Private Paddy Purchase entries in Cash Book Cash Transactions tab and Daily Report Qntl values. Backend: 7/7 tests passed (100%). All bug fixes verified working.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration103_pvt_paddy_cashbook_bug.py",
+    "/app/test_reports/pytest/pytest_results_iteration103.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "reports.py lines 394-397: move-to-pvt correctly sets kg, qntl, final_qntl, quantity_qntl fields",
+    "reports.py line 419: move-to-pvt creates cash_transactions with account='cash' (not 'ledger')",
+    "private_trading.py line 130: _create_cashbook_diesel_for_pvt_paddy creates pvt_party_jama with account='cash'",
+    "daily_report.py line 27: Uses fallback chain final_qntl -> qntl -> quantity_qntl -> 0 for total calculation",
+    "daily_report.py lines 159,164: Details use same fallback chain for qntl field",
+    "cashbook.py lines 968-979: auto-fix fixes missing final_qntl/qntl fields for agent_extra entries",
+    "cashbook.py lines 1002-1007: auto-fix changes pvt_party_jama entries from account='ledger' to account='cash'"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration103_pvt_paddy_cashbook_bug.py"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 passed)",
+    "frontend": "N/A (backend only testing)"
+  },
+  "test_credentials": "admin/admin123",
+  "seed_data_creation": "Created and cleaned up test Private Paddy Purchase entries via API for verification",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P0 bug fixes for Private Paddy Purchase entries in Cash Book are working. All agent_extra entries now appear in Cash Transactions tab with account='cash'. Daily Report shows correct qntl values using fallback chain.",
+  "features_tested": {
+    "move_to_pvt_creates_qntl_fields": {
+      "status": "PASS",
+      "endpoint": "POST /api/reports/agent-mandi-wise/move-to-pvt",
+      "details": "Creates private_paddy entry with kg, qntl, final_qntl, quantity_qntl fields"
+    },
+    "pvt_party_jama_uses_cash_account": {
+      "status": "PASS",
+      "endpoint": "POST /api/private-paddy",
+      "details": "Creates cash_transactions entry with account='cash' (not 'ledger')"
+    },
+    "cash_book_shows_pvt_paddy_entries": {
+      "status": "PASS",
+      "endpoint": "GET /api/cash-book?account=cash",
+      "details": "Returns Pvt Paddy Purchase entries including agent_extra source"
+    },
+    "auto_fix_handles_agent_extra": {
+      "status": "PASS",
+      "endpoint": "POST /api/cash-book/auto-fix",
+      "details": "Fixes missing final_qntl/qntl fields and creates missing cash_transactions entries"
+    },
+    "daily_report_pvt_paddy_qntl": {
+      "status": "PASS",
+      "endpoint": "GET /api/reports/daily",
+      "details": "Returns pvt_paddy with correct total_qntl (non-zero) using fallback chain"
+    },
+    "private_paddy_creates_cash_transaction": {
+      "status": "PASS",
+      "endpoint": "POST /api/private-paddy",
+      "details": "Creates both paddy entry AND cash_transactions entry"
+    },
+    "agent_extra_not_skipped": {
+      "status": "PASS",
+      "details": "agent_extra entries are NOT skipped from cash_transactions creation"
+    }
+  },
+  "verified_data": {
+    "existing_agent_extra_entry": {
+      "party": "Gulu (Kesinga)",
+      "final_qntl": 31.87,
+      "qntl": 31.87,
+      "kg": 3187.0,
+      "quantity_qntl": 31.87
+    },
+    "pvt_party_jama_in_cash_account": {
+      "count": 2,
+      "sample": {
+        "category": "Jaga (Kesinga)",
+        "account": "cash",
+        "txn_type": "jama",
+        "amount": 77292.0
+      }
+    },
+    "daily_report_pvt_paddy": {
+      "date": "2026-03-25",
+      "count": 2,
+      "total_qntl": 42.94,
+      "total_amount": 77292.0
+    }
+  },
+  "bug_fixes_verified": {
+    "root_cause_1_agent_extra_skipped": {
+      "status": "FIXED",
+      "description": "agent_extra entries were being skipped from cash_transactions creation",
+      "fix": "Removed isAgentExtra skip from party jama creation in reports.py and private_trading.py"
+    },
+    "root_cause_2_missing_qntl_fields": {
+      "status": "FIXED",
+      "description": "agent_extra entries missing final_qntl/qntl fields",
+      "fix": "move-to-pvt now sets kg, qntl, final_qntl, quantity_qntl fields"
+    },
+    "root_cause_3_wrong_account": {
+      "status": "FIXED",
+      "description": "Python backend used account:'ledger' instead of 'cash'",
+      "fix": "Changed to account:'cash' in reports.py line 419 and private_trading.py line 130"
+    },
+    "root_cause_4_daily_report_field_names": {
+      "status": "FIXED",
+      "description": "Daily Report used wrong field names (d.kg instead of d.qntl)",
+      "fix": "Uses fallback chain final_qntl -> qntl -> quantity_qntl in daily_report.py"
+    }
+  }
+}
