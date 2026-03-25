@@ -186,7 +186,7 @@ const TransactionFormDialog = ({
           </div>
           <div>
             <Label className="text-xs text-slate-600">Party Type (Auto / Manual)</Label>
-            <Select value={form.party_type || "_auto"} onValueChange={(v) => setForm(p => ({ ...p, party_type: v === "_auto" ? "" : v === "_manual" ? "" : v, _showManualType: v === "_manual" }))}>
+            <Select value={form._showManualType ? "_manual" : (form.party_type || "_auto")} onValueChange={(v) => setForm(p => ({ ...p, party_type: v === "_auto" ? "" : v === "_manual" ? (p.party_type || "") : v, _showManualType: v === "_manual" }))}>
               <SelectTrigger className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-party-type"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="_auto">Auto Detect</SelectItem>
