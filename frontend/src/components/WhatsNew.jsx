@@ -3,9 +3,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "32.0.0";
+const APP_VERSION = "35.0.0";
 
 const CHANGELOG = [
+  {
+    version: "35.0.0",
+    date: "25 Mar 2026",
+    title: "Accounting Fix + Sale/Purchase Ledger + Label Update",
+    items: [
+      { type: "fix", text: "Party Ledger mein double-counting bug fix - ab sabhi payments sahi dikhte hain (Agent, Diesel, Voucher, Private, Truck)" },
+      { type: "new", text: "Party Ledger mein Sale Book aur Purchase Voucher section add - poora hisaab ek jagah" },
+      { type: "imp", text: "Jama (Cr) / Nikasi (Dr) - sabhi jagah updated labels (UI, PDF, Excel)" },
+      { type: "imp", text: "Ref column sabhi exports se hata diya (PDF + Excel)" },
+      { type: "imp", text: "Sabhi exports mein Company Name + Tagline header" },
+      { type: "fix", text: "Hindi font fix - PDF mein ab Hindi text sahi dikhta hai (FreeSans font)" },
+      { type: "imp", text: "Sabhi exports ka naya sundar design (styled headers, colors, formatting)" },
+    ],
+  },
   {
     version: "32.0.0",
     date: "24 Mar 2026",

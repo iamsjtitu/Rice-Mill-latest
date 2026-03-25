@@ -42,113 +42,47 @@ A comprehensive rice mill management system with features for paddy procurement,
 - UI freeze fix (desktop preload.js MutationObserver)
 - Export filter fix (desktop/local-server)
 
-#### Export Redesign (Current Session - Complete)
-- Created centralized styling helpers:
-  - `backend/utils/export_helpers.py` (Python - style_excel_title, style_excel_header_row, style_excel_data_rows, style_excel_total_row, get_pdf_table_style)
-  - `desktop-app/routes/excel_helpers.js` (Node.js)
-  - `desktop-app/routes/pdf_helpers.js` (Node.js)
-- Applied new "sundar" (beautiful) styling to ALL Python web backend exports (50 endpoints verified):
-  - diesel.py (Excel + PDF)
-  - ledgers.py (outstanding + party_ledger, Excel + PDF)
-  - payments.py (agent payments, Excel + PDF)
-  - mill_parts.py (store_room, stock, transactions, Excel + PDF)
-  - milling.py (milling_report, paddy_custody, FRK, byproduct, Excel + PDF)
-  - dc_payments.py (DC register, MSP, gunny bags, Excel + PDF)
-  - entries.py (mill entries, Excel + PDF)
-  - hemali.py (monthly_summary, export, Excel + PDF)
-  - private_trading.py (paddy_purchases, rice_sales, Excel + PDF)
-  - salebook.py (sale_book Excel)
-  - purchase_vouchers.py (purchase_book, stock_summary Excel)
-  - reports.py (CMR vs DC, Season PnL, Agent-Mandi wise, Excel + PDF)
-  - cashbook.py (party_summary, Excel + PDF - already had main cashbook done)
-  - daily_report.py (daily report, Excel + PDF)
+#### Export Redesign (Previous Session - Complete)
+- Created centralized styling helpers for Python and Node.js
+- Applied new styling to ALL Python web backend exports (50 endpoints)
+- Applied new styling to ALL desktop-app Node.js route files (34+ endpoints)
 
-#### Cashbook PDF Major Fix (Current Session - Complete)
-- Fixed cashbook PDF to use `addPdfTable` + `addTotalsRow` helpers instead of manual drawing
-- Added from/to date range display in PDF header subtitle
-- Added Total row (Jama, Nikasi, Balance) at bottom of table
-- Fixed party-summary PDF to use PDFKit helpers (was HTML before)
-- Updated default branding in main.js: "Mill Entry System" → "NAVKAR AGRO"
+#### Cashbook PDF Major Fix (Previous Session - Complete)
+- Fixed cashbook PDF to use helpers instead of manual drawing
+- Added date range display and totals row
 
-#### Version Bump (Current Session - Complete)
-- Desktop app version bumped: 32.0.0 → 33.0.0
+#### Hindi Font Fix for PDFs (Previous Session - Complete)
+- Registered FreeSans font family for all ReportLab PDFs
+- All Hindi text now renders correctly in PDFs
 
-#### Hindi Font Fix for PDFs (Current Session - Complete)
-- Registered FreeSans font family (supports Hindi/Devanagari) for all ReportLab PDFs
-- Created `get_pdf_styles()` helper that replaces Helvetica with FreeSans globally
-- Updated ALL 19 route files to use FreeSans for PDF generation
-- All ■■■ box characters eliminated from Hindi text in PDFs
-
-#### Company Name + Tagline in All Exports (Current Session - Complete)
-- Updated `export_helpers.py` to add Company Name (Row 1), Tagline (Row 2), Report Title (Row 3) in Excel exports
-- Added `get_pdf_company_header()` helper for consistent PDF headers with company name + tagline
-- Updated ALL 15+ Python route files to use centralized company header
-- Updated Python `truck_lease.py` exports to use centralized helpers
-- Verified all 56 export endpoints return 200 OK with company headers
-
-#### Desktop-App Export Redesign (Current Session - Complete)
-- Applied new "sundar" styling to ALL remaining desktop-app Node.js route files:
-  - `daily_report.js` - Excel export with addExcelTitle, COLORS, styled headers
-  - `private_trading.js` - 6 exports (party-summary, pvt-paddy, rice-sales × Excel+PDF)
-  - `purchase_vouchers.js` - 3 exports (purchase-book Excel+PDF, individual voucher PDF)
-  - `truck_lease.js` - 2 exports (Excel+PDF)
-- All 17 desktop-app route files now use centralized `excel_helpers.js` and `pdf_helpers.js`
-- All 34+ export endpoints verified working (200 OK)
+#### Company Name + Tagline in All Exports (Previous Session - Complete)
+- Updated all 56 export endpoints with company headers
 
 #### Remove Ref Column from All Exports (March 2026 - Complete)
-- Removed "Reference"/"Ref" column from ALL PDF and Excel exports across both backends
-- Config-driven reports: Updated `shared/report_config.json` and `desktop-app/shared/report_config.json`
-  - cashbook_report: 10→9 columns (removed reference)
-  - party_ledger_report: 7→6 columns (removed ref)
-  - msp_payments_report: 8→7 columns (removed reference)
-  - gunny_bags_report: 9→8 columns (removed reference)
-- Hardcoded Python exports: Updated `dc_payments.py` (MSP Excel/PDF, Gunny Bags Excel/PDF)
-- Desktop-app exports: Updated `cashbook.js` (PDF), `dc_payments.js` (Excel+PDF), `gunny_bags.js` (Excel+PDF), `reports.js` (Party Ledger Excel)
-- Updated test expectations in `test_report_config_refactoring.py`
-- All 8 affected export endpoints verified returning 200 OK with no Ref/Reference columns
+- Removed "Reference"/"Ref" column from ALL PDF and Excel exports
 
 #### Jama (Cr) / Nikasi (Dr) Label Change (March 2026 - Complete)
-- Changed all Jama/Nikasi labels across entire software:
-  - "Jama (₹)" / "Jama (Rs.)" / "Jama (In)" → "Jama (Cr)"
-  - "Nikasi (₹)" / "Nikasi (Rs.)" / "Nikasi (Out)" → "Nikasi (Dr)"
-- Files updated:
-  - Frontend: TransactionsTable.jsx, PartySummaryTab.jsx, CashBookFilters.jsx, TransactionFormDialog.jsx, CashBook.jsx
-  - Config: shared/report_config.json (×2)
-  - Python Backend: cashbook.py, daily_report.py
-  - Desktop-app: cashbook.js, daily_report.js, daily_report_logic.js
-  - Local-server: telegram.js, daily_report.js
-- Verified in Excel exports, PDF exports, and frontend UI
+- Changed all Jama/Nikasi labels across entire software
 
 #### Party Ledger Accounting Bug Fix (March 2026 - Complete)
 - Fixed double-counting bug across ALL payment systems
-- **Root cause:** Multiple modules (Cash Book, Voucher Payments, Agent Payments, Diesel Payments, Private Payments, Truck Payments) create PAIRED entries in cash_transactions (one cash/bank + one ledger counterpart). The Party Ledger and Party Summary were including both, causing 2x entries with wrong debit/credit.
-- **Fix:** Exclude ALL entries with `_ledger:` in reference from Party Ledger and Party Summary. This covers:
-  - `auto_ledger:` (Cash Book auto-ledger)
-  - `voucher_payment_ledger:` (Voucher Payments)
-  - `agent_pay_ledger:` (Agent Payments)
-  - `diesel_pay_ledger:` (Diesel Payments)
-  - `pvt_pay_ledger:` (Private Payments)
-  - `truck_pay_ledger:` (Truck Payments)
-- **Files fixed:** ledgers.py, cashbook.py, desktop-app/reports.js, desktop-app/cashbook.js (×3), local-server/reports.js
-- **Comprehensive testing results:**
-  - 29/29 API endpoints OK
-  - 18/18 Export endpoints OK
-  - 22/22 party balances correct (Jama - Nikasi = Balance)
-  - 0 double-counting entries
-  - 0 negative amounts
-  - 0 entries with both debit AND credit
+- Exclude ALL entries with `_ledger:` in reference
 
 #### Sale Book & Purchase Voucher in Party Ledger (March 2026 - Complete)
-- Added dedicated Sale Book section: Shows sale amount (Debit) + payments received (Credit)
-- Added dedicated Purchase Voucher section: Shows purchase amount (Credit) + payments made (Debit)
-- Data source: `local_party_accounts` collection (source_type filter)
-- Skipped "Sale Book" and "Purchase Voucher" party_types from Cash Party section to prevent double-counting
-- Files: ledgers.py, desktop-app/reports.js, local-server/reports.js
+- Added dedicated Sale Book and Purchase Voucher sections
 - Version bumped to 35.0.0
+
+#### Desktop Build Fix (25 March 2026 - Complete)
+- **Root Cause:** `frontend-build/` directory contained stale code from v32.0.0, and `setup-desktop.js` skipped rebuild when old build existed
+- **Fix 1:** Updated `APP_VERSION` in `WhatsNew.jsx` from `32.0.0` to `35.0.0`
+- **Fix 2:** Added new v35.0.0 changelog entry in WhatsNew component
+- **Fix 3:** Rebuilt `frontend-build/` with latest source code
+- **Fix 4:** Improved `setup-desktop.js` with version mismatch detection using `.build-version` tracking file
+- **Verified:** Footer shows v35.0.0, Jama (Cr)/Nikasi (Dr) labels visible, all changes present in build
 
 ## Pending Items
 ### P0
-- Desktop app build required for all recent fixes to take effect (UI freeze, data migration, export filters, company headers)
+- UI freeze on delete (fix in preload.js, needs user verification on desktop build)
 
 ### P1
 - Export Preview feature (user requested)
@@ -157,7 +91,6 @@ A comprehensive rice mill management system with features for paddy procurement,
 ### P2
 - Sardar-wise monthly Hemali report breakdown
 - Refactor payment logic into service layer
-- fy_summary.py balance sheet has specialized side-by-side layout - kept as-is
 
 ## Key API Endpoints
 - `/api/cash-book/*` - Cash book CRUD + exports
@@ -165,7 +98,7 @@ A comprehensive rice mill management system with features for paddy procurement,
 - `/api/msp-payments/*` - MSP payments + exports
 - `/api/gunny-bags/*` - Gunny bag inventory + exports
 - `/api/milling-report/*` - Milling operations + exports
-- `/api/reports/*` - Various reports (outstanding, party-ledger, CMR vs DC, PnL, agent-mandi, daily)
+- `/api/reports/*` - Various reports
 - `/api/export/*` - Mill entries + agent payments exports
 - `/api/hemali/*` - Hemali payments + exports
 - `/api/private-paddy/*`, `/api/rice-sales/*` - Private trading exports

@@ -21,10 +21,27 @@ function copyDirSync(src, dest) {
 
 console.log('=== Desktop App - Frontend Build ===\n');
 
+// Check if build exists AND matches current version
+const desktopPkg = JSON.parse(fs.readFileSync(path.join(DESKTOP_DIR, 'package.json'), 'utf8'));
+const currentVersion = desktopPkg.version;
+const versionFile = path.join(BUILD_DIR, '.build-version');
+
 if (fs.existsSync(path.join(BUILD_DIR, 'index.html'))) {
-  console.log('[OK] frontend-build/ already exists. Skipping build.');
-  console.log('    (Delete frontend-build/ folder to force rebuild)');
-  process.exit(0);
+  // Check if build version matches
+  let buildVersion = null;
+  if (fs.existsSync(versionFile)) {
+    buildVersion = fs.readFileSync(versionFile, 'utf8').trim();
+  }
+  
+  if (buildVersion === currentVersion) {
+    console.log(`[OK] frontend-build/ already exists (v${currentVersion}). Skipping build.`);
+    console.log('    (Delete frontend-build/ folder to force rebuild)');
+    process.exit(0);
+  } else {
+    console.log(`[REBUILD] Version mismatch: build=${buildVersion || 'unknown'}, current=v${currentVersion}`);
+    console.log('    Deleting old build and rebuilding...');
+    fs.rmSync(BUILD_DIR, { recursive: true, force: true });
+  }
 }
 
 if (!fs.existsSync(path.join(FRONTEND_DIR, 'package.json'))) {
@@ -64,4 +81,7 @@ html = html.replace(/<script>!function\(e,t\)\{var r,s,o,i;t\.__SV.*?<\/script>/
 html = html.replace(/<script>window\.addEventListener\("error"[^<]*<\/script>/g, '');
 fs.writeFileSync(indexPath, html);
 
-console.log('\n[OK] Frontend build ready!');
+// Write version file for future mismatch detection
+fs.writeFileSync(versionFile, currentVersion);
+
+console.log('\n[OK] Frontend build ready! (v' + currentVersion + ')');
