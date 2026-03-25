@@ -705,6 +705,25 @@ function MainApp({ user, onLogout }) {
     const handleGlobalKeyDown = (e) => {
       const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
 
+      // Backspace on empty field = go to previous field
+      if (e.key === 'Backspace' && inInput && !e.ctrlKey && !e.altKey) {
+        const el = e.target;
+        const val = el.value || el.textContent || '';
+        if (val === '') {
+          e.preventDefault();
+          // Find all focusable fields in the closest form or dialog
+          const container = el.closest('form, [role="dialog"], .space-y-4, .space-y-3, .grid');
+          if (container) {
+            const fields = Array.from(container.querySelectorAll('input, textarea, select, [tabindex]')).filter(f => !f.disabled && f.offsetParent !== null);
+            const idx = fields.indexOf(el);
+            if (idx > 0) {
+              fields[idx - 1].focus();
+            }
+          }
+          return;
+        }
+      }
+
       // Ctrl+S: Save/Submit active form (works even in input fields)
       if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
