@@ -3,9 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "38.5.0";
+const APP_VERSION = "38.6.0";
 
 const CHANGELOG = [
+  {
+    version: "38.6.0",
+    date: "25 Mar 2026",
+    title: "Accounting Fix + Party Type + Data Health",
+    items: [
+      { type: "fix", text: "Paddy Purchase ab sirf Party Ledger mein dikhega (Cash Transactions mein nahi - rokad safe)" },
+      { type: "fix", text: "Custom Party Type ab type ho payega (Auto-detect override fix)" },
+      { type: "fix", text: "Party Ledgers search: match na mile toh 'No ledger found' dikhega" },
+      { type: "fix", text: "Pvt Paddy delete karne pe ledger entry bhi automatic delete" },
+      { type: "new", text: "Auto-fix: purani entries ka season + account automatically correct" },
+    ],
+  },
   {
     version: "38.5.0",
     date: "25 Mar 2026",

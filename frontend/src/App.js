@@ -45,7 +45,7 @@ import {
   FileSpreadsheet, FileText, LogOut, User, Lock, Key, Target, 
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
-  Info, Printer, HardDrive, Download, RotateCcw, Shield, Sun, Moon,
+  Info, Printer, HardDrive, Download, RotateCcw, Shield, ShieldCheck, Sun, Moon,
   Wheat, Wallet, Package, UserCheck, Send
 } from "lucide-react";
 
@@ -228,6 +228,8 @@ function MainApp({ user, onLogout }) {
   const [backupStatus, setBackupStatus] = useState(null);
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   const [backupLoading, setBackupLoading] = useState(false);
+  const [healthResult, setHealthResult] = useState(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   // Error log state
   const [errorLog, setErrorLog] = useState("");
@@ -2214,6 +2216,47 @@ function MainApp({ user, onLogout }) {
               </CardHeader>
               <CardContent className="space-y-4">
                 <GSTSettingsForm />
+              </CardContent>
+            </Card>
+
+            {/* Data Health Check Section */}
+            <Card className="bg-slate-800 border-slate-700" data-testid="data-health-section">
+              <CardHeader>
+                <CardTitle className="text-emerald-400 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5" />
+                  Data Health Check / डेटा हेल्थ चेक
+                </CardTitle>
+                <p className="text-slate-400 text-sm">
+                  Auto-fix run karein - missing ledger entries, wrong accounts, orphan data sab automatically fix ho jayega.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {healthResult && (
+                  <div className={`p-4 rounded-lg border ${healthResult.total_fixes > 0 ? 'bg-amber-900/30 border-amber-700' : 'bg-green-900/30 border-green-700'}`}>
+                    <p className={`font-semibold text-sm ${healthResult.total_fixes > 0 ? 'text-amber-400' : 'text-green-400'}`}>
+                      {healthResult.total_fixes > 0 ? `${healthResult.total_fixes} issues fix kiye` : 'Sab theek hai - koi issue nahi!'}
+                    </p>
+                    {healthResult.details && Object.entries(healthResult.details).map(([k, v]) => 
+                      v > 0 ? <p key={k} className="text-slate-400 text-xs mt-1">{k.replace(/_/g, ' ')}: {v}</p> : null
+                    )}
+                    {healthResult.ran_at && <p className="text-slate-500 text-xs mt-2">Last run: {new Date(healthResult.ran_at).toLocaleString('en-IN')}</p>}
+                  </div>
+                )}
+                <Button
+                  onClick={async () => {
+                    try {
+                      setHealthLoading(true);
+                      const res = await axios.post(`${API}/cash-book/auto-fix`);
+                      setHealthResult({ ...res.data, ran_at: new Date().toISOString() });
+                    } catch (e) { console.error(e); }
+                    finally { setHealthLoading(false); }
+                  }}
+                  disabled={healthLoading}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                  data-testid="run-health-check-btn"
+                >
+                  {healthLoading ? 'Checking...' : 'Run Health Check / हेल्थ चेक चलाएं'}
+                </Button>
               </CardContent>
             </Card>
 

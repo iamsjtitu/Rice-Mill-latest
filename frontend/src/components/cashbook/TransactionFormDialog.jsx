@@ -66,8 +66,13 @@ const TransactionFormDialog = ({
                 value={form.category}
                 onChange={(e) => {
                   const val = e.target.value;
-                  const match = allTxns.find(t => t.category && t.category.toLowerCase() === val.toLowerCase() && t.party_type);
-                  setForm(p => ({ ...p, category: val, party_type: match ? match.party_type : "", _showPartySuggestions: true, _highlightIdx: -1 }));
+                  // Only auto-detect party_type if NOT in manual mode
+                  if (form._showManualType) {
+                    setForm(p => ({ ...p, category: val, _showPartySuggestions: true, _highlightIdx: -1 }));
+                  } else {
+                    const match = allTxns.find(t => t.category && t.category.toLowerCase() === val.toLowerCase() && t.party_type);
+                    setForm(p => ({ ...p, category: val, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: true, _highlightIdx: -1 }));
+                  }
                 }}
                 onFocus={() => setForm(p => ({ ...p, _showPartySuggestions: true, _highlightIdx: -1 }))}
                 onBlur={() => setTimeout(() => setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 })), 200)}
@@ -84,8 +89,12 @@ const TransactionFormDialog = ({
                   } else if (e.key === 'Enter' && idx >= 0 && idx < filtered.length) {
                     e.preventDefault();
                     const c = filtered[idx];
-                    const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
-                    setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : "", _showPartySuggestions: false, _highlightIdx: -1 }));
+                    if (form._showManualType) {
+                      setForm(p => ({ ...p, category: c, _showPartySuggestions: false, _highlightIdx: -1 }));
+                    } else {
+                      const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
+                      setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: false, _highlightIdx: -1 }));
+                    }
                   } else if (e.key === 'Escape') {
                     setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 }));
                   }
@@ -107,8 +116,12 @@ const TransactionFormDialog = ({
                           <div key={c}
                             className={`px-3 py-1.5 text-sm cursor-pointer flex justify-between items-center ${isHighlighted ? 'bg-amber-100' : 'hover:bg-amber-50'}`}
                             onMouseDown={() => {
-                              const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
-                              setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : "", _showPartySuggestions: false, _highlightIdx: -1 }));
+                              if (form._showManualType) {
+                                setForm(p => ({ ...p, category: c, _showPartySuggestions: false, _highlightIdx: -1 }));
+                              } else {
+                                const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
+                                setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: false, _highlightIdx: -1 }));
+                              }
                             }}
                             onMouseEnter={() => setForm(p => ({ ...p, _highlightIdx: i }))}>
                             <span className="text-slate-800">{c}</span>
