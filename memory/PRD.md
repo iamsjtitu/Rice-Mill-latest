@@ -10,7 +10,7 @@ A comprehensive rice mill management system with features for paddy procurement,
 - **Desktop**: Electron + Node.js (separate codebase)
 - **Local Server**: Node.js (separate from web backend)
 
-## Current Version: v35.0.0
+## Current Version: v36.0.0
 
 ## What's Been Implemented
 
