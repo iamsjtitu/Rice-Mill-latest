@@ -26,25 +26,16 @@ module.exports = function(database) {
     const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : '';
     const base = { kms_year: doc.kms_year || '', season: doc.season || '', created_by: username || 'system', linked_entry_id: entryId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
 
-    // --- Party Jama --- what we owe the party for paddy purchase (shows in Cash Transactions)
+    // --- Party Jama (Ledger) --- what we owe the party for paddy purchase
     const totalAmount = parseFloat(doc.total_amount) || 0;
     if (totalAmount > 0) {
       const partyJamaDesc = detail ? `Paddy Purchase: ${partyLabel} - ${detail}` : `Paddy Purchase: ${partyLabel} - Rs.${totalAmount}`;
-      db.data.cash_transactions.push({
-        id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'jama',
-        category: partyLabel, party_type: 'Pvt Paddy Purchase',
-        description: partyJamaDesc,
-        amount: Math.round(totalAmount * 100) / 100,
-        reference: `pvt_party_jama:${entryId.slice(0,8)}`,
-        ...base
-      });
-      // Also create ledger entry for Party Ledger view
       db.data.cash_transactions.push({
         id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'jama',
         category: partyLabel, party_type: 'Pvt Paddy Purchase',
         description: partyJamaDesc,
         amount: Math.round(totalAmount * 100) / 100,
-        reference: `pvt_party_jama_ledger:${entryId.slice(0,8)}`,
+        reference: `pvt_party_jama:${entryId.slice(0,8)}`,
         ...base
       });
     }

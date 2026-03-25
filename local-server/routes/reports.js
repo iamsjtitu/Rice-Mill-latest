@@ -398,22 +398,9 @@ module.exports = function(database) {
       created_at: new Date().toISOString(), updated_at: new Date().toISOString()
     };
     database.data.private_paddy.push(pvtEntry);
-    // Auto-create Cash Book Jama entry
+    // Auto-create Party Ledger Jama entry (we owe party for paddy purchase)
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const partyLabel = pvtEntry.party_name;
-    database.data.cash_transactions.push({
-      id: require('crypto').randomUUID(),
-      date: pvtEntry.date,
-      account: 'cash', txn_type: 'jama',
-      category: partyLabel, party_type: 'Pvt Paddy Purchase',
-      description: `Paddy Purchase: ${partyLabel} - ${extra_qntl}Q @ Rs.${rate}/Q = Rs.${total_amount}`,
-      amount: Math.round(total_amount * 100) / 100,
-      reference: `pvt_party_jama:${pvtEntry.id.slice(0, 8)}`,
-      kms_year: kms_year || '', season: season || '',
-      created_by: username || 'admin', linked_entry_id: pvtEntry.id,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-    });
-    // Also create ledger entry for Party Ledger view
     database.data.cash_transactions.push({
       id: require('crypto').randomUUID(),
       date: pvtEntry.date,
@@ -421,7 +408,7 @@ module.exports = function(database) {
       category: partyLabel, party_type: 'Pvt Paddy Purchase',
       description: `Paddy Purchase: ${partyLabel} - ${extra_qntl}Q @ Rs.${rate}/Q = Rs.${total_amount}`,
       amount: Math.round(total_amount * 100) / 100,
-      reference: `pvt_party_jama_ledger:${pvtEntry.id.slice(0, 8)}`,
+      reference: `pvt_party_jama:${pvtEntry.id.slice(0, 8)}`,
       kms_year: kms_year || '', season: season || '',
       created_by: username || 'admin', linked_entry_id: pvtEntry.id,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString()
