@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel, Send, AlertTriangle } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -949,6 +950,7 @@ const AgentMandiReport = ({ filters }) => {
   const [expandedMandis, setExpandedMandis] = useState({});
   const [pvtDialog, setPvtDialog] = useState({ open: false, mandi: null });
   const [pvtRate, setPvtRate] = useState("");
+  const [selectedMandi, setSelectedMandi] = useState("all");
 
   const fetchData = useCallback(async () => {
     try {
@@ -1036,6 +1038,19 @@ const AgentMandiReport = ({ filters }) => {
             data-testid="agent-mandi-search"
           />
         </div>
+        {data && data.mandis && (
+          <Select value={selectedMandi} onValueChange={setSelectedMandi}>
+            <SelectTrigger className="w-[160px] bg-slate-700 border-slate-600 text-white h-9 text-sm" data-testid="mandi-filter">
+              <SelectValue placeholder="Mandi Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Mandi</SelectItem>
+              {data.mandis.map(m => (
+                <SelectItem key={m.mandi_name} value={m.mandi_name}>{m.mandi_name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <div className="flex items-center gap-2">
           <span className="text-slate-400 text-xs whitespace-nowrap">From:</span>
           <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
@@ -1062,27 +1077,34 @@ const AgentMandiReport = ({ filters }) => {
         </div>
       </div>
 
-      {/* Grand Summary */}
-      {data && data.grand_totals && (
+      {/* Grand Summary - dynamic based on selected mandi */}
+      {data && data.grand_totals && (() => {
+        let totals = data.grand_totals;
+        if (selectedMandi !== "all") {
+          const m = (data.mandis || []).find(x => x.mandi_name === selectedMandi);
+          if (m && m.totals) totals = m.totals;
+        }
+        return (
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
           {[
-            ["Total Entries", data.grand_totals.entry_count, "", "text-white"],
-            ["Total Final W", (data.grand_totals.total_final_w / 100).toFixed(2), "Q", "text-amber-400"],
-            ["Extra QNTL", data.grand_totals.total_extra_qntl || 0, "Q", "text-red-400"],
-            ["Total Bags", data.grand_totals.total_bag, "", "text-blue-400"],
-            ["Gunny Deposit", data.grand_totals.total_g_deposite, "", "text-cyan-400"],
-            ["Gunny Issued", data.grand_totals.total_g_issued, "", "text-purple-400"],
-            ["Final Weight", (data.grand_totals.total_final_w / 100).toFixed(2), "Q", "text-emerald-400"],
+            ["Total Entries", totals.entry_count, "", "text-white"],
+            ["Total Final W", ((totals.total_final_w || 0) / 100).toFixed(2), "Q", "text-amber-400"],
+            ["Extra QNTL", totals.total_extra_qntl || totals.extra_qntl || 0, "Q", "text-red-400"],
+            ["Total Bags", totals.total_bag, "", "text-blue-400"],
+            ["Gunny Deposit", totals.total_g_deposite || totals.g_deposite || 0, "", "text-cyan-400"],
+            ["Gunny Issued", totals.total_g_issued || totals.g_issued || 0, "", "text-purple-400"],
+            ["Final Weight", ((totals.total_final_w || 0) / 100).toFixed(2), "Q", "text-emerald-400"],
           ].map(([label, val, unit, color]) => (
             <Card key={label} className="bg-slate-800 border-slate-700">
               <CardContent className="p-3 text-center">
-                <p className="text-[10px] text-slate-400">{label}</p>
+                <p className="text-[10px] text-slate-400">{label}{selectedMandi !== "all" && <span className="text-amber-400/60 ml-1">({selectedMandi})</span>}</p>
                 <p className={`text-lg font-bold ${color}`}>{fmtNum(val)}{unit && <span className="text-xs ml-0.5">{unit}</span>}</p>
               </CardContent>
             </Card>
           ))}
         </div>
-      )}
+        );
+      })()}
 
       {/* Mandi Groups */}
       {data && data.mandis && data.mandis.length > 0 ? (
