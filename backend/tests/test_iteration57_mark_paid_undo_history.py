@@ -12,7 +12,7 @@ import requests
 import os
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://rice-mill-debug.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://rice-mill-ledger.preview.emergentagent.com').rstrip('/')
 
 # Raju entry ID from context
 RAJU_ENTRY_ID = "326b1eb2-1c7d-43e5-9b0c-f20f56a63dda"
