@@ -1052,6 +1052,18 @@ async def auto_fix_all():
         else:
             seen.add(key)
 
+    # 5. Clean orphaned pvt_party_jama entries (private_paddy was deleted but cash_transactions remain)
+    pvt_refs = await db.cash_transactions.find(
+        {"reference": {"$regex": "^pvt_party_jama"}}, {"_id": 0, "id": 1, "linked_entry_id": 1, "reference": 1}
+    ).to_list(100000)
+    pvt_ids = set(e.get("id", "") for e in pvt_entries)
+    for ref_entry in pvt_refs:
+        linked_id = ref_entry.get("linked_entry_id", "")
+        if linked_id and linked_id not in pvt_ids:
+            await db.cash_transactions.delete_one({"id": ref_entry["id"]})
+            fixes["orphan_cleaned"] = fixes.get("orphan_cleaned", 0) + 1
+
+
     total = sum(fixes.values())
     return {"success": True, "total_fixes": total, "details": fixes}
 

@@ -104,7 +104,7 @@ module.exports = function(database) {
       if (t.linked_entry_id !== entryId) return true;
       const ref = (t.reference || '');
       // Delete both pvt_paddy_* and pvt_party_jama:* entries
-      if (ref.startsWith('pvt_paddy') || ref.startsWith('pvt_party_jama:')) return false;
+      if (ref.startsWith('pvt_paddy') || ref.startsWith('pvt_party_jama') || ref.startsWith('pvt_truck_jama:')) return false;
       return true;
     });
     if (db.data.diesel_accounts) db.data.diesel_accounts = db.data.diesel_accounts.filter(t => t.linked_entry_id !== entryId);

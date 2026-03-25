@@ -433,7 +433,8 @@ async def move_extra_to_pvt(request: Request):
     await db.cash_transactions.insert_one(jama_entry)
 
     # Also create ledger entry for Party Ledger view
-    ledger_entry = {**jama_entry, "id": str(uuid.uuid4()), "account": "ledger", "reference": f"pvt_party_jama_ledger:{pvt_entry['id'][:8]}"}
+    ledger_entry = {k: v for k, v in jama_entry.items() if k != "_id"}
+    ledger_entry.update({"id": str(uuid.uuid4()), "account": "ledger", "reference": f"pvt_party_jama_ledger:{pvt_entry['id'][:8]}"})
     await db.cash_transactions.insert_one(ledger_entry)
 
     return {"success": True, "message": f"{extra_qntl}Q @ Rs.{rate}/Q = Rs.{total_amount} Pvt Purchase mein move ho gaya ({agent_name} - {mandi_name})"}
