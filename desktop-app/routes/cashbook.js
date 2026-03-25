@@ -385,6 +385,11 @@ module.exports = function(database) {
     for (const pvt of pvtEntries) {
       const totalAmt = parseFloat(pvt.total_amount) || 0;
       if (totalAmt <= 0 || !pvt.id) continue;
+      // Fix missing season for agent_extra entries
+      if (!pvt.season) {
+        pvt.season = 'Kharif';
+        fixes.season_fixed = (fixes.season_fixed || 0) + 1;
+      }
       // Fix missing qntl/final_qntl fields for agent_extra entries
       if (pvt.source === 'agent_extra' && !pvt.final_qntl && pvt.quantity_qntl) {
         pvt.final_qntl = pvt.quantity_qntl;
@@ -406,7 +411,7 @@ module.exports = function(database) {
           category: party, party_type: 'Pvt Paddy Purchase',
           description: desc, amount: Math.round(totalAmt * 100) / 100, bank_name: '',
           reference: ref,
-          kms_year: pvt.kms_year || '', season: pvt.season || '',
+          kms_year: pvt.kms_year || '', season: pvt.season || 'Kharif',
           created_by: 'auto-fix', linked_entry_id: pvt.id,
           created_at: pvt.created_at || '', updated_at: new Date().toISOString(),
         });

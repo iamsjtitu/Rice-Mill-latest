@@ -370,7 +370,7 @@ async def move_extra_to_pvt(request: Request):
     extra_qntl = body.get("extra_qntl", 0)
     rate = body.get("rate", 0)
     kms_year = body.get("kms_year", "")
-    season = body.get("season", "")
+    season = body.get("season", "") or "Kharif"
     username = body.get("username", "admin")
     last_truck = body.get("last_truck", {})
 

@@ -977,6 +977,11 @@ async def auto_fix_all():
                 }}
             )
             fixes["agent_extra_fields_fixed"] = fixes.get("agent_extra_fields_fixed", 0) + 1
+        # Fix empty season
+        if not pvt.get("season"):
+            await db.private_paddy.update_one({"id": entry_id}, {"$set": {"season": "Kharif"}})
+            pvt["season"] = "Kharif"
+            fixes["season_fixed"] = fixes.get("season_fixed", 0) + 1
         # Check if jama entry already exists
         existing = await db.cash_transactions.find_one(
             {"reference": f"pvt_party_jama:{entry_id[:8]}"}, {"_id": 0, "id": 1}
@@ -992,7 +997,7 @@ async def auto_fix_all():
                 "category": party, "party_type": "Pvt Paddy Purchase",
                 "description": desc, "amount": round(total_amt, 2), "bank_name": "",
                 "reference": f"pvt_party_jama:{entry_id[:8]}",
-                "kms_year": pvt.get("kms_year", ""), "season": pvt.get("season", ""),
+                "kms_year": pvt.get("kms_year", ""), "season": pvt.get("season", "") or "Kharif",
                 "created_by": "auto-fix", "linked_entry_id": entry_id,
                 "created_at": pvt.get("created_at", ""), "updated_at": pvt.get("updated_at", ""),
             })
@@ -1005,6 +1010,14 @@ async def auto_fix_all():
     )
     if result.modified_count > 0:
         fixes["pvt_jama_account_fixed"] = result.modified_count
+
+    # 3c. Fix empty season in cash_transactions for pvt_party_jama entries
+    result2 = await db.cash_transactions.update_many(
+        {"reference": {"$regex": "^pvt_party_jama:"}, "season": {"$in": ["", None]}},
+        {"$set": {"season": "Kharif"}}
+    )
+    if result2.modified_count > 0:
+        fixes["cash_txn_season_fixed"] = result2.modified_count
 
     # 4. Remove duplicate ledger entries (same reference, same amount, same date)
     all_ledger = await db.cash_transactions.find(

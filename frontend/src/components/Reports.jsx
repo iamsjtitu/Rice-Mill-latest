@@ -1013,7 +1013,7 @@ const AgentMandiReport = ({ filters }) => {
         mandi_name: pvtDialog.mandi.mandi_name,
         agent_name: pvtDialog.mandi.agent_name,
         extra_qntl: pvtDialog.mandi.extra_qntl,
-        rate, kms_year: filters.kms_year, season: filters.season,
+        rate, kms_year: filters.kms_year, season: filters.season || "Kharif",
         username: "admin",
         last_truck: pvtDialog.mandi.last_truck || {}
       });

@@ -374,7 +374,8 @@ module.exports = function(database) {
 
   // Move extra QNTL to Pvt Purchase
   router.post('/api/reports/agent-mandi-wise/move-to-pvt', safeSync((req, res) => {
-    const { mandi_name, agent_name, extra_qntl, rate, kms_year, season, username, last_truck } = req.body;
+    const { mandi_name, agent_name, extra_qntl, rate, kms_year, username, last_truck } = req.body;
+    const season = req.body.season || 'Kharif';
     if (!mandi_name || !extra_qntl || extra_qntl <= 0 || !rate || rate <= 0)
       return res.status(400).json({ success: false, detail: 'Mandi name, extra QNTL aur rate required hai' });
     if (!database.data.private_paddy) database.data.private_paddy = [];
