@@ -123,6 +123,8 @@ const PaddyPurchase = ({ filters, user }) => {
         await axios.post(`${API}/private-paddy?username=${user.username}&role=${user.role}`, { ...form, gbw_cut: calc.gbw_cut });
         toast.success("Paddy purchase entry save ho gayi!");
       }
+      // Ensure cash book entries are created (auto-fix safety net)
+      try { await axios.post(`${API}/cash-book/auto-fix`); } catch(_) {}
       setDialogOpen(false); resetForm(); fetchData();
     } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
   };

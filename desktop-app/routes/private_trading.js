@@ -64,6 +64,32 @@ module.exports = function(database) {
     }
   }
 
+  // Helper: Ensure party jama entry exists for a pvt paddy entry
+  function _ensurePartyJamaExists(db, doc, username) {
+    if (!db.data.cash_transactions) db.data.cash_transactions = [];
+    const totalAmt = parseFloat(doc.total_amount) || 0;
+    if (totalAmt <= 0 || doc.source === 'agent_extra' || !doc.id) return;
+    const ref = `pvt_party_jama:${doc.id.slice(0, 8)}`;
+    const exists = db.data.cash_transactions.find(t => t.reference === ref);
+    if (exists) return; // Already exists
+    const party = doc.party_name || 'Pvt Paddy';
+    const qntl = doc.final_qntl || doc.qntl || (doc.kg ? doc.kg / 100 : 0);
+    const rate = doc.rate_per_qntl || doc.rate || 0;
+    const desc = (qntl && rate) ? `Paddy Purchase: ${party} - ${qntl}Q @ Rs.${rate}/Q = Rs.${totalAmt}` : `Paddy Purchase: ${party} - Rs.${totalAmt}`;
+    db.data.cash_transactions.push({
+      id: require('crypto').randomUUID(),
+      date: doc.date || new Date().toISOString().slice(0, 10),
+      account: 'ledger', txn_type: 'jama',
+      category: party, party_type: 'Pvt Paddy Purchase',
+      description: desc,
+      amount: Math.round(totalAmt * 100) / 100, bank_name: '',
+      reference: ref,
+      kms_year: doc.kms_year || '', season: doc.season || '',
+      created_by: username || 'system', linked_entry_id: doc.id,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    });
+  }
+
   // Helper: Delete linked cash book + diesel entries for pvt paddy
   function _deleteCashDieselForPvtPaddy(db, entryId) {
     if (db.data.cash_transactions) db.data.cash_transactions = db.data.cash_transactions.filter(t => {
@@ -142,7 +168,9 @@ module.exports = function(database) {
     calcPaddyAutoDesktop(d);
     database.data.private_paddy.push(d);
     // Auto cash book + diesel entries
-    _createCashDieselForPvtPaddy(database, d, req.query.username || '');
+    try { _createCashDieselForPvtPaddy(database, d, req.query.username || ''); } catch(e) { console.error('[PvtPaddy] _createCashDieselForPvtPaddy error:', e); }
+    // SAFETY NET: Always ensure party jama entry exists even if above function failed
+    _ensurePartyJamaExists(database, d, req.query.username || '');
     database.save(); res.json(d);
   }));
 
@@ -168,7 +196,9 @@ module.exports = function(database) {
     database.data.private_paddy[idx] = merged;
     // Re-create cash book + diesel entries
     _deleteCashDieselForPvtPaddy(database, req.params.id);
-    _createCashDieselForPvtPaddy(database, merged, req.query.username || '');
+    try { _createCashDieselForPvtPaddy(database, merged, req.query.username || ''); } catch(e) { console.error('[PvtPaddy] _createCashDieselForPvtPaddy error:', e); }
+    // SAFETY NET: Always ensure party jama entry exists
+    _ensurePartyJamaExists(database, merged, req.query.username || '');
     database.save(); res.json(merged);
   }));
 

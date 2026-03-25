@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "38.2.0";
+const APP_VERSION = "38.3.0";
 
 const CHANGELOG = [
+  {
+    version: "38.3.0",
+    date: "25 Mar 2026",
+    title: "Pvt Paddy Party Name - Bulletproof Fix",
+    items: [
+      { type: "fix", text: "Pvt Paddy Purchase save karne par Cash Book mein party name 100% guarantee se aayega" },
+      { type: "fix", text: "3-layer safety: Backend + Safety Net + Frontend Auto-Fix call" },
+      { type: "fix", text: "Purani entries bhi auto-fix se Cash Book mein aa jayengi" },
+    ],
+  },
   {
     version: "38.2.0",
     date: "25 Mar 2026",

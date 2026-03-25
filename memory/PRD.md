@@ -1,74 +1,35 @@
 # Mill Entry System - PRD
 
-## Original Problem Statement
-A comprehensive rice mill management system with features for paddy procurement, milling operations, DC management, financial tracking, staff management, and reporting.
+## Current Version: v38.3.0
 
 ## Architecture
 - **Frontend**: React (CRA with CRACO) 
-- **Backend**: FastAPI (Python)
-- **Database**: MongoDB
-- **Desktop**: Electron + Node.js Express (separate codebase with local JSON storage)
-- **Local Server**: Node.js Express (separate from web backend)
+- **Backend**: FastAPI (Python) + Node.js Express (Desktop/Local)
+- **Database**: MongoDB (web) / Local JSON (desktop)
 
-## Current Version: v38.2.0
+## Bug Fixes (25 March 2026)
 
-## What's Been Implemented
+### v38.3.0 - Pvt Paddy Party Name BULLETPROOF Fix
+- Added `_ensurePartyJamaExists()` function to ALL 3 backends (desktop, local-server, python)
+- 3-layer protection: Backend helper → Safety net check → Frontend auto-fix call
+- POST and PUT handlers now: try helper → catch error → always verify entry exists
+- Frontend PaddyPurchase calls `/api/cash-book/auto-fix` after every save as safety net
+- Auto-fix on startup also creates missing entries for historical data
 
-### Core Features (Complete)
-- Mill entry management with truck/agent tracking
-- Cash Book with double-entry ledger (jama/nikasi)
-- DC (Delivery Challan) management with deliveries
-- MSP payment tracking
-- Gunny bag inventory (new/old/auto-mill)
-- Milling operations (paddy custody, FRK, byproduct)
-- Agent/Mandi payment calculations
-- Private trading (paddy purchase + rice sales)
-- Sale Book & Purchase Book with vouchers
-- Mill parts & store room inventory
-- Diesel account management
-- Staff attendance & salary
-- Hemali (labour) payment system
-- Season P&L reports
-- FY Summary with balance sheet
-- Telegram report integration
-- Auto-update system for desktop app
-- "What's New" changelog component
-- Global keyboard shortcuts (Ctrl+N, Ctrl+S, Alt+*, Backspace navigation)
-- ConfirmProvider context for UI-safe confirmation dialogs
+### v38.2.0 - UI Freeze Fix (Global)
+- Replaced ALL `window.confirm` across 15+ components with React AlertDialog via ConfirmProvider
 
-### Bug Fixes (25 March 2026)
-
-**v38.2.0 - UI Freeze Fix (Global)**
-- Replaced ALL `window.confirm` calls across all components with React AlertDialog via `useConfirm()` hook
-- Components fixed: PaddyPurchase, CashBook, DCTracker, Dashboard, FYSummaryDashboard, HemaliPayment, LeasedTruck, MillPartsStock, MillingTracker, Payments, PurchaseVouchers, StaffManagement, PrivateTrading, SaleBook, LocalPartyAccount
-- Created reusable `ConfirmProvider` component with `useConfirm()` hook
-
-**v38.1.0 - Ctrl+N + Pvt Paddy Party Name**
-- Ctrl+N selector fixed (was matching whats-new-btn)
-- Pvt Paddy delete function fixed to clean up pvt_party_jama entries
-- qntl/rate fields corrected in all three backends
+### v38.1.0 - Ctrl+N + Pvt Paddy fixes
+- Ctrl+N selector fixed, delete function fixed, qntl/rate fields corrected
 
 ## Pending Items
-### P0
-- None
-
 ### P1
 - Export Preview feature
 - Centralize stock calculation logic
 
-### P2
+### P2  
 - Sardar-wise monthly Hemali report breakdown
-- Refactor payment logic into service layer
-
-### Refactoring
-- `App.js` is 2800+ lines - needs component extraction
-- App.js still has its own confirmDialog state (can be migrated to use ConfirmProvider)
+- Payment logic refactor into service layer
 
 ## Credentials
-- Username: admin
-- Password: admin123
-
-## Critical Technical Notes
-- **Dual Backend Rule**: Any logic change to Python routes MUST be replicated in desktop-app AND local-server routes
-- **Build Pipeline**: `cd /app/frontend && yarn build && cp -r build/* ../desktop-app/frontend-build/`
-- **ConfirmProvider**: All components use `useConfirm()` hook instead of `window.confirm()`
+- Username: admin, Password: admin123
