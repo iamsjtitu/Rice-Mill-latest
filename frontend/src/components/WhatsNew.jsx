@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "38.3.0";
+const APP_VERSION = "38.4.0";
 
 const CHANGELOG = [
+  {
+    version: "38.4.0",
+    date: "25 Mar 2026",
+    title: "Pvt Paddy - Cash Book Fix",
+    items: [
+      { type: "fix", text: "Pvt Paddy Purchase ka party name ab Cash Transactions tab mein dikhta hai (account: cash)" },
+      { type: "fix", text: "Purani entries auto-fix se ledger se cash mein migrate ho jayengi" },
+    ],
+  },
   {
     version: "38.3.0",
     date: "25 Mar 2026",

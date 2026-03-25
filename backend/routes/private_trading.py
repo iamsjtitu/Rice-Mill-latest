@@ -124,13 +124,13 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
     # Skip ledger entries for agent_extra (excess paddy moved from Reports - already has its own ledger)
     is_agent_extra = doc.get("source") == "agent_extra"
     
-    # --- Party Jama (Ledger) --- what we owe the party for paddy purchase
+    # --- Party Jama --- what we owe the party for paddy purchase (shows in Cash Transactions)
     total_amount = float(doc.get("total_amount", 0) or 0)
     if total_amount > 0 and not is_agent_extra:
         party_jama_desc = f"Paddy Purchase: {party_label} - {qntl}Q @ Rs.{rate}/Q = Rs.{total_amount}"
         await db.cash_transactions.insert_one({
             "id": str(uuid.uuid4()), "date": date,
-            "account": "ledger", "txn_type": "jama",
+            "account": "cash", "txn_type": "jama",
             "category": party_label, "party_type": "Pvt Paddy Purchase",
             "description": party_jama_desc,
             "amount": round(total_amount, 2), "bank_name": "",

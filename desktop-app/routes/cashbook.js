@@ -395,7 +395,7 @@ module.exports = function(database) {
         const desc = (qntl && rate) ? `Paddy Purchase: ${party} - ${qntl}Q @ Rs.${rate}/Q = Rs.${totalAmt}` : `Paddy Purchase: ${party} - Rs.${totalAmt}`;
         database.data.cash_transactions.push({
           id: require('crypto').randomUUID(), date: pvt.date || '',
-          account: 'ledger', txn_type: 'jama',
+          account: 'cash', txn_type: 'jama',
           category: party, party_type: 'Pvt Paddy Purchase',
           description: desc, amount: Math.round(totalAmt * 100) / 100, bank_name: '',
           reference: ref,
@@ -404,6 +404,14 @@ module.exports = function(database) {
           created_at: pvt.created_at || '', updated_at: new Date().toISOString(),
         });
         fixes.pvt_jama_created++;
+      }
+    }
+
+    // 3b. Fix existing pvt_party_jama entries: change account from 'ledger' to 'cash'
+    for (const t of database.data.cash_transactions) {
+      if ((t.reference || '').startsWith('pvt_party_jama:') && t.account === 'ledger') {
+        t.account = 'cash';
+        fixes.pvt_jama_account_fixed = (fixes.pvt_jama_account_fixed || 0) + 1;
       }
     }
 

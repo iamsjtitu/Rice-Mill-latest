@@ -32,7 +32,7 @@ module.exports = function(database) {
     if (totalAmount > 0 && !isAgentExtra) {
       const partyJamaDesc = detail ? `Paddy Purchase: ${partyLabel} - ${detail}` : `Paddy Purchase: ${partyLabel} - Rs.${totalAmount}`;
       db.data.cash_transactions.push({
-        id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'jama',
+        id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'jama',
         category: partyLabel, party_type: 'Pvt Paddy Purchase',
         description: partyJamaDesc,
         amount: Math.round(totalAmount * 100) / 100,
@@ -79,7 +79,7 @@ module.exports = function(database) {
     db.data.cash_transactions.push({
       id: require('crypto').randomUUID(),
       date: doc.date || new Date().toISOString().slice(0, 10),
-      account: 'ledger', txn_type: 'jama',
+      account: 'cash', txn_type: 'jama',
       category: party, party_type: 'Pvt Paddy Purchase',
       description: desc,
       amount: Math.round(totalAmt * 100) / 100, bank_name: '',

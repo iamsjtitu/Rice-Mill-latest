@@ -975,7 +975,7 @@ async def auto_fix_all():
             desc = f"Paddy Purchase: {party} - {qntl}Q @ Rs.{rate}/Q = Rs.{total_amt}" if qntl and rate else f"Paddy Purchase: {party} - Rs.{total_amt}"
             await db.cash_transactions.insert_one({
                 "id": str(uuid.uuid4()), "date": pvt.get("date", ""),
-                "account": "ledger", "txn_type": "jama",
+                "account": "cash", "txn_type": "jama",
                 "category": party, "party_type": "Pvt Paddy Purchase",
                 "description": desc, "amount": round(total_amt, 2), "bank_name": "",
                 "reference": f"pvt_party_jama:{entry_id[:8]}",
@@ -984,6 +984,14 @@ async def auto_fix_all():
                 "created_at": pvt.get("created_at", ""), "updated_at": pvt.get("updated_at", ""),
             })
             fixes["pvt_jama_created"] += 1
+
+    # 3b. Fix existing pvt_party_jama entries: change account from 'ledger' to 'cash'
+    result = await db.cash_transactions.update_many(
+        {"reference": {"$regex": "^pvt_party_jama:"}, "account": "ledger"},
+        {"$set": {"account": "cash"}}
+    )
+    if result.modified_count > 0:
+        fixes["pvt_jama_account_fixed"] = result.modified_count
 
     # 4. Remove duplicate ledger entries (same reference, same amount, same date)
     all_ledger = await db.cash_transactions.find(

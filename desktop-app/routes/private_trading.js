@@ -26,13 +26,13 @@ module.exports = function(database) {
     const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : '';
     const base = { kms_year: doc.kms_year || '', season: doc.season || '', created_by: username || 'system', linked_entry_id: entryId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
 
-    // --- Party Jama (Ledger) --- what we owe the party for paddy purchase
+    // --- Party Jama --- what we owe the party for paddy purchase (shows in Cash Transactions)
     const totalAmount = parseFloat(doc.total_amount) || 0;
     const isAgentExtra = doc.source === 'agent_extra';
     if (totalAmount > 0 && !isAgentExtra) {
       const partyJamaDesc = detail ? `Paddy Purchase: ${partyLabel} - ${detail}` : `Paddy Purchase: ${partyLabel} - Rs.${totalAmount}`;
       db.data.cash_transactions.push({
-        id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'jama',
+        id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'jama',
         category: partyLabel, party_type: 'Pvt Paddy Purchase',
         description: partyJamaDesc,
         amount: Math.round(totalAmount * 100) / 100,
@@ -79,7 +79,7 @@ module.exports = function(database) {
     db.data.cash_transactions.push({
       id: require('crypto').randomUUID(),
       date: doc.date || new Date().toISOString().slice(0, 10),
-      account: 'ledger', txn_type: 'jama',
+      account: 'cash', txn_type: 'jama',
       category: party, party_type: 'Pvt Paddy Purchase',
       description: desc,
       amount: Math.round(totalAmt * 100) / 100, bank_name: '',
