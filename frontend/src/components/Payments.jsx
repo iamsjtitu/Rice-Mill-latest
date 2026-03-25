@@ -1125,7 +1125,7 @@ export const Payments = ({ filters, user, branding }) => {
                     <TableRow className="border-slate-600">
                       <TableHead className="text-slate-300">Truck No</TableHead>
                       <TableHead className="text-slate-300 text-center">Trips</TableHead>
-                      <TableHead className="text-slate-300 text-right">Total QNTL</TableHead>
+                      <TableHead className="text-slate-300 text-right">Total Mill W</TableHead>
                       <TableHead className="text-slate-300 text-right">Gross Amount</TableHead>
                       <TableHead className="text-slate-300 text-right">Deductions</TableHead>
                       <TableHead className="text-slate-300 text-right">Net Payable</TableHead>

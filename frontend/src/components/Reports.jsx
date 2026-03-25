@@ -1067,7 +1067,7 @@ const AgentMandiReport = ({ filters }) => {
         <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
           {[
             ["Total Entries", data.grand_totals.entry_count, "", "text-white"],
-            ["Total QNTL", data.grand_totals.total_qntl, "Q", "text-amber-400"],
+            ["Total Mill W", data.grand_totals.total_qntl, "Q", "text-amber-400"],
             ["Extra QNTL", data.grand_totals.total_extra_qntl || 0, "Q", "text-red-400"],
             ["Total Bags", data.grand_totals.total_bag, "", "text-blue-400"],
             ["Gunny Deposit", data.grand_totals.total_g_deposite, "", "text-cyan-400"],
@@ -1107,7 +1107,7 @@ const AgentMandiReport = ({ filters }) => {
                 </div>
                 <div className="flex items-center gap-4 text-sm">
                   <div className="text-center"><p className="text-[10px] text-slate-500">Entries</p><p className="text-white font-bold">{mandi.totals.entry_count}</p></div>
-                  <div className="text-center"><p className="text-[10px] text-slate-500">QNTL</p><p className="text-amber-400 font-bold">{fmtNum(mandi.totals.total_qntl)}</p></div>
+                  <div className="text-center"><p className="text-[10px] text-slate-500">Mill W</p><p className="text-amber-400 font-bold">{fmtNum(mandi.totals.total_qntl)}</p></div>
                   {mandi.extra_qntl > 0 && (
                     <div className="text-center"><p className="text-[10px] text-red-400">Extra</p><p className="text-red-400 font-bold">{fmtNum(mandi.extra_qntl)}Q</p></div>
                   )}
