@@ -469,11 +469,23 @@ const CashBook = ({ filters, user }) => {
           showFilterPartyDropdown={showFilterPartyDropdown} setShowFilterPartyDropdown={setShowFilterPartyDropdown}
           allCategoriesForFilter={allCategoriesForFilter}
         />
-        <TransactionsTable
-          txns={txns} loading={loading} user={user}
-          selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}
-          handleBulkDelete={handleBulkDelete} handleEdit={handleEdit} handleDelete={handleDelete}
-        />
+        {(() => {
+          const displayedTxns = (filterPartySearch && !txnFilters.category)
+            ? txns.filter(t => (t.category || '').toLowerCase().includes(filterPartySearch.toLowerCase()))
+            : txns;
+          return displayedTxns.length === 0 && filterPartySearch && !txnFilters.category ? (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-8 text-center" data-testid="no-ledger-found">
+              <p className="text-slate-400 text-sm">"{filterPartySearch}" ka koi ledger nahi mila</p>
+              <p className="text-slate-500 text-xs mt-1">No ledger found for this party</p>
+            </div>
+          ) : (
+            <TransactionsTable
+              txns={displayedTxns} loading={loading} user={user}
+              selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}
+              handleBulkDelete={handleBulkDelete} handleEdit={handleEdit} handleDelete={handleDelete}
+            />
+          );
+        })()}
       </>)}
 
       {activeView === "party-summary" && (
