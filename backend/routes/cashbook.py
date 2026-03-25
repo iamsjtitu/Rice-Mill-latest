@@ -608,7 +608,7 @@ async def get_party_summary(kms_year: Optional[str] = None, season: Optional[str
         cat = t.get("category", "").strip()
         if not cat: continue
         # Skip auto-ledger entries (duplicates with reversed txn_type)
-        if (t.get("reference") or "").startswith("auto_ledger:"): continue
+        if "_ledger:" in (t.get("reference") or ""): continue
         if cat not in party_map:
             party_map[cat] = {"party_name": cat, "party_type": t.get("party_type", ""), "total_jama": 0, "total_nikasi": 0, "balance": 0, "txn_count": 0}
         if t.get("txn_type") == "jama":

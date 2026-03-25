@@ -642,7 +642,7 @@ module.exports = function(database) {
   // === Party Summary ===
   router.get('/api/cash-book/party-summary', safeSync((req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
-    let txns = database.data.cash_transactions.filter(t => !(t.reference||'').startsWith('auto_ledger:'));
+    let txns = database.data.cash_transactions.filter(t => !(t.reference||'').includes('_ledger:'));
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
     if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
@@ -694,7 +694,7 @@ module.exports = function(database) {
   router.get('/api/cash-book/party-summary/excel', safeAsync(async (req, res) => {
     try {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
-      let txns = database.data.cash_transactions.filter(t => !(t.reference||'').startsWith('auto_ledger:'));
+      let txns = database.data.cash_transactions.filter(t => !(t.reference||'').includes('_ledger:'));
       if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
       if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
       if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
@@ -721,7 +721,7 @@ module.exports = function(database) {
 
   router.get('/api/cash-book/party-summary/pdf', safeSync((req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
-    let txns = database.data.cash_transactions.filter(t => !(t.reference||'').startsWith('auto_ledger:'));
+    let txns = database.data.cash_transactions.filter(t => !(t.reference||'').includes('_ledger:'));
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
     if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);

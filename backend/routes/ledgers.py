@@ -125,7 +125,7 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
             if t.get("party_type") in ("Agent", "Hemali"): continue
             if party_name and cat.lower() != party_name.lower(): continue
             # Skip auto-ledger entries (they are duplicates with reversed txn_type)
-            if (t.get("reference") or "").startswith("auto_ledger:"): continue
+            if "_ledger:" in (t.get("reference") or ""): continue
             is_jama = t.get("txn_type") == "jama"
             ledger.append({"date": t.get("date", ""), "party_name": cat, "party_type": "Cash Party",
                 "description": t.get("description", "") or f"{'Jama' if is_jama else 'Nikasi'}: ₹{t.get('amount',0)}",
@@ -143,7 +143,7 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
             if not cat: continue
             if party_name and cat.lower() != party_name.lower(): continue
             # Skip auto-ledger entries (they are duplicates with reversed txn_type)
-            if (t.get("reference") or "").startswith("auto_ledger:"): continue
+            if "_ledger:" in (t.get("reference") or ""): continue
             is_jama = t.get("txn_type") == "jama"
             ledger.append({"date": t.get("date", ""), "party_name": cat, "party_type": "Agent",
                 "description": t.get("description", "") or f"{'Jama' if is_jama else 'Nikasi'}: ₹{t.get('amount',0)}",

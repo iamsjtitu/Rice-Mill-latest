@@ -120,14 +120,23 @@ A comprehensive rice mill management system with features for paddy procurement,
 - Verified in Excel exports, PDF exports, and frontend UI
 
 #### Party Ledger Accounting Bug Fix (March 2026 - Complete)
-- Fixed double-counting bug: Party Ledger was including both cash/bank entries AND auto-ledger entries, causing 2x entries per transaction with reversed debit/credit
-- Root cause: auto-ledger entries (created by Cash Book double-entry system) have reversed txn_type, making debit/credit appear wrong in Party Ledger
-- Fix: Exclude entries with reference starting with "auto_ledger:" from Party Ledger and Party Summary queries
-- Files fixed:
-  - Python Backend: ledgers.py (party ledger), cashbook.py (party summary)
-  - Desktop-app: reports.js (party ledger), cashbook.js (party summary ×3)
-  - Local-server: reports.js (party ledger)
-- Result: "Titu se liya" now shows as Credit, "Titu ko diya" shows as Debit (correct accounting)
+- Fixed double-counting bug across ALL payment systems
+- **Root cause:** Multiple modules (Cash Book, Voucher Payments, Agent Payments, Diesel Payments, Private Payments, Truck Payments) create PAIRED entries in cash_transactions (one cash/bank + one ledger counterpart). The Party Ledger and Party Summary were including both, causing 2x entries with wrong debit/credit.
+- **Fix:** Exclude ALL entries with `_ledger:` in reference from Party Ledger and Party Summary. This covers:
+  - `auto_ledger:` (Cash Book auto-ledger)
+  - `voucher_payment_ledger:` (Voucher Payments)
+  - `agent_pay_ledger:` (Agent Payments)
+  - `diesel_pay_ledger:` (Diesel Payments)
+  - `pvt_pay_ledger:` (Private Payments)
+  - `truck_pay_ledger:` (Truck Payments)
+- **Files fixed:** ledgers.py, cashbook.py, desktop-app/reports.js, desktop-app/cashbook.js (×3), local-server/reports.js
+- **Comprehensive testing results:**
+  - 29/29 API endpoints OK
+  - 18/18 Export endpoints OK
+  - 22/22 party balances correct (Jama - Nikasi = Balance)
+  - 0 double-counting entries
+  - 0 negative amounts
+  - 0 entries with both debit AND credit
 
 ## Pending Items
 ### P0
