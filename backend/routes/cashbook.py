@@ -926,6 +926,81 @@ async def cleanup_round_off_entries():
     })
     return {"success": True, "deleted_count": result.deleted_count}
 
+@router.post("/cash-book/auto-fix")
+async def auto_fix_all():
+    """Master auto-fix: runs on every app startup to fix ALL data inconsistencies.
+    Idempotent - safe to run multiple times."""
+    fixes = {"auto_ledger_direction": 0, "round_off_cleaned": 0, "pvt_jama_created": 0, "duplicate_removed": 0}
+
+    # 1. Fix auto_ledger direction (jama/nikasi should match original)
+    auto_ledgers = await db.cash_transactions.find(
+        {"reference": {"$regex": "^auto_ledger:"}}, {"_id": 0, "id": 1, "reference": 1, "txn_type": 1}
+    ).to_list(100000)
+    for entry in auto_ledgers:
+        prefix = entry.get("reference", "").replace("auto_ledger:", "")
+        if not prefix:
+            continue
+        original = await db.cash_transactions.find_one(
+            {"id": {"$regex": f"^{prefix}"}, "account": {"$in": ["cash", "bank"]}}, {"_id": 0, "txn_type": 1}
+        )
+        if original and original.get("txn_type") != entry.get("txn_type"):
+            await db.cash_transactions.update_one({"id": entry["id"]}, {"$set": {"txn_type": original["txn_type"]}})
+            fixes["auto_ledger_direction"] += 1
+
+    # 2. Clean up round_off entries
+    ro = await db.cash_transactions.delete_many({
+        "$or": [{"party_type": "Round Off"}, {"category": "Round Off"}, {"reference": {"$regex": "^round_off:"}}]
+    })
+    fixes["round_off_cleaned"] = ro.deleted_count
+
+    # 3. Create missing pvt_party_jama entries for private paddy purchases
+    pvt_entries = await db.private_paddy.find(
+        {"source": {"$ne": "agent_extra"}}, {"_id": 0}
+    ).to_list(100000)
+    for pvt in pvt_entries:
+        total_amt = float(pvt.get("total_amount", 0) or 0)
+        if total_amt <= 0:
+            continue
+        entry_id = pvt.get("id", "")
+        if not entry_id:
+            continue
+        # Check if jama entry already exists
+        existing = await db.cash_transactions.find_one(
+            {"reference": f"pvt_party_jama:{entry_id[:8]}"}, {"_id": 0, "id": 1}
+        )
+        if not existing:
+            party = pvt.get("party_name", "") or "Pvt Paddy"
+            qntl = pvt.get("qntl", 0) or pvt.get("kg", 0) / 100 if pvt.get("kg") else 0
+            rate = pvt.get("rate_per_qntl", 0) or pvt.get("rate", 0) or 0
+            desc = f"Paddy Purchase: {party} - {qntl}Q @ Rs.{rate}/Q = Rs.{total_amt}" if qntl and rate else f"Paddy Purchase: {party} - Rs.{total_amt}"
+            await db.cash_transactions.insert_one({
+                "id": str(uuid.uuid4()), "date": pvt.get("date", ""),
+                "account": "ledger", "txn_type": "jama",
+                "category": party, "party_type": "Pvt Paddy Purchase",
+                "description": desc, "amount": round(total_amt, 2), "bank_name": "",
+                "reference": f"pvt_party_jama:{entry_id[:8]}",
+                "kms_year": pvt.get("kms_year", ""), "season": pvt.get("season", ""),
+                "created_by": "auto-fix", "linked_entry_id": entry_id,
+                "created_at": pvt.get("created_at", ""), "updated_at": pvt.get("updated_at", ""),
+            })
+            fixes["pvt_jama_created"] += 1
+
+    # 4. Remove duplicate ledger entries (same reference, same amount, same date)
+    all_ledger = await db.cash_transactions.find(
+        {"account": "ledger"}, {"_id": 0, "id": 1, "reference": 1, "amount": 1, "date": 1, "category": 1}
+    ).to_list(100000)
+    seen = set()
+    for t in all_ledger:
+        key = f"{t.get('reference','')}|{t.get('amount',0)}|{t.get('date','')}|{t.get('category','')}"
+        if key in seen and t.get("reference", ""):
+            await db.cash_transactions.delete_one({"id": t["id"]})
+            fixes["duplicate_removed"] += 1
+        else:
+            seen.add(key)
+
+    total = sum(fixes.values())
+    return {"success": True, "total_fixes": total, "details": fixes}
+
 @router.post("/cash-book/migrate-ledger-entries")
 async def migrate_ledger_entries():
     """Migrate old local_party, truck, agent, diesel entries to cash_transactions"""

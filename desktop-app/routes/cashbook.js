@@ -356,6 +356,76 @@ module.exports = function(database) {
     res.json({ success: true, deleted_count: deleted });
   }));
 
+  // Master auto-fix: runs on every app startup to fix ALL data inconsistencies
+  router.post('/api/cash-book/auto-fix', safeSync((req, res) => {
+    const txns = database.data.cash_transactions || [];
+    const pvtEntries = database.data.private_paddy || [];
+    const fixes = { auto_ledger_direction: 0, round_off_cleaned: 0, pvt_jama_created: 0, duplicate_removed: 0 };
+
+    // 1. Fix auto_ledger direction
+    const autoLedgers = txns.filter(t => (t.reference || '').startsWith('auto_ledger:'));
+    for (const entry of autoLedgers) {
+      const prefix = (entry.reference || '').replace('auto_ledger:', '');
+      if (!prefix) continue;
+      const original = txns.find(t => t.id && t.id.startsWith(prefix) && (t.account === 'cash' || t.account === 'bank'));
+      if (original && original.txn_type !== entry.txn_type) {
+        entry.txn_type = original.txn_type;
+        fixes.auto_ledger_direction++;
+      }
+    }
+
+    // 2. Clean up round_off entries
+    const before = txns.length;
+    database.data.cash_transactions = txns.filter(t =>
+      t.party_type !== 'Round Off' && t.category !== 'Round Off' && !(t.reference || '').startsWith('round_off:')
+    );
+    fixes.round_off_cleaned = before - database.data.cash_transactions.length;
+
+    // 3. Create missing pvt_party_jama entries
+    for (const pvt of pvtEntries) {
+      if (pvt.source === 'agent_extra') continue;
+      const totalAmt = parseFloat(pvt.total_amount) || 0;
+      if (totalAmt <= 0 || !pvt.id) continue;
+      const ref = `pvt_party_jama:${pvt.id.slice(0, 8)}`;
+      const exists = database.data.cash_transactions.find(t => t.reference === ref);
+      if (!exists) {
+        const party = pvt.party_name || 'Pvt Paddy';
+        const qntl = pvt.qntl || (pvt.kg ? pvt.kg / 100 : 0);
+        const rate = pvt.rate_per_qntl || pvt.rate || 0;
+        const desc = (qntl && rate) ? `Paddy Purchase: ${party} - ${qntl}Q @ Rs.${rate}/Q = Rs.${totalAmt}` : `Paddy Purchase: ${party} - Rs.${totalAmt}`;
+        database.data.cash_transactions.push({
+          id: require('crypto').randomUUID(), date: pvt.date || '',
+          account: 'ledger', txn_type: 'jama',
+          category: party, party_type: 'Pvt Paddy Purchase',
+          description: desc, amount: Math.round(totalAmt * 100) / 100, bank_name: '',
+          reference: ref,
+          kms_year: pvt.kms_year || '', season: pvt.season || '',
+          created_by: 'auto-fix', linked_entry_id: pvt.id,
+          created_at: pvt.created_at || '', updated_at: new Date().toISOString(),
+        });
+        fixes.pvt_jama_created++;
+      }
+    }
+
+    // 4. Remove duplicate ledger entries
+    const seen = new Set();
+    const toRemove = [];
+    for (const t of database.data.cash_transactions) {
+      if (t.account !== 'ledger' || !t.reference) continue;
+      const key = `${t.reference}|${t.amount}|${t.date}|${t.category}`;
+      if (seen.has(key)) { toRemove.push(t.id); fixes.duplicate_removed++; }
+      else seen.add(key);
+    }
+    if (toRemove.length > 0) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => !toRemove.includes(t.id));
+    }
+
+    const total = Object.values(fixes).reduce((s, v) => s + v, 0);
+    if (total > 0) database.save();
+    res.json({ success: true, total_fixes: total, details: fixes });
+  }));
+
+
   router.get('/api/cash-book/agent-names', safeSync((req, res) => {
     const { kms_year, season } = req.query;
     // Get mandi names from targets

@@ -272,20 +272,12 @@ function MainApp({ user, onLogout }) {
       } catch {}
     };
     loadFySetting();
-    // One-time migration: fix auto_ledger direction (v36 fix)
-    const migKey = "auto_ledger_direction_fixed_v36";
-    if (!localStorage.getItem(migKey)) {
-      axios.post(`${API}/cash-book/fix-auto-ledger-direction`).then(r => {
-        if (r.data?.success) localStorage.setItem(migKey, "1");
-      }).catch(() => {});
-    }
-    // One-time cleanup: remove separate round_off entries (v37 fix)
-    const roKey = "round_off_entries_cleaned_v37";
-    if (!localStorage.getItem(roKey)) {
-      axios.post(`${API}/cash-book/cleanup-round-off-entries`).then(r => {
-        if (r.data?.success) localStorage.setItem(roKey, "1");
-      }).catch(() => {});
-    }
+    // Auto-fix: run on every startup to fix any data inconsistencies
+    axios.post(`${API}/cash-book/auto-fix`).then(r => {
+      if (r.data?.total_fixes > 0) {
+        console.log(`[Auto-Fix] Fixed ${r.data.total_fixes} issues:`, r.data.details);
+      }
+    }).catch(() => {});
   }, []);
 
   // Save FY setting when kms_year changes
