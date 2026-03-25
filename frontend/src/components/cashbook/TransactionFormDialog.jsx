@@ -19,7 +19,7 @@ const TransactionFormDialog = ({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="bg-white border-slate-200 text-slate-800 max-w-md" data-testid="cashbook-form-dialog">
         <DialogHeader><DialogTitle className="text-amber-700">{editingId ? 'Edit Transaction' : 'New Transaction'}</DialogTitle></DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-3">
+        <form onSubmit={onSubmit} onKeyDown={e => { if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') e.preventDefault(); }} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-slate-600">Date</Label>
@@ -204,6 +204,7 @@ const TransactionFormDialog = ({
             </Select>
             {form._showManualType && (
               <Input value={form.party_type} onChange={e => setForm(p => ({ ...p, party_type: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.querySelector('[data-testid="cashbook-form-desc"]')?.focus(); } }}
                 placeholder="Custom party type likhein..." className="border-slate-300 h-8 text-sm mt-1" autoFocus data-testid="cashbook-form-manual-party-type" />
             )}
           </div>
