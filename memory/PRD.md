@@ -82,7 +82,7 @@ A comprehensive rice mill management system with features for paddy procurement,
 
 ## Pending Items
 ### P0
-- UI freeze on delete (fix in preload.js, needs user verification on desktop build)
+- ~~UI freeze on delete~~ FIXED - Replaced window.confirm with React AlertDialog in App.js + strengthened global pointer-events fix in index.js
 
 ### P1
 - Export Preview feature (user requested)

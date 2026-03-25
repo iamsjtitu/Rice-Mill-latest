@@ -22,6 +22,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -283,6 +293,20 @@ function MainApp({ user, onLogout }) {
   // Selection state for bulk delete
   const [selectedEntries, setSelectedEntries] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+
+  // Confirm dialog state (replaces window.confirm to avoid Electron UI freeze)
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, title: "", description: "", onConfirm: null });
+  const showConfirm = (title, description) => {
+    return new Promise((resolve) => {
+      setConfirmDialog({
+        open: true,
+        title,
+        description,
+        onConfirm: () => { setConfirmDialog(prev => ({ ...prev, open: false })); resolve(true); },
+        onCancel: () => { setConfirmDialog(prev => ({ ...prev, open: false })); resolve(false); },
+      });
+    });
+  };
 
   // Calculated fields
   const [calculatedFields, setCalculatedFields] = useState({
@@ -583,7 +607,8 @@ function MainApp({ user, onLogout }) {
   };
 
   const handleRestoreBackup = async (filename) => {
-    if (!window.confirm(`Kya aap "${filename}" se data restore karna chahte hain? Current data replace ho jaayega.`)) return;
+    const ok = await showConfirm("Restore Backup", `Kya aap "${filename}" se data restore karna chahte hain? Current data replace ho jaayega.`);
+    if (!ok) return;
     setBackupLoading(true);
     try {
       const res = await axios.post(`${API}/backups/restore`, { filename });
@@ -596,7 +621,8 @@ function MainApp({ user, onLogout }) {
   };
 
   const handleDeleteBackup = async (filename) => {
-    if (!window.confirm(`Kya aap "${filename}" backup delete karna chahte hain?`)) return;
+    const ok = await showConfirm("Delete Backup", `Kya aap "${filename}" backup delete karna chahte hain?`);
+    if (!ok) return;
     try {
       await axios.delete(`${API}/backups/${filename}`);
       toast.success("Backup delete ho gaya");
@@ -815,7 +841,8 @@ function MainApp({ user, onLogout }) {
       return;
     }
     
-    if (window.confirm(`Kya aap ${selectedEntries.length} entries delete karna chahte hain?`)) {
+    const ok = await showConfirm("Bulk Delete", `Kya aap ${selectedEntries.length} entries delete karna chahte hain?`);
+    if (ok) {
       try {
         const params = `?username=${user.username}&role=${user.role}`;
         let deleted = 0;
@@ -960,7 +987,8 @@ function MainApp({ user, onLogout }) {
       return;
     }
 
-    if (window.confirm("Kya aap sure hain is entry ko delete karna chahte hain?")) {
+    const ok = await showConfirm("Delete Entry", "Kya aap sure hain is entry ko delete karna chahte hain?");
+    if (ok) {
       try {
         const params = `?username=${user.username}&role=${user.role}`;
         await axios.delete(`${API}/entries/${entry.id}${params}`);
@@ -2741,6 +2769,20 @@ function MainApp({ user, onLogout }) {
 
       {/* Auto Update Notification */}
       <AutoUpdate />
+
+      {/* Confirm Dialog (replaces window.confirm to prevent UI freeze) */}
+      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => { if (!open && confirmDialog.onCancel) confirmDialog.onCancel(); }}>
+        <AlertDialogContent className="bg-slate-800 border-slate-700" data-testid="confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">{confirmDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">{confirmDialog.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600" data-testid="confirm-cancel-btn">Nahi</AlertDialogCancel>
+            <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" onClick={confirmDialog.onConfirm} data-testid="confirm-ok-btn">Haan, Karein</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
