@@ -109,8 +109,8 @@ async def get_paddy_stock(kms_year: Optional[str] = None, season: Optional[str] 
     # Private paddy purchases (NOT agent_extra - those are already counted in CMR)
     pvt_query = dict(query)
     pvt_query["source"] = {"$ne": "agent_extra"}
-    pvt_entries = await db.private_paddy.find(pvt_query, {"qntl": 1, "bag": 1, "_id": 0}).to_list(10000)
-    pvt_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 for e in pvt_entries), 2)
+    pvt_entries = await db.private_paddy.find(pvt_query, {"qntl": 1, "final_qntl": 1, "bag": 1, "_id": 0}).to_list(10000)
+    pvt_paddy_in = round(sum((e.get('final_qntl', 0) or e.get('qntl', 0) or 0) - e.get('bag', 0) / 100 for e in pvt_entries), 2)
     # Purchase Voucher paddy
     purchase_vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).to_list(10000)
     pv_paddy = 0

@@ -105,9 +105,9 @@ function getDailyReportData(database, query) {
     },
     pvt_paddy: {
       count: pvtPaddy.length,
-      total_qntl: +pvtPaddy.reduce((s, e) => s + (e.qntl || 0), 0).toFixed(2),
+      total_qntl: +pvtPaddy.reduce((s, e) => s + (e.final_qntl || e.qntl || 0), 0).toFixed(2),
       total_amount: pvtPaddy.reduce((s, e) => s + (e.total_amount || e.amount || 0), 0),
-      details: pvtPaddy.map(p => ({ party: p.party_name||'', mandi: p.mandi_name||'', truck_no: p.truck_no||'', qntl: +(p.qntl||0).toFixed(2), rate: p.rate||0, amount: p.total_amount||p.amount||0, cash_paid: p.cash_paid||0, diesel_paid: p.diesel_paid||0 }))
+      details: pvtPaddy.map(p => ({ party: p.party_name||'', mandi: p.mandi_name||'', truck_no: p.truck_no||'', qntl: +(p.final_qntl||p.qntl||0).toFixed(2), rate: p.rate_per_qntl||p.rate||0, amount: p.total_amount||p.amount||0, cash_paid: p.cash_paid||0, diesel_paid: p.diesel_paid||0 }))
     },
     rice_sales: {
       count: riceSales.length,

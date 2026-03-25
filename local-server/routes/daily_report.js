@@ -99,9 +99,9 @@ function getDailyReportData(query) {
     },
     pvt_paddy: {
       count: pvtPaddy.length,
-      total_kg: pvtPaddy.reduce((s, e) => s + (e.kg || 0), 0),
-      total_amount: pvtPaddy.reduce((s, e) => s + (e.amount || 0), 0),
-      details: isDetail ? pvtPaddy.map(p => ({ party: p.party_name||'', type: p.paddy_type||'', kg: p.kg||0, rate: p.rate||0, amount: p.amount||0 })) : []
+      total_qntl: +pvtPaddy.reduce((s, e) => s + (e.final_qntl || e.qntl || 0), 0).toFixed(2),
+      total_amount: pvtPaddy.reduce((s, e) => s + (e.total_amount || e.amount || 0), 0),
+      details: isDetail ? pvtPaddy.map(p => ({ party: p.party_name||'', type: p.paddy_type||'', kg: p.kg||0, qntl: +(p.final_qntl||p.qntl||0).toFixed(2), rate: p.rate_per_qntl||p.rate||0, amount: p.total_amount||p.amount||0 })) : []
     },
     rice_sales: {
       count: riceSales.length,
