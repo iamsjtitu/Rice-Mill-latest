@@ -36,7 +36,7 @@ const RoundOffInput = ({ value, onChange, amount = 0, darkMode = true }) => {
       </div>
       {roundOff !== 0 && (
         <p className={`text-[10px] ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-          {roundOff > 0 ? `+${roundOff} extra nikasi (Cash Book mein alag entry)` : `${roundOff} kam (Cash Book mein alag entry)`}
+          {roundOff > 0 ? `+${roundOff} extra diya` : `${roundOff} kam diya`}
         </p>
       )}
     </div>
