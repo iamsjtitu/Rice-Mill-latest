@@ -434,6 +434,19 @@ module.exports = function(database) {
       created_by: username || 'admin', linked_entry_id: pvtEntry.id,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString()
     });
+    // Also create ledger entry for Party Ledger view
+    database.data.cash_transactions.push({
+      id: require('crypto').randomUUID(),
+      date: pvtEntry.date,
+      account: 'ledger', txn_type: 'jama',
+      category: partyLabel, party_type: 'Pvt Paddy Purchase',
+      description: `Paddy Purchase: ${partyLabel} - ${extra_qntl}Q @ Rs.${rate}/Q = Rs.${total_amount}`,
+      amount: Math.round(total_amount * 100) / 100,
+      reference: `pvt_party_jama_ledger:${pvtEntry.id.slice(0, 8)}`,
+      kms_year: kms_year || '', season: season || '',
+      created_by: username || 'admin', linked_entry_id: pvtEntry.id,
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    });
     database.save();
     res.json({ success: true, message: `${extra_qntl}Q @ Rs.${rate}/Q = Rs.${total_amount} Pvt Purchase mein move ho gaya (${agent_name} - ${mandi_name})` });
   }));

@@ -38,6 +38,15 @@ module.exports = function(database) {
         reference: `pvt_party_jama:${entryId.slice(0,8)}`,
         ...base
       });
+      // Also create ledger entry for Party Ledger view
+      db.data.cash_transactions.push({
+        id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'jama',
+        category: partyLabel, party_type: 'Pvt Paddy Purchase',
+        description: partyJamaDesc,
+        amount: Math.round(totalAmount * 100) / 100,
+        reference: `pvt_party_jama_ledger:${entryId.slice(0,8)}`,
+        ...base
+      });
     }
 
     const cashPaid = parseFloat(doc.cash_paid) || 0;

@@ -1002,10 +1002,30 @@ async def auto_fix_all():
                 "created_at": pvt.get("created_at", ""), "updated_at": pvt.get("updated_at", ""),
             })
             fixes["pvt_jama_created"] += 1
+        # Also check if ledger entry exists
+        ledger_ref = f"pvt_party_jama_ledger:{entry_id[:8]}"
+        ledger_exists = await db.cash_transactions.find_one({"reference": ledger_ref}, {"_id": 0, "id": 1})
+        if not ledger_exists:
+            party = pvt.get("party_name", "") or "Pvt Paddy"
+            qntl_l = pvt.get("qntl", 0) or pvt.get("kg", 0) / 100 if pvt.get("kg") else 0
+            rate_l = pvt.get("rate_per_qntl", 0) or pvt.get("rate", 0) or 0
+            desc_l = f"Paddy Purchase: {party} - {qntl_l}Q @ Rs.{rate_l}/Q = Rs.{total_amt}" if qntl_l and rate_l else f"Paddy Purchase: {party} - Rs.{total_amt}"
+            await db.cash_transactions.insert_one({
+                "id": str(uuid.uuid4()), "date": pvt.get("date", ""),
+                "account": "ledger", "txn_type": "jama",
+                "category": party, "party_type": "Pvt Paddy Purchase",
+                "description": desc_l, "amount": round(total_amt, 2), "bank_name": "",
+                "reference": ledger_ref,
+                "kms_year": pvt.get("kms_year", ""), "season": pvt.get("season", "") or "Kharif",
+                "created_by": "auto-fix", "linked_entry_id": entry_id,
+                "created_at": pvt.get("created_at", ""), "updated_at": pvt.get("updated_at", ""),
+            })
+            fixes["pvt_ledger_created"] = fixes.get("pvt_ledger_created", 0) + 1
 
-    # 3b. Fix existing pvt_party_jama entries: change account from 'ledger' to 'cash'
+    # 3b. Fix existing pvt_party_jama entries: ensure they stay as 'cash' (not 'ledger')
+    # Note: pvt_party_jama entries should be 'cash', pvt_party_jama_ledger entries should be 'ledger'
     result = await db.cash_transactions.update_many(
-        {"reference": {"$regex": "^pvt_party_jama:"}, "account": "ledger"},
+        {"$and": [{"reference": {"$regex": "^pvt_party_jama:"}}, {"reference": {"$not": {"$regex": "_ledger:"}}}, {"account": "ledger"}]},
         {"$set": {"account": "cash"}}
     )
     if result.modified_count > 0:

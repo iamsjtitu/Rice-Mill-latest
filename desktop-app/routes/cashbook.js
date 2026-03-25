@@ -417,11 +417,31 @@ module.exports = function(database) {
         });
         fixes.pvt_jama_created++;
       }
+      // Also create ledger entry if missing
+      const ledgerRef = `pvt_party_jama_ledger:${pvt.id.slice(0, 8)}`;
+      const ledgerExists = database.data.cash_transactions.find(t => t.reference === ledgerRef);
+      if (!ledgerExists) {
+        const party = pvt.party_name || 'Pvt Paddy';
+        const qntl = pvt.qntl || (pvt.kg ? pvt.kg / 100 : 0);
+        const rate = pvt.rate_per_qntl || pvt.rate || 0;
+        const desc = (qntl && rate) ? `Paddy Purchase: ${party} - ${qntl}Q @ Rs.${rate}/Q = Rs.${totalAmt}` : `Paddy Purchase: ${party} - Rs.${totalAmt}`;
+        database.data.cash_transactions.push({
+          id: require('crypto').randomUUID(), date: pvt.date || '',
+          account: 'ledger', txn_type: 'jama',
+          category: party, party_type: 'Pvt Paddy Purchase',
+          description: desc, amount: Math.round(totalAmt * 100) / 100, bank_name: '',
+          reference: ledgerRef,
+          kms_year: pvt.kms_year || '', season: pvt.season || 'Kharif',
+          created_by: 'auto-fix', linked_entry_id: pvt.id,
+          created_at: pvt.created_at || '', updated_at: new Date().toISOString(),
+        });
+        fixes.pvt_ledger_created = (fixes.pvt_ledger_created || 0) + 1;
+      }
     }
 
-    // 3b. Fix existing pvt_party_jama entries: change account from 'ledger' to 'cash'
+    // 3b. Fix existing pvt_party_jama entries: ensure 'cash' account (skip _ledger entries)
     for (const t of database.data.cash_transactions) {
-      if ((t.reference || '').startsWith('pvt_party_jama:') && t.account === 'ledger') {
+      if ((t.reference || '').startsWith('pvt_party_jama:') && !(t.reference || '').includes('_ledger:') && t.account === 'ledger') {
         t.account = 'cash';
         fixes.pvt_jama_account_fixed = (fixes.pvt_jama_account_fixed || 0) + 1;
       }

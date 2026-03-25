@@ -134,6 +134,16 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
             "reference": f"pvt_party_jama:{entry_id[:8]}",
             **base_fields
         })
+        # Also create ledger entry for Party Ledger view
+        await db.cash_transactions.insert_one({
+            "id": str(uuid.uuid4()), "date": date,
+            "account": "ledger", "txn_type": "jama",
+            "category": party_label, "party_type": "Pvt Paddy Purchase",
+            "description": party_jama_desc,
+            "amount": round(total_amount, 2), "bank_name": "",
+            "reference": f"pvt_party_jama_ledger:{entry_id[:8]}",
+            **base_fields
+        })
     
     # --- Truck Jama (Ledger) --- what we owe the truck for transport
     final_qntl = round(doc.get("final_qntl", 0) or doc.get("quantity_qntl", 0) or 0, 2)
