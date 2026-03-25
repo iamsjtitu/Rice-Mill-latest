@@ -4,13 +4,13 @@
 A comprehensive rice mill management system with features for paddy procurement, milling operations, DC management, financial tracking, staff management, and reporting.
 
 ## Architecture
-- **Frontend**: React (Vite) 
+- **Frontend**: React (CRA with CRACO) 
 - **Backend**: FastAPI (Python)
 - **Database**: MongoDB
-- **Desktop**: Electron + Node.js (separate codebase)
-- **Local Server**: Node.js (separate from web backend)
+- **Desktop**: Electron + Node.js Express (separate codebase with local JSON storage)
+- **Local Server**: Node.js Express (separate from web backend)
 
-## Current Version: v37.1.0
+## Current Version: v38.1.0
 
 ## What's Been Implemented
 
@@ -33,80 +33,33 @@ A comprehensive rice mill management system with features for paddy procurement,
 - Telegram report integration
 - Auto-update system for desktop app
 - "What's New" changelog component
+- Global keyboard shortcuts (Ctrl+N, Ctrl+S, Alt+*, Backspace navigation)
 
-### Session Work (March 2026)
+### Bug Fixes (25 March 2026 - v38.1.0)
+- **Ctrl+N Keyboard Shortcut Fix**: Changed selector from `[data-testid*="new-btn"]` (matched whats-new-btn) to `[data-testid$="-add-btn"]` (ends-with match)
+- **Pvt Paddy Party Name Fix**: 
+  - Fixed `_deleteCashDieselForPvtPaddy` in ALL three backends (Python, Desktop, Local-server) to also delete `pvt_party_jama:` and `pvt_truck_jama:` reference entries
+  - Fixed `qntl` field to use `final_qntl` (correct calculated field) instead of `qntl` 
+  - Fixed `rate` field to use `rate_per_qntl` (correct form field) instead of `rate`
+  - Added missing Party Jama entry creation in local-server backend
+  - Fixed migration/auto-fix regex patterns for completeness
 
-#### Credit/Debit Direction Fix (25 March 2026 - Complete)
-- Auto-ledger entries no longer reverse txn_type
-- Party Ledger now shows correct Jama (Cr) / Nikasi (Dr) direction
-- Migration endpoint to fix existing reversed entries
-- Fixed across Python backend + Desktop-app + Local-server
-
-#### Round Off Entries Removed (25 March 2026 - Complete)
-- Separate Round Off entries no longer created in any payment flow
-- "Round Off Show/Hide" button removed from Cash Book UI
-- Round off info preserved only in transaction descriptions
-- Cleanup migration to delete existing round_off entries
-- Round off INPUT field still works - only the separate entry is removed
-
-#### Move to Paddy Purchase Fix (25 March 2026 - Complete)
-- Fixed missing `uuidv4` import in desktop-app/routes/reports.js
-
-#### UI Freeze on Delete Fix (25 March 2026 - Complete)
-- Replaced window.confirm with React AlertDialog in App.js
-- Strengthened global pointer-events cleanup in index.js
-
-#### Party Summary UI Cleanup (25 March 2026 - Complete)
-- Redesigned from bulky cards to compact inline stats + clean table
-
-#### Critical Bug Fixes (Previous Session - Complete)
-- Auto-Ledger double-entry logic fix (all backends)
-- Round Off balance fix (Cash in Hand calculation)
-- UI freeze fix (desktop preload.js MutationObserver)
-- Export filter fix (desktop/local-server)
-
-#### Export Redesign (Previous Session - Complete)
-- Created centralized styling helpers for Python and Node.js
-- Applied new styling to ALL Python web backend exports (50 endpoints)
-- Applied new styling to ALL desktop-app Node.js route files (34+ endpoints)
-
-#### Cashbook PDF Major Fix (Previous Session - Complete)
-- Fixed cashbook PDF to use helpers instead of manual drawing
-- Added date range display and totals row
-
-#### Hindi Font Fix for PDFs (Previous Session - Complete)
-- Registered FreeSans font family for all ReportLab PDFs
-- All Hindi text now renders correctly in PDFs
-
-#### Company Name + Tagline in All Exports (Previous Session - Complete)
-- Updated all 56 export endpoints with company headers
-
-#### Remove Ref Column from All Exports (March 2026 - Complete)
-- Removed "Reference"/"Ref" column from ALL PDF and Excel exports
-
-#### Jama (Cr) / Nikasi (Dr) Label Change (March 2026 - Complete)
-- Changed all Jama/Nikasi labels across entire software
-
-#### Party Ledger Accounting Bug Fix (March 2026 - Complete)
-- Fixed double-counting bug across ALL payment systems
-- Exclude ALL entries with `_ledger:` in reference
-
-#### Sale Book & Purchase Voucher in Party Ledger (March 2026 - Complete)
-- Added dedicated Sale Book and Purchase Voucher sections
-- Version bumped to 35.0.0
-
-#### Desktop Build Fix (25 March 2026 - Complete)
-- **Root Cause:** `frontend-build/` directory contained stale code from v32.0.0, and `setup-desktop.js` skipped rebuild when old build existed
-- **Fix 1:** Updated `APP_VERSION` in `WhatsNew.jsx` from `32.0.0` to `35.0.0`
-- **Fix 2:** Added new v35.0.0 changelog entry in WhatsNew component
-- **Fix 3:** Rebuilt `frontend-build/` with latest source code
-- **Fix 4:** Improved `setup-desktop.js` with version mismatch detection using `.build-version` tracking file
-- **Verified:** Footer shows v35.0.0, Jama (Cr)/Nikasi (Dr) labels visible, all changes present in build
+### Previous Session Work (25 March 2026 - v38.0.0)
+- Desktop build pipeline fix
+- UI Freeze on delete fix (React AlertDialog)
+- Auto-ledger Cr/Dr direction fix
+- Party Summary UI redesign
+- Removed global Round Off separate ledger entries
+- Added Round Off input to Pvt Paddy Make Payment
+- Auto-fix startup script for historical data
+- Global Keyboard Shortcuts
+- Backspace navigation for empty fields
+- Replaced "Total QNTL" with "Total Final W" in reports
+- Mandi-specific dropdown filter in Agent/Mandi reports
 
 ## Pending Items
 ### P0
-- ~~UI freeze on delete~~ FIXED - Replaced window.confirm with React AlertDialog + aggressive global cleanup
-- ~~Credit/Debit direction in auto_ledger~~ FIXED - Removed txn_type reversal + migration for existing entries
+- None currently
 
 ### P1
 - Export Preview feature (user requested)
@@ -116,21 +69,30 @@ A comprehensive rice mill management system with features for paddy procurement,
 - Sardar-wise monthly Hemali report breakdown
 - Refactor payment logic into service layer
 
+### Refactoring Needs
+- `App.js` is 2800+ lines - needs component extraction
+- Payment logic should be centralized into service layer
+
 ## Key API Endpoints
 - `/api/cash-book/*` - Cash book CRUD + exports
+- `/api/private-paddy/*` - Private paddy CRUD + auto-ledger
+- `/api/rice-sales/*` - Rice sales CRUD
 - `/api/dc-entries/*` - DC register + exports
 - `/api/msp-payments/*` - MSP payments + exports
-- `/api/gunny-bags/*` - Gunny bag inventory + exports
-- `/api/milling-report/*` - Milling operations + exports
+- `/api/gunny-bags/*` - Gunny bag inventory
+- `/api/milling-report/*` - Milling operations
 - `/api/reports/*` - Various reports
-- `/api/export/*` - Mill entries + agent payments exports
-- `/api/hemali/*` - Hemali payments + exports
-- `/api/private-paddy/*`, `/api/rice-sales/*` - Private trading exports
-- `/api/sale-book/*`, `/api/purchase-book/*` - Sale/Purchase book exports
-- `/api/mill-parts/*` - Mill parts exports
-- `/api/diesel-accounts/*` - Diesel account exports
+- `/api/hemali/*` - Hemali payments
+- `/api/sale-book/*`, `/api/purchase-book/*` - Sale/Purchase book
+- `/api/mill-parts/*` - Mill parts
+- `/api/diesel-accounts/*` - Diesel account
 - `/api/staff/*` - Staff management
 
 ## Credentials
 - Username: admin
 - Password: admin123
+
+## Critical Technical Notes
+- **Dual Backend Rule**: Any logic change to Python routes MUST be replicated in desktop-app Node.js routes AND local-server routes
+- **Build Pipeline**: Frontend changes need `yarn build` + copy to `desktop-app/frontend-build/`
+- **Reference Patterns**: Pvt Paddy uses `pvt_paddy_*`, `pvt_party_jama:*`, and `pvt_truck_jama:*` references
