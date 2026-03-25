@@ -10,7 +10,7 @@ A comprehensive rice mill management system with features for paddy procurement,
 - **Desktop**: Electron + Node.js (separate codebase)
 - **Local Server**: Node.js (separate from web backend)
 
-## Current Version: v33.0.0
+## Current Version: v35.0.0
 
 ## What's Been Implemented
 
@@ -137,6 +137,14 @@ A comprehensive rice mill management system with features for paddy procurement,
   - 0 double-counting entries
   - 0 negative amounts
   - 0 entries with both debit AND credit
+
+#### Sale Book & Purchase Voucher in Party Ledger (March 2026 - Complete)
+- Added dedicated Sale Book section: Shows sale amount (Debit) + payments received (Credit)
+- Added dedicated Purchase Voucher section: Shows purchase amount (Credit) + payments made (Debit)
+- Data source: `local_party_accounts` collection (source_type filter)
+- Skipped "Sale Book" and "Purchase Voucher" party_types from Cash Party section to prevent double-counting
+- Files: ledgers.py, desktop-app/reports.js, local-server/reports.js
+- Version bumped to 35.0.0
 
 ## Pending Items
 ### P0

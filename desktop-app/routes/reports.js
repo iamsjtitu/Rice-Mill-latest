@@ -30,7 +30,7 @@ module.exports = function(database) {
     }
 
     if (!party_type || party_type === 'cash_party') {
-      const cashTxns = (database.data.cash_transactions||[]).filter(t => (!kms_year||t.kms_year===kms_year) && (!season||t.season===season) && dateFilter(t.date || '') && t.party_type !== 'Agent');
+      const cashTxns = (database.data.cash_transactions||[]).filter(t => (!kms_year||t.kms_year===kms_year) && (!season||t.season===season) && dateFilter(t.date || '') && !['Agent','Hemali','Sale Book','Purchase Voucher'].includes(t.party_type));
       for (const t of cashTxns) {
         const cat = (t.category||'').trim();
         if (!cat) continue;
@@ -107,6 +107,40 @@ module.exports = function(database) {
           credit: isJama ? Math.round((t.amount||0)*100)/100 : 0,
           ref: (t.id||'').substring(0,8) });
       }
+    }
+
+    // Sale Book parties (from local_party_accounts)
+    if (!party_type || party_type === 'sale_book') {
+      (database.data.local_party_accounts||[]).filter(t =>
+        ['sale_voucher','sale_voucher_payment'].includes(t.source_type) &&
+        (!kms_year||t.kms_year===kms_year) && (!season||t.season===season) && dateFilter(t.date||'')
+      ).forEach(t => {
+        const pn = t.party_name||''; if (!pn) return;
+        if (party_name && pn.toLowerCase()!==party_name.toLowerCase()) return;
+        const amt = Math.round((t.amount||0)*100)/100;
+        if (t.source_type === 'sale_voucher') {
+          ledger.push({ date: t.date||'', party_name: pn, party_type: 'Sale Book', description: t.description||`Sale: Rs.${amt}`, debit: amt, credit: 0, ref: (t.id||'').substring(0,8) });
+        } else {
+          ledger.push({ date: t.date||'', party_name: pn, party_type: 'Sale Book', description: t.description||`Payment: Rs.${amt}`, debit: 0, credit: amt, ref: (t.id||'').substring(0,8) });
+        }
+      });
+    }
+
+    // Purchase Voucher parties (from local_party_accounts)
+    if (!party_type || party_type === 'purchase_voucher') {
+      (database.data.local_party_accounts||[]).filter(t =>
+        ['purchase_voucher','purchase_voucher_payment'].includes(t.source_type) &&
+        (!kms_year||t.kms_year===kms_year) && (!season||t.season===season) && dateFilter(t.date||'')
+      ).forEach(t => {
+        const pn = t.party_name||''; if (!pn) return;
+        if (party_name && pn.toLowerCase()!==party_name.toLowerCase()) return;
+        const amt = Math.round((t.amount||0)*100)/100;
+        if (t.source_type === 'purchase_voucher') {
+          ledger.push({ date: t.date||'', party_name: pn, party_type: 'Purchase Voucher', description: t.description||`Purchase: Rs.${amt}`, debit: 0, credit: amt, ref: (t.id||'').substring(0,8) });
+        } else {
+          ledger.push({ date: t.date||'', party_name: pn, party_type: 'Purchase Voucher', description: t.description||`Payment: Rs.${amt}`, debit: amt, credit: 0, ref: (t.id||'').substring(0,8) });
+        }
+      });
     }
 
     ledger.sort((a, b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));

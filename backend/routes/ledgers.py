@@ -122,7 +122,7 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
             # Skip system categories (Cash Payment, Diesel Payment etc.)
             if cat.lower() in ("cash payment", "diesel payment", "cash paid", "diesel", "cash paid (entry)", "diesel (entry)"): continue
             # Skip types that have their own dedicated sections
-            if t.get("party_type") in ("Agent", "Hemali"): continue
+            if t.get("party_type") in ("Agent", "Hemali", "Sale Book", "Purchase Voucher"): continue
             if party_name and cat.lower() != party_name.lower(): continue
             # Skip auto-ledger entries (they are duplicates with reversed txn_type)
             if "_ledger:" in (t.get("reference") or ""): continue
@@ -246,6 +246,50 @@ async def report_party_ledger(party_name: Optional[str] = None, party_type: Opti
                 ledger.append({"date": p.get("date", ""), "party_name": sn, "party_type": "Hemali",
                     "description": f"Advance Deducted: Rs.{p.get('advance_deducted',0)}",
                     "debit": 0, "credit": round(p.get("advance_deducted", 0), 2), "ref": p.get("id", "")[:8]})
+
+    # Sale Book parties (from local_party_accounts)
+    if not party_type or party_type == "sale_book":
+        lp_query = dict(query)
+        lp_query["source_type"] = {"$in": ["sale_voucher", "sale_voucher_payment"]}
+        if party_name: lp_query["party_name"] = {"$regex": f"^{party_name}$", "$options": "i"}
+        lp_txns = await db.local_party_accounts.find(lp_query, {"_id": 0}).to_list(10000)
+        for t in lp_txns:
+            pn = t.get("party_name", "")
+            if not pn: continue
+            src = t.get("source_type", "")
+            amt = round(t.get("amount", 0), 2)
+            if src == "sale_voucher":
+                # Sale amount: party owes us → Debit
+                ledger.append({"date": t.get("date", ""), "party_name": pn, "party_type": "Sale Book",
+                    "description": t.get("description", "") or f"Sale: Rs.{amt}",
+                    "debit": amt, "credit": 0, "ref": t.get("id", "")[:8]})
+            elif src == "sale_voucher_payment":
+                # Payment received: reduces what party owes → Credit
+                ledger.append({"date": t.get("date", ""), "party_name": pn, "party_type": "Sale Book",
+                    "description": t.get("description", "") or f"Payment: Rs.{amt}",
+                    "debit": 0, "credit": amt, "ref": t.get("id", "")[:8]})
+
+    # Purchase Voucher parties (from local_party_accounts)
+    if not party_type or party_type == "purchase_voucher":
+        pv_query = dict(query)
+        pv_query["source_type"] = {"$in": ["purchase_voucher", "purchase_voucher_payment"]}
+        if party_name: pv_query["party_name"] = {"$regex": f"^{party_name}$", "$options": "i"}
+        pv_txns = await db.local_party_accounts.find(pv_query, {"_id": 0}).to_list(10000)
+        for t in pv_txns:
+            pn = t.get("party_name", "")
+            if not pn: continue
+            src = t.get("source_type", "")
+            amt = round(t.get("amount", 0), 2)
+            if src == "purchase_voucher":
+                # Purchase amount: we owe party → Credit
+                ledger.append({"date": t.get("date", ""), "party_name": pn, "party_type": "Purchase Voucher",
+                    "description": t.get("description", "") or f"Purchase: Rs.{amt}",
+                    "debit": 0, "credit": amt, "ref": t.get("id", "")[:8]})
+            elif src == "purchase_voucher_payment":
+                # Payment made: reduces what we owe → Debit
+                ledger.append({"date": t.get("date", ""), "party_name": pn, "party_type": "Purchase Voucher",
+                    "description": t.get("description", "") or f"Payment: Rs.{amt}",
+                    "debit": amt, "credit": 0, "ref": t.get("id", "")[:8]})
 
     ledger.sort(key=lambda x: x.get("date", ""), reverse=True)
 
