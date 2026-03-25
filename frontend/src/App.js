@@ -703,120 +703,104 @@ function MainApp({ user, onLogout }) {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
-      // Don't trigger shortcuts when typing in input/textarea
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+      const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
+
+      // Ctrl+S: Save/Submit active form (works even in input fields)
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        const submitBtn = document.querySelector('form button[type="submit"], [data-testid="save-btn"], [data-testid="submit-btn"]');
+        if (submitBtn) {
+          submitBtn.click();
+          toast.info("Save (Ctrl+S)");
+        }
         return;
       }
 
-      // Alt + N: New Entry (open form)
-      if (e.altKey && e.key === 'n') {
+      // Ctrl+N: New Entry/Transaction (works even in input)
+      if (e.ctrlKey && e.key === 'n') {
         e.preventDefault();
-        setActiveTab("entries");
-        setIsDialogOpen(true);
-        setEditingId(null);
-        setFormData(initialFormState);
-        toast.info("New Entry Form (Alt+N)");
+        if (activeTab === "entries") {
+          setIsDialogOpen(true); setEditingId(null); setFormData(initialFormState);
+        } else {
+          // Click any visible "New"/"Add" button on current tab
+          const addBtn = document.querySelector('[data-testid*="add-btn"], [data-testid*="new-btn"], button:has(.lucide-plus)');
+          if (addBtn) addBtn.click();
+        }
+        toast.info("New (Ctrl+N)");
+        return;
       }
-      // Alt + E: Go to Entries tab
-      if (e.altKey && e.key === 'e') {
-        e.preventDefault();
-        setActiveTab("entries");
-        toast.info("Entries Tab (Alt+E)");
-      }
-      // Alt + D: Go to Dashboard tab
-      if (e.altKey && e.key === 'd') {
-        e.preventDefault();
-        setActiveTab("dashboard");
-        toast.info("Dashboard Tab (Alt+D)");
-      }
-      // Alt + P: Go to Payments tab
-      if (e.altKey && e.key === 'p') {
-        e.preventDefault();
-        setActiveTab("payments");
-        toast.info("Payments Tab (Alt+P)");
-      }
-      // Alt + M: Go to Milling tab
-      if (e.altKey && e.key === 'm') {
-        e.preventDefault();
-        setActiveTab("milling");
-        toast.info("Milling Tab (Alt+M)");
-      }
-      // Alt + B: Go to Cash Book tab
-      if (e.altKey && e.key === 'b') {
-        e.preventDefault();
-        setActiveTab("cashbook");
-        toast.info("Cash Book (Alt+B)");
-      }
-      // Alt + T: Go to DC Tracker tab
-      if (e.altKey && e.key === 't') {
-        e.preventDefault();
-        setActiveTab("dctracker");
-        toast.info("DC Tracker (Alt+T)");
-      }
-      // Alt + O: Go to Reports tab
-      if (e.altKey && e.key === 'o') {
-        e.preventDefault();
-        setActiveTab("reports");
-        toast.info("Reports (Alt+O)");
-      }
-      // Alt + G: Go to Vouchers tab
-      if (e.altKey && e.key === 'g') {
-        e.preventDefault();
-        setActiveTab("vouchers");
-        toast.info("Vouchers (Alt+G)");
-      }
-      // Alt + K: Go to Mill Parts tab
-      if (e.altKey && e.key === 'k') {
-        e.preventDefault();
-        setActiveTab("mill-parts");
-        toast.info("Mill Parts (Alt+K)");
-      }
-      // Alt + S: Go to Staff tab
-      if (e.altKey && e.key === 's') {
-        e.preventDefault();
-        setActiveTab("staff");
-        toast.info("Staff (Alt+S)");
-      }
-      // Alt + I: Go to Settings tab
-      if (e.altKey && e.key === 'i') {
-        e.preventDefault();
-        setActiveTab("settings");
-        toast.info("Settings (Alt+I)");
-      }
-      // Alt + Y: Go to FY Summary tab
-      if (e.altKey && e.key === 'y') {
-        e.preventDefault();
-        setActiveTab("fy-summary");
-        toast.info("FY Summary (Alt+Y)");
-      }
-      // Alt + R: Refresh data
-      if (e.altKey && e.key === 'r') {
-        e.preventDefault();
-        fetchEntries();
-        fetchTotals();
-        toast.info("Data Refreshed (Alt+R)");
-      }
-      // Alt + F: Focus on filter
-      if (e.altKey && e.key === 'f') {
+
+      // Ctrl+F: Search/Filter (works even in input)
+      if (e.ctrlKey && e.key === 'f') {
         e.preventDefault();
         setShowFilters(true);
-        toast.info("Filters Open (Alt+F)");
+        toast.info("Filters (Ctrl+F)");
+        return;
       }
+
+      // Ctrl+R: Refresh
+      if (e.ctrlKey && e.key === 'r') {
+        e.preventDefault();
+        fetchEntries(); fetchTotals();
+        toast.info("Refreshed (Ctrl+R)");
+        return;
+      }
+
+      // Ctrl+P: Print current view
+      if (e.ctrlKey && e.key === 'p') {
+        e.preventDefault();
+        window.print();
+        return;
+      }
+
+      // Ctrl+Delete / Ctrl+Backspace: Delete selected entries
+      if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace') && !inInput) {
+        e.preventDefault();
+        if (selectedEntries.length > 0) {
+          const delBtn = document.querySelector('[data-testid="bulk-delete-btn"]');
+          if (delBtn) delBtn.click();
+        }
+        return;
+      }
+
+      // Don't trigger remaining shortcuts when typing
+      if (inInput) return;
+
       // Escape: Close form/dialogs
       if (e.key === 'Escape') {
-        setIsDialogOpen(false);
-        setShowFilters(false);
+        setIsDialogOpen(false); setShowFilters(false); setShowShortcuts(false);
       }
       // ?: Show shortcuts help
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-        e.preventDefault();
-        setShowShortcuts(true);
+        e.preventDefault(); setShowShortcuts(true);
+      }
+
+      // Alt + tab navigation (existing)
+      if (e.altKey) {
+        const tabMap = {
+          'e': 'entries', 'd': 'dashboard', 'p': 'payments', 'm': 'milling',
+          'b': 'cashbook', 't': 'dctracker', 'o': 'reports', 'g': 'vouchers',
+          'k': 'mill-parts', 's': 'staff', 'i': 'settings', 'y': 'fy-summary',
+        };
+        const tabNames = {
+          'entries': 'Entries', 'dashboard': 'Dashboard', 'payments': 'Payments', 'milling': 'Milling',
+          'cashbook': 'Cash Book', 'dctracker': 'DC Tracker', 'reports': 'Reports', 'vouchers': 'Vouchers',
+          'mill-parts': 'Mill Parts', 'staff': 'Staff', 'settings': 'Settings', 'fy-summary': 'FY Summary',
+        };
+        if (tabMap[e.key]) {
+          e.preventDefault();
+          setActiveTab(tabMap[e.key]);
+          toast.info(`${tabNames[tabMap[e.key]]} (Alt+${e.key.toUpperCase()})`);
+        }
+        if (e.key === 'n') { e.preventDefault(); setActiveTab("entries"); setIsDialogOpen(true); setEditingId(null); setFormData(initialFormState); toast.info("New Entry (Alt+N)"); }
+        if (e.key === 'r') { e.preventDefault(); fetchEntries(); fetchTotals(); toast.info("Refreshed (Alt+R)"); }
+        if (e.key === 'f') { e.preventDefault(); setShowFilters(true); toast.info("Filters (Alt+F)"); }
       }
     };
 
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => document.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [fetchEntries, fetchTotals]);
+  }, [fetchEntries, fetchTotals, activeTab, selectedEntries]);
 
   // Handle select all
   const handleSelectAll = () => {
@@ -1194,7 +1178,42 @@ function MainApp({ user, onLogout }) {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
-                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Navigation</p>
+                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Quick Actions (Ctrl)</p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-emerald-400 font-mono text-xs">Ctrl+N</kbd>
+                    <span className="text-slate-300">New Entry / Transaction</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-emerald-400 font-mono text-xs">Ctrl+S</kbd>
+                    <span className="text-slate-300">Save / Submit Form</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-emerald-400 font-mono text-xs">Ctrl+F</kbd>
+                    <span className="text-slate-300">Search / Filters</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-emerald-400 font-mono text-xs">Ctrl+R</kbd>
+                    <span className="text-slate-300">Refresh Data</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-emerald-400 font-mono text-xs">Ctrl+P</kbd>
+                    <span className="text-slate-300">Print</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-emerald-400 font-mono text-xs">Ctrl+Del</kbd>
+                    <span className="text-slate-300">Delete Selected</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-emerald-400 font-mono text-xs">Esc</kbd>
+                    <span className="text-slate-300">Close Dialog</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-emerald-400 font-mono text-xs">?</kbd>
+                    <span className="text-slate-300">Ye Shortcuts</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider pt-2 border-t border-slate-700">Tab Navigation (Alt)</p>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+E</kbd>
@@ -1214,7 +1233,7 @@ function MainApp({ user, onLogout }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+B</kbd>
-                    <span className="text-slate-300">Cash Book / Ledgers</span>
+                    <span className="text-slate-300">Cash Book</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+T</kbd>
@@ -1240,35 +1259,10 @@ function MainApp({ user, onLogout }) {
                     <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+I</kbd>
                     <span className="text-slate-300">Settings</span>
                   </div>
-                </div>
-                <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider pt-2 border-t border-slate-700">Actions</p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+N</kbd>
-                    <span className="text-slate-300">New Entry</span>
+                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+Y</kbd>
+                    <span className="text-slate-300">FY Summary</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+R</kbd>
-                    <span className="text-slate-300">Refresh Data</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Alt+F</kbd>
-                    <span className="text-slate-300">Open Filters</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">Esc</kbd>
-                    <span className="text-slate-300">Close Dialogs</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <kbd className="px-2 py-1 bg-slate-700 rounded text-amber-400 font-mono text-xs">?</kbd>
-                    <span className="text-slate-300">Show Shortcuts</span>
-                  </div>
-                </div>
-                <div className="pt-2 border-t border-slate-700">
-                  <p className="text-xs text-slate-400 flex items-center gap-1">
-                    <Info className="w-3 h-3" />
-                    Autocomplete fields mein Arrow keys aur Enter use karein
-                  </p>
                 </div>
               </div>
             </DialogContent>
