@@ -3,9 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "42.0.0";
+const APP_VERSION = "42.1.0";
 
 const CHANGELOG = [
+  {
+    version: "42.1.0",
+    date: "26 Mar 2026",
+    title: "v42.1 - Duplicate Party Fix + Undo Button Restore",
+    items: [
+      { type: "fix", text: "Duplicate party name fix - 'Kridha (Kesinga) - Kesinga' ab nahi banega" },
+      { type: "fix", text: "Payment Undo button ab Paddy Purchase History mein dikh raha hai" },
+      { type: "fix", text: "Health Check ab duplicate party names detect karke merge karega" },
+      { type: "imp", text: "Undo+History combined button - jab payment ho toh orange icon dikhega" },
+      { type: "imp", text: "Desktop/Local Server mein Mark Paid + Undo Paid logic sync" },
+    ],
+  },
   {
     version: "42.0.0",
     date: "26 Mar 2026",
