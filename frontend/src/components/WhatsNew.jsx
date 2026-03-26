@@ -3,12 +3,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "40.0.0";
+const APP_VERSION = "40.1.0";
 
 const CHANGELOG = [
   {
+    version: "40.1.0",
+    date: "26 Mar 2026",
+    title: "v40.1 - Bug Fixes + Auto-Link + Tab Navigation",
+    items: [
+      { type: "fix", text: "Double payment fix - Pay button ab double-click se duplicate nahi banayega" },
+      { type: "fix", text: "Cash Book se payment karne par Paddy Purchase ka paid_amount auto-update hoga" },
+      { type: "fix", text: "Ledger entry mein Round Off amount ab sahi dikhega" },
+      { type: "fix", text: "Backup folders (Google Drive sync) automatic cleanup" },
+      { type: "new", text: "Tab key se bhi form navigation (Enter jaisa)" },
+      { type: "new", text: "Ctrl+S se kahin se bhi direct save" },
+      { type: "imp", text: "Route parity - Local Server mein sabhi routes sync" },
+    ],
+  },
+  {
     version: "40.0.0",
-    date: "Feb 2026",
+    date: "26 Mar 2026",
     title: "v40 - Enter Navigation + Code Cleanup",
     items: [
       { type: "new", text: "Transaction Form mein Enter key se agle field par jaayein (sequential navigation)" },
