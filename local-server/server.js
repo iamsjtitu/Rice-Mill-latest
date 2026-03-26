@@ -822,6 +822,52 @@ async function startServer() {
     const telegramRoutes = require('./routes/telegram')(database);
     app.use(telegramRoutes);
 
+    // Bank Accounts routes
+    const bankAccountsRoutes = require('./routes/bank_accounts')(database);
+    app.use(bankAccountsRoutes);
+
+    // Backups routes
+    const backupsRoutes = require('./routes/backups')(database, {
+      createBackup: (_db, label) => createBackup(label),
+      getBackupsList,
+      restoreBackup: (_db, filename) => restoreBackup(filename),
+      getBackupDir: () => BACKUP_DIR,
+      MAX_BACKUPS
+    });
+    app.use(backupsRoutes);
+
+    // GST Ledger routes
+    const gstLedgerRoutes = require('./routes/gst_ledger')(database);
+    app.use(gstLedgerRoutes);
+
+    // Gunny Bags routes
+    const gunnyBagsRoutes = require('./routes/gunny_bags')(database);
+    app.use(gunnyBagsRoutes);
+
+    // Hemali routes
+    const hemaliRoutes = require('./routes/hemali')(database);
+    app.use(hemaliRoutes);
+
+    // Milling routes
+    const millingRoutes = require('./routes/milling')(database);
+    app.use(millingRoutes);
+
+    // Purchase Vouchers routes
+    const purchaseVouchersRoutes = require('./routes/purchase_vouchers')(database);
+    app.use(purchaseVouchersRoutes);
+
+    // Salebook routes
+    const salebookRoutes = require('./routes/salebook')(database);
+    app.use(salebookRoutes);
+
+    // Truck Lease routes
+    const truckLeaseRoutes = require('./routes/truck_lease')(database);
+    app.use(truckLeaseRoutes);
+
+    // Voucher Payments routes
+    const voucherPaymentsRoutes = require('./routes/voucher_payments')(database);
+    app.use(voucherPaymentsRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);

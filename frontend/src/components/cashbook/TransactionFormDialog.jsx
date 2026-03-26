@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +35,7 @@ const focusNextField = (currentTestId) => {
 };
 
 const enterNav = (testId) => (e) => {
-  if (e.key === 'Enter') {
+  if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
     e.preventDefault();
     e.stopPropagation();
     focusNextField(testId);
@@ -48,6 +48,8 @@ const TransactionFormDialog = ({
   categories, allTxns, partyBalance,
   onSubmit, bankAccounts = [],
 }) => {
+
+  const formRef = useRef(null);
 
   const handleCategoryKeyDown = useCallback((e) => {
     const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
@@ -69,7 +71,7 @@ const TransactionFormDialog = ({
         const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
         setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: false, _highlightIdx: -1 }));
       }
-    } else if (e.key === 'Enter') {
+    } else if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
       e.preventDefault();
       e.stopPropagation();
       setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 }));
@@ -79,11 +81,24 @@ const TransactionFormDialog = ({
     }
   }, [categories, form.category, form._showPartySuggestions, form._highlightIdx, form._showManualType, allTxns, setForm]);
 
+  // Ctrl+S to save from anywhere in the form
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleCtrlS = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+    };
+    document.addEventListener('keydown', handleCtrlS);
+    return () => document.removeEventListener('keydown', handleCtrlS);
+  }, [isOpen]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="bg-white border-slate-200 text-slate-800 max-w-md" data-testid="cashbook-form-dialog">
         <DialogHeader><DialogTitle className="text-amber-700">{editingId ? 'Edit Transaction' : 'New Transaction'}</DialogTitle></DialogHeader>
-        <form onSubmit={onSubmit} onKeyDown={e => { if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') e.preventDefault(); }} className="space-y-3">
+        <form ref={formRef} onSubmit={onSubmit} onKeyDown={e => { if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') e.preventDefault(); }} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs text-slate-600">Date</Label>
