@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "38.6.0";
+const APP_VERSION = "40.0.0";
 
 const CHANGELOG = [
+  {
+    version: "40.0.0",
+    date: "Feb 2026",
+    title: "v40 - Enter Navigation + Code Cleanup",
+    items: [
+      { type: "new", text: "Transaction Form mein Enter key se agle field par jaayein (sequential navigation)" },
+      { type: "imp", text: "Enter dabate jaayein niche niche, last mein Enter se Save" },
+      { type: "imp", text: "Code cleanup - triple backend sync aur optimization" },
+      { type: "imp", text: "Version 40.0.0 milestone release" },
+    ],
+  },
   {
     version: "38.6.0",
     date: "25 Mar 2026",

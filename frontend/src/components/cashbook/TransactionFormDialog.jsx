@@ -1,3 +1,4 @@
+import { useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,12 +10,75 @@ import {
 } from "@/components/ui/select";
 import RoundOffInput from "@/components/common/RoundOffInput";
 
+const FIELD_ORDER = [
+  'cashbook-form-date',
+  'cashbook-form-category',
+  'cashbook-form-amount',
+  'cashbook-form-manual-party-type',
+  'cashbook-form-desc',
+  'cashbook-form-ref',
+  'round-off-input',
+  'cashbook-form-submit',
+];
+
+const focusNextField = (currentTestId) => {
+  const idx = FIELD_ORDER.indexOf(currentTestId);
+  if (idx === -1) return;
+  for (let i = idx + 1; i < FIELD_ORDER.length; i++) {
+    const el = document.querySelector(`[data-testid="${FIELD_ORDER[i]}"]`);
+    if (el && el.offsetParent !== null) {
+      el.focus();
+      if (el.tagName === 'INPUT') el.select();
+      return;
+    }
+  }
+};
+
+const enterNav = (testId) => (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+    focusNextField(testId);
+  }
+};
+
 const TransactionFormDialog = ({
   isOpen, onOpenChange, editingId,
   form, setForm, summary,
   categories, allTxns, partyBalance,
   onSubmit, bankAccounts = [],
 }) => {
+
+  const handleCategoryKeyDown = useCallback((e) => {
+    const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
+    const idx = form._highlightIdx ?? -1;
+
+    if (e.key === 'ArrowDown' && form._showPartySuggestions && filtered.length > 0) {
+      e.preventDefault();
+      setForm(p => ({ ...p, _highlightIdx: Math.min((idx + 1), filtered.length - 1) }));
+    } else if (e.key === 'ArrowUp' && form._showPartySuggestions && filtered.length > 0) {
+      e.preventDefault();
+      setForm(p => ({ ...p, _highlightIdx: Math.max((idx - 1), 0) }));
+    } else if (e.key === 'Enter' && form._showPartySuggestions && filtered.length > 0 && idx >= 0 && idx < filtered.length) {
+      e.preventDefault();
+      e.stopPropagation();
+      const c = filtered[idx];
+      if (form._showManualType) {
+        setForm(p => ({ ...p, category: c, _showPartySuggestions: false, _highlightIdx: -1 }));
+      } else {
+        const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
+        setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: false, _highlightIdx: -1 }));
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 }));
+      focusNextField('cashbook-form-category');
+    } else if (e.key === 'Escape') {
+      setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 }));
+    }
+  }, [categories, form.category, form._showPartySuggestions, form._highlightIdx, form._showManualType, allTxns, setForm]);
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="bg-white border-slate-200 text-slate-800 max-w-md" data-testid="cashbook-form-dialog">
@@ -24,6 +88,7 @@ const TransactionFormDialog = ({
             <div>
               <Label className="text-xs text-slate-600">Date</Label>
               <Input type="date" value={form.date} onChange={(e) => setForm(p => ({ ...p, date: e.target.value }))}
+                onKeyDown={enterNav('cashbook-form-date')}
                 className="border-slate-300 h-8 text-sm" required data-testid="cashbook-form-date" />
             </div>
             <div>
@@ -44,7 +109,6 @@ const TransactionFormDialog = ({
               )}
             </div>
           </div>
-          {/* Bank account selector - shown only when account is "bank" */}
           {form.account === 'bank' && bankAccounts.length > 0 && (
             <div>
               <Label className="text-xs text-slate-600">Bank Account</Label>
@@ -66,7 +130,6 @@ const TransactionFormDialog = ({
                 value={form.category}
                 onChange={(e) => {
                   const val = e.target.value;
-                  // Only auto-detect party_type if NOT in manual mode
                   if (form._showManualType) {
                     setForm(p => ({ ...p, category: val, _showPartySuggestions: true, _highlightIdx: -1 }));
                   } else {
@@ -76,29 +139,7 @@ const TransactionFormDialog = ({
                 }}
                 onFocus={() => setForm(p => ({ ...p, _showPartySuggestions: true, _highlightIdx: -1 }))}
                 onBlur={() => setTimeout(() => setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 })), 200)}
-                onKeyDown={(e) => {
-                  const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
-                  if (!form._showPartySuggestions || filtered.length === 0) return;
-                  const idx = form._highlightIdx ?? -1;
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setForm(p => ({ ...p, _highlightIdx: Math.min((idx + 1), filtered.length - 1) }));
-                  } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setForm(p => ({ ...p, _highlightIdx: Math.max((idx - 1), 0) }));
-                  } else if (e.key === 'Enter' && idx >= 0 && idx < filtered.length) {
-                    e.preventDefault();
-                    const c = filtered[idx];
-                    if (form._showManualType) {
-                      setForm(p => ({ ...p, category: c, _showPartySuggestions: false, _highlightIdx: -1 }));
-                    } else {
-                      const match = allTxns.find(t => t.category && t.category.toLowerCase() === c.toLowerCase() && t.party_type);
-                      setForm(p => ({ ...p, category: c, party_type: match ? match.party_type : (p.party_type || ""), _showPartySuggestions: false, _highlightIdx: -1 }));
-                    }
-                  } else if (e.key === 'Escape') {
-                    setForm(p => ({ ...p, _showPartySuggestions: false, _highlightIdx: -1 }));
-                  }
-                }}
+                onKeyDown={handleCategoryKeyDown}
                 placeholder="Party name search karein..."
                 className="border-slate-300 h-8 text-sm"
                 autoComplete="off"
@@ -168,6 +209,7 @@ const TransactionFormDialog = ({
               <Label className="text-xs text-slate-600">Amount (Rs.)</Label>
               <Input type="number" step="0.01" value={form.amount}
                 onChange={(e) => setForm(p => ({ ...p, amount: e.target.value }))}
+                onKeyDown={enterNav('cashbook-form-amount')}
                 placeholder="0.00" className="border-slate-300 h-8 text-sm" required data-testid="cashbook-form-amount" />
               {summary && form.amount && parseFloat(form.amount) > 0 && (
                 <p className="text-[10px] mt-1 font-medium" data-testid="cashbook-form-new-balance">
@@ -204,23 +246,26 @@ const TransactionFormDialog = ({
             </Select>
             {form._showManualType && (
               <Input value={form.party_type} onChange={e => setForm(p => ({ ...p, party_type: e.target.value }))}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.querySelector('[data-testid="cashbook-form-desc"]')?.focus(); } }}
+                onKeyDown={enterNav('cashbook-form-manual-party-type')}
                 placeholder="Custom party type likhein..." className="border-slate-300 h-8 text-sm mt-1" autoFocus data-testid="cashbook-form-manual-party-type" />
             )}
           </div>
           <div>
             <Label className="text-xs text-slate-600">Description</Label>
             <Input value={form.description} onChange={(e) => setForm(p => ({ ...p, description: e.target.value }))}
+              onKeyDown={enterNav('cashbook-form-desc')}
               placeholder="Details likhein..." className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-desc" />
           </div>
           <div>
             <Label className="text-xs text-slate-600">Reference (Cheque No / Receipt etc.)</Label>
             <Input value={form.reference} onChange={(e) => setForm(p => ({ ...p, reference: e.target.value }))}
+              onKeyDown={enterNav('cashbook-form-ref')}
               placeholder="Optional" className="border-slate-300 h-8 text-sm" data-testid="cashbook-form-ref" />
           </div>
           <RoundOffInput
             value={form.round_off || ""}
             onChange={(val) => setForm(p => ({ ...p, round_off: val }))}
+            onKeyDown={enterNav('round-off-input')}
             amount={parseFloat(form.amount) || 0}
             darkMode={false}
           />

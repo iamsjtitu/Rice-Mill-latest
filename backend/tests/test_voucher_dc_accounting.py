@@ -8,7 +8,7 @@ import time
 import os
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://rice-mill-ledger.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://grain-ledger-sync.preview.emergentagent.com')
 BASE_URL = BASE_URL.rstrip('/')
 
 TEST_PREFIX = "TEST_VP_"

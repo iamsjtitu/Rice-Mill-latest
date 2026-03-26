@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
  *   amount: number - original payment amount (to show adjusted total)
  *   darkMode: boolean - true for dark-themed dialogs (default), false for light
  */
-const RoundOffInput = ({ value, onChange, amount = 0, darkMode = true }) => {
+const RoundOffInput = ({ value, onChange, amount = 0, darkMode = true, onKeyDown }) => {
   const roundOff = parseFloat(value) || 0;
   const adjustedTotal = (amount || 0) + roundOff;
 
@@ -24,6 +24,7 @@ const RoundOffInput = ({ value, onChange, amount = 0, darkMode = true }) => {
           step="1"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
           placeholder="0 (+10 ya -10)"
           className={`${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'border-slate-300'} h-8 text-sm flex-1`}
           data-testid="round-off-input"

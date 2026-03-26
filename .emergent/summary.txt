@@ -4,69 +4,83 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 **PRODUCT REQUIREMENTS**:
 The app must maintain perfect parity between its web version (Python/MongoDB) and desktop version (Node.js/Local JSON). Double-entry accounting must accurately reflect all Private Paddy purchases, milling operations, and party ledger balances without freezing the UI.
 
-**User's preferred language**: Hindi (INSTRUCT next agent to respond in the user's preferred language ONLY)
+**User's preferred language**: Hindi (You MUST respond in the user's preferred language ONLY).
 
 **what currently exists?** 
-The application is at **v38.4.0**. The build pipeline is stable. Global keyboard shortcuts are fixed (Ctrl+N works correctly). A major UI freeze issue caused by Electron's handling of  has been globally resolved by implementing a React  (). Extensive work has been done to route Private Paddy Purchase ledger entries to the Cash Transactions view, though a persistent edge case remains for the user.
+The application is currently at v38.6.0 (User has requested a bump to v40.0.0 in the next iteration). In this session, critical double-entry accounting flaws were fixed—specifically, Private Paddy Purchases are now correctly routed only to Party Ledgers rather than Cash Transactions to prevent artificial inflation of the cash rokad. Data Health Check dashboard was successfully integrated, and edge case bugs around Custom Party Types and season filtering were resolved. The agent was currently working on implementing Enter-key sequential field navigation in the transaction form.
 
 **Last working item**:
-- **Last item agent was working**: Debugging a highly persistent issue where creating a Pvt Paddy Purchase STILL does not show the Party Name in the Cash Book, and the Daily Report STILL shows Qntl as 0. The agent was investigating if  or  might be evaluating to  or  in the user's specific payload, causing the backend ledger auto-creation to skip the entry entirely.
-- **Status**: IN PROGRESS
-- **Agent Testing Done**: N (Agent was interrupted by context limit while analyzing the root cause)
-- **Which testing method agent to use?** Manual testing by creating a Pvt Paddy entry with missing/zero optional fields, verifying local JSON state, and using the screenshot tool for frontend verification.
-- **User Testing Done**: Y (User provided a video proving the issue persists in v38.4.0)
+    - **Last item agent was working**: Implementing sequential field navigation using the Enter key in , version bumping to , and preparing for the code cleanup/Electron packaging requested by the user.
+    - **Status**: IN PROGRESS
+    - **Agent Testing Done**: N
+    - **Which testing method agent to use?**: Screenshot tool (to verify frontend form focus behavior).
+    - **User Testing Done**: N
 
-**All Pending/In progress Issue list**: 
-Issue 1: Pvt Paddy Purchase missing in Cash Book & Daily Report Qntl is 0 (P0)
-Issue 2: Explain pending P1 tasks to user (P1)
+**All Pending/In progress Issue list**:
+  Issue 1: Enter Key Sequential Field Navigation in Transaction Form (P0)
+  Issue 2: Version bump to v40.0.0 (P0)
+  
+  Issues Detail:
+  - Issue 1: Enter Key Sequential Field Navigation
+     - Attempted fixes: The agent disabled global Enter submission for the form, but the user explicitly requested that pressing Enter should move focus sequentially to the *next* input field (e.g., Description -> Amount -> etc.) until the final Save button is reached.
+     - Next debug checklist: Check . Add  handlers with React refs or document traversal logic to shift focus to the next input element on Enter press.
+     - Why fix this issue and what will be achieved with the fix? Huge UX improvement for fast data entry, specifically requested by the user.
+     - Status: IN PROGRESS
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? Frontend
+     - Blocked on other issue: None
 
-**Issues Detail**:
-- **Issue 1: Pvt Paddy Purchase missing in Cash Book & Daily Report Qntl is 0**
-   - **Attempted fixes**: The previous agent changed  to  for the  entry, added a  safety net, and updated Daily Report logic to use . This worked in the agent's tests, but failed in the user's live environment.
-   - **Next debug checklist**: 
-     - Review the user's latest video/screenshots. 
-     - Investigate the user's theory: *does it need to go to local party payment first to show in cash book?*
-     - Check  and . Look for how missing , , or  inputs might bypass ledger creation entirely (e.g., if  condition fails).
-     - Check if the frontend payload is failing to send calculated fields properly.
-   - **Why fix this issue and what will be achieved with the fix?** Critical accounting flow. Without this, the user cannot track their debts to paddy suppliers.
-   - **Status**: IN PROGRESS
-   - **Is recurring issue?** Y (Attempted ~4 times across recent forks)
-   - **Should Test frontend/backend/both after fix?** Both (Must test on Python, Desktop-Express, and Local-Server-Express backends).
-   - **Blocked on other issue**: None
-
-- **Issue 2: Explain pending P1 tasks to user**
-   - **Attempted fixes**: None. User explicitly asked Export Preview feature matlab ? and Stock calculation centralize matlab ?. Agent got distracted by the bug and didn't answer.
-   - **Next debug checklist**: Simply reply to the user in Hindi explaining what these two technical/feature debt items mean so they can approve or reject them.
-   - **Why fix this issue and what will be achieved with the fix?** User communication and alignment on roadmap.
-   - **Status**: NOT STARTED
-   - **Is recurring issue?** N
-   - **Should Test frontend/backend/both after fix?** NA
-   - **Blocked on other issue**: Blocked until P0 bug is resolved.
+  - Issue 2: Version bump to v40.0.0
+     - Attempted fixes: None.
+     - Next debug checklist: Update  and package/env files to reflect version .
+     - Why fix this issue and what will be achieved with the fix? Direct user request to mark a major milestone release.
+     - Status: NOT STARTED
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? Frontend
+     - Blocked on other issue: None
 
 **In progress Task List**:
-None
+  Task 1: Code cleanup across triple backends (P1)
+  Task 2: Electron packaging for new desktop release (P1)
+
+ Task Detail:
+  - Task 1: Code cleanup across triple backends
+     - Where to resume: , , .
+     - What will be achieved with this? Removing duplicate/old code and organizing functions to reduce technical debt across the 3 parallel backends. User explicitly approved this.
+     - Status: NOT STARTED
+     - Should Test frontend/backend/both after fix? Both
+     - Blocked on something: Pending P0 UI fixes.
+
+  - Task 2: Electron packaging for new desktop release
+     - Where to resume:  package build scripts.
+     - What will be achieved with this? Generating a final  installer so the user can update their local desktop app with all recent fixes.
+     - Status: NOT STARTED
+     - Should Test frontend/backend/both after fix? Frontend/Desktop
+     - Blocked on something: Should be done last after all code cleanup and fixes.
 
 **Upcoming and Future Tasks**
-*(Note: User explicitly REJECTED the Sardar-wise monthly Hemali report task. Do not implement it).*
-- **P1**: Explain and (if approved) implement Export Preview feature.
-- **P2**: Explain and (if approved) Centralize stock calculation logic.
-- **P2**: Refactor the payment logic into a centralized service layer (Technical Debt).
+    Upcoming Tasks:
+    - P1: Explain and (if approved) implement Export Preview feature (Preview data before exporting).
+    
+    Future Tasks:
+    - P2: Centralize stock calculation logic.
+    - P2: Refactor the payment logic into a centralized service layer (Technical Debt).
 
 **Completed work in this session**
-- Fixed  shortcut targeting wrong button () (DONE)
-- Replaced  globally with React  () across 15+ components to fix Electron UI freezes (DONE)
-- Updated Pvt Paddy ledger entries to use  instead of  to ensure visibility in Cash Book (DONE)
-- Added auto-fix fallback  (DONE)
-- Updated Daily Report to fallback to  and  fields (DONE)
-- Version bumped to  (DONE)
+- Fixed missing Pvt Paddy Purchase entries in Cash Book & Daily Report by resolving missing  calculations and empty  string issues (DONE).
+- Fixed Accounting Route: Move to Pvt Paddy now correctly goes ONLY to  instead of , protecting the cash rokad from artificial inflation (DONE).
+- Cleaned up orphaned and duplicate ledger entries using an updated  script (DONE).
+- Added a Data Health Check component to the Settings tab (DONE).
+- Fixed Custom Party Type UI bug where typing manually would immediately override back to Auto Detect (DONE).
+- Updated local desktop React build () to sync the changes (DONE).
 
 **Earlier issues found/mentioned but not fixed**
 None.
 
 **Known issue recurrence from previous fork**
-- Issue recurrence in previous fork: Pvt Paddy Party name missing in Cash Book
-- Recurrence count: 4
-- Status: IN PROGRESS
+  - Issue recurrence in previous fork: Pvt Paddy Party name missing in Cash Book / Incorrect Accounting Logic.
+  - Recurrence count: 5+
+  - Status: RESOLVED (Confirmed by testing agent and user verification in this session).
 
 **Code Architecture**
 
@@ -74,63 +88,62 @@ None.
 **Key Technical Concepts**
 - **Triple Backend System:** The app operates on three backends.  (Python/Web),  (Node/Desktop), and  (Node/Local Network). **CRITICAL:** Any logic change made to Python routes MUST be manually replicated in both JS route folders.
 - **Electron Build Pipeline:** Changes in  do not automatically appear in the desktop app. You must run yarn run v1.22.22
-info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. inside  and use the custom script/bash commands to move the build to .
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. inside  and use custom bash commands to move the build to .
 
 **key DB schema**
-- : {id, date, account, txn_type, category, party_type, amount, description, reference}
-- : {id, date, party_name, mandi_name, kg, final_qntl, rate_per_qntl, total_amount}
+  - : {id, date, account, txn_type, category, party_type, amount, description, reference}
+  - : {id, date, party_name, mandi_name, kg, final_qntl, rate_per_qntl, total_amount, season}
 
 **changes in tech stack**
-- Introduced Radix/Shadcn  context () globally to replace native .
+  - None.
 
 **All files of reference** 
--  &  (Pvt Paddy creation logic)
--  (Python equivalent)
--  (Daily report data aggregation)
--  (Auto-fix migration script)
+  -  (Needs Enter-key sequential focus logic)
+  -  (For version bumping)
 
 **Areas that need refactoring**: 
-- Payment processing logic is heavily duplicated across multiple components and backend routes.
+  - Massive code duplication across , , and . Refactoring/cleanup has been explicitly approved by the user for this iteration.
 
 **key api endpoints**
-- 
-- 
-- 
+  - 
+  - 
 
 **Critical Info for New Agent**
-- **Hindi Language Strict Enforcement:** The user communicates exclusively in conversational Hindi. You must reply in Hindi.
-- **Pvt Paddy Bug Blindspot:** The agent tested the fixes successfully, but it fails in the user's app. This strongly suggests the user is leaving certain fields blank (like , , or skipping amounts) which evaluates to  or  in Javascript, causing the ledger creation  block to silently skip the entry. Look closely at how Javascript handles falsy values in the  routes vs how the frontend calculates totals.
-- **Answer the User:** Before writing code, answer the user's direct questions from their last messages regarding what your proposed roadmap tasks actually mean.
+  - **Hindi Strict Enforcement:** The user communicates exclusively in Hindi. You MUST reply in Hindi.
+  - **Form Navigation:** Do not simply disable Enter submission. You must implement actual sequential field focus traversal (e.g., Description field -> Press Enter -> Focus moves to Amount field).
+  - **Desktop Build Requirement:** Whenever you edit frontend React code, you must build it and sync it to the  directory so the user can test it locally.
 
 **documents and test reports created in this job**
-- 
-- 
+  - 
+  - 
 
 **Last 10 User Messages and any pending HUMAN messages** 
-1. User: abhi fir se UI freeze hua jab maine delete kiya paddy purchase ko...
-2. User: abhi bhi paddy purchase kiya hua cash book mai nahi aya party ka naam... (Uploaded 3 screenshots)
-3. User: bhai kya tum mere sath majak kar rahe ho 0 wtf u are doing man... abhi bhi paddy purchase ka cash book mai party name nahi aaraha hai (Uploaded video)
-4. User: daily report mai - normal and detail report both mai private trading ka qntl and rate 0 aaraha hai... (Uploaded screenshot)
-5. User: P2: Sardar-wise monthly Hemali report nahi chahiye
-6. User: P1: Export Preview feature matlab 0 P1: Stock calculation centralize matlab ?
-7. **PENDING HUMAN MESSAGE:** abhi bhi nahi aya sayad aisa ho sakta hai jab hum paddy purchase kiye toh local party payment mai aa jana chahiye tab jaake wo cash book mai cash transaction mai ledger dikhayega apne aap 0 and daily report mai Qntl 0 dikha raha hai (Uploaded image and video).
+1. User: maine pvt purchase delete kiya par ledger delete nai hua automatic (Agent fixed cascade deletion).
+2. User: agar ledger nai h toh no ledger found ana chahiye... (Agent added empty state messaging).
+3. User: bhai jab paddy purcahse hua toh cash transactyion mai jama kyu aya isse cash ka rokad bikad jayega ye galat hai... (Agent fixed accounting to use Party Ledgers only).
+4. User: Custom party type nai type ho paa raha jaise hi type karne jaate hai wo change ho jata hai auto detect se... (Agent fixed the dropdown UI state bug).
+5. User: bhai dfaily report and detail report mai abhi tak nahi aya move to pvt paddy purchase wala detail (Agent discovered it was a date/season mismatch context).
+6. User: cash transaction mai New Transaction mai abhi bhi party type mai custom party nahi likh paa raha... (Agent successfully fixed remaining edge cases).
+7. User: Future/Backlog: Code cleanup... Electron packaging... ye dono kya hai ? (Agent explained the concepts in Hindi).
+8. User: jaise yaha Sumit likha maine and exter kiya toh save ho gaya sidha aisa nahi hona chahiye enter button pres karne pai niche aana chahiye... (Agent blocked enter submission).
+9. **PENDING HUMAN MESSAGE:** abi jaise maine discription pai enter button press kiya toh fir uske niche wala field pai jana chahiye enter press karte karte niche niche jana chahiye taaki last mai enter se hi save ho . smjhe 0 Code cleanup... Electron packaging... kardo then version bump karo and version 40.0.0 dalna
 
 **Project Health Check:**
-- Broken: Pvt Paddy auto-ledger creation (Edge cases failing), Daily Report Qntl calculation (Edge cases failing).
+- Broken: Transaction Form Enter Key sequential focus navigation (Feature missing).
 - Mocked: None.
 
 **3rd Party Integrations** 
-- None active in this session.
+- None.
 
 **Testing status**
-- Testing agent used after significant changes: YES (iteration_102)
-- Troubleshoot agent used after agent stuck in loop: NO
-- Test files created: None
-- Known regressions: None introduced, but existing bug remains highly resistant.
+  - Testing agent used after significant changes: YES
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: None
+  - Known regressions: None
 
 **Credentials to test flow:**
-- Username: 
-- Password: 
+  - Username: admin
+  - Password: admin123
 
 **What agent forgot to execute**
-The agent completely ignored the user's direct question asking Export Preview feature matlab 0 Stock calculation centralize matlab ?. The agent also failed to account for edge-case falsy payloads (like  or missing ) which is likely why the user's specific workflow is failing to generate Cash Book entries while the agent's perfect test payloads succeed.</analysis>
+The agent ran out of context while working on the sequential Enter key focus movement within the . The user also requested code cleanup, electron packaging (), and a version bump to  in the final message, which still need to be addressed.</analysis>
