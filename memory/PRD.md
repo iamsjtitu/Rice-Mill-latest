@@ -20,16 +20,21 @@ Full-stack rice mill management system with React frontend, Python FastAPI web b
 - Daily Reports (Normal + Detail) with PDF export
 - Global confirm dialog (ConfirmProvider) replacing window.confirm for Electron
 - Auto-fix endpoint for data consistency
-- Keyboard shortcuts (Ctrl+N)
+- Keyboard shortcuts (Ctrl+N, Ctrl+S)
 - Data Health Check dashboard (Settings page)
 - Enter key sequential field navigation in Transaction Form (v40.0.0)
+- Tab key sequential field navigation in Transaction Form (v40.0.0)
+- Ctrl+S direct save from anywhere in Transaction Form (v40.0.0)
+- Route parity: local-server synced with all desktop-app routes (v40.0.0)
 
 ## Recently Completed (v40.0.0 - 26 Mar 2026)
-- **Enter Key Navigation**: Transaction Form mein Enter se next field par focus (Date → Category → Amount → Description → Reference → Round Off → Save Button)
-- **Category Suggestion**: ArrowDown+Enter suggestion select karta hai, Enter without suggestion navigates to next field
-- **Version Bump**: v40.0.0 across all components (frontend, desktop-app, local-server)
-- **Code Cleanup**: Stale test files removed from desktop-app, __pycache__ cleaned, frontend build synced to all backends
-- **Frontend Build Sync**: Latest build deployed to desktop-app/frontend-build and local-server
+- **Enter Key Navigation**: Transaction Form mein Enter se next field par focus
+- **Tab Key Navigation**: Tab key bhi same field order follow karta hai (Select elements skip)
+- **Ctrl+S Save**: Form mein kahin se bhi Ctrl+S se direct save
+- **Version Bump**: v40.0.0 across all components
+- **Route Parity Fix**: 11 missing routes copied from desktop-app to local-server (bank_accounts, backups, gst_ledger, gunny_bags, hemali, milling, purchase_vouchers, salebook, truck_lease, voucher_payments, daily_report_logic)
+- **Code Cleanup**: Stale test files removed, __pycache__ cleaned, shared/ and utils/ synced to local-server
+- **Frontend Build Sync**: Latest build deployed to desktop-app and local-server
 
 ## Key Accounting Rules
 - **Cash Transactions (account: 'cash')**: ONLY for actual cash movement (rokad)
@@ -44,9 +49,6 @@ Full-stack rice mill management system with React frontend, Python FastAPI web b
 
 ### P1 - Export Preview Feature
 - Show data preview on screen before Excel/PDF export
-
-### P2 - Route Parity (local-server)
-- 11 routes missing in local-server that desktop-app has (bank_accounts, gst_ledger, gunny_bags, hemali, milling, purchase_vouchers, salebook, truck_lease, voucher_payments, backups, daily_report_logic)
 
 ### P2 - Centralize Stock Calculation
 - Consolidate duplicated stock calculation logic
