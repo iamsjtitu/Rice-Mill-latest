@@ -1,6 +1,6 @@
 {
   "name": "mill-entry-system",
-  "version": "42.2.0",
+  "version": "42.2.1",
   "description": "Mill Entry Management System - Desktop Application",
   "main": "main.js",
   "scripts": {
@@ -120,7 +120,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Mill Entry System",
       "installerIcon": "icon.ico",
-      "uninstallerIcon": "icon.ico"
+      "uninstallerIcon": "icon.ico",
+      "artifactName": "Mill-Entry-System-Setup-${version}.${ext}"
     },
     "portable": {
       "artifactName": "MillEntrySystem-Portable.exe"

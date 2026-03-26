@@ -68,6 +68,27 @@ jobs:
         working-directory: desktop-app
         run: npx electron-builder --win --x64 --publish never
 
+      - name: Fix filenames (spaces to hyphens for GitHub compatibility)
+        working-directory: desktop-app/dist
+        run: |
+          Get-ChildItem -Filter "*.exe" | ForEach-Object {
+            $newName = $_.Name -replace ' ', '-'
+            if ($newName -ne $_.Name) {
+              Rename-Item $_.FullName $newName
+              Write-Host "Renamed: $($_.Name) -> $newName"
+            }
+          }
+          Get-ChildItem -Filter "*.blockmap" | ForEach-Object {
+            $newName = $_.Name -replace ' ', '-'
+            if ($newName -ne $_.Name) {
+              Rename-Item $_.FullName $newName
+              Write-Host "Renamed: $($_.Name) -> $newName"
+            }
+          }
+          Write-Host "Files in dist:"
+          Get-ChildItem | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
+        shell: powershell
+
       - name: Upload to existing GitHub Release
         uses: softprops/action-gh-release@v2
         with:
