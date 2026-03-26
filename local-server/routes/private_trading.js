@@ -11,6 +11,14 @@ module.exports = function(database) {
     return `${q} Qntl @ Rs.${r}`;
   }
 
+  function _makePartyLabel(party, mandi) {
+    party = (party || '').trim();
+    mandi = (mandi || '').trim();
+    if (!party) return 'Pvt Paddy';
+    if (mandi && !party.toLowerCase().includes(mandi.toLowerCase())) return `${party} - ${mandi}`;
+    return party;
+  }
+
   // Helper: Create truck payment + advance entries for pvt paddy
   function _createCashDieselForPvtPaddy(db, doc, username) {
     if (!db.data.cash_transactions) db.data.cash_transactions = [];
@@ -18,7 +26,7 @@ module.exports = function(database) {
     const entryId = doc.id;
     const party = doc.party_name || '';
     const mandi = doc.mandi_name || '';
-    const partyLabel = party || 'Pvt Paddy';
+    const partyLabel = _makePartyLabel(party, mandi);
     const truckNo = doc.truck_no || '';
     const date = doc.date || new Date().toISOString().slice(0, 10);
     const qntl = doc.final_qntl || doc.qntl || 0;
@@ -284,7 +292,7 @@ module.exports = function(database) {
       const refEntry = (database.data.private_paddy || []).find(e => e.id === d.ref_id);
       if (refEntry) { mandi = refEntry.mandi_name || ''; qntl = refEntry.qntl || 0; rate = refEntry.rate || ((qntl && refEntry.total_amount) ? Math.round(refEntry.total_amount / qntl * 100) / 100 : 0); }
     }
-    const partyLabel = (d.party_name && mandi) ? `${d.party_name} - ${mandi}` : (d.party_name || '');
+    const partyLabel = _makePartyLabel(d.party_name, mandi);
     const partyType = isPaddy ? 'Pvt Paddy Purchase' : 'Rice Sale';
     const txnType = isPaddy ? 'nikasi' : 'jama';
     const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : `Rs.${d.amount}`;
@@ -637,30 +645,54 @@ module.exports = function(database) {
     if (!database.data.private_paddy) return res.status(404).json({ detail: 'Not found' });
     const item = database.data.private_paddy.find(p => p.id === req.params.id);
     if (!item) return res.status(404).json({ detail: 'Not found' });
-    item.is_paid = true;
-    item.paid_at = new Date().toISOString();
-    item.paid_by = req.query.username || '';
+    const total = parseFloat(item.total_amount) || 0;
+    const remaining = Math.round((total - (item.paid_amount || 0)) * 100) / 100;
+    item.paid_amount = total;
+    item.balance = 0;
+    item.payment_status = 'paid';
+    item.updated_at = new Date().toISOString();
+    if (remaining > 0) {
+      const party = item.party_name || '';
+      const mandi = item.mandi_name || '';
+      const partyLabel = _makePartyLabel(party, mandi);
+      const markId = `mark_paid:${item.id.slice(0, 8)}`;
+      const base = { date: item.date || '', kms_year: item.kms_year || '', season: item.season || '', created_by: req.query.username || '', linked_payment_id: markId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      database.data.cash_transactions.push({ id: require('crypto').randomUUID(), account: 'cash', txn_type: 'nikasi', category: partyLabel, party_type: 'Pvt Paddy Purchase', description: `${partyLabel} (Mark Paid)`, amount: remaining, reference: markId, ...base });
+      database.data.cash_transactions.push({ id: require('crypto').randomUUID(), account: 'ledger', txn_type: 'nikasi', category: partyLabel, party_type: 'Pvt Paddy Purchase', description: `${partyLabel} (Mark Paid)`, amount: remaining, reference: `mark_paid_ledger:${item.id.slice(0, 8)}`, ...base });
+    }
     database.save();
-    res.json({ message: 'Marked as paid', id: req.params.id });
+    res.json({ success: true, message: `Marked paid - Rs.${remaining} cleared` });
   }));
 
   router.post('/api/private-paddy/:id/undo-paid', safeSync((req, res) => {
     if (!database.data.private_paddy) return res.status(404).json({ detail: 'Not found' });
     const item = database.data.private_paddy.find(p => p.id === req.params.id);
     if (!item) return res.status(404).json({ detail: 'Not found' });
-    item.is_paid = false;
-    item.paid_at = null;
-    item.paid_by = null;
+    const total = parseFloat(item.total_amount) || 0;
+    item.paid_amount = 0;
+    item.balance = total;
+    item.payment_status = 'pending';
+    item.updated_at = new Date().toISOString();
+    // Delete all linked payments
+    const entryId = item.id;
+    database.data.private_payments = (database.data.private_payments || []).filter(p => !(p.ref_id === entryId && p.ref_type === 'paddy_purchase'));
+    // Delete mark-paid cash entries
+    database.data.cash_transactions = (database.data.cash_transactions || []).filter(t => {
+      const lp = t.linked_payment_id || '';
+      const ref = t.reference || '';
+      if (lp.includes(`mark_paid:${entryId.slice(0,8)}`)) return false;
+      if (ref.includes(`pvt_paddy_adv`) && t.linked_entry_id === entryId) return false;
+      return true;
+    });
     database.save();
-    res.json({ message: 'Payment undone', id: req.params.id });
+    res.json({ success: true, message: 'Payment undo - sab reset ho gaya' });
   }));
 
   router.get('/api/private-paddy/:id/history', safeSync((req, res) => {
-    if (!database.data.cash_transactions) database.data.cash_transactions = [];
-    const payments = database.data.cash_transactions.filter(t =>
-      (t.reference || '').includes(req.params.id.slice(0, 8)) || (t.reference || '').includes(`pvt_paddy`)
-    );
-    res.json(payments);
+    const payments = (database.data.private_payments || []).filter(p => p.ref_id === req.params.id && p.ref_type === 'paddy_purchase').sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    const entry = (database.data.private_paddy || []).find(e => e.id === req.params.id);
+    const totalPaid = entry ? (entry.paid_amount || 0) : 0;
+    res.json({ history: payments, total_paid: totalPaid });
   }));
 
   // === Mark Paid / Undo Paid / History for Rice Sales ===

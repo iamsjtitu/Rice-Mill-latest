@@ -320,13 +320,20 @@ export const PaddyPurchase = ({ filters, user }) => {
                         </>
                       )}
                       {item.payment_status === 'paid' && user.role === 'admin' && (
-                        <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleUndoPaid(item)} data-testid={`paddy-undo-${item.id}`} title="Undo Paid">
+                        <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleUndoPaid(item)} data-testid={`paddy-undo-${item.id}`} title="Undo Paid (Sab Reset)">
                           <Undo2 className="w-3 h-3" />
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm" className="h-6 px-1 text-purple-400" onClick={() => handleViewHistory(item)} data-testid={`paddy-history-${item.id}`} title="Payment History">
-                        <History className="w-3 h-3" />
-                      </Button>
+                      {(item.paid_amount || 0) > 0 && user.role === 'admin' && (
+                        <Button variant="ghost" size="sm" className="h-6 px-1 text-orange-400 hover:text-orange-300" onClick={() => handleViewHistory(item)} data-testid={`paddy-undo-history-${item.id}`} title="Payment Undo / History">
+                          <Undo2 className="w-3 h-3 mr-0.5" /><History className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {!((item.paid_amount || 0) > 0 && user.role === 'admin') && (
+                        <Button variant="ghost" size="sm" className="h-6 px-1 text-purple-400" onClick={() => handleViewHistory(item)} data-testid={`paddy-history-${item.id}`} title="Payment History">
+                          <History className="w-3 h-3" />
+                        </Button>
+                      )}
                       <Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => handleEdit(item)} data-testid={`paddy-edit-${item.id}`} title="Edit">
                         <Eye className="w-3 h-3" />
                       </Button>

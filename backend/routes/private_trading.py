@@ -20,6 +20,16 @@ def _fmt_detail(qntl, rate):
     r = int(rate) if rate == int(rate) else round(rate, 2)
     return f"{q} Qntl @ Rs.{r}"
 
+def _make_party_label(party, mandi=""):
+    """Build consistent party label. Avoids 'Kridha (Kesinga) - Kesinga' duplication."""
+    party = (party or "").strip()
+    mandi = (mandi or "").strip()
+    if not party:
+        return "Pvt Paddy"
+    if mandi and mandi.lower() not in party.lower():
+        return f"{party} - {mandi}"
+    return party
+
 router = APIRouter()
 
 # ============ PRIVATE TRADING: Paddy Purchase & Rice Sale ============
@@ -107,7 +117,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
     entry_id = doc["id"]
     party = doc.get("party_name", "")
     mandi = doc.get("mandi_name", "")
-    party_label = party or "Pvt Paddy"
+    party_label = _make_party_label(party, mandi)
     truck_no = doc.get("truck_no", "")
     date = doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     qntl = doc.get("final_qntl", 0) or doc.get("qntl", 0) or 0
@@ -514,11 +524,7 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
         ref_entry = await db.private_paddy.find_one({"id": doc["ref_id"]}, {"_id": 0})
         party = doc["party_name"]
         mandi = ref_entry.get("mandi_name", "") if ref_entry else ""
-        # Don't duplicate mandi if already in party_name (e.g., "Kridha (Kesinga)" already has "Kesinga")
-        if mandi and mandi.lower() not in party.lower():
-            party_label = f"{party} - {mandi}"
-        else:
-            party_label = party
+        party_label = _make_party_label(party, mandi)
         qntl = ref_entry.get("qntl", 0) if ref_entry else 0
         rate = ref_entry.get("rate", 0) if ref_entry else 0
         if not rate and qntl and ref_entry:
@@ -616,7 +622,7 @@ async def mark_pvt_paddy_paid(entry_id: str, username: str = "", role: str = "")
     remaining = round(total - already_paid, 2)
     party = entry.get("party_name", "")
     mandi = entry.get("mandi_name", "")
-    party_label = f"{party} - {mandi}" if party and mandi else party
+    party_label = _make_party_label(party, mandi)
     qntl = entry.get("qntl", 0) or 0
     rate = entry.get("rate", 0) or 0
     if not rate and qntl:
@@ -784,7 +790,7 @@ async def fix_old_payment_cashbook_entries():
             continue
         party = ref.get("party_name", "")
         mandi = ref.get("mandi_name", "")
-        party_label = f"{party} - {mandi}" if party and mandi else party
+        party_label = _make_party_label(party, mandi)
         qntl = ref.get("qntl", 0) or 0
         rate = ref.get("rate", 0) or 0
         if not rate and qntl:
@@ -795,9 +801,9 @@ async def fix_old_payment_cashbook_entries():
             desc = f"Advance - {detail}" if detail else f"Advance - {party_label}"
         else:
             desc = f"{party_label} - {detail}" if detail else party_label
-        await db.cash_transactions.update_one({"id": entry["id"]}, {"$set": {"description": desc}})
+        await db.cash_transactions.update_one({"id": entry["id"]}, {"$set": {"description": desc, "category": party_label}})
         fixed += 1
-    # Fix entries linked to private_payments (via linked_payment_id) - ₹ button payments
+    # Fix entries linked to private_payments (via linked_payment_id) - payment button entries
     pay_entries = await db.cash_transactions.find(
         {"linked_payment_id": {"$exists": True, "$ne": ""}},
         {"_id": 0}
@@ -818,7 +824,7 @@ async def fix_old_payment_cashbook_entries():
             ref = await db.private_paddy.find_one({"id": pay["ref_id"]}, {"_id": 0})
             if ref:
                 mandi = ref.get("mandi_name", "")
-        party_label = f"{party} - {mandi}" if party and mandi else party
+        party_label = _make_party_label(party, mandi)
         is_paddy = pay.get("ref_type") == "paddy_purchase"
         party_type = "Pvt Paddy Purchase" if is_paddy else "Rice Sale"
         qntl = ref.get("qntl", 0) if ref else 0
@@ -846,7 +852,7 @@ async def fix_old_payment_cashbook_entries():
             continue
         party = ref.get("party_name", "")
         mandi = ref.get("mandi_name", "")
-        party_label = f"{party} - {mandi}" if party and mandi else party
+        party_label = _make_party_label(party, mandi)
         qntl = ref.get("qntl", 0) or 0
         rate = ref.get("rate", 0) or 0
         if not rate and qntl:
@@ -856,10 +862,6 @@ async def fix_old_payment_cashbook_entries():
         await db.diesel_accounts.update_one({"id": entry["id"]}, {"$set": {"description": desc}})
         fixed += 1
     return {"message": f"Fixed {fixed} entries with new description format"}
-
-
-
-@router.get("/migrate/fix-missing-ledger-nikasi")
 async def fix_missing_ledger_nikasi():
     """Migration: Find all cash nikasi entries that don't have corresponding ledger nikasi entries and create them.
     This fixes the bug where payments didn't create ledger entries, causing Party Summary to show wrong balances."""

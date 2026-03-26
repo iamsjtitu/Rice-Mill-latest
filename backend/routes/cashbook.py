@@ -1068,6 +1068,28 @@ async def auto_fix_all():
             await db.cash_transactions.delete_one({"id": ref_entry["id"]})
             fixes["orphan_cleaned"] = fixes.get("orphan_cleaned", 0) + 1
 
+    # 6. Fix duplicate party names in cash_transactions
+    # e.g. "Kridha (Kesinga) - Kesinga" should be merged into "Kridha (Kesinga)"
+    import re as _re
+    all_categories = await db.cash_transactions.distinct("category")
+    all_categories = [c for c in all_categories if c and c.strip()]
+    merge_map = {}  # long_name -> short_name
+    for cat in all_categories:
+        if " - " not in cat:
+            continue
+        parts = cat.rsplit(" - ", 1)
+        base_name = parts[0].strip()
+        suffix = parts[1].strip()
+        # If the suffix is already contained in the base name (case-insensitive), it's a duplicate
+        if suffix and suffix.lower() in base_name.lower() and base_name in all_categories:
+            merge_map[cat] = base_name
+    for long_name, short_name in merge_map.items():
+        result = await db.cash_transactions.update_many(
+            {"category": long_name},
+            {"$set": {"category": short_name}}
+        )
+        if result.modified_count > 0:
+            fixes["duplicate_party_merged"] = fixes.get("duplicate_party_merged", 0) + result.modified_count
 
     total = sum(fixes.values())
     return {"success": True, "total_fixes": total, "details": fixes}
