@@ -266,13 +266,15 @@ module.exports = function(database) {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
     d.amount = parseFloat(d.amount) || 0;
+    const roundOff = parseFloat(req.body.round_off) || 0;
+    const totalSettled = Math.round((d.amount + roundOff) * 100) / 100;
     database.data.private_payments.push(d);
     if (d.ref_type === 'paddy_purchase' && d.ref_id) {
       const entry = (database.data.private_paddy || []).find(e => e.id === d.ref_id);
-      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + d.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + totalSettled) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     } else if (d.ref_type === 'rice_sale' && d.ref_id) {
       const entry = (database.data.rice_sales || []).find(e => e.id === d.ref_id);
-      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + d.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + totalSettled) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     }
     const account = d.mode === 'bank' ? 'bank' : 'cash';
     const isPaddy = d.ref_type === 'paddy_purchase';
@@ -288,8 +290,6 @@ module.exports = function(database) {
     const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : `Rs.${d.amount}`;
     const desc = `${partyLabel} - ${detail}`;
     const baseCb = { date: d.date, kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by, linked_payment_id: d.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    const roundOff = parseFloat(req.body.round_off) || 0;
-    const totalSettled = Math.round((d.amount + roundOff) * 100) / 100;
     // Cash Book entry - actual cash
     database.data.cash_transactions.push({
       id: require('crypto').randomUUID(), account, txn_type: txnType,
@@ -325,12 +325,13 @@ module.exports = function(database) {
     const idx = database.data.private_payments.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     const pay = database.data.private_payments[idx];
+    const reversalAmount = Math.round(((pay.amount || 0) + (parseFloat(pay.round_off) || 0)) * 100) / 100;
     if (pay.ref_type === 'paddy_purchase' && pay.ref_id) {
       const entry = (database.data.private_paddy || []).find(e => e.id === pay.ref_id);
-      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - pay.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - reversalAmount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     } else if (pay.ref_type === 'rice_sale' && pay.ref_id) {
       const entry = (database.data.rice_sales || []).find(e => e.id === pay.ref_id);
-      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - pay.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - reversalAmount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     }
     if (database.data.cash_transactions) {
       database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== pay.id);

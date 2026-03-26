@@ -128,6 +128,7 @@ module.exports = function(database) {
         pvtEntry.paid_amount = newPaid;
         pvtEntry.balance = newBalance;
         pvtEntry.status = newBalance <= 0 ? 'paid' : (newPaid > 0 ? 'partial' : 'pending');
+        txn.cashbook_pvt_linked = pvtEntry.id;
       }
     }
     
@@ -155,15 +156,23 @@ module.exports = function(database) {
     if (!txn) return res.status(404).json({ detail: 'Not found' });
 
     // Revert private_paddy paid_amount if this was a Pvt Paddy Purchase nikasi from cash/bank
-    if (txn.party_type === 'Pvt Paddy Purchase' && (txn.account === 'cash' || txn.account === 'bank') && txn.category) {
+    // Skip if linked_payment_id set (those are handled via Undo Payment)
+    if (txn.party_type === 'Pvt Paddy Purchase' && (txn.account === 'cash' || txn.account === 'bank') && txn.category && !txn.linked_payment_id) {
       const pvtEntries = database.data.private_paddy || [];
       const cat = txn.category;
       let pvtEntry = null;
-      const parts = cat.split(' - ');
-      if (parts.length === 2) {
-        pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === parts[0].trim().toLowerCase() && p.mandi_name && p.mandi_name.toLowerCase() === parts[1].trim().toLowerCase() && p.source !== 'agent_extra');
+      // Exact match via cashbook_pvt_linked flag
+      if (txn.cashbook_pvt_linked) {
+        pvtEntry = pvtEntries.find(p => p.id === txn.cashbook_pvt_linked);
       }
-      if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === cat.toLowerCase() && p.source !== 'agent_extra');
+      if (!pvtEntry) {
+        const parts = cat.split(' - ');
+        if (parts.length === 2) {
+          pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === parts[0].trim().toLowerCase() && p.mandi_name && p.mandi_name.toLowerCase() === parts[1].trim().toLowerCase());
+        }
+        if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === cat.toLowerCase());
+        if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && cat.toLowerCase().includes(p.party_name.toLowerCase()));
+      }
       if (pvtEntry) {
         const revAmount = Math.round((txn.amount || 0) * 100) / 100;
         const newPaid = Math.round(Math.max(0, (pvtEntry.paid_amount || 0) - revAmount) * 100) / 100;

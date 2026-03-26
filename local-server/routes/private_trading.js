@@ -1,6 +1,6 @@
 const express = require('express');
 const { safeSync } = require('./safe_handler');
-const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../../shared/report_helper');
+const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../shared/report_helper');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -8,7 +8,7 @@ module.exports = function(database) {
   function _fmtDetail(qntl, rate) {
     const q = qntl === Math.floor(qntl) ? Math.floor(qntl) : qntl;
     const r = rate === Math.floor(rate) ? Math.floor(rate) : Math.round(rate * 100) / 100;
-    return `${q} @ Rs.${r}`;
+    return `${q} Qntl @ Rs.${r}`;
   }
 
   // Helper: Create truck payment + advance entries for pvt paddy
@@ -18,7 +18,7 @@ module.exports = function(database) {
     const entryId = doc.id;
     const party = doc.party_name || '';
     const mandi = doc.mandi_name || '';
-    const partyLabel = (party && mandi) ? `${party} - ${mandi}` : party || 'Pvt Paddy';
+    const partyLabel = party || 'Pvt Paddy';
     const truckNo = doc.truck_no || '';
     const date = doc.date || new Date().toISOString().slice(0, 10);
     const qntl = doc.final_qntl || doc.qntl || 0;
@@ -70,7 +70,7 @@ module.exports = function(database) {
     if (totalAmt <= 0 || !doc.id) return;
     const ref = `pvt_party_jama:${doc.id.slice(0, 8)}`;
     const exists = db.data.cash_transactions.find(t => t.reference === ref);
-    if (exists) return;
+    if (exists) return; // Already exists
     const party = doc.party_name || 'Pvt Paddy';
     const qntl = doc.final_qntl || doc.qntl || (doc.kg ? doc.kg / 100 : 0);
     const rate = doc.rate_per_qntl || doc.rate || 0;
@@ -94,10 +94,50 @@ module.exports = function(database) {
     if (db.data.cash_transactions) db.data.cash_transactions = db.data.cash_transactions.filter(t => {
       if (t.linked_entry_id !== entryId) return true;
       const ref = (t.reference || '');
+      // Delete both pvt_paddy_* and pvt_party_jama:* entries
       if (ref.startsWith('pvt_paddy') || ref.startsWith('pvt_party_jama') || ref.startsWith('pvt_truck_jama:')) return false;
       return true;
     });
     if (db.data.diesel_accounts) db.data.diesel_accounts = db.data.diesel_accounts.filter(t => t.linked_entry_id !== entryId);
+  }
+
+  // Helper: Create cash entries for rice sales (Auto-receipt)
+  function _createCashForRiceSale(db, doc, username) {
+    if (!db.data.cash_transactions) db.data.cash_transactions = [];
+    const entryId = doc.id;
+    const party = doc.party_name || '';
+    const date = doc.date || new Date().toISOString().slice(0, 10);
+    const amount = parseFloat(doc.paid_amount) || 0;
+    const base = { kms_year: doc.kms_year || '', season: doc.season || '', created_by: username || 'system', linked_entry_id: entryId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+
+    if (amount > 0) {
+      const desc = `Rice Sale - ${party} - Rs.${amount}`;
+      // Cash Book (Jama = Money In)
+      db.data.cash_transactions.push({
+        id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'jama',
+        category: party, party_type: 'Rice Sale', description: desc,
+        amount: Math.round(amount * 100) / 100,
+        reference: `rice_sale_cash:${entryId.slice(0,8)}`,
+        ...base
+      });
+      // Ledger (Jama = Payment Received from Party)
+      db.data.cash_transactions.push({
+        id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'jama',
+        category: party, party_type: 'Rice Sale', description: desc,
+        amount: Math.round(amount * 100) / 100,
+        reference: `rice_sale_lcash:${entryId.slice(0,8)}`,
+        ...base
+      });
+    }
+  }
+
+  // Helper: Delete linked cash entries for rice sales
+  function _deleteCashForRiceSale(db, entryId) {
+    if (db.data.cash_transactions) {
+      db.data.cash_transactions = db.data.cash_transactions.filter(t => 
+        !(t.linked_entry_id === entryId && (t.reference || '').startsWith('rice_sale_'))
+      );
+    }
   }
 
 
@@ -128,7 +168,7 @@ module.exports = function(database) {
     database.data.private_paddy.push(d);
     // Auto cash book + diesel entries
     try { _createCashDieselForPvtPaddy(database, d, req.query.username || ''); } catch(e) { console.error('[PvtPaddy] _createCashDieselForPvtPaddy error:', e); }
-    // SAFETY NET: Always ensure party jama entry exists
+    // SAFETY NET: Always ensure party jama entry exists even if above function failed
     _ensurePartyJamaExists(database, d, req.query.username || '');
     database.save(); res.json(d);
   }));
@@ -180,7 +220,9 @@ module.exports = function(database) {
     d.bags = parseInt(d.bags) || 0; d.paid_amount = parseFloat(d.paid_amount) || 0;
     d.total_amount = Math.round(d.quantity_qntl * d.rate_per_qntl * 100) / 100;
     d.balance = Math.round(d.total_amount - d.paid_amount, 2);
-    database.data.rice_sales.push(d); database.save(); res.json(d);
+    database.data.rice_sales.push(d);
+    _createCashForRiceSale(database, d, req.query.username || '');
+    database.save(); res.json(d);
   }));
 
   router.get('/api/rice-sales', safeSync((req, res) => {
@@ -203,14 +245,19 @@ module.exports = function(database) {
     merged.bags = parseInt(merged.bags) || 0; merged.paid_amount = parseFloat(merged.paid_amount) || 0;
     merged.total_amount = Math.round(merged.quantity_qntl * merged.rate_per_qntl * 100) / 100;
     merged.balance = Math.round(merged.total_amount - merged.paid_amount, 2);
-    database.data.rice_sales[idx] = merged; database.save(); res.json(merged);
+    database.data.rice_sales[idx] = merged;
+    _deleteCashForRiceSale(database, req.params.id);
+    _createCashForRiceSale(database, merged, req.query.username || '');
+    database.save(); res.json(merged);
   }));
 
   router.delete('/api/rice-sales/:id', safeSync((req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
-    database.data.rice_sales.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
+    database.data.rice_sales.splice(idx, 1);
+    _deleteCashForRiceSale(database, req.params.id);
+    database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
 
   // ===== PRIVATE PAYMENTS =====
@@ -219,13 +266,15 @@ module.exports = function(database) {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
     d.amount = parseFloat(d.amount) || 0;
+    const roundOff = parseFloat(req.body.round_off) || 0;
+    const totalSettled = Math.round((d.amount + roundOff) * 100) / 100;
     database.data.private_payments.push(d);
     if (d.ref_type === 'paddy_purchase' && d.ref_id) {
       const entry = (database.data.private_paddy || []).find(e => e.id === d.ref_id);
-      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + d.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + totalSettled) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     } else if (d.ref_type === 'rice_sale' && d.ref_id) {
       const entry = (database.data.rice_sales || []).find(e => e.id === d.ref_id);
-      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + d.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + totalSettled) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     }
     const account = d.mode === 'bank' ? 'bank' : 'cash';
     const isPaddy = d.ref_type === 'paddy_purchase';
@@ -241,19 +290,21 @@ module.exports = function(database) {
     const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : `Rs.${d.amount}`;
     const desc = `${partyLabel} - ${detail}`;
     const baseCb = { date: d.date, kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by, linked_payment_id: d.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    // Cash Book entry
+    // Cash Book entry - actual cash
     database.data.cash_transactions.push({
       id: require('crypto').randomUUID(), account, txn_type: txnType,
       category: partyLabel, party_type: partyType, description: desc,
       amount: d.amount, reference: d.reference || `pvt_pay:${d.id.substring(0, 8)}`, ...baseCb
     });
-    // Party Ledger entry
+    // Party Ledger entry - total including round off
     database.data.cash_transactions.push({
       id: require('crypto').randomUUID(), account: 'ledger', txn_type: txnType,
-      category: partyLabel, party_type: partyType, description: desc,
-      amount: d.amount, reference: d.reference || `pvt_pay_ledger:${d.id.substring(0, 8)}`, ...baseCb
+      category: partyLabel, party_type: partyType,
+      description: desc + (roundOff ? ` (Cash: ${d.amount}, RoundOff: ${roundOff})` : ''),
+      amount: totalSettled, reference: d.reference || `pvt_pay_ledger:${d.id.substring(0, 8)}`, ...baseCb
     });
-    database.save(); res.json(d);
+    database.save();
+    res.json(d);
   }));
 
   router.get('/api/private-payments', safeSync((req, res) => {
@@ -274,12 +325,13 @@ module.exports = function(database) {
     const idx = database.data.private_payments.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     const pay = database.data.private_payments[idx];
+    const reversalAmount = Math.round(((pay.amount || 0) + (parseFloat(pay.round_off) || 0)) * 100) / 100;
     if (pay.ref_type === 'paddy_purchase' && pay.ref_id) {
       const entry = (database.data.private_paddy || []).find(e => e.id === pay.ref_id);
-      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - pay.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - reversalAmount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     } else if (pay.ref_type === 'rice_sale' && pay.ref_id) {
       const entry = (database.data.rice_sales || []).find(e => e.id === pay.ref_id);
-      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - pay.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - reversalAmount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     }
     if (database.data.cash_transactions) {
       database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== pay.id);
@@ -340,7 +392,7 @@ module.exports = function(database) {
   // ===== PARTY SUMMARY EXCEL =====
   router.get('/api/private-trading/party-summary/excel', safeSync((req, res) => {
     const ExcelJS = require('exceljs');
-    // Reuse the logic from the GET endpoint
+    const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     if (!database.data.private_paddy) database.data.private_paddy = [];
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, date_from, date_to, search } = req.query;
@@ -361,21 +413,32 @@ module.exports = function(database) {
     const widths = getExcelWidths(cols);
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Summary');
     let title = 'Party-wise Summary'; if (kms_year) title += ` | KMS: ${kms_year}`;
-    ws.mergeCells(1,1,1,cols.length); ws.getCell('A1').value = title; ws.getCell('A1').font = { bold: true, size: 14 };
-    headers.forEach((h,i) => { const c = ws.getCell(3,i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }; });
+    addExcelTitle(ws, title, cols.length, database);
+    headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
+    const hRow = ws.getRow(4);
+    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+    hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    hRow.height = 30;
     const totals = { total_purchase: 0, total_purchase_paid: 0, total_purchase_balance: 0, total_sale: 0, total_sale_received: 0, total_sale_balance: 0, total_net_balance: 0 };
     result.forEach((item, idx) => {
       const vals = getEntryRow(item, cols);
-      vals.forEach((v, ci) => ws.getCell(4+idx, ci+1).value = v);
+      vals.forEach((v, ci) => ws.getCell(5+idx, ci+1).value = v);
       totals.total_purchase += item.purchase_amount||0; totals.total_purchase_paid += item.purchase_paid||0;
       totals.total_purchase_balance += item.purchase_balance||0; totals.total_sale += item.sale_amount||0;
       totals.total_sale_received += item.sale_received||0; totals.total_sale_balance += item.sale_balance||0;
       totals.total_net_balance += item.net_balance||0;
     });
-    const trow = 4 + result.length;
-    ws.getCell(trow,1).value = 'TOTAL'; ws.getCell(trow,1).font = { bold: true };
+    styleExcelData(ws, 5);
+    const trow = 5 + result.length;
+    ws.getCell(trow,1).value = 'TOTAL'; ws.getCell(trow,1).font = { bold: true, size: 11 };
     const totalVals = getTotalRow(totals, cols);
-    totalVals.forEach((v,i) => { if (v !== null) { ws.getCell(trow,i+1).value = v; ws.getCell(trow,i+1).font = { bold: true }; } });
+    totalVals.forEach((v,i) => { if (v !== null) { ws.getCell(trow,i+1).value = v; ws.getCell(trow,i+1).font = { bold: true, size: 11 }; } });
+    for (let c = 1; c <= cols.length; c++) {
+      const cell = ws.getCell(trow, c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+      cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
+    }
     widths.forEach((w,i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=party_summary.xlsx');
@@ -385,6 +448,8 @@ module.exports = function(database) {
   // ===== PARTY SUMMARY PDF =====
   router.get('/api/private-trading/party-summary/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+    const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.private_paddy) database.data.private_paddy = [];
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, search } = req.query;
@@ -404,25 +469,17 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=party_summary.pdf');
     doc.pipe(res);
-    let title = 'Party-wise Summary'; if (kms_year) title += ` | KMS: ${kms_year}`;
-    doc.fontSize(14).fillColor('#D97706').text(title, { align: 'center' }); doc.moveDown(0.5);
-    doc.fontSize(7).fillColor('#333');
+    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | ${season}`;
+    _addPdfHeader(doc, 'Party-wise Summary', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
-    let y = doc.y;
-    headers.forEach((h,i) => { let x = 20 + colW.slice(0,i).reduce((a,b)=>a+b,0); doc.fillColor('#1E293B').rect(x,y,colW[i],14).fill(); doc.fillColor('#FFF').text(h,x+2,y+3,{width:colW[i]-4}); });
-    y += 16; doc.fillColor('#333');
-    result.forEach(item => {
-      const vals = getEntryRow(item, cols);
-      vals.forEach((v,i) => { let x = 20 + colW.slice(0,i).reduce((a,b)=>a+b,0); doc.text(String(v),x+2,y+2,{width:colW[i]-4}); });
-      y += 14; if (y > 560) { doc.addPage(); y = 20; }
-    });
+    const rows = result.map(item => getEntryRow(item, cols).map(v => String(v)));
+    addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
     doc.end();
   }));
 
-  return router;
-};
   router.get('/api/private-paddy/excel', safeSync((req, res) => {
     const ExcelJS = require('exceljs');
+    const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const { kms_year, season, search } = req.query;
     let items = [...database.data.private_paddy];
@@ -439,20 +496,31 @@ module.exports = function(database) {
     const widths = getExcelWidths(cols);
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Pvt Paddy');
     let title = 'Private Paddy Purchase'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
-    ws.mergeCells(1, 1, 1, cols.length); ws.getCell('A1').value = title; ws.getCell('A1').font = { bold: true, size: 14 };
-    headers.forEach((h, i) => { const c = ws.getCell(3, i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }; });
+    addExcelTitle(ws, title, cols.length, database);
+    headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
+    const hRow = ws.getRow(4);
+    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+    hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    hRow.height = 30;
     const totals = { total_kg: 0, total_final_qntl: 0, total_amount: 0, total_paid: 0, total_balance: 0 };
     items.forEach((item, idx) => {
       const vals = getEntryRow(item, cols);
-      vals.forEach((v, ci) => ws.getCell(4+idx, ci+1).value = v);
+      vals.forEach((v, ci) => ws.getCell(5+idx, ci+1).value = v);
       totals.total_kg += item.kg || 0; totals.total_final_qntl += item.final_qntl || 0;
       totals.total_amount += item.total_amount || 0; totals.total_paid += item.paid_amount || 0; totals.total_balance += item.balance || 0;
     });
     Object.keys(totals).forEach(k => totals[k] = Math.round(totals[k]*100)/100);
-    const trow = 4 + items.length;
-    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true };
+    styleExcelData(ws, 5);
+    const trow = 5 + items.length;
+    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true, size: 11 };
     const totalVals = getTotalRow(totals, cols);
-    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true }; } });
+    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true, size: 11 }; } });
+    for (let c = 1; c <= cols.length; c++) {
+      const cell = ws.getCell(trow, c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+      cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
+    }
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=pvt_paddy.xlsx');
@@ -462,6 +530,8 @@ module.exports = function(database) {
   // ===== EXPORT: Private Paddy PDF =====
   router.get('/api/private-paddy/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
+    const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+    const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const { kms_year, season, search } = req.query;
     let items = [...database.data.private_paddy];
@@ -479,24 +549,18 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=pvt_paddy.pdf');
     doc.pipe(res);
-    let title = 'Private Paddy Purchase'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
-    doc.fontSize(14).fillColor('#D97706').text(title, { align: 'center' }); doc.moveDown(0.5);
-    doc.fontSize(7).fillColor('#333');
+    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | ${season}`;
+    _addPdfHeader(doc, 'Private Paddy Purchase', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
-    let y = doc.y;
-    headers.forEach((h, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.fillColor('#1E293B').rect(x, y, colW[i], 14).fill(); doc.fillColor('#FFF').text(h, x+2, y+3, { width: colW[i]-4 }); });
-    y += 16; doc.fillColor('#333');
-    items.forEach(item => {
-      const vals = getEntryRow(item, cols);
-      vals.forEach((v, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.text(String(v), x+2, y+2, { width: colW[i]-4 }); });
-      y += 14; if (y > 560) { doc.addPage(); y = 20; }
-    });
+    const rows = items.map(item => getEntryRow(item, cols).map(v => String(v)));
+    addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
     doc.end();
   }));
 
   // ===== EXPORT: Rice Sales Excel =====
   router.get('/api/rice-sales/excel', safeSync((req, res) => {
     const ExcelJS = require('exceljs');
+    const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, search } = req.query;
     let items = [...database.data.rice_sales];
@@ -510,20 +574,31 @@ module.exports = function(database) {
     const widths = getExcelWidths(cols);
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Rice Sales');
     let title = 'Rice Sales Report'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
-    ws.mergeCells(1, 1, 1, cols.length); ws.getCell('A1').value = title; ws.getCell('A1').font = { bold: true, size: 14 };
-    headers.forEach((h, i) => { const c = ws.getCell(3, i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065F46' } }; });
+    addExcelTitle(ws, title, cols.length, database);
+    headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
+    const hRow = ws.getRow(4);
+    hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+    hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    hRow.height = 30;
     const totals = { total_qntl: 0, total_amount: 0, total_paid: 0, total_balance: 0 };
     items.forEach((item, idx) => {
       const vals = getEntryRow(item, cols);
-      vals.forEach((v, ci) => ws.getCell(4+idx, ci+1).value = v);
+      vals.forEach((v, ci) => ws.getCell(5+idx, ci+1).value = v);
       totals.total_qntl += item.quantity_qntl || 0; totals.total_amount += item.total_amount || 0;
       totals.total_paid += item.paid_amount || 0; totals.total_balance += item.balance || 0;
     });
     Object.keys(totals).forEach(k => totals[k] = Math.round(totals[k]*100)/100);
-    const trow = 4 + items.length;
-    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true };
+    styleExcelData(ws, 5);
+    const trow = 5 + items.length;
+    ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true, size: 11 };
     const totalVals = getTotalRow(totals, cols);
-    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true }; } });
+    totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i+1).value = v; ws.getCell(trow, i+1).font = { bold: true, size: 11 }; } });
+    for (let c = 1; c <= cols.length; c++) {
+      const cell = ws.getCell(trow, c);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+      cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
+    }
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=rice_sales.xlsx');
@@ -533,6 +608,8 @@ module.exports = function(database) {
   // ===== EXPORT: Rice Sales PDF =====
   router.get('/api/rice-sales/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
+    const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+    const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, search } = req.query;
     let items = [...database.data.rice_sales];
@@ -547,19 +624,74 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=rice_sales.pdf');
     doc.pipe(res);
-    let title = 'Rice Sales Report'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
-    doc.fontSize(14).fillColor('#065F46').text(title, { align: 'center' }); doc.moveDown(0.5);
-    doc.fontSize(7).fillColor('#333');
+    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | ${season}`;
+    _addPdfHeader(doc, 'Rice Sales Report', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
-    let y = doc.y;
-    headers.forEach((h, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.fillColor('#065F46').rect(x, y, colW[i], 14).fill(); doc.fillColor('#FFF').text(h, x+2, y+3, { width: colW[i]-4 }); });
-    y += 16; doc.fillColor('#333');
-    items.forEach(item => {
-      const vals = getEntryRow(item, cols);
-      vals.forEach((v, i) => { let x = 20 + colW.slice(0, i).reduce((a,b)=>a+b,0); doc.text(String(v), x+2, y+2, { width: colW[i]-4 }); });
-      y += 14; if (y > 560) { doc.addPage(); y = 20; }
-    });
+    const rows = items.map(item => getEntryRow(item, cols).map(v => String(v)));
+    addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
     doc.end();
+  }));
+
+  // === Mark Paid / Undo Paid / History for Private Paddy ===
+  router.post('/api/private-paddy/:id/mark-paid', safeSync((req, res) => {
+    if (!database.data.private_paddy) return res.status(404).json({ detail: 'Not found' });
+    const item = database.data.private_paddy.find(p => p.id === req.params.id);
+    if (!item) return res.status(404).json({ detail: 'Not found' });
+    item.is_paid = true;
+    item.paid_at = new Date().toISOString();
+    item.paid_by = req.query.username || '';
+    database.save();
+    res.json({ message: 'Marked as paid', id: req.params.id });
+  }));
+
+  router.post('/api/private-paddy/:id/undo-paid', safeSync((req, res) => {
+    if (!database.data.private_paddy) return res.status(404).json({ detail: 'Not found' });
+    const item = database.data.private_paddy.find(p => p.id === req.params.id);
+    if (!item) return res.status(404).json({ detail: 'Not found' });
+    item.is_paid = false;
+    item.paid_at = null;
+    item.paid_by = null;
+    database.save();
+    res.json({ message: 'Payment undone', id: req.params.id });
+  }));
+
+  router.get('/api/private-paddy/:id/history', safeSync((req, res) => {
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    const payments = database.data.cash_transactions.filter(t =>
+      (t.reference || '').includes(req.params.id.slice(0, 8)) || (t.reference || '').includes(`pvt_paddy`)
+    );
+    res.json(payments);
+  }));
+
+  // === Mark Paid / Undo Paid / History for Rice Sales ===
+  router.post('/api/rice-sales/:id/mark-paid', safeSync((req, res) => {
+    if (!database.data.rice_sales) return res.status(404).json({ detail: 'Not found' });
+    const item = database.data.rice_sales.find(p => p.id === req.params.id);
+    if (!item) return res.status(404).json({ detail: 'Not found' });
+    item.is_paid = true;
+    item.paid_at = new Date().toISOString();
+    item.paid_by = req.query.username || '';
+    database.save();
+    res.json({ message: 'Marked as paid', id: req.params.id });
+  }));
+
+  router.post('/api/rice-sales/:id/undo-paid', safeSync((req, res) => {
+    if (!database.data.rice_sales) return res.status(404).json({ detail: 'Not found' });
+    const item = database.data.rice_sales.find(p => p.id === req.params.id);
+    if (!item) return res.status(404).json({ detail: 'Not found' });
+    item.is_paid = false;
+    item.paid_at = null;
+    item.paid_by = null;
+    database.save();
+    res.json({ message: 'Payment undone', id: req.params.id });
+  }));
+
+  router.get('/api/rice-sales/:id/history', safeSync((req, res) => {
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    const payments = database.data.cash_transactions.filter(t =>
+      (t.reference || '').includes(req.params.id.slice(0, 8)) || (t.reference || '').includes(`rice_sale`)
+    );
+    res.json(payments);
   }));
 
   return router;

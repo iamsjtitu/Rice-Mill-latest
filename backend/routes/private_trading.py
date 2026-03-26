@@ -484,20 +484,23 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
         "mode": data.get("mode", "cash"),  # cash/bank/cheque
         "reference": data.get("reference", ""),
         "remark": data.get("remark", ""),
+        "round_off": float(data.get("round_off", 0)),
         "created_by": username,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.private_payments.insert_one(doc)
-    # Update balance on the referenced entry
+    # Update balance on the referenced entry (include round_off in settled amount)
+    round_off_val = float(data.get("round_off", 0))
+    total_settled = round(doc["amount"] + round_off_val, 2)
     if doc["ref_type"] == "paddy_purchase" and doc["ref_id"]:
         entry = await db.private_paddy.find_one({"id": doc["ref_id"]})
         if entry:
-            new_paid = round(entry.get("paid_amount", 0) + doc["amount"], 2)
+            new_paid = round(entry.get("paid_amount", 0) + total_settled, 2)
             await db.private_paddy.update_one({"id": doc["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
     elif doc["ref_type"] == "rice_sale" and doc["ref_id"]:
         entry = await db.rice_sales.find_one({"id": doc["ref_id"]})
         if entry:
-            new_paid = round(entry.get("paid_amount", 0) + doc["amount"], 2)
+            new_paid = round(entry.get("paid_amount", 0) + total_settled, 2)
             await db.rice_sales.update_one({"id": doc["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
     # Auto-create Cash Book + Ledger entries
     account = "bank" if doc["mode"] == "bank" else "cash"
@@ -575,16 +578,18 @@ async def get_private_payments(party_name: Optional[str] = None, ref_type: Optio
 async def delete_private_payment(pay_id: str):
     pay = await db.private_payments.find_one({"id": pay_id})
     if not pay: raise HTTPException(status_code=404, detail="Not found")
-    # Reverse the payment from the referenced entry
+    # Reverse the payment from the referenced entry (include round_off in reversal)
+    round_off_val = float(pay.get("round_off", 0))
+    reversal_amount = round(pay["amount"] + round_off_val, 2)
     if pay.get("ref_type") == "paddy_purchase" and pay.get("ref_id"):
         entry = await db.private_paddy.find_one({"id": pay["ref_id"]})
         if entry:
-            new_paid = round(max(0, entry.get("paid_amount", 0) - pay["amount"]), 2)
+            new_paid = round(max(0, entry.get("paid_amount", 0) - reversal_amount), 2)
             await db.private_paddy.update_one({"id": pay["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
     elif pay.get("ref_type") == "rice_sale" and pay.get("ref_id"):
         entry = await db.rice_sales.find_one({"id": pay["ref_id"]})
         if entry:
-            new_paid = round(max(0, entry.get("paid_amount", 0) - pay["amount"]), 2)
+            new_paid = round(max(0, entry.get("paid_amount", 0) - reversal_amount), 2)
             await db.rice_sales.update_one({"id": pay["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
     # Delete linked Cash Book entry
     await db.cash_transactions.delete_many({"linked_payment_id": pay_id})

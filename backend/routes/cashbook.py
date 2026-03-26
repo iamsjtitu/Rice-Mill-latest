@@ -215,6 +215,7 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
                 {"id": pvt_entry["id"]},
                 {"$set": {"paid_amount": new_paid, "balance": new_balance, "status": new_status}}
             )
+            txn_dict['cashbook_pvt_linked'] = pvt_entry["id"]
     
     # Round off info is already included in the main transaction's ledger entry amount
     # and in the description text. No separate round_off entry needed.
@@ -404,21 +405,30 @@ async def delete_cash_transaction(txn_id: str):
         raise HTTPException(status_code=404, detail="Transaction not found")
     
     # Revert private_paddy paid_amount if this was a Pvt Paddy Purchase nikasi from cash/bank
-    if txn.get('party_type') == "Pvt Paddy Purchase" and txn.get('account') in ('cash', 'bank') and txn.get('category'):
+    # Skip if linked_payment_id is set (those entries are reversed via Undo Payment in private-payments delete)
+    if txn.get('party_type') == "Pvt Paddy Purchase" and txn.get('account') in ('cash', 'bank') and txn.get('category') and not txn.get('linked_payment_id'):
         import re as _re
         cat = txn['category']
         pvt_entry = None
-        parts = cat.split(" - ", 1)
-        if len(parts) == 2:
-            pvt_entry = await db.private_paddy.find_one(
-                {"party_name": {"$regex": f"^{_re.escape(parts[0].strip())}$", "$options": "i"},
-                 "mandi_name": {"$regex": f"^{_re.escape(parts[1].strip())}$", "$options": "i"},
-                 "source": {"$ne": "agent_extra"}},
-                {"_id": 0}
-            )
+        # Use cashbook_pvt_linked for exact match if available
+        if txn.get('cashbook_pvt_linked'):
+            pvt_entry = await db.private_paddy.find_one({"id": txn['cashbook_pvt_linked']}, {"_id": 0})
         if not pvt_entry:
-            cat_rgx = _re.compile(f"^{_re.escape(cat)}$", _re.IGNORECASE)
-            pvt_entry = await db.private_paddy.find_one({"party_name": cat_rgx, "source": {"$ne": "agent_extra"}}, {"_id": 0})
+            parts = cat.split(" - ", 1)
+            if len(parts) == 2:
+                pvt_entry = await db.private_paddy.find_one(
+                    {"party_name": {"$regex": f"^{_re.escape(parts[0].strip())}$", "$options": "i"},
+                     "mandi_name": {"$regex": f"^{_re.escape(parts[1].strip())}$", "$options": "i"}},
+                    {"_id": 0}
+                )
+            if not pvt_entry:
+                cat_rgx = _re.compile(f"^{_re.escape(cat)}$", _re.IGNORECASE)
+                pvt_entry = await db.private_paddy.find_one({"party_name": cat_rgx}, {"_id": 0})
+            if not pvt_entry:
+                pvt_entry = await db.private_paddy.find_one(
+                    {"party_name": {"$regex": _re.escape(cat), "$options": "i"}},
+                    {"_id": 0}
+                )
         if pvt_entry:
             rev_amount = round(txn.get('amount', 0), 2)
             new_paid = round(max(0, pvt_entry.get("paid_amount", 0) - rev_amount), 2)
