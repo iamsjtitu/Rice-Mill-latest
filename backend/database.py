@@ -11,8 +11,8 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 USERS = {
-    "admin": {"password": "admin123", "role": "admin"},
-    "staff": {"password": "staff123", "role": "staff"}
+    "admin": {"password": os.environ.get("ADMIN_PASSWORD", "admin123"), "role": "admin"},
+    "staff": {"password": os.environ.get("STAFF_PASSWORD", "staff123"), "role": "staff"}
 }
 
 # Print page storage (server-side print for Electron compatibility)
