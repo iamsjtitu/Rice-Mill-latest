@@ -276,10 +276,10 @@ module.exports = function(database) {
     const pay = database.data.private_payments[idx];
     if (pay.ref_type === 'paddy_purchase' && pay.ref_id) {
       const entry = (database.data.private_paddy || []).find(e => e.id === pay.ref_id);
-      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - pay.amount) * 100) / 100; entry.balance = Math.round(entry.total_amount - entry.paid_amount * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - pay.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     } else if (pay.ref_type === 'rice_sale' && pay.ref_id) {
       const entry = (database.data.rice_sales || []).find(e => e.id === pay.ref_id);
-      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - pay.amount) * 100) / 100; entry.balance = Math.round(entry.total_amount - entry.paid_amount * 100) / 100; }
+      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - pay.amount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
     }
     if (database.data.cash_transactions) {
       database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== pay.id);

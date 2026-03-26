@@ -533,9 +533,29 @@ export const PaddyPurchase = ({ filters, user }) => {
                       <p className="text-[10px] text-slate-400">{fmtDate(h.date)} | {h.mode || 'cash'} {h.reference ? `| ${h.reference}` : ''}</p>
                       {h.remark && <p className="text-[10px] text-slate-500 italic">{h.remark}</p>}
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${h.payment_type === 'paid' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
-                      {h.payment_type || 'paid'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${h.payment_type === 'paid' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+                        {h.payment_type || 'paid'}
+                      </span>
+                      {user.role === 'admin' && h.id && (
+                        <Button variant="ghost" size="sm" className="h-6 px-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/30"
+                          data-testid={`paddy-undo-pay-${h.id}`}
+                          title="Payment Undo / Delete"
+                          onClick={async () => {
+                            const confirmed = await showConfirm("Kya aap ye payment undo karna chahte hain? Cash Book se bhi linked entries delete hongi.");
+                            if (!confirmed) return;
+                            try {
+                              await axios.delete(`${API}/private-payments/${h.id}?username=${user.username}&role=${user.role}`);
+                              toast.success("Payment undo ho gaya! Cash Book se bhi delete hua.");
+                              const res = await axios.get(`${API}/private-paddy/${historyDialog.item.id}/history`);
+                              setHistoryDialog(prev => ({ ...prev, history: res.data.history || [] }));
+                              fetchData();
+                            } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+                          }}>
+                          <Undo2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
