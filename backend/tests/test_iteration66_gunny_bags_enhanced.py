@@ -15,7 +15,7 @@ import uuid
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://grain-ledger-sync.preview.emergentagent.com"
+    BASE_URL = "https://millaccounts.preview.emergentagent.com"
 
 
 class TestGunnyBagsEnhancedCRUD:

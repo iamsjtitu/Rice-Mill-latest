@@ -284,7 +284,8 @@ module.exports = function(database) {
       const refEntry = (database.data.private_paddy || []).find(e => e.id === d.ref_id);
       if (refEntry) { mandi = refEntry.mandi_name || ''; qntl = refEntry.qntl || 0; rate = refEntry.rate || ((qntl && refEntry.total_amount) ? Math.round(refEntry.total_amount / qntl * 100) / 100 : 0); }
     }
-    const partyLabel = (d.party_name && mandi) ? `${d.party_name} - ${mandi}` : (d.party_name || '');
+    // Don't duplicate mandi if already in party_name (e.g., "Kridha (Kesinga)" already has "Kesinga")
+    const partyLabel = (d.party_name && mandi && !d.party_name.toLowerCase().includes(mandi.toLowerCase())) ? `${d.party_name} - ${mandi}` : (d.party_name || '');
     const partyType = isPaddy ? 'Pvt Paddy Purchase' : 'Rice Sale';
     const txnType = isPaddy ? 'nikasi' : 'jama';
     const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : `Rs.${d.amount}`;

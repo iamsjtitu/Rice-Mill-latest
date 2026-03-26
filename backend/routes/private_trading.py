@@ -514,7 +514,11 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
         ref_entry = await db.private_paddy.find_one({"id": doc["ref_id"]}, {"_id": 0})
         party = doc["party_name"]
         mandi = ref_entry.get("mandi_name", "") if ref_entry else ""
-        party_label = f"{party} - {mandi}" if party and mandi else party
+        # Don't duplicate mandi if already in party_name (e.g., "Kridha (Kesinga)" already has "Kesinga")
+        if mandi and mandi.lower() not in party.lower():
+            party_label = f"{party} - {mandi}"
+        else:
+            party_label = party
         qntl = ref_entry.get("qntl", 0) if ref_entry else 0
         rate = ref_entry.get("rate", 0) if ref_entry else 0
         if not rate and qntl and ref_entry:

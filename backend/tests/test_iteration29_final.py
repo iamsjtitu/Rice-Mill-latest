@@ -7,7 +7,7 @@ import requests
 import os
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://grain-ledger-sync.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://millaccounts.preview.emergentagent.com').rstrip('/')
 
 # ============ FIXTURES ============
 
