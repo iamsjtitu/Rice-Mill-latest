@@ -3,9 +3,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "40.1.0";
+const APP_VERSION = "42.0.0";
 
 const CHANGELOG = [
+  {
+    version: "42.0.0",
+    date: "26 Mar 2026",
+    title: "v42 - Payment Fixes + Undo Payment + Round-Off",
+    items: [
+      { type: "new", text: "Payment History mein Undo Payment button - Cash Book entries bhi auto-delete" },
+      { type: "fix", text: "Round-off ab paid_amount mein sahi se add hota hai - balance 0 hoga" },
+      { type: "fix", text: "Cash Book se entry delete karne par Paddy Purchase paid_amount auto-revert" },
+      { type: "fix", text: "Double payment fix - Pay button disabled during save" },
+      { type: "fix", text: "Desktop balance calculation parentheses bug fix" },
+      { type: "imp", text: "Route parity - Local Server mein sabhi routes sync" },
+      { type: "imp", text: "Backup folders (Google Drive) automatic cleanup" },
+    ],
+  },
   {
     version: "40.1.0",
     date: "26 Mar 2026",
