@@ -6,7 +6,7 @@ const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate } = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
-const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../../shared/report_helper');
+const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../shared/report_helper');
 
 module.exports = function(database) {
 
@@ -15,14 +15,123 @@ module.exports = function(database) {
     _addPdfHeader(doc, title, branding);
   }
 
+  // Case-insensitive match helper
+  function ciMatch(a, b) { return a && b && a.trim().toLowerCase() === b.trim().toLowerCase(); }
+  function ciContains(haystack, needle) { return haystack && needle && haystack.toLowerCase().includes(needle.toLowerCase()); }
+
   router.post('/api/cash-book', safeSync((req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = req.body;
+    const category = (d.category || '').trim();
+    
+    // Auto-detect party_type (case-insensitive, matching web backend logic)
+    let partyType = d.party_type || '';
+    if (!partyType && category) {
+      // 1. Check existing cash_transactions (case-insensitive exact match)
+      const existing = database.data.cash_transactions.find(t => ciMatch(t.category, category) && t.party_type);
+      if (existing) {
+        partyType = existing.party_type;
+      } else {
+        // 2. Cross-collection lookup (case-insensitive exact match)
+        if ((database.data.private_paddy || []).find(p => ciMatch(p.party_name, category))) partyType = 'Pvt Paddy Purchase';
+        else if ((database.data.rice_sales || []).find(p => ciMatch(p.party_name, category))) partyType = 'Rice Sale';
+        else if ((database.data.diesel_accounts || []).find(p => ciMatch(p.pump_name, category))) partyType = 'Diesel';
+        else if ((database.data.local_party_accounts || []).find(p => ciMatch(p.party_name, category))) partyType = 'Local Party';
+        else if ((database.data.truck_payments || []).find(p => ciMatch(p.truck_no, category))) partyType = 'Truck';
+        else if ((database.data.mandi_targets || []).find(p => ciMatch(p.mandi_name, category))) partyType = 'Agent';
+        else if ((database.data.staff || []).find(s => ciMatch(s.name, category) && s.active)) partyType = 'Staff';
+        // 3. Fuzzy contains match
+        else if ((database.data.private_paddy || []).find(p => ciContains(p.party_name, category))) partyType = 'Pvt Paddy Purchase';
+        else if ((database.data.rice_sales || []).find(p => ciContains(p.party_name, category))) partyType = 'Rice Sale';
+        else if ((database.data.diesel_accounts || []).find(p => ciContains(p.pump_name, category))) partyType = 'Diesel';
+        else if ((database.data.local_party_accounts || []).find(p => ciContains(p.party_name, category))) partyType = 'Local Party';
+        else if ((database.data.mandi_targets || []).find(p => ciContains(p.mandi_name, category))) partyType = 'Agent';
+        else if ((database.data.staff || []).find(s => ciContains(s.name, category) && s.active)) partyType = 'Staff';
+        // 4. Check private_payments (pvt trading payments)
+        else if ((database.data.private_payments || []).find(p => ciMatch(p.party_name, category))) partyType = 'Pvt Paddy Purchase';
+        else partyType = 'Cash Party';
+      }
+      
+      // Retroactive fix: update ALL old entries for this category that have empty party_type
+      if (partyType) {
+        (database.data.cash_transactions || []).forEach(t => {
+          if (ciMatch(t.category, category) && (!t.party_type || t.party_type === '')) {
+            t.party_type = partyType;
+          }
+        });
+      }
+    }
+    
     const txn = { id: uuidv4(), date: d.date, account: d.account || 'cash', txn_type: d.txn_type || 'jama',
-      category: d.category || '', description: d.description || '', amount: +(d.amount || 0),
-      reference: d.reference || '', kms_year: d.kms_year || '', season: d.season || '',
+      category: category, party_type: partyType, description: d.description || '', amount: +(d.amount || 0),
+      reference: d.reference || '', bank_name: d.bank_name || '', kms_year: d.kms_year || '', season: d.season || '',
       created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    database.data.cash_transactions.push(txn); database.save(); res.json(txn);
+    database.data.cash_transactions.push(txn);
+    
+    // Create round-off entry if provided
+    const roundOff = parseFloat(req.query.round_off) || 0;
+
+    // Auto-create ledger entry for cash/bank transactions
+    if ((txn.account === 'cash' || txn.account === 'bank') && category) {
+      const ledgerAmount = roundOff ? Math.round((txn.amount + roundOff) * 100) / 100 : txn.amount;
+      const ledgerEntry = { ...txn, id: uuidv4(), account: 'ledger', amount: ledgerAmount, reference: `auto_ledger:${txn.id.substring(0, 8)}` };
+      // Auto-generate description if empty
+      if (!ledgerEntry.description) {
+        const acct = (txn.account || 'cash').charAt(0).toUpperCase() + (txn.account || 'cash').slice(1);
+        ledgerEntry.description = txn.txn_type === 'jama'
+          ? `${acct} received from ${category}`
+          : `${acct} payment to ${category}`;
+      }
+      if (roundOff) {
+        ledgerEntry.description += ` (Cash: ${txn.amount}, Round Off: ${roundOff > 0 ? '+' : ''}${roundOff})`;
+      }
+      database.data.cash_transactions.push(ledgerEntry);
+    }
+
+    // Auto-create diesel_accounts payment entry when Cash Book payment is for a Diesel pump
+    if (partyType === 'Diesel' && category && (txn.account === 'cash' || txn.account === 'bank')) {
+      const pumps = database.data.diesel_pumps || [];
+      const pump = pumps.find(p => p.name && p.name.toLowerCase() === category.toLowerCase())
+        || pumps.find(p => p.name && category.toLowerCase().includes(p.name.toLowerCase()));
+      if (pump) {
+        if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
+        const totalSettled = roundOff ? Math.round((txn.amount + roundOff) * 100) / 100 : Math.round(txn.amount * 100) / 100;
+        database.data.diesel_accounts.push({
+          id: uuidv4(),
+          date: txn.date || new Date().toISOString().split('T')[0],
+          pump_id: pump.id, pump_name: pump.name,
+          truck_no: '', agent_name: '',
+          amount: totalSettled, txn_type: 'payment',
+          description: `Payment: Rs.${txn.amount}${roundOff ? ' (Round Off: '+(roundOff>0?'+':'')+roundOff+')' : ''}${txn.description ? ' - '+txn.description : ''}`,
+          kms_year: txn.kms_year || '', season: txn.season || '',
+          created_by: req.query.username || 'system',
+          source: 'cashbook', linked_cashbook_id: txn.id,
+          created_at: new Date().toISOString()
+        });
+      }
+    }
+
+    // Auto-update private_paddy paid_amount when cashbook payment is made
+    if (partyType === 'Pvt Paddy Purchase' && category && (txn.account === 'cash' || txn.account === 'bank')) {
+      const pvtEntries = database.data.private_paddy || [];
+      let pvtEntry = null;
+      const parts = category.split(' - ');
+      if (parts.length === 2) {
+        pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === parts[0].trim().toLowerCase() && p.mandi_name && p.mandi_name.toLowerCase() === parts[1].trim().toLowerCase() && (p.balance || 0) > 0);
+      }
+      if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === category.toLowerCase() && (p.balance || 0) > 0);
+      if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && category.toLowerCase().includes(p.party_name.toLowerCase()) && (p.balance || 0) > 0);
+      if (pvtEntry) {
+        const payAmount = Math.round(((txn.amount || 0) + roundOff) * 100) / 100;
+        const newPaid = Math.round(((pvtEntry.paid_amount || 0) + payAmount) * 100) / 100;
+        const newBalance = Math.round((pvtEntry.total_amount || 0) - newPaid);
+        pvtEntry.paid_amount = newPaid;
+        pvtEntry.balance = newBalance;
+        pvtEntry.status = newBalance <= 0 ? 'paid' : (newPaid > 0 ? 'partial' : 'pending');
+      }
+    }
+    
+    database.save(); res.json(txn);
   }));
 
   router.get('/api/cash-book', safeSync((req, res) => {
@@ -31,6 +140,10 @@ module.exports = function(database) {
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
     if (req.query.account) txns = txns.filter(t => t.account === req.query.account);
+    if (req.query.txn_type) txns = txns.filter(t => t.txn_type === req.query.txn_type);
+    if (req.query.category) txns = txns.filter(t => t.category === req.query.category);
+    if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+    if (req.query.exclude_round_off === 'true' && !req.query.party_type) txns = txns.filter(t => t.party_type !== 'Round Off');
     if (req.query.date_from) txns = txns.filter(t => t.date >= req.query.date_from);
     if (req.query.date_to) txns = txns.filter(t => t.date <= req.query.date_to);
     res.json(txns.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||'')));
@@ -38,10 +151,125 @@ module.exports = function(database) {
 
   router.delete('/api/cash-book/:id', safeSync((req, res) => {
     if (!database.data.cash_transactions) return res.status(404).json({ detail: 'Not found' });
-    const len = database.data.cash_transactions.length;
-    database.data.cash_transactions = database.data.cash_transactions.filter(t => t.id !== req.params.id);
-    if (database.data.cash_transactions.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
-    res.status(404).json({ detail: 'Not found' });
+    const txn = database.data.cash_transactions.find(t => t.id === req.params.id);
+    if (!txn) return res.status(404).json({ detail: 'Not found' });
+
+    // Revert private_paddy paid_amount if this was a Pvt Paddy Purchase nikasi from cash/bank
+    if (txn.party_type === 'Pvt Paddy Purchase' && (txn.account === 'cash' || txn.account === 'bank') && txn.category) {
+      const pvtEntries = database.data.private_paddy || [];
+      const cat = txn.category;
+      let pvtEntry = null;
+      const parts = cat.split(' - ');
+      if (parts.length === 2) {
+        pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === parts[0].trim().toLowerCase() && p.mandi_name && p.mandi_name.toLowerCase() === parts[1].trim().toLowerCase() && p.source !== 'agent_extra');
+      }
+      if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === cat.toLowerCase() && p.source !== 'agent_extra');
+      if (pvtEntry) {
+        const revAmount = Math.round((txn.amount || 0) * 100) / 100;
+        const newPaid = Math.round(Math.max(0, (pvtEntry.paid_amount || 0) - revAmount) * 100) / 100;
+        const newBalance = Math.round((pvtEntry.total_amount || 0) - newPaid);
+        pvtEntry.paid_amount = newPaid;
+        pvtEntry.balance = newBalance;
+        pvtEntry.status = newBalance <= 0 ? 'paid' : (newPaid > 0 ? 'partial' : 'pending');
+      }
+    }
+
+    // Revert truck_payments paid_amount if this was a truck payment entry
+    const linkedId = txn.linked_payment_id || '';
+    if (linkedId.startsWith('truck:')) {
+      const entryId = linkedId.replace('truck:', '');
+      const tpDoc = (database.data.truck_payments || []).find(p => p.entry_id === entryId);
+      if (tpDoc) {
+        const revAmount = Math.round((txn.amount || 0) * 100) / 100;
+        tpDoc.paid_amount = Math.round(Math.max(0, (tpDoc.paid_amount || 0) - revAmount) * 100) / 100;
+        const history = tpDoc.payments_history || [];
+        for (let i = history.length - 1; i >= 0; i--) {
+          if (Math.round((history[i].amount || 0) * 100) === Math.round(revAmount * 100)) { history.splice(i, 1); break; }
+        }
+        tpDoc.updated_at = new Date().toISOString();
+      }
+      // Delete linked ledger entry
+      const refPrefix = (txn.reference || '').replace('truck_pay:', 'truck_pay_ledger:');
+      if (refPrefix) database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== refPrefix);
+    }
+
+    // Revert agent_payments paid_amount if this was an agent payment entry
+    if (linkedId.startsWith('agent:')) {
+      const parts = linkedId.split(':');
+      if (parts.length >= 4) {
+        const mandiName = parts[1], kmsYear = parts[2], season = parts[3];
+        const apDoc = (database.data.agent_payments || []).find(p =>
+          p.mandi_name === mandiName && p.kms_year === kmsYear && p.season === season);
+        if (apDoc) {
+          const revAmount = Math.round((txn.amount || 0) * 100) / 100;
+          apDoc.paid_amount = Math.round(Math.max(0, (apDoc.paid_amount || 0) - revAmount) * 100) / 100;
+          const history = apDoc.payments_history || [];
+          for (let i = history.length - 1; i >= 0; i--) {
+            if (Math.round((history[i].amount || 0) * 100) === Math.round(revAmount * 100)) { history.splice(i, 1); break; }
+          }
+          apDoc.updated_at = new Date().toISOString();
+        }
+        // Delete linked ledger entry
+        const refPrefix = (txn.reference || '').replace('agent_pay:', 'agent_pay_ledger:');
+        if (refPrefix) database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== refPrefix);
+      }
+    }
+
+    // Revert truck_lease_payments if this was a lease payment entry
+    if (linkedId.startsWith('truck_lease:')) {
+      const parts = linkedId.split(':');
+      if (parts.length >= 4) {
+        const paymentId = parts[3] || '';
+        if (paymentId) {
+          database.data.truck_lease_payments = (database.data.truck_lease_payments || []).filter(p => p.id !== paymentId);
+        }
+      }
+    }
+
+    // Also delete auto-created ledger entry
+    const txnIdShort = req.params.id.slice(0, 8);
+
+    // Revert hemali payment to unpaid if this was a hemali cashbook entry
+    const ref = txn.reference || '';
+    if (ref.startsWith('hemali_payment:')) {
+      const hemaliPid = ref.replace('hemali_payment:', '');
+      const hemaliPayments = database.data.hemali_payments || [];
+      const hp = hemaliPayments.find(p => p.id === hemaliPid);
+      if (hp) {
+        hp.status = 'unpaid';
+        hp.updated_at = new Date().toISOString();
+      }
+      // Remove linked ledger entries
+      database.data.cash_transactions = (database.data.cash_transactions || []).filter(t =>
+        t.reference !== `hemali_work:${hemaliPid}` && t.reference !== `hemali_paid:${hemaliPid}`
+      );
+      // Remove local party payment entry (keep debit)
+      database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
+        t.reference !== `hemali_paid:${hemaliPid}`
+      );
+    }
+
+    database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+      t.id !== req.params.id && t.reference !== `auto_ledger:${txnIdShort}`
+    );
+    database.save();
+    res.json({ message: 'Deleted', id: req.params.id });
+  }));
+
+  // Opening Balance PUT - MUST be before /:id route to avoid Express route conflict
+  router.put('/api/cash-book/opening-balance', safeSync((req, res) => {
+    const { kms_year, cash, bank, bank_details } = req.body;
+    if (!kms_year) return res.status(400).json({ detail: 'kms_year is required' });
+    if (!database.data.opening_balances) database.data.opening_balances = [];
+    const totalBank = bank_details && Object.keys(bank_details).length > 0
+      ? Object.values(bank_details).reduce((s, v) => s + (parseFloat(v) || 0), 0)
+      : (parseFloat(bank) || 0);
+    const idx = database.data.opening_balances.findIndex(ob => ob.kms_year === kms_year);
+    const doc = { kms_year, cash: parseFloat(cash) || 0, bank: Math.round(totalBank * 100) / 100, bank_details: bank_details || {}, updated_at: new Date().toISOString() };
+    if (idx >= 0) database.data.opening_balances[idx] = doc;
+    else database.data.opening_balances.push(doc);
+    database.save();
+    res.json(doc);
   }));
 
   router.put('/api/cash-book/:id', safeSync((req, res) => {
@@ -52,6 +280,13 @@ module.exports = function(database) {
     body.updated_at = new Date().toISOString();
     if (body.amount) body.amount = Math.round(parseFloat(body.amount) * 100) / 100;
     Object.assign(database.data.cash_transactions[idx], body);
+    // Update auto-created ledger entry too (keep same txn_type, no reversal)
+    const txnIdShort = req.params.id.slice(0, 8);
+    const ledgerBody = { ...body };
+    delete ledgerBody.account; delete ledgerBody.reference;
+    database.data.cash_transactions.forEach((t, i) => {
+      if (t.reference === `auto_ledger:${txnIdShort}`) Object.assign(database.data.cash_transactions[i], ledgerBody);
+    });
     database.save();
     res.json(database.data.cash_transactions[idx]);
   }));
@@ -60,16 +295,175 @@ module.exports = function(database) {
     const ids = req.body.ids || [];
     if (!ids.length) return res.status(400).json({ detail: 'No ids provided' });
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    // Revert hemali payments for any hemali cashbook entries being deleted
+    database.data.cash_transactions.filter(t => ids.includes(t.id) && (t.reference || '').startsWith('hemali_payment:')).forEach(txn => {
+      const hemaliPid = txn.reference.replace('hemali_payment:', '');
+      const hp = (database.data.hemali_payments || []).find(p => p.id === hemaliPid);
+      if (hp) { hp.status = 'unpaid'; hp.updated_at = new Date().toISOString(); }
+      // Also add hemali ledger refs to be cleaned up
+      ids.push(...database.data.cash_transactions.filter(t =>
+        t.reference === `hemali_work:${hemaliPid}` || t.reference === `hemali_paid:${hemaliPid}`
+      ).map(t => t.id));
+      // Remove local party payment entry (keep debit)
+      database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
+        t.reference !== `hemali_paid:${hemaliPid}`
+      );
+    });
     const before = database.data.cash_transactions.length;
-    database.data.cash_transactions = database.data.cash_transactions.filter(t => !ids.includes(t.id));
+    // Collect auto_ledger references for the deleted transactions
+    const autoLedgerRefs = ids.map(id => `auto_ledger:${id.slice(0, 8)}`);
+    database.data.cash_transactions = database.data.cash_transactions.filter(t =>
+      !ids.includes(t.id) && !autoLedgerRefs.includes(t.reference)
+    );
     const deleted = before - database.data.cash_transactions.length;
     if (deleted > 0) database.save();
     res.json({ message: `${deleted} transactions deleted`, deleted });
   }));
 
+  // Fix auto_ledger entries that had reversed txn_type
+  router.post('/api/cash-book/fix-auto-ledger-direction', safeSync((req, res) => {
+    if (!database.data.cash_transactions) return res.json({ success: true, fixed_count: 0 });
+    let fixed = 0;
+    const txns = database.data.cash_transactions;
+    const autoLedgers = txns.filter(t => (t.reference || '').startsWith('auto_ledger:'));
+    for (const entry of autoLedgers) {
+      const origIdPrefix = entry.reference.replace('auto_ledger:', '');
+      const original = txns.find(t => t.id.startsWith(origIdPrefix) && (t.account === 'cash' || t.account === 'bank'));
+      if (original && original.txn_type !== entry.txn_type) {
+        entry.txn_type = original.txn_type;
+        fixed++;
+      }
+    }
+    if (fixed > 0) database.save();
+    res.json({ success: true, fixed_count: fixed, total_auto_ledger: autoLedgers.length });
+  }));
+
+
   router.get('/api/cash-book/categories', safeSync((req, res) => {
     if (!database.data.cash_book_categories) database.data.cash_book_categories = [];
     res.json([...database.data.cash_book_categories]);
+  }));
+
+
+  // Cleanup round_off entries
+  router.post('/api/cash-book/cleanup-round-off-entries', safeSync((req, res) => {
+    if (!database.data.cash_transactions) return res.json({ success: true, deleted_count: 0 });
+    const before = database.data.cash_transactions.length;
+    database.data.cash_transactions = database.data.cash_transactions.filter(t => {
+      return t.party_type !== 'Round Off' && t.category !== 'Round Off' && !(t.reference || '').startsWith('round_off:');
+    });
+    const deleted = before - database.data.cash_transactions.length;
+    if (deleted > 0) database.save();
+    res.json({ success: true, deleted_count: deleted });
+  }));
+
+  // Master auto-fix: runs on every app startup to fix ALL data inconsistencies
+  router.post('/api/cash-book/auto-fix', safeSync((req, res) => {
+    const txns = database.data.cash_transactions || [];
+    const pvtEntries = database.data.private_paddy || [];
+    const fixes = { auto_ledger_direction: 0, round_off_cleaned: 0, pvt_jama_created: 0, duplicate_removed: 0 };
+
+    // 1. Fix auto_ledger direction
+    const autoLedgers = txns.filter(t => (t.reference || '').startsWith('auto_ledger:'));
+    for (const entry of autoLedgers) {
+      const prefix = (entry.reference || '').replace('auto_ledger:', '');
+      if (!prefix) continue;
+      const original = txns.find(t => t.id && t.id.startsWith(prefix) && (t.account === 'cash' || t.account === 'bank'));
+      if (original && original.txn_type !== entry.txn_type) {
+        entry.txn_type = original.txn_type;
+        fixes.auto_ledger_direction++;
+      }
+    }
+
+    // 2. Clean up round_off entries
+    const before = txns.length;
+    database.data.cash_transactions = txns.filter(t =>
+      t.party_type !== 'Round Off' && t.category !== 'Round Off' && !(t.reference || '').startsWith('round_off:')
+    );
+    fixes.round_off_cleaned = before - database.data.cash_transactions.length;
+
+    // 3. Create missing pvt_party_jama entries (including agent_extra)
+    for (const pvt of pvtEntries) {
+      const totalAmt = parseFloat(pvt.total_amount) || 0;
+      if (totalAmt <= 0 || !pvt.id) continue;
+      // Fix missing season for agent_extra entries
+      if (!pvt.season) {
+        pvt.season = 'Kharif';
+        fixes.season_fixed = (fixes.season_fixed || 0) + 1;
+      }
+      // Fix missing qntl/final_qntl fields for agent_extra entries
+      if (pvt.source === 'agent_extra' && !pvt.final_qntl && pvt.quantity_qntl) {
+        pvt.final_qntl = pvt.quantity_qntl;
+        pvt.qntl = pvt.quantity_qntl;
+        if (!pvt.kg) pvt.kg = Math.round(pvt.quantity_qntl * 100 * 100) / 100;
+        if (!pvt.balance) pvt.balance = Math.round((totalAmt - (pvt.paid_amount || 0)) * 100) / 100;
+        fixes.agent_extra_fields_fixed = (fixes.agent_extra_fields_fixed || 0) + 1;
+      }
+      const ref = `pvt_party_jama:${pvt.id.slice(0, 8)}`;
+      const exists = database.data.cash_transactions.find(t => t.reference === ref);
+      if (!exists) {
+        const party = pvt.party_name || 'Pvt Paddy';
+        const qntl = pvt.qntl || (pvt.kg ? pvt.kg / 100 : 0);
+        const rate = pvt.rate_per_qntl || pvt.rate || 0;
+        const desc = (qntl && rate) ? `Paddy Purchase: ${party} - ${qntl}Q @ Rs.${rate}/Q = Rs.${totalAmt}` : `Paddy Purchase: ${party} - Rs.${totalAmt}`;
+        database.data.cash_transactions.push({
+          id: require('crypto').randomUUID(), date: pvt.date || '',
+          account: 'ledger', txn_type: 'jama',
+          category: party, party_type: 'Pvt Paddy Purchase',
+          description: desc, amount: Math.round(totalAmt * 100) / 100, bank_name: '',
+          reference: ref,
+          kms_year: pvt.kms_year || '', season: pvt.season || 'Kharif',
+          created_by: 'auto-fix', linked_entry_id: pvt.id,
+          created_at: pvt.created_at || '', updated_at: new Date().toISOString(),
+        });
+        fixes.pvt_jama_created++;
+      }
+    }
+
+    // 3b. Fix existing pvt_party_jama entries: ensure they are 'ledger' (NOT 'cash')
+    for (const t of database.data.cash_transactions) {
+      if ((t.reference || '').startsWith('pvt_party_jama') && t.account === 'cash') {
+        t.account = 'ledger';
+        fixes.pvt_jama_account_fixed = (fixes.pvt_jama_account_fixed || 0) + 1;
+      }
+    }
+
+    // 3c. Remove old pvt_party_jama_ledger entries (no longer needed - single ledger entry only)
+    const oldLedgerRefs = database.data.cash_transactions.filter(t => (t.reference || '').startsWith('pvt_party_jama_ledger:'));
+    if (oldLedgerRefs.length > 0) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => !(t.reference || '').startsWith('pvt_party_jama_ledger:'));
+      fixes.old_ledger_removed = oldLedgerRefs.length;
+    }
+
+    // 4. Remove duplicate ledger entries
+    const seen = new Set();
+    const toRemove = [];
+    for (const t of database.data.cash_transactions) {
+      if (t.account !== 'ledger' || !t.reference) continue;
+      const key = `${t.reference}|${t.amount}|${t.date}|${t.category}`;
+      if (seen.has(key)) { toRemove.push(t.id); fixes.duplicate_removed++; }
+      else seen.add(key);
+    }
+    if (toRemove.length > 0) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => !toRemove.includes(t.id));
+    }
+
+    const total = Object.values(fixes).reduce((s, v) => s + v, 0);
+    if (total > 0) database.save();
+    res.json({ success: true, total_fixes: total, details: fixes });
+  }));
+
+
+  router.get('/api/cash-book/agent-names', safeSync((req, res) => {
+    const { kms_year, season } = req.query;
+    // Get mandi names from targets
+    const targets = (database.data.mandi_targets || []).filter(t => (!kms_year || t.kms_year === kms_year) && (!season || t.season === season));
+    const mandiNames = [...new Set(targets.map(t => t.mandi_name).filter(Boolean))].sort();
+    // Get unique truck_no and agent_name from entries
+    const entries = (database.data.entries || []).filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
+    const truckNumbers = [...new Set(entries.map(e => e.truck_no).filter(Boolean))].sort();
+    const agentNames = [...new Set(entries.map(e => e.agent_name).filter(Boolean))].sort();
+    res.json({ mandi_names: mandiNames, truck_numbers: truckNumbers, agent_names: agentNames });
   }));
 
   router.post('/api/cash-book/categories', safeSync((req, res) => {
@@ -135,10 +529,50 @@ module.exports = function(database) {
       }
     }
 
+    // Per-bank breakdown for bank account transactions (exclude Round Off)
+    const bankTxns = realTxns.filter(t => t.account === 'bank');
+    const bankNames = [...new Set(bankTxns.map(t => t.bank_name).filter(Boolean))];
+    const bankDetails = {};
+    let linkedBankIn = 0, linkedBankOut = 0;
+    for (const bn of bankNames) {
+      const bIn = +bankTxns.filter(t => t.bank_name === bn && t.txn_type === 'jama').reduce((s,t) => s + (t.amount||0), 0).toFixed(2);
+      const bOut = +bankTxns.filter(t => t.bank_name === bn && t.txn_type === 'nikasi').reduce((s,t) => s + (t.amount||0), 0).toFixed(2);
+      bankDetails[bn] = { in: bIn, out: bOut, balance: +(bIn - bOut).toFixed(2) };
+      linkedBankIn += bIn; linkedBankOut += bOut;
+    }
+    const unlinkedBIn = +(bankIn - linkedBankIn).toFixed(2);
+    const unlinkedBOut = +(bankOut - linkedBankOut).toFixed(2);
+    if (unlinkedBIn > 0 || unlinkedBOut > 0) {
+      bankDetails['Other'] = { in: unlinkedBIn, out: unlinkedBOut, balance: +(unlinkedBIn - unlinkedBOut).toFixed(2) };
+    }
+
+    // Get per-bank opening balances
+    let openingBankDetails = {};
+    if (kmsYear) {
+      const savedOb2 = (database.data.opening_balances||[]).find(ob => ob.kms_year === kmsYear);
+      if (savedOb2 && savedOb2.bank_details) {
+        openingBankDetails = savedOb2.bank_details;
+      }
+    }
+    // Add opening balances per bank
+    for (const bn in bankDetails) {
+      const obVal = openingBankDetails[bn] || 0;
+      bankDetails[bn].opening = obVal;
+      bankDetails[bn].balance = +(obVal + bankDetails[bn].in - bankDetails[bn].out).toFixed(2);
+    }
+    // Add banks that have opening balance but no transactions yet
+    for (const bn in openingBankDetails) {
+      if (!bankDetails[bn] && (openingBankDetails[bn] || 0) > 0) {
+        bankDetails[bn] = { in: 0, out: 0, opening: openingBankDetails[bn], balance: openingBankDetails[bn] };
+      }
+    }
+
     res.json({
       opening_cash: openingCash, opening_bank: openingBank,
+      opening_bank_details: openingBankDetails,
       cash_in: cashIn, cash_out: cashOut, cash_balance: +(openingCash + cashIn - cashOut).toFixed(2),
       bank_in: bankIn, bank_out: bankOut, bank_balance: +(openingBank + bankIn - bankOut).toFixed(2),
+      bank_details: bankDetails,
       total_balance: +((openingCash + cashIn - cashOut) + (openingBank + bankIn - bankOut)).toFixed(2),
       total_transactions: txns.length
     });
@@ -162,6 +596,12 @@ module.exports = function(database) {
       const headers = getExcelHeaders(cols);
       const widths = getExcelWidths(cols);
       
+      // Title with filter info
+      const titleParts = ['Daily Cash Book'];
+      if (req.query.category) titleParts.push(`- ${req.query.category}`);
+      if (req.query.account) titleParts.push(`(${req.query.account})`);
+      const exportTitle = titleParts.join(' ');
+      
       // Pre-process rows with derived fields
       let runBal = 0;
       const rows = txns.map(t => {
@@ -177,30 +617,49 @@ module.exports = function(database) {
       });
       
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Cash Book');
-      // Title
-      ws.mergeCells(1, 1, 1, cols.length);
-      ws.getCell('A1').value = 'Daily Cash Book'; ws.getCell('A1').font = { bold: true, size: 14 };
-      // Headers row 3
-      headers.forEach((h, i) => {
-        const c = ws.getCell(3, i + 1); c.value = h;
-        c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
-      });
+      
+      // Title with date range
+      const { addExcelTitle, styleExcelHeader, styleExcelData } = require('./excel_helpers');
+      const dateParts = [];
+      if (req.query.date_from) dateParts.push(`From: ${req.query.date_from}`);
+      if (req.query.date_to) dateParts.push(`To: ${req.query.date_to}`);
+      const dateStr = dateParts.length ? ` | ${dateParts.join(' | ')}` : '';
+      
+      addExcelTitle(ws, `${exportTitle}${dateStr}`, cols.length, database);
+      
+      // Headers row 4 (after 3 title rows)
+      headers.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });
+      styleExcelHeader(ws);
+      // Fix header row to row 4
+      const hRow = ws.getRow(4);
+      hRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+      hRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B4F72' } };
+      hRow.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      hRow.height = 30;
+      
       // Data rows
       rows.forEach((r, idx) => {
         const vals = getEntryRow(r, cols);
-        vals.forEach((v, ci) => ws.getCell(4 + idx, ci + 1).value = v);
+        vals.forEach((v, ci) => ws.getCell(5 + idx, ci + 1).value = v);
       });
+      styleExcelData(ws, 5);
+      
       // Total row
-      const trow = 4 + rows.length;
+      const trow = 5 + rows.length;
       const totals = {
         total_jama: +txns.filter(t => t.txn_type === 'jama').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
         total_nikasi: +txns.filter(t => t.txn_type === 'nikasi').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
         closing_balance: +runBal.toFixed(2)
       };
-      ws.getCell(trow, 1).value = 'TOTAL'; ws.getCell(trow, 1).font = { bold: true };
+      ws.getCell(trow, 1).value = 'TOTAL / कुल'; ws.getCell(trow, 1).font = { bold: true, size: 11 };
       const totalVals = getTotalRow(totals, cols);
-      totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i + 1).value = v; ws.getCell(trow, i + 1).font = { bold: true }; } });
+      totalVals.forEach((v, i) => { if (v !== null) { ws.getCell(trow, i + 1).value = v; ws.getCell(trow, i + 1).font = { bold: true, size: 11 }; } });
+      // Style total row amber
+      for (let c = 1; c <= cols.length; c++) {
+        const cell = ws.getCell(trow, c);
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        cell.border = { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } } };
+      }
       widths.forEach((w, i) => ws.getColumn(i + 1).width = w);
       
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -222,48 +681,51 @@ module.exports = function(database) {
       if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
       if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
       txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      const titleParts = ['Daily Cash Book'];
+      if (req.query.category) titleParts.push(`- ${req.query.category}`);
+      if (req.query.account) titleParts.push(`(${req.query.account})`);
+      const exportTitle = titleParts.join(' ');
       
-      const cols = getColumns('cashbook_report');
-      const headers = getPdfHeaders(cols);
-      const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
+      // Build subtitle with date range
+      const subtitleParts = [];
+      if (req.query.kms_year) subtitleParts.push(`KMS: ${req.query.kms_year}`);
+      if (req.query.season) subtitleParts.push(`Season: ${req.query.season}`);
+      if (req.query.date_from) subtitleParts.push(`From: ${req.query.date_from}`);
+      if (req.query.date_to) subtitleParts.push(`To: ${req.query.date_to}`);
+      const subtitle = subtitleParts.join(' | ');
       
-      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+      
+      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
-      doc.pipe(res); addPdfHeader(doc, 'Daily Cash Book');
+      doc.pipe(res);
       
-      // Pre-process rows
-      let runBal = 0;
+      const brandingData = database.getBranding ? database.getBranding() : {};
+      __addPdfHeader(doc, exportTitle, brandingData, subtitle);
+      
+      const headers = ['Date', 'Account', 'Type', 'Category', 'Party Type', 'Description', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'];
+      const colW = [55, 50, 40, 60, 55, 120, 60, 60, 60];
+      
+      // Build data rows with running balance
+      let runBal = 0; let totalJama = 0; let totalNikasi = 0;
       const rows = txns.map(t => {
-        const jama = t.txn_type === 'jama' ? t.amount : 0;
-        const nikasi = t.txn_type === 'nikasi' ? t.amount : 0;
+        const jama = t.txn_type === 'jama' ? (t.amount || 0) : 0;
+        const nikasi = t.txn_type === 'nikasi' ? (t.amount || 0) : 0;
         runBal += jama - nikasi;
-        return {
-          date: t.date, account_label: t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
-          type_label: t.txn_type === 'jama' ? 'Jama' : 'Nikasi', category: t.category || '', party_type: t.party_type || '',
-          description: t.description || '', jama: t.txn_type === 'jama' ? t.amount : '-', nikasi: t.txn_type === 'nikasi' ? t.amount : '-',
-          balance: +runBal.toFixed(2), reference: t.reference || ''
-        };
+        totalJama += jama; totalNikasi += nikasi;
+        return [
+          t.date || '', t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
+          t.txn_type === 'jama' ? 'Jama' : 'Nikasi', t.category || '', t.party_type || '',
+          t.description || '', jama ? pFmt(jama) : '-', nikasi ? pFmt(nikasi) : '-',
+          pFmt(+runBal.toFixed(2))
+        ];
       });
       
-      let y = doc.y;
-      // Headers
-      doc.fontSize(7);
-      headers.forEach((h, i) => {
-        let x = 30 + colW.slice(0, i).reduce((a, b) => a + b, 0);
-        doc.fillColor('#1a365d').rect(x, y, colW[i], 14).fill();
-        doc.fillColor('#FFF').text(h, x + 2, y + 3, { width: colW[i] - 4 });
-      });
-      y += 16; doc.fillColor('#333');
-      // Data rows
-      rows.forEach(r => {
-        const vals = getEntryRow(r, cols);
-        vals.forEach((v, i) => {
-          let x = 30 + colW.slice(0, i).reduce((a, b) => a + b, 0);
-          doc.text(String(v), x + 2, y + 2, { width: colW[i] - 4 });
-        });
-        y += 14; if (y > 560) { doc.addPage(); y = 20; }
-      });
+      addPdfTable(doc, headers, rows, colW, { fontSize: 7 });
+      addTotalsRow(doc, ['', '', '', '', '', 'TOTAL', pFmt(totalJama), pFmt(totalNikasi), pFmt(+(totalJama - totalNikasi).toFixed(2))], colW, { fontSize: 7 });
+      
       doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
@@ -273,7 +735,7 @@ module.exports = function(database) {
     const kms_year = req.query.kms_year || '';
     if (!database.data.opening_balances) database.data.opening_balances = [];
     const saved = database.data.opening_balances.find(ob => ob.kms_year === kms_year);
-    if (saved) return res.json({ cash: saved.cash || 0, bank: saved.bank || 0, source: 'manual' });
+    if (saved) return res.json({ cash: saved.cash || 0, bank: saved.bank || 0, bank_details: saved.bank_details || {}, source: 'manual' });
     const parts = kms_year.split('-');
     if (parts.length === 2) {
       try {
@@ -286,22 +748,160 @@ module.exports = function(database) {
         const prevOb = database.data.opening_balances.find(ob => ob.kms_year === prevFy);
         const obCash = prevOb ? (prevOb.cash || 0) : 0;
         const obBank = prevOb ? (prevOb.bank || 0) : 0;
-        return res.json({ cash: +(obCash + prevCashIn - prevCashOut).toFixed(2), bank: +(obBank + prevBankIn - prevBankOut).toFixed(2), source: 'auto' });
+        return res.json({ cash: +(obCash + prevCashIn - prevCashOut).toFixed(2), bank: +(obBank + prevBankIn - prevBankOut).toFixed(2), bank_details: {}, source: 'auto' });
       } catch(e) {}
     }
-    res.json({ cash: 0, bank: 0, source: 'none' });
+    res.json({ cash: 0, bank: 0, bank_details: {}, source: 'none' });
   }));
 
-  router.put('/api/cash-book/opening-balance', safeSync((req, res) => {
-    const { kms_year, cash, bank } = req.body;
-    if (!kms_year) return res.status(400).json({ detail: 'kms_year is required' });
-    if (!database.data.opening_balances) database.data.opening_balances = [];
-    const idx = database.data.opening_balances.findIndex(ob => ob.kms_year === kms_year);
-    const doc = { kms_year, cash: +(cash || 0), bank: +(bank || 0), updated_at: new Date().toISOString() };
-    if (idx >= 0) database.data.opening_balances[idx] = doc;
-    else database.data.opening_balances.push(doc);
+  // === Party Summary ===
+  router.get('/api/cash-book/party-summary', safeSync((req, res) => {
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    let txns = database.data.cash_transactions.filter(t => !(t.reference||'').includes('_ledger:'));
+    if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+    if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+    if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+    const parties = {};
+    txns.forEach(t => {
+      const name = t.category || 'Unknown';
+      if (!parties[name]) parties[name] = { party_name: name, party_type: t.party_type || '', jama: 0, nikasi: 0, txn_count: 0 };
+      if (t.txn_type === 'jama') parties[name].jama += t.amount || 0;
+      else if (t.txn_type === 'nikasi') parties[name].nikasi += t.amount || 0;
+      parties[name].txn_count++;
+    });
+    // Add opening balances
+    const obList = database.data.party_opening_balances || [];
+    const ky = req.query.kms_year;
+    if (ky) {
+      obList.filter(ob => ob.kms_year === ky).forEach(ob => {
+        const name = ob.party_name;
+        if (!parties[name]) parties[name] = { party_name: name, party_type: ob.party_type || '', jama: 0, nikasi: 0, txn_count: 0 };
+        if (ob.balance_type === 'jama') parties[name].jama += parseFloat(ob.amount) || 0;
+        else parties[name].nikasi += parseFloat(ob.amount) || 0;
+      });
+    }
+    const result = Object.values(parties).map(p => ({
+      ...p, jama: Math.round(p.jama * 100) / 100, nikasi: Math.round(p.nikasi * 100) / 100,
+      balance: Math.round((p.jama - p.nikasi) * 100) / 100
+    }));
+    const statusFilter = req.query.status;
+    let filtered = result;
+    if (statusFilter === 'jama') filtered = result.filter(p => p.balance > 0);
+    else if (statusFilter === 'nikasi') filtered = result.filter(p => p.balance < 0);
+    else if (statusFilter === 'settled') filtered = result.filter(p => p.balance === 0);
+    filtered.sort((a, b) => a.party_name.localeCompare(b.party_name));
+    const settled_count = filtered.filter(p => p.balance === 0).length;
+    const pending_count = filtered.filter(p => p.balance !== 0).length;
+    const total_outstanding = Math.round(filtered.filter(p => p.balance !== 0).reduce((s, p) => s + p.balance, 0) * 100) / 100;
+    res.json({
+      parties: filtered,
+      summary: {
+        total_parties: filtered.length,
+        settled_count,
+        pending_count,
+        total_jama: Math.round(filtered.reduce((s, p) => s + p.jama, 0) * 100) / 100,
+        total_nikasi: Math.round(filtered.reduce((s, p) => s + p.nikasi, 0) * 100) / 100,
+        total_outstanding
+      }
+    });
+  }));
+
+  router.get('/api/cash-book/party-summary/excel', safeAsync(async (req, res) => {
+    try {
+      if (!database.data.cash_transactions) database.data.cash_transactions = [];
+      let txns = database.data.cash_transactions.filter(t => !(t.reference||'').includes('_ledger:'));
+      if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+      if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+      if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+      const parties = {};
+      txns.forEach(t => {
+        const name = t.category || 'Unknown';
+        if (!parties[name]) parties[name] = { party_name: name, party_type: t.party_type || '', jama: 0, nikasi: 0 };
+        if (t.txn_type === 'jama') parties[name].jama += t.amount || 0;
+        else parties[name].nikasi += t.amount || 0;
+      });
+      const data = Object.values(parties).map(p => ({ ...p, balance: Math.round((p.jama - p.nikasi) * 100) / 100 }));
+      data.sort((a, b) => a.party_name.localeCompare(b.party_name));
+      const ExcelJS = require('exceljs');
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Summary');
+      ws.addRow(['Party', 'Type', 'Jama', 'Nikasi', 'Balance']);
+      data.forEach(p => ws.addRow([p.party_name, p.party_type, p.jama, p.nikasi, p.balance]));
+      ws.columns.forEach(c => c.width = 18);
+      const buf = await wb.xlsx.writeBuffer();
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=party_summary.xlsx');
+      res.send(Buffer.from(buf));
+    } catch (e) { res.status(500).json({ detail: e.message }); }
+  }));
+
+  router.get('/api/cash-book/party-summary/pdf', safeSync((req, res) => {
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    let txns = database.data.cash_transactions.filter(t => !(t.reference||'').includes('_ledger:'));
+    if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
+    if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
+    if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
+    const parties = {};
+    txns.forEach(t => {
+      const name = t.category || 'Unknown';
+      if (!parties[name]) parties[name] = { party_name: name, party_type: t.party_type || '', jama: 0, nikasi: 0 };
+      if (t.txn_type === 'jama') parties[name].jama += t.amount || 0;
+      else parties[name].nikasi += t.amount || 0;
+    });
+    const data = Object.values(parties).map(p => ({ ...p, balance: Math.round((p.jama - p.nikasi) * 100) / 100 }));
+    data.sort((a, b) => a.party_name.localeCompare(b.party_name));
+    const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+    const doc = new PDFDocument({ size: 'A4', margin: 25 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=party_summary.pdf');
+    doc.pipe(res);
+    const brandingData = database.getBranding ? database.getBranding() : {};
+    let subtitle = '';
+    if (req.query.kms_year) subtitle = `KMS: ${req.query.kms_year}`;
+    if (req.query.season) subtitle += ` | Season: ${req.query.season}`;
+    __addPdfHeader(doc, 'Party Summary', brandingData, subtitle);
+    const headers = ['Party Name', 'Type', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'];
+    const colW = [180, 80, 90, 90, 90];
+    let tJ = 0, tN = 0;
+    const rows = data.map(p => { tJ += p.jama; tN += p.nikasi; return [p.party_name, p.party_type, pFmt(Math.round(p.jama)), pFmt(Math.round(p.nikasi)), pFmt(Math.round(p.balance))]; });
+    addPdfTable(doc, headers, rows, colW);
+    addTotalsRow(doc, [`TOTAL (${data.length})`, '', pFmt(Math.round(tJ)), pFmt(Math.round(tN)), pFmt(Math.round(tJ - tN))], colW);
+    doc.end();
+  }));
+
+  // === Opening Balances (party-level) ===
+  router.get('/api/opening-balances', safeSync((req, res) => {
+    if (!database.data.party_opening_balances) database.data.party_opening_balances = [];
+    let obs = [...database.data.party_opening_balances];
+    if (req.query.kms_year) obs = obs.filter(o => o.kms_year === req.query.kms_year);
+    res.json(obs);
+  }));
+
+  router.post('/api/opening-balances', safeSync((req, res) => {
+    if (!database.data.party_opening_balances) database.data.party_opening_balances = [];
+    const d = { id: uuidv4(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
+    database.data.party_opening_balances.push(d);
     database.save();
-    res.json(doc);
+    res.json(d);
+  }));
+
+  router.delete('/api/opening-balances/:id', safeSync((req, res) => {
+    if (!database.data.party_opening_balances) return res.status(404).json({ detail: 'Not found' });
+    const len = database.data.party_opening_balances.length;
+    database.data.party_opening_balances = database.data.party_opening_balances.filter(o => o.id !== req.params.id);
+    if (database.data.party_opening_balances.length < len) { database.save(); return res.json({ message: 'Deleted' }); }
+    res.status(404).json({ detail: 'Not found' });
+  }));
+
+  // === GST Settings ===
+  router.get('/api/gst-settings', safeSync((req, res) => {
+    if (!database.data.gst_settings) database.data.gst_settings = { gstin: '', state: '', default_cgst: 9, default_sgst: 9, default_igst: 0 };
+    res.json(database.data.gst_settings);
+  }));
+
+  router.put('/api/gst-settings', safeSync((req, res) => {
+    database.data.gst_settings = { ...req.body, updated_at: new Date().toISOString() };
+    database.save();
+    res.json(database.data.gst_settings);
   }));
 
   return router;

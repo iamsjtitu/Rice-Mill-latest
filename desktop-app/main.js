@@ -961,6 +961,36 @@ function getBackupDir() {
   return dir;
 }
 
+// Cleanup duplicate backup folders created by Google Drive sync conflicts
+function cleanupDuplicateBackupFolders() {
+  if (!dataPath) return;
+  try {
+    const items = fs.readdirSync(dataPath);
+    const dupeFolders = items.filter(name => /^backups\s*\(\d+\)$/.test(name));
+    const mainDir = getBackupDir();
+    for (const folder of dupeFolders) {
+      const folderPath = path.join(dataPath, folder);
+      try {
+        const stat = fs.statSync(folderPath);
+        if (stat.isDirectory()) {
+          // Move any backup files to main backups folder
+          const files = fs.readdirSync(folderPath).filter(f => f.startsWith('backup_') && f.endsWith('.json'));
+          for (const file of files) {
+            const src = path.join(folderPath, file);
+            const dest = path.join(mainDir, file);
+            if (!fs.existsSync(dest)) {
+              try { fs.copyFileSync(src, dest); } catch(_) {}
+            }
+          }
+          // Remove the duplicate folder
+          fs.rmSync(folderPath, { recursive: true, force: true });
+          logError('BACKUP_CLEANUP', `Removed duplicate folder: ${folder}`);
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+
 function createBackup(database, label = 'auto') {
   const backupDir = getBackupDir();
   if (!backupDir || !database) return { success: false, error: 'No data path' };
@@ -1985,6 +2015,8 @@ async function startApplication(folderPath) {
     if (!hasTodayBackup() && db && fs.existsSync(db.dbFile)) {
       createBackup(db, 'startup');
     }
+    // Cleanup duplicate backup folders (Google Drive sync conflict)
+    cleanupDuplicateBackupFolders();
   }, 3000);
 
   // Daily backup check

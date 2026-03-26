@@ -187,19 +187,25 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
     detected_party_type = txn_dict.get('party_type', '')
     if detected_party_type == "Pvt Paddy Purchase" and category and txn_dict.get('account') in ('cash', 'bank'):
         import re as _re
-        # Category format is "PartyName - MandiName", but private_paddy stores party_name and mandi_name separately
+        # Category format could be "PartyName - MandiName" or "PartyName (MandiName)"
         pvt_entry = None
         parts = category.split(" - ", 1)
         if len(parts) == 2:
             pvt_entry = await db.private_paddy.find_one(
                 {"party_name": {"$regex": f"^{_re.escape(parts[0].strip())}$", "$options": "i"},
                  "mandi_name": {"$regex": f"^{_re.escape(parts[1].strip())}$", "$options": "i"},
-                 "source": {"$ne": "agent_extra"}},
+                 "balance": {"$gt": 0}},
                 {"_id": 0}
             )
         if not pvt_entry:
             cat_rgx = _re.compile(f"^{_re.escape(category)}$", _re.IGNORECASE)
-            pvt_entry = await db.private_paddy.find_one({"party_name": cat_rgx, "source": {"$ne": "agent_extra"}}, {"_id": 0})
+            pvt_entry = await db.private_paddy.find_one({"party_name": cat_rgx, "balance": {"$gt": 0}}, {"_id": 0})
+        if not pvt_entry:
+            # Also try partial match for agent_extra format "Agent (Mandi)"
+            pvt_entry = await db.private_paddy.find_one(
+                {"party_name": {"$regex": _re.escape(category), "$options": "i"}, "balance": {"$gt": 0}},
+                {"_id": 0}
+            )
         if pvt_entry:
             pay_amount = round(txn_dict.get('amount', 0), 2)
             new_paid = round(pvt_entry.get("paid_amount", 0) + pay_amount, 2)

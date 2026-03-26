@@ -64,6 +64,7 @@ const PaddyPurchase = ({ filters, user }) => {
   const [editId, setEditId] = useState(null);
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
+  const [payLoading, setPayLoading] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [historyDialog, setHistoryDialog] = useState({ open: false, item: null, history: [] });
@@ -166,8 +167,10 @@ const PaddyPurchase = ({ filters, user }) => {
 
   const handlePayment = async (e) => {
     e.preventDefault();
+    if (payLoading) return;
     const amt = parseFloat(payForm.amount);
     if (!amt || amt <= 0) { toast.error("Amount 0 se zyada hona chahiye"); return; }
+    setPayLoading(true);
     try {
       await axios.post(`${API}/private-payments?username=${user.username}&role=${user.role}`, {
         date: payForm.date, party_name: payDialog.item.party_name,
@@ -179,7 +182,7 @@ const PaddyPurchase = ({ filters, user }) => {
       toast.success("Payment save ho gaya!");
       setPayDialog({ open: false, item: null }); setPayForm({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "", round_off: "" });
       fetchData();
-    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+    } catch (err) { toast.error(err.response?.data?.detail || "Error"); } finally { setPayLoading(false); }
   };
 
   const handleMarkPaid = async (item) => {
@@ -501,7 +504,7 @@ const PaddyPurchase = ({ filters, user }) => {
             />
             <div className="flex gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setPayDialog({ open: false, item: null })} className="border-slate-600 text-slate-300 flex-1">Cancel</Button>
-              <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white flex-1" data-testid="paddy-pay-submit">Pay</Button>
+              <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white flex-1" disabled={payLoading} data-testid="paddy-pay-submit">{payLoading ? "Saving..." : "Pay"}</Button>
             </div>
           </form>
         </DialogContent>
@@ -553,6 +556,7 @@ const RiceSale = ({ filters, user }) => {
   const [editId, setEditId] = useState(null);
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [payForm, setPayForm] = useState({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "" });
+  const [payLoading, setPayLoading] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [historyDialog, setHistoryDialog] = useState({ open: false, item: null, history: [] });
@@ -660,8 +664,10 @@ const RiceSale = ({ filters, user }) => {
 
   const handlePayment = async (e) => {
     e.preventDefault();
+    if (payLoading) return;
     const amt = parseFloat(payForm.amount);
     if (!amt || amt <= 0) { toast.error("Amount 0 se zyada hona chahiye"); return; }
+    setPayLoading(true);
     try {
       await axios.post(`${API}/private-payments?username=${user.username}&role=${user.role}`, {
         date: payForm.date, party_name: payDialog.item.party_name,
@@ -673,7 +679,7 @@ const RiceSale = ({ filters, user }) => {
       toast.success("Payment received!");
       setPayDialog({ open: false, item: null }); setPayForm({ date: new Date().toISOString().split('T')[0], amount: "", mode: "cash", reference: "", remark: "", round_off: "" });
       fetchData();
-    } catch (err) { toast.error(err.response?.data?.detail || "Error"); }
+    } catch (err) { toast.error(err.response?.data?.detail || "Error"); } finally { setPayLoading(false); }
   };
 
   const handleMarkPaid = async (item) => {
@@ -939,7 +945,7 @@ const RiceSale = ({ filters, user }) => {
             />
             <div className="flex gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setPayDialog({ open: false, item: null })} className="border-slate-600 text-slate-300 flex-1">Cancel</Button>
-              <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white flex-1" data-testid="rice-pay-submit">Receive</Button>
+              <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-white flex-1" disabled={payLoading} data-testid="rice-pay-submit">{payLoading ? "Saving..." : "Receive"}</Button>
             </div>
           </form>
         </DialogContent>

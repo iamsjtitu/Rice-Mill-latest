@@ -518,6 +518,8 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
             rate = round(float(ref_entry.get("total_amount", 0) or 0) / float(qntl), 2)
         detail = _fmt_detail(qntl, rate) if qntl and rate else f"Rs.{doc['amount']}"
         pay_desc = f"{party_label} - {detail}"
+        round_off = float(data.get("round_off", 0))
+        total_settled = round(doc["amount"] + round_off, 2)
         # Cash Book nikasi
         await db.cash_transactions.insert_one({
             "id": str(uuid.uuid4()), "account": account, "txn_type": "nikasi",
@@ -526,12 +528,12 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
             "amount": doc["amount"], "reference": doc["reference"] or f"pvt_pay:{doc['id'][:8]}",
             **base_cb
         })
-        # Party Ledger entry (credit = nikasi in party's account)
+        # Party Ledger entry (total including round off)
         await db.cash_transactions.insert_one({
             "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "nikasi",
             "category": party_label, "party_type": "Pvt Paddy Purchase",
-            "description": pay_desc,
-            "amount": doc["amount"], "reference": doc["reference"] or f"pvt_pay_ledger:{doc['id'][:8]}",
+            "description": pay_desc + (f" (Cash: {doc['amount']}, Round Off: {round_off})" if round_off else ""),
+            "amount": total_settled, "reference": doc["reference"] or f"pvt_pay_ledger:{doc['id'][:8]}",
             **base_cb
         })
     else:

@@ -117,9 +117,10 @@ module.exports = function(database) {
       let pvtEntry = null;
       const parts = category.split(' - ');
       if (parts.length === 2) {
-        pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === parts[0].trim().toLowerCase() && p.mandi_name && p.mandi_name.toLowerCase() === parts[1].trim().toLowerCase() && p.source !== 'agent_extra');
+        pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === parts[0].trim().toLowerCase() && p.mandi_name && p.mandi_name.toLowerCase() === parts[1].trim().toLowerCase() && (p.balance || 0) > 0);
       }
-      if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === category.toLowerCase() && p.source !== 'agent_extra');
+      if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === category.toLowerCase() && (p.balance || 0) > 0);
+      if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && category.toLowerCase().includes(p.party_name.toLowerCase()) && (p.balance || 0) > 0);
       if (pvtEntry) {
         const payAmount = Math.round(((txn.amount || 0) + roundOff) * 100) / 100;
         const newPaid = Math.round(((pvtEntry.paid_amount || 0) + payAmount) * 100) / 100;
