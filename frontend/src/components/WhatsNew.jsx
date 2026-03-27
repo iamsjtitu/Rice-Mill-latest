@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "45.0.0";
+const APP_VERSION = "45.0.1";
 
 const CHANGELOG = [
+  {
+    version: "45.0.1",
+    date: "27 Mar 2026",
+    title: "v45.0.1 - Hotfix",
+    items: [
+      { type: "fix", text: "Cash book route load error fix (duplicate variable)" },
+    ],
+  },
   {
     version: "45.0.0",
     date: "27 Mar 2026",

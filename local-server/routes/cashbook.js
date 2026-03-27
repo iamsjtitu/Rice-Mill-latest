@@ -298,7 +298,6 @@ module.exports = function(database) {
     const txnIdShort = req.params.id.slice(0, 8);
 
     // Revert hemali payment to unpaid if this was a hemali cashbook entry
-    const ref = txn.reference || '';
     if (ref.startsWith('hemali_payment:')) {
       const hemaliPid = ref.replace('hemali_payment:', '');
       const hemaliPayments = database.data.hemali_payments || [];
