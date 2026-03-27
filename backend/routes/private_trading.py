@@ -684,15 +684,26 @@ async def undo_pvt_paddy_paid(entry_id: str, username: str = "", role: str = "")
     # FIRST: Get all payment IDs BEFORE deleting them
     payments = await db.private_payments.find({"ref_id": entry_id, "ref_type": "paddy_purchase"}, {"_id": 0, "id": 1}).to_list(1000)
     payment_ids = [p["id"] for p in payments]
-    # Delete cash entries linked to individual payments
+    # Delete cash entries linked to individual payments (+ their auto_ledger pairs)
     for pid in payment_ids:
+        pay_txns = await db.cash_transactions.find({"linked_payment_id": pid}, {"_id": 0, "id": 1}).to_list(100)
+        for pt in pay_txns:
+            await db.cash_transactions.delete_many({"reference": f"auto_ledger:{pt['id'][:8]}"})
         await db.cash_transactions.delete_many({"linked_payment_id": pid})
     # Delete all linked private_payments
     await db.private_payments.delete_many({"ref_id": entry_id, "ref_type": "paddy_purchase"})
-    # Delete mark-paid cash entries
+    # Delete mark-paid cash entries + their ledger pairs
+    mark_txns = await db.cash_transactions.find({"linked_payment_id": {"$regex": f"^mark_paid:{entry_id[:8]}"}}, {"_id": 0, "id": 1}).to_list(100)
+    for mt in mark_txns:
+        await db.cash_transactions.delete_many({"reference": f"auto_ledger:{mt['id'][:8]}"})
     await db.cash_transactions.delete_many({"linked_payment_id": {"$regex": f"^mark_paid:{entry_id[:8]}"}})
-    # Delete advance entries
+    # Delete advance entries + their ledger pairs
     await db.cash_transactions.delete_many({"linked_entry_id": entry_id, "reference": {"$regex": "pvt_paddy_adv"}})
+    # Delete manual cash book entries linked via cashbook_pvt_linked + their auto_ledger pairs
+    manual_txns = await db.cash_transactions.find({"cashbook_pvt_linked": entry_id}, {"_id": 0, "id": 1}).to_list(100)
+    for mt in manual_txns:
+        await db.cash_transactions.delete_many({"reference": f"auto_ledger:{mt['id'][:8]}"})
+    await db.cash_transactions.delete_many({"cashbook_pvt_linked": entry_id})
     # Reset entry
     await db.private_paddy.update_one({"id": entry_id}, {"$set": {
         "paid_amount": 0, "balance": total, "payment_status": "pending",
@@ -703,43 +714,52 @@ async def undo_pvt_paddy_paid(entry_id: str, username: str = "", role: str = "")
 
 @router.get("/private-paddy/{entry_id}/history")
 async def get_pvt_paddy_history(entry_id: str):
-    """Get payment history for a pvt paddy entry - includes private_payments AND advance/mark-paid entries"""
+    """Get payment history for a pvt paddy entry - includes ALL payment sources"""
     payments = await db.private_payments.find(
         {"ref_id": entry_id, "ref_type": "paddy_purchase"},
         {"_id": 0}
     ).sort([("created_at", -1)]).to_list(1000)
-    # Also include advance entries from cash_transactions (created when paid_amount was set in form)
+    # Advance entries (pvt_paddy_adv)
     advance_entries = await db.cash_transactions.find(
         {"linked_entry_id": entry_id, "reference": {"$regex": "^pvt_paddy_adv:"}, "account": "cash"},
         {"_id": 0}
     ).to_list(100)
     for adv in advance_entries:
         payments.append({
-            "id": adv.get("id", ""),
-            "date": adv.get("date", ""),
-            "amount": adv.get("amount", 0),
-            "mode": "advance",
+            "id": adv.get("id", ""), "date": adv.get("date", ""),
+            "amount": adv.get("amount", 0), "mode": "advance",
             "reference": adv.get("reference", ""),
             "remark": "Advance (Entry ke saath bhara tha)",
-            "payment_type": "advance",
-            "created_at": adv.get("created_at", ""),
+            "payment_type": "advance", "created_at": adv.get("created_at", ""),
         })
-    # Also include mark-paid entries
+    # Mark-paid entries
     mark_entries = await db.cash_transactions.find(
         {"reference": {"$regex": f"^mark_paid:{entry_id[:8]}"}, "account": "cash"},
         {"_id": 0}
     ).to_list(100)
     for mk in mark_entries:
         payments.append({
-            "id": mk.get("id", ""),
-            "date": mk.get("date", ""),
-            "amount": mk.get("amount", 0),
-            "mode": "mark_paid",
+            "id": mk.get("id", ""), "date": mk.get("date", ""),
+            "amount": mk.get("amount", 0), "mode": "mark_paid",
             "reference": mk.get("reference", ""),
             "remark": "Mark Paid se clear hua",
-            "payment_type": "mark_paid",
-            "created_at": mk.get("created_at", ""),
+            "payment_type": "mark_paid", "created_at": mk.get("created_at", ""),
         })
+    # Manual cash book entries (cashbook_pvt_linked)
+    existing_ids = set(p.get("id", "") for p in payments)
+    manual_entries = await db.cash_transactions.find(
+        {"cashbook_pvt_linked": entry_id, "account": {"$in": ["cash", "bank"]}},
+        {"_id": 0}
+    ).to_list(100)
+    for me in manual_entries:
+        if me.get("id", "") not in existing_ids:
+            payments.append({
+                "id": me.get("id", ""), "date": me.get("date", ""),
+                "amount": me.get("amount", 0), "mode": me.get("account", "cash"),
+                "reference": me.get("reference", ""),
+                "remark": f"Cash Book se manual payment ({me.get('account', 'cash')})",
+                "payment_type": "manual_cashbook", "created_at": me.get("created_at", ""),
+            })
     payments.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     entry = await db.private_paddy.find_one({"id": entry_id}, {"_id": 0})
     total_paid = float(entry.get("paid_amount", 0)) if entry else 0

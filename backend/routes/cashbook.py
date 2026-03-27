@@ -216,6 +216,13 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
                 {"$set": {"paid_amount": new_paid, "balance": new_balance, "status": new_status}}
             )
             txn_dict['cashbook_pvt_linked'] = pvt_entry["id"]
+            # Persist the link in DB (was inserted before this line)
+            await db.cash_transactions.update_one({"id": txn_dict["id"]}, {"$set": {"cashbook_pvt_linked": pvt_entry["id"]}})
+            # Also update the auto_ledger entry with same link
+            await db.cash_transactions.update_one(
+                {"reference": f"auto_ledger:{txn_dict['id'][:8]}"},
+                {"$set": {"cashbook_pvt_linked": pvt_entry["id"]}}
+            )
     
     # Round off info is already included in the main transaction's ledger entry amount
     # and in the description text. No separate round_off entry needed.
