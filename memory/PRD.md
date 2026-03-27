@@ -24,7 +24,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **GitHub Release Filenames**: MUST use hyphens not spaces (GitHub converts spaces to dots, breaking auto-updater)
 - **payment_status**: Computed dynamically in GET endpoints — if paid_amount >= total_amount → 'paid'
 
-## Current Version: v42.2.1
+## Current Version: v43.0.0
 
 ## Completed Features (All Sessions)
 - Mill Entries CRUD with Excel Import/Export
@@ -46,14 +46,13 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - Mark Paid / Undo Paid with full cashbook + ledger entries
 - Desktop/Local Server route parity
 
-## Completed in v42.2.1
-- Fixed: Auto-updater filename mismatch (hyphens vs dots in GitHub releases)
-- Added: `artifactName` in NSIS config to force hyphenated filenames
-- Added: Workflow step to rename spaces→hyphens before upload as safety net
-- Fixed: payment_status now computed dynamically in GET endpoints (paid when paid_amount >= total_amount)
-- Fixed: Payment History now includes advance entries from cash_transactions
-- Fixed: Undo Paid button now shows for entries paid via form's paid_amount field
-- Synced: All fixes applied to Python, desktop-app, and local-server backends
+## Completed in v43.0.0
+- Fixed: Undo Paid now correctly deletes ALL cash book entries (payment dialog, mark-paid, advance)
+- Root cause: payments were deleted BEFORE their IDs were used to find linked cash entries → 0 matches
+- Fixed: payment_status computed dynamically in GET endpoints
+- Fixed: Payment History includes advance + mark-paid entries from cash_transactions
+- Fixed: Auto-updater filename mismatch (artifactName with hyphens)
+- Synced: All fixes to Python, Desktop-app, Local-server backends
 
 ## Completed in v42.2.0
 - Fixed: Duplicate party name creation ("Kridha (Kesinga) - Kesinga" bug)

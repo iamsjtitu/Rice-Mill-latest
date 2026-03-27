@@ -681,21 +681,23 @@ async def undo_pvt_paddy_paid(entry_id: str, username: str = "", role: str = "")
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     total = float(entry.get("total_amount", 0) or 0)
+    # FIRST: Get all payment IDs BEFORE deleting them
+    payments = await db.private_payments.find({"ref_id": entry_id, "ref_type": "paddy_purchase"}, {"_id": 0, "id": 1}).to_list(1000)
+    payment_ids = [p["id"] for p in payments]
+    # Delete cash entries linked to individual payments
+    for pid in payment_ids:
+        await db.cash_transactions.delete_many({"linked_payment_id": pid})
+    # Delete all linked private_payments
+    await db.private_payments.delete_many({"ref_id": entry_id, "ref_type": "paddy_purchase"})
+    # Delete mark-paid cash entries
+    await db.cash_transactions.delete_many({"linked_payment_id": {"$regex": f"^mark_paid:{entry_id[:8]}"}})
+    # Delete advance entries
+    await db.cash_transactions.delete_many({"linked_entry_id": entry_id, "reference": {"$regex": "pvt_paddy_adv"}})
     # Reset entry
     await db.private_paddy.update_one({"id": entry_id}, {"$set": {
         "paid_amount": 0, "balance": total, "payment_status": "pending",
         "updated_at": datetime.now(timezone.utc).isoformat()
     }})
-    # Delete all linked private_payments
-    await db.private_payments.delete_many({"ref_id": entry_id, "ref_type": "paddy_purchase"})
-    # Delete all linked cash book entries (from payments and mark-paid)
-    await db.cash_transactions.delete_many({"linked_payment_id": {"$regex": f"mark_paid:{entry_id[:8]}|mark_paid_ledger:{entry_id[:8]}"}})
-    # Also delete payment-linked cash entries
-    payments = await db.private_payments.find({"ref_id": entry_id}, {"_id": 0, "id": 1}).to_list(1000)
-    for p in payments:
-        await db.cash_transactions.delete_many({"linked_payment_id": p["id"]})
-    # Delete advance entry
-    await db.cash_transactions.delete_many({"linked_entry_id": entry_id, "reference": {"$regex": "pvt_paddy_adv"}})
     return {"success": True, "message": "Payment undo - sab reset ho gaya"}
 
 

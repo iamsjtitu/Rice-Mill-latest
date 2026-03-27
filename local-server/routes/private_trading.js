@@ -689,21 +689,30 @@ module.exports = function(database) {
     const item = database.data.private_paddy.find(p => p.id === req.params.id);
     if (!item) return res.status(404).json({ detail: 'Not found' });
     const total = parseFloat(item.total_amount) || 0;
+    const entryId = item.id;
+    // FIRST: Get all payment IDs BEFORE deleting them
+    const paymentIds = (database.data.private_payments || [])
+      .filter(p => p.ref_id === entryId && p.ref_type === 'paddy_purchase')
+      .map(p => p.id);
+    // Delete cash entries linked to individual payments
+    database.data.cash_transactions = (database.data.cash_transactions || []).filter(t => {
+      // Delete entries linked to individual payments
+      if (paymentIds.includes(t.linked_payment_id)) return false;
+      // Delete mark-paid entries
+      const lp = t.linked_payment_id || '';
+      if (lp.includes(`mark_paid:${entryId.slice(0,8)}`)) return false;
+      // Delete advance entries
+      const ref = t.reference || '';
+      if (ref.includes('pvt_paddy_adv') && t.linked_entry_id === entryId) return false;
+      return true;
+    });
+    // Delete all linked payments
+    database.data.private_payments = (database.data.private_payments || []).filter(p => !(p.ref_id === entryId && p.ref_type === 'paddy_purchase'));
+    // Reset entry
     item.paid_amount = 0;
     item.balance = total;
     item.payment_status = 'pending';
     item.updated_at = new Date().toISOString();
-    // Delete all linked payments
-    const entryId = item.id;
-    database.data.private_payments = (database.data.private_payments || []).filter(p => !(p.ref_id === entryId && p.ref_type === 'paddy_purchase'));
-    // Delete mark-paid cash entries
-    database.data.cash_transactions = (database.data.cash_transactions || []).filter(t => {
-      const lp = t.linked_payment_id || '';
-      const ref = t.reference || '';
-      if (lp.includes(`mark_paid:${entryId.slice(0,8)}`)) return false;
-      if (ref.includes(`pvt_paddy_adv`) && t.linked_entry_id === entryId) return false;
-      return true;
-    });
     database.save();
     res.json({ success: true, message: 'Payment undo - sab reset ho gaya' });
   }));
