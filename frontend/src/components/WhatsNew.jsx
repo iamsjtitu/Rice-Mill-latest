@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "43.0.0";
+const APP_VERSION = "44.0.0";
 
 const CHANGELOG = [
+  {
+    version: "44.0.0",
+    date: "27 Mar 2026",
+    title: "v44.0.0 - Undo Paid Complete Fix",
+    items: [
+      { type: "fix", text: "Undo Paid ab cash book se bhi transaction delete karega" },
+      { type: "fix", text: "Duplicate arrow buttons fix - ab ek hi undo button dikhega" },
+      { type: "fix", text: "Payment History ab advance + mark-paid entries bhi dikhayega" },
+      { type: "fix", text: "Payment status ab dynamically calculate hota hai" },
+    ],
+  },
   {
     version: "43.0.0",
     date: "27 Mar 2026",
