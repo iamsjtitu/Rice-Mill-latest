@@ -324,12 +324,12 @@ export const PaddyPurchase = ({ filters, user }) => {
                           <Undo2 className="w-3 h-3" />
                         </Button>
                       )}
-                      {(item.paid_amount || 0) > 0 && user.role === 'admin' && (
+                      {item.payment_status !== 'paid' && (item.paid_amount || 0) > 0 && user.role === 'admin' && (
                         <Button variant="ghost" size="sm" className="h-6 px-1 text-orange-400 hover:text-orange-300" onClick={() => handleViewHistory(item)} data-testid={`paddy-undo-history-${item.id}`} title="Payment Undo / History">
                           <Undo2 className="w-3 h-3 mr-0.5" /><History className="w-3 h-3" />
                         </Button>
                       )}
-                      {!((item.paid_amount || 0) > 0 && user.role === 'admin') && (
+                      {!(item.payment_status !== 'paid' && (item.paid_amount || 0) > 0 && user.role === 'admin') && (
                         <Button variant="ghost" size="sm" className="h-6 px-1 text-purple-400" onClick={() => handleViewHistory(item)} data-testid={`paddy-history-${item.id}`} title="Payment History">
                           <History className="w-3 h-3" />
                         </Button>
