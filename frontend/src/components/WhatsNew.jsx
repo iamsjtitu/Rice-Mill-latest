@@ -3,9 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "44.1.0";
+const APP_VERSION = "45.0.0";
 
 const CHANGELOG = [
+  {
+    version: "45.0.0",
+    date: "27 Mar 2026",
+    title: "v45.0.0 - Payment & Cash Book Fixes",
+    items: [
+      { type: "fix", text: "Cash Book se delete → ledger + paddy purchase auto update" },
+      { type: "fix", text: "Undo Paid → cash book se sab transactions auto delete" },
+      { type: "fix", text: "Payment History ab advance + mark-paid entries dikhayega" },
+      { type: "fix", text: "Duplicate undo button fix" },
+      { type: "fix", text: "Auto-update filename fix (hyphens)" },
+    ],
+  },
   {
     version: "44.1.0",
     date: "27 Mar 2026",
