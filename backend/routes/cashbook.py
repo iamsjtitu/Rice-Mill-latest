@@ -404,39 +404,96 @@ async def delete_cash_transaction(txn_id: str):
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
     
-    # Revert private_paddy paid_amount if this was a Pvt Paddy Purchase nikasi from cash/bank
-    # Skip if linked_payment_id is set (those entries are reversed via Undo Payment in private-payments delete)
-    if txn.get('party_type') == "Pvt Paddy Purchase" and txn.get('account') in ('cash', 'bank') and txn.get('category') and not txn.get('linked_payment_id'):
-        import re as _re
-        cat = txn['category']
+    ref = txn.get("reference", "")
+    linked_pay_id = txn.get("linked_payment_id", "")
+    party_type = txn.get("party_type", "")
+    linked_entry_id = txn.get("linked_entry_id", "")
+
+    # === Pvt Paddy Purchase: Handle ALL types of payment deletion ===
+    if party_type == "Pvt Paddy Purchase":
+        rev_amount = round(txn.get('amount', 0), 2)
         pvt_entry = None
-        # Use cashbook_pvt_linked for exact match if available
-        if txn.get('cashbook_pvt_linked'):
-            pvt_entry = await db.private_paddy.find_one({"id": txn['cashbook_pvt_linked']}, {"_id": 0})
-        if not pvt_entry:
-            parts = cat.split(" - ", 1)
-            if len(parts) == 2:
-                pvt_entry = await db.private_paddy.find_one(
-                    {"party_name": {"$regex": f"^{_re.escape(parts[0].strip())}$", "$options": "i"},
-                     "mandi_name": {"$regex": f"^{_re.escape(parts[1].strip())}$", "$options": "i"}},
-                    {"_id": 0}
-                )
-            if not pvt_entry:
-                cat_rgx = _re.compile(f"^{_re.escape(cat)}$", _re.IGNORECASE)
-                pvt_entry = await db.private_paddy.find_one({"party_name": cat_rgx}, {"_id": 0})
-            if not pvt_entry:
-                pvt_entry = await db.private_paddy.find_one(
-                    {"party_name": {"$regex": _re.escape(cat), "$options": "i"}},
-                    {"_id": 0}
-                )
-        if pvt_entry:
-            rev_amount = round(txn.get('amount', 0), 2)
+        
+        # --- Case 1: Payment dialog entry (has linked_payment_id = UUID) ---
+        if linked_pay_id and not linked_pay_id.startswith("mark_paid:"):
+            # Find and delete the private_payment record
+            pay_doc = await db.private_payments.find_one({"id": linked_pay_id}, {"_id": 0})
+            if pay_doc:
+                pvt_entry = await db.private_paddy.find_one({"id": pay_doc.get("ref_id")}, {"_id": 0})
+                rev_amount = round(pay_doc.get("amount", 0) + pay_doc.get("round_off", 0), 2)
+                await db.private_payments.delete_one({"id": linked_pay_id})
+            # Delete paired ledger entry (same linked_payment_id)
+            await db.cash_transactions.delete_many({"linked_payment_id": linked_pay_id, "account": "ledger"})
+        
+        # --- Case 2: Mark Paid entry (linked_payment_id starts with mark_paid:) ---
+        elif linked_pay_id and linked_pay_id.startswith("mark_paid:"):
+            entry_id_prefix = linked_pay_id.replace("mark_paid:", "")
+            pvt_entry = await db.private_paddy.find_one({"id": {"$regex": f"^{entry_id_prefix}"}}, {"_id": 0})
+            # Delete paired ledger entry
+            await db.cash_transactions.delete_many({"linked_payment_id": linked_pay_id, "account": "ledger"})
+            # Also reset payment_status
+            if pvt_entry:
+                await db.private_paddy.update_one({"id": pvt_entry["id"]}, {"$set": {"payment_status": "pending"}})
+        
+        # --- Case 3: Advance entry (reference starts with pvt_paddy_adv:) ---
+        elif ref.startswith("pvt_paddy_adv:"):
+            if linked_entry_id:
+                pvt_entry = await db.private_paddy.find_one({"id": linked_entry_id}, {"_id": 0})
+            # Delete paired ledger entry (pvt_paddy_advl:*)
+            ledger_ref = ref.replace("pvt_paddy_adv:", "pvt_paddy_advl:")
+            await db.cash_transactions.delete_many({"reference": ledger_ref})
+        
+        # --- Case 4: Manual/unlinked cash entry (no linked_payment_id) ---
+        elif not linked_pay_id and txn.get('account') in ('cash', 'bank'):
+            import re as _re
+            cat = txn.get('category', '')
+            if txn.get('cashbook_pvt_linked'):
+                pvt_entry = await db.private_paddy.find_one({"id": txn['cashbook_pvt_linked']}, {"_id": 0})
+            if not pvt_entry and cat:
+                parts = cat.split(" - ", 1)
+                if len(parts) == 2:
+                    pvt_entry = await db.private_paddy.find_one(
+                        {"party_name": {"$regex": f"^{_re.escape(parts[0].strip())}$", "$options": "i"},
+                         "mandi_name": {"$regex": f"^{_re.escape(parts[1].strip())}$", "$options": "i"}},
+                        {"_id": 0}
+                    )
+                if not pvt_entry:
+                    pvt_entry = await db.private_paddy.find_one({"party_name": {"$regex": _re.escape(cat), "$options": "i"}}, {"_id": 0})
+        
+        # Update paddy purchase paid_amount
+        if pvt_entry and rev_amount > 0:
             new_paid = round(max(0, pvt_entry.get("paid_amount", 0) - rev_amount), 2)
             new_balance = round(pvt_entry.get("total_amount", 0) - new_paid, 2)
-            new_status = "paid" if new_balance <= 0 else ("partial" if new_paid > 0 else "pending")
             await db.private_paddy.update_one(
                 {"id": pvt_entry["id"]},
-                {"$set": {"paid_amount": new_paid, "balance": new_balance, "status": new_status}}
+                {"$set": {"paid_amount": new_paid, "balance": new_balance, "payment_status": "pending" if new_paid < pvt_entry.get("total_amount", 0) else "paid"}}
+            )
+    
+    # === Rice Sale: Handle payment deletion ===
+    elif party_type == "Rice Sale":
+        rev_amount = round(txn.get('amount', 0), 2)
+        rice_entry = None
+        
+        if linked_pay_id and not linked_pay_id.startswith("mark_paid"):
+            pay_doc = await db.private_payments.find_one({"id": linked_pay_id}, {"_id": 0})
+            if pay_doc:
+                rice_entry = await db.rice_sales.find_one({"id": pay_doc.get("ref_id")}, {"_id": 0})
+                rev_amount = round(pay_doc.get("amount", 0) + pay_doc.get("round_off", 0), 2)
+                await db.private_payments.delete_one({"id": linked_pay_id})
+            await db.cash_transactions.delete_many({"linked_payment_id": linked_pay_id, "account": "ledger"})
+        elif linked_pay_id and linked_pay_id.startswith("mark_paid_rice:"):
+            entry_id_prefix = linked_pay_id.replace("mark_paid_rice:", "")
+            rice_entry = await db.rice_sales.find_one({"id": {"$regex": f"^{entry_id_prefix}"}}, {"_id": 0})
+            await db.cash_transactions.delete_many({"linked_payment_id": linked_pay_id, "account": "ledger"})
+            if rice_entry:
+                await db.rice_sales.update_one({"id": rice_entry["id"]}, {"$set": {"payment_status": "pending"}})
+        
+        if rice_entry and rev_amount > 0:
+            new_paid = round(max(0, rice_entry.get("paid_amount", 0) - rev_amount), 2)
+            new_balance = round(rice_entry.get("total_amount", 0) - new_paid, 2)
+            await db.rice_sales.update_one(
+                {"id": rice_entry["id"]},
+                {"$set": {"paid_amount": new_paid, "balance": new_balance, "payment_status": "pending" if new_paid < rice_entry.get("total_amount", 0) else "paid"}}
             )
     
     # Revert truck_payments paid_amount if this was a truck payment entry

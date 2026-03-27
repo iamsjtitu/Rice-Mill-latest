@@ -155,31 +155,90 @@ module.exports = function(database) {
     const txn = database.data.cash_transactions.find(t => t.id === req.params.id);
     if (!txn) return res.status(404).json({ detail: 'Not found' });
 
-    // Revert private_paddy paid_amount if this was a Pvt Paddy Purchase nikasi from cash/bank
-    // Skip if linked_payment_id set (those are handled via Undo Payment)
-    if (txn.party_type === 'Pvt Paddy Purchase' && (txn.account === 'cash' || txn.account === 'bank') && txn.category && !txn.linked_payment_id) {
-      const pvtEntries = database.data.private_paddy || [];
-      const cat = txn.category;
+    const ref = txn.reference || '';
+    const linkedPayId = txn.linked_payment_id || '';
+    const partyType = txn.party_type || '';
+    const linkedEntryId = txn.linked_entry_id || '';
+
+    // === Pvt Paddy Purchase: Handle ALL types of payment deletion ===
+    if (partyType === 'Pvt Paddy Purchase') {
+      let revAmount = Math.round((txn.amount || 0) * 100) / 100;
       let pvtEntry = null;
-      // Exact match via cashbook_pvt_linked flag
-      if (txn.cashbook_pvt_linked) {
-        pvtEntry = pvtEntries.find(p => p.id === txn.cashbook_pvt_linked);
-      }
-      if (!pvtEntry) {
-        const parts = cat.split(' - ');
-        if (parts.length === 2) {
-          pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === parts[0].trim().toLowerCase() && p.mandi_name && p.mandi_name.toLowerCase() === parts[1].trim().toLowerCase());
+      const pvtEntries = database.data.private_paddy || [];
+
+      // Case 1: Payment dialog entry (linked_payment_id = UUID)
+      if (linkedPayId && !linkedPayId.startsWith('mark_paid:')) {
+        const payDoc = (database.data.private_payments || []).find(p => p.id === linkedPayId);
+        if (payDoc) {
+          pvtEntry = pvtEntries.find(p => p.id === payDoc.ref_id);
+          revAmount = Math.round(((payDoc.amount || 0) + (payDoc.round_off || 0)) * 100) / 100;
+          database.data.private_payments = database.data.private_payments.filter(p => p.id !== linkedPayId);
         }
-        if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === cat.toLowerCase());
-        if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && cat.toLowerCase().includes(p.party_name.toLowerCase()));
+        // Delete paired ledger entry
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => !(t.linked_payment_id === linkedPayId && t.account === 'ledger'));
       }
-      if (pvtEntry) {
-        const revAmount = Math.round((txn.amount || 0) * 100) / 100;
+      // Case 2: Mark Paid entry
+      else if (linkedPayId && linkedPayId.startsWith('mark_paid:')) {
+        const entryIdPrefix = linkedPayId.replace('mark_paid:', '');
+        pvtEntry = pvtEntries.find(p => p.id.startsWith(entryIdPrefix));
+        // Delete paired ledger entry
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => !(t.linked_payment_id === linkedPayId && t.account === 'ledger'));
+        if (pvtEntry) pvtEntry.payment_status = 'pending';
+      }
+      // Case 3: Advance entry (pvt_paddy_adv:*)
+      else if (ref.startsWith('pvt_paddy_adv:')) {
+        if (linkedEntryId) pvtEntry = pvtEntries.find(p => p.id === linkedEntryId);
+        const ledgerRef = ref.replace('pvt_paddy_adv:', 'pvt_paddy_advl:');
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => t.reference !== ledgerRef);
+      }
+      // Case 4: Manual/unlinked cash entry
+      else if (!linkedPayId && (txn.account === 'cash' || txn.account === 'bank')) {
+        const cat = txn.category || '';
+        if (txn.cashbook_pvt_linked) pvtEntry = pvtEntries.find(p => p.id === txn.cashbook_pvt_linked);
+        if (!pvtEntry && cat) {
+          const parts = cat.split(' - ');
+          if (parts.length === 2) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === parts[0].trim().toLowerCase() && p.mandi_name && p.mandi_name.toLowerCase() === parts[1].trim().toLowerCase());
+          if (!pvtEntry) pvtEntry = pvtEntries.find(p => p.party_name && p.party_name.toLowerCase() === cat.toLowerCase());
+        }
+      }
+
+      // Update paddy purchase paid_amount
+      if (pvtEntry && revAmount > 0) {
         const newPaid = Math.round(Math.max(0, (pvtEntry.paid_amount || 0) - revAmount) * 100) / 100;
-        const newBalance = Math.round((pvtEntry.total_amount || 0) - newPaid);
+        const newBalance = Math.round(((pvtEntry.total_amount || 0) - newPaid) * 100) / 100;
         pvtEntry.paid_amount = newPaid;
         pvtEntry.balance = newBalance;
-        pvtEntry.status = newBalance <= 0 ? 'paid' : (newPaid > 0 ? 'partial' : 'pending');
+        pvtEntry.payment_status = newPaid < (pvtEntry.total_amount || 0) ? 'pending' : 'paid';
+      }
+    }
+
+    // === Rice Sale: Handle payment deletion ===
+    if (partyType === 'Rice Sale') {
+      let revAmount = Math.round((txn.amount || 0) * 100) / 100;
+      let riceEntry = null;
+      const riceEntries = database.data.rice_sales || [];
+
+      if (linkedPayId && !linkedPayId.startsWith('mark_paid')) {
+        const payDoc = (database.data.private_payments || []).find(p => p.id === linkedPayId);
+        if (payDoc) {
+          riceEntry = riceEntries.find(p => p.id === payDoc.ref_id);
+          revAmount = Math.round(((payDoc.amount || 0) + (payDoc.round_off || 0)) * 100) / 100;
+          database.data.private_payments = database.data.private_payments.filter(p => p.id !== linkedPayId);
+        }
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => !(t.linked_payment_id === linkedPayId && t.account === 'ledger'));
+      } else if (linkedPayId && linkedPayId.startsWith('mark_paid_rice:')) {
+        const entryIdPrefix = linkedPayId.replace('mark_paid_rice:', '');
+        riceEntry = riceEntries.find(p => p.id.startsWith(entryIdPrefix));
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => !(t.linked_payment_id === linkedPayId && t.account === 'ledger'));
+        if (riceEntry) riceEntry.payment_status = 'pending';
+      }
+
+      if (riceEntry && revAmount > 0) {
+        const newPaid = Math.round(Math.max(0, (riceEntry.paid_amount || 0) - revAmount) * 100) / 100;
+        const newBalance = Math.round(((riceEntry.total_amount || 0) - newPaid) * 100) / 100;
+        riceEntry.paid_amount = newPaid;
+        riceEntry.balance = newBalance;
+        riceEntry.payment_status = newPaid < (riceEntry.total_amount || 0) ? 'pending' : 'paid';
       }
     }
 
