@@ -266,6 +266,14 @@ async def get_private_paddy(kms_year: Optional[str] = None, season: Optional[str
     if season: query["season"] = season
     if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
     items = await db.private_paddy.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    # Compute payment_status dynamically for entries that don't have it set
+    for item in items:
+        total = float(item.get("total_amount", 0) or 0)
+        paid = float(item.get("paid_amount", 0) or 0)
+        if total > 0 and paid >= total:
+            item["payment_status"] = "paid"
+        elif not item.get("payment_status"):
+            item["payment_status"] = "pending"
     return items
 
 @router.put("/private-paddy/{item_id}")
@@ -445,6 +453,14 @@ async def get_rice_sales(kms_year: Optional[str] = None, season: Optional[str] =
             {"rice_type": {"$regex": search, "$options": "i"}},
         ]
     items = await db.rice_sales.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    # Compute payment_status dynamically
+    for item in items:
+        total = float(item.get("total_amount", 0) or 0)
+        paid = float(item.get("paid_amount", 0) or 0)
+        if total > 0 and paid >= total:
+            item["payment_status"] = "paid"
+        elif not item.get("payment_status"):
+            item["payment_status"] = "pending"
     return items
 
 @router.put("/rice-sales/{item_id}")
@@ -685,11 +701,44 @@ async def undo_pvt_paddy_paid(entry_id: str, username: str = "", role: str = "")
 
 @router.get("/private-paddy/{entry_id}/history")
 async def get_pvt_paddy_history(entry_id: str):
-    """Get payment history for a pvt paddy entry"""
+    """Get payment history for a pvt paddy entry - includes private_payments AND advance/mark-paid entries"""
     payments = await db.private_payments.find(
         {"ref_id": entry_id, "ref_type": "paddy_purchase"},
         {"_id": 0}
     ).sort([("created_at", -1)]).to_list(1000)
+    # Also include advance entries from cash_transactions (created when paid_amount was set in form)
+    advance_entries = await db.cash_transactions.find(
+        {"linked_entry_id": entry_id, "reference": {"$regex": "^pvt_paddy_adv:"}, "account": "cash"},
+        {"_id": 0}
+    ).to_list(100)
+    for adv in advance_entries:
+        payments.append({
+            "id": adv.get("id", ""),
+            "date": adv.get("date", ""),
+            "amount": adv.get("amount", 0),
+            "mode": "advance",
+            "reference": adv.get("reference", ""),
+            "remark": "Advance (Entry ke saath bhara tha)",
+            "payment_type": "advance",
+            "created_at": adv.get("created_at", ""),
+        })
+    # Also include mark-paid entries
+    mark_entries = await db.cash_transactions.find(
+        {"reference": {"$regex": f"^mark_paid:{entry_id[:8]}"}, "account": "cash"},
+        {"_id": 0}
+    ).to_list(100)
+    for mk in mark_entries:
+        payments.append({
+            "id": mk.get("id", ""),
+            "date": mk.get("date", ""),
+            "amount": mk.get("amount", 0),
+            "mode": "mark_paid",
+            "reference": mk.get("reference", ""),
+            "remark": "Mark Paid se clear hua",
+            "payment_type": "mark_paid",
+            "created_at": mk.get("created_at", ""),
+        })
+    payments.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     entry = await db.private_paddy.find_one({"id": entry_id}, {"_id": 0})
     total_paid = float(entry.get("paid_amount", 0)) if entry else 0
     return {"history": payments, "total_paid": total_paid}
@@ -767,6 +816,39 @@ async def get_rice_sale_history(entry_id: str):
         {"ref_id": entry_id, "ref_type": "rice_sale"},
         {"_id": 0}
     ).sort([("created_at", -1)]).to_list(1000)
+    # Also include advance entries
+    advance_entries = await db.cash_transactions.find(
+        {"linked_entry_id": entry_id, "reference": {"$regex": "^rice_sale_adv:"}, "account": "cash"},
+        {"_id": 0}
+    ).to_list(100)
+    for adv in advance_entries:
+        payments.append({
+            "id": adv.get("id", ""),
+            "date": adv.get("date", ""),
+            "amount": adv.get("amount", 0),
+            "mode": "advance",
+            "reference": adv.get("reference", ""),
+            "remark": "Advance (Entry ke saath bhara tha)",
+            "payment_type": "advance",
+            "created_at": adv.get("created_at", ""),
+        })
+    # Also include mark-paid entries
+    mark_entries = await db.cash_transactions.find(
+        {"reference": {"$regex": f"^mark_paid:{entry_id[:8]}"}, "account": "cash"},
+        {"_id": 0}
+    ).to_list(100)
+    for mk in mark_entries:
+        payments.append({
+            "id": mk.get("id", ""),
+            "date": mk.get("date", ""),
+            "amount": mk.get("amount", 0),
+            "mode": "mark_paid",
+            "reference": mk.get("reference", ""),
+            "remark": "Mark Paid se clear hua",
+            "payment_type": "mark_paid",
+            "created_at": mk.get("created_at", ""),
+        })
+    payments.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     entry = await db.rice_sales.find_one({"id": entry_id}, {"_id": 0})
     total_paid = float(entry.get("paid_amount", 0)) if entry else 0
     return {"history": payments, "total_paid": total_paid}

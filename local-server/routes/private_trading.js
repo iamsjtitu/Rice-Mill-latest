@@ -189,6 +189,16 @@ module.exports = function(database) {
     if (season) items = items.filter(i => i.season === season);
     if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
     items.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
+    // Compute payment_status dynamically
+    items.forEach(item => {
+      const total = parseFloat(item.total_amount) || 0;
+      const paid = parseFloat(item.paid_amount) || 0;
+      if (total > 0 && paid >= total) {
+        item.payment_status = 'paid';
+      } else if (!item.payment_status) {
+        item.payment_status = 'pending';
+      }
+    });
     res.json(items);
   }));
 
@@ -241,6 +251,16 @@ module.exports = function(database) {
     if (season) items = items.filter(i => i.season === season);
     if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
     items.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
+    // Compute payment_status dynamically
+    items.forEach(item => {
+      const total = parseFloat(item.total_amount) || 0;
+      const paid = parseFloat(item.paid_amount) || 0;
+      if (total > 0 && paid >= total) {
+        item.payment_status = 'paid';
+      } else if (!item.payment_status) {
+        item.payment_status = 'pending';
+      }
+    });
     res.json(items);
   }));
 
@@ -689,8 +709,20 @@ module.exports = function(database) {
   }));
 
   router.get('/api/private-paddy/:id/history', safeSync((req, res) => {
-    const payments = (database.data.private_payments || []).filter(p => p.ref_id === req.params.id && p.ref_type === 'paddy_purchase').sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-    const entry = (database.data.private_paddy || []).find(e => e.id === req.params.id);
+    const entryId = req.params.id;
+    const payments = (database.data.private_payments || []).filter(p => p.ref_id === entryId && p.ref_type === 'paddy_purchase').sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    // Also include advance entries from cash_transactions
+    const advEntries = (database.data.cash_transactions || []).filter(t => t.linked_entry_id === entryId && (t.reference || '').startsWith('pvt_paddy_adv:') && t.account === 'cash');
+    advEntries.forEach(adv => {
+      payments.push({ id: adv.id || '', date: adv.date || '', amount: adv.amount || 0, mode: 'advance', reference: adv.reference || '', remark: 'Advance (Entry ke saath bhara tha)', payment_type: 'advance', created_at: adv.created_at || '' });
+    });
+    // Also include mark-paid entries
+    const markEntries = (database.data.cash_transactions || []).filter(t => (t.reference || '').startsWith(`mark_paid:${entryId.slice(0,8)}`) && t.account === 'cash');
+    markEntries.forEach(mk => {
+      payments.push({ id: mk.id || '', date: mk.date || '', amount: mk.amount || 0, mode: 'mark_paid', reference: mk.reference || '', remark: 'Mark Paid se clear hua', payment_type: 'mark_paid', created_at: mk.created_at || '' });
+    });
+    payments.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    const entry = (database.data.private_paddy || []).find(e => e.id === entryId);
     const totalPaid = entry ? (entry.paid_amount || 0) : 0;
     res.json({ history: payments, total_paid: totalPaid });
   }));
@@ -719,11 +751,22 @@ module.exports = function(database) {
   }));
 
   router.get('/api/rice-sales/:id/history', safeSync((req, res) => {
-    if (!database.data.cash_transactions) database.data.cash_transactions = [];
-    const payments = database.data.cash_transactions.filter(t =>
-      (t.reference || '').includes(req.params.id.slice(0, 8)) || (t.reference || '').includes(`rice_sale`)
-    );
-    res.json(payments);
+    const entryId = req.params.id;
+    const payments = (database.data.private_payments || []).filter(p => p.ref_id === entryId && p.ref_type === 'rice_sale').sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    // Also include advance entries
+    const advEntries = (database.data.cash_transactions || []).filter(t => t.linked_entry_id === entryId && (t.reference || '').startsWith('rice_sale_adv:') && t.account === 'cash');
+    advEntries.forEach(adv => {
+      payments.push({ id: adv.id || '', date: adv.date || '', amount: adv.amount || 0, mode: 'advance', reference: adv.reference || '', remark: 'Advance (Entry ke saath bhara tha)', payment_type: 'advance', created_at: adv.created_at || '' });
+    });
+    // Also include mark-paid entries
+    const markEntries = (database.data.cash_transactions || []).filter(t => (t.reference || '').startsWith(`mark_paid:${entryId.slice(0,8)}`) && t.account === 'cash');
+    markEntries.forEach(mk => {
+      payments.push({ id: mk.id || '', date: mk.date || '', amount: mk.amount || 0, mode: 'mark_paid', reference: mk.reference || '', remark: 'Mark Paid se clear hua', payment_type: 'mark_paid', created_at: mk.created_at || '' });
+    });
+    payments.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    const entry = (database.data.rice_sales || []).find(e => e.id === entryId);
+    const totalPaid = entry ? (entry.paid_amount || 0) : 0;
+    res.json({ history: payments, total_paid: totalPaid });
   }));
 
   return router;
