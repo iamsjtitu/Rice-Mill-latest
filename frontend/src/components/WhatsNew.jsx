@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "42.2.1";
+const APP_VERSION = "43.0.0";
 
 const CHANGELOG = [
+  {
+    version: "43.0.0",
+    date: "27 Mar 2026",
+    title: "v43.0.0 - Payment Fix + Auto-Update Fix",
+    items: [
+      { type: "fix", text: "Payment Undo + History fix - advance se paid entries ab sahi dikhegi" },
+      { type: "fix", text: "Auto-update fix - ab update sahi se download hoga" },
+      { type: "fix", text: "Payment status ab dynamically compute hota hai (paid/pending)" },
+    ],
+  },
   {
     version: "42.2.1",
     date: "26 Mar 2026",
