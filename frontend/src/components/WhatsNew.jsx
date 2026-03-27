@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "44.0.0";
+const APP_VERSION = "44.1.0";
 
 const CHANGELOG = [
+  {
+    version: "44.1.0",
+    date: "27 Mar 2026",
+    title: "v44.1.0 - Cash Book Delete Cascade Fix",
+    items: [
+      { type: "fix", text: "Cash Book se delete karne par ledger entry + paddy paid_amount auto update" },
+      { type: "fix", text: "Duplicate arrow button fix - ab ek hi undo button dikhega" },
+    ],
+  },
   {
     version: "44.0.0",
     date: "27 Mar 2026",
