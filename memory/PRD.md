@@ -22,6 +22,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **Party Label Consistency**: Always use `_makePartyLabel(party, mandi)` helper to avoid duplicates
 - **Electron Build**: `yarn build` in frontend → sync to desktop-app/frontend-build/
 - **GitHub Release Filenames**: MUST use hyphens not spaces (GitHub converts spaces to dots, breaking auto-updater)
+- **payment_status**: Computed dynamically in GET endpoints — if paid_amount >= total_amount → 'paid'
 
 ## Current Version: v42.2.1
 
@@ -49,7 +50,10 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - Fixed: Auto-updater filename mismatch (hyphens vs dots in GitHub releases)
 - Added: `artifactName` in NSIS config to force hyphenated filenames
 - Added: Workflow step to rename spaces→hyphens before upload as safety net
-- Version bump to v42.2.1
+- Fixed: payment_status now computed dynamically in GET endpoints (paid when paid_amount >= total_amount)
+- Fixed: Payment History now includes advance entries from cash_transactions
+- Fixed: Undo Paid button now shows for entries paid via form's paid_amount field
+- Synced: All fixes applied to Python, desktop-app, and local-server backends
 
 ## Completed in v42.2.0
 - Fixed: Duplicate party name creation ("Kridha (Kesinga) - Kesinga" bug)
