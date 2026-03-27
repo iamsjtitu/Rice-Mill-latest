@@ -1155,6 +1155,81 @@ async def auto_fix_all():
         if result.modified_count > 0:
             fixes["duplicate_party_merged"] = fixes.get("duplicate_party_merged", 0) + result.modified_count
 
+    # 7. Clean orphaned auto_ledger entries (original cash entry was deleted)
+    auto_ledger_all = await db.cash_transactions.find(
+        {"reference": {"$regex": "^auto_ledger:"}}, {"_id": 0, "id": 1, "reference": 1}
+    ).to_list(100000)
+    for al_entry in auto_ledger_all:
+        prefix = al_entry.get("reference", "").replace("auto_ledger:", "")
+        if not prefix:
+            continue
+        original = await db.cash_transactions.find_one(
+            {"id": {"$regex": f"^{prefix}"}, "account": {"$in": ["cash", "bank"]}}, {"_id": 0, "id": 1}
+        )
+        if not original:
+            await db.cash_transactions.delete_one({"id": al_entry["id"]})
+            fixes["orphan_auto_ledger_cleaned"] = fixes.get("orphan_auto_ledger_cleaned", 0) + 1
+
+    # 8. Recalculate paid_amount/balance/payment_status for all private_paddy entries
+    pvt_entries_fresh = await db.private_paddy.find({}, {"_id": 0}).to_list(100000)
+    for pvt in pvt_entries_fresh:
+        entry_id = pvt.get("id", "")
+        if not entry_id:
+            continue
+        total_amt = float(pvt.get("total_amount", 0) or 0)
+        if total_amt <= 0:
+            continue
+        # Sum all payment sources
+        pay_sum = 0
+        # a. private_payments
+        payments = await db.private_payments.find(
+            {"ref_id": entry_id, "ref_type": "paddy_purchase"}, {"_id": 0, "amount": 1, "round_off": 1}
+        ).to_list(1000)
+        for p in payments:
+            pay_sum += float(p.get("amount", 0) or 0) + float(p.get("round_off", 0) or 0)
+        # b. advance entries (pvt_paddy_adv)
+        adv = await db.cash_transactions.find(
+            {"linked_entry_id": entry_id, "reference": {"$regex": "^pvt_paddy_adv:"}, "account": "cash"},
+            {"_id": 0, "amount": 1}
+        ).to_list(100)
+        for a in adv:
+            pay_sum += float(a.get("amount", 0) or 0)
+        # c. mark-paid entries
+        mark = await db.cash_transactions.find(
+            {"reference": {"$regex": f"^mark_paid:{entry_id[:8]}"}, "account": "cash"},
+            {"_id": 0, "amount": 1}
+        ).to_list(100)
+        for m in mark:
+            pay_sum += float(m.get("amount", 0) or 0)
+        # d. manual cashbook entries
+        manual = await db.cash_transactions.find(
+            {"cashbook_pvt_linked": entry_id, "account": {"$in": ["cash", "bank"]}},
+            {"_id": 0, "amount": 1}
+        ).to_list(100)
+        for mc in manual:
+            pay_sum += float(mc.get("amount", 0) or 0)
+        pay_sum = round(pay_sum, 2)
+        stored_paid = round(float(pvt.get("paid_amount", 0) or 0), 2)
+        if abs(pay_sum - stored_paid) > 0.5:
+            new_balance = round(total_amt - pay_sum, 2)
+            new_status = "paid" if pay_sum >= total_amt else "pending"
+            await db.private_paddy.update_one(
+                {"id": entry_id},
+                {"$set": {"paid_amount": pay_sum, "balance": new_balance, "payment_status": new_status}}
+            )
+            fixes["paid_amount_recalculated"] = fixes.get("paid_amount_recalculated", 0) + 1
+
+    # 9. Clean orphaned private_payments (ref_id points to non-existent entry)
+    all_pvt_ids = set(p.get("id", "") for p in pvt_entries_fresh)
+    all_payments = await db.private_payments.find({}, {"_id": 0, "id": 1, "ref_id": 1}).to_list(100000)
+    for pay in all_payments:
+        if pay.get("ref_id") and pay["ref_id"] not in all_pvt_ids:
+            # Check rice_sales too
+            rice = await db.rice_sales.find_one({"id": pay["ref_id"]}, {"_id": 0, "id": 1})
+            if not rice:
+                await db.private_payments.delete_one({"id": pay["id"]})
+                fixes["orphan_payments_cleaned"] = fixes.get("orphan_payments_cleaned", 0) + 1
+
     total = sum(fixes.values())
     return {"success": True, "total_fixes": total, "details": fixes}
 

@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "45.1.0";
+const APP_VERSION = "45.2.0";
 
 const CHANGELOG = [
+  {
+    version: "45.2.0",
+    date: "27 Mar 2026",
+    title: "v45.2.0 - Auto-Fix Enhanced",
+    items: [
+      { type: "imp", text: "Auto-fix ab 9 steps run karega - paid_amount recalculation, orphan cleanup, duplicate party merge sab" },
+      { type: "fix", text: "Orphaned auto_ledger entries automatically clean" },
+      { type: "fix", text: "Orphaned private_payments automatically delete" },
+      { type: "fix", text: "paid_amount/balance/payment_status auto recalculation" },
+    ],
+  },
   {
     version: "45.1.0",
     date: "27 Mar 2026",

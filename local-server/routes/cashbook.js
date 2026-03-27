@@ -515,6 +515,74 @@ module.exports = function(database) {
       database.data.cash_transactions = database.data.cash_transactions.filter(t => !toRemove.includes(t.id));
     }
 
+    // 5. Clean orphaned pvt_party_jama entries (paddy entry deleted)
+    const pvtIds = new Set(pvtEntries.map(p => p.id));
+    const jamaRefs = database.data.cash_transactions.filter(t => (t.reference || '').startsWith('pvt_party_jama:'));
+    for (const j of jamaRefs) {
+      if (j.linked_entry_id && !pvtIds.has(j.linked_entry_id)) {
+        database.data.cash_transactions = database.data.cash_transactions.filter(t => t.id !== j.id);
+        fixes.orphan_jama_cleaned = (fixes.orphan_jama_cleaned || 0) + 1;
+      }
+    }
+
+    // 6. Fix duplicate party names
+    const allCats = [...new Set(database.data.cash_transactions.map(t => t.category).filter(Boolean))];
+    for (const cat of allCats) {
+      if (!cat.includes(' - ')) continue;
+      const parts = cat.split(' - ');
+      const base = parts.slice(0, -1).join(' - ').trim();
+      const suffix = parts[parts.length - 1].trim();
+      if (suffix && base.toLowerCase().includes(suffix.toLowerCase()) && allCats.includes(base)) {
+        database.data.cash_transactions.forEach(t => { if (t.category === cat) t.category = base; });
+        fixes.duplicate_party_merged = (fixes.duplicate_party_merged || 0) + 1;
+      }
+    }
+
+    // 7. Clean orphaned auto_ledger entries
+    const autoLedgers2 = database.data.cash_transactions.filter(t => (t.reference || '').startsWith('auto_ledger:'));
+    const orphanAutoIds = [];
+    for (const al of autoLedgers2) {
+      const pfx = (al.reference || '').replace('auto_ledger:', '');
+      if (!pfx) continue;
+      const orig = database.data.cash_transactions.find(t => t.id && t.id.startsWith(pfx) && (t.account === 'cash' || t.account === 'bank'));
+      if (!orig) orphanAutoIds.push(al.id);
+    }
+    if (orphanAutoIds.length > 0) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => !orphanAutoIds.includes(t.id));
+      fixes.orphan_auto_ledger_cleaned = orphanAutoIds.length;
+    }
+
+    // 8. Recalculate paid_amount/balance/payment_status for all private_paddy
+    for (const pvt of pvtEntries) {
+      const eid = pvt.id;
+      const totalAmt2 = parseFloat(pvt.total_amount) || 0;
+      if (!eid || totalAmt2 <= 0) continue;
+      let paySum = 0;
+      (database.data.private_payments || []).filter(p => p.ref_id === eid && p.ref_type === 'paddy_purchase').forEach(p => { paySum += (parseFloat(p.amount) || 0) + (parseFloat(p.round_off) || 0); });
+      database.data.cash_transactions.filter(t => t.linked_entry_id === eid && (t.reference || '').startsWith('pvt_paddy_adv:') && t.account === 'cash').forEach(t => { paySum += parseFloat(t.amount) || 0; });
+      database.data.cash_transactions.filter(t => (t.reference || '').startsWith(`mark_paid:${eid.slice(0,8)}`) && t.account === 'cash').forEach(t => { paySum += parseFloat(t.amount) || 0; });
+      database.data.cash_transactions.filter(t => t.cashbook_pvt_linked === eid && (t.account === 'cash' || t.account === 'bank')).forEach(t => { paySum += parseFloat(t.amount) || 0; });
+      paySum = Math.round(paySum * 100) / 100;
+      const storedPaid = Math.round((parseFloat(pvt.paid_amount) || 0) * 100) / 100;
+      if (Math.abs(paySum - storedPaid) > 0.5) {
+        pvt.paid_amount = paySum;
+        pvt.balance = Math.round((totalAmt2 - paySum) * 100) / 100;
+        pvt.payment_status = paySum >= totalAmt2 ? 'paid' : 'pending';
+        fixes.paid_amount_recalculated = (fixes.paid_amount_recalculated || 0) + 1;
+      }
+    }
+
+    // 9. Clean orphaned private_payments
+    const allPvtIds = new Set(pvtEntries.map(p => p.id));
+    const riceIds = new Set((database.data.rice_sales || []).map(r => r.id));
+    const beforePay = (database.data.private_payments || []).length;
+    database.data.private_payments = (database.data.private_payments || []).filter(p => {
+      if (!p.ref_id) return true;
+      return allPvtIds.has(p.ref_id) || riceIds.has(p.ref_id);
+    });
+    const orphanPay = beforePay - (database.data.private_payments || []).length;
+    if (orphanPay > 0) fixes.orphan_payments_cleaned = orphanPay;
+
     const total = Object.values(fixes).reduce((s, v) => s + v, 0);
     if (total > 0) database.save();
     res.json({ success: true, total_fixes: total, details: fixes });
