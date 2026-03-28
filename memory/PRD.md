@@ -1,6 +1,6 @@
 # Mill Entry System - PRD
 
-## Current Version: v50.7.2
+## Current Version: v50.8.0
 
 ## Architecture
 - Web: React + FastAPI + MongoDB
@@ -12,23 +12,31 @@
 - Username: admin, Password: admin123
 
 ## Key Features
-- WhatsApp 360Messenger: Settings, Default Numbers, Group ID, Payment Reminders, Daily Reports, **Party Ledger Send**
+- WhatsApp 360Messenger: Settings, Default Numbers, Group ID, Payment Reminders, Daily Reports, **Party Ledger Send**, **Truck Payment Send**, **Truck Owner Send**, **Leased Truck Send**
 - Backup System: Backup Now (folder), Auto Daily, ZIP Download, ZIP Restore
 - Extra Fields: Placement above/below + Label optional
 - FY Only (KMS removed)
 - Daily Report Export: PDF (Paragraph wrapping headers) + Excel (per-section column widths)
-- Mill Entries Export: PDF + Excel with **Totals row** + P.Pkt/P.Cut columns
+- Mill Entries Export: PDF + Excel with Totals row + P.Pkt/P.Cut columns
 - FreeSans font bundled in Desktop/Local for Hindi text support in all PDFs
 
-## Latest Fixes (This Session)
-1. **PDF Header garbled text**: Replaced Helvetica with FreeSans (Hindi-capable) across ALL desktop PDF exports (pdf_helpers.js, daily_report_logic.js, exports.js, fy_summary.js, hemali.js, mill_parts.js, reports.js, salebook.js, staff.js)
-2. **Mill Entries PDF/Excel**: Added Totals row, added missing P.Pkt/P.Cut columns, wider column widths
-3. **Party Ledger WhatsApp**: New feature - send party ledger summary via WhatsApp with transaction details. Endpoint: POST /api/whatsapp/send-party-ledger. Button visible in CashBook > Party Ledgers tab when party is selected.
-4. **WhatsApp bug**: Fixed default_numbers not being read properly + saveImmediate() for settings
+## Completed in v50.8.0 (22 Feb 2026)
+1. **WhatsApp Truck Payment**: New endpoint POST /api/whatsapp/send-truck-payment. Sends trip details, net amount, paid, balance via WhatsApp. Button in Payments > Truck Payments > Actions column (Send icon).
+2. **WhatsApp Truck Owner**: New endpoint POST /api/whatsapp/send-truck-owner. Sends consolidated truck owner payment summary (trips, gross, deductions, net, paid, balance). Button in Payments > Truck Owner > Actions column ("WhatsApp" text button).
+3. **WhatsApp Leased Truck**: Reuses send-truck-owner endpoint. Button in Payments > Leased Truck > Actions column (Send icon).
+4. **Version Bump**: v50.7.2 -> v50.8.0 across desktop-app, local-server, WhatsNew.jsx
+5. **All 3 backends synced**: Python, Desktop JS, Local Server JS all have identical endpoints
+
+## Previous Session Fixes
+- PDF Header garbled text: FreeSans font across ALL desktop PDF exports
+- Mill Entries PDF/Excel: Totals row, P.Pkt/P.Cut columns, wider column widths
+- Party Ledger WhatsApp: send-party-ledger endpoint + CashBook button
+- WhatsApp bug: default_numbers + saveImmediate() fix
+- Daily Report PDF/Excel column widths and text wrapping fix
 
 ## Upcoming Tasks
-- P1: Export Preview feature
+- P1: Export Preview feature (Preview data before exporting to Excel/PDF)
 
 ## Backlog
-- Desktop/Local server code dedup
-- Payment logic centralization
+- P2: Desktop/Local server code deduplication
+- P2: Payment logic centralization into service layer
