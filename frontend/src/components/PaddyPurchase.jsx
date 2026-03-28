@@ -346,13 +346,24 @@ export const PaddyPurchase = ({ filters, user }) => {
                       {bal > 0 && (
                         <Button variant="ghost" size="sm" className="h-6 px-1 text-green-400" data-testid={`paddy-wa-${item.id}`} title="WhatsApp Reminder"
                           onClick={async () => {
+                            let phone = "";
+                            try {
+                              const ws = (await axios.get(`${API}/whatsapp/settings`)).data;
+                              if (!(ws.default_numbers || []).length) {
+                                phone = prompt("Default numbers set nahi hain. Phone number daalein:");
+                                if (!phone) return;
+                              }
+                            } catch(e) {
+                              phone = prompt("Phone number daalein:");
+                              if (!phone) return;
+                            }
                             try {
                               const res = await axios.post(`${API}/whatsapp/send-payment-reminder`, {
-                                party_name: item.party_name,
+                                phone, party_name: item.party_name,
                                 total_amount: item.total_amount || 0, paid_amount: item.paid_amount || 0, balance: bal
                               });
                               if (res.data.success) toast.success(res.data.message || "WhatsApp reminder bhej diya!");
-                              else toast.error(res.data.error || "WhatsApp fail");
+                              else toast.error(res.data.error || "WhatsApp fail - Settings check karein");
                             } catch (e) { toast.error(e.response?.data?.detail || "WhatsApp send fail"); }
                           }}
                         >

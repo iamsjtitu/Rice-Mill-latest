@@ -290,6 +290,15 @@ const DailyReport = ({ filters }) => {
         <Button variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10 h-9" data-testid="daily-send-whatsapp"
           onClick={async () => {
             if (!data) { toast.error("Pehle report load karein"); return; }
+            // Check if default numbers exist, else ask
+            let waSettings;
+            try { waSettings = (await axios.get(`${API}/whatsapp/settings`)).data; } catch(e) { waSettings = {}; }
+            const hasDefaults = (waSettings.default_numbers || []).length > 0 || waSettings.group_id;
+            let phone = "";
+            if (!hasDefaults) {
+              phone = prompt("Default numbers set nahi hain. Phone number daalein (ya Settings > WhatsApp mein default numbers set karein):");
+              if (!phone) return;
+            }
             const summary = [
               `*Daily Report - ${date}* (${mode})`,
               `---`,
@@ -300,15 +309,14 @@ const DailyReport = ({ filters }) => {
               `---`,
               `Mill Entry System`
             ].filter(Boolean).join('\n');
-            // Build PDF URL for attachment
             const pdfUrl = `${API}/daily-report/pdf?date=${date}&mode=${mode}&kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`;
             try {
               const res = await axios.post(`${API}/whatsapp/send-daily-report`, {
-                report_text: summary, pdf_url: pdfUrl, send_to_group: true
+                report_text: summary, pdf_url: pdfUrl, send_to_group: true, phone
               });
               if (res.data.success) toast.success(res.data.message || "Daily Report WhatsApp pe bhej diya!");
-              else toast.error(res.data.error || "WhatsApp fail");
-            } catch (e) { toast.error(e.response?.data?.detail || "WhatsApp fail"); }
+              else toast.error(res.data.error || "WhatsApp fail - Settings mein default numbers set karein");
+            } catch (e) { toast.error(e.response?.data?.detail || e.response?.data?.error || "WhatsApp fail - Settings check karein"); }
           }}
         >
           <Send className="w-4 h-4 mr-1" /> WhatsApp
