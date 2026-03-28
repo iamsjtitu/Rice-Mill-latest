@@ -2435,7 +2435,7 @@ function MainApp({ user, onLogout }) {
               </CardContent>
             </Card>
 
-            {/* Backup Section */}
+            {/* Backup Section - ZIP Download/Restore */}
             <Card className="bg-slate-800 border-slate-700" data-testid="backup-section">
               <CardHeader>
                 <CardTitle className="text-green-400 flex items-center gap-2">
@@ -2443,43 +2443,83 @@ function MainApp({ user, onLogout }) {
                   Data Backup / डेटा बैकअप
                 </CardTitle>
                 <p className="text-slate-400 text-sm">
-                  Apne data ka backup lein. Last 7 backups automatically save hote hain.
+                  Poora data ZIP mein download karein ya ZIP upload karke restore karein.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Backup Status */}
-                {backupStatus && (
-                  <div className={`p-3 rounded-lg border ${backupStatus.has_today_backup ? 'bg-green-900/30 border-green-700' : 'bg-amber-900/30 border-amber-700'}`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className={`font-semibold ${backupStatus.has_today_backup ? 'text-green-400' : 'text-amber-400'}`}>
-                          {backupStatus.has_today_backup ? 'Aaj ka backup hai' : 'Aaj ka backup nahi liya!'}
-                        </p>
-                        {backupStatus.backups?.length > 0 && (
-                          <p className="text-slate-400 text-xs mt-1">
-                            Last backup: {new Date(backupStatus.backups[0].created_at).toLocaleString('en-IN')} ({backupStatus.backups[0].size_readable})
-                          </p>
-                        )}
-                      </div>
-                      <p className="text-slate-400 text-sm">{backupStatus.backups?.length || 0} / {backupStatus.max_backups} backups</p>
-                    </div>
-                  </div>
-                )}
+                {/* Download Backup */}
+                <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
+                  <p className="text-slate-300 text-sm font-semibold mb-2">Download Backup / बैकअप डाउनलोड</p>
+                  <p className="text-slate-500 text-xs mb-3">Saari entries, payments, cashbook, settings - sab ek ZIP file mein download hoga.</p>
+                  <Button
+                    onClick={async () => {
+                      try {
+                        setBackupLoading(true);
+                        const response = await fetch(`${API}/backup/download?username=${user.username}&role=${user.role}`);
+                        if (!response.ok) throw new Error("Backup download fail");
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `mill_backup_${new Date().toISOString().slice(0,10)}.zip`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(url);
+                        toast.success("Backup ZIP download ho gaya!");
+                      } catch (e) { toast.error("Backup download fail: " + e.message); }
+                      finally { setBackupLoading(false); }
+                    }}
+                    disabled={backupLoading}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
+                    data-testid="download-backup-btn"
+                  >
+                    {backupLoading ? 'Downloading...' : 'Download Backup ZIP / बैकअप डाउनलोड करें'}
+                  </Button>
+                </div>
 
-                {/* Create Backup Button */}
-                <Button
-                  onClick={handleCreateBackup}
-                  disabled={backupLoading}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
-                  data-testid="create-backup-btn"
-                >
-                  {backupLoading ? 'Backup ho raha hai...' : 'Backup Now / अभी बैकअप लें'}
-                </Button>
+                {/* Restore Backup */}
+                <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
+                  <p className="text-slate-300 text-sm font-semibold mb-2">Restore Backup / बैकअप रिस्टोर</p>
+                  <p className="text-red-400 text-xs mb-3">Warning: Restore karne se current data replace ho jayega! Pehle backup download kar lein.</p>
+                  <input
+                    type="file"
+                    accept=".zip"
+                    id="backup-restore-input"
+                    className="hidden"
+                    data-testid="restore-file-input"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (!file.name.endsWith('.zip')) { toast.error("Sirf ZIP file upload karein"); return; }
+                      if (!window.confirm("Kya aap sure hain? Current data replace ho jayega!")) { e.target.value = ''; return; }
+                      try {
+                        setBackupLoading(true);
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const res = await axios.post(`${API}/backup/restore?username=${user.username}&role=${user.role}`, formData, {
+                          headers: { 'Content-Type': 'multipart/form-data' }
+                        });
+                        toast.success(res.data.message || "Restore ho gaya!");
+                      } catch (err) { toast.error(err.response?.data?.detail || "Restore fail!"); }
+                      finally { setBackupLoading(false); e.target.value = ''; }
+                    }}
+                  />
+                  <Button
+                    onClick={() => document.getElementById('backup-restore-input')?.click()}
+                    disabled={backupLoading}
+                    variant="outline"
+                    className="w-full border-amber-600 text-amber-400 hover:bg-amber-900/30 font-semibold"
+                    data-testid="restore-backup-btn"
+                  >
+                    {backupLoading ? 'Restoring...' : 'Upload & Restore ZIP / ZIP अपलोड करके रिस्टोर'}
+                  </Button>
+                </div>
 
-                {/* Backup List */}
+                {/* Desktop backup list (for local/desktop app) */}
                 {backups.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-slate-300 text-sm font-semibold">Saved Backups:</p>
+                    <p className="text-slate-300 text-sm font-semibold">Local Backups (Desktop):</p>
                     {backups.map((b) => (
                       <div key={b.filename} className="flex items-center justify-between bg-slate-700/50 p-3 rounded-lg border border-slate-600" data-testid={`backup-item-${b.filename}`}>
                         <div>
@@ -2489,41 +2529,13 @@ function MainApp({ user, onLogout }) {
                           </p>
                         </div>
                         <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleRestoreBackup(b.filename)}
-                            disabled={backupLoading}
-                            className="text-blue-400 border-blue-600 hover:bg-blue-900/30 text-xs"
-                            data-testid={`restore-btn-${b.filename}`}
-                          >
-                            Restore
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteBackup(b.filename)}
-                            className="text-red-400 border-red-600 hover:bg-red-900/30 text-xs"
-                            data-testid={`delete-backup-btn-${b.filename}`}
-                          >
-                            Delete
-                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleRestoreBackup(b.filename)} disabled={backupLoading} className="text-blue-400 border-blue-600 hover:bg-blue-900/30 text-xs" data-testid={`restore-btn-${b.filename}`}>Restore</Button>
+                          <Button size="sm" variant="outline" onClick={() => handleDeleteBackup(b.filename)} className="text-red-400 border-red-600 hover:bg-red-900/30 text-xs" data-testid={`delete-backup-btn-${b.filename}`}>Delete</Button>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-
-                {!backupStatus && (
-                  <div className="text-center text-slate-500 text-sm p-4">
-                    <p>Backup feature sirf Local Server version mein available hai.</p>
-                    <p className="text-xs mt-1">Web version mein MongoDB automatically data save karta hai.</p>
-                  </div>
-                )}
-
-                <div className="text-center text-slate-500 text-xs">
-                  <p>Backups location: data/backups/ folder mein save hote hain</p>
-                </div>
               </CardContent>
             </Card>
 

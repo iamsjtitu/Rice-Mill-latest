@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "50.1.0";
+const APP_VERSION = "50.2.0";
 
 const CHANGELOG = [
+  {
+    version: "50.2.0",
+    date: "28 Mar 2026",
+    title: "v50.2.0 - Backup Download & Restore",
+    items: [
+      { type: "new", text: "Backup Download - Poora data ZIP mein download karein (Settings > Backup)" },
+      { type: "new", text: "Backup Restore - ZIP upload karke data wapas restore karein" },
+    ]
+  },
   {
     version: "50.1.0",
     date: "28 Mar 2026",
