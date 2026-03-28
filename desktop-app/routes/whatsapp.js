@@ -1,9 +1,76 @@
 const express = require('express');
 const https = require('https');
+const http = require('http');
 const { safeAsync } = require('./safe_handler');
 const router = express.Router();
 
 module.exports = function(database) {
+
+// Upload local PDF to file.io and get public URL
+function uploadPdfToFileIO(localPdfPath) {
+  return new Promise((resolve) => {
+    // Step 1: Fetch PDF from local Express server
+    const port = (global.DESKTOP_API_PORT) || 9876;
+    const localUrl = `http://127.0.0.1:${port}${localPdfPath}`;
+    console.log('[WhatsApp] Fetching local PDF:', localUrl);
+
+    http.get(localUrl, (pdfRes) => {
+      if (pdfRes.statusCode !== 200) {
+        console.log('[WhatsApp] Local PDF fetch failed:', pdfRes.statusCode);
+        resolve('');
+        return;
+      }
+      const chunks = [];
+      pdfRes.on('data', c => chunks.push(c));
+      pdfRes.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        console.log('[WhatsApp] PDF fetched, size:', pdfBuffer.length, 'bytes');
+        if (pdfBuffer.length < 100) { resolve(''); return; }
+
+        // Step 2: Upload to file.io
+        const boundary = '----FormBoundary' + Date.now();
+        const fileName = 'report_' + Date.now() + '.pdf';
+        const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/pdf\r\n\r\n`;
+        const footer = `\r\n--${boundary}--\r\n`;
+        const body = Buffer.concat([Buffer.from(header), pdfBuffer, Buffer.from(footer)]);
+
+        const opts = {
+          hostname: 'file.io', path: '/?expires=1d', method: 'POST',
+          headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
+        };
+
+        const req = https.request(opts, (res) => {
+          let data = '';
+          res.on('data', c => data += c);
+          res.on('end', () => {
+            try {
+              const result = JSON.parse(data);
+              console.log('[WhatsApp] file.io response:', result.success, result.link);
+              resolve(result.success ? result.link : '');
+            } catch (e) { console.log('[WhatsApp] file.io parse error:', data.substring(0, 200)); resolve(''); }
+          });
+        });
+        req.on('error', e => { console.log('[WhatsApp] file.io upload error:', e.message); resolve(''); });
+        req.write(body);
+        req.end();
+      });
+      pdfRes.on('error', () => resolve(''));
+    }).on('error', e => { console.log('[WhatsApp] Local PDF fetch error:', e.message); resolve(''); });
+  });
+}
+
+// Resolve pdf_url: if local path, upload to file.io; if already public, return as-is
+async function resolvePdfUrl(pdfUrl) {
+  if (!pdfUrl) return '';
+  // If it's already a full public URL, return as-is
+  if (pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://')) return pdfUrl;
+  // Local path like /api/... - upload to file.io
+  if (pdfUrl.startsWith('/api/')) {
+    const publicUrl = await uploadPdfToFileIO(pdfUrl);
+    return publicUrl;
+  }
+  return '';
+}
 
 function col(name) {
   if (!database.data[name]) database.data[name] = [];
@@ -151,28 +218,30 @@ router.post('/api/whatsapp/send-daily-report', safeAsync(async (req, res) => {
   const config = getWaSettings();
   if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
 
+  const resolvedPdfUrl = await resolvePdfUrl(pdf_url || '');
+
   // Defensive: ensure default_numbers is always an array
   let defaultNums = config.default_numbers || [];
   if (typeof defaultNums === 'string') defaultNums = defaultNums.split(',').map(n => n.trim()).filter(Boolean);
   if (!Array.isArray(defaultNums)) defaultNums = [];
   const groupId = (config.group_id || '').trim();
 
-  console.log('[WhatsApp] send-daily-report: phone=' + phone + ', default_numbers=' + JSON.stringify(defaultNums) + ', group_id=' + groupId);
+  console.log('[WhatsApp] send-daily-report: phone=' + phone + ', default_numbers=' + JSON.stringify(defaultNums) + ', group_id=' + groupId + ', pdf=' + (resolvedPdfUrl ? 'yes' : 'no'));
 
   const results = [];
   if (phone) {
-    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), report_text, pdf_url || '');
+    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), report_text, resolvedPdfUrl);
     results.push({ target: phone, success: r.success, error: r.error || '' });
   } else {
     for (const num of defaultNums) {
       if (num && num.trim()) {
-        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), report_text, pdf_url || '');
+        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), report_text, resolvedPdfUrl);
         results.push({ target: num, success: r.success, error: r.error || '' });
       }
     }
   }
   if (send_to_group && groupId) {
-    const r = await sendWaMessage(config.api_key, groupId, report_text, pdf_url || '');
+    const r = await sendWaMessage(config.api_key, groupId, report_text, resolvedPdfUrl);
     results.push({ target: 'group', success: r.success, error: r.error || '' });
   }
   if (!results.length) return res.json({ success: false, error: 'Koi number ya group set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });
@@ -188,6 +257,8 @@ router.post('/api/whatsapp/send-party-ledger', safeAsync(async (req, res) => {
   if (!party_name) return res.status(400).json({ detail: 'Party name required' });
   const config = getWaSettings();
   if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
+
+  const resolvedPdfUrl = await resolvePdfUrl(pdf_url || '');
 
   const brandingFromSettings = col('app_settings').find(s => s.setting_id === 'branding');
   const branding = brandingFromSettings || database.data.branding || {};
@@ -215,12 +286,12 @@ router.post('/api/whatsapp/send-party-ledger', safeAsync(async (req, res) => {
 
   const results = [];
   if (phone) {
-    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, pdf_url || '');
+    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, resolvedPdfUrl);
     results.push({ target: phone, success: r.success, error: r.error || '' });
   } else {
     for (const num of nums) {
       if (num && num.trim()) {
-        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, pdf_url || '');
+        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, resolvedPdfUrl);
         results.push({ target: num, success: r.success, error: r.error || '' });
       }
     }
@@ -238,6 +309,8 @@ router.post('/api/whatsapp/send-truck-payment', safeAsync(async (req, res) => {
   if (!truck_no) return res.status(400).json({ detail: 'Truck number required' });
   const config = getWaSettings();
   if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
+
+  const resolvedPdfUrl = await resolvePdfUrl(pdf_url || '');
 
   const brandingFromSettings = col('app_settings').find(s => s.setting_id === 'branding');
   const branding = brandingFromSettings || database.data.branding || {};
@@ -261,12 +334,12 @@ router.post('/api/whatsapp/send-truck-payment', safeAsync(async (req, res) => {
 
   const results = [];
   if (phone) {
-    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, pdf_url || '');
+    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, resolvedPdfUrl);
     results.push({ target: phone, success: r.success, error: r.error || '' });
   } else {
     for (const num of nums) {
       if (num && num.trim()) {
-        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, pdf_url || '');
+        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, resolvedPdfUrl);
         results.push({ target: num, success: r.success, error: r.error || '' });
       }
     }
@@ -285,6 +358,8 @@ router.post('/api/whatsapp/send-truck-owner', safeAsync(async (req, res) => {
   const config = getWaSettings();
   if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
 
+  const resolvedPdfUrl = await resolvePdfUrl(pdf_url || '');
+
   const brandingFromSettings = col('app_settings').find(s => s.setting_id === 'branding');
   const branding = brandingFromSettings || database.data.branding || {};
   const company = branding.company_name || 'Mill Entry System';
@@ -298,12 +373,12 @@ router.post('/api/whatsapp/send-truck-owner', safeAsync(async (req, res) => {
 
   const results = [];
   if (phone) {
-    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, pdf_url || '');
+    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, resolvedPdfUrl);
     results.push({ target: phone, success: r.success, error: r.error || '' });
   } else {
     for (const num of nums) {
       if (num && num.trim()) {
-        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, pdf_url || '');
+        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, resolvedPdfUrl);
         results.push({ target: num, success: r.success, error: r.error || '' });
       }
     }

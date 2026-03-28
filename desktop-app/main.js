@@ -64,6 +64,7 @@ let db = null;
 let server = null;
 let manualCheckInProgress = false;
 const DESKTOP_API_PORT = 9876;
+global.DESKTOP_API_PORT = DESKTOP_API_PORT;
 const MAX_BACKUPS = 7;
 
 // Config file location

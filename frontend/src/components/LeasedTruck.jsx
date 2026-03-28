@@ -235,6 +235,7 @@ export default function LeasedTruck({ filters }) {
         phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
         if (!phone) return;
       }
+      const pdfUrl = `${API}/truck-leases/export/pdf?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`;
       const res = await axios.post(`${API}/whatsapp/send-truck-owner`, {
         truck_no: lease.truck_no,
         total_trips: 0,
@@ -243,7 +244,7 @@ export default function LeasedTruck({ filters }) {
         total_net: lease.monthly_rent || 0,
         total_paid: 0,
         total_balance: lease.monthly_rent || 0,
-        pdf_url: '',
+        pdf_url: pdfUrl,
         phone
       });
       if (res.data.success) toast.success(res.data.message || "WhatsApp bhej diya!");

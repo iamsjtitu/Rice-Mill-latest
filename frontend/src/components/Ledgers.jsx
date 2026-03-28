@@ -317,8 +317,7 @@ const PartyLedger = ({ filters }) => {
       if (selectedType) pdfParams.append('party_type', selectedType);
       if (dateFrom) pdfParams.append('date_from', dateFrom);
       if (dateTo) pdfParams.append('date_to', dateTo);
-      // Desktop pe pdf_url skip - 360Messenger localhost access nahi kar sakta
-      const pdfUrl = _isElectron ? '' : `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
+      const pdfUrl = `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-party-ledger`, {
         party_name: selectedParty,
         total_debit: data.total_debit || 0,

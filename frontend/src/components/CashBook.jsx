@@ -277,8 +277,7 @@ const CashBook = ({ filters, user }) => {
       if (filters.season) pdfParams.append('season', filters.season);
       pdfParams.append('party_name', partyName);
       if (txnFilters.party_type) pdfParams.append('party_type', txnFilters.party_type);
-      // Desktop pe pdf_url skip - 360Messenger localhost access nahi kar sakta
-      const pdfUrl = _isElectron ? '' : `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
+      const pdfUrl = `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-party-ledger`, {
         party_name: partyName, total_debit: totalDebit, total_credit: totalCredit,
         balance: totalDebit - totalCredit,
