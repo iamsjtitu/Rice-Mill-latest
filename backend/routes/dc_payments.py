@@ -310,7 +310,7 @@ async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] 
     wb = Workbook(); ws = wb.active; ws.title = "DC Register"
     ncols = 9
     title = "DC Register / डीसी रजिस्टर"
-    if kms_year: title += f" | KMS {kms_year}"
+    if kms_year: title += f" | FY {kms_year}"
     style_excel_title(ws, title, ncols)
     
     headers = ['DC No', 'Date', 'Rice Type', 'Allotted (Q)', 'Delivered (Q)', 'Pending (Q)', 'Status', 'Deadline', 'Godown']
@@ -907,7 +907,7 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     ncols = 8
     title = "Gunny Bag Register / बोरी रजिस्टर"
     style_excel_title(ws, title, ncols)
-    filter_txt = f"KMS: {kms_year or 'All'} | Season: {season or 'All'}"
+    filter_txt = f"FY: {kms_year or 'All'} | Season: {season or 'All'}"
     if bag_filter and bag_filter != 'all': filter_txt += f" | Type: {bag_filter}"
     if txn_filter and txn_filter != 'all': filter_txt += f" | Txn: {txn_filter.upper()}"
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ncols)
@@ -1006,7 +1006,7 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
 
     from utils.branding_helper import get_pdf_company_header_from_db
     title = "Gunny Bag Register"
-    filter_txt = f"KMS: {kms_year or 'All'} | Season: {season or 'All'}"
+    filter_txt = f"FY: {kms_year or 'All'} | Season: {season or 'All'}"
     if bag_filter and bag_filter != 'all': filter_txt += f" | Type: {bag_filter}"
     if txn_filter and txn_filter != 'all': filter_txt += f" | Txn: {txn_filter.upper()}"
     elements.extend(await get_pdf_company_header_from_db())
@@ -1153,7 +1153,7 @@ async def export_gunny_purchase_report_excel(kms_year: Optional[str] = None, sea
     ws['A1'] = "Gunny Bag Purchase Report (Party-wise / GST Breakup)"
     ws['A1'].font = Font(bold=True, size=14); ws['A1'].alignment = Alignment(horizontal='center')
     ws.merge_cells('A2:L2')
-    ws['A2'] = f"KMS: {kms_year or 'All'} | Season: {season or 'All'}"
+    ws['A2'] = f"FY: {kms_year or 'All'} | Season: {season or 'All'}"
     ws['A2'].font = Font(size=9, italic=True); ws['A2'].alignment = Alignment(horizontal='center')
 
     headers = ['Party Name', 'Entries', 'Total Qty', 'Subtotal', 'CGST', 'SGST', 'IGST', 'GST Total', 'Grand Total', 'Advance', 'Paid', 'Balance']
@@ -1202,7 +1202,7 @@ async def export_gunny_purchase_report_pdf(kms_year: Optional[str] = None, seaso
     from utils.branding_helper import get_pdf_company_header_from_db
     elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("Gunny Bag Purchase Report (Party-wise / GST Breakup)", styles['Title']))
-    elements.append(Paragraph(f"KMS: {kms_year or 'All'} | Season: {season or 'All'}", styles['Normal']))
+    elements.append(Paragraph(f"FY: {kms_year or 'All'} | Season: {season or 'All'}", styles['Normal']))
     elements.append(Spacer(1, 10))
 
     data = [['Party', '#', 'Qty', 'Subtotal', 'CGST', 'SGST', 'IGST', 'GST', 'Total', 'Advance', 'Paid', 'Balance']]

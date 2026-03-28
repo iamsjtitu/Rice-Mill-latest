@@ -22,9 +22,9 @@ import { useConfirm } from "./ConfirmProvider";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
-const CURRENT_KMS_YEAR = `${new Date().getFullYear() - 1}-${new Date().getFullYear()}`;
+const CURRENT_KMS_YEAR = (() => { const n = new Date(), y = n.getFullYear(); return n.getMonth() >= 3 ? `${y}-${y+1}` : `${y-1}-${y}`; })();
 
-// Generate KMS years
+// Generate FY years
 const generateKMSYears = () => {
   const currentYear = new Date().getFullYear();
   const years = [];
@@ -413,7 +413,7 @@ export const Dashboard = ({ filters, user }) => {
                   />
                 </div>
                 <div>
-                  <Label className="text-slate-300 text-xs">KMS Year</Label>
+                  <Label className="text-slate-300 text-xs">FY Year</Label>
                   <Select
                     value={targetForm.kms_year}
                     onValueChange={(value) => setTargetForm(prev => ({ ...prev, kms_year: value }))}

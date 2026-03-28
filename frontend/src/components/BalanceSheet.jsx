@@ -367,7 +367,7 @@ function buildPrintHtml(data) {
     <style>body{font-family:Arial,sans-serif;margin:20px;color:#333}h2{text-align:center;margin-bottom:4px}p.sub{text-align:center;color:#666;font-size:12px;margin-bottom:16px}table.main{width:100%;border-collapse:collapse}
     @media print{body{margin:10px}}</style></head><body>
     <h2>Balance Sheet</h2>
-    <p class="sub">As on ${data.as_on_date} | KMS ${data.kms_year || 'All'}${data.season ? ' | ' + data.season : ''}</p>
+    <p class="sub">As on ${data.as_on_date} | FY ${data.kms_year || 'All'}${data.season ? ' | ' + data.season : ''}</p>
     <table class="main"><tr>
       ${buildSide('LIABILITIES', data.liabilities, data.total_liabilities, '#dc2626')}
       ${buildSide('ASSETS', data.assets, data.total_assets, '#059669')}

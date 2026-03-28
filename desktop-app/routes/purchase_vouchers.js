@@ -347,7 +347,7 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=purchase_book.pdf');
     doc.pipe(res);
-    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | Season: ${season}`;
+    let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | Season: ${season}`;
     _addPdfHeader(doc, 'Purchase Book', branding, subtitle);
     const headers = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck', 'E-Way', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance'];
     const colW = [35, 55, 50, 80, 100, 55, 55, 60, 55, 50, 50, 60];
@@ -374,7 +374,7 @@ module.exports = function(database) {
     vouchers.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Purchase Book');
     const colCount = 12;
-    let title = 'Purchase Book'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
+    let title = 'Purchase Book'; if (kms_year) title += ` | FY: ${kms_year}`; if (season) title += ` | ${season}`;
     addExcelTitle(ws, title, colCount, database);
     const hdrs = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck', 'E-Way Bill', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance'];
     hdrs.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });

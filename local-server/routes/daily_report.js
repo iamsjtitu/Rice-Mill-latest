@@ -544,7 +544,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   ws.mergeCells('A1:F1');
   ws.getCell('A1').value = `Daily Report - ${data.date} (${isDetail ? 'DETAILED' : 'SUMMARY'})`;
   ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1a365d' } };
-  ws.getCell('A2').value = `KMS Year: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`;
+  ws.getCell('A2').value = `FY: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`;
   ws.getCell('A2').font = { italic: true, size: 9, color: { argb: 'FF666666' } };
   let row = 4;
 

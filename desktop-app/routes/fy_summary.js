@@ -828,7 +828,7 @@ module.exports = function(database) {
       });
 
       const branding = (col('branding') || [])[0] || {};
-      addPdfHeader(doc, 'FY Summary - Balance Sheet', branding, `KMS ${kms_year || 'All'}${season ? ' | ' + season : ''}`);
+      addPdfHeader(doc, 'FY Summary - Balance Sheet', branding, `FY ${kms_year || 'All'}${season ? ' | ' + season : ''}`);
       const cb = data.cash_bank;
 
       addSectionTitle(doc, '1. Cash & Bank (Rs.)');

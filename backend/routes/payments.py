@@ -1750,7 +1750,7 @@ async def export_agent_payments_excel(kms_year: Optional[str] = None, season: Op
     
     company_name, tagline = await get_company_name()
     title = f"Agent/Mandi Payments - {company_name}"
-    subtitle = f"KMS: {kms_year or 'All'} | {season or 'All'}"
+    subtitle = f"FY: {kms_year or 'All'} | {season or 'All'}"
     style_excel_title(ws, title, ncols, subtitle)
     
     headers = ["Mandi", "Agent", "Target QNTL", "Cutting QNTL", "Base Rate", "Cut Rate", "Target Amt", "Cut Amt", "Total Amt", "Achieved", "Paid", "Balance", "Status"]
@@ -1874,7 +1874,7 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)
     
     company_name, tagline = await get_company_name()
-    title_data = [[Paragraph(f"<b>AGENT/MANDI PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
+    title_data = [[Paragraph(f"<b>AGENT/MANDI PAYMENTS - {company_name} | FY: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 20*mm])
     title_table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#1B4F72')),

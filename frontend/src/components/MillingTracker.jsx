@@ -25,7 +25,8 @@ const API = `${BACKEND_URL}/api`;
 const CURRENT_KMS_YEAR = (() => {
   const now = new Date();
   const y = now.getFullYear();
-  return now.getMonth() >= 9 ? `${y}-${(y + 1) % 100}` : `${y - 1}-${y % 100}`;
+  // FY = April-March
+  return now.getMonth() >= 3 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 })();
 
 const PRODUCT_LABELS = {
@@ -313,7 +314,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <div><Label className="text-[10px] text-slate-400">KMS Year</Label><Input value={formData.kms_year} onChange={(e) => setFormData(p => ({ ...p, kms_year: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-7 text-xs" /></div>
+              <div><Label className="text-[10px] text-slate-400">FY Year</Label><Input value={formData.kms_year} onChange={(e) => setFormData(p => ({ ...p, kms_year: e.target.value }))} className="bg-slate-700 border-slate-600 text-white h-7 text-xs" /></div>
               <div><Label className="text-[10px] text-slate-400">Season</Label>
                 <Select value={formData.season} onValueChange={(v) => setFormData(p => ({ ...p, season: v }))}><SelectTrigger className="bg-slate-700 border-slate-600 text-white h-7 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="Kharif">Kharif</SelectItem><SelectItem value="Rabi">Rabi</SelectItem></SelectContent></Select></div>

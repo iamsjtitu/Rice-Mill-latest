@@ -381,7 +381,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
 
     # Title
     elements.append(Paragraph(f"Daily Report - {_fmt_date(date)}", title_style))
-    elements.append(Paragraph(f"Mode: {mode_label} | KMS Year: {kms_year or 'All'} | Season: {season or 'All'}", subtitle_style))
+    elements.append(Paragraph(f"Mode: {mode_label} | FY: {kms_year or 'All'} | Season: {season or 'All'}", subtitle_style))
     elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e2e8f0')))
     elements.append(Spacer(1, 6))
 
@@ -761,7 +761,7 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     ncols = 8
 
     title = f"Daily Report / दैनिक रिपोर्ट - {_fmt_date(date)} ({mode_label})"
-    subtitle = f"KMS Year: {kms_year or 'All'} | Season: {season or 'All'}"
+    subtitle = f"FY: {kms_year or 'All'} | Season: {season or 'All'}"
     style_excel_title(ws, title, ncols, subtitle)
     row = 4
 

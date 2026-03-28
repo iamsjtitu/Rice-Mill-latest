@@ -256,7 +256,7 @@ async def export_diesel_excel(kms_year: Optional[str] = None, season: Optional[s
     
     # Title
     title = "Diesel Account / डीजल खाता"
-    if kms_year: title += f" | KMS {kms_year}"
+    if kms_year: title += f" | FY {kms_year}"
     style_excel_title(ws, title, ncols)
 
     # Summary section

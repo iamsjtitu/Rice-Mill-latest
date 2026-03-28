@@ -732,7 +732,7 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
     if part_name: title += f" - {part_name}"
     subtitle_parts = []
     if date_from or date_to: subtitle_parts.append(f"Date: {date_from or '...'} to {date_to or '...'}")
-    if kms_year: subtitle_parts.append(f"KMS: {kms_year}")
+    if kms_year: subtitle_parts.append(f"FY: {kms_year}")
     if season: subtitle_parts.append(f"Season: {season}")
     from utils.branding_helper import get_pdf_company_header_from_db
     elements = list(await get_pdf_company_header_from_db())

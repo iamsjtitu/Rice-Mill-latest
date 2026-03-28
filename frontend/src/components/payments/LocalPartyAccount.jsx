@@ -164,7 +164,7 @@ const LocalPartyAccount = ({ filters, user }) => {
       .summary span{margin-right:20px}
       @media print{body{margin:0;padding:10px}}</style></head><body>
       <h2>${reportData.party_name} - Hisaab / Ledger</h2>
-      <p class="meta">${filters.kms_year ? 'KMS: ' + filters.kms_year : ''} ${filters.season ? '| Season: ' + filters.season : ''} | Date: ${new Date().toLocaleDateString('en-IN')}</p>
+      <p class="meta">${filters.kms_year ? 'FY: ' + filters.kms_year : ''} ${filters.season ? '| Season: ' + filters.season : ''} | Date: ${new Date().toLocaleDateString('en-IN')}</p>
       <table><thead><tr><th>#</th><th>Date</th><th>Description</th><th>Source</th><th>Debit (Rs.)</th><th>Payment (Rs.)</th><th>Balance (Rs.)</th></tr></thead><tbody>`);
     reportData.transactions.forEach((t, i) => {
       w.document.write(`<tr><td>${i + 1}</td><td>${t.date}</td><td>${t.description || ''}</td>

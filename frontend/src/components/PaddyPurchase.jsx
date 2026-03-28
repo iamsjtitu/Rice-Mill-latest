@@ -29,7 +29,8 @@ const API = `${BACKEND_URL}/api`;
 const CURRENT_KMS_YEAR = (() => {
   const now = new Date();
   const y = now.getFullYear();
-  return now.getMonth() >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+  // FY = April-March
+  return now.getMonth() >= 3 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
 })();
 
 const calcPaddyFields = (f) => {

@@ -428,7 +428,7 @@ class JsonDatabase {
     const existing = this.data.mandi_targets.find(t =>
       t.mandi_name === target.mandi_name && t.kms_year === target.kms_year && t.season === target.season
     );
-    if (existing) return { error: `${target.mandi_name} ka target already set hai is KMS Year aur Season ke liye` };
+    if (existing) return { error: `${target.mandi_name} ka target already set hai is FY Year aur Season ke liye` };
 
     const newTarget = {
       id: uuidv4(),

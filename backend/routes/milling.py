@@ -439,7 +439,7 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
     wb = Workbook(); ws = wb.active; ws.title = "Milling Report"
     ncols = 12
     title = "Milling Report / मिलिंग रिपोर्ट"
-    if kms_year: title += f" - KMS {kms_year}"
+    if kms_year: title += f" - FY {kms_year}"
     if season: title += f" ({season})"
     style_excel_title(ws, title, ncols)
     
@@ -500,7 +500,7 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
     from utils.branding_helper import get_pdf_company_header_from_db
     elements.extend(await get_pdf_company_header_from_db())
     title = "Milling Report"
-    if kms_year: title += f" - KMS {kms_year}"
+    if kms_year: title += f" - FY {kms_year}"
     if season: title += f" ({season})"
     elements.append(Paragraph(title, styles['Title']))
     elements.append(Spacer(1, 12))
@@ -548,7 +548,7 @@ async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Opt
         style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
     
     title = "Paddy Custody Register / धान कस्टडी"
-    if kms_year: title += f" - KMS {kms_year}"
+    if kms_year: title += f" - FY {kms_year}"
     if season: title += f" ({season})"
     ncols = 5
     style_excel_title(ws, title, ncols)
@@ -607,7 +607,7 @@ async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optio
     from utils.branding_helper import get_pdf_company_header_from_db
     elements.extend(await get_pdf_company_header_from_db())
     title = "Paddy Custody Maintenance Register"
-    if kms_year: title += f" - KMS {kms_year}"
+    if kms_year: title += f" - FY {kms_year}"
     if season: title += f" ({season})"
     elements.append(Paragraph(title, styles['Title']))
     elements.append(Spacer(1, 12))
@@ -646,7 +646,7 @@ async def export_frk_purchases_excel(kms_year: Optional[str] = None, season: Opt
     
     ncols = 6
     title = "FRK Purchase Register / एफआरके खरीद"
-    if kms_year: title += f" - KMS {kms_year}"
+    if kms_year: title += f" - FY {kms_year}"
     style_excel_title(ws, title, ncols)
     
     headers = ['Date', 'Party Name', 'Qty (QNTL)', 'Rate (Rs/Q)', 'Amount (Rs)', 'Note']
@@ -695,7 +695,7 @@ async def export_frk_purchases_pdf(kms_year: Optional[str] = None, season: Optio
     from utils.branding_helper import get_pdf_company_header_from_db
     elements.extend(await get_pdf_company_header_from_db())
     title = "FRK Purchase Register"
-    if kms_year: title += f" - KMS {kms_year}"
+    if kms_year: title += f" - FY {kms_year}"
     elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
     
     from utils.export_helpers import get_pdf_table_style
@@ -732,7 +732,7 @@ async def export_byproduct_sales_excel(kms_year: Optional[str] = None, season: O
     
     ncols = 7
     title = "By-Product Stock & Sales / उप-उत्पाद बिक्री"
-    if kms_year: title += f" - KMS {kms_year}"
+    if kms_year: title += f" - FY {kms_year}"
     style_excel_title(ws, title, ncols)
     
     # Stock summary section
@@ -800,7 +800,7 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
     from utils.branding_helper import get_pdf_company_header_from_db
     elements.extend(await get_pdf_company_header_from_db())
     title = "By-Product Stock & Sales Report"
-    if kms_year: title += f" - KMS {kms_year}"
+    if kms_year: title += f" - FY {kms_year}"
     elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
     
     from utils.export_helpers import get_pdf_table_style

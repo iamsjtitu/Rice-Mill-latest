@@ -828,7 +828,7 @@ module.exports = function(database) {
       
       // Build subtitle with date range
       const subtitleParts = [];
-      if (req.query.kms_year) subtitleParts.push(`KMS: ${req.query.kms_year}`);
+      if (req.query.kms_year) subtitleParts.push(`FY: ${req.query.kms_year}`);
       if (req.query.season) subtitleParts.push(`Season: ${req.query.season}`);
       if (req.query.date_from) subtitleParts.push(`From: ${req.query.date_from}`);
       if (req.query.date_to) subtitleParts.push(`To: ${req.query.date_to}`);
@@ -995,7 +995,7 @@ module.exports = function(database) {
     doc.pipe(res);
     const brandingData = database.getBranding ? database.getBranding() : {};
     let subtitle = '';
-    if (req.query.kms_year) subtitle = `KMS: ${req.query.kms_year}`;
+    if (req.query.kms_year) subtitle = `FY: ${req.query.kms_year}`;
     if (req.query.season) subtitle += ` | Season: ${req.query.season}`;
     __addPdfHeader(doc, 'Party Summary', brandingData, subtitle);
     const headers = ['Party Name', 'Type', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'];

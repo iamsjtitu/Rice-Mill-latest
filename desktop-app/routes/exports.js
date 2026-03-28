@@ -124,7 +124,7 @@ module.exports = function(database) {
 
       // Sub-header
       doc.fontSize(8).font('Helvetica').fillColor('grey')
-        .text(`KMS: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'} | Filter: ${filterLabel}`, { align: 'center' });
+        .text(`FY: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'} | Filter: ${filterLabel}`, { align: 'center' });
       doc.moveDown(0.5);
 
       // ---- STOCK SECTION ----

@@ -12,7 +12,7 @@ const CHANGELOG = [
     title: "v49.0.0 - Settings & Stock Major Update",
     items: [
       { type: "new", text: "Custom Branding Fields - Settings mein GST, Phone, Address jaise 5-6 extra fields add karein (Left/Center/Right alignment)" },
-      { type: "new", text: "Financial Year (Apr-Mar) selector - KMS aur FY dono alag-alag header mein" },
+      { type: "new", text: "Financial Year (Apr-Mar) selector - ab sirf FY system hai, KMS hata diya gaya" },
       { type: "new", text: "Opening Stock Balance - 9 items (Paddy, Rice Usna/Raw, Bran, Kunda, Broken, Kanki, Husk, FRK)" },
       { type: "new", text: "Auto Carry Forward - Previous year ka closing stock → next year ka opening stock ek button se" },
       { type: "imp", text: "Stock Summary mein Opening column add (Available = OB + In - Out)" },

@@ -537,7 +537,7 @@ export const Payments = ({ filters, user, branding }) => {
               <span>${new Date().toLocaleDateString('en-IN')}</span>
             </div>
             <div class="info-item">
-              <label>KMS Year / Season</label>
+              <label>FY Year / Season</label>
               <span>${payment.kms_year} - ${payment.season}</span>
             </div>
             <div class="info-item">

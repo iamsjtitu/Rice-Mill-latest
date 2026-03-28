@@ -204,7 +204,7 @@ STOCK_ITEMS = ["paddy", "rice_usna", "rice_raw", "bran", "kunda", "broken", "kan
 
 @router.get("/opening-stock")
 async def get_opening_stock(kms_year: str = "", financial_year: str = ""):
-    """Get opening stock balances for a given KMS/FY year"""
+    """Get opening stock balances for a given FY year"""
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
@@ -254,7 +254,7 @@ async def save_opening_stock(data: dict, username: str = "", role: str = ""):
 
 @router.post("/opening-stock/carry-forward")
 async def carry_forward_stock(data: dict, username: str = "", role: str = ""):
-    """Calculate closing stock of source KMS year and set as opening stock of target year."""
+    """Calculate closing stock of source FY year and set as opening stock of target year."""
     if role != "admin":
         raise HTTPException(status_code=403, detail="Sirf Admin carry-forward kar sakta hai")
 
@@ -262,7 +262,7 @@ async def carry_forward_stock(data: dict, username: str = "", role: str = ""):
     target_kms = data.get("target_kms_year", "")
     target_fy = data.get("target_financial_year", "")
     if not source_kms or not target_kms:
-        raise HTTPException(status_code=400, detail="Source and target KMS years required")
+        raise HTTPException(status_code=400, detail="Source and target FY years required")
 
     # Import the stock summary function
     from routes.purchase_vouchers import get_stock_summary

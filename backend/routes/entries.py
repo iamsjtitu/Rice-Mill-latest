@@ -772,7 +772,7 @@ async def export_excel(
     # Title
     company_name, tagline = await get_company_name()
     title = f"{company_name} - Mill Entries / मिल एंट्री"
-    subtitle = f"KMS: {kms_year or 'All'} | {season or 'All Seasons'} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+    subtitle = f"FY: {kms_year or 'All'} | {season or 'All Seasons'} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
     style_excel_title(ws, title, ncols, subtitle)
     
     # Headers
@@ -947,7 +947,7 @@ async def export_pdf(
     
     # Title table with themed background
     company_name, tagline = await get_company_name()
-    title_text = f"{company_name} - Mill Entries / मिल एंट्री | KMS: {kms_year or 'All'} | {season or 'All Seasons'}"
+    title_text = f"{company_name} - Mill Entries / मिल एंट्री | FY: {kms_year or 'All'} | {season or 'All Seasons'}"
     title_data = [[Paragraph(f"<b>{title_text}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 16*mm])
     title_table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
@@ -1132,7 +1132,7 @@ async def export_truck_payments_excel(
     # Title
     ws.merge_cells('A1:M1')
     company_name, tagline = await get_company_name()
-    ws['A1'] = f"TRUCK PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}"
+    ws['A1'] = f"TRUCK PAYMENTS - {company_name} | FY: {kms_year or 'All'} | {season or 'All'}"
     ws['A1'].font = Font(bold=True, size=14, color="D97706")
     ws['A1'].alignment = Alignment(horizontal='center')
     
@@ -1269,7 +1269,7 @@ async def export_truck_payments_pdf(
     # Title
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)
     company_name, tagline = await get_company_name()
-    title_data = [[Paragraph(f"<b>TRUCK PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
+    title_data = [[Paragraph(f"<b>TRUCK PAYMENTS - {company_name} | FY: {kms_year or 'All'} | {season or 'All'}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 20*mm])
     title_table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#D97706')),
@@ -1366,7 +1366,7 @@ async def create_mandi_target(input: MandiTargetCreate, username: str = "", role
     }, {"_id": 0})
     
     if existing:
-        raise HTTPException(status_code=400, detail=f"{input.mandi_name} ka target already set hai is KMS Year aur Season ke liye")
+        raise HTTPException(status_code=400, detail=f"{input.mandi_name} ka target already set hai is FY Year aur Season ke liye")
     
     # Calculate expected total
     expected_total = round(input.target_qntl + (input.target_qntl * input.cutting_percent / 100), 2)

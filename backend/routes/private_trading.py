@@ -1040,7 +1040,7 @@ async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Opt
         style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
 
     title = "Private Paddy Purchase / निजी धान खरीद"
-    if kms_year: title += f" | KMS: {kms_year}"
+    if kms_year: title += f" | FY: {kms_year}"
     if season: title += f" | {season}"
     style_excel_title(ws, title, ncols)
 
@@ -1121,7 +1121,7 @@ async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optio
     from utils.branding_helper import get_pdf_company_header_from_db
     elements.extend(await get_pdf_company_header_from_db())
     title = "Private Paddy Purchase"
-    if kms_year: title += f" | KMS: {kms_year}"
+    if kms_year: title += f" | FY: {kms_year}"
     if season: title += f" | {season}"
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1B4F72'), alignment=TA_CENTER)
     elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))
@@ -1183,7 +1183,7 @@ async def export_rice_sales_excel(kms_year: Optional[str] = None, season: Option
         style_excel_data_rows, style_excel_total_row, COLORS)
 
     title = "Rice Sales Report / चावल बिक्री"
-    if kms_year: title += f" | KMS: {kms_year}"
+    if kms_year: title += f" | FY: {kms_year}"
     if season: title += f" | {season}"
     style_excel_title(ws, title, ncols)
 
@@ -1258,7 +1258,7 @@ async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional
     from utils.branding_helper import get_pdf_company_header_from_db
     elements.extend(await get_pdf_company_header_from_db())
     title = "Rice Sales Report"
-    if kms_year: title += f" | KMS: {kms_year}"
+    if kms_year: title += f" | FY: {kms_year}"
     if season: title += f" | {season}"
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#1B4F72'), alignment=TA_CENTER)
     elements.append(Paragraph(title, title_style)); elements.append(Spacer(1, 8))

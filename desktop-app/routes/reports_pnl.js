@@ -136,7 +136,7 @@ router.get('/api/reports/season-pnl/pdf', safeSync((req, res) => {
   doc.pipe(res);
   const { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, C } = require('./pdf_helpers');
   const branding = database.getBranding ? database.getBranding() : {};
-  addPdfHeader(doc, 'Season P&L Report', branding, `KMS: ${q.kms_year||'All'} | Season: ${q.season||'All'}`);
+  addPdfHeader(doc, 'Season P&L Report', branding, `FY: ${q.kms_year||'All'} | Season: ${q.season||'All'}`);
 
   addSummaryBox(doc, ['MSP Payments','By-Product Sales','Cash Jama','TOTAL INCOME'],
     [`Rs.${mspIncome.toLocaleString()}`,`Rs.${bpIncome.toLocaleString()}`,`Rs.${cashJama.toLocaleString()}`,`Rs.${totalIncome.toLocaleString()}`],

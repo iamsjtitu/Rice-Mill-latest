@@ -91,7 +91,7 @@ async def export_cmr_vs_dc_excel(kms_year: Optional[str] = None, season: Optiona
     wb = Workbook(); ws = wb.active; ws.title = "CMR vs DC"
     ncols = 4
     title = "CMR vs DC Report / सीएमआर vs डीसी"
-    if kms_year: title += f" - KMS {kms_year}"
+    if kms_year: title += f" - FY {kms_year}"
     style_excel_title(ws, title, ncols)
     
     ws.cell(row=4, column=1, value="MILLING OUTPUT").font = Font(bold=True, size=11, color=COLORS['title_text'])
@@ -164,7 +164,7 @@ async def export_season_pnl_excel(kms_year: Optional[str] = None, season: Option
     wb = Workbook(); ws = wb.active; ws.title = "Season P&L"
     ncols = 3
     title = "Season P&L Report / मौसम लाभ-हानि"
-    if kms_year: title += f" - KMS {kms_year}"
+    if kms_year: title += f" - FY {kms_year}"
     style_excel_title(ws, title, ncols)
     
     row = 4
@@ -468,7 +468,7 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
     widths = get_excel_widths(cols)
 
     title = "Agent & Mandi Wise Report / एजेंट और मंडी"
-    if kms_year: title += f" | KMS: {kms_year}"
+    if kms_year: title += f" | FY: {kms_year}"
     if season: title += f" | {season}"
     style_excel_title(ws, title, ncols)
 
@@ -561,7 +561,7 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
     from utils.branding_helper import get_pdf_company_header_from_db
     elements.extend(await get_pdf_company_header_from_db())
     title = f"Agent & Mandi Wise Report"
-    if kms_year: title += f" | KMS: {kms_year}"
+    if kms_year: title += f" | FY: {kms_year}"
     if season: title += f" | {season}"
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#D97706'), alignment=TA_CENTER)
     elements.append(Paragraph(title, title_style))

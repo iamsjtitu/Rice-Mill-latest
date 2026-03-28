@@ -16,7 +16,7 @@ const _isElectron = typeof window !== 'undefined' && (window.electronAPI || wind
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
 
-const CURRENT_KMS = (() => { const n = new Date(), y = n.getFullYear(); return n.getMonth() >= 9 ? `${y}-${y+1}` : `${y-1}-${y}`; })();
+const CURRENT_KMS = (() => { const n = new Date(), y = n.getFullYear(); return n.getMonth() >= 3 ? `${y}-${y+1}` : `${y-1}-${y}`; })();
 
 // ===== DC ENTRIES SUB-TAB =====
 const DCEntries = ({ filters, user }) => {

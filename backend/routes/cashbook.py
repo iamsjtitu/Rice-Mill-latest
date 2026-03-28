@@ -1510,7 +1510,7 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
     # Title section
     title = "Daily Cash Book / रोज़नामचा"
     if category: title += f" - {category}"
-    if kms_year: title += f" | KMS {kms_year}"
+    if kms_year: title += f" | FY {kms_year}"
     subtitle = ""
     if date_from or date_to:
         date_parts = []
@@ -1656,7 +1656,7 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     title_style = ParagraphStyle('Title', parent=styles['Normal'], fontSize=11, textColor=colors.white,
         alignment=TA_CENTER, backColor=colors.HexColor('#0891b2'), spaceAfter=4, spaceBefore=2)
     
-    subtitle_parts = [title + (f" | KMS {kms_year}" if kms_year else "")]
+    subtitle_parts = [title + (f" | FY {kms_year}" if kms_year else "")]
     if date_from or date_to:
         dp = []
         if date_from: dp.append(f"From: {date_from}")

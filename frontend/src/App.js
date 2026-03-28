@@ -2769,7 +2769,7 @@ function MainApp({ user, onLogout }) {
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-amber-400 flex items-center justify-between">
-              <span>Mill Entries ({entries.length}) - KMS: {filters.kms_year || "All"}</span>
+              <span>Mill Entries ({entries.length}) - FY: {filters.kms_year || "All"}</span>
               <div className="flex items-center gap-3">
                 {selectedEntries.length > 0 && (
                   <Button

@@ -497,7 +497,7 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=party_summary.pdf');
     doc.pipe(res);
-    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | ${season}`;
+    let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Party-wise Summary', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
     const rows = result.map(item => getEntryRow(item, cols).map(v => String(v)));
@@ -577,7 +577,7 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=pvt_paddy.pdf');
     doc.pipe(res);
-    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | ${season}`;
+    let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Private Paddy Purchase', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
     const rows = items.map(item => getEntryRow(item, cols).map(v => String(v)));
@@ -652,7 +652,7 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=rice_sales.pdf');
     doc.pipe(res);
-    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | ${season}`;
+    let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Rice Sales Report', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
     const rows = items.map(item => getEntryRow(item, cols).map(v => String(v)));

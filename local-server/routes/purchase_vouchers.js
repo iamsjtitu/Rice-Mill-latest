@@ -347,7 +347,7 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=purchase_book.pdf');
     doc.pipe(res);
-    let subtitle = ''; if (kms_year) subtitle = `KMS: ${kms_year}`; if (season) subtitle += ` | Season: ${season}`;
+    let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | Season: ${season}`;
     _addPdfHeader(doc, 'Purchase Book', branding, subtitle);
     const headers = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck', 'E-Way', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance'];
     const colW = [35, 55, 50, 80, 100, 55, 55, 60, 55, 50, 50, 60];

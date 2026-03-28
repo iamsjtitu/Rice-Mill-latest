@@ -367,7 +367,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
   doc.fontSize(16).font('Helvetica-Bold').fillColor(C.hdr).text(title, { align: 'center' });
   const sub = [];
   if (req.query.date_from || req.query.date_to) sub.push(`Date: ${req.query.date_from||'...'} to ${req.query.date_to||'...'}`);
-  if (req.query.kms_year) sub.push(`KMS: ${req.query.kms_year}`);
+  if (req.query.kms_year) sub.push(`FY: ${req.query.kms_year}`);
   if (sub.length) doc.fontSize(8).font('Helvetica').fillColor('grey').text(sub.join(' | '), { align: 'center' });
   doc.moveDown(0.5);
 

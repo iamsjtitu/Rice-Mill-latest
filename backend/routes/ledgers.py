@@ -316,7 +316,7 @@ async def export_outstanding_excel(kms_year: Optional[str] = None, season: Optio
     ncols = 6
     
     title = "Outstanding Report / बकाया रिपोर्ट"
-    if kms_year: title += f" | KMS {kms_year}"
+    if kms_year: title += f" | FY {kms_year}"
     style_excel_title(ws, title, ncols)
     
     # DC Outstanding
@@ -435,7 +435,7 @@ async def export_party_ledger_excel(party_name: Optional[str] = None, party_type
     
     title = "Party Ledger / खाता बही"
     if party_name: title += f" - {party_name}"
-    if kms_year: title += f" | KMS {kms_year}"
+    if kms_year: title += f" | FY {kms_year}"
     subtitle = ""
     if date_from or date_to:
         date_parts = []

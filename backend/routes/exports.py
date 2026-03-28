@@ -96,7 +96,7 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
     # Sub-header
     sub = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#475569'), alignment=TA_CENTER)
     elements.append(Paragraph(f"{tagline}", sub))
-    elements.append(Paragraph(f"Dashboard Report | KMS: {kms_year or 'All'} | Season: {season or 'All'} | Filter: {filter_label} | {datetime.now().strftime('%d-%m-%Y %H:%M')}", sub))
+    elements.append(Paragraph(f"Dashboard Report | FY: {kms_year or 'All'} | Season: {season or 'All'} | Filter: {filter_label} | {datetime.now().strftime('%d-%m-%Y %H:%M')}", sub))
     elements.append(Spacer(1, 6*mm))
 
     sec = ParagraphStyle('Sec', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1a365d'), spaceBefore=8, spaceAfter=4, borderWidth=0, borderPadding=0)
@@ -263,7 +263,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     ht.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('BACKGROUND', (0, 0), (-1, -1), amber_bg), ('TOPPADDING', (0, 0), (-1, -1), 10), ('BOTTOMPADDING', (0, 0), (-1, -1), 10)]))
     elements.append(ht)
     elements.append(Paragraph(f"{tagline}", sub))
-    elements.append(Paragraph(f"KMS: {kms_year or 'All'} | Season: {season or 'All'} | {datetime.now().strftime('%d-%m-%Y %H:%M')}", sub))
+    elements.append(Paragraph(f"FY: {kms_year or 'All'} | Season: {season or 'All'} | {datetime.now().strftime('%d-%m-%Y %H:%M')}", sub))
     elements.append(Spacer(1, 5*mm))
 
     # ---- SECTION 1: STOCK ----
@@ -518,7 +518,7 @@ async def export_truck_owner_excel(
     # Title
     ws.merge_cells('A1:I1')
     company_name, tagline = await get_company_name()
-    ws['A1'] = f"TRUCK OWNER CONSOLIDATED PAYMENTS - {company_name} | KMS: {kms_year or 'All'} | {season or 'All'}"
+    ws['A1'] = f"TRUCK OWNER CONSOLIDATED PAYMENTS - {company_name} | FY: {kms_year or 'All'} | {season or 'All'}"
     ws['A1'].font = Font(bold=True, size=14, color="0891B2")
     ws['A1'].alignment = Alignment(horizontal='center')
     
@@ -657,7 +657,7 @@ async def export_truck_owner_pdf(
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#0891B2'), alignment=1)
     company_name, tagline = await get_company_name()
     elements.append(Paragraph(f"TRUCK OWNER CONSOLIDATED PAYMENTS - {company_name}", title_style))
-    elements.append(Paragraph(f"KMS Year: {kms_year or 'All'} | Season: {season or 'All'} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", ParagraphStyle('Info', parent=styles['Normal'], fontSize=9, alignment=1, textColor=colors.gray)))
+    elements.append(Paragraph(f"FY: {kms_year or 'All'} | Season: {season or 'All'} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}", ParagraphStyle('Info', parent=styles['Normal'], fontSize=9, alignment=1, textColor=colors.gray)))
     elements.append(Spacer(1, 20))
     
     # Table
