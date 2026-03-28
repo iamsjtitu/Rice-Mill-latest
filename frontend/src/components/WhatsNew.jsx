@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "51.0.0";
+const APP_VERSION = "51.1.0";
 
 const CHANGELOG = [
+  {
+    version: "51.1.0",
+    date: "28 Mar 2026",
+    title: "v51.1.0 - WhatsApp PDF Fix + Stream Fix",
+    items: [
+      { type: "fix", text: "WhatsApp se ab PDF attach hoke jaayega (tmpfiles.org upload)" },
+      { type: "fix", text: "PDF download stream error fix (compression skip for PDF)" },
+      { type: "fix", text: "file.io se tmpfiles.org switch - reliable upload" },
+    ]
+  },
   {
     version: "51.0.0",
     date: "28 Mar 2026",
