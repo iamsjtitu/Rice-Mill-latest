@@ -28,11 +28,18 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - FY Summary reports, Dashboard & Targets
 
 ### v46.0.0 Features (Latest)
-- **Custom Branding Fields**: 5-6 extra fields in Settings (GST, Phone, Address etc.) with Left/Center/Right alignment. Appears in ALL PDF & Excel export headers
+- **Custom Branding Fields**: 5-6 extra fields in Settings (GST, Phone, Address etc.) with Left/Center/Right alignment in ALL PDF & Excel headers
 - **Financial Year (Apr-Mar)**: Separate FY selector alongside KMS year (Oct-Sep) in global header
-- **Opening Stock Balance**: Set opening stock for 9 product types per KMS/FY year. Now integrated into Stock Summary (Available = Opening + In - Out)
-- **Auto Carry Forward**: Previous year's closing stock automatically becomes next year's opening stock via carry-forward button
-- **Stock Summary Opening Column**: Amber-colored Opening column in Stock Summary table showing OB per item
+- **Opening Stock Balance**: 9 product types with opening stock per KMS/FY year, integrated into Stock Summary (Available = Opening + In - Out)
+- **Auto Carry Forward**: Closing stock → opening stock carry-forward button
+- **Stock Calculator Centralization**: All stock formulas centralized in `utils/stock_calculator.py`
+- **Payment Service Layer**: Payment creation/deletion centralized in `utils/payment_service.py`
+
+## Key Files
+- `utils/stock_calculator.py` - Pure calculation functions for stock
+- `utils/payment_service.py` - Payment + Cashbook + Ledger DB operations
+- `utils/branding_helper.py` - Branding data fetch helpers
+- `utils/export_helpers.py` - PDF/Excel header generation with custom fields
 
 ## Key API Endpoints
 - `GET/PUT /api/branding` - Company branding with custom_fields
@@ -40,18 +47,10 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - `GET/PUT /api/opening-stock` - Opening stock balances (9 items)
 - `POST /api/opening-stock/carry-forward` - Auto carry closing→opening
 - `GET /api/stock-summary` - Stock summary with opening balances
-- `POST /api/cash-book/auto-fix` - Data integrity check
-
-## Key DB Collections
-- `branding`: {company_name, tagline, custom_fields: [{label, value, position}]}
-- `fy_settings`: {active_fy (KMS), season, financial_year (FY)}
-- `opening_stock`: {kms_year, financial_year, stocks: {paddy, rice_usna, rice_raw, bran, kunda, broken, kanki, husk, frk}}
-- `cash_transactions`, `private_paddy`, `private_payments`, `party_ledger`
+- `GET /api/paddy-stock` - Paddy stock calculation
 
 ## Upcoming Tasks
 - P1: Export Preview feature (Preview before PDF/Excel export)
 
 ## Future/Backlog
-- P2: Centralize stock calculation logic
-- P2: Refactor payment logic into service layer
-- P2: Reduce code duplication across 3 backends
+- P2: Reduce code duplication across 3 backends (desktop-app, local-server)
