@@ -429,13 +429,6 @@ function generateDailyReportPdf(doc, data, query) {
   // ===== 4. CASH FLOW =====
   const cf = data.cash_flow;
   sectionTitle(4, 'Cash Flow');
-  drawSummaryBox(
-    ['', 'Jama (Cr)', 'Nikasi (Dr)', 'Net'],
-    ['', '', '', ''],
-    [80, 130, 130, 130], C.greenBg
-  );
-  // Overwrite with actual cash/bank rows
-  doc.y -= 2;
   drawTable(
     ['','Jama (Cr)','Nikasi (Dr)','Net'],
     [
@@ -455,12 +448,15 @@ function generateDailyReportPdf(doc, data, query) {
   }
 
   // ===== 5. PAYMENTS =====
-  sectionTitle(5, 'Payments Summary');
-  drawSummaryBox(
-    ['MSP Received', 'Pvt Paddy Paid', 'Rice Sale Received'],
-    [`Rs.${fmtAmt(data.payments.msp_received)}`, `Rs.${fmtAmt(data.payments.pvt_paddy_paid)}`, `Rs.${fmtAmt(data.payments.rice_sale_received)}`],
-    [170, 170, 170], C.purpleBg
-  );
+  const hasPayments = (data.payments.msp_received || 0) > 0 || (data.payments.pvt_paddy_paid || 0) > 0 || (data.payments.rice_sale_received || 0) > 0;
+  if (hasPayments) {
+    sectionTitle(5, 'Payments Summary');
+    drawSummaryBox(
+      ['MSP Received', 'Pvt Paddy Paid', 'Rice Sale Received'],
+      [`Rs.${fmtAmt(data.payments.msp_received)}`, `Rs.${fmtAmt(data.payments.pvt_paddy_paid)}`, `Rs.${fmtAmt(data.payments.rice_sale_received)}`],
+      [170, 170, 170], C.purpleBg
+    );
+  }
 
   // ===== 6. PUMP ACCOUNT =====
   const pa = data.pump_account;

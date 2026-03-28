@@ -538,31 +538,33 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
 
     # ===== PAYMENTS =====
     pay = data["payments"]
-    elements.append(Paragraph("5. Payments Summary", section_style))
-    pay_data = [
-        ['MSP Received', 'Pvt Paddy Paid', 'Rice Sale Received'],
-        [f"Rs.{_fmt_amt(pay['msp_received'])}", f"Rs.{_fmt_amt(pay['pvt_paddy_paid'])}", f"Rs.{_fmt_amt(pay['rice_sale_received'])}"]
-    ]
-    pt = RTable(pay_data, colWidths=[170, 170, 170])
-    pt.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e7ff')),
-        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-    ]))
-    elements.append(pt)
-    if is_detail:
-        if pay.get("msp_details"):
-            elements.append(Paragraph("<b>MSP Payment Details:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
-            elements.append(make_table(['DC No', 'Qntl', 'Rate/Q', 'Amount', 'Mode'],
-                [[d.get("dc_no",""), str(d.get("qntl",0)), str(d.get("rate",0)),
-                  f"Rs.{_fmt_amt(d.get('amount',0))}", d.get("mode","")] for d in pay["msp_details"]],
-                [80, 90, 80, 130, 100]))
-        if pay.get("pvt_payment_details"):
-            elements.append(Paragraph("<b>Private Payment Details:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
-            elements.append(make_table(['Party', 'Type', 'Mode', 'Amount'],
-                [[d.get("party",""), d.get("ref_type",""), d.get("mode",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in pay["pvt_payment_details"]],
-                [170, 120, 100, 110]))
+    has_payments = (pay.get('msp_received', 0) or 0) > 0 or (pay.get('pvt_paddy_paid', 0) or 0) > 0 or (pay.get('rice_sale_received', 0) or 0) > 0
+    if has_payments:
+        elements.append(Paragraph("5. Payments Summary", section_style))
+        pay_data = [
+            ['MSP Received', 'Pvt Paddy Paid', 'Rice Sale Received'],
+            [f"Rs.{_fmt_amt(pay['msp_received'])}", f"Rs.{_fmt_amt(pay['pvt_paddy_paid'])}", f"Rs.{_fmt_amt(pay['rice_sale_received'])}"]
+        ]
+        pt = RTable(pay_data, colWidths=[170, 170, 170])
+        pt.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e7ff')),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 0.5, border_color), ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(pt)
+        if is_detail:
+            if pay.get("msp_details"):
+                elements.append(Paragraph("<b>MSP Payment Details:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
+                elements.append(make_table(['DC No', 'Qntl', 'Rate/Q', 'Amount', 'Mode'],
+                    [[d.get("dc_no",""), str(d.get("qntl",0)), str(d.get("rate",0)),
+                      f"Rs.{_fmt_amt(d.get('amount',0))}", d.get("mode","")] for d in pay["msp_details"]],
+                    [80, 90, 80, 130, 100]))
+            if pay.get("pvt_payment_details"):
+                elements.append(Paragraph("<b>Private Payment Details:</b>", ParagraphStyle('sub', parent=styles['Normal'], fontSize=7, spaceBefore=4, spaceAfter=2)))
+                elements.append(make_table(['Party', 'Type', 'Mode', 'Amount'],
+                    [[d.get("party",""), d.get("ref_type",""), d.get("mode",""), f"Rs.{_fmt_amt(d.get('amount',0))}"] for d in pay["pvt_payment_details"]],
+                    [170, 120, 100, 110]))
     elements.append(Spacer(1, 4))
 
     # ===== PUMP ACCOUNT =====

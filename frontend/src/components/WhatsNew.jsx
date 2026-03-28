@@ -3,23 +3,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "51.2.0";
+const APP_VERSION = "51.3.0";
 
 const CHANGELOG = [
   {
-    version: "51.2.0",
+    version: "51.3.0",
     date: "29 Mar 2026",
-    title: "v51.2.0 - PDF Stream Fix + WhatsApp Improvements",
+    title: "v51.3.0 - PDF Crash Fix + Report Layout",
     items: [
-      { type: "fix", text: "PDF/Excel download stream crash fix (compression Content-Type check)" },
-      { type: "fix", text: "WhatsApp Daily Report mein ab PDF attach hoke jaayega (localhost URL fix)" },
-      { type: "imp", text: "WhatsApp footer ab 'Thank you / Navkar Agro' dikhayega" },
+      { type: "fix", text: "PDF/Excel download crash fix - compression() pura hata diya (desktop pe unnecessary)" },
+      { type: "fix", text: "Daily Report mein empty sections ka gap hata diya" },
+      { type: "fix", text: "WhatsApp PDF attach fix - localhost URL detection" },
+      { type: "imp", text: "WhatsApp footer: Thank you / Navkar Agro" },
+      { type: "new", text: "GST Invoice Generator demo (Feature Demo tab)" },
     ]
   },
   {
-    version: "51.1.0",
+    version: "51.2.0",
     date: "28 Mar 2026",
-    title: "v51.1.0 - WhatsApp PDF Fix + Stream Fix",
+    title: "v51.2.0 - WhatsApp Footer Fix",
     items: [
       { type: "fix", text: "WhatsApp se ab PDF attach hoke jaayega (tmpfiles.org upload)" },
       { type: "fix", text: "PDF download stream error fix (compression skip for PDF)" },
