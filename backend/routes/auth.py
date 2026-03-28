@@ -95,67 +95,158 @@ async def change_password(request: PasswordChangeRequest):
 
 @router.get("/branding")
 async def get_branding():
-    """Get current branding settings"""
-    branding = await db.branding.find_one({}, {"_id": 0})
-    if not branding:
-        # Return default branding
-        return {
-            "company_name": "NAVKAR AGRO",
-            "tagline": "JOLKO, KESINGA - Mill Entry System"
-        }
-    return branding
+    """Get current branding settings with custom fields"""
+    from utils.branding_helper import get_branding_data
+    return await get_branding_data()
 
 
 @router.put("/branding")
-async def update_branding(request: BrandingUpdateRequest, username: str = "", role: str = ""):
-    """Update branding settings (Admin only)"""
+async def update_branding(data: dict, username: str = "", role: str = ""):
+    """Update branding settings with custom fields (Admin only)"""
     if role != "admin":
         raise HTTPException(status_code=403, detail="Sirf Admin branding update kar sakta hai")
-    
+
+    custom_fields = data.get("custom_fields", [])
+    # Validate custom fields (max 6)
+    clean_fields = []
+    for f in custom_fields[:6]:
+        if f.get("label") and f.get("value"):
+            clean_fields.append({
+                "label": str(f["label"]).strip(),
+                "value": str(f["value"]).strip(),
+                "position": f.get("position", "center") if f.get("position") in ("left", "center", "right") else "center"
+            })
+
     branding_data = {
-        "company_name": request.company_name,
-        "tagline": request.tagline,
+        "company_name": data.get("company_name", "NAVKAR AGRO"),
+        "tagline": data.get("tagline", ""),
+        "custom_fields": clean_fields,
         "updated_by": username,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
-    
-    await db.branding.update_one(
-        {},
-        {"$set": branding_data},
-        upsert=True
-    )
-    
+
+    await db.branding.update_one({}, {"$set": branding_data}, upsert=True)
+
+    # Sync to db.settings for backward compatibility with PDF generators
+    sync_data = {
+        "key": "branding",
+        "company_name": branding_data["company_name"],
+        "tagline": branding_data["tagline"],
+        "custom_fields": clean_fields,
+    }
+    # Also set legacy fields from custom_fields for old code
+    for cf in clean_fields:
+        lbl = cf["label"].lower().strip()
+        if "gst" in lbl:
+            sync_data["gstin"] = cf["value"]
+        elif "phone" in lbl or "mobile" in lbl:
+            sync_data["phone"] = cf["value"]
+        elif "address" in lbl:
+            sync_data["address"] = cf["value"]
+    await db.settings.update_one({"key": "branding"}, {"$set": sync_data}, upsert=True)
+
     return {"success": True, "message": "Branding update ho gaya", "branding": branding_data}
 
 
 # Helper function to get branding for exports
 async def get_company_name():
-    branding = await db.branding.find_one({}, {"_id": 0})
-    if branding:
-        return branding.get("company_name", "NAVKAR AGRO"), branding.get("tagline", "")
-    return "NAVKAR AGRO", "JOLKO, KESINGA"
+    from utils.branding_helper import get_company_name as _gcn
+    return await _gcn()
 
 
 
 
 # ============ FY SETTINGS ============
 
+def _get_default_kms():
+    now = datetime.now()
+    y = now.year
+    return f"{y-1}-{y}" if now.month < 10 else f"{y}-{y+1}"
+
+def _get_default_financial_year():
+    now = datetime.now()
+    y = now.year
+    return f"{y-1}-{y}" if now.month < 4 else f"{y}-{y+1}"
+
 @router.get("/fy-settings")
 async def get_fy_settings():
     settings = await db.fy_settings.find_one({}, {"_id": 0})
     if not settings:
-        now = datetime.now()
-        y = now.year
-        default_fy = f"{y-1}-{y}" if now.month < 10 else f"{y}-{y+1}"
-        settings = {"active_fy": default_fy, "season": ""}
+        settings = {
+            "active_fy": _get_default_kms(),
+            "season": "",
+            "financial_year": _get_default_financial_year()
+        }
+    if "financial_year" not in settings:
+        settings["financial_year"] = _get_default_financial_year()
     return settings
 
 @router.put("/fy-settings")
 async def update_fy_settings(data: dict):
     active_fy = data.get("active_fy", "")
     season = data.get("season", "")
+    financial_year = data.get("financial_year", "")
     if not active_fy:
         raise HTTPException(status_code=400, detail="active_fy is required")
-    doc = {"active_fy": active_fy, "season": season, "updated_at": datetime.now(timezone.utc).isoformat()}
+    doc = {
+        "active_fy": active_fy,
+        "season": season,
+        "financial_year": financial_year,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
     await db.fy_settings.update_one({}, {"$set": doc}, upsert=True)
     return doc
+
+
+# ============ OPENING STOCK BALANCE ============
+
+STOCK_ITEMS = ["paddy", "rice", "bran", "kunda", "broken", "kanki", "husk", "frk"]
+
+@router.get("/opening-stock")
+async def get_opening_stock(kms_year: str = "", financial_year: str = ""):
+    """Get opening stock balances for a given KMS/FY year"""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    elif financial_year:
+        query["financial_year"] = financial_year
+    else:
+        settings = await db.fy_settings.find_one({}, {"_id": 0})
+        if settings:
+            query["kms_year"] = settings.get("active_fy", "")
+    
+    doc = await db.opening_stock.find_one(query, {"_id": 0})
+    if not doc:
+        doc = {"kms_year": kms_year or "", "financial_year": financial_year or "", "stocks": {item: 0 for item in STOCK_ITEMS}}
+    return doc
+
+@router.put("/opening-stock")
+async def save_opening_stock(data: dict, username: str = "", role: str = ""):
+    """Save opening stock balances"""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf Admin opening stock set kar sakta hai")
+    
+    kms_year = data.get("kms_year", "")
+    financial_year = data.get("financial_year", "")
+    stocks = data.get("stocks", {})
+    
+    # Clean stocks - only allow known items, convert to float
+    clean_stocks = {}
+    for item in STOCK_ITEMS:
+        val = stocks.get(item, 0)
+        try:
+            clean_stocks[item] = float(val) if val else 0
+        except (ValueError, TypeError):
+            clean_stocks[item] = 0
+    
+    doc = {
+        "kms_year": kms_year,
+        "financial_year": financial_year,
+        "stocks": clean_stocks,
+        "updated_by": username,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    query = {"kms_year": kms_year} if kms_year else {"financial_year": financial_year}
+    await db.opening_stock.update_one(query, {"$set": doc}, upsert=True)
+    return {"success": True, "message": "Opening stock save ho gaya", "data": doc}

@@ -78,29 +78,40 @@ BORDER_HEADER = Border(left=_thin, right=_thin, top=_med, bottom=_med)
 
 
 def style_excel_title(ws, title, ncols, subtitle="", branding=None):
-    """Add a colorful 3-row title section: Company Name, Tagline, Report Title."""
+    """Add a colorful title section: Company Name, Tagline + Custom Fields, Report Title.
+    Always produces exactly 3 rows for backward compatibility."""
     branding = branding or {}
     company = branding.get("company_name", "NAVKAR AGRO")
     tagline = branding.get("tagline", "JOLKO, KESINGA")
+    custom_fields = branding.get("custom_fields", [])
+
+    # Build tagline + custom fields combined text
+    tagline_parts = [tagline] if tagline else []
+    for f in custom_fields:
+        lbl = f.get("label", "").strip()
+        val = f.get("value", "").strip()
+        if lbl and val:
+            tagline_parts.append(f"{lbl}: {val}")
+    combined_tagline = "  |  ".join(tagline_parts) if tagline_parts else ""
 
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncols)
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ncols)
 
-    # Row 1: Company Name (big, bold, centered, amber bg)
+    # Row 1: Company Name
     c1 = ws.cell(row=1, column=1, value=company)
     c1.font = Font(bold=True, size=18, color=COLORS['title_text'])
     c1.fill = PatternFill(start_color=COLORS['title_bg'], fill_type='solid')
     c1.alignment = Alignment(horizontal='center', vertical='center')
     ws.row_dimensions[1].height = 36
 
-    # Row 2: Tagline (small, italic, centered)
-    c2 = ws.cell(row=2, column=1, value=tagline)
-    c2.font = Font(size=10, italic=True, color='666666')
+    # Row 2: Tagline + custom fields
+    c2 = ws.cell(row=2, column=1, value=combined_tagline)
+    c2.font = Font(size=9, italic=True, color='555555')
     c2.alignment = Alignment(horizontal='center', vertical='center')
-    ws.row_dimensions[2].height = 20
+    ws.row_dimensions[2].height = 22 if custom_fields else 20
 
-    # Row 3: Report Title + date (medium, bold, centered, orange bg)
+    # Row 3: Report Title + date
     from datetime import datetime
     date_str = datetime.now().strftime('%d/%m/%Y')
     title_text = f"{title} | {date_str}" if subtitle == "" else f"{title} | {subtitle} | {date_str}"
@@ -258,8 +269,50 @@ def get_pdf_table_style(num_rows, cols_info=None):
     return style
 
 
+def _build_custom_fields_row(branding):
+    """Build a ReportLab Table row for custom_fields with Left/Center/Right alignment."""
+    register_hindi_fonts()
+    from reportlab.platypus import Paragraph, Table as RLTable, TableStyle
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    from reportlab.lib import colors as rl_colors
+
+    fields = branding.get("custom_fields", [])
+    if not fields:
+        return []
+
+    left_parts, center_parts, right_parts = [], [], []
+    for f in fields:
+        txt = f"<b>{f.get('label', '')}:</b> {f.get('value', '')}"
+        pos = f.get("position", "center").lower()
+        if pos == "left":
+            left_parts.append(txt)
+        elif pos == "right":
+            right_parts.append(txt)
+        else:
+            center_parts.append(txt)
+
+    style_l = ParagraphStyle('CFL', fontSize=8, fontName='FreeSans', textColor=rl_colors.HexColor('#374151'), alignment=TA_LEFT)
+    style_c = ParagraphStyle('CFC', fontSize=8, fontName='FreeSans', textColor=rl_colors.HexColor('#374151'), alignment=TA_CENTER)
+    style_r = ParagraphStyle('CFR', fontSize=8, fontName='FreeSans', textColor=rl_colors.HexColor('#374151'), alignment=TA_RIGHT)
+
+    left_p = Paragraph("<br/>".join(left_parts) if left_parts else "", style_l)
+    center_p = Paragraph("<br/>".join(center_parts) if center_parts else "", style_c)
+    right_p = Paragraph("<br/>".join(right_parts) if right_parts else "", style_r)
+
+    tbl = RLTable([[left_p, center_p, right_p]], colWidths=['33%', '34%', '33%'])
+    tbl.setStyle(TableStyle([
+        ('FONTNAME', (0, 0), (-1, -1), 'FreeSans'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.5, rl_colors.HexColor('#D0D5DD')),
+    ]))
+    return [tbl]
+
+
 def get_pdf_header_elements(title, branding=None, subtitle=""):
-    """Return ReportLab Paragraph elements for company name, tagline, and report title."""
+    """Return ReportLab Paragraph elements for company name, tagline, custom fields, and report title."""
     register_hindi_fonts()
     from reportlab.platypus import Paragraph, Spacer
     from reportlab.lib.styles import ParagraphStyle
@@ -294,13 +347,15 @@ def get_pdf_header_elements(title, branding=None, subtitle=""):
     ]
     if tagline:
         elements.append(Paragraph(tagline, tagline_style))
+    # Custom fields row (Left | Center | Right)
+    elements.extend(_build_custom_fields_row(branding))
     elements.append(Paragraph(title if not subtitle else f"{title} | {subtitle}", title_style))
     elements.append(Spacer(1, 6))
     return elements
 
 
 def get_pdf_company_header(branding=None):
-    """Return just the company name + tagline paragraphs for PDF (no title)."""
+    """Return just the company name + tagline + custom fields paragraphs for PDF (no title)."""
     register_hindi_fonts()
     from reportlab.platypus import Paragraph, Spacer
     from reportlab.lib.styles import ParagraphStyle
@@ -326,4 +381,6 @@ def get_pdf_company_header(branding=None):
     elements = [Paragraph(company, company_style), Spacer(1, 2)]
     if tagline:
         elements.append(Paragraph(tagline, tagline_style))
+    # Custom fields row
+    elements.extend(_build_custom_fields_row(branding))
     return elements

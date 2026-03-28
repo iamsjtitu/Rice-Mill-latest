@@ -158,7 +158,6 @@ const safePrintHTML = (htmlContent) => {
 // Generate KMS years
 const generateKMSYears = () => {
   const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth(); // 0-indexed
   const years = [];
   // KMS year typically starts in October. Generate past 3 years + current + next year
   for (let i = currentYear - 3; i <= currentYear + 1; i++) {
@@ -167,8 +166,20 @@ const generateKMSYears = () => {
   return years;
 };
 
+// Generate FY years (April-March)
+const generateFYYears = () => {
+  const currentYear = new Date().getFullYear();
+  const years = [];
+  for (let i = currentYear - 3; i <= currentYear + 1; i++) {
+    years.push(`${i}-${i + 1}`);
+  }
+  return years;
+};
+
 const KMS_YEARS = generateKMSYears();
+const FY_YEARS = generateFYYears();
 const CURRENT_KMS_YEAR = `${new Date().getFullYear() - 1}-${new Date().getFullYear()}`; // 2025-2026
+const CURRENT_FY = new Date().getMonth() < 3 ? `${new Date().getFullYear() - 1}-${new Date().getFullYear()}` : `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
 const SEASONS = ["Kharif", "Rabi"];
 
 const initialFormState = {
@@ -220,8 +231,8 @@ function MainApp({ user, onLogout }) {
   }, [theme]);
 
   // Branding state
-  const [branding, setBranding] = useState({ company_name: "NAVKAR AGRO", tagline: "Mill Entry System" });
-  const [brandingForm, setBrandingForm] = useState({ company_name: "", tagline: "" });
+  const [branding, setBranding] = useState({ company_name: "NAVKAR AGRO", tagline: "Mill Entry System", custom_fields: [] });
+  const [brandingForm, setBrandingForm] = useState({ company_name: "", tagline: "", custom_fields: [] });
 
   // Backup state
   const [backups, setBackups] = useState([]);
@@ -260,6 +271,7 @@ function MainApp({ user, onLogout }) {
     date_from: "",
     date_to: ""
   });
+  const [financialYear, setFinancialYear] = useState(CURRENT_FY);
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -270,6 +282,9 @@ function MainApp({ user, onLogout }) {
         const res = await axios.get(`${API}/fy-settings`);
         if (res.data?.active_fy) {
           setFilters(prev => ({ ...prev, kms_year: res.data.active_fy, season: res.data.season || prev.season }));
+        }
+        if (res.data?.financial_year) {
+          setFinancialYear(res.data.financial_year);
         }
       } catch {}
     };
@@ -282,21 +297,25 @@ function MainApp({ user, onLogout }) {
     }).catch(() => {});
   }, []);
 
-  // Save FY setting when kms_year changes
-  const handleFyChange = useCallback(async (newFy, newSeason) => {
+  // Save FY setting when kms_year or financial_year changes
+  const handleFyChange = useCallback(async (newFy, newSeason, newFinancialYear) => {
     setFilters(prev => {
       const updated = { ...prev };
       if (newFy !== undefined) updated.kms_year = newFy;
       if (newSeason !== undefined) updated.season = newSeason;
       return updated;
     });
+    if (newFinancialYear !== undefined) {
+      setFinancialYear(newFinancialYear);
+    }
     try {
       await axios.put(`${API}/fy-settings`, {
         active_fy: newFy !== undefined ? newFy : filters.kms_year,
-        season: newSeason !== undefined ? newSeason : filters.season
+        season: newSeason !== undefined ? newSeason : filters.season,
+        financial_year: newFinancialYear !== undefined ? newFinancialYear : financialYear
       });
     } catch {}
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year, filters.season, financialYear]);
   
   // Selection state for bulk delete
   const [selectedEntries, setSelectedEntries] = useState([]);
@@ -538,8 +557,9 @@ function MainApp({ user, onLogout }) {
     const fetchBranding = async () => {
       try {
         const response = await axios.get(`${API}/branding`);
-        setBranding(response.data);
-        setBrandingForm(response.data);
+        const data = { ...response.data, custom_fields: response.data.custom_fields || [] };
+        setBranding(data);
+        setBrandingForm(data);
       } catch (error) {
         console.error("Branding fetch error:", error);
       }
@@ -555,7 +575,8 @@ function MainApp({ user, onLogout }) {
         brandingForm
       );
       if (response.data.success) {
-        setBranding(brandingForm);
+        const updated = { ...brandingForm };
+        setBranding(updated);
         toast.success("Branding update ho gaya!");
       }
     } catch (error) {
@@ -1104,19 +1125,35 @@ function MainApp({ user, onLogout }) {
             
             {/* User Info & Logout */}
             <div className="flex items-center gap-3">
-              {/* Global FY Selector */}
+              {/* Global KMS + FY Selector */}
               <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-900/30 border border-amber-700/50 rounded-lg" data-testid="global-fy-selector">
                 <Calendar className="w-4 h-4 text-amber-400" />
-                <Select value={filters.kms_year} onValueChange={(v) => handleFyChange(v, undefined)}>
-                  <SelectTrigger className="bg-transparent border-0 text-amber-400 font-bold h-6 text-sm w-[120px] p-0 focus:ring-0" data-testid="global-fy-year">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-600">
-                    {KMS_YEARS.map(y => <SelectItem key={y} value={y} className="text-white">{y}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Select value={filters.season || "all"} onValueChange={(v) => handleFyChange(undefined, v === "all" ? "" : v)}>
-                  <SelectTrigger className="bg-transparent border-0 text-slate-300 h-6 text-xs w-[80px] p-0 focus:ring-0" data-testid="global-fy-season">
+                <div className="flex items-center gap-1">
+                  <span className="text-amber-400/70 text-[10px] font-medium">KMS</span>
+                  <Select value={filters.kms_year} onValueChange={(v) => handleFyChange(v, undefined, undefined)}>
+                    <SelectTrigger className="bg-transparent border-0 text-amber-400 font-bold h-6 text-sm w-[100px] p-0 focus:ring-0" data-testid="global-fy-year">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-600">
+                      {KMS_YEARS.map(y => <SelectItem key={y} value={y} className="text-white">{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <span className="text-slate-600">|</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-emerald-400/70 text-[10px] font-medium">FY</span>
+                  <Select value={financialYear} onValueChange={(v) => handleFyChange(undefined, undefined, v)}>
+                    <SelectTrigger className="bg-transparent border-0 text-emerald-400 font-bold h-6 text-sm w-[100px] p-0 focus:ring-0" data-testid="global-financial-year">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-600">
+                      {FY_YEARS.map(y => <SelectItem key={y} value={y} className="text-white">{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <span className="text-slate-600">|</span>
+                <Select value={filters.season || "all"} onValueChange={(v) => handleFyChange(undefined, v === "all" ? "" : v, undefined)}>
+                  <SelectTrigger className="bg-transparent border-0 text-slate-300 h-6 text-xs w-[70px] p-0 focus:ring-0" data-testid="global-fy-season">
                     <SelectValue placeholder="Season" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-600">
@@ -2158,7 +2195,7 @@ function MainApp({ user, onLogout }) {
                   Settings - Branding
                 </CardTitle>
                 <p className="text-slate-400 text-sm">
-                  Yahan se app ka naam aur tagline change karein. Ye header, footer, aur exports mein dikhega.
+                  Yahan se app ka naam, tagline aur extra fields change karein. Ye header, footer, PDF aur Excel exports mein dikhega.
                 </p>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -2186,12 +2223,126 @@ function MainApp({ user, onLogout }) {
                     <p className="text-xs text-slate-500 mt-1">Example: JOLKO, KESINGA - Mill Entry System</p>
                   </div>
                 </div>
-                <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
-                  <p className="text-xs text-slate-400 mb-2">Preview / झलक:</p>
-                  <div className="text-center">
-                    <h2 className="text-2xl font-bold text-amber-400">{brandingForm.company_name || "Company Name"}</h2>
-                    <p className="text-slate-400">{brandingForm.tagline || "Tagline"}</p>
+
+                {/* Custom Fields Section */}
+                <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-amber-400 text-sm font-semibold">Extra Fields (PDF / Excel Header में दिखेंगे)</Label>
+                    {(brandingForm.custom_fields || []).length < 6 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-amber-600 text-amber-400 hover:bg-amber-900/30 text-xs"
+                        onClick={() => setBrandingForm(prev => ({
+                          ...prev,
+                          custom_fields: [...(prev.custom_fields || []), { label: "", value: "", position: "center" }]
+                        }))}
+                        data-testid="add-custom-field-btn"
+                      >
+                        <Plus className="w-3 h-3 mr-1" /> Field Add
+                      </Button>
+                    )}
                   </div>
+                  <p className="text-xs text-slate-500">Max 6 fields. GST Number, Phone, Address jaise details add karein.</p>
+                  
+                  {(brandingForm.custom_fields || []).map((cf, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-end" data-testid={`custom-field-row-${idx}`}>
+                      <div className="col-span-3">
+                        {idx === 0 && <Label className="text-slate-400 text-xs mb-1 block">Label</Label>}
+                        <Input
+                          value={cf.label}
+                          onChange={(e) => {
+                            const updated = [...brandingForm.custom_fields];
+                            updated[idx] = { ...updated[idx], label: e.target.value };
+                            setBrandingForm(prev => ({ ...prev, custom_fields: updated }));
+                          }}
+                          placeholder="GSTIN, Phone..."
+                          className="bg-slate-700 border-slate-600 text-white text-sm h-9"
+                          data-testid={`custom-field-label-${idx}`}
+                        />
+                      </div>
+                      <div className="col-span-5">
+                        {idx === 0 && <Label className="text-slate-400 text-xs mb-1 block">Value</Label>}
+                        <Input
+                          value={cf.value}
+                          onChange={(e) => {
+                            const updated = [...brandingForm.custom_fields];
+                            updated[idx] = { ...updated[idx], value: e.target.value };
+                            setBrandingForm(prev => ({ ...prev, custom_fields: updated }));
+                          }}
+                          placeholder="Value enter karein..."
+                          className="bg-slate-700 border-slate-600 text-white text-sm h-9"
+                          data-testid={`custom-field-value-${idx}`}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        {idx === 0 && <Label className="text-slate-400 text-xs mb-1 block">Position</Label>}
+                        <Select
+                          value={cf.position || "center"}
+                          onValueChange={(v) => {
+                            const updated = [...brandingForm.custom_fields];
+                            updated[idx] = { ...updated[idx], position: v };
+                            setBrandingForm(prev => ({ ...prev, custom_fields: updated }));
+                          }}
+                        >
+                          <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-9 text-sm" data-testid={`custom-field-position-${idx}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-800 border-slate-600">
+                            <SelectItem value="left" className="text-white">Left</SelectItem>
+                            <SelectItem value="center" className="text-white">Center</SelectItem>
+                            <SelectItem value="right" className="text-white">Right</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-1 flex justify-center">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-400 hover:bg-red-900/30 h-9 w-9 p-0"
+                          onClick={() => {
+                            const updated = brandingForm.custom_fields.filter((_, i) => i !== idx);
+                            setBrandingForm(prev => ({ ...prev, custom_fields: updated }));
+                          }}
+                          data-testid={`custom-field-delete-${idx}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {(brandingForm.custom_fields || []).length === 0 && (
+                    <p className="text-slate-500 text-xs text-center py-2">Koi extra field nahi hai. "Field Add" button se add karein.</p>
+                  )}
+                </div>
+
+                {/* Preview */}
+                <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
+                  <p className="text-xs text-slate-400 mb-2">Preview / झलक (PDF Header jaisa dikhega):</p>
+                  <div className="text-center border-b border-slate-700 pb-2 mb-2">
+                    <h2 className="text-2xl font-bold text-amber-400">{brandingForm.company_name || "Company Name"}</h2>
+                    <p className="text-slate-400 text-sm">{brandingForm.tagline || "Tagline"}</p>
+                  </div>
+                  {(brandingForm.custom_fields || []).filter(f => f.label && f.value).length > 0 && (
+                    <div className="flex justify-between text-xs text-slate-300 border-b border-slate-700 pb-2">
+                      <div className="text-left">
+                        {(brandingForm.custom_fields || []).filter(f => f.position === 'left' && f.label && f.value).map((f, i) => (
+                          <div key={i}><span className="font-semibold">{f.label}:</span> {f.value}</div>
+                        ))}
+                      </div>
+                      <div className="text-center">
+                        {(brandingForm.custom_fields || []).filter(f => f.position === 'center' && f.label && f.value).map((f, i) => (
+                          <div key={i}><span className="font-semibold">{f.label}:</span> {f.value}</div>
+                        ))}
+                      </div>
+                      <div className="text-right">
+                        {(brandingForm.custom_fields || []).filter(f => f.position === 'right' && f.label && f.value).map((f, i) => (
+                          <div key={i}><span className="font-semibold">{f.label}:</span> {f.value}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <Button
                   onClick={handleUpdateBranding}
@@ -2216,6 +2367,22 @@ function MainApp({ user, onLogout }) {
               </CardHeader>
               <CardContent className="space-y-4">
                 <GSTSettingsForm />
+              </CardContent>
+            </Card>
+
+            {/* Opening Stock Balance Section */}
+            <Card className="bg-slate-800 border-slate-700" data-testid="opening-stock-section">
+              <CardHeader>
+                <CardTitle className="text-orange-400 flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Opening Stock Balance / शुरुआती स्टॉक
+                </CardTitle>
+                <p className="text-slate-400 text-sm">
+                  KMS year ke liye opening stock (Qntl) set karein. Ye stock calculations mein use hoga.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <OpeningStockForm kmsYear={filters.kms_year} financialYear={financialYear} user={user} />
               </CardContent>
             </Card>
 
@@ -2890,6 +3057,81 @@ function GSTSettingsForm() {
 }
 
 import { ConfirmProvider } from "@/components/ConfirmProvider";
+
+// Opening Stock Form Component
+const STOCK_ITEMS = [
+  { key: "paddy", label: "Paddy / धान", unit: "Qntl" },
+  { key: "rice", label: "Rice / चावल", unit: "Qntl" },
+  { key: "bran", label: "Bran / भूसी", unit: "Qntl" },
+  { key: "kunda", label: "Kunda / कुंडा", unit: "Qntl" },
+  { key: "broken", label: "Broken / टूटा", unit: "Qntl" },
+  { key: "kanki", label: "Kanki / कंकी", unit: "Qntl" },
+  { key: "husk", label: "Husk / छिलका", unit: "Qntl" },
+  { key: "frk", label: "FRK", unit: "Qntl" },
+];
+
+function OpeningStockForm({ kmsYear, financialYear, user }) {
+  const [stocks, setStocks] = useState({});
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const params = new URLSearchParams();
+        if (kmsYear) params.append('kms_year', kmsYear);
+        if (financialYear) params.append('financial_year', financialYear);
+        const res = await axios.get(`${API}/opening-stock?${params}`);
+        setStocks(res.data?.stocks || {});
+      } catch { setStocks({}); }
+      setLoaded(true);
+    };
+    fetch();
+  }, [kmsYear, financialYear]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await axios.put(`${API}/opening-stock?username=${user.username}&role=${user.role}`, {
+        kms_year: kmsYear,
+        financial_year: financialYear,
+        stocks
+      });
+      toast.success("Opening stock save ho gaya!");
+    } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
+    setSaving(false);
+  };
+
+  if (!loaded) return null;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-slate-400">KMS: <span className="text-amber-400 font-bold">{kmsYear}</span> | FY: <span className="text-emerald-400 font-bold">{financialYear}</span></p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {STOCK_ITEMS.map(item => (
+          <div key={item.key}>
+            <Label className="text-slate-300 text-xs">{item.label}</Label>
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                step="0.01"
+                value={stocks[item.key] || ""}
+                onChange={e => setStocks(prev => ({ ...prev, [item.key]: e.target.value }))}
+                placeholder="0"
+                className="bg-slate-700 border-slate-600 text-white text-sm h-8"
+                data-testid={`opening-stock-${item.key}`}
+              />
+              <span className="text-slate-500 text-xs">{item.unit}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Button onClick={save} disabled={saving} className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold" data-testid="save-opening-stock-btn">
+        {saving ? 'Saving...' : 'Save Opening Stock / शुरुआती स्टॉक सेव करें'}
+      </Button>
+    </div>
+  );
+}
 
 // Main App with Auth
 function App() {

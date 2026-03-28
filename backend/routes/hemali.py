@@ -493,8 +493,8 @@ async def hemali_monthly_summary_pdf(kms_year: str = "", season: str = "", sarda
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=15, bottomMargin=15)
     styles = get_pdf_styles()
     elements = []
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("Hemali Monthly Summary", ParagraphStyle("t", parent=styles["Title"], fontSize=14, textColor=colors.HexColor("#1a365d"))))
     elements.append(Spacer(1, 8))
 
@@ -598,8 +598,8 @@ async def print_hemali_receipt(payment_id: str):
     grey_c = colors.HexColor("#6b7280")
 
     # Header: Company branding from helper
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
 
     # Title
     elements.append(Paragraph("HEMALI PAYMENT RECEIPT", ParagraphStyle("title", parent=styles["Heading2"], fontSize=13, textColor=dark, alignment=1, spaceAfter=10)))
@@ -738,8 +738,8 @@ async def export_hemali_pdf(
     styles = get_pdf_styles()
     elements = []
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("Hemali Payment Report", ParagraphStyle("t", parent=styles["Title"], fontSize=14, textColor=colors.HexColor("#1a365d"))))
     meta_parts = []
     if kms_year:

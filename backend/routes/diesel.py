@@ -322,14 +322,15 @@ async def export_diesel_pdf(kms_year: Optional[str] = None, season: Optional[str
     txns = await db.diesel_accounts.find(query, {"_id": 0}).sort("date", 1).to_list(10000)
     summary = await get_diesel_summary(kms_year=kms_year, season=season)
 
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     styles = get_pdf_styles()
     elements = []
 
-    elements.extend(get_pdf_company_header())
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("Diesel Account / डीजल खाता", styles['Title']))
     elements.append(Spacer(1, 12))
 

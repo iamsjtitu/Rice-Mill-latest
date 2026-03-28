@@ -296,8 +296,9 @@ async def export_leases_pdf(kms_year: Optional[str] = None, season: Optional[str
     styles = get_pdf_styles()
     elements = []
 
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("Truck Lease Report", styles['Title']))
     if kms_year: elements.append(Paragraph(f"Year: {kms_year} | Season: {season or 'All'}", styles['Normal']))
     elements.append(Spacer(1, 12))

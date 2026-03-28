@@ -640,8 +640,8 @@ async def export_purchase_book_pdf(kms_year: Optional[str] = None, season: Optio
     elements = []
     styles = get_pdf_styles()
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
 
     meta_parts = ["Purchase Book"]
     if kms_year: meta_parts.append(f"FY: {kms_year}")
@@ -865,8 +865,8 @@ async def export_single_purchase_voucher_pdf(voucher_id: str):
     styles = get_pdf_styles()
     green = '#2e7d32'
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
 
     label_s = ParagraphStyle('L', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555'))
     val_s = ParagraphStyle('V', parent=styles['Normal'], fontSize=10, fontName='FreeSansBold')
@@ -1006,8 +1006,8 @@ async def export_stock_summary_pdf(kms_year: Optional[str] = None, season: Optio
     styles = get_pdf_styles()
 
     # Company header
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
 
     meta_parts = ["Stock Summary Report"]
     if kms_year: meta_parts.append(f"FY: {kms_year}")

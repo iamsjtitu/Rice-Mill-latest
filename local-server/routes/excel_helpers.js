@@ -175,6 +175,15 @@ function styleExcelData(sheet, startRow) {
 
 function addExcelTitle(sheet, title, colCount, database) {
   const branding = database ? (database.getBranding ? database.getBranding() : {}) : {};
+  const customFields = branding.custom_fields || [];
+  
+  // Build combined tagline with custom fields
+  const taglineParts = [branding.tagline || ''];
+  customFields.forEach(f => {
+    if (f.label && f.value) taglineParts.push(`${f.label}: ${f.value}`);
+  });
+  const combinedTagline = taglineParts.filter(Boolean).join('  |  ');
+
   sheet.insertRow(1, []); sheet.insertRow(1, []); sheet.insertRow(1, []);
   sheet.mergeCells(1, 1, 1, colCount); 
   sheet.mergeCells(2, 1, 2, colCount); 
@@ -188,9 +197,10 @@ function addExcelTitle(sheet, title, colCount, database) {
   sheet.getRow(1).height = 34;
   
   const sc = sheet.getCell('A2'); 
-  sc.value = branding.tagline || '';
-  sc.font = { size: 10, italic: true, color: { argb: 'FF666666' } }; 
+  sc.value = combinedTagline;
+  sc.font = { size: 9, italic: true, color: { argb: 'FF555555' } }; 
   sc.alignment = { horizontal: 'center' };
+  sheet.getRow(2).height = customFields.length > 0 ? 22 : 20;
   
   const dc = sheet.getCell('A3'); 
   dc.value = `${title} | ${new Date().toLocaleDateString('en-IN')}`;

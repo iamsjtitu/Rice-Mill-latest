@@ -701,8 +701,8 @@ async def export_balance_sheet_pdf(kms_year: Optional[str] = None, season: Optio
 
     def fmt(n): return f"{(n or 0):,.2f}"
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph(f"<b>Balance Sheet</b> - KMS {kms_year or 'All'}", styles['Title']))
     elements.append(Paragraph(f"As on: {data['as_on_date']}", styles['Normal']))
     elements.append(Spacer(1, 10))
@@ -976,7 +976,7 @@ async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional
     elements = []
     styles = get_pdf_styles()
 
-    from utils.export_helpers import get_pdf_company_header
+    from utils.branding_helper import get_pdf_company_header_from_db
 
     hdr_bg = colors.HexColor('#1a365d')
     hdr_text = colors.white
@@ -1010,7 +1010,7 @@ async def export_fy_summary_pdf(kms_year: Optional[str] = None, season: Optional
         elements.append(t)
 
     # Title
-    elements.extend(get_pdf_company_header())
+    elements.extend(await get_pdf_company_header_from_db())
     title_text = "FY Summary - Balance Sheet"
     if kms_year: title_text += f" | KMS {kms_year}"
     if season: title_text += f" | {season}"

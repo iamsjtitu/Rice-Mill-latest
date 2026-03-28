@@ -343,8 +343,9 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     styles = get_pdf_styles()
     elements = []
 
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
 
     # Custom styles
     title_style = ParagraphStyle('CustomTitle', parent=styles['Title'], fontSize=18, textColor=colors.HexColor('#1a365d'), spaceAfter=4)

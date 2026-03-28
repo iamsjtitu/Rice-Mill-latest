@@ -388,12 +388,13 @@ async def export_outstanding_pdf(kms_year: Optional[str] = None, season: Optiona
     from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
     data = await report_outstanding(kms_year=kms_year, season=season)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = get_pdf_styles()
-    elements.extend(get_pdf_company_header())
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("Outstanding Report / बकाया रिपोर्ट", styles['Title'])); elements.append(Spacer(1, 12))
     # DC pending
     elements.append(Paragraph("DC Pending Deliveries", styles['Heading2'])); elements.append(Spacer(1, 4))
@@ -506,8 +507,8 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = get_pdf_styles()
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     title = "Party Ledger / खाता बही"
     if party_name: title += f" - {party_name}"
     if date_from or date_to:

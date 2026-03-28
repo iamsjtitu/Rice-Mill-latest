@@ -499,8 +499,8 @@ async def export_store_room_pdf(kms_year: Optional[str] = None, season: Optional
     title_text = "Store Room Inventory / स्टोर रूम"
     if kms_year: title_text += f" - {kms_year}"
     if season: title_text += f" ({season})"
-    from utils.export_helpers import get_pdf_company_header
-    elements = list(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements = list(await get_pdf_company_header_from_db())
     elements.extend([Paragraph(title_text, styles['Title']), Spacer(1, 12)])
 
     col_widths = [140, 80, 50, 70, 70, 90]
@@ -606,8 +606,8 @@ async def export_stock_pdf(kms_year: Optional[str] = None, season: Optional[str]
     title_text = "Mill Parts Stock Summary / मिल पार्ट्स स्टॉक"
     if kms_year: title_text += f" - {kms_year}"
     if season: title_text += f" ({season})"
-    from utils.export_helpers import get_pdf_company_header
-    elements = list(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements = list(await get_pdf_company_header_from_db())
     elements.extend([Paragraph(title_text, styles['Title']), Spacer(1, 12)])
 
     data = [['Part', 'Category', 'Store Room', 'Unit', 'In', 'Used', 'Stock', 'Amount (Rs)', 'Parties']]
@@ -734,8 +734,8 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
     if date_from or date_to: subtitle_parts.append(f"Date: {date_from or '...'} to {date_to or '...'}")
     if kms_year: subtitle_parts.append(f"KMS: {kms_year}")
     if season: subtitle_parts.append(f"Season: {season}")
-    from utils.export_helpers import get_pdf_company_header
-    elements = list(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements = list(await get_pdf_company_header_from_db())
     elements.append(Paragraph(title, styles['Title']))
     if subtitle_parts:
         elements.append(Paragraph(' | '.join(subtitle_parts), styles['Normal']))

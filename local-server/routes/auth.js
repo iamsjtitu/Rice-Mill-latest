@@ -66,7 +66,13 @@ module.exports = function(database) {
       const now = new Date();
       const y = now.getFullYear();
       const defaultFy = now.getMonth() < 9 ? `${y-1}-${y}` : `${y}-${y+1}`;
-      database.data.fy_settings = { active_fy: defaultFy, season: '' };
+      const defaultFinancialYear = now.getMonth() < 3 ? `${y-1}-${y}` : `${y}-${y+1}`;
+      database.data.fy_settings = { active_fy: defaultFy, season: '', financial_year: defaultFinancialYear };
+    }
+    if (!database.data.fy_settings.financial_year) {
+      const now = new Date();
+      const y = now.getFullYear();
+      database.data.fy_settings.financial_year = now.getMonth() < 3 ? `${y-1}-${y}` : `${y}-${y+1}`;
     }
     res.json(database.data.fy_settings);
   }));
@@ -74,20 +80,58 @@ module.exports = function(database) {
   router.put('/api/fy-settings', safeSync((req, res) => {
     const active_fy = req.body.active_fy || '';
     const season = req.body.season || '';
+    const financial_year = req.body.financial_year || '';
     if (!active_fy) return res.status(400).json({ detail: 'active_fy is required' });
-    database.data.fy_settings = { active_fy, season, updated_at: new Date().toISOString() };
+    database.data.fy_settings = { active_fy, season, financial_year, updated_at: new Date().toISOString() };
     database.save();
     res.json(database.data.fy_settings);
   }));
 
   // ===== BRANDING =====
   router.get('/api/branding', safeSync((req, res) => {
-    res.json(database.getBranding());
+    const branding = database.getBranding();
+    if (!branding.custom_fields) branding.custom_fields = [];
+    res.json(branding);
   }));
 
   router.put('/api/branding', safeSync((req, res) => {
-    const branding = database.updateBranding(req.body);
+    const custom_fields = (req.body.custom_fields || []).slice(0, 6).filter(f => f.label && f.value).map(f => ({
+      label: String(f.label).trim(),
+      value: String(f.value).trim(),
+      position: ['left', 'center', 'right'].includes(f.position) ? f.position : 'center'
+    }));
+    const branding = database.updateBranding({ ...req.body, custom_fields });
     res.json({ success: true, message: 'Branding update ho gaya', branding });
+  }));
+
+  // ===== OPENING STOCK =====
+  const STOCK_ITEMS = ['paddy', 'rice', 'bran', 'kunda', 'broken', 'kanki', 'husk', 'frk'];
+
+  router.get('/api/opening-stock', safeSync((req, res) => {
+    const kms_year = req.query.kms_year || '';
+    const financial_year = req.query.financial_year || '';
+    if (!database.data.opening_stock) database.data.opening_stock = [];
+    const found = database.data.opening_stock.find(s => s.kms_year === kms_year || s.financial_year === financial_year);
+    if (found) return res.json(found);
+    const defaults = {};
+    STOCK_ITEMS.forEach(i => defaults[i] = 0);
+    res.json({ kms_year, financial_year, stocks: defaults });
+  }));
+
+  router.put('/api/opening-stock', safeSync((req, res) => {
+    const { kms_year = '', financial_year = '', stocks = {} } = req.body;
+    if (!database.data.opening_stock) database.data.opening_stock = [];
+    const cleanStocks = {};
+    STOCK_ITEMS.forEach(item => {
+      const val = stocks[item];
+      cleanStocks[item] = val ? parseFloat(val) || 0 : 0;
+    });
+    const doc = { kms_year, financial_year, stocks: cleanStocks, updated_at: new Date().toISOString() };
+    const idx = database.data.opening_stock.findIndex(s => s.kms_year === kms_year);
+    if (idx >= 0) database.data.opening_stock[idx] = doc;
+    else database.data.opening_stock.push(doc);
+    database.save();
+    res.json({ success: true, message: 'Opening stock save ho gaya', data: doc });
   }));
 
   // ===== HEALTH CHECK =====

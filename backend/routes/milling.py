@@ -503,8 +503,8 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
     elements = []
     styles = get_pdf_styles()
     
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     title = "Milling Report"
     if kms_year: title += f" - KMS {kms_year}"
     if season: title += f" ({season})"
@@ -610,8 +610,8 @@ async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optio
     elements = []
     styles = get_pdf_styles()
     
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     title = "Paddy Custody Maintenance Register"
     if kms_year: title += f" - KMS {kms_year}"
     if season: title += f" ({season})"
@@ -698,8 +698,8 @@ async def export_frk_purchases_pdf(kms_year: Optional[str] = None, season: Optio
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = get_pdf_styles()
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     title = "FRK Purchase Register"
     if kms_year: title += f" - KMS {kms_year}"
     elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))
@@ -803,8 +803,8 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = get_pdf_styles()
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     title = "By-Product Stock & Sales Report"
     if kms_year: title += f" - KMS {kms_year}"
     elements.append(Paragraph(title, styles['Title'])); elements.append(Spacer(1, 12))

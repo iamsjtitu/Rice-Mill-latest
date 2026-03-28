@@ -88,8 +88,8 @@ async def export_dashboard_pdf(kms_year: Optional[str] = None, season: Optional[
     elements = []; styles = get_pdf_styles()
     pw = A4[0] - 30*mm  # page width minus margins
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     company, tagline = await get_company_name()
     filter_label = "All" if not filter or filter == "all" else ("Stock Only" if filter == "stock" else filter)
 
@@ -246,8 +246,8 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
     pw = A4[0] - 24*mm
     elements = []; styles = get_pdf_styles()
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     company, tagline = await get_company_name()
     hdr_bg = colors.HexColor('#1a365d')
     hdr_fg = colors.white
@@ -651,8 +651,8 @@ async def export_truck_owner_pdf(
     elements = []
     styles = get_pdf_styles()
     
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     # Title
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#0891B2'), alignment=1)
     company_name, tagline = await get_company_name()

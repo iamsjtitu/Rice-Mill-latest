@@ -19,11 +19,13 @@ function addPdfHeader(doc, title, branding, subtitle) {
   branding = branding || {};
   const companyName = branding.company_name || 'Mill Entry System';
   const tagline = branding.tagline || '';
+  const customFields = branding.custom_fields || [];
   
   // Amber header bar
   const barY = doc.y;
-  doc.rect(20, barY, doc.page.width - 40, 42).fill('#fffbeb');
-  doc.rect(20, barY, doc.page.width - 40, 42).stroke('#f59e0b');
+  const barH = customFields.length > 0 ? 54 : 42;
+  doc.rect(20, barY, doc.page.width - 40, barH).fill('#fffbeb');
+  doc.rect(20, barY, doc.page.width - 40, barH).stroke('#f59e0b');
   doc.rect(20, barY, doc.page.width - 40, 3).fill('#f59e0b');
   
   doc.fontSize(16).font('Helvetica-Bold').fillColor(C.hdrBg)
@@ -31,7 +33,20 @@ function addPdfHeader(doc, title, branding, subtitle) {
   if (tagline) doc.fontSize(8).font('Helvetica').fillColor('#6b7280')
     .text(tagline, 25, barY + 26, { align: 'center', width: doc.page.width - 50 });
   
-  doc.y = barY + 48;
+  // Custom fields row (Left | Center | Right)
+  if (customFields.length > 0) {
+    const cfY = barY + (tagline ? 36 : 28);
+    const pageW = doc.page.width - 50;
+    const left = customFields.filter(f => f.position === 'left').map(f => `${f.label}: ${f.value}`).join('  ');
+    const center = customFields.filter(f => f.position === 'center').map(f => `${f.label}: ${f.value}`).join('  ');
+    const right = customFields.filter(f => f.position === 'right').map(f => `${f.label}: ${f.value}`).join('  ');
+    doc.fontSize(7).font('Helvetica').fillColor('#374151');
+    if (left) doc.text(left, 25, cfY, { align: 'left', width: pageW / 3 });
+    if (center) doc.text(center, 25 + pageW / 3, cfY, { align: 'center', width: pageW / 3 });
+    if (right) doc.text(right, 25 + (pageW * 2 / 3), cfY, { align: 'right', width: pageW / 3 });
+  }
+  
+  doc.y = barY + barH + 4;
   
   // Title bar - teal
   const titleY = doc.y;

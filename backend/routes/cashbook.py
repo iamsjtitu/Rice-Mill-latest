@@ -771,8 +771,8 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     elements = []
     
     # Company Header + Title
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("Party Summary / पार्टी सारांश", styles['Title']))
     filter_text = ""
     if party_type: filter_text += f"Party Type: {party_type} | "
@@ -1649,8 +1649,8 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     elements = []; styles = get_pdf_styles()
     
     # Company Header + Title
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     title = "Daily Cash Book / रोज़नामचा"
     if category: title += f" - {category}"
     title_style = ParagraphStyle('Title', parent=styles['Normal'], fontSize=11, textColor=colors.white,

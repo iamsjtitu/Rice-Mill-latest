@@ -1138,8 +1138,9 @@ async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optio
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = get_pdf_styles()
 
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     title = "Private Paddy Purchase"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
@@ -1274,8 +1275,9 @@ async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = get_pdf_styles()
 
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     title = "Rice Sales Report"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
@@ -1511,8 +1513,8 @@ async def export_party_summary_pdf(kms_year: Optional[str] = None, season: Optio
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=10*mm)
     elements = []; styles = get_pdf_styles()
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     title = f"Party Summary"
     if kms_year: title += f" | {kms_year}"
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.HexColor('#D97706'), alignment=TA_CENTER, spaceAfter=8)

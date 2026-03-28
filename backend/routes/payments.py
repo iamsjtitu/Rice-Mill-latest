@@ -1867,8 +1867,9 @@ async def export_agent_payments_pdf(kms_year: Optional[str] = None, season: Opti
     elements = []
     styles = get_pdf_styles()
     
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)
     

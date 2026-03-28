@@ -491,8 +491,8 @@ async def export_sale_book_pdf(kms_year: Optional[str] = None, season: Optional[
     elements = []
     styles = get_pdf_styles()
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
 
     meta_parts = ["Sale Book"]
     if kms_year: meta_parts.append(f"FY: {kms_year}")
@@ -736,8 +736,8 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
     styles = get_pdf_styles()
     blue = '#1a5276'
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
 
     label_s = ParagraphStyle('L', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555'))
     val_s = ParagraphStyle('V', parent=styles['Normal'], fontSize=10, fontName='FreeSansBold')
@@ -747,8 +747,8 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
     hd_s = ParagraphStyle('H', parent=styles['Normal'], fontSize=9, leading=12, fontName='FreeSansBold', textColor=colors.white)
 
     # Company Header
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db as _gph
+    elements.extend(await _gph())
     elements.append(Spacer(1, 4*mm))
 
     # Invoice Title

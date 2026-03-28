@@ -920,8 +920,8 @@ async def export_pdf(
     elements = []
     styles = get_pdf_styles()
     
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     
     # Title style
     title_style = ParagraphStyle(
@@ -1263,8 +1263,8 @@ async def export_truck_payments_pdf(
     elements = []
     styles = get_pdf_styles()
     
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     
     # Title
     title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, textColor=colors.white, alignment=TA_CENTER)

@@ -375,12 +375,13 @@ async def export_dc_pdf(kms_year: Optional[str] = None, season: Optional[str] = 
     if season: query["season"] = season
     dcs = await db.dc_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     all_deliveries = await db.dc_deliveries.find(query, {"_id": 0}).to_list(5000)
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
     
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = get_pdf_styles()
-    elements.extend(get_pdf_company_header())
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("DC Register / डीसी रजिस्टर", styles['Title'])); elements.append(Spacer(1, 12))
     data = [['DC No','Date','Type','Allotted(Q)','Delivered(Q)','Pending(Q)','Status','Deadline','Godown']]
     ta = td = 0
@@ -565,9 +566,10 @@ async def export_msp_pdf(kms_year: Optional[str] = None, season: Optional[str] =
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     elements = []; styles = get_pdf_styles()
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
     
-    elements.extend(get_pdf_company_header())
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("MSP Payment Register / एमएसपी भुगतान", styles['Title'])); elements.append(Spacer(1, 12))
     data = [['Date','DC No','Qty(Q)','Rate(Rs/Q)','Amount(Rs)','Mode','Bank']]
     tq = ta = 0
@@ -1002,12 +1004,12 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
     elements = []; styles = get_pdf_styles()
     src_style = ParagraphStyle('src', fontName='FreeSans', fontSize=7, leading=8.5, alignment=TA_LEFT)
 
-    from utils.export_helpers import get_pdf_company_header
+    from utils.branding_helper import get_pdf_company_header_from_db
     title = "Gunny Bag Register"
     filter_txt = f"KMS: {kms_year or 'All'} | Season: {season or 'All'}"
     if bag_filter and bag_filter != 'all': filter_txt += f" | Type: {bag_filter}"
     if txn_filter and txn_filter != 'all': filter_txt += f" | Txn: {txn_filter.upper()}"
-    elements.extend(get_pdf_company_header())
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph(title, styles['Title']))
     elements.append(Paragraph(filter_txt, styles['Normal'])); elements.append(Spacer(1, 8))
 
@@ -1197,8 +1199,8 @@ async def export_gunny_purchase_report_pdf(kms_year: Optional[str] = None, seaso
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=25, bottomMargin=25)
     elements = []; styles = get_pdf_styles()
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("Gunny Bag Purchase Report (Party-wise / GST Breakup)", styles['Title']))
     elements.append(Paragraph(f"KMS: {kms_year or 'All'} | Season: {season or 'All'}", styles['Normal']))
     elements.append(Spacer(1, 10))

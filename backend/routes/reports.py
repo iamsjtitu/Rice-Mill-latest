@@ -131,12 +131,13 @@ async def export_cmr_vs_dc_pdf(kms_year: Optional[str] = None, season: Optional[
     from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
     data = await report_cmr_vs_dc(kms_year=kms_year, season=season)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=30, bottomMargin=30)
     elements = []; styles = get_pdf_styles()
-    elements.extend(get_pdf_company_header())
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("CMR vs DC Report / सीएमआर vs डीसी", styles['Title'])); elements.append(Spacer(1, 12))
     rows = [['Metric', 'Value'],
         ['--- MILLING ---', ''], ['Paddy Milled (Q)', data['milling']['total_paddy_milled']], ['Rice Produced (Q)', data['milling']['total_rice_produced']],
@@ -201,12 +202,13 @@ async def export_season_pnl_pdf(kms_year: Optional[str] = None, season: Optional
     from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
-    from utils.export_helpers import get_pdf_table_style, get_pdf_company_header
+    from utils.export_helpers import get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
     data = await report_season_pnl(kms_year=kms_year, season=season)
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=30, bottomMargin=30)
     elements = []; styles = get_pdf_styles()
-    elements.extend(get_pdf_company_header())
+    elements.extend(await get_pdf_company_header_from_db())
     elements.append(Paragraph("Season P&L Report / मौसम लाभ-हानि", styles['Title'])); elements.append(Spacer(1, 12))
     elements.append(Paragraph("INCOME", styles['Heading2'])); elements.append(Spacer(1, 4))
     idata = [['Source', 'Amount (Rs.)'], ['MSP Payments', data['income']['msp_payments']], ['By-Product Sales', data['income']['byproduct_sales']],
@@ -556,8 +558,8 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=8*mm, rightMargin=8*mm, topMargin=10*mm, bottomMargin=10*mm)
     elements = []; styles = get_pdf_styles()
 
-    from utils.export_helpers import get_pdf_company_header
-    elements.extend(get_pdf_company_header())
+    from utils.branding_helper import get_pdf_company_header_from_db
+    elements.extend(await get_pdf_company_header_from_db())
     title = f"Agent & Mandi Wise Report"
     if kms_year: title += f" | KMS: {kms_year}"
     if season: title += f" | {season}"
