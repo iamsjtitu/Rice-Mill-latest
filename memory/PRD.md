@@ -24,36 +24,28 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Sale Book with PDF/Excel export
 - Cash Book (double-entry accounting)
 - Private Paddy Trading with party ledgers
-- Staff management
-- Hemali calculations
-- Mill Parts tracking
-- FY Summary reports
-- Dashboard & Targets
+- Staff management, Hemali calculations, Mill Parts tracking
+- FY Summary reports, Dashboard & Targets
 
 ### v46.0.0 Features (Latest)
 - **Custom Branding Fields**: 5-6 extra fields in Settings (GST, Phone, Address etc.) with Left/Center/Right alignment. Appears in ALL PDF & Excel export headers
 - **Financial Year (Apr-Mar)**: Separate FY selector alongside KMS year (Oct-Sep) in global header
-- **Opening Stock Balance**: Set opening stock for 8 product types (Paddy, Rice, Bran, Kunda, Broken, Kanki, Husk, FRK) per KMS/FY year
-
-### v45.x Features (Previous)
-- 9-step auto-fix endpoint for data integrity
-- Cascading delete fixes (Cashbook ↔ Payments ↔ Ledgers)
-- Duplicate party name resolution
-- GitHub Actions .exe build pipeline
-- OTA auto-updater for desktop app
+- **Opening Stock Balance**: Set opening stock for 9 product types per KMS/FY year. Now integrated into Stock Summary (Available = Opening + In - Out)
+- **Auto Carry Forward**: Previous year's closing stock automatically becomes next year's opening stock via carry-forward button
+- **Stock Summary Opening Column**: Amber-colored Opening column in Stock Summary table showing OB per item
 
 ## Key API Endpoints
 - `GET/PUT /api/branding` - Company branding with custom_fields
 - `GET/PUT /api/fy-settings` - KMS year + Financial Year
-- `GET/PUT /api/opening-stock` - Opening stock balances
+- `GET/PUT /api/opening-stock` - Opening stock balances (9 items)
+- `POST /api/opening-stock/carry-forward` - Auto carry closing→opening
+- `GET /api/stock-summary` - Stock summary with opening balances
 - `POST /api/cash-book/auto-fix` - Data integrity check
-- `POST /api/private-payments` - Payment processing
-- `DELETE /api/private-payments/{id}` - Payment undo
 
 ## Key DB Collections
 - `branding`: {company_name, tagline, custom_fields: [{label, value, position}]}
 - `fy_settings`: {active_fy (KMS), season, financial_year (FY)}
-- `opening_stock`: {kms_year, financial_year, stocks: {paddy, rice, bran, kunda, broken, kanki, husk, frk}}
+- `opening_stock`: {kms_year, financial_year, stocks: {paddy, rice_usna, rice_raw, bran, kunda, broken, kanki, husk, frk}}
 - `cash_transactions`, `private_paddy`, `private_payments`, `party_ledger`
 
 ## Upcoming Tasks
