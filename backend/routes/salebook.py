@@ -91,65 +91,76 @@ class SaleVoucher(BaseModel):
 
 @router.get("/sale-book/stock-items")
 async def get_stock_items(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from utils.stock_calculator import (
+        calc_rice_produced, calc_govt_delivered, calc_pvt_rice_sold,
+        calc_sale_voucher_items, calc_purchase_voucher_items,
+        calc_byproduct_produced, calc_byproduct_sold, calc_frk_in, BY_PRODUCTS
+    )
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    
+
+    # ===== FETCH OPENING STOCK =====
+    ob = {}
+    if kms_year:
+        ob_doc = await db.opening_stock.find_one({"kms_year": kms_year}, {"_id": 0})
+        if ob_doc:
+            ob = ob_doc.get("stocks", {})
+    ob_usna = float(ob.get("rice_usna", ob.get("rice", 0)))
+    ob_raw = float(ob.get("rice_raw", 0))
+    ob_bran = float(ob.get("bran", 0))
+    ob_kunda = float(ob.get("kunda", 0))
+    ob_broken = float(ob.get("broken", 0))
+    ob_kanki = float(ob.get("kanki", 0))
+    ob_husk = float(ob.get("husk", 0))
+    ob_frk = float(ob.get("frk", 0))
+
     milling = await db.milling_entries.find(query, {"_id": 0}).to_list(10000)
     dc = await db.dc_entries.find(query, {"_id": 0}).to_list(10000)
     pvt_sales = await db.rice_sales.find(query, {"_id": 0}).to_list(10000)
     sale_vouchers = await db.sale_vouchers.find(query, {"_id": 0}).to_list(10000)
     purchase_vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).to_list(10000)
-    
-    parboiled_produced = round(sum(e.get('rice_qntl', 0) for e in milling if e.get('rice_type', '').lower() in ('usna', 'parboiled')), 2)
-    raw_produced = round(sum(e.get('rice_qntl', 0) for e in milling if e.get('rice_type', '').lower() == 'raw'), 2)
-    govt_delivered = round(sum(e.get('quantity_qntl', 0) for e in dc), 2)
-    pvt_sold_usna = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type', '').lower() in ('usna', 'parboiled')), 2)
-    pvt_sold_raw = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type', '').lower() == 'raw'), 2)
-    
-    sb_sold = {}
-    for sv in sale_vouchers:
-        for item in sv.get('items', []):
-            name = item.get('item_name', '')
-            sb_sold[name] = sb_sold.get(name, 0) + (item.get('quantity', 0) or 0)
-    
-    # Purchase Voucher bought quantities
-    pv_bought = {}
-    for pv in purchase_vouchers:
-        for item in pv.get('items', []):
-            name = item.get('item_name', '')
-            pv_bought[name] = pv_bought.get(name, 0) + (item.get('quantity', 0) or 0)
-    
     bp_sales = await db.byproduct_sales.find(query, {"_id": 0}).to_list(10000)
-    products = ["bran", "kunda", "broken", "kanki", "husk"]
-    
+
+    usna_produced = calc_rice_produced(milling, 'usna')
+    raw_produced = calc_rice_produced(milling, 'raw')
+    govt_delivered = calc_govt_delivered(dc)
+    pvt_sold_usna = calc_pvt_rice_sold(pvt_sales, 'usna')
+    pvt_sold_raw = calc_pvt_rice_sold(pvt_sales, 'raw')
+    sb_sold = calc_sale_voucher_items(sale_vouchers)
+    pv_bought = calc_purchase_voucher_items(purchase_vouchers)
+    bp_produced = calc_byproduct_produced(milling)
+    bp_sold_map = calc_byproduct_sold(bp_sales)
+
     items = []
-    usna_avail = round(parboiled_produced + pv_bought.get("Rice (Usna)", 0) - govt_delivered - pvt_sold_usna - sb_sold.get("Rice (Usna)", 0), 2)
-    raw_avail = round(raw_produced + pv_bought.get("Rice (Raw)", 0) - pvt_sold_raw - sb_sold.get("Rice (Raw)", 0), 2)
+    usna_avail = round(ob_usna + usna_produced + pv_bought.get("Rice (Usna)", 0) - govt_delivered - pvt_sold_usna - sb_sold.get("Rice (Usna)", 0), 2)
+    raw_avail = round(ob_raw + raw_produced + pv_bought.get("Rice (Raw)", 0) - pvt_sold_raw - sb_sold.get("Rice (Raw)", 0), 2)
     items.append({"name": "Rice (Usna)", "available_qntl": usna_avail, "unit": "Qntl"})
     items.append({"name": "Rice (Raw)", "available_qntl": raw_avail, "unit": "Qntl"})
-    
-    for p in products:
-        produced = round(sum(e.get(f'{p}_qntl', 0) for e in milling), 2)
+
+    bp_ob_map = {"bran": ob_bran, "kunda": ob_kunda, "broken": ob_broken, "kanki": ob_kanki, "husk": ob_husk}
+    for p in BY_PRODUCTS:
+        produced = bp_produced.get(p, 0)
         purchased = pv_bought.get(p.title(), 0)
-        sold_bp = round(sum(s.get('quantity_qntl', 0) for s in bp_sales if s.get('product') == p), 2)
+        sold_bp = round(bp_sold_map.get(p, 0), 2)
         sold_sb = sb_sold.get(p.title(), 0)
-        avail = round(produced + purchased - sold_bp - sold_sb, 2)
+        item_ob = bp_ob_map.get(p, 0)
+        avail = round(item_ob + produced + purchased - sold_bp - sold_sb, 2)
         items.append({"name": p.title(), "available_qntl": avail, "unit": "Qntl"})
-    
+
     frk_purchases = await db.frk_purchases.find(query, {"_id": 0}).to_list(10000) if await db.frk_purchases.count_documents(query) > 0 else []
-    frk_produced = round(sum(e.get('quantity_qntl', 0) or e.get('quantity', 0) for e in frk_purchases), 2)
+    frk_in = calc_frk_in(frk_purchases)
     frk_pv = pv_bought.get("FRK", 0)
     frk_sold_sb = sb_sold.get("FRK", 0)
-    items.append({"name": "FRK", "available_qntl": round(frk_produced + frk_pv - frk_sold_sb, 2), "unit": "Qntl"})
-    
+    items.append({"name": "FRK", "available_qntl": round(ob_frk + frk_in + frk_pv - frk_sold_sb, 2), "unit": "Qntl"})
+
     # Custom items from Purchase Vouchers not already covered
-    known_items = {"Rice (Usna)", "Rice (Raw)", "FRK"} | {p.title() for p in products}
+    known_items = {"Rice (Usna)", "Rice (Raw)", "FRK"} | {p.title() for p in BY_PRODUCTS}
     for item_name, qty in pv_bought.items():
         if item_name not in known_items and item_name:
             sold = sb_sold.get(item_name, 0)
             items.append({"name": item_name, "available_qntl": round(qty - sold, 2), "unit": "Qntl"})
-    
+
     return items
 
 
