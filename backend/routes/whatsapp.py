@@ -161,13 +161,13 @@ async def send_whatsapp_message(data: dict):
 @router.post("/whatsapp/send-payment-reminder")
 async def send_payment_reminder(data: dict):
     """Send payment reminder to a party via saved default numbers or provided phone."""
-    phone = data.get("phone", "")
+    phone = data.get("phone", "").strip() if data.get("phone") else ""
     party_name = data.get("party_name", "")
     total = data.get("total_amount", 0)
     paid = data.get("paid_amount", 0)
     balance = data.get("balance", total - paid)
 
-    branding = await db["branding"].find_one({"key": "branding"}, {"_id": 0})
+    branding = await db["settings"].find_one({"key": "branding"}, {"_id": 0})
     company = branding.get("company_name", "Mill Entry System") if branding else "Mill Entry System"
 
     text = (
@@ -189,13 +189,16 @@ async def send_payment_reminder(data: dict):
     # Else send to all default numbers
     settings = await _get_wa_settings()
     default_numbers = settings.get("default_numbers", [])
+    if isinstance(default_numbers, str):
+        default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
     if not default_numbers:
-        return {"success": False, "error": "Koi phone number nahi mila. Default numbers set karein Settings mein."}
+        return {"success": False, "error": "Koi phone number nahi mila. Settings > WhatsApp mein default numbers SAVE karein."}
 
     results = []
     for num in default_numbers:
-        r = await _send_wa_message(num, text)
-        results.append({"phone": num, "success": r.get("success", False)})
+        if num and num.strip():
+            r = await _send_wa_message(num.strip(), text)
+            results.append({"phone": num, "success": r.get("success", False)})
 
     success_count = sum(1 for r in results if r["success"])
     return {"success": success_count > 0,
@@ -209,12 +212,22 @@ async def send_daily_report(data: dict):
     report_text = data.get("report_text", "")
     pdf_url = data.get("pdf_url", "")
     send_to_group = data.get("send_to_group", False)
-    phone = data.get("phone", "")  # Optional specific number
+    phone = data.get("phone", "").strip() if data.get("phone") else ""
 
     if not report_text:
         raise HTTPException(status_code=400, detail="Report text required")
 
     settings = await _get_wa_settings()
+    default_numbers = settings.get("default_numbers", [])
+    # Defensive: ensure default_numbers is a list
+    if isinstance(default_numbers, str):
+        default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
+    if not isinstance(default_numbers, list):
+        default_numbers = []
+    group_id = settings.get("group_id", "").strip() if settings.get("group_id") else ""
+
+    logger.info(f"send-daily-report: phone='{phone}', default_numbers={default_numbers}, group_id='{group_id}', send_to_group={send_to_group}")
+
     results = []
 
     # Send to specific phone if provided
@@ -223,19 +236,20 @@ async def send_daily_report(data: dict):
         results.append({"target": phone, "success": r.get("success", False)})
     else:
         # Send to all default numbers
-        for num in settings.get("default_numbers", []):
-            r = await _send_wa_message(num, report_text, pdf_url)
-            results.append({"target": num, "success": r.get("success", False)})
+        for num in default_numbers:
+            if num and num.strip():
+                r = await _send_wa_message(num.strip(), report_text, pdf_url)
+                results.append({"target": num, "success": r.get("success", False)})
 
     # Send to group if enabled
-    if send_to_group and settings.get("group_id"):
+    if send_to_group and group_id:
         r = await _send_wa_to_group(report_text, pdf_url)
         results.append({"target": "group", "success": r.get("success", False)})
 
-    success_count = sum(1 for r in results if r["success"])
     if not results:
-        return {"success": False, "error": "Koi number ya group set nahi hai. Settings mein default numbers / group ID daalein."}
+        return {"success": False, "error": "Koi number ya group set nahi hai. Settings > WhatsApp mein default numbers set karein aur SAVE dabayein."}
 
+    success_count = sum(1 for r in results if r["success"])
     return {"success": success_count > 0,
             "message": f"{success_count}/{len(results)} targets pe bhej diya!",
             "details": results}

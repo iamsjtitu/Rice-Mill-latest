@@ -65,6 +65,11 @@ class JsonDatabase {
     this._saveTimer = setTimeout(() => this._doSave(), 300);
   }
 
+  saveImmediate() {
+    if (this._saveTimer) clearTimeout(this._saveTimer);
+    this._doSave();
+  }
+
   _doSave() {
     try {
       fs.writeFileSync(this.dbFile, JSON.stringify(this.data, null, 2));

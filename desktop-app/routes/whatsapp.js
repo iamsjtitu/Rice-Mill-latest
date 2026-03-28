@@ -68,6 +68,7 @@ router.put('/api/whatsapp/settings', safeAsync(async (req, res) => {
   if (typeof defaultNumbers === 'string') {
     defaultNumbers = defaultNumbers.split(',').map(n => n.trim()).filter(Boolean);
   }
+  if (!Array.isArray(defaultNumbers)) defaultNumbers = [];
   const config = {
     setting_id: 'whatsapp_config', api_key: (req.body.api_key || '').trim(),
     country_code: (req.body.country_code || '91').trim(),
@@ -75,7 +76,9 @@ router.put('/api/whatsapp/settings', safeAsync(async (req, res) => {
     group_id: (req.body.group_id || '').trim()
   };
   if (idx >= 0) settings[idx] = config; else settings.push(config);
-  database.save();
+  // Use immediate save to prevent data loss from debounce
+  if (database.saveImmediate) database.saveImmediate(); else database.save();
+  console.log('[WhatsApp] Settings saved:', JSON.stringify({ default_numbers: config.default_numbers, group_id: config.group_id }));
   res.json({ success: true, message: 'WhatsApp settings save ho gayi!' });
 }));
 
@@ -101,28 +104,36 @@ router.post('/api/whatsapp/send', safeAsync(async (req, res) => {
 
 // Payment reminder
 router.post('/api/whatsapp/send-payment-reminder', safeAsync(async (req, res) => {
-  const { phone, party_name, total_amount, paid_amount, balance } = req.body;
+  const phoneRaw = (req.body.phone || '').trim();
+  const { party_name, total_amount, paid_amount, balance } = req.body;
   const config = getWaSettings();
   if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
 
-  const branding = col('app_settings').find(s => s.setting_id === 'branding') || {};
+  // Try branding from app_settings first, then from database.data.branding
+  const brandingFromSettings = col('app_settings').find(s => s.setting_id === 'branding');
+  const branding = brandingFromSettings || database.data.branding || {};
   const company = branding.company_name || 'Mill Entry System';
   const bal = balance || ((total_amount || 0) - (paid_amount || 0));
 
   const text = `*${company}*\n---\nParty: ${party_name}\nTotal: Rs.${Number(total_amount||0).toLocaleString()}\nPaid: Rs.${Number(paid_amount||0).toLocaleString()}\n*Balance Due: Rs.${Number(bal).toLocaleString()}*\n---\nKripya baaki rashi ka bhugtan karein.\nDhanyavaad!`;
 
-  if (phone) {
-    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text);
+  if (phoneRaw) {
+    const r = await sendWaMessage(config.api_key, cleanPhone(phoneRaw, config.country_code), text);
     return res.json({ success: r.success, message: r.success ? 'Reminder bhej diya!' : '', error: r.error || '' });
   }
 
-  const nums = config.default_numbers || [];
-  if (!nums.length) return res.json({ success: false, error: 'Koi number nahi mila. Default numbers set karein.' });
+  // Defensive: ensure default_numbers is always an array
+  let nums = config.default_numbers || [];
+  if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
+  if (!Array.isArray(nums)) nums = [];
+  if (!nums.length) return res.json({ success: false, error: 'Koi number nahi mila. Settings > WhatsApp mein default numbers SAVE karein.' });
 
   const results = [];
   for (const num of nums) {
-    const r = await sendWaMessage(config.api_key, cleanPhone(num, config.country_code), text);
-    results.push({ phone: num, success: r.success });
+    if (num && num.trim()) {
+      const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text);
+      results.push({ phone: num, success: r.success });
+    }
   }
   const ok = results.filter(r => r.success).length;
   res.json({ success: ok > 0, message: `${ok}/${results.length} numbers pe bhej diya!`, details: results });
@@ -130,26 +141,37 @@ router.post('/api/whatsapp/send-payment-reminder', safeAsync(async (req, res) =>
 
 // Daily report
 router.post('/api/whatsapp/send-daily-report', safeAsync(async (req, res) => {
-  const { report_text, pdf_url, send_to_group, phone } = req.body;
+  const { report_text, pdf_url, send_to_group } = req.body;
+  const phone = (req.body.phone || '').trim();
   if (!report_text) return res.status(400).json({ detail: 'Report text required' });
   const config = getWaSettings();
   if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
+
+  // Defensive: ensure default_numbers is always an array
+  let defaultNums = config.default_numbers || [];
+  if (typeof defaultNums === 'string') defaultNums = defaultNums.split(',').map(n => n.trim()).filter(Boolean);
+  if (!Array.isArray(defaultNums)) defaultNums = [];
+  const groupId = (config.group_id || '').trim();
+
+  console.log('[WhatsApp] send-daily-report: phone=' + phone + ', default_numbers=' + JSON.stringify(defaultNums) + ', group_id=' + groupId);
 
   const results = [];
   if (phone) {
     const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), report_text, pdf_url || '');
     results.push({ target: phone, success: r.success });
   } else {
-    for (const num of (config.default_numbers || [])) {
-      const r = await sendWaMessage(config.api_key, cleanPhone(num, config.country_code), report_text, pdf_url || '');
-      results.push({ target: num, success: r.success });
+    for (const num of defaultNums) {
+      if (num && num.trim()) {
+        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), report_text, pdf_url || '');
+        results.push({ target: num, success: r.success });
+      }
     }
   }
-  if (send_to_group && config.group_id) {
-    const r = await sendWaMessage(config.api_key, config.group_id, report_text, pdf_url || '');
+  if (send_to_group && groupId) {
+    const r = await sendWaMessage(config.api_key, groupId, report_text, pdf_url || '');
     results.push({ target: 'group', success: r.success });
   }
-  if (!results.length) return res.json({ success: false, error: 'Koi number ya group set nahi hai.' });
+  if (!results.length) return res.json({ success: false, error: 'Koi number ya group set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });
   const ok = results.filter(r => r.success).length;
   res.json({ success: ok > 0, message: `${ok}/${results.length} targets pe bhej diya!`, details: results });
 }));
