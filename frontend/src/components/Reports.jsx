@@ -287,6 +287,30 @@ const DailyReport = ({ filters }) => {
             {sendingTelegram ? "Sending..." : "Telegram"}
           </Button>
         )}
+        <Button variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10 h-9" data-testid="daily-send-whatsapp"
+          onClick={async () => {
+            const phone = prompt("WhatsApp number daalein (Daily Report bhejne ke liye):");
+            if (!phone) return;
+            if (!data) { toast.error("Pehle report load karein"); return; }
+            const summary = [
+              `*Daily Report - ${date}* (${mode})`,
+              `---`,
+              `Paddy: ${data.paddy_entries?.count || 0} entries | Mill W: ${((data.paddy_entries?.total_mill_w || 0)/100).toFixed(2)} QNTL`,
+              data.milling ? `Milling: ${data.milling.count || 0} entries | Rice: ${((data.milling.total_rice || 0)/100).toFixed(2)} QNTL` : '',
+              data.cash_transactions ? `Cash: In Rs.${(data.cash_transactions.total_in || 0).toLocaleString()} | Out Rs.${(data.cash_transactions.total_out || 0).toLocaleString()}` : '',
+              data.sale_vouchers ? `Sales: ${data.sale_vouchers.count || 0} vouchers | Rs.${(data.sale_vouchers.total_amount || 0).toLocaleString()}` : '',
+              `---`,
+              `Mill Entry System`
+            ].filter(Boolean).join('\n');
+            try {
+              const res = await axios.post(`${API}/whatsapp/send-daily-report`, { phone, report_text: summary });
+              if (res.data.success) toast.success("Daily Report WhatsApp pe bhej diya!");
+              else toast.error(res.data.error || "WhatsApp fail");
+            } catch (e) { toast.error(e.response?.data?.detail || "WhatsApp fail"); }
+          }}
+        >
+          <Send className="w-4 h-4 mr-1" /> WhatsApp
+        </Button>
       </div>
 
       {loading ? <div className="text-center py-8 text-slate-400">Loading...</div>

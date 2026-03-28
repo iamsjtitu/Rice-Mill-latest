@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "50.3.0";
+const APP_VERSION = "50.4.0";
 
 const CHANGELOG = [
+  {
+    version: "50.4.0",
+    date: "28 Mar 2026",
+    title: "v50.4.0 - WhatsApp Integration (360Messenger)",
+    items: [
+      { type: "new", text: "WhatsApp 360Messenger API integration - Settings mein API key daalein" },
+      { type: "new", text: "WhatsApp Payment Reminder - Party ko balance due ka message bhejein" },
+      { type: "new", text: "WhatsApp Daily Report - Daily report summary WhatsApp pe share karein" },
+      { type: "new", text: "Test Message - Settings se test message bhej ke verify karein" },
+    ]
+  },
   {
     version: "50.3.0",
     date: "28 Mar 2026",

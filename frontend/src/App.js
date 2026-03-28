@@ -230,6 +230,12 @@ function MainApp({ user, onLogout }) {
   const [healthResult, setHealthResult] = useState(null);
   const [healthLoading, setHealthLoading] = useState(false);
 
+  // WhatsApp state
+  const [waSettings, setWaSettings] = useState({ api_key: "", country_code: "91", enabled: false, api_key_masked: "" });
+  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91" });
+  const [waTestPhone, setWaTestPhone] = useState("");
+  const [waLoading, setWaLoading] = useState(false);
+
   // Error log state
   const [errorLog, setErrorLog] = useState("");
   const [errorLogAvailable, setErrorLogAvailable] = useState(false);
@@ -546,6 +552,16 @@ function MainApp({ user, onLogout }) {
     };
     fetchBranding();
   }, []);
+
+  // Fetch WhatsApp settings
+  const fetchWaSettings = async () => {
+    try {
+      const res = await axios.get(`${API}/whatsapp/settings`);
+      setWaSettings(res.data);
+      setWaForm({ api_key: res.data.api_key || "", country_code: res.data.country_code || "91" });
+    } catch (e) { console.error("WA settings fetch error:", e); }
+  };
+  useEffect(() => { fetchWaSettings(); }, []);
 
   // Update branding
   const handleUpdateBranding = async () => {
@@ -1538,7 +1554,7 @@ function MainApp({ user, onLogout }) {
             </Button>
             {user.role === 'admin' && (
               <Button
-                onClick={() => { setActiveTab("settings"); fetchBackups(); fetchErrorLog(); fetchTelegramConfig(); fetchTelegramLogs(); }}
+                onClick={() => { setActiveTab("settings"); fetchBackups(); fetchErrorLog(); fetchTelegramConfig(); fetchTelegramLogs(); fetchWaSettings(); }}
                 variant={activeTab === "settings" ? "default" : "ghost"}
                 size="sm"
                 className={activeTab === "settings" 
@@ -2572,6 +2588,114 @@ function MainApp({ user, onLogout }) {
                 </div>
               </CardContent>
             </Card>
+
+            {/* WhatsApp Integration Section */}
+            <Card className="bg-slate-800 border-slate-700" data-testid="whatsapp-section">
+              <CardHeader>
+                <CardTitle className="text-green-400 flex items-center gap-2">
+                  <Send className="w-5 h-5" />
+                  WhatsApp Integration / व्हाट्सएप
+                </CardTitle>
+                <p className="text-slate-400 text-sm">
+                  360Messenger API se WhatsApp messages bhejein - Payment reminders, Daily reports, etc.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Connection Status */}
+                <div className={`p-3 rounded-lg border ${waSettings.enabled && waSettings.api_key ? 'bg-green-900/30 border-green-700' : 'bg-slate-700/50 border-slate-600'}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`font-semibold text-sm ${waSettings.enabled && waSettings.api_key ? 'text-green-400' : 'text-slate-400'}`}>
+                        {waSettings.enabled && waSettings.api_key ? 'WhatsApp Connected' : 'WhatsApp Not Connected'}
+                      </p>
+                      {waSettings.api_key_masked && <p className="text-slate-400 text-xs mt-1">API Key: {waSettings.api_key_masked}</p>}
+                    </div>
+                    <p className="text-slate-400 text-xs">Country: +{waSettings.country_code || '91'}</p>
+                  </div>
+                </div>
+
+                {/* API Key Input */}
+                <div className="grid grid-cols-12 gap-3">
+                  <div className="col-span-8">
+                    <Label className="text-slate-400 text-xs mb-1 block">360Messenger API Key</Label>
+                    <Input
+                      type="password"
+                      value={waForm.api_key}
+                      onChange={(e) => setWaForm(prev => ({ ...prev, api_key: e.target.value }))}
+                      placeholder="API key paste karein..."
+                      className="bg-slate-700 border-slate-600 text-white text-sm"
+                      data-testid="wa-api-key-input"
+                    />
+                  </div>
+                  <div className="col-span-4">
+                    <Label className="text-slate-400 text-xs mb-1 block">Country Code</Label>
+                    <Input
+                      value={waForm.country_code}
+                      onChange={(e) => setWaForm(prev => ({ ...prev, country_code: e.target.value }))}
+                      placeholder="91"
+                      className="bg-slate-700 border-slate-600 text-white text-sm"
+                      data-testid="wa-country-code-input"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  onClick={async () => {
+                    try {
+                      setWaLoading(true);
+                      await axios.put(`${API}/whatsapp/settings`, { api_key: waForm.api_key, country_code: waForm.country_code });
+                      toast.success("WhatsApp settings save ho gayi!");
+                      fetchWaSettings();
+                    } catch (e) { toast.error("Save fail!"); }
+                    finally { setWaLoading(false); }
+                  }}
+                  disabled={waLoading || !waForm.api_key}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
+                  data-testid="wa-save-btn"
+                >
+                  Save WhatsApp Settings
+                </Button>
+
+                {/* Test Message */}
+                {waSettings.enabled && waSettings.api_key && (
+                  <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
+                    <p className="text-slate-300 text-sm font-semibold mb-2">Test Message / टेस्ट मैसेज</p>
+                    <div className="flex gap-2">
+                      <Input
+                        value={waTestPhone}
+                        onChange={(e) => setWaTestPhone(e.target.value)}
+                        placeholder="Phone number (e.g. 9876543210)"
+                        className="bg-slate-700 border-slate-600 text-white text-sm flex-1"
+                        data-testid="wa-test-phone"
+                      />
+                      <Button
+                        onClick={async () => {
+                          if (!waTestPhone) { toast.error("Phone number daalein"); return; }
+                          try {
+                            setWaLoading(true);
+                            const res = await axios.post(`${API}/whatsapp/test`, { phone: waTestPhone });
+                            if (res.data.success) toast.success("Test message bhej diya!");
+                            else toast.error(res.data.error || "Test fail");
+                          } catch (e) { toast.error(e.response?.data?.detail || "Test fail"); }
+                          finally { setWaLoading(false); }
+                        }}
+                        disabled={waLoading}
+                        variant="outline"
+                        className="border-green-600 text-green-400 hover:bg-green-900/30"
+                        data-testid="wa-test-btn"
+                      >
+                        {waLoading ? 'Sending...' : 'Send Test'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-center text-slate-500 text-xs">
+                  <p>360Messenger API use hota hai | <a href="https://360messenger.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">360messenger.com</a></p>
+                </div>
+              </CardContent>
+            </Card>
+
 
             {/* Error Log Section */}
             <Card className="bg-slate-800 border-slate-700" data-testid="error-log-section">
