@@ -85,25 +85,37 @@ def style_excel_title(ws, title, ncols, subtitle="", branding=None):
     tagline = branding.get("tagline", "JOLKO, KESINGA")
     custom_fields = branding.get("custom_fields", [])
 
-    # Build tagline + custom fields combined text
+    # Build above-line text (fields with placement=above)
+    above_parts = []
+    for f in custom_fields:
+        if f.get("placement", "below") == "above":
+            lbl = f.get("label", "").strip()
+            val = f.get("value", "").strip()
+            if val:
+                above_parts.append(f"{lbl}: {val}" if lbl else val)
+    above_text = "  |  ".join(above_parts) if above_parts else ""
+
+    # Build tagline + below custom fields combined text
     tagline_parts = [tagline] if tagline else []
     for f in custom_fields:
-        lbl = f.get("label", "").strip()
-        val = f.get("value", "").strip()
-        if lbl and val:
-            tagline_parts.append(f"{lbl}: {val}")
+        if f.get("placement", "below") != "above":
+            lbl = f.get("label", "").strip()
+            val = f.get("value", "").strip()
+            if val:
+                tagline_parts.append(f"{lbl}: {val}" if lbl else val)
     combined_tagline = "  |  ".join(tagline_parts) if tagline_parts else ""
 
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncols)
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=ncols)
 
-    # Row 1: Company Name
-    c1 = ws.cell(row=1, column=1, value=company)
+    # Row 1: Above fields (if any) + Company Name
+    row1_text = f"{above_text}\n{company}" if above_text else company
+    c1 = ws.cell(row=1, column=1, value=row1_text)
     c1.font = Font(bold=True, size=18, color=COLORS['title_text'])
     c1.fill = PatternFill(start_color=COLORS['title_bg'], fill_type='solid')
-    c1.alignment = Alignment(horizontal='center', vertical='center')
-    ws.row_dimensions[1].height = 36
+    c1.alignment = Alignment(horizontal='center', vertical='center', wrap_text=bool(above_text))
+    ws.row_dimensions[1].height = 48 if above_text else 36
 
     # Row 2: Tagline + custom fields
     c2 = ws.cell(row=2, column=1, value=combined_tagline)
@@ -269,8 +281,9 @@ def get_pdf_table_style(num_rows, cols_info=None):
     return style
 
 
-def _build_custom_fields_row(branding):
-    """Build a ReportLab Table row for custom_fields with Left/Center/Right alignment."""
+def _build_custom_fields_row(branding, placement_filter="below"):
+    """Build a ReportLab Table row for custom_fields with Left/Center/Right alignment.
+    placement_filter: 'above' or 'below' to filter fields by placement."""
     register_hindi_fonts()
     from reportlab.platypus import Paragraph, Table as RLTable, TableStyle
     from reportlab.lib.styles import ParagraphStyle
@@ -278,12 +291,17 @@ def _build_custom_fields_row(branding):
     from reportlab.lib import colors as rl_colors
 
     fields = branding.get("custom_fields", [])
+    fields = [f for f in fields if f.get("placement", "below") == placement_filter]
     if not fields:
         return []
 
     left_parts, center_parts, right_parts = [], [], []
     for f in fields:
-        txt = f"<b>{f.get('label', '')}:</b> {f.get('value', '')}"
+        lbl = f.get('label', '').strip()
+        val = f.get('value', '').strip()
+        if not val:
+            continue
+        txt = f"<b>{lbl}:</b> {val}" if lbl else f"{val}"
         pos = f.get("position", "center").lower()
         if pos == "left":
             left_parts.append(txt)
@@ -341,14 +359,15 @@ def get_pdf_header_elements(title, branding=None, subtitle=""):
         borderPadding=(4, 3, 4, 3), spaceAfter=6,
     )
 
-    elements = [
-        Paragraph(company, company_style),
-        Spacer(1, 2),
-    ]
+    elements = []
+    # Custom fields ABOVE company name
+    elements.extend(_build_custom_fields_row(branding, "above"))
+    elements.append(Paragraph(company, company_style))
+    elements.append(Spacer(1, 2))
     if tagline:
         elements.append(Paragraph(tagline, tagline_style))
-    # Custom fields row (Left | Center | Right)
-    elements.extend(_build_custom_fields_row(branding))
+    # Custom fields BELOW company name (default)
+    elements.extend(_build_custom_fields_row(branding, "below"))
     elements.append(Paragraph(title if not subtitle else f"{title} | {subtitle}", title_style))
     elements.append(Spacer(1, 6))
     return elements
@@ -378,9 +397,13 @@ def get_pdf_company_header(branding=None):
         spaceAfter=6,
     )
 
-    elements = [Paragraph(company, company_style), Spacer(1, 2)]
+    elements = []
+    # Custom fields ABOVE company name
+    elements.extend(_build_custom_fields_row(branding, "above"))
+    elements.append(Paragraph(company, company_style))
+    elements.append(Spacer(1, 2))
     if tagline:
         elements.append(Paragraph(tagline, tagline_style))
-    # Custom fields row
-    elements.extend(_build_custom_fields_row(branding))
+    # Custom fields BELOW company name (default)
+    elements.extend(_build_custom_fields_row(branding, "below"))
     return elements

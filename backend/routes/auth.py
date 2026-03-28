@@ -107,14 +107,16 @@ async def update_branding(data: dict, username: str = "", role: str = ""):
         raise HTTPException(status_code=403, detail="Sirf Admin branding update kar sakta hai")
 
     custom_fields = data.get("custom_fields", [])
-    # Validate custom fields (max 6)
+    # Validate custom fields (max 6) - label is optional, value required
     clean_fields = []
     for f in custom_fields[:6]:
-        if f.get("label") and f.get("value"):
+        val = str(f.get("value", "")).strip()
+        if val:
             clean_fields.append({
-                "label": str(f["label"]).strip(),
-                "value": str(f["value"]).strip(),
-                "position": f.get("position", "center") if f.get("position") in ("left", "center", "right") else "center"
+                "label": str(f.get("label", "")).strip(),
+                "value": val,
+                "position": f.get("position", "center") if f.get("position") in ("left", "center", "right") else "center",
+                "placement": f.get("placement", "below") if f.get("placement") in ("above", "below") else "below"
             })
 
     branding_data = {

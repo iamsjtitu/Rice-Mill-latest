@@ -177,12 +177,16 @@ function addExcelTitle(sheet, title, colCount, database) {
   const branding = database ? (database.getBranding ? database.getBranding() : {}) : {};
   const customFields = branding.custom_fields || [];
   
-  // Build combined tagline with custom fields
-  const taglineParts = [branding.tagline || ''];
+  // Build above text from above-placement fields
+  const aboveParts = [];
+  const belowParts = [branding.tagline || ''];
   customFields.forEach(f => {
-    if (f.label && f.value) taglineParts.push(`${f.label}: ${f.value}`);
+    const txt = f.label ? `${f.label}: ${f.value}` : f.value;
+    if (f.placement === 'above') aboveParts.push(txt);
+    else if (f.value) belowParts.push(txt);
   });
-  const combinedTagline = taglineParts.filter(Boolean).join('  |  ');
+  const aboveText = aboveParts.filter(Boolean).join('  |  ');
+  const combinedTagline = belowParts.filter(Boolean).join('  |  ');
 
   sheet.insertRow(1, []); sheet.insertRow(1, []); sheet.insertRow(1, []);
   sheet.mergeCells(1, 1, 1, colCount); 
@@ -190,11 +194,11 @@ function addExcelTitle(sheet, title, colCount, database) {
   sheet.mergeCells(3, 1, 3, colCount);
   
   const tc = sheet.getCell('A1'); 
-  tc.value = branding.company_name || 'Mill Entry System';
+  tc.value = aboveText ? `${aboveText}\n${branding.company_name || 'Mill Entry System'}` : (branding.company_name || 'Mill Entry System');
   tc.font = { bold: true, size: 18, color: { argb: COLORS.titleText } }; 
-  tc.alignment = { horizontal: 'center', vertical: 'middle' };
+  tc.alignment = { horizontal: 'center', vertical: 'middle', wrapText: !!aboveText };
   tc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } };
-  sheet.getRow(1).height = 34;
+  sheet.getRow(1).height = aboveText ? 48 : 34;
   
   const sc = sheet.getCell('A2'); 
   sc.value = combinedTagline;

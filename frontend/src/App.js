@@ -2203,7 +2203,7 @@ function MainApp({ user, onLogout }) {
                         className="border-amber-600 text-amber-400 hover:bg-amber-900/30 text-xs"
                         onClick={() => setBrandingForm(prev => ({
                           ...prev,
-                          custom_fields: [...(prev.custom_fields || []), { label: "", value: "", position: "center" }]
+                          custom_fields: [...(prev.custom_fields || []), { label: "", value: "", position: "center", placement: "below" }]
                         }))}
                         data-testid="add-custom-field-btn"
                       >
@@ -2216,7 +2216,7 @@ function MainApp({ user, onLogout }) {
                   {(brandingForm.custom_fields || []).map((cf, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-2 items-end" data-testid={`custom-field-row-${idx}`}>
                       <div className="col-span-3">
-                        {idx === 0 && <Label className="text-slate-400 text-xs mb-1 block">Label</Label>}
+                        {idx === 0 && <Label className="text-slate-400 text-xs mb-1 block">Label (optional)</Label>}
                         <Input
                           value={cf.label}
                           onChange={(e) => {
@@ -2229,7 +2229,7 @@ function MainApp({ user, onLogout }) {
                           data-testid={`custom-field-label-${idx}`}
                         />
                       </div>
-                      <div className="col-span-5">
+                      <div className="col-span-3">
                         {idx === 0 && <Label className="text-slate-400 text-xs mb-1 block">Value</Label>}
                         <Input
                           value={cf.value}
@@ -2243,7 +2243,7 @@ function MainApp({ user, onLogout }) {
                           data-testid={`custom-field-value-${idx}`}
                         />
                       </div>
-                      <div className="col-span-3">
+                      <div className="col-span-2">
                         {idx === 0 && <Label className="text-slate-400 text-xs mb-1 block">Position</Label>}
                         <Select
                           value={cf.position || "center"}
@@ -2253,13 +2253,32 @@ function MainApp({ user, onLogout }) {
                             setBrandingForm(prev => ({ ...prev, custom_fields: updated }));
                           }}
                         >
-                          <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-9 text-sm" data-testid={`custom-field-position-${idx}`}>
+                          <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-9 text-xs" data-testid={`custom-field-position-${idx}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-slate-800 border-slate-600">
                             <SelectItem value="left" className="text-white">Left</SelectItem>
                             <SelectItem value="center" className="text-white">Center</SelectItem>
                             <SelectItem value="right" className="text-white">Right</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-3">
+                        {idx === 0 && <Label className="text-slate-400 text-xs mb-1 block">Placement</Label>}
+                        <Select
+                          value={cf.placement || "below"}
+                          onValueChange={(v) => {
+                            const updated = [...brandingForm.custom_fields];
+                            updated[idx] = { ...updated[idx], placement: v };
+                            setBrandingForm(prev => ({ ...prev, custom_fields: updated }));
+                          }}
+                        >
+                          <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-9 text-xs" data-testid={`custom-field-placement-${idx}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-800 border-slate-600">
+                            <SelectItem value="above" className="text-white">Name ke Upar</SelectItem>
+                            <SelectItem value="below" className="text-white">Name ke Neeche</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -2288,25 +2307,46 @@ function MainApp({ user, onLogout }) {
                 {/* Preview */}
                 <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
                   <p className="text-xs text-slate-400 mb-2">Preview / झलक (PDF Header jaisa dikhega):</p>
+                  {/* Above Company Name fields */}
+                  {(brandingForm.custom_fields || []).filter(f => f.value && f.placement === 'above').length > 0 && (
+                    <div className="flex justify-between text-xs text-slate-300 border-b border-slate-700 pb-2 mb-2">
+                      <div className="text-left">
+                        {(brandingForm.custom_fields || []).filter(f => f.position === 'left' && f.placement === 'above' && f.value).map((f, i) => (
+                          <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
+                        ))}
+                      </div>
+                      <div className="text-center">
+                        {(brandingForm.custom_fields || []).filter(f => f.position === 'center' && f.placement === 'above' && f.value).map((f, i) => (
+                          <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
+                        ))}
+                      </div>
+                      <div className="text-right">
+                        {(brandingForm.custom_fields || []).filter(f => f.position === 'right' && f.placement === 'above' && f.value).map((f, i) => (
+                          <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="text-center border-b border-slate-700 pb-2 mb-2">
                     <h2 className="text-2xl font-bold text-amber-400">{brandingForm.company_name || "Company Name"}</h2>
                     <p className="text-slate-400 text-sm">{brandingForm.tagline || "Tagline"}</p>
                   </div>
-                  {(brandingForm.custom_fields || []).filter(f => f.label && f.value).length > 0 && (
+                  {/* Below Company Name fields (default) */}
+                  {(brandingForm.custom_fields || []).filter(f => f.value && (f.placement || 'below') === 'below').length > 0 && (
                     <div className="flex justify-between text-xs text-slate-300 border-b border-slate-700 pb-2">
                       <div className="text-left">
-                        {(brandingForm.custom_fields || []).filter(f => f.position === 'left' && f.label && f.value).map((f, i) => (
-                          <div key={i}><span className="font-semibold">{f.label}:</span> {f.value}</div>
+                        {(brandingForm.custom_fields || []).filter(f => f.position === 'left' && (f.placement || 'below') === 'below' && f.value).map((f, i) => (
+                          <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
                         ))}
                       </div>
                       <div className="text-center">
-                        {(brandingForm.custom_fields || []).filter(f => f.position === 'center' && f.label && f.value).map((f, i) => (
-                          <div key={i}><span className="font-semibold">{f.label}:</span> {f.value}</div>
+                        {(brandingForm.custom_fields || []).filter(f => f.position === 'center' && (f.placement || 'below') === 'below' && f.value).map((f, i) => (
+                          <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
                         ))}
                       </div>
                       <div className="text-right">
-                        {(brandingForm.custom_fields || []).filter(f => f.position === 'right' && f.label && f.value).map((f, i) => (
-                          <div key={i}><span className="font-semibold">{f.label}:</span> {f.value}</div>
+                        {(brandingForm.custom_fields || []).filter(f => f.position === 'right' && (f.placement || 'below') === 'below' && f.value).map((f, i) => (
+                          <div key={i}>{f.label ? <><span className="font-semibold">{f.label}:</span> {f.value}</> : f.value}</div>
                         ))}
                       </div>
                     </div>

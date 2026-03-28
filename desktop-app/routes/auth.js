@@ -113,10 +113,11 @@ module.exports = function(database) {
   }));
 
   router.put('/api/branding', safeSync((req, res) => {
-    const custom_fields = (req.body.custom_fields || []).slice(0, 6).filter(f => f.label && f.value).map(f => ({
-      label: String(f.label).trim(),
+    const custom_fields = (req.body.custom_fields || []).slice(0, 6).filter(f => f.value).map(f => ({
+      label: String(f.label || '').trim(),
       value: String(f.value).trim(),
-      position: ['left', 'center', 'right'].includes(f.position) ? f.position : 'center'
+      position: ['left', 'center', 'right'].includes(f.position) ? f.position : 'center',
+      placement: ['above', 'below'].includes(f.placement) ? f.placement : 'below'
     }));
     const branding = database.updateBranding({ ...req.body, custom_fields });
     res.json({ success: true, message: 'Branding update ho gaya', branding });

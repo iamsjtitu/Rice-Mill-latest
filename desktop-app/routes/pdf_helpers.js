@@ -23,27 +23,48 @@ function addPdfHeader(doc, title, branding, subtitle) {
   
   // Amber header bar
   const barY = doc.y;
-  const barH = customFields.length > 0 ? 54 : 42;
+  // Custom fields ABOVE company name
+  const aboveFields = customFields.filter(f => f.placement === 'above');
+  const belowFields = customFields.filter(f => (f.placement || 'below') === 'below');
+  const totalFieldRows = (aboveFields.length > 0 ? 1 : 0) + (belowFields.length > 0 ? 1 : 0);
+  const barH = 42 + totalFieldRows * 12;
   doc.rect(20, barY, doc.page.width - 40, barH).fill('#fffbeb');
   doc.rect(20, barY, doc.page.width - 40, barH).stroke('#f59e0b');
   doc.rect(20, barY, doc.page.width - 40, 3).fill('#f59e0b');
   
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.hdrBg)
-    .text(companyName, 25, barY + 8, { align: 'center', width: doc.page.width - 50 });
-  if (tagline) doc.fontSize(8).font('Helvetica').fillColor('#6b7280')
-    .text(tagline, 25, barY + 26, { align: 'center', width: doc.page.width - 50 });
+  let curY = barY + 4;
   
-  // Custom fields row (Left | Center | Right)
-  if (customFields.length > 0) {
-    const cfY = barY + (tagline ? 36 : 28);
+  // Above fields
+  if (aboveFields.length > 0) {
     const pageW = doc.page.width - 50;
-    const left = customFields.filter(f => f.position === 'left').map(f => `${f.label}: ${f.value}`).join('  ');
-    const center = customFields.filter(f => f.position === 'center').map(f => `${f.label}: ${f.value}`).join('  ');
-    const right = customFields.filter(f => f.position === 'right').map(f => `${f.label}: ${f.value}`).join('  ');
+    const fmtField = f => f.label ? `${f.label}: ${f.value}` : f.value;
+    const left = aboveFields.filter(f => f.position === 'left').map(fmtField).join('  ');
+    const center = aboveFields.filter(f => f.position === 'center').map(fmtField).join('  ');
+    const right = aboveFields.filter(f => f.position === 'right').map(fmtField).join('  ');
     doc.fontSize(7).font('Helvetica').fillColor('#374151');
-    if (left) doc.text(left, 25, cfY, { align: 'left', width: pageW / 3 });
-    if (center) doc.text(center, 25 + pageW / 3, cfY, { align: 'center', width: pageW / 3 });
-    if (right) doc.text(right, 25 + (pageW * 2 / 3), cfY, { align: 'right', width: pageW / 3 });
+    if (left) doc.text(left, 25, curY, { align: 'left', width: pageW / 3 });
+    if (center) doc.text(center, 25 + pageW / 3, curY, { align: 'center', width: pageW / 3 });
+    if (right) doc.text(right, 25 + (pageW * 2 / 3), curY, { align: 'right', width: pageW / 3 });
+    curY += 12;
+  }
+  
+  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.hdrBg)
+    .text(companyName, 25, curY, { align: 'center', width: doc.page.width - 50 });
+  curY += 18;
+  if (tagline) { doc.fontSize(8).font('Helvetica').fillColor('#6b7280')
+    .text(tagline, 25, curY, { align: 'center', width: doc.page.width - 50 }); curY += 10; }
+  
+  // Below fields (default)
+  if (belowFields.length > 0) {
+    const pageW = doc.page.width - 50;
+    const fmtField = f => f.label ? `${f.label}: ${f.value}` : f.value;
+    const left = belowFields.filter(f => f.position === 'left').map(fmtField).join('  ');
+    const center = belowFields.filter(f => f.position === 'center').map(fmtField).join('  ');
+    const right = belowFields.filter(f => f.position === 'right').map(fmtField).join('  ');
+    doc.fontSize(7).font('Helvetica').fillColor('#374151');
+    if (left) doc.text(left, 25, curY, { align: 'left', width: pageW / 3 });
+    if (center) doc.text(center, 25 + pageW / 3, curY, { align: 'center', width: pageW / 3 });
+    if (right) doc.text(right, 25 + (pageW * 2 / 3), curY, { align: 'right', width: pageW / 3 });
   }
   
   doc.y = barY + barH + 4;
