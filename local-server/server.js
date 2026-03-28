@@ -707,7 +707,12 @@ function hasTodayBackup() {
 
 // ============ EXPRESS APP ============
 const app = express();
-app.use(compression());
+app.use(compression({
+  filter: (req, res) => {
+    if (req.url && (req.url.includes('/pdf') || req.url.includes('/export'))) return false;
+    return compression.filter(req, res);
+  }
+}));
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 

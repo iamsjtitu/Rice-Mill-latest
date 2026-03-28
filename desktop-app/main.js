@@ -1047,7 +1047,13 @@ function hasTodayBackup() {
 // ============ EXPRESS API SERVER ============
 function createApiServer(database) {
   const apiApp = express();
-  apiApp.use(compression());
+  apiApp.use(compression({
+    filter: (req, res) => {
+      // Skip compression for PDF responses to prevent ERR_STREAM_WRITE_AFTER_END
+      if (req.url && (req.url.includes('/pdf') || req.url.includes('/export'))) return false;
+      return compression.filter(req, res);
+    }
+  }));
   apiApp.use(cors());
   apiApp.use(express.json({ limit: '5mb' }));
 
