@@ -289,8 +289,6 @@ const DailyReport = ({ filters }) => {
         )}
         <Button variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10 h-9" data-testid="daily-send-whatsapp"
           onClick={async () => {
-            const phone = prompt("WhatsApp number daalein (Daily Report bhejne ke liye):");
-            if (!phone) return;
             if (!data) { toast.error("Pehle report load karein"); return; }
             const summary = [
               `*Daily Report - ${date}* (${mode})`,
@@ -302,9 +300,13 @@ const DailyReport = ({ filters }) => {
               `---`,
               `Mill Entry System`
             ].filter(Boolean).join('\n');
+            // Build PDF URL for attachment
+            const pdfUrl = `${API}/daily-report/pdf?date=${date}&mode=${mode}&kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`;
             try {
-              const res = await axios.post(`${API}/whatsapp/send-daily-report`, { phone, report_text: summary });
-              if (res.data.success) toast.success("Daily Report WhatsApp pe bhej diya!");
+              const res = await axios.post(`${API}/whatsapp/send-daily-report`, {
+                report_text: summary, pdf_url: pdfUrl, send_to_group: true
+              });
+              if (res.data.success) toast.success(res.data.message || "Daily Report WhatsApp pe bhej diya!");
               else toast.error(res.data.error || "WhatsApp fail");
             } catch (e) { toast.error(e.response?.data?.detail || "WhatsApp fail"); }
           }}

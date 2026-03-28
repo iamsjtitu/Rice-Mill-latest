@@ -1,33 +1,33 @@
 # Mill Entry System - PRD
 
-## Current Version: v50.4.0
+## Current Version: v50.5.0
 
 ## Architecture
 - Web: React + FastAPI + MongoDB
 - Desktop: Electron + Express + Local JSON
 - Local Server: Express + Local JSON
-- Triple Backend Parity enforced
 
 ## Credentials
 - Username: admin, Password: admin123
-- 360Messenger API Key: Stored in DB (settings collection)
+- 360Messenger API Key: Stored in DB settings
 
 ## Latest Features
-- v50.4.0: WhatsApp Integration (360Messenger API) - Settings config, Payment Reminders, Daily Report share, Test Message
-- v50.3.0: Full Backup System (Backup Now + Auto Daily + ZIP Download + ZIP Restore)
+- v50.5.0: WhatsApp Default Numbers, Group ID, Daily Report PDF attachment
+- v50.4.0: WhatsApp 360Messenger integration
+- v50.3.0: Full Backup System
 - v50.1.0: Extra Fields Placement + Label optional
 - v50.0.0: KMS removed, only FY
 
-## Key API Endpoints - WhatsApp
-- GET/PUT /api/whatsapp/settings - Configure API key
-- POST /api/whatsapp/test - Test connection
-- POST /api/whatsapp/send - Send custom message
-- POST /api/whatsapp/send-payment-reminder - Payment due reminder
-- POST /api/whatsapp/send-daily-report - Daily report summary
+## WhatsApp API
+- Service: 360Messenger (https://360messenger.com)
+- Base URL: https://api.360messenger.com/v2
+- Auth: Bearer token
+- Features: Send text, media (PDF), payment reminders, daily reports, group messages
+- Default numbers stored in DB - no prompt needed
+- Group ID optional - daily report goes to group too
 
 ## Upcoming Tasks
 - P1: Export Preview (preview before PDF/Excel download)
-- P2: More WhatsApp share points (Party Summary, Vouchers, etc.)
 
 ## Backlog
 - Desktop/Local server code dedup

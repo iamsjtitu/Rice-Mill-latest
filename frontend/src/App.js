@@ -231,8 +231,8 @@ function MainApp({ user, onLogout }) {
   const [healthLoading, setHealthLoading] = useState(false);
 
   // WhatsApp state
-  const [waSettings, setWaSettings] = useState({ api_key: "", country_code: "91", enabled: false, api_key_masked: "" });
-  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91" });
+  const [waSettings, setWaSettings] = useState({ api_key: "", country_code: "91", enabled: false, api_key_masked: "", default_numbers: [], group_id: "" });
+  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91", default_numbers: "", group_id: "" });
   const [waTestPhone, setWaTestPhone] = useState("");
   const [waLoading, setWaLoading] = useState(false);
 
@@ -558,7 +558,12 @@ function MainApp({ user, onLogout }) {
     try {
       const res = await axios.get(`${API}/whatsapp/settings`);
       setWaSettings(res.data);
-      setWaForm({ api_key: res.data.api_key || "", country_code: res.data.country_code || "91" });
+      setWaForm({
+        api_key: res.data.api_key || "",
+        country_code: res.data.country_code || "91",
+        default_numbers: (res.data.default_numbers || []).join(", "),
+        group_id: res.data.group_id || ""
+      });
     } catch (e) { console.error("WA settings fetch error:", e); }
   };
   useEffect(() => { fetchWaSettings(); }, []);
@@ -2610,7 +2615,9 @@ function MainApp({ user, onLogout }) {
                       </p>
                       {waSettings.api_key_masked && <p className="text-slate-400 text-xs mt-1">API Key: {waSettings.api_key_masked}</p>}
                     </div>
-                    <p className="text-slate-400 text-xs">Country: +{waSettings.country_code || '91'}</p>
+                    <p className="text-slate-400 text-xs">
+                      Country: +{waSettings.country_code || '91'} | Numbers: {(waSettings.default_numbers || []).length || 'None'} | Group: {waSettings.group_id ? 'Set' : 'Not set'}
+                    </p>
                   </div>
                 </div>
 
@@ -2639,11 +2646,40 @@ function MainApp({ user, onLogout }) {
                   </div>
                 </div>
 
+                {/* Default Numbers */}
+                <div>
+                  <Label className="text-slate-400 text-xs mb-1 block">Default Numbers (comma se alag karein)</Label>
+                  <Input
+                    value={waForm.default_numbers}
+                    onChange={(e) => setWaForm(prev => ({ ...prev, default_numbers: e.target.value }))}
+                    placeholder="9876543210, 9876543211"
+                    className="bg-slate-700 border-slate-600 text-white text-sm"
+                    data-testid="wa-default-numbers-input"
+                  />
+                  <p className="text-slate-500 text-xs mt-1">Ye numbers pe directly message jayega bina prompt ke.</p>
+                </div>
+
+                {/* Group ID */}
+                <div>
+                  <Label className="text-slate-400 text-xs mb-1 block">WhatsApp Group ID (optional)</Label>
+                  <Input
+                    value={waForm.group_id}
+                    onChange={(e) => setWaForm(prev => ({ ...prev, group_id: e.target.value }))}
+                    placeholder="Group ID (360Messenger dashboard se milega)"
+                    className="bg-slate-700 border-slate-600 text-white text-sm"
+                    data-testid="wa-group-id-input"
+                  />
+                  <p className="text-slate-500 text-xs mt-1">Daily report group mein bhi jayega agar set karoge.</p>
+                </div>
+
                 <Button
                   onClick={async () => {
                     try {
                       setWaLoading(true);
-                      await axios.put(`${API}/whatsapp/settings`, { api_key: waForm.api_key, country_code: waForm.country_code });
+                      await axios.put(`${API}/whatsapp/settings`, {
+                        api_key: waForm.api_key, country_code: waForm.country_code,
+                        default_numbers: waForm.default_numbers, group_id: waForm.group_id
+                      });
                       toast.success("WhatsApp settings save ho gayi!");
                       fetchWaSettings();
                     } catch (e) { toast.error("Save fail!"); }

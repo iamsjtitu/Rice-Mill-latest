@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "50.4.0";
+const APP_VERSION = "50.5.0";
 
 const CHANGELOG = [
+  {
+    version: "50.5.0",
+    date: "28 Mar 2026",
+    title: "v50.5.0 - WhatsApp Default Numbers + PDF + Group",
+    items: [
+      { type: "imp", text: "Default Numbers save karein - ab prompt nahi aayega, directly saved numbers pe jayega" },
+      { type: "new", text: "WhatsApp Group ID option - Daily report group mein bhi jayega" },
+      { type: "new", text: "Daily Report PDF WhatsApp pe attach hoke jayega" },
+    ]
+  },
   {
     version: "50.4.0",
     date: "28 Mar 2026",

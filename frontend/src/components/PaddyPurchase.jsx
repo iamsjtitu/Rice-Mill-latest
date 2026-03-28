@@ -346,14 +346,12 @@ export const PaddyPurchase = ({ filters, user }) => {
                       {bal > 0 && (
                         <Button variant="ghost" size="sm" className="h-6 px-1 text-green-400" data-testid={`paddy-wa-${item.id}`} title="WhatsApp Reminder"
                           onClick={async () => {
-                            const phone = prompt("Party ka WhatsApp number daalein:");
-                            if (!phone) return;
                             try {
                               const res = await axios.post(`${API}/whatsapp/send-payment-reminder`, {
-                                phone, party_name: item.party_name,
+                                party_name: item.party_name,
                                 total_amount: item.total_amount || 0, paid_amount: item.paid_amount || 0, balance: bal
                               });
-                              if (res.data.success) toast.success("WhatsApp reminder bhej diya!");
+                              if (res.data.success) toast.success(res.data.message || "WhatsApp reminder bhej diya!");
                               else toast.error(res.data.error || "WhatsApp fail");
                             } catch (e) { toast.error(e.response?.data?.detail || "WhatsApp send fail"); }
                           }}
