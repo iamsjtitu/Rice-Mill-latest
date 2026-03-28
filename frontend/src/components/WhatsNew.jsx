@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "49.0.0";
+const APP_VERSION = "50.0.0";
 
 const CHANGELOG = [
+  {
+    version: "50.0.0",
+    date: "28 Mar 2026",
+    title: "v50.0.0 - KMS Removed, Only FY Now",
+    items: [
+      { type: "imp", text: "KMS concept poori tarah hata diya - ab sirf FY (Financial Year Apr-Mar) hai" },
+      { type: "imp", text: "Saare PDF/Excel exports mein ab 'FY' likha aayega, 'KMS' nahi" },
+      { type: "fix", text: "FY year calculation fix - ab April-March ke hisaab se sahi year dikhega" },
+    ]
+  },
   {
     version: "49.0.0",
     date: "28 Mar 2026",
