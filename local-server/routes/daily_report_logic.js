@@ -235,6 +235,7 @@ function generateDailyReportPdf(doc, data, query) {
   function drawTable(headers, rows, colWidths, opts) {
     opts = opts || {};
     const fs = opts.fontSize || 7;
+    const pad = opts.cellPad || 2; // Reduced from 3 for dense tables
     const hdrBg = opts.headerBg || C.hdrBg;
     const hdrTextColor = opts.headerTextColor || C.hdrText;
     let y = doc.y;
@@ -251,7 +252,7 @@ function generateDailyReportPdf(doc, data, query) {
     headers.forEach((h, i) => {
       doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
       doc.fillColor(hdrTextColor).font('Helvetica-Bold').fontSize(fs + 0.5)
-        .text(String(h), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: opts.align || 'left' });
+        .text(String(h), x + pad, y + pad, { width: colWidths[i] - pad*2, height: rowH - 2, lineBreak: false, align: opts.align || 'left' });
       x += colWidths[i];
     });
     y += rowH;
@@ -265,7 +266,7 @@ function generateDailyReportPdf(doc, data, query) {
       row.forEach((cell, ci) => {
         doc.rect(x, y, colWidths[ci], rowH).stroke(C.border);
         doc.fillColor('#1e293b').font('Helvetica').fontSize(fs)
-          .text(String(cell ?? ''), x + 3, y + 3, { width: colWidths[ci] - 6, height: rowH - 2, lineBreak: false });
+          .text(String(cell ?? ''), x + pad, y + pad, { width: colWidths[ci] - pad*2, height: rowH - 2, lineBreak: false });
         x += colWidths[ci];
       });
       y += rowH;

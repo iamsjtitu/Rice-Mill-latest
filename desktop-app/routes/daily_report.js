@@ -54,9 +54,17 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   const sectionFont = { bold: true, size: 11, color: { argb: COLORS.titleText } };
 
   function writeSection(title) { ws.getCell(`A${row}`).value = title; ws.getCell(`A${row}`).font = sectionFont; row++; }
-  function writeHeaders(hdrs) { hdrs.forEach((h, i) => { const c = ws.getCell(row, i + 1); c.value = h; c.fill = hdrFill; c.font = hdrFont; c.alignment = { horizontal: 'center', vertical: 'middle' }; }); ws.getRow(row).height = 24; row++; }
-  function writeRow(vals) { vals.forEach((v, i) => { ws.getCell(row, i + 1).value = v; }); row++; }
+  function writeHeaders(hdrs) { hdrs.forEach((h, i) => { const c = ws.getCell(row, i + 1); c.value = h; c.fill = hdrFill; c.font = hdrFont; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; }); ws.getRow(row).height = 24; row++; }
+  function writeRow(vals) { vals.forEach((v, i) => { const c = ws.getCell(row, i + 1); c.value = v; c.alignment = { vertical: 'middle' }; }); row++; }
   function writeSummary(text) { ws.getCell(`A${row}`).value = text; ws.getCell(`A${row}`).font = subFont; row++; }
+  // Track max widths per column
+  const colMaxWidths = {};
+  function setColWidths(widthArr) {
+    widthArr.forEach((w, i) => {
+      const ci = i + 1;
+      colMaxWidths[ci] = Math.max(colMaxWidths[ci] || 0, w);
+    });
+  }
 
   // 1. Paddy Entries
   const p = data.paddy_entries;
@@ -69,6 +77,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
     const dailyCols = getColumns('daily_paddy_entries_report', colKey);
     writeHeaders(getExcelHeaders(dailyCols));
     p.details.forEach(d => writeRow(dailyCols.map(c => fmtVal(d[c.field], c.type))));
+    setColWidths(dailyCols.map(c => c.width_excel || 12));
   }
   row++;
 
@@ -84,9 +93,11 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
     if (isDetail) {
       writeHeaders(['Description','Party','Category','Type','Account','Amount']);
       cf.details.forEach(d => writeRow([d.desc, d.party, d.category, d.type.toUpperCase(), d.account.toUpperCase(), d.amount]));
+      setColWidths([35, 18, 15, 10, 10, 14]);
     } else {
       writeHeaders(['Description','Type','Account','Amount']);
       cf.details.forEach(d => writeRow([d.desc, d.type.toUpperCase(), d.account.toUpperCase(), d.amount]));
+      setColWidths([40, 10, 10, 14]);
     }
   }
   row++;
@@ -104,6 +115,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   if (pa.details.length) {
     writeHeaders(['Pump','Type','Truck','Mandi','Description','Amount']);
     pa.details.forEach(d => writeRow([d.pump, d.txn_type === 'payment' || d.txn_type === 'credit' ? 'PAID' : 'DIESEL', d.truck_no, d.mandi, d.desc, d.amount]));
+    setColWidths([16, 10, 14, 14, 30, 14]);
   }
   row++;
 
@@ -116,9 +128,11 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
       if (isDetail) {
         writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Description']);
         ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount, d.description||'']));
+        setColWidths([12, 22, 12, 14, 35]);
       } else {
         writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)']);
         ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount]));
+        setColWidths([12, 22, 12, 14]);
       }
     }
     row++;
@@ -166,11 +180,15 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
     }
   }
 
-  // Auto-fit column widths
+  // Apply column widths: use tracked max from sections, then auto-fit remaining
   for (let i = 1; i <= ws.columnCount; i++) {
-    let maxLen = 0;
-    ws.getColumn(i).eachCell(c => { if (c.value) maxLen = Math.max(maxLen, String(c.value).length); });
-    ws.getColumn(i).width = Math.min(Math.max(maxLen + 2, 10), 28);
+    if (colMaxWidths[i]) {
+      ws.getColumn(i).width = colMaxWidths[i];
+    } else {
+      let maxLen = 0;
+      ws.getColumn(i).eachCell(c => { if (c.value) maxLen = Math.max(maxLen, String(c.value).length); });
+      ws.getColumn(i).width = Math.min(Math.max(maxLen + 2, 10), 40);
+    }
   }
   // Apply alternating row colors to data rows
   for (let r = 6; r <= ws.rowCount; r++) {

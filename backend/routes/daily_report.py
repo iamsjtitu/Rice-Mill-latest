@@ -362,13 +362,25 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     border_color = colors.HexColor('#cbd5e1')
 
     def make_table(headers, rows, col_widths=None, font_size=7):
-        data_rows = [headers] + rows
+        from reportlab.platypus import Paragraph as P
+        from reportlab.lib.styles import ParagraphStyle as PS
+        hdr_ps = PS('TblHdr', fontName='FreeSansBold', fontSize=font_size, textColor=colors.white,
+                     alignment=1, leading=font_size + 2)
+        cell_ps = PS('TblCell', fontName='FreeSans', fontSize=font_size, leading=font_size + 2)
+        # Wrap headers and cells in Paragraphs so text wraps properly
+        hdr_row = [P(str(h), hdr_ps) for h in headers]
+        wrapped_rows = []
+        for r in rows:
+            wrapped_rows.append([P(str(v), cell_ps) for v in r])
+        data_rows = [hdr_row] + wrapped_rows
         t = RTable(data_rows, colWidths=col_widths, repeatRows=1)
         style_cmds = get_pdf_table_style(len(data_rows))
         style_cmds.append(('FONTSIZE', (0, 0), (-1, -1), font_size))
-        style_cmds.append(('FONTSIZE', (0, 0), (-1, 0), font_size + 1))
-        style_cmds.append(('TOPPADDING', (0, 0), (-1, -1), 3))
-        style_cmds.append(('BOTTOMPADDING', (0, 0), (-1, -1), 3))
+        style_cmds.append(('FONTSIZE', (0, 0), (-1, 0), font_size))
+        style_cmds.append(('TOPPADDING', (0, 0), (-1, -1), 2))
+        style_cmds.append(('BOTTOMPADDING', (0, 0), (-1, -1), 2))
+        style_cmds.append(('LEFTPADDING', (0, 0), (-1, -1), 2))
+        style_cmds.append(('RIGHTPADDING', (0, 0), (-1, -1), 2))
         t.setStyle(TableStyle(style_cmds))
         return t
 
@@ -733,7 +745,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 if is_detail:
                     row.append(d.get("description", ""))
                 ct_rows.append(row)
-            ct_widths = [60, 110, 50, 80, 200] if is_detail else [80, 200, 70, 120]
+            ct_widths = [55, 100, 50, 75, 190] if is_detail else [80, 200, 70, 120]
             elements.append(make_table(ct_headers, ct_rows, ct_widths))
         elements.append(Spacer(1, 4))
 
@@ -767,6 +779,8 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
 
     section_font = Font(bold=True, size=11, color=COLORS['title_text'])
     sub_font = Font(bold=True, size=9, color='475569')
+    # Track max width needed per column across the entire sheet
+    col_max_widths = {}
 
     def write_section(title_text):
         nonlocal row
@@ -800,7 +814,16 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
         for i, v in enumerate(values, 1):
             c = ws.cell(row=row, column=i, value=v)
             c.border = BORDER_THIN; c.font = Font(bold=bold_row, size=9)
+            c.alignment = Alignment(vertical='center')
         row += 1
+
+    def set_col_widths(width_list):
+        """Set explicit column widths for current section."""
+        from openpyxl.utils import get_column_letter
+        for i, w in enumerate(width_list, 1):
+            letter = get_column_letter(i)
+            current = col_max_widths.get(letter, 0)
+            col_max_widths[letter] = max(current, w)
 
     # Paddy Entries
     p = data["paddy_entries"]
@@ -813,8 +836,7 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
         write_headers(get_excel_headers(daily_cols))
         for d in p["details"]:
             write_row([fmt_val(d.get(c["field"], 0), c["type"]) for c in daily_cols])
-        for i, c in enumerate(daily_cols, 1):
-            ws.column_dimensions[chr(64 + i) if i <= 26 else 'A'].width = c.get("width_excel", 12)
+        set_col_widths([c.get("width_excel", 12) for c in daily_cols])
     row += 1
 
     # Milling
@@ -873,10 +895,12 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
             for d in cf["details"]:
                 write_row([d.get("desc",""), d.get("party",""), d.get("category",""),
                     d["type"].upper(), d["account"].upper(), d["amount"]])
+            set_col_widths([35, 18, 15, 10, 10, 14])
         else:
             write_headers(['Description', 'Type', 'Account', 'Amount'])
             for d in cf["details"]:
                 write_row([d["desc"], d["type"].upper(), d["account"].upper(), d["amount"]])
+            set_col_widths([40, 10, 10, 14])
     row += 1
 
     # Payments
@@ -906,6 +930,7 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
         for d in pa["details"]:
             write_row([d.get("pump",""), "PAID" if d.get("txn_type") in ("payment","credit") else "DIESEL",
                 d.get("truck_no",""), d.get("mandi",""), d.get("desc",""), d.get("amount",0)])
+        set_col_widths([16, 10, 14, 14, 30, 14])
         row += 1
 
     # Mill Parts Stock
@@ -978,8 +1003,10 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
         if ct.get("details"):
             if is_detail:
                 write_headers(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Description', 'Payment Mode'])
+                set_col_widths([12, 22, 12, 14, 35, 10])
             else:
                 write_headers(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Payment Mode'])
+                set_col_widths([12, 22, 12, 14, 10])
             for d in ct["details"]:
                 txn_label = "Jama" if d.get("txn_type") == "jama" else "Nikasi"
                 if is_detail:
@@ -987,16 +1014,21 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
                 else:
                     write_row([d.get("date",""), d.get("party_name",""), txn_label, round(d.get("amount",0), 2), d.get("payment_mode","")])
 
-    # Auto-fit column widths
+    # Apply collected column widths + smart auto-fit
     from openpyxl.utils import get_column_letter
     for col_idx in range(1, ws.max_column + 1):
-        max_len = 0
         col_letter = get_column_letter(col_idx)
-        for row_idx in range(1, ws.max_row + 1):
-            cell = ws.cell(row=row_idx, column=col_idx)
-            if cell.value:
-                max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = min(max(max_len + 2, 8), 25)
+        # If an explicit section width was set, use it
+        if col_letter in col_max_widths:
+            ws.column_dimensions[col_letter].width = col_max_widths[col_letter]
+        else:
+            # Auto-fit based on content
+            max_len = 0
+            for row_idx in range(1, ws.max_row + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                if cell.value:
+                    max_len = max(max_len, len(str(cell.value)))
+            ws.column_dimensions[col_letter].width = min(max(max_len + 2, 8), 40)
 
     buf = io.BytesIO()
     wb.save(buf)

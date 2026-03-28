@@ -1,7 +1,11 @@
 const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
-const { getColumns, fmtVal, getPdfHeaders, getPdfWidthsMm, getExcelHeaders, getEntryRow } = require('../../shared/report_helper');
+const { getColumns, fmtVal, getPdfHeaders, getPdfWidthsMm, getExcelHeaders, getEntryRow } = require('../shared/report_helper');
+const { getDailyReportData, generateDailyReportPdf } = require('./daily_report_logic');
+
+function fmtAmt(val) { return val === 0 ? '0' : val.toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
+function fmtDate(d) { if (!d) return ''; const s = String(d).split('T')[0]; const p = s.split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : s; }
 
 module.exports = function(database) {
 
@@ -10,522 +14,21 @@ function col(name) {
   return database.data[name];
 }
 
-function fmtAmt(val) { return val === 0 ? '0' : val.toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
-function fmtDate(d) { if (!d) return ''; const s = String(d).split('T')[0]; const p = s.split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : s; }
-
-function getDailyReportData(query) {
-  const { date, kms_year, season, mode } = query;
-  const isDetail = mode === 'detail';
-
-  function filterFy(arr) {
-    let r = arr.filter(e => e.date === date);
-    if (kms_year) r = r.filter(e => e.kms_year === kms_year);
-    if (season) r = r.filter(e => e.season === season);
-    return r;
-  }
-
-  const entries = filterFy(col('entries'));
-  const pvtPaddy = filterFy(col('private_paddy'));
-  const riceSales = filterFy(col('rice_sales'));
-  const milling = filterFy(col('milling_entries'));
-  const dcDeliveries = col('dc_deliveries').filter(d => d.date === date);
-  const cashTxns = filterFy(col('cash_transactions'));
-  const msp = filterFy(col('msp_payments'));
-  const pvtPayments = col('private_payments').filter(p => p.date === date);
-  const bpSales = filterFy(col('byproduct_sales'));
-  const frk = filterFy(col('frk_purchases'));
-  const partsTxns = col('mill_parts_stock').filter(t => t.date === date);
-  const staffAtt = col('staff_attendance').filter(a => a.date === date);
-  const allStaff = col('staff').filter(s => s.active !== false).sort((a, b) => (a.name||'').localeCompare(b.name||''));
-  const dieselTxns = filterFy(col('diesel_accounts'));
-  const dieselTotalAmount = dieselTxns.filter(t => t.txn_type === 'diesel' || t.txn_type === 'debit').reduce((s, t) => s + (t.amount || 0), 0);
-  const dieselTotalPaid = dieselTxns.filter(t => t.txn_type === 'payment' || t.txn_type === 'credit').reduce((s, t) => s + (t.amount || 0), 0);
-
-  // Build entry_id -> mandi_name map for diesel mandi lookup
-  const entryMandiMap = {};
-  entries.forEach(e => { if (e.id) entryMandiMap[e.id] = e.mandi_name || ''; });
-
-  const totalMillW = entries.reduce((s, e) => s + (e.mill_w || 0), 0);
-  const totalFinalW = entries.reduce((s, e) => s + (e.final_w || 0), 0);
-  const totalCashPaid = entries.reduce((s, e) => s + (e.cash_paid || 0), 0);
-  const totalDieselPaid = entries.reduce((s, e) => s + (e.diesel_paid || 0), 0);
-  const cashJama = cashTxns.filter(t => t.txn_type === 'jama' && t.account === 'cash').reduce((s, t) => s + (t.amount || 0), 0);
-  const cashNikasi = cashTxns.filter(t => t.txn_type === 'nikasi' && t.account === 'cash').reduce((s, t) => s + (t.amount || 0), 0);
-  const bankJama = cashTxns.filter(t => t.txn_type === 'jama' && t.account === 'bank').reduce((s, t) => s + (t.amount || 0), 0);
-  const bankNikasi = cashTxns.filter(t => t.txn_type === 'nikasi' && t.account === 'bank').reduce((s, t) => s + (t.amount || 0), 0);
-  const mspAmount = msp.reduce((s, p) => s + (p.amount || 0), 0);
-  const pvtPaid = pvtPayments.filter(p => p.ref_type === 'paddy_purchase').reduce((s, p) => s + (p.amount || 0), 0);
-  const pvtReceived = pvtPayments.filter(p => p.ref_type === 'rice_sale').reduce((s, p) => s + (p.amount || 0), 0);
-
-  const attMap = {};
-  for (const a of staffAtt) attMap[a.staff_id] = a.status;
-  let presentC = 0, absentC = 0, halfC = 0, holidayC = 0, notMarkedC = 0;
-  const staffDetails = [];
-  for (const s of allStaff) {
-    const status = attMap[s.id] || 'not_marked';
-    staffDetails.push({ name: s.name, status });
-    if (status === 'present') presentC++;
-    else if (status === 'absent') absentC++;
-    else if (status === 'half_day') halfC++;
-    else if (status === 'holiday') holidayC++;
-    else notMarkedC++;
-  }
-
-  // All entries return ALL fields regardless of mode
-  const entryDetails = entries.map(e => ({
-    truck_no: e.truck_no||'', agent: e.agent_name||'', mandi: e.mandi_name||'',
-    rst_no: e.rst_no||'', tp_no: e.tp_no||'', season: e.season||'',
-    kg: e.kg||0, qntl: e.qntl||0, bags: e.bag||0,
-    g_deposite: e.g_deposite||0, gbw_cut: e.gbw_cut||0,
-    mill_w: e.mill_w||0, moisture: e.moisture||0, moisture_cut: e.moisture_cut||0,
-    cutting_percent: e.cutting_percent||0, disc_dust_poll: e.disc_dust_poll||0,
-    final_w: e.final_w||0, plastic_bag: e.plastic_bag||0, p_pkt_cut: e.p_pkt_cut||0,
-    g_issued: e.g_issued||0, cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0
-  }));
-
-  return {
-    date, mode: mode || 'normal',
-    paddy_entries: {
-      count: entries.length,
-      total_mill_w: +(totalMillW).toFixed(2),
-      total_bags: entries.reduce((s, e) => s + (e.bag || 0), 0),
-      total_final_w: +(totalFinalW).toFixed(2),
-      total_kg: entries.reduce((s, e) => s + (e.kg || 0), 0),
-      total_g_deposite: entries.reduce((s, e) => s + (e.g_deposite || 0), 0),
-      total_g_issued: entries.reduce((s, e) => s + (e.g_issued || 0), 0),
-      total_cash_paid: +totalCashPaid.toFixed(2),
-      total_diesel_paid: +totalDieselPaid.toFixed(2),
-      details: entryDetails
-    },
-    pvt_paddy: {
-      count: pvtPaddy.length,
-      total_qntl: +pvtPaddy.reduce((s, e) => s + (e.final_qntl || e.qntl || e.quantity_qntl || 0), 0).toFixed(2),
-      total_amount: pvtPaddy.reduce((s, e) => s + (e.total_amount || e.amount || 0), 0),
-      details: isDetail ? pvtPaddy.map(p => ({ party: p.party_name||'', type: p.paddy_type||'', kg: p.kg||0, qntl: +(p.final_qntl||p.qntl||p.quantity_qntl||0).toFixed(2), rate: p.rate_per_qntl||p.rate||0, amount: p.total_amount||p.amount||0 })) : []
-    },
-    rice_sales: {
-      count: riceSales.length,
-      total_qntl: riceSales.reduce((s, e) => s + (e.qntl || 0), 0),
-      total_amount: riceSales.reduce((s, e) => s + (e.amount || 0), 0),
-      details: isDetail ? riceSales.map(r => ({ buyer: r.buyer_name||'', type: r.rice_type||'', qntl: r.qntl||0, rate: r.rate||0, amount: r.amount||0 })) : []
-    },
-    milling: {
-      count: milling.length,
-      paddy_input_qntl: +milling.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0).toFixed(2),
-      rice_output_qntl: +milling.reduce((s, e) => s + (e.rice_qntl || 0), 0).toFixed(2),
-      frk_used_qntl: +milling.reduce((s, e) => s + (e.frk_used_qntl || 0), 0).toFixed(2),
-      details: isDetail ? milling.map(m => ({ paddy_in: m.paddy_input_qntl||0, rice_out: m.rice_qntl||0, type: m.rice_type||'', frk: m.frk_used_qntl||0, cmr_ready: m.cmr_ready||0, outturn: m.outturn||0 })) : []
-    },
-    dc_deliveries: {
-      count: dcDeliveries.length,
-      total_bags: dcDeliveries.reduce((s, e) => s + (e.bags || 0), 0),
-      total_qntl: dcDeliveries.reduce((s, e) => s + (e.qntl || 0), 0),
-      details: isDetail ? dcDeliveries.map(d => ({ dc_no: d.dc_no||'', type: d.rice_type||'', bags: d.bags||0, qntl: d.qntl||0, destination: d.destination||'' })) : []
-    },
-    cash_flow: {
-      cash_jama: +cashJama.toFixed(2), cash_nikasi: +cashNikasi.toFixed(2),
-      bank_jama: +bankJama.toFixed(2), bank_nikasi: +bankNikasi.toFixed(2),
-      net_cash: +(cashJama - cashNikasi).toFixed(2), net_bank: +(bankJama - bankNikasi).toFixed(2),
-      details: cashTxns.map(t => ({ desc: t.description||'', type: t.txn_type||'', account: t.account||'', category: t.category||'', amount: t.amount||0, party: t.party_name||'' }))
-    },
-    payments: {
-      msp_received: +mspAmount.toFixed(2), pvt_paddy_paid: +pvtPaid.toFixed(2), rice_sale_received: +pvtReceived.toFixed(2),
-    },
-    byproducts: {
-      count: bpSales.length,
-      total_amount: bpSales.reduce((s, e) => s + (e.amount || 0), 0),
-      details: isDetail ? bpSales.map(b => ({ type: b.type||'', buyer: b.buyer_name||'', amount: b.amount||0 })) : []
-    },
-    frk: {
-      count: frk.length,
-      total_amount: frk.reduce((s, e) => s + (e.amount || 0), 0),
-      total_qntl: frk.reduce((s, e) => s + (e.qntl || 0), 0),
-      details: isDetail ? frk.map(f => ({ party: f.party_name||'', qntl: f.qntl||0, rate: f.rate||0, amount: f.amount||0 })) : []
-    },
-    mill_parts: {
-      in_count: partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').length,
-      used_count: partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').length,
-      in_amount: partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').reduce((s, t) => s + (t.amount || t.total_cost || 0), 0),
-      in_details: isDetail ? partsTxns.filter(t => t.txn_type === 'purchase' || t.txn_type === 'in').map(t => ({ part: t.part_name||'', qty: t.quantity||0, rate: t.rate||0, party: t.party_name||'', bill_no: t.bill_no||'', amount: t.amount||t.total_cost||t.total_amount||0 })) : [],
-      used_details: isDetail ? partsTxns.filter(t => t.txn_type === 'used' || t.txn_type === 'out').map(t => ({ part: t.part_name||'', qty: t.quantity||0 })) : []
-    },
-    pump_account: {
-      total_diesel: +dieselTotalAmount.toFixed(2),
-      total_paid: +dieselTotalPaid.toFixed(2),
-      balance: +(dieselTotalAmount - dieselTotalPaid).toFixed(2),
-      details: dieselTxns.map(t => ({
-        pump: t.pump_name||'', txn_type: t.txn_type||'', amount: t.amount||0,
-        truck_no: t.truck_no||'',
-        mandi: t.mandi_name || entryMandiMap[t.linked_entry_id||''] || (t.description||'').split('Mandi ').pop() || '',
-        desc: t.description||''
-      }))
-    },
-    cash_transactions: {
-      count: cashTxns.filter(t => t.account === 'cash').length,
-      total_jama: +cashTxns.filter(t => t.txn_type === 'jama' && t.account === 'cash').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
-      total_nikasi: +cashTxns.filter(t => t.txn_type === 'nikasi' && t.account === 'cash').reduce((s, t) => s + (t.amount || 0), 0).toFixed(2),
-      details: cashTxns.filter(t => t.account === 'cash').map(t => ({
-        date: t.date || date,
-        party_name: t.category || '',
-        party_type: t.party_type || '',
-        txn_type: t.txn_type || '',
-        amount: Math.round((t.amount || 0) * 100) / 100,
-        description: t.description || '',
-        payment_mode: 'Cash'
-      }))
-    },
-    staff_attendance: {
-      total: allStaff.length, present: presentC, absent: absentC, half_day: halfC, holiday: holidayC, not_marked: notMarkedC,
-      details: staffDetails
-    }
-  };
-}
-
 router.get('/api/reports/daily', safeSync((req, res) => {
-  res.json(getDailyReportData(req.query));
+  res.json(getDailyReportData(database, req.query));
 }));
 
 // ============ DAILY REPORT PDF ============
 router.get('/api/reports/daily/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
-  const data = getDailyReportData(req.query);
-  const isDetail = data.mode === 'detail';
-  const modeLabel = isDetail ? 'DETAILED' : 'SUMMARY';
-
+  const data = getDailyReportData(database, req.query);
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+  
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.pdf`);
   doc.pipe(res);
 
-  // Colors
-  const C = {
-    hdrBg: '#1a365d', hdrText: '#ffffff', border: '#cbd5e1',
-    altRow: '#f8fafc', blueBg: '#e0f2fe', greenBg: '#dcfce7',
-    yellowBg: '#fef3c7', purpleBg: '#e0e7ff', orangeBg: '#fff7ed',
-    staffBg: '#dbeafe', section: '#1a365d', sub: '#475569'
-  };
-
-  // Draw a table with grid borders and colored headers
-  function drawTable(headers, rows, colWidths, opts) {
-    opts = opts || {};
-    const fs = opts.fontSize || 7;
-    const hdrBg = opts.headerBg || C.hdrBg;
-    const hdrTextColor = opts.headerTextColor || C.hdrText;
-    let y = doc.y;
-    const rowH = fs + 8;
-    const totalW = colWidths.reduce((a,b) => a+b, 0);
-    const startX = Math.max(25, (doc.page.width - totalW) / 2);
-
-    // Page check
-    if (y + rowH * (rows.length + 1) + 20 > doc.page.height - 25) { doc.addPage(); y = 25; }
-
-    // Header row
-    let x = startX;
-    doc.rect(x, y, totalW, rowH).fill(hdrBg);
-    headers.forEach((h, i) => {
-      doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-      doc.fillColor(hdrTextColor).font('Helvetica-Bold').fontSize(fs + 0.5)
-        .text(String(h), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: opts.align || 'left' });
-      x += colWidths[i];
-    });
-    y += rowH;
-
-    // Data rows
-    rows.forEach((row, ri) => {
-      if (y + rowH > doc.page.height - 25) { doc.addPage(); y = 25; }
-      x = startX;
-      const bgColor = ri % 2 === 0 ? '#ffffff' : C.altRow;
-      doc.rect(x, y, totalW, rowH).fill(bgColor);
-      row.forEach((cell, ci) => {
-        doc.rect(x, y, colWidths[ci], rowH).stroke(C.border);
-        doc.fillColor('#1e293b').font('Helvetica').fontSize(fs)
-          .text(String(cell ?? ''), x + 3, y + 3, { width: colWidths[ci] - 6, height: rowH - 2, lineBreak: false });
-        x += colWidths[ci];
-      });
-      y += rowH;
-    });
-    doc.y = y + 6;
-    doc.x = 25;
-  }
-
-  // Summary box (colored background, 2 rows)
-  function drawSummaryBox(labels, values, colWidths, bgColor) {
-    const fs = 7; const rowH = 16;
-    let y = doc.y;
-    const totalW = colWidths.reduce((a,b) => a+b, 0);
-    const startX = Math.max(25, (doc.page.width - totalW) / 2);
-    if (y + rowH * 2 + 10 > doc.page.height - 25) { doc.addPage(); y = 25; }
-
-    // Header
-    let x = startX;
-    doc.rect(x, y, totalW, rowH).fill(bgColor);
-    labels.forEach((l, i) => {
-      doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-      doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(fs + 0.5)
-        .text(String(l), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: 'center' });
-      x += colWidths[i];
-    });
-    y += rowH;
-
-    // Values
-    x = startX;
-    doc.rect(x, y, totalW, rowH).fill('#ffffff');
-    values.forEach((v, i) => {
-      doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-      doc.fillColor('#1e293b').font('Helvetica').fontSize(fs)
-        .text(String(v ?? ''), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: 'center' });
-      x += colWidths[i];
-    });
-    doc.y = y + rowH + 2;
-    doc.x = startX;
-  }
-
-  function sectionTitle(num, title) {
-    if (doc.y > doc.page.height - 60) doc.addPage();
-    doc.moveDown(0.3);
-    doc.fontSize(11).font('Helvetica-Bold').fillColor(C.section).text(`${num}. ${title}`, { align: 'center' });
-    doc.moveDown(0.15);
-    doc.fillColor('black').font('Helvetica').fontSize(7);
-  }
-
-  function subText(text) {
-    doc.fontSize(7.5).font('Helvetica-Bold').fillColor(C.sub).text(text);
-    doc.moveDown(0.1);
-    doc.fillColor('black').font('Helvetica').fontSize(7);
-  }
-
-  // ===== TITLE =====
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.section).text(`Daily Report - ${fmtDate(data.date)}`, { align: 'center' });
-  doc.fontSize(8.5).font('Helvetica').fillColor('grey').text(`Mode: ${modeLabel} | KMS: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`, { align: 'center' });
-  doc.moveDown(0.2);
-  doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(25, doc.y).lineTo(doc.page.width - 25, doc.y).stroke();
-  doc.moveDown(0.4);
-
-  // ===== 1. PADDY ENTRIES =====
-  const p = data.paddy_entries;
-  sectionTitle(1, `Paddy Entries (${p.count})`);
-  drawSummaryBox(
-    ['Total Mill W (QNTL)', 'Total BAG', 'Final W QNTL (Auto)', 'Bag Deposite', 'Bag Issued'],
-    [(p.total_mill_w/100).toFixed(2), p.total_bags, (p.total_final_w/100).toFixed(2), p.total_g_deposite||0, p.total_g_issued||0],
-    [100, 90, 100, 80, 80], C.blueBg
-  );
-  drawSummaryBox(
-    ['Total Cash Paid', 'Total Diesel Paid'],
-    [`Rs.${fmtAmt(p.total_cash_paid)}`, `Rs.${fmtAmt(p.total_diesel_paid)}`],
-    [250, 250], C.greenBg
-  );
-
-  if (p.details.length) {
-    const colKey = isDetail ? 'detail_mode_columns' : 'summary_mode_columns';
-    const dailyCols = getColumns('daily_paddy_entries_report', colKey);
-    const pdfHdrs = getPdfHeaders(dailyCols);
-    const pdfWidths = getPdfWidthsMm(dailyCols);
-    drawTable(
-      pdfHdrs,
-      p.details.map(d => dailyCols.map(c => String(fmtVal(d[c.field], c.type)))),
-      pdfWidths, { fontSize: isDetail ? 6 : 7 }
-    );
-  }
-
-  // ===== 2. MILLING =====
-  const ml = data.milling;
-  if (ml.count) {
-    sectionTitle(2, `Milling (${ml.count})`);
-    drawSummaryBox(
-      ['Paddy In (Q)', 'Rice Out (Q)', 'FRK Used (Q)'],
-      [ml.paddy_input_qntl, ml.rice_output_qntl, ml.frk_used_qntl],
-      [170, 170, 170], C.yellowBg
-    );
-    if (isDetail && ml.details.length) {
-      drawTable(
-        ['Paddy In (Q)', 'Rice Out (Q)', 'Type', 'FRK (Q)', 'CMR Ready (Q)', 'Outturn%'],
-        ml.details.map(d => [d.paddy_in, d.rice_out, d.type, d.frk, d.cmr_ready||0, d.outturn||0]),
-        [75, 75, 70, 60, 75, 60]
-      );
-    }
-  }
-
-  // ===== 3. PRIVATE TRADING =====
-  const pp = data.pvt_paddy;
-  const rs = data.rice_sales;
-  if (pp.count || rs.count) {
-    sectionTitle(3, 'Private Trading');
-    if (pp.count) {
-      subText(`Paddy Purchase (${pp.count}): ${pp.total_qntl} Qntl | Rs. ${fmtAmt(pp.total_amount)}`);
-      if (pp.details.length) {
-        drawTable(
-          isDetail ? ['Party','Variety','Qntl','Rate','Amount'] : ['Party','Qntl','Amount'],
-          pp.details.map(d => isDetail
-            ? [d.party, d.type||'', d.qntl, d.rate||0, `Rs.${fmtAmt(d.amount)}`]
-            : [d.party, d.qntl, `Rs.${fmtAmt(d.amount)}`]),
-          isDetail ? [90,60,55,55,75] : [200,100,120]
-        );
-      }
-    }
-    if (rs.count) {
-      subText(`Rice Sales (${rs.count}): ${rs.total_qntl} Q | Rs. ${fmtAmt(rs.total_amount)}`);
-      if (rs.details.length) {
-        drawTable(
-          isDetail ? ['Buyer','Type','Qntl','Rate','Amount'] : ['Buyer','Qntl','Amount'],
-          rs.details.map(d => isDetail
-            ? [d.buyer, d.type||'', d.qntl, d.rate||0, `Rs.${fmtAmt(d.amount)}`]
-            : [d.buyer, d.qntl, `Rs.${fmtAmt(d.amount)}`]),
-          isDetail ? [90,60,55,55,75] : [200,100,120]
-        );
-      }
-    }
-  }
-
-  // ===== 4. CASH FLOW =====
-  const cf = data.cash_flow;
-  sectionTitle(4, 'Cash Flow');
-  drawSummaryBox(
-    ['', 'Jama (Cr)', 'Nikasi (Dr)', 'Net'],
-    ['', '', '', ''],
-    [80, 130, 130, 130], C.greenBg
-  );
-  // Overwrite with actual cash/bank rows
-  doc.y -= 2;
-  drawTable(
-    ['','Jama (Cr)','Nikasi (Dr)','Net'],
-    [
-      ['Cash', `Rs.${fmtAmt(cf.cash_jama)}`, `Rs.${fmtAmt(cf.cash_nikasi)}`, `Rs.${fmtAmt(cf.net_cash)}`],
-      ['Bank', `Rs.${fmtAmt(cf.bank_jama)}`, `Rs.${fmtAmt(cf.bank_nikasi)}`, `Rs.${fmtAmt(cf.net_bank)}`]
-    ],
-    [80, 130, 130, 130], { headerBg: C.greenBg, headerTextColor: '#1e293b' }
-  );
-
-  if (cf.details.length) {
-    const cfH = isDetail ? ['Description','Party','Category','Type','Account','Amount'] : ['Description','Type','Account','Amount'];
-    const cfR = cf.details.map(d => isDetail
-      ? [d.desc, d.party, d.category, (d.type||'').toUpperCase(), (d.account||'').toUpperCase(), `Rs.${fmtAmt(d.amount)}`]
-      : [d.desc, (d.type||'').toUpperCase(), (d.account||'').toUpperCase(), `Rs.${fmtAmt(d.amount)}`]);
-    const cfW = isDetail ? [150,60,60,50,50,60] : [230,60,60,70];
-    drawTable(cfH, cfR, cfW);
-  }
-
-  // ===== 5. PAYMENTS =====
-  sectionTitle(5, 'Payments Summary');
-  drawSummaryBox(
-    ['MSP Received', 'Pvt Paddy Paid', 'Rice Sale Received'],
-    [`Rs.${fmtAmt(data.payments.msp_received)}`, `Rs.${fmtAmt(data.payments.pvt_paddy_paid)}`, `Rs.${fmtAmt(data.payments.rice_sale_received)}`],
-    [170, 170, 170], C.purpleBg
-  );
-
-  // ===== 6. PUMP ACCOUNT =====
-  const pa = data.pump_account;
-  if (pa.details.length) {
-    sectionTitle(6, 'Pump Account / Diesel');
-    drawSummaryBox(
-      ['Total Diesel', 'Total Paid', 'Balance'],
-      [`Rs.${fmtAmt(pa.total_diesel)}`, `Rs.${fmtAmt(pa.total_paid)}`, `Rs.${fmtAmt(pa.balance)}`],
-      [170, 170, 170], C.orangeBg
-    );
-    drawTable(
-      ['Pump','Type','Truck','Mandi','Description','Amount'],
-      pa.details.map(d => [d.pump, d.txn_type === 'payment' || d.txn_type === 'credit' ? 'PAID' : 'DIESEL', d.truck_no, d.mandi, d.desc, `Rs.${fmtAmt(d.amount)}`]),
-      [60,40,60,60,170,60]
-    );
-  }
-
-  // ===== 6.5 CASH TRANSACTIONS =====
-  const ctxn = data.cash_transactions;
-  if (ctxn && ctxn.count > 0) {
-    sectionTitle(0, `Cash Transactions (${ctxn.count})`);
-    drawSummaryBox(
-      ['Total Jama', 'Total Nikasi', 'Balance'],
-      [`Rs.${fmtAmt(ctxn.total_jama)}`, `Rs.${fmtAmt(ctxn.total_nikasi)}`, `Rs.${fmtAmt(ctxn.total_jama - ctxn.total_nikasi)}`],
-      [170, 170, 170], C.yellowBg || C.orangeBg
-    );
-    if (ctxn.details && ctxn.details.length) {
-      const ctH = isDetail ? ['Date','Party Name','Type','Amount (Rs.)','Description'] : ['Date','Party Name','Type','Amount (Rs.)'];
-      const ctR = ctxn.details.map(d => {
-        const row = [d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'JAMA' : 'NIKASI', `Rs.${fmtAmt(d.amount)}`];
-        if (isDetail) row.push(d.description||'');
-        return row;
-      });
-      const ctW = isDetail ? [60,110,50,80,200] : [80,200,70,120];
-      drawTable(ctH, ctR, ctW);
-    }
-  }
-
-  // ===== 7. DC DELIVERIES =====
-  const dc = data.dc_deliveries;
-  if (dc.count) {
-    sectionTitle(7, `DC Deliveries (${dc.count}) - ${dc.total_qntl} Q`);
-    if (isDetail && dc.details.length) {
-      drawTable(
-        ['DC No','Type','Bags','Qntl','Destination'],
-        dc.details.map(d => [d.dc_no, d.type, d.bags, d.qntl, d.destination]),
-        [80, 100, 80, 80, 100]
-      );
-    }
-  }
-
-  // ===== 8. BY-PRODUCTS =====
-  const bp = data.byproducts;
-  if (bp.count) {
-    sectionTitle(8, `By-Product Sales (${bp.count}) - Rs. ${fmtAmt(bp.total_amount)}`);
-    if (isDetail && bp.details.length) {
-      drawTable(
-        ['Type','Buyer','Amount'],
-        bp.details.map(d => [d.type, d.buyer, `Rs.${fmtAmt(d.amount)}`]),
-        [120, 150, 100]
-      );
-    }
-  }
-
-  // ===== 9. FRK =====
-  const fk = data.frk;
-  if (fk.count) {
-    sectionTitle(9, `FRK Purchase (${fk.count}) - ${fk.total_qntl} Q | Rs. ${fmtAmt(fk.total_amount)}`);
-    if (isDetail && fk.details.length) {
-      drawTable(
-        ['Party','Qntl','Rate','Amount'],
-        fk.details.map(d => [d.party, d.qntl, d.rate, `Rs.${fmtAmt(d.amount)}`]),
-        [150, 90, 90, 100]
-      );
-    }
-  }
-
-  // ===== 10. MILL PARTS =====
-  const mp = data.mill_parts;
-  if (mp.in_count || mp.used_count) {
-    sectionTitle(10, `Mill Parts Stock (In: ${mp.in_count} | Used: ${mp.used_count}) | Purchase: Rs. ${fmtAmt(mp.in_amount)}`);
-    if (mp.in_details.length) {
-      subText('Parts Purchased:');
-      drawTable(
-        ['Part','Qty','Rate','Party','Bill No','Amount'],
-        mp.in_details.map(d => [d.part, d.qty, d.rate||0, d.party||'', d.bill_no||'', `Rs.${fmtAmt(d.amount)}`]),
-        [80, 45, 55, 80, 60, 70]
-      );
-    }
-    if (mp.used_details.length) {
-      subText('Parts Used:');
-      drawTable(
-        ['Part','Qty'],
-        mp.used_details.map(d => [d.part, d.qty]),
-        [200, 100]
-      );
-    }
-  }
-
-  // ===== 11. STAFF ATTENDANCE =====
-  const sa = data.staff_attendance;
-  if (sa.total) {
-    sectionTitle(11, `Staff Attendance (${sa.total})`);
-    drawSummaryBox(
-      ['Present','Half Day','Holiday','Absent','Not Marked'],
-      [sa.present, sa.half_day, sa.holiday, sa.absent, sa.not_marked],
-      [95, 95, 95, 95, 95], C.staffBg
-    );
-    if (sa.details.length) {
-      const statusMap = { present: 'P', absent: 'A', half_day: 'H', holiday: 'CH', not_marked: '-' };
-      drawTable(['Staff Name','Status'],
-        sa.details.map(d => [d.name, statusMap[d.status] || d.status]),
-        [250, 100]);
-    }
-  }
+  generateDailyReportPdf(doc, data, req.query);
 
   doc.end();
 }));
@@ -533,25 +36,35 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
 // ============ DAILY REPORT EXCEL ============
 router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
-  const data = getDailyReportData(req.query);
+  const { styleExcelData, addExcelTitle, COLORS } = require('./excel_helpers');
+  const data = getDailyReportData(database, req.query);
   const isDetail = data.mode === 'detail';
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet(`Daily Report ${data.date}`);
-  const hdrFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } };
-  const hdrFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
+  const colCount = 6;
+
+  addExcelTitle(ws, `Daily Report - ${data.date} (${isDetail ? 'DETAILED' : 'SUMMARY'})`, colCount, database);
+  ws.getCell('A4').value = `FY: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`;
+  ws.getCell('A4').font = { italic: true, size: 9, color: { argb: 'FF666666' } };
+  let row = 6;
+
+  const hdrFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.headerBg } };
+  const hdrFont = { bold: true, color: { argb: COLORS.headerText }, size: 9 };
   const subFont = { bold: true, size: 9, color: { argb: 'FF475569' } };
+  const sectionFont = { bold: true, size: 11, color: { argb: COLORS.titleText } };
 
-  ws.mergeCells('A1:F1');
-  ws.getCell('A1').value = `Daily Report - ${data.date} (${isDetail ? 'DETAILED' : 'SUMMARY'})`;
-  ws.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1a365d' } };
-  ws.getCell('A2').value = `FY: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`;
-  ws.getCell('A2').font = { italic: true, size: 9, color: { argb: 'FF666666' } };
-  let row = 4;
-
-  function writeSection(title) { ws.getCell(`A${row}`).value = title; ws.getCell(`A${row}`).font = { bold: true, size: 11, color: { argb: 'FF1a365d' } }; row++; }
-  function writeHeaders(hdrs) { hdrs.forEach((h, i) => { const c = ws.getCell(row, i + 1); c.value = h; c.fill = hdrFill; c.font = hdrFont; }); row++; }
-  function writeRow(vals) { vals.forEach((v, i) => { ws.getCell(row, i + 1).value = v; }); row++; }
+  function writeSection(title) { ws.getCell(`A${row}`).value = title; ws.getCell(`A${row}`).font = sectionFont; row++; }
+  function writeHeaders(hdrs) { hdrs.forEach((h, i) => { const c = ws.getCell(row, i + 1); c.value = h; c.fill = hdrFill; c.font = hdrFont; c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; }); ws.getRow(row).height = 24; row++; }
+  function writeRow(vals) { vals.forEach((v, i) => { const c = ws.getCell(row, i + 1); c.value = v; c.alignment = { vertical: 'middle' }; }); row++; }
   function writeSummary(text) { ws.getCell(`A${row}`).value = text; ws.getCell(`A${row}`).font = subFont; row++; }
+  // Track max widths per column
+  const colMaxWidths = {};
+  function setColWidths(widthArr) {
+    widthArr.forEach((w, i) => {
+      const ci = i + 1;
+      colMaxWidths[ci] = Math.max(colMaxWidths[ci] || 0, w);
+    });
+  }
 
   // 1. Paddy Entries
   const p = data.paddy_entries;
@@ -564,6 +77,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
     const dailyCols = getColumns('daily_paddy_entries_report', colKey);
     writeHeaders(getExcelHeaders(dailyCols));
     p.details.forEach(d => writeRow(dailyCols.map(c => fmtVal(d[c.field], c.type))));
+    setColWidths(dailyCols.map(c => c.width_excel || 12));
   }
   row++;
 
@@ -579,9 +93,11 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
     if (isDetail) {
       writeHeaders(['Description','Party','Category','Type','Account','Amount']);
       cf.details.forEach(d => writeRow([d.desc, d.party, d.category, d.type.toUpperCase(), d.account.toUpperCase(), d.amount]));
+      setColWidths([35, 18, 15, 10, 10, 14]);
     } else {
       writeHeaders(['Description','Type','Account','Amount']);
       cf.details.forEach(d => writeRow([d.desc, d.type.toUpperCase(), d.account.toUpperCase(), d.amount]));
+      setColWidths([40, 10, 10, 14]);
     }
   }
   row++;
@@ -599,6 +115,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   if (pa.details.length) {
     writeHeaders(['Pump','Type','Truck','Mandi','Description','Amount']);
     pa.details.forEach(d => writeRow([d.pump, d.txn_type === 'payment' || d.txn_type === 'credit' ? 'PAID' : 'DIESEL', d.truck_no, d.mandi, d.desc, d.amount]));
+    setColWidths([16, 10, 14, 14, 30, 14]);
   }
   row++;
 
@@ -611,10 +128,29 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
       if (isDetail) {
         writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Description']);
         ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount, d.description||'']));
+        setColWidths([12, 22, 12, 14, 35]);
       } else {
         writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)']);
         ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount]));
+        setColWidths([12, 22, 12, 14]);
       }
+    }
+    row++;
+  }
+
+  // 7. Mill Parts Stock
+  const mp = data.mill_parts;
+  if (mp && (mp.in_count || mp.used_count)) {
+    writeSection(`7. Mill Parts Stock (In: ${mp.in_count} | Used: ${mp.used_count})`);
+    if (mp.in_details && mp.in_details.length) {
+      writeSummary(`Parts Purchased - Total: Rs. ${fmtAmt(mp.in_amount || 0)}`);
+      writeHeaders(['Part', 'Qty', 'Rate', 'Party', 'Bill No', 'Store Room', 'Amount']);
+      mp.in_details.forEach(d => writeRow([d.part||'', d.qty||0, d.rate||0, d.party||'', d.bill_no||'', d.store_room||'', d.amount||0]));
+    }
+    if (mp.used_details && mp.used_details.length) {
+      writeSummary('Parts Used:');
+      writeHeaders(['Part', 'Qty', 'Store Room', 'Remark']);
+      mp.used_details.forEach(d => writeRow([d.part||'', d.qty||0, d.store_room||'', d.remark||'']));
     }
     row++;
   }
@@ -631,11 +167,43 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
     sa.details.forEach(d => writeRow([d.name, statusMap[d.status] || d.status]));
   }
 
-  // Auto-fit column widths
+  // 12. Hemali Payments
+  const hp = data.hemali_payments;
+  if (hp && hp.count) {
+    writeSection(`12. Hemali Payments (${hp.count})`);
+    writeHeaders(['Paid', 'Unpaid', 'Total Work', 'Total Paid']);
+    writeRow([hp.paid_count, hp.unpaid_count, hp.total_work, hp.total_paid]);
+    row++;
+    if (hp.details.length) {
+      writeHeaders(['Sardar', 'Items', 'Total', 'Adv Deducted', 'Paid', 'New Advance', 'Status']);
+      hp.details.forEach(d => writeRow([d.sardar, d.items, d.total, d.advance_deducted, d.amount_paid, d.new_advance, d.status.toUpperCase()]));
+    }
+  }
+
+  // Apply column widths: use tracked max from sections, then auto-fit remaining
   for (let i = 1; i <= ws.columnCount; i++) {
-    let maxLen = 0;
-    ws.getColumn(i).eachCell(c => { if (c.value) maxLen = Math.max(maxLen, String(c.value).length); });
-    ws.getColumn(i).width = Math.min(Math.max(maxLen + 2, 8), 25);
+    if (colMaxWidths[i]) {
+      ws.getColumn(i).width = colMaxWidths[i];
+    } else {
+      let maxLen = 0;
+      ws.getColumn(i).eachCell(c => { if (c.value) maxLen = Math.max(maxLen, String(c.value).length); });
+      ws.getColumn(i).width = Math.min(Math.max(maxLen + 2, 10), 40);
+    }
+  }
+  // Apply alternating row colors to data rows
+  for (let r = 6; r <= ws.rowCount; r++) {
+    const rowObj = ws.getRow(r);
+    let isHdr = false;
+    rowObj.eachCell(c => { if (c.fill && c.fill.fgColor && c.fill.fgColor.argb === COLORS.headerBg) isHdr = true; });
+    if (!isHdr && !rowObj.getCell(1).font?.bold) {
+      const isEven = r % 2 === 0;
+      rowObj.eachCell({ includeEmpty: true }, (cell, colNum) => {
+        if (!cell.fill || !cell.fill.fgColor || cell.fill.fgColor.argb === 'FF000000') {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFF0F7FF' : 'FFFFFFFF' } };
+          cell.border = { top: { style: 'hair', color: { argb: 'FFD0D5DD' } }, bottom: { style: 'hair', color: { argb: 'FFD0D5DD' } } };
+        }
+      });
+    }
   }
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
