@@ -100,28 +100,22 @@ async def delete_milling_entry(entry_id: str, username: str = "", role: str = ""
 
 @router.get("/paddy-stock")
 async def get_paddy_stock(kms_year: Optional[str] = None, season: Optional[str] = None):
+    from utils.stock_calculator import calc_cmr_paddy_in, calc_pvt_paddy_in, calc_paddy_used, calc_purchase_voucher_items
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    # CMR paddy: QNTL - BAG - P.Cut
     mill_entries = await db.mill_entries.find(query, {"qntl": 1, "bag": 1, "p_pkt_cut": 1, "_id": 0}).to_list(10000)
-    cmr_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 - e.get('p_pkt_cut', 0) / 100 for e in mill_entries), 2)
-    # Private paddy purchases (NOT agent_extra - those are already counted in CMR)
+    cmr_paddy_in = calc_cmr_paddy_in(mill_entries)
     pvt_query = dict(query)
     pvt_query["source"] = {"$ne": "agent_extra"}
     pvt_entries = await db.private_paddy.find(pvt_query, {"qntl": 1, "final_qntl": 1, "bag": 1, "_id": 0}).to_list(10000)
-    pvt_paddy_in = round(sum((e.get('final_qntl', 0) or e.get('qntl', 0) or 0) - e.get('bag', 0) / 100 for e in pvt_entries), 2)
-    # Purchase Voucher paddy
+    pvt_paddy_in = calc_pvt_paddy_in(pvt_entries)
     purchase_vouchers = await db.purchase_vouchers.find(query, {"_id": 0}).to_list(10000)
-    pv_paddy = 0
-    for pv in purchase_vouchers:
-        for item in pv.get('items', []):
-            if item.get('item_name', '') == 'Paddy':
-                pv_paddy += item.get('quantity', 0) or 0
-    pv_paddy = round(pv_paddy, 2)
+    pv_bought = calc_purchase_voucher_items(purchase_vouchers)
+    pv_paddy = round(pv_bought.get("Paddy", 0), 2)
     total_paddy_in = round(cmr_paddy_in + pvt_paddy_in + pv_paddy, 2)
     milling_entries = await db.milling_entries.find(query, {"paddy_input_qntl": 1, "_id": 0}).to_list(10000)
-    total_paddy_used = round(sum(e.get('paddy_input_qntl', 0) for e in milling_entries), 2)
+    total_paddy_used = calc_paddy_used(milling_entries)
     return {"total_paddy_in_qntl": total_paddy_in, "total_paddy_used_qntl": total_paddy_used,
         "available_paddy_qntl": round(total_paddy_in - total_paddy_used, 2),
         "cmr_paddy_in_qntl": cmr_paddy_in, "pvt_paddy_in_qntl": pvt_paddy_in,

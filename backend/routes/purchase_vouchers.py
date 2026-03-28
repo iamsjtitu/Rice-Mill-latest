@@ -371,6 +371,13 @@ async def get_purchase_stock_items(kms_year: Optional[str] = None, season: Optio
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
 
+    from utils.stock_calculator import (
+        calc_cmr_paddy_in, calc_pvt_paddy_in, calc_paddy_used,
+        calc_rice_produced, calc_govt_delivered, calc_pvt_rice_sold,
+        calc_sale_voucher_items, calc_purchase_voucher_items,
+        calc_byproduct_produced, calc_byproduct_sold, calc_frk_in, BY_PRODUCTS
+    )
+
     milling = await db.milling_entries.find(query, {"_id": 0}).to_list(10000)
     dc = await db.dc_entries.find(query, {"_id": 0}).to_list(10000)
     pvt_sales = await db.rice_sales.find(query, {"_id": 0}).to_list(10000)
@@ -380,38 +387,18 @@ async def get_purchase_stock_items(kms_year: Optional[str] = None, season: Optio
     mill_entries = await db.mill_entries.find(query, {"_id": 0}).to_list(10000)
     pvt_paddy = await db.private_paddy.find(query, {"_id": 0}).to_list(10000)
 
-    # Paddy - consistent with /api/paddy-stock calculation
-    cmr_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 - e.get('p_pkt_cut', 0) / 100 for e in mill_entries), 2)
-    pvt_paddy_in = round(sum(e.get('final_qntl', 0) for e in pvt_paddy), 2)
-    paddy_used = round(sum(e.get('paddy_input_qntl', 0) for e in milling), 2)
-
-    # Rice
-    usna_produced = round(sum(e.get('rice_qntl', 0) for e in milling if e.get('rice_type', '').lower() in ('usna', 'parboiled')), 2)
-    raw_produced = round(sum(e.get('rice_qntl', 0) for e in milling if e.get('rice_type', '').lower() == 'raw'), 2)
-    govt_delivered = round(sum(e.get('quantity_qntl', 0) for e in dc), 2)
-    pvt_sold_usna = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type', '').lower() in ('usna', 'parboiled')), 2)
-    pvt_sold_raw = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type', '').lower() == 'raw'), 2)
-
-    sb_sold = {}
-    for sv in sale_vouchers:
-        for item in sv.get('items', []):
-            name = item.get('item_name', '')
-            sb_sold[name] = sb_sold.get(name, 0) + (item.get('quantity', 0) or 0)
-
-    pv_bought = {}
-    for pv in purchase_vouchers:
-        for item in pv.get('items', []):
-            name = item.get('item_name', '')
-            pv_bought[name] = pv_bought.get(name, 0) + (item.get('quantity', 0) or 0)
-
-    products = ["bran", "kunda", "broken", "kanki", "husk"]
-    bp_produced = {}
-    for p in products:
-        bp_produced[p] = round(sum(e.get(f'{p}_qntl', 0) for e in milling), 2)
-    bp_sold_map = {}
-    for s in bp_sales:
-        prod = s.get('product', '')
-        bp_sold_map[prod] = bp_sold_map.get(prod, 0) + s.get('quantity_qntl', 0)
+    cmr_paddy_in = calc_cmr_paddy_in(mill_entries)
+    pvt_paddy_in = calc_pvt_paddy_in(pvt_paddy)
+    paddy_used = calc_paddy_used(milling)
+    usna_produced = calc_rice_produced(milling, 'usna')
+    raw_produced = calc_rice_produced(milling, 'raw')
+    govt_delivered = calc_govt_delivered(dc)
+    pvt_sold_usna = calc_pvt_rice_sold(pvt_sales, 'usna')
+    pvt_sold_raw = calc_pvt_rice_sold(pvt_sales, 'raw')
+    sb_sold = calc_sale_voucher_items(sale_vouchers)
+    pv_bought = calc_purchase_voucher_items(purchase_vouchers)
+    bp_produced = calc_byproduct_produced(milling)
+    bp_sold_map = calc_byproduct_sold(bp_sales)
 
     items = []
 
@@ -482,6 +469,13 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     ob_husk = float(ob.get("husk", 0))
     ob_frk = float(ob.get("frk", 0))
 
+    from utils.stock_calculator import (
+        calc_cmr_paddy_in, calc_pvt_paddy_in, calc_paddy_used,
+        calc_rice_produced, calc_govt_delivered, calc_pvt_rice_sold,
+        calc_sale_voucher_items, calc_purchase_voucher_items,
+        calc_byproduct_produced, calc_byproduct_sold, calc_frk_in, BY_PRODUCTS
+    )
+
     milling = await db.milling_entries.find(query, {"_id": 0}).to_list(10000)
     dc = await db.dc_entries.find(query, {"_id": 0}).to_list(10000)
     pvt_sales = await db.rice_sales.find(query, {"_id": 0}).to_list(10000)
@@ -491,49 +485,24 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     mill_entries = await db.mill_entries.find(query, {"_id": 0}).to_list(10000)
     pvt_paddy = await db.private_paddy.find({**query, "source": {"$ne": "agent_extra"}}, {"_id": 0}).to_list(10000)
 
-    # Paddy stock
-    cmr_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 - e.get('p_pkt_cut', 0) / 100 for e in mill_entries), 2)
-    pvt_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 for e in pvt_paddy), 2)
-    paddy_used_milling = round(sum(e.get('paddy_input_qntl', 0) for e in milling), 2)
+    cmr_paddy_in = calc_cmr_paddy_in(mill_entries)
+    pvt_paddy_in = calc_pvt_paddy_in(pvt_paddy)
+    paddy_used_milling = calc_paddy_used(milling)
+    usna_produced = calc_rice_produced(milling, 'usna')
+    raw_produced = calc_rice_produced(milling, 'raw')
+    govt_delivered = calc_govt_delivered(dc)
+    pvt_sold_usna = calc_pvt_rice_sold(pvt_sales, 'usna')
+    pvt_sold_raw = calc_pvt_rice_sold(pvt_sales, 'raw')
+    sb_sold = calc_sale_voucher_items(sale_vouchers)
+    pv_bought = calc_purchase_voucher_items(purchase_vouchers)
+    bp_produced = calc_byproduct_produced(milling)
+    bp_sold_map = calc_byproduct_sold(bp_sales)
+    products = BY_PRODUCTS
 
-    # Rice produced from milling
-    usna_produced = round(sum(e.get('rice_qntl', 0) for e in milling if e.get('rice_type', '').lower() in ('usna', 'parboiled')), 2)
-    raw_produced = round(sum(e.get('rice_qntl', 0) for e in milling if e.get('rice_type', '').lower() == 'raw'), 2)
-
-    # Rice sold
-    govt_delivered = round(sum(e.get('quantity_qntl', 0) for e in dc), 2)
-    pvt_sold_usna = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type', '').lower() in ('usna', 'parboiled')), 2)
-    pvt_sold_raw = round(sum(s.get('quantity_qntl', 0) for s in pvt_sales if s.get('rice_type', '').lower() == 'raw'), 2)
-
-    # Sale voucher items sold
-    sb_sold = {}
-    for sv in sale_vouchers:
-        for item in sv.get('items', []):
-            name = item.get('item_name', '')
-            sb_sold[name] = sb_sold.get(name, 0) + (item.get('quantity', 0) or 0)
-
-    # Purchase voucher items bought
-    pv_bought = {}
-    for pv in purchase_vouchers:
-        for item in pv.get('items', []):
-            name = item.get('item_name', '')
-            pv_bought[name] = pv_bought.get(name, 0) + (item.get('quantity', 0) or 0)
-
-    # By-products
-    products = ["bran", "kunda", "broken", "kanki", "husk"]
-    bp_produced = {}
-    for p in products:
-        bp_produced[p] = round(sum(e.get(f'{p}_qntl', 0) for e in milling), 2)
-    bp_sold_map = {}
-    for s in bp_sales:
-        prod = s.get('product', '')
-        bp_sold_map[prod] = bp_sold_map.get(prod, 0) + s.get('quantity_qntl', 0)
-
-    # FRK
     frk_purchases = []
     if await db.frk_purchases.count_documents(query) > 0:
         frk_purchases = await db.frk_purchases.find(query, {"_id": 0}).to_list(10000)
-    frk_in = round(sum(e.get('quantity_qntl', 0) or e.get('quantity', 0) for e in frk_purchases), 2)
+    frk_in = calc_frk_in(frk_purchases)
 
     # Build stock items list
     stock_items = []

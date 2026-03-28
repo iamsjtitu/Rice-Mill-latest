@@ -500,14 +500,15 @@ async def delete_rice_sale(item_id: str):
 # --- Private Payments (for both paddy purchase & rice sale parties) ---
 @router.post("/private-payments")
 async def create_private_payment(data: dict, username: str = "", role: str = ""):
+    from utils.payment_service import create_cash_and_ledger, update_entry_paid_amount
     doc = {
         "id": str(uuid.uuid4()), "date": data.get("date", ""),
         "kms_year": data.get("kms_year", ""), "season": data.get("season", ""),
         "party_name": data.get("party_name", ""), "payment_type": data.get("payment_type", ""),
-        "ref_type": data.get("ref_type", ""),  # "paddy_purchase" or "rice_sale"
+        "ref_type": data.get("ref_type", ""),
         "ref_id": data.get("ref_id", ""),
         "amount": float(data.get("amount", 0)),
-        "mode": data.get("mode", "cash"),  # cash/bank/cheque
+        "mode": data.get("mode", "cash"),
         "reference": data.get("reference", ""),
         "remark": data.get("remark", ""),
         "round_off": float(data.get("round_off", 0)),
@@ -515,28 +516,19 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.private_payments.insert_one(doc)
-    # Update balance on the referenced entry (include round_off in settled amount)
+
     round_off_val = float(data.get("round_off", 0))
     total_settled = round(doc["amount"] + round_off_val, 2)
-    if doc["ref_type"] == "paddy_purchase" and doc["ref_id"]:
-        entry = await db.private_paddy.find_one({"id": doc["ref_id"]})
-        if entry:
-            new_paid = round(entry.get("paid_amount", 0) + total_settled, 2)
-            await db.private_paddy.update_one({"id": doc["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
-    elif doc["ref_type"] == "rice_sale" and doc["ref_id"]:
-        entry = await db.rice_sales.find_one({"id": doc["ref_id"]})
-        if entry:
-            new_paid = round(entry.get("paid_amount", 0) + total_settled, 2)
-            await db.rice_sales.update_one({"id": doc["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
-    # Auto-create Cash Book + Ledger entries
     account = "bank" if doc["mode"] == "bank" else "cash"
-    base_cb = {
-        "date": doc["date"], "kms_year": doc["kms_year"], "season": doc["season"],
-        "created_by": username, "linked_payment_id": doc["id"],
-        "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat(),
-    }
+
+    # Update balance on referenced entry
+    if doc["ref_type"] == "paddy_purchase" and doc["ref_id"]:
+        await update_entry_paid_amount("private_paddy", doc["ref_id"], total_settled)
+    elif doc["ref_type"] == "rice_sale" and doc["ref_id"]:
+        await update_entry_paid_amount("rice_sales", doc["ref_id"], total_settled)
+
+    # Create Cash Book + Ledger entries
     if doc["ref_type"] == "paddy_purchase":
-        # Build party label from entry data
         ref_entry = await db.private_paddy.find_one({"id": doc["ref_id"]}, {"_id": 0})
         party = doc["party_name"]
         mandi = ref_entry.get("mandi_name", "") if ref_entry else ""
@@ -547,45 +539,37 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
             rate = round(float(ref_entry.get("total_amount", 0) or 0) / float(qntl), 2)
         detail = _fmt_detail(qntl, rate) if qntl and rate else f"Rs.{doc['amount']}"
         pay_desc = f"{party_label} - {detail}"
-        round_off = float(data.get("round_off", 0))
-        total_settled = round(doc["amount"] + round_off, 2)
-        # Cash Book nikasi
-        await db.cash_transactions.insert_one({
-            "id": str(uuid.uuid4()), "account": account, "txn_type": "nikasi",
-            "category": party_label, "party_type": "Pvt Paddy Purchase",
-            "description": pay_desc,
-            "amount": doc["amount"], "reference": doc["reference"] or f"pvt_pay:{doc['id'][:8]}",
-            **base_cb
-        })
-        # Party Ledger entry (total including round off)
-        await db.cash_transactions.insert_one({
-            "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "nikasi",
-            "category": party_label, "party_type": "Pvt Paddy Purchase",
-            "description": pay_desc + (f" (Cash: {doc['amount']}, Round Off: {round_off})" if round_off else ""),
-            "amount": total_settled, "reference": doc["reference"] or f"pvt_pay_ledger:{doc['id'][:8]}",
-            **base_cb
-        })
+        ledger_desc = pay_desc + (f" (Cash: {doc['amount']}, Round Off: {round_off_val})" if round_off_val else "")
+
+        await create_cash_and_ledger(
+            date=doc["date"], account=account, txn_type="nikasi",
+            category=party_label, party_type="Pvt Paddy Purchase",
+            description=pay_desc, amount=doc["amount"], ledger_amount=total_settled,
+            kms_year=doc["kms_year"], season=doc["season"], username=username,
+            linked_payment_id=doc["id"],
+            reference=doc["reference"] or f"pvt_pay:{doc['id'][:8]}",
+            ledger_description=ledger_desc
+        )
     else:
-        # Rice Sale - party label
         ref_entry = await db.rice_sales.find_one({"id": doc["ref_id"]}, {"_id": 0})
-        party = doc["party_name"]
-        party_label = party
-        # Cash Book jama (money received)
-        await db.cash_transactions.insert_one({
-            "id": str(uuid.uuid4()), "account": account, "txn_type": "jama",
-            "category": party_label, "party_type": "Rice Sale",
-            "description": f"Rice Sale Payment Received: {party_label} - Rs.{doc['amount']}",
-            "amount": doc["amount"], "reference": doc["reference"] or f"rice_pay:{doc['id'][:8]}",
-            **base_cb
-        })
-        # Ledger nikasi (buyer's debt reduced)
-        await db.cash_transactions.insert_one({
-            "id": str(uuid.uuid4()), "account": "ledger", "txn_type": "nikasi",
-            "category": party_label, "party_type": "Rice Sale",
-            "description": f"Rice Sale Payment Received: {party_label} - Rs.{doc['amount']}",
-            "amount": doc["amount"], "reference": doc["reference"] or f"rice_pay_ledger:{doc['id'][:8]}",
-            **base_cb
-        })
+        party_label = doc["party_name"]
+        pay_desc = f"Rice Sale Payment Received: {party_label} - Rs.{doc['amount']}"
+
+        await create_cash_and_ledger(
+            date=doc["date"], account=account, txn_type="jama",
+            category=party_label, party_type="Rice Sale",
+            description=pay_desc, amount=doc["amount"], ledger_amount=doc["amount"],
+            kms_year=doc["kms_year"], season=doc["season"], username=username,
+            linked_payment_id=doc["id"],
+            reference=doc["reference"] or f"rice_pay:{doc['id'][:8]}",
+        )
+        # For rice sale, ledger txn_type is nikasi (debt reduced) - override
+        # The create_cash_and_ledger created jama for both, fix ledger to nikasi
+        await db.cash_transactions.update_one(
+            {"linked_payment_id": doc["id"], "account": "ledger"},
+            {"$set": {"txn_type": "nikasi"}}
+        )
+
     doc.pop("_id", None)
     return doc
 
@@ -602,23 +586,18 @@ async def get_private_payments(party_name: Optional[str] = None, ref_type: Optio
 
 @router.delete("/private-payments/{pay_id}")
 async def delete_private_payment(pay_id: str):
+    from utils.payment_service import delete_linked_cash_entries, update_entry_paid_amount
     pay = await db.private_payments.find_one({"id": pay_id})
     if not pay: raise HTTPException(status_code=404, detail="Not found")
-    # Reverse the payment from the referenced entry (include round_off in reversal)
+    # Reverse the payment from the referenced entry (include round_off)
     round_off_val = float(pay.get("round_off", 0))
     reversal_amount = round(pay["amount"] + round_off_val, 2)
     if pay.get("ref_type") == "paddy_purchase" and pay.get("ref_id"):
-        entry = await db.private_paddy.find_one({"id": pay["ref_id"]})
-        if entry:
-            new_paid = round(max(0, entry.get("paid_amount", 0) - reversal_amount), 2)
-            await db.private_paddy.update_one({"id": pay["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
+        await update_entry_paid_amount("private_paddy", pay["ref_id"], -reversal_amount)
     elif pay.get("ref_type") == "rice_sale" and pay.get("ref_id"):
-        entry = await db.rice_sales.find_one({"id": pay["ref_id"]})
-        if entry:
-            new_paid = round(max(0, entry.get("paid_amount", 0) - reversal_amount), 2)
-            await db.rice_sales.update_one({"id": pay["ref_id"]}, {"$set": {"paid_amount": new_paid, "balance": round(entry.get("total_amount", 0) - new_paid, 2)}})
-    # Delete linked Cash Book entry
-    await db.cash_transactions.delete_many({"linked_payment_id": pay_id})
+        await update_entry_paid_amount("rice_sales", pay["ref_id"], -reversal_amount)
+    # Delete linked Cash Book entries
+    await delete_linked_cash_entries(pay_id)
     await db.private_payments.delete_one({"id": pay_id})
     return {"message": "Deleted", "id": pay_id}
 
