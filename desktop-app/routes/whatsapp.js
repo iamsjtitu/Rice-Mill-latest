@@ -75,7 +75,7 @@ router.put('/api/whatsapp/settings', safeAsync(async (req, res) => {
     group_id: (req.body.group_id || '').trim()
   };
   if (idx >= 0) settings[idx] = config; else settings.push(config);
-  await database.write();
+  database.save();
   res.json({ success: true, message: 'WhatsApp settings save ho gayi!' });
 }));
 

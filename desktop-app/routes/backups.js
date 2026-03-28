@@ -87,7 +87,7 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
           }
         } catch (e) { /* skip bad entries */ }
       }
-      await database.write();
+      database.save();
       res.json({ success: true, message: `Restore ho gaya! ${restored.length} collections restored.`, restored, backup_date: meta.backup_date });
     } catch (e) {
       res.status(500).json({ detail: 'Restore error: ' + e.message });
