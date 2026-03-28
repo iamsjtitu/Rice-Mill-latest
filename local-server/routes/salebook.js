@@ -345,6 +345,23 @@ module.exports = function(database) {
     };
     const round2 = v => Math.round((v || 0) * 100) / 100;
 
+    // ===== FETCH OPENING STOCK =====
+    const ob = {};
+    if (kms_year && database.data.opening_stock) {
+      const obDoc = database.data.opening_stock.find(s => s.kms_year === kms_year);
+      if (obDoc && obDoc.stocks) Object.assign(ob, obDoc.stocks);
+    }
+    const obPaddy = parseFloat(ob.paddy || 0);
+    const obUsna = parseFloat(ob.rice_usna || ob.rice || 0);
+    const obRaw = parseFloat(ob.rice_raw || 0);
+    const obBran = parseFloat(ob.bran || 0);
+    const obKunda = parseFloat(ob.kunda || 0);
+    const obBroken = parseFloat(ob.broken || 0);
+    const obKanki = parseFloat(ob.kanki || 0);
+    const obHusk = parseFloat(ob.husk || 0);
+    const obFrk = parseFloat(ob.frk || 0);
+    const bpObMap = { bran: obBran, kunda: obKunda, broken: obBroken, kanki: obKanki, husk: obHusk };
+
     const milling = filter(database.data.milling_entries, kms_year, season);
     const dc = filter(database.data.dc_entries, kms_year, season);
     const pvtSales = filter(database.data.rice_sales, kms_year, season);
@@ -353,86 +370,73 @@ module.exports = function(database) {
     const purchaseVouchers = filter(database.data.purchase_vouchers, kms_year, season);
     const millEntries = filter(database.data.entries, kms_year, season);
     const pvtPaddy = filter(database.data.private_paddy, kms_year, season).filter(e => e.source !== 'agent_extra');
-    const gunnyEntries = filter(database.data.gunny_bags, kms_year, season);
     const frkPurchases = filter(database.data.frk_purchases, kms_year, season);
 
-    // Paddy stock
     const cmrPaddyIn = round2(millEntries.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100 - (e.p_pkt_cut || 0) / 100, 0));
-    const pvtPaddyIn = round2(pvtPaddy.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100, 0));
+    const pvtPaddyIn = round2(pvtPaddy.reduce((s, e) => s + ((e.final_qntl || 0) || ((e.qntl || 0) - (e.bag || 0) / 100)), 0));
     const paddyUsedMilling = round2(milling.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0));
-
-    // Rice produced from milling
     const usnaProduced = round2(milling.filter(e => ['usna', 'parboiled'].includes((e.rice_type || '').toLowerCase())).reduce((s, e) => s + (e.rice_qntl || 0), 0));
     const rawProduced = round2(milling.filter(e => (e.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0));
-
-    // Rice sold
     const govtDelivered = round2(dc.reduce((s, e) => s + (e.quantity_qntl || 0), 0));
     const pvtSoldUsna = round2(pvtSales.filter(s => ['usna', 'parboiled'].includes((s.rice_type || '').toLowerCase())).reduce((s, e) => s + (e.quantity_qntl || 0), 0));
     const pvtSoldRaw = round2(pvtSales.filter(s => (s.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.quantity_qntl || 0), 0));
 
-    // Sale voucher items
     const sbSold = {};
     saleVouchers.forEach(sv => (sv.items || []).forEach(i => { const n = i.item_name || ''; sbSold[n] = (sbSold[n] || 0) + (parseFloat(i.quantity) || 0); }));
-
-    // Purchase voucher items
     const pvBought = {};
     purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { const n = i.item_name || ''; pvBought[n] = (pvBought[n] || 0) + (parseFloat(i.quantity) || 0); }));
 
-    // By-products from milling
     const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
     const bpProduced = {};
     products.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
     const bpSoldMap = {};
     bpSales.forEach(s => { const p = s.product || ''; bpSoldMap[p] = (bpSoldMap[p] || 0) + (s.quantity_qntl || 0); });
 
-    // FRK
     const frkIn = round2((frkPurchases || []).reduce((s, e) => s + (e.quantity_qntl || e.quantity || 0), 0));
 
-    // Build stock items
     const stockItems = [];
 
-    // Paddy
+    // Paddy (with opening)
     const pvPaddy = round2(pvBought['Paddy'] || 0);
     const paddyTotalIn = round2(cmrPaddyIn + pvtPaddyIn + pvPaddy);
-    stockItems.push({ name: 'Paddy', category: 'Raw Material', in_qty: paddyTotalIn, out_qty: paddyUsedMilling, available: round2(paddyTotalIn - paddyUsedMilling), unit: 'Qntl', details: `CMR: ${cmrPaddyIn}Q + Pvt: ${pvtPaddyIn}Q + Purchase: ${pvPaddy}Q - Milling: ${paddyUsedMilling}Q` });
+    stockItems.push({ name: 'Paddy', category: 'Raw Material', opening: obPaddy, in_qty: paddyTotalIn, out_qty: paddyUsedMilling, available: round2(obPaddy + paddyTotalIn - paddyUsedMilling), unit: 'Qntl', details: `OB: ${obPaddy}Q + CMR: ${cmrPaddyIn}Q + Pvt: ${pvtPaddyIn}Q + Purchase: ${pvPaddy}Q - Milling: ${paddyUsedMilling}Q` });
 
-    // Rice Usna
+    // Rice Usna (with opening)
     const pvUsna = round2(pvBought['Rice (Usna)'] || 0);
     const usnaSoldTotal = round2(govtDelivered + pvtSoldUsna + (sbSold['Rice (Usna)'] || 0));
-    stockItems.push({ name: 'Rice (Usna)', category: 'Finished', in_qty: round2(usnaProduced + pvUsna), out_qty: usnaSoldTotal, available: round2(usnaProduced + pvUsna - usnaSoldTotal), unit: 'Qntl', details: `Milling: ${usnaProduced}Q + Purchase: ${pvUsna}Q - DC: ${govtDelivered}Q - Pvt: ${pvtSoldUsna}Q - Sale: ${sbSold['Rice (Usna)'] || 0}Q` });
+    stockItems.push({ name: 'Rice (Usna)', category: 'Finished', opening: obUsna, in_qty: round2(usnaProduced + pvUsna), out_qty: usnaSoldTotal, available: round2(obUsna + usnaProduced + pvUsna - usnaSoldTotal), unit: 'Qntl', details: `OB: ${obUsna}Q + Milling: ${usnaProduced}Q + Purchase: ${pvUsna}Q - DC: ${govtDelivered}Q - Pvt: ${pvtSoldUsna}Q - Sale: ${sbSold['Rice (Usna)'] || 0}Q` });
 
-    // Rice Raw
+    // Rice Raw (with opening)
     const pvRaw = round2(pvBought['Rice (Raw)'] || 0);
     const rawSoldTotal = round2(pvtSoldRaw + (sbSold['Rice (Raw)'] || 0));
-    stockItems.push({ name: 'Rice (Raw)', category: 'Finished', in_qty: round2(rawProduced + pvRaw), out_qty: rawSoldTotal, available: round2(rawProduced + pvRaw - rawSoldTotal), unit: 'Qntl', details: `Milling: ${rawProduced}Q + Purchase: ${pvRaw}Q - Pvt: ${pvtSoldRaw}Q - Sale: ${sbSold['Rice (Raw)'] || 0}Q` });
+    stockItems.push({ name: 'Rice (Raw)', category: 'Finished', opening: obRaw, in_qty: round2(rawProduced + pvRaw), out_qty: rawSoldTotal, available: round2(obRaw + rawProduced + pvRaw - rawSoldTotal), unit: 'Qntl', details: `OB: ${obRaw}Q + Milling: ${rawProduced}Q + Purchase: ${pvRaw}Q - Pvt: ${pvtSoldRaw}Q - Sale: ${sbSold['Rice (Raw)'] || 0}Q` });
 
-    // By-products
+    // By-products (with opening)
     products.forEach(p => {
       const produced = bpProduced[p] || 0;
       const soldBp = round2(bpSoldMap[p] || 0);
       const soldSb = sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
       const purchased = pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const itemOb = bpObMap[p] || 0;
       const totalIn = round2(produced + purchased);
       const totalOut = round2(soldBp + soldSb);
-      stockItems.push({ name: p.charAt(0).toUpperCase() + p.slice(1), category: 'By-Product', in_qty: totalIn, out_qty: totalOut, available: round2(totalIn - totalOut), unit: 'Qntl', details: `Milling: ${produced}Q + Purchased: ${purchased}Q - Sold: ${soldBp}Q - Sale Voucher: ${soldSb}Q` });
+      stockItems.push({ name: p.charAt(0).toUpperCase() + p.slice(1), category: 'By-Product', opening: itemOb, in_qty: totalIn, out_qty: totalOut, available: round2(itemOb + totalIn - totalOut), unit: 'Qntl', details: `OB: ${itemOb}Q + Milling: ${produced}Q + Purchased: ${purchased}Q - Sold: ${soldBp}Q - Sale Voucher: ${soldSb}Q` });
     });
 
-    // FRK
+    // FRK (with opening)
     const frkPurchasedPv = pvBought['FRK'] || 0;
     const frkTotalIn = round2(frkIn + frkPurchasedPv);
     const frkSoldSb = sbSold['FRK'] || 0;
-    stockItems.push({ name: 'FRK', category: 'By-Product', in_qty: frkTotalIn, out_qty: frkSoldSb, available: round2(frkTotalIn - frkSoldSb), unit: 'Qntl', details: `FRK Purchase: ${frkIn}Q + Purchase Voucher: ${frkPurchasedPv}Q - Sale Voucher: ${frkSoldSb}Q` });
+    stockItems.push({ name: 'FRK', category: 'By-Product', opening: obFrk, in_qty: frkTotalIn, out_qty: frkSoldSb, available: round2(obFrk + frkTotalIn - frkSoldSb), unit: 'Qntl', details: `OB: ${obFrk}Q + FRK Purchase: ${frkIn}Q + Purchase Voucher: ${frkPurchasedPv}Q - Sale Voucher: ${frkSoldSb}Q` });
 
-    // Custom items from purchase vouchers
+    // Custom items
     const knownItems = new Set(['Paddy', 'Rice (Usna)', 'Rice (Raw)', 'FRK', ...products.map(p => p.charAt(0).toUpperCase() + p.slice(1))]);
     for (const [itemName, qty] of Object.entries(pvBought)) {
       if (!knownItems.has(itemName)) {
         const sold = sbSold[itemName] || 0;
-        stockItems.push({ name: itemName, category: 'Custom', in_qty: round2(qty), out_qty: round2(sold), available: round2(qty - sold), unit: 'Qntl', details: `Purchased: ${qty}Q - Sold: ${sold}Q` });
+        stockItems.push({ name: itemName, category: 'Custom', opening: 0, in_qty: round2(qty), out_qty: round2(sold), available: round2(qty - sold), unit: 'Qntl', details: `Purchased: ${qty}Q - Sold: ${sold}Q` });
       }
     }
-
-    // Gunny Bags excluded from stock summary (tracked separately)
 
     res.json({ items: stockItems });
   }));
