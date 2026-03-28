@@ -296,18 +296,75 @@ module.exports = function(database) {
   router.get('/api/sale-book/stock-items', safeHandler(async (req, res) => {
     ensure();
     const { kms_year, season } = req.query;
-    let vouchers = [...database.data.sale_vouchers];
-    if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
-    if (season) vouchers = vouchers.filter(v => v.season === season);
-    const itemMap = {};
-    vouchers.forEach(v => (v.items || []).forEach(i => {
-      const name = i.item_name || 'Unknown';
-      if (!itemMap[name]) itemMap[name] = { item_name: name, total_qty: 0, total_amount: 0, count: 0 };
-      itemMap[name].total_qty += parseFloat(i.quantity) || 0;
-      itemMap[name].total_amount += parseFloat(i.amount) || 0;
-      itemMap[name].count++;
-    }));
-    res.json(Object.values(itemMap));
+    const filter = (arr) => {
+      let r = arr || [];
+      if (kms_year) r = r.filter(e => e.kms_year === kms_year);
+      if (season) r = r.filter(e => e.season === season);
+      return r;
+    };
+    const round2 = v => Math.round((v || 0) * 100) / 100;
+
+    // Opening stock
+    const ob = {};
+    if (kms_year && database.data.opening_stock) {
+      const obDoc = database.data.opening_stock.find(s => s.kms_year === kms_year);
+      if (obDoc && obDoc.stocks) Object.assign(ob, obDoc.stocks);
+    }
+    const obUsna = parseFloat(ob.rice_usna || ob.rice || 0);
+    const obRaw = parseFloat(ob.rice_raw || 0);
+    const obBran = parseFloat(ob.bran || 0);
+    const obKunda = parseFloat(ob.kunda || 0);
+    const obBroken = parseFloat(ob.broken || 0);
+    const obKanki = parseFloat(ob.kanki || 0);
+    const obHusk = parseFloat(ob.husk || 0);
+    const obFrk = parseFloat(ob.frk || 0);
+    const bpObMap = { bran: obBran, kunda: obKunda, broken: obBroken, kanki: obKanki, husk: obHusk };
+
+    const milling = filter(database.data.milling_entries);
+    const dc = filter(database.data.dc_entries);
+    const pvtSales = filter(database.data.rice_sales);
+    const saleVouchers = filter(database.data.sale_vouchers);
+    const purchaseVouchers = filter(database.data.purchase_vouchers);
+    const bpSales = filter(database.data.byproduct_sales);
+    const frkPurchases = filter(database.data.frk_purchases);
+
+    const usnaProduced = round2(milling.filter(e => ['usna', 'parboiled'].includes((e.rice_type || '').toLowerCase())).reduce((s, e) => s + (e.rice_qntl || 0), 0));
+    const rawProduced = round2(milling.filter(e => (e.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0));
+    const govtDelivered = round2(dc.reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+    const pvtSoldUsna = round2(pvtSales.filter(s => ['usna', 'parboiled'].includes((s.rice_type || '').toLowerCase())).reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+    const pvtSoldRaw = round2(pvtSales.filter(s => (s.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+
+    const sbSold = {};
+    saleVouchers.forEach(sv => (sv.items || []).forEach(i => { sbSold[i.item_name || ''] = (sbSold[i.item_name || ''] || 0) + (parseFloat(i.quantity) || 0); }));
+    const pvBought = {};
+    purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { pvBought[i.item_name || ''] = (pvBought[i.item_name || ''] || 0) + (parseFloat(i.quantity) || 0); }));
+
+    const products = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    const bpProduced = {};
+    products.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
+    const bpSoldMap = {};
+    (bpSales || []).forEach(s => { bpSoldMap[s.product || ''] = (bpSoldMap[s.product || ''] || 0) + (s.quantity_qntl || 0); });
+
+    const items = [];
+    items.push({ name: 'Rice (Usna)', available_qntl: round2(obUsna + usnaProduced + (pvBought['Rice (Usna)'] || 0) - govtDelivered - pvtSoldUsna - (sbSold['Rice (Usna)'] || 0)), unit: 'Qntl' });
+    items.push({ name: 'Rice (Raw)', available_qntl: round2(obRaw + rawProduced + (pvBought['Rice (Raw)'] || 0) - pvtSoldRaw - (sbSold['Rice (Raw)'] || 0)), unit: 'Qntl' });
+    products.forEach(p => {
+      const produced = bpProduced[p] || 0;
+      const purchased = pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const soldBp = round2(bpSoldMap[p] || 0);
+      const soldSb = sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      items.push({ name: p.charAt(0).toUpperCase() + p.slice(1), available_qntl: round2(bpObMap[p] + produced + purchased - soldBp - soldSb), unit: 'Qntl' });
+    });
+    const frkIn = round2((frkPurchases || []).reduce((s, e) => s + (e.quantity_qntl || e.quantity || 0), 0));
+    items.push({ name: 'FRK', available_qntl: round2(obFrk + frkIn + (pvBought['FRK'] || 0) - (sbSold['FRK'] || 0)), unit: 'Qntl' });
+
+    const knownItems = new Set(['Rice (Usna)', 'Rice (Raw)', 'FRK', ...products.map(p => p.charAt(0).toUpperCase() + p.slice(1))]);
+    for (const [name, qty] of Object.entries(pvBought)) {
+      if (!knownItems.has(name) && name) {
+        items.push({ name, available_qntl: round2(qty - (sbSold[name] || 0)), unit: 'Qntl' });
+      }
+    }
+    res.json(items);
   }));
 
   router.post('/api/sale-book/delete-bulk', safeHandler(async (req, res) => {

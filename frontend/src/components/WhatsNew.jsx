@@ -7,6 +7,21 @@ const APP_VERSION = "49.0.0";
 
 const CHANGELOG = [
   {
+    version: "49.0.0",
+    date: "28 Mar 2026",
+    title: "v49.0.0 - Settings & Stock Major Update",
+    items: [
+      { type: "new", text: "Custom Branding Fields - Settings mein GST, Phone, Address jaise 5-6 extra fields add karein (Left/Center/Right alignment)" },
+      { type: "new", text: "Financial Year (Apr-Mar) selector - KMS aur FY dono alag-alag header mein" },
+      { type: "new", text: "Opening Stock Balance - 9 items (Paddy, Rice Usna/Raw, Bran, Kunda, Broken, Kanki, Husk, FRK)" },
+      { type: "new", text: "Auto Carry Forward - Previous year ka closing stock → next year ka opening stock ek button se" },
+      { type: "imp", text: "Stock Summary mein Opening column add (Available = OB + In - Out)" },
+      { type: "imp", text: "Custom fields ab saare PDF aur Excel headers mein automatically aayenge" },
+      { type: "imp", text: "Stock Calculator centralized - ek jagah se sab calculate" },
+      { type: "fix", text: "Sale Voucher mein stock items ab opening stock ke saath dikhenge" },
+    ],
+  },
+  {
     version: "45.2.0",
     date: "27 Mar 2026",
     title: "v45.2.0 - Auto-Fix Enhanced",
