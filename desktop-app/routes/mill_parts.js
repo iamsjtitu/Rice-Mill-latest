@@ -852,7 +852,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
     parties[t.party_name].amount += (t.total_amount || t.total_cost || 0);
   });
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader: _addPdfH, addPdfTable registerFonts, F } = require('./pdf_helpers');
+  const { addPdfHeader: _addPdfH, addPdfTable, registerFonts, F } = require('./pdf_helpers');
   const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);

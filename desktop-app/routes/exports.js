@@ -3,7 +3,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate registerFonts, F } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate, registerFonts, F } = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 
 module.exports = function(database) {
@@ -154,7 +154,7 @@ module.exports = function(database) {
   // ===== DASHBOARD PDF EXPORT =====
   router.get('/api/export/dashboard-pdf', safeSync((req, res) => {
     try {
-      const { addPdfTable: _addTbl, addSectionTitle, fmtAmt, C registerFonts, F } = require('./pdf_helpers');
+      const { addPdfTable: _addTbl, addSectionTitle, fmtAmt, C, registerFonts, F } = require('./pdf_helpers');
       const entries = database.getEntries(req.query);
       const filterLabel = req.query.filter || 'all';
       const showStock = !req.query.filter || req.query.filter === 'all' || req.query.filter === 'stock';

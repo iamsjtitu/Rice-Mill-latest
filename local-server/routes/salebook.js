@@ -683,7 +683,7 @@ module.exports = function(database) {
 
   // ===== STOCK SUMMARY PDF (COLORFUL with pdfkit) =====
   router.get('/api/stock-summary/export/pdf', safeHandler(async (req, res) => {
-    const { addPdfHeader registerFonts, F } = require('./pdf_helpers');
+    const { addPdfHeader, registerFonts, F } = require('./pdf_helpers');
     const items = getStockItems(req);
     const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
 

@@ -4,7 +4,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C registerFonts, F } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F } = require('./pdf_helpers');
 const rptHelper = require('../shared/report_helper');
 
 module.exports = function(database) {

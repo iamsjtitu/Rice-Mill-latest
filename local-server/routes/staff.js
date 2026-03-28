@@ -2,7 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { fmtDate registerFonts, F } = require('./pdf_helpers');
+const { fmtDate, registerFonts, F } = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -732,7 +732,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
 
   if (fmt === 'pdf') {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, fmtDate, C registerFonts, F } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, fmtDate, C, registerFonts, F } = require('./pdf_helpers');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');

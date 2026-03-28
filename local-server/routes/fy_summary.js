@@ -455,7 +455,7 @@ module.exports = function(database) {
   router.get('/api/fy-summary/balance-sheet/pdf', (req, res) => {
     try {
       const PDFDocument = require('pdfkit');
-      const { fmtAmt registerFonts, F } = require('./pdf_helpers');
+      const { fmtAmt, registerFonts, F } = require('./pdf_helpers');
       // Re-fetch balance sheet data inline
       const bsReq = { query: req.query };
       const bsRes = {
@@ -814,7 +814,7 @@ module.exports = function(database) {
   router.get('/api/fy-summary/pdf', (req, res) => {
     try {
       const PDFDocument = require('pdfkit');
-      const { addPdfHeader, addPdfTable, addSectionTitle, addTotalsRow, fmtAmt registerFonts, F } = require('./pdf_helpers');
+      const { addPdfHeader, addPdfTable, addSectionTitle, addTotalsRow, fmtAmt, registerFonts, F } = require('./pdf_helpers');
       const { kms_year, season } = req.query;
       const data = computeFySummary(kms_year, season);
 

@@ -368,7 +368,7 @@ module.exports = (database) => {
 
   // ============ MONTHLY SUMMARY PDF ============
   router.get('/api/hemali/monthly-summary/pdf', safeHandler(async (req, res) => {
-    const { addPdfHeader registerFonts, F } = require('./pdf_helpers');
+    const { addPdfHeader, registerFonts, F } = require('./pdf_helpers');
     const { kms_year, season, sardar_name, month } = req.query;
     let payments = filterByFy(col('hemali_payments'), kms_year, season);
     if (sardar_name) payments = payments.filter(p => p.sardar_name === sardar_name);
@@ -470,7 +470,7 @@ module.exports = (database) => {
 
   // ============ PDF EXPORT ============
   router.get('/api/hemali/export/pdf', safeHandler(async (req, res) => {
-    const { addPdfHeader registerFonts, F } = require('./pdf_helpers');
+    const { addPdfHeader, registerFonts, F } = require('./pdf_helpers');
     const { kms_year, season, from_date, to_date, sardar_name } = req.query;
     let payments = filterByFy(col('hemali_payments'), kms_year, season).filter(p => p.status === 'paid');
     if (from_date) payments = payments.filter(p => p.date >= from_date);
