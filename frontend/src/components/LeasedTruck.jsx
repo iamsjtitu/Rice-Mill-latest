@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truck, Edit } from "lucide-react";
+import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truck, Edit, Send } from "lucide-react";
 import { printHtml } from "@/components/PrintButton";
 import { useConfirm } from "./ConfirmProvider";
 
@@ -222,6 +222,32 @@ export default function LeasedTruck({ filters }) {
 
   const totalRent = leases.reduce((s, l) => s + (l.monthly_rent || 0), 0);
 
+  // WhatsApp - Send lease summary for a specific truck
+  const handleWhatsAppLease = async (lease) => {
+    try {
+      let waSettings;
+      try { waSettings = (await axios.get(`${API}/whatsapp/settings`)).data; } catch(e) { waSettings = {}; }
+      const hasDefaults = (waSettings.default_numbers || []).length > 0;
+      let phone = "";
+      if (!hasDefaults) {
+        phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
+        if (!phone) return;
+      }
+      const res = await axios.post(`${API}/whatsapp/send-truck-owner`, {
+        truck_no: lease.truck_no,
+        total_trips: 0,
+        total_gross: lease.monthly_rent || 0,
+        total_deductions: 0,
+        total_net: lease.monthly_rent || 0,
+        total_paid: 0,
+        total_balance: lease.monthly_rent || 0,
+        phone
+      });
+      if (res.data.success) toast.success(res.data.message || "WhatsApp bhej diya!");
+      else toast.error(res.data.error || "WhatsApp fail");
+    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.message)); }
+  };
+
   return (
     <div className="space-y-4" data-testid="leased-truck-tab">
       {/* Summary Cards */}
@@ -284,6 +310,8 @@ export default function LeasedTruck({ filters }) {
                           className="text-blue-400 hover:text-blue-300 h-7 w-7 p-0"><Edit className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => handleShowHistory(l)}
                           className="text-cyan-400 hover:text-cyan-300 h-7 w-7 p-0"><History className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleWhatsAppLease(l)}
+                          className="text-green-400 hover:text-green-300 h-7 w-7 p-0" title="WhatsApp" data-testid={`lease-wa-${l.truck_no}`}><Send className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => handleDeleteLease(l.id)}
                           className="text-red-400 hover:text-red-300 h-7 w-7 p-0"><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>

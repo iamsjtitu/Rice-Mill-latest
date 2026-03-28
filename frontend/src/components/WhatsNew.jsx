@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "50.7.2";
+const APP_VERSION = "50.8.0";
 
 const CHANGELOG = [
+  {
+    version: "50.8.0",
+    date: "22 Feb 2026",
+    title: "v50.8.0 - WhatsApp Truck Payment & Truck Owner",
+    items: [
+      { type: "new", text: "Truck Payment mein WhatsApp send button add hua - trip detail WhatsApp pe bhejein" },
+      { type: "new", text: "Truck Owner (Consolidated) mein WhatsApp send button - saare trips ka summary bhejein" },
+      { type: "new", text: "Leased Truck mein bhi WhatsApp send button add hua" },
+    ]
+  },
   {
     version: "50.7.0",
     date: "28 Mar 2026",

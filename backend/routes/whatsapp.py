@@ -327,3 +327,133 @@ async def send_party_ledger(data: dict):
     return {"success": success_count > 0,
             "message": f"Party ledger {success_count}/{len(results)} numbers pe bhej diya!",
             "details": results}
+
+
+@router.post("/whatsapp/send-truck-payment")
+async def send_truck_payment(data: dict):
+    """Send truck payment summary via WhatsApp."""
+    truck_no = data.get("truck_no", "")
+    phone = data.get("phone", "").strip() if data.get("phone") else ""
+    payments = data.get("payments", [])
+    total_net = data.get("total_net", 0)
+    total_paid = data.get("total_paid", 0)
+    total_balance = data.get("total_balance", 0)
+    pdf_url = data.get("pdf_url", "")
+
+    if not truck_no:
+        raise HTTPException(status_code=400, detail="Truck number required")
+
+    settings = await _get_wa_settings()
+    if not settings.get("api_key"):
+        return {"success": False, "error": "WhatsApp API key set nahi hai."}
+
+    branding = await db["settings"].find_one({"key": "branding"}, {"_id": 0})
+    company = branding.get("company_name", "Mill Entry System") if branding else "Mill Entry System"
+
+    bal_label = "Bakaya" if total_balance > 0 else "Settled"
+    text = (
+        f"*{company}*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"*Truck Payment / ट्रक भुगतान*\n"
+        f"Truck: *{truck_no}*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"Net Amount: Rs.{total_net:,.2f}\n"
+        f"Paid: Rs.{total_paid:,.2f}\n"
+        f"*{bal_label}: Rs.{abs(total_balance):,.2f}*\n"
+    )
+
+    if payments:
+        text += f"\n*Trips ({min(len(payments), 10)}):*\n"
+        for p in payments[:10]:
+            date = p.get("date", "")
+            mandi = p.get("mandi_name", "")
+            net = p.get("net_amount", 0)
+            text += f"  {date} | {mandi} | Rs.{net:,.0f}\n"
+        if len(payments) > 10:
+            text += f"  ... aur {len(payments) - 10} trips\n"
+
+    text += f"\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_"
+
+    default_numbers = settings.get("default_numbers", [])
+    if isinstance(default_numbers, str):
+        default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
+
+    results = []
+    if phone:
+        r = await _send_wa_message(phone, text, pdf_url)
+        results.append({"target": phone, "success": r.get("success", False)})
+    else:
+        for num in default_numbers:
+            if num and num.strip():
+                r = await _send_wa_message(num.strip(), text, pdf_url)
+                results.append({"target": num, "success": r.get("success", False)})
+
+    if not results:
+        return {"success": False, "error": "Koi number set nahi hai. Settings > WhatsApp mein default numbers SAVE karein."}
+
+    success_count = sum(1 for r in results if r["success"])
+    return {"success": success_count > 0,
+            "message": f"Truck payment {success_count}/{len(results)} numbers pe bhej diya!",
+            "details": results}
+
+
+@router.post("/whatsapp/send-truck-owner")
+async def send_truck_owner(data: dict):
+    """Send truck owner consolidated payment summary via WhatsApp."""
+    truck_no = data.get("truck_no", "")
+    phone = data.get("phone", "").strip() if data.get("phone") else ""
+    total_trips = data.get("total_trips", 0)
+    total_gross = data.get("total_gross", 0)
+    total_deductions = data.get("total_deductions", 0)
+    total_net = data.get("total_net", 0)
+    total_paid = data.get("total_paid", 0)
+    total_balance = data.get("total_balance", 0)
+    pdf_url = data.get("pdf_url", "")
+
+    if not truck_no:
+        raise HTTPException(status_code=400, detail="Truck number required")
+
+    settings = await _get_wa_settings()
+    if not settings.get("api_key"):
+        return {"success": False, "error": "WhatsApp API key set nahi hai."}
+
+    branding = await db["settings"].find_one({"key": "branding"}, {"_id": 0})
+    company = branding.get("company_name", "Mill Entry System") if branding else "Mill Entry System"
+
+    bal_label = "Bakaya" if total_balance > 0 else "Settled"
+    text = (
+        f"*{company}*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"*Truck Owner Payment / ट्रक मालिक भुगतान*\n"
+        f"Truck: *{truck_no}*\n"
+        f"Total Trips: {total_trips}\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"Gross Amount: Rs.{total_gross:,.2f}\n"
+        f"Deductions: Rs.{total_deductions:,.2f}\n"
+        f"Net Payable: Rs.{total_net:,.2f}\n"
+        f"Paid: Rs.{total_paid:,.2f}\n"
+        f"*{bal_label}: Rs.{abs(total_balance):,.2f}*\n"
+        f"\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_"
+    )
+
+    default_numbers = settings.get("default_numbers", [])
+    if isinstance(default_numbers, str):
+        default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
+
+    results = []
+    if phone:
+        r = await _send_wa_message(phone, text, pdf_url)
+        results.append({"target": phone, "success": r.get("success", False)})
+    else:
+        for num in default_numbers:
+            if num and num.strip():
+                r = await _send_wa_message(num.strip(), text, pdf_url)
+                results.append({"target": num, "success": r.get("success", False)})
+
+    if not results:
+        return {"success": False, "error": "Koi number set nahi hai. Settings > WhatsApp mein default numbers SAVE karein."}
+
+    success_count = sum(1 for r in results if r["success"])
+    return {"success": success_count > 0,
+            "message": f"Truck owner payment {success_count}/{len(results)} numbers pe bhej diya!",
+            "details": results}

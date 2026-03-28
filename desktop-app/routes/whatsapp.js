@@ -225,6 +225,87 @@ router.post('/api/whatsapp/send-party-ledger', safeAsync(async (req, res) => {
   res.json({ success: ok > 0, message: `Party ledger ${ok}/${results.length} numbers pe bhej diya!`, details: results });
 }));
 
+// Truck Payment WhatsApp
+router.post('/api/whatsapp/send-truck-payment', safeAsync(async (req, res) => {
+  const { truck_no, payments, total_net, total_paid, total_balance, pdf_url } = req.body;
+  const phone = (req.body.phone || '').trim();
+  if (!truck_no) return res.status(400).json({ detail: 'Truck number required' });
+  const config = getWaSettings();
+  if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
+
+  const brandingFromSettings = col('app_settings').find(s => s.setting_id === 'branding');
+  const branding = brandingFromSettings || database.data.branding || {};
+  const company = branding.company_name || 'Mill Entry System';
+  const balLabel = (total_balance || 0) > 0 ? 'Bakaya' : 'Settled';
+
+  let text = `*${company}*\n━━━━━━━━━━━━━━━━\n*Truck Payment / ट्रक भुगतान*\nTruck: *${truck_no}*\n━━━━━━━━━━━━━━━━\nNet Amount: Rs.${Number(total_net||0).toLocaleString()}\nPaid: Rs.${Number(total_paid||0).toLocaleString()}\n*${balLabel}: Rs.${Math.abs(total_balance||0).toLocaleString()}*\n`;
+
+  if (payments && payments.length > 0) {
+    text += `\n*Trips (${Math.min(payments.length, 10)}):*\n`;
+    payments.slice(0, 10).forEach(p => {
+      text += `  ${p.date||''} | ${p.mandi_name||''} | Rs.${Number(p.net_amount||0).toLocaleString()}\n`;
+    });
+    if (payments.length > 10) text += `  ... aur ${payments.length - 10} trips\n`;
+  }
+  text += '\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_';
+
+  let nums = config.default_numbers || [];
+  if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
+  if (!Array.isArray(nums)) nums = [];
+
+  const results = [];
+  if (phone) {
+    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, pdf_url || '');
+    results.push({ target: phone, success: r.success });
+  } else {
+    for (const num of nums) {
+      if (num && num.trim()) {
+        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, pdf_url || '');
+        results.push({ target: num, success: r.success });
+      }
+    }
+  }
+  if (!results.length) return res.json({ success: false, error: 'Koi number set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });
+  const ok = results.filter(r => r.success).length;
+  res.json({ success: ok > 0, message: `Truck payment ${ok}/${results.length} numbers pe bhej diya!`, details: results });
+}));
+
+// Truck Owner WhatsApp
+router.post('/api/whatsapp/send-truck-owner', safeAsync(async (req, res) => {
+  const { truck_no, total_trips, total_gross, total_deductions, total_net, total_paid, total_balance, pdf_url } = req.body;
+  const phone = (req.body.phone || '').trim();
+  if (!truck_no) return res.status(400).json({ detail: 'Truck number required' });
+  const config = getWaSettings();
+  if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
+
+  const brandingFromSettings = col('app_settings').find(s => s.setting_id === 'branding');
+  const branding = brandingFromSettings || database.data.branding || {};
+  const company = branding.company_name || 'Mill Entry System';
+  const balLabel = (total_balance || 0) > 0 ? 'Bakaya' : 'Settled';
+
+  let text = `*${company}*\n━━━━━━━━━━━━━━━━\n*Truck Owner Payment / ट्रक मालिक भुगतान*\nTruck: *${truck_no}*\nTotal Trips: ${total_trips||0}\n━━━━━━━━━━━━━━━━\nGross Amount: Rs.${Number(total_gross||0).toLocaleString()}\nDeductions: Rs.${Number(total_deductions||0).toLocaleString()}\nNet Payable: Rs.${Number(total_net||0).toLocaleString()}\nPaid: Rs.${Number(total_paid||0).toLocaleString()}\n*${balLabel}: Rs.${Math.abs(total_balance||0).toLocaleString()}*\n\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_`;
+
+  let nums = config.default_numbers || [];
+  if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
+  if (!Array.isArray(nums)) nums = [];
+
+  const results = [];
+  if (phone) {
+    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, pdf_url || '');
+    results.push({ target: phone, success: r.success });
+  } else {
+    for (const num of nums) {
+      if (num && num.trim()) {
+        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, pdf_url || '');
+        results.push({ target: num, success: r.success });
+      }
+    }
+  }
+  if (!results.length) return res.json({ success: false, error: 'Koi number set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });
+  const ok = results.filter(r => r.success).length;
+  res.json({ success: ok > 0, message: `Truck owner payment ${ok}/${results.length} numbers pe bhej diya!`, details: results });
+}));
+
 
 return router;
 };

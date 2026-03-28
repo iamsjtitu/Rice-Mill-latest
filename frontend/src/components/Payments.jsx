@@ -18,7 +18,7 @@ import {
 import { Label } from "@/components/ui/label";
 import {
   Truck, Users, IndianRupee, CheckCircle, Clock, AlertCircle, Undo2, History,
-  Target, Download, FileText, FileSpreadsheet, Printer, X, Edit, Fuel, Plus, Trash2, Star, RefreshCw, Handshake, Package,
+  Target, Download, FileText, FileSpreadsheet, Printer, X, Edit, Fuel, Plus, Trash2, Star, RefreshCw, Handshake, Package, Send,
 } from "lucide-react";
 import LocalPartyAccount from "./payments/LocalPartyAccount";
 import { GunnyBags } from "./DCTracker";
@@ -175,6 +175,56 @@ export const Payments = ({ filters, user, branding }) => {
     if (filters.season) params.append('season', filters.season);
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/export/truck-owner-pdf?${params.toString()}`, 'truck_owner.pdf');
+  };
+
+  // WhatsApp - Truck Payment (individual trip)
+  const handleWhatsAppTruckPayment = async (payment) => {
+    try {
+      let waSettings;
+      try { waSettings = (await axios.get(`${API}/whatsapp/settings`)).data; } catch(e) { waSettings = {}; }
+      const hasDefaults = (waSettings.default_numbers || []).length > 0;
+      let phone = "";
+      if (!hasDefaults) {
+        phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
+        if (!phone) return;
+      }
+      const res = await axios.post(`${API}/whatsapp/send-truck-payment`, {
+        truck_no: payment.truck_no,
+        payments: [{ date: fmtDate(payment.date), mandi_name: payment.mandi_name, net_amount: payment.net_amount }],
+        total_net: payment.net_amount,
+        total_paid: payment.paid_amount,
+        total_balance: payment.balance_amount,
+        phone
+      });
+      if (res.data.success) toast.success(res.data.message || "WhatsApp bhej diya!");
+      else toast.error(res.data.error || "WhatsApp fail");
+    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.message)); }
+  };
+
+  // WhatsApp - Truck Owner (consolidated)
+  const handleWhatsAppTruckOwner = async (truckData) => {
+    try {
+      let waSettings;
+      try { waSettings = (await axios.get(`${API}/whatsapp/settings`)).data; } catch(e) { waSettings = {}; }
+      const hasDefaults = (waSettings.default_numbers || []).length > 0;
+      let phone = "";
+      if (!hasDefaults) {
+        phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
+        if (!phone) return;
+      }
+      const res = await axios.post(`${API}/whatsapp/send-truck-owner`, {
+        truck_no: truckData.truck_no,
+        total_trips: truckData.trips.length,
+        total_gross: truckData.total_gross,
+        total_deductions: truckData.total_deductions,
+        total_net: truckData.total_net,
+        total_paid: truckData.total_paid,
+        total_balance: truckData.total_balance,
+        phone
+      });
+      if (res.data.success) toast.success(res.data.message || "WhatsApp bhej diya!");
+      else toast.error(res.data.error || "WhatsApp fail");
+    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.message)); }
   };
 
   // Undo paid
@@ -1073,6 +1123,16 @@ export const Payments = ({ filters, user, branding }) => {
                             >
                               <Printer className="w-3 h-3" />
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleWhatsAppTruckPayment(payment)}
+                              className="h-7 px-2 text-green-400 hover:bg-green-900/30"
+                              title="WhatsApp Send"
+                              data-testid={`truck-wa-${idx}`}
+                            >
+                              <Send className="w-3 h-3" />
+                            </Button>
                           </div>
                         </TableCell>
                       )}
@@ -1214,6 +1274,12 @@ export const Payments = ({ filters, user, branding }) => {
                               onClick={() => handlePrintConsolidatedInvoice(truckData)}
                               className="h-7 px-2 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600 text-xs">
                               <Printer className="w-3 h-3 mr-1" /> Print
+                            </Button>
+                            <Button size="sm" variant="ghost"
+                              onClick={() => handleWhatsAppTruckOwner(truckData)}
+                              className="h-7 px-2 text-green-400 hover:bg-green-900/30 border border-green-600 text-xs"
+                              data-testid={`owner-wa-${idx}`}>
+                              <Send className="w-3 h-3 mr-1" /> WhatsApp
                             </Button>
                           </div>
                         </TableCell>
