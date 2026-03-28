@@ -272,10 +272,17 @@ const CashBook = ({ filters, user }) => {
       const partyTxns = txns.filter(t => (t.category || '').toLowerCase() === partyName.toLowerCase());
       const totalDebit = partyTxns.filter(t => t.txn_type === 'nikasi').reduce((s,t) => s + (t.amount || 0), 0);
       const totalCredit = partyTxns.filter(t => t.txn_type === 'jama').reduce((s,t) => s + (t.amount || 0), 0);
+      const pdfParams = new URLSearchParams();
+      if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
+      if (filters.season) pdfParams.append('season', filters.season);
+      pdfParams.append('party_name', partyName);
+      if (txnFilters.party_type) pdfParams.append('party_type', txnFilters.party_type);
+      const pdfUrl = `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-party-ledger`, {
         party_name: partyName, total_debit: totalDebit, total_credit: totalCredit,
         balance: totalDebit - totalCredit,
         transactions: partyTxns.slice(0, 10).map(t => ({ date: t.date, txn_type: t.txn_type, amount: t.amount, description: t.description })),
+        pdf_url: pdfUrl,
         phone
       });
       if (res.data.success) toast.success(res.data.message || "Ledger WhatsApp pe bhej diya!");

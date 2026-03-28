@@ -188,12 +188,18 @@ export const Payments = ({ filters, user, branding }) => {
         phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
         if (!phone) return;
       }
+      const pdfParams = new URLSearchParams();
+      if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
+      if (filters.season) pdfParams.append('season', filters.season);
+      pdfParams.append('truck_no', payment.truck_no);
+      const pdfUrl = `${API}/export/truck-payments-pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-truck-payment`, {
         truck_no: payment.truck_no,
         payments: [{ date: fmtDate(payment.date), mandi_name: payment.mandi_name, net_amount: payment.net_amount }],
         total_net: payment.net_amount,
         total_paid: payment.paid_amount,
         total_balance: payment.balance_amount,
+        pdf_url: pdfUrl,
         phone
       });
       if (res.data.success) toast.success(res.data.message || "WhatsApp bhej diya!");
@@ -212,6 +218,10 @@ export const Payments = ({ filters, user, branding }) => {
         phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
         if (!phone) return;
       }
+      const pdfParams = new URLSearchParams();
+      if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
+      if (filters.season) pdfParams.append('season', filters.season);
+      const pdfUrl = `${API}/export/truck-owner-pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-truck-owner`, {
         truck_no: truckData.truck_no,
         total_trips: truckData.trips.length,
@@ -220,6 +230,7 @@ export const Payments = ({ filters, user, branding }) => {
         total_net: truckData.total_net,
         total_paid: truckData.total_paid,
         total_balance: truckData.total_balance,
+        pdf_url: pdfUrl,
         phone
       });
       if (res.data.success) toast.success(res.data.message || "WhatsApp bhej diya!");

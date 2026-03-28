@@ -310,12 +310,21 @@ const PartyLedger = ({ filters }) => {
         phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
         if (!phone) return;
       }
+      const pdfParams = new URLSearchParams();
+      if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
+      if (filters.season) pdfParams.append('season', filters.season);
+      if (selectedParty) pdfParams.append('party_name', selectedParty);
+      if (selectedType) pdfParams.append('party_type', selectedType);
+      if (dateFrom) pdfParams.append('date_from', dateFrom);
+      if (dateTo) pdfParams.append('date_to', dateTo);
+      const pdfUrl = `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-party-ledger`, {
         party_name: selectedParty,
         total_debit: data.total_debit || 0,
         total_credit: data.total_credit || 0,
         balance: (data.total_debit || 0) - (data.total_credit || 0),
         transactions: (data.transactions || []).slice(0, 10),
+        pdf_url: pdfUrl,
         phone
       });
       if (res.data.success) toast.success(res.data.message || "Ledger WhatsApp pe bhej diya!");
