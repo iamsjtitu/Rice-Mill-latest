@@ -368,7 +368,7 @@ function generateDailyReportPdf(doc, data, query) {
         const colKey = isDetail ? 'detail_mode_columns' : 'summary_mode_columns';
         const dailyCols = getColumns('daily_paddy_entries_report', colKey);
         const pdfHdrs = getPdfHeaders(dailyCols);
-        const pdfWidths = getPdfWidthsMm(dailyCols);
+        const pdfWidths = getPdfWidthsMm(dailyCols).map(w => w * 2.835);
         drawTable(
           pdfHdrs,
           p.details.map(d => dailyCols.map(c => String(fmtVal(d[c.field], c.type)))),

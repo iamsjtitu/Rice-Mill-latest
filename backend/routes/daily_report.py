@@ -433,7 +433,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
         if is_detail:
             pdf_widths = [w * mm for w in get_pdf_widths_mm(daily_cols)]
         else:
-            pdf_widths = get_pdf_widths_mm(daily_cols)
+            pdf_widths = [w * mm for w in get_pdf_widths_mm(daily_cols)]
         pdf_rows = [[str(fmt_val(d.get(c["field"], 0), c["type"])) for c in daily_cols] for d in p["details"]]
         elements.append(make_table(pdf_hdrs, pdf_rows, pdf_widths, font_size=5 if is_detail else 7))
     elements.append(Spacer(1, 4))
