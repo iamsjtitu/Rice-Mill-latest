@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "50.0.0";
+const APP_VERSION = "50.1.0";
 
 const CHANGELOG = [
+  {
+    version: "50.1.0",
+    date: "28 Mar 2026",
+    title: "v50.1.0 - Extra Fields Placement & Optional Label",
+    items: [
+      { type: "new", text: "Extra Fields mein Placement option - Company Name ke Upar ya Neeche dikhao" },
+      { type: "imp", text: "Label ab optional hai - sirf Value daaloge toh bhi dikhega" },
+    ]
+  },
   {
     version: "50.0.0",
     date: "28 Mar 2026",
