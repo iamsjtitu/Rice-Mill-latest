@@ -45,6 +45,7 @@
       "routes/**/*",
       "utils/**/*",
       "shared/**/*",
+      "fonts/**/*",
       "frontend-build/**/*",
       "package.json",
       "node_modules/**/*"
