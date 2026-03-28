@@ -178,8 +178,8 @@ async def send_payment_reminder(data: dict):
         f"Paid: Rs.{paid:,.2f}\n"
         f"*Balance Due: Rs.{balance:,.2f}*\n"
         f"---\n"
-        f"Kripya baaki rashi ka bhugtan karein.\n"
-        f"Dhanyavaad!"
+        f"Thank you\n"
+        f"{company}"
     )
 
     # Send to provided phone
@@ -304,7 +304,7 @@ async def send_party_ledger(data: dict):
         if len(transactions) > 10:
             text += f"  ... aur {len(transactions) - 10} entries\n"
 
-    text += f"\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_"
+    text += f"\nThank you\n{company}"
 
     default_numbers = settings.get("default_numbers", [])
     if isinstance(default_numbers, str):
@@ -372,7 +372,7 @@ async def send_truck_payment(data: dict):
         if len(payments) > 10:
             text += f"  ... aur {len(payments) - 10} trips\n"
 
-    text += f"\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_"
+    text += f"\nThank you\n{company}"
 
     default_numbers = settings.get("default_numbers", [])
     if isinstance(default_numbers, str):
@@ -433,7 +433,7 @@ async def send_truck_owner(data: dict):
         f"Net Payable: Rs.{total_net:,.2f}\n"
         f"Paid: Rs.{total_paid:,.2f}\n"
         f"*{bal_label}: Rs.{abs(total_balance):,.2f}*\n"
-        f"\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_"
+        f"\nThank you\n{company}"
     )
 
     default_numbers = settings.get("default_numbers", [])

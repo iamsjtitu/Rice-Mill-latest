@@ -709,7 +709,10 @@ function hasTodayBackup() {
 const app = express();
 app.use(compression({
   filter: (req, res) => {
-    if (req.url && (req.url.includes('/pdf') || req.url.includes('/export'))) return false;
+    // Skip compression for PDF/Excel/binary responses to prevent ERR_STREAM_WRITE_AFTER_END
+    const ct = res.getHeader('Content-Type') || '';
+    if (typeof ct === 'string' && (ct.includes('application/pdf') || ct.includes('application/octet-stream') || ct.includes('spreadsheetml'))) return false;
+    if (req.url && (req.url.includes('/pdf') || req.url.includes('/export') || req.url.includes('/excel'))) return false;
     return compression.filter(req, res);
   }
 }));

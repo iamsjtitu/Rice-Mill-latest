@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "51.1.0";
+const APP_VERSION = "51.2.0";
 
 const CHANGELOG = [
+  {
+    version: "51.2.0",
+    date: "29 Mar 2026",
+    title: "v51.2.0 - PDF Stream Fix + WhatsApp Improvements",
+    items: [
+      { type: "fix", text: "PDF/Excel download stream crash fix (compression Content-Type check)" },
+      { type: "fix", text: "WhatsApp Daily Report mein ab PDF attach hoke jaayega (localhost URL fix)" },
+      { type: "imp", text: "WhatsApp footer ab 'Thank you / Navkar Agro' dikhayega" },
+    ]
+  },
   {
     version: "51.1.0",
     date: "28 Mar 2026",

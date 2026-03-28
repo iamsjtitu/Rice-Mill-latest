@@ -63,12 +63,25 @@ function uploadPdfToTmpFiles(localPdfPath) {
   });
 }
 
+// Resolve pdf_url: if local/localhost, upload to tmpfiles.org; if already public, return as-is
 async function resolvePdfUrl(pdfUrl) {
   if (!pdfUrl) return '';
+  // Detect localhost/127.0.0.1 URLs (frontend sends full http://127.0.0.1:PORT/api/... URLs)
+  if (pdfUrl.includes('127.0.0.1') || pdfUrl.includes('localhost')) {
+    try {
+      const u = new URL(pdfUrl);
+      const localPath = u.pathname + u.search;
+      if (localPath.startsWith('/api/')) {
+        return await uploadPdfToTmpFiles(localPath);
+      }
+    } catch (_) {}
+    return '';
+  }
+  // If it's already a full public URL, return as-is
   if (pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://')) return pdfUrl;
+  // Local path like /api/... - upload to tmpfiles.org
   if (pdfUrl.startsWith('/api/')) {
-    const publicUrl = await uploadPdfToTmpFiles(pdfUrl);
-    return publicUrl;
+    return await uploadPdfToTmpFiles(pdfUrl);
   }
   return '';
 }
@@ -186,7 +199,7 @@ router.post('/api/whatsapp/send-payment-reminder', safeAsync(async (req, res) =>
   const company = branding.company_name || 'Mill Entry System';
   const bal = balance || ((total_amount || 0) - (paid_amount || 0));
 
-  const text = `*${company}*\n---\nParty: ${party_name}\nTotal: Rs.${Number(total_amount||0).toLocaleString()}\nPaid: Rs.${Number(paid_amount||0).toLocaleString()}\n*Balance Due: Rs.${Number(bal).toLocaleString()}*\n---\nKripya baaki rashi ka bhugtan karein.\nDhanyavaad!`;
+  const text = `*${company}*\n---\nParty: ${party_name}\nTotal: Rs.${Number(total_amount||0).toLocaleString()}\nPaid: Rs.${Number(paid_amount||0).toLocaleString()}\n*Balance Due: Rs.${Number(bal).toLocaleString()}*\n---\nThank you\n${company}`;
 
   if (phoneRaw) {
     const r = await sendWaMessage(config.api_key, cleanPhone(phoneRaw, config.country_code), text);
@@ -279,7 +292,7 @@ router.post('/api/whatsapp/send-party-ledger', safeAsync(async (req, res) => {
     });
     if (transactions.length > 10) text += `  ... aur ${transactions.length - 10} entries\n`;
   }
-  text += '\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_';
+  text += '\nThank you\n' + company;
 
   let nums = config.default_numbers || [];
   if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
@@ -327,7 +340,7 @@ router.post('/api/whatsapp/send-truck-payment', safeAsync(async (req, res) => {
     });
     if (payments.length > 10) text += `  ... aur ${payments.length - 10} trips\n`;
   }
-  text += '\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_';
+  text += '\nThank you\n' + company;
 
   let nums = config.default_numbers || [];
   if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
@@ -366,7 +379,7 @@ router.post('/api/whatsapp/send-truck-owner', safeAsync(async (req, res) => {
   const company = branding.company_name || 'Mill Entry System';
   const balLabel = (total_balance || 0) > 0 ? 'Bakaya' : 'Settled';
 
-  let text = `*${company}*\n━━━━━━━━━━━━━━━━\n*Truck Owner Payment / ट्रक मालिक भुगतान*\nTruck: *${truck_no}*\nTotal Trips: ${total_trips||0}\n━━━━━━━━━━━━━━━━\nGross Amount: Rs.${Number(total_gross||0).toLocaleString()}\nDeductions: Rs.${Number(total_deductions||0).toLocaleString()}\nNet Payable: Rs.${Number(total_net||0).toLocaleString()}\nPaid: Rs.${Number(total_paid||0).toLocaleString()}\n*${balLabel}: Rs.${Math.abs(total_balance||0).toLocaleString()}*\n\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_`;
+  let text = `*${company}*\n━━━━━━━━━━━━━━━━\n*Truck Owner Payment / ट्रक मालिक भुगतान*\nTruck: *${truck_no}*\nTotal Trips: ${total_trips||0}\n━━━━━━━━━━━━━━━━\nGross Amount: Rs.${Number(total_gross||0).toLocaleString()}\nDeductions: Rs.${Number(total_deductions||0).toLocaleString()}\nNet Payable: Rs.${Number(total_net||0).toLocaleString()}\nPaid: Rs.${Number(total_paid||0).toLocaleString()}\n*${balLabel}: Rs.${Math.abs(total_balance||0).toLocaleString()}*\n\nThank you\n${company}`;
 
   let nums = config.default_numbers || [];
   if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
