@@ -3061,7 +3061,8 @@ import { ConfirmProvider } from "@/components/ConfirmProvider";
 // Opening Stock Form Component
 const STOCK_ITEMS = [
   { key: "paddy", label: "Paddy / धान", unit: "Qntl" },
-  { key: "rice", label: "Rice / चावल", unit: "Qntl" },
+  { key: "rice_usna", label: "Rice Usna / उसना चावल", unit: "Qntl" },
+  { key: "rice_raw", label: "Rice Raw / कच्चा चावल", unit: "Qntl" },
   { key: "bran", label: "Bran / भूसी", unit: "Qntl" },
   { key: "kunda", label: "Kunda / कुंडा", unit: "Qntl" },
   { key: "broken", label: "Broken / टूटा", unit: "Qntl" },
@@ -3074,6 +3075,7 @@ function OpeningStockForm({ kmsYear, financialYear, user }) {
   const [stocks, setStocks] = useState({});
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [carrying, setCarrying] = useState(false);
 
   useEffect(() => {
     const fetch = async () => {
@@ -3102,12 +3104,44 @@ function OpeningStockForm({ kmsYear, financialYear, user }) {
     setSaving(false);
   };
 
+  const carryForward = async () => {
+    // Calculate previous KMS year
+    const parts = kmsYear.split('-');
+    if (parts.length !== 2) return;
+    const prevKms = `${parseInt(parts[0]) - 1}-${parseInt(parts[1]) - 1}`;
+    setCarrying(true);
+    try {
+      const res = await axios.post(`${API}/opening-stock/carry-forward?username=${user.username}&role=${user.role}`, {
+        source_kms_year: prevKms,
+        target_kms_year: kmsYear,
+        target_financial_year: financialYear
+      });
+      if (res.data.success) {
+        setStocks(res.data.data?.stocks || {});
+        toast.success(`${prevKms} ka closing stock → ${kmsYear} ka opening stock carry forward ho gaya!`);
+      }
+    } catch (e) { toast.error(e.response?.data?.detail || "Carry forward error"); }
+    setCarrying(false);
+  };
+
   if (!loaded) return null;
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-slate-400">KMS: <span className="text-amber-400 font-bold">{kmsYear}</span> | FY: <span className="text-emerald-400 font-bold">{financialYear}</span></p>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-400">KMS: <span className="text-amber-400 font-bold">{kmsYear}</span> | FY: <span className="text-emerald-400 font-bold">{financialYear}</span></p>
+        <Button
+          onClick={carryForward}
+          disabled={carrying}
+          size="sm"
+          variant="outline"
+          className="border-cyan-600 text-cyan-400 hover:bg-cyan-900/30 text-xs"
+          data-testid="carry-forward-btn"
+        >
+          {carrying ? 'Processing...' : 'Auto Carry Forward (Previous Year Closing → OB)'}
+        </Button>
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
         {STOCK_ITEMS.map(item => (
           <div key={item.key}>
             <Label className="text-slate-300 text-xs">{item.label}</Label>

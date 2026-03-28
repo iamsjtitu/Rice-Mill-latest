@@ -123,7 +123,7 @@ module.exports = function(database) {
   }));
 
   // ===== OPENING STOCK =====
-  const STOCK_ITEMS = ['paddy', 'rice', 'bran', 'kunda', 'broken', 'kanki', 'husk', 'frk'];
+  const STOCK_ITEMS = ['paddy', 'rice_usna', 'rice_raw', 'bran', 'kunda', 'broken', 'kanki', 'husk', 'frk'];
 
   router.get('/api/opening-stock', safeSync((req, res) => {
     const kms_year = req.query.kms_year || '';

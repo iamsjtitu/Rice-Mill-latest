@@ -1,0 +1,75 @@
+{
+  "summary": "Tested Stock Summary Opening Balance bug fix and Carry Forward feature. All 10 backend tests passed. Frontend UI verified: Opening column visible in Stock Summary with amber-colored values, 9 stock items in Settings, Carry Forward button functional.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration110_stock_opening.py",
+    "/app/test_reports/pytest/pytest_results_iteration110.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BUG FIX VERIFIED: GET /api/stock-summary now includes 'opening' field fetched from db.opening_stock collection",
+    "Opening stock calculation: Available = Opening + In - Out is working correctly",
+    "STOCK_ITEMS in auth.py correctly includes 9 items: paddy, rice_usna, rice_raw, bran, kunda, broken, kanki, husk, frk",
+    "PUT /api/opening-stock correctly saves rice_usna and rice_raw separately (split from rice)",
+    "POST /api/opening-stock/carry-forward endpoint exists and requires admin role",
+    "StockSummary.jsx displays Opening column with amber color (text-amber-400) for all 3 category tables",
+    "Settings page OpeningStockForm shows all 9 stock item inputs with Carry Forward button"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "username": "admin",
+    "password": "admin123"
+  },
+  "seed_data_creation": "Opening stock for KMS 2024-2025 already set with paddy=500, rice_usna=300 (visible in Stock Summary)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Stock Summary Opening Balance feature fully working. Opening column shows amber-colored values from db.opening_stock. Available = Opening + In - Out calculation verified. Carry Forward button in Settings allows auto-carry of previous year closing stock to current year opening stock.",
+  "features_tested": {
+    "stock_summary_opening_column": {
+      "status": "PASS",
+      "details": "Opening column visible in all 3 category tables (Raw Material, Finished, By-Product) with amber color"
+    },
+    "opening_stock_api": {
+      "status": "PASS",
+      "details": "GET/PUT /api/opening-stock working with 9 stock items including rice_usna and rice_raw"
+    },
+    "carry_forward_api": {
+      "status": "PASS",
+      "details": "POST /api/opening-stock/carry-forward endpoint exists, requires admin, validates source/target years"
+    },
+    "available_calculation": {
+      "status": "PASS",
+      "details": "Available = Opening + In - Out formula verified (Paddy: 500 + 0 - 0 = 500)"
+    },
+    "settings_opening_stock_form": {
+      "status": "PASS",
+      "details": "9 stock item inputs visible with Carry Forward button and Save button"
+    }
+  },
+  "frontend_verification": {
+    "login": "PASS",
+    "vouchers_tab": "PASS",
+    "stock_summary_subtab": "PASS",
+    "opening_column_headers": "PASS - 3 headers (one per category table)",
+    "amber_colored_values": "PASS - 17 amber values found",
+    "paddy_opening_value": "PASS - 500 Qntl",
+    "rice_usna_opening_value": "PASS - 300 Qntl",
+    "settings_tab": "PASS",
+    "opening_stock_section": "PASS",
+    "9_stock_item_inputs": "PASS",
+    "carry_forward_button": "PASS",
+    "save_opening_stock_button": "PASS"
+  }
+}

@@ -61,6 +61,7 @@ export default function StockSummary({ filters }) {
 
   const rawItems = filteredItems.filter(i => i.category === 'Raw Material' && (i.unit || 'Qntl') === 'Qntl');
   const finishedItems = filteredItems.filter(i => i.category === 'Finished');
+  const totalOB = rawItems.reduce((s, i) => s + (i.opening || 0), 0);
   const totalIn = rawItems.reduce((s, i) => s + (i.in_qty || 0), 0);
   const totalOut = rawItems.reduce((s, i) => s + (i.out_qty || 0), 0);
   const totalAvail = rawItems.reduce((s, i) => s + (i.available || 0), 0);
@@ -129,13 +130,14 @@ export default function StockSummary({ filters }) {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader><TableRow className="border-slate-700">
-                    {['Item', 'In (Qntl)', 'Out (Qntl)', 'Available', 'Details'].map(h =>
-                      <TableHead key={h} className={`text-slate-300 text-xs ${['In (Qntl)', 'Out (Qntl)', 'Available'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
+                    {['Item', 'Opening', 'In (Qntl)', 'Out (Qntl)', 'Available', 'Details'].map(h =>
+                      <TableHead key={h} className={`text-slate-300 text-xs ${['Opening', 'In (Qntl)', 'Out (Qntl)', 'Available'].includes(h) ? 'text-right' : ''}`}>{h}</TableHead>)}
                   </TableRow></TableHeader>
                   <TableBody>
                     {catItems.map(item => (
                       <TableRow key={item.name} className="border-slate-700" data-testid={`stock-row-${item.name.toLowerCase().replace(/[\s()]/g,'-')}`}>
                         <TableCell className="text-white font-semibold text-sm">{item.name}</TableCell>
+                        <TableCell className="text-right text-amber-400 text-sm">{(item.opening || 0) > 0 ? `${item.opening} ${item.unit}` : '-'}</TableCell>
                         <TableCell className="text-right text-emerald-400 text-sm">{item.in_qty} {item.unit}</TableCell>
                         <TableCell className="text-right text-red-400 text-sm">{item.out_qty} {item.unit}</TableCell>
                         <TableCell className={`text-right font-bold text-base ${item.available >= 0 ? config.color : 'text-red-400'}`} data-testid={`stock-avail-${item.name.toLowerCase().replace(/[\s()]/g,'-')}`}>

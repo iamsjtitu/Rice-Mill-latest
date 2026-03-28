@@ -200,7 +200,7 @@ async def update_fy_settings(data: dict):
 
 # ============ OPENING STOCK BALANCE ============
 
-STOCK_ITEMS = ["paddy", "rice", "bran", "kunda", "broken", "kanki", "husk", "frk"]
+STOCK_ITEMS = ["paddy", "rice_usna", "rice_raw", "bran", "kunda", "broken", "kanki", "husk", "frk"]
 
 @router.get("/opening-stock")
 async def get_opening_stock(kms_year: str = "", financial_year: str = ""):
@@ -250,3 +250,50 @@ async def save_opening_stock(data: dict, username: str = "", role: str = ""):
     query = {"kms_year": kms_year} if kms_year else {"financial_year": financial_year}
     await db.opening_stock.update_one(query, {"$set": doc}, upsert=True)
     return {"success": True, "message": "Opening stock save ho gaya", "data": doc}
+
+
+@router.post("/opening-stock/carry-forward")
+async def carry_forward_stock(data: dict, username: str = "", role: str = ""):
+    """Calculate closing stock of source KMS year and set as opening stock of target year."""
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf Admin carry-forward kar sakta hai")
+
+    source_kms = data.get("source_kms_year", "")
+    target_kms = data.get("target_kms_year", "")
+    target_fy = data.get("target_financial_year", "")
+    if not source_kms or not target_kms:
+        raise HTTPException(status_code=400, detail="Source and target KMS years required")
+
+    # Import the stock summary function
+    from routes.purchase_vouchers import get_stock_summary
+    summary = await get_stock_summary(kms_year=source_kms)
+    items = summary.get("items", [])
+
+    # Map closing stock to opening stock keys
+    closing = {}
+    name_to_key = {
+        "Paddy": "paddy", "Rice (Usna)": "rice_usna", "Rice (Raw)": "rice_raw",
+        "Bran": "bran", "Kunda": "kunda", "Broken": "broken",
+        "Kanki": "kanki", "Husk": "husk", "Frk": "frk", "FRK": "frk"
+    }
+    for item in items:
+        key = name_to_key.get(item["name"])
+        if key:
+            closing[key] = round(item.get("available", 0), 2)
+
+    # Ensure all keys exist
+    for k in STOCK_ITEMS:
+        if k not in closing:
+            closing[k] = 0
+
+    doc = {
+        "kms_year": target_kms,
+        "financial_year": target_fy,
+        "stocks": closing,
+        "auto_carried": True,
+        "carried_from": source_kms,
+        "updated_by": username,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.opening_stock.update_one({"kms_year": target_kms}, {"$set": doc}, upsert=True)
+    return {"success": True, "message": f"Closing stock {source_kms} → Opening stock {target_kms} carry forward ho gaya", "data": doc}

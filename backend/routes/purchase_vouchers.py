@@ -465,6 +465,23 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
 
+    # ===== FETCH OPENING STOCK =====
+    ob = {}
+    if kms_year:
+        ob_doc = await db.opening_stock.find_one({"kms_year": kms_year}, {"_id": 0})
+        if ob_doc:
+            ob = ob_doc.get("stocks", {})
+    # Map opening stock keys to stock item names
+    ob_paddy = float(ob.get("paddy", 0))
+    ob_usna = float(ob.get("rice_usna", ob.get("rice", 0)))
+    ob_raw = float(ob.get("rice_raw", 0))
+    ob_bran = float(ob.get("bran", 0))
+    ob_kunda = float(ob.get("kunda", 0))
+    ob_broken = float(ob.get("broken", 0))
+    ob_kanki = float(ob.get("kanki", 0))
+    ob_husk = float(ob.get("husk", 0))
+    ob_frk = float(ob.get("frk", 0))
+
     milling = await db.milling_entries.find(query, {"_id": 0}).to_list(10000)
     dc = await db.dc_entries.find(query, {"_id": 0}).to_list(10000)
     pvt_sales = await db.rice_sales.find(query, {"_id": 0}).to_list(10000)
@@ -474,7 +491,7 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     mill_entries = await db.mill_entries.find(query, {"_id": 0}).to_list(10000)
     pvt_paddy = await db.private_paddy.find({**query, "source": {"$ne": "agent_extra"}}, {"_id": 0}).to_list(10000)
 
-    # Paddy stock - consistent with /api/paddy-stock calculation
+    # Paddy stock
     cmr_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 - e.get('p_pkt_cut', 0) / 100 for e in mill_entries), 2)
     pvt_paddy_in = round(sum(e.get('qntl', 0) - e.get('bag', 0) / 100 for e in pvt_paddy), 2)
     paddy_used_milling = round(sum(e.get('paddy_input_qntl', 0) for e in milling), 2)
@@ -520,53 +537,60 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
 
     # Build stock items list
     stock_items = []
+    ob_map = {}  # opening balance per item
 
     # Paddy
     pv_paddy = round(pv_bought.get("Paddy", 0), 2)
     paddy_total_in = round(cmr_paddy_in + pvt_paddy_in + pv_paddy, 2)
     stock_items.append({
         "name": "Paddy", "category": "Raw Material",
+        "opening": ob_paddy,
         "in_qty": paddy_total_in, "out_qty": paddy_used_milling,
-        "available": round(paddy_total_in - paddy_used_milling, 2), "unit": "Qntl",
-        "details": f"CMR: {cmr_paddy_in}Q + Pvt: {pvt_paddy_in}Q + Purchase: {pv_paddy}Q - Milling: {paddy_used_milling}Q"
+        "available": round(ob_paddy + paddy_total_in - paddy_used_milling, 2), "unit": "Qntl",
+        "details": f"OB: {ob_paddy}Q + CMR: {cmr_paddy_in}Q + Pvt: {pvt_paddy_in}Q + Purchase: {pv_paddy}Q - Milling: {paddy_used_milling}Q"
     })
 
     # Rice Usna
     pv_usna = round(pv_bought.get("Rice (Usna)", 0), 2)
     usna_sold_total = round(govt_delivered + pvt_sold_usna + sb_sold.get("Rice (Usna)", 0), 2)
-    usna_avail = round(usna_produced + pv_usna - usna_sold_total, 2)
+    usna_avail = round(ob_usna + usna_produced + pv_usna - usna_sold_total, 2)
     stock_items.append({
         "name": "Rice (Usna)", "category": "Finished",
+        "opening": ob_usna,
         "in_qty": round(usna_produced + pv_usna, 2), "out_qty": usna_sold_total,
         "available": usna_avail, "unit": "Qntl",
-        "details": f"Milling: {usna_produced}Q + Purchase: {pv_usna}Q - DC: {govt_delivered}Q - Pvt: {pvt_sold_usna}Q - Sale: {sb_sold.get('Rice (Usna)', 0)}Q"
+        "details": f"OB: {ob_usna}Q + Milling: {usna_produced}Q + Purchase: {pv_usna}Q - DC: {govt_delivered}Q - Pvt: {pvt_sold_usna}Q - Sale: {sb_sold.get('Rice (Usna)', 0)}Q"
     })
 
     # Rice Raw
     pv_raw = round(pv_bought.get("Rice (Raw)", 0), 2)
     raw_sold_total = round(pvt_sold_raw + sb_sold.get("Rice (Raw)", 0), 2)
-    raw_avail = round(raw_produced + pv_raw - raw_sold_total, 2)
+    raw_avail = round(ob_raw + raw_produced + pv_raw - raw_sold_total, 2)
     stock_items.append({
         "name": "Rice (Raw)", "category": "Finished",
+        "opening": ob_raw,
         "in_qty": round(raw_produced + pv_raw, 2), "out_qty": raw_sold_total,
         "available": raw_avail, "unit": "Qntl",
-        "details": f"Milling: {raw_produced}Q + Purchase: {pv_raw}Q - Pvt: {pvt_sold_raw}Q - Sale: {sb_sold.get('Rice (Raw)', 0)}Q"
+        "details": f"OB: {ob_raw}Q + Milling: {raw_produced}Q + Purchase: {pv_raw}Q - Pvt: {pvt_sold_raw}Q - Sale: {sb_sold.get('Rice (Raw)', 0)}Q"
     })
 
     # By-products
+    bp_ob_map = {"bran": ob_bran, "kunda": ob_kunda, "broken": ob_broken, "kanki": ob_kanki, "husk": ob_husk}
     for p in products:
         produced = bp_produced.get(p, 0)
         sold_bp = round(bp_sold_map.get(p, 0), 2)
         sold_sb = sb_sold.get(p.title(), 0)
         purchased = pv_bought.get(p.title(), 0)
+        item_ob = bp_ob_map.get(p, 0)
         total_in = round(produced + purchased, 2)
         total_out = round(sold_bp + sold_sb, 2)
-        avail = round(total_in - total_out, 2)
+        avail = round(item_ob + total_in - total_out, 2)
         stock_items.append({
             "name": p.title(), "category": "By-Product",
+            "opening": item_ob,
             "in_qty": total_in, "out_qty": total_out,
             "available": avail, "unit": "Qntl",
-            "details": f"Milling: {produced}Q + Purchased: {purchased}Q - Sold: {sold_bp}Q - Sale Voucher: {sold_sb}Q"
+            "details": f"OB: {item_ob}Q + Milling: {produced}Q + Purchased: {purchased}Q - Sold: {sold_bp}Q - Sale Voucher: {sold_sb}Q"
         })
 
     # FRK
@@ -575,9 +599,10 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
     frk_sold_sb = sb_sold.get("FRK", 0)
     stock_items.append({
         "name": "FRK", "category": "By-Product",
+        "opening": ob_frk,
         "in_qty": frk_total_in, "out_qty": frk_sold_sb,
-        "available": round(frk_total_in - frk_sold_sb, 2), "unit": "Qntl",
-        "details": f"FRK Purchase: {frk_in}Q + Purchase Voucher: {frk_purchased_pv}Q - Sale Voucher: {frk_sold_sb}Q"
+        "available": round(ob_frk + frk_total_in - frk_sold_sb, 2), "unit": "Qntl",
+        "details": f"OB: {ob_frk}Q + FRK Purchase: {frk_in}Q + Purchase Voucher: {frk_purchased_pv}Q - Sale Voucher: {frk_sold_sb}Q"
     })
 
     # Custom items from purchase vouchers (not already covered above)
@@ -587,6 +612,7 @@ async def get_stock_summary(kms_year: Optional[str] = None, season: Optional[str
             sold = sb_sold.get(item_name, 0)
             stock_items.append({
                 "name": item_name, "category": "Custom",
+                "opening": 0,
                 "in_qty": round(qty, 2), "out_qty": round(sold, 2),
                 "available": round(qty - sold, 2), "unit": "Qntl",
                 "details": f"Purchased: {qty}Q - Sold: {sold}Q"
