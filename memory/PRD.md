@@ -12,33 +12,28 @@
 - Username: admin, Password: admin123
 
 ## Key Features
-- WhatsApp 360Messenger with PDF attachment: Daily Report, Party Ledger, Truck Payment, Truck Owner, Leased Truck
-- Desktop WhatsApp PDF: Local PDF → tmpfiles.org upload → public URL → 360Messenger
-- Desktop PDF localhost URL detection: resolvePdfUrl detects 127.0.0.1/localhost and auto-uploads to tmpfiles
-- Compression middleware: Content-Type based filter prevents ERR_STREAM_WRITE_AFTER_END for PDF/Excel/binary
-- Backup System: Backup Now (folder), Auto Daily, ZIP Download, ZIP Restore
-- Extra Fields: Placement above/below + Label optional
-- FreeSans font bundled in electron-builder files list for Hindi PDF support
+- WhatsApp 360Messenger with PDF attachment
+- Desktop WhatsApp PDF: localhost URL detection → tmpfiles.org upload → public URL
+- Compression middleware: Content-Type based filter prevents ERR_STREAM_WRITE_AFTER_END
+- WhatsApp footer: "Thank you / {company_name}"
 - Daily Report Export: PDF + Excel (Detail + Summary modes)
-- Mill Entries Export: PDF + Excel with Totals row
-- PDF column widths: Python uses `* mm` (ReportLab), JS uses `* 2.835` (PDFKit mm→points)
-- WhatsApp footer: "Thank you\n{company_name}" across all endpoints
+- PDF column widths: Python `* mm`, JS `* 2.835`
 
 ## Completed in v51.2.0 (29 Mar 2026)
-1. Compression filter fix: checks response Content-Type for PDF/Excel/binary (prevents ERR_STREAM_WRITE_AFTER_END)
-2. WhatsApp localhost URL fix: resolvePdfUrl now detects 127.0.0.1/localhost URLs and uploads to tmpfiles
-3. WhatsApp footer changed: "Kripya baaki rashi..." → "Thank you\n{company}" in all 3 backends
-4. Version bump to v51.2.0
+1. Compression filter: Content-Type check for PDF/Excel/binary
+2. WhatsApp localhost URL detection in resolvePdfUrl
+3. WhatsApp footer: "Thank you / {company}" in all 3 backends
+4. Feature Demo page: GST Invoice Generator, Photo Attachment, Hindi Voice Input
+5. Version bump to v51.2.0
 
-## Completed in v51.1.0 (28 Mar 2026)
-1. WhatsApp PDF attachment via tmpfiles.org for Desktop/Local (replaced file.io)
-2. Fixed ERR_STREAM_WRITE_AFTER_END crash (compression skip for PDF routes)
-3. Fixed Daily Report Detail Mode PDF squished columns (mm→points conversion)
-4. Fixed registerFonts comma syntax errors across 7 route files × 2 backends
-5. fonts/ directory bundled in electron-builder files list
+## Feature Demo (Preview Only - Not in Desktop Yet)
+1. **GST Invoice Generator** - Full stock items, HSN codes, CGST/SGST/IGST, Preview modal
+2. **Photo Attachment** - Upload receipt/slip photo with Paddy Entry
+3. **Hindi Voice Input** - Mic button on every input field, Web Speech API
 
-## Upcoming Tasks
-- P1: Export Preview feature (Preview data before exporting to Excel/PDF)
+## Upcoming Tasks (User Approval Pending)
+- Implement approved demo features into production (all 3 backends)
+- P1: Export Preview feature
 
 ## Backlog
 - P2: Desktop/Local server code deduplication

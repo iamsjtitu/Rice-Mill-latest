@@ -46,7 +46,7 @@ import {
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
   Info, Printer, HardDrive, Download, RotateCcw, Shield, ShieldCheck, Sun, Moon,
-  Wheat, Wallet, Package, UserCheck, Send
+  Wheat, Wallet, Package, UserCheck, Send, Eye
 } from "lucide-react";
 
 // Import extracted components
@@ -70,6 +70,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import HemaliPayment from "@/components/HemaliPayment";
 import WhatsNew, { APP_VERSION } from "@/components/WhatsNew";
 import AutoUpdate from "@/components/AutoUpdate";
+import FeatureDemo from "@/components/FeatureDemo";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -1557,6 +1558,18 @@ function MainApp({ user, onLogout }) {
               <TrendingUp className="w-4 h-4 mr-1" />
               FY Summary
             </Button>
+            <Button
+              onClick={() => setActiveTab("demo")}
+              variant={activeTab === "demo" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "demo" 
+                ? "bg-pink-500 hover:bg-pink-600 text-white" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-demo"
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              Feature Demo
+            </Button>
             {user.role === 'admin' && (
               <Button
                 onClick={() => { setActiveTab("settings"); fetchBackups(); fetchErrorLog(); fetchTelegramConfig(); fetchTelegramLogs(); fetchWaSettings(); }}
@@ -2173,6 +2186,8 @@ function MainApp({ user, onLogout }) {
           <HemaliPayment filters={filters} user={user} />
         ) : activeTab === "fy-summary" ? (
           <FYSummaryWithTabs filters={filters} user={user} />
+        ) : activeTab === "demo" ? (
+          <FeatureDemo />
         ) : activeTab === "settings" ? (
           /* Settings Page */
           <div className="space-y-6 max-w-2xl mx-auto">
