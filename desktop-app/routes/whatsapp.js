@@ -48,7 +48,7 @@ function sendWaMessage(apiKey, phone, text, mediaUrl) {
 }
 
 // GET settings
-router.get('/whatsapp/settings', safeAsync(async (req, res) => {
+router.get('/api/whatsapp/settings', safeAsync(async (req, res) => {
   const config = getWaSettings();
   const apiKey = config.api_key || '';
   let masked = '';
@@ -61,7 +61,7 @@ router.get('/whatsapp/settings', safeAsync(async (req, res) => {
 }));
 
 // PUT settings
-router.put('/whatsapp/settings', safeAsync(async (req, res) => {
+router.put('/api/whatsapp/settings', safeAsync(async (req, res) => {
   const settings = col('app_settings');
   const idx = settings.findIndex(s => s.setting_id === 'whatsapp_config');
   let defaultNumbers = req.body.default_numbers || '';
@@ -80,7 +80,7 @@ router.put('/whatsapp/settings', safeAsync(async (req, res) => {
 }));
 
 // Test message
-router.post('/whatsapp/test', safeAsync(async (req, res) => {
+router.post('/api/whatsapp/test', safeAsync(async (req, res) => {
   const phone = req.body.phone;
   if (!phone) return res.status(400).json({ detail: 'Phone number daalein' });
   const config = getWaSettings();
@@ -90,7 +90,7 @@ router.post('/whatsapp/test', safeAsync(async (req, res) => {
 }));
 
 // Send message
-router.post('/whatsapp/send', safeAsync(async (req, res) => {
+router.post('/api/whatsapp/send', safeAsync(async (req, res) => {
   const { phone, text, media_url } = req.body;
   if (!phone) return res.status(400).json({ detail: 'Phone number required' });
   const config = getWaSettings();
@@ -100,7 +100,7 @@ router.post('/whatsapp/send', safeAsync(async (req, res) => {
 }));
 
 // Payment reminder
-router.post('/whatsapp/send-payment-reminder', safeAsync(async (req, res) => {
+router.post('/api/whatsapp/send-payment-reminder', safeAsync(async (req, res) => {
   const { phone, party_name, total_amount, paid_amount, balance } = req.body;
   const config = getWaSettings();
   if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
@@ -129,7 +129,7 @@ router.post('/whatsapp/send-payment-reminder', safeAsync(async (req, res) => {
 }));
 
 // Daily report
-router.post('/whatsapp/send-daily-report', safeAsync(async (req, res) => {
+router.post('/api/whatsapp/send-daily-report', safeAsync(async (req, res) => {
   const { report_text, pdf_url, send_to_group, phone } = req.body;
   if (!report_text) return res.status(400).json({ detail: 'Report text required' });
   const config = getWaSettings();

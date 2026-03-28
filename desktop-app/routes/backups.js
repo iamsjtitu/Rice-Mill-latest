@@ -1,8 +1,12 @@
 const express = require('express');
-const { safeSync } = require('./safe_handler');
+const { safeSync, safeAsync } = require('./safe_handler');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const archiver = require('archiver');
+const multer = require('multer');
+const AdmZip = require('adm-zip');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
 module.exports = function(database, { getBackupsList, createBackup, restoreBackup, getBackupDir, MAX_BACKUPS }) {
 
@@ -35,6 +39,59 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
     const backups = getBackupsList();
     const today = new Date().toISOString().substring(0, 10);
     res.json({ has_today_backup: backups.some(b => b.created_at.substring(0, 10) === today), last_backup: backups[0] || null, total_backups: backups.length });
+  }));
+
+  // ZIP download - download all data as ZIP
+  router.get('/api/backup/download', safeSync((req, res) => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '').substring(0, 15);
+    const filename = `mill_backup_${timestamp}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    archive.pipe(res);
+
+    const meta = { backup_date: new Date().toISOString(), version: '50.6.0', collections: [] };
+    const data = database.data || {};
+    for (const [key, val] of Object.entries(data)) {
+      if (Array.isArray(val) && val.length > 0) {
+        archive.append(JSON.stringify(val, null, 2), { name: `${key}.json` });
+        meta.collections.push({ name: key, count: val.length });
+      }
+    }
+    archive.append(JSON.stringify(meta, null, 2), { name: '_backup_meta.json' });
+    archive.finalize();
+  }));
+
+  // ZIP restore - upload ZIP and restore data
+  router.post('/api/backup/restore', upload.single('file'), safeAsync(async (req, res) => {
+    if (!req.file) return res.status(400).json({ detail: 'ZIP file upload karein' });
+    if (!req.file.originalname.endsWith('.zip')) return res.status(400).json({ detail: 'Sirf ZIP file' });
+
+    try {
+      const zip = new AdmZip(req.file.buffer);
+      const entries = zip.getEntries();
+      const metaEntry = entries.find(e => e.entryName === '_backup_meta.json');
+      if (!metaEntry) return res.status(400).json({ detail: 'Valid backup file nahi hai' });
+
+      const meta = JSON.parse(metaEntry.getData().toString('utf8'));
+      const restored = [];
+      for (const entry of entries) {
+        if (entry.entryName === '_backup_meta.json' || !entry.entryName.endsWith('.json')) continue;
+        const collName = entry.entryName.replace('.json', '');
+        try {
+          const docs = JSON.parse(entry.getData().toString('utf8'));
+          if (Array.isArray(docs) && docs.length > 0) {
+            database.data[collName] = docs;
+            restored.push({ name: collName, count: docs.length });
+          }
+        } catch (e) { /* skip bad entries */ }
+      }
+      await database.write();
+      res.json({ success: true, message: `Restore ho gaya! ${restored.length} collections restored.`, restored, backup_date: meta.backup_date });
+    } catch (e) {
+      res.status(500).json({ detail: 'Restore error: ' + e.message });
+    }
   }));
 
   return router;

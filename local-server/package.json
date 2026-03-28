@@ -1,6 +1,6 @@
 {
   "name": "mill-entry-local-server",
-  "version": "50.6.0",
+  "version": "50.7.0",
   "description": "Mill Entry System - Local Server (Windows/Mac/Linux)",
   "main": "server.js",
   "scripts": {
@@ -8,6 +8,7 @@
     "setup": "node setup.js"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "exceljs": "^4.4.0",

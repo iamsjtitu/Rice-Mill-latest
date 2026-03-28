@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "50.6.0";
+const APP_VERSION = "50.7.0";
 
 const CHANGELOG = [
+  {
+    version: "50.7.0",
+    date: "28 Mar 2026",
+    title: "v50.7.0 - Full Route Sync Desktop + Local",
+    items: [
+      { type: "fix", text: "WhatsApp routes /api prefix fix - Desktop/Local mein sahi kaam karega" },
+      { type: "new", text: "ZIP Backup Download/Restore Desktop aur Local Server mein bhi add hua" },
+      { type: "imp", text: "Saare routes Python/Desktop/Local Server mein 100% sync verified" },
+    ]
+  },
   {
     version: "50.6.0",
     date: "28 Mar 2026",
