@@ -2,7 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { fmtDate } = require('./pdf_helpers');
+const { fmtDate registerFonts, F } = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -321,6 +321,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
   if (fmt === 'pdf') {
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 10 });
+      registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.pdf`);
     doc.pipe(res);
@@ -331,7 +332,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     const pageW = doc.page.width;
     const tableStartX = Math.max(10, (pageW - tableW) / 2);
 
-    doc.fontSize(9).font('Helvetica-Bold').fillColor('#1a365d')
+    doc.fontSize(9).font(F('bold')).fillColor('#1a365d')
        .text(`Staff Attendance: ${date_from} to ${date_to}`, { align: 'center' });
 
     // Table
@@ -340,7 +341,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     const rowH = Math.min(14, Math.max(10, 540 / (dates.length + 6)));
 
     // Header
-    doc.fontSize(5.5).font('Helvetica-Bold').fillColor('white');
+    doc.fontSize(5.5).font(F('bold')).fillColor('white');
     doc.rect(tableStartX, y, 45, rowH).fill('#1a365d');
     doc.fillColor('white').text('Date', tableStartX + 2, y + 2, { width: 41 });
     let x = tableStartX + 45;
@@ -359,7 +360,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
 
     for (const dt of dates) {
       x = tableStartX;
-      doc.font('Helvetica-Bold').fillColor('black').fontSize(5.5);
+      doc.font(F('bold')).fillColor('black').fontSize(5.5);
       doc.text(fmtDate(dt), x + 2, y + 2, { width: 41 });
       x = tableStartX + 45;
       for (const s of staffList) {
@@ -367,9 +368,9 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
         const val = statusShort[st] || '-';
         if (bgMap[val]) {
           doc.rect(x, y, colW, rowH).fill(bgMap[val]);
-          doc.fillColor(txMap[val]).font('Helvetica-Bold');
+          doc.fillColor(txMap[val]).font(F('bold'));
         } else {
-          doc.fillColor('black').font('Helvetica');
+          doc.fillColor('black').font(F('normal'));
         }
         doc.fontSize(5.5).text(val, x + 2, y + 2, { width: colW - 4 });
         if (staffTotals[s.id] && staffTotals[s.id][val] !== undefined) staffTotals[s.id][val]++;
@@ -383,7 +384,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     for (const label of ['P', 'H', 'CH', 'A', 'Total']) {
       x = tableStartX;
       doc.rect(x, y, 45, rowH).fill('#e0e7ff');
-      doc.fillColor('black').font('Helvetica-Bold').fontSize(5.5).text(label, x + 2, y + 2, { width: 41 });
+      doc.fillColor('black').font(F('bold')).fontSize(5.5).text(label, x + 2, y + 2, { width: 41 });
       x = tableStartX + 45;
       for (const s of staffList) {
         doc.rect(x, y, colW, rowH).fill('#e0e7ff');
@@ -394,7 +395,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
         } else {
           val = String(staffTotals[s.id][label] || 0);
         }
-        doc.fillColor('black').font('Helvetica-Bold').fontSize(5.5).text(val, x + 2, y + 2, { width: colW - 4 });
+        doc.fillColor('black').font(F('bold')).fontSize(5.5).text(val, x + 2, y + 2, { width: colW - 4 });
         x += colW;
       }
       y += rowH;
@@ -418,7 +419,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     const sortedMonths = Object.keys(monthlyData).sort();
 
     doc.addPage({ size: 'A4', layout: 'landscape', margin: 10 });
-    doc.fontSize(12).font('Helvetica-Bold').fillColor('#1a365d')
+    doc.fontSize(12).font(F('bold')).fillColor('#1a365d')
        .text('Monthly Summary / Masik Saransh', { align: 'center' });
 
     const msHeaders = ['Staff', 'Sal.Type', 'Rate', ...sortedMonths.map(m => `${monthNames[m.slice(5,7)] || m.slice(5,7)} ${m.slice(0,4)}`), 'Total Days', 'Est. Salary'];
@@ -438,7 +439,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     let msX = msStartX;
     for (let i = 0; i < msHeaders.length; i++) {
       doc.rect(msX, msY, scaledMsW[i], msRowH).fill('#065f46');
-      doc.fillColor('white').font('Helvetica-Bold').fontSize(5.5)
+      doc.fillColor('white').font(F('bold')).fontSize(5.5)
          .text(msHeaders[i], msX + 2, msY + 2, { width: scaledMsW[i] - 4 });
       msX += scaledMsW[i];
     }
@@ -467,7 +468,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
         const bgColor = i === vals.length - 2 ? '#d1fae5' : i === vals.length - 1 ? '#fef3c7' : (staffList.indexOf(s) % 2 === 0 ? '#f0fdf4' : '#ffffff');
         doc.rect(msX, msY, scaledMsW[i], msRowH).fill(bgColor);
         const txtColor = i === vals.length - 1 ? '#92400e' : '#000000';
-        doc.fillColor(txtColor).font(isLastTwo || i === 0 ? 'Helvetica-Bold' : 'Helvetica').fontSize(5.5)
+        doc.fillColor(txtColor).font(isLastTwo || i === 0 ? F('bold') : F('normal')).fontSize(5.5)
            .text(vals[i], msX + 2, msY + 2, { width: scaledMsW[i] - 4 });
         msX += scaledMsW[i];
       }
@@ -480,7 +481,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     msX = msStartX;
     const breakdownW = scaledMsW.reduce((a, b) => a + b, 0);
     doc.rect(msX, msY, breakdownW, msRowH).fill('#fef3c7');
-    doc.fillColor('#78350f').font('Helvetica-Bold').fontSize(6.5)
+    doc.fillColor('#78350f').font(F('bold')).fontSize(6.5)
        .text('Breakdown (P / A / H / CH)', msX + 2, msY + 2, { width: breakdownW - 4 });
     msY += msRowH;
 
@@ -498,7 +499,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
       vals.push(`Rs.${Math.round(grandSal).toLocaleString('en-IN')}`);
       for (let i = 0; i < vals.length; i++) {
         doc.rect(msX, msY, scaledMsW[i], msRowH).fill('#ffffff');
-        doc.fillColor('#000000').font(i === 0 ? 'Helvetica-Bold' : 'Helvetica').fontSize(5.5)
+        doc.fillColor('#000000').font(i === 0 ? F('bold') : F('normal')).fontSize(5.5)
            .text(vals[i], msX + 2, msY + 2, { width: scaledMsW[i] - 4 });
         msX += scaledMsW[i];
       }
@@ -510,7 +511,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     msY += 4;
     msX = msStartX;
     doc.rect(msX, msY, breakdownW, msRowH).fill('#dbeafe');
-    doc.fillColor('#1e3a8a').font('Helvetica-Bold').fontSize(6.5)
+    doc.fillColor('#1e3a8a').font(F('bold')).fontSize(6.5)
        .text('Month-wise Estimated Salary / Mahine Ka Anumanit Vetan', msX + 2, msY + 2, { width: breakdownW - 4 });
     msY += msRowH;
 
@@ -532,7 +533,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
         const bgColor = i === vals.length - 1 ? '#fef3c7' : '#ffffff';
         doc.rect(msX, msY, scaledMsW[i], msRowH).fill(bgColor);
         const txtColor = i === vals.length - 1 ? '#92400e' : '#000000';
-        doc.fillColor(txtColor).font(i === 0 || i === vals.length - 1 ? 'Helvetica-Bold' : 'Helvetica').fontSize(5.5)
+        doc.fillColor(txtColor).font(i === 0 || i === vals.length - 1 ? F('bold') : F('normal')).fontSize(5.5)
            .text(vals[i], msX + 2, msY + 2, { width: scaledMsW[i] - 4 });
         msX += scaledMsW[i];
       }
@@ -731,8 +732,9 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
 
   if (fmt === 'pdf') {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, fmtDate, C } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, fmtDate, C registerFonts, F } = require('./pdf_helpers');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=staff_payments.pdf');
     doc.pipe(res);
@@ -754,7 +756,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
     const totalAdv = list.reduce((s, p) => s + (p.advance_deducted || 0), 0);
     const totalNet = list.reduce((s, p) => s + (p.net_payment || 0), 0);
     doc.moveDown(0.3);
-    doc.fontSize(9).font('Helvetica-Bold').fillColor(C.hdrBg)
+    doc.fontSize(9).font(F('bold')).fillColor(C.hdrBg)
       .text(`Total Gross: Rs.${fmtAmt(totalGross)}  |  Adv. Deducted: Rs.${fmtAmt(totalAdv)}  |  Net Paid: Rs.${fmtAmt(totalNet)}`, { align: 'center' });
     doc.end();
   } else {

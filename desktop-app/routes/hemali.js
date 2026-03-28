@@ -293,6 +293,7 @@ module.exports = (database) => {
     if (!p) return res.status(404).json({ detail: 'Payment not found' });
 
     const doc = new PDFDocument({ size: 'A5', margin: 25 });
+      registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=hemali_receipt_${p.id.substring(0,8)}.pdf`);
     doc.pipe(res);
@@ -309,11 +310,11 @@ module.exports = (database) => {
 
     // Info
     doc.fontSize(7).fillColor('#6b7280').text('RECEIPT DATE');
-    doc.fontSize(10).fillColor('#1a365d').font('Helvetica-Bold').text(fmtD(p.date));
+    doc.fontSize(10).fillColor('#1a365d').font(F('bold')).text(fmtD(p.date));
     doc.moveDown(0.2);
-    doc.fontSize(7).fillColor('#6b7280').font('Helvetica').text('SARDAR NAME');
-    doc.fontSize(10).fillColor('#1a365d').font('Helvetica-Bold').text(p.sardar_name || '');
-    doc.font('Helvetica').moveDown(0.5);
+    doc.fontSize(7).fillColor('#6b7280').font(F('normal')).text('SARDAR NAME');
+    doc.fontSize(10).fillColor('#1a365d').font(F('bold')).text(p.sardar_name || '');
+    doc.font(F('normal')).moveDown(0.5);
 
     // Items table
     let y = doc.y;
@@ -321,13 +322,13 @@ module.exports = (database) => {
     doc.rect(25, y, tw, 16).fill('#f1f5f9');
     ['Item', 'Qty', 'Rate', 'Amount'].forEach((h, i) => {
       let x = 25; for (let j = 0; j < i; j++) x += colW[j];
-      doc.fontSize(8).fillColor('#1a365d').font('Helvetica-Bold').text(h, x + 3, y + 4, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
+      doc.fontSize(8).fillColor('#1a365d').font(F('bold')).text(h, x + 3, y + 4, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
     });
     y += 16;
     (p.items || []).forEach(item => {
       ['', item.item_name, String(Math.round(item.quantity)), `Rs. ${item.rate}`, `Rs. ${Math.round(item.amount)}`].slice(1).forEach((v, i) => {
         let x = 25; for (let j = 0; j < i; j++) x += colW[j];
-        doc.fontSize(9).fillColor('#334155').font('Helvetica').text(v, x + 3, y + 3, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
+        doc.fontSize(9).fillColor('#334155').font(F('normal')).text(v, x + 3, y + 3, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
       });
       y += 16;
     });
@@ -341,8 +342,8 @@ module.exports = (database) => {
     doc.moveDown(0.3);
     doc.moveTo(25, doc.y).lineTo(375, doc.y).strokeColor('#d97706').lineWidth(1).stroke();
     doc.moveDown(0.3);
-    doc.fontSize(11).fillColor('#1a365d').font('Helvetica-Bold').text('Net Amount', 25).text(`Rs. ${Math.round(p.amount_payable || 0)}`, 25, doc.y - 14, { align: 'right', width: tw });
-    doc.fontSize(9).fillColor('#16a34a').font('Helvetica').text('Amount Paid', 25).text(`Rs. ${Math.round(p.amount_paid || 0)}`, 25, doc.y - 12, { align: 'right', width: tw });
+    doc.fontSize(11).fillColor('#1a365d').font(F('bold')).text('Net Amount', 25).text(`Rs. ${Math.round(p.amount_payable || 0)}`, 25, doc.y - 14, { align: 'right', width: tw });
+    doc.fontSize(9).fillColor('#16a34a').font(F('normal')).text('Amount Paid', 25).text(`Rs. ${Math.round(p.amount_paid || 0)}`, 25, doc.y - 12, { align: 'right', width: tw });
     if ((p.new_advance || 0) > 0) {
       doc.fillColor('#1a365d').text('New Advance', 25).text(`Rs. ${Math.round(p.new_advance)}`, 25, doc.y - 12, { align: 'right', width: tw });
     }
@@ -350,8 +351,8 @@ module.exports = (database) => {
 
     // Status
     const status = p.status === 'paid' ? 'PAID' : 'UNPAID';
-    doc.fontSize(10).fillColor(p.status === 'paid' ? '#16a34a' : '#dc2626').font('Helvetica-Bold').text(status, { align: 'center' });
-    doc.font('Helvetica').moveDown(2);
+    doc.fontSize(10).fillColor(p.status === 'paid' ? '#16a34a' : '#dc2626').font(F('bold')).text(status, { align: 'center' });
+    doc.font(F('normal')).moveDown(2);
 
     // Signature
     doc.moveTo(25, doc.y).lineTo(180, doc.y).strokeColor('#6b7280').lineWidth(0.5).stroke();
@@ -367,7 +368,7 @@ module.exports = (database) => {
 
   // ============ MONTHLY SUMMARY PDF ============
   router.get('/api/hemali/monthly-summary/pdf', safeHandler(async (req, res) => {
-    const { addPdfHeader } = require('./pdf_helpers');
+    const { addPdfHeader registerFonts, F } = require('./pdf_helpers');
     const { kms_year, season, sardar_name, month } = req.query;
     let payments = filterByFy(col('hemali_payments'), kms_year, season);
     if (sardar_name) payments = payments.filter(p => p.sardar_name === sardar_name);
@@ -390,6 +391,7 @@ module.exports = (database) => {
     }
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+      registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=hemali_monthly_summary.pdf');
     doc.pipe(res);
@@ -398,22 +400,22 @@ module.exports = (database) => {
     for (const sn of Object.keys(sardars).sort()) {
       const s = sardars[sn];
       const adv = payments.filter(p => p.sardar_name === sn && p.status === 'paid').reduce((a, p) => a + (p.new_advance || 0) - (p.advance_deducted || 0), 0);
-      doc.fontSize(10).fillColor('#d97706').font('Helvetica-Bold').text(`Sardar: ${sn}  |  Current Advance: Rs.${adv.toFixed(2)}`);
-      doc.font('Helvetica').moveDown(0.3);
+      doc.fontSize(10).fillColor('#d97706').font(F('bold')).text(`Sardar: ${sn}  |  Current Advance: Rs.${adv.toFixed(2)}`);
+      doc.font(F('normal')).moveDown(0.3);
 
       let y = doc.y;
       const colW = [80, 60, 90, 90, 90, 90];
       doc.rect(25, y, colW.reduce((a, b) => a + b, 0), 16).fill('#1e293b');
       ['Month', 'Payments', 'Total Work', 'Total Paid', 'Adv Given', 'Adv Deducted'].forEach((h, i) => {
         let x = 25; for (let j = 0; j < i; j++) x += colW[j];
-        doc.fontSize(8).fillColor('#fff').font('Helvetica-Bold').text(h, x + 3, y + 4, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
+        doc.fontSize(8).fillColor('#fff').font(F('bold')).text(h, x + 3, y + 4, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
       });
       y += 16;
       Object.values(s.months).sort((a, b) => b.month.localeCompare(a.month)).forEach(m => {
         const vals = [m.month, `${m.paid}/${m.total}`, `Rs.${m.work.toFixed(2)}`, `Rs.${m.paid_amt.toFixed(2)}`, `Rs.${m.adv_given.toFixed(2)}`, `Rs.${m.adv_ded.toFixed(2)}`];
         vals.forEach((v, i) => {
           let x = 25; for (let j = 0; j < i; j++) x += colW[j];
-          doc.fontSize(8).fillColor('#334155').font('Helvetica').text(v, x + 3, y + 3, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
+          doc.fontSize(8).fillColor('#334155').font(F('normal')).text(v, x + 3, y + 3, { width: colW[i] - 6, align: i > 0 ? 'right' : 'left' });
         });
         y += 16;
       });
@@ -468,7 +470,7 @@ module.exports = (database) => {
 
   // ============ PDF EXPORT ============
   router.get('/api/hemali/export/pdf', safeHandler(async (req, res) => {
-    const { addPdfHeader } = require('./pdf_helpers');
+    const { addPdfHeader registerFonts, F } = require('./pdf_helpers');
     const { kms_year, season, from_date, to_date, sardar_name } = req.query;
     let payments = filterByFy(col('hemali_payments'), kms_year, season).filter(p => p.status === 'paid');
     if (from_date) payments = payments.filter(p => p.date >= from_date);
@@ -477,6 +479,7 @@ module.exports = (database) => {
     payments.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+      registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=hemali_payments.pdf');
     doc.pipe(res);

@@ -223,6 +223,17 @@ function generateDailyReportPdf(doc, data, query) {
   const modeLabel = isDetail ? 'DETAILED' : 'SUMMARY';
   const isTelegram = query.source === 'telegram';
 
+  // Register FreeSans fonts for Hindi support
+  const path = require('path');
+  const fs = require('fs');
+  const FDIR = path.join(__dirname, '..', 'fonts');
+  const hasFF = fs.existsSync(path.join(FDIR, 'FreeSans.ttf'));
+  if (hasFF) {
+    try { doc.registerFont('AppFont', path.join(FDIR, 'FreeSans.ttf')); } catch(e){}
+    try { doc.registerFont('AppFontBold', path.join(FDIR, 'FreeSansBold.ttf')); } catch(e){}
+  }
+  const FF = (w) => hasFF ? (w === 'bold' ? 'AppFontBold' : 'AppFont') : (w === 'bold' ? 'Helvetica-Bold' : 'Helvetica');
+
   // Colors
   const C = {
     hdrBg: '#1a365d', hdrText: '#ffffff', border: '#cbd5e1',
@@ -251,7 +262,7 @@ function generateDailyReportPdf(doc, data, query) {
     doc.rect(x, y, totalW, rowH).fill(hdrBg);
     headers.forEach((h, i) => {
       doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-      doc.fillColor(hdrTextColor).font('Helvetica-Bold').fontSize(fs + 0.5)
+      doc.fillColor(hdrTextColor).font(FF('bold')).fontSize(fs + 0.5)
         .text(String(h), x + pad, y + pad, { width: colWidths[i] - pad*2, height: rowH - 2, lineBreak: false, align: opts.align || 'left' });
       x += colWidths[i];
     });
@@ -265,7 +276,7 @@ function generateDailyReportPdf(doc, data, query) {
       doc.rect(x, y, totalW, rowH).fill(bgColor);
       row.forEach((cell, ci) => {
         doc.rect(x, y, colWidths[ci], rowH).stroke(C.border);
-        doc.fillColor('#1e293b').font('Helvetica').fontSize(fs)
+        doc.fillColor('#1e293b').font(FF('normal')).fontSize(fs)
           .text(String(cell ?? ''), x + pad, y + pad, { width: colWidths[ci] - pad*2, height: rowH - 2, lineBreak: false });
         x += colWidths[ci];
       });
@@ -288,7 +299,7 @@ function generateDailyReportPdf(doc, data, query) {
     doc.rect(x, y, totalW, rowH).fill(bgColor);
     labels.forEach((l, i) => {
       doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-      doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(fs + 0.5)
+      doc.fillColor('#1e293b').font(FF('bold')).fontSize(fs + 0.5)
         .text(String(l), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: 'center' });
       x += colWidths[i];
     });
@@ -299,7 +310,7 @@ function generateDailyReportPdf(doc, data, query) {
     doc.rect(x, y, totalW, rowH).fill('#ffffff');
     values.forEach((v, i) => {
       doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-      doc.fillColor('#1e293b').font('Helvetica').fontSize(fs)
+      doc.fillColor('#1e293b').font(FF('normal')).fontSize(fs)
         .text(String(v ?? ''), x + 3, y + 3, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: 'center' });
       x += colWidths[i];
     });
@@ -310,20 +321,20 @@ function generateDailyReportPdf(doc, data, query) {
   function sectionTitle(num, title) {
     if (doc.y > doc.page.height - 60) doc.addPage();
     doc.moveDown(0.3);
-    doc.fontSize(11).font('Helvetica-Bold').fillColor(C.section).text(`${num}. ${title}`, { align: 'center' });
+    doc.fontSize(11).font(FF('bold')).fillColor(C.section).text(`${num}. ${title}`, { align: 'center' });
     doc.moveDown(0.15);
-    doc.fillColor('black').font('Helvetica').fontSize(7);
+    doc.fillColor('black').font(FF('normal')).fontSize(7);
   }
 
   function subText(text) {
-    doc.fontSize(7.5).font('Helvetica-Bold').fillColor(C.sub).text(text);
+    doc.fontSize(7.5).font(FF('bold')).fillColor(C.sub).text(text);
     doc.moveDown(0.1);
-    doc.fillColor('black').font('Helvetica').fontSize(7);
+    doc.fillColor('black').font(FF('normal')).fontSize(7);
   }
 
   // ===== TITLE =====
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.section).text(`Detail Report - ${fmtDate(data.date)}`, { align: 'center' });
-  doc.fontSize(8.5).font('Helvetica').fillColor('grey').text(`Mode: ${modeLabel} | KMS: ${query.kms_year || 'All'} | Season: ${query.season || 'All'}`, { align: 'center' });
+  doc.fontSize(16).font(FF('bold')).fillColor(C.section).text(`Detail Report - ${fmtDate(data.date)}`, { align: 'center' });
+  doc.fontSize(8.5).font(FF('normal')).fillColor('grey').text(`Mode: ${modeLabel} | FY: ${query.kms_year || 'All'} | Season: ${query.season || 'All'}`, { align: 'center' });
   doc.moveDown(0.2);
   doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(25, doc.y).lineTo(doc.page.width - 25, doc.y).stroke();
   doc.moveDown(0.4);

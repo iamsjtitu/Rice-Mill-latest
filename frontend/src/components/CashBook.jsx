@@ -3,7 +3,7 @@ import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark, Receipt, FileText } from "lucide-react";
+import { Wallet, Banknote, Users, RefreshCw, Plus, Trash2, Landmark, Receipt, FileText, Send } from "lucide-react";
 import SummaryCards from "./cashbook/SummaryCards";
 import CashBookFilters from "./cashbook/CashBookFilters";
 import TransactionsTable from "./cashbook/TransactionsTable";
@@ -255,6 +255,34 @@ const CashBook = ({ filters, user }) => {
     setIsDialogOpen(true);
   };
 
+  // WhatsApp Party Ledger send function
+  const sendPartyLedgerWA = async () => {
+    const partyName = txnFilters.category || filterPartySearch;
+    if (!partyName) { toast.error("Pehle party select karein"); return; }
+    try {
+      let waSettings;
+      try { waSettings = (await axios.get(`${API}/whatsapp/settings`)).data; } catch(e) { waSettings = {}; }
+      const hasDefaults = (waSettings.default_numbers || []).length > 0;
+      let phone = "";
+      if (!hasDefaults) {
+        phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
+        if (!phone) return;
+      }
+      // Calculate totals from displayed transactions
+      const partyTxns = txns.filter(t => (t.category || '').toLowerCase() === partyName.toLowerCase());
+      const totalDebit = partyTxns.filter(t => t.txn_type === 'nikasi').reduce((s,t) => s + (t.amount || 0), 0);
+      const totalCredit = partyTxns.filter(t => t.txn_type === 'jama').reduce((s,t) => s + (t.amount || 0), 0);
+      const res = await axios.post(`${API}/whatsapp/send-party-ledger`, {
+        party_name: partyName, total_debit: totalDebit, total_credit: totalCredit,
+        balance: totalDebit - totalCredit,
+        transactions: partyTxns.slice(0, 10).map(t => ({ date: t.date, txn_type: t.txn_type, amount: t.amount, description: t.description })),
+        phone
+      });
+      if (res.data.success) toast.success(res.data.message || "Ledger WhatsApp pe bhej diya!");
+      else toast.error(res.data.error || "WhatsApp send fail");
+    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.message)); }
+  };
+
   // Computed values
   const catKey = `${form.account}_${form.txn_type}`;
   const defaultCats = DEFAULT_CATEGORIES[catKey] || [];
@@ -440,6 +468,11 @@ const CashBook = ({ filters, user }) => {
         <Button onClick={() => activeView === "party-summary" ? fetchPartySummary() : fetchData()} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
+        {activeView === "transactions" && (txnFilters.category || filterPartySearch) && (
+          <Button onClick={sendPartyLedgerWA} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-600/10" data-testid="cashbook-party-ledger-whatsapp">
+            <Send className="w-4 h-4 mr-1" /> WhatsApp
+          </Button>
+        )}
       </div>
 
       {/* Opening Balances Display */}

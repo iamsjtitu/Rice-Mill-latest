@@ -455,7 +455,7 @@ module.exports = function(database) {
   router.get('/api/fy-summary/balance-sheet/pdf', (req, res) => {
     try {
       const PDFDocument = require('pdfkit');
-      const { fmtAmt } = require('./pdf_helpers');
+      const { fmtAmt registerFonts, F } = require('./pdf_helpers');
       // Re-fetch balance sheet data inline
       const bsReq = { query: req.query };
       const bsRes = {
@@ -547,6 +547,7 @@ module.exports = function(database) {
 
       // Generate PDF
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+      registerFonts(doc);
       const chunks = [];
       doc.on('data', c => chunks.push(c));
       doc.on('end', () => {
@@ -558,47 +559,47 @@ module.exports = function(database) {
 
       const fmt = (n) => fmtAmt ? fmtAmt(n) : (n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
 
-      doc.fontSize(14).font('Helvetica-Bold').text(`Balance Sheet - KMS ${req.query.kms_year||'All'}`, {align:'center'});
-      doc.fontSize(9).font('Helvetica').text(`As on: ${new Date().toLocaleDateString('en-IN')}`, {align:'center'});
+      doc.fontSize(14).font(F('bold')).text(`Balance Sheet - KMS ${req.query.kms_year||'All'}`, {align:'center'});
+      doc.fontSize(9).font(F('normal')).text(`As on: ${new Date().toLocaleDateString('en-IN')}`, {align:'center'});
       doc.moveDown(0.5);
 
       const startY = doc.y;
       const leftX = 25, rightX = 420, colW = 370;
 
       // Draw Liabilities
-      doc.fontSize(10).font('Helvetica-Bold').fillColor('#dc2626').text('LIABILITIES', leftX, startY);
+      doc.fontSize(10).font(F('bold')).fillColor('#dc2626').text('LIABILITIES', leftX, startY);
       doc.fillColor('#000');
       let y = startY + 18;
       for (const g of liabilities) {
-        doc.fontSize(8).font('Helvetica-Bold').text(g.group, leftX+5, y, {width:250});
+        doc.fontSize(8).font(F('bold')).text(g.group, leftX+5, y, {width:250});
         doc.text(fmt(g.amount), leftX+260, y, {width:90, align:'right'});
         y += 12;
         for (const c of (g.children||[])) {
-          doc.fontSize(7).font('Helvetica').text(`    ${c.name}`, leftX+10, y, {width:250});
+          doc.fontSize(7).font(F('normal')).text(`    ${c.name}`, leftX+10, y, {width:250});
           doc.text(fmt(c.amount), leftX+260, y, {width:90, align:'right'});
           y += 10;
         }
       }
-      doc.fontSize(9).font('Helvetica-Bold').fillColor('#dc2626').text('TOTAL', leftX+5, y+5);
+      doc.fontSize(9).font(F('bold')).fillColor('#dc2626').text('TOTAL', leftX+5, y+5);
       doc.text(fmt(totalLiab), leftX+260, y+5, {width:90, align:'right'});
       doc.fillColor('#000');
 
       // Draw Assets
       y = startY;
-      doc.fontSize(10).font('Helvetica-Bold').fillColor('#059669').text('ASSETS', rightX, y);
+      doc.fontSize(10).font(F('bold')).fillColor('#059669').text('ASSETS', rightX, y);
       doc.fillColor('#000');
       y += 18;
       for (const g of assets) {
-        doc.fontSize(8).font('Helvetica-Bold').text(g.group, rightX+5, y, {width:250});
+        doc.fontSize(8).font(F('bold')).text(g.group, rightX+5, y, {width:250});
         doc.text(fmt(g.amount), rightX+260, y, {width:90, align:'right'});
         y += 12;
         for (const c of (g.children||[])) {
-          doc.fontSize(7).font('Helvetica').text(`    ${c.name}`, rightX+10, y, {width:250});
+          doc.fontSize(7).font(F('normal')).text(`    ${c.name}`, rightX+10, y, {width:250});
           doc.text(fmt(c.amount), rightX+260, y, {width:90, align:'right'});
           y += 10;
         }
       }
-      doc.fontSize(9).font('Helvetica-Bold').fillColor('#059669').text('TOTAL', rightX+5, y+5);
+      doc.fontSize(9).font(F('bold')).fillColor('#059669').text('TOTAL', rightX+5, y+5);
       doc.text(fmt(totalAssets), rightX+260, y+5, {width:90, align:'right'});
 
       doc.end();
@@ -813,11 +814,12 @@ module.exports = function(database) {
   router.get('/api/fy-summary/pdf', (req, res) => {
     try {
       const PDFDocument = require('pdfkit');
-      const { addPdfHeader, addPdfTable, addSectionTitle, addTotalsRow, fmtAmt } = require('./pdf_helpers');
+      const { addPdfHeader, addPdfTable, addSectionTitle, addTotalsRow, fmtAmt registerFonts, F } = require('./pdf_helpers');
       const { kms_year, season } = req.query;
       const data = computeFySummary(kms_year, season);
 
       const doc = new PDFDocument({ size: 'A4', margin: 25 });
+      registerFonts(doc);
       const chunks = [];
       doc.on('data', c => chunks.push(c));
       doc.on('end', () => {

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw, Download, FileText, AlertCircle, Truck, Users,
-  IndianRupee, FileSpreadsheet, BookOpen, ClipboardList, Receipt, Wallet
+  IndianRupee, FileSpreadsheet, BookOpen, ClipboardList, Receipt, Wallet, Send
 } from "lucide-react";
 
 
@@ -299,6 +299,30 @@ const PartyLedger = ({ filters }) => {
     downloadFile(`/api/reports/party-ledger/${format}?${p}`, `party_ledger.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
 
+  const sendLedgerWhatsApp = async () => {
+    if (!selectedParty) { toast.error("Pehle party select karein"); return; }
+    try {
+      let waSettings;
+      try { waSettings = (await axios.get(`${API}/whatsapp/settings`)).data; } catch(e) { waSettings = {}; }
+      const hasDefaults = (waSettings.default_numbers || []).length > 0;
+      let phone = "";
+      if (!hasDefaults) {
+        phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
+        if (!phone) return;
+      }
+      const res = await axios.post(`${API}/whatsapp/send-party-ledger`, {
+        party_name: selectedParty,
+        total_debit: data.total_debit || 0,
+        total_credit: data.total_credit || 0,
+        balance: (data.total_debit || 0) - (data.total_credit || 0),
+        transactions: (data.transactions || []).slice(0, 10),
+        phone
+      });
+      if (res.data.success) toast.success(res.data.message || "Ledger WhatsApp pe bhej diya!");
+      else toast.error(res.data.error || "WhatsApp send fail");
+    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.message)); }
+  };
+
   if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;
   if (!data) return null;
 
@@ -364,6 +388,9 @@ const PartyLedger = ({ filters }) => {
           </Button>
           <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="party-ledger-export-pdf">
             <FileText className="w-4 h-4 mr-1" /> PDF
+          </Button>
+          <Button onClick={sendLedgerWhatsApp} variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10" data-testid="party-ledger-whatsapp">
+            <Send className="w-4 h-4 mr-1" /> WhatsApp
           </Button>
         </div>
       </div>

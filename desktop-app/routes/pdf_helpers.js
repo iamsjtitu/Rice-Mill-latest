@@ -1,4 +1,7 @@
 // Shared PDF helpers for PDFKit - Professional Colorful Styled
+const path = require('path');
+const fs = require('fs');
+
 const C = {
   hdrBg: '#1a365d', hdrText: '#ffffff', border: '#cbd5e1',
   altRow: '#f0f7ff', text: '#1e293b',
@@ -15,7 +18,26 @@ const C = {
   dateBg: '#eff6ff', dateText: '#1e40af',
 };
 
+// Font paths - try bundled fonts first, fallback to system Helvetica
+const FONT_DIR = path.join(__dirname, '..', 'fonts');
+const HAS_FREESANS = fs.existsSync(path.join(FONT_DIR, 'FreeSans.ttf'));
+
+function registerFonts(doc) {
+  if (HAS_FREESANS) {
+    doc.registerFont('AppFont', path.join(FONT_DIR, 'FreeSans.ttf'));
+    doc.registerFont('AppFontBold', path.join(FONT_DIR, 'FreeSansBold.ttf'));
+    if (fs.existsSync(path.join(FONT_DIR, 'FreeSansOblique.ttf')))
+      doc.registerFont('AppFontOblique', path.join(FONT_DIR, 'FreeSansOblique.ttf'));
+  }
+}
+
+function F(weight) {
+  if (!HAS_FREESANS) return weight === 'bold' ? 'Helvetica-Bold' : (weight === 'oblique' ? 'Helvetica-Oblique' : 'Helvetica');
+  return weight === 'bold' ? 'AppFontBold' : (weight === 'oblique' ? 'AppFontOblique' : 'AppFont');
+}
+
 function addPdfHeader(doc, title, branding, subtitle) {
+  registerFonts(doc);
   branding = branding || {};
   const companyName = branding.company_name || 'Mill Entry System';
   const tagline = branding.tagline || '';
@@ -41,17 +63,17 @@ function addPdfHeader(doc, title, branding, subtitle) {
     const left = aboveFields.filter(f => f.position === 'left').map(fmtField).join('  ');
     const center = aboveFields.filter(f => f.position === 'center').map(fmtField).join('  ');
     const right = aboveFields.filter(f => f.position === 'right').map(fmtField).join('  ');
-    doc.fontSize(7).font('Helvetica').fillColor('#374151');
+    doc.fontSize(7).font(F('normal')).fillColor('#374151');
     if (left) doc.text(left, 25, curY, { align: 'left', width: pageW / 3 });
     if (center) doc.text(center, 25 + pageW / 3, curY, { align: 'center', width: pageW / 3 });
     if (right) doc.text(right, 25 + (pageW * 2 / 3), curY, { align: 'right', width: pageW / 3 });
     curY += 12;
   }
   
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.hdrBg)
+  doc.fontSize(16).font(F('bold')).fillColor(C.hdrBg)
     .text(companyName, 25, curY, { align: 'center', width: doc.page.width - 50 });
   curY += 18;
-  if (tagline) { doc.fontSize(8).font('Helvetica').fillColor('#6b7280')
+  if (tagline) { doc.fontSize(8).font(F('normal')).fillColor('#6b7280')
     .text(tagline, 25, curY, { align: 'center', width: doc.page.width - 50 }); curY += 10; }
   
   // Below fields (default)
@@ -61,7 +83,7 @@ function addPdfHeader(doc, title, branding, subtitle) {
     const left = belowFields.filter(f => f.position === 'left').map(fmtField).join('  ');
     const center = belowFields.filter(f => f.position === 'center').map(fmtField).join('  ');
     const right = belowFields.filter(f => f.position === 'right').map(fmtField).join('  ');
-    doc.fontSize(7).font('Helvetica').fillColor('#374151');
+    doc.fontSize(7).font(F('normal')).fillColor('#374151');
     if (left) doc.text(left, 25, curY, { align: 'left', width: pageW / 3 });
     if (center) doc.text(center, 25 + pageW / 3, curY, { align: 'center', width: pageW / 3 });
     if (right) doc.text(right, 25 + (pageW * 2 / 3), curY, { align: 'right', width: pageW / 3 });
@@ -72,21 +94,23 @@ function addPdfHeader(doc, title, branding, subtitle) {
   // Title bar - teal
   const titleY = doc.y;
   doc.rect(20, titleY, doc.page.width - 40, 22).fill('#0891b2');
-  doc.fontSize(11).font('Helvetica-Bold').fillColor('#ffffff')
+  doc.fontSize(11).font(F('bold')).fillColor('#ffffff')
     .text(title, 25, titleY + 5, { align: 'center', width: doc.page.width - 50 });
   
   doc.y = titleY + 26;
   
   // Subtitle & date
-  if (subtitle) doc.fontSize(8).font('Helvetica').fillColor('#6b7280').text(subtitle, { align: 'center' });
-  doc.fontSize(7).font('Helvetica').fillColor('#9ca3af')
+  if (subtitle) doc.fontSize(8).font(F('normal')).fillColor('#6b7280').text(subtitle, { align: 'center' });
+  doc.fontSize(7).font(F('normal')).fillColor('#9ca3af')
     .text(`Generated: ${new Date().toLocaleDateString('en-IN')} | ${new Date().toLocaleTimeString('en-IN')}`, { align: 'center' });
   doc.moveDown(0.4);
 }
 
 function addPdfTable(doc, headers, rows, colWidths, opts) {
+  registerFonts(doc);
   opts = opts || {};
   const fs = opts.fontSize || 7;
+  const pad = opts.cellPad || 2;
   const hdrBg = opts.headerBg || C.hdrBg;
   const hdrTextColor = opts.headerTextColor || C.hdrText;
   const margin = opts.margin || 25;
@@ -113,59 +137,47 @@ function addPdfTable(doc, headers, rows, colWidths, opts) {
   // Page check
   if (y + rowH * Math.min(rows.length + 1, 5) + 20 > doc.page.height - margin) { doc.addPage(); y = margin; }
 
-  // Header row with gradient effect
+  // Header row
   let x = startX;
   doc.rect(x, y, actualTotalW, rowH + 2).fill(hdrBg);
   headers.forEach((h, i) => {
     doc.rect(x, y, widths[i], rowH + 2).stroke(hdrBg);
-    doc.fillColor(hdrTextColor).font('Helvetica-Bold').fontSize(fs + 0.5)
-      .text(String(h), x + 3, y + 4, { width: widths[i] - 6, height: rowH - 2, lineBreak: false });
+    doc.fillColor(hdrTextColor).font(F('bold')).fontSize(fs + 0.5)
+      .text(String(h), x + pad, y + pad + 1, { width: widths[i] - pad*2, height: rowH - 2, lineBreak: false });
     x += widths[i];
   });
   y += rowH + 2;
 
-  // Data rows with colorful columns
+  // Data rows
   rows.forEach((row, ri) => {
     if (y + rowH > doc.page.height - margin) { doc.addPage(); y = margin; }
     x = startX;
     const isEven = ri % 2 === 0;
     const baseBg = isEven ? '#ffffff' : C.altRow;
     
-    // Full row background
     doc.rect(x, y, actualTotalW, rowH).fill(baseBg);
     
     row.forEach((cell, ci) => {
       let cellBg = baseBg;
       let textColor = C.text;
-      let fontWeight = 'Helvetica';
+      let fontWeight = 'normal';
       const cellStr = String(cell ?? '');
       
-      // Date columns - blue tint
       if (isDateCol[ci]) { cellBg = C.dateBg; textColor = C.dateText; }
-      
-      // Jama columns - green
-      if (isJamaCol[ci] && cell && Number(cell) > 0) { cellBg = C.jamaBg; textColor = C.jamaText; fontWeight = 'Helvetica-Bold'; }
-      
-      // Nikasi columns - red
-      if (isNikasiCol[ci] && cell && Number(cell) > 0) { cellBg = C.nikasiBg; textColor = C.nikasiText; fontWeight = 'Helvetica-Bold'; }
-      
-      // Balance columns - yellow
-      if (isBalCol[ci]) { cellBg = C.balanceBg; textColor = C.balanceText; fontWeight = 'Helvetica-Bold'; }
-      
-      // Amount columns - bold
-      if (isAmtCol[ci] && cell && !isNaN(Number(cell))) { fontWeight = 'Helvetica-Bold'; }
-      
-      // Status columns - colored
+      if (isJamaCol[ci] && cell && Number(cell) > 0) { cellBg = C.jamaBg; textColor = C.jamaText; fontWeight = 'bold'; }
+      if (isNikasiCol[ci] && cell && Number(cell) > 0) { cellBg = C.nikasiBg; textColor = C.nikasiText; fontWeight = 'bold'; }
+      if (isBalCol[ci]) { cellBg = C.balanceBg; textColor = C.balanceText; fontWeight = 'bold'; }
+      if (isAmtCol[ci] && cell && !isNaN(Number(cell))) { fontWeight = 'bold'; }
       if (isStatusCol[ci]) {
-        if (cellStr.toLowerCase() === 'paid') { cellBg = C.paidBg; textColor = C.paidText; fontWeight = 'Helvetica-Bold'; }
-        else if (cellStr.toLowerCase() === 'pending') { cellBg = C.pendingBg; textColor = C.pendingText; fontWeight = 'Helvetica-Bold'; }
-        else if (cellStr.toLowerCase() === 'partial') { cellBg = C.partialBg; textColor = C.partialText; fontWeight = 'Helvetica-Bold'; }
+        if (cellStr.toLowerCase() === 'paid') { cellBg = C.paidBg; textColor = C.paidText; fontWeight = 'bold'; }
+        else if (cellStr.toLowerCase() === 'pending') { cellBg = C.pendingBg; textColor = C.pendingText; fontWeight = 'bold'; }
+        else if (cellStr.toLowerCase() === 'partial') { cellBg = C.partialBg; textColor = C.partialText; fontWeight = 'bold'; }
       }
       
       doc.rect(x, y, widths[ci], rowH).fill(cellBg);
       doc.rect(x, y, widths[ci], rowH).stroke(C.border);
-      doc.fillColor(textColor).font(fontWeight).fontSize(fs)
-        .text(cellStr, x + 3, y + 3, { width: widths[ci] - 6, height: rowH - 2, lineBreak: false });
+      doc.fillColor(textColor).font(F(fontWeight)).fontSize(fs)
+        .text(cellStr, x + pad, y + pad, { width: widths[ci] - pad*2, height: rowH - 2, lineBreak: false });
       x += widths[ci];
     });
     y += rowH;
@@ -175,31 +187,30 @@ function addPdfTable(doc, headers, rows, colWidths, opts) {
 }
 
 function addSummaryBox(doc, labels, values, colWidths, bgColor) {
+  registerFonts(doc);
   const fs = 7; const rowH = 18;
   let y = doc.y;
   const totalW = colWidths.reduce((a, b) => a + b, 0);
   const startX = Math.max(25, (doc.page.width - totalW) / 2);
   if (y + rowH * 2 + 10 > doc.page.height - 25) { doc.addPage(); y = 25; }
 
-  // Labels row
   let x = startX;
   doc.rect(x, y, totalW, rowH).fill(bgColor || C.blueBg);
   doc.rect(x, y, totalW, rowH).stroke(C.border);
   labels.forEach((l, i) => {
     doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-    doc.fillColor(C.text).font('Helvetica-Bold').fontSize(fs + 1)
+    doc.fillColor(C.text).font(F('bold')).fontSize(fs + 1)
       .text(String(l), x + 3, y + 4, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: 'center' });
     x += colWidths[i];
   });
   y += rowH;
 
-  // Values row
   x = startX;
   doc.rect(x, y, totalW, rowH).fill('#ffffff');
   doc.rect(x, y, totalW, rowH).stroke(C.border);
   values.forEach((v, i) => {
     doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-    doc.fillColor(C.text).font('Helvetica-Bold').fontSize(fs + 1)
+    doc.fillColor(C.text).font(F('bold')).fontSize(fs + 1)
       .text(String(v ?? ''), x + 3, y + 4, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false, align: 'center' });
     x += colWidths[i];
   });
@@ -208,37 +219,41 @@ function addSummaryBox(doc, labels, values, colWidths, bgColor) {
 }
 
 function addTotalsRow(doc, values, colWidths, opts) {
+  registerFonts(doc);
   opts = opts || {};
   const fs = opts.fontSize || 7;
   const rowH = fs + 10;
   let y = doc.y;
   const totalW = colWidths.reduce((a, b) => a + b, 0);
-  const startX = opts.startX || Math.max(25, (doc.page.width - totalW) / 2);
+  const scale = totalW > (doc.page.width - 50) ? (doc.page.width - 50) / totalW : 1;
+  const widths = colWidths.map(w => Math.floor(w * scale));
+  const actualTotalW = widths.reduce((a, b) => a + b, 0);
+  const startX = opts.startX || Math.max(25, (doc.page.width - actualTotalW) / 2);
   if (y + rowH > doc.page.height - 25) { doc.addPage(); y = 25; }
   
   let x = startX;
-  // Amber total bar
-  doc.rect(x, y, totalW, rowH).fill('#fef3c7');
-  doc.rect(x, y, totalW, 2).fill('#f59e0b');
+  doc.rect(x, y, actualTotalW, rowH).fill('#fef3c7');
+  doc.rect(x, y, actualTotalW, 2).fill('#f59e0b');
   values.forEach((v, i) => {
-    doc.rect(x, y, colWidths[i], rowH).stroke(C.border);
-    doc.fillColor('#92400e').font('Helvetica-Bold').fontSize(fs + 1)
-      .text(String(v ?? ''), x + 3, y + 4, { width: colWidths[i] - 6, height: rowH - 2, lineBreak: false });
-    x += colWidths[i];
+    doc.rect(x, y, widths[i], rowH).stroke(C.border);
+    doc.fillColor('#92400e').font(F('bold')).fontSize(fs + 1)
+      .text(String(v ?? ''), x + 2, y + 3, { width: widths[i] - 4, height: rowH - 2, lineBreak: false });
+    x += widths[i];
   });
   doc.y = y + rowH + 6;
 }
 
 function addSectionTitle(doc, title) {
+  registerFonts(doc);
   if (doc.y > doc.page.height - 60) doc.addPage();
   doc.moveDown(0.3);
   const titleY = doc.y;
   doc.rect(25, titleY, doc.page.width - 50, 18).fill('#f0f9ff');
   doc.rect(25, titleY, 3, 18).fill('#0891b2');
-  doc.fontSize(10).font('Helvetica-Bold').fillColor(C.hdrBg)
+  doc.fontSize(10).font(F('bold')).fillColor(C.hdrBg)
     .text(title, 32, titleY + 3, { width: doc.page.width - 60 });
   doc.y = titleY + 22;
-  doc.fillColor('black').font('Helvetica').fontSize(7);
+  doc.fillColor('black').font(F('normal')).fontSize(7);
 }
 
 function fmtAmt(n) {
@@ -253,4 +268,4 @@ function fmtDate(d) {
   return s;
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C };
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F };

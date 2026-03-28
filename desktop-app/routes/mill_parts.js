@@ -484,6 +484,7 @@ router.get('/api/mill-parts/store-room-report/pdf', safeAsync(async (req, res) =
   const report = Object.values(roomGroups).sort((a, b) => a.store_room_name.localeCompare(b.store_room_name));
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename=store_room_report.pdf');
   doc.pipe(res);
@@ -564,13 +565,14 @@ router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
   const summary = getStockSummary(req.query);
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+      registerFonts(doc);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_stock.pdf');
   doc.pipe(res);
 
   const C = { hdr: '#1a365d', border: '#cbd5e1', alt: '#f8fafc', blue: '#e0f2fe' };
   const title = `Mill Parts Stock Summary${req.query.kms_year ? ' - ' + req.query.kms_year : ''}`;
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.hdr).text(title, { align: 'center' });
+  doc.fontSize(16).font(F('bold')).fillColor(C.hdr).text(title, { align: 'center' });
   doc.moveDown(0.5);
 
   const headers = ['Part', 'Category', 'Store Room', 'Unit', 'In', 'Used', 'Stock', 'Amount (Rs)', 'Parties'];
@@ -583,7 +585,7 @@ router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
   doc.rect(x, y, totalW, rowH).fill(C.hdr);
   headers.forEach((h, i) => {
     doc.rect(x, y, colW[i], rowH).stroke(C.border);
-    doc.fillColor('white').font('Helvetica-Bold').fontSize(7).text(h, x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
+    doc.fillColor('white').font(F('bold')).fontSize(7).text(h, x+3, y+3, {width:colW[i]-6,height:rowH,lineBreak:false});
     x += colW[i];
   });
   y += rowH;
@@ -597,7 +599,7 @@ router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
     const vals = [s.part_name, s.category, s.store_room_name || '', s.unit, s.stock_in, s.stock_used, s.current_stock, `Rs.${Math.round(s.total_purchase_amount).toLocaleString()}`, (s.parties||[]).map(p=>p.name).join(', ')];
     vals.forEach((v, i) => {
       doc.rect(x, y, colW[i], rowH).stroke(C.border);
-      doc.fillColor('#1e293b').font('Helvetica').fontSize(6).text(String(v??''), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
+      doc.fillColor('#1e293b').font(F('normal')).fontSize(6).text(String(v??''), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
       x += colW[i];
     });
     y += rowH;
@@ -608,7 +610,7 @@ router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
   doc.rect(x, y, totalW, rowH).fill(C.blue);
   ['TOTAL','','','','','','',`Rs.${Math.round(totalPurchase).toLocaleString()}`,''].forEach((v,i) => {
     doc.rect(x, y, colW[i], rowH).stroke(C.border);
-    doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(7).text(String(v), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
+    doc.fillColor('#1e293b').font(F('bold')).fontSize(7).text(String(v), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
     x += colW[i];
   });
 
@@ -679,6 +681,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
   items.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+      registerFonts(doc);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_transactions.pdf');
   doc.pipe(res);
@@ -686,11 +689,11 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
   const C = { hdr: '#1a365d', border: '#cbd5e1', inBg: '#f0fdf4', usedBg: '#fef2f2', inBg2: '#dcfce7', usedBg2: '#fee2e2', blue: '#e0f2fe' };
   let title = 'Mill Parts Transactions';
   if (req.query.part_name) title += ` - ${req.query.part_name}`;
-  doc.fontSize(16).font('Helvetica-Bold').fillColor(C.hdr).text(title, { align: 'center' });
+  doc.fontSize(16).font(F('bold')).fillColor(C.hdr).text(title, { align: 'center' });
   const sub = [];
   if (req.query.date_from || req.query.date_to) sub.push(`Date: ${req.query.date_from||'...'} to ${req.query.date_to||'...'}`);
   if (req.query.kms_year) sub.push(`FY: ${req.query.kms_year}`);
-  if (sub.length) doc.fontSize(8).font('Helvetica').fillColor('grey').text(sub.join(' | '), { align: 'center' });
+  if (sub.length) doc.fontSize(8).font(F('normal')).fillColor('grey').text(sub.join(' | '), { align: 'center' });
   doc.moveDown(0.5);
 
   const headers = ['Date','Part','Store Room','Type','Qty','Rate','Amount','Party','Bill No','Remark'];
@@ -702,7 +705,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
   doc.rect(x, y, totalW, rowH).fill(C.hdr);
   headers.forEach((h, i) => {
     doc.rect(x, y, colW[i], rowH).stroke(C.border);
-    doc.fillColor('white').font('Helvetica-Bold').fontSize(6.5).text(h, x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
+    doc.fillColor('white').font(F('bold')).fontSize(6.5).text(h, x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
     x += colW[i];
   });
   y += rowH;
@@ -719,7 +722,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
     const vals = [t.date, t.part_name, t.store_room_name||'', isIn?'IN':'USED', t.quantity, t.rate||0, amt?`Rs.${Math.round(amt).toLocaleString()}`:'-', t.party_name||'', t.bill_no||'', t.remark||''];
     vals.forEach((v, i) => {
       doc.rect(x, y, colW[i], rowH).stroke(C.border);
-      doc.fillColor('#1e293b').font('Helvetica').fontSize(6).text(String(v??''), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
+      doc.fillColor('#1e293b').font(F('normal')).fontSize(6).text(String(v??''), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
       x += colW[i];
     });
     y += rowH;
@@ -730,7 +733,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
   doc.rect(x, y, totalW, rowH).fill(C.blue);
   ['TOTAL','','','','','',`Rs.${Math.round(totalAmt).toLocaleString()}`,'','',''].forEach((v,i) => {
     doc.rect(x, y, colW[i], rowH).stroke(C.border);
-    doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(7).text(String(v), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
+    doc.fillColor('#1e293b').font(F('bold')).fontSize(7).text(String(v), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});
     x += colW[i];
   });
 
@@ -849,9 +852,10 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
     parties[t.party_name].amount += (t.total_amount || t.total_cost || 0);
   });
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader: _addPdfH, addPdfTable } = require('./pdf_helpers');
+  const { addPdfHeader: _addPdfH, addPdfTable registerFonts, F } = require('./pdf_helpers');
   const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.pdf`);
   doc.pipe(res);
@@ -859,7 +863,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
   doc.fontSize(9).fillColor('#666666').text(`Category: ${category} | Unit: ${unit} | Store Room: ${partInfo.store_room_name || 'N/A'}`, { align: 'center' });
   doc.moveDown(0.5);
   // Overview
-  doc.fontSize(11).fillColor('#1a365d').font('Helvetica-Bold').text('Stock Overview');
+  doc.fontSize(11).fillColor('#1a365d').font(F('bold')).text('Stock Overview');
   doc.moveDown(0.3);
   addPdfTable(doc, ['Stock In', 'Stock Used', 'Current Stock', 'Total Purchase'],
     [[`${stockIn} ${unit}`, `${stockUsed} ${unit}`, `${+(stockIn - stockUsed).toFixed(2)} ${unit}`, `Rs.${purchaseAmt.toLocaleString()}`]], [130, 130, 130, 150]);
@@ -867,7 +871,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
   // Parties
   const partyKeys = Object.keys(parties).sort();
   if (partyKeys.length) {
-    doc.fontSize(11).fillColor('#1a365d').font('Helvetica-Bold').text('Party-wise Purchase');
+    doc.fontSize(11).fillColor('#1a365d').font(F('bold')).text('Party-wise Purchase');
     doc.moveDown(0.3);
     const pRows = partyKeys.map(k => [k, (+parties[k].qty.toFixed(2)).toString(), `Rs.${(+parties[k].amount.toFixed(2)).toLocaleString()}`]);
     pRows.push(['TOTAL', (+partyKeys.reduce((s, k) => s + parties[k].qty, 0).toFixed(2)).toString(), `Rs.${(+partyKeys.reduce((s, k) => s + parties[k].amount, 0).toFixed(2)).toLocaleString()}`]);
@@ -876,7 +880,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
   }
   // Transactions
   if (txns.length) {
-    doc.fontSize(11).fillColor('#1a365d').font('Helvetica-Bold').text('All Transactions');
+    doc.fontSize(11).fillColor('#1a365d').font(F('bold')).text('All Transactions');
     doc.moveDown(0.3);
     const tRows = txns.map(t => [t.date||'', t.txn_type==='in'?'IN':'USED', t.quantity||0, t.rate||0,
       (t.total_amount||t.total_cost||0), t.party_name||'-', t.bill_no||'-']);

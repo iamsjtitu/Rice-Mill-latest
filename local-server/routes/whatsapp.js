@@ -176,5 +176,55 @@ router.post('/api/whatsapp/send-daily-report', safeAsync(async (req, res) => {
   res.json({ success: ok > 0, message: `${ok}/${results.length} targets pe bhej diya!`, details: results });
 }));
 
+// Party Ledger WhatsApp
+router.post('/api/whatsapp/send-party-ledger', safeAsync(async (req, res) => {
+  const { party_name, total_debit, total_credit, balance, transactions, pdf_url } = req.body;
+  const phone = (req.body.phone || '').trim();
+  if (!party_name) return res.status(400).json({ detail: 'Party name required' });
+  const config = getWaSettings();
+  if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
+
+  const brandingFromSettings = col('app_settings').find(s => s.setting_id === 'branding');
+  const branding = brandingFromSettings || database.data.branding || {};
+  const company = branding.company_name || 'Mill Entry System';
+  const bal = balance != null ? balance : ((total_debit||0) - (total_credit||0));
+  const balLabel = bal > 0 ? 'Bakaya (Debit)' : bal < 0 ? 'Agrim (Credit)' : 'Settled';
+
+  let text = `*${company}*\n━━━━━━━━━━━━━━━━\n*Party Ledger / खाता विवरण*\nParty: *${party_name}*\n━━━━━━━━━━━━━━━━\nTotal Debit (Kharcha): Rs.${Number(total_debit||0).toLocaleString()}\nTotal Credit (Jama): Rs.${Number(total_credit||0).toLocaleString()}\n*${balLabel}: Rs.${Math.abs(bal).toLocaleString()}*\n`;
+
+  if (transactions && transactions.length > 0) {
+    text += `\n*Recent Transactions (${Math.min(transactions.length, 10)}):*\n`;
+    transactions.slice(0, 10).forEach(t => {
+      const type = t.txn_type === 'jama' ? 'Jama' : 'Nikasi';
+      text += `  ${t.date||''} | ${type} | Rs.${Number(t.amount||0).toLocaleString()}`;
+      if (t.description) text += ` | ${String(t.description).substring(0, 30)}`;
+      text += '\n';
+    });
+    if (transactions.length > 10) text += `  ... aur ${transactions.length - 10} entries\n`;
+  }
+  text += '\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_';
+
+  let nums = config.default_numbers || [];
+  if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
+  if (!Array.isArray(nums)) nums = [];
+
+  const results = [];
+  if (phone) {
+    const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, pdf_url || '');
+    results.push({ target: phone, success: r.success });
+  } else {
+    for (const num of nums) {
+      if (num && num.trim()) {
+        const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, pdf_url || '');
+        results.push({ target: num, success: r.success });
+      }
+    }
+  }
+  if (!results.length) return res.json({ success: false, error: 'Koi number set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });
+  const ok = results.filter(r => r.success).length;
+  res.json({ success: ok > 0, message: `Party ledger ${ok}/${results.length} numbers pe bhej diya!`, details: results });
+}));
+
+
 return router;
 };

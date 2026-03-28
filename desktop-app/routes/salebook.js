@@ -683,11 +683,12 @@ module.exports = function(database) {
 
   // ===== STOCK SUMMARY PDF (COLORFUL with pdfkit) =====
   router.get('/api/stock-summary/export/pdf', safeHandler(async (req, res) => {
-    const { addPdfHeader } = require('./pdf_helpers');
+    const { addPdfHeader registerFonts, F } = require('./pdf_helpers');
     const items = getStockItems(req);
     const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
 
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
+      registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=stock_summary.pdf`);
     doc.pipe(res);
@@ -698,7 +699,7 @@ module.exports = function(database) {
     if (req.query.kms_year) metaParts.push(`FY: ${req.query.kms_year}`);
     if (req.query.season) metaParts.push(req.query.season);
     metaParts.push(`Date: ${new Date().toLocaleDateString('en-IN')}`);
-    doc.fontSize(8).font('Helvetica').fillColor('#666666').text(metaParts.join(' | '), { align: 'center' });
+    doc.fontSize(8).font(F('normal')).fillColor('#666666').text(metaParts.join(' | '), { align: 'center' });
     doc.moveDown(0.8);
 
     // Group items
@@ -721,7 +722,7 @@ module.exports = function(database) {
       doc.save();
       doc.roundedRect(30, doc.y, pageW, 22, 3).fill(catBg);
       doc.restore();
-      doc.fillColor(catColor).fontSize(10).font('Helvetica-Bold')
+      doc.fillColor(catColor).fontSize(10).font(F('bold'))
         .text(`${catName} (${catItems.length} items)`, 40, doc.y + 5, { width: pageW - 20 });
       doc.y += 12;
 
@@ -730,7 +731,7 @@ module.exports = function(database) {
       doc.save();
       doc.rect(30, headerY, pageW, 18).fill('#1E293B');
       doc.restore();
-      doc.fillColor('#FFFFFF').fontSize(8).font('Helvetica-Bold');
+      doc.fillColor('#FFFFFF').fontSize(8).font(F('bold'));
       let xPos = 35;
       ['Item', 'In (Qntl)', 'Out (Qntl)', 'Available', 'Details'].forEach((h, i) => {
         const align = [1, 2, 3].includes(i) ? 'right' : 'left';
@@ -759,28 +760,28 @@ module.exports = function(database) {
 
         xPos = 35;
         // Item name
-        doc.fillColor('#1E293B').fontSize(8).font('Helvetica-Bold')
+        doc.fillColor('#1E293B').fontSize(8).font(F('bold'))
           .text(item.name, xPos, rowY + 4, { width: cols[0] - 10 });
         xPos += cols[0];
 
         // In qty (green)
-        doc.fillColor('#059669').fontSize(8).font('Helvetica')
+        doc.fillColor('#059669').fontSize(8).font(F('normal'))
           .text(`${item.in_qty} ${item.unit}`, xPos, rowY + 4, { width: cols[1] - 10, align: 'right' });
         xPos += cols[1];
 
         // Out qty (red)
-        doc.fillColor('#DC2626').fontSize(8).font('Helvetica')
+        doc.fillColor('#DC2626').fontSize(8).font(F('normal'))
           .text(`${item.out_qty} ${item.unit}`, xPos, rowY + 4, { width: cols[2] - 10, align: 'right' });
         xPos += cols[2];
 
         // Available (bold, colored)
         const availColor = item.available < 0 ? '#DC2626' : '#059669';
-        doc.fillColor(availColor).fontSize(9).font('Helvetica-Bold')
+        doc.fillColor(availColor).fontSize(9).font(F('bold'))
           .text(`${item.available} ${item.unit}`, xPos, rowY + 3, { width: cols[3] - 10, align: 'right' });
         xPos += cols[3];
 
         // Details (grey, small)
-        doc.fillColor('#888888').fontSize(6).font('Helvetica')
+        doc.fillColor('#888888').fontSize(6).font(F('normal'))
           .text(item.details || '', xPos, rowY + 5, { width: cols[4] - 10 });
 
         doc.y = rowY + rowH;
@@ -790,7 +791,7 @@ module.exports = function(database) {
 
     // Footer
     doc.moveDown(1);
-    doc.fontSize(7).font('Helvetica').fillColor('#999999')
+    doc.fontSize(7).font(F('normal')).fillColor('#999999')
       .text(`${company} - Stock Summary | Generated: ${new Date().toLocaleDateString('en-IN')}`, { align: 'center' });
 
     doc.end();

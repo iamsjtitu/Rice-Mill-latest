@@ -1021,8 +1021,8 @@ async def export_pdf(
     table_data.append(totals_row)
     
     # Column widths (21 columns for A4 landscape with margins)
-    col_widths = [12*mm, 12*mm, 10*mm, 10*mm, 12*mm, 12*mm, 11*mm, 7*mm, 7*mm, 8*mm, 
-                  7*mm, 8*mm, 11*mm, 7*mm, 9*mm, 7*mm, 8*mm, 11*mm, 9*mm, 9*mm, 9*mm]
+    col_widths = [14*mm, 14*mm, 10*mm, 10*mm, 14*mm, 14*mm, 12*mm, 8*mm, 8*mm, 10*mm, 
+                  8*mm, 10*mm, 12*mm, 8*mm, 10*mm, 8*mm, 8*mm, 12*mm, 10*mm, 10*mm, 10*mm]
     
     # Create table
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)

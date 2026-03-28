@@ -3,7 +3,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate registerFonts, F } = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 
 module.exports = function(database) {
@@ -24,14 +24,38 @@ module.exports = function(database) {
         { header: 'Agent', key: 'agent_name', width: 14 }, { header: 'Mandi', key: 'mandi_name', width: 14 },
         { header: 'QNTL', key: 'qntl', width: 10 }, { header: 'BAG', key: 'bag', width: 8 },
         { header: 'G.Dep', key: 'g_deposite', width: 8 }, { header: 'GBW Cut', key: 'gbw_cut', width: 10 },
+        { header: 'P.Pkt', key: 'plastic_bag', width: 8 }, { header: 'P.Cut', key: 'p_pkt_cut', width: 10 },
         { header: 'Mill W', key: 'mill_w', width: 12 }, { header: 'Moist%', key: 'moisture', width: 9 },
         { header: 'M.Cut', key: 'moisture_cut', width: 9 }, { header: 'Cut%', key: 'cutting_percent', width: 8 },
         { header: 'D/D/P', key: 'disc_dust_poll', width: 8 }, { header: 'Final W', key: 'final_w', width: 12 },
         { header: 'G.Issued', key: 'g_issued', width: 10 }, { header: 'Cash', key: 'cash_paid', width: 10 },
         { header: 'Diesel', key: 'diesel_paid', width: 10 }
       ];
-      entries.forEach(e => ws.addRow({ date: e.date, truck_no: e.truck_no, rst_no: e.rst_no || '', tp_no: e.tp_no || '', agent_name: e.agent_name, mandi_name: e.mandi_name, qntl: +(e.qntl||0).toFixed(2), bag: e.bag||0, g_deposite: e.g_deposite||0, gbw_cut: +(e.gbw_cut||0).toFixed(2), mill_w: +((e.mill_w||0)/100).toFixed(2), moisture: e.moisture||0, moisture_cut: +((e.moisture_cut||0)/100).toFixed(2), cutting_percent: e.cutting_percent||0, disc_dust_poll: e.disc_dust_poll||0, final_w: +((e.final_w||0)/100).toFixed(2), g_issued: e.g_issued||0, cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0 }));
-      addExcelTitle(ws, 'Mill Entries Report', 19, database); styleExcelHeader(ws); styleExcelData(ws, 5);
+      entries.forEach(e => ws.addRow({ date: e.date, truck_no: e.truck_no, rst_no: e.rst_no || '', tp_no: e.tp_no || '', agent_name: e.agent_name, mandi_name: e.mandi_name, qntl: +(e.qntl||0).toFixed(2), bag: e.bag||0, g_deposite: e.g_deposite||0, gbw_cut: +((e.gbw_cut||0)/100).toFixed(2), plastic_bag: e.plastic_bag||0, p_pkt_cut: +((e.p_pkt_cut||0)/100).toFixed(2), mill_w: +((e.mill_w||0)/100).toFixed(2), moisture: e.moisture||0, moisture_cut: +((e.moisture_cut||0)/100).toFixed(2), cutting_percent: e.cutting_percent||0, disc_dust_poll: e.disc_dust_poll||0, final_w: +((e.final_w||0)/100).toFixed(2), g_issued: e.g_issued||0, cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0 }));
+
+      // Add totals row
+      if (entries.length > 0) {
+        const totals = {
+          date: 'TOTAL', truck_no: '', rst_no: '', tp_no: '', agent_name: '', mandi_name: `${entries.length} entries`,
+          qntl: +entries.reduce((s,e) => s+(e.qntl||0), 0).toFixed(2),
+          bag: entries.reduce((s,e) => s+(e.bag||0), 0),
+          g_deposite: entries.reduce((s,e) => s+(e.g_deposite||0), 0),
+          gbw_cut: +entries.reduce((s,e) => s+((e.gbw_cut||0)/100), 0).toFixed(2),
+          plastic_bag: entries.reduce((s,e) => s+(e.plastic_bag||0), 0),
+          p_pkt_cut: +entries.reduce((s,e) => s+((e.p_pkt_cut||0)/100), 0).toFixed(2),
+          mill_w: +entries.reduce((s,e) => s+((e.mill_w||0)/100), 0).toFixed(2),
+          moisture: '', moisture_cut: +entries.reduce((s,e) => s+((e.moisture_cut||0)/100), 0).toFixed(2),
+          cutting_percent: '', disc_dust_poll: '',
+          final_w: +entries.reduce((s,e) => s+((e.final_w||0)/100), 0).toFixed(2),
+          g_issued: entries.reduce((s,e) => s+(e.g_issued||0), 0),
+          cash_paid: entries.reduce((s,e) => s+(e.cash_paid||0), 0),
+          diesel_paid: entries.reduce((s,e) => s+(e.diesel_paid||0), 0)
+        };
+        const totalRow = ws.addRow(totals);
+        totalRow.eachCell(c => { c.font = { bold: true, size: 10, color: { argb: 'FF92400E' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } }; });
+      }
+
+      addExcelTitle(ws, 'Mill Entries Report', 21, database); styleExcelHeader(ws); styleExcelData(ws, 5);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.xlsx`);
@@ -43,12 +67,31 @@ module.exports = function(database) {
     try {
       const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 20 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Mill Entries Report');
       const h = ['Date','Truck','RST','TP','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss','Cash','Diesel'];
+      const w = [38,38,28,28,38,38,32,24,24,28,24,28,34,22,28,22,24,34,26,30,30];
       const rows = entries.map(e => [fmtDate(e.date),e.truck_no||'',e.rst_no||'',e.tp_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,e.g_deposite||0,((e.gbw_cut||0)/100).toFixed(2),e.plastic_bag||0,((e.p_pkt_cut||0)/100).toFixed(2),((e.mill_w||0)/100).toFixed(2),e.moisture||0,((e.moisture_cut||0)/100).toFixed(2),e.cutting_percent||0,e.disc_dust_poll||0,((e.final_w||0)/100).toFixed(2),e.g_issued||0,e.cash_paid||0,e.diesel_paid||0]);
-      addPdfTable(doc, h, rows, [34,34,28,28,34,34,30,22,22,26,22,26,32,20,26,20,22,32,24,28,28]);
+      addPdfTable(doc, h, rows, w);
+
+      // Totals row
+      if (entries.length > 0) {
+        const tQntl = entries.reduce((s,e) => s+(e.qntl||0), 0);
+        const tBag = entries.reduce((s,e) => s+(e.bag||0), 0);
+        const tGDep = entries.reduce((s,e) => s+(e.g_deposite||0), 0);
+        const tGbw = entries.reduce((s,e) => s+((e.gbw_cut||0)/100), 0);
+        const tPPkt = entries.reduce((s,e) => s+(e.plastic_bag||0), 0);
+        const tPCut = entries.reduce((s,e) => s+((e.p_pkt_cut||0)/100), 0);
+        const tMillW = entries.reduce((s,e) => s+((e.mill_w||0)/100), 0);
+        const tMCut = entries.reduce((s,e) => s+((e.moisture_cut||0)/100), 0);
+        const tFinalW = entries.reduce((s,e) => s+((e.final_w||0)/100), 0);
+        const tGIss = entries.reduce((s,e) => s+(e.g_issued||0), 0);
+        const tCash = entries.reduce((s,e) => s+(e.cash_paid||0), 0);
+        const tDiesel = entries.reduce((s,e) => s+(e.diesel_paid||0), 0);
+        addTotalsRow(doc, ['TOTAL','','','','',`${entries.length} entries`,tQntl.toFixed(2),tBag,tGDep,tGbw.toFixed(2),tPPkt,tPCut.toFixed(2),tMillW.toFixed(2),'',tMCut.toFixed(2),'','',tFinalW.toFixed(2),tGIss,tCash,tDiesel], w);
+      }
 
       doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
@@ -72,6 +115,7 @@ module.exports = function(database) {
     try {
       const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Truck Payments Report');
       const h = ['Date','Truck','Mandi','Final QNTL','Rate','Gross','Ded','Net','Paid','Balance','Status'];
@@ -98,6 +142,7 @@ module.exports = function(database) {
     try {
       const targets = database.getMandiTargets(req.query); const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Agent Payments Report');
       const h = ['Mandi','Agent','Target','Cutting','B.Rate','C.Rate','Total','Achieved','Paid','Balance','Status'];
@@ -109,7 +154,7 @@ module.exports = function(database) {
   // ===== DASHBOARD PDF EXPORT =====
   router.get('/api/export/dashboard-pdf', safeSync((req, res) => {
     try {
-      const { addPdfTable: _addTbl, addSectionTitle, fmtAmt, C } = require('./pdf_helpers');
+      const { addPdfTable: _addTbl, addSectionTitle, fmtAmt, C registerFonts, F } = require('./pdf_helpers');
       const entries = database.getEntries(req.query);
       const filterLabel = req.query.filter || 'all';
       const showStock = !req.query.filter || req.query.filter === 'all' || req.query.filter === 'stock';
@@ -117,13 +162,14 @@ module.exports = function(database) {
       const targetMandi = req.query.filter && req.query.filter !== 'all' && req.query.filter !== 'stock' ? req.query.filter : null;
 
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=dashboard_${filterLabel}_${Date.now()}.pdf`);
       doc.pipe(res);
       addPdfHeader(doc, 'Dashboard Report');
 
       // Sub-header
-      doc.fontSize(8).font('Helvetica').fillColor('grey')
+      doc.fontSize(8).font(F('normal')).fillColor('grey')
         .text(`FY: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'} | Filter: ${filterLabel}`, { align: 'center' });
       doc.moveDown(0.5);
 
@@ -206,14 +252,14 @@ module.exports = function(database) {
 
           _addTbl(doc, tgtHeaders, tgtRows, [60, 50, 35, 55, 55, 55, 45, 60]);
         } else {
-          doc.fontSize(9).font('Helvetica').fillColor('#64748b').text('Koi target set nahi hai', { align: 'center' });
+          doc.fontSize(9).font(F('normal')).fillColor('#64748b').text('Koi target set nahi hai', { align: 'center' });
         }
       }
 
       // Footer
       doc.moveDown(1);
       const branding = database.getBranding ? database.getBranding() : {};
-      doc.fontSize(7).font('Helvetica').fillColor('#94a3b8')
+      doc.fontSize(7).font(F('normal')).fillColor('#94a3b8')
         .text(`Generated by ${branding.company_name || 'Mill Entry System'} | ${new Date().toLocaleDateString('en-IN')}`, { align: 'center' });
       doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
@@ -224,9 +270,10 @@ module.exports = function(database) {
     try {
       const entries = database.getEntries(req.query); const totals = database.getTotals ? database.getTotals(req.query) : {};
       const doc = new PDFDocument({ size: 'A4', margin: 40 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=summary_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Summary Report');
-      doc.fontSize(10).font('Helvetica-Bold').text('Overview:', { underline: true }); doc.moveDown(0.3); doc.font('Helvetica').fontSize(9);
+      doc.fontSize(10).font(F('bold')).text('Overview:', { underline: true }); doc.moveDown(0.3); doc.font(F('normal')).fontSize(9);
       doc.text(`Total Entries: ${entries.length}`); doc.text(`Total QNTL: ${(totals.total_qntl||0).toFixed?.(2)||0}`); doc.text(`Total Final W: ${((totals.total_final_w||0)/100).toFixed?.(2)||0}`);
       doc.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
@@ -252,6 +299,7 @@ module.exports = function(database) {
       const entries = database.getEntries(req.query); const td = {};
       entries.forEach(e => { const tn=e.truck_no||'Unknown'; const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); if(!td[tn])td[tn]={truck_no:tn,trips:0,tq:0,tg:0,tded:0,tn2:0,tp:0,tb:0}; td[tn].trips++;td[tn].tq+=fq;td[tn].tg+=g;td[tn].tded+=d;td[tn].tn2+=n;td[tn].tp+=p.paid_amount;td[tn].tb+=b; });
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=truck_owner_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Truck Owner Report');
       const h = ['Truck','Trips','QNTL','Gross','Ded','Net','Paid','Balance','Status'];
@@ -291,6 +339,7 @@ module.exports = function(database) {
     try {
       const entries = database.getMillingEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Milling Report');
@@ -335,6 +384,7 @@ module.exports = function(database) {
       if (req.query.season) purchases = purchases.filter(x => x.season === req.query.season);
       purchases.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'FRK Purchase Register');
@@ -394,6 +444,7 @@ module.exports = function(database) {
       const millingEntries = database.getMillingEntries(req.query);
       const products = ['bran','kunda','broken','kanki','husk'];
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'By-Product Stock & Sales Report');
@@ -407,7 +458,7 @@ module.exports = function(database) {
       });
       addPdfTable(doc, sHeaders, sRows, [70, 70, 60, 70, 70]);
       doc.moveDown(1);
-      doc.fontSize(11).font('Helvetica-Bold').text('Sales Detail', { align: 'left' });
+      doc.fontSize(11).font(F('bold')).text('Sales Detail', { align: 'left' });
       doc.moveDown(0.3);
       const headers = ['Date','Product','Qty(Q)','Rate(Rs.)','Amount(Rs.)','Buyer'];
       const tq = +sales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2);
@@ -463,6 +514,7 @@ module.exports = function(database) {
       let balance = 0;
       rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.pdf`);
       doc.pipe(res); addPdfHeader(doc, 'Paddy Custody Register');

@@ -253,3 +253,77 @@ async def send_daily_report(data: dict):
     return {"success": success_count > 0,
             "message": f"{success_count}/{len(results)} targets pe bhej diya!",
             "details": results}
+
+
+@router.post("/whatsapp/send-party-ledger")
+async def send_party_ledger(data: dict):
+    """Send party ledger summary via WhatsApp."""
+    party_name = data.get("party_name", "")
+    phone = data.get("phone", "").strip() if data.get("phone") else ""
+    total_debit = data.get("total_debit", 0)
+    total_credit = data.get("total_credit", 0)
+    balance = data.get("balance", total_debit - total_credit)
+    transactions = data.get("transactions", [])
+    pdf_url = data.get("pdf_url", "")
+
+    if not party_name:
+        raise HTTPException(status_code=400, detail="Party name required")
+
+    settings = await _get_wa_settings()
+    if not settings.get("api_key"):
+        return {"success": False, "error": "WhatsApp API key set nahi hai."}
+
+    branding = await db["settings"].find_one({"key": "branding"}, {"_id": 0})
+    company = branding.get("company_name", "Mill Entry System") if branding else "Mill Entry System"
+
+    # Build text summary
+    bal_label = "Bakaya (Debit)" if balance > 0 else "Agrim (Credit)" if balance < 0 else "Settled"
+    text = (
+        f"*{company}*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"*Party Ledger / खाता विवरण*\n"
+        f"Party: *{party_name}*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"Total Debit (Kharcha): Rs.{total_debit:,.2f}\n"
+        f"Total Credit (Jama): Rs.{total_credit:,.2f}\n"
+        f"*{bal_label}: Rs.{abs(balance):,.2f}*\n"
+    )
+
+    # Add recent transactions (max 10)
+    if transactions:
+        text += f"\n*Recent Transactions ({min(len(transactions), 10)}):*\n"
+        for t in transactions[:10]:
+            date = t.get("date", "")
+            txn_type = "Jama" if t.get("txn_type") == "jama" else "Nikasi"
+            amt = t.get("amount", 0)
+            desc = t.get("description", "")[:30]
+            text += f"  {date} | {txn_type} | Rs.{amt:,.0f}"
+            if desc:
+                text += f" | {desc}"
+            text += "\n"
+        if len(transactions) > 10:
+            text += f"  ... aur {len(transactions) - 10} entries\n"
+
+    text += f"\n_Kripya baaki rashi ka bhugtan karein._\n_Dhanyavaad!_"
+
+    default_numbers = settings.get("default_numbers", [])
+    if isinstance(default_numbers, str):
+        default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
+
+    results = []
+    if phone:
+        r = await _send_wa_message(phone, text, pdf_url)
+        results.append({"target": phone, "success": r.get("success", False)})
+    else:
+        for num in default_numbers:
+            if num and num.strip():
+                r = await _send_wa_message(num.strip(), text, pdf_url)
+                results.append({"target": num, "success": r.get("success", False)})
+
+    if not results:
+        return {"success": False, "error": "Koi number set nahi hai. Settings > WhatsApp mein default numbers SAVE karein."}
+
+    success_count = sum(1 for r in results if r["success"])
+    return {"success": success_count > 0,
+            "message": f"Party ledger {success_count}/{len(results)} numbers pe bhej diya!",
+            "details": results}

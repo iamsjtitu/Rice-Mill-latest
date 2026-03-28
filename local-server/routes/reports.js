@@ -4,8 +4,8 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C } = require('./pdf_helpers');
-const rptHelper = require('../../shared/report_helper');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C registerFonts, F } = require('./pdf_helpers');
+const rptHelper = require('../shared/report_helper');
 
 module.exports = function(database) {
 
@@ -17,7 +17,7 @@ module.exports = function(database) {
   // Helper to get full ledger data
   function getLedgerData(party_name, party_type, kms_year, season, date_from, date_to) {
     const dateFilter = (d) => (!date_from || d >= date_from) && (!date_to || d <= date_to);
-    const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season) && dateFilter(e.date || ''));
+    const entries = (database.data.entries || []).filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season) && dateFilter(e.date || ''));
     const ledger = [];
 
     if (!party_type || party_type === 'truck') {
@@ -88,6 +88,26 @@ module.exports = function(database) {
           ledger.push({ date: pay.date||'', party_name: pn, party_type: 'Rice Buyer', description: `Payment Received: Rs.${pay.amount||0} (${pay.mode||'cash'})`, debit: Math.round((pay.amount||0)*100)/100, credit: 0, ref: (pay.id||'').substring(0,8) });
         }
       });
+    }
+
+    // Agent payments (from cash_transactions with party_type=Agent)
+    if (!party_type || party_type === 'Agent') {
+      const agentTxns = (database.data.cash_transactions||[]).filter(t =>
+        t.party_type === 'Agent' &&
+        (!kms_year||t.kms_year===kms_year) && (!season||t.season===season) && dateFilter(t.date || ''));
+      for (const t of agentTxns) {
+        const cat = (t.category||'').trim();
+        if (!cat) continue;
+        if (party_name && cat.toLowerCase() !== party_name.toLowerCase()) continue;
+        // Skip auto-ledger entries (duplicates with reversed txn_type)
+        if ((t.reference||'').includes('_ledger:')) continue;
+        const isJama = t.txn_type === 'jama';
+        ledger.push({ date: t.date||'', party_name: cat, party_type: 'Agent',
+          description: t.description || `${isJama?'Jama':'Nikasi'}: Rs.${t.amount||0}`,
+          debit: isJama ? 0 : Math.round((t.amount||0)*100)/100,
+          credit: isJama ? Math.round((t.amount||0)*100)/100 : 0,
+          ref: (t.id||'').substring(0,8) });
+      }
     }
 
     // Sale Book parties (from local_party_accounts)
@@ -204,6 +224,7 @@ module.exports = function(database) {
     try {
       const { kms_year, season } = req.query;
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=outstanding_${Date.now()}.pdf`); doc.pipe(res);
 
       addPdfHeader(doc, 'Outstanding Report', kms_year ? `${kms_year} | ${season || ''}` : '');
@@ -256,10 +277,10 @@ module.exports = function(database) {
       const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
 
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Ledger');
-      ws.mergeCells('A1:G1'); ws.getCell('A1').value = `Party Ledger${party_name?' - '+party_name:''}`; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
+      ws.mergeCells('A1:F1'); ws.getCell('A1').value = `Party Ledger${party_name?' - '+party_name:''}`; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
 
-      ['Date','Party','Type','Description','Debit(Rs.)','Credit(Rs.)','Ref'].forEach((h, i) => { const c = ws.getCell(3, i+1); c.value = h; Object.assign(c, hdrStyle); });
-      ledger.forEach((l, i) => { [l.date, l.party_name, l.party_type, l.description, l.debit||'', l.credit||'', l.ref].forEach((v, j) => { ws.getCell(i+4, j+1).value = v; }); });
+      ['Date','Party','Type','Description','Debit(Rs.)','Credit(Rs.)'].forEach((h, i) => { const c = ws.getCell(3, i+1); c.value = h; Object.assign(c, hdrStyle); });
+      ledger.forEach((l, i) => { [l.date, l.party_name, l.party_type, l.description, l.debit||'', l.credit||''].forEach((v, j) => { ws.getCell(i+4, j+1).value = v; }); });
 
       // Totals row
       const totalRow = ledger.length + 4;
@@ -279,6 +300,7 @@ module.exports = function(database) {
       const ledger = getLedgerData(party_name, party_type, kms_year, season, date_from, date_to);
 
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`); doc.pipe(res);
 
       addPdfHeader(doc, `Party Ledger${party_name ? ' - ' + party_name : ''}`, date_from && date_to ? `${date_from} to ${date_to}` : '');
@@ -292,7 +314,7 @@ module.exports = function(database) {
         const totalDebit = Math.round(ledger.reduce((s, l) => s + l.debit, 0)*100)/100;
         const totalCredit = Math.round(ledger.reduce((s, l) => s + l.credit, 0)*100)/100;
         doc.moveDown(0.3);
-        doc.fontSize(9).font('Helvetica-Bold').fillColor(C.hdrBg)
+        doc.fontSize(9).font(F('bold')).fillColor(C.hdrBg)
           .text(`Total Debit: Rs.${fmtAmt(totalDebit)}  |  Total Credit: Rs.${fmtAmt(totalCredit)}  |  Balance: Rs.${fmtAmt(totalDebit - totalCredit)}`, { align: 'center' });
       } else {
         doc.fontSize(10).text('Koi ledger entry nahi mili', { align: 'center' });
@@ -519,6 +541,7 @@ module.exports = function(database) {
     const mandis = Object.values(mandiMap).sort((a,b) => a.mandi_name.localeCompare(b.mandi_name));
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
+      registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=agent_mandi_report.pdf');
     doc.pipe(res);

@@ -4,7 +4,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C registerFonts, F } = require('./pdf_helpers');
 const rptHelper = require('../shared/report_helper');
 
 module.exports = function(database) {
@@ -224,6 +224,7 @@ module.exports = function(database) {
     try {
       const { kms_year, season } = req.query;
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=outstanding_${Date.now()}.pdf`); doc.pipe(res);
 
       addPdfHeader(doc, 'Outstanding Report', kms_year ? `${kms_year} | ${season || ''}` : '');
@@ -299,6 +300,7 @@ module.exports = function(database) {
       const ledger = getLedgerData(party_name, party_type, kms_year, season, date_from, date_to);
 
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+      registerFonts(doc);
       res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`); doc.pipe(res);
 
       addPdfHeader(doc, `Party Ledger${party_name ? ' - ' + party_name : ''}`, date_from && date_to ? `${date_from} to ${date_to}` : '');
@@ -312,7 +314,7 @@ module.exports = function(database) {
         const totalDebit = Math.round(ledger.reduce((s, l) => s + l.debit, 0)*100)/100;
         const totalCredit = Math.round(ledger.reduce((s, l) => s + l.credit, 0)*100)/100;
         doc.moveDown(0.3);
-        doc.fontSize(9).font('Helvetica-Bold').fillColor(C.hdrBg)
+        doc.fontSize(9).font(F('bold')).fillColor(C.hdrBg)
           .text(`Total Debit: Rs.${fmtAmt(totalDebit)}  |  Total Credit: Rs.${fmtAmt(totalCredit)}  |  Balance: Rs.${fmtAmt(totalDebit - totalCredit)}`, { align: 'center' });
       } else {
         doc.fontSize(10).text('Koi ledger entry nahi mili', { align: 'center' });
@@ -539,6 +541,7 @@ module.exports = function(database) {
     const mandis = Object.values(mandiMap).sort((a,b) => a.mandi_name.localeCompare(b.mandi_name));
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
+      registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=agent_mandi_report.pdf');
     doc.pipe(res);
