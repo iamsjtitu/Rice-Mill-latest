@@ -155,18 +155,7 @@ const safePrintHTML = (htmlContent) => {
   }
 };
 
-// Generate KMS years
-const generateKMSYears = () => {
-  const currentYear = new Date().getFullYear();
-  const years = [];
-  // KMS year typically starts in October. Generate past 3 years + current + next year
-  for (let i = currentYear - 3; i <= currentYear + 1; i++) {
-    years.push(`${i}-${i + 1}`);
-  }
-  return years;
-};
-
-// Generate FY years (April-March)
+// Generate FY years (April - March)
 const generateFYYears = () => {
   const currentYear = new Date().getFullYear();
   const years = [];
@@ -176,15 +165,14 @@ const generateFYYears = () => {
   return years;
 };
 
-const KMS_YEARS = generateKMSYears();
 const FY_YEARS = generateFYYears();
-const CURRENT_KMS_YEAR = `${new Date().getFullYear() - 1}-${new Date().getFullYear()}`; // 2025-2026
+// Current FY: if month < April (0-indexed: 3), use prev year
 const CURRENT_FY = new Date().getMonth() < 3 ? `${new Date().getFullYear() - 1}-${new Date().getFullYear()}` : `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
 const SEASONS = ["Kharif", "Rabi"];
 
 const initialFormState = {
   date: new Date().toISOString().split("T")[0],
-  kms_year: CURRENT_KMS_YEAR,
+  kms_year: CURRENT_FY,
   season: "Kharif",
   truck_no: "",
   rst_no: "",
@@ -259,19 +247,18 @@ function MainApp({ user, onLogout }) {
   const [mandiSuggestions, setMandiSuggestions] = useState([]);
   const [mandiTargets, setMandiTargets] = useState([]);
 
-  // Filter state - default to current KMS year
+  // Filter state - default to current FY
   const [filters, setFilters] = useState({
     truck_no: "",
     rst_no: "",
     tp_no: "",
     agent_name: "",
     mandi_name: "",
-    kms_year: CURRENT_KMS_YEAR,
+    kms_year: CURRENT_FY,
     season: "",
     date_from: "",
     date_to: ""
   });
-  const [financialYear, setFinancialYear] = useState(CURRENT_FY);
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -282,9 +269,6 @@ function MainApp({ user, onLogout }) {
         const res = await axios.get(`${API}/fy-settings`);
         if (res.data?.active_fy) {
           setFilters(prev => ({ ...prev, kms_year: res.data.active_fy, season: res.data.season || prev.season }));
-        }
-        if (res.data?.financial_year) {
-          setFinancialYear(res.data.financial_year);
         }
       } catch {}
     };
@@ -297,25 +281,21 @@ function MainApp({ user, onLogout }) {
     }).catch(() => {});
   }, []);
 
-  // Save FY setting when kms_year or financial_year changes
-  const handleFyChange = useCallback(async (newFy, newSeason, newFinancialYear) => {
+  // Save FY setting when year changes
+  const handleFyChange = useCallback(async (newFy, newSeason) => {
     setFilters(prev => {
       const updated = { ...prev };
       if (newFy !== undefined) updated.kms_year = newFy;
       if (newSeason !== undefined) updated.season = newSeason;
       return updated;
     });
-    if (newFinancialYear !== undefined) {
-      setFinancialYear(newFinancialYear);
-    }
     try {
       await axios.put(`${API}/fy-settings`, {
         active_fy: newFy !== undefined ? newFy : filters.kms_year,
         season: newSeason !== undefined ? newSeason : filters.season,
-        financial_year: newFinancialYear !== undefined ? newFinancialYear : financialYear
       });
     } catch {}
-  }, [filters.kms_year, filters.season, financialYear]);
+  }, [filters.kms_year, filters.season]);
   
   // Selection state for bulk delete
   const [selectedEntries, setSelectedEntries] = useState([]);
@@ -987,7 +967,7 @@ function MainApp({ user, onLogout }) {
 
     setFormData({
       date: entry.date,
-      kms_year: entry.kms_year || KMS_YEARS[KMS_YEARS.length - 2],
+      kms_year: entry.kms_year || FY_YEARS[FY_YEARS.length - 2],
       season: entry.season || "Kharif",
       truck_no: entry.truck_no || "",
       agent_name: entry.agent_name || "",
@@ -1099,7 +1079,7 @@ function MainApp({ user, onLogout }) {
       tp_no: "",
       agent_name: "", 
       mandi_name: "", 
-      kms_year: CURRENT_KMS_YEAR,
+      kms_year: CURRENT_FY,
       season: "",
       date_from: "",
       date_to: ""
@@ -1125,25 +1105,13 @@ function MainApp({ user, onLogout }) {
             
             {/* User Info & Logout */}
             <div className="flex items-center gap-3">
-              {/* Global KMS + FY Selector */}
+              {/* Global FY Selector */}
               <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-900/30 border border-amber-700/50 rounded-lg" data-testid="global-fy-selector">
                 <Calendar className="w-4 h-4 text-amber-400" />
                 <div className="flex items-center gap-1">
-                  <span className="text-amber-400/70 text-[10px] font-medium">KMS</span>
-                  <Select value={filters.kms_year} onValueChange={(v) => handleFyChange(v, undefined, undefined)}>
+                  <span className="text-amber-400/70 text-[10px] font-medium">FY</span>
+                  <Select value={filters.kms_year} onValueChange={(v) => handleFyChange(v, undefined)}>
                     <SelectTrigger className="bg-transparent border-0 text-amber-400 font-bold h-6 text-sm w-[100px] p-0 focus:ring-0" data-testid="global-fy-year">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-600">
-                      {KMS_YEARS.map(y => <SelectItem key={y} value={y} className="text-white">{y}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <span className="text-slate-600">|</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-emerald-400/70 text-[10px] font-medium">FY</span>
-                  <Select value={financialYear} onValueChange={(v) => handleFyChange(undefined, undefined, v)}>
-                    <SelectTrigger className="bg-transparent border-0 text-emerald-400 font-bold h-6 text-sm w-[100px] p-0 focus:ring-0" data-testid="global-financial-year">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-slate-600">
@@ -1152,7 +1120,7 @@ function MainApp({ user, onLogout }) {
                   </Select>
                 </div>
                 <span className="text-slate-600">|</span>
-                <Select value={filters.season || "all"} onValueChange={(v) => handleFyChange(undefined, v === "all" ? "" : v, undefined)}>
+                <Select value={filters.season || "all"} onValueChange={(v) => handleFyChange(undefined, v === "all" ? "" : v)}>
                   <SelectTrigger className="bg-transparent border-0 text-slate-300 h-6 text-xs w-[70px] p-0 focus:ring-0" data-testid="global-fy-season">
                     <SelectValue placeholder="Season" />
                   </SelectTrigger>
@@ -1649,10 +1617,10 @@ function MainApp({ user, onLogout }) {
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* KMS Year & Season */}
+                  {/* FY Year & Season */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
-                      <Label className="text-slate-300">KMS Year</Label>
+                      <Label className="text-slate-300">FY Year</Label>
                       <Select
                         value={formData.kms_year}
                         onValueChange={(value) => setFormData(prev => ({ ...prev, kms_year: value }))}
@@ -1661,7 +1629,7 @@ function MainApp({ user, onLogout }) {
                           <SelectValue placeholder="Select Year" />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-700 border-slate-600">
-                          {KMS_YEARS.map(year => (
+                          {FY_YEARS.map(year => (
                             <SelectItem key={year} value={year} className="text-white hover:bg-slate-600">
                               {year}
                             </SelectItem>
@@ -2043,7 +2011,7 @@ function MainApp({ user, onLogout }) {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                 <div>
-                  <Label className="text-slate-300 text-sm">KMS Year</Label>
+                  <Label className="text-slate-300 text-sm">FY Year</Label>
                   <Select
                     value={filters.kms_year || "all"}
                     onValueChange={(value) => setFilters(prev => ({ ...prev, kms_year: value === "all" ? "" : value }))}
@@ -2053,7 +2021,7 @@ function MainApp({ user, onLogout }) {
                     </SelectTrigger>
                     <SelectContent className="bg-slate-700 border-slate-600">
                       <SelectItem value="all" className="text-white hover:bg-slate-600">All Years</SelectItem>
-                      {KMS_YEARS.map(year => (
+                      {FY_YEARS.map(year => (
                         <SelectItem key={year} value={year} className="text-white hover:bg-slate-600">{year}</SelectItem>
                       ))}
                     </SelectContent>
@@ -2378,11 +2346,11 @@ function MainApp({ user, onLogout }) {
                   Opening Stock Balance / शुरुआती स्टॉक
                 </CardTitle>
                 <p className="text-slate-400 text-sm">
-                  KMS year ke liye opening stock (Qntl) set karein. Ye stock calculations mein use hoga.
+                  FY year ke liye opening stock (Qntl) set karein. Ye stock calculations mein use hoga.
                 </p>
               </CardHeader>
               <CardContent>
-                <OpeningStockForm kmsYear={filters.kms_year} financialYear={financialYear} user={user} />
+                <OpeningStockForm kmsYear={filters.kms_year} user={user} />
               </CardContent>
             </Card>
 
@@ -3071,7 +3039,7 @@ const STOCK_ITEMS = [
   { key: "frk", label: "FRK", unit: "Qntl" },
 ];
 
-function OpeningStockForm({ kmsYear, financialYear, user }) {
+function OpeningStockForm({ kmsYear, user }) {
   const [stocks, setStocks] = useState({});
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -3082,21 +3050,19 @@ function OpeningStockForm({ kmsYear, financialYear, user }) {
       try {
         const params = new URLSearchParams();
         if (kmsYear) params.append('kms_year', kmsYear);
-        if (financialYear) params.append('financial_year', financialYear);
         const res = await axios.get(`${API}/opening-stock?${params}`);
         setStocks(res.data?.stocks || {});
       } catch { setStocks({}); }
       setLoaded(true);
     };
     fetch();
-  }, [kmsYear, financialYear]);
+  }, [kmsYear]);
 
   const save = async () => {
     setSaving(true);
     try {
       await axios.put(`${API}/opening-stock?username=${user.username}&role=${user.role}`, {
         kms_year: kmsYear,
-        financial_year: financialYear,
         stocks
       });
       toast.success("Opening stock save ho gaya!");
@@ -3105,7 +3071,6 @@ function OpeningStockForm({ kmsYear, financialYear, user }) {
   };
 
   const carryForward = async () => {
-    // Calculate previous KMS year
     const parts = kmsYear.split('-');
     if (parts.length !== 2) return;
     const prevKms = `${parseInt(parts[0]) - 1}-${parseInt(parts[1]) - 1}`;
@@ -3114,7 +3079,6 @@ function OpeningStockForm({ kmsYear, financialYear, user }) {
       const res = await axios.post(`${API}/opening-stock/carry-forward?username=${user.username}&role=${user.role}`, {
         source_kms_year: prevKms,
         target_kms_year: kmsYear,
-        target_financial_year: financialYear
       });
       if (res.data.success) {
         setStocks(res.data.data?.stocks || {});
@@ -3129,7 +3093,7 @@ function OpeningStockForm({ kmsYear, financialYear, user }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-400">KMS: <span className="text-amber-400 font-bold">{kmsYear}</span> | FY: <span className="text-emerald-400 font-bold">{financialYear}</span></p>
+        <p className="text-xs text-slate-400">FY: <span className="text-amber-400 font-bold">{kmsYear}</span></p>
         <Button
           onClick={carryForward}
           disabled={carrying}
