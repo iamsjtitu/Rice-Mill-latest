@@ -6,8 +6,8 @@ const router = express.Router();
 
 module.exports = function(database) {
 
-// Upload local PDF to file.io and get public URL
-function uploadPdfToFileIO(localPdfPath) {
+// Upload local PDF to tmpfiles.org and get public URL
+function uploadPdfToTmpFiles(localPdfPath) {
   return new Promise((resolve) => {
     const port = 8080;
     const localUrl = `http://127.0.0.1:${port}${localPdfPath}`;
@@ -33,7 +33,7 @@ function uploadPdfToFileIO(localPdfPath) {
         const body = Buffer.concat([Buffer.from(header), pdfBuffer, Buffer.from(footer)]);
 
         const opts = {
-          hostname: 'file.io', path: '/?expires=1d', method: 'POST',
+          hostname: 'tmpfiles.org', path: '/api/v1/upload', method: 'POST',
           headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
         };
 
@@ -43,12 +43,18 @@ function uploadPdfToFileIO(localPdfPath) {
           res.on('end', () => {
             try {
               const result = JSON.parse(data);
-              console.log('[WhatsApp] file.io response:', result.success, result.link);
-              resolve(result.success ? result.link : '');
-            } catch (e) { console.log('[WhatsApp] file.io parse error:', data.substring(0, 200)); resolve(''); }
+              if (result.status === 'success' && result.data && result.data.url) {
+                const dlUrl = result.data.url.replace('http://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+                console.log('[WhatsApp] tmpfiles.org upload OK:', dlUrl);
+                resolve(dlUrl);
+              } else {
+                console.log('[WhatsApp] tmpfiles.org upload failed:', data.substring(0, 200));
+                resolve('');
+              }
+            } catch (e) { console.log('[WhatsApp] tmpfiles.org parse error:', data.substring(0, 200)); resolve(''); }
           });
         });
-        req.on('error', e => { console.log('[WhatsApp] file.io upload error:', e.message); resolve(''); });
+        req.on('error', e => { console.log('[WhatsApp] tmpfiles.org upload error:', e.message); resolve(''); });
         req.write(body);
         req.end();
       });
@@ -61,7 +67,7 @@ async function resolvePdfUrl(pdfUrl) {
   if (!pdfUrl) return '';
   if (pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://')) return pdfUrl;
   if (pdfUrl.startsWith('/api/')) {
-    const publicUrl = await uploadPdfToFileIO(pdfUrl);
+    const publicUrl = await uploadPdfToTmpFiles(pdfUrl);
     return publicUrl;
   }
   return '';

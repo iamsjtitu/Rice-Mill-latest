@@ -6,8 +6,8 @@ const router = express.Router();
 
 module.exports = function(database) {
 
-// Upload local PDF to file.io and get public URL
-function uploadPdfToFileIO(localPdfPath) {
+// Upload local PDF to tmpfiles.org and get public URL
+function uploadPdfToTmpFiles(localPdfPath) {
   return new Promise((resolve) => {
     // Step 1: Fetch PDF from local Express server
     const port = (global.DESKTOP_API_PORT) || 9876;
@@ -27,7 +27,7 @@ function uploadPdfToFileIO(localPdfPath) {
         console.log('[WhatsApp] PDF fetched, size:', pdfBuffer.length, 'bytes');
         if (pdfBuffer.length < 100) { resolve(''); return; }
 
-        // Step 2: Upload to file.io
+        // Step 2: Upload to tmpfiles.org
         const boundary = '----FormBoundary' + Date.now();
         const fileName = 'report_' + Date.now() + '.pdf';
         const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/pdf\r\n\r\n`;
@@ -35,7 +35,7 @@ function uploadPdfToFileIO(localPdfPath) {
         const body = Buffer.concat([Buffer.from(header), pdfBuffer, Buffer.from(footer)]);
 
         const opts = {
-          hostname: 'file.io', path: '/?expires=1d', method: 'POST',
+          hostname: 'tmpfiles.org', path: '/api/v1/upload', method: 'POST',
           headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
         };
 
@@ -45,12 +45,20 @@ function uploadPdfToFileIO(localPdfPath) {
           res.on('end', () => {
             try {
               const result = JSON.parse(data);
-              console.log('[WhatsApp] file.io response:', result.success, result.link);
-              resolve(result.success ? result.link : '');
-            } catch (e) { console.log('[WhatsApp] file.io parse error:', data.substring(0, 200)); resolve(''); }
+              if (result.status === 'success' && result.data && result.data.url) {
+                // Convert view URL to direct download URL
+                // http://tmpfiles.org/12345/file.pdf -> https://tmpfiles.org/dl/12345/file.pdf
+                const dlUrl = result.data.url.replace('http://tmpfiles.org/', 'https://tmpfiles.org/dl/');
+                console.log('[WhatsApp] tmpfiles.org upload OK:', dlUrl);
+                resolve(dlUrl);
+              } else {
+                console.log('[WhatsApp] tmpfiles.org upload failed:', data.substring(0, 200));
+                resolve('');
+              }
+            } catch (e) { console.log('[WhatsApp] tmpfiles.org parse error:', data.substring(0, 200)); resolve(''); }
           });
         });
-        req.on('error', e => { console.log('[WhatsApp] file.io upload error:', e.message); resolve(''); });
+        req.on('error', e => { console.log('[WhatsApp] tmpfiles.org upload error:', e.message); resolve(''); });
         req.write(body);
         req.end();
       });
@@ -59,14 +67,14 @@ function uploadPdfToFileIO(localPdfPath) {
   });
 }
 
-// Resolve pdf_url: if local path, upload to file.io; if already public, return as-is
+// Resolve pdf_url: if local path, upload to tmpfiles.org; if already public, return as-is
 async function resolvePdfUrl(pdfUrl) {
   if (!pdfUrl) return '';
   // If it's already a full public URL, return as-is
   if (pdfUrl.startsWith('http://') || pdfUrl.startsWith('https://')) return pdfUrl;
-  // Local path like /api/... - upload to file.io
+  // Local path like /api/... - upload to tmpfiles.org
   if (pdfUrl.startsWith('/api/')) {
-    const publicUrl = await uploadPdfToFileIO(pdfUrl);
+    const publicUrl = await uploadPdfToTmpFiles(pdfUrl);
     return publicUrl;
   }
   return '';
