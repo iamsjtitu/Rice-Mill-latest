@@ -309,14 +309,14 @@ const DailyReport = ({ filters }) => {
               `---`,
               `Mill Entry System`
             ].filter(Boolean).join('\n');
-            const pdfUrl = `${API}/daily-report/pdf?date=${date}&mode=${mode}&kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`;
+            const pdfUrl = _isElectron ? '' : `${API}/daily-report/pdf?date=${date}&mode=${mode}&kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`;
             try {
               const res = await axios.post(`${API}/whatsapp/send-daily-report`, {
                 report_text: summary, pdf_url: pdfUrl, send_to_group: true, phone
               });
               if (res.data.success) toast.success(res.data.message || "Daily Report WhatsApp pe bhej diya!");
-              else toast.error(res.data.error || "WhatsApp fail - Settings mein default numbers set karein");
-            } catch (e) { toast.error(e.response?.data?.detail || e.response?.data?.error || "WhatsApp fail - Settings check karein"); }
+              else toast.error(res.data.error || res.data.message || "WhatsApp fail");
+            } catch (e) { toast.error(e.response?.data?.detail || e.response?.data?.error || "WhatsApp error"); }
           }}
         >
           <Send className="w-4 h-4 mr-1" /> WhatsApp

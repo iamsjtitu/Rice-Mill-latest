@@ -31,17 +31,20 @@ function sendWaMessage(apiKey, phone, text, mediaUrl) {
       hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) }
     };
+    console.log('[WhatsApp] Sending to:', phone, 'mediaUrl:', mediaUrl ? 'yes' : 'no');
     const req = https.request(options, (res) => {
       let data = '';
       res.on('data', c => data += c);
       res.on('end', () => {
         try {
           const result = JSON.parse(data);
-          resolve({ success: result.success || res.statusCode === 201, data: result });
-        } catch (e) { resolve({ success: false, error: data }); }
+          const ok = result.success || res.statusCode === 201;
+          console.log('[WhatsApp] Response:', res.statusCode, ok ? 'OK' : 'FAIL', data.substring(0, 200));
+          resolve({ success: ok, data: result, error: ok ? '' : (result.error || result.message || `HTTP ${res.statusCode}`) });
+        } catch (e) { console.log('[WhatsApp] Parse error:', data.substring(0, 200)); resolve({ success: false, error: data }); }
       });
     });
-    req.on('error', e => resolve({ success: false, error: e.message }));
+    req.on('error', e => { console.log('[WhatsApp] Network error:', e.message); resolve({ success: false, error: e.message }); });
     req.write(postData);
     req.end();
   });
@@ -132,11 +135,12 @@ router.post('/api/whatsapp/send-payment-reminder', safeAsync(async (req, res) =>
   for (const num of nums) {
     if (num && num.trim()) {
       const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text);
-      results.push({ phone: num, success: r.success });
+      results.push({ phone: num, success: r.success, error: r.error || '' });
     }
   }
   const ok = results.filter(r => r.success).length;
-  res.json({ success: ok > 0, message: `${ok}/${results.length} numbers pe bhej diya!`, details: results });
+  const firstErr = results.find(r => !r.success && r.error);
+  res.json({ success: ok > 0, message: `${ok}/${results.length} numbers pe bhej diya!`, error: ok === 0 ? (firstErr?.error || '360Messenger API error') : '', details: results });
 }));
 
 // Daily report
@@ -158,22 +162,23 @@ router.post('/api/whatsapp/send-daily-report', safeAsync(async (req, res) => {
   const results = [];
   if (phone) {
     const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), report_text, pdf_url || '');
-    results.push({ target: phone, success: r.success });
+    results.push({ target: phone, success: r.success, error: r.error || '' });
   } else {
     for (const num of defaultNums) {
       if (num && num.trim()) {
         const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), report_text, pdf_url || '');
-        results.push({ target: num, success: r.success });
+        results.push({ target: num, success: r.success, error: r.error || '' });
       }
     }
   }
   if (send_to_group && groupId) {
     const r = await sendWaMessage(config.api_key, groupId, report_text, pdf_url || '');
-    results.push({ target: 'group', success: r.success });
+    results.push({ target: 'group', success: r.success, error: r.error || '' });
   }
   if (!results.length) return res.json({ success: false, error: 'Koi number ya group set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });
   const ok = results.filter(r => r.success).length;
-  res.json({ success: ok > 0, message: `${ok}/${results.length} targets pe bhej diya!`, details: results });
+  const firstErr2 = results.find(r => !r.success && r.error);
+  res.json({ success: ok > 0, message: `${ok}/${results.length} targets pe bhej diya!`, error: ok === 0 ? (firstErr2?.error || '360Messenger API error') : '', details: results });
 }));
 
 // Party Ledger WhatsApp
@@ -211,18 +216,19 @@ router.post('/api/whatsapp/send-party-ledger', safeAsync(async (req, res) => {
   const results = [];
   if (phone) {
     const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, pdf_url || '');
-    results.push({ target: phone, success: r.success });
+    results.push({ target: phone, success: r.success, error: r.error || '' });
   } else {
     for (const num of nums) {
       if (num && num.trim()) {
         const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, pdf_url || '');
-        results.push({ target: num, success: r.success });
+        results.push({ target: num, success: r.success, error: r.error || '' });
       }
     }
   }
   if (!results.length) return res.json({ success: false, error: 'Koi number set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });
   const ok = results.filter(r => r.success).length;
-  res.json({ success: ok > 0, message: `Party ledger ${ok}/${results.length} numbers pe bhej diya!`, details: results });
+  const firstErrPL = results.find(r => !r.success && r.error);
+  res.json({ success: ok > 0, message: `Party ledger ${ok}/${results.length} numbers pe bhej diya!`, error: ok === 0 ? (firstErrPL?.error || '360Messenger API error') : '', details: results });
 }));
 
 // Truck Payment WhatsApp
@@ -256,18 +262,19 @@ router.post('/api/whatsapp/send-truck-payment', safeAsync(async (req, res) => {
   const results = [];
   if (phone) {
     const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, pdf_url || '');
-    results.push({ target: phone, success: r.success });
+    results.push({ target: phone, success: r.success, error: r.error || '' });
   } else {
     for (const num of nums) {
       if (num && num.trim()) {
         const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, pdf_url || '');
-        results.push({ target: num, success: r.success });
+        results.push({ target: num, success: r.success, error: r.error || '' });
       }
     }
   }
   if (!results.length) return res.json({ success: false, error: 'Koi number set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });
   const ok = results.filter(r => r.success).length;
-  res.json({ success: ok > 0, message: `Truck payment ${ok}/${results.length} numbers pe bhej diya!`, details: results });
+  const firstErrTP = results.find(r => !r.success && r.error);
+  res.json({ success: ok > 0, message: `Truck payment ${ok}/${results.length} numbers pe bhej diya!`, error: ok === 0 ? (firstErrTP?.error || '360Messenger API error') : '', details: results });
 }));
 
 // Truck Owner WhatsApp
@@ -292,18 +299,19 @@ router.post('/api/whatsapp/send-truck-owner', safeAsync(async (req, res) => {
   const results = [];
   if (phone) {
     const r = await sendWaMessage(config.api_key, cleanPhone(phone, config.country_code), text, pdf_url || '');
-    results.push({ target: phone, success: r.success });
+    results.push({ target: phone, success: r.success, error: r.error || '' });
   } else {
     for (const num of nums) {
       if (num && num.trim()) {
         const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, pdf_url || '');
-        results.push({ target: num, success: r.success });
+        results.push({ target: num, success: r.success, error: r.error || '' });
       }
     }
   }
   if (!results.length) return res.json({ success: false, error: 'Koi number set nahi hai. Settings > WhatsApp mein default numbers SAVE karein.' });
   const ok = results.filter(r => r.success).length;
-  res.json({ success: ok > 0, message: `Truck owner payment ${ok}/${results.length} numbers pe bhej diya!`, details: results });
+  const firstErrTO = results.find(r => !r.success && r.error);
+  res.json({ success: ok > 0, message: `Truck owner payment ${ok}/${results.length} numbers pe bhej diya!`, error: ok === 0 ? (firstErrTO?.error || '360Messenger API error') : '', details: results });
 }));
 
 

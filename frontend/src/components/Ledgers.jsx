@@ -317,7 +317,8 @@ const PartyLedger = ({ filters }) => {
       if (selectedType) pdfParams.append('party_type', selectedType);
       if (dateFrom) pdfParams.append('date_from', dateFrom);
       if (dateTo) pdfParams.append('date_to', dateTo);
-      const pdfUrl = `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
+      // Desktop pe pdf_url skip - 360Messenger localhost access nahi kar sakta
+      const pdfUrl = _isElectron ? '' : `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-party-ledger`, {
         party_name: selectedParty,
         total_debit: data.total_debit || 0,
@@ -328,8 +329,8 @@ const PartyLedger = ({ filters }) => {
         phone
       });
       if (res.data.success) toast.success(res.data.message || "Ledger WhatsApp pe bhej diya!");
-      else toast.error(res.data.error || "WhatsApp send fail");
-    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.message)); }
+      else toast.error(res.data.error || res.data.message || "WhatsApp send fail");
+    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.response?.data?.error || e.message)); }
   };
 
   if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;

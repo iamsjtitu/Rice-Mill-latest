@@ -277,7 +277,8 @@ const CashBook = ({ filters, user }) => {
       if (filters.season) pdfParams.append('season', filters.season);
       pdfParams.append('party_name', partyName);
       if (txnFilters.party_type) pdfParams.append('party_type', txnFilters.party_type);
-      const pdfUrl = `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
+      // Desktop pe pdf_url skip - 360Messenger localhost access nahi kar sakta
+      const pdfUrl = _isElectron ? '' : `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-party-ledger`, {
         party_name: partyName, total_debit: totalDebit, total_credit: totalCredit,
         balance: totalDebit - totalCredit,
@@ -286,8 +287,8 @@ const CashBook = ({ filters, user }) => {
         phone
       });
       if (res.data.success) toast.success(res.data.message || "Ledger WhatsApp pe bhej diya!");
-      else toast.error(res.data.error || "WhatsApp send fail");
-    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.message)); }
+      else toast.error(res.data.error || res.data.message || "WhatsApp send fail");
+    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.response?.data?.error || e.message)); }
   };
 
   // Computed values

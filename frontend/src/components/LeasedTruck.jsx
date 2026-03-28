@@ -11,7 +11,9 @@ import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truc
 import { printHtml } from "@/components/PrintButton";
 import { useConfirm } from "./ConfirmProvider";
 
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
+const API = BACKEND_URL + "/api";
 
 const STATUS_COLORS = {
   paid: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
@@ -233,7 +235,6 @@ export default function LeasedTruck({ filters }) {
         phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
         if (!phone) return;
       }
-      const pdfUrl = `${API}/truck-leases/export/pdf?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`;
       const res = await axios.post(`${API}/whatsapp/send-truck-owner`, {
         truck_no: lease.truck_no,
         total_trips: 0,
@@ -242,12 +243,12 @@ export default function LeasedTruck({ filters }) {
         total_net: lease.monthly_rent || 0,
         total_paid: 0,
         total_balance: lease.monthly_rent || 0,
-        pdf_url: pdfUrl,
+        pdf_url: '',
         phone
       });
       if (res.data.success) toast.success(res.data.message || "WhatsApp bhej diya!");
-      else toast.error(res.data.error || "WhatsApp fail");
-    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.message)); }
+      else toast.error(res.data.error || res.data.message || "WhatsApp fail");
+    } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.response?.data?.error || e.message)); }
   };
 
   return (
