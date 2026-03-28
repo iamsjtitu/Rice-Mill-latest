@@ -3,9 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "50.2.0";
+const APP_VERSION = "50.3.0";
 
 const CHANGELOG = [
+  {
+    version: "50.3.0",
+    date: "28 Mar 2026",
+    title: "v50.3.0 - Full Backup System",
+    items: [
+      { type: "new", text: "Backup Now - Server folder mein ek click pe backup" },
+      { type: "new", text: "Auto Daily Backup - Har din automatic backup banta hai" },
+      { type: "new", text: "ZIP Download - Computer mein backup download" },
+      { type: "new", text: "ZIP Upload Restore - Kisi bhi backup se data wapas laao" },
+      { type: "imp", text: "Backup list with Restore/Delete - Last 7 backups save hote hain" },
+    ]
+  },
   {
     version: "50.2.0",
     date: "28 Mar 2026",

@@ -150,6 +150,12 @@ async def start_telegram_scheduler():
     logger.info("Telegram scheduler started")
 
 @app.on_event("startup")
+async def start_auto_backup():
+    from routes.backup import auto_backup_scheduler
+    asyncio.create_task(auto_backup_scheduler())
+    logger.info("Auto backup scheduler started")
+
+@app.on_event("startup")
 async def fix_empty_descriptions():
     """One-time migration: fill empty descriptions in cash_transactions"""
     try:
