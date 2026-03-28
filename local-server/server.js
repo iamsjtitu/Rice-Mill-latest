@@ -848,6 +848,10 @@ async function startServer() {
     const hemaliRoutes = require('./routes/hemali')(database);
     app.use(hemaliRoutes);
 
+    // WhatsApp routes
+    const whatsappRoutes = require('./routes/whatsapp')(database);
+    app.use(whatsappRoutes);
+
     // Milling routes
     const millingRoutes = require('./routes/milling')(database);
     app.use(millingRoutes);

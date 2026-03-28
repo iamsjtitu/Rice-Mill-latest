@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "50.5.0";
+const APP_VERSION = "50.6.0";
 
 const CHANGELOG = [
+  {
+    version: "50.6.0",
+    date: "28 Mar 2026",
+    title: "v50.6.0 - WhatsApp Desktop/Local Sync",
+    items: [
+      { type: "fix", text: "WhatsApp settings save fix - Desktop aur Local Server mein bhi WhatsApp routes add kiye" },
+    ]
+  },
   {
     version: "50.5.0",
     date: "28 Mar 2026",
