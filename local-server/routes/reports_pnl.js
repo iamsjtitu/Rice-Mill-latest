@@ -1,6 +1,6 @@
 const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
-const { safePdfPipe } = require('./pdf_helpers');
+const { safePdfPipe, addSummaryBox } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {

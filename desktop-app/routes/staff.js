@@ -2,7 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { fmtDate, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
+const { fmtDate, fmtAmt, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
 
 module.exports = function(database) {
 

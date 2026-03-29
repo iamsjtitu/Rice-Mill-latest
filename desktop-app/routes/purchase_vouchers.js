@@ -318,7 +318,7 @@ module.exports = function(database) {
     const v = database.data.purchase_vouchers.find(x => x.id === req.params.id);
     if (!v) return res.status(404).json({ detail: 'Not found' });
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addSummaryBox, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     const doc = new PDFDocument({ size: 'A4', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');

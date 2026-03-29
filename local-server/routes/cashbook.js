@@ -4,7 +4,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate , safePdfPipe} = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtDate , safePdfPipe} = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../shared/report_helper');
 
@@ -837,7 +837,7 @@ module.exports = function(database) {
       // PDF will be sent via safePdfPipe
       
       const brandingData = database.getBranding ? database.getBranding() : {};
-      __addPdfHeader(doc, exportTitle, brandingData, subtitle);
+      addPdfHeader(doc, exportTitle);
       
       const headers = ['Date', 'Account', 'Type', 'Category', 'Party Type', 'Description', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'];
       const colW = [55, 50, 40, 60, 55, 120, 60, 60, 60];
@@ -991,7 +991,7 @@ module.exports = function(database) {
     let subtitle = '';
     if (req.query.kms_year) subtitle = `FY: ${req.query.kms_year}`;
     if (req.query.season) subtitle += ` | Season: ${req.query.season}`;
-    __addPdfHeader(doc, 'Party Summary', brandingData, subtitle);
+    addPdfHeader(doc, 'Party Summary');
     const headers = ['Party Name', 'Type', 'Jama (Cr)', 'Nikasi (Dr)', 'Balance'];
     const colW = [180, 80, 90, 90, 90];
     let tJ = 0, tN = 0;

@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "54.4.0";
+const APP_VERSION = "54.5.0";
 
 const CHANGELOG = [
+  {
+    version: "54.5.0",
+    date: "29 Mar 2026",
+    title: "v54.5.0 - Server 500 Error Fix (PDF Routes)",
+    items: [
+      { type: "fix", text: "Entries PDF, CashBook PDF, Dashboard PDF, Season PnL PDF, Purchase Vouchers PDF, Staff PDF - sab 500 error fix kiya" },
+      { type: "fix", text: "Root cause: Missing function imports (addTotalsRow, addSectionTitle, fmtAmt, addSummaryBox) in Desktop/Local routes" },
+      { type: "fix", text: "__addPdfHeader typo fix (cashbook.js)" },
+      { type: "fix", text: "_addTbl → addPdfTable fix (exports.js)" },
+    ]
+  },
   {
     version: "54.4.0",
     date: "29 Mar 2026",

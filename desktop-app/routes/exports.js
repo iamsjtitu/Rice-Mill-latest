@@ -3,7 +3,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 
 module.exports = function(database) {
@@ -220,7 +220,7 @@ module.exports = function(database) {
           ['By-Products', 'Milling', byproduct, '-', byproduct, 'Qntl'],
           ['Gunny Bags', 'All Sources', gunnyIn, gunnyOut, gunnyIn - gunnyOut, 'Bags'],
         ];
-        _addTbl(doc, stockHeaders, stockRows, [75, 80, 70, 70, 80, 50]);
+        addPdfTable(doc, stockHeaders, stockRows, [75, 80, 70, 70, 80, 50]);
         doc.moveDown(0.5);
       }
 
@@ -254,7 +254,7 @@ module.exports = function(database) {
           const totProg = totExpected > 0 ? Math.round(totAchieved / totExpected * 1000) / 10 : 0;
           tgtRows.push(['TOTAL', Math.round(totTarget * 100) / 100, '-', Math.round(totExpected * 100) / 100, Math.round(totAchieved * 100) / 100, Math.round(totPending * 100) / 100, `${totProg}%`, `Rs.${fmtAmt(totAgent)}`]);
 
-          _addTbl(doc, tgtHeaders, tgtRows, [60, 50, 35, 55, 55, 55, 45, 60]);
+          addPdfTable(doc, tgtHeaders, tgtRows, [60, 50, 35, 55, 55, 55, 45, 60]);
         } else {
           doc.fontSize(9).font(F('normal')).fillColor('#64748b').text('Koi target set nahi hai', { align: 'center' });
         }
