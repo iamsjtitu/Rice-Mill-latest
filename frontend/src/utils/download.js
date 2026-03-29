@@ -5,40 +5,43 @@ const API = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 
 /**
  * Universal file download - works in Browser + Electron
- * Uses blob download instead of window.open
+ * Fetches as blob, creates download link with correct MIME type
  */
 export const downloadFile = async (url, filename) => {
+  const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
+  
   try {
-    const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
-    
-    if (_isElectron) {
-      // In Electron, use window.open - Electron's setWindowOpenHandler 
-      // intercepts this and uses downloadURL for proper save-as dialog
-      window.open(fullUrl, '_blank');
-      return;
-    }
-    
-    // Browser - use blob download
+    // Fetch file as blob
     const res = await axios.get(fullUrl, { responseType: 'blob' });
-    const blob = new Blob([res.data]);
+    
+    // Use the server's Content-Type to create proper blob
+    const contentType = res.headers['content-type'] || 'application/octet-stream';
+    const blob = new Blob([res.data], { type: contentType });
     const blobUrl = window.URL.createObjectURL(blob);
+    
     const a = document.createElement('a');
+    a.style.display = 'none';
     a.href = blobUrl;
-    a.download = filename || getFilenameFromUrl(url);
+    a.download = filename || guessFilename(url, contentType);
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    // Delay revoke to ensure download completes
-    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 30000);
+    
+    // Keep blob alive for 2 minutes so Electron save dialog has time
+    setTimeout(() => {
+      try { document.body.removeChild(a); } catch(e) {}
+      window.URL.revokeObjectURL(blobUrl);
+    }, 120000);
+    
   } catch (e) {
-    console.error('Download failed:', e);
-    const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
+    console.error('Download failed, trying direct open:', e);
     window.open(fullUrl, '_blank');
   }
 };
 
-function getFilenameFromUrl(url) {
+function guessFilename(url, contentType) {
   const path = url.split('?')[0];
+  if (contentType && contentType.includes('pdf')) return 'export.pdf';
+  if (contentType && (contentType.includes('spreadsheet') || contentType.includes('excel'))) return 'export.xlsx';
   if (path.includes('pdf')) return 'export.pdf';
   if (path.includes('excel') || path.includes('xlsx')) return 'export.xlsx';
   return 'export';
