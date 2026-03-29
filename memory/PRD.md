@@ -10,7 +10,7 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - PDF generation and WhatsApp sharing
 - GST Tax Invoice support integrated into Sale Vouchers
 
-## Current Version: v51.6.0
+## Current Version: v52.0.0
 
 ## Architecture
 ```
@@ -19,6 +19,11 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 ├── desktop-app/      # Electron + Express + Local JSON
 ├── local-server/     # Express + Local JSON (LAN access)
 ├── frontend/         # React (shared across all backends)
+│   └── src/
+│       ├── App.js            # Main routing (~2340 lines, reduced from 3477)
+│       └── components/
+│           ├── Settings.jsx  # NEW: Extracted settings with sub-tabs
+│           └── ...
 ```
 
 ## What's Been Implemented
@@ -36,24 +41,29 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Opening Balances management
 - FY Summary and Dashboard
 - Auto-updater for desktop app via GitHub Actions
+- safePdfPipe for Desktop/Local PDF generation (no stream crashes)
+- Settings page organized into sub-tabs (Branding, GST, Stock, Messaging, Data)
 
-## Completed in v51.6.0 (29 Mar 2026)
-- WhatsApp direct PDF send button on each sale voucher row
-- GST Summary dialog with HSN-wise CGST/SGST/IGST breakup table
-- PDF auto-upload to tmpfiles.org for WhatsApp attachment
-
-## Completed in v51.5.0 (29 Mar 2026)
+## Completed in v52.0.0 (29 Mar 2026)
 - Merged GST Invoice fields into Sale Voucher (per-item HSN + GST%)
 - Added Buyer GSTIN and Buyer Address fields
 - Updated Sale Voucher PDF to Tax Invoice format
 - Deleted standalone GST Invoice module
-- Updated all 3 backends with computeSaleGst helper
+- WhatsApp direct PDF send for Sale Vouchers
+- GST Summary dialog with HSN-wise breakup
+- Professional PDF redesign for Sale Vouchers
+- Fixed WhatsApp Daily Report PDF attachments
+- Global safePdfPipe fix for Desktop/Local backends (70+ endpoints)
+- Settings page refactored into sub-tabs (extracted from App.js into Settings.jsx)
+  - App.js reduced from 3477 to ~2340 lines
+  - Sub-tabs: Branding, GST, Stock, Messaging, Data
 
 ## Prioritized Backlog
 ### P1
 - Export Preview feature (Preview data before exporting to Excel/PDF)
 
 ### P2
+- GSTR-1 Export (monthly HSN-wise summary Excel for GST portal upload)
 - Code deduplication across Desktop and Local server backends
 - Payment logic centralization into service layer
 - Centralize stock calculation logic
