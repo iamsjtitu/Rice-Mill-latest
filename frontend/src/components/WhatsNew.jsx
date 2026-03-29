@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "53.6.0";
+const APP_VERSION = "53.7.0";
 
 const CHANGELOG = [
+  {
+    version: "53.7.0",
+    date: "29 Mar 2026",
+    title: "v53.7.0 - Electron Download Fix",
+    items: [
+      { type: "fix", text: "PDF/Excel download ab Electron desktop app mein sahi save hoga (native save dialog)" },
+      { type: "fix", text: "WhatsApp PDF link HTTPS fix - ab PDF correctly open hoga" },
+      { type: "imp", text: "Download logic improved - Electron mein window.open se native download trigger hoga" },
+    ]
+  },
   {
     version: "53.6.0",
     date: "29 Mar 2026",

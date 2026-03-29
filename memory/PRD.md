@@ -10,20 +10,27 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - PDF generation and WhatsApp sharing
 - GST Tax Invoice support integrated into Sale Vouchers
 
-## Current Version: v53.0.0
+## Current Version: v53.7.0
 
 ## Architecture
 ```
 /app
 ├── backend/          # Python FastAPI + MongoDB
 ├── desktop-app/      # Electron + Express + Local JSON
+│   ├── main.js       # Download handlers (setWindowOpenHandler + will-download)
+│   ├── preload.js    # Context bridge for renderer
+│   └── routes/
 ├── local-server/     # Express + Local JSON (LAN access)
 ├── frontend/         # React (shared across all backends)
 │   └── src/
-│       ├── App.js            # Main routing (~2340 lines)
+│       ├── utils/
+│       │   └── download.js  # Universal download: window.open (Electron) / blob (Browser)
+│       ├── App.js
 │       └── components/
-│           ├── Settings.jsx  # Settings with sub-tabs
-│           └── ...
+│           ├── Settings.jsx
+│           ├── CashBook.jsx
+│           ├── Ledgers.jsx
+│           └── WhatsNew.jsx
 ```
 
 ## What's Been Implemented
@@ -41,16 +48,20 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - safePdfPipe for Desktop/Local PDF generation (no stream crashes)
 - Settings page organized into sub-tabs (Branding, GST, Stock, Messaging, Data)
 
+## Completed in v53.7.0 (29 Mar 2026)
+- **CRITICAL FIX**: Electron PDF/Excel download now works via window.open → setWindowOpenHandler → downloadURL → native save dialog
+- **FIX**: WhatsApp tmpfiles.org PDF URL changed from HTTP to HTTPS in Python backend (was sending http:// links which may fail)
+- **FIX**: Electron main.js `will-download` handler simplified to let Electron show native save dialog
+- download.js rewritten: Electron uses window.open(), Browser uses blob+anchor approach
+
+## Completed in v53.6.0 (29 Mar 2026)
+- WhatsApp Party Ledger PDF parity fix (uses same endpoint as download)
+
 ## Completed in v53.0.0 (29 Mar 2026)
 - Settings page refactored into sub-tabs (extracted from App.js into Settings.jsx)
-  - App.js reduced from 3477 to ~2340 lines
-  - Sub-tabs: Branding, GST, Stock, Messaging, Data
-- **CRITICAL FIX**: Fixed 156 corrupted Content-Disposition headers across Desktop/Local backends
-  - Previous safePdfPipe script had removed `res.setHeader('Content-Disposition',...)` prefix
-  - Fixed 74 double backtick issues, 82 trailing single quote corruptions
-  - Made 446 safeSync callbacks async for await safePdfPipe support
-  - Updated safeSync wrapper to handle async Promise rejections
-  - This fixes: PDF downloads returning .json, cash book not loading, route load failures
+- CRITICAL FIX: Fixed 156 corrupted Content-Disposition headers across Desktop/Local backends
+- Fixed 74 double backtick issues, 82 trailing single quote corruptions
+- Made 446 safeSync callbacks async
 
 ## Prioritized Backlog
 ### P1
@@ -61,3 +72,7 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Code deduplication across Desktop and Local server backends
 - Payment logic centralization into service layer
 - Centralize stock calculation logic
+
+## Known Issues
+- Many frontend components have inline blob downloads (not using downloadFile utility) that may still fail in Electron — gradual migration needed
+- Accessibility: Missing aria-describedby on some Dialog components (pre-existing)
