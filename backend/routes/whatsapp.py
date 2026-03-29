@@ -232,7 +232,7 @@ async def send_daily_report(data: dict):
                         tmp_data = upload_resp.json()
                         tmp_url = tmp_data.get("data", {}).get("url", "")
                         if tmp_url:
-                            public_pdf_url = tmp_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                            public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
                             logger.info(f"Daily report PDF uploaded to tmpfiles: {public_pdf_url}")
                     else:
                         logger.error(f"tmpfiles upload failed: {upload_resp.status_code}")
@@ -339,7 +339,7 @@ async def send_party_ledger(data: dict):
                         tmp_data = upload_resp.json()
                         tmp_url = tmp_data.get("data", {}).get("url", "")
                         if tmp_url:
-                            public_pdf_url = tmp_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                            public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
                             logger.info(f"Party ledger PDF uploaded to tmpfiles: {public_pdf_url}")
                     else:
                         logger.error(f"tmpfiles upload failed: {upload_resp.status_code}")

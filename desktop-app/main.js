@@ -1631,10 +1631,11 @@ async function createMainWindow(port) {
   // Load frontend from Express server
   mainWindow.loadURL(`http://127.0.0.1:${port}`);
 
-  // Handle window.open - convert ALL API URLs to downloads
+  // Handle window.open - convert ALL API download URLs to native save dialog
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Any API URL with export/pdf/excel should download
-    if (url.includes('/api/') && (url.includes('export') || url.includes('pdf') || url.includes('excel') || url.includes('/summary/'))) {
+    // Any /api/ URL that looks like a file download → use native download
+    if (url.includes('/api/') && (url.includes('export') || url.includes('pdf') || url.includes('excel') || url.includes('/summary/') || url.includes('xlsx') || url.includes('download'))) {
+      console.log('[Download] Intercepted window.open →', url);
       mainWindow.webContents.downloadURL(url);
       return { action: 'deny' };
     }
@@ -1647,22 +1648,24 @@ async function createMainWindow(port) {
     return { action: 'allow' };
   });
 
-  // Handle file downloads - save and auto-open
+  // Handle file downloads - Electron shows native save dialog automatically
+  // Do NOT call item.setSavePath() so Electron shows the save-as dialog
   mainWindow.webContents.session.on('will-download', (event, item) => {
-    const fn = item.getFilename();
-    console.log('Downloading:', fn, 'Size:', item.getTotalBytes());
-    item.once('done', (event, state) => {
+    const fn = item.getFilename() || 'download';
+    const mimeType = item.getMimeType() || '';
+    console.log('[Download] will-download:', fn, 'MIME:', mimeType, 'Size:', item.getTotalBytes());
+
+    item.once('done', (evt, state) => {
       if (state === 'completed') {
         const savePath = item.getSavePath();
-        console.log('Download complete:', savePath);
-        // Auto-open the file after download
+        console.log('[Download] Complete:', savePath);
         if (savePath) {
           shell.openPath(savePath).then((err) => {
-            if (err) console.log('Failed to open file:', err);
+            if (err) console.log('[Download] Failed to open:', err);
           });
         }
       } else {
-        console.log('Download failed:', state);
+        console.log('[Download] Failed:', state);
       }
     });
   });
