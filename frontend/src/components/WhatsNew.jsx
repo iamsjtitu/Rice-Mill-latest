@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "53.1.0";
+const APP_VERSION = "53.2.0";
 
 const CHANGELOG = [
+  {
+    version: "53.2.0",
+    date: "29 Mar 2026",
+    title: "v53.2.0 - safePdfPipe Import Fix",
+    items: [
+      { type: "fix", text: "Daily Report PDF download fix - safePdfPipe import sahi jagah move kiya" },
+      { type: "fix", text: "Sabhi route files mein import order fix - koi ReferenceError nahi aayega" },
+    ]
+  },
   {
     version: "53.1.0",
     date: "29 Mar 2026",

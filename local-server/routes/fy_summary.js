@@ -455,7 +455,7 @@ module.exports = function(database) {
   router.get('/api/fy-summary/balance-sheet/pdf', async (req, res) => {
     try {
       const PDFDocument = require('pdfkit');
-      const { fmtAmt, registerFonts, F } = require('./pdf_helpers');
+      const { fmtAmt, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
       // Re-fetch balance sheet data inline
       const bsReq = { query: req.query };
       const bsRes = {

@@ -1,5 +1,6 @@
 const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
+const { safePdfPipe } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -133,7 +134,6 @@ router.get('/api/reports/season-pnl/pdf', safeSync(async (req, res) => {
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
     res.setHeader('Content-Disposition', `attachment; filename=season_pnl.pdf`);
   // PDF will be sent via safePdfPipe
-  const { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, C , safePdfPipe} = require('./pdf_helpers');
   const branding = database.getBranding ? database.getBranding() : {};
   addPdfHeader(doc, 'Season P&L Report', branding, `FY: ${q.kms_year||'All'} | Season: ${q.season||'All'}`);
 
@@ -176,7 +176,6 @@ router.get('/api/reports/cmr-vs-dc/excel', safeAsync(async (req, res) => {
 
 router.get('/api/reports/cmr-vs-dc/pdf', safeSync(async (req, res) => {
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader, addPdfTable, addSummaryBox , safePdfPipe} = require('./pdf_helpers');
   const q = req.query;
   let milling = col('milling_entries'); let dcs = col('dc_entries'); let deliveries = col('dc_deliveries');
   if (q.kms_year) { milling=milling.filter(e=>e.kms_year===q.kms_year); dcs=dcs.filter(e=>e.kms_year===q.kms_year); deliveries=deliveries.filter(e=>e.kms_year===q.kms_year); }

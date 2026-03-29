@@ -834,7 +834,6 @@ module.exports = function(database) {
       if (req.query.date_to) subtitleParts.push(`To: ${req.query.date_to}`);
       const subtitle = subtitleParts.join(' | ');
       
-      const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
       
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
@@ -987,7 +986,6 @@ module.exports = function(database) {
     });
     const data = Object.values(parties).map(p => ({ ...p, balance: Math.round((p.jama - p.nikasi) * 100) / 100 }));
     data.sort((a, b) => a.party_name.localeCompare(b.party_name));
-    const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const doc = new PDFDocument({ size: 'A4', margin: 25 });
     res.setHeader('Content-Disposition', `attachment; filename=party_summary.pdf`);
     // PDF will be sent via safePdfPipe

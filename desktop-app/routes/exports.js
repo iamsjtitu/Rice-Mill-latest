@@ -153,7 +153,6 @@ module.exports = function(database) {
   // ===== DASHBOARD PDF EXPORT =====
   router.get('/api/export/dashboard-pdf', safeSync(async (req, res) => {
     try {
-      const { addPdfTable: _addTbl, addSectionTitle, fmtAmt, C, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
       const entries = database.getEntries(req.query);
       const filterLabel = req.query.filter || 'all';
       const showStock = !req.query.filter || req.query.filter === 'all' || req.query.filter === 'stock';

@@ -1,4 +1,5 @@
 const express = require('express');
+const { safePdfPipe } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -237,7 +238,6 @@ router.get('/api/reports/party-ledger/excel', async (req, res) => {
 router.get('/api/reports/party-ledger/pdf', async (req, res) => {
   try {
     const PDFDocument = require('pdfkit');
-const { safePdfPipe } = require('./pdf_helpers');
     const { party_name, party_type, kms_year, season } = req.query;
     const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     const ledger = [];

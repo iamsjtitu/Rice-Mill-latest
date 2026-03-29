@@ -335,7 +335,6 @@ module.exports = function(database) {
   router.get('/api/purchase-book/export/pdf', safeHandler(async (req, res) => {
     ensure();
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     let vouchers = [...database.data.purchase_vouchers];
     const { kms_year, season } = req.query;

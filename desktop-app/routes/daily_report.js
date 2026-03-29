@@ -3,6 +3,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { getColumns, fmtVal, getPdfHeaders, getPdfWidthsMm, getExcelHeaders, getEntryRow } = require('../shared/report_helper');
 const { getDailyReportData, generateDailyReportPdf } = require('./daily_report_logic');
+const { safePdfPipe } = require('./pdf_helpers');
 
 function fmtAmt(val) { return val === 0 ? '0' : val.toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
 function fmtDate(d) { if (!d) return ''; const s = String(d).split('T')[0]; const p = s.split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : s; }
@@ -35,7 +36,6 @@ router.get('/api/reports/daily/pdf', safeSync(async (req, res) => {
 router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
   const { styleExcelData, addExcelTitle, COLORS } = require('./excel_helpers');
-const { safePdfPipe } = require('./pdf_helpers');
   const data = getDailyReportData(database, req.query);
   const isDetail = data.mode === 'detail';
   const wb = new ExcelJS.Workbook();

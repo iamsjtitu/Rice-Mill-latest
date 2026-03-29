@@ -731,7 +731,6 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
 
   if (fmt === 'pdf') {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, fmtDate, C, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Disposition', `attachment; filename=staff_payments.pdf`);

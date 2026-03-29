@@ -557,7 +557,6 @@ module.exports = function(database) {
   // ===== EXPORT: Private Paddy PDF =====
   router.get('/api/private-paddy/pdf', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const { kms_year, season, search } = req.query;
@@ -634,7 +633,6 @@ module.exports = function(database) {
   // ===== EXPORT: Rice Sales PDF =====
   router.get('/api/rice-sales/pdf', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, search } = req.query;

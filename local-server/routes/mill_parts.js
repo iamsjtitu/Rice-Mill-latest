@@ -2,6 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const { safePdfPipe } = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -849,7 +850,6 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync(async (req, res) => {
     parties[t.party_name].amount += (t.total_amount || t.total_cost || 0);
   });
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader: _addPdfH, addPdfTable, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
   const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
