@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "53.0.0";
+const APP_VERSION = "53.1.0";
 
 const CHANGELOG = [
+  {
+    version: "53.1.0",
+    date: "29 Mar 2026",
+    title: "v53.1.0 - Desktop PDF & Route Fix",
+    items: [
+      { type: "fix", text: "PDF download ab sahi hoga - .json ki jagah .pdf/.xlsx milega" },
+      { type: "fix", text: "Cash Book, Diesel, Staff, Hemali, Reports sab routes fix" },
+      { type: "fix", text: "156 corrupted headers + 446 async routes fix kiye" },
+    ]
+  },
   {
     version: "53.0.0",
     date: "29 Mar 2026",
