@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "53.2.0";
+const APP_VERSION = "53.3.0";
 
 const CHANGELOG = [
+  {
+    version: "53.3.0",
+    date: "29 Mar 2026",
+    title: "v53.3.0 - Daily Report Gap Fix",
+    items: [
+      { type: "fix", text: "Daily Report PDF mein bada gap fix kiya - ab sections tightly fit honge" },
+      { type: "fix", text: "Detail mode Excel mein title ab 20 columns merge hoga (pehle sirf 6 tha)" },
+    ]
+  },
   {
     version: "53.2.0",
     date: "29 Mar 2026",

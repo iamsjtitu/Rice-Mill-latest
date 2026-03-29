@@ -254,8 +254,8 @@ function generateDailyReportPdf(doc, data, query) {
     const totalW = colWidths.reduce((a,b) => a+b, 0);
     const startX = Math.max(25, (doc.page.width - totalW) / 2);
 
-    // Page check
-    if (y + rowH * (rows.length + 1) + 20 > doc.page.height - 25) { doc.addPage(); y = 25; }
+    // Page check - only check if header fits, rows handle their own page breaks
+    if (y + rowH + 20 > doc.page.height - 25) { doc.addPage(); y = 25; }
 
     // Header row
     let x = startX;

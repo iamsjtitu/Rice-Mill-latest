@@ -40,7 +40,8 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   const isDetail = data.mode === 'detail';
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet(`Daily Report ${data.date}`);
-  const colCount = 6;
+  const dailyCols = isDetail ? getColumns('daily_paddy_entries_report', 'detail_mode_columns') : null;
+  const colCount = isDetail && dailyCols ? dailyCols.length : 6;
 
   addExcelTitle(ws, `Daily Report - ${data.date} (${isDetail ? 'DETAILED' : 'SUMMARY'})`, colCount, database);
   ws.getCell('A4').value = `FY: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`;
@@ -73,10 +74,10 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
 
   if (p.details.length) {
     const colKey = isDetail ? 'detail_mode_columns' : 'summary_mode_columns';
-    const dailyCols = getColumns('daily_paddy_entries_report', colKey);
-    writeHeaders(getExcelHeaders(dailyCols));
-    p.details.forEach(d => writeRow(dailyCols.map(c => fmtVal(d[c.field], c.type))));
-    setColWidths(dailyCols.map(c => c.width_excel || 12));
+    const dCols = getColumns('daily_paddy_entries_report', colKey);
+    writeHeaders(getExcelHeaders(dCols));
+    p.details.forEach(d => writeRow(dCols.map(c => fmtVal(d[c.field], c.type))));
+    setColWidths(dCols.map(c => c.width_excel || 12));
   }
   row++;
 
