@@ -6,14 +6,26 @@ const API = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 /**
  * Universal file download (GET) - works in Browser + Electron
  *
- * ELECTRON: Uses window.open(url) → setWindowOpenHandler → downloadURL() → native Save dialog
+ * ELECTRON: Fetches binary data via axios → IPC saveFile → main process shows Save dialog → writes to disk
  * BROWSER:  Fetches as blob → anchor tag download
  */
 export const downloadFile = async (url, filename) => {
   const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
 
   if (_isElectron) {
-    window.open(fullUrl, '_blank');
+    try {
+      const res = await axios.get(fullUrl, { responseType: 'arraybuffer' });
+      const contentType = res.headers['content-type'] || 'application/octet-stream';
+      const finalName = filename || guessFilename(url, contentType);
+      if (window.electronAPI && window.electronAPI.saveFile) {
+        await window.electronAPI.saveFile(res.data, finalName, contentType);
+      } else {
+        // Fallback: blob + anchor
+        _saveBlobBrowser(res.data, contentType, finalName);
+      }
+    } catch (e) {
+      console.error('Electron download failed:', e);
+    }
     return;
   }
 
