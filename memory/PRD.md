@@ -3,26 +3,31 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI backend (MongoDB), and Electron/Express desktop app (local JSON storage). Requires highly accurate double-entry accounting ledgers, advanced reporting, and offline-first desktop capabilities.
 
-## Current Version: v53.7.0
+## Current Version: v54.6.0
 
 ## Architecture
 ```
 /app
 ├── backend/          # Python FastAPI + MongoDB
 │   └── routes/
+│       ├── cashbook.py    # Cash Book CRUD + PDF/Excel exports
+│       ├── salebook.py    # Sale Book CRUD + PDF/Excel exports
 │       ├── ledgers.py     # _generate_party_ledger_pdf_bytes() shared function
 │       └── whatsapp.py    # Calls shared function directly (no HTTP self-call)
 ├── desktop-app/      # Electron + Express + Local JSON
-│   ├── main.js       # setWindowOpenHandler + will-download + IPC save-file
+│   ├── main.js       # IPC download-and-save via electron.net.request
 │   ├── preload.js    # saveFile IPC exposed to renderer
 │   └── routes/
+│       ├── cashbook.js    # Fixed: fmtAmt:pFmt import for PDF
+│       ├── salebook.js    # Fixed: PDFKit PDF generation (was HTML)
+│       └── pdf_helpers.js # Shared: addPdfHeader, addPdfTable, safePdfPipe, fmtAmt
 ├── local-server/     # Express + Local JSON (LAN access)
+│   └── routes/       # MUST mirror desktop-app routes
 ├── frontend/
 │   └── src/
 │       ├── utils/
-│       │   └── download.js  # downloadFile (GET: window.open/Electron, blob/Browser)
-│       │                     # downloadPost (POST: IPC save/Electron, blob/Browser)
-│       └── components/       # ALL exports now use downloadFile/downloadPost
+│       │   └── download.js  # downloadFile (IPC for Electron, blob for browser)
+│       └── components/
 ```
 
 ## What's Been Implemented
@@ -36,20 +41,16 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Opening Balances management, FY Summary and Dashboard
 - Auto-updater for desktop app via GitHub Actions
 - Settings page organized into sub-tabs (Branding, GST, Stock, Messaging, Data)
+- Centralized download utility (downloadFile/downloadPost) for all exports
+- Electron IPC download via electron.net.request (direct server fetch)
+- WhatsApp Party Ledger PDF generated internally (no HTTP self-call)
 
-## Completed in v53.7.0 (29 Mar 2026)
-- **CRITICAL**: ALL inline blob downloads migrated to centralized downloadFile() utility
-  - Reports.jsx (CMR vs DC, Season PNL, Agent Mandi)
-  - DCTracker.jsx (DC Register, MSP Payments, Gunny Bags, Gunny Purchase Report)
-  - MillingTracker.jsx (Milling Report, FRK, Byproduct Sales, Paddy Custody Register)
-  - SaleBook.jsx (PDF + Excel export)
-  - StaffManagement.jsx (Advance Ledger - uses downloadPost for POST)
-  - Payments.jsx (Diesel Account Excel + PDF)
-  - LocalPartyAccount.jsx (PDF + Excel)
-- **CRITICAL**: Electron download now works via window.open → setWindowOpenHandler → downloadURL → native save dialog
-- **CRITICAL**: Added IPC save-file handler (preload.js + main.js) for POST-based exports in Electron
-- **FIX**: WhatsApp Party Ledger PDF now generated internally via shared _generate_party_ledger_pdf_bytes() (no HTTP self-call that failed due to DNS issues)
-- **FIX**: tmpfiles.org URL changed from http:// to https:// in Python backend
+## Completed in v54.6.0 (Feb 2026)
+- **BUGFIX**: Cash Book PDF 500 error fixed — `pFmt` was used but never imported in cashbook.js (desktop-app + local-server). Added `fmtAmt: pFmt` to destructured import from pdf_helpers.js.
+- **BUGFIX**: Sale Book PDF blank page fixed — route was returning HTML (`res.type('html').send(html)`) instead of PDF binary. Rewrote to use PDFKit with addPdfHeader, addPdfTable, addTotalsRow, safePdfPipe.
+- Both fixes applied to desktop-app/routes AND local-server/routes for triple-backend parity.
+- Electron IPC download mechanism fully working via main.js `download-and-save`.
+- Fixed 15+ undefined function 500 errors across desktop-app and local-server export routes.
 
 ## Prioritized Backlog
 ### P1
