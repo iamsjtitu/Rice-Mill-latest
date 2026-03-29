@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "52.0.0";
+const APP_VERSION = "53.0.0";
 
 const CHANGELOG = [
+  {
+    version: "53.0.0",
+    date: "29 Mar 2026",
+    title: "v53.0.0 - Settings Page Organized",
+    items: [
+      { type: "imp", text: "Settings page ab 5 sub-tabs mein organized hai: Branding, GST, Stock, Messaging, Data" },
+      { type: "imp", text: "App.js 3477 lines se ~2340 lines - faster load aur clean code" },
+      { type: "imp", text: "Har setting apne tab mein - zyada easy navigation" },
+    ]
+  },
   {
     version: "52.0.0",
     date: "29 Mar 2026",
