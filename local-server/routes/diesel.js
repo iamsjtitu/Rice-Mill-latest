@@ -4,7 +4,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate , safePdfPipe} = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -170,7 +170,7 @@ module.exports = function(database) {
     });
     ['A','B','C','D','E','F','G'].forEach(l => ws.getColumn(l).width = 18);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=diesel_account.xlsx');
+ filename=diesel_account.xlsx');
     await wb.xlsx.write(res); res.end();
   }));
 
@@ -180,9 +180,8 @@ module.exports = function(database) {
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
     const pumps = database.data.diesel_pumps || [];
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=diesel_account.pdf');
-    doc.pipe(res);
+ filename=diesel_account.pdf');
+    // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Diesel Account / Diesel Khata');
     const sumHeaders = ['Pump Name', 'Total Diesel', 'Total Paid', 'Balance', 'Entries'];
     const sumRows = pumps.map(p => {
@@ -200,7 +199,7 @@ module.exports = function(database) {
       t.truck_no||'', (t.agent_name||'').substring(0,12), 'Rs.'+(t.amount||0), (t.description||'').substring(0,25)
     ]);
     addPdfTable(doc, tHeaders, tRows, [60, 90, 50, 70, 70, 60, 150]);
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   return router;

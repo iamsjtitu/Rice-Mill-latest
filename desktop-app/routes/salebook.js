@@ -304,7 +304,7 @@ module.exports = function(database) {
     ws.columns.forEach(c => c.width = 15);
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=sale_book.xlsx');
+ filename=sale_book.xlsx');
     res.send(Buffer.from(buf));
   }));
 
@@ -693,21 +693,20 @@ module.exports = function(database) {
 
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=stock_summary.xlsx');
+ filename=stock_summary.xlsx');
     res.send(Buffer.from(buf));
   }));
 
   // ===== STOCK SUMMARY PDF (COLORFUL with pdfkit) =====
   router.get('/api/stock-summary/export/pdf', safeHandler(async (req, res) => {
-    const { addPdfHeader, registerFonts, F } = require('./pdf_helpers');
+    const { addPdfHeader, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
     const items = getStockItems(req);
     const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
 
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=stock_summary.pdf`);
-    doc.pipe(res);
+ filename=stock_summary.pdf`);
+    // PDF will be sent via safePdfPipe
 
     // Header
     addPdfHeader(doc, 'Stock Summary Report');
@@ -810,7 +809,7 @@ module.exports = function(database) {
     doc.fontSize(7).font(F('normal')).fillColor('#999999')
       .text(`${company} - Stock Summary | Generated: ${new Date().toLocaleDateString('en-IN')}`, { align: 'center' });
 
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   return router;

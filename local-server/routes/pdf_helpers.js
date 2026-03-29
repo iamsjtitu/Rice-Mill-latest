@@ -268,4 +268,30 @@ function fmtDate(d) {
   return s;
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F };
+/**
+ * Buffer PDF and send as complete response. Prevents ERR_STREAM_WRITE_AFTER_END.
+ * Usage: Replace `doc.pipe(res); ... doc.end();` with `safePdfPipe(doc, res, filename);`
+ * Call this AFTER all doc content is added, INSTEAD of doc.end().
+ */
+function safePdfPipe(doc, res, filename) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => {
+      const buf = Buffer.concat(chunks);
+      res.setHeader('Content-Type', 'application/pdf');
+      if (filename) res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+      res.setHeader('Content-Length', buf.length);
+      res.end(buf);
+      resolve();
+    });
+    doc.on('error', err => {
+      console.error('PDF generation error:', err);
+      if (!res.headersSent) res.status(500).json({ detail: 'PDF generation failed' });
+      reject(err);
+    });
+    doc.end();
+  });
+}
+
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe };

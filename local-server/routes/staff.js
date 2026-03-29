@@ -2,7 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { fmtDate, registerFonts, F } = require('./pdf_helpers');
+const { fmtDate, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -322,9 +322,8 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 10 });
       registerFonts(doc);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.pdf`);
-    doc.pipe(res);
+ filename=staff_attendance_${date_from}_to_${date_to}.pdf`);
+    // PDF will be sent via safePdfPipe
 
     // Calculate table dimensions for centering
     const colW = Math.min(70, Math.max(45, (800 - 45) / Math.max(staffList.length, 1)));
@@ -541,7 +540,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
       if (msY > 560) { doc.addPage({ size: 'A4', layout: 'landscape', margin: 10 }); msY = 10; }
     }
 
-    doc.end();
+    await safePdfPipe(doc, res);
   } else {
     // Excel export
     const ExcelJS = require('exceljs');
@@ -718,7 +717,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.xlsx`);
+ filename=staff_attendance_${date_from}_to_${date_to}.xlsx`);
     wb.xlsx.write(res).then(() => res.end());
   }
 }));
@@ -732,12 +731,11 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
 
   if (fmt === 'pdf') {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, fmtDate, C, registerFonts, F } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, fmtDate, C, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=staff_payments.pdf');
-    doc.pipe(res);
+ filename=staff_payments.pdf');
+    // PDF will be sent via safePdfPipe
 
     const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
     _addPdfHdr(doc, 'Staff Payment Report', branding, kms_year ? `${kms_year} | ${season || ''}` : '');
@@ -758,7 +756,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
     doc.moveDown(0.3);
     doc.fontSize(9).font(F('bold')).fillColor(C.hdrBg)
       .text(`Total Gross: Rs.${fmtAmt(totalGross)}  |  Adv. Deducted: Rs.${fmtAmt(totalAdv)}  |  Net Paid: Rs.${fmtAmt(totalNet)}`, { align: 'center' });
-    doc.end();
+    await safePdfPipe(doc, res);
   } else {
     const ExcelJS = require('exceljs');
     const wb = new ExcelJS.Workbook();
@@ -784,7 +782,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
 
     for (let i = 1; i <= 7; i++) ws.getColumn(i).width = 18;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=staff_payments.xlsx');
+ filename=staff_payments.xlsx');
     await wb.xlsx.write(res); res.end();
   }
 }));
@@ -825,7 +823,7 @@ router.post('/api/staff/advance-ledger/export', safeAsync(async (req, res) => {
   [5, 12, 16, 30, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename=advance_ledger_${staff_name || 'all'}.xlsx`);
+ filename=advance_ledger_${staff_name || 'all'}.xlsx`);
   await wb.xlsx.write(res); res.end();
 }));
 

@@ -4,7 +4,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate , safePdfPipe} = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -157,7 +157,7 @@ module.exports = function(database) {
     ws.addRow({ date: 'TOTAL', txn_type: `In:${totalIn} Out:${totalOut}`, quantity: totalIn - totalOut });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=gunny_bags.xlsx');
+ filename=gunny_bags.xlsx');
     await wb.xlsx.write(res); res.end();
   }));
 
@@ -169,8 +169,8 @@ module.exports = function(database) {
     const filtered = applyGunnyFilters(entries, req.query.bag_filter, req.query.txn_filter);
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
-    res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'attachment; filename=gunny_bags.pdf');
-    doc.pipe(res); addPdfHeader(doc, 'Gunny Bags Report');
+ filename=gunny_bags.pdf');
+    // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Gunny Bags Report');
     const headers = ['Date', 'Bag Type', 'In/Out', 'Qty', 'Source/To', 'Rate', 'Amount(Rs.)', 'Notes'];
     const rows = filtered.map(e => [
       e.date||'', e.bag_type==='new'?'New(Govt)':'Old(Mkt)',
@@ -181,7 +181,7 @@ module.exports = function(database) {
     const totalIn = filtered.filter(e=>e.txn_type==='in').reduce((s,e)=>s+(e.quantity||0),0);
     const totalOut = filtered.filter(e=>e.txn_type==='out').reduce((s,e)=>s+(e.quantity||0),0);
     rows.push(['TOTAL', '', `In:${totalIn} Out:${totalOut}`, totalIn-totalOut, '', '', '', '']);
-    addPdfTable(doc, headers, rows, [48,52,35,35,150,38,52,65]); doc.end();
+    addPdfTable(doc, headers, rows, [48,52,35,35,150,38,52,65]); await safePdfPipe(doc, res);
   }));
 
   // === Gunny Bags Purchase Report ===
@@ -215,7 +215,7 @@ module.exports = function(database) {
       ws.columns.forEach(c => c.width = 15);
       const buf = await wb.xlsx.writeBuffer();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename=gunny_purchase_report.xlsx');
+ filename=gunny_purchase_report.xlsx');
       res.send(Buffer.from(buf));
     } catch (e) { res.status(500).json({ detail: e.message }); }
   }));

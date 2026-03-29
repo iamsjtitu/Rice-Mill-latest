@@ -307,7 +307,7 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
   for (let i = 1; i <= 6; i++) ws.getColumn(i).width = 20;
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename=local_party_account.xlsx');
+ filename=local_party_account.xlsx');
   await wb.xlsx.write(res);
   res.end();
 }));
@@ -315,7 +315,7 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
 // ============ PDF EXPORT ============
 router.get('/api/local-party/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader, addPdfTable, addTotalsRow } = require('./pdf_helpers');
+  const { addPdfHeader, addPdfTable, addTotalsRow , safePdfPipe} = require('./pdf_helpers');
   ensureCollection('local_party_accounts');
   let txns = [...database.data.local_party_accounts];
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
@@ -324,9 +324,8 @@ router.get('/api/local-party/pdf', safeSync((req, res) => {
   txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', 'attachment; filename=local_party_account.pdf');
-  doc.pipe(res);
+ filename=local_party_account.pdf');
+  // PDF will be sent via safePdfPipe
 
   const branding = database.getBranding ? database.getBranding() : {};
   addPdfHeader(doc, 'Local Party Account', branding);
@@ -341,7 +340,7 @@ router.get('/api/local-party/pdf', safeSync((req, res) => {
   const totalPayment = txns.filter(t => t.txn_type === 'payment').reduce((s, t) => s + (t.amount||0), 0);
   addTotalsRow(doc, ['TOTAL', `${txns.length} entries`, '', `Purchase: Rs.${totalPurchase.toLocaleString()} | Payment: Rs.${totalPayment.toLocaleString()}`, '', `Balance: Rs.${(totalPurchase - totalPayment).toLocaleString()}`], colW);
 
-  doc.end();
+  await safePdfPipe(doc, res);
 }));
 
   return router;

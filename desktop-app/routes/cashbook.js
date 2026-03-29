@@ -4,7 +4,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate , safePdfPipe} = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../shared/report_helper');
 
@@ -802,7 +802,7 @@ module.exports = function(database) {
       widths.forEach((w, i) => ws.getColumn(i + 1).width = w);
       
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.xlsx`);
+ filename=cash_book_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
@@ -834,12 +834,11 @@ module.exports = function(database) {
       if (req.query.date_to) subtitleParts.push(`To: ${req.query.date_to}`);
       const subtitle = subtitleParts.join(' | ');
       
-      const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+      const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
       
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
-      doc.pipe(res);
+ filename=cash_book_${Date.now()}.pdf`);
+      // PDF will be sent via safePdfPipe
       
       const brandingData = database.getBranding ? database.getBranding() : {};
       __addPdfHeader(doc, exportTitle, brandingData, subtitle);
@@ -865,7 +864,7 @@ module.exports = function(database) {
       addPdfTable(doc, headers, rows, colW, { fontSize: 7 });
       addTotalsRow(doc, ['', '', '', '', '', 'TOTAL', pFmt(totalJama), pFmt(totalNikasi), pFmt(+(totalJama - totalNikasi).toFixed(2))], colW, { fontSize: 7 });
       
-      doc.end();
+      await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
@@ -968,7 +967,7 @@ module.exports = function(database) {
       ws.columns.forEach(c => c.width = 18);
       const buf = await wb.xlsx.writeBuffer();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename=party_summary.xlsx');
+ filename=party_summary.xlsx');
       res.send(Buffer.from(buf));
     } catch (e) { res.status(500).json({ detail: e.message }); }
   }));
@@ -988,11 +987,10 @@ module.exports = function(database) {
     });
     const data = Object.values(parties).map(p => ({ ...p, balance: Math.round((p.jama - p.nikasi) * 100) / 100 }));
     data.sort((a, b) => a.party_name.localeCompare(b.party_name));
-    const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+    const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const doc = new PDFDocument({ size: 'A4', margin: 25 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=party_summary.pdf');
-    doc.pipe(res);
+ filename=party_summary.pdf');
+    // PDF will be sent via safePdfPipe
     const brandingData = database.getBranding ? database.getBranding() : {};
     let subtitle = '';
     if (req.query.kms_year) subtitle = `FY: ${req.query.kms_year}`;
@@ -1004,7 +1002,7 @@ module.exports = function(database) {
     const rows = data.map(p => { tJ += p.jama; tN += p.nikasi; return [p.party_name, p.party_type, pFmt(Math.round(p.jama)), pFmt(Math.round(p.nikasi)), pFmt(Math.round(p.balance))]; });
     addPdfTable(doc, headers, rows, colW);
     addTotalsRow(doc, [`TOTAL (${data.length})`, '', pFmt(Math.round(tJ)), pFmt(Math.round(tN)), pFmt(Math.round(tJ - tN))], colW);
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   // === Opening Balances (party-level) ===

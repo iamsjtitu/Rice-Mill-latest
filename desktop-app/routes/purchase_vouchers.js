@@ -318,25 +318,24 @@ module.exports = function(database) {
     const v = database.data.purchase_vouchers.find(x => x.id === req.params.id);
     if (!v) return res.status(404).json({ detail: 'Not found' });
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addSummaryBox, fmtAmt: pFmt } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addSummaryBox, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     const doc = new PDFDocument({ size: 'A4', margin: 25 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=purchase_voucher_${v.voucher_no || ''}.pdf`);
-    doc.pipe(res);
+ filename=purchase_voucher_${v.voucher_no || ''}.pdf`);
+    // PDF will be sent via safePdfPipe
     _addPdfHeader(doc, `Purchase Voucher #${v.voucher_no || ''}`, branding, `Date: ${v.date || ''} | Party: ${v.party_name || ''} | Invoice: ${v.invoice_no || ''} | Truck: ${v.truck_no || ''}`);
     const headers = ['Item', 'HSN', 'Qty', 'Rate', 'Amount'];
     const rows = (v.items || []).map(i => [i.item_name||'', i.hsn_code||'', i.quantity||0, i.rate||0, i.amount||0]);
     addPdfTable(doc, headers, rows, [180, 80, 60, 60, 80]);
     addSummaryBox(doc, ['Subtotal', 'CGST', 'SGST', 'IGST', 'Total'], [pFmt(v.subtotal||0), pFmt(v.cgst_amount||0), pFmt(v.sgst_amount||0), pFmt(v.igst_amount||0), pFmt(v.total||0)], [90, 90, 90, 90, 90]);
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   // PDF export (legacy path)
   router.get('/api/purchase-book/export/pdf', safeHandler(async (req, res) => {
     ensure();
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     let vouchers = [...database.data.purchase_vouchers];
     const { kms_year, season } = req.query;
@@ -344,9 +343,8 @@ module.exports = function(database) {
     if (season) vouchers = vouchers.filter(v => v.season === season);
     vouchers.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=purchase_book.pdf');
-    doc.pipe(res);
+ filename=purchase_book.pdf');
+    // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | Season: ${season}`;
     _addPdfHeader(doc, 'Purchase Book', branding, subtitle);
     const headers = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck', 'E-Way', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance'];
@@ -359,7 +357,7 @@ module.exports = function(database) {
     });
     addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
     addTotalsRow(doc, [`TOTAL (${vouchers.length})`, '', '', '', '', '', '', pFmt(Math.round(g.total)), pFmt(Math.round(g.adv)), pFmt(Math.round(g.cash)), pFmt(Math.round(g.diesel)), pFmt(Math.round(g.bal))], colW, { fontSize: 6.5 });
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   // Excel export
@@ -405,7 +403,7 @@ module.exports = function(database) {
     [10, 12, 12, 18, 20, 12, 14, 14, 12, 12, 12, 14].forEach((w, i) => ws.getColumn(i + 1).width = w);
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=purchase_book.xlsx');
+ filename=purchase_book.xlsx');
     res.send(Buffer.from(buf));
   }));
 

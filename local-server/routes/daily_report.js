@@ -23,20 +23,19 @@ router.get('/api/reports/daily/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
   const data = getDailyReportData(database, req.query);
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
-  
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.pdf`);
-  doc.pipe(res);
+ filename=daily_report_${data.mode}_${data.date}.pdf`);
+  // PDF will be sent via safePdfPipe
 
   generateDailyReportPdf(doc, data, req.query);
 
-  doc.end();
+  await safePdfPipe(doc, res);
 }));
 
 // ============ DAILY REPORT EXCEL ============
 router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   const ExcelJS = require('exceljs');
   const { styleExcelData, addExcelTitle, COLORS } = require('./excel_helpers');
+const { safePdfPipe } = require('./pdf_helpers');
   const data = getDailyReportData(database, req.query);
   const isDetail = data.mode === 'detail';
   const wb = new ExcelJS.Workbook();
@@ -207,7 +206,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   }
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.xlsx`);
+ filename=daily_report_${data.mode}_${data.date}.xlsx`);
   await wb.xlsx.write(res); res.end();
 }));
 

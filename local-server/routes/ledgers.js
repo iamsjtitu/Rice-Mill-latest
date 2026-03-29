@@ -197,9 +197,8 @@ router.get('/api/reports/outstanding/pdf', (req, res) => {
   try {
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=outstanding_${Date.now()}.pdf`);
-    doc.pipe(res);
+ filename=outstanding_${Date.now()}.pdf`);
+    // PDF will be sent via safePdfPipe
     doc.fontSize(18).text('Outstanding Report', { align: 'center' }); doc.moveDown();
     doc.fontSize(12).text('DC Pending Deliveries', { underline: true }); doc.moveDown(0.5);
     const { kms_year, season } = req.query;
@@ -210,7 +209,7 @@ router.get('/api/reports/outstanding/pdf', (req, res) => {
       const pending = Math.round((dc.quantity_qntl - delivered) * 100) / 100;
       if (pending > 0) doc.fontSize(9).text(`${dc.dc_number || '-'} | Allotted: ${dc.quantity_qntl}Q | Delivered: ${delivered}Q | Pending: ${pending}Q`);
     }
-    doc.end();
+    await safePdfPipe(doc, res);
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });
 
@@ -238,18 +237,18 @@ router.get('/api/reports/party-ledger/excel', async (req, res) => {
 router.get('/api/reports/party-ledger/pdf', (req, res) => {
   try {
     const PDFDocument = require('pdfkit');
+const { safePdfPipe } = require('./pdf_helpers');
     const { party_name, party_type, kms_year, season } = req.query;
     const entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     const ledger = [];
     if (!party_type || party_type === 'agent') entries.forEach(e => { const a = e.agent_name||''; if (!a||(party_name && a.toLowerCase()!==party_name.toLowerCase())) return; ledger.push({ date: e.date, party_name: a, party_type: 'Agent', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100 }); });
     if (!party_type || party_type === 'truck') entries.forEach(e => { const t = e.truck_no||''; if (!t||(party_name && t.toLowerCase()!==party_name.toLowerCase())) return; ledger.push({ date: e.date, party_name: t, party_type: 'Truck', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100 }); });
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`);
-    doc.pipe(res);
+ filename=party_ledger_${Date.now()}.pdf`);
+    // PDF will be sent via safePdfPipe
     doc.fontSize(18).text(`Party Ledger${party_name ? ' - ' + party_name : ''}`, { align: 'center' }); doc.moveDown();
     for (const l of ledger) doc.fontSize(8).text(`${l.date} | ${l.party_name} (${l.party_type}) | ${l.description} | Dr:Rs.${l.debit} | Cr:Rs.${l.credit}`);
-    doc.end();
+    await safePdfPipe(doc, res);
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });
 

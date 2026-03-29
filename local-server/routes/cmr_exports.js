@@ -5,7 +5,7 @@ module.exports = function(database) {
   // Helper reference
   const ExcelJS = require('exceljs');
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+  const { addPdfHeader: _addPdfHeader, addPdfTable , safePdfPipe} = require('./pdf_helpers');
   const addPdfHeader = (doc, title) => _addPdfHeader(doc, title, database.getBranding());
 
 // ============ CMR EXPORT ENDPOINTS (continued) ============
@@ -34,7 +34,7 @@ router.get('/api/milling-report/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.xlsx`);
+ filename=milling_report_${Date.now()}.xlsx`);
     await wb.xlsx.write(res); res.end();
   } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
 });
@@ -44,16 +44,15 @@ router.get('/api/milling-report/pdf', (req, res) => {
   try {
     const entries = database.getMillingEntries(req.query);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
-    doc.pipe(res);
+ filename=milling_report_${Date.now()}.pdf`);
+    // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Milling Report');
     const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%','Bran(Q)','Husk%','Note'];
     const rows = entries.map(e => [e.date||'', (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
       (e.paddy_input_qntl||0), (e.rice_percent||0)+'%', (e.rice_qntl||0), (e.frk_used_qntl||0),
       (e.cmr_delivery_qntl||0), (e.outturn_ratio||0)+'%', (e.bran_qntl||0), (e.husk_percent||0)+'%', (e.note||'').substring(0,15)]);
     addPdfTable(doc, headers, rows, [50,45,45,35,40,35,40,40,35,35,60]);
-    doc.end();
+    await safePdfPipe(doc, res);
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });
 
@@ -79,7 +78,7 @@ router.get('/api/frk-purchases/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.xlsx`);
+ filename=frk_purchases_${Date.now()}.xlsx`);
     await wb.xlsx.write(res); res.end();
   } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
 });
@@ -93,9 +92,8 @@ router.get('/api/frk-purchases/pdf', (req, res) => {
     if (req.query.season) purchases = purchases.filter(x => x.season === req.query.season);
     purchases.sort((a,b) => (a.date||'').localeCompare(b.date||''));
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.pdf`);
-    doc.pipe(res);
+ filename=frk_purchases_${Date.now()}.pdf`);
+    // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'FRK Purchase Register');
     const tq = +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2);
     const ta = +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2);
@@ -103,7 +101,7 @@ router.get('/api/frk-purchases/pdf', (req, res) => {
     const rows = purchases.map(p => [p.date||'', (p.party_name||'').substring(0,25), p.quantity_qntl||0, p.rate_per_qntl||0, p.total_amount||0, (p.note||'').substring(0,20)]);
     rows.push(['TOTAL', '', tq, '', ta, '']);
     addPdfTable(doc, headers, rows, [60, 120, 55, 55, 70, 80]);
-    doc.end();
+    await safePdfPipe(doc, res);
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });
 
@@ -143,7 +141,7 @@ router.get('/api/byproduct-sales/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.xlsx`);
+ filename=byproduct_sales_${Date.now()}.xlsx`);
     await wb.xlsx.write(res); res.end();
   } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
 });
@@ -159,9 +157,8 @@ router.get('/api/byproduct-sales/pdf', (req, res) => {
     const millingEntries = database.getMillingEntries(req.query);
     const products = ['bran','kunda','broken','kanki','husk'];
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.pdf`);
-    doc.pipe(res);
+ filename=byproduct_sales_${Date.now()}.pdf`);
+    // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'By-Product Stock & Sales Report');
     // Stock summary
     const sHeaders = ['Product','Produced(Q)','Sold(Q)','Available(Q)','Revenue(Rs.)'];
@@ -183,7 +180,7 @@ router.get('/api/byproduct-sales/pdf', (req, res) => {
     const rows = sales.map(s => [s.date||'', (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), s.quantity_qntl||0, s.rate_per_qntl||0, s.total_amount||0, (s.buyer_name||'').substring(0,20)]);
     rows.push(['TOTAL', '', tq, '', ta, '']);
     addPdfTable(doc, headers, rows, [55, 55, 45, 50, 60, 90]);
-    doc.end();
+    await safePdfPipe(doc, res);
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });
 
@@ -215,7 +212,7 @@ router.get('/api/paddy-custody-register/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.xlsx`);
+ filename=paddy_custody_${Date.now()}.xlsx`);
     await wb.xlsx.write(res); res.end();
   } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
 });
@@ -235,15 +232,14 @@ router.get('/api/paddy-custody-register/pdf', (req, res) => {
     let balance = 0;
     rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.pdf`);
-    doc.pipe(res);
+ filename=paddy_custody_${Date.now()}.pdf`);
+    // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Paddy Custody Register');
     const headers = ['Date','Description','Received(Q)','Released(Q)','Balance(Q)'];
     const pdfRows = rows.map(r => [r.date, r.description.substring(0,35), r.received_qntl > 0 ? r.received_qntl : '-', r.released_qntl > 0 ? r.released_qntl : '-', r.balance_qntl]);
     pdfRows.push(['TOTAL', '', +rows.reduce((s,r)=>s+r.received_qntl,0).toFixed(2), +rows.reduce((s,r)=>s+r.released_qntl,0).toFixed(2), +balance.toFixed(2)]);
     addPdfTable(doc, headers, pdfRows, [50, 180, 60, 60, 60]);
-    doc.end();
+    await safePdfPipe(doc, res);
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });
 

@@ -4,7 +4,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
 const rptHelper = require('../shared/report_helper');
 
 module.exports = function(database) {
@@ -225,7 +225,7 @@ module.exports = function(database) {
       const { kms_year, season } = req.query;
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
-      res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=outstanding_${Date.now()}.pdf`); doc.pipe(res);
+ filename=outstanding_${Date.now()}.pdf`); // PDF will be sent via safePdfPipe
 
       addPdfHeader(doc, 'Outstanding Report', kms_year ? `${kms_year} | ${season || ''}` : '');
 
@@ -265,7 +265,7 @@ module.exports = function(database) {
         addPdfTable(doc, ['Agent','Entries','Qty(Q)'], agents.map(a => [a.agent, a.entries, fmtAmt(Math.round(a.qty*100)/100)]), [150, 80, 100]);
       }
 
-      doc.end();
+      await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
   }));
 
@@ -301,7 +301,7 @@ module.exports = function(database) {
 
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
-      res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`); doc.pipe(res);
+ filename=party_ledger_${Date.now()}.pdf`); // PDF will be sent via safePdfPipe
 
       addPdfHeader(doc, `Party Ledger${party_name ? ' - ' + party_name : ''}`, date_from && date_to ? `${date_from} to ${date_to}` : '');
 
@@ -320,7 +320,7 @@ module.exports = function(database) {
         doc.fontSize(10).text('Koi ledger entry nahi mili', { align: 'center' });
       }
 
-      doc.end();
+      await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
   }));
 
@@ -509,7 +509,7 @@ module.exports = function(database) {
     widths.forEach((w,i) => { ws.getColumn(i+1).width = w; });
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=agent_mandi_report.xlsx`);
+ filename=agent_mandi_report.xlsx`);
     res.send(Buffer.from(buf));
   }));
 
@@ -542,9 +542,8 @@ module.exports = function(database) {
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
       registerFonts(doc);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=agent_mandi_report.pdf');
-    doc.pipe(res);
+ filename=agent_mandi_report.pdf');
+    // PDF will be sent via safePdfPipe
 
     let title = 'Agent & Mandi Wise Report';
     if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
@@ -597,7 +596,7 @@ module.exports = function(database) {
     const gv = rptHelper.getTotalRow(grand, cols);
     gv.forEach((v,i) => { if (v !== null) doc.fillColor('white').fontSize(7).text(String(v), x + colW.slice(0,i).reduce((a,b)=>a+b,0) + 2, y+4, { width: colW[i]-4, align: 'right' }); });
 
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   return router;

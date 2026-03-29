@@ -105,7 +105,7 @@ router.get('/api/reports/season-pnl/excel', safeAsync(async (req, res) => {
   ws.getCell(`B${row}`).value = data.net_pnl; ws.getCell(`B${row}`).font = { bold: true, size: 12 };
   ws.getColumn('A').width = 22; ws.getColumn('B').width = 22;
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename=season_pnl.xlsx');
+ filename=season_pnl.xlsx');
   await wb.xlsx.write(res); res.end();
 }));
 
@@ -131,10 +131,9 @@ router.get('/api/reports/season-pnl/pdf', safeSync((req, res) => {
   const profit = netPnl >= 0;
 
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', 'attachment; filename=season_pnl.pdf');
-  doc.pipe(res);
-  const { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, C } = require('./pdf_helpers');
+ filename=season_pnl.pdf');
+  // PDF will be sent via safePdfPipe
+  const { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, C , safePdfPipe} = require('./pdf_helpers');
   const branding = database.getBranding ? database.getBranding() : {};
   addPdfHeader(doc, 'Season P&L Report', branding, `FY: ${q.kms_year||'All'} | Season: ${q.season||'All'}`);
 
@@ -148,7 +147,7 @@ router.get('/api/reports/season-pnl/pdf', safeSync((req, res) => {
   doc.moveDown(1);
   const bgC = profit ? '#dcfce7' : '#fee2e2';
   addSummaryBox(doc, [profit ? 'NET PROFIT' : 'NET LOSS'], [`Rs. ${Math.abs(netPnl).toLocaleString()}`], [250], bgC);
-  doc.end();
+  await safePdfPipe(doc, res);
 }));
 
 // ============ CMR VS DC EXPORTS ============
@@ -171,21 +170,20 @@ router.get('/api/reports/cmr-vs-dc/excel', safeAsync(async (req, res) => {
   for (const [l,v] of [['DC Allotted (Q)',d.dc.total_allotted],['DC Delivered (Q)',d.dc.total_delivered],['DC Pending (Q)',+(d.dc.total_allotted-d.dc.total_delivered).toFixed(2)]]) { row++; ws.getCell(`A${row}`).value=l; ws.getCell(`B${row}`).value=v; }
   ws.getColumn('A').width=22; ws.getColumn('B').width=22;
   res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition','attachment; filename=cmr_vs_dc.xlsx');
+ filename=cmr_vs_dc.xlsx');
   await wb.xlsx.write(res); res.end();
 }));
 
 router.get('/api/reports/cmr-vs-dc/pdf', safeSync((req, res) => {
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader, addPdfTable, addSummaryBox } = require('./pdf_helpers');
+  const { addPdfHeader, addPdfTable, addSummaryBox , safePdfPipe} = require('./pdf_helpers');
   const q = req.query;
   let milling = col('milling_entries'); let dcs = col('dc_entries'); let deliveries = col('dc_deliveries');
   if (q.kms_year) { milling=milling.filter(e=>e.kms_year===q.kms_year); dcs=dcs.filter(e=>e.kms_year===q.kms_year); deliveries=deliveries.filter(e=>e.kms_year===q.kms_year); }
   if (q.season) { milling=milling.filter(e=>e.season===q.season); dcs=dcs.filter(e=>e.season===q.season); deliveries=deliveries.filter(e=>e.season===q.season); }
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
-  res.setHeader('Content-Type','application/pdf');
-  res.setHeader('Content-Disposition','attachment; filename=cmr_vs_dc.pdf');
-  doc.pipe(res);
+ filename=cmr_vs_dc.pdf');
+  // PDF will be sent via safePdfPipe
   const branding = database.getBranding ? database.getBranding() : {};
   addPdfHeader(doc, 'CMR vs DC Report', branding);
 
@@ -198,7 +196,7 @@ router.get('/api/reports/cmr-vs-dc/pdf', safeSync((req, res) => {
   addSummaryBox(doc, ['DC Allotted (Q)','DC Delivered (Q)','DC Pending (Q)'],
     [dcAllotted.toFixed(2), dcDelivered.toFixed(2), (dcAllotted-dcDelivered).toFixed(2)],
     [160, 160, 160], '#e0f2fe');
-  doc.end();
+  await safePdfPipe(doc, res);
 }));
 
   return router;

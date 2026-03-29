@@ -4,7 +4,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate } = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtDate , safePdfPipe} = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -105,7 +105,7 @@ module.exports = function(database) {
       ws2.addRow({ dc_no: dcMap[dl.dc_id]||'', date: dl.date, invoice_no: dl.invoice_no||'', rst_no: dl.rst_no||'', eway_bill_no: dl.eway_bill_no||'', quantity_qntl: dl.quantity_qntl, vehicle_no: dl.vehicle_no, driver_name: dl.driver_name, bags_used: dl.bags_used||0, cash_paid: dl.cash_paid||0, diesel_paid: dl.diesel_paid||0, cgst_amount: dl.cgst_amount||0, sgst_amount: dl.sgst_amount||0, godown_name: dl.godown_name||'', notes: dl.notes||'' });
     });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=dc_register.xlsx');
+ filename=dc_register.xlsx');
     await wb.xlsx.write(res); res.end();
   }));
 
@@ -114,11 +114,11 @@ module.exports = function(database) {
     let entries = [...database.data.dc_entries];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
-    res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'attachment; filename=dc_entries.pdf');
-    doc.pipe(res); addPdfHeader(doc, 'DC Entries Report');
+ filename=dc_entries.pdf');
+    // PDF will be sent via safePdfPipe addPdfHeader(doc, 'DC Entries Report');
     const headers = ['Date', 'DC No', 'Qty(Q)', 'Rice Type', 'Godown', 'Deadline', 'Notes'];
     const rows = entries.map(e => [e.date||'', e.dc_number||'', e.quantity_qntl||0, e.rice_type||'', e.godown_name||'', e.deadline||'', (e.notes||'').substring(0,25)]);
-    addPdfTable(doc, headers, rows, [60, 60, 50, 60, 80, 60, 100]); doc.end();
+    addPdfTable(doc, headers, rows, [60, 60, 50, 60, 80, 60, 100]); await safePdfPipe(doc, res);
   }));
 
   // ===== DC DELIVERIES =====
@@ -375,7 +375,7 @@ module.exports = function(database) {
     ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rate/Q', key: 'rate_per_qntl', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Mode', key: 'payment_mode', width: 10 }, { header: 'Bank', key: 'bank_name', width: 15 }];
     payments.forEach(p => ws.addRow(p));
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=msp_payments.xlsx');
+ filename=msp_payments.xlsx');
     await wb.xlsx.write(res); res.end();
   }));
 
@@ -384,11 +384,11 @@ module.exports = function(database) {
     let payments = [...database.data.msp_payments];
     if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
-    res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'attachment; filename=msp_payments.pdf');
-    doc.pipe(res); addPdfHeader(doc, 'MSP Payments Report');
+ filename=msp_payments.pdf');
+    // PDF will be sent via safePdfPipe addPdfHeader(doc, 'MSP Payments Report');
     const headers = ['Date', 'Qty(Q)', 'Rate(Rs./Q)', 'Amount(Rs.)', 'Mode', 'Bank'];
     const rows = payments.map(p => [p.date||'', p.quantity_qntl||0, p.rate_per_qntl||0, p.amount||0, p.payment_mode||'', (p.bank_name||'').substring(0,15)]);
-    addPdfTable(doc, headers, rows, [60, 50, 60, 70, 50, 80]); doc.end();
+    addPdfTable(doc, headers, rows, [60, 50, 60, 70, 50, 80]); await safePdfPipe(doc, res);
   }));
 
   return router;

@@ -469,14 +469,14 @@ module.exports = function(database) {
     }
     widths.forEach((w,i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=party_summary.xlsx');
+ filename=party_summary.xlsx');
     wb.xlsx.write(res).then(() => res.end());
   }));
 
   // ===== PARTY SUMMARY PDF =====
   router.get('/api/private-trading/party-summary/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.private_paddy) database.data.private_paddy = [];
     if (!database.data.rice_sales) database.data.rice_sales = [];
@@ -494,15 +494,14 @@ module.exports = function(database) {
     const cols = getColumns('party_summary_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=party_summary.pdf');
-    doc.pipe(res);
+ filename=party_summary.pdf');
+    // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Party-wise Summary', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
     const rows = result.map(item => getEntryRow(item, cols).map(v => String(v)));
     addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   router.get('/api/private-paddy/excel', safeSync((req, res) => {
@@ -551,14 +550,14 @@ module.exports = function(database) {
     }
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=pvt_paddy.xlsx');
+ filename=pvt_paddy.xlsx');
     wb.xlsx.write(res).then(() => res.end());
   }));
 
   // ===== EXPORT: Private Paddy PDF =====
   router.get('/api/private-paddy/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const { kms_year, season, search } = req.query;
@@ -574,15 +573,14 @@ module.exports = function(database) {
     const cols = getColumns('private_paddy_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=pvt_paddy.pdf');
-    doc.pipe(res);
+ filename=pvt_paddy.pdf');
+    // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Private Paddy Purchase', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
     const rows = items.map(item => getEntryRow(item, cols).map(v => String(v)));
     addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   // ===== EXPORT: Rice Sales Excel =====
@@ -629,14 +627,14 @@ module.exports = function(database) {
     }
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=rice_sales.xlsx');
+ filename=rice_sales.xlsx');
     wb.xlsx.write(res).then(() => res.end());
   }));
 
   // ===== EXPORT: Rice Sales PDF =====
   router.get('/api/rice-sales/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, search } = req.query;
@@ -649,15 +647,14 @@ module.exports = function(database) {
     const cols = getColumns('rice_sales_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=rice_sales.pdf');
-    doc.pipe(res);
+ filename=rice_sales.pdf');
+    // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Rice Sales Report', branding, subtitle);
     const colW = getPdfWidthsMm(cols).map(w => w * 2.2);
     const rows = items.map(item => getEntryRow(item, cols).map(v => String(v)));
     addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   // === Mark Paid / Undo Paid / History for Private Paddy ===

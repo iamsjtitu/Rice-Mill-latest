@@ -448,7 +448,7 @@ router.get('/api/mill-parts/store-room-report/excel', safeAsync(async (req, res)
   ws.columns = [{ width: 22 }, { width: 14 }, { width: 8 }, { width: 12 }, { width: 12 }, { width: 14 }];
   const buf = await wb.xlsx.writeBuffer();
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename=store_room_report.xlsx`);
+ filename=store_room_report.xlsx`);
   res.send(Buffer.from(buf));
 }));
 
@@ -485,9 +485,8 @@ router.get('/api/mill-parts/store-room-report/pdf', safeAsync(async (req, res) =
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', 'attachment; filename=store_room_report.pdf');
-  doc.pipe(res);
+ filename=store_room_report.pdf');
+  // PDF will be sent via safePdfPipe
 
   const title = `Store Room-wise Inventory Report${req.query.kms_year ? ' - ' + req.query.kms_year : ''}${req.query.season ? ' (' + req.query.season + ')' : ''}`;
   doc.fontSize(16).fillColor('#1a365d').text(title, { align: 'center' });
@@ -519,7 +518,7 @@ router.get('/api/mill-parts/store-room-report/pdf', safeAsync(async (req, res) =
     doc.moveDown(0.5);
   }
 
-  doc.end();
+  await safePdfPipe(doc, res);
 }));
 
 // ============ STOCK EXPORT (Excel) ============
@@ -556,7 +555,7 @@ router.get('/api/mill-parts/summary/excel', safeAsync(async (req, res) => {
 
   [20, 14, 14, 8, 12, 12, 14, 18, 25].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_stock.xlsx');
+ filename=mill_parts_stock.xlsx');
   await wb.xlsx.write(res); res.end();
 }));
 
@@ -566,9 +565,8 @@ router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
   const summary = getStockSummary(req.query);
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_stock.pdf');
-  doc.pipe(res);
+ filename=mill_parts_stock.pdf');
+  // PDF will be sent via safePdfPipe
 
   const C = { hdr: '#1a365d', border: '#cbd5e1', alt: '#f8fafc', blue: '#e0f2fe' };
   const title = `Mill Parts Stock Summary${req.query.kms_year ? ' - ' + req.query.kms_year : ''}`;
@@ -614,7 +612,7 @@ router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
     x += colW[i];
   });
 
-  doc.end();
+  await safePdfPipe(doc, res);
 }));
 
 // ============ TRANSACTION EXPORT (Excel) ============
@@ -664,7 +662,7 @@ router.get('/api/mill-parts-stock/export/excel', safeAsync(async (req, res) => {
 
   [12, 18, 12, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_transactions.xlsx');
+ filename=mill_parts_transactions.xlsx');
   await wb.xlsx.write(res); res.end();
 }));
 
@@ -682,9 +680,8 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', 'attachment; filename=mill_parts_transactions.pdf');
-  doc.pipe(res);
+ filename=mill_parts_transactions.pdf');
+  // PDF will be sent via safePdfPipe
 
   const C = { hdr: '#1a365d', border: '#cbd5e1', inBg: '#f0fdf4', usedBg: '#fef2f2', inBg2: '#dcfce7', usedBg2: '#fee2e2', blue: '#e0f2fe' };
   let title = 'Mill Parts Transactions';
@@ -737,7 +734,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
     x += colW[i];
   });
 
-  doc.end();
+  await safePdfPipe(doc, res);
 }));
 
 
@@ -826,7 +823,7 @@ router.get('/api/mill-parts/part-summary/excel', safeAsync(async (req, res) => {
   });
   [12, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => ws.getColumn(i + 1).width = w);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.xlsx`);
+ filename=${part_name.replace(/ /g, '_')}_summary.xlsx`);
   await wb.xlsx.write(res); res.end();
 }));
 
@@ -852,13 +849,12 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
     parties[t.party_name].amount += (t.total_amount || t.total_cost || 0);
   });
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader: _addPdfH, addPdfTable, registerFonts, F } = require('./pdf_helpers');
+  const { addPdfHeader: _addPdfH, addPdfTable, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
   const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.pdf`);
-  doc.pipe(res);
+ filename=${part_name.replace(/ /g, '_')}_summary.pdf`);
+  // PDF will be sent via safePdfPipe
   _addPdfH(doc, `${part_name} - Part Summary`, branding);
   doc.fontSize(9).fillColor('#666666').text(`Category: ${category} | Unit: ${unit} | Store Room: ${partInfo.store_room_name || 'N/A'}`, { align: 'center' });
   doc.moveDown(0.5);
@@ -886,7 +882,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
       (t.total_amount||t.total_cost||0), t.party_name||'-', t.bill_no||'-']);
     addPdfTable(doc, ['Date','Type','Qty','Rate','Amount','Party','Bill No'], tRows, [60,40,40,45,60,100,60]);
   }
-  doc.end();
+  await safePdfPipe(doc, res);
 }));
 
   return router;

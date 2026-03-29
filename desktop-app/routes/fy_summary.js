@@ -602,7 +602,7 @@ module.exports = function(database) {
       doc.fontSize(9).font(F('bold')).fillColor('#059669').text('TOTAL', rightX+5, y+5);
       doc.text(fmt(totalAssets), rightX+260, y+5, {width:90, align:'right'});
 
-      doc.end();
+      await safePdfPipe(doc, res);
     } catch (err) {
       console.error('Balance Sheet PDF error:', err);
       res.status(500).json({ detail: 'PDF generation error' });
@@ -884,7 +884,7 @@ module.exports = function(database) {
         ['Rice Sales', fmtAmt(pt.rice_qty), fmtAmt(pt.rice_sale_amount), fmtAmt(pt.rice_received), fmtAmt(pt.rice_balance)],
       ], [80, 65, 75, 75, 75]);
 
-      doc.end();
+      await safePdfPipe(doc, res);
     } catch (err) {
       console.error('FY Summary PDF error:', err);
       res.status(500).json({ detail: 'PDF generation error' });

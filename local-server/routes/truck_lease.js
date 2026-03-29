@@ -176,16 +176,15 @@ module.exports = function(database) {
 
   router.get('/api/truck-leases/export/pdf', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt } = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     let leases = database.data.truck_leases || [];
     if (req.query.kms_year) leases = leases.filter(l => l.kms_year === req.query.kms_year);
     if (req.query.season) leases = leases.filter(l => l.season === req.query.season);
     const allPayments = database.data.truck_lease_payments || [];
     const doc = new PDFDocument({ size: 'A4', margin: 25, layout: 'landscape' });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=truck_lease_report.pdf');
-    doc.pipe(res);
+ filename=truck_lease_report.pdf');
+    // PDF will be sent via safePdfPipe
     let subtitle = '';
     if (req.query.kms_year) subtitle = `Year: ${req.query.kms_year} | Season: ${req.query.season || 'All'}`;
     _addPdfHeader(doc, 'Truck Lease Report', branding, subtitle);
@@ -203,7 +202,7 @@ module.exports = function(database) {
     }
     addPdfTable(doc, headers, rows, colW);
     addTotalsRow(doc, ['', '', '', '', '', '', 'TOTAL', pFmt(grandTotal), pFmt(Math.round(grandPaid)), pFmt(Math.round(Math.max(0, grandTotal - grandPaid)))], colW);
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   // ========== EXCEL EXPORT ==========
@@ -242,7 +241,7 @@ module.exports = function(database) {
     styleExcelData(ws, 5);
     [15, 18, 15, 12, 12, 12, 10, 12, 15, 15, 15].forEach((w, i) => ws.getColumn(i + 1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=truck_lease_report.xlsx');
+ filename=truck_lease_report.xlsx');
     wb.xlsx.write(res).then(() => res.end());
   }));
 

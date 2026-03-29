@@ -294,9 +294,8 @@ module.exports = (database) => {
 
     const doc = new PDFDocument({ size: 'A5', margin: 25 });
       registerFonts(doc);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=hemali_receipt_${p.id.substring(0,8)}.pdf`);
-    doc.pipe(res);
+ filename=hemali_receipt_${p.id.substring(0,8)}.pdf`);
+    // PDF will be sent via safePdfPipe
 
     // Header
     doc.fontSize(18).fillColor('#d97706').text('NAVKAR AGRO', { align: 'center' });
@@ -363,12 +362,12 @@ module.exports = (database) => {
     doc.moveDown(1);
     doc.fontSize(6).fillColor('#6b7280').text('This is a computer generated receipt', { align: 'center' });
 
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   // ============ MONTHLY SUMMARY PDF ============
   router.get('/api/hemali/monthly-summary/pdf', safeHandler(async (req, res) => {
-    const { addPdfHeader, registerFonts, F } = require('./pdf_helpers');
+    const { addPdfHeader, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
     const { kms_year, season, sardar_name, month } = req.query;
     let payments = filterByFy(col('hemali_payments'), kms_year, season);
     if (sardar_name) payments = payments.filter(p => p.sardar_name === sardar_name);
@@ -392,9 +391,8 @@ module.exports = (database) => {
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=hemali_monthly_summary.pdf');
-    doc.pipe(res);
+ filename=hemali_monthly_summary.pdf');
+    // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Hemali Monthly Summary');
 
     for (const sn of Object.keys(sardars).sort()) {
@@ -421,7 +419,7 @@ module.exports = (database) => {
       });
       doc.y = y + 10;
     }
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   // ============ MONTHLY SUMMARY EXCEL ============
@@ -464,13 +462,13 @@ module.exports = (database) => {
     [12, 10, 14, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=hemali_monthly_summary.xlsx');
+ filename=hemali_monthly_summary.xlsx');
     res.send(Buffer.from(buf));
   }));
 
   // ============ PDF EXPORT ============
   router.get('/api/hemali/export/pdf', safeHandler(async (req, res) => {
-    const { addPdfHeader, registerFonts, F } = require('./pdf_helpers');
+    const { addPdfHeader, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
     const { kms_year, season, from_date, to_date, sardar_name } = req.query;
     let payments = filterByFy(col('hemali_payments'), kms_year, season).filter(p => p.status === 'paid');
     if (from_date) payments = payments.filter(p => p.date >= from_date);
@@ -480,9 +478,8 @@ module.exports = (database) => {
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename=hemali_payments.pdf');
-    doc.pipe(res);
+ filename=hemali_payments.pdf');
+    // PDF will be sent via safePdfPipe
 
     addPdfHeader(doc, 'Hemali Payment Report');
     const meta = [];
@@ -526,7 +523,7 @@ module.exports = (database) => {
     doc.fontSize(9).fillColor('#1e293b').text(`Total Payments: ${payments.length}`, startX + 8, y + 4);
     doc.text(`Grand Total: Rs.${grandTotal.toFixed(2)}  |  Total Paid: Rs.${grandPaid.toFixed(2)}`, startX + 8, y + 16);
 
-    doc.end();
+    await safePdfPipe(doc, res);
   }));
 
   // ============ EXCEL EXPORT ============
@@ -554,7 +551,7 @@ module.exports = (database) => {
 
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=hemali_payments.xlsx');
+ filename=hemali_payments.xlsx');
     res.send(Buffer.from(buf));
   }));
 
