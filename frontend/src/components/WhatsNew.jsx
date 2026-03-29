@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "54.1.0";
+const APP_VERSION = "54.2.0";
 
 const CHANGELOG = [
+  {
+    version: "54.2.0",
+    date: "29 Mar 2026",
+    title: "v54.2.0 - Direct Server Fetch Download",
+    items: [
+      { type: "fix", text: "PDF/Excel download: Main process directly server se fetch karke disk par save karta hai - binary data IPC se nahi jaata" },
+      { type: "fix", text: "Save dialog guaranteed dikhega aur file valid hogi" },
+    ]
+  },
   {
     version: "54.1.0",
     date: "29 Mar 2026",

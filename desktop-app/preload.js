@@ -27,8 +27,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startDownload: () => ipcRenderer.send('start-update-download'),
   installUpdate: () => ipcRenderer.send('install-update'),
   dismissUpdate: () => ipcRenderer.send('dismiss-update'),
-  // File save IPC - for POST-based downloads where window.open() won't work
-  saveFile: (arrayBuffer, filename, mimeType) => ipcRenderer.invoke('save-file', arrayBuffer, filename, mimeType),
+  // File download IPC - main process fetches directly from local server (no binary data over IPC)
+  downloadAndSave: (url, filename) => ipcRenderer.invoke('download-and-save', url, filename),
 });
 
 // Fix typing issue: detect when keyboard stops working and force focus

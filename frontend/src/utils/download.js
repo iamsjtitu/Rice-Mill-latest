@@ -6,32 +6,30 @@ const API = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 /**
  * Universal file download (GET) - works in Browser + Electron
  *
- * ELECTRON: Fetches binary data via axios → IPC saveFile → main process shows Save dialog → writes to disk
+ * ELECTRON: Sends URL to main process via IPC → main process fetches from local server
+ *           → shows native Save dialog → writes to disk → auto-opens file
  * BROWSER:  Fetches as blob → anchor tag download
  */
 export const downloadFile = async (url, filename) => {
   const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
+  const finalName = filename || guessFilename(url, '');
 
   if (_isElectron) {
-    try {
-      const res = await axios.get(fullUrl, { responseType: 'arraybuffer' });
-      const contentType = res.headers['content-type'] || 'application/octet-stream';
-      const finalName = filename || guessFilename(url, contentType);
-      if (window.electronAPI && window.electronAPI.saveFile) {
-        await window.electronAPI.saveFile(res.data, finalName, contentType);
-      } else {
-        // Fallback: blob + anchor
-        _saveBlobBrowser(res.data, contentType, finalName);
+    if (window.electronAPI && window.electronAPI.downloadAndSave) {
+      const result = await window.electronAPI.downloadAndSave(fullUrl, finalName);
+      if (result && !result.success && result.reason !== 'cancelled') {
+        console.error('IPC download failed:', result.reason);
       }
-    } catch (e) {
-      console.error('Electron download failed:', e);
+    } else {
+      // Fallback for older Electron builds without IPC
+      window.open(fullUrl, '_blank');
     }
     return;
   }
 
   try {
     const res = await axios.get(fullUrl, { responseType: 'blob' });
-    _saveBlobBrowser(res.data, res.headers['content-type'], filename || guessFilename(url, res.headers['content-type']));
+    _saveBlobBrowser(res.data, res.headers['content-type'], finalName);
   } catch (e) {
     console.error('Download failed, trying direct open:', e);
     window.open(fullUrl, '_blank');
@@ -40,21 +38,20 @@ export const downloadFile = async (url, filename) => {
 
 /**
  * Universal file download (POST) - for exports that send data in body
- *
- * ELECTRON: Fetches blob → IPC save-file → native Save dialog → writes to disk
- * BROWSER:  Fetches blob → anchor tag download
+ * ELECTRON + BROWSER: Fetches blob → saves via IPC or anchor
  */
 export const downloadPost = async (url, body, filename) => {
   const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
+  const finalName = filename || guessFilename(url, '');
 
   try {
-    const res = await axios.post(fullUrl, body, { responseType: 'blob' });
+    const res = await axios.post(fullUrl, body, { responseType: 'arraybuffer' });
     const contentType = res.headers['content-type'] || 'application/octet-stream';
-    const finalName = filename || guessFilename(url, contentType);
 
-    if (_isElectron && window.electronAPI && window.electronAPI.saveFile) {
-      const arrayBuffer = await res.data.arrayBuffer();
-      await window.electronAPI.saveFile(arrayBuffer, finalName, contentType);
+    if (_isElectron && window.electronAPI && window.electronAPI.downloadAndSave) {
+      // For POST: write temp file on server, then use IPC to save
+      // Fallback: use blob approach
+      _saveBlobBrowser(new Blob([res.data], { type: contentType }), contentType, finalName);
       return;
     }
 

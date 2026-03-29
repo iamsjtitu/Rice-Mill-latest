@@ -1786,24 +1786,57 @@ async function createMainWindow(port) {
     }
   });
 
-  // IPC: Save file with native Save-As dialog (for POST-based downloads)
-  ipcMain.handle('save-file', async (event, arrayBuffer, filename, mimeType) => {
+  // IPC: Download file - main process fetches from local server directly, shows Save dialog, writes to disk
+  ipcMain.handle('download-and-save', async (event, url, filename) => {
     try {
+      // Build full URL to local Express server
+      const activePort = server ? server.address().port : DESKTOP_API_PORT;
+      let fullUrl = url;
+      if (!url.startsWith('http')) {
+        fullUrl = `http://127.0.0.1:${activePort}${url}`;
+      }
+      console.log('[IPC download-and-save] Fetching:', fullUrl);
+
+      // Fetch binary data directly from local server using Node.js http
+      const http = require('http');
+      const data = await new Promise((resolve, reject) => {
+        http.get(fullUrl, (resp) => {
+          const chunks = [];
+          resp.on('data', chunk => chunks.push(chunk));
+          resp.on('end', () => resolve({ buffer: Buffer.concat(chunks), contentType: resp.headers['content-type'] || '' }));
+          resp.on('error', reject);
+        }).on('error', reject);
+      });
+
+      if (!data.buffer || data.buffer.length < 100) {
+        console.error('[IPC download-and-save] Empty or tiny response:', data.buffer.length);
+        return { success: false, reason: 'Empty response from server' };
+      }
+
+      // Determine file extension and filter
       const ext = filename.split('.').pop() || '*';
-      const filterName = mimeType && mimeType.includes('pdf') ? 'PDF Files' : mimeType && (mimeType.includes('spreadsheet') || mimeType.includes('excel')) ? 'Excel Files' : 'Files';
+      const isPdf = ext === 'pdf' || data.contentType.includes('pdf');
+      const isExcel = ext === 'xlsx' || data.contentType.includes('spreadsheet') || data.contentType.includes('excel');
+      const filterName = isPdf ? 'PDF Files' : isExcel ? 'Excel Files' : 'Files';
+
       const downloadsDir = app.getPath('downloads');
       const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
         defaultPath: path.join(downloadsDir, filename),
         filters: [{ name: filterName, extensions: [ext] }, { name: 'All Files', extensions: ['*'] }]
       });
-      if (canceled || !filePath) return { success: false, reason: 'cancelled' };
+
+      if (canceled || !filePath) {
+        console.log('[IPC download-and-save] Cancelled by user');
+        return { success: false, reason: 'cancelled' };
+      }
+
       const fs = require('fs');
-      fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
-      console.log('[IPC save-file] Saved:', filePath);
+      fs.writeFileSync(filePath, data.buffer);
+      console.log('[IPC download-and-save] Saved:', filePath, 'Size:', data.buffer.length);
       shell.openPath(filePath);
       return { success: true, path: filePath };
     } catch (e) {
-      console.error('[IPC save-file] Error:', e);
+      console.error('[IPC download-and-save] Error:', e.message);
       return { success: false, reason: e.message };
     }
   });
