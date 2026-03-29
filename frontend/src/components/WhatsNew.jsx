@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "54.0.0";
+const APP_VERSION = "54.1.0";
 
 const CHANGELOG = [
+  {
+    version: "54.1.0",
+    date: "29 Mar 2026",
+    title: "v54.1.0 - IPC Direct File Save",
+    items: [
+      { type: "fix", text: "PDF/Excel download ab IPC se directly disk par write hota hai - no more corrupt files" },
+      { type: "fix", text: "WhatsApp Party Ledger PDF ab internally generate hota hai (same as download)" },
+    ]
+  },
   {
     version: "54.0.0",
     date: "29 Mar 2026",
