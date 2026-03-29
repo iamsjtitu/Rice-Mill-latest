@@ -3,7 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const { safeHandler } = require('./safe_handler');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
-const { safePdfPipe } = require('./pdf_helpers');
+const { safePdfPipe, addPdfHeader, registerFonts } = require('./pdf_helpers');
 
 module.exports = (database) => {
   const router = express.Router();

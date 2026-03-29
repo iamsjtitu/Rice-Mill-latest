@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "54.5.0";
+const APP_VERSION = "54.6.0";
 
 const CHANGELOG = [
+  {
+    version: "54.6.0",
+    date: "29 Mar 2026",
+    title: "v54.6.0 - Complete PDF Import Fix (All Routes)",
+    items: [
+      { type: "fix", text: "Hemali, Mill Parts, Season PnL, Staff, CashBook, Exports, Purchase Vouchers, Reports PnL - sab PDF routes fix" },
+      { type: "fix", text: "EVERY route file scanned: zero missing function imports across Desktop + Local Server" },
+    ]
+  },
   {
     version: "54.5.0",
     date: "29 Mar 2026",
