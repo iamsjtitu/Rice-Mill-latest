@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "51.3.0";
+const APP_VERSION = "51.4.0";
 
 const CHANGELOG = [
+  {
+    version: "51.4.0",
+    date: "29 Mar 2026",
+    title: "v51.4.0 - GST Invoice Generator",
+    items: [
+      { type: "new", text: "GST Invoice Generator - Vouchers tab mein naya subtab" },
+      { type: "new", text: "Invoice CRUD - Create, Edit, Delete + PDF Download + WhatsApp Send" },
+      { type: "new", text: "GST Company Settings - Settings tab mein company details for invoice" },
+      { type: "new", text: "Rice + Byproduct items with HSN codes, CGST/SGST/IGST auto-calculation" },
+    ]
+  },
   {
     version: "51.3.0",
     date: "29 Mar 2026",
