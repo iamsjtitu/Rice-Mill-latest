@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "54.2.0";
+const APP_VERSION = "54.3.0";
 
 const CHANGELOG = [
+  {
+    version: "54.3.0",
+    date: "29 Mar 2026",
+    title: "v54.3.0 - Download Robust Fallback",
+    items: [
+      { type: "fix", text: "IPC fail hone par window.open fallback guaranteed kaam karega" },
+      { type: "fix", text: "Console logging added for debugging download issues" },
+    ]
+  },
   {
     version: "54.2.0",
     date: "29 Mar 2026",

@@ -15,15 +15,22 @@ export const downloadFile = async (url, filename) => {
   const finalName = filename || guessFilename(url, '');
 
   if (_isElectron) {
-    if (window.electronAPI && window.electronAPI.downloadAndSave) {
-      const result = await window.electronAPI.downloadAndSave(fullUrl, finalName);
-      if (result && !result.success && result.reason !== 'cancelled') {
-        console.error('IPC download failed:', result.reason);
+    // Method 1: IPC - main process fetches and saves directly
+    if (window.electronAPI && typeof window.electronAPI.downloadAndSave === 'function') {
+      try {
+        console.log('[downloadFile] IPC downloadAndSave:', fullUrl, finalName);
+        const result = await window.electronAPI.downloadAndSave(fullUrl, finalName);
+        console.log('[downloadFile] IPC result:', JSON.stringify(result));
+        if (result && result.success) return;
+        if (result && result.reason === 'cancelled') return;
+        console.warn('[downloadFile] IPC failed, falling back to window.open');
+      } catch (ipcErr) {
+        console.error('[downloadFile] IPC error:', ipcErr);
       }
-    } else {
-      // Fallback for older Electron builds without IPC
-      window.open(fullUrl, '_blank');
     }
+    // Method 2: Fallback - window.open triggers setWindowOpenHandler → downloadURL
+    console.log('[downloadFile] Using window.open fallback:', fullUrl);
+    window.open(fullUrl, '_blank');
     return;
   }
 
