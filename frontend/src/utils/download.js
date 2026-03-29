@@ -10,6 +10,15 @@ const API = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 export const downloadFile = async (url, filename) => {
   try {
     const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
+    
+    if (_isElectron) {
+      // In Electron, use window.open - Electron's setWindowOpenHandler 
+      // intercepts this and uses downloadURL for proper save-as dialog
+      window.open(fullUrl, '_blank');
+      return;
+    }
+    
+    // Browser - use blob download
     const res = await axios.get(fullUrl, { responseType: 'blob' });
     const blob = new Blob([res.data]);
     const blobUrl = window.URL.createObjectURL(blob);
@@ -19,10 +28,10 @@ export const downloadFile = async (url, filename) => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    window.URL.revokeObjectURL(blobUrl);
+    // Delay revoke to ensure download completes
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 30000);
   } catch (e) {
     console.error('Download failed:', e);
-    // Fallback: try window.open
     const fullUrl = url.startsWith('http') ? url : `${API}${url}`;
     window.open(fullUrl, '_blank');
   }

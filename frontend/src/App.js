@@ -130,7 +130,7 @@ const safePrintHTML = (htmlContent) => {
         a.href = url; a.download = 'print.html';
         document.body.appendChild(a); a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
       }
     } else {
       // Browser: use iframe approach
@@ -152,7 +152,7 @@ const safePrintHTML = (htmlContent) => {
     a.href = url; a.download = 'print.html';
     document.body.appendChild(a); a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
 };
 

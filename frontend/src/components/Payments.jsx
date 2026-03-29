@@ -38,7 +38,7 @@ const safePrintHTML = (htmlContent) => {
     if (_isElectronEnv) {
       const w = window.open('', '_blank', 'width=900,height=700');
       if (w) { w.document.open(); w.document.write(htmlContent); w.document.close(); w.onload = () => w.focus(); }
-      else { const b = new Blob([htmlContent], {type:'text/html'}); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href=u; a.download='print.html'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u); }
+      else { const b = new Blob([htmlContent], {type:'text/html'}); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href=u; a.download='print.html'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(u), 30000); }
     } else {
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
@@ -59,7 +59,7 @@ const safePrintHTML = (htmlContent) => {
     a.href = url; a.download = 'print.html';
     document.body.appendChild(a); a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
 };
 

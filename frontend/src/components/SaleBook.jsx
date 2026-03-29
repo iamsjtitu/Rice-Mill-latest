@@ -207,7 +207,7 @@ export default function SaleBook({ filters, user }) {
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a'); a.href = url;
       a.download = `sale_book_${new Date().toISOString().split('T')[0]}.xlsx`;
-      a.click(); window.URL.revokeObjectURL(url);
+      a.click(); setTimeout(() => window.URL.revokeObjectURL(url), 30000);
       toast.success("Excel export ho gaya!");
     } catch { toast.error("Excel export failed"); }
   };

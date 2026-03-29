@@ -94,7 +94,7 @@ const DCEntries = ({ filters, user }) => {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
       const res = await axios.get(`${API}/dc-entries/${format}?${p}`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url;
-      a.download = `dc_register.${format === 'excel' ? 'xlsx' : 'pdf'}`; a.click(); window.URL.revokeObjectURL(url);
+      a.download = `dc_register.${format === 'excel' ? 'xlsx' : 'pdf'}`; a.click(); setTimeout(() => window.URL.revokeObjectURL(url), 30000);
     } catch (e) { toast.error("Export failed"); }
   };
 

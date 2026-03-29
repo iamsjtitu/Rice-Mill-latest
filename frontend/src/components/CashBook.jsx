@@ -226,6 +226,7 @@ const CashBook = ({ filters, user }) => {
 
   const exportData = async (format) => {
     try {
+      const { downloadFile } = await import('../utils/download');
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
@@ -240,11 +241,8 @@ const CashBook = ({ filters, user }) => {
       if (txnFilters.party_type) params.append('party_type', txnFilters.party_type);
       if (txnFilters.date_from) params.append('date_from', txnFilters.date_from);
       if (txnFilters.date_to) params.append('date_to', txnFilters.date_to);
-      const res = await axios.get(`${API}/cash-book/${format}?${params}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a'); a.href = url;
-      a.download = `cash_book.${format === 'excel' ? 'xlsx' : 'pdf'}`;
-      a.click(); window.URL.revokeObjectURL(url);
+      const fname = `cash_book.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      await downloadFile(`/api/cash-book/${format}?${params}`, fname);
       toast.success(`${format.toUpperCase()} export ho gaya!`);
     } catch (e) { toast.error("Export failed"); }
   };

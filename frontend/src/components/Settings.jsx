@@ -1041,7 +1041,7 @@ function DataTab({ user }) {
                   document.body.appendChild(a);
                   a.click();
                   a.remove();
-                  window.URL.revokeObjectURL(url);
+                  setTimeout(() => window.URL.revokeObjectURL(url), 30000);
                   toast.success("Backup ZIP download ho gaya!");
                 } catch (e) { toast.error("Download fail: " + e.message); }
                 finally { setBackupLoading(false); }

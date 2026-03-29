@@ -130,7 +130,7 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a'); a.href = url;
       a.download = `milling_report.${format === 'excel' ? 'xlsx' : 'pdf'}`;
-      a.click(); window.URL.revokeObjectURL(url);
+      a.click(); setTimeout(() => window.URL.revokeObjectURL(url), 30000);
       toast.success(`${format.toUpperCase()} export ho gaya!`);
     } catch (error) { toast.error("Export failed"); }
   };

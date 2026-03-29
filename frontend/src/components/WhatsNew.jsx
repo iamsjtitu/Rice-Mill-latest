@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "53.4.0";
+const APP_VERSION = "53.5.0";
 
 const CHANGELOG = [
+  {
+    version: "53.5.0",
+    date: "29 Mar 2026",
+    title: "v53.5.0 - PDF Save Fix (Electron)",
+    items: [
+      { type: "fix", text: "PDF/Excel download ab Electron mein sahi se save hoga" },
+      { type: "fix", text: "Cash Book export fix - downloadFile utility se sahi download" },
+      { type: "fix", text: "Sabhi components mein blob revoke delay fix (30s timeout)" },
+      { type: "fix", text: "24 addPdfHeader calls restore - PDF mein company header wapas aayega" },
+    ]
+  },
   {
     version: "53.4.0",
     date: "29 Mar 2026",
