@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "54.3.0";
+const APP_VERSION = "54.4.0";
 
 const CHANGELOG = [
+  {
+    version: "54.4.0",
+    date: "29 Mar 2026",
+    title: "v54.4.0 - Electron Net Module Download",
+    items: [
+      { type: "fix", text: "Download: Electron net.request (Chromium stack) use kiya - http.get replace kiya jo empty response de raha tha" },
+      { type: "fix", text: "Timeout 120s, status code check, detailed logging" },
+    ]
+  },
   {
     version: "54.3.0",
     date: "29 Mar 2026",

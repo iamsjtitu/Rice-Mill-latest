@@ -1797,19 +1797,35 @@ async function createMainWindow(port) {
       }
       console.log('[IPC download-and-save] Fetching:', fullUrl);
 
-      // Fetch binary data directly from local server using Node.js http
-      const http = require('http');
+      // Use Electron's net module (Chromium networking stack) for reliable local server fetch
+      const { net } = require('electron');
       const data = await new Promise((resolve, reject) => {
-        http.get(fullUrl, (resp) => {
+        const request = net.request(fullUrl);
+        request.on('response', (response) => {
+          const statusCode = response.statusCode;
+          const contentType = response.headers['content-type'] ? response.headers['content-type'][0] || response.headers['content-type'] : '';
+          console.log('[IPC download-and-save] Status:', statusCode, 'Content-Type:', contentType);
+          
+          if (statusCode !== 200) {
+            reject(new Error(`Server returned status ${statusCode}`));
+            return;
+          }
+          
           const chunks = [];
-          resp.on('data', chunk => chunks.push(chunk));
-          resp.on('end', () => resolve({ buffer: Buffer.concat(chunks), contentType: resp.headers['content-type'] || '' }));
-          resp.on('error', reject);
-        }).on('error', reject);
+          response.on('data', (chunk) => { chunks.push(chunk); });
+          response.on('end', () => {
+            const buffer = Buffer.concat(chunks);
+            console.log('[IPC download-and-save] Received:', buffer.length, 'bytes');
+            resolve({ buffer, contentType });
+          });
+          response.on('error', (err) => { reject(err); });
+        });
+        request.on('error', (err) => { reject(err); });
+        request.end();
       });
 
-      if (!data.buffer || data.buffer.length < 100) {
-        console.error('[IPC download-and-save] Empty or tiny response:', data.buffer.length);
+      if (!data.buffer || data.buffer.length === 0) {
+        console.error('[IPC download-and-save] Empty response');
         return { success: false, reason: 'Empty response from server' };
       }
 
