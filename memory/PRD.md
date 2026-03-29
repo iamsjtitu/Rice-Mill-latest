@@ -3,34 +3,26 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI backend (MongoDB), and Electron/Express desktop app (local JSON storage). Requires highly accurate double-entry accounting ledgers, advanced reporting, and offline-first desktop capabilities.
 
-## Core Requirements
-- Triple backend parity: Python (web), Desktop JS (Electron), Local Server JS
-- Double-entry accounting for all financial transactions
-- Stock management with milling operations
-- PDF generation and WhatsApp sharing
-- GST Tax Invoice support integrated into Sale Vouchers
-
 ## Current Version: v53.7.0
 
 ## Architecture
 ```
 /app
 ├── backend/          # Python FastAPI + MongoDB
+│   └── routes/
+│       ├── ledgers.py     # _generate_party_ledger_pdf_bytes() shared function
+│       └── whatsapp.py    # Calls shared function directly (no HTTP self-call)
 ├── desktop-app/      # Electron + Express + Local JSON
-│   ├── main.js       # Download handlers (setWindowOpenHandler + will-download)
-│   ├── preload.js    # Context bridge for renderer
+│   ├── main.js       # setWindowOpenHandler + will-download + IPC save-file
+│   ├── preload.js    # saveFile IPC exposed to renderer
 │   └── routes/
 ├── local-server/     # Express + Local JSON (LAN access)
-├── frontend/         # React (shared across all backends)
+├── frontend/
 │   └── src/
 │       ├── utils/
-│       │   └── download.js  # Universal download: window.open (Electron) / blob (Browser)
-│       ├── App.js
-│       └── components/
-│           ├── Settings.jsx
-│           ├── CashBook.jsx
-│           ├── Ledgers.jsx
-│           └── WhatsNew.jsx
+│       │   └── download.js  # downloadFile (GET: window.open/Electron, blob/Browser)
+│       │                     # downloadPost (POST: IPC save/Electron, blob/Browser)
+│       └── components/       # ALL exports now use downloadFile/downloadPost
 ```
 
 ## What's Been Implemented
@@ -40,28 +32,24 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - PDF export + WhatsApp sharing via 360Messenger + tmpfiles.org
 - GST Company Settings, Per-item GST in Sale Vouchers
 - Tax Invoice PDF with Company GSTIN header and tax breakup
-- WhatsApp direct PDF send for Sale Vouchers
-- GST Summary dialog (HSN-wise tax breakup)
 - Daily Reports with WhatsApp PDF attachments
 - Opening Balances management, FY Summary and Dashboard
 - Auto-updater for desktop app via GitHub Actions
-- safePdfPipe for Desktop/Local PDF generation (no stream crashes)
 - Settings page organized into sub-tabs (Branding, GST, Stock, Messaging, Data)
 
 ## Completed in v53.7.0 (29 Mar 2026)
-- **CRITICAL FIX**: Electron PDF/Excel download now works via window.open → setWindowOpenHandler → downloadURL → native save dialog
-- **FIX**: WhatsApp tmpfiles.org PDF URL changed from HTTP to HTTPS in Python backend (was sending http:// links which may fail)
-- **FIX**: Electron main.js `will-download` handler simplified to let Electron show native save dialog
-- download.js rewritten: Electron uses window.open(), Browser uses blob+anchor approach
-
-## Completed in v53.6.0 (29 Mar 2026)
-- WhatsApp Party Ledger PDF parity fix (uses same endpoint as download)
-
-## Completed in v53.0.0 (29 Mar 2026)
-- Settings page refactored into sub-tabs (extracted from App.js into Settings.jsx)
-- CRITICAL FIX: Fixed 156 corrupted Content-Disposition headers across Desktop/Local backends
-- Fixed 74 double backtick issues, 82 trailing single quote corruptions
-- Made 446 safeSync callbacks async
+- **CRITICAL**: ALL inline blob downloads migrated to centralized downloadFile() utility
+  - Reports.jsx (CMR vs DC, Season PNL, Agent Mandi)
+  - DCTracker.jsx (DC Register, MSP Payments, Gunny Bags, Gunny Purchase Report)
+  - MillingTracker.jsx (Milling Report, FRK, Byproduct Sales, Paddy Custody Register)
+  - SaleBook.jsx (PDF + Excel export)
+  - StaffManagement.jsx (Advance Ledger - uses downloadPost for POST)
+  - Payments.jsx (Diesel Account Excel + PDF)
+  - LocalPartyAccount.jsx (PDF + Excel)
+- **CRITICAL**: Electron download now works via window.open → setWindowOpenHandler → downloadURL → native save dialog
+- **CRITICAL**: Added IPC save-file handler (preload.js + main.js) for POST-based exports in Electron
+- **FIX**: WhatsApp Party Ledger PDF now generated internally via shared _generate_party_ledger_pdf_bytes() (no HTTP self-call that failed due to DNS issues)
+- **FIX**: tmpfiles.org URL changed from http:// to https:// in Python backend
 
 ## Prioritized Backlog
 ### P1
@@ -69,10 +57,6 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 
 ### P2
 - GSTR-1 Export (monthly HSN-wise summary Excel for GST portal upload)
-- Code deduplication across Desktop and Local server backends
+- Code deduplication across Desktop and Local server JS backends
 - Payment logic centralization into service layer
 - Centralize stock calculation logic
-
-## Known Issues
-- Many frontend components have inline blob downloads (not using downloadFile utility) that may still fail in Electron — gradual migration needed
-- Accessibility: Missing aria-describedby on some Dialog components (pre-existing)
