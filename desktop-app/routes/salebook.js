@@ -266,24 +266,53 @@ module.exports = function(database) {
   // PDF export
   router.get('/api/sale-book/export/pdf', safeHandler(async (req, res) => {
     ensure();
+    const { addPdfHeader, addPdfTable, addTotalsRow, fmtAmt, safePdfPipe } = require('./pdf_helpers');
     let vouchers = [...database.data.sale_vouchers];
     const { kms_year, season } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
     vouchers.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    const settings = database.data.settings || {};
-    const company = settings.mill_name || 'NAVKAR AGRO';
-    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sale Book</title><style>body{font-family:Arial;margin:10px;font-size:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 5px;text-align:left}th{background:#1a365d;color:#fff;font-size:9px}.r{text-align:right}.b{font-weight:bold}.amt{font-family:monospace}.total-row{background:#f0f0f0;font-weight:bold}.c{text-align:center}h2{margin:5px 0}@media print{body{margin:0}}</style></head><body><h2 style="text-align:center">${company} - Sale Book</h2>
-    <table><tr><th class="c">No.</th><th>Date</th><th>Inv No.</th><th>Party</th><th>Items</th><th>Truck/RST</th><th>E-Way Bill</th><th class="r">Subtotal</th><th class="r">GST</th><th class="r">Total</th><th class="r">Advance</th><th class="r">Cash</th><th class="r">Diesel</th><th class="r">Balance</th></tr>`;
-    const g = { sub: 0, gst: 0, total: 0, adv: 0, cash: 0, diesel: 0, bal: 0 };
-    for (const v of vouchers) {
+
+    const branding = database.getBranding ? database.getBranding() : {};
+    const subtitleParts = ['Sale Book'];
+    if (kms_year) subtitleParts.push(`FY: ${kms_year}`);
+    if (season) subtitleParts.push(season);
+
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+
+    addPdfHeader(doc, subtitleParts.join(' | '), branding);
+
+    const headers = ['#', 'Date', 'Inv', 'Party', 'Items', 'Truck/RST', 'Total', 'Adv', 'Cash', 'Diesel', 'Balance', 'Status'];
+    const colW = [30, 52, 40, 70, 150, 60, 55, 45, 45, 45, 55, 45];
+
+    const g = { total: 0, adv: 0, cash: 0, diesel: 0, bal: 0 };
+    const rows = vouchers.map(v => {
       const itemsStr = (v.items || []).map(i => `${i.item_name}(${i.quantity}Q)`).join(', ');
-      const gst = (v.cgst_amount || 0) + (v.sgst_amount || 0) + (v.igst_amount || 0);
-      g.sub += v.subtotal || 0; g.gst += gst; g.total += v.total || 0; g.adv += v.advance || 0; g.cash += v.cash_paid || 0; g.diesel += v.diesel_paid || 0; g.bal += v.balance || 0;
-      html += `<tr><td class="c">#${v.voucher_no||''}</td><td>${v.date||''}</td><td>${v.invoice_no||''}</td><td class="b">${v.party_name||''}</td><td>${itemsStr}</td><td>${v.truck_no||''}${v.rst_no ? '/'+v.rst_no : ''}</td><td>${v.eway_bill_no||''}</td><td class="r amt">${v.subtotal||0}</td><td class="r amt">${Math.round(gst)}</td><td class="r amt b">${v.total||0}</td><td class="r amt">${v.advance||0}</td><td class="r amt">${v.cash_paid||0}</td><td class="r amt">${v.diesel_paid||0}</td><td class="r amt b">${v.balance||0}</td></tr>`;
-    }
-    html += `<tr class="total-row"><td colspan="7" class="b">TOTAL (${vouchers.length})</td><td class="r">${Math.round(g.sub)}</td><td class="r">${Math.round(g.gst)}</td><td class="r">${Math.round(g.total)}</td><td class="r">${Math.round(g.adv)}</td><td class="r">${Math.round(g.cash)}</td><td class="r">${Math.round(g.diesel)}</td><td class="r">${Math.round(g.bal)}</td></tr></table></body></html>`;
-    res.type('html').send(html);
+      const total = v.total || 0;
+      const adv = v.advance || 0;
+      const cash = v.cash_paid || 0;
+      const diesel = v.diesel_paid || 0;
+      const balance = v.balance || 0;
+      g.total += total; g.adv += adv; g.cash += cash; g.diesel += diesel; g.bal += balance;
+      const status = balance <= 0 && total > 0 ? 'Paid' : 'Pending';
+      const dp = String(v.date || '').split('-');
+      const fd = dp.length === 3 ? `${dp[2]}/${dp[1]}/${dp[0]}` : (v.date || '');
+      const truck = v.truck_no ? `${v.truck_no}${v.rst_no ? '/' + v.rst_no : ''}` : '';
+      return [
+        `#${v.voucher_no || ''}`, fd, v.invoice_no || '', v.party_name || '',
+        itemsStr, truck, fmtAmt(total), fmtAmt(adv), fmtAmt(cash),
+        fmtAmt(diesel), fmtAmt(balance), status
+      ];
+    });
+
+    addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
+    addTotalsRow(doc, [
+      `TOTAL (${vouchers.length})`, '', '', '', '', '',
+      fmtAmt(Math.round(g.total)), fmtAmt(Math.round(g.adv)), fmtAmt(Math.round(g.cash)),
+      fmtAmt(Math.round(g.diesel)), fmtAmt(Math.round(g.bal)), ''
+    ], colW, { fontSize: 6.5 });
+
+    await safePdfPipe(doc, res, `sale_book_${Date.now()}.pdf`);
   }));
 
   // Excel export

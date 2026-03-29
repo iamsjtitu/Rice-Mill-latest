@@ -4,7 +4,7 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtDate , safePdfPipe} = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtDate, fmtAmt: pFmt, safePdfPipe} = require('./pdf_helpers');
 const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../shared/report_helper');
 
