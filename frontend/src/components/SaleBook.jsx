@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2, CheckSquare, Receipt } from "lucide-react";
+import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2, CheckSquare, Receipt, Send } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
@@ -269,6 +269,43 @@ export default function SaleBook({ filters, user }) {
     } catch { toast.error("Delete error"); }
   };
 
+  // WhatsApp Sale Voucher Send
+  const [waSending, setWaSending] = useState(null);
+  const handleWhatsAppSend = async (v) => {
+    setWaSending(v.id);
+    try {
+      let waSettings = {};
+      try { waSettings = (await axios.get(`${API}/whatsapp/settings`)).data; } catch(e) { waSettings = {}; }
+      let phone = "";
+      const defNums = waSettings.default_numbers || [];
+      if (!defNums.length) {
+        phone = prompt("WhatsApp number daalein (default numbers set nahi hain):");
+        if (!phone) { setWaSending(null); return; }
+      }
+      const res = await axios.post(`${API}/sale-book/${v.id}/whatsapp-send`, { phone });
+      if (res.data.success) toast.success(res.data.message || "WhatsApp pe bhej diya!");
+      else toast.error(res.data.error || "WhatsApp send fail");
+    } catch(e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.message)); }
+    finally { setWaSending(null); }
+  };
+
+  // GST Summary: HSN-wise tax breakup
+  const [gstSummaryVoucher, setGstSummaryVoucher] = useState(null);
+  const buildGstSummary = (voucher) => {
+    if (!voucher || voucher.gst_type === 'none') return [];
+    const hsnMap = {};
+    (voucher.items || []).forEach(item => {
+      const hsn = item.hsn_code || 'N/A';
+      const gstPct = item.gst_percent || 0;
+      const key = `${hsn}__${gstPct}`;
+      if (!hsnMap[key]) hsnMap[key] = { hsn, gst_percent: gstPct, taxable: 0, gst_amount: 0 };
+      const amt = (item.quantity || 0) * (item.rate || 0);
+      hsnMap[key].taxable += amt;
+      hsnMap[key].gst_amount += (item.gst_amount || amt * gstPct / 100);
+    });
+    return Object.values(hsnMap);
+  };
+
   return (
     <div className="space-y-4" data-testid="sale-book">
       {/* Header */}
@@ -366,7 +403,7 @@ export default function SaleBook({ filters, user }) {
                   <TableCell className={`font-bold text-xs text-right ${(v.ledger_balance != null ? v.ledger_balance : (v.balance || 0)) > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                     Rs.{(v.ledger_balance != null ? v.ledger_balance : (v.balance || 0))?.toLocaleString('en-IN')}
                   </TableCell>
-                  <TableCell className="flex gap-1">
+                  <TableCell className="flex gap-1 flex-wrap">
                     {(v.ledger_balance != null ? v.ledger_balance : (v.balance || 0)) <= 0 && (v.total || 0) > 0 ? (
                       <>
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" data-testid={`sv-paid-badge-${v.id}`}>Paid</span>
@@ -387,9 +424,17 @@ export default function SaleBook({ filters, user }) {
                         </Button>
                       </>
                     )}
+                    <Button variant="ghost" size="sm" onClick={() => handleWhatsAppSend(v)} disabled={waSending === v.id} className="text-green-400 hover:text-green-300 h-6 w-6 p-0" title="WhatsApp Send" data-testid={`sv-whatsapp-${v.id}`}>
+                      <Send className="w-3 h-3" />
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => handlePrintInvoice(v)} className="text-purple-400 hover:text-purple-300 h-6 w-6 p-0" title="Print Invoice" data-testid={`sv-print-${v.id}`}>
                       <Printer className="w-3 h-3" />
                     </Button>
+                    {v.gst_type && v.gst_type !== 'none' && (
+                      <Button variant="ghost" size="sm" onClick={() => setGstSummaryVoucher(v)} className="text-amber-400 hover:text-amber-300 h-6 w-6 p-0" title="GST Summary" data-testid={`sv-gst-summary-${v.id}`}>
+                        <Receipt className="w-3 h-3" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="sm" onClick={() => openEditForm(v)} className="text-blue-400 hover:text-blue-300 h-6 w-6 p-0" data-testid={`sv-edit-${v.id}`}>
                       <Edit className="w-3 h-3" />
                     </Button>
@@ -734,6 +779,78 @@ export default function SaleBook({ filters, user }) {
               <p className="text-slate-400 text-center py-4">Koi payment record nahi hai</p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* GST Summary Dialog - HSN-wise Tax Breakup */}
+      <Dialog open={!!gstSummaryVoucher} onOpenChange={() => setGstSummaryVoucher(null)}>
+        <DialogContent className="max-w-lg bg-slate-800 border-slate-700 text-white" data-testid="gst-summary-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <Receipt className="w-5 h-5" /> GST Summary - HSN Breakup
+            </DialogTitle>
+          </DialogHeader>
+          {gstSummaryVoucher && (
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm text-slate-300 border-b border-slate-600 pb-2">
+                <span>Party: {gstSummaryVoucher.party_name}</span>
+                <span>#{gstSummaryVoucher.voucher_no} | {fmtDate(gstSummaryVoucher.date)}</span>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-600">
+                    <TableHead className="text-amber-400 text-xs">HSN Code</TableHead>
+                    <TableHead className="text-amber-400 text-xs">GST%</TableHead>
+                    <TableHead className="text-amber-400 text-xs text-right">Taxable Amt</TableHead>
+                    {gstSummaryVoucher.gst_type === 'cgst_sgst' && <>
+                      <TableHead className="text-amber-400 text-xs text-right">CGST</TableHead>
+                      <TableHead className="text-amber-400 text-xs text-right">SGST</TableHead>
+                    </>}
+                    {gstSummaryVoucher.gst_type === 'igst' && (
+                      <TableHead className="text-amber-400 text-xs text-right">IGST</TableHead>
+                    )}
+                    <TableHead className="text-amber-400 text-xs text-right">Total Tax</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {buildGstSummary(gstSummaryVoucher).map((row, idx) => (
+                    <TableRow key={idx} className="border-slate-600">
+                      <TableCell className="text-white text-xs font-mono">{row.hsn}</TableCell>
+                      <TableCell className="text-slate-300 text-xs">{row.gst_percent}%</TableCell>
+                      <TableCell className="text-white text-xs text-right">Rs.{row.taxable.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</TableCell>
+                      {gstSummaryVoucher.gst_type === 'cgst_sgst' && <>
+                        <TableCell className="text-emerald-400 text-xs text-right">Rs.{(row.gst_amount / 2).toFixed(2)}</TableCell>
+                        <TableCell className="text-emerald-400 text-xs text-right">Rs.{(row.gst_amount / 2).toFixed(2)}</TableCell>
+                      </>}
+                      {gstSummaryVoucher.gst_type === 'igst' && (
+                        <TableCell className="text-emerald-400 text-xs text-right">Rs.{row.gst_amount.toFixed(2)}</TableCell>
+                      )}
+                      <TableCell className="text-amber-400 text-xs text-right font-bold">Rs.{row.gst_amount.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow className="border-slate-600 bg-slate-700/50">
+                    <TableCell colSpan={2} className="text-white text-xs font-bold">TOTAL</TableCell>
+                    <TableCell className="text-white text-xs text-right font-bold">
+                      Rs.{(gstSummaryVoucher.subtotal || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </TableCell>
+                    {gstSummaryVoucher.gst_type === 'cgst_sgst' && <>
+                      <TableCell className="text-emerald-400 text-xs text-right font-bold">Rs.{(gstSummaryVoucher.cgst_amount || 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-emerald-400 text-xs text-right font-bold">Rs.{(gstSummaryVoucher.sgst_amount || 0).toFixed(2)}</TableCell>
+                    </>}
+                    {gstSummaryVoucher.gst_type === 'igst' && (
+                      <TableCell className="text-emerald-400 text-xs text-right font-bold">Rs.{(gstSummaryVoucher.igst_amount || 0).toFixed(2)}</TableCell>
+                    )}
+                    <TableCell className="text-amber-400 text-xs text-right font-bold">
+                      Rs.{((gstSummaryVoucher.cgst_amount || 0) + (gstSummaryVoucher.sgst_amount || 0) + (gstSummaryVoucher.igst_amount || 0)).toFixed(2)}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+              <div className="text-right text-sm font-bold text-white pt-2 border-t border-slate-600">
+                Grand Total: Rs.{(gstSummaryVoucher.total || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

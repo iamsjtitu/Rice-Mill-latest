@@ -954,3 +954,223 @@ async def delete_opening_balance(entry_id: str, username: str = "", role: str = 
     if not existing: raise HTTPException(status_code=404, detail="Opening balance not found")
     await db.cash_transactions.delete_one({"id": entry_id})
     return {"message": "Opening balance deleted", "id": entry_id}
+
+
+# ============ WHATSAPP SALE VOUCHER SEND ============
+
+@router.post("/sale-book/{voucher_id}/whatsapp-send")
+async def whatsapp_send_sale_voucher(voucher_id: str, request: Request):
+    """Generate PDF, upload to tmpfiles.org, and send via WhatsApp."""
+    import httpx, io
+    body = await request.json()
+    phone = body.get("phone", "").strip()
+
+    v = await db.sale_vouchers.find_one({"id": voucher_id}, {"_id": 0})
+    if not v:
+        raise HTTPException(status_code=404, detail="Voucher not found")
+
+    branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
+    company = branding.get("company_name", "Mill Entry System")
+
+    # Build WhatsApp text message
+    gst_type = v.get('gst_type', 'none')
+    has_gst = gst_type != 'none'
+    date_str = v.get('date', '')
+    dp = date_str.split('-')
+    if len(dp) == 3:
+        date_str = f"{dp[2]}/{dp[1]}/{dp[0]}"
+
+    text = (
+        f"*{company}*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"*{'TAX INVOICE' if has_gst else 'SALE INVOICE'}*\n"
+        f"Voucher: #{v.get('voucher_no', '')}\n"
+        f"Date: {date_str}\n"
+    )
+    if v.get('invoice_no'):
+        text += f"Invoice No: {v['invoice_no']}\n"
+    text += f"━━━━━━━━━━━━━━━━\n"
+    text += f"Party: *{v.get('party_name', '')}*\n"
+    if v.get('buyer_gstin'):
+        text += f"GSTIN: {v['buyer_gstin']}\n"
+    text += f"━━━━━━━━━━━━━━━━\n"
+
+    for item in v.get('items', []):
+        qty = item.get('quantity', 0)
+        rate = item.get('rate', 0)
+        amt = round(qty * rate, 2)
+        text += f"{item.get('item_name', '')} | {qty}Q x Rs.{rate:,.0f} = Rs.{amt:,.0f}"
+        if has_gst and item.get('gst_percent'):
+            text += f" (+{item.get('gst_percent')}% GST)"
+        text += "\n"
+
+    text += f"━━━━━━━━━━━━━━━━\n"
+    text += f"Taxable: Rs.{v.get('subtotal', 0):,.2f}\n"
+    cgst = v.get('cgst_amount', 0)
+    sgst = v.get('sgst_amount', 0)
+    igst = v.get('igst_amount', 0)
+    if cgst > 0:
+        text += f"CGST: Rs.{cgst:,.2f}\n"
+    if sgst > 0:
+        text += f"SGST: Rs.{sgst:,.2f}\n"
+    if igst > 0:
+        text += f"IGST: Rs.{igst:,.2f}\n"
+    text += f"*Grand Total: Rs.{v.get('total', 0):,.2f}*\n"
+    if v.get('advance', 0) > 0:
+        text += f"Advance: Rs.{v.get('advance', 0):,.2f}\n"
+    text += f"*Balance: Rs.{v.get('balance', 0):,.2f}*\n"
+    text += f"\nThank you\n{company}"
+
+    # Generate PDF
+    from fastapi.responses import Response
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from utils.export_helpers import get_pdf_styles
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=10*mm, bottomMargin=10*mm)
+    elements = []
+    styles = get_pdf_styles()
+    blue = '#1a5276'
+
+    from utils.branding_helper import get_pdf_company_header_from_db as _gph
+    elements.extend(await _gph())
+
+    gst_co = await db.settings.find_one({"key": "gst_company"}, {"_id": 0}) or {}
+    co_gstin = gst_co.get("gstin", "")
+    co_state = gst_co.get("state_name", "")
+    co_state_code = gst_co.get("state_code", "")
+
+    if co_gstin:
+        gstin_s = ParagraphStyle('GS', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER, textColor=colors.HexColor('#333'))
+        elements.append(Paragraph(f"GSTIN: {co_gstin} | State: {co_state} ({co_state_code})", gstin_s))
+    elements.append(Spacer(1, 3*mm))
+
+    inv_title = ParagraphStyle('IT', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor(blue), alignment=TA_CENTER, spaceBefore=0, spaceAfter=2)
+    elements.append(Paragraph("TAX INVOICE" if has_gst else "SALE INVOICE", inv_title))
+
+    label_s = ParagraphStyle('L', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555'))
+    val_s = ParagraphStyle('V', parent=styles['Normal'], fontSize=9, fontName='FreeSansBold')
+    cell_s = ParagraphStyle('C', parent=styles['Normal'], fontSize=8, leading=11)
+    cell_r = ParagraphStyle('CR', parent=styles['Normal'], fontSize=8, leading=11, alignment=TA_RIGHT)
+    cell_rb = ParagraphStyle('CRB', parent=styles['Normal'], fontSize=9, leading=11, alignment=TA_RIGHT, fontName='FreeSansBold')
+    hd_s = ParagraphStyle('H', parent=styles['Normal'], fontSize=8, leading=11, fontName='FreeSansBold', textColor=colors.white)
+
+    info_data = [
+        [Paragraph('<b>Voucher:</b>', label_s), Paragraph(f"#{v.get('voucher_no', '')}", val_s),
+         Paragraph('<b>Date:</b>', label_s), Paragraph(date_str, val_s)],
+        [Paragraph('<b>Party:</b>', label_s), Paragraph(v.get('party_name', ''), val_s),
+         Paragraph('<b>Invoice:</b>', label_s), Paragraph(v.get('invoice_no', ''), val_s)],
+    ]
+    if v.get('buyer_gstin') or v.get('buyer_address'):
+        info_data.append([Paragraph('<b>Buyer GSTIN:</b>', label_s), Paragraph(v.get('buyer_gstin', ''), val_s),
+                         Paragraph('<b>Address:</b>', label_s), Paragraph(v.get('buyer_address', ''), val_s)])
+
+    info_tbl = RLTable(info_data, colWidths=[28*mm, 55*mm, 28*mm, 55*mm])
+    info_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('LINEBELOW', (0,-1), (-1,-1), 1, colors.HexColor('#ddd'))]))
+    elements.append(info_tbl)
+    elements.append(Spacer(1, 4*mm))
+
+    if has_gst:
+        headers = [Paragraph('<b>S.No</b>', hd_s), Paragraph('<b>Item</b>', hd_s), Paragraph('<b>HSN</b>', hd_s),
+                   Paragraph('<b>Qty</b>', hd_s), Paragraph('<b>Rate</b>', hd_s), Paragraph('<b>Taxable</b>', hd_s),
+                   Paragraph('<b>GST%</b>', hd_s), Paragraph('<b>GST</b>', hd_s), Paragraph('<b>Total</b>', hd_s)]
+        col_w = [10*mm, 35*mm, 20*mm, 18*mm, 18*mm, 22*mm, 14*mm, 20*mm, 25*mm]
+    else:
+        headers = [Paragraph('<b>S.No</b>', hd_s), Paragraph('<b>Item</b>', hd_s),
+                   Paragraph('<b>Qty</b>', hd_s), Paragraph('<b>Rate</b>', hd_s), Paragraph('<b>Amount</b>', hd_s)]
+        col_w = [15*mm, 60*mm, 30*mm, 30*mm, 35*mm]
+
+    items_data = [headers]
+    for idx, item in enumerate(v.get('items', []), 1):
+        qty = item.get('quantity', 0) or 0
+        rate = item.get('rate', 0) or 0
+        amt = round(qty * rate, 2)
+        if has_gst:
+            gst_pct = item.get('gst_percent', 0)
+            gst_amt = item.get('gst_amount', 0) or round(amt * gst_pct / 100, 2)
+            items_data.append([Paragraph(str(idx), cell_s), Paragraph(item.get('item_name', ''), cell_s),
+                Paragraph(item.get('hsn_code', ''), cell_s), Paragraph(f"{qty}", cell_r), Paragraph(f"{rate:,.2f}", cell_r),
+                Paragraph(f"{amt:,.2f}", cell_r), Paragraph(f"{gst_pct}%", cell_r),
+                Paragraph(f"{gst_amt:,.2f}", cell_r), Paragraph(f"{round(amt+gst_amt,2):,.2f}", cell_rb)])
+        else:
+            items_data.append([Paragraph(str(idx), cell_s), Paragraph(item.get('item_name', ''), cell_s),
+                Paragraph(f"{qty} Q", cell_r), Paragraph(f"{rate:,.2f}", cell_r), Paragraph(f"{amt:,.2f}", cell_rb)])
+
+    items_tbl = RLTable(items_data, colWidths=col_w, repeatRows=1)
+    items_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor(blue)), ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
+    elements.append(items_tbl)
+    elements.append(Spacer(1, 3*mm))
+
+    tot_s = ParagraphStyle('TS', parent=styles['Normal'], fontSize=9, alignment=TA_RIGHT)
+    tot_b = ParagraphStyle('TB', parent=styles['Normal'], fontSize=11, alignment=TA_RIGHT, fontName='FreeSansBold', textColor=colors.HexColor(blue))
+
+    total_data = [[Paragraph('Taxable:', tot_s), Paragraph(f"Rs. {v.get('subtotal', 0):,.2f}", tot_s)]]
+    if cgst > 0: total_data.append([Paragraph('CGST:', tot_s), Paragraph(f"Rs. {cgst:,.2f}", tot_s)])
+    if sgst > 0: total_data.append([Paragraph('SGST:', tot_s), Paragraph(f"Rs. {sgst:,.2f}", tot_s)])
+    if igst > 0: total_data.append([Paragraph('IGST:', tot_s), Paragraph(f"Rs. {igst:,.2f}", tot_s)])
+    total_data.append([Paragraph('<b>Grand Total:</b>', tot_b), Paragraph(f"<b>Rs. {v.get('total', 0):,.2f}</b>", tot_b)])
+    total_data.append([Paragraph('<b>Balance:</b>', tot_b), Paragraph(f"<b>Rs. {v.get('balance', 0):,.2f}</b>", tot_b)])
+
+    tot_tbl = RLTable(total_data, colWidths=[120*mm, 50*mm])
+    tot_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'),
+        ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('LINEABOVE', (0,-1), (-1,-1), 1, colors.HexColor(blue))]))
+    elements.append(tot_tbl)
+
+    elements.append(Spacer(1, 15*mm))
+    sig_data = [[Paragraph('Received By', ParagraphStyle('Sig', alignment=TA_CENTER, fontSize=9)),
+                 Paragraph(f'For {company}', ParagraphStyle('Sig', alignment=TA_CENTER, fontSize=9, fontName='FreeSansBold'))]]
+    sig_tbl = RLTable(sig_data, colWidths=[85*mm, 85*mm])
+    sig_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('LINEABOVE', (0,0), (0,0), 0.5, colors.black), ('LINEABOVE', (1,0), (1,0), 0.5, colors.black)]))
+    elements.append(sig_tbl)
+
+    doc.build(elements)
+    pdf_bytes = buf.getvalue()
+
+    # Upload PDF to tmpfiles.org
+    pdf_url = ""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            files = {"file": (f"sale_invoice_{v.get('voucher_no','')}.pdf", pdf_bytes, "application/pdf")}
+            resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
+            if resp.status_code == 200:
+                data = resp.json()
+                url = data.get("data", {}).get("url", "")
+                if url:
+                    pdf_url = url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+    except Exception as e:
+        import logging
+        logging.getLogger("salebook").error(f"tmpfiles upload error: {e}")
+
+    # Send via WhatsApp
+    from routes.whatsapp import _send_wa_message, _get_wa_settings
+    wa_settings = await _get_wa_settings()
+    if not wa_settings.get("api_key"):
+        return {"success": False, "error": "WhatsApp API key set nahi hai. Settings mein jaake set karein."}
+
+    default_numbers = wa_settings.get("default_numbers", [])
+    if isinstance(default_numbers, str):
+        default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
+
+    targets = [phone] if phone else default_numbers
+    results = []
+    for num in targets:
+        if num and num.strip():
+            r = await _send_wa_message(num.strip(), text, pdf_url)
+            results.append({"target": num, "success": r.get("success", False)})
+
+    if not results:
+        return {"success": False, "error": "Koi phone number nahi hai. Settings > WhatsApp mein set karein."}
+
+    sc = sum(1 for r in results if r["success"])
+    return {"success": sc > 0, "message": f"Sale Invoice {sc}/{len(results)} pe bhej diya!", "details": results, "pdf_url": pdf_url}
