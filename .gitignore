@@ -543,3 +543,4 @@ frontend/node_modules/.cache/default-development/31.pack
 *.env
 *.env.*
 frontend/node_modules/.cache/default-development/42.pack
+frontend/node_modules/.cache/default-development/43.pack

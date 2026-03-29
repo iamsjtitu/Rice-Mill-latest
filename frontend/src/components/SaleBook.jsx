@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2, CheckSquare } from "lucide-react";
+import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2, CheckSquare, Receipt } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
@@ -16,11 +16,19 @@ const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 
+const HSN_MAP = {
+  "Rice (Usna)": "1006 30 20", "Rice (Raw)": "1006 30 10",
+  "Broken": "1006 40 00", "Kanki": "1006 40 00",
+  "Bran": "2302 40 00", "Kunda": "2302 40 00", "Husk": "2302 40 00",
+  "FRK": "1006 30 20", "Paddy": "1006 10 90",
+};
+const DEFAULT_GST = { "Rice (Usna)": 5, "Rice (Raw)": 5, "Broken": 5, "Kanki": 5, "Bran": 5, "Kunda": 5, "Husk": 5, "FRK": 5, "Paddy": 5 };
+const GST_RATES = [0, 5, 12, 18, 28];
+
 export default function SaleBook({ filters, user }) {
   const showConfirm = useConfirm();
   const [vouchers, setVouchers] = useState([]);
   const [stockItems, setStockItems] = useState([]);
-  const [gstSettings, setGstSettings] = useState({ cgst_percent: 0, sgst_percent: 0, igst_percent: 0 });
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [obList, setObList] = useState([]);
@@ -55,11 +63,12 @@ export default function SaleBook({ filters, user }) {
     fetchHistory(party);
   };
 
-  const emptyItem = { item_name: "", quantity: "", rate: "", unit: "Qntl" };
+  const emptyItem = { item_name: "", quantity: "", rate: "", unit: "Qntl", hsn_code: "", gst_percent: 5 };
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
-    party_name: "", invoice_no: "", items: [{ ...emptyItem }],
-    gst_type: "none", cgst_percent: 0, sgst_percent: 0, igst_percent: 0,
+    party_name: "", invoice_no: "", buyer_gstin: "", buyer_address: "",
+    items: [{ ...emptyItem }],
+    gst_type: "none",
     truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
     kms_year: filters.kms_year || "", season: filters.season || "",
   });
@@ -69,16 +78,14 @@ export default function SaleBook({ filters, user }) {
   const fetchData = useCallback(async () => {
     try {
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
-      const [vRes, sRes, gRes, obRes, bRes] = await Promise.all([
+      const [vRes, sRes, obRes, bRes] = await Promise.all([
         axios.get(`${API}/sale-book?${p}${searchParam}`),
         axios.get(`${API}/sale-book/stock-items?${p}`),
-        axios.get(`${API}/gst-settings`),
         axios.get(`${API}/opening-balances?kms_year=${filters.kms_year || ''}`),
         axios.get(`${API}/bank-accounts`),
       ]);
       setVouchers(vRes.data);
       setStockItems(sRes.data);
-      setGstSettings(gRes.data);
       setObList(obRes.data);
       setBankAccounts(bRes.data || []);
     } catch (e) { console.error(e); }
@@ -90,8 +97,8 @@ export default function SaleBook({ filters, user }) {
     setEditingId(null);
     setForm({
       date: new Date().toISOString().split('T')[0], party_name: "", invoice_no: "",
+      buyer_gstin: "", buyer_address: "",
       items: [{ ...emptyItem }], gst_type: "none",
-      cgst_percent: gstSettings.cgst_percent, sgst_percent: gstSettings.sgst_percent, igst_percent: gstSettings.igst_percent,
       truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
       kms_year: filters.kms_year || "", season: filters.season || "",
     });
@@ -102,9 +109,9 @@ export default function SaleBook({ filters, user }) {
     setEditingId(v.id);
     setForm({
       date: v.date || "", party_name: v.party_name || "", invoice_no: v.invoice_no || "",
-      items: (v.items || []).map(i => ({ item_name: i.item_name, quantity: String(i.quantity || ""), rate: String(i.rate || ""), unit: i.unit || "Qntl" })),
+      buyer_gstin: v.buyer_gstin || "", buyer_address: v.buyer_address || "",
+      items: (v.items || []).map(i => ({ item_name: i.item_name, quantity: String(i.quantity || ""), rate: String(i.rate || ""), unit: i.unit || "Qntl", hsn_code: i.hsn_code || "", gst_percent: i.gst_percent ?? 5 })),
       gst_type: v.gst_type || "none",
-      cgst_percent: v.cgst_percent || 0, sgst_percent: v.sgst_percent || 0, igst_percent: v.igst_percent || 0,
       truck_no: v.truck_no || "", rst_no: v.rst_no || "", remark: v.remark || "", eway_bill_no: v.eway_bill_no || "",
       cash_paid: v.cash_paid ? String(v.cash_paid) : "", diesel_paid: v.diesel_paid ? String(v.diesel_paid) : "",
       advance: v.advance ? String(v.advance) : "",
@@ -117,6 +124,10 @@ export default function SaleBook({ filters, user }) {
     setForm(prev => {
       const items = [...prev.items];
       items[idx] = { ...items[idx], [field]: value };
+      if (field === 'item_name' && value) {
+        items[idx].hsn_code = HSN_MAP[value] || items[idx].hsn_code || "";
+        items[idx].gst_percent = DEFAULT_GST[value] ?? items[idx].gst_percent ?? 5;
+      }
       return { ...prev, items };
     });
   };
@@ -124,9 +135,14 @@ export default function SaleBook({ filters, user }) {
   const removeItem = (idx) => setForm(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
 
   const subtotal = form.items.reduce((sum, item) => sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0), 0);
-  const cgstAmt = form.gst_type === 'cgst_sgst' ? subtotal * (form.cgst_percent || 0) / 100 : 0;
-  const sgstAmt = form.gst_type === 'cgst_sgst' ? subtotal * (form.sgst_percent || 0) / 100 : 0;
-  const igstAmt = form.gst_type === 'igst' ? subtotal * (form.igst_percent || 0) / 100 : 0;
+  const isGst = form.gst_type !== 'none';
+  const totalItemGst = isGst ? form.items.reduce((sum, item) => {
+    const amt = (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0);
+    return sum + amt * (item.gst_percent || 0) / 100;
+  }, 0) : 0;
+  const cgstAmt = form.gst_type === 'cgst_sgst' ? totalItemGst / 2 : 0;
+  const sgstAmt = form.gst_type === 'cgst_sgst' ? totalItemGst / 2 : 0;
+  const igstAmt = form.gst_type === 'igst' ? totalItemGst : 0;
   const total = subtotal + cgstAmt + sgstAmt + igstAmt;
   const advanceAmt = parseFloat(form.advance) || 0;
 
@@ -140,7 +156,8 @@ export default function SaleBook({ filters, user }) {
       const payload = {
         ...form,
         items: form.items.filter(i => i.item_name && parseFloat(i.quantity) > 0).map(i => ({
-          item_name: i.item_name, quantity: parseFloat(i.quantity) || 0, rate: parseFloat(i.rate) || 0, unit: i.unit || "Qntl"
+          item_name: i.item_name, quantity: parseFloat(i.quantity) || 0, rate: parseFloat(i.rate) || 0, unit: i.unit || "Qntl",
+          hsn_code: i.hsn_code || "", gst_percent: parseFloat(i.gst_percent) || 0,
         })),
         cash_paid: parseFloat(form.cash_paid) || 0, diesel_paid: parseFloat(form.diesel_paid) || 0,
         advance: parseFloat(form.advance) || 0,
@@ -443,18 +460,21 @@ export default function SaleBook({ filters, user }) {
               <Table>
                 <TableHeader>
                   <TableRow className="border-slate-600">
-                    <TableHead className="text-slate-400 text-[10px] w-[35%]">Name of Item</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] w-[12%]">Stock</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] w-[15%]">Quantity</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] w-[12%]">Rate</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] w-[18%] text-right">Amount</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] w-[8%]"></TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[25%]">Item</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[10%]">Stock</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[12%]">Qty</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[10%]">Rate</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[13%]">HSN</TableHead>
+                    {isGst && <TableHead className="text-slate-400 text-[10px] w-[10%]">GST%</TableHead>}
+                    <TableHead className="text-slate-400 text-[10px] w-[12%] text-right">Amount</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[5%]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {form.items.map((item, idx) => {
                     const stock = getStockForItem(item.item_name);
                     const amt = (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0);
+                    const itemGst = isGst ? amt * (item.gst_percent || 0) / 100 : 0;
                     return (
                       <TableRow key={idx} className="border-slate-600">
                         <TableCell className="p-1">
@@ -477,7 +497,24 @@ export default function SaleBook({ filters, user }) {
                           <Input type="number" step="0.01" value={item.rate} onChange={e => updateItem(idx, 'rate', e.target.value)}
                             className="bg-slate-700 border-slate-600 text-white h-8 text-xs" placeholder="0" data-testid={`sv-item-rate-${idx}`} />
                         </TableCell>
-                        <TableCell className="p-1 text-right text-white text-xs font-medium">Rs.{amt.toLocaleString('en-IN')}</TableCell>
+                        <TableCell className="p-1">
+                          <Input value={item.hsn_code} onChange={e => updateItem(idx, 'hsn_code', e.target.value)}
+                            className="bg-slate-700 border-slate-600 text-white h-8 text-xs" placeholder="HSN" data-testid={`sv-item-hsn-${idx}`} />
+                        </TableCell>
+                        {isGst && (
+                          <TableCell className="p-1">
+                            <Select value={String(item.gst_percent ?? 5)} onValueChange={v => updateItem(idx, 'gst_percent', parseFloat(v))}>
+                              <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid={`sv-item-gst-${idx}`}><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {GST_RATES.map(r => (<SelectItem key={r} value={String(r)}>{r}%</SelectItem>))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        )}
+                        <TableCell className="p-1 text-right">
+                          <span className="text-white text-xs font-medium">Rs.{amt.toLocaleString('en-IN')}</span>
+                          {isGst && itemGst > 0 && <span className="text-emerald-400 text-[9px] block">+{itemGst.toFixed(0)} GST</span>}
+                        </TableCell>
                         <TableCell className="p-1">
                           {form.items.length > 1 && (
                             <Button type="button" variant="ghost" size="sm" onClick={() => removeItem(idx)} className="h-6 w-6 p-0 text-red-400"><Trash2 className="w-3 h-3" /></Button>
@@ -492,56 +529,61 @@ export default function SaleBook({ filters, user }) {
 
             <div className="text-right text-sm font-bold text-white">Subtotal: Rs.{subtotal.toLocaleString('en-IN')}</div>
 
-            {/* GST */}
-            <div className="border border-slate-600 rounded-lg p-3 space-y-3">
-              <Label className="text-xs text-amber-400 font-semibold">GST</Label>
-              <div className="grid grid-cols-4 gap-3 items-end">
-                <div>
-                  <Label className="text-[10px] text-slate-400">GST Type</Label>
-                  <Select value={form.gst_type} onValueChange={v => {
-                    setForm(p => ({ ...p, gst_type: v,
-                      cgst_percent: v === 'cgst_sgst' ? gstSettings.cgst_percent : 0,
-                      sgst_percent: v === 'cgst_sgst' ? gstSettings.sgst_percent : 0,
-                      igst_percent: v === 'igst' ? gstSettings.igst_percent : 0,
-                    }));
-                  }}>
-                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-gst-type"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No GST</SelectItem>
-                      <SelectItem value="cgst_sgst">CGST + SGST</SelectItem>
-                      <SelectItem value="igst">IGST</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {form.gst_type === 'cgst_sgst' && (<>
-                  <div>
-                    <Label className="text-[10px] text-slate-400">CGST %</Label>
-                    <div className="flex items-center gap-1">
-                      <Input type="number" step="0.01" value={form.cgst_percent} onChange={e => setForm(p => ({ ...p, cgst_percent: parseFloat(e.target.value) || 0 }))}
-                        className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-cgst-pct" />
-                      <span className="text-[10px] text-emerald-400 whitespace-nowrap">Rs.{cgstAmt.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-slate-400">SGST %</Label>
-                    <div className="flex items-center gap-1">
-                      <Input type="number" step="0.01" value={form.sgst_percent} onChange={e => setForm(p => ({ ...p, sgst_percent: parseFloat(e.target.value) || 0 }))}
-                        className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-sgst-pct" />
-                      <span className="text-[10px] text-emerald-400 whitespace-nowrap">Rs.{sgstAmt.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </>)}
-                {form.gst_type === 'igst' && (
-                  <div>
-                    <Label className="text-[10px] text-slate-400">IGST %</Label>
-                    <div className="flex items-center gap-1">
-                      <Input type="number" step="0.01" value={form.igst_percent} onChange={e => setForm(p => ({ ...p, igst_percent: parseFloat(e.target.value) || 0 }))}
-                        className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-igst-pct" />
-                      <span className="text-[10px] text-emerald-400 whitespace-nowrap">Rs.{igstAmt.toFixed(2)}</span>
-                    </div>
-                  </div>
-                )}
+            {/* GST Type Toggle */}
+            <div className="border border-slate-600 rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-3">
+                <Label className="text-xs text-amber-400 font-semibold flex items-center gap-1"><Receipt className="w-3 h-3" /> GST</Label>
+                <Select value={form.gst_type} onValueChange={v => setForm(p => ({ ...p, gst_type: v }))}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-44" data-testid="sv-gst-type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No GST (बिना GST)</SelectItem>
+                    <SelectItem value="cgst_sgst">CGST + SGST (State)</SelectItem>
+                    <SelectItem value="igst">IGST (Interstate)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+              {isGst && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="bg-slate-700/50 rounded p-2">
+                    <span className="text-slate-400">Taxable:</span>
+                    <span className="text-white font-bold ml-1">Rs.{subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                  </div>
+                  {form.gst_type === 'cgst_sgst' && (<>
+                    <div className="bg-slate-700/50 rounded p-2">
+                      <span className="text-slate-400">CGST:</span>
+                      <span className="text-emerald-400 font-bold ml-1">Rs.{cgstAmt.toFixed(2)}</span>
+                    </div>
+                    <div className="bg-slate-700/50 rounded p-2">
+                      <span className="text-slate-400">SGST:</span>
+                      <span className="text-emerald-400 font-bold ml-1">Rs.{sgstAmt.toFixed(2)}</span>
+                    </div>
+                  </>)}
+                  {form.gst_type === 'igst' && (
+                    <div className="bg-slate-700/50 rounded p-2">
+                      <span className="text-slate-400">IGST:</span>
+                      <span className="text-emerald-400 font-bold ml-1">Rs.{igstAmt.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="bg-slate-700/50 rounded p-2">
+                    <span className="text-slate-400">Total GST:</span>
+                    <span className="text-amber-400 font-bold ml-1">Rs.{totalItemGst.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+              {isGst && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Buyer GSTIN</Label>
+                    <Input value={form.buyer_gstin} onChange={e => setForm(p => ({ ...p, buyer_gstin: e.target.value }))}
+                      placeholder="21AAAAA0000A1Z5" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-buyer-gstin" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400">Buyer Address</Label>
+                    <Input value={form.buyer_address} onChange={e => setForm(p => ({ ...p, buyer_address: e.target.value }))}
+                      placeholder="Buyer address" className="bg-slate-700 border-slate-600 text-white h-8 text-xs" data-testid="sv-buyer-address" />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Total + Truck + Payment */}

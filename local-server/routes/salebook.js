@@ -172,22 +172,45 @@ module.exports = function(database) {
     }
   }
 
+  // Helper: compute per-item GST and voucher totals
+  function computeSaleGst(d) {
+    const items = d.items || [];
+    const gstType = d.gst_type || 'none';
+    let subtotal = 0, totalGst = 0;
+    items.forEach(i => {
+      const qty = parseFloat(i.quantity) || 0;
+      const rate = parseFloat(i.rate) || 0;
+      i.amount = Math.round(qty * rate * 100) / 100;
+      const gstPct = parseFloat(i.gst_percent) || 0;
+      i.gst_amount = gstType !== 'none' ? Math.round(i.amount * gstPct / 100 * 100) / 100 : 0;
+      subtotal += i.amount;
+      totalGst += i.gst_amount;
+    });
+    d.items = items;
+    d.subtotal = Math.round(subtotal * 100) / 100;
+    if (gstType === 'cgst_sgst') {
+      d.cgst_amount = Math.round(totalGst / 2 * 100) / 100;
+      d.sgst_amount = Math.round(totalGst / 2 * 100) / 100;
+      d.igst_amount = 0;
+    } else if (gstType === 'igst') {
+      d.cgst_amount = 0; d.sgst_amount = 0;
+      d.igst_amount = Math.round(totalGst * 100) / 100;
+    } else {
+      d.cgst_amount = 0; d.sgst_amount = 0; d.igst_amount = 0;
+    }
+    d.total = Math.round((d.subtotal + (d.cgst_amount || 0) + (d.sgst_amount || 0) + (d.igst_amount || 0)) * 100) / 100;
+    const advance = parseFloat(d.advance) || 0;
+    d.paid_amount = Math.round(advance * 100) / 100;
+    d.balance = Math.round((d.total - advance) * 100) / 100;
+  }
+
   // POST /api/sale-book
   router.post('/api/sale-book', safeHandler(async (req, res) => {
     ensure();
     const d = { id: uuidv4(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
-    // Compute GST
-    const items = d.items || [];
-    d.subtotal = Math.round(items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) * 100) / 100;
-    const cgstP = parseFloat(d.cgst_percent) || 0, sgstP = parseFloat(d.sgst_percent) || 0, igstP = parseFloat(d.igst_percent) || 0;
-    d.cgst_amount = Math.round(d.subtotal * cgstP / 100 * 100) / 100;
-    d.sgst_amount = Math.round(d.subtotal * sgstP / 100 * 100) / 100;
-    d.igst_amount = Math.round(d.subtotal * igstP / 100 * 100) / 100;
-    d.total = Math.round((d.subtotal + d.cgst_amount + d.sgst_amount + d.igst_amount) * 100) / 100;
-    d.balance = Math.round((d.total - (parseFloat(d.advance) || 0) - (parseFloat(d.cash_paid) || 0) - (parseFloat(d.diesel_paid) || 0)) * 100) / 100;
+    computeSaleGst(d);
     database.data.sale_vouchers.push(d);
-    // Create all accounting entries
-    createSaleLedgerEntries(d, d.id, d.voucher_no, items);
+    createSaleLedgerEntries(d, d.id, d.voucher_no, d.items || []);
     database.save();
     res.json(d);
   }));
@@ -198,17 +221,10 @@ module.exports = function(database) {
     const idx = database.data.sale_vouchers.findIndex(v => v.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     const d = { ...database.data.sale_vouchers[idx], ...req.body, updated_at: new Date().toISOString() };
-    const items = d.items || [];
-    d.subtotal = Math.round(items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0) * 100) / 100;
-    d.cgst_amount = Math.round(d.subtotal * (parseFloat(d.cgst_percent) || 0) / 100 * 100) / 100;
-    d.sgst_amount = Math.round(d.subtotal * (parseFloat(d.sgst_percent) || 0) / 100 * 100) / 100;
-    d.igst_amount = Math.round(d.subtotal * (parseFloat(d.igst_percent) || 0) / 100 * 100) / 100;
-    d.total = Math.round((d.subtotal + d.cgst_amount + d.sgst_amount + d.igst_amount) * 100) / 100;
-    d.balance = Math.round((d.total - (parseFloat(d.advance) || 0) - (parseFloat(d.cash_paid) || 0) - (parseFloat(d.diesel_paid) || 0) - (parseFloat(d.paid_amount) || 0)) * 100) / 100;
+    computeSaleGst(d);
     database.data.sale_vouchers[idx] = d;
-    // Cleanup old entries and recreate
     cleanupSaleEntries(d.id);
-    createSaleLedgerEntries(d, d.id, d.voucher_no, items);
+    createSaleLedgerEntries(d, d.id, d.voucher_no, d.items || []);
     database.save();
     res.json(d);
   }));

@@ -1,0 +1,102 @@
+{
+  "summary": "Per-item GST in Sale Voucher - All 9 backend tests passed, all frontend UI tests passed. CGST+SGST, IGST, No GST calculations working correctly. Buyer GSTIN/Address fields conditionally shown. GST Invoice tab removed from Vouchers page. Deduction fields (Cash, Diesel, Advance) intact.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sale_voucher_gst.py",
+    "/app/test_reports/pytest/pytest_results_iteration119.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "VERIFIED: POST /api/sale-book with gst_type=cgst_sgst correctly splits GST 50/50 into CGST and SGST",
+    "VERIFIED: POST /api/sale-book with gst_type=igst correctly assigns full GST to IGST",
+    "VERIFIED: POST /api/sale-book with gst_type=none correctly sets all GST amounts to 0",
+    "VERIFIED: Per-item GST fields (hsn_code, gst_percent, gst_amount) saved and returned in response",
+    "VERIFIED: buyer_gstin and buyer_address fields saved and returned correctly",
+    "VERIFIED: PUT /api/sale-book/{id} correctly recalculates per-item GST on update",
+    "VERIFIED: DELETE /api/sale-book/{id} works correctly",
+    "VERIFIED: GET /api/sale-book/{id}/pdf generates valid PDF for GST vouchers",
+    "VERIFIED: GET /api/gst-invoices returns 404 (standalone GST Invoice routes removed)",
+    "VERIFIED: Frontend Vouchers page has NO GST Invoice tab (tabs: sale, purchase, paddy, stock, summary)",
+    "VERIFIED: Frontend Sale Voucher form shows GST% column only when gst_type != 'none'",
+    "VERIFIED: Frontend Buyer GSTIN and Buyer Address fields appear only when GST is enabled",
+    "VERIFIED: Frontend deduction fields (Cash Truck ko, Diesel Pump se, Advance Party se mila) still functional",
+    "VERIFIED: Frontend HSN column always visible in items table"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sale_voucher_gst.py"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 tests passed)",
+    "frontend": "100% (All UI flows verified)"
+  },
+  "test_credentials": {
+    "username": "admin",
+    "password": "admin123"
+  },
+  "seed_data_creation": "Test vouchers created and cleaned up during pytest execution",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Per-item GST in Sale Voucher fully implemented and tested. Backend: _compute_sale_gst helper calculates per-item GST based on gst_type (cgst_sgst, igst, none). Frontend: SaleBook.jsx shows HSN/GST% columns conditionally, Buyer GSTIN/Address fields appear when GST enabled. Standalone GST Invoice feature removed (gst_invoice.py, GstInvoice.jsx deleted). All deduction fields (cash_paid, diesel_paid, advance) working.",
+  "features_tested": {
+    "sale_voucher_cgst_sgst": {
+      "status": "PASS",
+      "details": "CGST+SGST split 50/50 correctly (e.g., 5% GST = 2.5% CGST + 2.5% SGST)"
+    },
+    "sale_voucher_igst": {
+      "status": "PASS",
+      "details": "IGST calculation correct (full GST goes to IGST, CGST/SGST = 0)"
+    },
+    "sale_voucher_no_gst": {
+      "status": "PASS",
+      "details": "No GST calculation correct (all GST amounts = 0 even if gst_percent set)"
+    },
+    "per_item_gst_fields": {
+      "status": "PASS",
+      "details": "hsn_code, gst_percent, gst_amount saved and returned per item"
+    },
+    "buyer_gstin_address": {
+      "status": "PASS",
+      "details": "buyer_gstin and buyer_address saved and returned correctly"
+    },
+    "sale_voucher_update": {
+      "status": "PASS",
+      "details": "PUT recalculates per-item GST correctly"
+    },
+    "sale_voucher_delete": {
+      "status": "PASS",
+      "details": "DELETE removes voucher and related entries"
+    },
+    "sale_voucher_pdf": {
+      "status": "PASS",
+      "details": "PDF generation returns valid PDF with GST details"
+    },
+    "gst_invoice_routes_removed": {
+      "status": "PASS",
+      "details": "GET/POST /api/gst-invoices return 404"
+    },
+    "frontend_gst_invoice_tab_removed": {
+      "status": "PASS",
+      "details": "Vouchers page has no GST Invoice tab"
+    },
+    "frontend_gst_columns_conditional": {
+      "status": "PASS",
+      "details": "GST% column shown only when gst_type != 'none'"
+    },
+    "frontend_buyer_fields_conditional": {
+      "status": "PASS",
+      "details": "Buyer GSTIN/Address shown only when GST enabled"
+    },
+    "frontend_deduction_fields": {
+      "status": "PASS",
+      "details": "Cash, Diesel, Advance fields all functional"
+    }
+  }
+}

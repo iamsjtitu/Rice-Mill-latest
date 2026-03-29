@@ -1,16 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Wheat, Users, ShoppingBag, Package, Receipt } from "lucide-react";
+import { FileText, Wheat, Users, ShoppingBag, Package } from "lucide-react";
 import SaleBook from "./SaleBook";
 import PurchaseVouchers from "./PurchaseVouchers";
 import StockSummary from "./StockSummary";
 import { PaddyPurchase, PartySummary } from "./PaddyPurchase";
-import GstInvoice from "./GstInvoice";
 
 const tabs = [
   { id: "sale", label: "Sale Vouchers", icon: FileText, activeClass: "bg-amber-500 hover:bg-amber-600 text-slate-900" },
   { id: "purchase", label: "Purchase Vouchers", icon: ShoppingBag, activeClass: "bg-emerald-500 hover:bg-emerald-600 text-white" },
-  { id: "gst", label: "GST Invoice", icon: Receipt, activeClass: "bg-blue-500 hover:bg-blue-600 text-white" },
   { id: "paddy", label: "Paddy Purchase", icon: Wheat, activeClass: "bg-orange-500 hover:bg-orange-600 text-white" },
   { id: "stock", label: "Stock Summary", icon: Package, activeClass: "bg-sky-500 hover:bg-sky-600 text-white" },
   { id: "summary", label: "Party Summary", icon: Users, activeClass: "bg-purple-500 hover:bg-purple-600 text-white" },
@@ -39,8 +37,6 @@ export default function Vouchers({ filters, user, onNavigate }) {
         <SaleBook filters={filters} user={user} />
       ) : activeTab === "purchase" ? (
         <PurchaseVouchers filters={filters} user={user} />
-      ) : activeTab === "gst" ? (
-        <GstInvoice filters={filters} />
       ) : activeTab === "paddy" ? (
         <PaddyPurchase filters={filters} user={user} />
       ) : activeTab === "stock" ? (
