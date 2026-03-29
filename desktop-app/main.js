@@ -1083,6 +1083,7 @@ function createApiServer(database) {
     { name: 'truck_lease', load: () => require('./routes/truck_lease')(database) },
     { name: 'hemali', load: () => require('./routes/hemali')(database) },
     { name: 'whatsapp', load: () => require('./routes/whatsapp')(database) },
+    { name: 'gst_invoice', load: () => require('./routes/gst_invoice')(database) },
   ];
 
   let loadedCount = 0;

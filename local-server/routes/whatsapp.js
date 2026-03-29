@@ -404,5 +404,48 @@ router.post('/api/whatsapp/send-truck-owner', safeAsync(async (req, res) => {
 }));
 
 
+// ============ SEND GST INVOICE ============
+router.post('/api/whatsapp/send-gst-invoice', safeAsync(async (req, res) => {
+  const { invoice_id, pdf_url, phone } = req.body;
+  const invoices = db.getData('/gst_invoices', []);
+  const inv = invoices.find(i => i.id === invoice_id);
+  if (!inv) return res.json({ success: false, error: 'Invoice not found' });
+
+  const config = db.getData('/settings/whatsapp', {});
+  if (!config.api_key) return res.json({ success: false, error: 'WhatsApp API key set nahi hai. Settings > WhatsApp mein daalo.' });
+
+  const branding = db.getData('/settings/branding', {});
+  const company = branding.company_name || 'Mill Entry System';
+  const totals = inv.totals || {};
+
+  let text = `*${company}*\n━━━━━━━━━━━━━━━━\n*TAX INVOICE*\nInvoice No: *${inv.invoice_no || ''}*\nDate: ${inv.date || ''}\n━━━━━━━━━━━━━━━━\nBuyer: ${inv.buyer_name || ''}\nGSTIN: ${inv.buyer_gstin || ''}\n━━━━━━━━━━━━━━━━\nTaxable: Rs.${Number(totals.taxable||0).toLocaleString()}\n`;
+  if (inv.is_igst) {
+    text += `IGST: Rs.${Number(totals.igst||0).toLocaleString()}\n`;
+  } else {
+    text += `CGST: Rs.${Number(totals.cgst||0).toLocaleString()}\nSGST: Rs.${Number(totals.sgst||0).toLocaleString()}\n`;
+  }
+  text += `*Grand Total: Rs.${Number(totals.total||0).toLocaleString()}*\n\nThank you\n${company}`;
+
+  const resolvedPdfUrl = await resolvePdfUrl(pdf_url);
+  const nums = (config.default_numbers || '').split(',').map(n => n.trim()).filter(Boolean);
+  const results = [];
+
+  if (phone && phone.trim()) {
+    const r = await sendWaMessage(config.api_key, cleanPhone(phone.trim(), config.country_code), text, resolvedPdfUrl);
+    results.push({ target: phone, success: r.success });
+  }
+  for (const num of nums) {
+    if (num && num.trim() && num.trim() !== (phone || '').trim()) {
+      const r = await sendWaMessage(config.api_key, cleanPhone(num.trim(), config.country_code), text, resolvedPdfUrl);
+      results.push({ target: num, success: r.success });
+    }
+  }
+  if (!results.length) return res.json({ success: false, error: 'Koi number set nahi hai.' });
+  const ok = results.filter(r => r.success).length;
+  res.json({ success: ok > 0, message: `GST Invoice ${ok}/${results.length} numbers pe bhej diya!`, details: results });
+}));
+
+
+
 return router;
 };

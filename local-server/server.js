@@ -858,6 +858,10 @@ async function startServer() {
     const whatsappRoutes = require('./routes/whatsapp')(database);
     app.use(whatsappRoutes);
 
+    // GST Invoice routes
+    const gstInvoiceRoutes = require('./routes/gst_invoice')(database);
+    app.use(gstInvoiceRoutes);
+
     // Milling routes
     const millingRoutes = require('./routes/milling')(database);
     app.use(millingRoutes);

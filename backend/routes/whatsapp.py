@@ -1,5 +1,5 @@
 """WhatsApp integration via 360Messenger API."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from database import db
 import httpx
 import logging
@@ -457,3 +457,60 @@ async def send_truck_owner(data: dict):
     return {"success": success_count > 0,
             "message": f"Truck owner payment {success_count}/{len(results)} numbers pe bhej diya!",
             "details": results}
+
+
+# ============ SEND GST INVOICE ============
+@router.post("/whatsapp/send-gst-invoice")
+async def send_gst_invoice(request: Request):
+    body = await request.json()
+    inv_id = body.get("invoice_id", "")
+    pdf_url = body.get("pdf_url", "")
+    phone = body.get("phone", "")
+
+    inv = await db.gst_invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        return {"success": False, "error": "Invoice not found"}
+
+    branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
+    company = branding.get("company_name", "Mill Entry System")
+    totals = inv.get("totals", {})
+
+    text = (
+        f"*{company}*\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"*TAX INVOICE*\n"
+        f"Invoice No: *{inv.get('invoice_no', '')}*\n"
+        f"Date: {inv.get('date', '')}\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"Buyer: {inv.get('buyer_name', '')}\n"
+        f"GSTIN: {inv.get('buyer_gstin', '')}\n"
+        f"━━━━━━━━━━━━━━━━\n"
+        f"Taxable: Rs.{totals.get('taxable', 0):,.2f}\n"
+    )
+    if inv.get("is_igst"):
+        text += f"IGST: Rs.{totals.get('igst', 0):,.2f}\n"
+    else:
+        text += f"CGST: Rs.{totals.get('cgst', 0):,.2f}\n"
+        text += f"SGST: Rs.{totals.get('sgst', 0):,.2f}\n"
+    text += (
+        f"*Grand Total: Rs.{totals.get('total', 0):,.2f}*\n"
+        f"\nThank you\n{company}"
+    )
+
+    wa_settings = await db.settings.find_one({"key": "whatsapp"}, {"_id": 0}) or {}
+    default_numbers = wa_settings.get("default_numbers", [])
+    if isinstance(default_numbers, str):
+        default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
+
+    results = []
+    targets = [phone] if phone else default_numbers
+    for num in targets:
+        if num and num.strip():
+            r = await _send_wa_message(num.strip(), text, pdf_url)
+            results.append({"target": num, "success": r.get("success", False)})
+
+    if not results:
+        return {"success": False, "error": "Koi number set nahi hai."}
+
+    success_count = sum(1 for r in results if r["success"])
+    return {"success": success_count > 0, "message": f"GST Invoice {success_count}/{len(results)} numbers pe bhej diya!", "details": results}
