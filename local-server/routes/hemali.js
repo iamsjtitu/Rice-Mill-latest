@@ -294,7 +294,7 @@ module.exports = (database) => {
 
     const doc = new PDFDocument({ size: 'A5', margin: 25 });
       registerFonts(doc);
- filename=hemali_receipt_${p.id.substring(0,8)}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=hemali_receipt_${p.id.substring(0,8)}.pdf`);
     // PDF will be sent via safePdfPipe
 
     // Header
@@ -391,7 +391,7 @@ module.exports = (database) => {
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
- filename=hemali_monthly_summary.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=hemali_monthly_summary.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Hemali Monthly Summary');
 
@@ -462,7 +462,7 @@ module.exports = (database) => {
     [12, 10, 14, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=hemali_monthly_summary.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=hemali_monthly_summary.xlsx`);
     res.send(Buffer.from(buf));
   }));
 
@@ -478,7 +478,7 @@ module.exports = (database) => {
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
- filename=hemali_payments.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=hemali_payments.pdf`);
     // PDF will be sent via safePdfPipe
 
     addPdfHeader(doc, 'Hemali Payment Report');
@@ -551,7 +551,7 @@ module.exports = (database) => {
 
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=hemali_payments.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=hemali_payments.xlsx`);
     res.send(Buffer.from(buf));
   }));
 

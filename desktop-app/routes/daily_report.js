@@ -14,16 +14,16 @@ function col(name) {
   return database.data[name];
 }
 
-router.get('/api/reports/daily', safeSync((req, res) => {
+router.get('/api/reports/daily', safeSync(async (req, res) => {
   res.json(getDailyReportData(database, req.query));
 }));
 
 // ============ DAILY REPORT PDF ============
-router.get('/api/reports/daily/pdf', safeSync((req, res) => {
+router.get('/api/reports/daily/pdf', safeSync(async (req, res) => {
   const PDFDocument = require('pdfkit');
   const data = getDailyReportData(database, req.query);
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
- filename=daily_report_${data.mode}_${data.date}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.pdf`);
   // PDF will be sent via safePdfPipe
 
   generateDailyReportPdf(doc, data, req.query);
@@ -206,7 +206,7 @@ const { safePdfPipe } = require('./pdf_helpers');
   }
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=daily_report_${data.mode}_${data.date}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.xlsx`);
   await wb.xlsx.write(res); res.end();
 }));
 

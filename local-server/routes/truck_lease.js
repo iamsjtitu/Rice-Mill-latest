@@ -20,7 +20,7 @@ module.exports = function(database) {
 
   // ========== CRUD ==========
 
-  router.get('/api/truck-leases', safeSync((req, res) => {
+  router.get('/api/truck-leases', safeSync(async (req, res) => {
     let leases = database.data.truck_leases || [];
     if (req.query.kms_year) leases = leases.filter(l => l.kms_year === req.query.kms_year);
     if (req.query.season) leases = leases.filter(l => l.season === req.query.season);
@@ -28,7 +28,7 @@ module.exports = function(database) {
     res.json([...leases].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')));
   }));
 
-  router.post('/api/truck-leases', safeSync((req, res) => {
+  router.post('/api/truck-leases', safeSync(async (req, res) => {
     if (!database.data.truck_leases) database.data.truck_leases = [];
     const d = req.body;
     const truckNo = (d.truck_no || '').trim().toUpperCase();
@@ -49,7 +49,7 @@ module.exports = function(database) {
     res.json(lease);
   }));
 
-  router.put('/api/truck-leases/:id', safeSync((req, res) => {
+  router.put('/api/truck-leases/:id', safeSync(async (req, res) => {
     const lease = (database.data.truck_leases || []).find(l => l.id === req.params.id);
     if (!lease) return res.status(404).json({ detail: 'Lease not found' });
     const d = req.body;
@@ -65,7 +65,7 @@ module.exports = function(database) {
     res.json(lease);
   }));
 
-  router.delete('/api/truck-leases/:id', safeSync((req, res) => {
+  router.delete('/api/truck-leases/:id', safeSync(async (req, res) => {
     if (!database.data.truck_leases) return res.status(404).json({ detail: 'Not found' });
     const idx = database.data.truck_leases.findIndex(l => l.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -77,7 +77,7 @@ module.exports = function(database) {
 
   // ========== PAYMENT SUMMARY ==========
 
-  router.get('/api/truck-leases/:id/payments', safeSync((req, res) => {
+  router.get('/api/truck-leases/:id/payments', safeSync(async (req, res) => {
     const lease = (database.data.truck_leases || []).find(l => l.id === req.params.id);
     if (!lease) return res.status(404).json({ detail: 'Not found' });
     const months = getMonthsBetween(lease.start_date, lease.end_date);
@@ -97,7 +97,7 @@ module.exports = function(database) {
 
   // ========== MAKE PAYMENT ==========
 
-  router.post('/api/truck-leases/:id/pay', safeSync((req, res) => {
+  router.post('/api/truck-leases/:id/pay', safeSync(async (req, res) => {
     const lease = (database.data.truck_leases || []).find(l => l.id === req.params.id);
     if (!lease) return res.status(404).json({ detail: 'Not found' });
     if (!database.data.truck_lease_payments) database.data.truck_lease_payments = [];
@@ -142,21 +142,21 @@ module.exports = function(database) {
 
   // ========== HISTORY ==========
 
-  router.get('/api/truck-leases/:id/history', safeSync((req, res) => {
+  router.get('/api/truck-leases/:id/history', safeSync(async (req, res) => {
     const payments = (database.data.truck_lease_payments || []).filter(p => p.lease_id === req.params.id);
     res.json([...payments].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')));
   }));
 
   // ========== CHECK LEASED ==========
 
-  router.get('/api/truck-leases/check/:truckNo', safeSync((req, res) => {
+  router.get('/api/truck-leases/check/:truckNo', safeSync(async (req, res) => {
     const lease = (database.data.truck_leases || []).find(l => l.truck_no === req.params.truckNo.toUpperCase() && l.status === 'active');
     res.json({ is_leased: !!lease, lease: lease || null });
   }));
 
   // ========== SUMMARY (for Balance Sheet) ==========
 
-  router.get('/api/truck-leases/summary', safeSync((req, res) => {
+  router.get('/api/truck-leases/summary', safeSync(async (req, res) => {
     let leases = (database.data.truck_leases || []).filter(l => l.status === 'active');
     if (req.query.kms_year) leases = leases.filter(l => l.kms_year === req.query.kms_year);
     if (req.query.season) leases = leases.filter(l => l.season === req.query.season);
@@ -174,7 +174,7 @@ module.exports = function(database) {
 
   // ========== PDF EXPORT ==========
 
-  router.get('/api/truck-leases/export/pdf', safeSync((req, res) => {
+  router.get('/api/truck-leases/export/pdf', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
     const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
@@ -183,7 +183,7 @@ module.exports = function(database) {
     if (req.query.season) leases = leases.filter(l => l.season === req.query.season);
     const allPayments = database.data.truck_lease_payments || [];
     const doc = new PDFDocument({ size: 'A4', margin: 25, layout: 'landscape' });
- filename=truck_lease_report.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=truck_lease_report.pdf`);
     // PDF will be sent via safePdfPipe
     let subtitle = '';
     if (req.query.kms_year) subtitle = `Year: ${req.query.kms_year} | Season: ${req.query.season || 'All'}`;
@@ -207,7 +207,7 @@ module.exports = function(database) {
 
   // ========== EXCEL EXPORT ==========
 
-  router.get('/api/truck-leases/export/excel', safeSync((req, res) => {
+  router.get('/api/truck-leases/export/excel', safeSync(async (req, res) => {
     const ExcelJS = require('exceljs');
     const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     let leases = database.data.truck_leases || [];
@@ -241,7 +241,7 @@ module.exports = function(database) {
     styleExcelData(ws, 5);
     [15, 18, 15, 12, 12, 12, 10, 12, 15, 15, 15].forEach((w, i) => ws.getColumn(i + 1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=truck_lease_report.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=truck_lease_report.xlsx`);
     wb.xlsx.write(res).then(() => res.end());
   }));
 

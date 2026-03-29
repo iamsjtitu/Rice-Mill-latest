@@ -452,7 +452,7 @@ module.exports = function(database) {
   });
 
   // ============ BALANCE SHEET PDF ============
-  router.get('/api/fy-summary/balance-sheet/pdf', (req, res) => {
+  router.get('/api/fy-summary/balance-sheet/pdf', async (req, res) => {
     try {
       const PDFDocument = require('pdfkit');
       const { fmtAmt, registerFonts, F } = require('./pdf_helpers');
@@ -811,7 +811,7 @@ module.exports = function(database) {
   });
 
   // ============ FY SUMMARY PDF EXPORT ============
-  router.get('/api/fy-summary/pdf', (req, res) => {
+  router.get('/api/fy-summary/pdf', async (req, res) => {
     try {
       const PDFDocument = require('pdfkit');
       const { addPdfHeader, addPdfTable, addSectionTitle, addTotalsRow, fmtAmt, registerFonts, F } = require('./pdf_helpers');

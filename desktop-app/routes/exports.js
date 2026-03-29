@@ -58,17 +58,17 @@ module.exports = function(database) {
       addExcelTitle(ws, 'Mill Entries Report', 21, database); styleExcelHeader(ws); styleExcelData(ws, 5);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=mill_entries_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
-  router.get('/api/export/pdf', safeSync((req, res) => {
+  router.get('/api/export/pdf', safeSync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 20 });
       registerFonts(doc);
- filename=mill_entries_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Mill Entries Report');
       const h = ['Date','Truck','RST','TP','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss','Cash','Diesel'];
       const w = [38,38,28,28,38,38,32,24,24,28,24,28,34,22,28,22,24,34,26,30,30];
@@ -105,17 +105,17 @@ module.exports = function(database) {
       entries.forEach(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); ws.addRow({date:e.date,truck_no:e.truck_no,mandi:e.mandi_name,fq:+fq.toFixed(2),rate:p.rate_per_qntl,gross:+g.toFixed(2),cash:e.cash_paid||0,diesel:e.diesel_paid||0,ded:+d.toFixed(2),net:+n.toFixed(2),paid:p.paid_amount,bal:+b.toFixed(2),status:b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
       addExcelTitle(ws, 'Truck Payments', 13, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=truck_payments_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
-  router.get('/api/export/truck-payments-pdf', safeSync((req, res) => {
+  router.get('/api/export/truck-payments-pdf', safeSync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
- filename=truck_payments_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Truck Payments Report');
       const h = ['Date','Truck','Mandi','Final QNTL','Rate','Gross','Ded','Net','Paid','Balance','Status'];
       const rows = entries.map(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); return [e.date,e.truck_no,e.mandi_name,fq.toFixed(2),p.rate_per_qntl,g.toFixed(2),d.toFixed(2),n.toFixed(2),p.paid_amount,b.toFixed(2),b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
@@ -132,17 +132,17 @@ module.exports = function(database) {
       targets.forEach(t => { const me=entries.filter(e=>e.mandi_name.toLowerCase()===t.mandi_name.toLowerCase()); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const cq=t.target_qntl*t.cutting_percent/100; const tot=(t.target_qntl*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); ws.addRow({mandi:t.mandi_name,agent:ae?ae.agent_name:'',target:t.target_qntl,cutting:+cq.toFixed(2),br:t.base_rate??10,cr:t.cutting_rate??5,total:+tot.toFixed(2),ach:+ach.toFixed(2),paid:p.paid_amount,bal:+bal.toFixed(2),status:bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
       addExcelTitle(ws, 'Agent Payments', 11, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=agent_payments_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
-  router.get('/api/export/agent-payments-pdf', safeSync((req, res) => {
+  router.get('/api/export/agent-payments-pdf', safeSync(async (req, res) => {
     try {
       const targets = database.getMandiTargets(req.query); const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
- filename=agent_payments_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Agent Payments Report');
       const h = ['Mandi','Agent','Target','Cutting','B.Rate','C.Rate','Total','Achieved','Paid','Balance','Status'];
       const rows = targets.map(t => { const me=entries.filter(e=>e.mandi_name.toLowerCase()===t.mandi_name.toLowerCase()); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const cq=t.target_qntl*t.cutting_percent/100; const tot=(t.target_qntl*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); return [t.mandi_name,ae?ae.agent_name:'',t.target_qntl,cq.toFixed(2),t.base_rate??10,t.cutting_rate??5,tot.toFixed(2),ach.toFixed(2),p.paid_amount,bal.toFixed(2),bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
@@ -151,7 +151,7 @@ module.exports = function(database) {
   }));
 
   // ===== DASHBOARD PDF EXPORT =====
-  router.get('/api/export/dashboard-pdf', safeSync((req, res) => {
+  router.get('/api/export/dashboard-pdf', safeSync(async (req, res) => {
     try {
       const { addPdfTable: _addTbl, addSectionTitle, fmtAmt, C, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
       const entries = database.getEntries(req.query);
@@ -162,7 +162,7 @@ module.exports = function(database) {
 
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
- filename=dashboard_${filterLabel}_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=dashboard_${filterLabel}_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe
       addPdfHeader(doc, 'Dashboard Report');
 
@@ -264,12 +264,12 @@ module.exports = function(database) {
   }));
 
   // ===== SUMMARY REPORT =====
-  router.get('/api/export/summary-report-pdf', safeSync((req, res) => {
+  router.get('/api/export/summary-report-pdf', safeSync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query); const totals = database.getTotals ? database.getTotals(req.query) : {};
       const doc = new PDFDocument({ size: 'A4', margin: 40 });
       registerFonts(doc);
- filename=summary_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=summary_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Summary Report');
       doc.fontSize(10).font(F('bold')).text('Overview:', { underline: true }); doc.moveDown(0.3); doc.font(F('normal')).fontSize(9);
       doc.text(`Total Entries: ${entries.length}`); doc.text(`Total QNTL: ${(totals.total_qntl||0).toFixed?.(2)||0}`); doc.text(`Total Final W: ${((totals.total_final_w||0)/100).toFixed?.(2)||0}`);
@@ -287,18 +287,18 @@ module.exports = function(database) {
       Object.values(td).forEach(t => ws.addRow({t:t.truck_no,tr:t.trips,q:+t.tq.toFixed(2),g:+t.tg.toFixed(2),d:+t.tded.toFixed(2),n:+t.tn2.toFixed(2),p:+t.tp.toFixed(2),b:+t.tb.toFixed(2),s:t.tb<0.10?'Paid':(t.tp>0?'Partial':'Pending')}));
       addExcelTitle(ws, 'Truck Owner Report', 9, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=truck_owner_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=truck_owner_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
-  router.get('/api/export/truck-owner-pdf', safeSync((req, res) => {
+  router.get('/api/export/truck-owner-pdf', safeSync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query); const td = {};
       entries.forEach(e => { const tn=e.truck_no||'Unknown'; const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); if(!td[tn])td[tn]={truck_no:tn,trips:0,tq:0,tg:0,tded:0,tn2:0,tp:0,tb:0}; td[tn].trips++;td[tn].tq+=fq;td[tn].tg+=g;td[tn].tded+=d;td[tn].tn2+=n;td[tn].tp+=p.paid_amount;td[tn].tb+=b; });
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
- filename=truck_owner_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=truck_owner_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Truck Owner Report');
       const h = ['Truck','Trips','QNTL','Gross','Ded','Net','Paid','Balance','Status'];
       const rows = Object.values(td).map(t => [t.truck_no,t.trips,t.tq.toFixed(2),t.tg.toFixed(2),t.tded.toFixed(2),t.tn2.toFixed(2),t.tp.toFixed(2),t.tb.toFixed(2),t.tb<0.10?'Paid':(t.tp>0?'Partial':'Pending')]);
@@ -328,17 +328,17 @@ module.exports = function(database) {
       });
       addExcelTitle(ws, 'Milling Report', 12, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=milling_report_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
   }));
 
-  router.get('/api/milling-report/pdf', safeSync((req, res) => {
+  router.get('/api/milling-report/pdf', safeSync(async (req, res) => {
     try {
       const entries = database.getMillingEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
- filename=milling_report_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Milling Report');
       const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%','Bran(Q)','Husk%','Note'];
       const rows = entries.map(e => [fmtDate(e.date), (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
@@ -368,12 +368,12 @@ module.exports = function(database) {
       totalRow.font = { bold: true };
       addExcelTitle(ws, 'FRK Purchase Register', 6, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=frk_purchases_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
   }));
 
-  router.get('/api/frk-purchases/pdf', safeSync((req, res) => {
+  router.get('/api/frk-purchases/pdf', safeSync(async (req, res) => {
     try {
       if (!database.data.frk_purchases) database.data.frk_purchases = [];
       let purchases = [...database.data.frk_purchases];
@@ -382,7 +382,7 @@ module.exports = function(database) {
       purchases.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
- filename=frk_purchases_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe addPdfHeader(doc, 'FRK Purchase Register');
       const tq = +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2);
       const ta = +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2);
@@ -425,12 +425,12 @@ module.exports = function(database) {
       totalRow.font = { bold: true };
       addExcelTitle(ws, 'By-Product Stock & Sales Report', 5, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=byproduct_sales_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
   }));
 
-  router.get('/api/byproduct-sales/pdf', safeSync((req, res) => {
+  router.get('/api/byproduct-sales/pdf', safeSync(async (req, res) => {
     try {
       if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
       let sales = [...database.data.byproduct_sales];
@@ -441,7 +441,7 @@ module.exports = function(database) {
       const products = ['bran','kunda','broken','kanki','husk'];
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
- filename=byproduct_sales_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe addPdfHeader(doc, 'By-Product Stock & Sales Report');
       const sHeaders = ['Product','Produced(Q)','Sold(Q)','Available(Q)','Revenue(Rs.)'];
       const sRows = products.map(p => {
@@ -490,12 +490,12 @@ module.exports = function(database) {
       totalRow.font = { bold: true };
       addExcelTitle(ws, 'Paddy Custody Register', 5, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=paddy_custody_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
   }));
 
-  router.get('/api/paddy-custody-register/pdf', safeSync((req, res) => {
+  router.get('/api/paddy-custody-register/pdf', safeSync(async (req, res) => {
     try {
       const filters = req.query;
       let entries = [...database.data.entries];
@@ -510,7 +510,7 @@ module.exports = function(database) {
       rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
- filename=paddy_custody_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Paddy Custody Register');
       const headers = ['Date','Description','Received(Q)','Released(Q)','Balance(Q)'];
       const pdfRows = rows.map(r => [r.date, r.description.substring(0,35), r.received_qntl > 0 ? r.received_qntl : '-', r.released_qntl > 0 ? r.released_qntl : '-', r.balance_qntl]);

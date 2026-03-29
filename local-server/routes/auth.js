@@ -16,13 +16,13 @@ module.exports = function(database) {
 
   // ===== PRINT PAGE =====
   const printPages = {};
-  router.post('/api/print', safeSync((req, res) => {
+  router.post('/api/print', safeSync(async (req, res) => {
     const id = require('uuid').v4();
     printPages[id] = req.body.html;
     setTimeout(() => delete printPages[id], 300000);
     res.json({ id, url: `/api/print/${id}` });
   }));
-  router.get('/api/print/:id', safeSync((req, res) => {
+  router.get('/api/print/:id', safeSync(async (req, res) => {
     const html = printPages[req.params.id];
     if (!html) return res.status(404).send('<h1>Page expired. Please try again.</h1>');
     delete printPages[req.params.id];
@@ -30,7 +30,7 @@ module.exports = function(database) {
   }));
 
   // ===== AUTH =====
-  router.post('/api/auth/login', safeSync((req, res) => {
+  router.post('/api/auth/login', safeSync(async (req, res) => {
     const { username, password } = req.body;
     const user = database.getUser(username);
     if (user && user.password === password) {
@@ -40,7 +40,7 @@ module.exports = function(database) {
     }
   }));
 
-  router.post('/api/auth/change-password', safeSync((req, res) => {
+  router.post('/api/auth/change-password', safeSync(async (req, res) => {
     const { username, current_password, new_password } = req.body;
     const user = database.getUser(username);
     if (!user || user.password !== current_password) {
@@ -50,7 +50,7 @@ module.exports = function(database) {
     res.json({ success: true, message: 'Password change ho gaya' });
   }));
 
-  router.get('/api/auth/verify', safeSync((req, res) => {
+  router.get('/api/auth/verify', safeSync(async (req, res) => {
     const { username, role } = req.query;
     const user = database.getUser(username);
     if (user && user.role === role) {
@@ -61,7 +61,7 @@ module.exports = function(database) {
   }));
 
   // ===== FY SETTINGS =====
-  router.get('/api/fy-settings', safeSync((req, res) => {
+  router.get('/api/fy-settings', safeSync(async (req, res) => {
     if (!database.data.fy_settings) {
       const now = new Date();
       const y = now.getFullYear();
@@ -77,7 +77,7 @@ module.exports = function(database) {
     res.json(database.data.fy_settings);
   }));
 
-  router.put('/api/fy-settings', safeSync((req, res) => {
+  router.put('/api/fy-settings', safeSync(async (req, res) => {
     const active_fy = req.body.active_fy || '';
     const season = req.body.season || '';
     const financial_year = req.body.financial_year || '';
@@ -88,13 +88,13 @@ module.exports = function(database) {
   }));
 
   // ===== BRANDING =====
-  router.get('/api/branding', safeSync((req, res) => {
+  router.get('/api/branding', safeSync(async (req, res) => {
     const branding = database.getBranding();
     if (!branding.custom_fields) branding.custom_fields = [];
     res.json(branding);
   }));
 
-  router.put('/api/branding', safeSync((req, res) => {
+  router.put('/api/branding', safeSync(async (req, res) => {
     const custom_fields = (req.body.custom_fields || []).slice(0, 6).filter(f => f.value).map(f => ({
       label: String(f.label || '').trim(),
       value: String(f.value).trim(),
@@ -108,7 +108,7 @@ module.exports = function(database) {
   // ===== OPENING STOCK =====
   const STOCK_ITEMS = ['paddy', 'rice_usna', 'rice_raw', 'bran', 'kunda', 'broken', 'kanki', 'husk', 'frk'];
 
-  router.get('/api/opening-stock', safeSync((req, res) => {
+  router.get('/api/opening-stock', safeSync(async (req, res) => {
     const kms_year = req.query.kms_year || '';
     const financial_year = req.query.financial_year || '';
     if (!database.data.opening_stock) database.data.opening_stock = [];
@@ -119,7 +119,7 @@ module.exports = function(database) {
     res.json({ kms_year, financial_year, stocks: defaults });
   }));
 
-  router.put('/api/opening-stock', safeSync((req, res) => {
+  router.put('/api/opening-stock', safeSync(async (req, res) => {
     const { kms_year = '', financial_year = '', stocks = {} } = req.body;
     if (!database.data.opening_stock) database.data.opening_stock = [];
     const cleanStocks = {};
@@ -136,12 +136,12 @@ module.exports = function(database) {
   }));
 
   // ===== HEALTH CHECK =====
-  router.get('/api/health', safeSync((req, res) => {
+  router.get('/api/health', safeSync(async (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
   }));
 
   // ===== ERROR LOG =====
-  router.get('/api/error-log', safeSync((req, res) => {
+  router.get('/api/error-log', safeSync(async (req, res) => {
     try {
       if (fs.existsSync(errorLogPath)) {
         const content = fs.readFileSync(errorLogPath, 'utf8');
@@ -156,7 +156,7 @@ module.exports = function(database) {
     }
   }));
 
-  router.delete('/api/error-log', safeSync((req, res) => {
+  router.delete('/api/error-log', safeSync(async (req, res) => {
     try {
       if (fs.existsSync(errorLogPath)) {
         fs.writeFileSync(errorLogPath, '');

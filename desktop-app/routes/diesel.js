@@ -14,10 +14,10 @@ module.exports = function(database) {
   }
 
   // ===== DIESEL PUMPS =====
-  router.get('/api/diesel-pumps', safeSync((req, res) => {
+  router.get('/api/diesel-pumps', safeSync(async (req, res) => {
     res.json(database.data.diesel_pumps || []);
   }));
-  router.post('/api/diesel-pumps', safeSync((req, res) => {
+  router.post('/api/diesel-pumps', safeSync(async (req, res) => {
     if (!database.data.diesel_pumps) database.data.diesel_pumps = [];
     const name = (req.body.name || '').trim();
     if (!name) return res.status(400).json({ detail: 'Name required' });
@@ -26,12 +26,12 @@ module.exports = function(database) {
     const pump = { id: uuidv4(), name, is_default: !!req.body.is_default || database.data.diesel_pumps.length === 0, created_at: new Date().toISOString() };
     database.data.diesel_pumps.push(pump); database.save(); res.json(pump);
   }));
-  router.put('/api/diesel-pumps/:id/set-default', safeSync((req, res) => {
+  router.put('/api/diesel-pumps/:id/set-default', safeSync(async (req, res) => {
     if (!database.data.diesel_pumps) return res.status(404).json({ detail: 'Not found' });
     database.data.diesel_pumps.forEach(p => p.is_default = (p.id === req.params.id));
     database.save(); res.json({ message: 'Default set' });
   }));
-  router.delete('/api/diesel-pumps/:id', safeSync((req, res) => {
+  router.delete('/api/diesel-pumps/:id', safeSync(async (req, res) => {
     if (!database.data.diesel_pumps) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.diesel_pumps.length;
     database.data.diesel_pumps = database.data.diesel_pumps.filter(p => p.id !== req.params.id);
@@ -40,7 +40,7 @@ module.exports = function(database) {
   }));
 
   // ===== DIESEL ACCOUNTS =====
-  router.get('/api/diesel-accounts', safeSync((req, res) => {
+  router.get('/api/diesel-accounts', safeSync(async (req, res) => {
     let txns = database.data.diesel_accounts || [];
     if (req.query.pump_id) txns = txns.filter(t => t.pump_id === req.query.pump_id);
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
@@ -52,7 +52,7 @@ module.exports = function(database) {
     res.json(txns.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||'')));
   }));
 
-  router.get('/api/diesel-accounts/summary', safeSync((req, res) => {
+  router.get('/api/diesel-accounts/summary', safeSync(async (req, res) => {
     let txns = database.data.diesel_accounts || [];
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
@@ -91,7 +91,7 @@ module.exports = function(database) {
     res.json({ pumps, grand_opening_balance:grandOb, grand_total_diesel:+pumps.reduce((s,p)=>s+p.total_diesel,0).toFixed(2), grand_total_paid:+pumps.reduce((s,p)=>s+p.total_paid,0).toFixed(2), grand_balance:+pumps.reduce((s,p)=>s+p.balance,0).toFixed(2) });
   }));
 
-  router.post('/api/diesel-accounts/pay', safeSync((req, res) => {
+  router.post('/api/diesel-accounts/pay', safeSync(async (req, res) => {
     const { pump_id, amount, date, kms_year, season, notes } = req.body;
     const amt = parseFloat(amount) || 0;
     if (!pump_id || amt <= 0) return res.status(400).json({ detail: 'pump_id and amount required' });
@@ -111,7 +111,7 @@ module.exports = function(database) {
     res.json({ success:true, message:`Rs.${amt} payment to ${pump.name} recorded`, txn_id:txn.id });
   }));
 
-  router.delete('/api/diesel-accounts/:id', safeSync((req, res) => {
+  router.delete('/api/diesel-accounts/:id', safeSync(async (req, res) => {
     if (!database.data.diesel_accounts) return res.status(404).json({ detail: 'Not found' });
     const txn = database.data.diesel_accounts.find(t=>t.id===req.params.id);
     if (!txn) return res.status(404).json({ detail: 'Not found' });
@@ -122,7 +122,7 @@ module.exports = function(database) {
     database.save(); res.json({ message:'Deleted', id:req.params.id });
   }));
 
-  router.post('/api/diesel-accounts/delete-bulk', safeSync((req, res) => {
+  router.post('/api/diesel-accounts/delete-bulk', safeSync(async (req, res) => {
     const ids = req.body.ids || [];
     if (!ids.length) return res.status(400).json({ detail: 'No ids provided' });
     if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
@@ -186,17 +186,17 @@ module.exports = function(database) {
     });
     ['A','B','C','D','E','F','G'].forEach(l => ws.getColumn(l).width = 18);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=diesel_account.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=diesel_account.xlsx`);
     await wb.xlsx.write(res); res.end();
   }));
 
-  router.get('/api/diesel-accounts/pdf', safeSync((req, res) => {
+  router.get('/api/diesel-accounts/pdf', safeSync(async (req, res) => {
     let txns = database.data.diesel_accounts || [];
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
     const pumps = database.data.diesel_pumps || [];
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
- filename=diesel_account.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=diesel_account.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Diesel Account / Diesel Khata');
     const allCashTxns = database.data.cash_transactions || [];

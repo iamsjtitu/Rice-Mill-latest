@@ -4,7 +4,7 @@ const router = express.Router();
 
 module.exports = function(database) {
 
-  router.get('/api/dashboard/agent-totals', safeSync((req, res) => {
+  router.get('/api/dashboard/agent-totals', safeSync(async (req, res) => {
     const entries = database.getEntries(req.query);
     const agentMap = {};
     entries.forEach(e => {
@@ -25,7 +25,7 @@ module.exports = function(database) {
     res.json({ agent_totals });
   }));
 
-  router.get('/api/dashboard/date-range-totals', safeSync((req, res) => {
+  router.get('/api/dashboard/date-range-totals', safeSync(async (req, res) => {
     const entries = database.getEntries(req.query);
     const totals = entries.reduce((acc, e) => ({
       total_kg: acc.total_kg + (e.kg || 0),
@@ -44,7 +44,7 @@ module.exports = function(database) {
     });
   }));
 
-  router.get('/api/dashboard/monthly-trend', safeSync((req, res) => {
+  router.get('/api/dashboard/monthly-trend', safeSync(async (req, res) => {
     const entries = database.getEntries(req.query);
     const monthMap = {};
     entries.forEach(e => {

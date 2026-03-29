@@ -167,7 +167,7 @@ module.exports = function(database) {
   }
 
   // ===== PRIVATE PADDY =====
-  router.post('/api/private-paddy', safeSync((req, res) => {
+  router.post('/api/private-paddy', safeSync(async (req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     ['kg','bag','rate_per_qntl','g_deposite','plastic_bag','moisture','cutting_percent','disc_dust_poll','paid_amount'].forEach(f => { d[f] = parseFloat(d[f]) || 0; });
@@ -181,7 +181,7 @@ module.exports = function(database) {
     database.save(); res.json(d);
   }));
 
-  router.get('/api/private-paddy', safeSync((req, res) => {
+  router.get('/api/private-paddy', safeSync(async (req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const { kms_year, season, party_name } = req.query;
     let items = [...database.data.private_paddy];
@@ -202,7 +202,7 @@ module.exports = function(database) {
     res.json(items);
   }));
 
-  router.put('/api/private-paddy/:id', safeSync((req, res) => {
+  router.put('/api/private-paddy/:id', safeSync(async (req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -219,7 +219,7 @@ module.exports = function(database) {
     database.save(); res.json(merged);
   }));
 
-  router.delete('/api/private-paddy/:id', safeSync((req, res) => {
+  router.delete('/api/private-paddy/:id', safeSync(async (req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -231,7 +231,7 @@ module.exports = function(database) {
   }));
 
   // ===== RICE SALES =====
-  router.post('/api/rice-sales', safeSync((req, res) => {
+  router.post('/api/rice-sales', safeSync(async (req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     d.quantity_qntl = parseFloat(d.quantity_qntl) || 0; d.rate_per_qntl = parseFloat(d.rate_per_qntl) || 0;
@@ -243,7 +243,7 @@ module.exports = function(database) {
     database.save(); res.json(d);
   }));
 
-  router.get('/api/rice-sales', safeSync((req, res) => {
+  router.get('/api/rice-sales', safeSync(async (req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, party_name } = req.query;
     let items = [...database.data.rice_sales];
@@ -264,7 +264,7 @@ module.exports = function(database) {
     res.json(items);
   }));
 
-  router.put('/api/rice-sales/:id', safeSync((req, res) => {
+  router.put('/api/rice-sales/:id', safeSync(async (req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -279,7 +279,7 @@ module.exports = function(database) {
     database.save(); res.json(merged);
   }));
 
-  router.delete('/api/rice-sales/:id', safeSync((req, res) => {
+  router.delete('/api/rice-sales/:id', safeSync(async (req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -289,7 +289,7 @@ module.exports = function(database) {
   }));
 
   // ===== PRIVATE PAYMENTS =====
-  router.post('/api/private-payments', safeSync((req, res) => {
+  router.post('/api/private-payments', safeSync(async (req, res) => {
     if (!database.data.private_payments) database.data.private_payments = [];
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
@@ -335,7 +335,7 @@ module.exports = function(database) {
     res.json(d);
   }));
 
-  router.get('/api/private-payments', safeSync((req, res) => {
+  router.get('/api/private-payments', safeSync(async (req, res) => {
     if (!database.data.private_payments) database.data.private_payments = [];
     const { party_name, ref_type, ref_id, kms_year, season } = req.query;
     let items = [...database.data.private_payments];
@@ -348,7 +348,7 @@ module.exports = function(database) {
     res.json(items);
   }));
 
-  router.delete('/api/private-payments/:id', safeSync((req, res) => {
+  router.delete('/api/private-payments/:id', safeSync(async (req, res) => {
     if (!database.data.private_payments) database.data.private_payments = [];
     const idx = database.data.private_payments.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -368,7 +368,7 @@ module.exports = function(database) {
   }));
 
   // ===== PARTY SUMMARY =====
-  router.get('/api/private-trading/party-summary', safeSync((req, res) => {
+  router.get('/api/private-trading/party-summary', safeSync(async (req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const { kms_year, season, date_from, date_to, search } = req.query;
@@ -418,7 +418,7 @@ module.exports = function(database) {
   }));
 
   // ===== PARTY SUMMARY EXCEL =====
-  router.get('/api/private-trading/party-summary/excel', safeSync((req, res) => {
+  router.get('/api/private-trading/party-summary/excel', safeSync(async (req, res) => {
     const ExcelJS = require('exceljs');
     const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     if (!database.data.private_paddy) database.data.private_paddy = [];
@@ -469,12 +469,12 @@ module.exports = function(database) {
     }
     widths.forEach((w,i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=party_summary.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=party_summary.xlsx`);
     wb.xlsx.write(res).then(() => res.end());
   }));
 
   // ===== PARTY SUMMARY PDF =====
-  router.get('/api/private-trading/party-summary/pdf', safeSync((req, res) => {
+  router.get('/api/private-trading/party-summary/pdf', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
     const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
@@ -494,7 +494,7 @@ module.exports = function(database) {
     const cols = getColumns('party_summary_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
- filename=party_summary.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=party_summary.pdf`);
     // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Party-wise Summary', branding, subtitle);
@@ -504,7 +504,7 @@ module.exports = function(database) {
     await safePdfPipe(doc, res);
   }));
 
-  router.get('/api/private-paddy/excel', safeSync((req, res) => {
+  router.get('/api/private-paddy/excel', safeSync(async (req, res) => {
     const ExcelJS = require('exceljs');
     const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     if (!database.data.private_paddy) database.data.private_paddy = [];
@@ -550,12 +550,12 @@ module.exports = function(database) {
     }
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=pvt_paddy.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=pvt_paddy.xlsx`);
     wb.xlsx.write(res).then(() => res.end());
   }));
 
   // ===== EXPORT: Private Paddy PDF =====
-  router.get('/api/private-paddy/pdf', safeSync((req, res) => {
+  router.get('/api/private-paddy/pdf', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
     const { addPdfHeader: _addPdfHeader, addPdfTable , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
@@ -573,7 +573,7 @@ module.exports = function(database) {
     const cols = getColumns('private_paddy_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
- filename=pvt_paddy.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=pvt_paddy.pdf`);
     // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Private Paddy Purchase', branding, subtitle);
@@ -584,7 +584,7 @@ module.exports = function(database) {
   }));
 
   // ===== EXPORT: Rice Sales Excel =====
-  router.get('/api/rice-sales/excel', safeSync((req, res) => {
+  router.get('/api/rice-sales/excel', safeSync(async (req, res) => {
     const ExcelJS = require('exceljs');
     const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
     if (!database.data.rice_sales) database.data.rice_sales = [];
@@ -627,12 +627,12 @@ module.exports = function(database) {
     }
     widths.forEach((w, i) => ws.getColumn(i+1).width = w);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=rice_sales.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=rice_sales.xlsx`);
     wb.xlsx.write(res).then(() => res.end());
   }));
 
   // ===== EXPORT: Rice Sales PDF =====
-  router.get('/api/rice-sales/pdf', safeSync((req, res) => {
+  router.get('/api/rice-sales/pdf', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
     const { addPdfHeader: _addPdfHeader, addPdfTable , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
@@ -647,7 +647,7 @@ module.exports = function(database) {
     const cols = getColumns('rice_sales_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
- filename=rice_sales.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=rice_sales.pdf`);
     // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
     _addPdfHeader(doc, 'Rice Sales Report', branding, subtitle);
@@ -658,7 +658,7 @@ module.exports = function(database) {
   }));
 
   // === Mark Paid / Undo Paid / History for Private Paddy ===
-  router.post('/api/private-paddy/:id/mark-paid', safeSync((req, res) => {
+  router.post('/api/private-paddy/:id/mark-paid', safeSync(async (req, res) => {
     if (!database.data.private_paddy) return res.status(404).json({ detail: 'Not found' });
     const item = database.data.private_paddy.find(p => p.id === req.params.id);
     if (!item) return res.status(404).json({ detail: 'Not found' });
@@ -681,7 +681,7 @@ module.exports = function(database) {
     res.json({ success: true, message: `Marked paid - Rs.${remaining} cleared` });
   }));
 
-  router.post('/api/private-paddy/:id/undo-paid', safeSync((req, res) => {
+  router.post('/api/private-paddy/:id/undo-paid', safeSync(async (req, res) => {
     if (!database.data.private_paddy) return res.status(404).json({ detail: 'Not found' });
     const item = database.data.private_paddy.find(p => p.id === req.params.id);
     if (!item) return res.status(404).json({ detail: 'Not found' });
@@ -718,7 +718,7 @@ module.exports = function(database) {
     res.json({ success: true, message: 'Payment undo - sab reset ho gaya' });
   }));
 
-  router.get('/api/private-paddy/:id/history', safeSync((req, res) => {
+  router.get('/api/private-paddy/:id/history', safeSync(async (req, res) => {
     const entryId = req.params.id;
     const entryIdShort = entryId.slice(0, 8);
     const payments = (database.data.private_payments || []).filter(p => p.ref_id === entryId && p.ref_type === 'paddy_purchase').sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
@@ -744,7 +744,7 @@ module.exports = function(database) {
   }));
 
   // === Mark Paid / Undo Paid / History for Rice Sales ===
-  router.post('/api/rice-sales/:id/mark-paid', safeSync((req, res) => {
+  router.post('/api/rice-sales/:id/mark-paid', safeSync(async (req, res) => {
     if (!database.data.rice_sales) return res.status(404).json({ detail: 'Not found' });
     const item = database.data.rice_sales.find(p => p.id === req.params.id);
     if (!item) return res.status(404).json({ detail: 'Not found' });
@@ -755,7 +755,7 @@ module.exports = function(database) {
     res.json({ message: 'Marked as paid', id: req.params.id });
   }));
 
-  router.post('/api/rice-sales/:id/undo-paid', safeSync((req, res) => {
+  router.post('/api/rice-sales/:id/undo-paid', safeSync(async (req, res) => {
     if (!database.data.rice_sales) return res.status(404).json({ detail: 'Not found' });
     const item = database.data.rice_sales.find(p => p.id === req.params.id);
     if (!item) return res.status(404).json({ detail: 'Not found' });
@@ -766,7 +766,7 @@ module.exports = function(database) {
     res.json({ message: 'Payment undone', id: req.params.id });
   }));
 
-  router.get('/api/rice-sales/:id/history', safeSync((req, res) => {
+  router.get('/api/rice-sales/:id/history', safeSync(async (req, res) => {
     const entryId = req.params.id;
     const payments = (database.data.private_payments || []).filter(p => p.ref_id === entryId && p.ref_type === 'rice_sale').sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     // Also include advance entries

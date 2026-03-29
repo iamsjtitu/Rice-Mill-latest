@@ -10,7 +10,7 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - PDF generation and WhatsApp sharing
 - GST Tax Invoice support integrated into Sale Vouchers
 
-## Current Version: v52.0.0
+## Current Version: v53.0.0
 
 ## Architecture
 ```
@@ -20,9 +20,9 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 ├── local-server/     # Express + Local JSON (LAN access)
 ├── frontend/         # React (shared across all backends)
 │   └── src/
-│       ├── App.js            # Main routing (~2340 lines, reduced from 3477)
+│       ├── App.js            # Main routing (~2340 lines)
 │       └── components/
-│           ├── Settings.jsx  # NEW: Extracted settings with sub-tabs
+│           ├── Settings.jsx  # Settings with sub-tabs
 │           └── ...
 ```
 
@@ -31,32 +31,26 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Stock Summary with milling operations
 - Party ledgers with double-entry accounting
 - PDF export + WhatsApp sharing via 360Messenger + tmpfiles.org
-- GST Company Settings (Settings tab)
-- Per-item GST in Sale Vouchers (HSN, GST%, CGST/SGST/IGST)
-- Buyer GSTIN and Address fields in Sale Vouchers
+- GST Company Settings, Per-item GST in Sale Vouchers
 - Tax Invoice PDF with Company GSTIN header and tax breakup
 - WhatsApp direct PDF send for Sale Vouchers
-- GST Summary dialog (HSN-wise tax breakup for GST return filing)
+- GST Summary dialog (HSN-wise tax breakup)
 - Daily Reports with WhatsApp PDF attachments
-- Opening Balances management
-- FY Summary and Dashboard
+- Opening Balances management, FY Summary and Dashboard
 - Auto-updater for desktop app via GitHub Actions
 - safePdfPipe for Desktop/Local PDF generation (no stream crashes)
 - Settings page organized into sub-tabs (Branding, GST, Stock, Messaging, Data)
 
-## Completed in v52.0.0 (29 Mar 2026)
-- Merged GST Invoice fields into Sale Voucher (per-item HSN + GST%)
-- Added Buyer GSTIN and Buyer Address fields
-- Updated Sale Voucher PDF to Tax Invoice format
-- Deleted standalone GST Invoice module
-- WhatsApp direct PDF send for Sale Vouchers
-- GST Summary dialog with HSN-wise breakup
-- Professional PDF redesign for Sale Vouchers
-- Fixed WhatsApp Daily Report PDF attachments
-- Global safePdfPipe fix for Desktop/Local backends (70+ endpoints)
+## Completed in v53.0.0 (29 Mar 2026)
 - Settings page refactored into sub-tabs (extracted from App.js into Settings.jsx)
   - App.js reduced from 3477 to ~2340 lines
   - Sub-tabs: Branding, GST, Stock, Messaging, Data
+- **CRITICAL FIX**: Fixed 156 corrupted Content-Disposition headers across Desktop/Local backends
+  - Previous safePdfPipe script had removed `res.setHeader('Content-Disposition',...)` prefix
+  - Fixed 74 double backtick issues, 82 trailing single quote corruptions
+  - Made 446 safeSync callbacks async for await safePdfPipe support
+  - Updated safeSync wrapper to handle async Promise rejections
+  - This fixes: PDF downloads returning .json, cash book not loading, route load failures
 
 ## Prioritized Backlog
 ### P1

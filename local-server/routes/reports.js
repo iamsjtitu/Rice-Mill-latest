@@ -149,7 +149,7 @@ module.exports = function(database) {
   }
 
   // ===== OUTSTANDING REPORT =====
-  router.get('/api/reports/outstanding', safeSync((req, res) => {
+  router.get('/api/reports/outstanding', safeSync(async (req, res) => {
     const { kms_year, season } = req.query;
     const dcEntries = (database.data.dc_entries || []).filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     const allDels = (database.data.dc_deliveries || []).filter(d => (!kms_year || d.kms_year === kms_year) && (!season || d.season === season));
@@ -177,7 +177,7 @@ module.exports = function(database) {
   }));
 
   // ===== PARTY LEDGER =====
-  router.get('/api/reports/party-ledger', safeSync((req, res) => {
+  router.get('/api/reports/party-ledger', safeSync(async (req, res) => {
     const { party_name, party_type, kms_year, season, date_from, date_to } = req.query;
     const ledger = getLedgerData(party_name, party_type, kms_year, season, date_from, date_to);
     const partySet = new Set(); for (const item of ledger) partySet.add(JSON.stringify({ name: item.party_name, type: item.party_type }));
@@ -220,12 +220,12 @@ module.exports = function(database) {
     } catch (err) { res.status(500).json({ detail: 'Excel export failed: ' + err.message }); }
   }));
 
-  router.get('/api/reports/outstanding/pdf', safeSync((req, res) => {
+  router.get('/api/reports/outstanding/pdf', safeSync(async (req, res) => {
     try {
       const { kms_year, season } = req.query;
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
- filename=outstanding_${Date.now()}.pdf`); // PDF will be sent via safePdfPipe
+    res.setHeader('Content-Disposition', `attachment; filename=outstanding_${Date.now()}.pdf`); // PDF will be sent via safePdfPipe
 
       addPdfHeader(doc, 'Outstanding Report', kms_year ? `${kms_year} | ${season || ''}` : '');
 
@@ -294,14 +294,14 @@ module.exports = function(database) {
     } catch (err) { res.status(500).json({ detail: 'Excel export failed: ' + err.message }); }
   }));
 
-  router.get('/api/reports/party-ledger/pdf', safeSync((req, res) => {
+  router.get('/api/reports/party-ledger/pdf', safeSync(async (req, res) => {
     try {
       const { party_name, party_type, kms_year, season, date_from, date_to } = req.query;
       const ledger = getLedgerData(party_name, party_type, kms_year, season, date_from, date_to);
 
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
- filename=party_ledger_${Date.now()}.pdf`); // PDF will be sent via safePdfPipe
+    res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`); // PDF will be sent via safePdfPipe
 
       addPdfHeader(doc, `Party Ledger${party_name ? ' - ' + party_name : ''}`, date_from && date_to ? `${date_from} to ${date_to}` : '');
 
@@ -325,7 +325,7 @@ module.exports = function(database) {
   }));
 
   // ===== AGENT & MANDI WISE REPORT =====
-  router.get('/api/reports/agent-mandi-wise', safeSync((req, res) => {
+  router.get('/api/reports/agent-mandi-wise', safeSync(async (req, res) => {
     const { kms_year, season, search } = req.query;
     let entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     if (search) {
@@ -396,7 +396,7 @@ module.exports = function(database) {
   }));
 
   // Move extra QNTL to Pvt Purchase
-  router.post('/api/reports/agent-mandi-wise/move-to-pvt', safeSync((req, res) => {
+  router.post('/api/reports/agent-mandi-wise/move-to-pvt', safeSync(async (req, res) => {
     const { mandi_name, agent_name, extra_qntl, rate, kms_year, username, last_truck } = req.body;
     const season = req.body.season || 'Kharif';
     if (!mandi_name || !extra_qntl || extra_qntl <= 0 || !rate || rate <= 0)
@@ -509,11 +509,11 @@ module.exports = function(database) {
     widths.forEach((w,i) => { ws.getColumn(i+1).width = w; });
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=agent_mandi_report.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=agent_mandi_report.xlsx`);
     res.send(Buffer.from(buf));
   }));
 
-  router.get('/api/reports/agent-mandi-wise/pdf', safeSync((req, res) => {
+  router.get('/api/reports/agent-mandi-wise/pdf', safeSync(async (req, res) => {
     const { kms_year, season, search, mandis: mandiFilter } = req.query;
     let entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     if (search) { const s = search.toLowerCase(); entries = entries.filter(e => (e.mandi_name||'').toLowerCase().includes(s) || (e.agent_name||'').toLowerCase().includes(s)); }
@@ -542,7 +542,7 @@ module.exports = function(database) {
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
       registerFonts(doc);
- filename=agent_mandi_report.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=agent_mandi_report.pdf`);
     // PDF will be sent via safePdfPipe
 
     let title = 'Agent & Mandi Wise Report';

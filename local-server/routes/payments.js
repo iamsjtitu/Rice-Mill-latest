@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 module.exports = function(database) {
 
   // ===== TRUCK PAYMENTS =====
-  router.get('/api/truck-payments', safeSync((req, res) => {
+  router.get('/api/truck-payments', safeSync(async (req, res) => {
     const entries = database.getEntries(req.query);
     const payments = entries.map(entry => {
       const payment = database.getTruckPayment(entry.id);
@@ -36,7 +36,7 @@ module.exports = function(database) {
     res.json(payments);
   }));
 
-  router.put('/api/truck-payments/:entryId/rate', safeSync((req, res) => {
+  router.put('/api/truck-payments/:entryId/rate', safeSync(async (req, res) => {
     const entry = database.data.entries.find(e => e.id === req.params.entryId);
     let updatedCount = 1;
     if (entry && entry.truck_no && entry.mandi_name) {
@@ -67,7 +67,7 @@ module.exports = function(database) {
     res.json({ success: true, payment, updated_count: updatedCount, truck_no: entry?.truck_no, mandi_name: entry?.mandi_name });
   }));
 
-  router.post('/api/truck-payments/:entryId/pay', safeSync((req, res) => {
+  router.post('/api/truck-payments/:entryId/pay', safeSync(async (req, res) => {
     const entry = database.data.entries.find(e => e.id === req.params.entryId);
     const current = database.getTruckPayment(req.params.entryId);
     const newPaidAmount = current.paid_amount + req.body.amount;
@@ -91,7 +91,7 @@ module.exports = function(database) {
     res.json({ success: true, message: 'Payment recorded', total_paid: newPaidAmount });
   }));
 
-  router.post('/api/truck-payments/:entryId/mark-paid', safeSync((req, res) => {
+  router.post('/api/truck-payments/:entryId/mark-paid', safeSync(async (req, res) => {
     const entry = database.data.entries.find(e => e.id === req.params.entryId);
     if (!entry) return res.status(404).json({ detail: 'Entry not found' });
     const current = database.getTruckPayment(req.params.entryId);
@@ -119,7 +119,7 @@ module.exports = function(database) {
     res.json({ success: true, message: 'Payment cleared' });
   }));
 
-  router.post('/api/truck-payments/:entryId/undo-paid', safeSync((req, res) => {
+  router.post('/api/truck-payments/:entryId/undo-paid', safeSync(async (req, res) => {
     const entryId = req.params.entryId;
     database.updateTruckPayment(entryId, { paid_amount: 0, status: 'pending' });
     if (database.data.cash_transactions) {
@@ -137,13 +137,13 @@ module.exports = function(database) {
     res.json({ success: true, message: 'Payment undo ho gaya' });
   }));
 
-  router.get('/api/truck-payments/:entryId/history', safeSync((req, res) => {
+  router.get('/api/truck-payments/:entryId/history', safeSync(async (req, res) => {
     const payment = database.getTruckPayment(req.params.entryId);
     res.json({ history: payment.payment_history || [], total_paid: payment.paid_amount || 0 });
   }));
 
   // ===== AGENT PAYMENTS =====
-  router.get('/api/agent-payments', safeSync((req, res) => {
+  router.get('/api/agent-payments', safeSync(async (req, res) => {
     const targets = database.getMandiTargets(req.query);
     const entries = database.getEntries(req.query);
     const payments = targets.map(target => {
@@ -176,7 +176,7 @@ module.exports = function(database) {
     res.json(payments);
   }));
 
-  router.post('/api/agent-payments/:mandiName/pay', safeSync((req, res) => {
+  router.post('/api/agent-payments/:mandiName/pay', safeSync(async (req, res) => {
     const { kms_year, season } = req.query;
     const mandiName = decodeURIComponent(req.params.mandiName);
     const current = database.getAgentPayment(mandiName, kms_year, season);
@@ -233,7 +233,7 @@ module.exports = function(database) {
     res.json({ success: true, message: 'Payment recorded', total_paid: newPaidAmount });
   }));
 
-  router.post('/api/agent-payments/:mandiName/mark-paid', safeSync((req, res) => {
+  router.post('/api/agent-payments/:mandiName/mark-paid', safeSync(async (req, res) => {
     const { kms_year, season } = req.query;
     const mandiName = decodeURIComponent(req.params.mandiName);
     const target = database.getMandiTargets({ kms_year, season }).find(t => t.mandi_name === mandiName);
@@ -283,7 +283,7 @@ module.exports = function(database) {
     res.json({ success: true, message: 'Agent/Mandi payment cleared' });
   }));
 
-  router.post('/api/agent-payments/:mandiName/undo-paid', safeSync((req, res) => {
+  router.post('/api/agent-payments/:mandiName/undo-paid', safeSync(async (req, res) => {
     const { kms_year, season } = req.query;
     const mandiName = decodeURIComponent(req.params.mandiName);
     database.updateAgentPayment(mandiName, kms_year, season, { paid_amount: 0, status: 'pending' });
@@ -297,14 +297,14 @@ module.exports = function(database) {
     res.json({ success: true, message: 'Payment undo ho gaya' });
   }));
 
-  router.get('/api/agent-payments/:mandiName/history', safeSync((req, res) => {
+  router.get('/api/agent-payments/:mandiName/history', safeSync(async (req, res) => {
     const { kms_year, season } = req.query;
     const payment = database.getAgentPayment(decodeURIComponent(req.params.mandiName), kms_year, season);
     res.json({ history: payment.payment_history || [], total_paid: payment.paid_amount || 0 });
   }));
 
   // ===== TRUCK OWNER CONSOLIDATED PAYMENT ENDPOINTS =====
-  router.post('/api/truck-owner/:truckNo/pay', safeSync((req, res) => {
+  router.post('/api/truck-owner/:truckNo/pay', safeSync(async (req, res) => {
     const truckNo = decodeURIComponent(req.params.truckNo);
     const { kms_year, season, username, role } = req.query;
     if (role !== 'admin') return res.status(403).json({ detail: 'Sirf admin payment kar sakta hai' });
@@ -369,7 +369,7 @@ module.exports = function(database) {
     res.json({ success: true, message: `₹${amount} payment ho gaya! (${Math.round(amount - remaining)} distributed)` });
   }));
 
-  router.post('/api/truck-owner/:truckNo/mark-paid', safeSync((req, res) => {
+  router.post('/api/truck-owner/:truckNo/mark-paid', safeSync(async (req, res) => {
     const truckNo = decodeURIComponent(req.params.truckNo);
     const { kms_year, season, username, role } = req.query;
     if (role !== 'admin') return res.status(403).json({ detail: 'Sirf admin mark paid kar sakta hai' });
@@ -414,7 +414,7 @@ module.exports = function(database) {
     res.json({ success: true, message: `Sab trips paid! ₹${totalMarked} mark paid kiya` });
   }));
 
-  router.post('/api/truck-owner/:truckNo/undo-paid', safeSync((req, res) => {
+  router.post('/api/truck-owner/:truckNo/undo-paid', safeSync(async (req, res) => {
     const truckNo = decodeURIComponent(req.params.truckNo);
     const { kms_year, season, username, role } = req.query;
     if (role !== 'admin') return res.status(403).json({ detail: 'Sirf admin undo kar sakta hai' });
@@ -443,7 +443,7 @@ module.exports = function(database) {
     res.json({ success: true, message: `${truckNo} ke saare payments undo ho gaye` });
   }));
 
-  router.get('/api/truck-owner/:truckNo/history', safeSync((req, res) => {
+  router.get('/api/truck-owner/:truckNo/history', safeSync(async (req, res) => {
     const truckNo = decodeURIComponent(req.params.truckNo);
     const { kms_year, season } = req.query;
 

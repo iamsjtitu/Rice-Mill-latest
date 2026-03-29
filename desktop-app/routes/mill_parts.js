@@ -6,12 +6,12 @@ const { v4: uuidv4 } = require('uuid');
 module.exports = function(database) {
 
 // ============ STORE ROOMS ============
-router.get('/api/store-rooms', safeSync((req, res) => {
+router.get('/api/store-rooms', safeSync(async (req, res) => {
   if (!database.data.store_rooms) database.data.store_rooms = [];
   res.json([...database.data.store_rooms].sort((a, b) => (a.name || '').localeCompare(b.name || '')));
 }));
 
-router.post('/api/store-rooms', safeSync((req, res) => {
+router.post('/api/store-rooms', safeSync(async (req, res) => {
   if (!database.data.store_rooms) database.data.store_rooms = [];
   const name = (req.body.name || '').trim();
   if (!name) return res.status(400).json({ detail: 'Store Room name is required' });
@@ -21,7 +21,7 @@ router.post('/api/store-rooms', safeSync((req, res) => {
   database.data.store_rooms.push(doc); database.save(); res.json(doc);
 }));
 
-router.put('/api/store-rooms/:id', safeSync((req, res) => {
+router.put('/api/store-rooms/:id', safeSync(async (req, res) => {
   if (!database.data.store_rooms) return res.status(404).json({ detail: 'Not found' });
   const room = database.data.store_rooms.find(r => r.id === req.params.id);
   if (!room) return res.status(404).json({ detail: 'Not found' });
@@ -34,7 +34,7 @@ router.put('/api/store-rooms/:id', safeSync((req, res) => {
   database.save(); res.json({ message: 'Updated', id: req.params.id });
 }));
 
-router.delete('/api/store-rooms/:id', safeSync((req, res) => {
+router.delete('/api/store-rooms/:id', safeSync(async (req, res) => {
   if (!database.data.store_rooms) return res.status(404).json({ detail: 'Not found' });
   const len = database.data.store_rooms.length;
   database.data.store_rooms = database.data.store_rooms.filter(r => r.id !== req.params.id);
@@ -48,7 +48,7 @@ router.delete('/api/store-rooms/:id', safeSync((req, res) => {
 }));
 
 // ============ MILL PARTS MASTER ============
-router.post('/api/mill-parts', safeSync((req, res) => {
+router.post('/api/mill-parts', safeSync(async (req, res) => {
   if (!database.data.mill_parts) database.data.mill_parts = [];
   const d = req.body;
   const name = (d.name || '').trim();
@@ -63,13 +63,13 @@ router.post('/api/mill-parts', safeSync((req, res) => {
   database.data.mill_parts.push(doc); database.save(); res.json(doc);
 }));
 
-router.get('/api/mill-parts', safeSync((req, res) => {
+router.get('/api/mill-parts', safeSync(async (req, res) => {
   if (!database.data.mill_parts) database.data.mill_parts = [];
   const items = [...database.data.mill_parts].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   res.json(items);
 }));
 
-router.delete('/api/mill-parts/:id', safeSync((req, res) => {
+router.delete('/api/mill-parts/:id', safeSync(async (req, res) => {
   if (!database.data.mill_parts) return res.status(404).json({ detail: 'Not found' });
   const len = database.data.mill_parts.length;
   database.data.mill_parts = database.data.mill_parts.filter(p => p.id !== req.params.id);
@@ -78,7 +78,7 @@ router.delete('/api/mill-parts/:id', safeSync((req, res) => {
 }));
 
 // PUT /api/mill-parts/:id
-router.put('/api/mill-parts/:id', safeSync((req, res) => {
+router.put('/api/mill-parts/:id', safeSync(async (req, res) => {
   if (!database.data.mill_parts) return res.status(404).json({ detail: 'Not found' });
   const part = database.data.mill_parts.find(p => p.id === req.params.id);
   if (!part) return res.status(404).json({ detail: 'Not found' });
@@ -93,7 +93,7 @@ router.put('/api/mill-parts/:id', safeSync((req, res) => {
 }));
 
 // ============ MILL PARTS STOCK TRANSACTIONS ============
-router.post('/api/mill-parts-stock', safeSync((req, res) => {
+router.post('/api/mill-parts-stock', safeSync(async (req, res) => {
   if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
   const d = req.body;
   const qty = parseFloat(d.quantity) || 0;
@@ -147,7 +147,7 @@ router.post('/api/mill-parts-stock', safeSync((req, res) => {
   database.save(); res.json(doc);
 }));
 
-router.get('/api/mill-parts-stock', safeSync((req, res) => {
+router.get('/api/mill-parts-stock', safeSync(async (req, res) => {
   if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
   let items = [...database.data.mill_parts_stock];
   if (req.query.part_name) items = items.filter(t => t.part_name === req.query.part_name);
@@ -160,7 +160,7 @@ router.get('/api/mill-parts-stock', safeSync((req, res) => {
   res.json(items.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||'')));
 }));
 
-router.delete('/api/mill-parts-stock/:id', safeSync((req, res) => {
+router.delete('/api/mill-parts-stock/:id', safeSync(async (req, res) => {
   if (!database.data.mill_parts_stock) return res.status(404).json({ detail: 'Not found' });
   // Remove linked local party entry
   if (database.data.local_party_accounts) {
@@ -186,7 +186,7 @@ router.delete('/api/mill-parts-stock/:id', safeSync((req, res) => {
 }));
 
 // PUT - Edit stock entry
-router.put('/api/mill-parts-stock/:id', safeSync((req, res) => {
+router.put('/api/mill-parts-stock/:id', safeSync(async (req, res) => {
   if (!database.data.mill_parts_stock) return res.status(404).json({ detail: 'Not found' });
   const idx = database.data.mill_parts_stock.findIndex(t => t.id === req.params.id);
   if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -320,12 +320,12 @@ function getStockSummary(query) {
   return result;
 }
 
-router.get('/api/mill-parts/summary', safeSync((req, res) => {
+router.get('/api/mill-parts/summary', safeSync(async (req, res) => {
   res.json(getStockSummary(req.query));
 }));
 
 // ============ STORE ROOM WISE REPORT ============
-router.get('/api/mill-parts/store-room-report', safeSync((req, res) => {
+router.get('/api/mill-parts/store-room-report', safeSync(async (req, res) => {
   if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
   if (!database.data.mill_parts) database.data.mill_parts = [];
   if (!database.data.store_rooms) database.data.store_rooms = [];
@@ -448,7 +448,7 @@ router.get('/api/mill-parts/store-room-report/excel', safeAsync(async (req, res)
   ws.columns = [{ width: 22 }, { width: 14 }, { width: 8 }, { width: 12 }, { width: 12 }, { width: 14 }];
   const buf = await wb.xlsx.writeBuffer();
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=store_room_report.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=store_room_report.xlsx`);
   res.send(Buffer.from(buf));
 }));
 
@@ -485,7 +485,7 @@ router.get('/api/mill-parts/store-room-report/pdf', safeAsync(async (req, res) =
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
- filename=store_room_report.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=store_room_report.pdf`);
   // PDF will be sent via safePdfPipe
 
   const title = `Store Room-wise Inventory Report${req.query.kms_year ? ' - ' + req.query.kms_year : ''}${req.query.season ? ' (' + req.query.season + ')' : ''}`;
@@ -555,17 +555,17 @@ router.get('/api/mill-parts/summary/excel', safeAsync(async (req, res) => {
 
   [20, 14, 14, 8, 12, 12, 14, 18, 25].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=mill_parts_stock.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=mill_parts_stock.xlsx`);
   await wb.xlsx.write(res); res.end();
 }));
 
 // ============ STOCK EXPORT (PDF) ============
-router.get('/api/mill-parts/summary/pdf', safeSync((req, res) => {
+router.get('/api/mill-parts/summary/pdf', safeSync(async (req, res) => {
   const PDFDocument = require('pdfkit');
   const summary = getStockSummary(req.query);
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
- filename=mill_parts_stock.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=mill_parts_stock.pdf`);
   // PDF will be sent via safePdfPipe
 
   const C = { hdr: '#1a365d', border: '#cbd5e1', alt: '#f8fafc', blue: '#e0f2fe' };
@@ -662,12 +662,12 @@ router.get('/api/mill-parts-stock/export/excel', safeAsync(async (req, res) => {
 
   [12, 18, 12, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=mill_parts_transactions.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=mill_parts_transactions.xlsx`);
   await wb.xlsx.write(res); res.end();
 }));
 
 // ============ TRANSACTION EXPORT (PDF) ============
-router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
+router.get('/api/mill-parts-stock/export/pdf', safeSync(async (req, res) => {
   const PDFDocument = require('pdfkit');
   let items = [...(database.data.mill_parts_stock || [])];
   if (req.query.kms_year) items = items.filter(t => t.kms_year === req.query.kms_year);
@@ -680,7 +680,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync((req, res) => {
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
- filename=mill_parts_transactions.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=mill_parts_transactions.pdf`);
   // PDF will be sent via safePdfPipe
 
   const C = { hdr: '#1a365d', border: '#cbd5e1', inBg: '#f0fdf4', usedBg: '#fef2f2', inBg2: '#dcfce7', usedBg2: '#fee2e2', blue: '#e0f2fe' };
@@ -823,11 +823,11 @@ router.get('/api/mill-parts/part-summary/excel', safeAsync(async (req, res) => {
   });
   [12, 8, 8, 10, 14, 18, 12, 18].forEach((w, i) => ws.getColumn(i + 1).width = w);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=${part_name.replace(/ /g, '_')}_summary.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.xlsx`);
   await wb.xlsx.write(res); res.end();
 }));
 
-router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
+router.get('/api/mill-parts/part-summary/pdf', safeSync(async (req, res) => {
   const { part_name, kms_year, season } = req.query;
   if (!part_name) return res.status(400).json({ detail: 'part_name required' });
   if (!database.data.mill_parts_stock) database.data.mill_parts_stock = [];
@@ -853,7 +853,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync((req, res) => {
   const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
- filename=${part_name.replace(/ /g, '_')}_summary.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.pdf`);
   // PDF will be sent via safePdfPipe
   _addPdfH(doc, `${part_name} - Part Summary`, branding);
   doc.fontSize(9).fillColor('#666666').text(`Category: ${category} | Unit: ${unit} | Store Room: ${partInfo.store_room_name || 'N/A'}`, { align: 'center' });

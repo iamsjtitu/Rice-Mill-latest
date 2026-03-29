@@ -12,7 +12,7 @@ function col(name) {
 }
 
 // ============ STAFF CRUD ============
-router.post('/api/staff', safeSync((req, res) => {
+router.post('/api/staff', safeSync(async (req, res) => {
   const d = req.body;
   const name = (d.name || '').trim();
   if (!name) return res.status(400).json({ detail: 'Staff name required' });
@@ -24,13 +24,13 @@ router.post('/api/staff', safeSync((req, res) => {
   col('staff').push(staff); database.save(); res.json(staff);
 }));
 
-router.get('/api/staff', safeSync((req, res) => {
+router.get('/api/staff', safeSync(async (req, res) => {
   let list = col('staff');
   if (req.query.active === 'true') list = list.filter(s => s.active !== false);
   res.json(list.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
 }));
 
-router.put('/api/staff/:id', safeSync((req, res) => {
+router.put('/api/staff/:id', safeSync(async (req, res) => {
   const list = col('staff');
   const idx = list.findIndex(s => s.id === req.params.id);
   if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -38,7 +38,7 @@ router.put('/api/staff/:id', safeSync((req, res) => {
   database.save(); res.json(list[idx]);
 }));
 
-router.delete('/api/staff/:id', safeSync((req, res) => {
+router.delete('/api/staff/:id', safeSync(async (req, res) => {
   const list = col('staff');
   const len = list.length;
   database.data.staff = list.filter(s => s.id !== req.params.id);
@@ -47,7 +47,7 @@ router.delete('/api/staff/:id', safeSync((req, res) => {
 }));
 
 // ============ ATTENDANCE ============
-router.post('/api/staff/attendance', safeSync((req, res) => {
+router.post('/api/staff/attendance', safeSync(async (req, res) => {
   const d = req.body;
   const att = col('staff_attendance');
   // Remove existing for same staff+date
@@ -59,7 +59,7 @@ router.post('/api/staff/attendance', safeSync((req, res) => {
   database.data.staff_attendance.push(entry); database.save(); res.json(entry);
 }));
 
-router.post('/api/staff/attendance/bulk', safeSync((req, res) => {
+router.post('/api/staff/attendance/bulk', safeSync(async (req, res) => {
   const date = req.body.date || '';
   const records = req.body.records || req.body.items || [];
   const kms_year = req.body.kms_year || '';
@@ -81,7 +81,7 @@ router.post('/api/staff/attendance/bulk', safeSync((req, res) => {
   database.save(); res.json({ message: `${results.length} attendance records saved` });
 }));
 
-router.get('/api/staff/attendance', safeSync((req, res) => {
+router.get('/api/staff/attendance', safeSync(async (req, res) => {
   let list = col('staff_attendance');
   if (req.query.date) list = list.filter(a => a.date === req.query.date);
   if (req.query.staff_id) list = list.filter(a => a.staff_id === req.query.staff_id);
@@ -92,7 +92,7 @@ router.get('/api/staff/attendance', safeSync((req, res) => {
 }));
 
 // ============ STAFF ADVANCES ============
-router.post('/api/staff/advance', safeSync((req, res) => {
+router.post('/api/staff/advance', safeSync(async (req, res) => {
   const d = req.body;
   const adv = {
     id: uuidv4(), staff_id: d.staff_id, staff_name: d.staff_name || '',
@@ -126,14 +126,14 @@ router.post('/api/staff/advance', safeSync((req, res) => {
   database.save(); res.json(adv);
 }));
 
-router.get('/api/staff/advance', safeSync((req, res) => {
+router.get('/api/staff/advance', safeSync(async (req, res) => {
   let list = col('staff_advances');
   if (req.query.staff_id) list = list.filter(a => a.staff_id === req.query.staff_id);
   if (req.query.kms_year) list = list.filter(a => a.kms_year === req.query.kms_year);
   res.json(list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||'')));
 }));
 
-router.delete('/api/staff/advance/:id', safeSync((req, res) => {
+router.delete('/api/staff/advance/:id', safeSync(async (req, res) => {
   const list = col('staff_advances');
   const adv = list.find(a => a.id === req.params.id);
   if (!adv) return res.status(404).json({ detail: 'Not found' });
@@ -148,7 +148,7 @@ router.delete('/api/staff/advance/:id', safeSync((req, res) => {
 }));
 
 // ============ STAFF ADVANCE BALANCE ============
-router.get('/api/staff/advance-balance/:staffId', safeSync((req, res) => {
+router.get('/api/staff/advance-balance/:staffId', safeSync(async (req, res) => {
   const { kms_year, season } = req.query;
   let advances = col('staff_advances').filter(a => a.staff_id === req.params.staffId);
   if (kms_year) advances = advances.filter(a => a.kms_year === kms_year);
@@ -181,7 +181,7 @@ router.get('/api/staff/advance-balance/:staffId', safeSync((req, res) => {
 
 
 // ============ STAFF SALARY CALCULATION ============
-router.get('/api/staff/salary-calculate', safeSync((req, res) => {
+router.get('/api/staff/salary-calculate', safeSync(async (req, res) => {
   const { staff_id, period_from, period_to, kms_year, season } = req.query;
   const from_date = period_from || req.query.from_date;
   const to_date = period_to || req.query.to_date;
@@ -255,7 +255,7 @@ router.get('/api/staff/salary-calculate', safeSync((req, res) => {
 }));
 
 // ============ STAFF PAYMENTS ============
-router.post('/api/staff/payments', safeSync((req, res) => {
+router.post('/api/staff/payments', safeSync(async (req, res) => {
   const d = req.body;
   const payment = {
     id: uuidv4(), staff_id: d.staff_id, staff_name: d.staff_name || '',
@@ -281,14 +281,14 @@ router.post('/api/staff/payments', safeSync((req, res) => {
   database.save(); res.json(payment);
 }));
 
-router.get('/api/staff/payments', safeSync((req, res) => {
+router.get('/api/staff/payments', safeSync(async (req, res) => {
   let list = col('staff_payments');
   if (req.query.staff_id) list = list.filter(p => p.staff_id === req.query.staff_id);
   if (req.query.kms_year) list = list.filter(p => p.kms_year === req.query.kms_year);
   res.json(list.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')));
 }));
 
-router.delete('/api/staff/payments/:id', safeSync((req, res) => {
+router.delete('/api/staff/payments/:id', safeSync(async (req, res) => {
   const list = col('staff_payments');
   const payment = list.find(p => p.id === req.params.id);
   if (!payment) return res.status(404).json({ detail: 'Not found' });
@@ -298,7 +298,7 @@ router.delete('/api/staff/payments/:id', safeSync((req, res) => {
 }));
 
 // ============ ATTENDANCE EXPORT (PDF) ============
-router.get('/api/staff/export/attendance', safeSync((req, res) => {
+router.get('/api/staff/export/attendance', safeSync(async (req, res) => {
   const { date_from, date_to, fmt } = req.query;
   if (!date_from || !date_to) return res.status(400).json({ detail: 'date_from and date_to required' });
 
@@ -322,7 +322,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 10 });
       registerFonts(doc);
- filename=staff_attendance_${date_from}_to_${date_to}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.pdf`);
     // PDF will be sent via safePdfPipe
 
     // Calculate table dimensions for centering
@@ -717,7 +717,7 @@ router.get('/api/staff/export/attendance', safeSync((req, res) => {
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=staff_attendance_${date_from}_to_${date_to}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.xlsx`);
     wb.xlsx.write(res).then(() => res.end());
   }
 }));
@@ -734,7 +734,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
     const { addPdfHeader: _addPdfHdr, addPdfTable, fmtAmt, fmtDate, C, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
- filename=staff_payments.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=staff_payments.pdf`);
     // PDF will be sent via safePdfPipe
 
     const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
@@ -782,7 +782,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
 
     for (let i = 1; i <= 7; i++) ws.getColumn(i).width = 18;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=staff_payments.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=staff_payments.xlsx`);
     await wb.xlsx.write(res); res.end();
   }
 }));
@@ -823,7 +823,7 @@ router.post('/api/staff/advance-ledger/export', safeAsync(async (req, res) => {
   [5, 12, 16, 30, 14, 14, 14].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=advance_ledger_${staff_name || 'all'}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=advance_ledger_${staff_name || 'all'}.xlsx`);
   await wb.xlsx.write(res); res.end();
 }));
 

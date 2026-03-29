@@ -19,7 +19,7 @@ module.exports = function(database) {
   function ciMatch(a, b) { return a && b && a.trim().toLowerCase() === b.trim().toLowerCase(); }
   function ciContains(haystack, needle) { return haystack && needle && haystack.toLowerCase().includes(needle.toLowerCase()); }
 
-  router.post('/api/cash-book', safeSync((req, res) => {
+  router.post('/api/cash-book', safeSync(async (req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = req.body;
     const category = (d.category || '').trim();
@@ -135,7 +135,7 @@ module.exports = function(database) {
     database.save(); res.json(txn);
   }));
 
-  router.get('/api/cash-book', safeSync((req, res) => {
+  router.get('/api/cash-book', safeSync(async (req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     let txns = [...database.data.cash_transactions];
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
@@ -150,7 +150,7 @@ module.exports = function(database) {
     res.json(txns.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||'')));
   }));
 
-  router.delete('/api/cash-book/:id', safeSync((req, res) => {
+  router.delete('/api/cash-book/:id', safeSync(async (req, res) => {
     if (!database.data.cash_transactions) return res.status(404).json({ detail: 'Not found' });
     const txn = database.data.cash_transactions.find(t => t.id === req.params.id);
     if (!txn) return res.status(404).json({ detail: 'Not found' });
@@ -324,7 +324,7 @@ module.exports = function(database) {
   }));
 
   // Opening Balance PUT - MUST be before /:id route to avoid Express route conflict
-  router.put('/api/cash-book/opening-balance', safeSync((req, res) => {
+  router.put('/api/cash-book/opening-balance', safeSync(async (req, res) => {
     const { kms_year, cash, bank, bank_details } = req.body;
     if (!kms_year) return res.status(400).json({ detail: 'kms_year is required' });
     if (!database.data.opening_balances) database.data.opening_balances = [];
@@ -339,7 +339,7 @@ module.exports = function(database) {
     res.json(doc);
   }));
 
-  router.put('/api/cash-book/:id', safeSync((req, res) => {
+  router.put('/api/cash-book/:id', safeSync(async (req, res) => {
     if (!database.data.cash_transactions) return res.status(404).json({ detail: 'Not found' });
     const idx = database.data.cash_transactions.findIndex(t => t.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
@@ -358,7 +358,7 @@ module.exports = function(database) {
     res.json(database.data.cash_transactions[idx]);
   }));
 
-  router.post('/api/cash-book/delete-bulk', safeSync((req, res) => {
+  router.post('/api/cash-book/delete-bulk', safeSync(async (req, res) => {
     const ids = req.body.ids || [];
     if (!ids.length) return res.status(400).json({ detail: 'No ids provided' });
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
@@ -388,7 +388,7 @@ module.exports = function(database) {
   }));
 
   // Fix auto_ledger entries that had reversed txn_type
-  router.post('/api/cash-book/fix-auto-ledger-direction', safeSync((req, res) => {
+  router.post('/api/cash-book/fix-auto-ledger-direction', safeSync(async (req, res) => {
     if (!database.data.cash_transactions) return res.json({ success: true, fixed_count: 0 });
     let fixed = 0;
     const txns = database.data.cash_transactions;
@@ -406,14 +406,14 @@ module.exports = function(database) {
   }));
 
 
-  router.get('/api/cash-book/categories', safeSync((req, res) => {
+  router.get('/api/cash-book/categories', safeSync(async (req, res) => {
     if (!database.data.cash_book_categories) database.data.cash_book_categories = [];
     res.json([...database.data.cash_book_categories]);
   }));
 
 
   // Cleanup round_off entries
-  router.post('/api/cash-book/cleanup-round-off-entries', safeSync((req, res) => {
+  router.post('/api/cash-book/cleanup-round-off-entries', safeSync(async (req, res) => {
     if (!database.data.cash_transactions) return res.json({ success: true, deleted_count: 0 });
     const before = database.data.cash_transactions.length;
     database.data.cash_transactions = database.data.cash_transactions.filter(t => {
@@ -425,7 +425,7 @@ module.exports = function(database) {
   }));
 
   // Master auto-fix: runs on every app startup to fix ALL data inconsistencies
-  router.post('/api/cash-book/auto-fix', safeSync((req, res) => {
+  router.post('/api/cash-book/auto-fix', safeSync(async (req, res) => {
     const txns = database.data.cash_transactions || [];
     const pvtEntries = database.data.private_paddy || [];
     const fixes = { auto_ledger_direction: 0, round_off_cleaned: 0, pvt_jama_created: 0, duplicate_removed: 0 };
@@ -593,7 +593,7 @@ module.exports = function(database) {
   }));
 
 
-  router.get('/api/cash-book/agent-names', safeSync((req, res) => {
+  router.get('/api/cash-book/agent-names', safeSync(async (req, res) => {
     const { kms_year, season } = req.query;
     // Get mandi names from targets
     const targets = (database.data.mandi_targets || []).filter(t => (!kms_year || t.kms_year === kms_year) && (!season || t.season === season));
@@ -605,7 +605,7 @@ module.exports = function(database) {
     res.json({ mandi_names: mandiNames, truck_numbers: truckNumbers, agent_names: agentNames });
   }));
 
-  router.post('/api/cash-book/categories', safeSync((req, res) => {
+  router.post('/api/cash-book/categories', safeSync(async (req, res) => {
     if (!database.data.cash_book_categories) database.data.cash_book_categories = [];
     const name = (req.body.name || '').trim();
     const type = req.body.type || '';
@@ -615,7 +615,7 @@ module.exports = function(database) {
     database.data.cash_book_categories.push(cat); database.save(); res.json(cat);
   }));
 
-  router.delete('/api/cash-book/categories/:id', safeSync((req, res) => {
+  router.delete('/api/cash-book/categories/:id', safeSync(async (req, res) => {
     if (!database.data.cash_book_categories) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.cash_book_categories.length;
     database.data.cash_book_categories = database.data.cash_book_categories.filter(c => c.id !== req.params.id);
@@ -623,7 +623,7 @@ module.exports = function(database) {
     res.status(404).json({ detail: 'Not found' });
   }));
 
-  router.get('/api/cash-book/summary', safeSync((req, res) => {
+  router.get('/api/cash-book/summary', safeSync(async (req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     let txns = [...database.data.cash_transactions];
     const kmsYear = req.query.kms_year;
@@ -802,12 +802,12 @@ module.exports = function(database) {
       widths.forEach((w, i) => ws.getColumn(i + 1).width = w);
       
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=cash_book_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
 
-  router.get('/api/cash-book/pdf', safeSync((req, res) => {
+  router.get('/api/cash-book/pdf', safeSync(async (req, res) => {
     try {
       if (!database.data.cash_transactions) database.data.cash_transactions = [];
       let txns = [...database.data.cash_transactions];
@@ -837,7 +837,7 @@ module.exports = function(database) {
       const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
       
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
- filename=cash_book_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe
       
       const brandingData = database.getBranding ? database.getBranding() : {};
@@ -869,7 +869,7 @@ module.exports = function(database) {
   }));
 
   // ===== CASH BOOK OPENING BALANCE =====
-  router.get('/api/cash-book/opening-balance', safeSync((req, res) => {
+  router.get('/api/cash-book/opening-balance', safeSync(async (req, res) => {
     const kms_year = req.query.kms_year || '';
     if (!database.data.opening_balances) database.data.opening_balances = [];
     const saved = database.data.opening_balances.find(ob => ob.kms_year === kms_year);
@@ -893,7 +893,7 @@ module.exports = function(database) {
   }));
 
   // === Party Summary ===
-  router.get('/api/cash-book/party-summary', safeSync((req, res) => {
+  router.get('/api/cash-book/party-summary', safeSync(async (req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     let txns = database.data.cash_transactions.filter(t => !(t.reference||'').includes('_ledger:'));
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
@@ -967,12 +967,12 @@ module.exports = function(database) {
       ws.columns.forEach(c => c.width = 18);
       const buf = await wb.xlsx.writeBuffer();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=party_summary.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=party_summary.xlsx`);
       res.send(Buffer.from(buf));
     } catch (e) { res.status(500).json({ detail: e.message }); }
   }));
 
-  router.get('/api/cash-book/party-summary/pdf', safeSync((req, res) => {
+  router.get('/api/cash-book/party-summary/pdf', safeSync(async (req, res) => {
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     let txns = database.data.cash_transactions.filter(t => !(t.reference||'').includes('_ledger:'));
     if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
@@ -989,7 +989,7 @@ module.exports = function(database) {
     data.sort((a, b) => a.party_name.localeCompare(b.party_name));
     const { addPdfHeader: __addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const doc = new PDFDocument({ size: 'A4', margin: 25 });
- filename=party_summary.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=party_summary.pdf`);
     // PDF will be sent via safePdfPipe
     const brandingData = database.getBranding ? database.getBranding() : {};
     let subtitle = '';
@@ -1006,14 +1006,14 @@ module.exports = function(database) {
   }));
 
   // === Opening Balances (party-level) ===
-  router.get('/api/opening-balances', safeSync((req, res) => {
+  router.get('/api/opening-balances', safeSync(async (req, res) => {
     if (!database.data.party_opening_balances) database.data.party_opening_balances = [];
     let obs = [...database.data.party_opening_balances];
     if (req.query.kms_year) obs = obs.filter(o => o.kms_year === req.query.kms_year);
     res.json(obs);
   }));
 
-  router.post('/api/opening-balances', safeSync((req, res) => {
+  router.post('/api/opening-balances', safeSync(async (req, res) => {
     if (!database.data.party_opening_balances) database.data.party_opening_balances = [];
     const d = { id: uuidv4(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
     database.data.party_opening_balances.push(d);
@@ -1021,7 +1021,7 @@ module.exports = function(database) {
     res.json(d);
   }));
 
-  router.delete('/api/opening-balances/:id', safeSync((req, res) => {
+  router.delete('/api/opening-balances/:id', safeSync(async (req, res) => {
     if (!database.data.party_opening_balances) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.party_opening_balances.length;
     database.data.party_opening_balances = database.data.party_opening_balances.filter(o => o.id !== req.params.id);
@@ -1030,12 +1030,12 @@ module.exports = function(database) {
   }));
 
   // === GST Settings ===
-  router.get('/api/gst-settings', safeSync((req, res) => {
+  router.get('/api/gst-settings', safeSync(async (req, res) => {
     if (!database.data.gst_settings) database.data.gst_settings = { gstin: '', state: '', default_cgst: 9, default_sgst: 9, default_igst: 0 };
     res.json(database.data.gst_settings);
   }));
 
-  router.put('/api/gst-settings', safeSync((req, res) => {
+  router.put('/api/gst-settings', safeSync(async (req, res) => {
     database.data.gst_settings = { ...req.body, updated_at: new Date().toISOString() };
     database.save();
     res.json(database.data.gst_settings);

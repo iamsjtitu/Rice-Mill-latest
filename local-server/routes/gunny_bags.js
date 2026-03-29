@@ -13,7 +13,7 @@ module.exports = function(database) {
     _addPdfHeader(doc, title, branding);
   }
 
-  router.post('/api/gunny-bags', safeSync((req, res) => {
+  router.post('/api/gunny-bags', safeSync(async (req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     const d = req.body;
     const entry = { id: uuidv4(), date: d.date||'', bag_type: d.bag_type||'new', txn_type: d.txn_type||'in', quantity: +(d.quantity||0), source: d.source||'', rate: +(d.rate||0), amount: +((d.quantity||0)*(d.rate||0)).toFixed(2), reference: d.reference||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
@@ -31,7 +31,7 @@ module.exports = function(database) {
     database.save(); res.json(entry);
   }));
 
-  router.get('/api/gunny-bags', safeSync((req, res) => {
+  router.get('/api/gunny-bags', safeSync(async (req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     let entries = [...database.data.gunny_bags];
     if (req.query.kms_year) entries = entries.filter(e=>e.kms_year===req.query.kms_year);
@@ -40,7 +40,7 @@ module.exports = function(database) {
     res.json(entries.sort((a,b)=>(b.date||'').localeCompare(a.date||'')));
   }));
 
-  router.delete('/api/gunny-bags/:id', safeSync((req, res) => {
+  router.delete('/api/gunny-bags/:id', safeSync(async (req, res) => {
     if (!database.data.gunny_bags) return res.status(404).json({ detail: 'Not found' });
     if (database.data.local_party_accounts) {
       database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.linked_gunny_id !== req.params.id);
@@ -51,7 +51,7 @@ module.exports = function(database) {
     res.status(404).json({ detail: 'Not found' });
   }));
 
-  router.put('/api/gunny-bags/:id', safeSync((req, res) => {
+  router.put('/api/gunny-bags/:id', safeSync(async (req, res) => {
     if (!database.data.gunny_bags) return res.status(404).json({ detail: 'Not found' });
     const idx = database.data.gunny_bags.findIndex(e => e.id === req.params.id);
     if (idx < 0) return res.status(404).json({ detail: 'Not found' });
@@ -76,7 +76,7 @@ module.exports = function(database) {
     res.json(updated);
   }));
 
-  router.get('/api/gunny-bags/summary', safeSync((req, res) => {
+  router.get('/api/gunny-bags/summary', safeSync(async (req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     let entries = [...database.data.gunny_bags];
     if (req.query.kms_year) entries = entries.filter(e=>e.kms_year===req.query.kms_year);
@@ -157,11 +157,11 @@ module.exports = function(database) {
     ws.addRow({ date: 'TOTAL', txn_type: `In:${totalIn} Out:${totalOut}`, quantity: totalIn - totalOut });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=gunny_bags.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=gunny_bags.xlsx`);
     await wb.xlsx.write(res); res.end();
   }));
 
-  router.get('/api/gunny-bags/pdf', safeSync((req, res) => {
+  router.get('/api/gunny-bags/pdf', safeSync(async (req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     let entries = [...database.data.gunny_bags];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
@@ -169,7 +169,7 @@ module.exports = function(database) {
     const filtered = applyGunnyFilters(entries, req.query.bag_filter, req.query.txn_filter);
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
- filename=gunny_bags.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=gunny_bags.pdf`);
     // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Gunny Bags Report');
     const headers = ['Date', 'Bag Type', 'In/Out', 'Qty', 'Source/To', 'Rate', 'Amount(Rs.)', 'Notes'];
     const rows = filtered.map(e => [
@@ -185,7 +185,7 @@ module.exports = function(database) {
   }));
 
   // === Gunny Bags Purchase Report ===
-  router.get('/api/gunny-bags/purchase-report', safeSync((req, res) => {
+  router.get('/api/gunny-bags/purchase-report', safeSync(async (req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     let entries = database.data.gunny_bags.filter(e => e.type === 'purchase' || e.type === 'in');
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
@@ -215,12 +215,12 @@ module.exports = function(database) {
       ws.columns.forEach(c => c.width = 15);
       const buf = await wb.xlsx.writeBuffer();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=gunny_purchase_report.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=gunny_purchase_report.xlsx`);
       res.send(Buffer.from(buf));
     } catch (e) { res.status(500).json({ detail: e.message }); }
   }));
 
-  router.get('/api/gunny-bags/purchase-report/pdf', safeSync((req, res) => {
+  router.get('/api/gunny-bags/purchase-report/pdf', safeSync(async (req, res) => {
     if (!database.data.gunny_bags) database.data.gunny_bags = [];
     let entries = database.data.gunny_bags.filter(e => e.type === 'purchase' || e.type === 'in');
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);

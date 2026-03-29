@@ -6,33 +6,33 @@ const { v4: uuidv4 } = require('uuid');
 module.exports = function(database) {
 
   // ===== MILLING ENTRIES =====
-  router.get('/api/milling-entries', safeSync((req, res) => {
+  router.get('/api/milling-entries', safeSync(async (req, res) => {
     res.json(database.getMillingEntries(req.query));
   }));
-  router.get('/api/milling-summary', safeSync((req, res) => {
+  router.get('/api/milling-summary', safeSync(async (req, res) => {
     res.json(database.getMillingSummary(req.query));
   }));
-  router.post('/api/milling-entries', safeSync((req, res) => {
+  router.post('/api/milling-entries', safeSync(async (req, res) => {
     res.json(database.createMillingEntry({ ...req.body, created_by: req.query.username || '' }));
   }));
-  router.get('/api/milling-entries/:id', safeSync((req, res) => {
+  router.get('/api/milling-entries/:id', safeSync(async (req, res) => {
     const entries = database.getMillingEntries({});
     const entry = entries.find(e => e.id === req.params.id);
     if (!entry) return res.status(404).json({ detail: 'Milling entry not found' });
     res.json(entry);
   }));
-  router.put('/api/milling-entries/:id', safeSync((req, res) => {
+  router.put('/api/milling-entries/:id', safeSync(async (req, res) => {
     const updated = database.updateMillingEntry(req.params.id, req.body);
     if (!updated) return res.status(404).json({ detail: 'Milling entry not found' });
     res.json(updated);
   }));
-  router.delete('/api/milling-entries/:id', safeSync((req, res) => {
+  router.delete('/api/milling-entries/:id', safeSync(async (req, res) => {
     if (!database.deleteMillingEntry(req.params.id)) return res.status(404).json({ detail: 'Milling entry not found' });
     res.json({ message: 'Milling entry deleted', id: req.params.id });
   }));
 
   // ===== PADDY STOCK =====
-  router.get('/api/paddy-stock', safeSync((req, res) => {
+  router.get('/api/paddy-stock', safeSync(async (req, res) => {
     const filters = req.query;
     let entries = [...database.data.entries];
     if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
@@ -51,7 +51,7 @@ module.exports = function(database) {
   }));
 
   // ===== RICE STOCK =====
-  router.get('/api/rice-stock', safeSync((req, res) => {
+  router.get('/api/rice-stock', safeSync(async (req, res) => {
     const filters = req.query;
     const millingEntries = database.getMillingEntries(filters);
     const totalProduced = +millingEntries.reduce((s, e) => s + (e.rice_qntl || 0), 0).toFixed(2);
@@ -80,7 +80,7 @@ module.exports = function(database) {
   }));
 
   // ===== BYPRODUCT STOCK & SALES =====
-  router.get('/api/byproduct-stock', safeSync((req, res) => {
+  router.get('/api/byproduct-stock', safeSync(async (req, res) => {
     if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
     const millingEntries = database.getMillingEntries(req.query);
     let sales = [...database.data.byproduct_sales];
@@ -98,7 +98,7 @@ module.exports = function(database) {
     res.json(stock);
   }));
 
-  router.post('/api/byproduct-sales', safeSync((req, res) => {
+  router.post('/api/byproduct-sales', safeSync(async (req, res) => {
     if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const sale = { id: uuidv4(), ...req.body, total_amount: +((req.body.quantity_qntl || 0) * (req.body.rate_per_qntl || 0)).toFixed(2), created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
@@ -120,7 +120,7 @@ module.exports = function(database) {
     res.json(sale);
   }));
 
-  router.get('/api/byproduct-sales', safeSync((req, res) => {
+  router.get('/api/byproduct-sales', safeSync(async (req, res) => {
     if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
     let sales = [...database.data.byproduct_sales];
     if (req.query.product) sales = sales.filter(s => s.product === req.query.product);
@@ -129,7 +129,7 @@ module.exports = function(database) {
     res.json(sales.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
   }));
 
-  router.delete('/api/byproduct-sales/:id', safeSync((req, res) => {
+  router.delete('/api/byproduct-sales/:id', safeSync(async (req, res) => {
     if (!database.data.byproduct_sales) return res.status(404).json({ detail: 'Sale not found' });
     const len = database.data.byproduct_sales.length;
     database.data.byproduct_sales = database.data.byproduct_sales.filter(s => s.id !== req.params.id);
@@ -142,27 +142,27 @@ module.exports = function(database) {
   }));
 
   // ===== FRK PURCHASES =====
-  router.post('/api/frk-purchases', safeSync((req, res) => {
+  router.post('/api/frk-purchases', safeSync(async (req, res) => {
     if (!database.data.frk_purchases) database.data.frk_purchases = [];
     const d = req.body;
     const p = { id: uuidv4(), date: d.date, party_name: d.party_name || '', quantity_qntl: d.quantity_qntl || 0, rate_per_qntl: d.rate_per_qntl || 0, total_amount: +((d.quantity_qntl || 0) * (d.rate_per_qntl || 0)).toFixed(2), note: d.note || '', kms_year: d.kms_year || '', season: d.season || '', created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     database.data.frk_purchases.push(p); database.save(); res.json(p);
   }));
-  router.get('/api/frk-purchases', safeSync((req, res) => {
+  router.get('/api/frk-purchases', safeSync(async (req, res) => {
     if (!database.data.frk_purchases) database.data.frk_purchases = [];
     let p = [...database.data.frk_purchases];
     if (req.query.kms_year) p = p.filter(x => x.kms_year === req.query.kms_year);
     if (req.query.season) p = p.filter(x => x.season === req.query.season);
     res.json(p.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
   }));
-  router.delete('/api/frk-purchases/:id', safeSync((req, res) => {
+  router.delete('/api/frk-purchases/:id', safeSync(async (req, res) => {
     if (!database.data.frk_purchases) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.frk_purchases.length;
     database.data.frk_purchases = database.data.frk_purchases.filter(x => x.id !== req.params.id);
     if (database.data.frk_purchases.length < len) { database.save(); return res.json({ message: 'Deleted', id: req.params.id }); }
     res.status(404).json({ detail: 'Not found' });
   }));
-  router.get('/api/frk-stock', safeSync((req, res) => {
+  router.get('/api/frk-stock', safeSync(async (req, res) => {
     if (!database.data.frk_purchases) database.data.frk_purchases = [];
     let purchases = [...database.data.frk_purchases];
     if (req.query.kms_year) purchases = purchases.filter(x => x.kms_year === req.query.kms_year);
@@ -175,7 +175,7 @@ module.exports = function(database) {
   }));
 
   // ===== PADDY CUSTODY REGISTER =====
-  router.get('/api/paddy-custody-register', safeSync((req, res) => {
+  router.get('/api/paddy-custody-register', safeSync(async (req, res) => {
     const filters = req.query;
     let entries = [...database.data.entries];
     if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);

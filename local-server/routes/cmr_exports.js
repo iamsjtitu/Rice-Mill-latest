@@ -34,17 +34,17 @@ router.get('/api/milling-report/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=milling_report_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.xlsx`);
     await wb.xlsx.write(res); res.end();
   } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
 });
 
 // ---- MILLING REPORT PDF ----
-router.get('/api/milling-report/pdf', (req, res) => {
+router.get('/api/milling-report/pdf', async (req, res) => {
   try {
     const entries = database.getMillingEntries(req.query);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
- filename=milling_report_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Milling Report');
     const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%','Bran(Q)','Husk%','Note'];
@@ -78,13 +78,13 @@ router.get('/api/frk-purchases/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=frk_purchases_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.xlsx`);
     await wb.xlsx.write(res); res.end();
   } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
 });
 
 // ---- FRK PURCHASES PDF ----
-router.get('/api/frk-purchases/pdf', (req, res) => {
+router.get('/api/frk-purchases/pdf', async (req, res) => {
   try {
     if (!database.data.frk_purchases) database.data.frk_purchases = [];
     let purchases = [...database.data.frk_purchases];
@@ -92,7 +92,7 @@ router.get('/api/frk-purchases/pdf', (req, res) => {
     if (req.query.season) purchases = purchases.filter(x => x.season === req.query.season);
     purchases.sort((a,b) => (a.date||'').localeCompare(b.date||''));
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
- filename=frk_purchases_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'FRK Purchase Register');
     const tq = +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2);
@@ -141,13 +141,13 @@ router.get('/api/byproduct-sales/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=byproduct_sales_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.xlsx`);
     await wb.xlsx.write(res); res.end();
   } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
 });
 
 // ---- BYPRODUCT SALES PDF ----
-router.get('/api/byproduct-sales/pdf', (req, res) => {
+router.get('/api/byproduct-sales/pdf', async (req, res) => {
   try {
     if (!database.data.byproduct_sales) database.data.byproduct_sales = [];
     let sales = [...database.data.byproduct_sales];
@@ -157,7 +157,7 @@ router.get('/api/byproduct-sales/pdf', (req, res) => {
     const millingEntries = database.getMillingEntries(req.query);
     const products = ['bran','kunda','broken','kanki','husk'];
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
- filename=byproduct_sales_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'By-Product Stock & Sales Report');
     // Stock summary
@@ -212,13 +212,13 @@ router.get('/api/paddy-custody-register/excel', async (req, res) => {
     styleExcelHeader(ws);
     styleExcelData(ws, 5);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=paddy_custody_${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.xlsx`);
     await wb.xlsx.write(res); res.end();
   } catch (err) { res.status(500).json({ detail: 'Export failed: ' + err.message }); }
 });
 
 // ---- PADDY CUSTODY REGISTER PDF ----
-router.get('/api/paddy-custody-register/pdf', (req, res) => {
+router.get('/api/paddy-custody-register/pdf', async (req, res) => {
   try {
     const filters = req.query;
     let entries = [...database.data.entries];
@@ -232,7 +232,7 @@ router.get('/api/paddy-custody-register/pdf', (req, res) => {
     let balance = 0;
     rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
- filename=paddy_custody_${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Paddy Custody Register');
     const headers = ['Date','Description','Received(Q)','Released(Q)','Balance(Q)'];

@@ -10,7 +10,7 @@ function ensureCollection(name) {
 }
 
 // ============ LOCAL PARTY SUMMARY ============
-router.get('/api/local-party/summary', safeSync((req, res) => {
+router.get('/api/local-party/summary', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
   let txns = [...database.data.local_party_accounts];
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
@@ -91,7 +91,7 @@ router.get('/api/local-party/summary', safeSync((req, res) => {
 }));
 
 // ============ LOCAL PARTY TRANSACTIONS ============
-router.get('/api/local-party/transactions', safeSync((req, res) => {
+router.get('/api/local-party/transactions', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
   let txns = [...database.data.local_party_accounts];
   if (req.query.party_name) {
@@ -107,7 +107,7 @@ router.get('/api/local-party/transactions', safeSync((req, res) => {
 }));
 
 // ============ PARTY-WISE REPORT (PRINT) ============
-router.get('/api/local-party/report/:partyName', safeSync((req, res) => {
+router.get('/api/local-party/report/:partyName', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
   ensureCollection('cash_transactions');
   const pn = req.params.partyName.toLowerCase();
@@ -158,7 +158,7 @@ router.get('/api/local-party/report/:partyName', safeSync((req, res) => {
 }));
 
 // ============ MANUAL PURCHASE ============
-router.post('/api/local-party/manual', safeSync((req, res) => {
+router.post('/api/local-party/manual', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
   ensureCollection('cash_transactions');
   const d = req.body;
@@ -191,7 +191,7 @@ router.post('/api/local-party/manual', safeSync((req, res) => {
 }));
 
 // ============ SETTLEMENT / PAY / RECEIVE ============
-router.post('/api/local-party/settle', safeSync((req, res) => {
+router.post('/api/local-party/settle', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
   ensureCollection('cash_transactions');
   const d = req.body;
@@ -250,7 +250,7 @@ router.post('/api/local-party/settle', safeSync((req, res) => {
 }));
 
 // ============ DELETE TRANSACTION ============
-router.delete('/api/local-party/:id', safeSync((req, res) => {
+router.delete('/api/local-party/:id', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
   ensureCollection('cash_transactions');
   const txn = database.data.local_party_accounts.find(t => t.id === req.params.id);
@@ -307,13 +307,13 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
   for (let i = 1; i <= 6; i++) ws.getColumn(i).width = 20;
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=local_party_account.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=local_party_account.xlsx`);
   await wb.xlsx.write(res);
   res.end();
 }));
 
 // ============ PDF EXPORT ============
-router.get('/api/local-party/pdf', safeSync((req, res) => {
+router.get('/api/local-party/pdf', safeSync(async (req, res) => {
   const PDFDocument = require('pdfkit');
   const { addPdfHeader, addPdfTable, addTotalsRow , safePdfPipe} = require('./pdf_helpers');
   ensureCollection('local_party_accounts');
@@ -324,7 +324,7 @@ router.get('/api/local-party/pdf', safeSync((req, res) => {
   txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
- filename=local_party_account.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=local_party_account.pdf`);
   // PDF will be sent via safePdfPipe
 
   const branding = database.getBranding ? database.getBranding() : {};

@@ -30,7 +30,15 @@ function safeAsync(fn) {
 function safeSync(fn) {
   return (req, res, next) => {
     try {
-      fn(req, res, next);
+      const result = fn(req, res, next);
+      if (result && typeof result.catch === 'function') {
+        result.catch((err) => {
+          logError('ASYNC_ROUTE_ERROR: ' + req.method + ' ' + req.originalUrl, err);
+          if (!res.headersSent) {
+            res.status(500).json({ detail: 'Internal server error' });
+          }
+        });
+      }
     } catch (err) {
       logError('SYNC_ROUTE_ERROR: ' + req.method + ' ' + req.originalUrl, err);
       if (!res.headersSent) {

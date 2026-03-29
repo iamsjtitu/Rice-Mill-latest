@@ -321,7 +321,7 @@ module.exports = function(database) {
     const { addPdfHeader: _addPdfHeader, addPdfTable, addSummaryBox, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     const doc = new PDFDocument({ size: 'A4', margin: 25 });
- filename=purchase_voucher_${v.voucher_no || ''}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=purchase_voucher_${v.voucher_no || ''}.pdf`);
     // PDF will be sent via safePdfPipe
     _addPdfHeader(doc, `Purchase Voucher #${v.voucher_no || ''}`, branding, `Date: ${v.date || ''} | Party: ${v.party_name || ''} | Invoice: ${v.invoice_no || ''} | Truck: ${v.truck_no || ''}`);
     const headers = ['Item', 'HSN', 'Qty', 'Rate', 'Amount'];
@@ -343,7 +343,7 @@ module.exports = function(database) {
     if (season) vouchers = vouchers.filter(v => v.season === season);
     vouchers.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
- filename=purchase_book.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=purchase_book.pdf`);
     // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | Season: ${season}`;
     _addPdfHeader(doc, 'Purchase Book', branding, subtitle);
@@ -403,7 +403,7 @@ module.exports = function(database) {
     [10, 12, 12, 18, 20, 12, 14, 14, 12, 12, 12, 14].forEach((w, i) => ws.getColumn(i + 1).width = w);
     const buf = await wb.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=purchase_book.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=purchase_book.xlsx`);
     res.send(Buffer.from(buf));
   }));
 

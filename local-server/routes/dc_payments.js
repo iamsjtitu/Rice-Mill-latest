@@ -14,14 +14,14 @@ module.exports = function(database) {
   }
 
   // ===== DC ENTRIES =====
-  router.post('/api/dc-entries', safeSync((req, res) => {
+  router.post('/api/dc-entries', safeSync(async (req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     const d = req.body;
     const entry = { id: uuidv4(), dc_number: d.dc_number||'', date: d.date||'', quantity_qntl: +(d.quantity_qntl||0), rice_type: d.rice_type||'parboiled', godown_name: d.godown_name||'', deadline: d.deadline||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
     database.data.dc_entries.push(entry); database.save(); res.json(entry);
   }));
 
-  router.get('/api/dc-entries', safeSync((req, res) => {
+  router.get('/api/dc-entries', safeSync(async (req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     let entries = [...database.data.dc_entries];
@@ -32,7 +32,7 @@ module.exports = function(database) {
     res.json(entries);
   }));
 
-  router.delete('/api/dc-entries/:id', safeSync((req, res) => {
+  router.delete('/api/dc-entries/:id', safeSync(async (req, res) => {
     if (!database.data.dc_entries) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.dc_entries.length;
     database.data.dc_entries = database.data.dc_entries.filter(e => e.id !== req.params.id);
@@ -42,7 +42,7 @@ module.exports = function(database) {
     res.status(404).json({ detail: 'Not found' });
   }));
 
-  router.put('/api/dc-entries/:id', safeSync((req, res) => {
+  router.put('/api/dc-entries/:id', safeSync(async (req, res) => {
     if (!database.data.dc_entries) return res.status(404).json({ detail: 'Not found' });
     const idx = database.data.dc_entries.findIndex(e => e.id === req.params.id);
     if (idx < 0) return res.status(404).json({ detail: 'DC entry not found' });
@@ -58,16 +58,16 @@ module.exports = function(database) {
     ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'DC No', key: 'dc_number', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rice Type', key: 'rice_type', width: 12 }, { header: 'Godown', key: 'godown_name', width: 15 }, { header: 'Deadline', key: 'deadline', width: 12 }];
     entries.forEach(e => ws.addRow(e));
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=dc_entries.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=dc_entries.xlsx`);
     await wb.xlsx.write(res); res.end();
   }));
 
-  router.get('/api/dc-entries/pdf', safeSync((req, res) => {
+  router.get('/api/dc-entries/pdf', safeSync(async (req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     let entries = [...database.data.dc_entries];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
- filename=dc_entries.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=dc_entries.pdf`);
     // PDF will be sent via safePdfPipe addPdfHeader(doc, 'DC Entries Report');
     const headers = ['Date', 'DC No', 'Qty(Q)', 'Rice Type', 'Godown', 'Deadline', 'Notes'];
     const rows = entries.map(e => [e.date||'', e.dc_number||'', e.quantity_qntl||0, e.rice_type||'', e.godown_name||'', e.deadline||'', (e.notes||'').substring(0,25)]);
@@ -75,14 +75,14 @@ module.exports = function(database) {
   }));
 
   // ===== DC DELIVERIES =====
-  router.post('/api/dc-deliveries', safeSync((req, res) => {
+  router.post('/api/dc-deliveries', safeSync(async (req, res) => {
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     const d = req.body;
     const del = { id: uuidv4(), dc_id: d.dc_id||'', date: d.date||'', quantity_qntl: +(d.quantity_qntl||0), vehicle_no: d.vehicle_no||'', driver_name: d.driver_name||'', slip_no: d.slip_no||'', godown_name: d.godown_name||'', notes: d.notes||'', kms_year: d.kms_year||'', season: d.season||'', created_by: req.query.username||'', created_at: new Date().toISOString() };
     database.data.dc_deliveries.push(del); database.save(); res.json(del);
   }));
 
-  router.get('/api/dc-deliveries', safeSync((req, res) => {
+  router.get('/api/dc-deliveries', safeSync(async (req, res) => {
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     let dels = [...database.data.dc_deliveries];
     if (req.query.dc_id) dels = dels.filter(d => d.dc_id === req.query.dc_id);
@@ -91,7 +91,7 @@ module.exports = function(database) {
     res.json(dels.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||'')));
   }));
 
-  router.delete('/api/dc-deliveries/:id', safeSync((req, res) => {
+  router.delete('/api/dc-deliveries/:id', safeSync(async (req, res) => {
     if (!database.data.dc_deliveries) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.dc_deliveries.length;
     database.data.dc_deliveries = database.data.dc_deliveries.filter(d => d.id !== req.params.id);
@@ -99,7 +99,7 @@ module.exports = function(database) {
     res.status(404).json({ detail: 'Not found' });
   }));
 
-  router.get('/api/dc-summary', safeSync((req, res) => {
+  router.get('/api/dc-summary', safeSync(async (req, res) => {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     let dcs = [...database.data.dc_entries]; let dels = [...database.data.dc_deliveries];
@@ -112,7 +112,7 @@ module.exports = function(database) {
   }));
 
   // ===== MSP PAYMENTS =====
-  router.post('/api/msp-payments', safeSync((req, res) => {
+  router.post('/api/msp-payments', safeSync(async (req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
     const d = req.body;
@@ -131,7 +131,7 @@ module.exports = function(database) {
     database.save(); res.json(pay);
   }));
 
-  router.get('/api/msp-payments', safeSync((req, res) => {
+  router.get('/api/msp-payments', safeSync(async (req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     if (!database.data.dc_entries) database.data.dc_entries = [];
     let pays = [...database.data.msp_payments];
@@ -142,7 +142,7 @@ module.exports = function(database) {
     res.json(pays.sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||'')));
   }));
 
-  router.delete('/api/msp-payments/:id', safeSync((req, res) => {
+  router.delete('/api/msp-payments/:id', safeSync(async (req, res) => {
     if (!database.data.msp_payments) return res.status(404).json({ detail: 'Not found' });
     const len = database.data.msp_payments.length;
     database.data.msp_payments = database.data.msp_payments.filter(p=>p.id!==req.params.id);
@@ -155,7 +155,7 @@ module.exports = function(database) {
     res.status(404).json({ detail: 'Not found' });
   }));
 
-  router.get('/api/msp-payments/summary', safeSync((req, res) => {
+  router.get('/api/msp-payments/summary', safeSync(async (req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     if (!database.data.dc_deliveries) database.data.dc_deliveries = [];
     let pays=[...database.data.msp_payments]; let dels=[...database.data.dc_deliveries];
@@ -173,16 +173,16 @@ module.exports = function(database) {
     ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rate/Q', key: 'rate_per_qntl', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Mode', key: 'payment_mode', width: 10 }, { header: 'Reference', key: 'reference', width: 15 }, { header: 'Bank', key: 'bank_name', width: 15 }];
     payments.forEach(p => ws.addRow(p));
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- filename=msp_payments.xlsx');
+    res.setHeader('Content-Disposition', `attachment; filename=msp_payments.xlsx`);
     await wb.xlsx.write(res); res.end();
   }));
 
-  router.get('/api/msp-payments/pdf', safeSync((req, res) => {
+  router.get('/api/msp-payments/pdf', safeSync(async (req, res) => {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     let payments = [...database.data.msp_payments];
     if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
- filename=msp_payments.pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=msp_payments.pdf`);
     // PDF will be sent via safePdfPipe addPdfHeader(doc, 'MSP Payments Report');
     const headers = ['Date', 'Qty(Q)', 'Rate(Rs./Q)', 'Amount(Rs.)', 'Mode', 'Reference', 'Bank'];
     const rows = payments.map(p => [p.date||'', p.quantity_qntl||0, p.rate_per_qntl||0, p.amount||0, p.payment_mode||'', (p.reference||'').substring(0,15), (p.bank_name||'').substring(0,15)]);
