@@ -993,11 +993,10 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
     elements.append(words_row)
 
-    # ========== DEDUCTIONS / FUNDS APPLIED ==========
+    # ========== DEDUCTIONS ==========
     advance = v.get('advance', 0) or 0
     cash = v.get('cash_paid', 0) or 0
     diesel = v.get('diesel_paid', 0) or 0
-    funds_applied = advance + cash + diesel
     balance = v.get('balance', 0) or 0
 
     deduction_rows = []
@@ -1007,7 +1006,6 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
         deduction_rows.append([Paragraph('<b>Cash (Truck ko) :</b>', s_tot_l), Paragraph(f'\u20B9{cash:,.2f} INR', s_cb)])
     if diesel > 0:
         deduction_rows.append([Paragraph('<b>Diesel (Pump se) :</b>', s_tot_l), Paragraph(f'\u20B9{diesel:,.2f} INR', s_cb)])
-    deduction_rows.append([Paragraph('<b>Funds Applied :</b>', s_tot_l), Paragraph(f'<b>\u20B9{funds_applied:,.2f} INR</b>', s_tot_v)])
     deduction_rows.append([Paragraph('<b>Balance Due :</b>', s_tot_l), Paragraph(f'<b>\u20B9{balance:,.2f} INR</b>', s_tot_v)])
 
     ded_tbl = RLTable(deduction_rows, colWidths=[130*mm, 50*mm])
