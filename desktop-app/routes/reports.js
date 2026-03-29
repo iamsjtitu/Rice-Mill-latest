@@ -225,6 +225,7 @@ module.exports = function(database) {
       const { kms_year, season } = req.query;
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=outstanding_${Date.now()}.pdf`); // PDF will be sent via safePdfPipe
 
       addPdfHeader(doc, 'Outstanding Report', kms_year ? `${kms_year} | ${season || ''}` : '');
@@ -301,6 +302,7 @@ module.exports = function(database) {
 
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`); // PDF will be sent via safePdfPipe
 
       addPdfHeader(doc, `Party Ledger${party_name ? ' - ' + party_name : ''}`, date_from && date_to ? `${date_from} to ${date_to}` : '');
@@ -542,6 +544,7 @@ module.exports = function(database) {
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=agent_mandi_report.pdf`);
     // PDF will be sent via safePdfPipe
 

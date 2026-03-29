@@ -295,6 +295,7 @@ module.exports = (database) => {
 
     const doc = new PDFDocument({ size: 'A5', margin: 25 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=hemali_receipt_${p.id.substring(0,8)}.pdf`);
     // PDF will be sent via safePdfPipe
 
@@ -391,6 +392,7 @@ module.exports = (database) => {
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=hemali_monthly_summary.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Hemali Monthly Summary');
@@ -477,6 +479,7 @@ module.exports = (database) => {
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=hemali_payments.pdf`);
     // PDF will be sent via safePdfPipe
 

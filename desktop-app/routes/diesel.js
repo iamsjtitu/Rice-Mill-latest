@@ -196,6 +196,7 @@ module.exports = function(database) {
     if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
     const pumps = database.data.diesel_pumps || [];
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=diesel_account.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Diesel Account / Diesel Khata');

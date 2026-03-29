@@ -832,6 +832,7 @@ module.exports = function(database) {
       
       
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=cash_book_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe
       
@@ -983,6 +984,7 @@ module.exports = function(database) {
     const data = Object.values(parties).map(p => ({ ...p, balance: Math.round((p.jama - p.nikasi) * 100) / 100 }));
     data.sort((a, b) => a.party_name.localeCompare(b.party_name));
     const doc = new PDFDocument({ size: 'A4', margin: 25 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=party_summary.pdf`);
     // PDF will be sent via safePdfPipe
     const brandingData = database.getBranding ? database.getBranding() : {};

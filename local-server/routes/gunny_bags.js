@@ -169,8 +169,10 @@ module.exports = function(database) {
     const filtered = applyGunnyFilters(entries, req.query.bag_filter, req.query.txn_filter);
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=gunny_bags.pdf`);
-    // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Gunny Bags Report');
+    // PDF will be sent via safePdfPipe
+    addPdfHeader(doc, 'Gunny Bags Report');
     const headers = ['Date', 'Bag Type', 'In/Out', 'Qty', 'Source/To', 'Rate', 'Amount(Rs.)', 'Notes'];
     const rows = filtered.map(e => [
       e.date||'', e.bag_type==='new'?'New(Govt)':'Old(Mkt)',

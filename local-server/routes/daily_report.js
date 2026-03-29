@@ -24,6 +24,7 @@ router.get('/api/reports/daily/pdf', safeSync(async (req, res) => {
   const PDFDocument = require('pdfkit');
   const data = getDailyReportData(database, req.query);
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.pdf`);
   // PDF will be sent via safePdfPipe
 

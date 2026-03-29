@@ -68,8 +68,10 @@ module.exports = function(database) {
       const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 20 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Mill Entries Report');
+      // PDF will be sent via safePdfPipe
+      addPdfHeader(doc, 'Mill Entries Report');
       const h = ['Date','Truck','RST','TP','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss','Cash','Diesel'];
       const w = [38,38,28,28,38,38,32,24,24,28,24,28,34,22,28,22,24,34,26,30,30];
       const rows = entries.map(e => [fmtDate(e.date),e.truck_no||'',e.rst_no||'',e.tp_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,e.g_deposite||0,((e.gbw_cut||0)/100).toFixed(2),e.plastic_bag||0,((e.p_pkt_cut||0)/100).toFixed(2),((e.mill_w||0)/100).toFixed(2),e.moisture||0,((e.moisture_cut||0)/100).toFixed(2),e.cutting_percent||0,e.disc_dust_poll||0,((e.final_w||0)/100).toFixed(2),e.g_issued||0,e.cash_paid||0,e.diesel_paid||0]);
@@ -115,8 +117,10 @@ module.exports = function(database) {
       const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Truck Payments Report');
+      // PDF will be sent via safePdfPipe
+      addPdfHeader(doc, 'Truck Payments Report');
       const h = ['Date','Truck','Mandi','Final QNTL','Rate','Gross','Ded','Net','Paid','Balance','Status'];
       const rows = entries.map(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); return [e.date,e.truck_no,e.mandi_name,fq.toFixed(2),p.rate_per_qntl,g.toFixed(2),d.toFixed(2),n.toFixed(2),p.paid_amount,b.toFixed(2),b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
       addPdfTable(doc, h, rows, [50,55,55,45,35,50,50,50,45,50,40]); await safePdfPipe(doc, res);
@@ -142,8 +146,10 @@ module.exports = function(database) {
       const targets = database.getMandiTargets(req.query); const entries = database.getEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Agent Payments Report');
+      // PDF will be sent via safePdfPipe
+      addPdfHeader(doc, 'Agent Payments Report');
       const h = ['Mandi','Agent','Target','Cutting','B.Rate','C.Rate','Total','Achieved','Paid','Balance','Status'];
       const rows = targets.map(t => { const me=entries.filter(e=>e.mandi_name.toLowerCase()===t.mandi_name.toLowerCase()); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const cq=t.target_qntl*t.cutting_percent/100; const tot=(t.target_qntl*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); return [t.mandi_name,ae?ae.agent_name:'',t.target_qntl,cq.toFixed(2),t.base_rate??10,t.cutting_rate??5,tot.toFixed(2),ach.toFixed(2),p.paid_amount,bal.toFixed(2),bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
       addPdfTable(doc, h, rows, [55,55,40,40,35,35,50,45,45,50,40]); await safePdfPipe(doc, res);
@@ -161,6 +167,7 @@ module.exports = function(database) {
 
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=dashboard_${filterLabel}_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe
       addPdfHeader(doc, 'Dashboard Report');
@@ -268,8 +275,10 @@ module.exports = function(database) {
       const entries = database.getEntries(req.query); const totals = database.getTotals ? database.getTotals(req.query) : {};
       const doc = new PDFDocument({ size: 'A4', margin: 40 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=summary_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Summary Report');
+      // PDF will be sent via safePdfPipe
+      addPdfHeader(doc, 'Summary Report');
       doc.fontSize(10).font(F('bold')).text('Overview:', { underline: true }); doc.moveDown(0.3); doc.font(F('normal')).fontSize(9);
       doc.text(`Total Entries: ${entries.length}`); doc.text(`Total QNTL: ${(totals.total_qntl||0).toFixed?.(2)||0}`); doc.text(`Total Final W: ${((totals.total_final_w||0)/100).toFixed?.(2)||0}`);
       await safePdfPipe(doc, res);
@@ -297,8 +306,10 @@ module.exports = function(database) {
       entries.forEach(e => { const tn=e.truck_no||'Unknown'; const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); if(!td[tn])td[tn]={truck_no:tn,trips:0,tq:0,tg:0,tded:0,tn2:0,tp:0,tb:0}; td[tn].trips++;td[tn].tq+=fq;td[tn].tg+=g;td[tn].tded+=d;td[tn].tn2+=n;td[tn].tp+=p.paid_amount;td[tn].tb+=b; });
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=truck_owner_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Truck Owner Report');
+      // PDF will be sent via safePdfPipe
+      addPdfHeader(doc, 'Truck Owner Report');
       const h = ['Truck','Trips','QNTL','Gross','Ded','Net','Paid','Balance','Status'];
       const rows = Object.values(td).map(t => [t.truck_no,t.trips,t.tq.toFixed(2),t.tg.toFixed(2),t.tded.toFixed(2),t.tn2.toFixed(2),t.tp.toFixed(2),t.tb.toFixed(2),t.tb<0.10?'Paid':(t.tp>0?'Partial':'Pending')]);
       addPdfTable(doc, h, rows, [55,35,50,50,50,55,50,50,40]); await safePdfPipe(doc, res);
@@ -337,8 +348,10 @@ module.exports = function(database) {
       const entries = database.getMillingEntries(req.query);
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Milling Report');
+      // PDF will be sent via safePdfPipe
+      addPdfHeader(doc, 'Milling Report');
       const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%','Bran(Q)','Husk%','Note'];
       const rows = entries.map(e => [fmtDate(e.date), (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
         (e.paddy_input_qntl||0), (e.rice_percent||0)+'%', (e.rice_qntl||0), (e.frk_used_qntl||0),
@@ -381,8 +394,10 @@ module.exports = function(database) {
       purchases.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe addPdfHeader(doc, 'FRK Purchase Register');
+      // PDF will be sent via safePdfPipe
+      addPdfHeader(doc, 'FRK Purchase Register');
       const tq = +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2);
       const ta = +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2);
       const headers = ['Date','Party','Qty(Q)','Rate(Rs.)','Amount(Rs.)','Note'];
@@ -440,8 +455,10 @@ module.exports = function(database) {
       const products = ['bran','kunda','broken','kanki','husk'];
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe addPdfHeader(doc, 'By-Product Stock & Sales Report');
+      // PDF will be sent via safePdfPipe
+      addPdfHeader(doc, 'By-Product Stock & Sales Report');
       const sHeaders = ['Product','Produced(Q)','Sold(Q)','Available(Q)','Revenue(Rs.)'];
       const sRows = products.map(p => {
         const produced = +millingEntries.reduce((s,e)=>s+(e[`${p}_qntl`]||0),0).toFixed(2);
@@ -509,8 +526,10 @@ module.exports = function(database) {
       rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe addPdfHeader(doc, 'Paddy Custody Register');
+      // PDF will be sent via safePdfPipe
+      addPdfHeader(doc, 'Paddy Custody Register');
       const headers = ['Date','Description','Received(Q)','Released(Q)','Balance(Q)'];
       const pdfRows = rows.map(r => [r.date, r.description.substring(0,35), r.received_qntl > 0 ? r.received_qntl : '-', r.released_qntl > 0 ? r.released_qntl : '-', r.balance_qntl]);
       pdfRows.push(['TOTAL', '', +rows.reduce((s,r)=>s+r.received_qntl,0).toFixed(2), +rows.reduce((s,r)=>s+r.released_qntl,0).toFixed(2), +balance.toFixed(2)]);

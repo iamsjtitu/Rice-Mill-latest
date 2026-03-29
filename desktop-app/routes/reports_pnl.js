@@ -132,6 +132,7 @@ router.get('/api/reports/season-pnl/pdf', safeSync(async (req, res) => {
   const profit = netPnl >= 0;
 
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=season_pnl.pdf`);
   // PDF will be sent via safePdfPipe
   const branding = database.getBranding ? database.getBranding() : {};
@@ -181,6 +182,7 @@ router.get('/api/reports/cmr-vs-dc/pdf', safeSync(async (req, res) => {
   if (q.kms_year) { milling=milling.filter(e=>e.kms_year===q.kms_year); dcs=dcs.filter(e=>e.kms_year===q.kms_year); deliveries=deliveries.filter(e=>e.kms_year===q.kms_year); }
   if (q.season) { milling=milling.filter(e=>e.season===q.season); dcs=dcs.filter(e=>e.season===q.season); deliveries=deliveries.filter(e=>e.season===q.season); }
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=cmr_vs_dc.pdf`);
   // PDF will be sent via safePdfPipe
   const branding = database.getBranding ? database.getBranding() : {};

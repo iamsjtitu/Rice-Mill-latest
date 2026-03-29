@@ -322,6 +322,7 @@ router.get('/api/staff/export/attendance', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 10 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=staff_attendance_${date_from}_to_${date_to}.pdf`);
     // PDF will be sent via safePdfPipe
 
@@ -733,6 +734,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=staff_payments.pdf`);
     // PDF will be sent via safePdfPipe
 

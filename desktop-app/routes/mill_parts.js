@@ -486,6 +486,7 @@ router.get('/api/mill-parts/store-room-report/pdf', safeAsync(async (req, res) =
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=store_room_report.pdf`);
   // PDF will be sent via safePdfPipe
 
@@ -566,6 +567,7 @@ router.get('/api/mill-parts/summary/pdf', safeSync(async (req, res) => {
   const summary = getStockSummary(req.query);
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=mill_parts_stock.pdf`);
   // PDF will be sent via safePdfPipe
 
@@ -681,6 +683,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync(async (req, res) => {
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=mill_parts_transactions.pdf`);
   // PDF will be sent via safePdfPipe
 
@@ -853,6 +856,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync(async (req, res) => {
   const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.pdf`);
   // PDF will be sent via safePdfPipe
   _addPdfH(doc, `${part_name} - Part Summary`, branding);

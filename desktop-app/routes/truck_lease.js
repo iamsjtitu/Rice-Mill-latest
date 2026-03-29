@@ -183,6 +183,7 @@ module.exports = function(database) {
     if (req.query.season) leases = leases.filter(l => l.season === req.query.season);
     const allPayments = database.data.truck_lease_payments || [];
     const doc = new PDFDocument({ size: 'A4', margin: 25, layout: 'landscape' });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=truck_lease_report.pdf`);
     // PDF will be sent via safePdfPipe
     let subtitle = '';

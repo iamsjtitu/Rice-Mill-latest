@@ -114,8 +114,10 @@ module.exports = function(database) {
     let entries = [...database.data.dc_entries];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=dc_entries.pdf`);
-    // PDF will be sent via safePdfPipe addPdfHeader(doc, 'DC Entries Report');
+    // PDF will be sent via safePdfPipe
+    addPdfHeader(doc, 'DC Entries Report');
     const headers = ['Date', 'DC No', 'Qty(Q)', 'Rice Type', 'Godown', 'Deadline', 'Notes'];
     const rows = entries.map(e => [e.date||'', e.dc_number||'', e.quantity_qntl||0, e.rice_type||'', e.godown_name||'', e.deadline||'', (e.notes||'').substring(0,25)]);
     addPdfTable(doc, headers, rows, [60, 60, 50, 60, 80, 60, 100]); await safePdfPipe(doc, res);
@@ -384,8 +386,10 @@ module.exports = function(database) {
     let payments = [...database.data.msp_payments];
     if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=msp_payments.pdf`);
-    // PDF will be sent via safePdfPipe addPdfHeader(doc, 'MSP Payments Report');
+    // PDF will be sent via safePdfPipe
+    addPdfHeader(doc, 'MSP Payments Report');
     const headers = ['Date', 'Qty(Q)', 'Rate(Rs./Q)', 'Amount(Rs.)', 'Mode', 'Bank'];
     const rows = payments.map(p => [p.date||'', p.quantity_qntl||0, p.rate_per_qntl||0, p.amount||0, p.payment_mode||'', (p.bank_name||'').substring(0,15)]);
     addPdfTable(doc, headers, rows, [60, 50, 60, 70, 50, 80]); await safePdfPipe(doc, res);

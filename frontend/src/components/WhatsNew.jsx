@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "53.3.0";
+const APP_VERSION = "53.4.0";
 
 const CHANGELOG = [
+  {
+    version: "53.4.0",
+    date: "29 Mar 2026",
+    title: "v53.4.0 - PDF Fix",
+    items: [
+      { type: "fix", text: "PDF download ab sahi hoga - Content-Type header add kiya 84 routes mein" },
+      { type: "fix", text: "PDF mein company header ab dikhega - 24 addPdfHeader calls restore kiye" },
+      { type: "fix", text: "Daily Report PDF gap fix - sections ab tightly fit honge" },
+    ]
+  },
   {
     version: "53.3.0",
     date: "29 Mar 2026",

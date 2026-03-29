@@ -494,6 +494,7 @@ module.exports = function(database) {
     const cols = getColumns('party_summary_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=party_summary.pdf`);
     // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
@@ -572,6 +573,7 @@ module.exports = function(database) {
     const cols = getColumns('private_paddy_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=pvt_paddy.pdf`);
     // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;
@@ -645,6 +647,7 @@ module.exports = function(database) {
     const cols = getColumns('rice_sales_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=rice_sales.pdf`);
     // PDF will be sent via safePdfPipe
     let subtitle = ''; if (kms_year) subtitle = `FY: ${kms_year}`; if (season) subtitle += ` | ${season}`;

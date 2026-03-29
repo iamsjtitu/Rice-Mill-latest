@@ -324,6 +324,7 @@ router.get('/api/local-party/pdf', safeSync(async (req, res) => {
   txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=local_party_account.pdf`);
   // PDF will be sent via safePdfPipe
 

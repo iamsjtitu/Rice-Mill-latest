@@ -705,6 +705,7 @@ module.exports = function(database) {
 
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=stock_summary.pdf`);
     // PDF will be sent via safePdfPipe
 

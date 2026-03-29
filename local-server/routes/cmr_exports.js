@@ -44,6 +44,7 @@ router.get('/api/milling-report/pdf', async (req, res) => {
   try {
     const entries = database.getMillingEntries(req.query);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Milling Report');
@@ -92,6 +93,7 @@ router.get('/api/frk-purchases/pdf', async (req, res) => {
     if (req.query.season) purchases = purchases.filter(x => x.season === req.query.season);
     purchases.sort((a,b) => (a.date||'').localeCompare(b.date||''));
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'FRK Purchase Register');
@@ -157,6 +159,7 @@ router.get('/api/byproduct-sales/pdf', async (req, res) => {
     const millingEntries = database.getMillingEntries(req.query);
     const products = ['bran','kunda','broken','kanki','husk'];
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=byproduct_sales_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'By-Product Stock & Sales Report');
@@ -232,6 +235,7 @@ router.get('/api/paddy-custody-register/pdf', async (req, res) => {
     let balance = 0;
     rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Paddy Custody Register');
