@@ -3,17 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "53.7.0";
+const APP_VERSION = "54.0.0";
 
 const CHANGELOG = [
   {
-    version: "53.7.0",
+    version: "54.0.0",
     date: "29 Mar 2026",
-    title: "v53.7.0 - Electron Download Fix",
+    title: "v54.0.0 - Download & WhatsApp Major Fix",
     items: [
-      { type: "fix", text: "PDF/Excel download ab Electron desktop app mein sahi save hoga (native save dialog)" },
-      { type: "fix", text: "WhatsApp PDF link HTTPS fix - ab PDF correctly open hoga" },
-      { type: "imp", text: "Download logic improved - Electron mein window.open se native download trigger hoga" },
+      { type: "fix", text: "Sabhi pages ka PDF/Excel download ab Electron desktop mein sahi save hoga (native save dialog)" },
+      { type: "fix", text: "WhatsApp Party Ledger PDF ab download wali PDF jaisi hi hogi (internal generation)" },
+      { type: "fix", text: "WhatsApp PDF link HTTPS fix" },
+      { type: "imp", text: "8+ components ke download logic ko centralized downloadFile() utility pe migrate kiya" },
     ]
   },
   {
