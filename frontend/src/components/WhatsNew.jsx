@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "53.5.0";
+const APP_VERSION = "53.6.0";
 
 const CHANGELOG = [
+  {
+    version: "53.6.0",
+    date: "29 Mar 2026",
+    title: "v53.6.0 - WhatsApp PDF Parity Fix",
+    items: [
+      { type: "fix", text: "Party Ledger WhatsApp PDF ab download wali PDF se exactly same hoga" },
+      { type: "imp", text: "Python backend mein bhi tmpfiles.org PDF upload add kiya (party ledger)" },
+    ]
+  },
   {
     version: "53.5.0",
     date: "29 Mar 2026",

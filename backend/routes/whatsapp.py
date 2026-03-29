@@ -277,7 +277,7 @@ async def send_daily_report(data: dict):
 
 @router.post("/whatsapp/send-party-ledger")
 async def send_party_ledger(data: dict):
-    """Send party ledger summary via WhatsApp."""
+    """Send party ledger PDF (same as download) via WhatsApp."""
     party_name = data.get("party_name", "")
     phone = data.get("phone", "").strip() if data.get("phone") else ""
     total_debit = data.get("total_debit", 0)
@@ -326,18 +326,40 @@ async def send_party_ledger(data: dict):
 
     text += f"\nThank you\n{company}"
 
+    # Fetch the SAME PDF as download and upload to tmpfiles.org
+    public_pdf_url = ""
+    if pdf_url:
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                pdf_resp = await client.get(pdf_url)
+                if pdf_resp.status_code == 200 and len(pdf_resp.content) > 100:
+                    files = {"file": (f"party_ledger_{party_name}.pdf", pdf_resp.content, "application/pdf")}
+                    upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
+                    if upload_resp.status_code == 200:
+                        tmp_data = upload_resp.json()
+                        tmp_url = tmp_data.get("data", {}).get("url", "")
+                        if tmp_url:
+                            public_pdf_url = tmp_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                            logger.info(f"Party ledger PDF uploaded to tmpfiles: {public_pdf_url}")
+                    else:
+                        logger.error(f"tmpfiles upload failed: {upload_resp.status_code}")
+                else:
+                    logger.error(f"Party ledger PDF fetch failed: status={pdf_resp.status_code}, size={len(pdf_resp.content)}")
+        except Exception as e:
+            logger.error(f"Party ledger PDF upload error: {e}")
+
     default_numbers = settings.get("default_numbers", [])
     if isinstance(default_numbers, str):
         default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
 
     results = []
     if phone:
-        r = await _send_wa_message(phone, text, pdf_url)
+        r = await _send_wa_message(phone, text, public_pdf_url)
         results.append({"target": phone, "success": r.get("success", False)})
     else:
         for num in default_numbers:
             if num and num.strip():
-                r = await _send_wa_message(num.strip(), text, pdf_url)
+                r = await _send_wa_message(num.strip(), text, public_pdf_url)
                 results.append({"target": num, "success": r.get("success", False)})
 
     if not results:
