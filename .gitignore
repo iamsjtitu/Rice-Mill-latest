@@ -583,3 +583,8 @@ frontend/node_modules/.cache/default-development/56.pack
 *.env.*
 frontend/node_modules/.cache/default-development/58.pack
 frontend/node_modules/.cache/default-development/59.pack
+-e 
+# Environment files
+*.env
+*.env.*
+frontend/node_modules/.cache/default-development/60.pack
