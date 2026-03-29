@@ -309,7 +309,7 @@ const DailyReport = ({ filters }) => {
               `---`,
               `Mill Entry System`
             ].filter(Boolean).join('\n');
-            const pdfUrl = `${API}/daily-report/pdf?date=${date}&mode=${mode}&kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`;
+            const pdfUrl = `${API}/reports/daily/pdf?date=${date}&mode=${mode}&kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`;
             try {
               const res = await axios.post(`${API}/whatsapp/send-daily-report`, {
                 report_text: summary, pdf_url: pdfUrl, send_to_group: true, phone

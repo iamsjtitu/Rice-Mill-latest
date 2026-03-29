@@ -208,7 +208,7 @@ async def send_payment_reminder(data: dict):
 
 @router.post("/whatsapp/send-daily-report")
 async def send_daily_report(data: dict):
-    """Send daily report via WhatsApp to default numbers and/or group. Supports PDF URL."""
+    """Send daily report via WhatsApp to default numbers and/or group. Generates PDF, uploads to tmpfiles.org first."""
     report_text = data.get("report_text", "")
     pdf_url = data.get("pdf_url", "")
     send_to_group = data.get("send_to_group", False)
@@ -217,33 +217,53 @@ async def send_daily_report(data: dict):
     if not report_text:
         raise HTTPException(status_code=400, detail="Report text required")
 
+    # If pdf_url is a local/API URL, fetch PDF and upload to tmpfiles.org
+    public_pdf_url = ""
+    if pdf_url:
+        try:
+            # Fetch PDF from internal API
+            async with httpx.AsyncClient(timeout=30) as client:
+                pdf_resp = await client.get(pdf_url)
+                if pdf_resp.status_code == 200 and len(pdf_resp.content) > 100:
+                    # Upload to tmpfiles.org
+                    files = {"file": ("daily_report.pdf", pdf_resp.content, "application/pdf")}
+                    upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
+                    if upload_resp.status_code == 200:
+                        tmp_data = upload_resp.json()
+                        tmp_url = tmp_data.get("data", {}).get("url", "")
+                        if tmp_url:
+                            public_pdf_url = tmp_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                            logger.info(f"Daily report PDF uploaded to tmpfiles: {public_pdf_url}")
+                    else:
+                        logger.error(f"tmpfiles upload failed: {upload_resp.status_code}")
+                else:
+                    logger.error(f"PDF fetch failed: status={pdf_resp.status_code}, size={len(pdf_resp.content)}")
+        except Exception as e:
+            logger.error(f"Daily report PDF upload error: {e}")
+
     settings = await _get_wa_settings()
     default_numbers = settings.get("default_numbers", [])
-    # Defensive: ensure default_numbers is a list
     if isinstance(default_numbers, str):
         default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
     if not isinstance(default_numbers, list):
         default_numbers = []
     group_id = settings.get("group_id", "").strip() if settings.get("group_id") else ""
 
-    logger.info(f"send-daily-report: phone='{phone}', default_numbers={default_numbers}, group_id='{group_id}', send_to_group={send_to_group}")
+    logger.info(f"send-daily-report: phone='{phone}', default_numbers={default_numbers}, group_id='{group_id}', send_to_group={send_to_group}, pdf_url='{public_pdf_url}'")
 
     results = []
 
-    # Send to specific phone if provided
     if phone:
-        r = await _send_wa_message(phone, report_text, pdf_url)
+        r = await _send_wa_message(phone, report_text, public_pdf_url)
         results.append({"target": phone, "success": r.get("success", False)})
     else:
-        # Send to all default numbers
         for num in default_numbers:
             if num and num.strip():
-                r = await _send_wa_message(num.strip(), report_text, pdf_url)
+                r = await _send_wa_message(num.strip(), report_text, public_pdf_url)
                 results.append({"target": num, "success": r.get("success", False)})
 
-    # Send to group if enabled
     if send_to_group and group_id:
-        r = await _send_wa_to_group(report_text, pdf_url)
+        r = await _send_wa_to_group(report_text, public_pdf_url)
         results.append({"target": "group", "success": r.get("success", False)})
 
     if not results:
@@ -252,7 +272,7 @@ async def send_daily_report(data: dict):
     success_count = sum(1 for r in results if r["success"])
     return {"success": success_count > 0,
             "message": f"{success_count}/{len(results)} targets pe bhej diya!",
-            "details": results}
+            "details": results, "pdf_url": public_pdf_url}
 
 
 @router.post("/whatsapp/send-party-ledger")
