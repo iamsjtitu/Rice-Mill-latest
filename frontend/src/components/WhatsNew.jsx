@@ -3,29 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "51.6.0";
+const APP_VERSION = "52.0.0";
 
 const CHANGELOG = [
   {
-    version: "51.6.0",
+    version: "52.0.0",
     date: "29 Mar 2026",
-    title: "v51.6.0 - WhatsApp Invoice + GST Summary",
+    title: "v52.0.0 - GST Sale Voucher + WhatsApp + Professional PDF",
     items: [
-      { type: "new", text: "Sale Voucher se direct WhatsApp pe Tax Invoice PDF bhejo (green send icon)" },
-      { type: "new", text: "GST Summary - HSN-wise CGST/SGST/IGST breakup (amber receipt icon)" },
-      { type: "new", text: "PDF auto-upload to tmpfiles.org for WhatsApp attachment" },
-    ]
-  },
-  {
-    version: "51.5.0",
-    date: "29 Mar 2026",
-    title: "v51.5.0 - GST in Sale Voucher",
-    items: [
-      { type: "new", text: "Sale Voucher mein ab per-item GST% (5/12/18/28) aur HSN Code" },
-      { type: "new", text: "CGST+SGST ya IGST select karo, har item ka alag tax calculate hoga" },
-      { type: "new", text: "Buyer GSTIN aur Address field - GST enable karne par dikhega" },
-      { type: "new", text: "Tax Invoice PDF - Company GSTIN, HSN column, Tax breakup table" },
-      { type: "imp", text: "Alag GST Invoice tab hata diya - sab kuch Sale Voucher mein hi" },
+      { type: "new", text: "Sale Voucher mein per-item GST% (5/12/18/28) aur HSN Code auto-fill" },
+      { type: "new", text: "CGST+SGST ya IGST select karo, Buyer GSTIN & Address field" },
+      { type: "new", text: "WhatsApp se direct Tax Invoice PDF bhejo (green send icon)" },
+      { type: "new", text: "GST Summary - HSN-wise CGST/SGST/IGST breakup dialog" },
+      { type: "imp", text: "Professional clean PDF - Tax Invoice, Amount in Words, Bank Details, Signatures" },
+      { type: "imp", text: "Alag GST Invoice tab hata diya - sab kuch Sale Voucher mein" },
     ]
   },
   {
