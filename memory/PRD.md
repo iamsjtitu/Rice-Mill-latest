@@ -10,7 +10,7 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - PDF generation and WhatsApp sharing
 - GST Tax Invoice support integrated into Sale Vouchers
 
-## Current Version: v51.5.0
+## Current Version: v51.6.0
 
 ## Architecture
 ```
@@ -30,17 +30,23 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Per-item GST in Sale Vouchers (HSN, GST%, CGST/SGST/IGST)
 - Buyer GSTIN and Address fields in Sale Vouchers
 - Tax Invoice PDF with Company GSTIN header and tax breakup
+- WhatsApp direct PDF send for Sale Vouchers
+- GST Summary dialog (HSN-wise tax breakup for GST return filing)
 - Daily Reports with WhatsApp PDF attachments
 - Opening Balances management
 - FY Summary and Dashboard
 - Auto-updater for desktop app via GitHub Actions
 
+## Completed in v51.6.0 (29 Mar 2026)
+- WhatsApp direct PDF send button on each sale voucher row
+- GST Summary dialog with HSN-wise CGST/SGST/IGST breakup table
+- PDF auto-upload to tmpfiles.org for WhatsApp attachment
+
 ## Completed in v51.5.0 (29 Mar 2026)
 - Merged GST Invoice fields into Sale Voucher (per-item HSN + GST%)
 - Added Buyer GSTIN and Buyer Address fields
 - Updated Sale Voucher PDF to Tax Invoice format
-- Deleted standalone GST Invoice module (GstInvoice.jsx, gst_invoice.py, gst_invoice.js)
-- Removed GST Invoice tab from Vouchers page
+- Deleted standalone GST Invoice module
 - Updated all 3 backends with computeSaleGst helper
 
 ## Prioritized Backlog

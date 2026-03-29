@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "51.5.0";
+const APP_VERSION = "51.6.0";
 
 const CHANGELOG = [
+  {
+    version: "51.6.0",
+    date: "29 Mar 2026",
+    title: "v51.6.0 - WhatsApp Invoice + GST Summary",
+    items: [
+      { type: "new", text: "Sale Voucher se direct WhatsApp pe Tax Invoice PDF bhejo (green send icon)" },
+      { type: "new", text: "GST Summary - HSN-wise CGST/SGST/IGST breakup (amber receipt icon)" },
+      { type: "new", text: "PDF auto-upload to tmpfiles.org for WhatsApp attachment" },
+    ]
+  },
   {
     version: "51.5.0",
     date: "29 Mar 2026",
