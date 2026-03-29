@@ -722,12 +722,41 @@ class OpeningBalanceCreate(BaseModel):
 
 # ============ SINGLE SALE VOUCHER INVOICE PDF ============
 
+def _num_to_words_inr(n):
+    """Convert number to Indian currency words."""
+    ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+            'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+            'Seventeen', 'Eighteen', 'Nineteen']
+    tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+    def _chunk(num):
+        if num == 0: return ''
+        if num < 20: return ones[num]
+        if num < 100: return tens[num // 10] + (' ' + ones[num % 10] if num % 10 else '')
+        return ones[num // 100] + ' Hundred' + (' and ' + _chunk(num % 100) if num % 100 else '')
+    n = int(round(n))
+    if n == 0: return 'Zero Rupees Only'
+    parts = []
+    if n >= 10000000:
+        parts.append(_chunk(n // 10000000) + ' Crore')
+        n %= 10000000
+    if n >= 100000:
+        parts.append(_chunk(n // 100000) + ' Lakh')
+        n %= 100000
+    if n >= 1000:
+        parts.append(_chunk(n // 1000) + ' Thousand')
+        n %= 1000
+    if n > 0:
+        parts.append(_chunk(n))
+    return 'Rupees ' + ' '.join(parts) + ' Only'
+
+
 @router.get("/sale-book/{voucher_id}/pdf")
 async def export_single_sale_voucher_pdf(voucher_id: str):
     from fastapi.responses import Response
     from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
-    from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer, HRFlowable
+    from utils.export_helpers import get_pdf_styles
+    from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
     from reportlab.lib.units import mm
     from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
@@ -738,8 +767,8 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
 
     branding = await db.settings.find_one({"key": "branding"}, {"_id": 0}) or {}
     company = branding.get("company_name", "NAVKAR AGRO")
+    tagline = branding.get("tagline", "")
 
-    # GST Company Settings
     gst_co = await db.settings.find_one({"key": "gst_company"}, {"_id": 0}) or {}
     co_gstin = gst_co.get("gstin", branding.get("gstin", ""))
     co_address = gst_co.get("address", branding.get("address", ""))
@@ -754,78 +783,109 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
     has_gst = gst_type != 'none'
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=10*mm, bottomMargin=10*mm)
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=10*mm, rightMargin=10*mm, topMargin=8*mm, bottomMargin=8*mm)
     elements = []
     styles = get_pdf_styles()
-    blue = '#1a5276'
 
-    label_s = ParagraphStyle('L', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#555'))
-    val_s = ParagraphStyle('V', parent=styles['Normal'], fontSize=9, fontName='FreeSansBold')
-    cell_s = ParagraphStyle('C', parent=styles['Normal'], fontSize=8, leading=11)
-    cell_r = ParagraphStyle('CR', parent=styles['Normal'], fontSize=8, leading=11, alignment=TA_RIGHT)
-    cell_rb = ParagraphStyle('CRB', parent=styles['Normal'], fontSize=9, leading=11, alignment=TA_RIGHT, fontName='FreeSansBold')
-    hd_s = ParagraphStyle('H', parent=styles['Normal'], fontSize=8, leading=11, fontName='FreeSansBold', textColor=colors.white)
+    navy = colors.HexColor('#1B2A4A')
+    accent = colors.HexColor('#2C5F8A')
+    light_bg = colors.HexColor('#F0F4F8')
+    border_c = colors.HexColor('#B0BEC5')
+    white = colors.white
+    W = 190 * mm
 
-    # Company Header
-    from utils.branding_helper import get_pdf_company_header_from_db as _gph
-    elements.extend(await _gph())
+    s_company = ParagraphStyle('co', fontName='FreeSansBold', fontSize=16, textColor=navy, alignment=TA_CENTER, leading=20)
+    s_tagline = ParagraphStyle('tg', fontName='FreeSans', fontSize=8, textColor=colors.HexColor('#666'), alignment=TA_CENTER, leading=10)
+    s_title = ParagraphStyle('ti', fontName='FreeSansBold', fontSize=12, textColor=white, alignment=TA_CENTER, leading=15)
+    s_label = ParagraphStyle('lb', fontName='FreeSans', fontSize=7.5, textColor=colors.HexColor('#666'), leading=10)
+    s_val = ParagraphStyle('vl', fontName='FreeSansBold', fontSize=8.5, textColor=colors.HexColor('#1a1a1a'), leading=11)
+    s_hd = ParagraphStyle('hd', fontName='FreeSansBold', fontSize=7.5, textColor=white, alignment=TA_CENTER, leading=10)
+    s_cell = ParagraphStyle('cl', fontName='FreeSans', fontSize=8, leading=10)
+    s_cell_r = ParagraphStyle('cr', fontName='FreeSans', fontSize=8, leading=10, alignment=TA_RIGHT)
+    s_cell_c = ParagraphStyle('cc', fontName='FreeSans', fontSize=8, leading=10, alignment=TA_CENTER)
+    s_cell_rb = ParagraphStyle('crb', fontName='FreeSansBold', fontSize=8.5, leading=10, alignment=TA_RIGHT, textColor=navy)
+    s_tot_label = ParagraphStyle('tl', fontName='FreeSans', fontSize=8.5, alignment=TA_RIGHT, textColor=colors.HexColor('#444'))
+    s_tot_val = ParagraphStyle('tv', fontName='FreeSansBold', fontSize=9, alignment=TA_RIGHT, textColor=navy)
+    s_grand_label = ParagraphStyle('gl', fontName='FreeSansBold', fontSize=10, alignment=TA_RIGHT, textColor=navy)
+    s_grand_val = ParagraphStyle('gv', fontName='FreeSansBold', fontSize=11, alignment=TA_RIGHT, textColor=navy)
+    s_words = ParagraphStyle('wd', fontName='FreeSans', fontSize=7.5, textColor=colors.HexColor('#333'), leading=10)
+    s_bank = ParagraphStyle('bk', fontName='FreeSans', fontSize=7.5, textColor=colors.HexColor('#444'), leading=10)
+    s_sig = ParagraphStyle('sg', fontName='FreeSans', fontSize=8.5, alignment=TA_CENTER, textColor=colors.HexColor('#333'))
+    s_sig_b = ParagraphStyle('sgb', fontName='FreeSansBold', fontSize=8.5, alignment=TA_CENTER, textColor=navy)
 
-    # GSTIN header line
-    if co_gstin:
-        gstin_s = ParagraphStyle('GS', parent=styles['Normal'], fontSize=8, alignment=TA_CENTER, textColor=colors.HexColor('#333'))
-        elements.append(Paragraph(f"GSTIN: {co_gstin} | State: {co_state} ({co_state_code})", gstin_s))
+    # ========== COMPANY HEADER ==========
+    elements.append(Paragraph(company, s_company))
+    if tagline:
+        elements.append(Paragraph(tagline, s_tagline))
+    if co_address:
+        elements.append(Paragraph(co_address, s_tagline))
+    gstin_parts = []
+    if co_gstin: gstin_parts.append(f"GSTIN: {co_gstin}")
+    if co_phone: gstin_parts.append(f"Ph: {co_phone}")
+    if co_state: gstin_parts.append(f"State: {co_state} ({co_state_code})")
+    if gstin_parts:
+        elements.append(Paragraph(" | ".join(gstin_parts), ParagraphStyle('gp', fontName='FreeSans', fontSize=7.5, alignment=TA_CENTER, textColor=colors.HexColor('#555'), leading=10)))
+    elements.append(Spacer(1, 2*mm))
+
+    # ========== INVOICE TITLE BAR ==========
+    title_text = "TAX INVOICE" if has_gst else "SALE INVOICE"
+    title_tbl = RLTable([[Paragraph(title_text, s_title)]], colWidths=[W])
+    title_tbl.setStyle(TableStyle([('BACKGROUND', (0,0), (-1,-1), navy), ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+    elements.append(title_tbl)
     elements.append(Spacer(1, 3*mm))
 
-    # Invoice Title
-    inv_title_text = "TAX INVOICE" if has_gst else "SALE INVOICE"
-    inv_title = ParagraphStyle('IT', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor(blue), alignment=TA_CENTER, spaceBefore=0, spaceAfter=2)
-    elements.append(Paragraph(inv_title_text, inv_title))
-
-    # Invoice Details + Buyer Info
+    # ========== TWO-COLUMN INFO BOXES ==========
     dp = str(v.get('date', '')).split('-')
     date_str = f"{dp[2]}/{dp[1]}/{dp[0]}" if len(dp) == 3 else v.get('date', '')
 
-    info_data = [
-        [Paragraph('<b>Voucher No:</b>', label_s), Paragraph(f"#{v.get('voucher_no', '')}", val_s),
-         Paragraph('<b>Date:</b>', label_s), Paragraph(date_str, val_s)],
-        [Paragraph('<b>Party:</b>', label_s), Paragraph(v.get('party_name', ''), val_s),
-         Paragraph('<b>Invoice No:</b>', label_s), Paragraph(v.get('invoice_no', ''), val_s)],
+    def _info_cell(label, value):
+        return Paragraph(f'<font color="#888" size="7">{label}:</font><br/><font size="9"><b>{value}</b></font>', s_val)
+
+    left_info = [
+        [_info_cell("Invoice No", v.get('invoice_no', '') or f"SV-{v.get('voucher_no', '')}"),
+         _info_cell("Date", date_str)],
+        [_info_cell("Truck No", v.get('truck_no', '') or '-'),
+         _info_cell("RST No", v.get('rst_no', '') or '-')],
     ]
-    buyer_gstin = v.get('buyer_gstin', '')
-    buyer_address = v.get('buyer_address', '')
-    if buyer_gstin or buyer_address:
-        info_data.append([Paragraph('<b>Buyer GSTIN:</b>', label_s), Paragraph(buyer_gstin, val_s),
-                         Paragraph('<b>Buyer Address:</b>', label_s), Paragraph(buyer_address, val_s)])
-    info_data.append([Paragraph('<b>Truck No:</b>', label_s), Paragraph(v.get('truck_no', ''), val_s),
-         Paragraph('<b>RST No:</b>', label_s), Paragraph(v.get('rst_no', ''), val_s)])
     if v.get('eway_bill_no'):
-        info_data.append([Paragraph('<b>E-Way Bill:</b>', label_s), Paragraph(v.get('eway_bill_no', ''), val_s), '', ''])
+        left_info.append([_info_cell("E-Way Bill", v['eway_bill_no']), ''])
 
-    info_tbl = RLTable(info_data, colWidths=[28*mm, 55*mm, 28*mm, 55*mm])
-    info_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('LINEBELOW', (0, -1), (-1, -1), 1, colors.HexColor('#ddd')),
+    right_info = [[_info_cell("Party / Buyer", v.get('party_name', ''))]]
+    if v.get('buyer_gstin'):
+        right_info.append([_info_cell("Buyer GSTIN", v['buyer_gstin'])])
+    if v.get('buyer_address'):
+        right_info.append([_info_cell("Address", v['buyer_address'])])
+
+    left_tbl = RLTable(left_info, colWidths=[45*mm, 45*mm])
+    left_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2)]))
+    right_tbl = RLTable(right_info, colWidths=[90*mm])
+    right_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2)]))
+
+    wrapper = RLTable([[left_tbl, right_tbl]], colWidths=[95*mm, 95*mm])
+    wrapper.setStyle(TableStyle([
+        ('BOX', (0,0), (0,0), 0.5, border_c), ('BOX', (1,0), (1,0), 0.5, border_c),
+        ('BACKGROUND', (0,0), (-1,-1), light_bg),
+        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('LEFTPADDING', (0,0), (-1,-1), 4), ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
     ]))
-    elements.append(info_tbl)
-    elements.append(Spacer(1, 4*mm))
+    elements.append(wrapper)
+    elements.append(Spacer(1, 3*mm))
 
-    # Items Table - with HSN and GST columns if GST is enabled
+    # ========== ITEMS TABLE ==========
     if has_gst:
-        items_header = [Paragraph('<b>S.No</b>', hd_s), Paragraph('<b>Item</b>', hd_s),
-                        Paragraph('<b>HSN</b>', hd_s), Paragraph('<b>Qty</b>', hd_s),
-                        Paragraph('<b>Rate</b>', hd_s), Paragraph('<b>Taxable</b>', hd_s),
-                        Paragraph('<b>GST%</b>', hd_s), Paragraph('<b>GST Amt</b>', hd_s),
-                        Paragraph('<b>Total</b>', hd_s)]
-        items_data = [items_header]
-        col_widths = [10*mm, 35*mm, 20*mm, 18*mm, 18*mm, 22*mm, 14*mm, 20*mm, 25*mm]
+        hdrs = ['S.No', 'Description of Goods', 'HSN', 'Qty', 'Unit', 'Rate (Rs)', 'Taxable Amt', 'GST %', 'GST Amt', 'Total (Rs)']
+        h_row = [Paragraph(f'<b>{h}</b>', s_hd) for h in hdrs]
+        items_data = [h_row]
+        col_w = [8*mm, 38*mm, 17*mm, 14*mm, 11*mm, 18*mm, 22*mm, 12*mm, 18*mm, 22*mm]
     else:
-        items_header = [Paragraph('<b>S.No</b>', hd_s), Paragraph('<b>Item Name</b>', hd_s),
-                        Paragraph('<b>Quantity (Qntl)</b>', hd_s), Paragraph('<b>Rate (Rs)</b>', hd_s),
-                        Paragraph('<b>Amount (Rs)</b>', hd_s)]
-        items_data = [items_header]
-        col_widths = [15*mm, 60*mm, 30*mm, 30*mm, 35*mm]
+        hdrs = ['S.No', 'Description of Goods', 'Quantity', 'Unit', 'Rate (Rs)', 'Amount (Rs)']
+        h_row = [Paragraph(f'<b>{h}</b>', s_hd) for h in hdrs]
+        items_data = [h_row]
+        col_w = [12*mm, 68*mm, 22*mm, 16*mm, 28*mm, 34*mm]
 
     for idx, item in enumerate(v.get('items', []), 1):
         qty = item.get('quantity', 0) or 0
@@ -836,35 +896,39 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
             gst_amt = item.get('gst_amount', 0) or round(amt * gst_pct / 100, 2)
             item_total = round(amt + gst_amt, 2)
             items_data.append([
-                Paragraph(str(idx), cell_s), Paragraph(item.get('item_name', ''), cell_s),
-                Paragraph(item.get('hsn_code', ''), cell_s),
-                Paragraph(f"{qty}", cell_r), Paragraph(f"{rate:,.2f}", cell_r),
-                Paragraph(f"{amt:,.2f}", cell_r), Paragraph(f"{gst_pct}%", cell_r),
-                Paragraph(f"{gst_amt:,.2f}", cell_r), Paragraph(f"{item_total:,.2f}", cell_rb)
+                Paragraph(str(idx), s_cell_c), Paragraph(item.get('item_name', ''), s_cell),
+                Paragraph(item.get('hsn_code', ''), s_cell_c),
+                Paragraph(f"{qty:g}", s_cell_r), Paragraph(item.get('unit', 'Qntl'), s_cell_c),
+                Paragraph(f"{rate:,.2f}", s_cell_r), Paragraph(f"{amt:,.2f}", s_cell_r),
+                Paragraph(f"{gst_pct:g}%", s_cell_c), Paragraph(f"{gst_amt:,.2f}", s_cell_r),
+                Paragraph(f"{item_total:,.2f}", s_cell_rb)
             ])
         else:
             items_data.append([
-                Paragraph(str(idx), cell_s), Paragraph(item.get('item_name', ''), cell_s),
-                Paragraph(f"{qty} Qntl", cell_r), Paragraph(f"{rate:,.2f}", cell_r),
-                Paragraph(f"{amt:,.2f}", cell_rb)
+                Paragraph(str(idx), s_cell_c), Paragraph(item.get('item_name', ''), s_cell),
+                Paragraph(f"{qty:g}", s_cell_r), Paragraph(item.get('unit', 'Qntl'), s_cell_c),
+                Paragraph(f"{rate:,.2f}", s_cell_r), Paragraph(f"{amt:,.2f}", s_cell_rb)
             ])
 
-    items_tbl = RLTable(items_data, colWidths=col_widths, repeatRows=1)
-    items_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(blue)),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-    ]))
+    items_tbl = RLTable(items_data, colWidths=col_w, repeatRows=1)
+    tbl_style = [
+        ('FONTNAME', (0,0), (-1,-1), 'FreeSans'),
+        ('BACKGROUND', (0,0), (-1,0), accent), ('TEXTCOLOR', (0,0), (-1,0), white),
+        ('GRID', (0,0), (-1,0), 0.5, accent),
+        ('LINEBELOW', (0,0), (-1,-1), 0.3, colors.HexColor('#DEE2E6')),
+        ('LINEBEFORE', (0,0), (0,-1), 0.3, colors.HexColor('#DEE2E6')),
+        ('LINEAFTER', (-1,0), (-1,-1), 0.3, colors.HexColor('#DEE2E6')),
+        ('TOPPADDING', (0,0), (-1,-1), 3), ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]
     for i in range(1, len(items_data)):
         if i % 2 == 0:
-            items_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('BACKGROUND', (0, i), (-1, i), colors.HexColor('#F8FAFC'))]))
+            tbl_style.append(('BACKGROUND', (0,i), (-1,i), colors.HexColor('#F8FAFC')))
+    items_tbl.setStyle(TableStyle(tbl_style))
     elements.append(items_tbl)
-    elements.append(Spacer(1, 3*mm))
+    elements.append(Spacer(1, 2*mm))
 
-    # Totals
+    # ========== TOTALS - TWO COLUMNS ==========
     subtotal = v.get('subtotal', 0) or 0
     cgst = v.get('cgst_amount', 0) or 0
     sgst = v.get('sgst_amount', 0) or 0
@@ -875,44 +939,123 @@ async def export_single_sale_voucher_pdf(voucher_id: str):
     diesel = v.get('diesel_paid', 0) or 0
     balance = v.get('balance', 0) or 0
 
-    tot_s = ParagraphStyle('TS', parent=styles['Normal'], fontSize=9, alignment=TA_RIGHT)
-    tot_b = ParagraphStyle('TB', parent=styles['Normal'], fontSize=11, alignment=TA_RIGHT, fontName='FreeSansBold', textColor=colors.HexColor(blue))
+    tot_rows = []
+    tot_rows.append([Paragraph('Taxable Amount', s_tot_label), Paragraph(f'Rs. {subtotal:,.2f}', s_tot_val)])
+    if cgst > 0: tot_rows.append([Paragraph('CGST', s_tot_label), Paragraph(f'Rs. {cgst:,.2f}', s_tot_val)])
+    if sgst > 0: tot_rows.append([Paragraph('SGST', s_tot_label), Paragraph(f'Rs. {sgst:,.2f}', s_tot_val)])
+    if igst > 0: tot_rows.append([Paragraph('IGST', s_tot_label), Paragraph(f'Rs. {igst:,.2f}', s_tot_val)])
+    tot_rows.append([Paragraph('<b>Grand Total</b>', s_grand_label), Paragraph(f'<b>Rs. {total:,.2f}</b>', s_grand_val)])
+    if advance > 0: tot_rows.append([Paragraph('Less: Advance (Party se)', s_tot_label), Paragraph(f'Rs. {advance:,.2f}', s_tot_val)])
+    if cash > 0: tot_rows.append([Paragraph('Less: Cash (Truck ko)', s_tot_label), Paragraph(f'Rs. {cash:,.2f}', s_tot_val)])
+    if diesel > 0: tot_rows.append([Paragraph('Less: Diesel (Pump se)', s_tot_label), Paragraph(f'Rs. {diesel:,.2f}', s_tot_val)])
+    tot_rows.append([Paragraph('<b>Balance Due</b>', s_grand_label), Paragraph(f'<b>Rs. {balance:,.2f}</b>', s_grand_val)])
 
-    total_data = [[Paragraph('Taxable Amount:', tot_s), Paragraph(f"Rs. {subtotal:,.2f}", tot_s)]]
-    if cgst > 0: total_data.append([Paragraph("CGST:", tot_s), Paragraph(f"Rs. {cgst:,.2f}", tot_s)])
-    if sgst > 0: total_data.append([Paragraph("SGST:", tot_s), Paragraph(f"Rs. {sgst:,.2f}", tot_s)])
-    if igst > 0: total_data.append([Paragraph("IGST:", tot_s), Paragraph(f"Rs. {igst:,.2f}", tot_s)])
-    total_data.append([Paragraph('<b>Grand Total:</b>', tot_b), Paragraph(f"<b>Rs. {total:,.2f}</b>", tot_b)])
-    if advance > 0: total_data.append([Paragraph('Advance Paid:', tot_s), Paragraph(f"Rs. {advance:,.2f}", tot_s)])
-    if cash > 0: total_data.append([Paragraph('Cash (Truck):', tot_s), Paragraph(f"Rs. {cash:,.2f}", tot_s)])
-    if diesel > 0: total_data.append([Paragraph('Diesel (Pump):', tot_s), Paragraph(f"Rs. {diesel:,.2f}", tot_s)])
-    total_data.append([Paragraph('<b>Balance Due:</b>', tot_b), Paragraph(f"<b>Rs. {balance:,.2f}</b>", tot_b)])
-
-    tot_tbl = RLTable(total_data, colWidths=[120*mm, 50*mm])
+    tot_tbl = RLTable(tot_rows, colWidths=[50*mm, 40*mm])
     tot_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('LINEABOVE', (0, -1), (-1, -1), 1, colors.HexColor(blue)),
-    ]))
-    elements.append(tot_tbl)
+        ('TOPPADDING', (0,0), (-1,-1), 1.5), ('BOTTOMPADDING', (0,0), (-1,-1), 1.5),
+        ('LINEABOVE', (0,len(tot_rows)-1), (-1,len(tot_rows)-1), 1, navy)]))
 
-    # Bank Details (if GST invoice)
+    words_text = _num_to_words_inr(total)
+    left_parts = [[Paragraph('<b>Amount in Words:</b>', s_words)], [Paragraph(f'<i>{words_text}</i>', s_words)]]
     if has_gst and co_bank_name:
-        elements.append(Spacer(1, 4*mm))
-        bank_s = ParagraphStyle('BK', parent=styles['Normal'], fontSize=8, textColor=colors.HexColor('#333'))
-        elements.append(Paragraph(f"<b>Bank Details:</b> {co_bank_name} | A/c: {co_bank_acc} | IFSC: {co_bank_ifsc}", bank_s))
+        left_parts.append([Spacer(1, 3*mm)])
+        left_parts.append([Paragraph('<b>Bank Details:</b>', s_bank)])
+        left_parts.append([Paragraph(f'Bank: {co_bank_name}', s_bank)])
+        left_parts.append([Paragraph(f'A/c No: {co_bank_acc}', s_bank)])
+        left_parts.append([Paragraph(f'IFSC: {co_bank_ifsc}', s_bank)])
+
+    left_tbl2 = RLTable(left_parts, colWidths=[95*mm])
+    left_tbl2.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('TOPPADDING', (0,0), (-1,-1), 1), ('BOTTOMPADDING', (0,0), (-1,-1), 1)]))
+
+    summary_wrapper = RLTable([[left_tbl2, tot_tbl]], colWidths=[100*mm, 90*mm])
+    summary_wrapper.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 0.5, border_c), ('LINEBEFORE', (1,0), (1,0), 0.5, border_c),
+        ('TOPPADDING', (0,0), (-1,-1), 4), ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 5), ('RIGHTPADDING', (0,0), (-1,-1), 5),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'), ('BACKGROUND', (1,0), (1,0), light_bg)]))
+    elements.append(summary_wrapper)
+
+    # ========== HSN-WISE TAX SUMMARY ==========
+    if has_gst:
+        elements.append(Spacer(1, 3*mm))
+        hsn_map = {}
+        for item in v.get('items', []):
+            hsn = item.get('hsn_code', '') or 'N/A'
+            pct = item.get('gst_percent', 0) or 0
+            key = f"{hsn}__{pct}"
+            if key not in hsn_map: hsn_map[key] = {'hsn': hsn, 'pct': pct, 'taxable': 0, 'gst': 0}
+            amt = (item.get('quantity', 0) or 0) * (item.get('rate', 0) or 0)
+            hsn_map[key]['taxable'] += amt
+            hsn_map[key]['gst'] += item.get('gst_amount', 0) or round(amt * pct / 100, 2)
+
+        s_hsn_hd = ParagraphStyle('hh', fontName='FreeSansBold', fontSize=7, textColor=white, alignment=TA_CENTER, leading=9)
+        s_hsn_c = ParagraphStyle('hc', fontName='FreeSans', fontSize=7.5, alignment=TA_CENTER, leading=10)
+        s_hsn_r = ParagraphStyle('hr', fontName='FreeSans', fontSize=7.5, alignment=TA_RIGHT, leading=10)
+        s_hsn_rb = ParagraphStyle('hrb', fontName='FreeSansBold', fontSize=7.5, alignment=TA_RIGHT, leading=10)
+
+        if gst_type == 'cgst_sgst':
+            hsn_hdrs = ['HSN Code', 'Taxable Value', 'CGST Rate', 'CGST Amt', 'SGST Rate', 'SGST Amt', 'Total Tax']
+            hsn_cw = [24*mm, 28*mm, 18*mm, 24*mm, 18*mm, 24*mm, 28*mm]
+        else:
+            hsn_hdrs = ['HSN Code', 'Taxable Value', 'IGST Rate', 'IGST Amount', 'Total Tax']
+            hsn_cw = [30*mm, 36*mm, 24*mm, 36*mm, 36*mm]
+
+        hsn_data = [[Paragraph(f'<b>{h}</b>', s_hsn_hd) for h in hsn_hdrs]]
+        t_taxable, t_cgst2, t_sgst2, t_igst2, t_tax = 0, 0, 0, 0, 0
+        for row in hsn_map.values():
+            t_taxable += row['taxable']; t_tax += row['gst']
+            if gst_type == 'cgst_sgst':
+                half = round(row['gst'] / 2, 2); t_cgst2 += half; t_sgst2 += half
+                hsn_data.append([Paragraph(row['hsn'], s_hsn_c), Paragraph(f"{row['taxable']:,.2f}", s_hsn_r),
+                    Paragraph(f"{row['pct']/2:g}%", s_hsn_c), Paragraph(f"{half:,.2f}", s_hsn_r),
+                    Paragraph(f"{row['pct']/2:g}%", s_hsn_c), Paragraph(f"{half:,.2f}", s_hsn_r),
+                    Paragraph(f"{row['gst']:,.2f}", s_hsn_rb)])
+            else:
+                t_igst2 += row['gst']
+                hsn_data.append([Paragraph(row['hsn'], s_hsn_c), Paragraph(f"{row['taxable']:,.2f}", s_hsn_r),
+                    Paragraph(f"{row['pct']:g}%", s_hsn_c), Paragraph(f"{row['gst']:,.2f}", s_hsn_r),
+                    Paragraph(f"{row['gst']:,.2f}", s_hsn_rb)])
+        if gst_type == 'cgst_sgst':
+            hsn_data.append([Paragraph('<b>Total</b>', s_hsn_rb), Paragraph(f"<b>{t_taxable:,.2f}</b>", s_hsn_rb),
+                Paragraph('', s_hsn_c), Paragraph(f"<b>{t_cgst2:,.2f}</b>", s_hsn_rb),
+                Paragraph('', s_hsn_c), Paragraph(f"<b>{t_sgst2:,.2f}</b>", s_hsn_rb),
+                Paragraph(f"<b>{t_tax:,.2f}</b>", s_hsn_rb)])
+        else:
+            hsn_data.append([Paragraph('<b>Total</b>', s_hsn_rb), Paragraph(f"<b>{t_taxable:,.2f}</b>", s_hsn_rb),
+                Paragraph('', s_hsn_c), Paragraph(f"<b>{t_igst2:,.2f}</b>", s_hsn_rb),
+                Paragraph(f"<b>{t_tax:,.2f}</b>", s_hsn_rb)])
+
+        hsn_tbl = RLTable(hsn_data, colWidths=hsn_cw)
+        hsn_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#546E7A')), ('TEXTCOLOR', (0,0), (-1,0), white),
+            ('GRID', (0,0), (-1,-1), 0.3, colors.HexColor('#CFD8DC')),
+            ('TOPPADDING', (0,0), (-1,-1), 2), ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+            ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#ECEFF1'))]))
+        elements.append(Paragraph('<b>HSN-wise Tax Summary</b>', ParagraphStyle('hsn_t', fontName='FreeSansBold', fontSize=8, textColor=navy, spaceAfter=2)))
+        elements.append(hsn_tbl)
 
     if v.get('remark'):
         elements.append(Spacer(1, 3*mm))
-        elements.append(Paragraph(f"<b>Remark:</b> {v['remark']}", label_s))
+        elements.append(Paragraph(f'<b>Remark:</b> {v["remark"]}', s_label))
 
-    # Footer
-    elements.append(Spacer(1, 15*mm))
-    sig_data = [[Paragraph('Received By', ParagraphStyle('Sig', alignment=TA_CENTER, fontSize=9)),
-                 Paragraph(f'For {company}', ParagraphStyle('Sig', alignment=TA_CENTER, fontSize=9, fontName='FreeSansBold'))]]
-    sig_tbl = RLTable(sig_data, colWidths=[85*mm, 85*mm])
-    sig_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('LINEABOVE', (0, 0), (0, 0), 0.5, colors.black), ('LINEABOVE', (1, 0), (1, 0), 0.5, colors.black)]))
+    # ========== SIGNATURE ==========
+    elements.append(Spacer(1, 12*mm))
+    sig_data = [
+        [Paragraph("Receiver's Signature", s_sig), '', Paragraph(f'For <b>{company}</b>', s_sig_b)],
+        ['', '', ''],
+        [Paragraph('_____________________', s_sig), '', Paragraph('_____________________', s_sig)],
+        ['', '', Paragraph('Authorized Signatory', s_sig)],
+    ]
+    sig_tbl = RLTable(sig_data, colWidths=[60*mm, 60*mm, 60*mm])
+    sig_tbl.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+        ('TOPPADDING', (0,0), (-1,-1), 1), ('BOTTOMPADDING', (0,0), (-1,-1), 1)]))
     elements.append(sig_tbl)
+
+    elements.append(Spacer(1, 4*mm))
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=border_c))
+    s_foot = ParagraphStyle('ft', fontName='FreeSans', fontSize=6.5, textColor=colors.HexColor('#999'), alignment=TA_CENTER, leading=9)
+    elements.append(Paragraph('This is a computer generated invoice.', s_foot))
 
     doc.build(elements)
     return Response(content=buf.getvalue(), media_type="application/pdf",
