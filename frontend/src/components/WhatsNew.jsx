@@ -3,9 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "51.4.0";
+const APP_VERSION = "51.5.0";
 
 const CHANGELOG = [
+  {
+    version: "51.5.0",
+    date: "29 Mar 2026",
+    title: "v51.5.0 - GST in Sale Voucher",
+    items: [
+      { type: "new", text: "Sale Voucher mein ab per-item GST% (5/12/18/28) aur HSN Code" },
+      { type: "new", text: "CGST+SGST ya IGST select karo, har item ka alag tax calculate hoga" },
+      { type: "new", text: "Buyer GSTIN aur Address field - GST enable karne par dikhega" },
+      { type: "new", text: "Tax Invoice PDF - Company GSTIN, HSN column, Tax breakup table" },
+      { type: "imp", text: "Alag GST Invoice tab hata diya - sab kuch Sale Voucher mein hi" },
+    ]
+  },
   {
     version: "51.4.0",
     date: "29 Mar 2026",

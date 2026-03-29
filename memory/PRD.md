@@ -1,54 +1,53 @@
 # Mill Entry System - PRD
 
-## Current Version: v51.4.0
+## Original Problem Statement
+A comprehensive full-stack rice mill management system with React frontend, Python FastAPI backend (MongoDB), and Electron/Express desktop app (local JSON storage). Requires highly accurate double-entry accounting ledgers, advanced reporting, and offline-first desktop capabilities.
+
+## Core Requirements
+- Triple backend parity: Python (web), Desktop JS (Electron), Local Server JS
+- Double-entry accounting for all financial transactions
+- Stock management with milling operations
+- PDF generation and WhatsApp sharing
+- GST Tax Invoice support integrated into Sale Vouchers
+
+## Current Version: v51.5.0
 
 ## Architecture
-- Web: React + FastAPI + MongoDB
-- Desktop: Electron + Express + Local JSON
-- Local Server: Express + Local JSON
-- Triple Backend Parity: Verified
+```
+/app
+├── backend/          # Python FastAPI + MongoDB
+├── desktop-app/      # Electron + Express + Local JSON
+├── local-server/     # Express + Local JSON (LAN access)
+├── frontend/         # React (shared across all backends)
+```
 
-## Credentials
-- Username: admin, Password: admin123
-
-## Key Features
-- GST Invoice Generator - CRUD + PDF + WhatsApp (Vouchers > GST Invoice subtab)
+## What's Been Implemented
+- Full CRUD for Sale/Purchase Vouchers, Paddy Purchase, Cash Book, Bank Book
+- Stock Summary with milling operations
+- Party ledgers with double-entry accounting
+- PDF export + WhatsApp sharing via 360Messenger + tmpfiles.org
 - GST Company Settings (Settings tab)
-- WhatsApp 360Messenger with PDF attachment
-- Desktop WhatsApp: localhost URL → tmpfiles.org → public URL
-- NO compression middleware (prevents ERR_STREAM_WRITE_AFTER_END)
-- Daily Report empty sections auto-hidden
-- PDF column widths: Python `* mm`, JS `* 2.835`
+- Per-item GST in Sale Vouchers (HSN, GST%, CGST/SGST/IGST)
+- Buyer GSTIN and Address fields in Sale Vouchers
+- Tax Invoice PDF with Company GSTIN header and tax breakup
+- Daily Reports with WhatsApp PDF attachments
+- Opening Balances management
+- FY Summary and Dashboard
+- Auto-updater for desktop app via GitHub Actions
 
-## Completed in v51.4.0 (29 Mar 2026)
-1. GST Invoice Generator - Full CRUD (Create, Read, Update, Delete)
-2. Invoice PDF generation with company header, items table, tax summary, bank details
-3. WhatsApp send-gst-invoice endpoint with PDF attachment (all 3 backends)
-4. GST Company Settings in Settings tab (company, GSTIN, address, bank details)
-5. Vouchers tab: new "GST Invoice" subtab
-6. HSN code auto-fill for Rice/Paddy/Byproduct items
-7. CGST/SGST/IGST auto-calculation
+## Completed in v51.5.0 (29 Mar 2026)
+- Merged GST Invoice fields into Sale Voucher (per-item HSN + GST%)
+- Added Buyer GSTIN and Buyer Address fields
+- Updated Sale Voucher PDF to Tax Invoice format
+- Deleted standalone GST Invoice module (GstInvoice.jsx, gst_invoice.py, gst_invoice.js)
+- Removed GST Invoice tab from Vouchers page
+- Updated all 3 backends with computeSaleGst helper
 
-## Completed in v51.3.0 (29 Mar 2026)
-1. compression() removed entirely from desktop + local (ERR_STREAM_WRITE_AFTER_END fix)
-2. Daily Report gap fix (empty sections conditional)
-3. WhatsApp localhost URL detection
-4. WhatsApp footer: "Thank you / {company}"
+## Prioritized Backlog
+### P1
+- Export Preview feature (Preview data before exporting to Excel/PDF)
 
-## API Endpoints (New)
-- GET/PUT /api/gst-company-settings
-- GET/POST /api/gst-invoices
-- PUT/DELETE /api/gst-invoices/{id}
-- GET /api/gst-invoices/{id}/pdf
-- POST /api/whatsapp/send-gst-invoice
-
-## DB Schema (New)
-- gst_invoices: {id, invoice_no, date, buyer_name, buyer_gstin, buyer_address, buyer_phone, is_igst, items[], totals{}, kms_year, season, notes, created_at}
-- settings.gst_company: {company_name, gstin, address, state_code, state_name, phone, bank_name, bank_account, bank_ifsc}
-
-## Upcoming Tasks
-- P1: Export Preview feature
-
-## Backlog
-- P2: Desktop/Local server code deduplication
-- P2: Payment logic centralization
+### P2
+- Code deduplication across Desktop and Local server backends
+- Payment logic centralization into service layer
+- Centralize stock calculation logic
