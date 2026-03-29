@@ -376,7 +376,7 @@ export default function SaleBook({ filters, user }) {
                 <TableHead className="text-slate-400 text-xs text-right">Cash</TableHead>
                 <TableHead className="text-slate-400 text-xs text-right">Diesel</TableHead>
                 <TableHead className="text-slate-400 text-xs text-right">Balance</TableHead>
-                <TableHead className="text-slate-400 text-xs w-16"></TableHead>
+                <TableHead className="text-slate-400 text-xs w-40"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -403,10 +403,11 @@ export default function SaleBook({ filters, user }) {
                   <TableCell className={`font-bold text-xs text-right ${(v.ledger_balance != null ? v.ledger_balance : (v.balance || 0)) > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                     Rs.{(v.ledger_balance != null ? v.ledger_balance : (v.balance || 0))?.toLocaleString('en-IN')}
                   </TableCell>
-                  <TableCell className="flex gap-1 flex-wrap">
+                  <TableCell>
+                    <div className="flex items-center gap-0.5 flex-nowrap">
                     {(v.ledger_balance != null ? v.ledger_balance : (v.balance || 0)) <= 0 && (v.total || 0) > 0 ? (
                       <>
-                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" data-testid={`sv-paid-badge-${v.id}`}>Paid</span>
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 whitespace-nowrap" data-testid={`sv-paid-badge-${v.id}`}>Paid</span>
                         <Button variant="ghost" size="sm" onClick={() => openHistory(v.party_name)} className="text-sky-400 hover:text-sky-300 h-6 w-6 p-0" title="Payment History" data-testid={`sv-history-${v.id}`}>
                           <Clock className="w-3 h-3" />
                         </Button>
@@ -441,6 +442,7 @@ export default function SaleBook({ filters, user }) {
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(v.id)} className="text-red-400 hover:text-red-300 h-6 w-6 p-0" data-testid={`sv-del-${v.id}`}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
