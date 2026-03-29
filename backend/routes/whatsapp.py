@@ -326,27 +326,42 @@ async def send_party_ledger(data: dict):
 
     text += f"\nThank you\n{company}"
 
-    # Fetch the SAME PDF as download and upload to tmpfiles.org
+    # Generate the SAME PDF internally (no HTTP self-call)
     public_pdf_url = ""
-    if pdf_url:
-        try:
+    try:
+        from urllib.parse import urlparse, parse_qs
+        # Parse query params from pdf_url to get the same filters
+        pdf_params = {}
+        if pdf_url:
+            parsed = urlparse(pdf_url)
+            qs = parse_qs(parsed.query)
+            pdf_params = {k: v[0] for k, v in qs.items()}
+        
+        from routes.ledgers import _generate_party_ledger_pdf_bytes
+        pdf_bytes = await _generate_party_ledger_pdf_bytes(
+            party_name=pdf_params.get("party_name", party_name),
+            party_type=pdf_params.get("party_type", ""),
+            kms_year=pdf_params.get("kms_year", ""),
+            season=pdf_params.get("season", ""),
+            date_from=pdf_params.get("date_from", ""),
+            date_to=pdf_params.get("date_to", ""),
+        )
+        if pdf_bytes and len(pdf_bytes) > 100:
             async with httpx.AsyncClient(timeout=30) as client:
-                pdf_resp = await client.get(pdf_url)
-                if pdf_resp.status_code == 200 and len(pdf_resp.content) > 100:
-                    files = {"file": (f"party_ledger_{party_name}.pdf", pdf_resp.content, "application/pdf")}
-                    upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
-                    if upload_resp.status_code == 200:
-                        tmp_data = upload_resp.json()
-                        tmp_url = tmp_data.get("data", {}).get("url", "")
-                        if tmp_url:
-                            public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
-                            logger.info(f"Party ledger PDF uploaded to tmpfiles: {public_pdf_url}")
-                    else:
-                        logger.error(f"tmpfiles upload failed: {upload_resp.status_code}")
+                files = {"file": (f"party_ledger_{party_name}.pdf", pdf_bytes, "application/pdf")}
+                upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
+                if upload_resp.status_code == 200:
+                    tmp_data = upload_resp.json()
+                    tmp_url = tmp_data.get("data", {}).get("url", "")
+                    if tmp_url:
+                        public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
+                        logger.info(f"Party ledger PDF uploaded to tmpfiles: {public_pdf_url}")
                 else:
-                    logger.error(f"Party ledger PDF fetch failed: status={pdf_resp.status_code}, size={len(pdf_resp.content)}")
-        except Exception as e:
-            logger.error(f"Party ledger PDF upload error: {e}")
+                    logger.error(f"tmpfiles upload failed: {upload_resp.status_code}")
+        else:
+            logger.error(f"Party ledger PDF generation returned empty/small data")
+    except Exception as e:
+        logger.error(f"Party ledger PDF generation/upload error: {e}")
 
     default_numbers = settings.get("default_numbers", [])
     if isinstance(default_numbers, str):

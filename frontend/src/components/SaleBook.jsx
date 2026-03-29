@@ -195,19 +195,17 @@ export default function SaleBook({ filters, user }) {
   const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const toggleSelectAll = () => setSelectedIds(prev => prev.length === vouchers.length ? [] : vouchers.map(v => v.id));
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
-    window.open(`${API}/sale-book/export/pdf?${p}${searchParam}`, '_blank');
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`/api/sale-book/export/pdf?${p}${searchParam}`, `sale_book_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const handleExportExcel = async () => {
     try {
       const searchParam = searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : '';
-      const res = await axios.get(`${API}/sale-book/export/excel?${p}${searchParam}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a'); a.href = url;
-      a.download = `sale_book_${new Date().toISOString().split('T')[0]}.xlsx`;
-      a.click(); setTimeout(() => window.URL.revokeObjectURL(url), 30000);
+      const { downloadFile } = await import('../utils/download');
+      downloadFile(`/api/sale-book/export/excel?${p}${searchParam}`, `sale_book_${new Date().toISOString().split('T')[0]}.xlsx`);
       toast.success("Excel export ho gaya!");
     } catch { toast.error("Excel export failed"); }
   };

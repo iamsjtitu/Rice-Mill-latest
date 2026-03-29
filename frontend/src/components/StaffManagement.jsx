@@ -486,12 +486,11 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
     } else {
       // Download as Excel from backend or generate client-side
       try {
-        const resp = await axios.post(`${API}/staff/advance-ledger/export`, {
+        const { downloadPost } = await import('../utils/download');
+        await downloadPost(`/api/staff/advance-ledger/export`, {
           ledger: ledger.map(l => ({ date: l.date, staff_name: l.staff_name, description: l.description, debit: l.type === 'debit' ? l.amount : 0, credit: l.type === 'credit' ? l.amount : 0, balance: l.balance })),
           staff_name: staffName, kms_year: filters.kms_year, season: filters.season
-        }, { responseType: 'blob' });
-        const url = window.URL.createObjectURL(new Blob([resp.data]));
-        const a = document.createElement('a'); a.href = url; a.download = `advance_ledger_${staffName}.xlsx`; a.click();
+        }, `advance_ledger_${staffName}.xlsx`);
       } catch { toast.error("Excel export failed"); }
     }
   };

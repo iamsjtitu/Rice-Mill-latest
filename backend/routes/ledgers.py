@@ -486,10 +486,8 @@ async def export_party_ledger_excel(party_name: Optional[str] = None, party_type
         headers={"Content-Disposition": f"attachment; filename=party_ledger_{datetime.now().strftime('%Y%m%d')}.xlsx"})
 
 
-@router.get("/reports/party-ledger/pdf")
-async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: Optional[str] = None,
-                                    kms_year: Optional[str] = None, season: Optional[str] = None,
-                                    date_from: Optional[str] = None, date_to: Optional[str] = None):
+async def _generate_party_ledger_pdf_bytes(party_name=None, party_type=None, kms_year=None, season=None, date_from=None, date_to=None):
+    """Generate party ledger PDF bytes - shared between download endpoint and WhatsApp route."""
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
@@ -557,7 +555,15 @@ async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: 
     table = RLTable(table_data, colWidths=col_widths, repeatRows=1)
     table.setStyle(TableStyle(pdf_style))
     elements.append(table); doc.build(elements); buffer.seek(0)
-    return Response(content=buffer.getvalue(), media_type="application/pdf",
+    return buffer.getvalue()
+
+
+@router.get("/reports/party-ledger/pdf")
+async def export_party_ledger_pdf(party_name: Optional[str] = None, party_type: Optional[str] = None,
+                                    kms_year: Optional[str] = None, season: Optional[str] = None,
+                                    date_from: Optional[str] = None, date_to: Optional[str] = None):
+    pdf_bytes = await _generate_party_ledger_pdf_bytes(party_name=party_name, party_type=party_type, kms_year=kms_year, season=season, date_from=date_from, date_to=date_to)
+    return Response(content=pdf_bytes, media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=party_ledger_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
 

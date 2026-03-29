@@ -30,9 +30,8 @@ const CMRvsDC = ({ filters }) => {
   const exportData = async (format) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
-      const res = await axios.get(`${API}/reports/cmr-vs-dc/${format}?${p}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url;
-      a.download = `cmr_vs_dc.${format === 'excel' ? 'xlsx' : 'pdf'}`; a.click();
+      const { downloadFile } = await import('../utils/download');
+      downloadFile(`/api/reports/cmr-vs-dc/${format}?${p}`, `cmr_vs_dc.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } catch (e) { toast.error("Export failed"); }
   };
   if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;
@@ -110,9 +109,8 @@ const SeasonPnL = ({ filters }) => {
   const exportData = async (format) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
-      const res = await axios.get(`${API}/reports/season-pnl/${format}?${p}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url;
-      a.download = `season_pnl.${format === 'excel' ? 'xlsx' : 'pdf'}`; a.click();
+      const { downloadFile } = await import('../utils/download');
+      downloadFile(`/api/reports/season-pnl/${format}?${p}`, `season_pnl.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } catch (e) { toast.error("Export failed"); }
   };
   if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;
@@ -1031,11 +1029,8 @@ const AgentMandiReport = ({ filters }) => {
       // Pass expanded mandi names so PDF/Excel only includes those
       const expanded = Object.keys(expandedMandis).filter(k => expandedMandis[k]);
       if (expanded.length > 0) p.append('mandis', expanded.join(','));
-      const res = await axios.get(`${API}/reports/agent-mandi-wise/${format}?${p}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a'); a.href = url;
-      a.download = `agent_mandi_report.${format === 'excel' ? 'xlsx' : 'pdf'}`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      const { downloadFile } = await import('../utils/download');
+      downloadFile(`/api/reports/agent-mandi-wise/${format}?${p}`, `agent_mandi_report.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } catch (e) { toast.error("Export failed"); }
   };
 

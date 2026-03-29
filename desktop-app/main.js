@@ -1786,6 +1786,29 @@ async function createMainWindow(port) {
     }
   });
 
+  // IPC: Save file with native Save-As dialog (for POST-based downloads)
+  ipcMain.handle('save-file', async (event, arrayBuffer, filename, mimeType) => {
+    try {
+      const ext = filename.split('.').pop() || '*';
+      const filterName = mimeType && mimeType.includes('pdf') ? 'PDF Files' : mimeType && (mimeType.includes('spreadsheet') || mimeType.includes('excel')) ? 'Excel Files' : 'Files';
+      const downloadsDir = app.getPath('downloads');
+      const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+        defaultPath: path.join(downloadsDir, filename),
+        filters: [{ name: filterName, extensions: [ext] }, { name: 'All Files', extensions: ['*'] }]
+      });
+      if (canceled || !filePath) return { success: false, reason: 'cancelled' };
+      const fs = require('fs');
+      fs.writeFileSync(filePath, Buffer.from(arrayBuffer));
+      console.log('[IPC save-file] Saved:', filePath);
+      shell.openPath(filePath);
+      return { success: true, path: filePath };
+    } catch (e) {
+      console.error('[IPC save-file] Error:', e);
+      return { success: false, reason: e.message };
+    }
+  });
+
+
   mainWindow.on('closed', () => {
     mainWindow = null;
     if (server) server.close();

@@ -92,9 +92,8 @@ const DCEntries = ({ filters, user }) => {
   const exportData = async (format) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
-      const res = await axios.get(`${API}/dc-entries/${format}?${p}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url;
-      a.download = `dc_register.${format === 'excel' ? 'xlsx' : 'pdf'}`; a.click(); setTimeout(() => window.URL.revokeObjectURL(url), 30000);
+      const { downloadFile } = await import('../utils/download');
+      downloadFile(`/api/dc-entries/${format}?${p}`, `dc_register.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } catch (e) { toast.error("Export failed"); }
   };
 
@@ -353,9 +352,8 @@ const MSPPayments = ({ filters, user, dcList }) => {
   const exportData = async (format) => {
     try {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
-      const res = await axios.get(`${API}/msp-payments/${format}?${p}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url;
-      a.download = `msp_payments.${format === 'excel' ? 'xlsx' : 'pdf'}`; a.click();
+      const { downloadFile } = await import('../utils/download');
+      downloadFile(`/api/msp-payments/${format}?${p}`, `msp_payments.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } catch (e) { toast.error("Export failed"); }
   };
 
@@ -604,9 +602,8 @@ export const GunnyBags = ({ filters, user }) => {
       const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
       if (bagFilter !== 'all') p.append('bag_filter', bagFilter);
       if (txnFilter !== 'all') p.append('txn_filter', txnFilter);
-      const res = await axios.get(`${API}/gunny-bags/${format}?${p}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url;
-      a.download = `gunny_bags.${format === 'excel' ? 'xlsx' : 'pdf'}`; a.click();
+      const { downloadFile } = await import('../utils/download');
+      downloadFile(`/api/gunny-bags/${format}?${p}`, `gunny_bags.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } catch (e) { toast.error("Export failed"); }
   };
 
@@ -677,12 +674,9 @@ export const GunnyBags = ({ filters, user }) => {
           <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="gunny-add-btn"><Plus className="w-4 h-4 mr-1" /> New Entry</Button>
           <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="gunny-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
           <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="gunny-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
-          <Button onClick={() => {
+          <Button onClick={async () => {
             const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
-            axios.get(`${API}/gunny-bags/purchase-report/excel?${p}`, { responseType: 'blob' }).then(res => {
-              const url = window.URL.createObjectURL(new Blob([res.data])); const a = document.createElement('a'); a.href = url;
-              a.download = 'gunny_purchase_report.xlsx'; a.click();
-            }).catch(() => toast.error("Report export failed"));
+            try { const { downloadFile } = await import('../utils/download'); downloadFile(`/api/gunny-bags/purchase-report/excel?${p}`, 'gunny_purchase_report.xlsx'); } catch(e) { toast.error("Report export failed"); }
           }} variant="outline" size="sm" className="border-amber-600 text-amber-400 hover:bg-amber-900/30" data-testid="gunny-purchase-report">
             <FileText className="w-4 h-4 mr-1" /> Purchase Report
           </Button>

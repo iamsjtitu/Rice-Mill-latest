@@ -142,10 +142,8 @@ const LocalPartyAccount = ({ filters, user }) => {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
       if (filters.season) p.append('season', filters.season);
-      const res = await axios.get(`${API}/local-party/${format}?${p}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a');
-      a.href = url; a.download = `local_party_account.${format === 'pdf' ? 'pdf' : 'xlsx'}`; a.click();
+      const { downloadFile } = await import('../../utils/download');
+      downloadFile(`/api/local-party/${format}?${p}`, `local_party_account.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
     } catch (e) { toast.error(`${format.toUpperCase()} export failed`); }
   };
 
