@@ -174,7 +174,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
       <button onClick={toggle} className="absolute top-1 right-1 z-10 bg-black/60 rounded px-1.5 py-0.5 text-[8px] text-white hover:bg-black/80" data-testid="camera-toggle-btn">
         {active ? 'Stop' : 'Start'}
       </button>
-      <div className={compact ? "h-[88px]" : "h-32"}>
+      <div className={compact ? "h-[88px]" : "h-[140px]"}>
         {active ? (
           <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
         ) : (
@@ -761,10 +761,10 @@ export default function VehicleWeight({ filters }) {
             </div>
           </Card>
 
-          {/* 2 Cameras - Different Angles */}
-          <div className="grid grid-cols-2 gap-2">
-            <CameraFeed ref={frontCamRef} label="Front View" compact />
-            <CameraFeed ref={sideCamRef} label="Side View" compact />
+          {/* 2 Cameras - Stacked Vertically */}
+          <div className="space-y-2">
+            <CameraFeed ref={frontCamRef} label="Front View" />
+            <CameraFeed ref={sideCamRef} label="Side View" />
           </div>
         </div>
 
