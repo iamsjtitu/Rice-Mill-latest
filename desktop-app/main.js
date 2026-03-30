@@ -1610,7 +1610,8 @@ async function createMainWindow(port) {
       preload: path.join(__dirname, 'preload.js'),
       backgroundThrottling: false,
       spellcheck: false,
-      v8CacheOptions: 'code'
+      v8CacheOptions: 'code',
+      webSecurity: false
     }
   });
 

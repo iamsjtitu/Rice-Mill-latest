@@ -119,26 +119,66 @@ function useLiveScale() {
   return isElectronApp ? real : sim;
 }
 
-/* ─── Single Camera Feed with Snapshot Capture ─── */
-const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
+/* ─── Single Camera Feed with Snapshot Capture (IP Camera + USB Webcam) ─── */
+const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, ref) {
   const [active, setActive] = useState(false);
   const [zoomed, setZoomed] = useState(false);
+  const [camType, setCamType] = useState("usb"); // "ip" or "usb"
+  const [camUrl, setCamUrl] = useState("");
+  const [imgError, setImgError] = useState(false);
   const videoRef = useRef(null);
+  const imgRef = useRef(null);
   const zoomVideoRef = useRef(null);
+  const zoomImgRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
+
+  // Load camera config
+  useEffect(() => {
+    try {
+      const cfg = JSON.parse(localStorage.getItem('camera_config') || '{}');
+      const type = cfg.type || "usb";
+      setCamType(type);
+      if (type === "ip") {
+        const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
+        setCamUrl(url);
+      }
+    } catch { /* ignore */ }
+
+    const handleConfigChange = () => {
+      try {
+        const cfg = JSON.parse(localStorage.getItem('camera_config') || '{}');
+        setCamType(cfg.type || "usb");
+        if (cfg.type === "ip") {
+          setCamUrl(camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || ""));
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener('camera-config-changed', handleConfigChange);
+    return () => window.removeEventListener('camera-config-changed', handleConfigChange);
+  }, [camKey]);
 
   // Expose captureFrame method to parent via ref
   useImperativeHandle(ref, () => ({
     captureFrame: () => {
-      if (!active || !videoRef.current) return null;
-      const video = videoRef.current;
+      if (!active) return null;
       if (!canvasRef.current) canvasRef.current = document.createElement("canvas");
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
       const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      if (camType === "ip" && imgRef.current) {
+        const img = imgRef.current;
+        canvas.width = img.naturalWidth || 640;
+        canvas.height = img.naturalHeight || 480;
+        try { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); }
+        catch { return null; }
+      } else if (videoRef.current) {
+        const video = videoRef.current;
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      } else { return null; }
+
       const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
       return dataUrl.split(",")[1];
     },
@@ -151,23 +191,30 @@ const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
       if (videoRef.current) videoRef.current.srcObject = null;
       setActive(false);
       setZoomed(false);
+      setImgError(false);
     } else {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
-        streamRef.current = s;
-        if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play(); }
+      if (camType === "ip") {
+        if (!camUrl) { toast.error("Camera URL set nahi hai. Settings > Camera Setup mai URL daalein"); return; }
+        setImgError(false);
         setActive(true);
-      } catch { toast.error("Camera access nahi mila"); }
+      } else {
+        try {
+          const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+          streamRef.current = s;
+          if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play(); }
+          setActive(true);
+        } catch { toast.error("Camera access nahi mila"); }
+      }
     }
-  }, [active]);
+  }, [active, camType, camUrl]);
 
-  // Attach stream to zoom video when zoomed opens
+  // Attach stream to zoom video when zoomed opens (USB mode)
   useEffect(() => {
-    if (zoomed && zoomVideoRef.current && streamRef.current) {
+    if (zoomed && camType === "usb" && zoomVideoRef.current && streamRef.current) {
       zoomVideoRef.current.srcObject = streamRef.current;
       zoomVideoRef.current.play().catch(() => {});
     }
-  }, [zoomed]);
+  }, [zoomed, camType]);
 
   // ESC key to close zoom
   useEffect(() => {
@@ -181,6 +228,23 @@ const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); }
   }, []);
 
+  const renderFeed = (imgRefToUse, vidRefToUse, cssClass) => {
+    if (camType === "ip") {
+      return imgError ? (
+        <div className={`${cssClass} flex items-center justify-center bg-red-900/30`}>
+          <p className="text-red-400 text-[9px] text-center px-2">IP Camera connect nahi ho paya.<br/>URL check karein.</p>
+        </div>
+      ) : (
+        <img ref={imgRefToUse} src={camUrl} alt={label} className={`${cssClass} object-cover`}
+          crossOrigin="anonymous"
+          onError={() => setImgError(true)}
+          onLoad={() => setImgError(false)}
+        />
+      );
+    }
+    return <video ref={vidRefToUse} className={`${cssClass} object-cover`} autoPlay muted playsInline />;
+  };
+
   return (
     <>
       <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-900 cursor-pointer" data-testid="camera-feed-panel"
@@ -190,6 +254,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
             {active ? <Camera className="w-2.5 h-2.5 mr-0.5" /> : <CameraOff className="w-2.5 h-2.5 mr-0.5" />}
             {active ? 'LIVE' : 'OFF'}
           </Badge>
+          {camType === "ip" && <Badge className="text-[7px] px-1 py-0 bg-blue-700">IP</Badge>}
         </div>
         <button onClick={(e) => { e.stopPropagation(); toggle(); }} className="absolute top-1 right-1 z-10 bg-black/60 rounded px-1.5 py-0.5 text-[8px] text-white hover:bg-black/80" data-testid="camera-toggle-btn">
           {active ? 'Stop' : 'Start'}
@@ -197,12 +262,12 @@ const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
         {active && <div className="absolute bottom-1 right-1 z-10 bg-black/50 rounded px-1 py-0.5 text-[7px] text-white/70">Click to zoom</div>}
         <div className={compact ? "h-[88px]" : "h-[140px]"}>
           {active ? (
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+            renderFeed(imgRef, videoRef, "w-full h-full")
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-900">
               <div className="text-center">
-                <Camera className="w-4 h-4 text-gray-600 mx-auto" />
-                <p className="text-gray-500 text-[7px] mt-0.5">{label || "Camera"}</p>
+                {camType === "ip" ? <Wifi className="w-4 h-4 text-blue-500 mx-auto" /> : <Camera className="w-4 h-4 text-gray-600 mx-auto" />}
+                <p className="text-gray-500 text-[7px] mt-0.5">{label || "Camera"} {camType === "ip" ? "(IP)" : ""}</p>
               </div>
             </div>
           )}
@@ -217,12 +282,17 @@ const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
               <span className="text-white text-sm font-semibold flex items-center gap-2">
                 <Camera className="w-4 h-4 text-green-400" /> {label || "Camera"}
                 <Badge className="bg-green-600 text-[9px] ml-1">LIVE</Badge>
+                {camType === "ip" && <Badge className="bg-blue-700 text-[9px]">IP Camera</Badge>}
               </span>
               <button onClick={() => setZoomed(false)} className="text-gray-400 hover:text-white text-xs bg-gray-800 rounded px-2 py-1">
                 ESC
               </button>
             </div>
-            <video ref={zoomVideoRef} className="w-full aspect-video object-contain bg-black" autoPlay muted playsInline />
+            {camType === "ip" ? (
+              <img ref={zoomImgRef} src={camUrl} alt={label} className="w-full aspect-video object-contain bg-black" crossOrigin="anonymous" />
+            ) : (
+              <video ref={zoomVideoRef} className="w-full aspect-video object-contain bg-black" autoPlay muted playsInline />
+            )}
           </div>
         </div>
       )}
@@ -803,8 +873,8 @@ export default function VehicleWeight({ filters }) {
 
           {/* 2 Cameras - Stacked Vertically */}
           <div className="space-y-2">
-            <CameraFeed ref={frontCamRef} label="Front View" />
-            <CameraFeed ref={sideCamRef} label="Side View" />
+            <CameraFeed ref={frontCamRef} label="Front View" camKey="front" />
+            <CameraFeed ref={sideCamRef} label="Side View" camKey="side" />
           </div>
         </div>
 

@@ -13,7 +13,7 @@ import {
 import {
   Trash2, Plus, Calculator, RefreshCw, Key, FileText,
   AlertCircle, HardDrive, ShieldCheck, Send, Package, Scale,
-  Camera, CameraOff,
+  Camera, CameraOff, Eye, EyeOff, Wifi,
 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 
@@ -1475,6 +1475,14 @@ function ErrorLogTab() {
 
 // ======================= CAMERA SETUP TAB =======================
 function CameraSetupTab() {
+  const [camType, setCamType] = useState("ip"); // "ip" or "usb"
+  const [frontUrl, setFrontUrl] = useState("");
+  const [sideUrl, setSideUrl] = useState("");
+  const [frontPreview, setFrontPreview] = useState(false);
+  const [sidePreview, setSidePreview] = useState(false);
+  const [frontError, setFrontError] = useState(false);
+  const [sideError, setSideError] = useState(false);
+  // USB state
   const [devices, setDevices] = useState([]);
   const [frontId, setFrontId] = useState("");
   const [sideId, setSideId] = useState("");
@@ -1482,19 +1490,34 @@ function CameraSetupTab() {
   const frontRef = useRef(null);
   const sideRef = useRef(null);
 
+  // Load saved config
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('camera_config') || '{}');
+      const type = saved.type || "ip";
+      setCamType(type);
+      if (type === "ip") {
+        setFrontUrl(saved.frontUrl || "");
+        setSideUrl(saved.sideUrl || "");
+      } else {
+        if (saved.frontId) setFrontId(saved.frontId);
+        if (saved.sideId) setSideId(saved.sideId);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const loadDevices = async () => {
     try {
       await navigator.mediaDevices.getUserMedia({ video: true }).then(s => s.getTracks().forEach(t => t.stop()));
       const all = await navigator.mediaDevices.enumerateDevices();
       const vids = all.filter(d => d.kind === 'videoinput');
       setDevices(vids);
-      const saved = JSON.parse(localStorage.getItem('camera_config') || '{}');
-      if (saved.frontId) setFrontId(saved.frontId);
-      if (saved.sideId) setSideId(saved.sideId);
     } catch { toast.error("Camera access nahi mila"); }
   };
 
-  useEffect(() => { loadDevices(); }, []);
+  useEffect(() => {
+    if (camType === "usb") loadDevices();
+  }, [camType]);
 
   useEffect(() => () => {
     if (previewStream.front) previewStream.front.getTracks().forEach(t => t.stop());
@@ -1518,7 +1541,11 @@ function CameraSetupTab() {
   };
 
   const handleSave = () => {
-    localStorage.setItem('camera_config', JSON.stringify({ frontId, sideId }));
+    if (camType === "ip") {
+      localStorage.setItem('camera_config', JSON.stringify({ type: "ip", frontUrl, sideUrl }));
+    } else {
+      localStorage.setItem('camera_config', JSON.stringify({ type: "usb", frontId, sideId }));
+    }
     window.dispatchEvent(new Event('camera-config-changed'));
     toast.success("Camera config save ho gaya!");
   };
@@ -1529,82 +1556,219 @@ function CameraSetupTab() {
         <CardHeader>
           <CardTitle className="text-amber-400 flex items-center gap-2">
             <Camera className="w-5 h-5" />
-            Camera Setup / कैमरा सेटअप
+            Camera Setup / IP Camera Setup
           </CardTitle>
           <p className="text-slate-400 text-sm">
-            Vehicle Weight ke liye Front aur Side camera select karein
+            Vehicle Weight ke liye Front aur Side camera configure karein
           </p>
         </CardHeader>
         <CardContent className="space-y-5">
-          {devices.length === 0 ? (
-            <div className="text-center py-6">
-              <CameraOff className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-              <p className="text-slate-400 text-sm">Koi camera detect nahi hua</p>
-              <Button onClick={loadDevices} variant="outline" size="sm" className="mt-2 border-slate-600 text-slate-300">
-                <RefreshCw className="w-3 h-3 mr-1" /> Refresh
-              </Button>
+          {/* Camera Type Selector */}
+          <div className="flex gap-2" data-testid="camera-type-selector">
+            <button
+              onClick={() => setCamType("ip")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${camType === "ip" ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-400 hover:bg-slate-600"}`}
+              data-testid="camera-type-ip-btn"
+            >
+              <Wifi className="w-4 h-4 inline mr-1.5" />
+              IP Camera (Network)
+            </button>
+            <button
+              onClick={() => setCamType("usb")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${camType === "usb" ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-400 hover:bg-slate-600"}`}
+              data-testid="camera-type-usb-btn"
+            >
+              <Camera className="w-4 h-4 inline mr-1.5" />
+              USB Webcam
+            </button>
+          </div>
+
+          {camType === "ip" ? (
+            /* ─── IP Camera Mode ─── */
+            <div className="space-y-4">
+              <div className="bg-slate-700/50 rounded-lg p-3 text-xs text-slate-400 space-y-1">
+                <p className="text-amber-400 font-semibold text-sm">IP Camera URL kaise milega?</p>
+                <p>1. Camera ka IP address browser mai kholo (jaise: http://192.168.1.100)</p>
+                <p>2. Stream/MJPEG URL copy karo (jaise: http://192.168.1.100:8080/video)</p>
+                <p>3. Ya snapshot URL (jaise: http://192.168.1.100/cgi-bin/snapshot.cgi)</p>
+                <p className="text-slate-500 mt-1">Common formats: /video, /mjpg/video.mjpg, /cgi-bin/mjpg/video.cgi, /stream</p>
+              </div>
+
+              {/* Front Camera URL */}
+              <div className="space-y-2">
+                <Label className="text-slate-300 text-sm font-semibold">Front Camera URL</Label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={frontUrl}
+                    onChange={(e) => { setFrontUrl(e.target.value); setFrontPreview(false); setFrontError(false); }}
+                    placeholder="http://192.168.1.100:8080/video"
+                    className="flex-1 bg-slate-700 border border-slate-600 text-white text-sm rounded-md px-3 py-2"
+                    data-testid="front-camera-url-input"
+                  />
+                  <Button
+                    onClick={() => { setFrontPreview(!frontPreview); setFrontError(false); }}
+                    size="sm"
+                    variant="outline"
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    data-testid="front-camera-preview-btn"
+                    disabled={!frontUrl}
+                  >
+                    {frontPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+                <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[180px]">
+                  {frontPreview && frontUrl ? (
+                    frontError ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="text-center">
+                          <CameraOff className="w-6 h-6 text-red-500 mx-auto mb-1" />
+                          <p className="text-red-400 text-xs">Camera connect nahi ho paya</p>
+                          <p className="text-slate-500 text-[10px] mt-1">URL check karein ya camera ON hai?</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={frontUrl}
+                        alt="Front Camera"
+                        className="w-full h-full object-contain"
+                        crossOrigin="anonymous"
+                        onError={() => setFrontError(true)}
+                        onLoad={() => setFrontError(false)}
+                      />
+                    )
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <p className="text-slate-500 text-xs">{frontUrl ? "Preview dekhne ke liye Eye icon dabayein" : "URL daalein"}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Side Camera URL */}
+              <div className="space-y-2">
+                <Label className="text-slate-300 text-sm font-semibold">Side Camera URL</Label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={sideUrl}
+                    onChange={(e) => { setSideUrl(e.target.value); setSidePreview(false); setSideError(false); }}
+                    placeholder="http://192.168.1.101:8080/video"
+                    className="flex-1 bg-slate-700 border border-slate-600 text-white text-sm rounded-md px-3 py-2"
+                    data-testid="side-camera-url-input"
+                  />
+                  <Button
+                    onClick={() => { setSidePreview(!sidePreview); setSideError(false); }}
+                    size="sm"
+                    variant="outline"
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    data-testid="side-camera-preview-btn"
+                    disabled={!sideUrl}
+                  >
+                    {sidePreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+                <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[180px]">
+                  {sidePreview && sideUrl ? (
+                    sideError ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="text-center">
+                          <CameraOff className="w-6 h-6 text-red-500 mx-auto mb-1" />
+                          <p className="text-red-400 text-xs">Camera connect nahi ho paya</p>
+                          <p className="text-slate-500 text-[10px] mt-1">URL check karein ya camera ON hai?</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={sideUrl}
+                        alt="Side Camera"
+                        className="w-full h-full object-contain"
+                        crossOrigin="anonymous"
+                        onError={() => setSideError(true)}
+                        onLoad={() => setSideError(false)}
+                      />
+                    )
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <p className="text-slate-500 text-xs">{sideUrl ? "Preview dekhne ke liye Eye icon dabayein" : "URL daalein"}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
-            <>
-              <p className="text-slate-400 text-xs">{devices.length} camera(s) detected</p>
-
-              <div className="space-y-2">
-                <Label className="text-slate-300 text-sm font-semibold">Front Camera</Label>
-                <select
-                  value={frontId}
-                  onChange={(e) => { setFrontId(e.target.value); startPreview(e.target.value, frontRef, 'front'); }}
-                  className="w-full bg-slate-700 border border-slate-600 text-white text-xs rounded-md px-3 py-2"
-                  data-testid="front-camera-select"
-                >
-                  <option value="">-- Select Front Camera --</option>
-                  {devices.map((d, i) => (
-                    <option key={d.deviceId} value={d.deviceId}>
-                      {d.label || `Camera ${i + 1}`}
-                    </option>
-                  ))}
-                </select>
-                <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[160px]">
-                  {previewStream.front ? (
-                    <video ref={frontRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <p className="text-slate-500 text-xs">Preview</p>
-                    </div>
-                  )}
+            /* ─── USB Webcam Mode ─── */
+            <div className="space-y-4">
+              {devices.length === 0 ? (
+                <div className="text-center py-6">
+                  <CameraOff className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                  <p className="text-slate-400 text-sm">Koi USB camera detect nahi hua</p>
+                  <Button onClick={loadDevices} variant="outline" size="sm" className="mt-2 border-slate-600 text-slate-300">
+                    <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+                  </Button>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-slate-300 text-sm font-semibold">Side Camera</Label>
-                <select
-                  value={sideId}
-                  onChange={(e) => { setSideId(e.target.value); startPreview(e.target.value, sideRef, 'side'); }}
-                  className="w-full bg-slate-700 border border-slate-600 text-white text-xs rounded-md px-3 py-2"
-                  data-testid="side-camera-select"
-                >
-                  <option value="">-- Select Side Camera --</option>
-                  {devices.map((d, i) => (
-                    <option key={d.deviceId} value={d.deviceId}>
-                      {d.label || `Camera ${i + 1}`}
-                    </option>
-                  ))}
-                </select>
-                <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[160px]">
-                  {previewStream.side ? (
-                    <video ref={sideRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <p className="text-slate-500 text-xs">Preview</p>
+              ) : (
+                <>
+                  <p className="text-slate-400 text-xs">{devices.length} camera(s) detected</p>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300 text-sm font-semibold">Front Camera</Label>
+                    <select
+                      value={frontId}
+                      onChange={(e) => { setFrontId(e.target.value); startPreview(e.target.value, frontRef, 'front'); }}
+                      className="w-full bg-slate-700 border border-slate-600 text-white text-xs rounded-md px-3 py-2"
+                      data-testid="front-camera-select"
+                    >
+                      <option value="">-- Select Front Camera --</option>
+                      {devices.map((d, i) => (
+                        <option key={d.deviceId} value={d.deviceId}>
+                          {d.label || `Camera ${i + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[160px]">
+                      {previewStream.front ? (
+                        <video ref={frontRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <p className="text-slate-500 text-xs">Preview</p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
-              <Button onClick={handleSave} className="w-full bg-amber-600 hover:bg-amber-700 text-white" data-testid="save-camera-config-btn">
-                Save Camera Config
-              </Button>
-            </>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300 text-sm font-semibold">Side Camera</Label>
+                    <select
+                      value={sideId}
+                      onChange={(e) => { setSideId(e.target.value); startPreview(e.target.value, sideRef, 'side'); }}
+                      className="w-full bg-slate-700 border border-slate-600 text-white text-xs rounded-md px-3 py-2"
+                      data-testid="side-camera-select"
+                    >
+                      <option value="">-- Select Side Camera --</option>
+                      {devices.map((d, i) => (
+                        <option key={d.deviceId} value={d.deviceId}>
+                          {d.label || `Camera ${i + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[160px]">
+                      {previewStream.side ? (
+                        <video ref={sideRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <p className="text-slate-500 text-xs">Preview</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           )}
+
+          <Button onClick={handleSave} className="w-full bg-amber-600 hover:bg-amber-700 text-white" data-testid="save-camera-config-btn">
+            Save Camera Config
+          </Button>
         </CardContent>
       </Card>
     </div>
