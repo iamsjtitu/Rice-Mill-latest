@@ -184,6 +184,38 @@ async def send_daily_report_now(data: dict = None):
     return {"success": sent > 0, "message": f"Report {sent}/{total} recipients ko bhej diya!", "details": results}
 
 
+@router.post("/telegram/send-custom")
+async def send_custom_pdf(data: dict):
+    """Send a custom PDF (from any internal URL) via Telegram."""
+    config = await get_telegram_config()
+    if not config or not config.get("bot_token") or not config.get("chat_ids"):
+        raise HTTPException(status_code=400, detail="Telegram config set nahi hai.")
+
+    caption = data.get("text", "Report")
+    pdf_url = data.get("pdf_url", "")
+    if not pdf_url:
+        raise HTTPException(status_code=400, detail="pdf_url required")
+
+    fetch_url = pdf_url
+    if pdf_url.startswith("/api/"):
+        fetch_url = f"http://localhost:8001{pdf_url}"
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            pdf_resp = await client.get(fetch_url)
+        if pdf_resp.status_code != 200 or len(pdf_resp.content) < 100:
+            raise HTTPException(status_code=500, detail="PDF fetch fail")
+        pdf_bytes = pdf_resp.content
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF fetch error: {e}")
+
+    results = await _send_pdf_to_all(config["bot_token"], config["chat_ids"], pdf_bytes, caption)
+    sent = sum(1 for r in results if r.get("ok"))
+    return {"success": sent > 0, "message": f"{sent}/{len(results)} recipients ko bhej diya!"}
+
+
 @router.get("/telegram/logs")
 async def get_send_logs():
     logs = await db.telegram_logs.find({}, {"_id": 0}).sort("sent_at", -1).to_list(20)

@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.5.0";
+const APP_VERSION = "55.6.0";
 
 const CHANGELOG = [
+  {
+    version: "55.6.0",
+    date: "Mar 2026",
+    title: "v55.6.0 - Entries Page Messaging + Footer Fix",
+    items: [
+      { type: "new", text: "Entries page par WhatsApp, Group aur Telegram buttons - filter ke hisab se PDF attach hota hai" },
+      { type: "fix", text: "Footer se formula (1 Quintal = 100 KG) hataya" },
+      { type: "new", text: "Telegram: Generic send-custom endpoint - koi bhi PDF Telegram pe bhejo" },
+    ]
+  },
   {
     version: "55.5.0",
     date: "Mar 2026",

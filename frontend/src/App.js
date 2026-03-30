@@ -70,6 +70,8 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import HemaliPayment from "@/components/HemaliPayment";
 import WhatsNew, { APP_VERSION } from "@/components/WhatsNew";
 import AutoUpdate from "@/components/AutoUpdate";
+import { SendToGroupDialog } from "@/components/SendToGroupDialog";
+import { useMessagingEnabled } from "./hooks/useMessagingEnabled";
 import Settings from "@/components/Settings";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -206,6 +208,10 @@ function MainApp({ user, onLogout }) {
   const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("entries"); // "entries", "dashboard", "payments", "milling", "settings"
+  const { wa, tg } = useMessagingEnabled();
+  const [entryGroupDialogOpen, setEntryGroupDialogOpen] = useState(false);
+  const [entryGroupText, setEntryGroupText] = useState("");
+  const [entryGroupPdfUrl, setEntryGroupPdfUrl] = useState("");
 
   // Theme state
   const [theme, setTheme] = useState(() => localStorage.getItem('mill_theme') || 'dark');
@@ -922,6 +928,59 @@ function MainApp({ user, onLogout }) {
     toast.success("PDF generate ho raha hai!");
   };
 
+  // Build filter params for entries WA/Group
+  const _entryFilterParams = () => {
+    const p = new URLSearchParams();
+    if (filters.truck_no) p.append('truck_no', filters.truck_no);
+    if (filters.agent_name) p.append('agent_name', filters.agent_name);
+    if (filters.mandi_name) p.append('mandi_name', filters.mandi_name);
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    return p;
+  };
+  const _entryFilterLabel = () => {
+    const parts = [];
+    if (filters.kms_year) parts.push(`FY:${filters.kms_year}`);
+    if (filters.season) parts.push(filters.season);
+    if (filters.mandi_name) parts.push(filters.mandi_name);
+    if (filters.agent_name) parts.push(filters.agent_name);
+    if (filters.truck_no) parts.push(filters.truck_no);
+    return parts.length ? parts.join(' | ') : 'All';
+  };
+
+  const handleEntriesWhatsApp = async () => {
+    try {
+      const params = _entryFilterParams();
+      const pdfUrl = `http://localhost:8001/api/export/pdf?${params.toString()}`;
+      const text = `*Paddy Entries Report*\nFilter: ${_entryFilterLabel()}\nTotal Entries: ${entries.length}`;
+      const res = await axios.post(`${API}/whatsapp/send-daily-report`, {
+        report_text: text, pdf_url: pdfUrl, send_to_numbers: true, send_to_group: false
+      });
+      if (res.data.success) toast.success("WhatsApp bhej diya!");
+      else toast.error(res.data.error || "WhatsApp send fail");
+    } catch (e) { toast.error(e.response?.data?.detail || "WhatsApp send error"); }
+  };
+
+  const handleEntriesGroupSend = () => {
+    const params = _entryFilterParams();
+    setEntryGroupText(`*Paddy Entries Report*\nFilter: ${_entryFilterLabel()}\nTotal Entries: ${entries.length}`);
+    setEntryGroupPdfUrl(`/api/export/pdf?${params.toString()}`);
+    setEntryGroupDialogOpen(true);
+  };
+
+  const [entriesTgSending, setEntriesTgSending] = useState(false);
+  const handleEntriesTelegram = async () => {
+    setEntriesTgSending(true);
+    try {
+      const params = _entryFilterParams();
+      const text = `Paddy Entries Report | Filter: ${_entryFilterLabel()} | Total: ${entries.length}`;
+      const res = await axios.post(`${API}/telegram/send-custom`, { text, pdf_url: `/api/export/pdf?${params.toString()}` });
+      if (res.data.success) toast.success("Telegram bhej diya!");
+      else toast.error(res.data.error || "Telegram send fail");
+    } catch (e) { toast.error(e.response?.data?.detail || "Telegram send error"); }
+    setEntriesTgSending(false);
+  };
+
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (passwordData.newPassword !== passwordData.confirmPassword) {
@@ -1472,6 +1531,18 @@ function MainApp({ user, onLogout }) {
               <FileText className="w-4 h-4 mr-1" />
               PDF
             </Button>
+            {wa && <Button onClick={handleEntriesWhatsApp} variant="outline" size="sm"
+              className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="entries-whatsapp-btn">
+              <Send className="w-4 h-4 mr-1" /> WhatsApp
+            </Button>}
+            {wa && <Button onClick={handleEntriesGroupSend} variant="outline" size="sm"
+              className="border-teal-600 text-teal-400 hover:bg-teal-900/30" data-testid="entries-group-btn">
+              <Users className="w-4 h-4 mr-1" /> Group
+            </Button>}
+            {tg && <Button onClick={handleEntriesTelegram} disabled={entriesTgSending} variant="outline" size="sm"
+              className="border-blue-600 text-blue-400 hover:bg-blue-900/30" data-testid="entries-telegram-btn">
+              <Send className={`w-4 h-4 mr-1 ${entriesTgSending ? 'animate-pulse' : ''}`} /> Telegram
+            </Button>}
             {user.role === 'admin' && (
               <ExcelImport filters={filters} user={user} onImportDone={fetchEntries} />
             )}
@@ -2266,7 +2337,6 @@ function MainApp({ user, onLogout }) {
           <p className="text-slate-300 text-sm font-semibold tracking-wide">
             Mill Entry System <span className="text-slate-500 font-normal">- Data Management Software</span>
           </p>
-          <p className="text-slate-500 text-xs">1 Quintal = 100 KG | P.Pkt = 0.50 kg/bag</p>
           <div className="flex items-center justify-center gap-3 text-xs text-slate-500 pt-1">
             <span className="text-amber-400/70 font-mono" data-testid="footer-version">v{APP_VERSION}</span>
             <span className="text-slate-700">|</span>
@@ -2283,6 +2353,9 @@ function MainApp({ user, onLogout }) {
 
       {/* Auto Update Notification */}
       <AutoUpdate />
+
+      {/* Entries Group Send Dialog */}
+      <SendToGroupDialog open={entryGroupDialogOpen} onOpenChange={setEntryGroupDialogOpen} text={entryGroupText} pdfUrl={entryGroupPdfUrl} />
 
       {/* Confirm Dialog (replaces window.confirm to prevent UI freeze) */}
       <AlertDialog open={confirmDialog.open} onOpenChange={(open) => { if (!open && confirmDialog.onCancel) confirmDialog.onCancel(); }}>
