@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
 import {
   Trash2, Plus, Calculator, RefreshCw, Key, FileText,
   AlertCircle, HardDrive, ShieldCheck, Send, Package, Scale,
+  Camera, CameraOff,
 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 
@@ -947,9 +948,6 @@ function MessagingTab() {
 
       {/* Auto Vehicle Weight Messaging */}
       <AutoVWMessagingCard />
-
-      {/* Weighbridge Hardware Config */}
-      <WeighbridgeConfigCard />
     </div>
   );
 }
@@ -1200,7 +1198,6 @@ function DataTab({ user }) {
   const [backups, setBackups] = useState([]);
   const [backupStatus, setBackupStatus] = useState(null);
   const [backupLoading, setBackupLoading] = useState(false);
-  const [errorLog, setErrorLog] = useState("");
 
   const fetchBackups = async () => {
     try {
@@ -1210,16 +1207,8 @@ function DataTab({ user }) {
     } catch { setBackupStatus(null); }
   };
 
-  const fetchErrorLog = async () => {
-    try {
-      const res = await axios.get(`${API}/error-log`);
-      setErrorLog(res.data.content || "");
-    } catch { setErrorLog(""); }
-  };
-
   useEffect(() => {
     fetchBackups();
-    fetchErrorLog();
   }, []);
 
   const handleCreateBackup = async () => {
@@ -1426,8 +1415,25 @@ function DataTab({ user }) {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
 
-      {/* Error Log */}
+// ======================= ERROR LOG TAB =======================
+function ErrorLogTab() {
+  const [errorLog, setErrorLog] = useState("");
+
+  const fetchErrorLog = async () => {
+    try {
+      const res = await axios.get(`${API}/error-log`);
+      setErrorLog(res.data.content || "");
+    } catch { setErrorLog(""); }
+  };
+
+  useEffect(() => { fetchErrorLog(); }, []);
+
+  return (
+    <div className="space-y-4">
       <Card className="bg-slate-800 border-slate-700" data-testid="error-log-section">
         <CardHeader>
           <CardTitle className="text-red-400 flex items-center gap-2">
@@ -1467,6 +1473,144 @@ function DataTab({ user }) {
   );
 }
 
+// ======================= CAMERA SETUP TAB =======================
+function CameraSetupTab() {
+  const [devices, setDevices] = useState([]);
+  const [frontId, setFrontId] = useState("");
+  const [sideId, setSideId] = useState("");
+  const [previewStream, setPreviewStream] = useState({ front: null, side: null });
+  const frontRef = useRef(null);
+  const sideRef = useRef(null);
+
+  const loadDevices = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ video: true }).then(s => s.getTracks().forEach(t => t.stop()));
+      const all = await navigator.mediaDevices.enumerateDevices();
+      const vids = all.filter(d => d.kind === 'videoinput');
+      setDevices(vids);
+      const saved = JSON.parse(localStorage.getItem('camera_config') || '{}');
+      if (saved.frontId) setFrontId(saved.frontId);
+      if (saved.sideId) setSideId(saved.sideId);
+    } catch { toast.error("Camera access nahi mila"); }
+  };
+
+  useEffect(() => { loadDevices(); }, []);
+
+  useEffect(() => () => {
+    if (previewStream.front) previewStream.front.getTracks().forEach(t => t.stop());
+    if (previewStream.side) previewStream.side.getTracks().forEach(t => t.stop());
+  }, [previewStream]);
+
+  const startPreview = async (deviceId, videoRef, key) => {
+    if (previewStream[key]) { previewStream[key].getTracks().forEach(t => t.stop()); }
+    if (!deviceId) {
+      if (videoRef.current) videoRef.current.srcObject = null;
+      setPreviewStream(p => ({ ...p, [key]: null }));
+      return;
+    }
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: deviceId }, width: 640, height: 480 }
+      });
+      if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play(); }
+      setPreviewStream(p => ({ ...p, [key]: s }));
+    } catch { toast.error("Camera start nahi ho paya"); }
+  };
+
+  const handleSave = () => {
+    localStorage.setItem('camera_config', JSON.stringify({ frontId, sideId }));
+    window.dispatchEvent(new Event('camera-config-changed'));
+    toast.success("Camera config save ho gaya!");
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="bg-slate-800 border-slate-700" data-testid="camera-setup-section">
+        <CardHeader>
+          <CardTitle className="text-amber-400 flex items-center gap-2">
+            <Camera className="w-5 h-5" />
+            Camera Setup / कैमरा सेटअप
+          </CardTitle>
+          <p className="text-slate-400 text-sm">
+            Vehicle Weight ke liye Front aur Side camera select karein
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {devices.length === 0 ? (
+            <div className="text-center py-6">
+              <CameraOff className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+              <p className="text-slate-400 text-sm">Koi camera detect nahi hua</p>
+              <Button onClick={loadDevices} variant="outline" size="sm" className="mt-2 border-slate-600 text-slate-300">
+                <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+              </Button>
+            </div>
+          ) : (
+            <>
+              <p className="text-slate-400 text-xs">{devices.length} camera(s) detected</p>
+
+              <div className="space-y-2">
+                <Label className="text-slate-300 text-sm font-semibold">Front Camera</Label>
+                <select
+                  value={frontId}
+                  onChange={(e) => { setFrontId(e.target.value); startPreview(e.target.value, frontRef, 'front'); }}
+                  className="w-full bg-slate-700 border border-slate-600 text-white text-xs rounded-md px-3 py-2"
+                  data-testid="front-camera-select"
+                >
+                  <option value="">-- Select Front Camera --</option>
+                  {devices.map((d, i) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `Camera ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+                <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[160px]">
+                  {previewStream.front ? (
+                    <video ref={frontRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <p className="text-slate-500 text-xs">Preview</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-slate-300 text-sm font-semibold">Side Camera</Label>
+                <select
+                  value={sideId}
+                  onChange={(e) => { setSideId(e.target.value); startPreview(e.target.value, sideRef, 'side'); }}
+                  className="w-full bg-slate-700 border border-slate-600 text-white text-xs rounded-md px-3 py-2"
+                  data-testid="side-camera-select"
+                >
+                  <option value="">-- Select Side Camera --</option>
+                  {devices.map((d, i) => (
+                    <option key={d.deviceId} value={d.deviceId}>
+                      {d.label || `Camera ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+                <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[160px]">
+                  {previewStream.side ? (
+                    <video ref={sideRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <p className="text-slate-500 text-xs">Preview</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Button onClick={handleSave} className="w-full bg-amber-600 hover:bg-amber-700 text-white" data-testid="save-camera-config-btn">
+                Save Camera Config
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ======================= MAIN SETTINGS COMPONENT =======================
 
 const SUB_TABS = [
@@ -1474,7 +1618,10 @@ const SUB_TABS = [
   { id: "gst", label: "GST", icon: Calculator },
   { id: "stock", label: "Stock", icon: Package },
   { id: "messaging", label: "Messaging", icon: Send },
+  { id: "camera", label: "Camera", icon: Camera },
+  { id: "weighbridge", label: "Weighbridge", icon: Scale },
   { id: "data", label: "Data", icon: HardDrive },
+  { id: "errorlog", label: "Error Log", icon: AlertCircle },
 ];
 
 export default function Settings({ user, kmsYear, onBrandingUpdate }) {
@@ -1511,8 +1658,17 @@ export default function Settings({ user, kmsYear, onBrandingUpdate }) {
           <TabsContent value="messaging">
             <MessagingTab />
           </TabsContent>
+          <TabsContent value="camera">
+            <CameraSetupTab />
+          </TabsContent>
+          <TabsContent value="weighbridge">
+            <WeighbridgeConfigCard />
+          </TabsContent>
           <TabsContent value="data">
             <DataTab user={user} />
+          </TabsContent>
+          <TabsContent value="errorlog">
+            <ErrorLogTab />
           </TabsContent>
         </Tabs>
       </div>

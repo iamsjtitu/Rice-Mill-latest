@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.33.0";
+const APP_VERSION = "55.34.0";
 
 const CHANGELOG = [
+  {
+    version: "55.34.0",
+    date: "Mar 2026",
+    title: "v55.34.0 - Settings Restructure + Camera Setup",
+    items: [
+      { type: "new", text: "Camera Setup sub-tab - Front aur Side camera select + preview" },
+      { type: "new", text: "Weighbridge Configuration ab alag sub-tab mai" },
+      { type: "new", text: "Error Log ab alag sub-tab mai" },
+    ]
+  },
   {
     version: "55.33.0",
     date: "Mar 2026",
