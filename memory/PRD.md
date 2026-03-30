@@ -10,7 +10,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **Local Server:** Express + Local JSON (LAN access)
 - **CI/CD:** GitHub Actions auto-builds .exe on push
 
-## Current Version: v55.3.0
+## Current Version: v55.4.0
 
 ## What's Been Implemented
 - Full paddy purchase management with party ledgers
@@ -23,18 +23,23 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - Hemali payment tracking
 - Mill parts stock management
 - FY Summary dashboard with Balance Sheet
-- WhatsApp integration (360Messenger) - individual + group sending
-- **Default Group auto-select** from Settings across all Send to Group dialogs
+- WhatsApp integration (360Messenger):
+  - Individual message send
+  - **Send to Group** button on all pages (CashBook, Ledgers, SaleBook, PaddyPurchase, LeasedTruck, Payments, Reports)
+  - **Default Group** selector in Settings (auto-selects in all dialogs)
+  - **Scheduled auto-send** daily report to group at user-set time
 - Telegram integration for daily reports
 - PDF/Excel export for all reports
-- IPC-based downloads for Electron (no window.open)
+- IPC-based downloads for Electron
 - Auto-updater via GitHub releases
 
-## Recent Changes (v55.3.0 - Mar 2026)
-- **NEW:** Default WhatsApp Group selector in Settings (auto-selects in all dialogs)
-- **NEW:** WhatsApp "Send to Group" button on all report/ledger pages
-- **NEW:** GET /api/whatsapp/groups + POST /api/whatsapp/send-group endpoints
-- **FIX:** _send_wa_to_group() now uses correct POST /v2/sendGroup endpoint
+## Recent Changes (v55.4.0 - Mar 2026)
+- **NEW:** Default WhatsApp Group dropdown in Settings
+- **NEW:** Auto Daily Report → Group scheduler (time-based, like Telegram scheduler)
+- **NEW:** SendToGroupDialog auto-selects default group on open
+- **REMOVED:** Old "Daily Report Group ID" manual input field
+- **NEW:** WhatsApp "Send to Group" button on 7 pages
+- **FIX:** _send_wa_to_group() uses correct POST /v2/sendGroup endpoint
 
 ## Prioritized Backlog
 ### P1
