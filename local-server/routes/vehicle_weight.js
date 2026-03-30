@@ -6,10 +6,30 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const https = require('https');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { safeAsync } = require('./safe_handler');
 const router = express.Router();
 
 module.exports = function(database) {
+
+  // Image storage directory
+  const imgDir = path.join(database.dir || '.', 'vw_images');
+  if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true });
+
+  function saveImage(entryId, tag, b64data) {
+    if (!b64data) return '';
+    const filename = `${entryId}_${tag}.jpg`;
+    fs.writeFileSync(path.join(imgDir, filename), Buffer.from(b64data, 'base64'));
+    return filename;
+  }
+
+  function loadImageB64(filename) {
+    if (!filename) return '';
+    const fp = path.join(imgDir, filename);
+    if (fs.existsSync(fp)) return fs.readFileSync(fp).toString('base64');
+    return '';
+  }
 
   function col(name) {
     if (!database.data[name]) database.data[name] = [];
@@ -245,11 +265,9 @@ module.exports = function(database) {
     res.json({ success: true, enabled });
   }));
 
-  // POST /api/vehicle-weight/auto-notify - Auto send weight + camera images
+  // POST /api/vehicle-weight/auto-notify - Auto send weight + saved camera images
   router.post('/api/vehicle-weight/auto-notify', safeAsync(async (req, res) => {
     const entryId = req.body.entry_id || '';
-    const frontImageB64 = req.body.front_image || '';
-    const sideImageB64 = req.body.side_image || '';
 
     const weights = col('vehicle_weights');
     const entry = weights.find(w => w.id === entryId);
@@ -258,8 +276,12 @@ module.exports = function(database) {
     const text = buildWeightText(entry);
     const rst = entry.rst_no || '?';
     const results = { whatsapp: [], telegram: [] };
-    const frontBytes = frontImageB64 ? Buffer.from(frontImageB64, 'base64') : null;
-    const sideBytes = sideImageB64 ? Buffer.from(sideImageB64, 'base64') : null;
+
+    // Load saved camera images from disk
+    const firstFrontB64 = loadImageB64(entry.first_wt_front_img || '');
+    const firstSideB64 = loadImageB64(entry.first_wt_side_img || '');
+    const secondFrontB64 = loadImageB64(entry.second_wt_front_img || '');
+    const secondSideB64 = loadImageB64(entry.second_wt_side_img || '');
 
     // ── WhatsApp ──
     try {
@@ -276,7 +298,7 @@ module.exports = function(database) {
       }
     } catch (e) { console.error('[VW] WA auto-notify error:', e.message); }
 
-    // ── Telegram ──
+    // ── Telegram (text + all saved photos) ──
     try {
       const tgConfig = getTelegramConfig();
       if (tgConfig && tgConfig.bot_token && tgConfig.chat_ids && tgConfig.chat_ids.length > 0) {
@@ -289,13 +311,22 @@ module.exports = function(database) {
             await telegramApi('sendMessage', botToken, { chat_id: cid, text: text, parse_mode: 'Markdown' });
           }
         }
-        // Send photos
-        if (frontBytes) {
-          const r = await sendPhotoToAll(botToken, chatIds, frontBytes, `Front View - RST #${rst}`, `front_rst${rst}.jpg`);
+        // Send 1st weight photos
+        if (firstFrontB64) {
+          const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(firstFrontB64, 'base64'), `1st Weight Front - RST #${rst}`, `1st_front_rst${rst}.jpg`);
           results.telegram.push(...r);
         }
-        if (sideBytes) {
-          const r = await sendPhotoToAll(botToken, chatIds, sideBytes, `Side View - RST #${rst}`, `side_rst${rst}.jpg`);
+        if (firstSideB64) {
+          const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(firstSideB64, 'base64'), `1st Weight Side - RST #${rst}`, `1st_side_rst${rst}.jpg`);
+          results.telegram.push(...r);
+        }
+        // Send 2nd weight photos
+        if (secondFrontB64) {
+          const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(secondFrontB64, 'base64'), `2nd Weight Front - RST #${rst}`, `2nd_front_rst${rst}.jpg`);
+          results.telegram.push(...r);
+        }
+        if (secondSideB64) {
+          const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(secondSideB64, 'base64'), `2nd Weight Side - RST #${rst}`, `2nd_side_rst${rst}.jpg`);
           results.telegram.push(...r);
         }
       }
@@ -426,6 +457,10 @@ module.exports = function(database) {
       created_at: new Date().toISOString()
     };
 
+    // Save first weight camera photos
+    entry.first_wt_front_img = saveImage(entry.id, '1st_front', data.first_wt_front_img || '');
+    entry.first_wt_side_img = saveImage(entry.id, '1st_side', data.first_wt_side_img || '');
+
     col('vehicle_weights').push(entry);
     database.save();
     res.json({ success: true, entry, message: `RST #${rstNo} - First weight saved!` });
@@ -449,6 +484,12 @@ module.exports = function(database) {
     entry.gross_wt = grossWt;
     entry.tare_wt = tareWt;
     entry.status = 'completed';
+
+    // Save second weight camera photos
+    const f2 = saveImage(entry.id, '2nd_front', req.body.second_wt_front_img || '');
+    const s2 = saveImage(entry.id, '2nd_side', req.body.second_wt_side_img || '');
+    if (f2) entry.second_wt_front_img = f2;
+    if (s2) entry.second_wt_side_img = s2;
 
     if ('cash_paid' in req.body) entry.cash_paid = parseFloat(req.body.cash_paid || 0) || 0;
     if ('diesel_paid' in req.body) entry.diesel_paid = parseFloat(req.body.diesel_paid || 0) || 0;

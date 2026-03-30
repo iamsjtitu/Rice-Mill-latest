@@ -253,6 +253,9 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 
   useEffect(() => () => {
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); }
+    // Stop IP camera MJPEG streams on unmount
+    if (imgRef.current) imgRef.current.src = "";
+    if (zoomImgRef.current) zoomImgRef.current.src = "";
   }, []);
 
   const renderFeed = (imgRefToUse, vidRefToUse, cssClass) => {
@@ -354,12 +357,13 @@ export default function VehicleWeight({ filters }) {
   const kms = filters?.kms_year || "";
 
   useEffect(() => {
+    const ctrl = new AbortController();
     Promise.all([
-      axios.get(`${API}/suggestions/agents`),
-      axios.get(`${API}/suggestions/mandis`),
-      axios.get(`${API}/suggestions/trucks`),
-      axios.get(`${API}/mandi-targets?kms_year=${kms}`),
-      axios.get(`${API}/vehicle-weight/auto-notify-setting`)
+      axios.get(`${API}/suggestions/agents`, { signal: ctrl.signal }),
+      axios.get(`${API}/suggestions/mandis`, { signal: ctrl.signal }),
+      axios.get(`${API}/suggestions/trucks`, { signal: ctrl.signal }),
+      axios.get(`${API}/mandi-targets?kms_year=${kms}`, { signal: ctrl.signal }),
+      axios.get(`${API}/vehicle-weight/auto-notify-setting`, { signal: ctrl.signal })
     ]).then(([agR, mnR, trR, tgR, anR]) => {
       setPartySuggestions(agR.data.suggestions || []);
       setMandiSuggestions(mnR.data.suggestions || []);
@@ -371,6 +375,7 @@ export default function VehicleWeight({ filters }) {
         setForm(p => ({ ...p, party_name: targets[0].agent_name || '', farmer_name: targets[0].mandi_name || '' }));
       }
     }).catch(() => {});
+    return () => ctrl.abort();
   }, [kms]);
 
   const fetchMandisForParty = async (agent) => {
@@ -380,21 +385,25 @@ export default function VehicleWeight({ filters }) {
     } catch {}
   };
 
+  const abortRef = useRef(null);
   const fetchData = useCallback(async () => {
+    if (abortRef.current) abortRef.current.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     setLoading(true);
     try {
       const [eR, pR, nR] = await Promise.all([
-        axios.get(`${API}/vehicle-weight?kms_year=${kms}`),
-        axios.get(`${API}/vehicle-weight/pending?kms_year=${kms}`),
-        axios.get(`${API}/vehicle-weight/next-rst?kms_year=${kms}`)
+        axios.get(`${API}/vehicle-weight?kms_year=${kms}`, { signal: ctrl.signal }),
+        axios.get(`${API}/vehicle-weight/pending?kms_year=${kms}`, { signal: ctrl.signal }),
+        axios.get(`${API}/vehicle-weight/next-rst?kms_year=${kms}`, { signal: ctrl.signal })
       ]);
       setEntries(eR.data.entries || []);
       setPending(pR.data.pending || []);
       setNextRst(nR.data.next_rst || 1);
-    } catch { toast.error("Data fetch error"); }
-    setLoading(false);
+    } catch (e) { if (!ctrl.signal.aborted) toast.error("Data fetch error"); }
+    if (!ctrl.signal.aborted) setLoading(false);
   }, [kms]);
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(); return () => { if (abortRef.current) abortRef.current.abort(); }; }, [fetchData]);
 
   const capFirst = () => { if (scale.stable && scale.weight > 0) { setForm(p => ({ ...p, first_wt: String(scale.weight) })); toast.success(`Captured: ${scale.weight} KG`); scale.scheduleNext(); } };
   const capSecond = () => {

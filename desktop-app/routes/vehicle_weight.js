@@ -265,11 +265,9 @@ module.exports = function(database) {
     res.json({ success: true, enabled });
   }));
 
-  // POST /api/vehicle-weight/auto-notify - Auto send weight + camera images
+  // POST /api/vehicle-weight/auto-notify - Auto send weight + saved camera images
   router.post('/api/vehicle-weight/auto-notify', safeAsync(async (req, res) => {
     const entryId = req.body.entry_id || '';
-    const frontImageB64 = req.body.front_image || '';
-    const sideImageB64 = req.body.side_image || '';
 
     const weights = col('vehicle_weights');
     const entry = weights.find(w => w.id === entryId);
@@ -278,8 +276,12 @@ module.exports = function(database) {
     const text = buildWeightText(entry);
     const rst = entry.rst_no || '?';
     const results = { whatsapp: [], telegram: [] };
-    const frontBytes = frontImageB64 ? Buffer.from(frontImageB64, 'base64') : null;
-    const sideBytes = sideImageB64 ? Buffer.from(sideImageB64, 'base64') : null;
+
+    // Load saved camera images from disk
+    const firstFrontB64 = loadImageB64(entry.first_wt_front_img || '');
+    const firstSideB64 = loadImageB64(entry.first_wt_side_img || '');
+    const secondFrontB64 = loadImageB64(entry.second_wt_front_img || '');
+    const secondSideB64 = loadImageB64(entry.second_wt_side_img || '');
 
     // ── WhatsApp ──
     try {
@@ -296,7 +298,7 @@ module.exports = function(database) {
       }
     } catch (e) { console.error('[VW] WA auto-notify error:', e.message); }
 
-    // ── Telegram ──
+    // ── Telegram (text + all saved photos) ──
     try {
       const tgConfig = getTelegramConfig();
       if (tgConfig && tgConfig.bot_token && tgConfig.chat_ids && tgConfig.chat_ids.length > 0) {
@@ -309,13 +311,22 @@ module.exports = function(database) {
             await telegramApi('sendMessage', botToken, { chat_id: cid, text: text, parse_mode: 'Markdown' });
           }
         }
-        // Send photos
-        if (frontBytes) {
-          const r = await sendPhotoToAll(botToken, chatIds, frontBytes, `Front View - RST #${rst}`, `front_rst${rst}.jpg`);
+        // Send 1st weight photos
+        if (firstFrontB64) {
+          const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(firstFrontB64, 'base64'), `1st Weight Front - RST #${rst}`, `1st_front_rst${rst}.jpg`);
           results.telegram.push(...r);
         }
-        if (sideBytes) {
-          const r = await sendPhotoToAll(botToken, chatIds, sideBytes, `Side View - RST #${rst}`, `side_rst${rst}.jpg`);
+        if (firstSideB64) {
+          const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(firstSideB64, 'base64'), `1st Weight Side - RST #${rst}`, `1st_side_rst${rst}.jpg`);
+          results.telegram.push(...r);
+        }
+        // Send 2nd weight photos
+        if (secondFrontB64) {
+          const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(secondFrontB64, 'base64'), `2nd Weight Front - RST #${rst}`, `2nd_front_rst${rst}.jpg`);
+          results.telegram.push(...r);
+        }
+        if (secondSideB64) {
+          const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(secondSideB64, 'base64'), `2nd Weight Side - RST #${rst}`, `2nd_side_rst${rst}.jpg`);
           results.telegram.push(...r);
         }
       }
