@@ -1018,6 +1018,7 @@ export default function VehicleWeight({ filters }) {
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Date</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Vehicle</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
+                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Mandi</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Pkts</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
@@ -1030,13 +1031,14 @@ export default function VehicleWeight({ filters }) {
                 </TableHeader>
                 <TableBody>
                   {completed.length === 0 ? (
-                    <TableRow><TableCell colSpan={12} className="text-center text-gray-400 py-8 text-xs">Koi completed entry nahi</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={13} className="text-center text-gray-400 py-8 text-xs">Koi completed entry nahi</TableCell></TableRow>
                   ) : completed.map((e, i) => (
                     <TableRow key={e.id} className={`border-gray-100 hover:bg-gray-50 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
                       <TableCell className="py-2 px-3"><span className="text-amber-700 font-bold text-xs">#{e.rst_no}</span></TableCell>
                       <TableCell className="text-gray-500 text-[11px] py-2 px-3">{e.date}</TableCell>
                       <TableCell className="text-gray-900 text-xs py-2 px-3 font-medium">{e.vehicle_no}</TableCell>
                       <TableCell className="text-gray-700 text-xs py-2 px-3">{e.party_name}</TableCell>
+                      <TableCell className="text-gray-500 text-xs py-2 px-3">{e.farmer_name || '-'}</TableCell>
                       <TableCell className="py-2 px-3"><Badge variant="outline" className="text-[9px] border-gray-300 text-gray-600 font-normal">{e.product}</Badge></TableCell>
                       <TableCell className="text-gray-500 text-xs py-2 px-3">{e.tot_pkts || '-'}</TableCell>
                       <TableCell className="text-blue-700 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.first_wt)}</TableCell>
@@ -1137,12 +1139,22 @@ export default function VehicleWeight({ filters }) {
             <div className="flex justify-center py-8"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>
           ) : photoDialog.data ? (
             <div className="space-y-4">
-              {/* Entry Details */}
-              <div className="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-3 rounded-lg">
+              {/* Entry Details - All fields */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm bg-gray-50 p-3 rounded-lg">
+                <div><span className="text-gray-500">RST:</span> <span className="font-bold text-amber-700">#{photoDialog.data.rst_no}</span></div>
+                <div><span className="text-gray-500">Date:</span> <span className="font-semibold">{photoDialog.data.date || '-'}</span></div>
                 <div><span className="text-gray-500">Vehicle:</span> <span className="font-semibold">{photoDialog.data.vehicle_no}</span></div>
                 <div><span className="text-gray-500">Party:</span> <span className="font-semibold">{photoDialog.data.party_name}</span></div>
+                <div><span className="text-gray-500">Mandi:</span> <span className="font-semibold">{photoDialog.data.farmer_name || '-'}</span></div>
                 <div><span className="text-gray-500">Product:</span> <span className="font-semibold">{photoDialog.data.product}</span></div>
+                <div><span className="text-gray-500">Pkts:</span> <span className="font-semibold">{photoDialog.data.tot_pkts || '-'}</span></div>
+                <div><span className="text-gray-500">Trans:</span> <span className="font-semibold">{photoDialog.data.trans_type || '-'}</span></div>
+                <div><span className="text-gray-500">1st Wt:</span> <span className="font-semibold text-blue-700">{Number(photoDialog.data.first_wt || 0).toLocaleString()} KG</span></div>
+                <div><span className="text-gray-500">2nd Wt:</span> <span className="font-semibold text-blue-700">{Number(photoDialog.data.second_wt || 0).toLocaleString()} KG</span></div>
                 <div><span className="text-gray-500">Net Wt:</span> <span className="font-bold text-green-700">{Number(photoDialog.data.net_wt || 0).toLocaleString()} KG</span></div>
+                <div><span className="text-gray-500">Remark:</span> <span className="font-semibold">{photoDialog.data.remark || '-'}</span></div>
+                <div><span className="text-gray-500">Cash:</span> <span className="font-semibold text-green-700">{photoDialog.data.cash_paid ? `₹${Number(photoDialog.data.cash_paid).toLocaleString()}` : '-'}</span></div>
+                <div><span className="text-gray-500">Diesel:</span> <span className="font-semibold text-orange-700">{photoDialog.data.diesel_paid ? `₹${Number(photoDialog.data.diesel_paid).toLocaleString()}` : '-'}</span></div>
               </div>
 
               {/* 1st Weight Section */}

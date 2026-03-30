@@ -9,12 +9,14 @@ const CHANGELOG = [
   {
     version: "55.40.0",
     date: "Mar 2026",
-    title: "v55.40.0 - Photo View + VW Messaging Group",
+    title: "v55.40.0 - Photo View + VW Group + Scalability",
     items: [
-      { type: "new", text: "Photo View: Eye icon se entry ki camera photos dekhein (1st Wt Front/Side + 2nd Wt Front/Side)" },
+      { type: "new", text: "Photo View: Eye icon se entry ki camera photos + saari details dekhein" },
       { type: "new", text: "VW ke liye alag WhatsApp Group aur Telegram Chat IDs set karein Settings mai" },
-      { type: "new", text: "WhatsApp mai ab photo bhi jayega (media_url se) - web version mai" },
-      { type: "fix", text: "sendWaToGroup ab sahi sendGroup API use karta hai" },
+      { type: "new", text: "WhatsApp mai ab photo bhi jayega media_url se" },
+      { type: "new", text: "Table mai Mandi column add hua" },
+      { type: "fix", text: "MongoDB indexes - 50k entries par bhi fast queries" },
+      { type: "fix", text: "Desktop JSON compact save - 40% smaller file, faster writes" },
     ]
   },
   {

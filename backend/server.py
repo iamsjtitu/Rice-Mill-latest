@@ -194,6 +194,27 @@ async def start_image_cleanup_scheduler():
     logger.info("Image cleanup scheduler started")
 
 @app.on_event("startup")
+async def create_db_indexes():
+    """Create MongoDB indexes for performance at scale (50k+ entries)."""
+    try:
+        from database import db
+        await db.vehicle_weights.create_index([("kms_year", 1), ("created_at", -1)])
+        await db.vehicle_weights.create_index([("status", 1), ("kms_year", 1)])
+        await db.vehicle_weights.create_index("rst_no")
+        await db.cash_transactions.create_index([("kms_year", 1), ("date", -1)])
+        await db.cash_transactions.create_index("account")
+        await db.cash_transactions.create_index("linked_payment_id")
+        await db.mill_entries.create_index([("kms_year", 1), ("created_at", -1)])
+        await db.mill_entries.create_index("truck_no")
+        await db.private_paddy.create_index([("kms_year", 1), ("date", -1)])
+        await db.private_paddy.create_index("party_name")
+        await db.private_payments.create_index("ref_id")
+        await db.mandi_targets.create_index("kms_year")
+        logger.info("MongoDB indexes ensured")
+    except Exception as e:
+        logger.error(f"Index creation error: {e}")
+
+@app.on_event("startup")
 async def fix_empty_descriptions():
     """One-time migration: fill empty descriptions in cash_transactions"""
     try:

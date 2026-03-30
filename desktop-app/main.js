@@ -347,7 +347,8 @@ class JsonDatabase {
   _doSave() {
     this._pendingSave = false;
     try {
-      const jsonStr = JSON.stringify(this.data, null, 2);
+      // Compact JSON - no pretty-print for smaller file size & faster write
+      const jsonStr = JSON.stringify(this.data);
       // Atomic write: write to temp file first, then rename
       const tmpFile = this.dbFile + '.tmp';
       fs.writeFileSync(tmpFile, jsonStr);
