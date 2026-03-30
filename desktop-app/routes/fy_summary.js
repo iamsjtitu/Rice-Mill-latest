@@ -548,14 +548,6 @@ module.exports = function(database) {
       // Generate PDF
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
-      const chunks = [];
-      doc.on('data', c => chunks.push(c));
-      doc.on('end', () => {
-        const pdfBuf = Buffer.concat(chunks);
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=Balance_Sheet_${req.query.kms_year||'all'}.pdf`);
-        res.send(pdfBuf);
-      });
 
       const fmt = (n) => fmtAmt ? fmtAmt(n) : (n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
 
@@ -602,7 +594,7 @@ module.exports = function(database) {
       doc.fontSize(9).font(F('bold')).fillColor('#059669').text('TOTAL', rightX+5, y+5);
       doc.text(fmt(totalAssets), rightX+260, y+5, {width:90, align:'right'});
 
-      await safePdfPipe(doc, res);
+      await safePdfPipe(doc, res, `Balance_Sheet_${req.query.kms_year||'all'}.pdf`);
     } catch (err) {
       console.error('Balance Sheet PDF error:', err);
       res.status(500).json({ detail: 'PDF generation error' });
@@ -814,20 +806,12 @@ module.exports = function(database) {
   router.get('/api/fy-summary/pdf', async (req, res) => {
     try {
       const PDFDocument = require('pdfkit');
-      const { addPdfHeader, addPdfTable, addSectionTitle, addTotalsRow, fmtAmt, registerFonts, F } = require('./pdf_helpers');
+      const { addPdfHeader, addPdfTable, addSectionTitle, addTotalsRow, fmtAmt, registerFonts, F, safePdfPipe } = require('./pdf_helpers');
       const { kms_year, season } = req.query;
       const data = computeFySummary(kms_year, season);
 
       const doc = new PDFDocument({ size: 'A4', margin: 25 });
       registerFonts(doc);
-      const chunks = [];
-      doc.on('data', c => chunks.push(c));
-      doc.on('end', () => {
-        const pdfBuf = Buffer.concat(chunks);
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=FY_Summary_${kms_year || 'all'}.pdf`);
-        res.send(pdfBuf);
-      });
 
       const branding = (col('branding') || [])[0] || {};
       addPdfHeader(doc, 'FY Summary - Balance Sheet', branding, `FY ${kms_year || 'All'}${season ? ' | ' + season : ''}`);
@@ -884,7 +868,7 @@ module.exports = function(database) {
         ['Rice Sales', fmtAmt(pt.rice_qty), fmtAmt(pt.rice_sale_amount), fmtAmt(pt.rice_received), fmtAmt(pt.rice_balance)],
       ], [80, 65, 75, 75, 75]);
 
-      await safePdfPipe(doc, res);
+      await safePdfPipe(doc, res, `FY_Summary_${kms_year || 'all'}.pdf`);
     } catch (err) {
       console.error('FY Summary PDF error:', err);
       res.status(500).json({ detail: 'PDF generation error' });
