@@ -143,6 +143,8 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
       if (type === "ip") {
         const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
         setCamUrl(url);
+        // Auto-start IP cameras immediately
+        if (url) { setActive(true); setImgError(false); }
       }
     } catch { /* ignore */ }
 
@@ -151,7 +153,9 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         const cfg = JSON.parse(localStorage.getItem('camera_config') || '{}');
         setCamType(cfg.type || "usb");
         if (cfg.type === "ip") {
-          setCamUrl(camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || ""));
+          const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
+          setCamUrl(url);
+          if (url) { setActive(true); setImgError(false); }
         }
       } catch { /* ignore */ }
     };
