@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.8.0";
+const APP_VERSION = "55.9.0";
 
 const CHANGELOG = [
+  {
+    version: "55.9.0",
+    date: "Mar 2026",
+    title: "v55.9.0 - Desktop Export Fix",
+    items: [
+      { type: "fix", text: "Desktop app PDF/Excel se Cash aur Diesel columns hataye (pehle sirf web fix tha)" },
+      { type: "fix", text: "Excel header 'NAVKAR AGRO' cut hone ka issue fix - wrapText enable kiya" },
+    ]
+  },
   {
     version: "55.8.0",
     date: "Mar 2026",
