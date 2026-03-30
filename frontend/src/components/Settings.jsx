@@ -594,7 +594,23 @@ function MessagingTab() {
               <span className={`text-sm font-bold ${waForm.enabled ? 'text-green-400' : 'text-red-400'}`}>
                 {waForm.enabled ? 'ON' : 'OFF'}
               </span>
-              <div className="relative" onClick={() => setWaForm(prev => ({ ...prev, enabled: !prev.enabled }))}>
+              <div className="relative" onClick={async () => {
+                const newEnabled = !waForm.enabled;
+                setWaForm(prev => ({ ...prev, enabled: newEnabled }));
+                // Auto-save toggle state
+                try {
+                  await axios.put(`${API}/whatsapp/settings`, {
+                    api_key: waForm.api_key, country_code: waForm.country_code,
+                    enabled: newEnabled,
+                    default_numbers: waForm.default_numbers,
+                    default_group_id: waForm.default_group_id, default_group_name: waForm.default_group_name,
+                    group_schedule_enabled: waForm.group_schedule_enabled, group_schedule_time: waForm.group_schedule_time
+                  });
+                  fetchWaSettings();
+                  window.dispatchEvent(new Event("messaging-config-changed"));
+                  toast.success(newEnabled ? "WhatsApp ON!" : "WhatsApp OFF!");
+                } catch { toast.error("Save fail!"); }
+              }}>
                 <div className={`w-12 h-6 rounded-full transition-colors ${waForm.enabled ? 'bg-green-600' : 'bg-slate-600'}`} />
                 <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${waForm.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
               </div>

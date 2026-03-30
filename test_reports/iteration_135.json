@@ -1,0 +1,53 @@
+{
+  "summary": "Iteration 135: Tested WhatsApp toggle persistence, WhatsApp groups API, RST duplicate check, PDF party_only parameter, and Weighbridge config. All 12 backend tests passed. Frontend verified: WhatsApp toggle auto-saves, group dropdown loads, Weighbridge shows Desktop App message, WA icons visible in Vehicle Weight.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration135_whatsapp_weighbridge_fixes.py",
+    "/app/test_reports/pytest/pytest_results_iteration135.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration135_whatsapp_weighbridge_fixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": "Username: admin, Password: admin123",
+  "seed_data_creation": "Created test vehicle weight entries during backend testing (cleaned up)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All bug fixes verified: 1) WhatsApp toggle auto-saves on click (Settings > Messaging tab), 2) WhatsApp Groups dropdown loads from /api/whatsapp/groups, 3) Weighbridge Configuration shows 'Desktop App only' message on web (expected), 4) RST duplicate check returns 400 error, 5) PDF party_only=1 returns single copy, 6) WA icons visible in Vehicle Weight completed entries when WA enabled. Settings page has sub-tabs: Branding, GST, Stock, Messaging, Data. WhatsApp section is under Messaging tab.",
+  "features_tested": {
+    "backend_whatsapp_settings_get": "PASS - GET /api/whatsapp/settings returns enabled, default_group_id, default_group_name",
+    "backend_whatsapp_settings_put_false": "PASS - PUT with enabled=false persists disabled state",
+    "backend_whatsapp_settings_put_true": "PASS - PUT with enabled=true and group fields persists",
+    "backend_whatsapp_groups": "PASS - GET /api/whatsapp/groups returns groups list",
+    "backend_rst_duplicate_check": "PASS - POST /api/vehicle-weight with duplicate RST returns 400",
+    "backend_slip_pdf_party_only": "PASS - GET /api/vehicle-weight/{id}/slip-pdf?party_only=1 returns PDF",
+    "backend_slip_pdf_full": "PASS - GET /api/vehicle-weight/{id}/slip-pdf returns full 2-copy PDF",
+    "backend_slip_pdf_404": "PASS - Returns 404 for non-existent entry",
+    "backend_auto_notify_get": "PASS - GET /api/vehicle-weight/auto-notify-setting returns enabled",
+    "backend_auto_notify_toggle": "PASS - PUT toggles setting correctly",
+    "backend_vehicle_weight_list": "PASS - GET /api/vehicle-weight returns entries",
+    "backend_vehicle_weight_pending": "PASS - GET /api/vehicle-weight/pending returns pending list",
+    "backend_vehicle_weight_next_rst": "PASS - GET /api/vehicle-weight/next-rst returns next RST",
+    "frontend_login": "PASS - Login with admin/admin123 works",
+    "frontend_settings_navigation": "PASS - Settings tab navigates to Settings page",
+    "frontend_messaging_tab": "PASS - Messaging sub-tab shows WhatsApp section",
+    "frontend_whatsapp_toggle": "PASS - WhatsApp toggle shows ON/OFF state and auto-saves",
+    "frontend_whatsapp_group_dropdown": "PASS - Group dropdown present with refresh button",
+    "frontend_weighbridge_section": "PASS - Shows 'Desktop App only' message (expected for web)",
+    "frontend_vehicle_weight_page": "PASS - Vehicle Weight page loads with scale display",
+    "frontend_wa_icons_visibility": "PASS - 4 WA icons and 4 Group icons visible in completed entries"
+  }
+}
