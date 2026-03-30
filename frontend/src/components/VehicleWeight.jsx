@@ -41,8 +41,41 @@ const safePrintHTML = (htmlContent) => {
   }
 };
 
-/* ─── Live Scale (Auto-Connected Weighbridge) ─── */
-function useLiveScale() {
+/* ─── Real Weighbridge Scale (Electron Serial Port) ─── */
+function useRealScale() {
+  const [weight, setWeight] = useState(0);
+  const [stable, setStable] = useState(false);
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api) return;
+
+    api.onSerialWeight((data) => {
+      setWeight(data.weight || 0);
+      setStable(data.stable || false);
+    });
+    api.onSerialStatus((data) => {
+      setConnected(data.connected || false);
+      if (!data.connected) { setWeight(0); setStable(false); }
+    });
+
+    // Check initial status
+    api.serialGetStatus().then(s => {
+      setConnected(s.connected || false);
+      setWeight(s.weight || 0);
+      setStable(s.stable || false);
+    });
+
+    return () => { api.removeSerialListeners(); };
+  }, []);
+
+  const scheduleNext = useCallback(() => {}, []);
+  return { weight, stable, running: connected, connected, scheduleNext };
+}
+
+/* ─── Simulator Scale (Cloud/Web Demo) ─── */
+function useSimulatorScale() {
   const [weight, setWeight] = useState(0);
   const [stable, setStable] = useState(false);
   const [running, setRunning] = useState(false);
@@ -76,6 +109,14 @@ function useLiveScale() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { weight, stable, running, scheduleNext, startMeasure };
+}
+
+/* ─── Auto-select: Real scale in Electron, Simulator in Web ─── */
+function useLiveScale() {
+  const isElectronApp = _isElectron && window.electronAPI?.serialGetStatus;
+  const real = useRealScale();
+  const sim = useSimulatorScale();
+  return isElectronApp ? real : sim;
 }
 
 /* ─── Single Camera Feed with Snapshot Capture ─── */
@@ -484,8 +525,8 @@ export default function VehicleWeight({ filters }) {
           <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
             <Scale className="w-5 h-5 text-amber-600" /> Auto Vehicle Weight
           </h2>
-          <Badge variant="outline" className="text-[10px] h-5 border-green-500 text-green-700 bg-green-50">
-            <Wifi className="w-3 h-3 mr-1" />COM3 Connected
+          <Badge variant="outline" className={`text-[10px] h-5 ${scale.running || scale.connected ? 'border-green-500 text-green-700 bg-green-50' : 'border-gray-400 text-gray-500 bg-gray-50'}`}>
+            <Wifi className="w-3 h-3 mr-1" />{_isElectron && window.electronAPI?.serialGetStatus ? (scale.connected ? 'COM Connected' : 'COM Disconnected') : 'COM3 Demo'}
           </Badge>
         </div>
         <Button onClick={fetchData} variant="ghost" size="sm" className="h-7 text-gray-500 hover:text-gray-800 text-xs" data-testid="vw-refresh">

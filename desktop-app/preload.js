@@ -17,6 +17,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   forceFocus: () => {
     ipcRenderer.send('force-focus');
   },
+  // Serial / Weighbridge IPC
+  serialGetConfig: () => ipcRenderer.invoke('serial-get-config'),
+  serialSaveConfig: (config) => ipcRenderer.invoke('serial-save-config', config),
+  serialListPorts: () => ipcRenderer.invoke('serial-list-ports'),
+  serialConnect: (config) => ipcRenderer.send('serial-connect', config),
+  serialDisconnect: () => ipcRenderer.send('serial-disconnect'),
+  serialGetStatus: () => ipcRenderer.invoke('serial-get-status'),
+  onSerialWeight: (callback) => ipcRenderer.on('serial-weight', (_e, data) => callback(data)),
+  onSerialStatus: (callback) => ipcRenderer.on('serial-status', (_e, data) => callback(data)),
+  onSerialError: (callback) => ipcRenderer.on('serial-error', (_e, data) => callback(data)),
+  removeSerialListeners: () => {
+    ipcRenderer.removeAllListeners('serial-weight');
+    ipcRenderer.removeAllListeners('serial-status');
+    ipcRenderer.removeAllListeners('serial-error');
+  },
   // Auto-update IPC
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_e, info) => callback(info)),
   onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (_e, progress) => callback(progress)),

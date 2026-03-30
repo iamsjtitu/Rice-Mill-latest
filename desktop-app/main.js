@@ -11,6 +11,7 @@ const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
+const { initSerialHandler, cleanupSerial } = require('./serial-handler');
 
 // ============ CRASH PROTECTION & ERROR LOGGING ============
 const errorLogPath = path.join(app.getPath('userData'), 'mill-entry-error.log');
@@ -1616,6 +1617,8 @@ async function createMainWindow(port) {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.focus();
+    // Initialize serial port handler for weighbridge
+    initSerialHandler(mainWindow);
   });
 
   // Fallback: show after 4 seconds even if ready-to-show hasn't fired
@@ -2127,6 +2130,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  cleanupSerial();
   if (server) server.close();
   if (process.platform !== 'darwin') {
     app.quit();
