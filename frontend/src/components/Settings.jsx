@@ -1632,12 +1632,12 @@ export default function Settings({ user, kmsYear, onBrandingUpdate }) {
       {/* Sub-tab Navigation */}
       <div className="mb-6">
         <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-          <TabsList className="w-full bg-slate-800/80 border border-slate-700 h-auto flex-wrap p-1 gap-1" data-testid="settings-sub-tabs">
+          <TabsList className="w-full bg-slate-800/80 border border-slate-700 h-auto p-1 gap-0.5 flex flex-nowrap overflow-x-auto" data-testid="settings-sub-tabs">
             {SUB_TABS.map(tab => (
               <TabsTrigger
                 key={tab.id}
                 value={tab.id}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium data-[state=active]:bg-amber-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 transition-colors rounded-md"
+                className="flex items-center gap-1 px-2.5 py-2 text-[11px] font-medium data-[state=active]:bg-amber-600 data-[state=active]:text-white text-slate-400 hover:text-slate-200 transition-colors rounded-md whitespace-nowrap flex-shrink-0"
                 data-testid={`settings-tab-${tab.id}`}
               >
                 <tab.icon className="w-3.5 h-3.5" />

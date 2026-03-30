@@ -503,38 +503,38 @@ export default function VehicleWeight({ filters }) {
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Weight Slip #${rst}</title>
     <style>
-      @page { size: 148mm 210mm; margin: 4mm 5mm; }
+      @page { size: 148mm 210mm; margin: 3mm 4mm; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: Arial, Helvetica, sans-serif; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .page { width: 138mm; margin: 0 auto; display: flex; flex-direction: column; justify-content: flex-start; height: 202mm; }
-      .copy-block { border: 1.5px solid #222; border-radius: 3px; padding: 5px 7px 4px; position: relative; height: 96mm; overflow: hidden; }
-      .copy-label { position: absolute; top: -1px; right: 8px; background: white; padding: 0 5px; font-size: 7px; font-weight: bold; color: #888; letter-spacing: 0.8px; text-transform: uppercase; }
-      .header { text-align: center; margin-bottom: 3px; border-bottom: 1.5px solid #1a1a2e; padding-bottom: 3px; }
-      .header h1 { font-size: 14px; font-weight: 900; color: #1a1a2e; line-height: 1.1; }
-      .tagline { font-size: 7px; color: #999; margin: 1px 0; }
-      .slip-title { font-size: 9px; color: #444; font-weight: 700; margin-top: 2px; }
-      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
-      .info-table td { padding: 2px 4px; font-size: 8px; border: 0.5px solid #ddd; line-height: 1.2; }
-      .lbl { color: #555; font-weight: 600; width: 20%; white-space: nowrap; }
-      .val { color: #000; font-weight: 700; width: 30%; }
-      .val.rst { font-size: 10px; color: #1a1a2e; }
-      .wt-table { width: 100%; border-collapse: collapse; margin-bottom: 3px; }
-      .wt-cell { text-align: center; padding: 3px 2px; border: 1px solid #bbb; background: #f5f5f5; vertical-align: middle; }
-      .wt-cell.net { background: #e8f5e9; border-color: #388e3c; }
+      .page { width: 140mm; margin: 0 auto; }
+      .copy-block { border: 1.5px solid #222; border-radius: 3px; padding: 6px 8px 5px; position: relative; }
+      .copy-label { position: absolute; top: -1px; right: 8px; background: white; padding: 0 5px; font-size: 8px; font-weight: bold; color: #666; letter-spacing: 0.8px; text-transform: uppercase; }
+      .header { text-align: center; margin-bottom: 4px; border-bottom: 2px solid #1a1a2e; padding-bottom: 4px; }
+      .header h1 { font-size: 18px; font-weight: 900; color: #1a1a2e; line-height: 1.1; }
+      .tagline { font-size: 9px; color: #777; margin: 2px 0; }
+      .slip-title { font-size: 11px; color: #333; font-weight: 700; margin-top: 2px; }
+      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+      .info-table td { padding: 3px 5px; font-size: 10px; border: 0.5px solid #ccc; line-height: 1.3; }
+      .lbl { color: #333; font-weight: 700; width: 20%; white-space: nowrap; }
+      .val { color: #000; font-weight: 800; width: 30%; }
+      .val.rst { font-size: 12px; color: #1a1a2e; }
+      .wt-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+      .wt-cell { text-align: center; padding: 4px 3px; border: 1.5px solid #999; background: #f5f5f5; vertical-align: middle; }
+      .wt-cell.net { background: #e8f5e9; border-color: #2e7d32; }
       .wt-cell.pay { background: #fff8e1; border-color: #f9a825; }
-      .wt-label { display: block; font-size: 6.5px; color: #666; margin-bottom: 1px; }
-      .wt-val { display: block; font-size: 12px; font-weight: 900; color: #111; }
-      .wt-cell.net .wt-val { color: #1b5e20; font-size: 13px; }
-      .pay-v { color: #e65100 !important; font-size: 10px !important; }
-      .sig-section { display: flex; justify-content: space-between; margin-top: 6px; }
+      .wt-label { display: block; font-size: 8px; color: #444; font-weight: 600; margin-bottom: 1px; }
+      .wt-val { display: block; font-size: 15px; font-weight: 900; color: #000; }
+      .wt-cell.net .wt-val { color: #1b5e20; font-size: 16px; }
+      .pay-v { color: #e65100 !important; font-size: 13px !important; }
+      .sig-section { display: flex; justify-content: space-between; margin-top: 3px; }
       .sig-box { text-align: center; width: 44%; }
-      .sig-line { border-bottom: 1px solid #333; height: 18px; margin-bottom: 2px; }
-      .sig-box p { font-size: 6.5px; color: #666; }
-      .footer-note { text-align: center; font-size: 5.5px; color: #bbb; margin-top: 2px; }
-      .cut-line { border-top: 1.5px dashed #aaa; margin: 4mm 0; position: relative; height: 0; }
-      .cut-text { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); background: white; padding: 0 6px; font-size: 6.5px; color: #aaa; }
-      @media print { body { margin: 0; } .no-print { display: none !important; } .page { width: 138mm; height: auto; } }
-      @media screen { .page { padding: 10px; border: 1px solid #ccc; margin: 10px auto; max-width: 600px; height: auto; } .copy-block { height: auto; min-height: 80mm; } }
+      .sig-line { border-bottom: 1.5px solid #333; height: 16px; margin-bottom: 2px; }
+      .sig-box p { font-size: 8px; color: #444; font-weight: 600; }
+      .footer-note { text-align: center; font-size: 7px; color: #999; margin-top: 3px; }
+      .cut-line { border-top: 1.5px dashed #aaa; margin: 3mm 0; position: relative; height: 0; }
+      .cut-text { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); background: white; padding: 0 6px; font-size: 7px; color: #aaa; }
+      @media print { body { margin: 0; } .no-print { display: none !important; } }
+      @media screen { .page { padding: 10px; border: 1px solid #ccc; margin: 10px auto; max-width: 550px; } }
     </style></head><body>
     <div class="page">
       ${copyHTML("PARTY COPY / पार्टी प्रति", false)}
