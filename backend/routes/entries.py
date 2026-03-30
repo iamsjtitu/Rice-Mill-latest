@@ -412,7 +412,7 @@ async def import_entries_from_excel(
 
 
 
-@router.get("/entries", response_model=List[MillEntry])
+@router.get("/entries")
 async def get_entries(
     truck_no: Optional[str] = None,
     rst_no: Optional[str] = None,
@@ -422,7 +422,9 @@ async def get_entries(
     kms_year: Optional[str] = None,
     season: Optional[str] = None,
     date_from: Optional[str] = None,
-    date_to: Optional[str] = None
+    date_to: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 200
 ):
     query = {}
     
@@ -451,7 +453,14 @@ async def get_entries(
         if date_query:
             query["date"] = date_query
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    total_count = await db.mill_entries.count_documents(query)
+    if page_size <= 0:
+        entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(50000)
+        return {"entries": entries, "total": total_count, "page": 1, "page_size": total_count, "total_pages": 1}
+    if page < 1: page = 1
+    skip = (page - 1) * page_size
+
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(page_size).to_list(page_size)
     # Ensure every entry has a persistent 'id' field
     for e in entries:
         if not e.get("id"):
@@ -461,7 +470,7 @@ async def get_entries(
                 {"_id": (await db.mill_entries.find_one({"truck_no": e.get("truck_no"), "date": e.get("date"), "created_at": e.get("created_at")}, {"_id": 1}) or {}).get("_id")},
                 {"$set": {"id": new_id}}
             )
-    return entries
+    return {"entries": entries, "total": total_count, "page": page, "page_size": page_size, "total_pages": max(1, (total_count + page_size - 1) // page_size)}
 
 
 @router.get("/entries/{entry_id}", response_model=MillEntry)

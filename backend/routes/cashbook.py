@@ -235,7 +235,8 @@ async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional
                                  account: Optional[str] = None, txn_type: Optional[str] = None,
                                  category: Optional[str] = None, party_type: Optional[str] = None,
                                  date_from: Optional[str] = None, date_to: Optional[str] = None,
-                                 exclude_round_off: Optional[str] = None):
+                                 exclude_round_off: Optional[str] = None,
+                                 page: int = 1, page_size: int = 200):
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -250,8 +251,15 @@ async def get_cash_transactions(kms_year: Optional[str] = None, season: Optional
         if date_from: date_q["$gte"] = date_from
         if date_to: date_q["$lte"] = date_to
         if date_q: query["date"] = date_q
-    txns = await db.cash_transactions.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
-    return txns
+    total_count = await db.cash_transactions.count_documents(query)
+    # page_size=0 means return all (for summary/category filtering)
+    if page_size <= 0:
+        txns = await db.cash_transactions.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(50000)
+        return {"transactions": txns, "total": total_count, "page": 1, "page_size": total_count, "total_pages": 1}
+    if page < 1: page = 1
+    skip = (page - 1) * page_size
+    txns = await db.cash_transactions.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).skip(skip).limit(page_size).to_list(page_size)
+    return {"transactions": txns, "total": total_count, "page": page, "page_size": page_size, "total_pages": max(1, (total_count + page_size - 1) // page_size)}
 
 
 @router.get("/cash-book/summary")

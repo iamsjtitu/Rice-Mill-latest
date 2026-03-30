@@ -117,7 +117,15 @@ class JsonDatabase {
     if (filters.date_from) entries = entries.filter(e => e.date >= filters.date_from);
     if (filters.date_to) entries = entries.filter(e => e.date <= filters.date_to);
     
-    return entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const total = entries.length;
+    const pageSize = parseInt(filters.page_size) || 200;
+    const page = parseInt(filters.page) || 1;
+    if (pageSize > 0) {
+      const skip = (page - 1) * pageSize;
+      entries = entries.slice(skip, skip + pageSize);
+    }
+    return { entries, total, page, page_size: pageSize, total_pages: pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1 };
   }
 
   addEntry(entry) {

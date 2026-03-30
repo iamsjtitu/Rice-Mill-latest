@@ -147,7 +147,15 @@ module.exports = function(database) {
     if (req.query.exclude_round_off === 'true' && !req.query.party_type) txns = txns.filter(t => t.party_type !== 'Round Off');
     if (req.query.date_from) txns = txns.filter(t => t.date >= req.query.date_from);
     if (req.query.date_to) txns = txns.filter(t => t.date <= req.query.date_to);
-    res.json(txns.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||'')));
+    txns.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
+    const total = txns.length;
+    const pageSize = parseInt(req.query.page_size) || 200;
+    const page = parseInt(req.query.page) || 1;
+    if (pageSize > 0) {
+      const skip = (page - 1) * pageSize;
+      txns = txns.slice(skip, skip + pageSize);
+    }
+    res.json({ transactions: txns, total, page, page_size: pageSize, total_pages: pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1 });
   }));
 
   router.delete('/api/cash-book/:id', safeSync(async (req, res) => {

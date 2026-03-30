@@ -85,16 +85,19 @@ async def _next_rst(kms_year: str = ""):
 
 
 @router.get("/vehicle-weight")
-async def list_weights(kms_year: str = "", status: str = "", limit: int = 200):
-    """List weight entries with optional filters."""
+async def list_weights(kms_year: str = "", status: str = "", page: int = 1, page_size: int = 200):
+    """List weight entries with pagination."""
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
     if status:
         query["status"] = status
-    cursor = db["vehicle_weights"].find(query, {"_id": 0}).sort("created_at", -1).limit(limit)
-    items = await cursor.to_list(length=limit)
-    return {"entries": items, "count": len(items)}
+    total_count = await db["vehicle_weights"].count_documents(query)
+    if page_size < 1: page_size = 200
+    if page < 1: page = 1
+    skip = (page - 1) * page_size
+    items = await db["vehicle_weights"].find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(page_size).to_list(page_size)
+    return {"entries": items, "count": len(items), "total": total_count, "page": page, "page_size": page_size, "total_pages": max(1, (total_count + page_size - 1) // page_size)}
 
 
 @router.get("/vehicle-weight/pending")

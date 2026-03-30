@@ -10,6 +10,7 @@ import TransactionsTable from "./cashbook/TransactionsTable";
 import PartySummaryTab from "./cashbook/PartySummaryTab";
 import TransactionFormDialog from "./cashbook/TransactionFormDialog";
 import GSTLedger from "./GSTLedger";
+import PaginationBar from "./PaginationBar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,10 @@ const CashBook = ({ filters, user }) => {
   const [allTxns, setAllTxns] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 200;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [customCategories, setCustomCategories] = useState([]);
   const [form, setForm] = useState({
@@ -128,9 +133,10 @@ const CashBook = ({ filters, user }) => {
     } catch (e) { /* ignore */ }
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (fetchPage) => {
     try {
       setLoading(true);
+      const p = fetchPage || page;
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
@@ -145,17 +151,24 @@ const CashBook = ({ filters, user }) => {
       if (txnFilters.party_type) params.append('party_type', txnFilters.party_type);
       if (txnFilters.date_from) params.append('date_from', txnFilters.date_from);
       if (txnFilters.date_to) params.append('date_to', txnFilters.date_to);
+      params.append('page', p);
+      params.append('page_size', PAGE_SIZE);
       const allParams = new URLSearchParams();
       if (filters.kms_year) allParams.append('kms_year', filters.kms_year);
       if (filters.season) allParams.append('season', filters.season);
+      allParams.append('page_size', '0');
       const [txnRes, sumRes, allRes] = await Promise.all([
         axios.get(`${API}/cash-book?${params}`),
         axios.get(`${API}/cash-book/summary?${params}`),
         axios.get(`${API}/cash-book?${allParams}`)
       ]);
-      setTxns(txnRes.data);
+      const txnData = txnRes.data;
+      setTxns(txnData.transactions || []);
+      setTotalPages(txnData.total_pages || 1);
+      setTotalCount(txnData.total || 0);
+      setPage(txnData.page || 1);
       setSummary(sumRes.data);
-      setAllTxns(allRes.data);
+      setAllTxns((allRes.data.transactions || allRes.data) || []);
       // Fetch opening balances
       try {
         const obRes = await axios.get(`${API}/opening-balances?kms_year=${filters.kms_year || ''}`);
@@ -163,7 +176,7 @@ const CashBook = ({ filters, user }) => {
       } catch {}
     } catch (e) { toast.error("Cash book load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, txnFilters, activeView]);
+  }, [filters.kms_year, filters.season, txnFilters, activeView, page]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
@@ -549,11 +562,15 @@ const CashBook = ({ filters, user }) => {
               <p className="text-slate-500 text-xs mt-1">No ledger found for this party</p>
             </div>
           ) : (
+            <>
             <TransactionsTable
               txns={displayedTxns} loading={loading} user={user}
               selectedIds={selectedIds} toggleSelect={toggleSelect} toggleSelectAll={toggleSelectAll}
               handleBulkDelete={handleBulkDelete} handleEdit={handleEdit} handleDelete={handleDelete}
             />
+            <PaginationBar page={page} totalPages={totalPages} total={totalCount} pageSize={PAGE_SIZE}
+              onPageChange={(p) => { setPage(p); fetchData(p); }} />
+            </>
           );
         })()}
       </>)}

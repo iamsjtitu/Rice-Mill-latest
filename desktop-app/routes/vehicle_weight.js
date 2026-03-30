@@ -221,13 +221,16 @@ module.exports = function(database) {
   // GET /api/vehicle-weight - List weights
   router.get('/api/vehicle-weight', safeAsync(async (req, res) => {
     const { kms_year, status } = req.query;
-    const limit = parseInt(req.query.limit) || 200;
     let items = col('vehicle_weights');
     if (kms_year) items = items.filter(w => w.kms_year === kms_year);
     if (status) items = items.filter(w => w.status === status);
     items = [...items].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-    items = items.slice(0, limit);
-    res.json({ entries: items, count: items.length });
+    const total = items.length;
+    const pageSize = parseInt(req.query.page_size) || 200;
+    const page = parseInt(req.query.page) || 1;
+    const skip = (page - 1) * pageSize;
+    items = items.slice(skip, skip + pageSize);
+    res.json({ entries: items, count: items.length, total, page, page_size: pageSize, total_pages: Math.max(1, Math.ceil(total / pageSize)) });
   }));
 
   // GET /api/vehicle-weight/pending

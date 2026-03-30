@@ -74,6 +74,7 @@ import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import { useMessagingEnabled } from "./hooks/useMessagingEnabled";
 import Settings from "@/components/Settings";
 import VehicleWeight from "@/components/VehicleWeight";
+import PaginationBar from "@/components/PaginationBar";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -490,9 +491,15 @@ function MainApp({ user, onLogout }) {
     rstTimerRef.current = setTimeout(() => fetchVehicleWeightByRst(rstNo), 600);
   }, [fetchVehicleWeightByRst]);
 
-  const fetchEntries = useCallback(async () => {
+  const [entriesPage, setEntriesPage] = useState(1);
+  const [entriesTotalPages, setEntriesTotalPages] = useState(1);
+  const [entriesTotalCount, setEntriesTotalCount] = useState(0);
+  const ENTRIES_PAGE_SIZE = 200;
+
+  const fetchEntries = useCallback(async (fetchPage) => {
     try {
       setLoading(true);
+      const p = fetchPage || entriesPage;
       const params = new URLSearchParams();
       if (filters.truck_no) params.append('truck_no', filters.truck_no);
       if (filters.rst_no) params.append('rst_no', filters.rst_no);
@@ -503,16 +510,22 @@ function MainApp({ user, onLogout }) {
       if (filters.season) params.append('season', filters.season);
       if (filters.date_from) params.append('date_from', filters.date_from);
       if (filters.date_to) params.append('date_to', filters.date_to);
+      params.append('page', p);
+      params.append('page_size', ENTRIES_PAGE_SIZE);
       
       const response = await axios.get(`${API}/entries?${params.toString()}`);
-      setEntries(response.data);
+      const data = response.data;
+      setEntries(data.entries || data);
+      setEntriesTotalPages(data.total_pages || 1);
+      setEntriesTotalCount(data.total || 0);
+      setEntriesPage(data.page || 1);
     } catch (error) {
       toast.error("Entries load karne mein error");
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, entriesPage]);
 
   const fetchTotals = useCallback(async () => {
     try {
@@ -2219,7 +2232,7 @@ function MainApp({ user, onLogout }) {
         <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="text-amber-400 flex items-center justify-between">
-              <span>Mill Entries ({entries.length}) - FY: {filters.kms_year || "All"}</span>
+              <span>Mill Entries ({entriesTotalCount.toLocaleString()}) - FY: {filters.kms_year || "All"}</span>
               <div className="flex items-center gap-3">
                 {selectedEntries.length > 0 && (
                   <Button
@@ -2386,6 +2399,8 @@ function MainApp({ user, onLogout }) {
                 </TableBody>
               </Table>
             </div>
+            <PaginationBar page={entriesPage} totalPages={entriesTotalPages} total={entriesTotalCount} pageSize={ENTRIES_PAGE_SIZE}
+              onPageChange={(p) => { setEntriesPage(p); fetchEntries(p); }} />
           </CardContent>
         </Card>
             </>

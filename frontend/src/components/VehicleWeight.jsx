@@ -14,6 +14,7 @@ import AutoSuggest from "./common/AutoSuggest";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import { useConfirm } from "./ConfirmProvider";
 import { downloadFile } from "../utils/download";
+import PaginationBar from "./PaginationBar";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const _isElectronEnv = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
@@ -338,6 +339,10 @@ export default function VehicleWeight({ filters }) {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(false);
   const [nextRst, setNextRst] = useState(1);
+  const [vwPage, setVwPage] = useState(1);
+  const [vwTotalPages, setVwTotalPages] = useState(1);
+  const [vwTotalCount, setVwTotalCount] = useState(0);
+  const VW_PAGE_SIZE = 200;
   const [secondWtValue, setSecondWtValue] = useState("");
   const [secondWtMode, setSecondWtMode] = useState(null);
   const [showCompleted, setShowCompleted] = useState(true);
@@ -387,23 +392,27 @@ export default function VehicleWeight({ filters }) {
   };
 
   const abortRef = useRef(null);
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (fetchPage) => {
     if (abortRef.current) abortRef.current.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
+      const p = fetchPage || vwPage;
       const [eR, pR, nR] = await Promise.all([
-        axios.get(`${API}/vehicle-weight?kms_year=${kms}`, { signal: ctrl.signal }),
+        axios.get(`${API}/vehicle-weight?kms_year=${kms}&status=completed&page=${p}&page_size=${VW_PAGE_SIZE}`, { signal: ctrl.signal }),
         axios.get(`${API}/vehicle-weight/pending?kms_year=${kms}`, { signal: ctrl.signal }),
         axios.get(`${API}/vehicle-weight/next-rst?kms_year=${kms}`, { signal: ctrl.signal })
       ]);
       setEntries(eR.data.entries || []);
+      setVwTotalPages(eR.data.total_pages || 1);
+      setVwTotalCount(eR.data.total || 0);
+      setVwPage(eR.data.page || 1);
       setPending(pR.data.pending || []);
       setNextRst(nR.data.next_rst || 1);
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Data fetch error"); }
     if (!ctrl.signal.aborted) setLoading(false);
-  }, [kms]);
+  }, [kms, vwPage]);
   useEffect(() => { fetchData(); return () => { if (abortRef.current) abortRef.current.abort(); }; }, [fetchData]);
 
   const capFirst = () => { if (scale.stable && scale.weight > 0) { setForm(p => ({ ...p, first_wt: String(scale.weight) })); toast.success(`Captured: ${scale.weight} KG`); scale.scheduleNext(); } };
@@ -672,8 +681,6 @@ export default function VehicleWeight({ filters }) {
 
     safePrintHTML(html);
   };
-
-  const completed = entries.filter(e => e.status === "completed");
 
   return (
     <div className="space-y-4" data-testid="vehicle-weight-page">
@@ -1001,7 +1008,7 @@ export default function VehicleWeight({ filters }) {
           <CardTitle className="text-xs flex items-center justify-between">
             <span className="text-gray-700 flex items-center gap-1.5">
               <CheckCircle className="w-3.5 h-3.5 text-green-600" /> Completed Entries
-              <Badge className="bg-green-100 text-green-700 border-green-300 text-[10px] ml-1">{completed.length}</Badge>
+              <Badge className="bg-green-100 text-green-700 border-green-300 text-[10px] ml-1">{vwTotalCount}</Badge>
             </span>
             <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-gray-500 hover:text-gray-800" data-testid="vw-toggle-completed">
               {showCompleted ? <><EyeOff className="w-3 h-3 mr-1" />Hide</> : <><Eye className="w-3 h-3 mr-1" />Show</>}
@@ -1030,9 +1037,9 @@ export default function VehicleWeight({ filters }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {completed.length === 0 ? (
+                  {entries.length === 0 ? (
                     <TableRow><TableCell colSpan={13} className="text-center text-gray-400 py-8 text-xs">Koi completed entry nahi</TableCell></TableRow>
-                  ) : completed.map((e, i) => (
+                  ) : entries.map((e, i) => (
                     <TableRow key={e.id} className={`border-gray-100 hover:bg-gray-50 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
                       <TableCell className="py-2 px-3"><span className="text-amber-700 font-bold text-xs">#{e.rst_no}</span></TableCell>
                       <TableCell className="text-gray-500 text-[11px] py-2 px-3">{e.date}</TableCell>
@@ -1062,6 +1069,8 @@ export default function VehicleWeight({ filters }) {
                 </TableBody>
               </Table>
             </div>
+            <PaginationBar page={vwPage} totalPages={vwTotalPages} total={vwTotalCount} pageSize={VW_PAGE_SIZE}
+              onPageChange={(p) => { setVwPage(p); fetchData(p); }} />
           </CardContent>
         )}
       </Card>
