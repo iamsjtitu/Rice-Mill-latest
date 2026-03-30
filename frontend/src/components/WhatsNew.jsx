@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "54.6.0";
+const APP_VERSION = "54.7.0";
 
 const CHANGELOG = [
+  {
+    version: "54.7.0",
+    date: "Feb 2026",
+    title: "v54.7.0 - Cash Book & Sale Book PDF Fix",
+    items: [
+      { type: "fix", text: "Cash Book PDF 500 error fix - pFmt function import missing tha" },
+      { type: "fix", text: "Sale Book PDF blank page fix - HTML ki jagah proper PDFKit PDF generate hota hai ab" },
+      { type: "fix", text: "Desktop + Local Server dono mai fix apply" },
+    ]
+  },
   {
     version: "54.6.0",
     date: "29 Mar 2026",
