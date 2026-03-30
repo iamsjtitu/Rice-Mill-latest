@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "54.9.0";
+const APP_VERSION = "55.0.0";
 
 const CHANGELOG = [
+  {
+    version: "55.0.0",
+    date: "Mar 2026",
+    title: "v55.0.0 - All PDF Exports Fixed",
+    items: [
+      { type: "fix", text: "FY Summary PDF 500 error fix - duplicate stream handler hataya" },
+      { type: "fix", text: "Balance Sheet PDF 500 error fix - same issue" },
+      { type: "fix", text: "Cash Book, Sale Book, FY Summary, Balance Sheet - sab PDF sahi download hote hain ab" },
+    ]
+  },
   {
     version: "54.9.0",
     date: "Feb 2026",
