@@ -161,6 +161,73 @@ async def get_by_rst(rst_no: int, kms_year: str = ""):
     return {"success": True, "entry": entry}
 
 
+@router.post("/vehicle-weight/send-manual")
+async def send_manual_weight_msg(data: dict):
+    """Manual send weight text + camera photos to WhatsApp/Telegram (no PDF)."""
+    import base64
+
+    text = data.get("text", "")
+    front_image_b64 = data.get("front_image", "")
+    side_image_b64 = data.get("side_image", "")
+    send_to_numbers = data.get("send_to_numbers", False)
+    send_to_group = data.get("send_to_group", False)
+
+    results = {"whatsapp": [], "telegram": []}
+    front_bytes = base64.b64decode(front_image_b64) if front_image_b64 else None
+    side_bytes = base64.b64decode(side_image_b64) if side_image_b64 else None
+
+    # ── WhatsApp ──
+    try:
+        from routes.whatsapp import _get_wa_settings, _send_wa_message, _send_wa_to_group
+        wa_settings = await _get_wa_settings()
+        if wa_settings.get("enabled") and wa_settings.get("api_key"):
+            if send_to_numbers:
+                numbers = wa_settings.get("default_numbers", [])
+                for num in numbers:
+                    if num:
+                        r = await _send_wa_message(num.strip(), text)
+                        results["whatsapp"].append({"to": num, "success": r.get("success", False)})
+            if send_to_group:
+                group_id = wa_settings.get("default_group_id", "")
+                if group_id:
+                    r = await _send_wa_to_group(group_id, text)
+                    results["whatsapp"].append({"to": "group", "success": r.get("success", False)})
+    except Exception as e:
+        logger.error(f"WA manual send error: {e}")
+
+    # ── Telegram (text + photos) ──
+    try:
+        from routes.telegram import get_telegram_config, _send_photo_to_all
+        import httpx
+        tg_config = await get_telegram_config()
+        if tg_config and tg_config.get("bot_token") and tg_config.get("chat_ids"):
+            bot_token = tg_config["bot_token"]
+            chat_ids = tg_config["chat_ids"]
+            # Text message
+            async with httpx.AsyncClient() as client:
+                for item in chat_ids:
+                    cid = str(item.get("chat_id", "")).strip()
+                    if cid:
+                        await client.post(
+                            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                            json={"chat_id": cid, "text": text, "parse_mode": "Markdown"},
+                            timeout=15
+                        )
+            # Photos
+            if front_bytes:
+                r = await _send_photo_to_all(bot_token, chat_ids, front_bytes, "Front View", "front.jpg")
+                results["telegram"].extend(r)
+            if side_bytes:
+                r = await _send_photo_to_all(bot_token, chat_ids, side_bytes, "Side View", "side.jpg")
+                results["telegram"].extend(r)
+    except Exception as e:
+        logger.error(f"TG manual send error: {e}")
+
+    wa_sent = sum(1 for r in results["whatsapp"] if r.get("success"))
+    tg_sent = sum(1 for r in results["telegram"] if r.get("ok"))
+    return {"success": True, "message": f"WA: {wa_sent}, TG: {tg_sent}", "results": results}
+
+
 @router.post("/vehicle-weight")
 async def create_weight_entry(data: dict):
     """Create new weight entry with first weight."""

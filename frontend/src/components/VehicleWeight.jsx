@@ -5,14 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, Plus, Eye, EyeOff, Zap } from "lucide-react";
 import AutoSuggest from "./common/AutoSuggest";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
-import { SendToGroupDialog } from "./SendToGroupDialog";
 import { downloadFile } from "../utils/download";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
@@ -138,9 +136,6 @@ export default function VehicleWeight({ filters }) {
   const [nextRst, setNextRst] = useState(1);
   const [secondWtValue, setSecondWtValue] = useState("");
   const [secondWtMode, setSecondWtMode] = useState(null);
-  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-  const [groupText, setGroupText] = useState("");
-  const [groupPdfUrl, setGroupPdfUrl] = useState("");
   const [showCompleted, setShowCompleted] = useState(true);
   const [autoNotify, setAutoNotify] = useState(false);
   const scale = useLiveScale();
@@ -279,9 +274,55 @@ export default function VehicleWeight({ filters }) {
       console.error("Auto-notify error:", e);
     }
   };
+  // Build complete weight text for messaging
+  const buildWeightText = (e) => {
+    let t = `*Weight Slip — RST #${e.rst_no}*\n`;
+    t += `Date: ${e.date}\n`;
+    t += `Vehicle: ${e.vehicle_no}\n`;
+    t += `Party: ${e.party_name || '-'}\n`;
+    t += `Farmer/Mandi: ${e.farmer_name || '-'}\n`;
+    t += `Product: ${e.product || '-'}\n`;
+    t += `Packets: ${e.tot_pkts || '-'}\n`;
+    t += `───────────────\n`;
+    t += `Gross Wt: ${Number(e.gross_wt || e.first_wt || 0).toLocaleString()} KG\n`;
+    t += `Tare Wt: ${Number(e.tare_wt || e.second_wt || 0).toLocaleString()} KG\n`;
+    t += `*Net Wt: ${Number(e.net_wt || 0).toLocaleString()} KG*\n`;
+    t += `───────────────\n`;
+    const cash = Number(e.cash_paid || 0);
+    const diesel = Number(e.diesel_paid || 0);
+    if (cash > 0) t += `Cash Paid: ₹${cash.toLocaleString()}\n`;
+    if (diesel > 0) t += `Diesel Paid: ₹${diesel.toLocaleString()}\n`;
+    if (cash > 0 || diesel > 0) t += `───────────────\n`;
+    return t;
+  };
+
   const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf`; _isElectron ? downloadFile(u, `Slip_${e.rst_no}.pdf`) : window.open(u, "_blank"); };
-  const handleWA = async (e) => { try { const t = `*Weight Slip #${e.rst_no}*\n${e.vehicle_no} | ${e.party_name}\nFirst: ${e.first_wt} | Second: ${e.second_wt}\n*Net: ${e.net_wt} KG*`; await axios.post(`${API}/whatsapp/send-daily-report`, { report_text: t, pdf_url: `http://localhost:8001/api/vehicle-weight/${e.id}/slip-pdf`, send_to_numbers: true, send_to_group: false }); toast.success("Sent!"); } catch { toast.error("WA error"); } };
-  const handleGroup = (e) => { setGroupText(`*Slip #${e.rst_no}*\n${e.vehicle_no} | ${e.party_name}\nFirst: ${e.first_wt} | Second: ${e.second_wt}\n*Net: ${e.net_wt} KG*`); setGroupPdfUrl(`/api/vehicle-weight/${e.id}/slip-pdf`); setGroupDialogOpen(true); };
+
+  const handleWA = async (e) => {
+    try {
+      const text = buildWeightText(e);
+      const frontImg = frontCamRef.current?.captureFrame?.() || "";
+      const sideImg = sideCamRef.current?.captureFrame?.() || "";
+      await axios.post(`${API}/vehicle-weight/send-manual`, {
+        entry_id: e.id, text, front_image: frontImg, side_image: sideImg,
+        send_to_numbers: true, send_to_group: false
+      });
+      toast.success("WhatsApp sent!");
+    } catch { toast.error("WA send error"); }
+  };
+
+  const handleGroup = async (e) => {
+    try {
+      const text = buildWeightText(e);
+      const frontImg = frontCamRef.current?.captureFrame?.() || "";
+      const sideImg = sideCamRef.current?.captureFrame?.() || "";
+      await axios.post(`${API}/vehicle-weight/send-manual`, {
+        entry_id: e.id, text, front_image: frontImg, side_image: sideImg,
+        send_to_numbers: false, send_to_group: true
+      });
+      toast.success("Group msg sent!");
+    } catch { toast.error("Group send error"); }
+  };
 
   const completed = entries.filter(e => e.status === "completed");
 
@@ -665,7 +706,6 @@ export default function VehicleWeight({ filters }) {
         )}
       </Card>
 
-      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 }
