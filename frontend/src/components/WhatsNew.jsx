@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.1.0";
+const APP_VERSION = "55.2.0";
 
 const CHANGELOG = [
+  {
+    version: "55.2.0",
+    date: "Mar 2026",
+    title: "v55.2.0 - WhatsApp Group Send",
+    items: [
+      { type: "new", text: "Har report/ledger par 'Group' button - WhatsApp group mein directly bhejein" },
+      { type: "new", text: "Group select karne ka dialog - sabhi groups ki list aati hai" },
+      { type: "fix", text: "WhatsApp Group API fix - ab sahi 360Messenger sendGroup endpoint use hota hai" },
+    ]
+  },
   {
     version: "55.1.0",
     date: "Mar 2026",
