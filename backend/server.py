@@ -151,6 +151,32 @@ async def start_telegram_scheduler():
     asyncio.create_task(_telegram_scheduler_loop())
     logger.info("Telegram scheduler started")
 
+# WhatsApp Group scheduler background task
+async def _wa_group_scheduler_loop():
+    """Check every 60 seconds if it's time to send daily report to WhatsApp group"""
+    from routes.whatsapp import get_wa_settings_for_scheduler, scheduled_wa_group_send
+    while True:
+        try:
+            settings = await get_wa_settings_for_scheduler()
+            if (settings and settings.get("group_schedule_enabled")
+                and settings.get("group_schedule_time") and settings.get("default_group_id")):
+                from datetime import datetime
+                now = datetime.now()
+                current_time = now.strftime("%H:%M")
+                if current_time == settings["group_schedule_time"]:
+                    logger.info("WhatsApp Group scheduler: Time matched, sending report...")
+                    await scheduled_wa_group_send()
+                    await asyncio.sleep(61)
+                    continue
+        except Exception as e:
+            logger.error(f"WhatsApp Group scheduler error: {e}")
+        await asyncio.sleep(30)
+
+@app.on_event("startup")
+async def start_wa_group_scheduler():
+    asyncio.create_task(_wa_group_scheduler_loop())
+    logger.info("WhatsApp Group scheduler started")
+
 @app.on_event("startup")
 async def start_auto_backup():
     from routes.backup import auto_backup_scheduler

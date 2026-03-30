@@ -119,13 +119,16 @@ async def update_whatsapp_settings(data: dict):
     group_id = data.get("group_id", "").strip()
     default_group_id = data.get("default_group_id", "").strip()
     default_group_name = data.get("default_group_name", "").strip()
+    group_schedule_enabled = data.get("group_schedule_enabled", False)
+    group_schedule_time = data.get("group_schedule_time", "").strip()
 
     await db["settings"].update_one(
         {"key": "whatsapp"},
         {"$set": {
             "key": "whatsapp", "api_key": api_key, "country_code": country_code,
             "enabled": enabled, "default_numbers": default_numbers, "group_id": group_id,
-            "default_group_id": default_group_id, "default_group_name": default_group_name
+            "default_group_id": default_group_id, "default_group_name": default_group_name,
+            "group_schedule_enabled": group_schedule_enabled, "group_schedule_time": group_schedule_time
         }},
         upsert=True
     )
@@ -312,7 +315,7 @@ async def send_daily_report(data: dict):
         default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
     if not isinstance(default_numbers, list):
         default_numbers = []
-    group_id = settings.get("group_id", "").strip() if settings.get("group_id") else ""
+    group_id = settings.get("default_group_id", "").strip() or settings.get("group_id", "").strip()
 
     logger.info(f"send-daily-report: phone='{phone}', default_numbers={default_numbers}, group_id='{group_id}', send_to_group={send_to_group}, pdf_url='{public_pdf_url}'")
 
@@ -654,3 +657,70 @@ async def send_gst_invoice(request: Request):
 
     success_count = sum(1 for r in results if r["success"])
     return {"success": success_count > 0, "message": f"GST Invoice {success_count}/{len(results)} numbers pe bhej diya!", "details": results}
+
+
+# ---- Scheduled WhatsApp Group Report ----
+
+async def get_wa_settings_for_scheduler():
+    """Export for server.py scheduler."""
+    return await _get_wa_settings()
+
+
+async def scheduled_wa_group_send():
+    """Auto-send daily report to default WhatsApp group at scheduled time."""
+    from datetime import datetime, timezone
+    import io
+
+    settings = await _get_wa_settings()
+    group_id = settings.get("default_group_id", "")
+    if not group_id:
+        return
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Check if already sent today
+    existing = await db["wa_group_schedule_logs"].find_one({"date": today, "status": "success"})
+    if existing:
+        return
+
+    try:
+        from routes.daily_report import export_daily_pdf
+        pdf_response = await export_daily_pdf(today, mode="detail")
+        pdf_buf = io.BytesIO()
+        async for chunk in pdf_response.body_iterator:
+            pdf_buf.write(chunk)
+        pdf_bytes = pdf_buf.getvalue()
+
+        # Upload PDF to tmpfiles.org
+        public_pdf_url = ""
+        if len(pdf_bytes) > 100:
+            async with httpx.AsyncClient(timeout=30) as client:
+                files = {"file": ("daily_report.pdf", pdf_bytes, "application/pdf")}
+                upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
+                if upload_resp.status_code == 200:
+                    tmp_data = upload_resp.json()
+                    tmp_url = tmp_data.get("data", {}).get("url", "")
+                    if tmp_url:
+                        public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
+
+        report_text = f"*Daily Report - {today}*\n(Auto-scheduled via WhatsApp Group)"
+
+        result = await _send_wa_to_group(group_id, report_text, public_pdf_url)
+
+        await db["wa_group_schedule_logs"].insert_one({
+            "date": today,
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "status": "success" if result.get("success") else "failed",
+            "group_id": group_id,
+            "group_name": settings.get("default_group_name", ""),
+            "error": result.get("error", "")
+        })
+        logger.info(f"WhatsApp Group scheduled: {result.get('success', False)} for {today}")
+    except Exception as e:
+        logger.error(f"WhatsApp Group scheduled send failed: {e}")
+        await db["wa_group_schedule_logs"].insert_one({
+            "date": today,
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "status": "failed",
+            "error": str(e)
+        })

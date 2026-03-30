@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.3.0";
+const APP_VERSION = "55.4.0";
 
 const CHANGELOG = [
+  {
+    version: "55.4.0",
+    date: "Mar 2026",
+    title: "v55.4.0 - Auto Daily Report to Group",
+    items: [
+      { type: "new", text: "WhatsApp Group mein roz automatic daily report - time set karo aur ON karo" },
+      { type: "fix", text: "Purana 'Daily Report Group ID' field hataya - ab sirf Default Group dropdown se kaam hoga" },
+    ]
+  },
   {
     version: "55.3.0",
     date: "Mar 2026",

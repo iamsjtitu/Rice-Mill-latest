@@ -489,8 +489,8 @@ function StockTab({ kmsYear, user }) {
 // ---- Messaging Tab (WhatsApp + Telegram) ----
 function MessagingTab() {
   // WhatsApp state
-  const [waSettings, setWaSettings] = useState({ api_key: "", country_code: "91", enabled: false, api_key_masked: "", default_numbers: [], group_id: "", default_group_id: "", default_group_name: "" });
-  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91", default_numbers: "", group_id: "", default_group_id: "", default_group_name: "" });
+  const [waSettings, setWaSettings] = useState({ api_key: "", country_code: "91", enabled: false, api_key_masked: "", default_numbers: [], default_group_id: "", default_group_name: "", group_schedule_enabled: false, group_schedule_time: "" });
+  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91", default_numbers: "", default_group_id: "", default_group_name: "", group_schedule_enabled: false, group_schedule_time: "" });
   const [waTestPhone, setWaTestPhone] = useState("");
   const [waLoading, setWaLoading] = useState(false);
   const [waGroups, setWaGroups] = useState([]);
@@ -509,9 +509,10 @@ function MessagingTab() {
         api_key: res.data.api_key || "",
         country_code: res.data.country_code || "91",
         default_numbers: (res.data.default_numbers || []).join(", "),
-        group_id: res.data.group_id || "",
         default_group_id: res.data.default_group_id || "",
-        default_group_name: res.data.default_group_name || ""
+        default_group_name: res.data.default_group_name || "",
+        group_schedule_enabled: res.data.group_schedule_enabled || false,
+        group_schedule_time: res.data.group_schedule_time || ""
       });
     } catch (e) { console.error("WA settings fetch error:", e); }
   };
@@ -601,7 +602,7 @@ function MessagingTab() {
                 {waSettings.api_key_masked && <p className="text-slate-400 text-xs mt-1">API Key: {waSettings.api_key_masked}</p>}
               </div>
               <p className="text-slate-400 text-xs">
-                Country: +{waSettings.country_code || '91'} | Numbers: {(waSettings.default_numbers || []).length || 'None'} | Group: {waSettings.default_group_name || (waSettings.group_id ? 'Set' : 'Not set')}
+                Country: +{waSettings.country_code || '91'} | Numbers: {(waSettings.default_numbers || []).length || 'None'} | Group: {waSettings.default_group_name || 'Not set'} {waSettings.group_schedule_enabled ? `| Auto: ${waSettings.group_schedule_time}` : ''}
               </p>
             </div>
           </div>
@@ -661,15 +662,31 @@ function MessagingTab() {
             <p className="text-slate-500 text-xs mt-1">Ye group har jagah "Send to Group" mein auto-select hoga.</p>
           </div>
 
-          {/* Group ID (legacy - for daily report) */}
-          <div>
-            <Label className="text-slate-400 text-xs mb-1 block">Daily Report Group ID (optional)</Label>
-            <Input value={waForm.group_id}
-              onChange={(e) => setWaForm(prev => ({ ...prev, group_id: e.target.value }))}
-              placeholder="Group ID (360Messenger dashboard se milega)"
-              className="bg-slate-700 border-slate-600 text-white text-sm" data-testid="wa-group-id-input" />
-            <p className="text-slate-500 text-xs mt-1">Daily report isme bhi jayega agar set karoge.</p>
-          </div>
+          {/* Auto Schedule - Daily Report to Group */}
+          {waForm.default_group_id && (
+            <div className="p-3 rounded-lg border border-slate-600 bg-slate-700/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-slate-300 text-sm font-medium">Auto Daily Report → Group</Label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={waForm.group_schedule_enabled}
+                    onChange={(e) => setWaForm(prev => ({ ...prev, group_schedule_enabled: e.target.checked }))}
+                    className="w-4 h-4 rounded accent-green-500" data-testid="wa-schedule-toggle" />
+                  <span className={`text-xs font-semibold ${waForm.group_schedule_enabled ? 'text-green-400' : 'text-slate-500'}`}>
+                    {waForm.group_schedule_enabled ? 'ON' : 'OFF'}
+                  </span>
+                </label>
+              </div>
+              {waForm.group_schedule_enabled && (
+                <div className="flex items-center gap-3">
+                  <Label className="text-slate-400 text-xs shrink-0">Time:</Label>
+                  <Input type="time" value={waForm.group_schedule_time}
+                    onChange={(e) => setWaForm(prev => ({ ...prev, group_schedule_time: e.target.value }))}
+                    className="bg-slate-700 border-slate-600 text-white text-sm w-36" data-testid="wa-schedule-time" />
+                  <p className="text-slate-500 text-xs">Roz is time pe daily report {waForm.default_group_name || 'group'} mein jayegi</p>
+                </div>
+              )}
+            </div>
+          )}
 
           <Button
             onClick={async () => {
@@ -677,8 +694,9 @@ function MessagingTab() {
                 setWaLoading(true);
                 await axios.put(`${API}/whatsapp/settings`, {
                   api_key: waForm.api_key, country_code: waForm.country_code,
-                  default_numbers: waForm.default_numbers, group_id: waForm.group_id,
-                  default_group_id: waForm.default_group_id, default_group_name: waForm.default_group_name
+                  default_numbers: waForm.default_numbers,
+                  default_group_id: waForm.default_group_id, default_group_name: waForm.default_group_name,
+                  group_schedule_enabled: waForm.group_schedule_enabled, group_schedule_time: waForm.group_schedule_time
                 });
                 toast.success("WhatsApp settings save ho gayi!");
                 fetchWaSettings();
