@@ -15,6 +15,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 import {
   RefreshCw, Download, FileText, AlertCircle, Truck, Users,
   IndianRupee, FileSpreadsheet, BookOpen, ClipboardList, Receipt, Wallet, Send
@@ -268,6 +269,9 @@ const PartyLedger = ({ filters }) => {
   const [selectedType, setSelectedType] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
@@ -330,6 +334,22 @@ const PartyLedger = ({ filters }) => {
       if (res.data.success) toast.success(res.data.message || "Ledger WhatsApp pe bhej diya!");
       else toast.error(res.data.error || res.data.message || "WhatsApp send fail");
     } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.response?.data?.error || e.message)); }
+  };
+
+  const openGroupSendLedger = () => {
+    if (!selectedParty) { toast.error("Pehle party select karein"); return; }
+    const bal = (data.total_debit || 0) - (data.total_credit || 0);
+    const balLabel = bal > 0 ? "Bakaya (Debit)" : bal < 0 ? "Agrim (Credit)" : "Settled";
+    setGroupText(`*Party Ledger / खाता विवरण*\nParty: *${selectedParty}*\nDebit: Rs.${(data.total_debit || 0).toLocaleString()}\nCredit: Rs.${(data.total_credit || 0).toLocaleString()}\n*${balLabel}: Rs.${Math.abs(bal).toLocaleString()}*`);
+    const p = new URLSearchParams();
+    if (filters.kms_year) p.append('kms_year', filters.kms_year);
+    if (filters.season) p.append('season', filters.season);
+    if (selectedParty) p.append('party_name', selectedParty);
+    if (selectedType) p.append('party_type', selectedType);
+    if (dateFrom) p.append('date_from', dateFrom);
+    if (dateTo) p.append('date_to', dateTo);
+    setGroupPdfUrl(`/api/reports/party-ledger/pdf?${p.toString()}`);
+    setGroupDialogOpen(true);
   };
 
   if (loading) return <div className="text-slate-400 text-center py-8">Loading...</div>;
@@ -400,6 +420,9 @@ const PartyLedger = ({ filters }) => {
           </Button>
           <Button onClick={sendLedgerWhatsApp} variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10" data-testid="party-ledger-whatsapp">
             <Send className="w-4 h-4 mr-1" /> WhatsApp
+          </Button>
+          <Button onClick={openGroupSendLedger} variant="outline" size="sm" className="border-teal-500 text-teal-400 hover:bg-teal-500/10" data-testid="party-ledger-send-to-group">
+            <Users className="w-4 h-4 mr-1" /> Group
           </Button>
         </div>
       </div>
@@ -519,6 +542,7 @@ const PartyLedger = ({ filters }) => {
           )}
         </CardContent>
       </Card>
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 };

@@ -21,6 +21,7 @@ import {
 import { downloadFile } from "../utils/download";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -69,6 +70,9 @@ export const PaddyPurchase = ({ filters, user }) => {
   const [searchText, setSearchText] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [historyDialog, setHistoryDialog] = useState({ open: false, item: null, history: [] });
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0], kms_year: CURRENT_KMS_YEAR, season: "Kharif",
     party_name: "", truck_no: "", rst_no: "", agent_name: "", mandi_name: "",
@@ -343,7 +347,7 @@ export const PaddyPurchase = ({ filters, user }) => {
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       )}
-                      {bal > 0 && (
+                      {bal > 0 && (<>
                         <Button variant="ghost" size="sm" className="h-6 px-1 text-green-400" data-testid={`paddy-wa-${item.id}`} title="WhatsApp Reminder"
                           onClick={async () => {
                             let phone = "";
@@ -369,7 +373,16 @@ export const PaddyPurchase = ({ filters, user }) => {
                         >
                           <Send className="w-3 h-3" />
                         </Button>
-                      )}
+                        <Button variant="ghost" size="sm" className="h-6 px-1 text-teal-400" data-testid={`paddy-group-${item.id}`} title="Send to Group"
+                          onClick={() => {
+                            setGroupText(`*Payment Reminder*\nParty: *${item.party_name}*\nTotal: Rs.${(item.total_amount || 0).toLocaleString()}\nPaid: Rs.${(item.paid_amount || 0).toLocaleString()}\n*Balance: Rs.${bal.toLocaleString()}*`);
+                            setGroupPdfUrl("");
+                            setGroupDialogOpen(true);
+                          }}
+                        >
+                          <Users className="w-3 h-3" />
+                        </Button>
+                      </>)}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -598,6 +611,7 @@ export const PaddyPurchase = ({ filters, user }) => {
           )}
         </DialogContent>
       </Dialog>
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 };

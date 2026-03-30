@@ -61,24 +61,23 @@ async def _send_wa_message(phone: str, text: str, media_url: str = ""):
         return {"success": False, "error": str(e)}
 
 
-async def _send_wa_to_group(text: str, media_url: str = ""):
-    """Send message to WhatsApp group via group ID."""
+async def _send_wa_to_group(group_id: str, text: str, media_url: str = ""):
+    """Send message to WhatsApp group via 360Messenger sendGroup API."""
     settings = await _get_wa_settings()
     api_key = settings.get("api_key", "")
-    group_id = settings.get("group_id", "")
     if not api_key:
         return {"success": False, "error": "WhatsApp API key set nahi hai."}
     if not group_id:
-        return {"success": False, "error": "Group ID set nahi hai. Settings mein set karein."}
+        return {"success": False, "error": "Group ID set nahi hai."}
 
-    data = {"phonenumber": group_id, "text": text}
+    data = {"groupId": group_id, "text": text}
     if media_url:
         data["url"] = media_url
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
-                f"{WA_API_BASE}/sendMessage",
+                f"{WA_API_BASE}/sendGroup",
                 data=data,
                 headers={"Authorization": f"Bearer {api_key}"}
             )
@@ -128,6 +127,69 @@ async def update_whatsapp_settings(data: dict):
         upsert=True
     )
     return {"success": True, "message": "WhatsApp settings save ho gayi!"}
+
+
+@router.get("/whatsapp/groups")
+async def get_whatsapp_groups():
+    """Fetch list of WhatsApp groups from 360Messenger."""
+    settings = await _get_wa_settings()
+    api_key = settings.get("api_key", "")
+    if not api_key:
+        return {"success": False, "groups": [], "error": "WhatsApp API key set nahi hai."}
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(
+                f"{WA_API_BASE}/groupChat/getGroupList",
+                headers={"Authorization": f"Bearer {api_key}"}
+            )
+            result = resp.json()
+            if result.get("success"):
+                groups = result.get("data", {}).get("groups", [])
+                return {"success": True, "groups": groups}
+            else:
+                return {"success": False, "groups": [], "error": result.get("message", "Group list fetch fail")}
+    except Exception as e:
+        logger.error(f"WhatsApp get groups error: {e}")
+        return {"success": False, "groups": [], "error": str(e)}
+
+
+@router.post("/whatsapp/send-group")
+async def send_to_whatsapp_group(data: dict):
+    """Send message + optional PDF to a specific WhatsApp group."""
+    group_id = data.get("group_id", "")
+    text = data.get("text", "")
+    media_url = data.get("media_url", "")
+    pdf_url = data.get("pdf_url", "")
+
+    if not group_id:
+        raise HTTPException(status_code=400, detail="Group ID required")
+    if not text and not media_url and not pdf_url:
+        raise HTTPException(status_code=400, detail="Text ya media URL required")
+
+    public_pdf_url = media_url
+    if pdf_url and not media_url:
+        try:
+            fetch_url = pdf_url
+            if pdf_url.startswith("/api/"):
+                fetch_url = f"http://localhost:8001{pdf_url}"
+            async with httpx.AsyncClient(timeout=30) as client:
+                pdf_resp = await client.get(fetch_url)
+                if pdf_resp.status_code == 200 and len(pdf_resp.content) > 100:
+                    files = {"file": ("report.pdf", pdf_resp.content, "application/pdf")}
+                    upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
+                    if upload_resp.status_code == 200:
+                        tmp_data = upload_resp.json()
+                        tmp_url = tmp_data.get("data", {}).get("url", "")
+                        if tmp_url:
+                            public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
+                            logger.info(f"Group PDF uploaded: {public_pdf_url}")
+                else:
+                    logger.error(f"Group PDF fetch fail: status={pdf_resp.status_code}")
+        except Exception as e:
+            logger.error(f"Group PDF upload error: {e}")
+
+    result = await _send_wa_to_group(group_id, text, public_pdf_url)
+    return result
 
 
 @router.post("/whatsapp/test")
@@ -263,7 +325,7 @@ async def send_daily_report(data: dict):
                 results.append({"target": num, "success": r.get("success", False)})
 
     if send_to_group and group_id:
-        r = await _send_wa_to_group(report_text, public_pdf_url)
+        r = await _send_wa_to_group(group_id, report_text, public_pdf_url)
         results.append({"target": "group", "success": r.get("success", False)})
 
     if not results:
@@ -377,7 +439,7 @@ async def send_party_ledger(data: dict):
                 else:
                     logger.error(f"tmpfiles upload failed: {upload_resp.status_code}")
         else:
-            logger.error(f"PDF generation returned empty/small data")
+            logger.error("PDF generation returned empty/small data")
     except Exception as e:
         logger.error(f"PDF generation/upload error: {e}")
 

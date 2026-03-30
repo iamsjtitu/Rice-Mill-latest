@@ -21,6 +21,7 @@ import {
   Target, Download, FileText, FileSpreadsheet, Printer, X, Edit, Fuel, Plus, Trash2, Star, RefreshCw, Handshake, Package, Send,
 } from "lucide-react";
 import LocalPartyAccount from "./payments/LocalPartyAccount";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 import { GunnyBags } from "./DCTracker";
 import LeasedTruck from "./LeasedTruck";
 import { useConfirm } from "./ConfirmProvider";
@@ -88,6 +89,9 @@ export const Payments = ({ filters, user, branding }) => {
   const [ownerPayMode, setOwnerPayMode] = useState("cash");
   const [ownerPayRoundOff, setOwnerPayRoundOff] = useState("");
   const [ownerHistory, setOwnerHistory] = useState([]);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -1145,6 +1149,20 @@ export const Payments = ({ filters, user, branding }) => {
                             >
                               <Send className="w-3 h-3" />
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-teal-400 hover:bg-teal-900/30"
+                              title="Send to Group"
+                              data-testid={`truck-group-${idx}`}
+                              onClick={() => {
+                                setGroupText(`*Truck Payment / ट्रक भुगतान*\nTruck: *${payment.truck_no}*\nMandi: ${payment.mandi_name || ''}\nNet: Rs.${(payment.net_amount || 0).toLocaleString()}\nPaid: Rs.${(payment.paid_amount || 0).toLocaleString()}\n*Balance: Rs.${(payment.balance || 0).toLocaleString()}*`);
+                                setGroupPdfUrl("");
+                                setGroupDialogOpen(true);
+                              }}
+                            >
+                              <Users className="w-3 h-3" />
+                            </Button>
                           </div>
                         </TableCell>
                       )}
@@ -1292,6 +1310,16 @@ export const Payments = ({ filters, user, branding }) => {
                               className="h-7 px-2 text-green-400 hover:bg-green-900/30 border border-green-600 text-xs"
                               data-testid={`owner-wa-${idx}`}>
                               <Send className="w-3 h-3 mr-1" /> WhatsApp
+                            </Button>
+                            <Button size="sm" variant="ghost"
+                              className="h-7 px-2 text-teal-400 hover:bg-teal-900/30 border border-teal-600 text-xs"
+                              data-testid={`owner-group-${idx}`}
+                              onClick={() => {
+                                setGroupText(`*Truck Owner Payment / ट्रक मालिक भुगतान*\nTruck: *${truckData.truck_no}*\nTrips: ${truckData.total_trips || 0}\nNet: Rs.${(truckData.total_net || 0).toLocaleString()}\nPaid: Rs.${(truckData.total_paid || 0).toLocaleString()}\n*Balance: Rs.${(truckData.total_balance || 0).toLocaleString()}*`);
+                                setGroupPdfUrl("");
+                                setGroupDialogOpen(true);
+                              }}>
+                              <Users className="w-3 h-3 mr-1" /> Group
                             </Button>
                           </div>
                         </TableCell>
@@ -1702,6 +1730,7 @@ export const Payments = ({ filters, user, branding }) => {
           </div>
         </DialogContent>
       </Dialog>
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 };

@@ -8,13 +8,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2, CheckSquare, Receipt, Send } from "lucide-react";
+import { Plus, Trash2, FileText, IndianRupee, Edit, Download, Search, FileSpreadsheet, Printer, Clock, History, Undo2, Building2, CheckSquare, Receipt, Send, Users } from "lucide-react";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api`;
 
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 
 const HSN_MAP = {
   "Rice (Usna)": "1006 30 20", "Rice (Raw)": "1006 30 10",
@@ -270,6 +271,16 @@ export default function SaleBook({ filters, user }) {
 
   // WhatsApp Sale Voucher Send
   const [waSending, setWaSending] = useState(null);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
+
+  const openGroupSendSale = (v) => {
+    const total = (v.items || []).reduce((s, i) => s + (i.amount || 0), 0);
+    setGroupText(`*Sale Voucher*\nNo: ${v.voucher_no || v.id}\nDate: ${v.date}\nParty: *${v.party_name}*\nTotal: *Rs.${total.toLocaleString()}*`);
+    setGroupPdfUrl(`/api/sale-book/${v.id}/pdf`);
+    setGroupDialogOpen(true);
+  };
   const handleWhatsAppSend = async (v) => {
     setWaSending(v.id);
     try {
@@ -426,6 +437,9 @@ export default function SaleBook({ filters, user }) {
                     )}
                     <Button variant="ghost" size="sm" onClick={() => handleWhatsAppSend(v)} disabled={waSending === v.id} className="text-green-400 hover:text-green-300 h-6 w-6 p-0" title="WhatsApp Send" data-testid={`sv-whatsapp-${v.id}`}>
                       <Send className="w-3 h-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => openGroupSendSale(v)} className="text-teal-400 hover:text-teal-300 h-6 w-6 p-0" title="Send to Group" data-testid={`sv-group-${v.id}`}>
+                      <Users className="w-3 h-3" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => handlePrintInvoice(v)} className="text-purple-400 hover:text-purple-300 h-6 w-6 p-0" title="Print Invoice" data-testid={`sv-print-${v.id}`}>
                       <Printer className="w-3 h-3" />
@@ -854,6 +868,7 @@ export default function SaleBook({ filters, user }) {
           )}
         </DialogContent>
       </Dialog>
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 }

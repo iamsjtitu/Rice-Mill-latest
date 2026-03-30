@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel, Send, AlertTriangle } from "lucide-react";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -204,6 +205,9 @@ const DailyReport = ({ filters }) => {
   const [tgConfirmOpen, setTgConfirmOpen] = useState(false);
   const [tgRecipients, setTgRecipients] = useState([]);
   const [tgLoading, setTgLoading] = useState(false);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
 
   const openTelegramConfirm = async () => {
     setTgLoading(true);
@@ -318,6 +322,26 @@ const DailyReport = ({ filters }) => {
           }}
         >
           <Send className="w-4 h-4 mr-1" /> WhatsApp
+        </Button>
+        <Button variant="outline" size="sm" className="border-teal-500 text-teal-400 hover:bg-teal-500/10 h-9" data-testid="daily-send-to-group"
+          onClick={() => {
+            if (!data) { toast.error("Pehle report load karein"); return; }
+            const summary = [
+              `*Daily Report - ${date}* (${mode})`,
+              `---`,
+              `Paddy: ${data.paddy_entries?.count || 0} entries | Mill W: ${((data.paddy_entries?.total_mill_w || 0)/100).toFixed(2)} QNTL`,
+              data.milling ? `Milling: ${data.milling.count || 0} entries | Rice: ${((data.milling.total_rice || 0)/100).toFixed(2)} QNTL` : '',
+              data.cash_transactions ? `Cash: In Rs.${(data.cash_transactions.total_in || 0).toLocaleString()} | Out Rs.${(data.cash_transactions.total_out || 0).toLocaleString()}` : '',
+              data.sale_vouchers ? `Sales: ${data.sale_vouchers.count || 0} vouchers | Rs.${(data.sale_vouchers.total_amount || 0).toLocaleString()}` : '',
+              `---`,
+              `Mill Entry System`
+            ].filter(Boolean).join('\n');
+            setGroupText(summary);
+            setGroupPdfUrl(`/api/reports/daily/pdf?date=${date}&mode=${mode}&kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`);
+            setGroupDialogOpen(true);
+          }}
+        >
+          <Users className="w-4 h-4 mr-1" /> Group
         </Button>
       </div>
 
@@ -968,6 +992,7 @@ const DailyReport = ({ filters }) => {
           </div>
         </DialogContent>
       </Dialog>
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 };

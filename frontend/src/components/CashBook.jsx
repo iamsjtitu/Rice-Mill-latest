@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useConfirm } from "./ConfirmProvider";
+import { SendToGroupDialog } from "./SendToGroupDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -71,6 +72,9 @@ const CashBook = ({ filters, user }) => {
   const [pvVouchers, setPvVouchers] = useState([]);
   const [pvPayForm, setPvPayForm] = useState({ voucher_id: "", party_name: "", amount: "", date: new Date().toISOString().split('T')[0], notes: "", account: "cash", bank_name: "" });
   const [agentSuggestions, setAgentSuggestions] = useState({ mandi_names: [], truck_numbers: [], agent_names: [] });
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
 
   const fetchPartySummary = useCallback(async () => {
     try {
@@ -289,6 +293,25 @@ const CashBook = ({ filters, user }) => {
     } catch (e) { toast.error("WhatsApp error: " + (e.response?.data?.detail || e.response?.data?.error || e.message)); }
   };
 
+  const openGroupSendCashBook = () => {
+    const partyName = txnFilters.category || filterPartySearch;
+    if (!partyName) { toast.error("Pehle party select karein"); return; }
+    const partyTxns = txns.filter(t => (t.category || '').toLowerCase() === partyName.toLowerCase());
+    const totalDebit = partyTxns.filter(t => t.txn_type === 'nikasi').reduce((s,t) => s + (t.amount || 0), 0);
+    const totalCredit = partyTxns.filter(t => t.txn_type === 'jama').reduce((s,t) => s + (t.amount || 0), 0);
+    const bal = totalDebit - totalCredit;
+    const balLabel = bal > 0 ? "Bakaya (Debit)" : bal < 0 ? "Agrim (Credit)" : "Settled";
+    setGroupText(`*Cash Book Ledger*\nParty: *${partyName}*\nDebit: Rs.${totalDebit.toLocaleString()}\nCredit: Rs.${totalCredit.toLocaleString()}\n*${balLabel}: Rs.${Math.abs(bal).toLocaleString()}*`);
+    const pdfParams = new URLSearchParams();
+    if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
+    if (filters.season) pdfParams.append('season', filters.season);
+    pdfParams.append('category', partyName);
+    if (txnFilters.party_type) pdfParams.append('party_type', txnFilters.party_type);
+    if (txnFilters.account) pdfParams.append('account', txnFilters.account);
+    setGroupPdfUrl(`/api/cash-book/pdf?${pdfParams.toString()}`);
+    setGroupDialogOpen(true);
+  };
+
   // Computed values
   const catKey = `${form.account}_${form.txn_type}`;
   const defaultCats = DEFAULT_CATEGORIES[catKey] || [];
@@ -477,6 +500,11 @@ const CashBook = ({ filters, user }) => {
         {activeView === "transactions" && (txnFilters.category || filterPartySearch) && (
           <Button onClick={sendPartyLedgerWA} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-600/10" data-testid="cashbook-party-ledger-whatsapp">
             <Send className="w-4 h-4 mr-1" /> WhatsApp
+          </Button>
+        )}
+        {activeView === "transactions" && (txnFilters.category || filterPartySearch) && (
+          <Button onClick={openGroupSendCashBook} variant="outline" size="sm" className="border-teal-600 text-teal-400 hover:bg-teal-600/10" data-testid="cashbook-send-to-group">
+            <Users className="w-4 h-4 mr-1" /> Group
           </Button>
         )}
       </div>
@@ -858,6 +886,7 @@ const CashBook = ({ filters, user }) => {
           </div>
         </DialogContent>
       </Dialog>
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 };
