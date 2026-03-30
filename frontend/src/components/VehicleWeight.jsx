@@ -5,18 +5,41 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, Plus, Eye, EyeOff, Zap } from "lucide-react";
+import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, Plus, Eye, EyeOff, Zap, Pencil, Printer } from "lucide-react";
 import AutoSuggest from "./common/AutoSuggest";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import { downloadFile } from "../utils/download";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
+const _isElectronEnv = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "");
 const API = `${BACKEND_URL}/api`;
 const fmtWt = (w) => w ? Number(w).toLocaleString() : "0";
+
+const safePrintHTML = (htmlContent) => {
+  try {
+    if (_isElectronEnv) {
+      const w = window.open('', '_blank', 'width=900,height=700');
+      if (w) { w.document.open(); w.document.write(htmlContent); w.document.close(); w.onload = () => w.focus(); }
+    } else {
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      iframe.contentDocument.open();
+      iframe.contentDocument.write(htmlContent);
+      iframe.contentDocument.close();
+      setTimeout(() => { iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 500);
+    }
+  } catch (e) {
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  }
+};
 
 /* ─── Live Scale (Auto-Connected Weighbridge) ─── */
 function useLiveScale() {
@@ -138,6 +161,8 @@ export default function VehicleWeight({ filters }) {
   const [secondWtMode, setSecondWtMode] = useState(null);
   const [showCompleted, setShowCompleted] = useState(true);
   const [autoNotify, setAutoNotify] = useState(false);
+  const [editDialog, setEditDialog] = useState({ open: false, entry: null });
+  const [editForm, setEditForm] = useState({});
   const scale = useLiveScale();
   const wa = useMessagingEnabled();
   const frontCamRef = useRef(null);
@@ -322,6 +347,130 @@ export default function VehicleWeight({ filters }) {
       });
       toast.success("Group msg sent!");
     } catch { toast.error("Group send error"); }
+  };
+
+  // ── Edit entry ──
+  const openEdit = (entry) => {
+    setEditForm({
+      vehicle_no: entry.vehicle_no || "",
+      party_name: entry.party_name || "",
+      farmer_name: entry.farmer_name || "",
+      product: entry.product || "",
+      tot_pkts: entry.tot_pkts || "",
+      cash_paid: entry.cash_paid || "",
+      diesel_paid: entry.diesel_paid || ""
+    });
+    setEditDialog({ open: true, entry });
+  };
+  const saveEdit = async () => {
+    try {
+      const r = await axios.put(`${API}/vehicle-weight/${editDialog.entry.id}/edit`, editForm);
+      if (r.data.success) { toast.success("Updated!"); setEditDialog({ open: false, entry: null }); fetchData(); }
+    } catch { toast.error("Update error"); }
+  };
+
+  // ── Print A5 with 2 copies (Party Copy + Customer Copy) ──
+  const handlePrint = async (e) => {
+    // Fetch settings branding
+    let company = "NAVKAR AGRO", tagline = "JOLKO, KESINGA";
+    try {
+      const r = await axios.get(`${API}/branding`);
+      if (r.data) { company = r.data.company_name || company; tagline = r.data.tagline || tagline; }
+    } catch {}
+
+    const rst = e.rst_no;
+    const gross = Number(e.gross_wt || e.first_wt || 0).toLocaleString();
+    const tare = Number(e.tare_wt || e.second_wt || 0).toLocaleString();
+    const net = Number(e.net_wt || 0).toLocaleString();
+    const cash = Number(e.cash_paid || 0);
+    const diesel = Number(e.diesel_paid || 0);
+
+    const copyHTML = (copyLabel, showSignature) => `
+      <div class="copy-block">
+        <div class="copy-label">${copyLabel}</div>
+        <div class="header">
+          <h1>${company}</h1>
+          <p class="tagline">${tagline}</p>
+          <h2>WEIGHT SLIP / तौल पर्ची</h2>
+        </div>
+        <table class="info-table">
+          <tr><td class="lbl">RST No.</td><td class="val">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${e.date}</td></tr>
+          <tr><td class="lbl">Vehicle No. / गाड़ी नं.</td><td class="val">${e.vehicle_no}</td><td class="lbl">Pkts / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
+          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Mandi / मंडी</td><td class="val">${e.farmer_name || '-'}</td></tr>
+          <tr><td class="lbl">Product / माल</td><td class="val" colspan="3">${e.product || '-'}</td></tr>
+        </table>
+        <table class="wt-table">
+          <tr>
+            <td class="wt-cell"><span class="wt-label">Gross Wt / कुल वजन</span><span class="wt-val">${gross} KG</span></td>
+            <td class="wt-cell"><span class="wt-label">Tare Wt / खाली वजन</span><span class="wt-val">${tare} KG</span></td>
+            <td class="wt-cell net"><span class="wt-label">Net Wt / शुद्ध वजन</span><span class="wt-val">${net} KG</span></td>
+          </tr>
+        </table>
+        ${(cash > 0 || diesel > 0) ? `
+        <table class="pay-table">
+          <tr>
+            ${cash > 0 ? `<td class="pay-cell"><span class="pay-label">Cash Paid / नकद</span><span class="pay-val">${cash.toLocaleString()}</span></td>` : ''}
+            ${diesel > 0 ? `<td class="pay-cell"><span class="pay-label">Diesel Paid / डीजल</span><span class="pay-val">${diesel.toLocaleString()}</span></td>` : ''}
+          </tr>
+        </table>
+        ` : ''}
+        ${showSignature ? `
+        <div class="sig-section">
+          <div class="sig-box"><div class="sig-line"></div><p>Driver Signature / ड्राइवर हस्ताक्षर</p></div>
+          <div class="sig-box"><div class="sig-line"></div><p>Authorized Signature / अधिकृत हस्ताक्षर</p></div>
+        </div>
+        ` : '<div style="height:12px"></div>'}
+        <p class="footer-note">Computer Generated / कंप्यूटर जनित</p>
+      </div>
+    `;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Weight Slip #${rst}</title>
+    <style>
+      @page { size: A5 portrait; margin: 6mm; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Arial, sans-serif; background: white; }
+      .page { width: 148mm; min-height: 210mm; margin: 0 auto; display: flex; flex-direction: column; }
+      .copy-block { border: 1.5px solid #333; border-radius: 4px; padding: 8px 10px; margin-bottom: 6px; flex: 1; position: relative; page-break-inside: avoid; }
+      .copy-label { position: absolute; top: -8px; right: 12px; background: white; padding: 0 6px; font-size: 8px; font-weight: bold; color: #666; letter-spacing: 1px; text-transform: uppercase; }
+      .header { text-align: center; margin-bottom: 6px; }
+      .header h1 { font-size: 16px; font-weight: 900; color: #1a1a2e; margin-bottom: 1px; }
+      .tagline { font-size: 8px; color: #888; margin-bottom: 4px; }
+      .header h2 { font-size: 11px; color: #444; border-bottom: 1px solid #ddd; padding-bottom: 3px; display: inline-block; }
+      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+      .info-table td { padding: 3px 5px; font-size: 9px; border: 0.5px solid #ddd; }
+      .lbl { color: #666; font-weight: 600; width: 22%; }
+      .val { color: #111; font-weight: 700; width: 28%; }
+      .wt-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+      .wt-cell { text-align: center; padding: 5px; border: 1px solid #ccc; width: 33.3%; background: #f8f8f8; }
+      .wt-cell.net { background: #e8f5e9; border-color: #4caf50; }
+      .wt-label { display: block; font-size: 7px; color: #666; margin-bottom: 2px; }
+      .wt-val { display: block; font-size: 13px; font-weight: 900; color: #111; }
+      .wt-cell.net .wt-val { color: #2e7d32; }
+      .pay-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+      .pay-cell { text-align: center; padding: 4px; border: 1px solid #ddd; background: #fff8e1; }
+      .pay-label { display: block; font-size: 7px; color: #666; }
+      .pay-val { display: block; font-size: 11px; font-weight: 800; color: #e65100; }
+      .sig-section { display: flex; justify-content: space-between; margin-top: 10px; margin-bottom: 4px; }
+      .sig-box { text-align: center; width: 45%; }
+      .sig-line { border-bottom: 1px solid #333; height: 25px; margin-bottom: 3px; }
+      .sig-box p { font-size: 7px; color: #666; }
+      .footer-note { text-align: center; font-size: 6px; color: #aaa; margin-top: 4px; }
+      .cut-line { border-top: 1px dashed #999; margin: 4px 0; position: relative; }
+      .cut-text { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); background: white; padding: 0 8px; font-size: 7px; color: #999; }
+      @media print { body { margin: 0; } .no-print { display: none !important; } .page { width: auto; min-height: auto; } }
+      @media screen { .page { padding: 15px; border: 1px solid #ddd; margin: 10px auto; max-width: 600px; } }
+    </style></head><body>
+    <div class="page">
+      ${copyHTML("PARTY COPY / पार्टी कॉपी", false)}
+      <div class="cut-line"><span class="cut-text">✂ CUT HERE / काटें</span></div>
+      ${copyHTML("CUSTOMER COPY / ग्राहक कॉपी", true)}
+    </div>
+    <div class="no-print" style="text-align:center;margin-top:20px;">
+      <button onclick="window.print()" style="background:#d97706;color:white;border:none;padding:12px 30px;border-radius:6px;cursor:pointer;font-size:16px;font-weight:bold;">Print / प्रिंट करें</button>
+    </div>
+    </body></html>`;
+
+    safePrintHTML(html);
   };
 
   const completed = entries.filter(e => e.status === "completed");
@@ -691,10 +840,12 @@ export default function VehicleWeight({ filters }) {
                       <TableCell className="text-right text-orange-700 text-xs py-2 px-3 font-mono">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`}><Download className="w-3 h-3" /></Button>
-                          {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-green-400 hover:text-green-600" onClick={() => handleWA(e)} data-testid={`vw-wa-${e.id}`}><Send className="w-3 h-3" /></Button>}
-                          {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-teal-400 hover:text-teal-600" onClick={() => handleGroup(e)} data-testid={`vw-group-${e.id}`}><Users className="w-3 h-3" /></Button>}
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleDelete(e.id)} data-testid={`vw-del-${e.id}`}><Trash2 className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`vw-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`vw-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
+                          {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-green-400 hover:text-green-600" onClick={() => handleWA(e)} data-testid={`vw-wa-${e.id}`} title="WhatsApp"><Send className="w-3 h-3" /></Button>}
+                          {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-teal-400 hover:text-teal-600" onClick={() => handleGroup(e)} data-testid={`vw-group-${e.id}`} title="Group"><Users className="w-3 h-3" /></Button>}
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleDelete(e.id)} data-testid={`vw-del-${e.id}`} title="Delete"><Trash2 className="w-3 h-3" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -705,6 +856,67 @@ export default function VehicleWeight({ filters }) {
           </CardContent>
         )}
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialog.open} onOpenChange={v => setEditDialog({ open: v, entry: v ? editDialog.entry : null })}>
+        <DialogContent className="bg-white border-gray-200 max-w-md" data-testid="vw-edit-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-amber-700 flex items-center gap-2">
+              <Pencil className="w-4 h-4" /> Edit RST #{editDialog.entry?.rst_no}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-gray-600 text-xs mb-1 block">Vehicle No</Label>
+                <Input value={editForm.vehicle_no || ""} onChange={e => setEditForm(p => ({ ...p, vehicle_no: e.target.value.toUpperCase() }))}
+                  className="h-9 text-sm border-gray-300" data-testid="edit-vehicle" />
+              </div>
+              <div>
+                <Label className="text-gray-600 text-xs mb-1 block">Product</Label>
+                <Select value={editForm.product || ""} onValueChange={v => setEditForm(p => ({ ...p, product: v }))}>
+                  <SelectTrigger className="h-9 text-sm border-gray-300" data-testid="edit-product"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["GOVT PADDY","PADDY","RICE","BHUSI","KANDA","OTHER"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-gray-600 text-xs mb-1 block">Party Name</Label>
+                <Input value={editForm.party_name || ""} onChange={e => setEditForm(p => ({ ...p, party_name: e.target.value }))}
+                  className="h-9 text-sm border-gray-300" data-testid="edit-party" />
+              </div>
+              <div>
+                <Label className="text-gray-600 text-xs mb-1 block">Farmer/Mandi</Label>
+                <Input value={editForm.farmer_name || ""} onChange={e => setEditForm(p => ({ ...p, farmer_name: e.target.value }))}
+                  className="h-9 text-sm border-gray-300" data-testid="edit-farmer" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label className="text-gray-600 text-xs mb-1 block">Packets</Label>
+                <Input type="number" value={editForm.tot_pkts || ""} onChange={e => setEditForm(p => ({ ...p, tot_pkts: e.target.value }))}
+                  className="h-9 text-sm border-gray-300" data-testid="edit-pkts" />
+              </div>
+              <div>
+                <Label className="text-green-700 text-xs mb-1 block font-semibold">Cash Paid</Label>
+                <Input type="number" value={editForm.cash_paid || ""} onChange={e => setEditForm(p => ({ ...p, cash_paid: e.target.value }))}
+                  className="h-9 text-sm border-green-300 bg-green-50/50" data-testid="edit-cash" />
+              </div>
+              <div>
+                <Label className="text-orange-700 text-xs mb-1 block font-semibold">Diesel Paid</Label>
+                <Input type="number" value={editForm.diesel_paid || ""} onChange={e => setEditForm(p => ({ ...p, diesel_paid: e.target.value }))}
+                  className="h-9 text-sm border-orange-300 bg-orange-50/50" data-testid="edit-diesel" />
+              </div>
+            </div>
+            <Button onClick={saveEdit} className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold h-10" data-testid="edit-save-btn">
+              <CheckCircle className="w-4 h-4 mr-2" /> Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

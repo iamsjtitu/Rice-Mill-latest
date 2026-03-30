@@ -314,6 +314,31 @@ async def delete_weight_entry(entry_id: str):
     return {"success": True, "message": "Entry deleted"}
 
 
+@router.put("/vehicle-weight/{entry_id}/edit")
+async def edit_weight_entry(entry_id: str, data: dict):
+    """Edit completed weight entry (Vehicle, Party, Product, Pkts, Cash, Diesel)."""
+    entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    update_fields = {}
+    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "cash_paid", "diesel_paid"]
+    for f in editable:
+        if f in data:
+            if f in ("cash_paid", "diesel_paid"):
+                update_fields[f] = float(data[f] or 0)
+            elif f == "tot_pkts":
+                update_fields[f] = data[f]
+            else:
+                update_fields[f] = data[f]
+
+    if update_fields:
+        await db["vehicle_weights"].update_one({"id": entry_id}, {"$set": update_fields})
+
+    updated = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
+    return {"success": True, "entry": updated}
+
+
 @router.get("/vehicle-weight/{entry_id}/slip-pdf")
 async def weight_slip_pdf(entry_id: str):
     """Generate weight slip PDF with proper company header."""
