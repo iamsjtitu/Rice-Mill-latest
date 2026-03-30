@@ -1,8 +1,8 @@
 name: Build & Release Desktop App
 
 on:
-  release:
-    types: [created]
+  push:
+    branches: [main]
 
 permissions:
   contents: write
@@ -15,18 +15,46 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Read version from package.json
+        id: version
+        run: |
+          $pkg = Get-Content "desktop-app/package.json" | ConvertFrom-Json
+          $ver = $pkg.version
+          Write-Host "Detected version: $ver"
+          echo "APP_VERSION=$ver" >> $env:GITHUB_OUTPUT
+        shell: powershell
+
+      - name: Check if release already exists
+        id: check_release
+        run: |
+          $tag = "v${{ steps.version.outputs.APP_VERSION }}"
+          Write-Host "Checking for existing release with tag: $tag"
+          $headers = @{ Authorization = "token ${{ secrets.GITHUB_TOKEN }}" }
+          try {
+            $response = Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/tags/$tag" -Headers $headers -ErrorAction Stop
+            Write-Host "Release $tag already exists - skipping build"
+            echo "EXISTS=true" >> $env:GITHUB_OUTPUT
+          } catch {
+            Write-Host "Release $tag does not exist - will build and create"
+            echo "EXISTS=false" >> $env:GITHUB_OUTPUT
+          }
+        shell: powershell
+
       - name: Setup Node.js
+        if: steps.check_release.outputs.EXISTS == 'false'
         uses: actions/setup-node@v6
         with:
           node-version: '20'
 
       - name: Install frontend dependencies
+        if: steps.check_release.outputs.EXISTS == 'false'
         working-directory: frontend
         run: |
           npm install --legacy-peer-deps
           npm install ajv@8 --legacy-peer-deps
 
       - name: Build frontend for desktop
+        if: steps.check_release.outputs.EXISTS == 'false'
         working-directory: frontend
         env:
           REACT_APP_BACKEND_URL: http://127.0.0.1:9876
@@ -34,12 +62,14 @@ jobs:
         run: npx craco build
 
       - name: Copy frontend build to desktop-app
+        if: steps.check_release.outputs.EXISTS == 'false'
         run: |
           if (Test-Path "desktop-app/frontend-build") { Remove-Item -Recurse -Force "desktop-app/frontend-build" }
           Copy-Item -Recurse "frontend/build" "desktop-app/frontend-build"
         shell: powershell
 
       - name: Fix index.html for desktop
+        if: steps.check_release.outputs.EXISTS == 'false'
         run: |
           $indexPath = "desktop-app/frontend-build/index.html"
           $html = Get-Content $indexPath -Raw
@@ -52,6 +82,7 @@ jobs:
         shell: powershell
 
       - name: Verify frontend-build exists
+        if: steps.check_release.outputs.EXISTS == 'false'
         run: |
           if (!(Test-Path "desktop-app/frontend-build/index.html")) {
             Write-Error "frontend-build not found after build! Something went wrong."
@@ -61,14 +92,17 @@ jobs:
         shell: powershell
 
       - name: Install desktop dependencies
+        if: steps.check_release.outputs.EXISTS == 'false'
         working-directory: desktop-app
         run: npm install
 
       - name: Build Windows App (no publish)
+        if: steps.check_release.outputs.EXISTS == 'false'
         working-directory: desktop-app
         run: npx electron-builder --win --x64 --publish never
 
       - name: Fix filenames (spaces to hyphens for GitHub compatibility)
+        if: steps.check_release.outputs.EXISTS == 'false'
         working-directory: desktop-app/dist
         run: |
           Get-ChildItem -Filter "*.exe" | ForEach-Object {
@@ -89,9 +123,16 @@ jobs:
           Get-ChildItem | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
         shell: powershell
 
-      - name: Upload to existing GitHub Release
+      - name: Create GitHub Release & Upload Assets
+        if: steps.check_release.outputs.EXISTS == 'false'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.APP_VERSION }}
+          name: v${{ steps.version.outputs.APP_VERSION }}
+          body: |
+            ## Mill Entry System v${{ steps.version.outputs.APP_VERSION }}
+            
+            Auto-generated release. Download the .exe file below to install/update.
           files: |
             desktop-app/dist/*.exe
             desktop-app/dist/*.exe.blockmap
@@ -100,6 +141,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts (backup)
+        if: steps.check_release.outputs.EXISTS == 'false'
         uses: actions/upload-artifact@v5
         with:
           name: windows-build
