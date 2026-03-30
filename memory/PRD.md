@@ -50,6 +50,7 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 
 ## Tools
 - **Route Sync Checker** (`/app/scripts/sync_check.py`): Compares all Python FastAPI endpoints against both JS Express backends. Cross-file matching eliminates false positives. Run modes: `--brief`, `--fix` (boilerplate), `--json`. Current sync: ~98.3%.
+- **CI/CD Sync Check** (`.github/workflows/route-sync-check.yml`): Runs sync checker automatically on every push/PR that touches route files. Posts warnings to PR comments if endpoints are missing.
 
 ## Prioritized Backlog
 ### P2 - Future
