@@ -168,17 +168,27 @@ module.exports = function(database) {
   // ── Helper: Build weight text ──
   function buildWeightText(entry) {
     const rst = entry.rst_no || '?';
-    let text = `*Weight Slip #${rst}*\n` +
+    const pkts = entry.tot_pkts || entry.pkts || 0;
+    const farmer = entry.farmer_name || '';
+    const mandi = entry.mandi_name || '';
+    const farmerMandi = farmer || mandi;
+    let text = `*Weight Slip — RST #${rst}*\n` +
+      `Date: ${entry.date || ''}\n` +
       `Vehicle: ${entry.vehicle_no || ''}\n` +
-      `Party: ${entry.party_name || ''}\n` +
-      `Product: ${entry.product || ''}\n` +
-      `Gross: ${Number(entry.gross_wt || entry.first_wt || 0).toLocaleString()} KG\n` +
-      `Tare: ${Number(entry.tare_wt || entry.second_wt || 0).toLocaleString()} KG\n` +
-      `*Net: ${Number(entry.net_wt || 0).toLocaleString()} KG*\n`;
+      `Party: ${entry.party_name || ''}\n`;
+    if (farmerMandi) text += `Farmer/Mandi: ${farmerMandi}\n`;
+    text += `Product: ${entry.product || ''}\n` +
+      `Packets: ${pkts > 0 ? pkts : '-'}\n` +
+      `───────────────\n` +
+      `Gross Wt: ${Number(entry.gross_wt || entry.first_wt || 0).toLocaleString()} KG\n` +
+      `Tare Wt: ${Number(entry.tare_wt || entry.second_wt || 0).toLocaleString()} KG\n` +
+      `*Net Wt: ${Number(entry.net_wt || 0).toLocaleString()} KG*\n` +
+      `───────────────\n`;
     const cash = entry.cash_paid || 0;
     const diesel = entry.diesel_paid || 0;
-    if (cash > 0) text += `Cash Paid: ${Number(cash).toLocaleString()}\n`;
-    if (diesel > 0) text += `Diesel Paid: ${Number(diesel).toLocaleString()}\n`;
+    if (cash > 0) text += `Cash Paid: \u20b9${Number(cash).toLocaleString()}\n`;
+    if (diesel > 0) text += `Diesel Paid: \u20b9${Number(diesel).toLocaleString()}\n`;
+    if (cash > 0 || diesel > 0) text += `───────────────\n`;
     return text;
   }
 

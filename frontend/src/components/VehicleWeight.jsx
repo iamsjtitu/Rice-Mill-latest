@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, Plus, Eye, EyeOff, Zap, Pencil, Printer } from "lucide-react";
 import AutoSuggest from "./common/AutoSuggest";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
+import { useConfirm } from "./ConfirmProvider";
 import { downloadFile } from "../utils/download";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
@@ -316,6 +317,7 @@ export default function VehicleWeight({ filters }) {
   const [editForm, setEditForm] = useState({});
   const scale = useLiveScale();
   const { wa } = useMessagingEnabled();
+  const showConfirm = useConfirm();
   const frontCamRef = useRef(null);
   const sideCamRef = useRef(null);
 
@@ -430,7 +432,7 @@ export default function VehicleWeight({ filters }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
   };
 
-  const handleDelete = async (id) => { if (!window.confirm("Delete karein?")) return; try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); } };
+  const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye transaction delete karna chahte hain?")) return; try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); } };
 
   // Auto-notify: capture camera frames & send to WhatsApp/Telegram
   const sendAutoNotify = async (entryId) => {

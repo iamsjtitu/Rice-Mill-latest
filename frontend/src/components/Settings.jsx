@@ -1387,7 +1387,7 @@ function DataTab({ user }) {
                 const file = e.target.files?.[0];
                 if (!file) return;
                 if (!file.name.endsWith('.zip')) { toast.error("Sirf ZIP file upload karein"); return; }
-                if (!window.confirm("Kya aap sure hain? Current data replace ho jayega!")) { e.target.value = ''; return; }
+                if (!await showConfirm("Restore Data", "Kya aap sure hain? Current data replace ho jayega!")) { e.target.value = ''; return; }
                 try {
                   setBackupLoading(true);
                   const formData = new FormData();

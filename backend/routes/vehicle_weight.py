@@ -85,21 +85,35 @@ async def auto_notify_weight(data: dict):
         raise HTTPException(status_code=404, detail="Entry not found")
 
     rst = entry.get("rst_no", "?")
+    pkts = entry.get("tot_pkts", entry.get("pkts", 0)) or 0
+    farmer = entry.get("farmer_name", "") or ""
+    mandi = entry.get("mandi_name", "") or ""
+    farmer_mandi = farmer if farmer else mandi
     text = (
-        f"*Weight Slip #{rst}*\n"
+        f"*Weight Slip — RST #{rst}*\n"
+        f"Date: {entry.get('date','')}\n"
         f"Vehicle: {entry.get('vehicle_no','')}\n"
         f"Party: {entry.get('party_name','')}\n"
+    )
+    if farmer_mandi:
+        text += f"Farmer/Mandi: {farmer_mandi}\n"
+    text += (
         f"Product: {entry.get('product','')}\n"
-        f"Gross: {entry.get('gross_wt', entry.get('first_wt',0)):,.0f} KG\n"
-        f"Tare: {entry.get('tare_wt', entry.get('second_wt',0)):,.0f} KG\n"
-        f"*Net: {entry.get('net_wt',0):,.0f} KG*\n"
+        f"Packets: {pkts if pkts > 0 else '-'}\n"
+        f"───────────────\n"
+        f"Gross Wt: {entry.get('gross_wt', entry.get('first_wt',0)):,.0f} KG\n"
+        f"Tare Wt: {entry.get('tare_wt', entry.get('second_wt',0)):,.0f} KG\n"
+        f"*Net Wt: {entry.get('net_wt',0):,.0f} KG*\n"
+        f"───────────────\n"
     )
     cash = entry.get("cash_paid", 0) or 0
     diesel = entry.get("diesel_paid", 0) or 0
     if cash > 0:
-        text += f"Cash Paid: {cash:,.0f}\n"
+        text += f"Cash Paid: \u20b9{cash:,.0f}\n"
     if diesel > 0:
-        text += f"Diesel Paid: {diesel:,.0f}\n"
+        text += f"Diesel Paid: \u20b9{diesel:,.0f}\n"
+    if cash > 0 or diesel > 0:
+        text += f"───────────────\n"
 
     results = {"whatsapp": [], "telegram": []}
     front_bytes = base64.b64decode(front_image_b64) if front_image_b64 else None
