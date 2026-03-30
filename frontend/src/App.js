@@ -2152,7 +2152,7 @@ function MainApp({ user, onLogout }) {
                 className={`px-4 py-1.5 rounded-t text-sm font-medium transition flex items-center gap-1 ${entriesSubTab === 'vehicle-weight' ? 'bg-amber-500/20 text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
                 data-testid="subtab-vehicle-weight"
               >
-                <Scale className="w-3.5 h-3.5" /> Vehicle Weight
+                <Scale className="w-3.5 h-3.5" /> Auto Vehicle Weight
               </button>
             </div>
 

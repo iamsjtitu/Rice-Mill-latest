@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.11.0";
+const APP_VERSION = "55.12.0";
 
 const CHANGELOG = [
+  {
+    version: "55.12.0",
+    date: "Mar 2026",
+    title: "v55.12.0 - Auto Vehicle Weight Redesign",
+    items: [
+      { type: "new", text: "Vehicle Weight ka naam 'Auto Vehicle Weight' kiya" },
+      { type: "new", text: "Keshav Computer jaisa layout: Left (Entry Form + Camera + Scale) | Right (Pending Vehicle List table)" },
+      { type: "new", text: "Completed entries alag section mein Show/Hide toggle ke saath" },
+    ]
+  },
   {
     version: "55.11.0",
     date: "Mar 2026",
