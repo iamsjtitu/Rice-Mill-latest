@@ -422,6 +422,15 @@ module.exports = function(database) {
     res.json({ success: true, entry });
   }));
 
+  router.get('/api/vehicle-weight/linked-rst', safeAsync(async (req, res) => {
+    const kmsYear = req.query.kms_year || '';
+    let entries = col('mill_entries');
+    if (kmsYear) entries = entries.filter(e => e.kms_year === kmsYear);
+    const linked = [...new Set(entries.map(e => parseInt(e.rst_no)).filter(n => !isNaN(n)))];
+    res.json({ linked_rst: linked });
+  }));
+
+
   // POST /api/vehicle-weight/send-manual - Manual send text + camera photos
   router.post('/api/vehicle-weight/send-manual', safeAsync(async (req, res) => {
     const text = req.body.text || '';

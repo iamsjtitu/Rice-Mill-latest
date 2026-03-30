@@ -350,6 +350,7 @@ export default function VehicleWeight({ filters }) {
   const [editDialog, setEditDialog] = useState({ open: false, entry: null });
   const [editForm, setEditForm] = useState({});
   const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
+  const [linkedRst, setLinkedRst] = useState(new Set());
   const scale = useLiveScale();
   const { wa } = useMessagingEnabled();
   const showConfirm = useConfirm();
@@ -411,10 +412,11 @@ export default function VehicleWeight({ filters }) {
       if (vwFilters.party_name) fp.append("party_name", vwFilters.party_name);
       if (vwFilters.farmer_name) fp.append("farmer_name", vwFilters.farmer_name);
       if (vwFilters.rst_no) fp.append("rst_no", vwFilters.rst_no);
-      const [eR, pR, nR] = await Promise.all([
+      const [eR, pR, nR, lR] = await Promise.all([
         axios.get(`${API}/vehicle-weight?${fp.toString()}`, { signal: ctrl.signal }),
         axios.get(`${API}/vehicle-weight/pending?kms_year=${kms}`, { signal: ctrl.signal }),
-        axios.get(`${API}/vehicle-weight/next-rst?kms_year=${kms}`, { signal: ctrl.signal })
+        axios.get(`${API}/vehicle-weight/next-rst?kms_year=${kms}`, { signal: ctrl.signal }),
+        axios.get(`${API}/vehicle-weight/linked-rst?kms_year=${kms}`, { signal: ctrl.signal })
       ]);
       setEntries(eR.data.entries || []);
       setVwTotalPages(eR.data.total_pages || 1);
@@ -422,6 +424,7 @@ export default function VehicleWeight({ filters }) {
       setVwPage(eR.data.page || 1);
       setPending(pR.data.pending || []);
       setNextRst(nR.data.next_rst || 1);
+      setLinkedRst(new Set(lR.data.linked_rst || []));
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Data fetch error"); }
     if (!ctrl.signal.aborted) setLoading(false);
   }, [kms, vwPage, vwFilters]);
@@ -1129,7 +1132,11 @@ export default function VehicleWeight({ filters }) {
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
                           {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-green-400 hover:text-green-600" onClick={() => handleWA(e)} data-testid={`vw-wa-${e.id}`} title="WhatsApp"><Send className="w-3 h-3" /></Button>}
                           {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-teal-400 hover:text-teal-600" onClick={() => handleGroup(e)} data-testid={`vw-group-${e.id}`} title="Group"><Users className="w-3 h-3" /></Button>}
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleDelete(e.id)} data-testid={`vw-del-${e.id}`} title="Delete"><Trash2 className="w-3 h-3" /></Button>
+                          {linkedRst.has(e.rst_no) ? (
+                            <span className="h-6 w-6 flex items-center justify-center text-green-500" title="Mill Entry done" data-testid={`vw-linked-${e.id}`}><CheckCircle className="w-4 h-4" /></span>
+                          ) : (
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleDelete(e.id)} data-testid={`vw-del-${e.id}`} title="Delete"><Trash2 className="w-3 h-3" /></Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1290,11 +1297,9 @@ export default function VehicleWeight({ filters }) {
               </div>
             </div>
 
-            {/* ── Photos Section (Outside slip border) ── */}
-            {(photoDialog.data.first_wt_front_img || photoDialog.data.first_wt_side_img || photoDialog.data.second_wt_front_img || photoDialog.data.second_wt_side_img) && (
+            {/* ── Photos Section (Always visible) ── */}
               <div className="space-y-3 mx-3 mb-3">
                 {/* 1st Weight Photos */}
-                {(photoDialog.data.first_wt_front_img || photoDialog.data.first_wt_side_img) && (
                   <div className="border border-blue-300 rounded p-2.5 bg-blue-50/30">
                     <div className="flex items-center justify-between mb-1.5">
                       <h3 className="text-blue-800 font-bold text-[11px] flex items-center gap-1"><Scale className="w-3 h-3" /> 1st Weight (Gross)</h3>
@@ -1315,10 +1320,8 @@ export default function VehicleWeight({ filters }) {
                       </div>
                     </div>
                   </div>
-                )}
 
                 {/* 2nd Weight Photos */}
-                {(photoDialog.data.second_wt_front_img || photoDialog.data.second_wt_side_img) && (
                   <div className="border border-green-300 rounded p-2.5 bg-green-50/30">
                     <div className="flex items-center justify-between mb-1.5">
                       <h3 className="text-green-800 font-bold text-[11px] flex items-center gap-1"><Scale className="w-3 h-3" /> 2nd Weight (Tare)</h3>
@@ -1339,9 +1342,7 @@ export default function VehicleWeight({ filters }) {
                       </div>
                     </div>
                   </div>
-                )}
               </div>
-            )}
             </>
           ) : null}
         </DialogContent>

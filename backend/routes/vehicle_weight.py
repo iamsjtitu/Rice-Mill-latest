@@ -308,6 +308,24 @@ async def get_by_rst(rst_no: int, kms_year: str = ""):
     return {"success": True, "entry": entry}
 
 
+@router.get("/vehicle-weight/linked-rst")
+async def get_linked_rst(kms_year: str = ""):
+    """Get RST numbers from Mill Entries that are linked to Vehicle Weight entries."""
+    query = {}
+    if kms_year:
+        query["kms_year"] = kms_year
+    # Get all RST numbers from mill_entries
+    entries = await db["mill_entries"].find(query, {"_id": 0, "rst_no": 1}).to_list(50000)
+    linked = set()
+    for e in entries:
+        r = e.get("rst_no", "")
+        if r and r.strip():
+            try: linked.add(int(r))
+            except: pass
+    return {"linked_rst": list(linked)}
+
+
+
 @router.post("/vehicle-weight/send-manual")
 async def send_manual_weight_msg(data: dict):
     """Manual send weight text + camera photos to WhatsApp/Telegram (no PDF)."""

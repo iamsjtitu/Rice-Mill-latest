@@ -74,6 +74,7 @@ import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import { useMessagingEnabled } from "./hooks/useMessagingEnabled";
 import Settings from "@/components/Settings";
 import VehicleWeight from "@/components/VehicleWeight";
+import AutoWeightEntries from "@/components/AutoWeightEntries";
 import PaginationBar from "@/components/PaginationBar";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -210,7 +211,7 @@ function MainApp({ user, onLogout }) {
   const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("entries"); // "entries", "dashboard", "payments", "milling", "settings"
-  const [entriesSubTab, setEntriesSubTab] = useState("mill-entries"); // "mill-entries" | "vehicle-weight"
+  const [entriesSubTab, setEntriesSubTab] = useState("mill-entries"); // "mill-entries" | "vehicle-weight" | "auto-weight-entries"
   const { wa, tg } = useMessagingEnabled();
   const [entryGroupDialogOpen, setEntryGroupDialogOpen] = useState(false);
   const [entryGroupText, setEntryGroupText] = useState("");
@@ -2173,10 +2174,19 @@ function MainApp({ user, onLogout }) {
               >
                 <Scale className="w-3.5 h-3.5" /> Auto Vehicle Weight
               </button>
+              <button
+                onClick={() => setEntriesSubTab("auto-weight-entries")}
+                className={`px-4 py-1.5 rounded-t text-sm font-medium transition flex items-center gap-1 ${entriesSubTab === 'auto-weight-entries' ? 'bg-amber-500/20 text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
+                data-testid="subtab-auto-weight-entries"
+              >
+                <CheckCircle className="w-3.5 h-3.5" /> Auto Weight Entries
+              </button>
             </div>
 
             {entriesSubTab === "vehicle-weight" ? (
               <VehicleWeight filters={filters} />
+            ) : entriesSubTab === "auto-weight-entries" ? (
+              <AutoWeightEntries filters={filters} />
             ) : (
             <>
             {/* Totals Summary */}
