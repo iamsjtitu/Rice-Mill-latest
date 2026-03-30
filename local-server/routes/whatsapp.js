@@ -9,7 +9,8 @@ module.exports = function(database) {
 // Upload local PDF to tmpfiles.org and get public URL
 function uploadPdfToTmpFiles(localPdfPath) {
   return new Promise((resolve) => {
-    const port = 8080;
+    // Step 1: Fetch PDF from local Express server
+    const port = (global.DESKTOP_API_PORT) || 9876;
     const localUrl = `http://127.0.0.1:${port}${localPdfPath}`;
     console.log('[WhatsApp] Fetching local PDF:', localUrl);
 
@@ -26,6 +27,7 @@ function uploadPdfToTmpFiles(localPdfPath) {
         console.log('[WhatsApp] PDF fetched, size:', pdfBuffer.length, 'bytes');
         if (pdfBuffer.length < 100) { resolve(''); return; }
 
+        // Step 2: Upload to tmpfiles.org
         const boundary = '----FormBoundary' + Date.now();
         const fileName = 'report_' + Date.now() + '.pdf';
         const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${fileName}"\r\nContent-Type: application/pdf\r\n\r\n`;
@@ -44,6 +46,8 @@ function uploadPdfToTmpFiles(localPdfPath) {
             try {
               const result = JSON.parse(data);
               if (result.status === 'success' && result.data && result.data.url) {
+                // Convert view URL to direct download URL
+                // http://tmpfiles.org/12345/file.pdf -> https://tmpfiles.org/dl/12345/file.pdf
                 const dlUrl = result.data.url.replace('http://tmpfiles.org/', 'https://tmpfiles.org/dl/');
                 console.log('[WhatsApp] tmpfiles.org upload OK:', dlUrl);
                 resolve(dlUrl);
@@ -66,7 +70,7 @@ function uploadPdfToTmpFiles(localPdfPath) {
 // Resolve pdf_url: if local/localhost, upload to tmpfiles.org; if already public, return as-is
 async function resolvePdfUrl(pdfUrl) {
   if (!pdfUrl) return '';
-  // Detect localhost/127.0.0.1 URLs (frontend sends full http://127.0.0.1:PORT/api/... URLs)
+  // Detect localhost/127.0.0.1 URLs (desktop sends full http://127.0.0.1:PORT/api/... URLs)
   if (pdfUrl.includes('127.0.0.1') || pdfUrl.includes('localhost')) {
     try {
       const u = new URL(pdfUrl);
@@ -140,7 +144,11 @@ router.get('/api/whatsapp/settings', safeAsync(async (req, res) => {
   res.json({
     api_key: config.api_key || '', country_code: config.country_code || '91',
     enabled: config.enabled || false, default_numbers: config.default_numbers || [],
-    group_id: config.group_id || '', api_key_masked: masked
+    group_id: config.group_id || '', api_key_masked: masked,
+    default_group_id: config.default_group_id || '',
+    default_group_name: config.default_group_name || '',
+    group_schedule_enabled: config.group_schedule_enabled || false,
+    group_schedule_time: config.group_schedule_time || ''
   });
 }));
 
@@ -157,7 +165,11 @@ router.put('/api/whatsapp/settings', safeAsync(async (req, res) => {
     setting_id: 'whatsapp_config', api_key: (req.body.api_key || '').trim(),
     country_code: (req.body.country_code || '91').trim(),
     enabled: !!req.body.api_key, default_numbers: defaultNumbers,
-    group_id: (req.body.group_id || '').trim()
+    group_id: (req.body.group_id || '').trim(),
+    default_group_id: (req.body.default_group_id || '').trim(),
+    default_group_name: (req.body.default_group_name || '').trim(),
+    group_schedule_enabled: !!req.body.group_schedule_enabled,
+    group_schedule_time: (req.body.group_schedule_time || '').trim()
   };
   if (idx >= 0) settings[idx] = config; else settings.push(config);
   // Use immediate save to prevent data loss from debounce
@@ -165,6 +177,75 @@ router.put('/api/whatsapp/settings', safeAsync(async (req, res) => {
   console.log('[WhatsApp] Settings saved:', JSON.stringify({ default_numbers: config.default_numbers, group_id: config.group_id }));
   res.json({ success: true, message: 'WhatsApp settings save ho gayi!' });
 }));
+
+// GET groups from 360Messenger
+router.get('/api/whatsapp/groups', safeAsync(async (req, res) => {
+  const config = getWaSettings();
+  const apiKey = config.api_key || '';
+  if (!apiKey) return res.json({ success: false, groups: [], error: 'WhatsApp API key set nahi hai.' });
+  try {
+    const result = await new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'api.360messenger.com', path: '/v2/groupChat/getGroupList', method: 'GET',
+        headers: { 'Authorization': `Bearer ${apiKey}` }
+      };
+      const req = https.request(options, (r) => {
+        let data = '';
+        r.on('data', c => data += c);
+        r.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch (e) { resolve({ success: false }); }
+        });
+      });
+      req.on('error', e => resolve({ success: false, message: e.message }));
+      req.setTimeout(30000, () => { req.destroy(); resolve({ success: false, message: 'Timeout' }); });
+      req.end();
+    });
+    if (result.success) {
+      const groups = (result.data && result.data.groups) || [];
+      return res.json({ success: true, groups });
+    }
+    res.json({ success: false, groups: [], error: result.message || 'Group list fetch fail' });
+  } catch (e) {
+    res.json({ success: false, groups: [], error: e.message });
+  }
+}));
+
+// Send message to WhatsApp group
+router.post('/api/whatsapp/send-group', safeAsync(async (req, res) => {
+  const groupId = req.body.group_id || '';
+  const text = req.body.text || '';
+  const mediaUrl = req.body.media_url || '';
+  if (!groupId) return res.status(400).json({ detail: 'Group ID required' });
+  if (!text && !mediaUrl) return res.status(400).json({ detail: 'Text ya media URL required' });
+  const config = getWaSettings();
+  if (!config.api_key) return res.json({ success: false, error: 'API key set nahi hai.' });
+
+  try {
+    const result = await new Promise((resolve) => {
+      const postData = JSON.stringify({ groupId, text, url: mediaUrl || undefined });
+      const options = {
+        hostname: 'api.360messenger.com', path: '/v2/sendGroup', method: 'POST',
+        headers: { 'Authorization': `Bearer ${config.api_key}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) }
+      };
+      const req = https.request(options, (r) => {
+        let data = '';
+        r.on('data', c => data += c);
+        r.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch (e) { resolve({ success: false }); }
+        });
+      });
+      req.on('error', e => resolve({ success: false, error: e.message }));
+      req.write(postData);
+      req.end();
+    });
+    res.json({ success: result.success || false, message: result.success ? 'Group message bhej diya!' : '', error: result.error || result.message || '' });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+}));
+
 
 // Test message
 router.post('/api/whatsapp/test', safeAsync(async (req, res) => {

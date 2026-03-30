@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.26.0";
+const APP_VERSION = "55.27.0";
 
 const CHANGELOG = [
+  {
+    version: "55.27.0",
+    date: "Mar 2026",
+    title: "v55.27.0 - WhatsApp Group Fix",
+    items: [
+      { type: "fix", text: "Desktop App mai WhatsApp Groups ab load ho rahe hain - /api/whatsapp/groups endpoint add kiya" },
+      { type: "fix", text: "WhatsApp Group send endpoint (/api/whatsapp/send-group) Desktop mai add kiya" },
+      { type: "fix", text: "Settings save mai group fields (default_group_id, schedule) ab properly save hote hain" },
+    ]
+  },
   {
     version: "55.26.0",
     date: "Mar 2026",
