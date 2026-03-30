@@ -325,6 +325,29 @@ async def get_linked_rst(kms_year: str = ""):
     return {"linked_rst": list(linked)}
 
 
+@router.get("/vehicle-weight/pending-count")
+async def get_pending_vw_count(kms_year: str = ""):
+    """Count VW entries that don't have a corresponding Mill Entry."""
+    vw_query = {"status": "completed"}
+    me_query = {}
+    if kms_year:
+        vw_query["kms_year"] = kms_year
+        me_query["kms_year"] = kms_year
+    # Get all VW RST numbers
+    vw_entries = await db["vehicle_weights"].find(vw_query, {"_id": 0, "rst_no": 1}).to_list(50000)
+    vw_rsts = set(e.get("rst_no") for e in vw_entries if e.get("rst_no"))
+    # Get all Mill Entry RST numbers
+    me_entries = await db["mill_entries"].find(me_query, {"_id": 0, "rst_no": 1}).to_list(50000)
+    linked = set()
+    for e in me_entries:
+        r = e.get("rst_no", "")
+        if r and r.strip():
+            try: linked.add(int(r))
+            except: pass
+    pending = vw_rsts - linked
+    return {"pending_count": len(pending), "total_vw": len(vw_rsts), "linked": len(linked & vw_rsts)}
+
+
 
 @router.post("/vehicle-weight/send-manual")
 async def send_manual_weight_msg(data: dict):

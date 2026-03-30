@@ -470,13 +470,8 @@ function MainApp({ user, onLogout }) {
   const fetchPendingVwCount = useCallback(async () => {
     try {
       const kms = filters.kms_year || '';
-      const [pR, lR] = await Promise.all([
-        axios.get(`${API}/vehicle-weight?kms_year=${kms}&status=completed&page=1&page_size=1`),
-        axios.get(`${API}/vehicle-weight/linked-rst?kms_year=${kms}`)
-      ]);
-      const totalVw = pR.data.total || 0;
-      const linkedCount = (lR.data.linked_rst || []).length;
-      setPendingVwCount(Math.max(0, totalVw - linkedCount));
+      const r = await axios.get(`${API}/vehicle-weight/pending-count?kms_year=${kms}`);
+      setPendingVwCount(r.data.pending_count || 0);
     } catch { /* ignore */ }
   }, [filters.kms_year]);
   useEffect(() => { fetchPendingVwCount(); }, [fetchPendingVwCount]);
@@ -896,6 +891,7 @@ function MainApp({ user, onLogout }) {
       fetchEntries();
       fetchTotals();
       fetchSuggestions();
+      fetchPendingVwCount();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Entry save karne mein error");
       console.error(error);
@@ -954,6 +950,7 @@ function MainApp({ user, onLogout }) {
         toast.success("Entry delete ho gayi!");
         fetchEntries();
         fetchTotals();
+        fetchPendingVwCount();
       } catch (error) {
         toast.error(error.response?.data?.detail || "Delete karne mein error");
         console.error(error);

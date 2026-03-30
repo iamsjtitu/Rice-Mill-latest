@@ -425,6 +425,19 @@ module.exports = function(database) {
   }));
 
 
+  router.get('/api/vehicle-weight/pending-count', safeAsync(async (req, res) => {
+    const kmsYear = req.query.kms_year || '';
+    let vwEntries = col('vehicle_weights').filter(w => w.status === 'completed');
+    let meEntries = col('mill_entries');
+    if (kmsYear) { vwEntries = vwEntries.filter(w => w.kms_year === kmsYear); meEntries = meEntries.filter(e => e.kms_year === kmsYear); }
+    const vwRsts = new Set(vwEntries.map(w => w.rst_no).filter(Boolean));
+    const linked = new Set(meEntries.map(e => parseInt(e.rst_no)).filter(n => !isNaN(n)));
+    let pendingCount = 0;
+    vwRsts.forEach(r => { if (!linked.has(r)) pendingCount++; });
+    res.json({ pending_count: pendingCount, total_vw: vwRsts.size, linked: [...vwRsts].filter(r => linked.has(r)).length });
+  }));
+
+
   // POST /api/vehicle-weight/send-manual - Manual send text + camera photos
   router.post('/api/vehicle-weight/send-manual', safeAsync(async (req, res) => {
     const text = req.body.text || '';
