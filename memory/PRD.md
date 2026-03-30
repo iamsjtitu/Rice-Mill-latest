@@ -1,6 +1,6 @@
 # Mill Entry System - PRD
 
-## Current Version: v55.39.0
+## Current Version: v55.40.0
 
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Features double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, and automated hardware integration for vehicle weight capture (Weight Machine via Serial Port + IP/Web Camera feed).
@@ -12,54 +12,32 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - **Hardware**: Serial Port (Electron) for Weighbridge, IP Cameras via RTSP/MJPEG proxy
 
 ## What's Been Implemented (Latest)
-- **v55.39.0**:
-  - Dual-photo WhatsApp/Telegram: 1st Weight + 2nd Weight camera photos saved to disk, sent via auto-notify
-  - Desktop-app auto-notify reads images from disk (loadImageB64) instead of req.body
-  - Local-server: full image infrastructure added (saveImage, loadImageB64, imgDir)
-  - Image Auto-Cleanup: configurable days setting in Camera tab, auto-deletes old images every 24h
-  - Manual "Abhi Clean Karo" button for immediate cleanup
-  - Performance fix: AbortController on API calls prevents hang on rapid tab switching
-  - Camera MJPEG stream cleanup on component unmount
-  - All three backends have identical image save/load/auto-notify/cleanup logic
+- **v55.40.0**:
+  - Photo View Dialog: Eye icon in completed entries → shows 1st Weight (Front/Side) + 2nd Weight (Front/Side) photos
+  - Separate VW Messaging Group: WhatsApp Group ID + Telegram Chat IDs config specifically for Auto Vehicle Weight
+  - WhatsApp photos: media_url support in auto-notify (web backend sends photo URLs)
+  - Image serving endpoint: GET /api/vehicle-weight/image/{filename}
+  - Photos endpoint: GET /api/vehicle-weight/{entry_id}/photos (base64)
+  - Fixed sendWaToGroup to use correct /v2/sendGroup API endpoint
+  - All three backends fully synced
+- **v55.39.0**: Dual-photo auto-notify, Image auto-cleanup, Performance fix (AbortController)
 - **v55.38.0**: IP Camera auto-start, Download Slip Party Copy only
-- **v55.37.0**: RTSP Camera proxy (ffmpeg-static bundled), Delete Dialog fix, WhatsApp format fix
-- **v55.36.0**: IP Camera setup, PDF coordinate fix, WhatsApp toggle OFF fix
-- **v55.23.0**: Electron Serial Port for real weighbridge hardware
-- **v55.22.0**: Edit dialog, A5 Print (2 copies), manual WA/Group
-
-## Key Features
-- Triple Backend (Python FastAPI + Electron/Express + Local Express)
-- Double-entry accounting, Cash Book, Party Ledgers
-- Auto Vehicle Weight: real serial port (Electron) / simulator (web), 2 cameras, auto-messaging
-- Dual photo capture: Front + Side cameras on both 1st and 2nd weight
-- Image Auto-Cleanup: configurable days setting, periodic + manual cleanup
-- Edit, Print A5 (Party+Customer copy), Download (Party only), WA, Group, Delete actions
-- RST auto-fill between Vehicle Weight > Mill Entries
-- Weighbridge Configuration in Settings (COM port, baud rate, parity, stop bits)
-- WhatsApp (360Messenger) & Telegram Bot integration for messaging
-- RTSP IP Camera streaming via ffmpeg-static proxy
+- **v55.37.0**: RTSP Camera proxy (ffmpeg-static), Delete Dialog fix
+- **v55.36.0**: IP Camera setup, PDF coordinate fix
 
 ## Key DB Schema
-- `vehicle_weights`: {id, rst_no, date, kms_year, vehicle_no, party_name, farmer_name, product, trans_type, j_pkts, p_pkts, tot_pkts, first_wt, first_wt_time, second_wt, second_wt_time, net_wt, gross_wt, tare_wt, remark, cash_paid, diesel_paid, status, first_wt_front_img, first_wt_side_img, second_wt_front_img, second_wt_side_img, created_at}
-- `settings`: {key: "image_cleanup", days: 30} - Image auto-cleanup days
-- `cash_transactions`: {id, date, account, txn_type, category, party_type, amount, linked_payment_id}
-- `private_paddy`: {id, date, party_name, mandi_name, total_amount, paid_amount, balance}
+- `vehicle_weights`: {id, rst_no, date, kms_year, vehicle_no, party_name, farmer_name, product, trans_type, first_wt, second_wt, net_wt, gross_wt, tare_wt, first_wt_front_img, first_wt_side_img, second_wt_front_img, second_wt_side_img, ...}
+- `settings.auto_vw_messaging`: {key, enabled, wa_group_id, wa_group_name, tg_chat_ids}
+- `settings.image_cleanup`: {key, days}
 
 ## Key API Endpoints
-- `/api/vehicle-weight` (GET/POST) - List/Create
-- `/api/vehicle-weight/pending` (GET)
-- `/api/vehicle-weight/next-rst` (GET)
-- `/api/vehicle-weight/auto-notify-setting` (GET/PUT)
-- `/api/vehicle-weight/auto-notify` (POST) - Sends saved photos from disk
-- `/api/vehicle-weight/by-rst/:rst_no` (GET)
-- `/api/vehicle-weight/send-manual` (POST)
-- `/api/vehicle-weight/:id/second-weight` (PUT) - Saves 2nd weight photos
-- `/api/vehicle-weight/:id/edit` (PUT)
-- `/api/vehicle-weight/:id/slip-pdf` (GET)
-- `/api/vehicle-weight/:id` (DELETE)
-- `/api/camera-stream` (GET) - RTSP to MJPEG proxy
-- `/api/settings/image-cleanup` (GET/PUT) - Image cleanup days setting
-- `/api/settings/image-cleanup/run` (POST) - Manual cleanup trigger
+- `/api/vehicle-weight` (GET/POST/DELETE)
+- `/api/vehicle-weight/{id}/second-weight` (PUT)
+- `/api/vehicle-weight/{entry_id}/photos` (GET) - Base64 photos
+- `/api/vehicle-weight/image/{filename}` (GET) - Raw image file
+- `/api/vehicle-weight/auto-notify-setting` (GET/PUT) - Includes wa_group_id, tg_chat_ids
+- `/api/vehicle-weight/auto-notify` (POST) - Uses VW-specific groups
+- `/api/settings/image-cleanup` (GET/PUT/POST run)
 
 ## Prioritized Backlog
 ### P1 - Upcoming

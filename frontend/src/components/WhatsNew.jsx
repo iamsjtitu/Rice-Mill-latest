@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.39.0";
+const APP_VERSION = "55.40.0";
 
 const CHANGELOG = [
+  {
+    version: "55.40.0",
+    date: "Mar 2026",
+    title: "v55.40.0 - Photo View + VW Messaging Group",
+    items: [
+      { type: "new", text: "Photo View: Eye icon se entry ki camera photos dekhein (1st Wt Front/Side + 2nd Wt Front/Side)" },
+      { type: "new", text: "VW ke liye alag WhatsApp Group aur Telegram Chat IDs set karein Settings mai" },
+      { type: "new", text: "WhatsApp mai ab photo bhi jayega (media_url se) - web version mai" },
+      { type: "fix", text: "sendWaToGroup ab sahi sendGroup API use karta hai" },
+    ]
+  },
   {
     version: "55.39.0",
     date: "Mar 2026",
