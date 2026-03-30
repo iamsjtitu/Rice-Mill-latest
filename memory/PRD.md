@@ -1,6 +1,6 @@
 # Mill Entry System - PRD
 
-## Current Version: v55.25.0
+## Current Version: v55.26.0
 
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Features double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, and automated hardware integration for vehicle weight capture.

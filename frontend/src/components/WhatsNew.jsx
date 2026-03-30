@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.25.0";
+const APP_VERSION = "55.26.0";
 
 const CHANGELOG = [
+  {
+    version: "55.26.0",
+    date: "Mar 2026",
+    title: "v55.26.0 - RST Duplicate Check + Download Fix",
+    items: [
+      { type: "fix", text: "Duplicate RST number check - agar RST pehle se hai toh error dikhata hai" },
+      { type: "fix", text: "Download weight slip mai ab sirf Party Copy aayegi (2 copy sirf print mai)" },
+      { type: "fix", text: "WhatsApp/Group icons ab setting OFF hone par hide ho jaate hain" },
+    ]
+  },
   {
     version: "55.25.0",
     date: "Mar 2026",

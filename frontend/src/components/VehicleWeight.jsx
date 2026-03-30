@@ -205,7 +205,7 @@ export default function VehicleWeight({ filters }) {
   const [editDialog, setEditDialog] = useState({ open: false, entry: null });
   const [editForm, setEditForm] = useState({});
   const scale = useLiveScale();
-  const wa = useMessagingEnabled();
+  const { wa } = useMessagingEnabled();
   const frontCamRef = useRef(null);
   const sideCamRef = useRef(null);
 
@@ -362,7 +362,7 @@ export default function VehicleWeight({ filters }) {
     return t;
   };
 
-  const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf`; _isElectron ? downloadFile(u, `Slip_${e.rst_no}.pdf`) : window.open(u, "_blank"); };
+  const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf?party_only=1`; _isElectron ? downloadFile(u, `Slip_${e.rst_no}.pdf`) : window.open(u, "_blank"); };
 
   const handleWA = async (e) => {
     try {

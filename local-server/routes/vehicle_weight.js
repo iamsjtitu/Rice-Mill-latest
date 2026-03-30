@@ -381,6 +381,12 @@ module.exports = function(database) {
     let rstNo;
     if (data.rst_no && parseInt(data.rst_no) > 0) {
       rstNo = parseInt(data.rst_no);
+      // Check duplicate RST
+      const weights = col('vehicle_weights');
+      const dup = kmsYear
+        ? weights.find(w => w.rst_no === rstNo && w.kms_year === kmsYear)
+        : weights.find(w => w.rst_no === rstNo);
+      if (dup) return res.status(400).json({ detail: `RST #${rstNo} already exists! Duplicate RST number.` });
     } else {
       rstNo = getNextRst(kmsYear);
     }
@@ -610,19 +616,25 @@ module.exports = function(database) {
       doc.font(fn).fontSize(4.5).fillColor('#bbb').text(`${company} | Computer Generated`, x, topY - bh + 4, { width: PW, align: 'center' });
     }
 
-    // Draw 2 copies
+    // Draw copies based on mode
+    const partyOnly = req.query.party_only === '1';
     const topMargin = 5 * mm;
     const copy1Top = H - topMargin;
-    drawCopy(copy1Top, 'PARTY COPY', false);
 
-    // Cut line
-    const cutY = copy1Top - 93 * mm - 4 * mm;
-    doc.lineWidth(0.8).strokeColor('#aaa').dash(3, { space: 3 }).moveTo(LM, cutY).lineTo(W - RM, cutY).stroke();
-    doc.undash();
-    doc.font(fn).fontSize(5).fillColor('#aaa').text('- - - CUT HERE - - -', LM, cutY + 1, { width: PW, align: 'center' });
+    if (partyOnly) {
+      drawCopy(copy1Top, 'PARTY COPY', false);
+    } else {
+      drawCopy(copy1Top, 'PARTY COPY', false);
 
-    const copy2Top = cutY - 3 * mm;
-    drawCopy(copy2Top, 'CUSTOMER COPY', true);
+      // Cut line
+      const cutY = copy1Top - 93 * mm - 4 * mm;
+      doc.lineWidth(0.8).strokeColor('#aaa').dash(3, { space: 3 }).moveTo(LM, cutY).lineTo(W - RM, cutY).stroke();
+      doc.undash();
+      doc.font(fn).fontSize(5).fillColor('#aaa').text('- - - CUT HERE - - -', LM, cutY + 1, { width: PW, align: 'center' });
+
+      const copy2Top = cutY - 3 * mm;
+      drawCopy(copy2Top, 'CUSTOMER COPY', true);
+    }
 
     doc.end();
   }));

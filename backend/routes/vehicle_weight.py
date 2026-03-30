@@ -236,6 +236,13 @@ async def create_weight_entry(data: dict):
     custom_rst = data.get("rst_no")
     if custom_rst and int(custom_rst) > 0:
         rst_no = int(custom_rst)
+        # Check for duplicate RST in same kms_year
+        dup_query = {"rst_no": rst_no}
+        if kms_year:
+            dup_query["kms_year"] = kms_year
+        existing = await db["vehicle_weights"].find_one(dup_query)
+        if existing:
+            raise HTTPException(status_code=400, detail=f"RST #{rst_no} already exists! Duplicate RST number.")
     else:
         rst_no = await _next_rst(kms_year)
 
@@ -340,8 +347,8 @@ async def edit_weight_entry(entry_id: str, data: dict):
 
 
 @router.get("/vehicle-weight/{entry_id}/slip-pdf")
-async def weight_slip_pdf(entry_id: str):
-    """Generate weight slip PDF - A5 portrait, 2 copies (Party + Customer) on single page."""
+async def weight_slip_pdf(entry_id: str, party_only: int = 0):
+    """Generate weight slip PDF - A5 portrait. party_only=1 for single Party Copy (download), 0 for 2 copies (print)."""
     from reportlab.lib.pagesizes import A5
     from reportlab.lib.units import mm
     from reportlab.lib import colors
@@ -515,24 +522,30 @@ async def weight_slip_pdf(entry_id: str):
         c.setFillColor(colors.HexColor("#bbb"))
         c.drawCentredString(W/2, y - bh + 1.5*mm, f"{company} | Computer Generated")
 
-    # Draw 2 copies
+    # Draw copies based on mode
     top_margin = 5*mm
     copy1_top = H - top_margin
-    draw_copy(c, copy1_top, "PARTY COPY", False)
 
-    # Cut line
-    cut_y = copy1_top - 93*mm - 4*mm
-    c.setStrokeColor(colors.HexColor("#aaa"))
-    c.setDash(3, 3)
-    c.setLineWidth(0.8)
-    c.line(LM, cut_y, W - RM, cut_y)
-    c.setDash()
-    c.setFont("Helvetica", 5)
-    c.setFillColor(colors.HexColor("#aaa"))
-    c.drawCentredString(W/2, cut_y + 1, "- - - CUT HERE - - -")
+    if party_only:
+        # Single Party Copy - centered vertically on A5
+        draw_copy(c, copy1_top, "PARTY COPY", False)
+    else:
+        # 2 copies: Party + Customer
+        draw_copy(c, copy1_top, "PARTY COPY", False)
 
-    copy2_top = cut_y - 3*mm
-    draw_copy(c, copy2_top, "CUSTOMER COPY", True)
+        # Cut line
+        cut_y = copy1_top - 93*mm - 4*mm
+        c.setStrokeColor(colors.HexColor("#aaa"))
+        c.setDash(3, 3)
+        c.setLineWidth(0.8)
+        c.line(LM, cut_y, W - RM, cut_y)
+        c.setDash()
+        c.setFont("Helvetica", 5)
+        c.setFillColor(colors.HexColor("#aaa"))
+        c.drawCentredString(W/2, cut_y + 1, "- - - CUT HERE - - -")
+
+        copy2_top = cut_y - 3*mm
+        draw_copy(c, copy2_top, "CUSTOMER COPY", True)
 
     c.save()
     buf.seek(0)
