@@ -3,9 +3,30 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.18.0";
+const APP_VERSION = "55.23.0";
 
 const CHANGELOG = [
+  {
+    version: "55.23.0",
+    date: "Mar 2026",
+    title: "v55.23.0 - Real Weighbridge + Edit + Print + Auto Messaging",
+    items: [
+      { type: "new", text: "Electron Serial Port - Real weighbridge hardware (Keshav Computer) COM4, 2400 baud" },
+      { type: "new", text: "Settings mai Weighbridge Configuration - COM Port, Baud Rate, Auto Connect" },
+      { type: "new", text: "Edit button - Vehicle, Party, Product, Pkts, Cash, Diesel edit kar sakte hai" },
+      { type: "new", text: "A5 Print - 2 copies: Party Copy + Customer Copy (Driver/Authorized Signature)" },
+      { type: "new", text: "Auto Messaging - Weight complete hote hi WhatsApp + Telegram auto message + camera photos" },
+      { type: "new", text: "Settings ON/OFF toggle for Auto Vehicle Weight Messaging" },
+      { type: "new", text: "Manual WA/Group - Complete text (RST, Vehicle, Party, Gross/Tare/Net, Cash, Diesel) + camera photos, no PDF" },
+      { type: "new", text: "2 Cameras - Front View + Side View" },
+      { type: "new", text: "White theme - poora Auto Vehicle Weight page white theme match karta hai" },
+      { type: "new", text: "Vehicle No AutoSuggest - pehle use kiye hue vehicles suggest hote hai" },
+      { type: "new", text: "RST number editable + auto-fill, Delete option pending list mai" },
+      { type: "new", text: "Scale auto-connect - Simulate button hataya, weight stable hone par STABLE badge" },
+      { type: "fix", text: "Cash/Diesel second weight capture mai save hota hai ab" },
+      { type: "fix", text: "Vehicle Weight se truck payment/cash nahi banta - sirf Entries se save karne par" },
+    ]
+  },
   {
     version: "55.18.0",
     date: "Mar 2026",
