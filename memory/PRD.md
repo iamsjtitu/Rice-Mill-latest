@@ -22,12 +22,17 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - **Default Today's Date** (Mar 2026): Mill Entries, Cash Book, and Vehicle Weight now default to today's date only. Empty state messages in Hindi. Massive load reduction.
 - **Vehicle Weight Filters** (Mar 2026): New filter bar (RST No, Date From/To, Vehicle, Party, Mandi). Excel and PDF bulk export buttons added.
 - **Triple Backend Parity**: All filter and export changes replicated to desktop-app and local-server JS backends.
+- **Auto Weight Entries Subtab** (Mar 2026): New subtab showing last 7 days VW entries, 150/page, filter bar, Excel/PDF export, Status column (Pending/Checkmark).
+- **VW Checkmark Logic** (Mar 2026): VW row shows green checkmark instead of delete when Mill Entry exists with same RST.
+- **Photo Dialog Fix** (Mar 2026): Photo sections always visible with "No Photo" placeholders.
 
 ## Key API Changes
-- `/api/entries?page=1&page_size=200` → Paginated mill entries
-- `/api/cash-book?page=1&page_size=200` → Paginated cash transactions
-- `/api/vehicle-weight?status=completed&page=1&page_size=200` → Paginated vehicle weights
-- `page_size=0` → Returns all data (no pagination)
+- `/api/entries?page=1&page_size=200` - Paginated mill entries
+- `/api/cash-book?page=1&page_size=200` - Paginated cash transactions
+- `/api/vehicle-weight?status=completed&date_from=&date_to=&vehicle_no=&party_name=&farmer_name=&rst_no=` - Filtered vehicle weights
+- `/api/vehicle-weight/export/excel` and `/api/vehicle-weight/export/pdf` - Bulk export
+- `/api/vehicle-weight/linked-rst?kms_year=` - Get RSTs linked to Mill Entries
+- `page_size=0` - Returns all data
 
 ## Scalability Status
 | Component | Status | Capacity |
