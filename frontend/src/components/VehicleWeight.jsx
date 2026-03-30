@@ -220,7 +220,11 @@ export default function VehicleWeight({ filters }) {
   const handleSaveSecondWt = async () => {
     if (!secondWtValue || Number(secondWtValue) <= 0) { toast.error("Second Weight daalen"); return; }
     try {
-      const r = await axios.put(`${API}/vehicle-weight/${secondWtMode.id}/second-weight`, { second_wt: secondWtValue });
+      const r = await axios.put(`${API}/vehicle-weight/${secondWtMode.id}/second-weight`, {
+        second_wt: secondWtValue,
+        cash_paid: form.cash_paid || "0",
+        diesel_paid: form.diesel_paid || "0"
+      });
       if (r.data.success) { toast.success(r.data.message); clearSecondWtMode(); fetchData(); }
     } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
   };

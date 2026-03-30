@@ -105,7 +105,7 @@ async def create_weight_entry(data: dict):
 
 @router.put("/vehicle-weight/{entry_id}/second-weight")
 async def update_second_weight(entry_id: str, data: dict):
-    """Update second weight and calculate net weight."""
+    """Update second weight, cash/diesel and calculate net weight."""
     entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -116,16 +116,23 @@ async def update_second_weight(entry_id: str, data: dict):
     gross_wt = max(first_wt, second_wt)
     tare_wt = min(first_wt, second_wt)
 
+    update_fields = {
+        "second_wt": second_wt,
+        "second_wt_time": datetime.now(timezone.utc).isoformat(),
+        "net_wt": net_wt,
+        "gross_wt": gross_wt,
+        "tare_wt": tare_wt,
+        "status": "completed"
+    }
+    # Update cash/diesel if provided during second weight capture
+    if "cash_paid" in data:
+        update_fields["cash_paid"] = float(data.get("cash_paid", 0) or 0)
+    if "diesel_paid" in data:
+        update_fields["diesel_paid"] = float(data.get("diesel_paid", 0) or 0)
+
     await db["vehicle_weights"].update_one(
         {"id": entry_id},
-        {"$set": {
-            "second_wt": second_wt,
-            "second_wt_time": datetime.now(timezone.utc).isoformat(),
-            "net_wt": net_wt,
-            "gross_wt": gross_wt,
-            "tare_wt": tare_wt,
-            "status": "completed"
-        }}
+        {"$set": update_fields}
     )
 
     updated = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
