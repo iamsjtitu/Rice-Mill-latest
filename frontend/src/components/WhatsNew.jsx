@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.42.0";
+const APP_VERSION = "55.43.0";
 
 const CHANGELOG = [
+  {
+    version: "55.43.0",
+    date: "Mar 2026",
+    title: "v55.43.0 - Critical Bug Fix + Branding Exports",
+    items: [
+      { type: "fix", text: "CRITICAL: Desktop app crash fix - Vehicle Weight, Dashboard, Payments, Exports sab kaam kar rahe hain" },
+      { type: "fix", text: "CRITICAL: vw_images folder permission error fix - ab Program Files mai bhi crash nahi hoga" },
+      { type: "new", text: "Custom Branding: Settings mai add kiye gaye custom fields (jaise 'ॐ अर्हं नमः', GST) ab Vehicle Weight Print Slip, PDF, Excel sab mai dikhte hain" },
+      { type: "fix", text: "Branding fix teeno backends mai - Web, Desktop, Local Server sab sync" },
+    ]
+  },
   {
     version: "55.42.0",
     date: "Mar 2026",

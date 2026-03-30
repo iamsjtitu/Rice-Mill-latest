@@ -7,7 +7,7 @@ module.exports = function(database) {
 
   // ===== ENTRIES CRUD =====
   router.get('/api/entries', safeSync(async (req, res) => {
-    res.json(database.getEntries(req.query));
+    res.json(database.getEntriesPaginated(req.query));
   }));
 
   router.get('/api/entries/:id', safeSync(async (req, res) => {
