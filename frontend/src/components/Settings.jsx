@@ -13,7 +13,7 @@ import {
 import {
   Trash2, Plus, Calculator, RefreshCw, Key, FileText,
   AlertCircle, HardDrive, ShieldCheck, Send, Package, Scale,
-  Camera, CameraOff, Eye, EyeOff, Wifi,
+  Camera, CameraOff, Eye, EyeOff, Wifi, CheckCircle,
 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 
@@ -955,13 +955,36 @@ function MessagingTab() {
 // ---- Auto Vehicle Weight Messaging Card ----
 function AutoVWMessagingCard() {
   const [enabled, setEnabled] = useState(false);
+  const [waGroupId, setWaGroupId] = useState('');
+  const [waGroupName, setWaGroupName] = useState('');
+  const [tgChatIds, setTgChatIds] = useState([]);
+  const [newTgName, setNewTgName] = useState('');
+  const [newTgChatId, setNewTgChatId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [waGroups, setWaGroups] = useState([]);
+  const [waGroupsLoading, setWaGroupsLoading] = useState(false);
 
   useEffect(() => {
     axios.get(`${API}/vehicle-weight/auto-notify-setting`)
-      .then(r => { setEnabled(r.data.enabled || false); setLoading(false); })
+      .then(r => {
+        setEnabled(r.data.enabled || false);
+        setWaGroupId(r.data.wa_group_id || '');
+        setWaGroupName(r.data.wa_group_name || '');
+        setTgChatIds(r.data.tg_chat_ids || []);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
+
+  const fetchWaGroups = async () => {
+    setWaGroupsLoading(true);
+    try {
+      const res = await axios.get(`${API}/whatsapp/groups`);
+      if (res.data.success) setWaGroups(res.data.groups || []);
+    } catch {}
+    setWaGroupsLoading(false);
+  };
 
   const toggle = async () => {
     const newVal = !enabled;
@@ -970,6 +993,30 @@ function AutoVWMessagingCard() {
       await axios.put(`${API}/vehicle-weight/auto-notify-setting`, { enabled: newVal });
       toast.success(newVal ? "Auto VW Messaging ON" : "Auto VW Messaging OFF");
     } catch { toast.error("Setting save error"); setEnabled(!newVal); }
+  };
+
+  const saveGroupConfig = async () => {
+    setSaving(true);
+    try {
+      await axios.put(`${API}/vehicle-weight/auto-notify-setting`, {
+        wa_group_id: waGroupId,
+        wa_group_name: waGroupName,
+        tg_chat_ids: tgChatIds,
+      });
+      toast.success("VW Messaging group config save ho gaya!");
+    } catch { toast.error("Save error"); }
+    setSaving(false);
+  };
+
+  const addTgChatId = () => {
+    if (!newTgChatId.trim()) return;
+    setTgChatIds(prev => [...prev, { name: newTgName.trim() || `Chat ${prev.length + 1}`, chat_id: newTgChatId.trim() }]);
+    setNewTgName('');
+    setNewTgChatId('');
+  };
+
+  const removeTgChatId = (idx) => {
+    setTgChatIds(prev => prev.filter((_, i) => i !== idx));
   };
 
   return (
@@ -992,15 +1039,95 @@ function AutoVWMessagingCard() {
         </div>
         <p className="text-slate-400 text-sm mt-1">
           {enabled
-            ? 'Weight complete hote hi WhatsApp + Telegram par auto message + camera images jayega.'
-            : 'OFF hai — weight complete hone par koi auto message nahi jayega. ON karne ke baad WhatsApp/Telegram setup zaroori hai.'}
+            ? 'Weight complete hote hi WhatsApp Group + Telegram par auto message + camera photos jayega.'
+            : 'OFF hai — weight complete hone par koi auto message nahi jayega.'}
         </p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/* WhatsApp Group for VW */}
+        <div className="space-y-2">
+          <Label className="text-green-400 text-sm font-bold">WhatsApp Group (VW ke liye alag)</Label>
+          <div className="flex gap-2">
+            <Input
+              value={waGroupId}
+              onChange={e => setWaGroupId(e.target.value)}
+              placeholder="WhatsApp Group ID"
+              className="bg-slate-900 border-slate-600 text-white text-sm flex-1"
+              data-testid="vw-wa-group-id"
+            />
+            <Button size="sm" onClick={fetchWaGroups} disabled={waGroupsLoading}
+              className="bg-green-700 hover:bg-green-600 text-white text-xs" data-testid="vw-fetch-wa-groups">
+              {waGroupsLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Load Groups'}
+            </Button>
+          </div>
+          {waGroupName && <p className="text-green-400 text-xs">Selected: {waGroupName}</p>}
+          {waGroups.length > 0 && (
+            <div className="max-h-32 overflow-y-auto space-y-1 bg-slate-900/50 rounded p-2">
+              {waGroups.map((g, i) => (
+                <div key={i}
+                  className={`text-xs p-1.5 rounded cursor-pointer ${waGroupId === g.id ? 'bg-green-900/50 text-green-300 border border-green-600' : 'text-slate-300 hover:bg-slate-700'}`}
+                  onClick={() => { setWaGroupId(g.id); setWaGroupName(g.name || g.id); }}
+                  data-testid={`vw-wa-group-option-${i}`}>
+                  {g.name || g.id}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-slate-500 text-xs">Ye group set nahi kiya toh default WhatsApp numbers mai jayega.</p>
+        </div>
+
+        {/* Telegram Group for VW */}
+        <div className="space-y-2">
+          <Label className="text-blue-400 text-sm font-bold">Telegram Chat IDs (VW ke liye alag)</Label>
+          {tgChatIds.length > 0 && (
+            <div className="space-y-1">
+              {tgChatIds.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-slate-900/50 p-2 rounded text-xs">
+                  <span className="text-blue-300 flex-1">{item.name}</span>
+                  <span className="text-slate-400 font-mono">{item.chat_id}</span>
+                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400 hover:text-red-600"
+                    onClick={() => removeTgChatId(idx)} data-testid={`vw-tg-remove-${idx}`}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Input
+              value={newTgName}
+              onChange={e => setNewTgName(e.target.value)}
+              placeholder="Name"
+              className="bg-slate-900 border-slate-600 text-white text-sm w-1/3"
+              data-testid="vw-tg-new-name"
+            />
+            <Input
+              value={newTgChatId}
+              onChange={e => setNewTgChatId(e.target.value)}
+              placeholder="Chat ID (e.g. -1001234567890)"
+              className="bg-slate-900 border-slate-600 text-white text-sm flex-1"
+              data-testid="vw-tg-new-chatid"
+            />
+            <Button size="sm" onClick={addTgChatId}
+              className="bg-blue-700 hover:bg-blue-600 text-white text-xs" data-testid="vw-tg-add-btn">
+              <Plus className="w-3 h-3" />
+            </Button>
+          </div>
+          <p className="text-slate-500 text-xs">Ye set nahi kiya toh default Telegram config mai jayega. Bot Token same rahega jo upar set hai.</p>
+        </div>
+
+        {/* Save Button */}
+        <Button onClick={saveGroupConfig} disabled={saving}
+          className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold" data-testid="vw-save-group-config">
+          {saving ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+          Save VW Group Config
+        </Button>
+
         <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600 text-xs text-slate-400 space-y-1">
-          <p>* Jab second weight capture hota hai, auto message jayega with details</p>
-          <p>* Camera ON hai toh Front View + Side View image bhi attach hogi</p>
-          <p>* WhatsApp numbers aur Telegram Chat IDs upar configure karein</p>
+          <p>* Jab second weight capture hota hai, auto message + camera photos jayega</p>
+          <p>* WhatsApp Group set hai toh usmai jayega, nahi toh default numbers mai</p>
+          <p>* Telegram Chat IDs set hai toh usmai jayega, nahi toh default config mai</p>
+          <p>* Photos: 1st Weight Front/Side + 2nd Weight Front/Side (Telegram mai photo, WhatsApp mai text + photo URL)</p>
         </div>
       </CardContent>
     </Card>

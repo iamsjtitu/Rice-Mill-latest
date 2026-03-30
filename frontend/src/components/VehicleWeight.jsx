@@ -344,6 +344,7 @@ export default function VehicleWeight({ filters }) {
   const [autoNotify, setAutoNotify] = useState(false);
   const [editDialog, setEditDialog] = useState({ open: false, entry: null });
   const [editForm, setEditForm] = useState({});
+  const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
   const scale = useLiveScale();
   const { wa } = useMessagingEnabled();
   const showConfirm = useConfirm();
@@ -553,6 +554,18 @@ export default function VehicleWeight({ filters }) {
       diesel_paid: entry.diesel_paid || ""
     });
     setEditDialog({ open: true, entry });
+  };
+
+  // ── View Photos ──
+  const openPhotos = async (entry) => {
+    setPhotoDialog({ open: true, data: null, loading: true });
+    try {
+      const r = await axios.get(`${API}/vehicle-weight/${entry.id}/photos`);
+      setPhotoDialog({ open: true, data: r.data, loading: false });
+    } catch {
+      toast.error("Photos load nahi hue");
+      setPhotoDialog({ open: false, data: null, loading: false });
+    }
   };
   const saveEdit = async () => {
     try {
@@ -1033,6 +1046,7 @@ export default function VehicleWeight({ filters }) {
                       <TableCell className="text-right text-orange-700 text-xs py-2 px-3 font-mono">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-cyan-600" onClick={() => openPhotos(e)} data-testid={`vw-photos-${e.id}`} title="View Photos"><Eye className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`vw-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`vw-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
@@ -1108,6 +1122,74 @@ export default function VehicleWeight({ filters }) {
               <CheckCircle className="w-4 h-4 mr-2" /> Save Changes
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Photo View Dialog */}
+      <Dialog open={photoDialog.open} onOpenChange={v => !v && setPhotoDialog({ open: false, data: null, loading: false })}>
+        <DialogContent className="bg-white border-gray-200 max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="vw-photo-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-cyan-700 flex items-center gap-2">
+              <Camera className="w-5 h-5" /> Photos - RST #{photoDialog.data?.rst_no}
+            </DialogTitle>
+          </DialogHeader>
+          {photoDialog.loading ? (
+            <div className="flex justify-center py-8"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>
+          ) : photoDialog.data ? (
+            <div className="space-y-4">
+              {/* Entry Details */}
+              <div className="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-3 rounded-lg">
+                <div><span className="text-gray-500">Vehicle:</span> <span className="font-semibold">{photoDialog.data.vehicle_no}</span></div>
+                <div><span className="text-gray-500">Party:</span> <span className="font-semibold">{photoDialog.data.party_name}</span></div>
+                <div><span className="text-gray-500">Product:</span> <span className="font-semibold">{photoDialog.data.product}</span></div>
+                <div><span className="text-gray-500">Net Wt:</span> <span className="font-bold text-green-700">{Number(photoDialog.data.net_wt || 0).toLocaleString()} KG</span></div>
+              </div>
+
+              {/* 1st Weight Section */}
+              <div className="border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-blue-700 font-bold text-sm">1st Weight (Gross)</h3>
+                  <span className="text-blue-900 font-mono font-bold">{Number(photoDialog.data.first_wt || 0).toLocaleString()} KG</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Front View</p>
+                    {photoDialog.data.first_wt_front_img ? (
+                      <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`} alt="1st Wt Front" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 200 }} />
+                    ) : <div className="h-24 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">No Photo</div>}
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Side View</p>
+                    {photoDialog.data.first_wt_side_img ? (
+                      <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`} alt="1st Wt Side" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 200 }} />
+                    ) : <div className="h-24 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">No Photo</div>}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2nd Weight Section */}
+              <div className="border border-green-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-green-700 font-bold text-sm">2nd Weight (Tare)</h3>
+                  <span className="text-green-900 font-mono font-bold">{Number(photoDialog.data.second_wt || 0).toLocaleString()} KG</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Front View</p>
+                    {photoDialog.data.second_wt_front_img ? (
+                      <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`} alt="2nd Wt Front" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 200 }} />
+                    ) : <div className="h-24 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">No Photo</div>}
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Side View</p>
+                    {photoDialog.data.second_wt_side_img ? (
+                      <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`} alt="2nd Wt Side" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 200 }} />
+                    ) : <div className="h-24 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">No Photo</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

@@ -1,5 +1,6 @@
 """Vehicle Weight Entry - Weighbridge management for Rice Mill"""
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from database import db
 from datetime import datetime, timezone
 import uuid
@@ -32,6 +33,39 @@ def _load_image_b64(filename: str) -> str:
         with open(fp, "rb") as f:
             return b64mod.b64encode(f.read()).decode()
     return ""
+
+
+@router.get("/vehicle-weight/image/{filename}")
+async def serve_image(filename: str):
+    """Serve a saved vehicle weight image file (for WhatsApp media_url)."""
+    fp = os.path.join(IMG_DIR, filename)
+    if not os.path.exists(fp):
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(fp, media_type="image/jpeg")
+
+
+@router.get("/vehicle-weight/{entry_id}/photos")
+async def get_entry_photos(entry_id: str):
+    """Get all photos for a vehicle weight entry as base64."""
+    entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    return {
+        "entry_id": entry_id,
+        "rst_no": entry.get("rst_no"),
+        "first_wt": entry.get("first_wt", 0),
+        "first_wt_time": entry.get("first_wt_time", ""),
+        "second_wt": entry.get("second_wt", 0),
+        "second_wt_time": entry.get("second_wt_time", ""),
+        "net_wt": entry.get("net_wt", 0),
+        "vehicle_no": entry.get("vehicle_no", ""),
+        "party_name": entry.get("party_name", ""),
+        "product": entry.get("product", ""),
+        "first_wt_front_img": _load_image_b64(entry.get("first_wt_front_img", "")),
+        "first_wt_side_img": _load_image_b64(entry.get("first_wt_side_img", "")),
+        "second_wt_front_img": _load_image_b64(entry.get("second_wt_front_img", "")),
+        "second_wt_side_img": _load_image_b64(entry.get("second_wt_side_img", "")),
+    }
 
 
 async def _next_rst(kms_year: str = ""):
@@ -76,23 +110,36 @@ async def get_next_rst(kms_year: str = ""):
 
 @router.get("/vehicle-weight/auto-notify-setting")
 async def get_auto_notify_setting():
-    """Get auto VW messaging setting."""
+    """Get auto VW messaging setting with group config."""
     doc = await db["settings"].find_one({"key": "auto_vw_messaging"}, {"_id": 0})
     if doc:
-        return {"enabled": doc.get("enabled", False)}
-    return {"enabled": False}
+        return {
+            "enabled": doc.get("enabled", False),
+            "wa_group_id": doc.get("wa_group_id", ""),
+            "wa_group_name": doc.get("wa_group_name", ""),
+            "tg_chat_ids": doc.get("tg_chat_ids", []),
+        }
+    return {"enabled": False, "wa_group_id": "", "wa_group_name": "", "tg_chat_ids": []}
 
 
 @router.put("/vehicle-weight/auto-notify-setting")
 async def update_auto_notify_setting(data: dict):
-    """Update auto VW messaging setting."""
-    enabled = data.get("enabled", False)
+    """Update auto VW messaging setting with group config."""
+    update_fields = {"key": "auto_vw_messaging"}
+    if "enabled" in data:
+        update_fields["enabled"] = data["enabled"]
+    if "wa_group_id" in data:
+        update_fields["wa_group_id"] = data["wa_group_id"]
+    if "wa_group_name" in data:
+        update_fields["wa_group_name"] = data["wa_group_name"]
+    if "tg_chat_ids" in data:
+        update_fields["tg_chat_ids"] = data["tg_chat_ids"]
     await db["settings"].update_one(
         {"key": "auto_vw_messaging"},
-        {"$set": {"key": "auto_vw_messaging", "enabled": enabled}},
+        {"$set": update_fields},
         upsert=True
     )
-    return {"success": True, "enabled": enabled}
+    return {"success": True, **{k: v for k, v in update_fields.items() if k != "key"}}
 
 
 @router.post("/vehicle-weight/auto-notify")
@@ -145,50 +192,76 @@ async def auto_notify_weight(data: dict):
     second_front_b64 = _load_image_b64(entry.get("second_wt_front_img", ""))
     second_side_b64 = _load_image_b64(entry.get("second_wt_side_img", ""))
 
-    # Send via WhatsApp
+    # Build public image URLs for WhatsApp media
+    base_url = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
+    img_urls = {}
+    for key in ["first_wt_front_img", "first_wt_side_img", "second_wt_front_img", "second_wt_side_img"]:
+        fname = entry.get(key, "")
+        if fname and base_url:
+            img_urls[key] = f"{base_url}/api/vehicle-weight/image/{fname}"
+
+    # Get VW-specific messaging config
+    vw_config = await db["settings"].find_one({"key": "auto_vw_messaging"}, {"_id": 0}) or {}
+    vw_wa_group_id = vw_config.get("wa_group_id", "")
+    vw_tg_chat_ids = vw_config.get("tg_chat_ids", [])
+
+    # Send via WhatsApp to VW-specific group (or fallback to default numbers)
     try:
-        from routes.whatsapp import _get_wa_settings, _send_wa_message
+        from routes.whatsapp import _get_wa_settings, _send_wa_message, _send_wa_to_group
         wa_settings = await _get_wa_settings()
         if wa_settings.get("enabled") and wa_settings.get("api_key"):
-            numbers = wa_settings.get("default_numbers", [])
-            for num in numbers:
-                if num:
-                    r = await _send_wa_message(num.strip(), text)
-                    results["whatsapp"].append(r)
+            if vw_wa_group_id:
+                # Send text to VW group
+                r = await _send_wa_to_group(vw_wa_group_id, text)
+                results["whatsapp"].append(r)
+                # Send photos to VW group
+                for key, label in [("first_wt_front_img", "1st Wt Front"), ("first_wt_side_img", "1st Wt Side"), ("second_wt_front_img", "2nd Wt Front"), ("second_wt_side_img", "2nd Wt Side")]:
+                    if key in img_urls:
+                        r = await _send_wa_to_group(vw_wa_group_id, f"{label} - RST #{rst}", img_urls[key])
+                        results["whatsapp"].append(r)
+            else:
+                # Fallback: send to default numbers
+                numbers = wa_settings.get("default_numbers", [])
+                for num in numbers:
+                    if num:
+                        r = await _send_wa_message(num.strip(), text)
+                        results["whatsapp"].append(r)
     except Exception as e:
         logger.error(f"WA auto-notify error: {e}")
 
-    # Send via Telegram (text + all photos)
+    # Send via Telegram to VW-specific chats (or fallback to default config)
     try:
         from routes.telegram import get_telegram_config, _send_photo_to_all
         import httpx
         tg_config = await get_telegram_config()
-        if tg_config and tg_config.get("bot_token") and tg_config.get("chat_ids"):
+        if tg_config and tg_config.get("bot_token"):
             bot_token = tg_config["bot_token"]
-            chat_ids = tg_config["chat_ids"]
-            async with httpx.AsyncClient() as client:
-                for item in chat_ids:
-                    cid = str(item.get("chat_id", "")).strip()
-                    if cid:
-                        await client.post(
-                            f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                            json={"chat_id": cid, "text": text, "parse_mode": "Markdown"},
-                            timeout=15
-                        )
-            # Send 1st weight photos
-            if first_front_b64:
-                r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(first_front_b64), f"1st Weight Front - RST #{rst}", f"1st_front_rst{rst}.jpg")
-                results["telegram"].extend(r)
-            if first_side_b64:
-                r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(first_side_b64), f"1st Weight Side - RST #{rst}", f"1st_side_rst{rst}.jpg")
-                results["telegram"].extend(r)
-            # Send 2nd weight photos
-            if second_front_b64:
-                r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(second_front_b64), f"2nd Weight Front - RST #{rst}", f"2nd_front_rst{rst}.jpg")
-                results["telegram"].extend(r)
-            if second_side_b64:
-                r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(second_side_b64), f"2nd Weight Side - RST #{rst}", f"2nd_side_rst{rst}.jpg")
-                results["telegram"].extend(r)
+            # Use VW-specific chat IDs if set, otherwise fallback to default
+            chat_ids = vw_tg_chat_ids if vw_tg_chat_ids and len(vw_tg_chat_ids) > 0 else (tg_config.get("chat_ids") or [])
+            if chat_ids:
+                async with httpx.AsyncClient() as client:
+                    for item in chat_ids:
+                        cid = str(item.get("chat_id", "")).strip()
+                        if cid:
+                            await client.post(
+                                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                                json={"chat_id": cid, "text": text, "parse_mode": "Markdown"},
+                                timeout=15
+                            )
+                # Send 1st weight photos
+                if first_front_b64:
+                    r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(first_front_b64), f"1st Weight Front - RST #{rst}", f"1st_front_rst{rst}.jpg")
+                    results["telegram"].extend(r)
+                if first_side_b64:
+                    r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(first_side_b64), f"1st Weight Side - RST #{rst}", f"1st_side_rst{rst}.jpg")
+                    results["telegram"].extend(r)
+                # Send 2nd weight photos
+                if second_front_b64:
+                    r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(second_front_b64), f"2nd Weight Front - RST #{rst}", f"2nd_front_rst{rst}.jpg")
+                    results["telegram"].extend(r)
+                if second_side_b64:
+                    r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(second_side_b64), f"2nd Weight Side - RST #{rst}", f"2nd_side_rst{rst}.jpg")
+                    results["telegram"].extend(r)
     except Exception as e:
         logger.error(f"Telegram auto-notify error: {e}")
 
