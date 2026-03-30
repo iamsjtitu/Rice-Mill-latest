@@ -3,6 +3,16 @@
  * Desktop & Local-Server only (same LAN as IP cameras).
  */
 const { spawn, execSync } = require('child_process');
+let ffmpegPath;
+try {
+  ffmpegPath = require('ffmpeg-static');
+  // In production Electron build, asar needs unpacking
+  if (ffmpegPath && ffmpegPath.includes('app.asar')) {
+    ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+  }
+} catch {
+  ffmpegPath = 'ffmpeg'; // fallback to system ffmpeg
+}
 
 module.exports = function cameraProxyRoutes(router) {
 
@@ -31,7 +41,7 @@ module.exports = function cameraProxyRoutes(router) {
       'Pragma': 'no-cache'
     });
 
-    const ffmpeg = spawn('ffmpeg', [
+    const ffmpeg = spawn(ffmpegPath, [
       '-rtsp_transport', 'tcp',
       '-i', safeUrl,
       '-f', 'image2pipe',
@@ -76,7 +86,7 @@ module.exports = function cameraProxyRoutes(router) {
 
     const safeUrl = encodeRtspUrl(rawUrl);
 
-    const ffmpeg = spawn('ffmpeg', [
+    const ffmpeg = spawn(ffmpegPath, [
       '-rtsp_transport', 'tcp',
       '-i', safeUrl,
       '-frames:v', '1',
