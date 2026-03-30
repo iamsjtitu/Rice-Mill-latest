@@ -114,6 +114,7 @@ export default function VehicleWeight({ filters }) {
   const [nextRst, setNextRst] = useState(1);
   const [secondWtDialog, setSecondWtDialog] = useState({ open: false, entry: null });
   const [secondWtValue, setSecondWtValue] = useState("");
+  const [secondWtMode, setSecondWtMode] = useState(null); // null = new entry mode, entry object = second weight mode
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupText, setGroupText] = useState("");
   const [groupPdfUrl, setGroupPdfUrl] = useState("");
@@ -175,7 +176,47 @@ export default function VehicleWeight({ filters }) {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const capFirst = () => { if (scale.stable && scale.weight > 0) { setForm(p => ({ ...p, first_wt: String(scale.weight) })); toast.success(`Captured: ${scale.weight} KG`); } };
-  const capSecond = () => { if (scale.stable && scale.weight > 0) { setSecondWtValue(String(scale.weight)); toast.success(`Captured: ${scale.weight} KG`); } };
+  const capSecond = () => {
+    if (scale.stable && scale.weight > 0) {
+      setSecondWtValue(String(scale.weight));
+      toast.success(`Captured: ${scale.weight} KG`);
+    }
+  };
+
+  // Load pending vehicle into form for second weight capture
+  const loadPendingToForm = (entry) => {
+    setSecondWtMode(entry);
+    setSecondWtValue("");
+    setForm({
+      date: entry.date || new Date().toISOString().split("T")[0],
+      vehicle_no: entry.vehicle_no || "",
+      party_name: entry.party_name || "",
+      farmer_name: entry.farmer_name || "",
+      product: entry.product || "GOVT PADDY",
+      trans_type: entry.trans_type || "Receive(Pur)",
+      j_pkts: "", p_pkts: "",
+      tot_pkts: String(entry.tot_pkts || ""),
+      first_wt: String(entry.first_wt || ""),
+      remark: entry.remark || "",
+      cash_paid: String(entry.cash_paid || ""),
+      diesel_paid: String(entry.diesel_paid || ""),
+    });
+    toast.info(`RST #${entry.rst_no} loaded — Second Weight capture karein`);
+  };
+
+  const clearSecondWtMode = () => {
+    setSecondWtMode(null);
+    setSecondWtValue("");
+    setForm(blank);
+  };
+
+  const handleSaveSecondWt = async () => {
+    if (!secondWtValue || Number(secondWtValue) <= 0) { toast.error("Second Weight daalen"); return; }
+    try {
+      const r = await axios.put(`${API}/vehicle-weight/${secondWtMode.id}/second-weight`, { second_wt: secondWtValue });
+      if (r.data.success) { toast.success(r.data.message); clearSecondWtMode(); fetchData(); }
+    } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -228,8 +269,13 @@ export default function VehicleWeight({ filters }) {
           <Card className="bg-gradient-to-b from-slate-800 to-slate-850 border-slate-700/50 shadow-lg">
             <CardHeader className="pb-2 pt-3 px-4 border-b border-amber-500/20">
               <CardTitle className="text-xs text-amber-400 font-bold flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> New Entry</span>
-                <span className="bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded text-[10px]">RST #{nextRst}</span>
+                <span className="flex items-center gap-1.5">
+                  {secondWtMode ? <Scale className="w-3.5 h-3.5 text-green-400" /> : <Plus className="w-3.5 h-3.5" />}
+                  {secondWtMode ? `2nd Weight — RST #${secondWtMode.rst_no}` : 'New Entry'}
+                </span>
+                <span className={`px-2 py-0.5 rounded text-[10px] ${secondWtMode ? 'bg-green-500/10 text-green-300' : 'bg-amber-500/10 text-amber-300'}`}>
+                  {secondWtMode ? `RST #${secondWtMode.rst_no}` : `RST #${nextRst}`}
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-3">
@@ -243,7 +289,7 @@ export default function VehicleWeight({ filters }) {
                   <div>
                     <Label className="text-slate-500 text-[10px] mb-0.5 block">Vehicle No *</Label>
                     <Input value={form.vehicle_no} onChange={e => setForm(p => ({ ...p, vehicle_no: e.target.value.toUpperCase() }))}
-                      placeholder="OD 02 AB 1234" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs font-medium" data-testid="vw-vehicle" />
+                      placeholder="OD 02 AB 1234" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs font-medium" data-testid="vw-vehicle" disabled={!!secondWtMode} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -324,27 +370,67 @@ export default function VehicleWeight({ filters }) {
                   </div>
                 </div>
 
-                {/* First Wt Input */}
-                <div className="bg-slate-900/80 rounded-lg p-3 border border-amber-500/20">
-                  <Label className="text-amber-400 text-xs font-bold mb-1.5 block">First Weight (KG) *</Label>
-                  <div className="flex gap-2 items-center">
-                    <Input type="number" value={form.first_wt} onChange={e => setForm(p => ({ ...p, first_wt: e.target.value }))}
-                      placeholder="0" className="bg-black border-slate-600/50 text-amber-300 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-amber-500/30"
-                      data-testid="vw-first-wt" />
-                    {scale.stable && (
-                      <Button type="button" onClick={capFirst} className="bg-green-700 hover:bg-green-600 h-10 px-3 shrink-0" data-testid="vw-capture-first">
-                        <Zap className="w-4 h-4" />
-                      </Button>
+                {/* Weight Input Section */}
+                {secondWtMode ? (
+                  <>
+                    {/* Second Weight Mode */}
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div className="bg-slate-900/80 rounded-lg p-3 border border-blue-500/20">
+                        <Label className="text-blue-400 text-[10px] font-bold mb-1 block">First Wt (Gross)</Label>
+                        <div className="text-blue-300 text-2xl font-mono font-bold text-center">{Number(form.first_wt).toLocaleString()}</div>
+                        <div className="text-slate-600 text-[9px] text-center">KG — Already captured</div>
+                      </div>
+                      <div className="bg-slate-900/80 rounded-lg p-3 border border-green-500/20">
+                        <Label className="text-green-400 text-[10px] font-bold mb-1 block">Second Wt (Tare) *</Label>
+                        <div className="flex gap-1.5 items-center">
+                          <Input type="number" value={secondWtValue} onChange={e => setSecondWtValue(e.target.value)}
+                            placeholder="0" className="bg-black border-slate-600/50 text-green-300 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-green-500/30"
+                            data-testid="vw-second-wt-input" autoFocus />
+                          {scale.stable && (
+                            <Button type="button" onClick={capSecond} className="bg-green-700 hover:bg-green-600 h-10 px-2 shrink-0" data-testid="vw-capture-second-form">
+                              <Zap className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {secondWtValue && Number(secondWtValue) > 0 && (
+                      <div className="bg-green-900/20 rounded-lg p-2 mt-2 text-center border border-green-500/20">
+                        <span className="text-[10px] text-slate-500">Net Weight: </span>
+                        <span className="text-green-400 text-xl font-bold font-mono">{Math.abs(Number(form.first_wt) - Number(secondWtValue)).toLocaleString()} KG</span>
+                      </div>
                     )}
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold h-9 text-xs shadow-md shadow-amber-900/30" data-testid="vw-save-first">
-                    <Plus className="w-3.5 h-3.5 mr-1" /> Save First Weight
-                  </Button>
-                  <Button type="button" onClick={() => setForm(blank)} variant="outline" className="border-slate-600/50 text-slate-400 h-9 text-xs px-3">Clear</Button>
-                </div>
+                    <div className="flex gap-2 mt-3">
+                      <Button type="button" onClick={handleSaveSecondWt} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold h-9 text-xs shadow-md shadow-green-900/30" data-testid="vw-save-second-form">
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" /> Save Second Weight
+                      </Button>
+                      <Button type="button" onClick={clearSecondWtMode} variant="outline" className="border-slate-600/50 text-slate-400 h-9 text-xs px-3">Cancel</Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* First Weight Mode (New Entry) */}
+                    <div className="bg-slate-900/80 rounded-lg p-3 border border-amber-500/20 mt-3">
+                      <Label className="text-amber-400 text-xs font-bold mb-1.5 block">First Weight (KG) *</Label>
+                      <div className="flex gap-2 items-center">
+                        <Input type="number" value={form.first_wt} onChange={e => setForm(p => ({ ...p, first_wt: e.target.value }))}
+                          placeholder="0" className="bg-black border-slate-600/50 text-amber-300 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-amber-500/30"
+                          data-testid="vw-first-wt" />
+                        {scale.stable && (
+                          <Button type="button" onClick={capFirst} className="bg-green-700 hover:bg-green-600 h-10 px-3 shrink-0" data-testid="vw-capture-first">
+                            <Zap className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <Button type="submit" className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold h-9 text-xs shadow-md shadow-amber-900/30" data-testid="vw-save-first">
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Save First Weight
+                      </Button>
+                      <Button type="button" onClick={() => setForm(blank)} variant="outline" className="border-slate-600/50 text-slate-400 h-9 text-xs px-3">Clear</Button>
+                    </div>
+                  </>
+                )}
               </form>
             </CardContent>
           </Card>
@@ -427,7 +513,7 @@ export default function VehicleWeight({ filters }) {
                         <TableCell className="py-2 px-2 text-center">
                           <Button size="sm" className="h-6 px-2 text-[10px] bg-yellow-600/80 hover:bg-yellow-500 text-white"
                             data-testid={`vw-2nd-wt-${p.id}`}
-                            onClick={() => { setSecondWtDialog({ open: true, entry: p }); setSecondWtValue(""); }}>
+                            onClick={() => loadPendingToForm(p)}>
                             <Scale className="w-3 h-3 mr-1" /> Capture
                           </Button>
                         </TableCell>
