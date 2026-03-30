@@ -212,6 +212,7 @@ function MainApp({ user, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("entries"); // "entries", "dashboard", "payments", "milling", "settings"
   const [entriesSubTab, setEntriesSubTab] = useState("mill-entries"); // "mill-entries" | "vehicle-weight" | "auto-weight-entries"
+  const [pendingVwCount, setPendingVwCount] = useState(0);
   const { wa, tg } = useMessagingEnabled();
   const [entryGroupDialogOpen, setEntryGroupDialogOpen] = useState(false);
   const [entryGroupText, setEntryGroupText] = useState("");
@@ -464,6 +465,21 @@ function MainApp({ user, onLogout }) {
 
   // Auto-fill from Vehicle Weight RST number
   const rstTimerRef = useRef(null);
+
+  // Fetch pending VW count for notification badge
+  const fetchPendingVwCount = useCallback(async () => {
+    try {
+      const kms = filters.kms_year || '';
+      const [pR, lR] = await Promise.all([
+        axios.get(`${API}/vehicle-weight?kms_year=${kms}&status=completed&page=1&page_size=1`),
+        axios.get(`${API}/vehicle-weight/linked-rst?kms_year=${kms}`)
+      ]);
+      const totalVw = pR.data.total || 0;
+      const linkedCount = (lR.data.linked_rst || []).length;
+      setPendingVwCount(Math.max(0, totalVw - linkedCount));
+    } catch { /* ignore */ }
+  }, [filters.kms_year]);
+  useEffect(() => { fetchPendingVwCount(); }, [fetchPendingVwCount]);
   const fetchVehicleWeightByRst = useCallback(async (rstNo) => {
     if (!rstNo || isNaN(rstNo)) return;
     try {
@@ -476,6 +492,7 @@ function MainApp({ user, onLogout }) {
           agent_name: vw.party_name || prev.agent_name,
           mandi_name: vw.farmer_name || prev.mandi_name,
           kg: vw.net_wt ? String(vw.net_wt) : prev.kg,
+          bag: vw.tot_pkts ? String(vw.tot_pkts) : prev.bag,
           cash_paid: vw.cash_paid ? String(vw.cash_paid) : prev.cash_paid,
           diesel_paid: vw.diesel_paid ? String(vw.diesel_paid) : prev.diesel_paid,
         }));
@@ -2180,6 +2197,7 @@ function MainApp({ user, onLogout }) {
                 data-testid="subtab-auto-weight-entries"
               >
                 <CheckCircle className="w-3.5 h-3.5" /> Auto Weight Entries
+                {pendingVwCount > 0 && <span className="ml-1 bg-red-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-pulse" data-testid="pending-vw-badge">{pendingVwCount}</span>}
               </button>
             </div>
 

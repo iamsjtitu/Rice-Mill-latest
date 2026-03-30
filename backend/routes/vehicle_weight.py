@@ -194,7 +194,7 @@ async def auto_notify_weight(data: dict):
         text += f"Farmer/Mandi: {farmer_mandi}\n"
     text += (
         f"Product: {entry.get('product','')}\n"
-        f"Packets: {pkts if pkts > 0 else '-'}\n"
+        f"Bags: {pkts if pkts > 0 else '-'}\n"
         f"───────────────\n"
         f"Gross Wt: {entry.get('gross_wt', entry.get('first_wt',0)):,.0f} KG\n"
         f"Tare Wt: {entry.get('tare_wt', entry.get('second_wt',0)):,.0f} KG\n"
@@ -785,7 +785,7 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     ws.cell(row=2, column=1, value=sub).font = Font(size=9, color="666666")
     ws.cell(row=2, column=1).alignment = Alignment(horizontal='center')
 
-    headers = ["RST", "Date", "Vehicle", "Party", "Mandi", "Product", "Trans", "Pkts",
+    headers = ["RST", "Date", "Vehicle", "Party", "Mandi", "Product", "Trans", "Bags",
                "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "Cash", "Diesel"]
     hdr_fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
     hdr_font = Font(bold=True, color="FFFFFF", size=10)
@@ -855,7 +855,7 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     elements.append(Spacer(1, 5*mm))
 
     # Table
-    headers = ["RST", "Date", "Vehicle", "Party", "Mandi", "Product", "Trans", "Pkts", "1st Wt", "2nd Wt", "Net Wt", "Cash", "Diesel"]
+    headers = ["RST", "Date", "Vehicle", "Party", "Mandi", "Product", "Trans", "Bags", "1st Wt", "2nd Wt", "Net Wt", "Cash", "Diesel"]
     data = [headers]
     for e in items:
         data.append([

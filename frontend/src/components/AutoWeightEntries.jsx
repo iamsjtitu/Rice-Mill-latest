@@ -179,7 +179,7 @@ export default function AutoWeightEntries({ filters }) {
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Mandi</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Pkts</TableHead>
+                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Bags</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
@@ -364,7 +364,7 @@ export default function AutoWeightEntries({ filters }) {
             <div><label className="text-gray-500 text-[10px]">Vehicle</label><Input className="h-7 text-xs" value={editEntry.vehicle_no || ''} onChange={ev => setEditEntry(p => ({...p, vehicle_no: ev.target.value}))} /></div>
             <div><label className="text-gray-500 text-[10px]">Party</label><Input className="h-7 text-xs" value={editEntry.party_name || ''} onChange={ev => setEditEntry(p => ({...p, party_name: ev.target.value}))} /></div>
             <div><label className="text-gray-500 text-[10px]">Mandi</label><Input className="h-7 text-xs" value={editEntry.farmer_name || ''} onChange={ev => setEditEntry(p => ({...p, farmer_name: ev.target.value}))} /></div>
-            <div><label className="text-gray-500 text-[10px]">Pkts</label><Input className="h-7 text-xs" type="number" value={editEntry.tot_pkts || ''} onChange={ev => setEditEntry(p => ({...p, tot_pkts: ev.target.value}))} /></div>
+            <div><label className="text-gray-500 text-[10px]">Bags</label><Input className="h-7 text-xs" type="number" value={editEntry.tot_pkts || ''} onChange={ev => setEditEntry(p => ({...p, tot_pkts: ev.target.value}))} /></div>
             <div><label className="text-gray-500 text-[10px]">Cash</label><Input className="h-7 text-xs" type="number" value={editEntry.cash_paid || ''} onChange={ev => setEditEntry(p => ({...p, cash_paid: ev.target.value}))} /></div>
             <div><label className="text-gray-500 text-[10px]">Diesel</label><Input className="h-7 text-xs" type="number" value={editEntry.diesel_paid || ''} onChange={ev => setEditEntry(p => ({...p, diesel_paid: ev.target.value}))} /></div>
           </div>

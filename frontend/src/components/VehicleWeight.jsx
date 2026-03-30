@@ -525,7 +525,7 @@ export default function VehicleWeight({ filters }) {
     t += `Party: ${e.party_name || '-'}\n`;
     t += `Farmer/Mandi: ${e.farmer_name || '-'}\n`;
     t += `Product: ${e.product || '-'}\n`;
-    t += `Packets: ${e.tot_pkts || '-'}\n`;
+    t += `Bags: ${e.tot_pkts || '-'}\n`;
     t += `───────────────\n`;
     t += `Gross Wt: ${Number(e.gross_wt || e.first_wt || 0).toLocaleString()} KG\n`;
     t += `Tare Wt: ${Number(e.tare_wt || e.second_wt || 0).toLocaleString()} KG\n`;
@@ -841,7 +841,7 @@ export default function VehicleWeight({ filters }) {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-gray-600 text-[10px] mb-0.5 block">Pkts</Label>
+                    <Label className="text-gray-600 text-[10px] mb-0.5 block">Bags</Label>
                     <Input type="number" value={form.tot_pkts} onChange={e => setForm(p => ({ ...p, tot_pkts: e.target.value }))}
                       placeholder="0" className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-bags" />
                   </div>
@@ -1095,7 +1095,7 @@ export default function VehicleWeight({ filters }) {
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Mandi</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Pkts</TableHead>
+                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Bags</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
@@ -1192,9 +1192,9 @@ export default function VehicleWeight({ filters }) {
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label className="text-gray-600 text-xs mb-1 block">Packets</Label>
+                <Label className="text-gray-600 text-xs mb-1 block">Bags</Label>
                 <Input type="number" value={editForm.tot_pkts || ""} onChange={e => setEditForm(p => ({ ...p, tot_pkts: e.target.value }))}
-                  className="h-9 text-sm border-gray-300" data-testid="edit-pkts" />
+                  className="h-9 text-sm border-gray-300" data-testid="edit-bags" />
               </div>
               <div>
                 <Label className="text-green-700 text-xs mb-1 block font-semibold">Cash Paid</Label>

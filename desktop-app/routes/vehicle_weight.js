@@ -200,7 +200,7 @@ module.exports = function(database) {
       `Party: ${entry.party_name || ''}\n`;
     if (farmerMandi) text += `Farmer/Mandi: ${farmerMandi}\n`;
     text += `Product: ${entry.product || ''}\n` +
-      `Packets: ${pkts > 0 ? pkts : '-'}\n` +
+      `Bags: ${pkts > 0 ? pkts : '-'}\n` +
       `───────────────\n` +
       `Gross Wt: ${Number(entry.gross_wt || entry.first_wt || 0).toLocaleString()} KG\n` +
       `Tare Wt: ${Number(entry.tare_wt || entry.second_wt || 0).toLocaleString()} KG\n` +
@@ -806,7 +806,7 @@ module.exports = function(database) {
     ws.getCell('A2').font = { size: 9, color: { argb: '666666' } };
     ws.getCell('A2').alignment = { horizontal: 'center' };
 
-    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans', 'Pkts', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'Cash', 'Diesel'];
+    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans', 'Bags', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'Cash', 'Diesel'];
     const hdrRow = ws.getRow(4);
     headers.forEach((h, i) => {
       const cell = hdrRow.getCell(i + 1);
@@ -849,7 +849,7 @@ module.exports = function(database) {
     doc.fontSize(8).font('Helvetica').text(`Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'} | Total: ${items.length}`, { align: 'center' });
     doc.moveDown(0.5);
 
-    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans', 'Pkts', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
+    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
     const colW = [30, 55, 65, 70, 55, 60, 55, 30, 50, 50, 50, 45, 45];
     let x = 30, y = doc.y;
 
