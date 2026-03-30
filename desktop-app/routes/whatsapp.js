@@ -164,7 +164,7 @@ router.put('/api/whatsapp/settings', safeAsync(async (req, res) => {
   const config = {
     setting_id: 'whatsapp_config', api_key: (req.body.api_key || '').trim(),
     country_code: (req.body.country_code || '91').trim(),
-    enabled: !!req.body.api_key, default_numbers: defaultNumbers,
+    enabled: req.body.enabled !== undefined ? !!req.body.enabled : !!req.body.api_key, default_numbers: defaultNumbers,
     group_id: (req.body.group_id || '').trim(),
     default_group_id: (req.body.default_group_id || '').trim(),
     default_group_name: (req.body.default_group_name || '').trim(),

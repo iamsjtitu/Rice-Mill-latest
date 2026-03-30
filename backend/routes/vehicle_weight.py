@@ -385,101 +385,101 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         """Draw one copy block starting from top_y (in points from bottom)."""
         x = LM
         y = top_y
-        bh = 93*mm  # block height for each copy
+        bh = 95*mm  # block height for each copy
 
         # Border box
         c.setStrokeColor(colors.HexColor("#333"))
-        c.setLineWidth(1.2)
+        c.setLineWidth(1.5)
         c.rect(x, y - bh, PW, bh)
 
         # Copy label (top right)
-        c.setFont("Helvetica", 6)
+        c.setFont("Helvetica-Bold", 7)
         c.setFillColor(colors.HexColor("#888"))
-        lw = c.stringWidth(copy_label, "Helvetica", 6)
+        lw = c.stringWidth(copy_label, "Helvetica-Bold", 7)
         c.setFillColor(colors.white)
-        c.rect(x + PW - lw - 14*mm, y - 0.5, lw + 4*mm, 5, fill=1, stroke=0)
+        c.rect(x + PW - lw - 14*mm, y - 1, lw + 4*mm, 6, fill=1, stroke=0)
         c.setFillColor(colors.HexColor("#888"))
         c.drawString(x + PW - lw - 12*mm, y + 0.5, copy_label)
 
-        cy = y - 4*mm  # current y position inside box
+        cy = y - 5*mm  # current y position inside box
 
         # Company name
-        c.setFont("Helvetica-Bold", 13)
+        c.setFont("Helvetica-Bold", 15)
         c.setFillColor(colors.HexColor("#1a1a2e"))
         c.drawCentredString(W/2, cy, company)
-        cy -= 3.5*mm
+        cy -= 4.5*mm
 
         # Tagline
-        c.setFont("Helvetica", 6.5)
+        c.setFont("Helvetica", 7.5)
         c.setFillColor(colors.gray)
         c.drawCentredString(W/2, cy, tagline)
-        cy -= 3*mm
+        cy -= 3.5*mm
 
         # Line under header
         c.setStrokeColor(colors.HexColor("#1a1a2e"))
-        c.setLineWidth(1.2)
+        c.setLineWidth(1.5)
         c.line(x + 2*mm, cy, x + PW - 2*mm, cy)
-        cy -= 3.5*mm
+        cy -= 4*mm
 
         # Slip title
-        c.setFont("Helvetica-Bold", 9)
-        c.setFillColor(colors.HexColor("#444"))
-        c.drawCentredString(W/2, cy, "WEIGHT SLIP")
-        cy -= 4.5*mm
+        c.setFont("Helvetica-Bold", 10)
+        c.setFillColor(colors.HexColor("#333"))
+        c.drawCentredString(W/2, cy, "WEIGHT SLIP / \u0924\u094c\u0932 \u092a\u0930\u094d\u091a\u0940")
+        cy -= 5*mm
 
         # ── Info Grid (4 rows x 4 cols) ──
         rows = [
-            ("RST No.", f"#{rst}", "Date", entry.get("date", "")),
-            ("Vehicle", entry.get("vehicle_no", ""), "Trans", entry.get("trans_type", "")),
-            ("Party", entry.get("party_name", ""), "Farmer", entry.get("farmer_name", "")),
-            ("Product", entry.get("product", ""), "Bags", str(entry.get("tot_pkts", 0))),
+            ("RST No.", f"#{rst}", "Date / \u0926\u093f\u0928\u093e\u0902\u0915", entry.get("date", "")),
+            ("Vehicle / \u0917\u093e\u0921\u093c\u0940", entry.get("vehicle_no", ""), "Trans", entry.get("trans_type", "")),
+            ("Party / \u092a\u093e\u0930\u094d\u091f\u0940", entry.get("party_name", ""), "Farmer", entry.get("farmer_name", "")),
+            ("Product / \u092e\u093e\u0932", entry.get("product", ""), "Bags / \u092c\u094b\u0930\u0947", str(entry.get("tot_pkts", 0))),
         ]
-        rh = 3.8*mm  # row height
-        c1w = 16*mm  # label col width
-        c2w = 42*mm  # value col width
+        rh = 4.5*mm  # row height
+        c1w = 18*mm  # label col width
+        c2w = 40*mm  # value col width
         c3w = 14*mm
         c4w = PW - c1w - c2w - c3w - 2*mm
 
         for i, (l1, v1, l2, v2) in enumerate(rows):
             ry = cy - i * rh
             # Grid lines
-            c.setStrokeColor(colors.HexColor("#ddd"))
-            c.setLineWidth(0.3)
-            c.line(x + 2*mm, ry - 1*mm, x + PW - 2*mm, ry - 1*mm)
+            c.setStrokeColor(colors.HexColor("#ccc"))
+            c.setLineWidth(0.4)
+            c.line(x + 2*mm, ry - 1.5*mm, x + PW - 2*mm, ry - 1.5*mm)
 
-            c.setFont("Helvetica-Bold", 7.5)
+            c.setFont("Helvetica-Bold", 7)
             c.setFillColor(colors.HexColor("#555"))
             c.drawString(x + 3*mm, ry, l1)
 
-            fsize = 9 if i == 0 else 8
+            fsize = 9.5 if i == 0 else 8.5
             c.setFont("Helvetica-Bold" if i == 0 else "Helvetica", fsize)
             c.setFillColor(colors.HexColor("#000"))
             c.drawString(x + 3*mm + c1w, ry, str(v1)[:22])
 
-            c.setFont("Helvetica-Bold", 7.5)
+            c.setFont("Helvetica-Bold", 7)
             c.setFillColor(colors.HexColor("#555"))
             c.drawString(x + 3*mm + c1w + c2w, ry, l2)
 
-            c.setFont("Helvetica", 8)
+            c.setFont("Helvetica", 8.5)
             c.setFillColor(colors.HexColor("#000"))
             c.drawString(x + 3*mm + c1w + c2w + c3w, ry, str(v2)[:22])
 
-        cy -= len(rows) * rh + 3*mm
+        cy -= len(rows) * rh + 4*mm
 
         # ── Weight boxes (Gross | Tare | Net + optional Cash/Diesel) ──
         wt_items = [
-            ("Gross", f"{gross_wt:,.0f} KG", "#f5f5f5", "#111"),
-            ("Tare", f"{tare_wt:,.0f} KG", "#f5f5f5", "#111"),
-            ("Net", f"{net_wt:,.0f} KG", "#e8f5e9", "#1b5e20"),
+            ("Gross / \u0915\u0941\u0932", f"{gross_wt:,.0f} KG", "#f5f5f5", "#111"),
+            ("Tare / \u0916\u093e\u0932\u0940", f"{tare_wt:,.0f} KG", "#f5f5f5", "#111"),
+            ("Net / \u0936\u0941\u0926\u094d\u0927", f"{net_wt:,.0f} KG", "#e8f5e9", "#1b5e20"),
         ]
         if cash > 0:
-            wt_items.append(("Cash", f"{cash:,.0f}", "#fff8e1", "#e65100"))
+            wt_items.append(("Cash / \u0928\u0915\u0926", f"\u20b9{cash:,.0f}", "#fff8e1", "#e65100"))
         if diesel > 0:
-            wt_items.append(("Diesel", f"{diesel:,.0f}", "#fff8e1", "#e65100"))
+            wt_items.append(("Diesel / \u0921\u0940\u091c\u0932", f"\u20b9{diesel:,.0f}", "#fff8e1", "#e65100"))
 
         num_cols = len(wt_items)
         col_w = (PW - 4*mm) / num_cols
-        box_h = 10*mm
+        box_h = 11*mm
 
         for i, (label, val, bg, fg) in enumerate(wt_items):
             bx = x + 2*mm + i * col_w
@@ -487,40 +487,40 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
             c.setFillColor(colors.HexColor(bg))
             c.rect(bx, cy - box_h, col_w - 0.8*mm, box_h, fill=1, stroke=0)
             # Border
-            bc = "#388e3c" if label == "Net" else "#f9a825" if label in ("Cash", "Diesel") else "#bbb"
+            bc = "#388e3c" if "Net" in label else "#f9a825" if "Cash" in label or "Diesel" in label else "#bbb"
             c.setStrokeColor(colors.HexColor(bc))
-            c.setLineWidth(0.6 if label == "Net" else 0.4)
+            c.setLineWidth(0.8 if "Net" in label else 0.4)
             c.rect(bx, cy - box_h, col_w - 0.8*mm, box_h)
             # Label
-            c.setFont("Helvetica", 5.5)
+            c.setFont("Helvetica", 6)
             c.setFillColor(colors.HexColor("#666"))
-            c.drawCentredString(bx + (col_w - 0.8*mm)/2, cy - 3*mm, label)
+            c.drawCentredString(bx + (col_w - 0.8*mm)/2, cy - 3.5*mm, label)
             # Value
-            fz = 12 if label == "Net" else 9 if label in ("Cash", "Diesel") else 10
+            fz = 13 if "Net" in label else 10 if "Cash" in label or "Diesel" in label else 11
             c.setFont("Helvetica-Bold", fz)
             c.setFillColor(colors.HexColor(fg))
-            c.drawCentredString(bx + (col_w - 0.8*mm)/2, cy - 8*mm, val)
+            c.drawCentredString(bx + (col_w - 0.8*mm)/2, cy - 8.5*mm, val)
 
         cy -= box_h + 3*mm
 
         # ── Signature section (only Customer copy) ──
         if show_sig:
-            sig_w = 35*mm
+            sig_w = 38*mm
             # Left sig
             c.setStrokeColor(colors.HexColor("#333"))
-            c.setLineWidth(0.5)
-            c.line(x + 8*mm, cy - 8*mm, x + 8*mm + sig_w, cy - 8*mm)
-            c.setFont("Helvetica", 5.5)
-            c.setFillColor(colors.HexColor("#666"))
-            c.drawCentredString(x + 8*mm + sig_w/2, cy - 11*mm, "Driver")
+            c.setLineWidth(0.6)
+            c.line(x + 8*mm, cy - 10*mm, x + 8*mm + sig_w, cy - 10*mm)
+            c.setFont("Helvetica", 6)
+            c.setFillColor(colors.HexColor("#555"))
+            c.drawCentredString(x + 8*mm + sig_w/2, cy - 13*mm, "Driver / \u0921\u094d\u0930\u093e\u0907\u0935\u0930")
             # Right sig
-            c.line(x + PW - 8*mm - sig_w, cy - 8*mm, x + PW - 8*mm, cy - 8*mm)
-            c.drawCentredString(x + PW - 8*mm - sig_w/2, cy - 11*mm, "Authorized")
+            c.line(x + PW - 8*mm - sig_w, cy - 10*mm, x + PW - 8*mm, cy - 10*mm)
+            c.drawCentredString(x + PW - 8*mm - sig_w/2, cy - 13*mm, "Authorized / \u0905\u0927\u093f\u0915\u0943\u0924")
 
         # Footer
-        c.setFont("Helvetica", 4.5)
+        c.setFont("Helvetica", 5)
         c.setFillColor(colors.HexColor("#bbb"))
-        c.drawCentredString(W/2, y - bh + 1.5*mm, f"{company} | Computer Generated")
+        c.drawCentredString(W/2, y - bh + 2*mm, f"{company} | Computer Generated")
 
     # Draw copies based on mode
     top_margin = 5*mm
@@ -534,7 +534,7 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         draw_copy(c, copy1_top, "PARTY COPY", False)
 
         # Cut line
-        cut_y = copy1_top - 93*mm - 4*mm
+        cut_y = copy1_top - 95*mm - 3*mm
         c.setStrokeColor(colors.HexColor("#aaa"))
         c.setDash(3, 3)
         c.setLineWidth(0.8)
@@ -542,9 +542,9 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         c.setDash()
         c.setFont("Helvetica", 5)
         c.setFillColor(colors.HexColor("#aaa"))
-        c.drawCentredString(W/2, cut_y + 1, "- - - CUT HERE - - -")
+        c.drawCentredString(W/2, cut_y + 1, "- - - CUT HERE / \u0915\u093e\u091f\u0947\u0902 - - -")
 
-        copy2_top = cut_y - 3*mm
+        copy2_top = cut_y - 2*mm
         draw_copy(c, copy2_top, "CUSTOMER COPY", True)
 
     c.save()
