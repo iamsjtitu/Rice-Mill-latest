@@ -25,6 +25,8 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - **Auto Weight Entries Subtab** (Mar 2026): New subtab showing last 7 days VW entries, 150/page, filter bar, Excel/PDF export, Status column (Pending/Checkmark).
 - **VW Checkmark Logic** (Mar 2026): VW row shows green checkmark instead of delete when Mill Entry exists with same RST.
 - **Photo Dialog Fix** (Mar 2026): Photo sections always visible with "No Photo" placeholders.
+- **Photo Zoom** (Mar 2026): Click any photo in dialog to open full-screen zoom overlay.
+- **Edit+Delete Hide** (Mar 2026): Both Edit and Delete buttons hidden in VW & AWE tabs when entry is linked to Mill Entry.
 
 ## Key API Changes
 - `/api/entries?page=1&page_size=200` - Paginated mill entries
