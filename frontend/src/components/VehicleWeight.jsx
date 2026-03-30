@@ -132,6 +132,7 @@ export default function VehicleWeight({ filters }) {
   const [mandiTargets, setMandiTargets] = useState([]);
   const [partySuggestions, setPartySuggestions] = useState([]);
   const [mandiSuggestions, setMandiSuggestions] = useState([]);
+  const [truckSuggestions, setTruckSuggestions] = useState([]);
   const kms = filters?.kms_year || "";
 
   // Fetch suggestions + mandi targets
@@ -139,10 +140,12 @@ export default function VehicleWeight({ filters }) {
     Promise.all([
       axios.get(`${API}/suggestions/agents`),
       axios.get(`${API}/suggestions/mandis`),
+      axios.get(`${API}/suggestions/trucks`),
       axios.get(`${API}/mandi-targets?kms_year=${kms}`)
-    ]).then(([agR, mnR, tgR]) => {
+    ]).then(([agR, mnR, trR, tgR]) => {
       setPartySuggestions(agR.data.suggestions || []);
       setMandiSuggestions(mnR.data.suggestions || []);
+      setTruckSuggestions(trR.data.suggestions || []);
       const targets = tgR.data || [];
       setMandiTargets(targets);
       // Auto-fill if GOVT PADDY and targets available
@@ -310,9 +313,22 @@ export default function VehicleWeight({ filters }) {
                       className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-date" />
                   </div>
                   <div>
-                    <Label className="text-slate-500 text-[10px] mb-0.5 block">Vehicle No *</Label>
-                    <Input value={form.vehicle_no} onChange={e => setForm(p => ({ ...p, vehicle_no: e.target.value.toUpperCase() }))}
-                      placeholder="OD 02 AB 1234" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs font-medium" data-testid="vw-vehicle" disabled={!!secondWtMode} />
+                    {secondWtMode ? (
+                      <>
+                        <Label className="text-slate-500 text-[10px] mb-0.5 block">Vehicle No *</Label>
+                        <Input value={form.vehicle_no} disabled className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs font-medium" data-testid="vw-vehicle" />
+                      </>
+                    ) : (
+                      <AutoSuggest
+                        value={form.vehicle_no}
+                        onChange={e => setForm(p => ({ ...p, vehicle_no: e.target.value.toUpperCase() }))}
+                        suggestions={truckSuggestions}
+                        placeholder="OD 02 AB 1234"
+                        onSelect={(val) => setForm(p => ({ ...p, vehicle_no: val.toUpperCase() }))}
+                        label="Vehicle No *"
+                        testId="vw-vehicle"
+                      />
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">

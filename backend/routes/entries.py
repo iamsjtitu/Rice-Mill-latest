@@ -698,10 +698,14 @@ async def get_totals(
 @router.get("/suggestions/trucks")
 async def get_truck_suggestions(q: str = ""):
     if len(q) < 1:
-        trucks = await db.mill_entries.distinct("truck_no")
+        trucks_mill = await db.mill_entries.distinct("truck_no")
+        trucks_vw = await db.vehicle_weights.distinct("vehicle_no")
     else:
-        trucks = await db.mill_entries.distinct("truck_no", {"truck_no": {"$regex": q, "$options": "i"}})
-    return {"suggestions": [t for t in trucks if t]}
+        trucks_mill = await db.mill_entries.distinct("truck_no", {"truck_no": {"$regex": q, "$options": "i"}})
+        trucks_vw = await db.vehicle_weights.distinct("vehicle_no", {"vehicle_no": {"$regex": q, "$options": "i"}})
+    combined = list(set([t for t in (trucks_mill + trucks_vw) if t]))
+    combined.sort()
+    return {"suggestions": combined}
 
 
 @router.get("/suggestions/agents")
