@@ -209,6 +209,7 @@ function MainApp({ user, onLogout }) {
   const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("entries"); // "entries", "dashboard", "payments", "milling", "settings"
+  const [entriesSubTab, setEntriesSubTab] = useState("mill-entries"); // "mill-entries" | "vehicle-weight"
   const { wa, tg } = useMessagingEnabled();
   const [entryGroupDialogOpen, setEntryGroupDialogOpen] = useState(false);
   const [entryGroupText, setEntryGroupText] = useState("");
@@ -1487,18 +1488,6 @@ function MainApp({ user, onLogout }) {
               Hemali
             </Button>
             <Button
-              onClick={() => setActiveTab("vehicle-weight")}
-              variant={activeTab === "vehicle-weight" ? "default" : "ghost"}
-              size="sm"
-              className={activeTab === "vehicle-weight" 
-                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
-                : "text-slate-300 hover:bg-slate-700"}
-              data-testid="tab-vehicle-weight"
-            >
-              <Scale className="w-4 h-4 mr-1" />
-              Vehicle Wt
-            </Button>
-            <Button
               onClick={() => setActiveTab("fy-summary")}
               variant={activeTab === "fy-summary" ? "default" : "ghost"}
               size="sm"
@@ -2143,14 +2132,34 @@ function MainApp({ user, onLogout }) {
           <StaffManagement filters={filters} user={user} />
         ) : activeTab === "hemali" ? (
           <HemaliPayment filters={filters} user={user} />
-        ) : activeTab === "vehicle-weight" ? (
-          <VehicleWeight filters={filters} />
         ) : activeTab === "fy-summary" ? (
           <FYSummaryWithTabs filters={filters} user={user} />
         ) : activeTab === "settings" ? (
           <Settings user={user} kmsYear={filters.kms_year} onBrandingUpdate={(updated) => setBranding(updated)} />
         ) : (
           <>
+            {/* Entries Sub-tabs: Mill Entries | Vehicle Weight */}
+            <div className="flex gap-1 mb-4 border-b border-slate-700 pb-1" data-testid="entries-sub-tabs">
+              <button
+                onClick={() => setEntriesSubTab("mill-entries")}
+                className={`px-4 py-1.5 rounded-t text-sm font-medium transition ${entriesSubTab === 'mill-entries' ? 'bg-amber-500/20 text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
+                data-testid="subtab-mill-entries"
+              >
+                Mill Entries
+              </button>
+              <button
+                onClick={() => setEntriesSubTab("vehicle-weight")}
+                className={`px-4 py-1.5 rounded-t text-sm font-medium transition flex items-center gap-1 ${entriesSubTab === 'vehicle-weight' ? 'bg-amber-500/20 text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
+                data-testid="subtab-vehicle-weight"
+              >
+                <Scale className="w-3.5 h-3.5" /> Vehicle Weight
+              </button>
+            </div>
+
+            {entriesSubTab === "vehicle-weight" ? (
+              <VehicleWeight filters={filters} />
+            ) : (
+            <>
             {/* Totals Summary */}
             <Card className="bg-slate-800/50 border-slate-700 mb-6">
           <CardHeader>
@@ -2374,6 +2383,8 @@ function MainApp({ user, onLogout }) {
             </div>
           </CardContent>
         </Card>
+            </>
+            )}
           </>
         )}
         </ErrorBoundary>

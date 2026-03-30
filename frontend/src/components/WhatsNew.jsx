@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.10.0";
+const APP_VERSION = "55.11.0";
 
 const CHANGELOG = [
+  {
+    version: "55.11.0",
+    date: "Mar 2026",
+    title: "v55.11.0 - Vehicle Weight Sub-tab",
+    items: [
+      { type: "new", text: "Vehicle Weight ab Entries ke andar sub-tab mein hai (Mill Entries | Vehicle Weight)" },
+    ]
+  },
   {
     version: "55.10.0",
     date: "Mar 2026",
