@@ -1072,7 +1072,19 @@ function WeighbridgeConfigCard() {
           <>
             <div className="flex items-center gap-3">
               <label className="text-slate-300 text-sm">Enable Weighbridge</label>
-              <div className="relative cursor-pointer" onClick={() => setConfig(p => ({ ...p, enabled: !p.enabled }))}>
+              <div className="relative cursor-pointer" onClick={() => {
+                setConfig(p => {
+                  const updated = { ...p, enabled: !p.enabled };
+                  // Auto-save when toggling enabled/disabled
+                  if (window.electronAPI?.serialSaveConfig) {
+                    window.electronAPI.serialSaveConfig(updated).catch(() => {});
+                  }
+                  if (!updated.enabled && window.electronAPI?.serialDisconnect) {
+                    window.electronAPI.serialDisconnect();
+                  }
+                  return updated;
+                });
+              }}>
                 <div className={`w-10 h-5 rounded-full transition-colors ${config.enabled ? 'bg-purple-600' : 'bg-slate-600'}`} />
                 <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${config.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
               </div>

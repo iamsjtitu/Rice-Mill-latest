@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.27.0";
+const APP_VERSION = "55.28.0";
 
 const CHANGELOG = [
+  {
+    version: "55.28.0",
+    date: "Mar 2026",
+    title: "v55.28.0 - Weighbridge Toggle Fix",
+    items: [
+      { type: "fix", text: "Weighbridge disable karne par ab properly save hota hai - toggle change par auto-save" },
+    ]
+  },
   {
     version: "55.27.0",
     date: "Mar 2026",
