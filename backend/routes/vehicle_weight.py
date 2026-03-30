@@ -5,9 +5,33 @@ from datetime import datetime, timezone
 import uuid
 import logging
 import io
+import os
+import base64 as b64mod
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+IMG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "vw_images")
+os.makedirs(IMG_DIR, exist_ok=True)
+
+
+def _save_image(entry_id: str, tag: str, b64data: str) -> str:
+    if not b64data:
+        return ""
+    filename = f"{entry_id}_{tag}.jpg"
+    with open(os.path.join(IMG_DIR, filename), "wb") as f:
+        f.write(b64mod.b64decode(b64data))
+    return filename
+
+
+def _load_image_b64(filename: str) -> str:
+    if not filename:
+        return ""
+    fp = os.path.join(IMG_DIR, filename)
+    if os.path.exists(fp):
+        with open(fp, "rb") as f:
+            return b64mod.b64encode(f.read()).decode()
+    return ""
 
 
 async def _next_rst(kms_year: str = ""):
@@ -73,12 +97,10 @@ async def update_auto_notify_setting(data: dict):
 
 @router.post("/vehicle-weight/auto-notify")
 async def auto_notify_weight(data: dict):
-    """Auto-send weight details + camera images to WhatsApp & Telegram."""
+    """Auto-send weight details + stored camera images to WhatsApp & Telegram."""
     import base64
 
     entry_id = data.get("entry_id", "")
-    front_image_b64 = data.get("front_image", "")
-    side_image_b64 = data.get("side_image", "")
 
     entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
     if not entry:
@@ -116,8 +138,12 @@ async def auto_notify_weight(data: dict):
         text += f"───────────────\n"
 
     results = {"whatsapp": [], "telegram": []}
-    front_bytes = base64.b64decode(front_image_b64) if front_image_b64 else None
-    side_bytes = base64.b64decode(side_image_b64) if side_image_b64 else None
+
+    # Load saved camera images from disk
+    first_front_b64 = _load_image_b64(entry.get("first_wt_front_img", ""))
+    first_side_b64 = _load_image_b64(entry.get("first_wt_side_img", ""))
+    second_front_b64 = _load_image_b64(entry.get("second_wt_front_img", ""))
+    second_side_b64 = _load_image_b64(entry.get("second_wt_side_img", ""))
 
     # Send via WhatsApp
     try:
@@ -132,7 +158,7 @@ async def auto_notify_weight(data: dict):
     except Exception as e:
         logger.error(f"WA auto-notify error: {e}")
 
-    # Send via Telegram
+    # Send via Telegram (text + all photos)
     try:
         from routes.telegram import get_telegram_config, _send_photo_to_all
         import httpx
@@ -149,11 +175,19 @@ async def auto_notify_weight(data: dict):
                             json={"chat_id": cid, "text": text, "parse_mode": "Markdown"},
                             timeout=15
                         )
-            if front_bytes:
-                r = await _send_photo_to_all(bot_token, chat_ids, front_bytes, f"Front View - RST #{rst}", f"front_rst{rst}.jpg")
+            # Send 1st weight photos
+            if first_front_b64:
+                r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(first_front_b64), f"1st Weight Front - RST #{rst}", f"1st_front_rst{rst}.jpg")
                 results["telegram"].extend(r)
-            if side_bytes:
-                r = await _send_photo_to_all(bot_token, chat_ids, side_bytes, f"Side View - RST #{rst}", f"side_rst{rst}.jpg")
+            if first_side_b64:
+                r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(first_side_b64), f"1st Weight Side - RST #{rst}", f"1st_side_rst{rst}.jpg")
+                results["telegram"].extend(r)
+            # Send 2nd weight photos
+            if second_front_b64:
+                r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(second_front_b64), f"2nd Weight Front - RST #{rst}", f"2nd_front_rst{rst}.jpg")
+                results["telegram"].extend(r)
+            if second_side_b64:
+                r = await _send_photo_to_all(bot_token, chat_ids, base64.b64decode(second_side_b64), f"2nd Weight Side - RST #{rst}", f"2nd_side_rst{rst}.jpg")
                 results["telegram"].extend(r)
     except Exception as e:
         logger.error(f"Telegram auto-notify error: {e}")
@@ -285,6 +319,10 @@ async def create_weight_entry(data: dict):
         "created_at": datetime.now(timezone.utc).isoformat()
     }
 
+    eid = entry["id"]
+    entry["first_wt_front_img"] = _save_image(eid, "1st_front", data.get("first_wt_front_img", ""))
+    entry["first_wt_side_img"] = _save_image(eid, "1st_side", data.get("first_wt_side_img", ""))
+
     await db["vehicle_weights"].insert_one(entry)
     entry.pop("_id", None)
     return {"success": True, "entry": entry, "message": f"RST #{rst_no} - First weight saved!"}
@@ -311,6 +349,13 @@ async def update_second_weight(entry_id: str, data: dict):
         "tare_wt": tare_wt,
         "status": "completed"
     }
+    # Save second weight camera photos
+    front_img = _save_image(entry_id, "2nd_front", data.get("second_wt_front_img", ""))
+    side_img = _save_image(entry_id, "2nd_side", data.get("second_wt_side_img", ""))
+    if front_img:
+        update_fields["second_wt_front_img"] = front_img
+    if side_img:
+        update_fields["second_wt_side_img"] = side_img
     # Update cash/diesel if provided during second weight capture
     if "cash_paid" in data:
         update_fields["cash_paid"] = float(data.get("cash_paid", 0) or 0)

@@ -431,14 +431,19 @@ export default function VehicleWeight({ filters }) {
   const handleSaveSecondWt = async () => {
     if (!secondWtValue || Number(secondWtValue) <= 0) { toast.error("Second Weight daalen"); return; }
     try {
+      // Capture camera photos on second weight
+      const frontImg = frontCamRef.current?.captureFrame?.() || "";
+      const sideImg = sideCamRef.current?.captureFrame?.() || "";
       const r = await axios.put(`${API}/vehicle-weight/${secondWtMode.id}/second-weight`, {
         second_wt: secondWtValue,
         cash_paid: form.cash_paid || "0",
-        diesel_paid: form.diesel_paid || "0"
+        diesel_paid: form.diesel_paid || "0",
+        second_wt_front_img: frontImg,
+        second_wt_side_img: sideImg
       });
       if (r.data.success) {
         toast.success(r.data.message);
-        // Auto-notify on weight completion
+        // Auto-notify on weight completion (images already saved, just send)
         sendAutoNotify(secondWtMode.id);
         clearSecondWtMode();
         fetchData();
@@ -451,7 +456,10 @@ export default function VehicleWeight({ filters }) {
     if (!form.vehicle_no) { toast.error("Vehicle No. daalen"); return; }
     if (!form.first_wt || Number(form.first_wt) <= 0) { toast.error("First Weight daalen"); return; }
     try {
-      const payload = { ...form, kms_year: kms };
+      // Capture camera photos on first weight
+      const frontImg = frontCamRef.current?.captureFrame?.() || "";
+      const sideImg = sideCamRef.current?.captureFrame?.() || "";
+      const payload = { ...form, kms_year: kms, first_wt_front_img: frontImg, first_wt_side_img: sideImg };
       if (form.rst_no && Number(form.rst_no) > 0) payload.rst_no = Number(form.rst_no);
       const r = await axios.post(`${API}/vehicle-weight`, payload);
       if (r.data.success) { toast.success(r.data.message); setForm({ ...blank, rst_no: "" }); setRstEditable(false); fetchData(); }
@@ -460,16 +468,12 @@ export default function VehicleWeight({ filters }) {
 
   const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye transaction delete karna chahte hain?")) return; try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); } };
 
-  // Auto-notify: capture camera frames & send to WhatsApp/Telegram
+  // Auto-notify: images already saved with entry, just trigger notify
   const sendAutoNotify = async (entryId) => {
     if (!autoNotify) return;
     try {
-      const frontImg = frontCamRef.current?.captureFrame?.() || "";
-      const sideImg = sideCamRef.current?.captureFrame?.() || "";
       const r = await axios.post(`${API}/vehicle-weight/auto-notify`, {
-        entry_id: entryId,
-        front_image: frontImg,
-        side_image: sideImg
+        entry_id: entryId
       });
       if (r.data.success) {
         toast.success(`Auto Msg: ${r.data.message}`);

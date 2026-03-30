@@ -6,10 +6,30 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const https = require('https');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const { safeAsync } = require('./safe_handler');
 const router = express.Router();
 
 module.exports = function(database) {
+
+  // Image storage directory
+  const imgDir = path.join(database.dir || '.', 'vw_images');
+  if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true });
+
+  function saveImage(entryId, tag, b64data) {
+    if (!b64data) return '';
+    const filename = `${entryId}_${tag}.jpg`;
+    fs.writeFileSync(path.join(imgDir, filename), Buffer.from(b64data, 'base64'));
+    return filename;
+  }
+
+  function loadImageB64(filename) {
+    if (!filename) return '';
+    const fp = path.join(imgDir, filename);
+    if (fs.existsSync(fp)) return fs.readFileSync(fp).toString('base64');
+    return '';
+  }
 
   function col(name) {
     if (!database.data[name]) database.data[name] = [];
@@ -426,6 +446,10 @@ module.exports = function(database) {
       created_at: new Date().toISOString()
     };
 
+    // Save first weight camera photos
+    entry.first_wt_front_img = saveImage(entry.id, '1st_front', data.first_wt_front_img || '');
+    entry.first_wt_side_img = saveImage(entry.id, '1st_side', data.first_wt_side_img || '');
+
     col('vehicle_weights').push(entry);
     database.save();
     res.json({ success: true, entry, message: `RST #${rstNo} - First weight saved!` });
@@ -449,6 +473,12 @@ module.exports = function(database) {
     entry.gross_wt = grossWt;
     entry.tare_wt = tareWt;
     entry.status = 'completed';
+
+    // Save second weight camera photos
+    const f2 = saveImage(entry.id, '2nd_front', req.body.second_wt_front_img || '');
+    const s2 = saveImage(entry.id, '2nd_side', req.body.second_wt_side_img || '');
+    if (f2) entry.second_wt_front_img = f2;
+    if (s2) entry.second_wt_side_img = s2;
 
     if ('cash_paid' in req.body) entry.cash_paid = parseFloat(req.body.cash_paid || 0) || 0;
     if ('diesel_paid' in req.body) entry.diesel_paid = parseFloat(req.body.diesel_paid || 0) || 0;
