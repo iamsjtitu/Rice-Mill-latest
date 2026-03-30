@@ -688,85 +688,186 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
 @router.get("/fy-summary/balance-sheet/pdf")
 async def export_balance_sheet_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
     from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer, HRFlowable
     from utils.export_helpers import get_pdf_styles
+    from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
     from io import BytesIO
 
     data = await get_balance_sheet(kms_year=kms_year, season=season)
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=20, rightMargin=20, topMargin=20, bottomMargin=20)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=18*mm, rightMargin=18*mm, topMargin=12*mm, bottomMargin=12*mm)
     elements = []
     styles = get_pdf_styles()
 
-    def fmt(n): return f"{(n or 0):,.2f}"
+    def fmt(n):
+        val = n or 0
+        return f"{val:,.2f}" if val >= 0 else f"({abs(val):,.2f})"
 
+    # Company Header
     from utils.branding_helper import get_pdf_company_header_from_db
     elements.extend(await get_pdf_company_header_from_db())
-    elements.append(Paragraph(f"<b>Balance Sheet</b> - FY {kms_year or 'All'}", styles['Title']))
-    elements.append(Paragraph(f"As on: {data['as_on_date']}", styles['Normal']))
-    elements.append(Spacer(1, 10))
+
+    # Title Bar
+    title_style = ParagraphStyle('BSTitle', fontName='FreeSansBold', fontSize=13,
+        textColor=colors.white, alignment=TA_CENTER, leading=18)
+    title_data = [[Paragraph(f"Balance Sheet / बैलेंस शीट  —  FY {kms_year or 'All'}", title_style)]]
+    title_tbl = RLTable(title_data, colWidths=[710])
+    title_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#1a365d')),
+        ('TOPPADDING', (0,0), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,0), (-1,-1), 10),
+    ]))
+    elements.append(title_tbl)
+
+    # Date subtitle
+    date_style = ParagraphStyle('BSDate', fontName='FreeSans', fontSize=8,
+        textColor=colors.HexColor('#64748b'), alignment=TA_CENTER, spaceBefore=3, spaceAfter=8)
+    elements.append(Paragraph(f"As on: {data.get('as_on_date', '-')}", date_style))
 
     # Build side data
     def build_side_rows(groups, total_val):
         rows = []
         for g in groups:
-            rows.append([g['group'], fmt(g['amount'])])
+            rows.append({'name': g['group'], 'amount': g['amount'], 'is_group': True, 'is_total': False})
             for c in g.get('children', []):
-                rows.append([f"    {c['name']}", fmt(c['amount'])])
-        rows.append(['TOTAL', fmt(total_val)])
+                rows.append({'name': c['name'], 'amount': c['amount'], 'is_group': False, 'is_total': False})
+        rows.append({'name': 'TOTAL / कुल', 'amount': total_val, 'is_group': True, 'is_total': True})
         return rows
 
     liab_rows = build_side_rows(data['liabilities'], data['total_liabilities'])
     asset_rows = build_side_rows(data['assets'], data['total_assets'])
 
-    # Pad shorter side with empty rows
+    # Pad shorter side
     max_rows = max(len(liab_rows), len(asset_rows))
-    while len(liab_rows) < max_rows: liab_rows.append(['', ''])
-    while len(asset_rows) < max_rows: asset_rows.append(['', ''])
+    while len(liab_rows) < max_rows: liab_rows.append({'name': '', 'amount': None, 'is_group': False, 'is_total': False})
+    while len(asset_rows) < max_rows: asset_rows.append({'name': '', 'amount': None, 'is_group': False, 'is_total': False})
 
-    # Build side-by-side table: [Liab Particulars | Liab Amount | | Asset Particulars | Asset Amount]
-    header = ['LIABILITIES', 'Amount (Rs.)', '', 'ASSETS', 'Amount (Rs.)']
+    # Styles for cells
+    group_style_l = ParagraphStyle('GrpL', fontName='FreeSansBold', fontSize=8, leading=10, textColor=colors.HexColor('#1e293b'))
+    child_style_l = ParagraphStyle('ChdL', fontName='FreeSans', fontSize=7.5, leading=9.5, textColor=colors.HexColor('#334155'), leftIndent=12)
+    total_style_l = ParagraphStyle('TotL', fontName='FreeSansBold', fontSize=9, leading=11, textColor=colors.white)
+    amt_style = ParagraphStyle('Amt', fontName='FreeSans', fontSize=7.5, leading=9.5, alignment=TA_RIGHT, textColor=colors.HexColor('#334155'))
+    amt_group_style = ParagraphStyle('AmtG', fontName='FreeSansBold', fontSize=8, leading=10, alignment=TA_RIGHT, textColor=colors.HexColor('#1e293b'))
+    amt_total_style_l = ParagraphStyle('AmtTL', fontName='FreeSansBold', fontSize=9, leading=11, alignment=TA_RIGHT, textColor=colors.white)
+
+    # Headers row
+    liab_hdr_style = ParagraphStyle('LH', fontName='FreeSansBold', fontSize=9, textColor=colors.white, leading=12)
+    asset_hdr_style = ParagraphStyle('AH', fontName='FreeSansBold', fontSize=9, textColor=colors.white, leading=12)
+    amt_hdr_style = ParagraphStyle('AHR', fontName='FreeSansBold', fontSize=9, textColor=colors.white, leading=12, alignment=TA_RIGHT)
+
+    header = [
+        Paragraph('LIABILITIES / देनदारी', liab_hdr_style),
+        Paragraph('Amount (Rs.)', amt_hdr_style),
+        '',
+        Paragraph('ASSETS / संपत्ति', asset_hdr_style),
+        Paragraph('Amount (Rs.)', amt_hdr_style),
+    ]
     combined = [header]
-    for i in range(max_rows):
-        combined.append([liab_rows[i][0], liab_rows[i][1], '', asset_rows[i][0], asset_rows[i][1]])
 
-    col_w = [210, 90, 10, 210, 90]
+    for i in range(max_rows):
+        lr = liab_rows[i]
+        ar = asset_rows[i]
+
+        # Liability cell
+        if lr['is_total']:
+            l_name = Paragraph(lr['name'], total_style_l)
+            l_amt = Paragraph(fmt(lr['amount']), amt_total_style_l)
+        elif lr['is_group']:
+            l_name = Paragraph(lr['name'], group_style_l)
+            l_amt = Paragraph(fmt(lr['amount']), amt_group_style)
+        elif lr['name']:
+            l_name = Paragraph(lr['name'], child_style_l)
+            l_amt = Paragraph(fmt(lr['amount']), amt_style)
+        else:
+            l_name = ''
+            l_amt = ''
+
+        # Asset cell
+        if ar['is_total']:
+            a_name = Paragraph(ar['name'], ParagraphStyle('TotA', fontName='FreeSansBold', fontSize=9, leading=11, textColor=colors.white))
+            a_amt = Paragraph(fmt(ar['amount']), amt_total_style_l)
+        elif ar['is_group']:
+            a_name = Paragraph(ar['name'], group_style_l)
+            a_amt = Paragraph(fmt(ar['amount']), amt_group_style)
+        elif ar['name']:
+            a_name = Paragraph(ar['name'], child_style_l)
+            a_amt = Paragraph(fmt(ar['amount']), amt_style)
+        else:
+            a_name = ''
+            a_amt = ''
+
+        combined.append([l_name, l_amt, '', a_name, a_amt])
+
+    col_w = [220, 95, 8, 220, 95]
     t = RLTable(combined, colWidths=col_w, repeatRows=1)
 
     style_list = [
-        ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#dc2626')),
-        ('BACKGROUND', (3, 0), (4, 0), colors.HexColor('#059669')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 7),
-        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ('ALIGN', (4, 0), (4, -1), 'RIGHT'),
-        ('GRID', (0, 0), (1, -1), 0.5, colors.HexColor('#e5e7eb')),
-        ('GRID', (3, 0), (4, -1), 0.5, colors.HexColor('#e5e7eb')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        # Header row
+        ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#b91c1c')),
+        ('BACKGROUND', (3, 0), (4, 0), colors.HexColor('#047857')),
+        ('TOPPADDING', (0, 0), (-1, 0), 7),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 7),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        # Grid for data area
+        ('GRID', (0, 0), (1, -1), 0.4, colors.HexColor('#cbd5e1')),
+        ('GRID', (3, 0), (4, -1), 0.4, colors.HexColor('#cbd5e1')),
+        # Vertical alignment
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        # Row padding
+        ('TOPPADDING', (0, 1), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
     ]
 
-    # Style group headers (bold, grey bg) and totals
-    for i in range(1, len(combined)):
-        row = combined[i]
-        # Liability side
-        if row[0] and not row[0].startswith('    '):
-            style_list.append(('FONTNAME', (0, i), (1, i), 'FreeSansBold'))
-            if row[0] == 'TOTAL':
-                style_list.append(('BACKGROUND', (0, i), (1, i), colors.HexColor('#fecaca')))
-            else:
-                style_list.append(('BACKGROUND', (0, i), (1, i), colors.HexColor('#f1f5f9')))
-        # Asset side
-        if row[3] and not row[3].startswith('    '):
-            style_list.append(('FONTNAME', (3, i), (4, i), 'FreeSansBold'))
-            if row[3] == 'TOTAL':
-                style_list.append(('BACKGROUND', (3, i), (4, i), colors.HexColor('#a7f3d0')))
-            else:
-                style_list.append(('BACKGROUND', (3, i), (4, i), colors.HexColor('#f1f5f9')))
+    # Style individual rows
+    for i in range(max_rows):
+        row_idx = i + 1  # +1 for header
+        lr = liab_rows[i]
+        ar = asset_rows[i]
+
+        # Alternating row colors for children
+        if not lr['is_group'] and not lr['is_total'] and lr['name']:
+            if i % 2 == 0:
+                style_list.append(('BACKGROUND', (0, row_idx), (1, row_idx), colors.HexColor('#f8fafc')))
+
+        if not ar['is_group'] and not ar['is_total'] and ar['name']:
+            if i % 2 == 0:
+                style_list.append(('BACKGROUND', (3, row_idx), (4, row_idx), colors.HexColor('#f8fafc')))
+
+        # Group headers - light background
+        if lr['is_group'] and not lr['is_total']:
+            style_list.append(('BACKGROUND', (0, row_idx), (1, row_idx), colors.HexColor('#e2e8f0')))
+            style_list.append(('LINEABOVE', (0, row_idx), (1, row_idx), 0.6, colors.HexColor('#94a3b8')))
+
+        if ar['is_group'] and not ar['is_total']:
+            style_list.append(('BACKGROUND', (3, row_idx), (4, row_idx), colors.HexColor('#e2e8f0')))
+            style_list.append(('LINEABOVE', (3, row_idx), (4, row_idx), 0.6, colors.HexColor('#94a3b8')))
+
+        # Total rows - strong colored background
+        if lr['is_total']:
+            style_list.append(('BACKGROUND', (0, row_idx), (1, row_idx), colors.HexColor('#b91c1c')))
+            style_list.append(('LINEABOVE', (0, row_idx), (1, row_idx), 1.5, colors.HexColor('#7f1d1d')))
+            style_list.append(('TOPPADDING', (0, row_idx), (1, row_idx), 6))
+            style_list.append(('BOTTOMPADDING', (0, row_idx), (1, row_idx), 6))
+
+        if ar['is_total']:
+            style_list.append(('BACKGROUND', (3, row_idx), (4, row_idx), colors.HexColor('#047857')))
+            style_list.append(('LINEABOVE', (3, row_idx), (4, row_idx), 1.5, colors.HexColor('#064e3b')))
+            style_list.append(('TOPPADDING', (3, row_idx), (4, row_idx), 6))
+            style_list.append(('BOTTOMPADDING', (3, row_idx), (4, row_idx), 6))
 
     t.setStyle(TableStyle(style_list))
     elements.append(t)
+
+    # Footer note
+    elements.append(Spacer(1, 8))
+    footer_style = ParagraphStyle('Footer', fontName='FreeSans', fontSize=6.5,
+        textColor=colors.HexColor('#94a3b8'), alignment=TA_CENTER)
+    elements.append(Paragraph(f"Generated on {datetime.now().strftime('%d/%m/%Y %I:%M %p')}  |  Mill Entry System", footer_style))
 
     doc.build(elements)
     buffer.seek(0)

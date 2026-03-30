@@ -550,49 +550,93 @@ module.exports = function(database) {
       registerFonts(doc);
 
       const fmt = (n) => fmtAmt ? fmtAmt(n) : (n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+      const pageW = 842 - 50; // A4 landscape - margins
+      const midGap = 12;
+      const sideW = (pageW - midGap) / 2;
+      const nameW = sideW * 0.7;
+      const amtW = sideW * 0.3;
 
-      doc.fontSize(14).font(F('bold')).text(`Balance Sheet - KMS ${req.query.kms_year||'All'}`, {align:'center'});
-      doc.fontSize(9).font(F('normal')).text(`As on: ${new Date().toLocaleDateString('en-IN')}`, {align:'center'});
-      doc.moveDown(0.5);
+      // Title Bar
+      const titleY = doc.y;
+      doc.rect(25, titleY, pageW, 28).fill('#1a365d');
+      doc.fontSize(13).font(F('bold')).fillColor('#ffffff')
+        .text(`Balance Sheet / \u092C\u0948\u0932\u0947\u0902\u0938 \u0936\u0940\u091F  \u2014  FY ${req.query.kms_year||'All'}`, 25, titleY + 7, {width: pageW, align: 'center'});
+      doc.fillColor('#000');
+      doc.y = titleY + 32;
+
+      // Date subtitle
+      doc.fontSize(7.5).font(F('normal')).fillColor('#64748b')
+        .text(`As on: ${new Date().toLocaleDateString('en-IN')}`, {align: 'center'});
+      doc.fillColor('#000');
+      doc.moveDown(0.6);
 
       const startY = doc.y;
-      const leftX = 25, rightX = 420, colW = 370;
+      const leftX = 25;
+      const rightX = leftX + sideW + midGap;
+
+      // Helper: draw a section header
+      function drawSectionHeader(x, y, label, bgColor) {
+        doc.rect(x, y, sideW, 20).fill(bgColor);
+        doc.fontSize(9).font(F('bold')).fillColor('#ffffff')
+          .text(label, x + 8, y + 5, {width: nameW - 8});
+        doc.text('Amount (Rs.)', x + nameW, y + 5, {width: amtW - 5, align: 'right'});
+        doc.fillColor('#000');
+        return y + 20;
+      }
+
+      // Helper: draw rows for a side
+      function drawSideRows(x, startRowY, groups, totalVal, totalBg) {
+        let y = startRowY;
+        let rowIdx = 0;
+        for (const g of groups) {
+          // Group header row
+          doc.rect(x, y, sideW, 14).fill('#e2e8f0');
+          doc.rect(x, y, sideW, 0.5).fill('#94a3b8'); // top border
+          doc.fontSize(8).font(F('bold')).fillColor('#1e293b')
+            .text(g.group, x + 8, y + 3, {width: nameW - 8});
+          doc.text(fmt(g.amount), x + nameW, y + 3, {width: amtW - 5, align: 'right'});
+          doc.fillColor('#000');
+          y += 14;
+
+          // Children
+          for (const c of (g.children || [])) {
+            if (rowIdx % 2 === 0) {
+              doc.rect(x, y, sideW, 12).fill('#f8fafc');
+            }
+            doc.fontSize(7.5).font(F('normal')).fillColor('#334155')
+              .text(c.name, x + 18, y + 2.5, {width: nameW - 18});
+            doc.text(fmt(c.amount), x + nameW, y + 2.5, {width: amtW - 5, align: 'right'});
+            doc.fillColor('#000');
+            y += 12;
+            rowIdx++;
+          }
+        }
+
+        // Total row
+        doc.rect(x, y + 2, sideW, 20).fill(totalBg);
+        doc.rect(x, y + 2, sideW, 1.2).fill(totalBg === '#b91c1c' ? '#7f1d1d' : '#064e3b');
+        doc.fontSize(9).font(F('bold')).fillColor('#ffffff')
+          .text('TOTAL / \u0915\u0941\u0932', x + 8, y + 7, {width: nameW - 8});
+        doc.text(fmt(totalVal), x + nameW, y + 7, {width: amtW - 5, align: 'right'});
+        doc.fillColor('#000');
+        return y + 24;
+      }
 
       // Draw Liabilities
-      doc.fontSize(10).font(F('bold')).fillColor('#dc2626').text('LIABILITIES', leftX, startY);
-      doc.fillColor('#000');
-      let y = startY + 18;
-      for (const g of liabilities) {
-        doc.fontSize(8).font(F('bold')).text(g.group, leftX+5, y, {width:250});
-        doc.text(fmt(g.amount), leftX+260, y, {width:90, align:'right'});
-        y += 12;
-        for (const c of (g.children||[])) {
-          doc.fontSize(7).font(F('normal')).text(`    ${c.name}`, leftX+10, y, {width:250});
-          doc.text(fmt(c.amount), leftX+260, y, {width:90, align:'right'});
-          y += 10;
-        }
-      }
-      doc.fontSize(9).font(F('bold')).fillColor('#dc2626').text('TOTAL', leftX+5, y+5);
-      doc.text(fmt(totalLiab), leftX+260, y+5, {width:90, align:'right'});
-      doc.fillColor('#000');
+      let liabY = drawSectionHeader(leftX, startY, 'LIABILITIES / \u0926\u0947\u0928\u0926\u093E\u0930\u0940', '#b91c1c');
+      drawSideRows(leftX, liabY, liabilities, totalLiab, '#b91c1c');
 
       // Draw Assets
-      y = startY;
-      doc.fontSize(10).font(F('bold')).fillColor('#059669').text('ASSETS', rightX, y);
-      doc.fillColor('#000');
-      y += 18;
-      for (const g of assets) {
-        doc.fontSize(8).font(F('bold')).text(g.group, rightX+5, y, {width:250});
-        doc.text(fmt(g.amount), rightX+260, y, {width:90, align:'right'});
-        y += 12;
-        for (const c of (g.children||[])) {
-          doc.fontSize(7).font(F('normal')).text(`    ${c.name}`, rightX+10, y, {width:250});
-          doc.text(fmt(c.amount), rightX+260, y, {width:90, align:'right'});
-          y += 10;
-        }
-      }
-      doc.fontSize(9).font(F('bold')).fillColor('#059669').text('TOTAL', rightX+5, y+5);
-      doc.text(fmt(totalAssets), rightX+260, y+5, {width:90, align:'right'});
+      let assetY = drawSectionHeader(rightX, startY, 'ASSETS / \u0938\u0902\u092A\u0924\u094D\u0924\u093F', '#047857');
+      drawSideRows(rightX, assetY, assets, totalAssets, '#047857');
+
+      // Divider line between two sides
+      doc.rect(leftX + sideW + 2, startY, 1, Math.max(liabY, assetY) - startY + 80).fill('#cbd5e1');
+
+      // Footer
+      doc.fontSize(6.5).font(F('normal')).fillColor('#94a3b8');
+      const footerY = doc.page.height - 35;
+      doc.text(`Generated on ${new Date().toLocaleDateString('en-IN')} | Mill Entry System`, 25, footerY, {width: pageW, align: 'center'});
 
       await safePdfPipe(doc, res, `Balance_Sheet_${req.query.kms_year||'all'}.pdf`);
     } catch (err) {
