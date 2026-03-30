@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.36.0";
+const APP_VERSION = "55.37.0";
 
 const CHANGELOG = [
+  {
+    version: "55.37.0",
+    date: "Mar 2026",
+    title: "v55.37.0 - RTSP Camera + Delete Dialog + WhatsApp Format",
+    items: [
+      { type: "new", text: "RTSP IP Camera support - ffmpeg bundled, alag install nahi karna" },
+      { type: "new", text: "Camera proxy - RTSP stream browser mai VLC jaisa dikhega" },
+      { type: "fix", text: "Delete confirmation dialog - ab UI freeze nahi hoga" },
+      { type: "fix", text: "WhatsApp message format - RST#, Date, Farmer, separators, Rs symbol" },
+    ]
+  },
   {
     version: "55.36.0",
     date: "Mar 2026",
