@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.23.0";
+const APP_VERSION = "55.24.0";
 
 const CHANGELOG = [
+  {
+    version: "55.24.0",
+    date: "Mar 2026",
+    title: "v55.24.0 - Desktop Fix + Route Sync CI/CD",
+    items: [
+      { type: "fix", text: "Desktop App 'Data fetch error' fix - Vehicle Weight JS routes bana diye desktop-app aur local-server dono mai" },
+      { type: "new", text: "Route Sync Checker script (scripts/sync_check.py) - Python vs JS endpoint parity auto-detect" },
+      { type: "new", text: "GitHub Actions CI/CD - har push par route sync check, PR mai auto comment agar endpoint missing ho" },
+    ]
+  },
   {
     version: "55.23.0",
     date: "Mar 2026",
