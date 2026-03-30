@@ -19,6 +19,9 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Desktop JSON compact save (40% smaller file)
 - All three backends fully synced with pagination
 - **Photo View Dialog Redesigned** (Mar 2026): Print-slip-style layout with bordered table, colored weight summary bar (Gross/Tare/Net-green/Cash-orange/Diesel-orange), dynamic branding
+- **Default Today's Date** (Mar 2026): Mill Entries, Cash Book, and Vehicle Weight now default to today's date only. Empty state messages in Hindi. Massive load reduction.
+- **Vehicle Weight Filters** (Mar 2026): New filter bar (RST No, Date From/To, Vehicle, Party, Mandi). Excel and PDF bulk export buttons added.
+- **Triple Backend Parity**: All filter and export changes replicated to desktop-app and local-server JS backends.
 
 ## Key API Changes
 - `/api/entries?page=1&page_size=200` → Paginated mill entries
