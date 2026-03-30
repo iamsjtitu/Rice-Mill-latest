@@ -48,6 +48,9 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - `/api/vehicle-weight/:id/slip-pdf` (GET)
 - `/api/vehicle-weight/:id` (DELETE)
 
+## Tools
+- **Route Sync Checker** (`/app/scripts/sync_check.py`): Compares all Python FastAPI endpoints against both JS Express backends. Cross-file matching eliminates false positives. Run modes: `--brief`, `--fix` (boilerplate), `--json`. Current sync: ~98.3%.
+
 ## Prioritized Backlog
 ### P2 - Future
 - Export Preview feature
