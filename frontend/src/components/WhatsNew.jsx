@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.2.0";
+const APP_VERSION = "55.3.0";
 
 const CHANGELOG = [
+  {
+    version: "55.3.0",
+    date: "Mar 2026",
+    title: "v55.3.0 - Default Group Auto-Select",
+    items: [
+      { type: "new", text: "Settings mein Default WhatsApp Group select karo - har jagah auto-select hoga" },
+      { type: "new", text: "Send to Group dialog ab default group automatically dikhata hai" },
+    ]
+  },
   {
     version: "55.2.0",
     date: "Mar 2026",

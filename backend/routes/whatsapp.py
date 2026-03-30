@@ -117,12 +117,15 @@ async def update_whatsapp_settings(data: dict):
     else:
         default_numbers = default_numbers_raw or []
     group_id = data.get("group_id", "").strip()
+    default_group_id = data.get("default_group_id", "").strip()
+    default_group_name = data.get("default_group_name", "").strip()
 
     await db["settings"].update_one(
         {"key": "whatsapp"},
         {"$set": {
             "key": "whatsapp", "api_key": api_key, "country_code": country_code,
-            "enabled": enabled, "default_numbers": default_numbers, "group_id": group_id
+            "enabled": enabled, "default_numbers": default_numbers, "group_id": group_id,
+            "default_group_id": default_group_id, "default_group_name": default_group_name
         }},
         upsert=True
     )

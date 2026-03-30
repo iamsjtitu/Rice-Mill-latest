@@ -18,19 +18,24 @@ export function SendToGroupDialog({ open, onOpenChange, text, pdfUrl, onSent }) 
 
   useEffect(() => {
     if (open) {
-      setSelectedGroup("");
-      fetchGroups();
+      fetchGroupsAndDefault();
     }
   }, [open]);
 
-  const fetchGroups = async () => {
+  const fetchGroupsAndDefault = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API}/whatsapp/groups`);
-      if (res.data.success) {
-        setGroups(res.data.groups || []);
+      const [groupsRes, settingsRes] = await Promise.all([
+        axios.get(`${API}/whatsapp/groups`),
+        axios.get(`${API}/whatsapp/settings`)
+      ]);
+      const fetchedGroups = groupsRes.data.success ? (groupsRes.data.groups || []) : [];
+      setGroups(fetchedGroups);
+      const defaultId = settingsRes.data?.default_group_id || "";
+      if (defaultId && fetchedGroups.some(g => g.id === defaultId)) {
+        setSelectedGroup(defaultId);
       } else {
-        toast.error(res.data.error || "Groups fetch fail");
+        setSelectedGroup("");
       }
     } catch (e) {
       toast.error("Groups load error: " + (e.response?.data?.detail || e.message));
@@ -82,12 +87,15 @@ export function SendToGroupDialog({ open, onOpenChange, text, pdfUrl, onSent }) 
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="ghost" size="sm" onClick={fetchGroups} disabled={loading} className="text-slate-400 shrink-0" data-testid="group-refresh">
+            <Button variant="ghost" size="sm" onClick={fetchGroupsAndDefault} disabled={loading} className="text-slate-400 shrink-0" data-testid="group-refresh">
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>
           {groups.length === 0 && !loading && (
             <p className="text-xs text-slate-400">Koi group nahi mila. WhatsApp mein group banana zaruri hai.</p>
+          )}
+          {selectedGroup && groups.length > 0 && (
+            <p className="text-xs text-green-400">Selected: {groups.find(g => g.id === selectedGroup)?.name || selectedGroup}</p>
           )}
           <Button onClick={handleSend} disabled={!selectedGroup || sending} className="w-full bg-green-600 hover:bg-green-700 text-white" data-testid="group-send-btn">
             <Send className="w-4 h-4 mr-2" />

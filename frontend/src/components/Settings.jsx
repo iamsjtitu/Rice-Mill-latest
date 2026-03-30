@@ -489,10 +489,12 @@ function StockTab({ kmsYear, user }) {
 // ---- Messaging Tab (WhatsApp + Telegram) ----
 function MessagingTab() {
   // WhatsApp state
-  const [waSettings, setWaSettings] = useState({ api_key: "", country_code: "91", enabled: false, api_key_masked: "", default_numbers: [], group_id: "" });
-  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91", default_numbers: "", group_id: "" });
+  const [waSettings, setWaSettings] = useState({ api_key: "", country_code: "91", enabled: false, api_key_masked: "", default_numbers: [], group_id: "", default_group_id: "", default_group_name: "" });
+  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91", default_numbers: "", group_id: "", default_group_id: "", default_group_name: "" });
   const [waTestPhone, setWaTestPhone] = useState("");
   const [waLoading, setWaLoading] = useState(false);
+  const [waGroups, setWaGroups] = useState([]);
+  const [waGroupsLoading, setWaGroupsLoading] = useState(false);
 
   // Telegram state
   const [telegramConfig, setTelegramConfig] = useState({ bot_token: "", chat_ids: [], schedule_time: "21:00", enabled: false });
@@ -507,7 +509,9 @@ function MessagingTab() {
         api_key: res.data.api_key || "",
         country_code: res.data.country_code || "91",
         default_numbers: (res.data.default_numbers || []).join(", "),
-        group_id: res.data.group_id || ""
+        group_id: res.data.group_id || "",
+        default_group_id: res.data.default_group_id || "",
+        default_group_name: res.data.default_group_name || ""
       });
     } catch (e) { console.error("WA settings fetch error:", e); }
   };
@@ -521,9 +525,19 @@ function MessagingTab() {
 
   useEffect(() => {
     fetchWaSettings();
+    fetchWaGroups();
     fetchTelegramConfig();
     fetchTelegramLogs();
   }, []);
+
+  const fetchWaGroups = async () => {
+    setWaGroupsLoading(true);
+    try {
+      const res = await axios.get(`${API}/whatsapp/groups`);
+      if (res.data.success) setWaGroups(res.data.groups || []);
+    } catch {}
+    setWaGroupsLoading(false);
+  };
 
   const handleSaveTelegramConfig = async () => {
     setTelegramLoading(true);
@@ -587,7 +601,7 @@ function MessagingTab() {
                 {waSettings.api_key_masked && <p className="text-slate-400 text-xs mt-1">API Key: {waSettings.api_key_masked}</p>}
               </div>
               <p className="text-slate-400 text-xs">
-                Country: +{waSettings.country_code || '91'} | Numbers: {(waSettings.default_numbers || []).length || 'None'} | Group: {waSettings.group_id ? 'Set' : 'Not set'}
+                Country: +{waSettings.country_code || '91'} | Numbers: {(waSettings.default_numbers || []).length || 'None'} | Group: {waSettings.default_group_name || (waSettings.group_id ? 'Set' : 'Not set')}
               </p>
             </div>
           </div>
@@ -620,14 +634,41 @@ function MessagingTab() {
             <p className="text-slate-500 text-xs mt-1">Ye numbers pe directly message jayega bina prompt ke.</p>
           </div>
 
-          {/* Group ID */}
+          {/* Default Group for "Send to Group" */}
           <div>
-            <Label className="text-slate-400 text-xs mb-1 block">WhatsApp Group ID (optional)</Label>
+            <Label className="text-slate-400 text-xs mb-1 block">Default WhatsApp Group (Send to Group ke liye)</Label>
+            <div className="flex items-center gap-2">
+              <select
+                value={waForm.default_group_id}
+                onChange={(e) => {
+                  const gId = e.target.value;
+                  const gName = waGroups.find(g => g.id === gId)?.name || "";
+                  setWaForm(prev => ({ ...prev, default_group_id: gId, default_group_name: gName }));
+                }}
+                className="flex-1 bg-slate-700 border border-slate-600 text-white text-sm rounded-md px-3 py-2"
+                data-testid="wa-default-group-select"
+              >
+                <option value="">-- Group select karein --</option>
+                {waGroups.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+              <Button variant="ghost" size="sm" onClick={fetchWaGroups} disabled={waGroupsLoading} className="text-slate-400 shrink-0" data-testid="wa-refresh-groups">
+                <RefreshCw className={`w-4 h-4 ${waGroupsLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+            {waForm.default_group_name && <p className="text-green-400 text-xs mt-1">Selected: {waForm.default_group_name}</p>}
+            <p className="text-slate-500 text-xs mt-1">Ye group har jagah "Send to Group" mein auto-select hoga.</p>
+          </div>
+
+          {/* Group ID (legacy - for daily report) */}
+          <div>
+            <Label className="text-slate-400 text-xs mb-1 block">Daily Report Group ID (optional)</Label>
             <Input value={waForm.group_id}
               onChange={(e) => setWaForm(prev => ({ ...prev, group_id: e.target.value }))}
               placeholder="Group ID (360Messenger dashboard se milega)"
               className="bg-slate-700 border-slate-600 text-white text-sm" data-testid="wa-group-id-input" />
-            <p className="text-slate-500 text-xs mt-1">Daily report group mein bhi jayega agar set karoge.</p>
+            <p className="text-slate-500 text-xs mt-1">Daily report isme bhi jayega agar set karoge.</p>
           </div>
 
           <Button
@@ -636,7 +677,8 @@ function MessagingTab() {
                 setWaLoading(true);
                 await axios.put(`${API}/whatsapp/settings`, {
                   api_key: waForm.api_key, country_code: waForm.country_code,
-                  default_numbers: waForm.default_numbers, group_id: waForm.group_id
+                  default_numbers: waForm.default_numbers, group_id: waForm.group_id,
+                  default_group_id: waForm.default_group_id, default_group_name: waForm.default_group_name
                 });
                 toast.success("WhatsApp settings save ho gayi!");
                 fetchWaSettings();
