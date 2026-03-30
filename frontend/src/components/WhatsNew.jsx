@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.37.0";
+const APP_VERSION = "55.38.0";
 
 const CHANGELOG = [
+  {
+    version: "55.38.0",
+    date: "Mar 2026",
+    title: "v55.38.0 - Camera Auto-Start + Download Fix",
+    items: [
+      { type: "fix", text: "IP Camera ab Auto Vehicle Weight page par auto-start hoga - Start click nahi karna" },
+      { type: "fix", text: "Download Slip mai sirf 1 copy (Party Copy) aayegi" },
+    ]
+  },
   {
     version: "55.37.0",
     date: "Mar 2026",
