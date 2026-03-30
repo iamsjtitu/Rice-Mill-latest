@@ -46,7 +46,7 @@ import {
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
   Info, Printer, HardDrive, Download, RotateCcw, Shield, ShieldCheck, Sun, Moon,
-  Wheat, Wallet, Package, UserCheck, Send, Eye
+  Wheat, Wallet, Package, UserCheck, Send, Eye, Scale
 } from "lucide-react";
 
 // Import extracted components
@@ -73,6 +73,7 @@ import AutoUpdate from "@/components/AutoUpdate";
 import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import { useMessagingEnabled } from "./hooks/useMessagingEnabled";
 import Settings from "@/components/Settings";
+import VehicleWeight from "@/components/VehicleWeight";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -1460,6 +1461,18 @@ function MainApp({ user, onLogout }) {
               Hemali
             </Button>
             <Button
+              onClick={() => setActiveTab("vehicle-weight")}
+              variant={activeTab === "vehicle-weight" ? "default" : "ghost"}
+              size="sm"
+              className={activeTab === "vehicle-weight" 
+                ? "bg-amber-500 hover:bg-amber-600 text-slate-900" 
+                : "text-slate-300 hover:bg-slate-700"}
+              data-testid="tab-vehicle-weight"
+            >
+              <Scale className="w-4 h-4 mr-1" />
+              Vehicle Wt
+            </Button>
+            <Button
               onClick={() => setActiveTab("fy-summary")}
               variant={activeTab === "fy-summary" ? "default" : "ghost"}
               size="sm"
@@ -2097,6 +2110,8 @@ function MainApp({ user, onLogout }) {
           <StaffManagement filters={filters} user={user} />
         ) : activeTab === "hemali" ? (
           <HemaliPayment filters={filters} user={user} />
+        ) : activeTab === "vehicle-weight" ? (
+          <VehicleWeight filters={filters} />
         ) : activeTab === "fy-summary" ? (
           <FYSummaryWithTabs filters={filters} user={user} />
         ) : activeTab === "settings" ? (

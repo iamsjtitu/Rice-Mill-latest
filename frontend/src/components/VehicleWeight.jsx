@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, RefreshCw, FileText, Send, Users, Scale, Truck, Clock, CheckCircle, Download } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, WifiOff, Play, Square, Zap } from "lucide-react";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { downloadFile } from "../utils/download";
@@ -19,6 +19,133 @@ const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "")
 const API = `${BACKEND_URL}/api`;
 
 const fmtWt = (w) => w ? `${Number(w).toLocaleString()} KG` : "0 KG";
+
+// --- Live Scale Simulator ---
+function useLiveScale() {
+  const [weight, setWeight] = useState(0);
+  const [stable, setStable] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const intervalRef = useRef(null);
+  const targetRef = useRef(0);
+  const tickRef = useRef(0);
+
+  const startSimulation = useCallback((targetWt) => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    const target = targetWt || (Math.floor(Math.random() * 25000) + 5000); // 5000-30000 KG
+    targetRef.current = target;
+    tickRef.current = 0;
+    setStable(false);
+    setRunning(true);
+    setConnected(true);
+    setWeight(0);
+
+    intervalRef.current = setInterval(() => {
+      tickRef.current++;
+      const t = tickRef.current;
+      if (t < 25) {
+        // Phase 1: Rapid climb with noise
+        const progress = t / 25;
+        const noise = (Math.random() - 0.5) * target * 0.08;
+        setWeight(Math.round(target * progress + noise));
+      } else if (t < 40) {
+        // Phase 2: Settling with decreasing oscillation
+        const osc = (Math.random() - 0.5) * target * 0.02 * (1 - (t - 25) / 15);
+        setWeight(Math.round(target + osc));
+      } else {
+        // Phase 3: Stable
+        setWeight(target);
+        setStable(true);
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }, 80);
+  }, []);
+
+  const stopSimulation = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    setRunning(false);
+    setStable(false);
+    setWeight(0);
+    setConnected(false);
+  }, []);
+
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
+
+  return { weight, stable, running, connected, startSimulation, stopSimulation };
+}
+
+// --- Camera Feed Component ---
+function CameraFeed() {
+  const videoRef = useRef(null);
+  const [active, setActive] = useState(false);
+  const [error, setError] = useState(null);
+  const streamRef = useRef(null);
+
+  const startCamera = useCallback(async () => {
+    try {
+      setError(null);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      setActive(true);
+    } catch (e) {
+      setError("Camera access nahi mila. Desktop app mein camera connect karein.");
+      setActive(false);
+    }
+  }, []);
+
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setActive(false);
+  }, []);
+
+  useEffect(() => () => stopCamera(), [stopCamera]);
+
+  return (
+    <div className="relative" data-testid="camera-feed-panel">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-slate-400 text-xs font-medium flex items-center gap-1">
+          {active ? <Camera className="w-3.5 h-3.5 text-green-400" /> : <CameraOff className="w-3.5 h-3.5 text-red-400" />}
+          IP Camera Feed
+        </span>
+        <Button
+          onClick={active ? stopCamera : startCamera}
+          variant="ghost" size="sm"
+          className={`h-6 px-2 text-xs ${active ? 'text-red-400 hover:bg-red-900/30' : 'text-green-400 hover:bg-green-900/30'}`}
+          data-testid="camera-toggle-btn"
+        >
+          {active ? <><Square className="w-3 h-3 mr-1" />Stop</> : <><Play className="w-3 h-3 mr-1" />Start</>}
+        </Button>
+      </div>
+      <div className="bg-black rounded-lg overflow-hidden aspect-video flex items-center justify-center border border-slate-700">
+        {active ? (
+          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+        ) : (
+          <div className="text-center p-4">
+            {error ? (
+              <p className="text-red-400 text-xs">{error}</p>
+            ) : (
+              <>
+                <CameraOff className="w-10 h-10 text-slate-600 mx-auto mb-2" />
+                <p className="text-slate-500 text-xs">Camera Off</p>
+                <p className="text-slate-600 text-[10px]">Desktop app mein weighbridge camera connect hoga</p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function VehicleWeight({ filters }) {
   const { wa } = useMessagingEnabled();
@@ -32,6 +159,7 @@ export default function VehicleWeight({ filters }) {
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupText, setGroupText] = useState("");
   const [groupPdfUrl, setGroupPdfUrl] = useState("");
+  const scale = useLiveScale();
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
@@ -61,6 +189,20 @@ export default function VehicleWeight({ filters }) {
   }, [kms]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Auto-fill weight from scale when stable
+  const captureFirstWt = () => {
+    if (scale.stable && scale.weight > 0) {
+      setForm(p => ({ ...p, first_wt: String(scale.weight) }));
+      toast.success(`First Weight captured: ${scale.weight} KG`);
+    }
+  };
+  const captureSecondWt = () => {
+    if (scale.stable && scale.weight > 0) {
+      setSecondWtValue(String(scale.weight));
+      toast.success(`Second Weight captured: ${scale.weight} KG`);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -130,7 +272,7 @@ export default function VehicleWeight({ filters }) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
           <Scale className="w-5 h-5 text-amber-400" />
-          Vehicle Weight / वाहन तौल
+          Vehicle Weight / Weighbridge
         </h2>
         <div className="flex items-center gap-2">
           <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600" data-testid="vw-refresh">
@@ -142,12 +284,99 @@ export default function VehicleWeight({ filters }) {
         </div>
       </div>
 
+      {/* Live Scale + Camera Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Digital Scale Display */}
+        <Card className="lg:col-span-2 bg-slate-900 border-slate-700" data-testid="live-scale-panel">
+          <CardHeader className="pb-2 pt-3">
+            <CardTitle className="text-sm flex items-center justify-between">
+              <span className="flex items-center gap-2 text-slate-300">
+                <Scale className="w-4 h-4 text-amber-400" />
+                Live Weighbridge / तौल मशीन
+              </span>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={`text-[10px] ${scale.connected ? 'border-green-500 text-green-400' : 'border-red-500 text-red-400'}`}>
+                  {scale.connected ? <><Wifi className="w-3 h-3 mr-1" />COM3 Connected</> : <><WifiOff className="w-3 h-3 mr-1" />Disconnected</>}
+                </Badge>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-3">
+            {/* Big Digital Display */}
+            <div className="bg-black rounded-xl p-6 mb-3 border-2 border-slate-600 relative overflow-hidden">
+              <div className="absolute top-2 right-3 text-[10px] text-slate-600 font-mono">WEIGHBRIDGE v2.0</div>
+              <div className="text-center">
+                <div
+                  className={`font-mono text-6xl md:text-7xl font-bold tracking-wider transition-colors duration-200 ${
+                    scale.stable ? 'text-green-400' : scale.running ? 'text-amber-400' : 'text-slate-600'
+                  }`}
+                  data-testid="live-weight-display"
+                  style={{ textShadow: scale.running ? '0 0 20px currentColor' : 'none' }}
+                >
+                  {scale.weight > 0 ? scale.weight.toLocaleString() : '00,000'}
+                </div>
+                <div className="text-slate-500 text-sm mt-1 font-mono">KG</div>
+                {scale.stable && (
+                  <div className="mt-2 flex items-center justify-center gap-1 text-green-400 text-xs animate-pulse">
+                    <CheckCircle className="w-3.5 h-3.5" /> STABLE - Weight Locked
+                  </div>
+                )}
+                {scale.running && !scale.stable && (
+                  <div className="mt-2 text-amber-400 text-xs animate-pulse">Measuring...</div>
+                )}
+              </div>
+            </div>
+
+            {/* Scale Controls */}
+            <div className="flex flex-wrap gap-2">
+              {!scale.running ? (
+                <Button
+                  onClick={() => scale.startSimulation()}
+                  size="sm" className="bg-green-700 hover:bg-green-600 text-white"
+                  data-testid="vw-simulate-btn"
+                >
+                  <Zap className="w-4 h-4 mr-1" /> Simulate Weight
+                </Button>
+              ) : (
+                <Button
+                  onClick={scale.stopSimulation}
+                  size="sm" variant="outline" className="border-red-600 text-red-400 hover:bg-red-900/30"
+                  data-testid="vw-stop-btn"
+                >
+                  <Square className="w-4 h-4 mr-1" /> Stop
+                </Button>
+              )}
+              {scale.stable && showForm && (
+                <Button onClick={captureFirstWt} size="sm" className="bg-blue-600 hover:bg-blue-700" data-testid="vw-capture-first">
+                  <Scale className="w-4 h-4 mr-1" /> Capture as First Wt
+                </Button>
+              )}
+              {scale.stable && secondWtDialog.open && (
+                <Button onClick={captureSecondWt} size="sm" className="bg-emerald-600 hover:bg-emerald-700" data-testid="vw-capture-second">
+                  <Scale className="w-4 h-4 mr-1" /> Capture as Second Wt
+                </Button>
+              )}
+              <span className="text-[10px] text-slate-600 self-center ml-2">
+                * Desktop app mein real COM port se auto-connect hoga
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Camera Panel */}
+        <Card className="bg-slate-900 border-slate-700">
+          <CardContent className="pt-4 pb-3">
+            <CameraFeed />
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Pending Vehicles Banner */}
       {pending.length > 0 && (
         <Card className="bg-yellow-900/20 border-yellow-700/50" data-testid="vw-pending-banner">
           <CardHeader className="pb-2 pt-3">
             <CardTitle className="text-yellow-400 text-sm flex items-center gap-2">
-              <Clock className="w-4 h-4" /> Pending Vehicles - Second Weight Baaki ({pending.length})
+              <Clock className="w-4 h-4" /> Pending - Second Weight Baaki ({pending.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-3">
@@ -316,9 +545,16 @@ export default function VehicleWeight({ filters }) {
             </div>
             <div>
               <Label className="text-amber-400 text-sm font-bold">First Weight (KG) *</Label>
-              <Input type="number" value={form.first_wt} onChange={e => setForm(p => ({ ...p, first_wt: e.target.value }))}
-                placeholder="Enter weight in KG" className="bg-slate-700 border-slate-600 text-white text-lg font-bold h-12"
-                data-testid="vw-first-wt" autoFocus />
+              <div className="flex gap-2">
+                <Input type="number" value={form.first_wt} onChange={e => setForm(p => ({ ...p, first_wt: e.target.value }))}
+                  placeholder="Enter weight or capture from scale" className="bg-slate-700 border-slate-600 text-white text-lg font-bold h-12 flex-1"
+                  data-testid="vw-first-wt" autoFocus />
+                {scale.stable && (
+                  <Button type="button" onClick={captureFirstWt} className="bg-green-700 hover:bg-green-600 h-12 px-3" data-testid="vw-capture-first-dialog">
+                    <Zap className="w-4 h-4 mr-1" /> {scale.weight.toLocaleString()}
+                  </Button>
+                )}
+              </div>
             </div>
             <div>
               <Label className="text-slate-400 text-xs">Remark</Label>
@@ -350,9 +586,16 @@ export default function VehicleWeight({ filters }) {
               </div>
               <div>
                 <Label className="text-green-400 text-sm font-bold">Second Weight (KG) *</Label>
-                <Input type="number" value={secondWtValue} onChange={e => setSecondWtValue(e.target.value)}
-                  placeholder="Enter weight in KG" className="bg-slate-700 border-slate-600 text-white text-lg font-bold h-12"
-                  data-testid="vw-second-wt-input" autoFocus />
+                <div className="flex gap-2">
+                  <Input type="number" value={secondWtValue} onChange={e => setSecondWtValue(e.target.value)}
+                    placeholder="Enter weight in KG" className="bg-slate-700 border-slate-600 text-white text-lg font-bold h-12 flex-1"
+                    data-testid="vw-second-wt-input" autoFocus />
+                  {scale.stable && (
+                    <Button type="button" onClick={captureSecondWt} className="bg-green-700 hover:bg-green-600 h-12 px-3" data-testid="vw-capture-second-dialog">
+                      <Zap className="w-4 h-4 mr-1" /> {scale.weight.toLocaleString()}
+                    </Button>
+                  )}
+                </div>
               </div>
               {secondWtValue && Number(secondWtValue) > 0 && (
                 <div className="bg-green-900/30 p-3 rounded-lg text-center">
