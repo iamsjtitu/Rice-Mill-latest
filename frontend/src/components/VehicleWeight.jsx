@@ -159,6 +159,23 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
     return () => window.removeEventListener('camera-config-changed', handleConfigChange);
   }, [camKey]);
 
+  // Get display URL - use proxy for RTSP streams
+  const getStreamUrl = useCallback((url) => {
+    if (!url) return "";
+    if (url.toLowerCase().startsWith("rtsp://")) {
+      return `${API}/camera-stream?url=${encodeURIComponent(url)}`;
+    }
+    return url;
+  }, []);
+
+  const getSnapshotUrl = useCallback((url) => {
+    if (!url) return "";
+    if (url.toLowerCase().startsWith("rtsp://")) {
+      return `${API}/camera-snapshot?url=${encodeURIComponent(url)}`;
+    }
+    return url;
+  }, []);
+
   // Expose captureFrame method to parent via ref
   useImperativeHandle(ref, () => ({
     captureFrame: () => {
@@ -172,7 +189,10 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         canvas.width = img.naturalWidth || 640;
         canvas.height = img.naturalHeight || 480;
         try { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); }
-        catch { return null; }
+        catch {
+          // CORS fallback: fetch snapshot via proxy
+          return null;
+        }
       } else if (videoRef.current) {
         const video = videoRef.current;
         canvas.width = video.videoWidth || 640;
@@ -185,6 +205,8 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
     },
     isActive: () => active
   }));
+
+  const displayUrl = getStreamUrl(camUrl);
 
   const toggle = useCallback(async () => {
     if (active) {
@@ -236,7 +258,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
           <p className="text-red-400 text-[9px] text-center px-2">IP Camera connect nahi ho paya.<br/>URL check karein.</p>
         </div>
       ) : (
-        <img ref={imgRefToUse} src={camUrl} alt={label} className={`${cssClass} object-cover`}
+        <img ref={imgRefToUse} src={displayUrl} alt={label} className={`${cssClass} object-cover`}
           crossOrigin="anonymous"
           onError={() => setImgError(true)}
           onLoad={() => setImgError(false)}
@@ -290,7 +312,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
               </button>
             </div>
             {camType === "ip" ? (
-              <img ref={zoomImgRef} src={camUrl} alt={label} className="w-full aspect-video object-contain bg-black" crossOrigin="anonymous" />
+              <img ref={zoomImgRef} src={displayUrl} alt={label} className="w-full aspect-video object-contain bg-black" crossOrigin="anonymous" />
             ) : (
               <video ref={zoomVideoRef} className="w-full aspect-video object-contain bg-black" autoPlay muted playsInline />
             )}

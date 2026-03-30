@@ -1490,6 +1490,15 @@ function CameraSetupTab() {
   const frontRef = useRef(null);
   const sideRef = useRef(null);
 
+  // Get display URL - use proxy for RTSP
+  const getPreviewUrl = (url) => {
+    if (!url) return "";
+    if (url.toLowerCase().startsWith("rtsp://")) {
+      return `${API}/camera-stream?url=${encodeURIComponent(url)}`;
+    }
+    return url;
+  };
+
   // Load saved config
   useEffect(() => {
     try {
@@ -1588,10 +1597,10 @@ function CameraSetupTab() {
             <div className="space-y-4">
               <div className="bg-slate-700/50 rounded-lg p-3 text-xs text-slate-400 space-y-1">
                 <p className="text-amber-400 font-semibold text-sm">IP Camera URL kaise milega?</p>
-                <p>1. Camera ka IP address browser mai kholo (jaise: http://192.168.1.100)</p>
-                <p>2. Stream/MJPEG URL copy karo (jaise: http://192.168.1.100:8080/video)</p>
-                <p>3. Ya snapshot URL (jaise: http://192.168.1.100/cgi-bin/snapshot.cgi)</p>
-                <p className="text-slate-500 mt-1">Common formats: /video, /mjpg/video.mjpg, /cgi-bin/mjpg/video.cgi, /stream</p>
+                <p>1. Camera ka IP address find karo (router settings ya camera app se)</p>
+                <p>2. RTSP URL daalo jaise: <code className="text-green-400">rtsp://admin:password@192.168.1.100:554</code></p>
+                <p>3. HTTP stream bhi chalega: <code className="text-green-400">http://192.168.1.100:8080/video</code></p>
+                <p className="text-amber-300 mt-1">RTSP automatic proxy se chalega - VLC jaisa live stream!</p>
               </div>
 
               {/* Front Camera URL */}
@@ -1629,7 +1638,7 @@ function CameraSetupTab() {
                       </div>
                     ) : (
                       <img
-                        src={frontUrl}
+                        src={getPreviewUrl(frontUrl)}
                         alt="Front Camera"
                         className="w-full h-full object-contain"
                         crossOrigin="anonymous"
@@ -1680,7 +1689,7 @@ function CameraSetupTab() {
                       </div>
                     ) : (
                       <img
-                        src={sideUrl}
+                        src={getPreviewUrl(sideUrl)}
                         alt="Side Camera"
                         className="w-full h-full object-contain"
                         crossOrigin="anonymous"

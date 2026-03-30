@@ -882,6 +882,9 @@ async function startServer() {
     const vehicleWeightRoutes = require('./routes/vehicle_weight')(database);
     app.use(vehicleWeightRoutes);
 
+    const cameraProxyRoutes = require('./routes/camera_proxy')(require('express').Router());
+    app.use(cameraProxyRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
