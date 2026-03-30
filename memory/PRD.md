@@ -10,7 +10,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **Local Server:** Express + Local JSON (LAN access)
 - **CI/CD:** GitHub Actions auto-builds .exe on push
 
-## Current Version: v55.4.0
+## Current Version: v55.5.0
 
 ## What's Been Implemented
 - Full paddy purchase management with party ledgers
@@ -25,21 +25,20 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - FY Summary dashboard with Balance Sheet
 - WhatsApp integration (360Messenger):
   - Individual message send
-  - **Send to Group** button on all pages (CashBook, Ledgers, SaleBook, PaddyPurchase, LeasedTruck, Payments, Reports)
+  - **Send to Group** button on all pages
   - **Default Group** selector in Settings (auto-selects in all dialogs)
   - **Scheduled auto-send** daily report to group at user-set time
-- Telegram integration for daily reports
+  - **Global ON/OFF toggle** - OFF karo toh sab buttons chhup jayein
+- Telegram integration for daily reports with **Global ON/OFF toggle**
 - PDF/Excel export for all reports
 - IPC-based downloads for Electron
 - Auto-updater via GitHub releases
 
-## Recent Changes (v55.4.0 - Mar 2026)
-- **NEW:** Default WhatsApp Group dropdown in Settings
-- **NEW:** Auto Daily Report → Group scheduler (time-based, like Telegram scheduler)
-- **NEW:** SendToGroupDialog auto-selects default group on open
-- **REMOVED:** Old "Daily Report Group ID" manual input field
-- **NEW:** WhatsApp "Send to Group" button on 7 pages
-- **FIX:** _send_wa_to_group() uses correct POST /v2/sendGroup endpoint
+## Recent Changes (v55.5.0 - Mar 2026)
+- **NEW:** Global WhatsApp/Telegram ON/OFF toggle via `useMessagingEnabled` hook
+- **NEW:** Settings save dispatches event to update all pages instantly
+- WhatsApp OFF → All WhatsApp + Group buttons hidden across entire app
+- Telegram OFF → Telegram button hidden
 
 ## Prioritized Backlog
 ### P1

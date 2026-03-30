@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
+import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -37,6 +38,7 @@ const DEFAULT_CATEGORIES = {
 
 const CashBook = ({ filters, user }) => {
   const showConfirm = useConfirm();
+  const { wa } = useMessagingEnabled();
   const [txns, setTxns] = useState([]);
   const [allTxns, setAllTxns] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -497,12 +499,12 @@ const CashBook = ({ filters, user }) => {
         <Button onClick={() => activeView === "party-summary" ? fetchPartySummary() : fetchData()} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700">
           <RefreshCw className="w-4 h-4 mr-1" /> Refresh
         </Button>
-        {activeView === "transactions" && (txnFilters.category || filterPartySearch) && (
+        {wa && activeView === "transactions" && (txnFilters.category || filterPartySearch) && (
           <Button onClick={sendPartyLedgerWA} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-600/10" data-testid="cashbook-party-ledger-whatsapp">
             <Send className="w-4 h-4 mr-1" /> WhatsApp
           </Button>
         )}
-        {activeView === "transactions" && (txnFilters.category || filterPartySearch) && (
+        {wa && activeView === "transactions" && (txnFilters.category || filterPartySearch) && (
           <Button onClick={openGroupSendCashBook} variant="outline" size="sm" className="border-teal-600 text-teal-400 hover:bg-teal-600/10" data-testid="cashbook-send-to-group">
             <Users className="w-4 h-4 mr-1" /> Group
           </Button>

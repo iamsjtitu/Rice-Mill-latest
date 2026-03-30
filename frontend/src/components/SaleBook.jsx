@@ -16,6 +16,7 @@ const API = `${_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')}/api
 import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
+import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 
 const HSN_MAP = {
   "Rice (Usna)": "1006 30 20", "Rice (Raw)": "1006 30 10",
@@ -28,6 +29,7 @@ const GST_RATES = [0, 5, 12, 18, 28];
 
 export default function SaleBook({ filters, user }) {
   const showConfirm = useConfirm();
+  const { wa } = useMessagingEnabled();
   const [vouchers, setVouchers] = useState([]);
   const [stockItems, setStockItems] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -435,12 +437,12 @@ export default function SaleBook({ filters, user }) {
                         </Button>
                       </>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => handleWhatsAppSend(v)} disabled={waSending === v.id} className="text-green-400 hover:text-green-300 h-6 w-6 p-0" title="WhatsApp Send" data-testid={`sv-whatsapp-${v.id}`}>
+                    {wa && <Button variant="ghost" size="sm" onClick={() => handleWhatsAppSend(v)} disabled={waSending === v.id} className="text-green-400 hover:text-green-300 h-6 w-6 p-0" title="WhatsApp Send" data-testid={`sv-whatsapp-${v.id}`}>
                       <Send className="w-3 h-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => openGroupSendSale(v)} className="text-teal-400 hover:text-teal-300 h-6 w-6 p-0" title="Send to Group" data-testid={`sv-group-${v.id}`}>
+                    </Button>}
+                    {wa && <Button variant="ghost" size="sm" onClick={() => openGroupSendSale(v)} className="text-teal-400 hover:text-teal-300 h-6 w-6 p-0" title="Send to Group" data-testid={`sv-group-${v.id}`}>
                       <Users className="w-3 h-3" />
-                    </Button>
+                    </Button>}
                     <Button variant="ghost" size="sm" onClick={() => handlePrintInvoice(v)} className="text-purple-400 hover:text-purple-300 h-6 w-6 p-0" title="Print Invoice" data-testid={`sv-print-${v.id}`}>
                       <Printer className="w-3 h-3" />
                     </Button>

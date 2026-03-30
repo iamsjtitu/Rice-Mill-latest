@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel, Send, AlertTriangle } from "lucide-react";
 import { SendToGroupDialog } from "./SendToGroupDialog";
+import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -174,6 +175,7 @@ const SeasonPnL = ({ filters }) => {
 
 // ===== DAILY REPORT =====
 const DailyReport = ({ filters }) => {
+  const { wa, tg } = useMessagingEnabled();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -282,14 +284,14 @@ const DailyReport = ({ filters }) => {
         <Button onClick={fetchReport} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-9"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="daily-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="daily-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
-        {isDetail && (
+        {tg && isDetail && (
           <Button onClick={openTelegramConfirm} disabled={sendingTelegram} variant="outline" size="sm"
             className="border-blue-500 text-blue-400 hover:bg-blue-500/10 h-9" data-testid="daily-send-telegram">
             <Send className={`w-4 h-4 mr-1 ${sendingTelegram ? 'animate-pulse' : ''}`} />
             {sendingTelegram ? "Sending..." : "Telegram"}
           </Button>
         )}
-        <Button variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10 h-9" data-testid="daily-send-whatsapp"
+        {wa && <Button variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10 h-9" data-testid="daily-send-whatsapp"
           onClick={async () => {
             if (!data) { toast.error("Pehle report load karein"); return; }
             // Check if default numbers exist, else ask
@@ -322,8 +324,8 @@ const DailyReport = ({ filters }) => {
           }}
         >
           <Send className="w-4 h-4 mr-1" /> WhatsApp
-        </Button>
-        <Button variant="outline" size="sm" className="border-teal-500 text-teal-400 hover:bg-teal-500/10 h-9" data-testid="daily-send-to-group"
+        </Button>}
+        {wa && <Button variant="outline" size="sm" className="border-teal-500 text-teal-400 hover:bg-teal-500/10 h-9" data-testid="daily-send-to-group"
           onClick={() => {
             if (!data) { toast.error("Pehle report load karein"); return; }
             const summary = [
@@ -342,7 +344,7 @@ const DailyReport = ({ filters }) => {
           }}
         >
           <Users className="w-4 h-4 mr-1" /> Group
-        </Button>
+        </Button>}
       </div>
 
       {loading ? <div className="text-center py-8 text-slate-400">Loading...</div>

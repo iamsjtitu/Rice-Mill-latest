@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.4.0";
+const APP_VERSION = "55.5.0";
 
 const CHANGELOG = [
+  {
+    version: "55.5.0",
+    date: "Mar 2026",
+    title: "v55.5.0 - WhatsApp/Telegram ON/OFF Toggle",
+    items: [
+      { type: "new", text: "WhatsApp OFF karo toh sab WhatsApp + Group buttons chhup jayenge, ON karo toh dikhenge" },
+      { type: "new", text: "Telegram OFF karo toh Telegram button bhi chhup jayega" },
+      { type: "fix", text: "Settings save karte hi turant sab pages update ho jate hain" },
+    ]
+  },
   {
     version: "55.4.0",
     date: "Mar 2026",

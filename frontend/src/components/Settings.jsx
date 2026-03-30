@@ -546,6 +546,7 @@ function MessagingTab() {
       const res = await axios.post(`${API}/telegram/config`, telegramConfig);
       toast.success(res.data.message || "Telegram config save ho gayi!");
       fetchTelegramConfig();
+      window.dispatchEvent(new Event("messaging-config-changed"));
     } catch (e) { toast.error(e.response?.data?.detail || "Telegram config save nahi hua"); }
     setTelegramLoading(false);
   };
@@ -700,6 +701,7 @@ function MessagingTab() {
                 });
                 toast.success("WhatsApp settings save ho gayi!");
                 fetchWaSettings();
+                window.dispatchEvent(new Event("messaging-config-changed"));
               } catch { toast.error("Save fail!"); }
               finally { setWaLoading(false); }
             }}

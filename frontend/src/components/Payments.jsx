@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import LocalPartyAccount from "./payments/LocalPartyAccount";
 import { SendToGroupDialog } from "./SendToGroupDialog";
+import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import { GunnyBags } from "./DCTracker";
 import LeasedTruck from "./LeasedTruck";
 import { useConfirm } from "./ConfirmProvider";
@@ -66,6 +67,7 @@ const safePrintHTML = (htmlContent) => {
 
 export const Payments = ({ filters, user, branding }) => {
   const showConfirm = useConfirm();
+  const { wa } = useMessagingEnabled();
   const [truckPayments, setTruckPayments] = useState([]);
   const [agentPayments, setAgentPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1139,7 +1141,7 @@ export const Payments = ({ filters, user, branding }) => {
                             >
                               <Printer className="w-3 h-3" />
                             </Button>
-                            <Button
+                            {wa && <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => handleWhatsAppTruckPayment(payment)}
@@ -1148,8 +1150,8 @@ export const Payments = ({ filters, user, branding }) => {
                               data-testid={`truck-wa-${idx}`}
                             >
                               <Send className="w-3 h-3" />
-                            </Button>
-                            <Button
+                            </Button>}
+                            {wa && <Button
                               size="sm"
                               variant="ghost"
                               className="h-7 px-2 text-teal-400 hover:bg-teal-900/30"
@@ -1162,7 +1164,7 @@ export const Payments = ({ filters, user, branding }) => {
                               }}
                             >
                               <Users className="w-3 h-3" />
-                            </Button>
+                            </Button>}
                           </div>
                         </TableCell>
                       )}
@@ -1305,13 +1307,13 @@ export const Payments = ({ filters, user, branding }) => {
                               className="h-7 px-2 text-cyan-400 hover:bg-cyan-900/30 border border-cyan-600 text-xs">
                               <Printer className="w-3 h-3 mr-1" /> Print
                             </Button>
-                            <Button size="sm" variant="ghost"
+                            {wa && <Button size="sm" variant="ghost"
                               onClick={() => handleWhatsAppTruckOwner(truckData)}
                               className="h-7 px-2 text-green-400 hover:bg-green-900/30 border border-green-600 text-xs"
                               data-testid={`owner-wa-${idx}`}>
                               <Send className="w-3 h-3 mr-1" /> WhatsApp
-                            </Button>
-                            <Button size="sm" variant="ghost"
+                            </Button>}
+                            {wa && <Button size="sm" variant="ghost"
                               className="h-7 px-2 text-teal-400 hover:bg-teal-900/30 border border-teal-600 text-xs"
                               data-testid={`owner-group-${idx}`}
                               onClick={() => {
@@ -1320,7 +1322,7 @@ export const Payments = ({ filters, user, branding }) => {
                                 setGroupDialogOpen(true);
                               }}>
                               <Users className="w-3 h-3 mr-1" /> Group
-                            </Button>
+                            </Button>}
                           </div>
                         </TableCell>
                       </TableRow>

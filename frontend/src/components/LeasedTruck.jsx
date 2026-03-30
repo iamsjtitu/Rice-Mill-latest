@@ -12,6 +12,7 @@ import { printHtml } from "@/components/PrintButton";
 import { useConfirm } from "./ConfirmProvider";
 import { downloadFile } from "../utils/download";
 import { SendToGroupDialog } from "./SendToGroupDialog";
+import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -29,6 +30,7 @@ function fmtAmt(n) { return new Intl.NumberFormat("en-IN").format(Math.round(n))
 
 export default function LeasedTruck({ filters }) {
   const showConfirm = useConfirm();
+  const { wa } = useMessagingEnabled();
   const [leases, setLeases] = useState([]);
   const [showAddLease, setShowAddLease] = useState(false);
   const [editLease, setEditLease] = useState(null);
@@ -319,16 +321,16 @@ export default function LeasedTruck({ filters }) {
                           className="text-blue-400 hover:text-blue-300 h-7 w-7 p-0"><Edit className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => handleShowHistory(l)}
                           className="text-cyan-400 hover:text-cyan-300 h-7 w-7 p-0"><History className="w-3.5 h-3.5" /></Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleWhatsAppLease(l)}
-                          className="text-green-400 hover:text-green-300 h-7 w-7 p-0" title="WhatsApp" data-testid={`lease-wa-${l.truck_no}`}><Send className="w-3.5 h-3.5" /></Button>
-                        <Button variant="ghost" size="sm" title="Send to Group" data-testid={`lease-group-${l.truck_no}`}
+                        {wa && <Button variant="ghost" size="sm" onClick={() => handleWhatsAppLease(l)}
+                          className="text-green-400 hover:text-green-300 h-7 w-7 p-0" title="WhatsApp" data-testid={`lease-wa-${l.truck_no}`}><Send className="w-3.5 h-3.5" /></Button>}
+                        {wa && <Button variant="ghost" size="sm" title="Send to Group" data-testid={`lease-group-${l.truck_no}`}
                           className="text-teal-400 hover:text-teal-300 h-7 w-7 p-0"
                           onClick={() => {
                             setGroupText(`*Truck Owner Payment / ट्रक मालिक भुगतान*\nTruck: *${l.truck_no}*\nOwner: ${l.owner_name || ''}\nMonthly Rent: Rs.${fmtAmt(l.monthly_rent || 0)}`);
                             setGroupPdfUrl("");
                             setGroupDialogOpen(true);
                           }}
-                        ><Users className="w-3.5 h-3.5" /></Button>
+                        ><Users className="w-3.5 h-3.5" /></Button>}
                         <Button variant="ghost" size="sm" onClick={() => handleDeleteLease(l.id)}
                           className="text-red-400 hover:text-red-300 h-7 w-7 p-0"><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>

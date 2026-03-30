@@ -22,6 +22,7 @@ import { downloadFile } from "../utils/download";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
+import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -60,6 +61,7 @@ const calcPaddyFields = (f) => {
 // ===== Paddy Purchase Component =====
 export const PaddyPurchase = ({ filters, user }) => {
   const showConfirm = useConfirm();
+  const { wa } = useMessagingEnabled();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -347,7 +349,7 @@ export const PaddyPurchase = ({ filters, user }) => {
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       )}
-                      {bal > 0 && (<>
+                      {wa && bal > 0 && (<>
                         <Button variant="ghost" size="sm" className="h-6 px-1 text-green-400" data-testid={`paddy-wa-${item.id}`} title="WhatsApp Reminder"
                           onClick={async () => {
                             let phone = "";

@@ -16,6 +16,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { SendToGroupDialog } from "./SendToGroupDialog";
+import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import {
   RefreshCw, Download, FileText, AlertCircle, Truck, Users,
   IndianRupee, FileSpreadsheet, BookOpen, ClipboardList, Receipt, Wallet, Send
@@ -263,6 +264,7 @@ export const OutstandingReport = ({ filters }) => {
 
 // ===== Party Ledger =====
 const PartyLedger = ({ filters }) => {
+  const { wa } = useMessagingEnabled();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedParty, setSelectedParty] = useState("");
@@ -418,12 +420,12 @@ const PartyLedger = ({ filters }) => {
           <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="party-ledger-export-pdf">
             <FileText className="w-4 h-4 mr-1" /> PDF
           </Button>
-          <Button onClick={sendLedgerWhatsApp} variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10" data-testid="party-ledger-whatsapp">
+          {wa && <Button onClick={sendLedgerWhatsApp} variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10" data-testid="party-ledger-whatsapp">
             <Send className="w-4 h-4 mr-1" /> WhatsApp
-          </Button>
-          <Button onClick={openGroupSendLedger} variant="outline" size="sm" className="border-teal-500 text-teal-400 hover:bg-teal-500/10" data-testid="party-ledger-send-to-group">
+          </Button>}
+          {wa && <Button onClick={openGroupSendLedger} variant="outline" size="sm" className="border-teal-500 text-teal-400 hover:bg-teal-500/10" data-testid="party-ledger-send-to-group">
             <Users className="w-4 h-4 mr-1" /> Group
-          </Button>
+          </Button>}
         </div>
       </div>
 
