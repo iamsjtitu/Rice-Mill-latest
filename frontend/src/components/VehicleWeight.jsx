@@ -287,7 +287,7 @@ export default function VehicleWeight({ filters }) {
                     }}>
                       <SelectTrigger className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-product"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-slate-800 border-slate-600">
-                        {["PADDY","GOVT PADDY","RICE","BHUSI","KANDA","OTHER"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                        {["GOVT PADDY","PADDY","RICE","BHUSI","KANDA","OTHER"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
