@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.32.0";
+const APP_VERSION = "55.33.0";
 
 const CHANGELOG = [
+  {
+    version: "55.33.0",
+    date: "Mar 2026",
+    title: "v55.33.0 - Toggle Double-Click Bug Fix",
+    items: [
+      { type: "fix", text: "WhatsApp/Telegram/VW Messaging toggles ab ek click mai sahi kaam karte hain (double-fire fix)" },
+      { type: "fix", text: "WhatsApp toggle save ke baad re-fetch race condition fix" },
+    ]
+  },
   {
     version: "55.32.0",
     date: "Mar 2026",

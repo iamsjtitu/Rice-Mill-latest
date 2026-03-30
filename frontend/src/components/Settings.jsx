@@ -590,14 +590,13 @@ function MessagingTab() {
               <Send className="w-5 h-5" />
               WhatsApp Integration / व्हाट्सएप
             </CardTitle>
-            <label className="flex items-center gap-3 cursor-pointer select-none" data-testid="wa-master-toggle">
+            <div className="flex items-center gap-3 cursor-pointer select-none" data-testid="wa-master-toggle">
               <span className={`text-sm font-bold ${waForm.enabled ? 'text-green-400' : 'text-red-400'}`}>
                 {waForm.enabled ? 'ON' : 'OFF'}
               </span>
               <div className="relative" onClick={async () => {
                 const newEnabled = !waForm.enabled;
                 setWaForm(prev => ({ ...prev, enabled: newEnabled }));
-                // Auto-save toggle state
                 try {
                   await axios.put(`${API}/whatsapp/settings`, {
                     api_key: waForm.api_key, country_code: waForm.country_code,
@@ -606,15 +605,14 @@ function MessagingTab() {
                     default_group_id: waForm.default_group_id, default_group_name: waForm.default_group_name,
                     group_schedule_enabled: waForm.group_schedule_enabled, group_schedule_time: waForm.group_schedule_time
                   });
-                  fetchWaSettings();
                   window.dispatchEvent(new Event("messaging-config-changed"));
                   toast.success(newEnabled ? "WhatsApp ON!" : "WhatsApp OFF!");
-                } catch { toast.error("Save fail!"); }
+                } catch { toast.error("Save fail!"); setWaForm(prev => ({ ...prev, enabled: !newEnabled })); }
               }}>
                 <div className={`w-12 h-6 rounded-full transition-colors ${waForm.enabled ? 'bg-green-600' : 'bg-slate-600'}`} />
                 <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${waForm.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
               </div>
-            </label>
+            </div>
           </div>
           <p className="text-slate-400 text-sm">
             {waForm.enabled ? 'WhatsApp buttons sab jagah dikhenge. OFF karo toh chhup jayenge.' : 'WhatsApp OFF hai - sab buttons chhupe hain. ON karein aur Save karein.'}
@@ -784,7 +782,7 @@ function MessagingTab() {
               <Send className="w-5 h-5" />
               Telegram Bot - Daily Report
             </CardTitle>
-            <label className="flex items-center gap-3 cursor-pointer select-none" data-testid="tg-master-toggle">
+            <div className="flex items-center gap-3 cursor-pointer select-none" data-testid="tg-master-toggle">
               <span className={`text-sm font-bold ${telegramConfig.enabled ? 'text-blue-400' : 'text-red-400'}`}>
                 {telegramConfig.enabled ? 'ON' : 'OFF'}
               </span>
@@ -792,7 +790,7 @@ function MessagingTab() {
                 <div className={`w-12 h-6 rounded-full transition-colors ${telegramConfig.enabled ? 'bg-blue-600' : 'bg-slate-600'}`} />
                 <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${telegramConfig.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
               </div>
-            </label>
+            </div>
           </div>
           <p className="text-slate-400 text-sm">
             {telegramConfig.enabled ? 'Telegram buttons dikhenge + auto schedule ON' : 'Telegram OFF hai - sab buttons chhupe hain. ON karein aur Save karein.'}
@@ -984,7 +982,7 @@ function AutoVWMessagingCard() {
             <Scale className="w-5 h-5" />
             Auto Vehicle Weight Messaging
           </CardTitle>
-          <label className="flex items-center gap-3 cursor-pointer select-none" data-testid="auto-vw-toggle">
+          <div className="flex items-center gap-3 cursor-pointer select-none" data-testid="auto-vw-toggle">
             <span className={`text-sm font-bold ${enabled ? 'text-amber-400' : 'text-red-400'}`}>
               {loading ? '...' : enabled ? 'ON' : 'OFF'}
             </span>
@@ -992,7 +990,7 @@ function AutoVWMessagingCard() {
               <div className={`w-12 h-6 rounded-full transition-colors ${enabled ? 'bg-amber-600' : 'bg-slate-600'}`} />
               <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
             </div>
-          </label>
+          </div>
         </div>
         <p className="text-slate-400 text-sm mt-1">
           {enabled
