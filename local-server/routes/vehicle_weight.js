@@ -630,6 +630,18 @@ module.exports = function(database) {
     const branding = database.data.branding || {};
     const company = branding.company_name || 'NAVKAR AGRO';
     const tagline = branding.tagline || 'JOLKO, KESINGA';
+    const customFields = branding.custom_fields || [];
+    const aboveParts = [], belowParts = [];
+    for (const f of customFields) {
+      const val = (f.value || '').trim();
+      if (!val) continue;
+      const lbl = (f.label || '').trim();
+      const txt = lbl ? `${lbl}: ${val}` : val;
+      if (f.placement === 'above') aboveParts.push(txt);
+      else belowParts.push(txt);
+    }
+    const aboveText = aboveParts.join('  |  ');
+    const belowText = belowParts.join('  |  ');
 
     const firstWt = entry.first_wt || 0;
     const secondWt = entry.second_wt || 0;
@@ -681,6 +693,12 @@ module.exports = function(database) {
 
       y += 5 * mm;
 
+      // Custom fields ABOVE company name
+      if (aboveText) {
+        doc.font(fn).fontSize(7).fillColor('#8B0000').text(aboveText, x, y, { width: PW, align: 'center' });
+        y += 3.5 * mm;
+      }
+
       // Company name
       doc.font(fb).fontSize(15).fillColor('#1a1a2e').text(company, x, y, { width: PW, align: 'center' });
       y += 6 * mm;
@@ -688,6 +706,12 @@ module.exports = function(database) {
       // Tagline
       doc.font(fn).fontSize(7.5).fillColor('#888').text(tagline, x, y, { width: PW, align: 'center' });
       y += 4 * mm;
+
+      // Custom fields BELOW tagline
+      if (belowText) {
+        doc.font(fn).fontSize(7).fillColor('#374151').text(belowText, x, y, { width: PW, align: 'center' });
+        y += 3 * mm;
+      }
 
       // Header line
       doc.lineWidth(1.5).strokeColor('#1a1a2e').moveTo(x + 6, y).lineTo(x + PW - 6, y).stroke();
@@ -799,22 +823,50 @@ module.exports = function(database) {
   router.get('/api/vehicle-weight/export/excel', safeAsync(async (req, res) => {
     const ExcelJS = require('exceljs');
     const items = _filterVwItems(req.query);
-    const br = col('settings').find(s => s.key === 'branding') || {};
+    const br = database.data.branding || {};
     const company = br.company_name || 'NAVKAR AGRO';
+    const tagline = br.tagline || '';
+    const cflds = br.custom_fields || [];
+    const abParts = [], blParts = [];
+    for (const f of cflds) {
+      const val = (f.value || '').trim(); if (!val) continue;
+      const lbl = (f.label || '').trim();
+      const txt = lbl ? `${lbl}: ${val}` : val;
+      if (f.placement === 'above') abParts.push(txt); else blParts.push(txt);
+    }
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Vehicle Weight');
-    ws.mergeCells('A1:M1');
-    ws.getCell('A1').value = `${company} - Vehicle Weight / तौल पर्ची`;
-    ws.getCell('A1').font = { bold: true, size: 14, color: { argb: '1a1a2e' } };
-    ws.getCell('A1').alignment = { horizontal: 'center' };
-    ws.mergeCells('A2:M2');
-    ws.getCell('A2').value = `Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'} | Total: ${items.length}`;
-    ws.getCell('A2').font = { size: 9, color: { argb: '666666' } };
-    ws.getCell('A2').alignment = { horizontal: 'center' };
+    let cr = 1;
+    if (abParts.length > 0) {
+      ws.mergeCells(`A${cr}:M${cr}`);
+      ws.getCell(`A${cr}`).value = abParts.join('  |  ');
+      ws.getCell(`A${cr}`).font = { bold: true, size: 10, color: { argb: '8B0000' } };
+      ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
+      cr++;
+    }
+    ws.mergeCells(`A${cr}:M${cr}`);
+    ws.getCell(`A${cr}`).value = `${company} - Vehicle Weight / तौल पर्ची`;
+    ws.getCell(`A${cr}`).font = { bold: true, size: 14, color: { argb: '1a1a2e' } };
+    ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
+    cr++;
+    const belowAll = [tagline, ...blParts].filter(Boolean);
+    if (belowAll.length > 0) {
+      ws.mergeCells(`A${cr}:M${cr}`);
+      ws.getCell(`A${cr}`).value = belowAll.join('  |  ');
+      ws.getCell(`A${cr}`).font = { size: 9, italic: true, color: { argb: '555555' } };
+      ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
+      cr++;
+    }
+    ws.mergeCells(`A${cr}:M${cr}`);
+    ws.getCell(`A${cr}`).value = `Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'} | Total: ${items.length}`;
+    ws.getCell(`A${cr}`).font = { size: 9, color: { argb: '666666' } };
+    ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
+    cr++;
 
     const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans', 'Bags', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'Cash', 'Diesel'];
-    const hdrRow = ws.getRow(4);
+    const hdrRowNum = cr + 1;
+    const hdrRow = ws.getRow(hdrRowNum);
     headers.forEach((h, i) => {
       const cell = hdrRow.getCell(i + 1);
       cell.value = h;
@@ -825,7 +877,7 @@ module.exports = function(database) {
     });
 
     items.forEach((e, idx) => {
-      const row = ws.getRow(5 + idx);
+      const row = ws.getRow(hdrRowNum + 1 + idx);
       [e.rst_no, e.date, e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts, e.first_wt || 0, e.second_wt || 0, e.net_wt || 0, e.cash_paid || 0, e.diesel_paid || 0].forEach((v, i) => {
         const cell = row.getCell(i + 1);
         cell.value = v;
@@ -844,16 +896,36 @@ module.exports = function(database) {
   router.get('/api/vehicle-weight/export/pdf', safeAsync(async (req, res) => {
     const PDFDocument = require('pdfkit');
     const items = _filterVwItems(req.query);
-    const br = col('settings').find(s => s.key === 'branding') || {};
+    const br = database.data.branding || {};
     const company = br.company_name || 'NAVKAR AGRO';
+    const pdfTagline = br.tagline || '';
+    const cflds2 = br.custom_fields || [];
+    const abParts2 = [], blParts2 = [];
+    for (const f of cflds2) {
+      const val = (f.value || '').trim(); if (!val) continue;
+      const lbl = (f.label || '').trim();
+      const txt = lbl ? `${lbl}: ${val}` : val;
+      if (f.placement === 'above') abParts2.push(txt); else blParts2.push(txt);
+    }
 
+    const fontDir2 = path.join(__dirname, '..', 'fonts');
+    const hasFS2 = fs.existsSync(path.join(fontDir2, 'FreeSans.ttf'));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+    if (hasFS2) {
+      doc.registerFont('ExFont', path.join(fontDir2, 'FreeSans.ttf'));
+      doc.registerFont('ExFontBold', path.join(fontDir2, 'FreeSansBold.ttf'));
+    }
+    const efn = hasFS2 ? 'ExFont' : 'Helvetica';
+    const efb = hasFS2 ? 'ExFontBold' : 'Helvetica-Bold';
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=vehicle_weight.pdf`);
     doc.pipe(res);
 
-    doc.fontSize(16).font('Helvetica-Bold').text(`${company} - Vehicle Weight`, { align: 'center' });
-    doc.fontSize(8).font('Helvetica').text(`Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'} | Total: ${items.length}`, { align: 'center' });
+    if (abParts2.length > 0) doc.fontSize(8).font(efb).fillColor('#8B0000').text(abParts2.join('  |  '), { align: 'center' });
+    doc.fontSize(16).font(efb).fillColor('#1a1a2e').text(`${company} - Vehicle Weight`, { align: 'center' });
+    if (pdfTagline) doc.fontSize(8).font(efn).fillColor('#888').text(pdfTagline, { align: 'center' });
+    if (blParts2.length > 0) doc.fontSize(8).font(efn).fillColor('#374151').text(blParts2.join('  |  '), { align: 'center' });
+    doc.fontSize(8).font(efn).fillColor('#000').text(`Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'} | Total: ${items.length}`, { align: 'center' });
     doc.moveDown(0.5);
 
     const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
@@ -861,12 +933,12 @@ module.exports = function(database) {
     let x = 30, y = doc.y;
 
     // Header row
-    doc.fontSize(7).font('Helvetica-Bold');
+    doc.fontSize(7).font(efb);
     headers.forEach((h, i) => { doc.text(h, x, y, { width: colW[i], align: 'center' }); x += colW[i]; });
     y += 15; doc.moveTo(30, y).lineTo(790, y).stroke();
 
     // Data rows
-    doc.font('Helvetica').fontSize(7);
+    doc.font(efn).fontSize(7);
     items.forEach(e => {
       if (y > 540) { doc.addPage(); y = 30; }
       x = 30;

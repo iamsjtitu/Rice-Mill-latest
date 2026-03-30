@@ -558,9 +558,25 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
 
-    branding = await db["settings"].find_one({"key": "branding"}, {"_id": 0}) or {}
+    from utils.branding_helper import get_branding_data
+    from utils.export_helpers import register_hindi_fonts
+    register_hindi_fonts()
+    branding = await get_branding_data()
     company = branding.get("company_name", "NAVKAR AGRO")
     tagline = branding.get("tagline", "JOLKO, KESINGA")
+    custom_fields = branding.get("custom_fields", [])
+    above_parts, below_parts = [], []
+    for f in custom_fields:
+        val = f.get("value", "").strip()
+        if not val: continue
+        lbl = f.get("label", "").strip()
+        txt = f"{lbl}: {val}" if lbl else val
+        if f.get("placement", "below") == "above":
+            above_parts.append(txt)
+        else:
+            below_parts.append(txt)
+    above_text = "  |  ".join(above_parts) if above_parts else ""
+    below_text = "  |  ".join(below_parts) if below_parts else ""
 
     # A5 portrait = 148mm x 210mm
     W, H = A5  # (419.53, 595.28) points
@@ -602,6 +618,13 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
 
         cy = y - 5*mm  # current y position inside box
 
+        # Custom fields ABOVE company name
+        if above_text:
+            c.setFont("FreeSans", 7)
+            c.setFillColor(colors.HexColor("#8B0000"))
+            c.drawCentredString(W/2, cy, above_text)
+            cy -= 3.5*mm
+
         # Company name
         c.setFont("Helvetica-Bold", 15)
         c.setFillColor(colors.HexColor("#1a1a2e"))
@@ -613,6 +636,13 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         c.setFillColor(colors.gray)
         c.drawCentredString(W/2, cy, tagline)
         cy -= 3.5*mm
+
+        # Custom fields BELOW tagline
+        if below_text:
+            c.setFont("FreeSans", 7)
+            c.setFillColor(colors.HexColor("#374151"))
+            c.drawCentredString(W/2, cy, below_text)
+            cy -= 3*mm
 
         # Line under header
         c.setStrokeColor(colors.HexColor("#1a1a2e"))
