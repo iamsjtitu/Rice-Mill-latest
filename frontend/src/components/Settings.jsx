@@ -490,7 +490,7 @@ function StockTab({ kmsYear, user }) {
 function MessagingTab() {
   // WhatsApp state
   const [waSettings, setWaSettings] = useState({ api_key: "", country_code: "91", enabled: false, api_key_masked: "", default_numbers: [], default_group_id: "", default_group_name: "", group_schedule_enabled: false, group_schedule_time: "" });
-  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91", default_numbers: "", default_group_id: "", default_group_name: "", group_schedule_enabled: false, group_schedule_time: "" });
+  const [waForm, setWaForm] = useState({ api_key: "", country_code: "91", default_numbers: "", default_group_id: "", default_group_name: "", group_schedule_enabled: false, group_schedule_time: "", enabled: false });
   const [waTestPhone, setWaTestPhone] = useState("");
   const [waLoading, setWaLoading] = useState(false);
   const [waGroups, setWaGroups] = useState([]);
@@ -512,7 +512,8 @@ function MessagingTab() {
         default_group_id: res.data.default_group_id || "",
         default_group_name: res.data.default_group_name || "",
         group_schedule_enabled: res.data.group_schedule_enabled || false,
-        group_schedule_time: res.data.group_schedule_time || ""
+        group_schedule_time: res.data.group_schedule_time || "",
+        enabled: res.data.enabled || false
       });
     } catch (e) { console.error("WA settings fetch error:", e); }
   };
@@ -584,12 +585,23 @@ function MessagingTab() {
       {/* WhatsApp Integration */}
       <Card className="bg-slate-800 border-slate-700" data-testid="whatsapp-section">
         <CardHeader>
-          <CardTitle className="text-green-400 flex items-center gap-2">
-            <Send className="w-5 h-5" />
-            WhatsApp Integration / व्हाट्सएप
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-green-400 flex items-center gap-2">
+              <Send className="w-5 h-5" />
+              WhatsApp Integration / व्हाट्सएप
+            </CardTitle>
+            <label className="flex items-center gap-3 cursor-pointer select-none" data-testid="wa-master-toggle">
+              <span className={`text-sm font-bold ${waForm.enabled ? 'text-green-400' : 'text-red-400'}`}>
+                {waForm.enabled ? 'ON' : 'OFF'}
+              </span>
+              <div className="relative" onClick={() => setWaForm(prev => ({ ...prev, enabled: !prev.enabled }))}>
+                <div className={`w-12 h-6 rounded-full transition-colors ${waForm.enabled ? 'bg-green-600' : 'bg-slate-600'}`} />
+                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${waForm.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </div>
+            </label>
+          </div>
           <p className="text-slate-400 text-sm">
-            360Messenger API se WhatsApp messages bhejein - Payment reminders, Daily reports, etc.
+            {waForm.enabled ? 'WhatsApp buttons sab jagah dikhenge. OFF karo toh chhup jayenge.' : 'WhatsApp OFF hai - sab buttons chhupe hain. ON karein aur Save karein.'}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -695,6 +707,7 @@ function MessagingTab() {
                 setWaLoading(true);
                 await axios.put(`${API}/whatsapp/settings`, {
                   api_key: waForm.api_key, country_code: waForm.country_code,
+                  enabled: waForm.enabled,
                   default_numbers: waForm.default_numbers,
                   default_group_id: waForm.default_group_id, default_group_name: waForm.default_group_name,
                   group_schedule_enabled: waForm.group_schedule_enabled, group_schedule_time: waForm.group_schedule_time
@@ -750,12 +763,23 @@ function MessagingTab() {
       {/* Telegram Bot */}
       <Card className="bg-slate-800 border-slate-700" data-testid="telegram-section">
         <CardHeader>
-          <CardTitle className="text-blue-400 flex items-center gap-2">
-            <Send className="w-5 h-5" />
-            Telegram Bot - Daily Report
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-blue-400 flex items-center gap-2">
+              <Send className="w-5 h-5" />
+              Telegram Bot - Daily Report
+            </CardTitle>
+            <label className="flex items-center gap-3 cursor-pointer select-none" data-testid="tg-master-toggle">
+              <span className={`text-sm font-bold ${telegramConfig.enabled ? 'text-blue-400' : 'text-red-400'}`}>
+                {telegramConfig.enabled ? 'ON' : 'OFF'}
+              </span>
+              <div className="relative" onClick={() => setTelegramConfig(prev => ({ ...prev, enabled: !prev.enabled }))}>
+                <div className={`w-12 h-6 rounded-full transition-colors ${telegramConfig.enabled ? 'bg-blue-600' : 'bg-slate-600'}`} />
+                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${telegramConfig.enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </div>
+            </label>
+          </div>
           <p className="text-slate-400 text-sm">
-            Telegram Bot se daily report PDF automatic bhejein. Free hai!
+            {telegramConfig.enabled ? 'Telegram buttons dikhenge + auto schedule ON' : 'Telegram OFF hai - sab buttons chhupe hain. ON karein aur Save karein.'}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -841,26 +865,15 @@ function MessagingTab() {
             ))}
           </div>
 
-          {/* Schedule & Auto Send */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-slate-300">Schedule Time / समय</Label>
-              <Input
-                type="time" value={telegramConfig.schedule_time}
-                onChange={(e) => setTelegramConfig(prev => ({ ...prev, schedule_time: e.target.value }))}
-                className="bg-slate-700 border-slate-600 text-white mt-1"
-                data-testid="telegram-schedule-time" />
-              <p className="text-xs text-slate-500 mt-1">Roz is time pe report bhejega</p>
-            </div>
-            <div className="flex items-end">
-              <div className="flex items-center gap-2 bg-slate-700/50 p-3 rounded-lg border border-slate-600 w-full">
-                <Checkbox
-                  checked={telegramConfig.enabled}
-                  onCheckedChange={(v) => setTelegramConfig(prev => ({ ...prev, enabled: !!v }))}
-                  data-testid="telegram-enabled" />
-                <Label className="text-slate-300 cursor-pointer">Auto Send Enable</Label>
-              </div>
-            </div>
+          {/* Schedule Time */}
+          <div>
+            <Label className="text-slate-300">Schedule Time / समय</Label>
+            <Input
+              type="time" value={telegramConfig.schedule_time}
+              onChange={(e) => setTelegramConfig(prev => ({ ...prev, schedule_time: e.target.value }))}
+              className="bg-slate-700 border-slate-600 text-white mt-1"
+              data-testid="telegram-schedule-time" />
+            <p className="text-xs text-slate-500 mt-1">Roz is time pe report bhejega (jab Telegram ON ho)</p>
           </div>
 
           {/* Action Buttons */}

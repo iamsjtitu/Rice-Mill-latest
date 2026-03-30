@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.6.0";
+const APP_VERSION = "55.7.0";
 
 const CHANGELOG = [
+  {
+    version: "55.7.0",
+    date: "Mar 2026",
+    title: "v55.7.0 - WhatsApp/Telegram ON/OFF in Settings",
+    items: [
+      { type: "new", text: "Settings mein WhatsApp aur Telegram ka ON/OFF toggle switch - card header mein" },
+      { type: "fix", text: "OFF karo aur Save karo → sab jagah se buttons chhup jayenge, ON karo → dikhenge" },
+    ]
+  },
   {
     version: "55.6.0",
     date: "Mar 2026",
