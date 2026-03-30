@@ -1489,6 +1489,9 @@ function CameraSetupTab() {
   const [previewStream, setPreviewStream] = useState({ front: null, side: null });
   const frontRef = useRef(null);
   const sideRef = useRef(null);
+  // Image cleanup state
+  const [cleanupDays, setCleanupDays] = useState(0);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
 
   // Get display URL - use proxy for RTSP
   const getPreviewUrl = (url) => {
@@ -1513,6 +1516,10 @@ function CameraSetupTab() {
         if (saved.sideId) setSideId(saved.sideId);
       }
     } catch { /* ignore */ }
+    // Load image cleanup setting
+    axios.get(`${API}/settings/image-cleanup`).then(r => {
+      setCleanupDays(r.data.days || 0);
+    }).catch(() => {});
   }, []);
 
   const loadDevices = async () => {
@@ -1549,14 +1556,32 @@ function CameraSetupTab() {
     } catch { toast.error("Camera start nahi ho paya"); }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (camType === "ip") {
       localStorage.setItem('camera_config', JSON.stringify({ type: "ip", frontUrl, sideUrl }));
     } else {
       localStorage.setItem('camera_config', JSON.stringify({ type: "usb", frontId, sideId }));
     }
     window.dispatchEvent(new Event('camera-config-changed'));
+    // Save cleanup setting to backend
+    try {
+      await axios.put(`${API}/settings/image-cleanup`, { days: cleanupDays });
+    } catch { /* ignore */ }
     toast.success("Camera config save ho gaya!");
+  };
+
+  const handleManualCleanup = async () => {
+    if (cleanupDays <= 0) { toast.error("Pehle cleanup days set karein"); return; }
+    setCleanupLoading(true);
+    try {
+      const r = await axios.post(`${API}/settings/image-cleanup/run`);
+      if (r.data.success) {
+        toast.success(r.data.message || `${r.data.deleted} images deleted`);
+      } else {
+        toast.info(r.data.message || "Cleanup disabled");
+      }
+    } catch { toast.error("Cleanup error"); }
+    setCleanupLoading(false);
   };
 
   return (
@@ -1778,6 +1803,49 @@ function CameraSetupTab() {
           <Button onClick={handleSave} className="w-full bg-amber-600 hover:bg-amber-700 text-white" data-testid="save-camera-config-btn">
             Save Camera Config
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Image Auto-Cleanup Card */}
+      <Card className="bg-slate-800 border-slate-700" data-testid="image-cleanup-section">
+        <CardHeader>
+          <CardTitle className="text-amber-400 flex items-center gap-2">
+            <Trash2 className="w-5 h-5" />
+            Image Auto-Cleanup
+          </CardTitle>
+          <p className="text-slate-400 text-sm">
+            Purani camera images automatically delete hongi set days ke baad. 0 = OFF
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <Label className="text-slate-300 text-sm mb-1 block">Kitne din baad delete karein?</Label>
+              <Input
+                type="number"
+                min="0"
+                max="365"
+                value={cleanupDays}
+                onChange={(e) => setCleanupDays(parseInt(e.target.value) || 0)}
+                className="bg-slate-900 border-slate-600 text-white"
+                placeholder="0 = disabled"
+                data-testid="cleanup-days-input"
+              />
+            </div>
+            <Button
+              onClick={handleManualCleanup}
+              disabled={cleanupLoading || cleanupDays <= 0}
+              variant="outline"
+              className="border-red-600 text-red-400 hover:bg-red-600/20"
+              data-testid="manual-cleanup-btn"
+            >
+              {cleanupLoading ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
+              Abhi Clean Karo
+            </Button>
+          </div>
+          <p className="text-slate-500 text-xs">
+            Ye setting save hone par active hogi. App har 24 ghante mai purani images check karke delete karega.
+          </p>
         </CardContent>
       </Card>
     </div>

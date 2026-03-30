@@ -612,3 +612,73 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         headers={"Content-Disposition": f"attachment; filename=WeightSlip_RST{rst}.pdf"})
 
 
+
+
+# ── Image Cleanup Settings & Scheduler ──
+
+@router.get("/settings/image-cleanup")
+async def get_image_cleanup_setting():
+    """Get image auto-cleanup days setting."""
+    doc = await db["settings"].find_one({"key": "image_cleanup"}, {"_id": 0})
+    if doc:
+        return {"days": doc.get("days", 0), "enabled": doc.get("days", 0) > 0}
+    return {"days": 0, "enabled": False}
+
+
+@router.put("/settings/image-cleanup")
+async def update_image_cleanup_setting(data: dict):
+    """Set image auto-cleanup days (0 = disabled)."""
+    days = int(data.get("days", 0) or 0)
+    if days < 0:
+        days = 0
+    await db["settings"].update_one(
+        {"key": "image_cleanup"},
+        {"$set": {"key": "image_cleanup", "days": days}},
+        upsert=True
+    )
+    return {"success": True, "days": days, "enabled": days > 0}
+
+
+@router.post("/settings/image-cleanup/run")
+async def run_image_cleanup_now():
+    """Manually trigger image cleanup based on configured days."""
+    doc = await db["settings"].find_one({"key": "image_cleanup"}, {"_id": 0})
+    days = doc.get("days", 0) if doc else 0
+    if days <= 0:
+        return {"success": False, "message": "Cleanup disabled (days = 0)", "deleted": 0}
+    deleted = _cleanup_old_images(days)
+    return {"success": True, "message": f"{deleted} purani images delete hui", "deleted": deleted}
+
+
+def _cleanup_old_images(days: int) -> int:
+    """Delete image files older than N days from IMG_DIR."""
+    import time
+    if days <= 0:
+        return 0
+    cutoff = time.time() - (days * 86400)
+    deleted = 0
+    try:
+        for fname in os.listdir(IMG_DIR):
+            fpath = os.path.join(IMG_DIR, fname)
+            if os.path.isfile(fpath) and os.path.getmtime(fpath) < cutoff:
+                os.remove(fpath)
+                deleted += 1
+        if deleted > 0:
+            logger.info(f"Image cleanup: {deleted} files older than {days} days deleted")
+    except Exception as e:
+        logger.error(f"Image cleanup error: {e}")
+    return deleted
+
+
+async def image_cleanup_scheduler():
+    """Background task: run cleanup once every 24 hours."""
+    import asyncio
+    while True:
+        await asyncio.sleep(86400)  # 24 hours
+        try:
+            doc = await db["settings"].find_one({"key": "image_cleanup"}, {"_id": 0})
+            days = doc.get("days", 0) if doc else 0
+            if days > 0:
+                _cleanup_old_images(days)
+        except Exception as e:
+            logger.error(f"Image cleanup scheduler error: {e}")

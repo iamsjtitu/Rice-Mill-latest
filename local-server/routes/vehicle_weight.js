@@ -692,5 +692,74 @@ module.exports = function(database) {
     doc.end();
   }));
 
+  // ── Image Cleanup Settings ──
+
+  function cleanupOldImages(days) {
+    if (days <= 0) return 0;
+    const cutoff = Date.now() - (days * 86400000);
+    let deleted = 0;
+    try {
+      const files = fs.readdirSync(imgDir);
+      for (const fname of files) {
+        const fp = path.join(imgDir, fname);
+        const stat = fs.statSync(fp);
+        if (stat.isFile() && stat.mtimeMs < cutoff) {
+          fs.unlinkSync(fp);
+          deleted++;
+        }
+      }
+      if (deleted > 0) console.log(`[VW] Image cleanup: ${deleted} files older than ${days} days deleted`);
+    } catch (e) { console.error('[VW] Image cleanup error:', e.message); }
+    return deleted;
+  }
+
+  // Run cleanup on startup
+  try {
+    const settings = col('app_settings');
+    const cleanupDoc = settings.find(s => s.setting_id === 'image_cleanup');
+    const days = cleanupDoc ? (cleanupDoc.days || 0) : 0;
+    if (days > 0) cleanupOldImages(days);
+  } catch (e) { /* ignore */ }
+
+  // Periodic cleanup (every 24 hours)
+  setInterval(() => {
+    try {
+      const settings = col('app_settings');
+      const cleanupDoc = settings.find(s => s.setting_id === 'image_cleanup');
+      const days = cleanupDoc ? (cleanupDoc.days || 0) : 0;
+      if (days > 0) cleanupOldImages(days);
+    } catch (e) { /* ignore */ }
+  }, 86400000);
+
+  router.get('/api/settings/image-cleanup', safeAsync(async (req, res) => {
+    const settings = col('app_settings');
+    const doc = settings.find(s => s.setting_id === 'image_cleanup');
+    const days = doc ? (doc.days || 0) : 0;
+    res.json({ days, enabled: days > 0 });
+  }));
+
+  router.put('/api/settings/image-cleanup', safeAsync(async (req, res) => {
+    const settings = col('app_settings');
+    let days = parseInt(req.body.days || 0) || 0;
+    if (days < 0) days = 0;
+    const idx = settings.findIndex(s => s.setting_id === 'image_cleanup');
+    if (idx >= 0) {
+      settings[idx].days = days;
+    } else {
+      settings.push({ setting_id: 'image_cleanup', days });
+    }
+    database.save();
+    res.json({ success: true, days, enabled: days > 0 });
+  }));
+
+  router.post('/api/settings/image-cleanup/run', safeAsync(async (req, res) => {
+    const settings = col('app_settings');
+    const doc = settings.find(s => s.setting_id === 'image_cleanup');
+    const days = doc ? (doc.days || 0) : 0;
+    if (days <= 0) return res.json({ success: false, message: 'Cleanup disabled (days = 0)', deleted: 0 });
+    const deleted = cleanupOldImages(days);
+    res.json({ success: true, message: `${deleted} purani images delete hui`, deleted });
+  }));
+
   return router;
 };

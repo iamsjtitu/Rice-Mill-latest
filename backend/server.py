@@ -188,6 +188,12 @@ async def start_auto_backup():
     logger.info("Auto backup scheduler started")
 
 @app.on_event("startup")
+async def start_image_cleanup_scheduler():
+    from routes.vehicle_weight import image_cleanup_scheduler
+    asyncio.create_task(image_cleanup_scheduler())
+    logger.info("Image cleanup scheduler started")
+
+@app.on_event("startup")
 async def fix_empty_descriptions():
     """One-time migration: fill empty descriptions in cash_transactions"""
     try:
