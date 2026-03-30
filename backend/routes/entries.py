@@ -765,7 +765,7 @@ async def export_excel(
     ws = wb.active
     ws.title = "Mill Entries"
     
-    ncols = 21
+    ncols = 19
     center_align = Alignment(horizontal='center', vertical='center')
     right_align = Alignment(horizontal='right', vertical='center')
     
@@ -779,7 +779,7 @@ async def export_excel(
     headers = [
         "Date", "Truck No", "RST No", "TP No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
         "GBW Cut", "P.Pkt", "P.Pkt Cut", "Mill W", "Moist%", "M.Cut", "Cut%", 
-        "D/D/P", "Final W", "G.Issued", "Cash", "Diesel"
+        "D/D/P", "Final W", "G.Issued"
     ]
     
     for col, header in enumerate(headers, 1):
@@ -810,9 +810,7 @@ async def export_excel(
             entry.get('cutting_percent', 0),
             entry.get('disc_dust_poll', 0),
             round(entry.get('final_w', 0) / 100, 2),
-            entry.get('g_issued', 0),
-            entry.get('cash_paid', 0),
-            entry.get('diesel_paid', 0)
+            entry.get('g_issued', 0)
         ]
         
         for col, value in enumerate(row_data, 1):
@@ -841,9 +839,7 @@ async def export_excel(
         "-",
         totals.total_disc_dust_poll,
         round(totals.total_final_w / 100, 2),
-        totals.total_g_issued,
-        totals.total_cash_paid,
-        totals.total_diesel_paid
+        totals.total_g_issued
     ]
     
     for col, value in enumerate(totals_data, 1):
@@ -852,8 +848,8 @@ async def export_excel(
             ws.cell(row=row_num, column=col).alignment = right_align
     style_excel_total_row(ws, row_num, ncols)
     
-    # Column widths - A4 optimized (21 cols)
-    col_widths = [9, 11, 8, 8, 9, 9, 8, 5, 5, 6, 5, 6, 7, 5, 6, 5, 5, 8, 6, 7, 7]
+    # Column widths - A4 optimized (19 cols)
+    col_widths = [10, 12, 9, 9, 10, 10, 9, 6, 6, 7, 6, 7, 8, 6, 7, 6, 6, 9, 7]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     
@@ -967,7 +963,7 @@ async def export_pdf(
     headers = [
         "Date", "Truck", "RST", "TP", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
         "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", 
-        "D/D/P", "Final W", "G.Iss", "Cash", "Diesel"
+        "D/D/P", "Final W", "G.Iss"
     ]
     
     # Build data rows
@@ -993,9 +989,7 @@ async def export_pdf(
             f"{entry.get('cutting_percent', 0):.1f}",
             str(entry.get('disc_dust_poll', 0)),
             f"{entry.get('final_w', 0) / 100:.2f}",
-            str(entry.get('g_issued', 0)),
-            str(entry.get('cash_paid', 0)),
-            str(entry.get('diesel_paid', 0))
+            str(entry.get('g_issued', 0))
         ]
         table_data.append(row)
     
@@ -1014,15 +1008,13 @@ async def export_pdf(
         "-",
         str(int(totals.total_disc_dust_poll)),
         f"{totals.total_final_w / 100:.2f}",
-        str(int(totals.total_g_issued)),
-        str(int(totals.total_cash_paid)),
-        str(int(totals.total_diesel_paid))
+        str(int(totals.total_g_issued))
     ]
     table_data.append(totals_row)
     
-    # Column widths (21 columns for A4 landscape with margins)
-    col_widths = [14*mm, 14*mm, 10*mm, 10*mm, 14*mm, 14*mm, 12*mm, 8*mm, 8*mm, 10*mm, 
-                  8*mm, 10*mm, 12*mm, 8*mm, 10*mm, 8*mm, 8*mm, 12*mm, 10*mm, 10*mm, 10*mm]
+    # Column widths (19 columns for A4 landscape with margins)
+    col_widths = [15*mm, 15*mm, 11*mm, 11*mm, 15*mm, 15*mm, 13*mm, 9*mm, 9*mm, 11*mm, 
+                  9*mm, 11*mm, 13*mm, 9*mm, 11*mm, 9*mm, 9*mm, 13*mm, 11*mm]
     
     # Create table
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)

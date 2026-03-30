@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.7.0";
+const APP_VERSION = "55.8.0";
 
 const CHANGELOG = [
+  {
+    version: "55.8.0",
+    date: "Mar 2026",
+    title: "v55.8.0 - Entries Export Cleanup",
+    items: [
+      { type: "fix", text: "Entries Excel/PDF se Cash aur Diesel columns hataye" },
+    ]
+  },
   {
     version: "55.7.0",
     date: "Mar 2026",
