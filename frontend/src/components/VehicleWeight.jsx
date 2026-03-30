@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Play, Square, Zap, WifiOff, Wifi, Plus, Eye, EyeOff } from "lucide-react";
+import AutoSuggest from "./common/AutoSuggest";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { downloadFile } from "../utils/download";
@@ -122,24 +123,41 @@ export default function VehicleWeight({ filters }) {
   const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "" };
   const [form, setForm] = useState(blank);
   const [mandiTargets, setMandiTargets] = useState([]);
+  const [partySuggestions, setPartySuggestions] = useState([]);
+  const [mandiSuggestions, setMandiSuggestions] = useState([]);
   const kms = filters?.kms_year || "";
 
-  // Fetch mandi targets for GOVT PADDY auto-fill
+  // Fetch suggestions + mandi targets
   useEffect(() => {
-    axios.get(`${API}/mandi-targets?kms_year=${kms}`).then(r => {
-      const targets = r.data || [];
+    Promise.all([
+      axios.get(`${API}/suggestions/agents`),
+      axios.get(`${API}/suggestions/mandis`),
+      axios.get(`${API}/mandi-targets?kms_year=${kms}`)
+    ]).then(([agR, mnR, tgR]) => {
+      setPartySuggestions(agR.data.suggestions || []);
+      setMandiSuggestions(mnR.data.suggestions || []);
+      const targets = tgR.data || [];
       setMandiTargets(targets);
       // Auto-fill if GOVT PADDY and targets available
       if (targets.length > 0) {
         setForm(prev => {
           if (prev.product === "GOVT PADDY" && !prev.party_name && !prev.farmer_name) {
-            return { ...prev, party_name: targets[0].agent_name || '', farmer_name: targets[0].mandi_name || '' };
+            const ag = targets[0].agent_name || '';
+            return { ...prev, party_name: ag !== '-' ? ag : '', farmer_name: targets[0].mandi_name || '' };
           }
           return prev;
         });
       }
     }).catch(() => {});
   }, [kms]);
+
+  // Fetch mandis for selected party
+  const fetchMandisForParty = async (partyName) => {
+    try {
+      const r = await axios.get(`${API}/suggestions/mandis?agent_name=${encodeURIComponent(partyName)}`);
+      if (r.data.suggestions?.length > 0) setMandiSuggestions(r.data.suggestions);
+    } catch {}
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -230,45 +248,26 @@ export default function VehicleWeight({ filters }) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-slate-500 text-[10px] mb-0.5 block">Party Name</Label>
-                    {form.product === "GOVT PADDY" && mandiTargets.length > 0 ? (
-                      (() => {
-                        const agents = [...new Set(mandiTargets.map(t => t.agent_name || '').filter(a => a && a !== '-'))];
-                        return agents.length > 0 ? (
-                          <Select value={form.party_name} onValueChange={v => {
-                            const tgt = mandiTargets.find(t => (t.agent_name || '') === v);
-                            setForm(p => ({ ...p, party_name: v, farmer_name: tgt?.mandi_name || p.farmer_name }));
-                          }}>
-                            <SelectTrigger className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-party"><SelectValue placeholder="Select Party" /></SelectTrigger>
-                            <SelectContent className="bg-slate-800 border-slate-600">
-                              {agents.map(a => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Input value={form.party_name} onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
-                            placeholder="Party" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-party" />
-                        );
-                      })()
-                    ) : (
-                      <Input value={form.party_name} onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
-                        placeholder="Party" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-party" />
-                    )}
+                    <AutoSuggest
+                      value={form.party_name}
+                      onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
+                      suggestions={partySuggestions}
+                      placeholder="Party name"
+                      onSelect={(val) => { setForm(p => ({ ...p, party_name: val })); fetchMandisForParty(val); }}
+                      label="Party Name"
+                      testId="vw-party"
+                    />
                   </div>
                   <div>
-                    <Label className="text-slate-500 text-[10px] mb-0.5 block">Farmer/Mandi</Label>
-                    {form.product === "GOVT PADDY" && mandiTargets.length > 0 ? (
-                      <Select value={form.farmer_name} onValueChange={v => setForm(p => ({ ...p, farmer_name: v }))}>
-                        <SelectTrigger className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-farmer"><SelectValue placeholder="Select Mandi" /></SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-600">
-                          {[...new Set(mandiTargets.map(t => t.mandi_name || '').filter(Boolean))].map(m => (
-                            <SelectItem key={m} value={m}>{m}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input value={form.farmer_name} onChange={e => setForm(p => ({ ...p, farmer_name: e.target.value }))}
-                        placeholder="Farmer" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-farmer" />
-                    )}
+                    <AutoSuggest
+                      value={form.farmer_name}
+                      onChange={e => setForm(p => ({ ...p, farmer_name: e.target.value }))}
+                      suggestions={mandiSuggestions}
+                      placeholder="Farmer / Mandi"
+                      onSelect={(val) => setForm(p => ({ ...p, farmer_name: val }))}
+                      label="Farmer/Mandi"
+                      testId="vw-farmer"
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">

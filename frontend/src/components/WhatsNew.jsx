@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.15.0";
+const APP_VERSION = "55.16.0";
 
 const CHANGELOG = [
+  {
+    version: "55.16.0",
+    date: "Mar 2026",
+    title: "v55.16.0 - Auto Vehicle Weight AutoSuggest",
+    items: [
+      { type: "new", text: "Party Name aur Mandi mai AutoSuggest - entries jaisa system, pehle dala hua automatic ata hai" },
+      { type: "new", text: "Party select karne par uski mandis automatic aati hain" },
+      { type: "new", text: "GOVT PADDY par targets se mandi auto-fill" },
+    ]
+  },
   {
     version: "55.15.0",
     date: "Mar 2026",

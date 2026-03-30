@@ -1,15 +1,13 @@
 # Mill Entry System - PRD
 
-## Current Version: v55.15.0
+## Current Version: v55.16.0
 
 ## What's Been Implemented (Latest)
-- **v55.15.0**: GOVT PADDY default product. Mandi Targets se auto-fill Party/Mandi when GOVT PADDY selected. Second Weight dialog mein Live Scale display + Auto Capture button.
-- **v55.14.0**: Second Weight Auto Capture, Pending list compact
+- **v55.16.0**: AutoSuggest in Vehicle Weight - Party Name aur Mandi mein Entries jaisa auto-suggestion. Party select karne par mandi auto-fetch. GOVT PADDY targets se auto-fill.
+- **v55.15.0**: GOVT PADDY default + Target auto-fill
+- **v55.14.0**: Second Weight Auto Capture
 - **v55.13.0**: 3-column layout redesign
-- **v55.12.0**: Keshav Computer style layout
-- **v55.11.0**: Vehicle Weight sub-tab inside Entries
-- **v55.10.0**: RST Auto-fill in Nayi Entry + GOVT PADDY option
-- **v55.9.0**: Vehicle Weight demo, Cash/Diesel removed from JS exports
+- **v55.9.0-v55.12.0**: Vehicle Weight feature build + sub-tab + exports fix
 
 ## Prioritized Backlog
 ### P2 - Future
