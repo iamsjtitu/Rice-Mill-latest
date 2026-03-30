@@ -784,8 +784,14 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
     from fastapi.responses import StreamingResponse
+    from utils.branding_helper import get_branding_data
     query = await _build_vw_query(kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no)
     items = await db["vehicle_weights"].find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
+
+    branding = await get_branding_data()
+    company_name = branding.get("company_name", "NAVKAR AGRO")
+    tagline = branding.get("tagline", "")
+    custom_fields = branding.get("custom_fields", [])
 
     wb = Workbook()
     ws = wb.active
@@ -793,33 +799,65 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     thin = Side(style='thin')
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    # Title
-    company_name = "NAVKAR AGRO"
-    try:
-        br = await db["settings"].find_one({"key": "branding"})
-        if br: company_name = br.get("company_name", company_name)
-    except: pass
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=12)
-    title_cell = ws.cell(row=1, column=1, value=f"{company_name} - Vehicle Weight / तौल पर्ची")
+    cur_row = 1
+    # Above fields (placement=above)
+    above_parts = []
+    for f in custom_fields:
+        if f.get("placement", "below") == "above":
+            lbl, val = f.get("label", ""), f.get("value", "")
+            if val:
+                above_parts.append(f"{lbl}: {val}" if lbl else val)
+    if above_parts:
+        ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=13)
+        cell = ws.cell(row=cur_row, column=1, value="  |  ".join(above_parts))
+        cell.font = Font(bold=True, size=10, color="8B0000")
+        cell.alignment = Alignment(horizontal='center')
+        cur_row += 1
+
+    # Company Title
+    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=13)
+    title_cell = ws.cell(row=cur_row, column=1, value=f"{company_name} - Vehicle Weight / तौल पर्ची")
     title_cell.font = Font(bold=True, size=14, color="1a1a2e")
     title_cell.alignment = Alignment(horizontal='center')
-    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=12)
+    cur_row += 1
+
+    # Tagline + Below fields
+    below_parts = []
+    for f in custom_fields:
+        if f.get("placement", "below") != "above":
+            lbl, val = f.get("label", ""), f.get("value", "")
+            if val:
+                below_parts.append(f"{lbl}: {val}" if lbl else val)
+    sub_text = tagline
+    if below_parts:
+        sub_text += "  |  " + "  |  ".join(below_parts) if sub_text else "  |  ".join(below_parts)
+    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=13)
+    ws.cell(row=cur_row, column=1, value=sub_text).font = Font(size=9, color="666666")
+    ws.cell(row=cur_row, column=1).alignment = Alignment(horizontal='center')
+    cur_row += 1
+
+    # Date/count row
+    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=13)
     sub = f"Date: {date_from or 'All'} to {date_to or 'All'} | Total: {len(items)} entries"
-    ws.cell(row=2, column=1, value=sub).font = Font(size=9, color="666666")
-    ws.cell(row=2, column=1).alignment = Alignment(horizontal='center')
+    ws.cell(row=cur_row, column=1, value=sub).font = Font(size=9, color="666666")
+    ws.cell(row=cur_row, column=1).alignment = Alignment(horizontal='center')
+    cur_row += 1
+
+    # Header row
+    hdr_row = cur_row + 1
 
     headers = ["RST", "Date", "Vehicle", "Party", "Mandi", "Product", "Trans", "Bags",
                "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "Cash", "Diesel"]
     hdr_fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
     hdr_font = Font(bold=True, color="FFFFFF", size=10)
     for c, h in enumerate(headers, 1):
-        cell = ws.cell(row=4, column=c, value=h)
+        cell = ws.cell(row=hdr_row, column=c, value=h)
         cell.font = hdr_font
         cell.fill = hdr_fill
         cell.alignment = Alignment(horizontal='center')
         cell.border = border
 
-    for i, e in enumerate(items, 5):
+    for i, e in enumerate(items, hdr_row + 1):
         vals = [e.get("rst_no",""), e.get("date",""), e.get("vehicle_no",""), e.get("party_name",""),
                 e.get("farmer_name",""), e.get("product",""), e.get("trans_type",""), e.get("tot_pkts",""),
                 e.get("first_wt",0), e.get("second_wt",0), e.get("net_wt",0),
@@ -857,25 +895,20 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.lib.units import mm
     from fastapi.responses import StreamingResponse
+    from utils.branding_helper import get_pdf_header_elements_from_db
 
     query = await _build_vw_query(kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no)
     items = await db["vehicle_weights"].find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
-
-    company_name = "NAVKAR AGRO"
-    try:
-        br = await db["settings"].find_one({"key": "branding"})
-        if br: company_name = br.get("company_name", company_name)
-    except: pass
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
     styles = getSampleStyleSheet()
     elements = []
 
-    # Title
-    elements.append(Paragraph(f"<b>{company_name} - Vehicle Weight / तौल पर्ची</b>", styles['Title']))
-    elements.append(Paragraph(f"Date: {date_from or 'All'} to {date_to or 'All'} | Total: {len(items)} entries", styles['Normal']))
-    elements.append(Spacer(1, 5*mm))
+    # Branding header with custom fields
+    sub = f"Date: {date_from or 'All'} to {date_to or 'All'} | Total: {len(items)} entries"
+    elements.extend(await get_pdf_header_elements_from_db("Vehicle Weight / तौल पर्ची", sub))
+    elements.append(Spacer(1, 3*mm))
 
     # Table
     headers = ["RST", "Date", "Vehicle", "Party", "Mandi", "Product", "Trans", "Bags", "1st Wt", "2nd Wt", "Net Wt", "Cash", "Diesel"]
