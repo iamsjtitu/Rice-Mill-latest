@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.12.0";
+const APP_VERSION = "55.13.0";
 
 const CHANGELOG = [
+  {
+    version: "55.13.0",
+    date: "Mar 2026",
+    title: "v55.13.0 - Auto Vehicle Weight UI Redesign",
+    items: [
+      { type: "new", text: "Auto Vehicle Weight page sunder banaya - 3-column layout (Form | Scale+Camera | Pending List)" },
+      { type: "new", text: "Pending Vehicle List: RST No, Date, Vehicle, 1st Wt, Party Name, Product, Action columns" },
+      { type: "new", text: "Digital weighbridge display with glow effects" },
+    ]
+  },
   {
     version: "55.12.0",
     date: "Mar 2026",
