@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.40.0";
+const APP_VERSION = "55.41.0";
 
 const CHANGELOG = [
+  {
+    version: "55.41.0",
+    date: "Mar 2026",
+    title: "v55.41.0 - Server-Side Pagination (50k Ready)",
+    items: [
+      { type: "new", text: "Server-side pagination - Mill Entries, Cash Book, Vehicle Weight tables ab 50k+ entries handle kar sakte hain" },
+      { type: "new", text: "Page numbers neeche dikhenge (1-200 per page, Next/Prev/First/Last buttons)" },
+      { type: "fix", text: "Database queries optimized - sirf current page ka data load hota hai, poora nahi" },
+      { type: "fix", text: "Teeno backends (Web, Desktop, Local) mai pagination sync hai" },
+    ]
+  },
   {
     version: "55.40.0",
     date: "Mar 2026",
