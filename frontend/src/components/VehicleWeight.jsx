@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, Plus, Eye, EyeOff, Zap, Pencil, Printer } from "lucide-react";
+import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, Plus, Eye, EyeOff, Zap, Pencil, Printer, FileSpreadsheet, FileText, Filter, Search, X } from "lucide-react";
 import AutoSuggest from "./common/AutoSuggest";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import { useConfirm } from "./ConfirmProvider";
@@ -362,6 +362,11 @@ export default function VehicleWeight({ filters }) {
   const [truckSuggestions, setTruckSuggestions] = useState([]);
   const kms = filters?.kms_year || "";
 
+  // VW Filters - default today
+  const todayStr = new Date().toISOString().split("T")[0];
+  const [vwFilters, setVwFilters] = useState({ date_from: todayStr, date_to: todayStr, vehicle_no: "", party_name: "", farmer_name: "", rst_no: "" });
+  const [showVwFilters, setShowVwFilters] = useState(false);
+
   useEffect(() => {
     const ctrl = new AbortController();
     Promise.all([
@@ -399,8 +404,15 @@ export default function VehicleWeight({ filters }) {
     setLoading(true);
     try {
       const p = fetchPage || vwPage;
+      const fp = new URLSearchParams({ kms_year: kms, status: "completed", page: p, page_size: VW_PAGE_SIZE });
+      if (vwFilters.date_from) fp.append("date_from", vwFilters.date_from);
+      if (vwFilters.date_to) fp.append("date_to", vwFilters.date_to);
+      if (vwFilters.vehicle_no) fp.append("vehicle_no", vwFilters.vehicle_no);
+      if (vwFilters.party_name) fp.append("party_name", vwFilters.party_name);
+      if (vwFilters.farmer_name) fp.append("farmer_name", vwFilters.farmer_name);
+      if (vwFilters.rst_no) fp.append("rst_no", vwFilters.rst_no);
       const [eR, pR, nR] = await Promise.all([
-        axios.get(`${API}/vehicle-weight?kms_year=${kms}&status=completed&page=${p}&page_size=${VW_PAGE_SIZE}`, { signal: ctrl.signal }),
+        axios.get(`${API}/vehicle-weight?${fp.toString()}`, { signal: ctrl.signal }),
         axios.get(`${API}/vehicle-weight/pending?kms_year=${kms}`, { signal: ctrl.signal }),
         axios.get(`${API}/vehicle-weight/next-rst?kms_year=${kms}`, { signal: ctrl.signal })
       ]);
@@ -412,7 +424,7 @@ export default function VehicleWeight({ filters }) {
       setNextRst(nR.data.next_rst || 1);
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Data fetch error"); }
     if (!ctrl.signal.aborted) setLoading(false);
-  }, [kms, vwPage]);
+  }, [kms, vwPage, vwFilters]);
   useEffect(() => { fetchData(); return () => { if (abortRef.current) abortRef.current.abort(); }; }, [fetchData]);
 
   const capFirst = () => { if (scale.stable && scale.weight > 0) { setForm(p => ({ ...p, first_wt: String(scale.weight) })); toast.success(`Captured: ${scale.weight} KG`); scale.scheduleNext(); } };
@@ -1008,16 +1020,64 @@ export default function VehicleWeight({ filters }) {
 
       {/* ─── COMPLETED ENTRIES TABLE ─── */}
       <Card className="bg-white border-gray-200 shadow-sm">
-        <CardHeader className="pb-2 pt-3 px-4 cursor-pointer bg-gray-50/50" onClick={() => setShowCompleted(!showCompleted)}>
+        <CardHeader className="pb-2 pt-3 px-4 bg-gray-50/50">
           <CardTitle className="text-xs flex items-center justify-between">
-            <span className="text-gray-700 flex items-center gap-1.5">
+            <span className="text-gray-700 flex items-center gap-1.5 cursor-pointer" onClick={() => setShowCompleted(!showCompleted)}>
               <CheckCircle className="w-3.5 h-3.5 text-green-600" /> Completed Entries
               <Badge className="bg-green-100 text-green-700 border-green-300 text-[10px] ml-1">{vwTotalCount}</Badge>
             </span>
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-gray-500 hover:text-gray-800" data-testid="vw-toggle-completed">
-              {showCompleted ? <><EyeOff className="w-3 h-3 mr-1" />Hide</> : <><Eye className="w-3 h-3 mr-1" />Show</>}
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-gray-600 border-gray-300" onClick={() => setShowVwFilters(!showVwFilters)} data-testid="vw-filter-toggle">
+                <Filter className="w-3 h-3 mr-1" />{showVwFilters ? 'Hide' : 'Filters'}
+              </Button>
+              <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-emerald-700 border-emerald-300 hover:bg-emerald-50" data-testid="vw-export-excel"
+                onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, `vehicle_weight.xlsx`); }}>
+                <FileSpreadsheet className="w-3 h-3 mr-1" />Excel
+              </Button>
+              <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-red-700 border-red-300 hover:bg-red-50" data-testid="vw-export-pdf"
+                onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, `vehicle_weight.pdf`); }}>
+                <FileText className="w-3 h-3 mr-1" />PDF
+              </Button>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-gray-500 hover:text-gray-800" data-testid="vw-toggle-completed" onClick={() => setShowCompleted(!showCompleted)}>
+                {showCompleted ? <><EyeOff className="w-3 h-3 mr-1" />Hide</> : <><Eye className="w-3 h-3 mr-1" />Show</>}
+              </Button>
+            </div>
           </CardTitle>
+          {/* ── Filter Bar ── */}
+          {showVwFilters && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2 pb-1" data-testid="vw-filter-bar">
+              <div>
+                <label className="text-[9px] text-gray-500 font-medium">Date From</label>
+                <Input type="date" className="h-7 text-xs" value={vwFilters.date_from} onChange={e => { setVwFilters(p => ({ ...p, date_from: e.target.value })); setVwPage(1); }} data-testid="vw-filter-date-from" />
+              </div>
+              <div>
+                <label className="text-[9px] text-gray-500 font-medium">Date To</label>
+                <Input type="date" className="h-7 text-xs" value={vwFilters.date_to} onChange={e => { setVwFilters(p => ({ ...p, date_to: e.target.value })); setVwPage(1); }} data-testid="vw-filter-date-to" />
+              </div>
+              <div>
+                <label className="text-[9px] text-gray-500 font-medium">RST No</label>
+                <Input type="text" placeholder="RST..." className="h-7 text-xs" value={vwFilters.rst_no} onChange={e => { setVwFilters(p => ({ ...p, rst_no: e.target.value })); setVwPage(1); }} data-testid="vw-filter-rst" />
+              </div>
+              <div>
+                <label className="text-[9px] text-gray-500 font-medium">Vehicle</label>
+                <Input type="text" placeholder="Vehicle..." className="h-7 text-xs" value={vwFilters.vehicle_no} onChange={e => { setVwFilters(p => ({ ...p, vehicle_no: e.target.value })); setVwPage(1); }} data-testid="vw-filter-vehicle" />
+              </div>
+              <div>
+                <label className="text-[9px] text-gray-500 font-medium">Party</label>
+                <Input type="text" placeholder="Party..." className="h-7 text-xs" value={vwFilters.party_name} onChange={e => { setVwFilters(p => ({ ...p, party_name: e.target.value })); setVwPage(1); }} data-testid="vw-filter-party" />
+              </div>
+              <div>
+                <label className="text-[9px] text-gray-500 font-medium">Mandi</label>
+                <div className="flex gap-1">
+                  <Input type="text" placeholder="Mandi..." className="h-7 text-xs" value={vwFilters.farmer_name} onChange={e => { setVwFilters(p => ({ ...p, farmer_name: e.target.value })); setVwPage(1); }} data-testid="vw-filter-mandi" />
+                  <Button variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-gray-400 hover:text-red-600" data-testid="vw-filter-clear"
+                    onClick={() => { setVwFilters({ date_from: todayStr, date_to: todayStr, vehicle_no: "", party_name: "", farmer_name: "", rst_no: "" }); setVwPage(1); }}>
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </CardHeader>
         {showCompleted && (
           <CardContent className="p-0 border-t border-gray-100">
@@ -1042,7 +1102,11 @@ export default function VehicleWeight({ filters }) {
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
-                    <TableRow><TableCell colSpan={13} className="text-center text-gray-400 py-8 text-xs">Koi completed entry nahi</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={13} className="text-center text-gray-400 py-8 text-xs" data-testid="vw-no-entries-today">
+                      {vwFilters.date_from === todayStr && vwFilters.date_to === todayStr
+                        ? "Aaj ki koi Vehicle Weight entry nahi hai"
+                        : "Koi entry nahi mili - Filter change karke dekhein"}
+                    </TableCell></TableRow>
                   ) : entries.map((e, i) => (
                     <TableRow key={e.id} className={`border-gray-100 hover:bg-gray-50 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
                       <TableCell className="py-2 px-3"><span className="text-amber-700 font-bold text-xs">#{e.rst_no}</span></TableCell>

@@ -55,7 +55,7 @@ const CashBook = ({ filters, user }) => {
     category: "", party_type: "", description: "", amount: "", reference: "", bank_name: "",
     kms_year: CURRENT_KMS_YEAR, season: "Kharif",
   });
-  const [txnFilters, setTxnFilters] = useState({ account: "ledger", txn_type: "", category: "", party_type: "", date_from: "", date_to: "" });
+  const [txnFilters, setTxnFilters] = useState({ account: "ledger", txn_type: "", category: "", party_type: "", date_from: new Date().toISOString().split("T")[0], date_to: new Date().toISOString().split("T")[0] });
   const [filterPartySearch, setFilterPartySearch] = useState("");
   const [showFilterPartyDropdown, setShowFilterPartyDropdown] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -560,6 +560,11 @@ const CashBook = ({ filters, user }) => {
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-8 text-center" data-testid="no-ledger-found">
               <p className="text-slate-400 text-sm">"{filterPartySearch}" ka koi ledger nahi mila</p>
               <p className="text-slate-500 text-xs mt-1">No ledger found for this party</p>
+            </div>
+          ) : displayedTxns.length === 0 ? (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-8 text-center" data-testid="no-txn-today">
+              <p className="text-slate-400 text-sm">Aaj ka koi Cash Transaction nahi hua</p>
+              <p className="text-slate-500 text-xs mt-1">Date filter change karke purani entries dekh sakte hain</p>
             </div>
           ) : (
             <>

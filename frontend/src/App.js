@@ -246,7 +246,8 @@ function MainApp({ user, onLogout }) {
   const [mandiSuggestions, setMandiSuggestions] = useState([]);
   const [mandiTargets, setMandiTargets] = useState([]);
 
-  // Filter state - default to current FY
+  // Filter state - default to current FY and today's date
+  const todayStr = new Date().toISOString().split("T")[0];
   const [filters, setFilters] = useState({
     truck_no: "",
     rst_no: "",
@@ -255,8 +256,8 @@ function MainApp({ user, onLogout }) {
     mandi_name: "",
     kms_year: CURRENT_FY,
     season: "",
-    date_from: "",
-    date_to: ""
+    date_from: todayStr,
+    date_to: todayStr
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -1067,7 +1068,7 @@ function MainApp({ user, onLogout }) {
     });
   };
 
-  const hasActiveFilters = filters.truck_no || filters.rst_no || filters.tp_no || filters.agent_name || filters.mandi_name || filters.season || filters.date_from || filters.date_to;
+  const hasActiveFilters = filters.truck_no || filters.rst_no || filters.tp_no || filters.agent_name || filters.mandi_name || filters.season || (filters.date_from && filters.date_from !== todayStr) || (filters.date_to && filters.date_to !== todayStr);
 
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-gradient-to-br from-slate-100 via-white to-slate-50' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'}`} data-theme={theme}>
@@ -2292,7 +2293,9 @@ function MainApp({ user, onLogout }) {
                   {entries.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={24} className="text-center text-slate-400 py-8">
-                        Koi entry nahi hai. "Nayi Entry" button click karein.
+                        {filters.date_from === todayStr && filters.date_to === todayStr 
+                          ? "Aaj ki koi Mill Entry nahi hai" 
+                          : "Koi entry nahi mili. Filter change karein ya \"Nayi Entry\" button click karein."}
                       </TableCell>
                     </TableRow>
                   ) : (

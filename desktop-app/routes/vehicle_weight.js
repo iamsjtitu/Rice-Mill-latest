@@ -220,10 +220,16 @@ module.exports = function(database) {
 
   // GET /api/vehicle-weight - List weights
   router.get('/api/vehicle-weight', safeAsync(async (req, res) => {
-    const { kms_year, status } = req.query;
+    const { kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no } = req.query;
     let items = col('vehicle_weights');
     if (kms_year) items = items.filter(w => w.kms_year === kms_year);
     if (status) items = items.filter(w => w.status === status);
+    if (date_from) items = items.filter(w => (w.date || '') >= date_from);
+    if (date_to) items = items.filter(w => (w.date || '') <= date_to);
+    if (vehicle_no) items = items.filter(w => (w.vehicle_no || '').toLowerCase().includes(vehicle_no.toLowerCase()));
+    if (party_name) items = items.filter(w => (w.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
+    if (farmer_name) items = items.filter(w => (w.farmer_name || '').toLowerCase().includes(farmer_name.toLowerCase()));
+    if (rst_no) items = items.filter(w => String(w.rst_no) === String(rst_no));
     items = [...items].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     const total = items.length;
     const pageSize = parseInt(req.query.page_size) || 200;
@@ -755,6 +761,105 @@ module.exports = function(database) {
       const copy2Top = cutY + 2 * mm;
       drawCopy(copy2Top, 'CUSTOMER COPY', true);
     }
+
+    doc.end();
+  }));
+
+
+  // ── Bulk Export: Excel & PDF ──
+  function _filterVwItems(query) {
+    let items = col('vehicle_weights');
+    if (query.kms_year) items = items.filter(w => w.kms_year === query.kms_year);
+    if (query.status) items = items.filter(w => w.status === query.status);
+    if (query.date_from) items = items.filter(w => (w.date || '') >= query.date_from);
+    if (query.date_to) items = items.filter(w => (w.date || '') <= query.date_to);
+    if (query.vehicle_no) items = items.filter(w => (w.vehicle_no || '').toLowerCase().includes(query.vehicle_no.toLowerCase()));
+    if (query.party_name) items = items.filter(w => (w.party_name || '').toLowerCase().includes(query.party_name.toLowerCase()));
+    if (query.farmer_name) items = items.filter(w => (w.farmer_name || '').toLowerCase().includes(query.farmer_name.toLowerCase()));
+    if (query.rst_no) items = items.filter(w => String(w.rst_no) === String(query.rst_no));
+    return [...items].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  }
+
+  router.get('/api/vehicle-weight/export/excel', safeAsync(async (req, res) => {
+    const ExcelJS = require('exceljs');
+    const items = _filterVwItems(req.query);
+    const br = col('settings').find(s => s.key === 'branding') || {};
+    const company = br.company_name || 'NAVKAR AGRO';
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Vehicle Weight');
+    ws.mergeCells('A1:M1');
+    ws.getCell('A1').value = `${company} - Vehicle Weight / तौल पर्ची`;
+    ws.getCell('A1').font = { bold: true, size: 14, color: { argb: '1a1a2e' } };
+    ws.getCell('A1').alignment = { horizontal: 'center' };
+    ws.mergeCells('A2:M2');
+    ws.getCell('A2').value = `Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'} | Total: ${items.length}`;
+    ws.getCell('A2').font = { size: 9, color: { argb: '666666' } };
+    ws.getCell('A2').alignment = { horizontal: 'center' };
+
+    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans', 'Pkts', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'Cash', 'Diesel'];
+    const hdrRow = ws.getRow(4);
+    headers.forEach((h, i) => {
+      const cell = hdrRow.getCell(i + 1);
+      cell.value = h;
+      cell.font = { bold: true, color: { argb: 'FFFFFF' }, size: 10 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1a1a2e' } };
+      cell.alignment = { horizontal: 'center' };
+      cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    items.forEach((e, idx) => {
+      const row = ws.getRow(5 + idx);
+      [e.rst_no, e.date, e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts, e.first_wt || 0, e.second_wt || 0, e.net_wt || 0, e.cash_paid || 0, e.diesel_paid || 0].forEach((v, i) => {
+        const cell = row.getCell(i + 1);
+        cell.value = v;
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+        if (i >= 8) cell.alignment = { horizontal: 'right' };
+      });
+    });
+
+    ws.columns.forEach(c => { c.width = 15; });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=vehicle_weight.xlsx`);
+    await wb.xlsx.write(res);
+    res.end();
+  }));
+
+  router.get('/api/vehicle-weight/export/pdf', safeAsync(async (req, res) => {
+    const PDFDocument = require('pdfkit');
+    const items = _filterVwItems(req.query);
+    const br = col('settings').find(s => s.key === 'branding') || {};
+    const company = br.company_name || 'NAVKAR AGRO';
+
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=vehicle_weight.pdf`);
+    doc.pipe(res);
+
+    doc.fontSize(16).font('Helvetica-Bold').text(`${company} - Vehicle Weight`, { align: 'center' });
+    doc.fontSize(8).font('Helvetica').text(`Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'} | Total: ${items.length}`, { align: 'center' });
+    doc.moveDown(0.5);
+
+    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans', 'Pkts', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
+    const colW = [30, 55, 65, 70, 55, 60, 55, 30, 50, 50, 50, 45, 45];
+    let x = 30, y = doc.y;
+
+    // Header row
+    doc.fontSize(7).font('Helvetica-Bold');
+    headers.forEach((h, i) => { doc.text(h, x, y, { width: colW[i], align: 'center' }); x += colW[i]; });
+    y += 15; doc.moveTo(30, y).lineTo(790, y).stroke();
+
+    // Data rows
+    doc.font('Helvetica').fontSize(7);
+    items.forEach(e => {
+      if (y > 540) { doc.addPage(); y = 30; }
+      x = 30;
+      const vals = [e.rst_no, e.date, e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts,
+        (e.first_wt || 0).toLocaleString(), (e.second_wt || 0).toLocaleString(), (e.net_wt || 0).toLocaleString(),
+        e.cash_paid ? Number(e.cash_paid).toLocaleString() : '-', e.diesel_paid ? Number(e.diesel_paid).toLocaleString() : '-'];
+      vals.forEach((v, i) => { doc.text(String(v || ''), x, y, { width: colW[i], align: i >= 7 ? 'right' : 'left' }); x += colW[i]; });
+      y += 12;
+    });
 
     doc.end();
   }));

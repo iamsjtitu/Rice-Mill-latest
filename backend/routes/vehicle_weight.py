@@ -85,13 +85,29 @@ async def _next_rst(kms_year: str = ""):
 
 
 @router.get("/vehicle-weight")
-async def list_weights(kms_year: str = "", status: str = "", page: int = 1, page_size: int = 200):
-    """List weight entries with pagination."""
+async def list_weights(kms_year: str = "", status: str = "", page: int = 1, page_size: int = 200,
+                       date_from: str = "", date_to: str = "", vehicle_no: str = "",
+                       party_name: str = "", farmer_name: str = "", rst_no: str = ""):
+    """List weight entries with pagination and filters."""
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
     if status:
         query["status"] = status
+    if date_from or date_to:
+        date_q = {}
+        if date_from: date_q["$gte"] = date_from
+        if date_to: date_q["$lte"] = date_to
+        query["date"] = date_q
+    if vehicle_no:
+        query["vehicle_no"] = {"$regex": vehicle_no, "$options": "i"}
+    if party_name:
+        query["party_name"] = {"$regex": party_name, "$options": "i"}
+    if farmer_name:
+        query["farmer_name"] = {"$regex": farmer_name, "$options": "i"}
+    if rst_no:
+        try: query["rst_no"] = int(rst_no)
+        except: pass
     total_count = await db["vehicle_weights"].count_documents(query)
     if page_size < 1: page_size = 200
     if page < 1: page = 1
@@ -696,6 +712,165 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
 
 
 
+
+# ── Bulk Export: Excel & PDF ──
+
+async def _build_vw_query(kms_year="", status="", date_from="", date_to="",
+                           vehicle_no="", party_name="", farmer_name="", rst_no=""):
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if status: query["status"] = status
+    if date_from or date_to:
+        dq = {}
+        if date_from: dq["$gte"] = date_from
+        if date_to: dq["$lte"] = date_to
+        query["date"] = dq
+    if vehicle_no: query["vehicle_no"] = {"$regex": vehicle_no, "$options": "i"}
+    if party_name: query["party_name"] = {"$regex": party_name, "$options": "i"}
+    if farmer_name: query["farmer_name"] = {"$regex": farmer_name, "$options": "i"}
+    if rst_no:
+        try: query["rst_no"] = int(rst_no)
+        except: pass
+    return query
+
+
+@router.get("/vehicle-weight/export/excel")
+async def export_vw_excel(kms_year: str = "", status: str = "completed",
+                          date_from: str = "", date_to: str = "",
+                          vehicle_no: str = "", party_name: str = "",
+                          farmer_name: str = "", rst_no: str = ""):
+    """Export vehicle weight entries to Excel."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from fastapi.responses import StreamingResponse
+    query = await _build_vw_query(kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no)
+    items = await db["vehicle_weights"].find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Vehicle Weight"
+    thin = Side(style='thin')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    # Title
+    company_name = "NAVKAR AGRO"
+    try:
+        br = await db["settings"].find_one({"key": "branding"})
+        if br: company_name = br.get("company_name", company_name)
+    except: pass
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=12)
+    title_cell = ws.cell(row=1, column=1, value=f"{company_name} - Vehicle Weight / तौल पर्ची")
+    title_cell.font = Font(bold=True, size=14, color="1a1a2e")
+    title_cell.alignment = Alignment(horizontal='center')
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=12)
+    sub = f"Date: {date_from or 'All'} to {date_to or 'All'} | Total: {len(items)} entries"
+    ws.cell(row=2, column=1, value=sub).font = Font(size=9, color="666666")
+    ws.cell(row=2, column=1).alignment = Alignment(horizontal='center')
+
+    headers = ["RST", "Date", "Vehicle", "Party", "Mandi", "Product", "Trans", "Pkts",
+               "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "Cash", "Diesel"]
+    hdr_fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
+    hdr_font = Font(bold=True, color="FFFFFF", size=10)
+    for c, h in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=c, value=h)
+        cell.font = hdr_font
+        cell.fill = hdr_fill
+        cell.alignment = Alignment(horizontal='center')
+        cell.border = border
+
+    for i, e in enumerate(items, 5):
+        vals = [e.get("rst_no",""), e.get("date",""), e.get("vehicle_no",""), e.get("party_name",""),
+                e.get("farmer_name",""), e.get("product",""), e.get("trans_type",""), e.get("tot_pkts",""),
+                e.get("first_wt",0), e.get("second_wt",0), e.get("net_wt",0),
+                e.get("cash_paid",0), e.get("diesel_paid",0)]
+        for c, v in enumerate(vals, 1):
+            cell = ws.cell(row=i, column=c, value=v)
+            cell.border = border
+            if c >= 9: cell.alignment = Alignment(horizontal='right')
+
+    # Auto width
+    from openpyxl.cell.cell import MergedCell
+    for col in ws.columns:
+        cells = [c for c in col if not isinstance(c, MergedCell)]
+        if not cells: continue
+        max_len = max((len(str(c.value or "")) for c in cells), default=8)
+        ws.column_dimensions[cells[0].column_letter].width = min(max_len + 3, 25)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = f"vehicle_weight_{date_from or 'all'}_{date_to or 'all'}.xlsx"
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@router.get("/vehicle-weight/export/pdf")
+async def export_vw_pdf(kms_year: str = "", status: str = "completed",
+                        date_from: str = "", date_to: str = "",
+                        vehicle_no: str = "", party_name: str = "",
+                        farmer_name: str = "", rst_no: str = ""):
+    """Export vehicle weight entries to PDF (A4 Landscape)."""
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from fastapi.responses import StreamingResponse
+
+    query = await _build_vw_query(kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no)
+    items = await db["vehicle_weights"].find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
+
+    company_name = "NAVKAR AGRO"
+    try:
+        br = await db["settings"].find_one({"key": "branding"})
+        if br: company_name = br.get("company_name", company_name)
+    except: pass
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Title
+    elements.append(Paragraph(f"<b>{company_name} - Vehicle Weight / तौल पर्ची</b>", styles['Title']))
+    elements.append(Paragraph(f"Date: {date_from or 'All'} to {date_to or 'All'} | Total: {len(items)} entries", styles['Normal']))
+    elements.append(Spacer(1, 5*mm))
+
+    # Table
+    headers = ["RST", "Date", "Vehicle", "Party", "Mandi", "Product", "Trans", "Pkts", "1st Wt", "2nd Wt", "Net Wt", "Cash", "Diesel"]
+    data = [headers]
+    for e in items:
+        data.append([
+            e.get("rst_no",""), e.get("date",""), e.get("vehicle_no",""),
+            e.get("party_name",""), e.get("farmer_name",""), e.get("product",""),
+            e.get("trans_type",""), e.get("tot_pkts",""),
+            f"{e.get('first_wt',0):,.0f}", f"{e.get('second_wt',0):,.0f}", f"{e.get('net_wt',0):,.0f}",
+            f"{e.get('cash_paid',0):,.0f}" if e.get('cash_paid') else "-",
+            f"{e.get('diesel_paid',0):,.0f}" if e.get('diesel_paid') else "-"
+        ])
+
+    col_widths = [30, 55, 65, 70, 55, 60, 55, 30, 50, 50, 50, 45, 45]
+    t = Table(data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a2e')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('ALIGN', (7, 1), (-1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buf.seek(0)
+    fname = f"vehicle_weight_{date_from or 'all'}_{date_to or 'all'}.pdf"
+    return StreamingResponse(buf, media_type="application/pdf",
+                             headers={"Content-Disposition": f"attachment; filename={fname}"})
 
 # ── Image Cleanup Settings & Scheduler ──
 
