@@ -114,7 +114,7 @@ def style_excel_title(ws, title, ncols, subtitle="", branding=None):
     c1 = ws.cell(row=1, column=1, value=row1_text)
     c1.font = Font(bold=True, size=18, color=COLORS['title_text'])
     c1.fill = PatternFill(start_color=COLORS['title_bg'], fill_type='solid')
-    c1.alignment = Alignment(horizontal='center', vertical='center', wrap_text=bool(above_text))
+    c1.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
     ws.row_dimensions[1].height = 48 if above_text else 36
 
     # Row 2: Tagline + custom fields

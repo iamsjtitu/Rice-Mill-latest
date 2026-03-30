@@ -196,9 +196,9 @@ function addExcelTitle(sheet, title, colCount, database) {
   const tc = sheet.getCell('A1'); 
   tc.value = aboveText ? `${aboveText}\n${branding.company_name || 'Mill Entry System'}` : (branding.company_name || 'Mill Entry System');
   tc.font = { bold: true, size: 18, color: { argb: COLORS.titleText } }; 
-  tc.alignment = { horizontal: 'center', vertical: 'middle', wrapText: !!aboveText };
+  tc.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
   tc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.titleBg } };
-  sheet.getRow(1).height = aboveText ? 48 : 34;
+  sheet.getRow(1).height = aboveText ? 48 : 36;
   
   const sc = sheet.getCell('A2'); 
   sc.value = combinedTagline;
