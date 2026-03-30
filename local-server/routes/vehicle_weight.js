@@ -471,7 +471,7 @@ module.exports = function(database) {
     res.json({ success: true, entry });
   }));
 
-  // GET /api/vehicle-weight/:entry_id/slip-pdf - Generate A5 weight slip PDF
+  // GET /api/vehicle-weight/:entry_id/slip-pdf - A5 portrait, 2 copies (Party + Customer)
   router.get('/api/vehicle-weight/:entry_id/slip-pdf', safeAsync(async (req, res) => {
     const PDFDocument = require('pdfkit');
     const path = require('path');
@@ -485,120 +485,144 @@ module.exports = function(database) {
     const company = branding.company_name || 'NAVKAR AGRO';
     const tagline = branding.tagline || 'JOLKO, KESINGA';
 
-    // A5 size: 420 x 595 points
-    const doc = new PDFDocument({ size: 'A5', margin: 28 });
+    const firstWt = entry.first_wt || 0;
+    const secondWt = entry.second_wt || 0;
+    const netWt = entry.net_wt || 0;
+    const grossWt = entry.gross_wt || Math.max(firstWt, secondWt);
+    const tareWt = entry.tare_wt || Math.min(firstWt, secondWt);
+    const cash = entry.cash_paid || 0;
+    const diesel = entry.diesel_paid || 0;
+    const rst = entry.rst_no || '';
+
+    // A5 portrait: 148mm x 210mm = ~419.53 x 595.28 pts
+    const W = 419.53, H = 595.28;
+    const doc = new PDFDocument({ size: [W, H], margins: { top: 0, bottom: 0, left: 0, right: 0 } });
     const buffers = [];
     doc.on('data', c => buffers.push(c));
     doc.on('end', () => {
       const pdfBuf = Buffer.concat(buffers);
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=WeightSlip_RST${entry.rst_no || ''}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename=WeightSlip_RST${rst}.pdf`);
       res.send(pdfBuf);
     });
 
-    // Register fonts if available
     const fontDir = path.join(__dirname, '..', 'fonts');
     const hasFreeSans = fs.existsSync(path.join(fontDir, 'FreeSans.ttf'));
     if (hasFreeSans) {
       doc.registerFont('AppFont', path.join(fontDir, 'FreeSans.ttf'));
       doc.registerFont('AppFontBold', path.join(fontDir, 'FreeSansBold.ttf'));
     }
-    const fontNormal = hasFreeSans ? 'AppFont' : 'Helvetica';
-    const fontBold = hasFreeSans ? 'AppFontBold' : 'Helvetica-Bold';
+    const fn = hasFreeSans ? 'AppFont' : 'Helvetica';
+    const fb = hasFreeSans ? 'AppFontBold' : 'Helvetica-Bold';
 
-    const pw = doc.page.width - 56; // page width minus margins
+    const LM = 14, RM = 14; // ~5mm margins
+    const PW = W - LM - RM;
+    const mm = 2.835; // 1mm in points
 
-    // ── Company Header ──
-    doc.font(fontBold).fontSize(16).fillColor('#1a1a2e').text(company, { align: 'center' });
-    doc.font(fontNormal).fontSize(9).fillColor('gray').text(tagline, { align: 'center' });
-    doc.moveDown(0.3);
-    doc.moveTo(28, doc.y).lineTo(doc.page.width - 28, doc.y).strokeColor('#1a1a2e').lineWidth(1.5).stroke();
-    doc.moveDown(0.3);
-    doc.font(fontBold).fontSize(11).fillColor('#333').text('WEIGHT SLIP', { align: 'center' });
-    doc.moveDown(0.5);
+    function drawCopy(topY, copyLabel, showSig) {
+      const x = LM;
+      let y = topY;
+      const bh = 93 * mm; // block height
 
-    // ── Details Grid ──
-    const detailsY = doc.y;
-    const col1x = 30, col2x = 80, col3x = 220, col4x = 270;
-    const lineH = 16;
-    const details = [
-      ['RST No:', `#${entry.rst_no || ''}`, 'Date:', entry.date || ''],
-      ['Vehicle:', entry.vehicle_no || '', 'Trans:', entry.trans_type || ''],
-      ['Party:', entry.party_name || '', 'Farmer:', entry.farmer_name || ''],
-      ['Product:', entry.product || '', 'Bags:', String(entry.tot_pkts || 0)],
-    ];
-    details.forEach((row, i) => {
-      const y = detailsY + i * lineH;
-      doc.font(fontBold).fontSize(9).fillColor('#555').text(row[0], col1x, y, { width: 48 });
-      doc.font(row[0] === 'RST No:' ? fontBold : fontNormal).fontSize(row[0] === 'RST No:' ? 11 : 9).fillColor('#000').text(row[1], col2x, y, { width: 130 });
-      doc.font(fontBold).fontSize(9).fillColor('#555').text(row[2], col3x, y, { width: 48 });
-      doc.font(fontNormal).fontSize(9).fillColor('#000').text(row[3], col4x, y, { width: 120 });
-    });
-    doc.y = detailsY + details.length * lineH + 10;
+      // Border
+      doc.lineWidth(1.2).strokeColor('#333').rect(x, y - bh, PW, bh).stroke();
 
-    // ── Weight Table ──
-    const firstWt = entry.first_wt || 0;
-    const secondWt = entry.second_wt || 0;
-    const netWt = entry.net_wt || 0;
-    const grossWt = entry.gross_wt || Math.max(firstWt, secondWt);
-    const tareWt = entry.tare_wt || Math.min(firstWt, secondWt);
+      // Copy label
+      const lw = doc.font(fn).fontSize(6).widthOfString(copyLabel);
+      doc.rect(x + PW - lw - 40, y - 1, lw + 12, 7).fill('#fff');
+      doc.font(fn).fontSize(6).fillColor('#888').text(copyLabel, x + PW - lw - 34, y + 0.5, { lineBreak: false });
 
-    const tableX = 80, colW1 = 100, colW2 = 130;
-    const rowH = 22;
-    let ty = doc.y;
+      y -= 4 * mm;
 
-    // Header row
-    doc.rect(tableX, ty, colW1 + colW2, rowH).fill('#1a1a2e');
-    doc.font(fontBold).fontSize(10).fillColor('#fff').text('', tableX + 5, ty + 5, { width: colW1 - 10 });
-    doc.text('Weight (KG)', tableX + colW1 + 5, ty + 5, { width: colW2 - 10, align: 'right' });
-    ty += rowH;
+      // Company name
+      doc.font(fb).fontSize(13).fillColor('#1a1a2e').text(company, x, y, { width: PW, align: 'center' });
+      y -= 3.5 * mm;
 
-    // Gross row
-    doc.rect(tableX, ty, colW1 + colW2, rowH).fill('#f0f0f0');
-    doc.font(fontNormal).fontSize(11).fillColor('#000').text('Gross Wt', tableX + 5, ty + 5, { width: colW1 - 10 });
-    doc.text(Number(grossWt).toLocaleString(), tableX + colW1 + 5, ty + 5, { width: colW2 - 10, align: 'right' });
-    ty += rowH;
+      // Tagline
+      doc.font(fn).fontSize(6.5).fillColor('#888').text(tagline, x, y, { width: PW, align: 'center' });
+      y -= 3 * mm;
 
-    // Tare row
-    doc.rect(tableX, ty, colW1 + colW2, rowH).fill('#fff');
-    doc.font(fontNormal).fontSize(11).fillColor('#000').text('Tare Wt', tableX + 5, ty + 5, { width: colW1 - 10 });
-    doc.text(Number(tareWt).toLocaleString(), tableX + colW1 + 5, ty + 5, { width: colW2 - 10, align: 'right' });
-    ty += rowH;
+      // Header line
+      doc.lineWidth(1.2).strokeColor('#1a1a2e').moveTo(x + 6, y).lineTo(x + PW - 6, y).stroke();
+      y -= 3.5 * mm;
 
-    // Net row
-    doc.rect(tableX, ty, colW1 + colW2, rowH).fill('#d4edda');
-    doc.font(fontBold).fontSize(14).fillColor('#155724').text('Net Wt', tableX + 5, ty + 3, { width: colW1 - 10 });
-    doc.text(Number(netWt).toLocaleString(), tableX + colW1 + 5, ty + 3, { width: colW2 - 10, align: 'right' });
-    ty += rowH;
+      // Slip title
+      doc.font(fb).fontSize(9).fillColor('#444').text('WEIGHT SLIP', x, y, { width: PW, align: 'center' });
+      y -= 4.5 * mm;
 
-    // Grid lines
-    doc.strokeColor('#CCC').lineWidth(0.5);
-    for (let i = 0; i <= 4; i++) {
-      doc.moveTo(tableX, doc.y - (4 - i) * rowH + (ty - doc.y)).lineTo(tableX + colW1 + colW2, doc.y - (4 - i) * rowH + (ty - doc.y));
+      // Info grid
+      const rows = [
+        ['RST No.', `#${rst}`, 'Date', entry.date || ''],
+        ['Vehicle', entry.vehicle_no || '', 'Trans', entry.trans_type || ''],
+        ['Party', entry.party_name || '', 'Farmer', entry.farmer_name || ''],
+        ['Product', entry.product || '', 'Bags', String(entry.tot_pkts || 0)],
+      ];
+      const rh = 3.8 * mm;
+      const c1w = 16 * mm, c2w = 42 * mm, c3w = 14 * mm;
+
+      rows.forEach((row, i) => {
+        const ry = y - i * rh;
+        doc.lineWidth(0.3).strokeColor('#ddd').moveTo(x + 6, ry - 1 * mm).lineTo(x + PW - 6, ry - 1 * mm).stroke();
+        doc.font(fb).fontSize(7.5).fillColor('#555').text(row[0], x + 8, ry, { lineBreak: false });
+        const fsize = i === 0 ? 9 : 8;
+        doc.font(i === 0 ? fb : fn).fontSize(fsize).fillColor('#000').text(String(row[1]).substring(0, 22), x + 8 + c1w, ry, { lineBreak: false });
+        doc.font(fb).fontSize(7.5).fillColor('#555').text(row[2], x + 8 + c1w + c2w, ry, { lineBreak: false });
+        doc.font(fn).fontSize(8).fillColor('#000').text(String(row[3]).substring(0, 22), x + 8 + c1w + c2w + c3w, ry, { lineBreak: false });
+      });
+
+      y -= rows.length * rh + 3 * mm;
+
+      // Weight boxes
+      const wtItems = [
+        { label: 'Gross', val: `${Number(grossWt).toLocaleString()} KG`, bg: '#f5f5f5', fg: '#111', bc: '#bbb' },
+        { label: 'Tare', val: `${Number(tareWt).toLocaleString()} KG`, bg: '#f5f5f5', fg: '#111', bc: '#bbb' },
+        { label: 'Net', val: `${Number(netWt).toLocaleString()} KG`, bg: '#e8f5e9', fg: '#1b5e20', bc: '#388e3c' },
+      ];
+      if (cash > 0) wtItems.push({ label: 'Cash', val: `${Number(cash).toLocaleString()}`, bg: '#fff8e1', fg: '#e65100', bc: '#f9a825' });
+      if (diesel > 0) wtItems.push({ label: 'Diesel', val: `${Number(diesel).toLocaleString()}`, bg: '#fff8e1', fg: '#e65100', bc: '#f9a825' });
+
+      const numCols = wtItems.length;
+      const colW = (PW - 12) / numCols;
+      const boxH = 10 * mm;
+
+      wtItems.forEach((item, i) => {
+        const bx = x + 6 + i * colW;
+        doc.rect(bx, y - boxH, colW - 2, boxH).fill(item.bg);
+        doc.lineWidth(item.label === 'Net' ? 0.6 : 0.4).strokeColor(item.bc).rect(bx, y - boxH, colW - 2, boxH).stroke();
+        doc.font(fn).fontSize(5.5).fillColor('#666').text(item.label, bx, y - 3 * mm, { width: colW - 2, align: 'center' });
+        const fz = item.label === 'Net' ? 12 : (item.label === 'Cash' || item.label === 'Diesel') ? 9 : 10;
+        doc.font(fb).fontSize(fz).fillColor(item.fg).text(item.val, bx, y - 8 * mm, { width: colW - 2, align: 'center' });
+      });
+
+      y -= boxH + 3 * mm;
+
+      // Signatures
+      if (showSig) {
+        const sigW = 35 * mm;
+        doc.lineWidth(0.5).strokeColor('#333');
+        doc.moveTo(x + 22, y - 8 * mm).lineTo(x + 22 + sigW, y - 8 * mm).stroke();
+        doc.font(fn).fontSize(5.5).fillColor('#666').text('Driver', x + 22, y - 11 * mm, { width: sigW, align: 'center' });
+        doc.moveTo(x + PW - 22 - sigW, y - 8 * mm).lineTo(x + PW - 22, y - 8 * mm).stroke();
+        doc.font(fn).fontSize(5.5).fillColor('#666').text('Authorized', x + PW - 22 - sigW, y - 11 * mm, { width: sigW, align: 'center' });
+      }
+
+      // Footer
+      doc.font(fn).fontSize(4.5).fillColor('#bbb').text(`${company} | Computer Generated`, x, topY - bh + 4, { width: PW, align: 'center' });
     }
-    doc.y = ty + 8;
 
-    // ── Cash / Diesel ──
-    const cash = entry.cash_paid || 0;
-    const diesel = entry.diesel_paid || 0;
-    if (cash || diesel) {
-      doc.font(fontBold).fontSize(10).fillColor('#555').text(`Cash Paid: ${Number(cash).toLocaleString()}`, tableX, doc.y);
-      doc.text(`Diesel Paid: ${Number(diesel).toLocaleString()}`, tableX, doc.y);
-      doc.moveDown(0.5);
-    }
+    // Draw 2 copies
+    const topMargin = 5 * mm;
+    const copy1Top = H - topMargin;
+    drawCopy(copy1Top, 'PARTY COPY', false);
 
-    // Remark
-    if (entry.remark) {
-      doc.font(fontBold).fontSize(9).fillColor('#555').text(`Remark: `, { continued: true });
-      doc.font(fontNormal).text(entry.remark);
-      doc.moveDown(0.3);
-    }
+    // Cut line
+    const cutY = copy1Top - 93 * mm - 4 * mm;
+    doc.lineWidth(0.8).strokeColor('#aaa').dash(3, { space: 3 }).moveTo(LM, cutY).lineTo(W - RM, cutY).stroke();
+    doc.undash();
+    doc.font(fn).fontSize(5).fillColor('#aaa').text('- - - CUT HERE - - -', LM, cutY + 1, { width: PW, align: 'center' });
 
-    // ── Footer ──
-    doc.moveDown(1);
-    doc.moveTo(28, doc.y).lineTo(doc.page.width - 28, doc.y).strokeColor('#ccc').lineWidth(0.5).stroke();
-    doc.moveDown(0.3);
-    doc.font(fontNormal).fontSize(7).fillColor('gray').text(`${company} | Computer Generated Slip`, { align: 'center' });
+    const copy2Top = cutY - 3 * mm;
+    drawCopy(copy2Top, 'CUSTOMER COPY', true);
 
     doc.end();
   }));

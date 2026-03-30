@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.24.0";
+const APP_VERSION = "55.25.0";
 
 const CHANGELOG = [
+  {
+    version: "55.25.0",
+    date: "Mar 2026",
+    title: "v55.25.0 - A5 Weight Slip Redesign",
+    items: [
+      { type: "new", text: "A5 paper perfect fit - 2 copies (Party + Customer) properly sized for half A4 paper" },
+      { type: "new", text: "Weight boxes (Gross/Tare/Net/Cash/Diesel) ek hi row mai compact layout" },
+      { type: "new", text: "PDF download bhi 2 copies (Party + Customer) with cut line" },
+    ]
+  },
   {
     version: "55.24.0",
     date: "Mar 2026",

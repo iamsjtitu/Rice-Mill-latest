@@ -432,79 +432,74 @@ export default function VehicleWeight({ filters }) {
         <div class="header">
           <h1>${company}</h1>
           <p class="tagline">${tagline}</p>
-          <h2>WEIGHT SLIP / तौल पर्ची</h2>
+          <div class="slip-title">WEIGHT SLIP / तौल पर्ची</div>
         </div>
         <table class="info-table">
-          <tr><td class="lbl">RST No.</td><td class="val">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${e.date}</td></tr>
-          <tr><td class="lbl">Vehicle No. / गाड़ी नं.</td><td class="val">${e.vehicle_no}</td><td class="lbl">Pkts / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
-          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Mandi / मंडी</td><td class="val">${e.farmer_name || '-'}</td></tr>
-          <tr><td class="lbl">Product / माल</td><td class="val" colspan="3">${e.product || '-'}</td></tr>
+          <tr><td class="lbl">RST No.</td><td class="val rst">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${e.date}</td></tr>
+          <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans</td><td class="val">${e.trans_type || '-'}</td></tr>
+          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Farmer</td><td class="val">${e.farmer_name || '-'}</td></tr>
+          <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
         </table>
         <table class="wt-table">
           <tr>
-            <td class="wt-cell"><span class="wt-label">Gross Wt / कुल वजन</span><span class="wt-val">${gross} KG</span></td>
-            <td class="wt-cell"><span class="wt-label">Tare Wt / खाली वजन</span><span class="wt-val">${tare} KG</span></td>
-            <td class="wt-cell net"><span class="wt-label">Net Wt / शुद्ध वजन</span><span class="wt-val">${net} KG</span></td>
+            <td class="wt-cell"><span class="wt-label">Gross / कुल</span><span class="wt-val">${gross} KG</span></td>
+            <td class="wt-cell"><span class="wt-label">Tare / खाली</span><span class="wt-val">${tare} KG</span></td>
+            <td class="wt-cell net"><span class="wt-label">Net / शुद्ध</span><span class="wt-val">${net} KG</span></td>
+            ${(cash > 0 || diesel > 0) ? `
+              ${cash > 0 ? `<td class="wt-cell pay"><span class="wt-label">Cash / नकद</span><span class="wt-val pay-v">${cash.toLocaleString()}</span></td>` : ''}
+              ${diesel > 0 ? `<td class="wt-cell pay"><span class="wt-label">Diesel / डीजल</span><span class="wt-val pay-v">${diesel.toLocaleString()}</span></td>` : ''}
+            ` : ''}
           </tr>
         </table>
-        ${(cash > 0 || diesel > 0) ? `
-        <table class="pay-table">
-          <tr>
-            ${cash > 0 ? `<td class="pay-cell"><span class="pay-label">Cash Paid / नकद</span><span class="pay-val">${cash.toLocaleString()}</span></td>` : ''}
-            ${diesel > 0 ? `<td class="pay-cell"><span class="pay-label">Diesel Paid / डीजल</span><span class="pay-val">${diesel.toLocaleString()}</span></td>` : ''}
-          </tr>
-        </table>
-        ` : ''}
         ${showSignature ? `
         <div class="sig-section">
-          <div class="sig-box"><div class="sig-line"></div><p>Driver Signature / ड्राइवर हस्ताक्षर</p></div>
-          <div class="sig-box"><div class="sig-line"></div><p>Authorized Signature / अधिकृत हस्ताक्षर</p></div>
+          <div class="sig-box"><div class="sig-line"></div><p>Driver / ड्राइवर</p></div>
+          <div class="sig-box"><div class="sig-line"></div><p>Authorized / अधिकृत</p></div>
         </div>
-        ` : '<div style="height:12px"></div>'}
-        <p class="footer-note">Computer Generated / कंप्यूटर जनित</p>
+        ` : ''}
+        <p class="footer-note">${company} | Computer Generated</p>
       </div>
     `;
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Weight Slip #${rst}</title>
     <style>
-      @page { size: A5 portrait; margin: 6mm; }
+      @page { size: 148mm 210mm; margin: 4mm 5mm; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: Arial, sans-serif; background: white; }
-      .page { width: 148mm; min-height: 210mm; margin: 0 auto; display: flex; flex-direction: column; }
-      .copy-block { border: 1.5px solid #333; border-radius: 4px; padding: 8px 10px; margin-bottom: 6px; flex: 1; position: relative; page-break-inside: avoid; }
-      .copy-label { position: absolute; top: -8px; right: 12px; background: white; padding: 0 6px; font-size: 8px; font-weight: bold; color: #666; letter-spacing: 1px; text-transform: uppercase; }
-      .header { text-align: center; margin-bottom: 6px; }
-      .header h1 { font-size: 16px; font-weight: 900; color: #1a1a2e; margin-bottom: 1px; }
-      .tagline { font-size: 8px; color: #888; margin-bottom: 4px; }
-      .header h2 { font-size: 11px; color: #444; border-bottom: 1px solid #ddd; padding-bottom: 3px; display: inline-block; }
-      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-      .info-table td { padding: 3px 5px; font-size: 9px; border: 0.5px solid #ddd; }
-      .lbl { color: #666; font-weight: 600; width: 22%; }
-      .val { color: #111; font-weight: 700; width: 28%; }
-      .wt-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-      .wt-cell { text-align: center; padding: 5px; border: 1px solid #ccc; width: 33.3%; background: #f8f8f8; }
-      .wt-cell.net { background: #e8f5e9; border-color: #4caf50; }
-      .wt-label { display: block; font-size: 7px; color: #666; margin-bottom: 2px; }
-      .wt-val { display: block; font-size: 13px; font-weight: 900; color: #111; }
-      .wt-cell.net .wt-val { color: #2e7d32; }
-      .pay-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-      .pay-cell { text-align: center; padding: 4px; border: 1px solid #ddd; background: #fff8e1; }
-      .pay-label { display: block; font-size: 7px; color: #666; }
-      .pay-val { display: block; font-size: 11px; font-weight: 800; color: #e65100; }
-      .sig-section { display: flex; justify-content: space-between; margin-top: 10px; margin-bottom: 4px; }
-      .sig-box { text-align: center; width: 45%; }
-      .sig-line { border-bottom: 1px solid #333; height: 25px; margin-bottom: 3px; }
-      .sig-box p { font-size: 7px; color: #666; }
-      .footer-note { text-align: center; font-size: 6px; color: #aaa; margin-top: 4px; }
-      .cut-line { border-top: 1px dashed #999; margin: 4px 0; position: relative; }
-      .cut-text { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); background: white; padding: 0 8px; font-size: 7px; color: #999; }
-      @media print { body { margin: 0; } .no-print { display: none !important; } .page { width: auto; min-height: auto; } }
-      @media screen { .page { padding: 15px; border: 1px solid #ddd; margin: 10px auto; max-width: 600px; } }
+      body { font-family: Arial, Helvetica, sans-serif; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .page { width: 138mm; margin: 0 auto; display: flex; flex-direction: column; justify-content: flex-start; height: 202mm; }
+      .copy-block { border: 1.5px solid #222; border-radius: 3px; padding: 5px 7px 4px; position: relative; height: 96mm; overflow: hidden; }
+      .copy-label { position: absolute; top: -1px; right: 8px; background: white; padding: 0 5px; font-size: 7px; font-weight: bold; color: #888; letter-spacing: 0.8px; text-transform: uppercase; }
+      .header { text-align: center; margin-bottom: 3px; border-bottom: 1.5px solid #1a1a2e; padding-bottom: 3px; }
+      .header h1 { font-size: 14px; font-weight: 900; color: #1a1a2e; line-height: 1.1; }
+      .tagline { font-size: 7px; color: #999; margin: 1px 0; }
+      .slip-title { font-size: 9px; color: #444; font-weight: 700; margin-top: 2px; }
+      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+      .info-table td { padding: 2px 4px; font-size: 8px; border: 0.5px solid #ddd; line-height: 1.2; }
+      .lbl { color: #555; font-weight: 600; width: 20%; white-space: nowrap; }
+      .val { color: #000; font-weight: 700; width: 30%; }
+      .val.rst { font-size: 10px; color: #1a1a2e; }
+      .wt-table { width: 100%; border-collapse: collapse; margin-bottom: 3px; }
+      .wt-cell { text-align: center; padding: 3px 2px; border: 1px solid #bbb; background: #f5f5f5; vertical-align: middle; }
+      .wt-cell.net { background: #e8f5e9; border-color: #388e3c; }
+      .wt-cell.pay { background: #fff8e1; border-color: #f9a825; }
+      .wt-label { display: block; font-size: 6.5px; color: #666; margin-bottom: 1px; }
+      .wt-val { display: block; font-size: 12px; font-weight: 900; color: #111; }
+      .wt-cell.net .wt-val { color: #1b5e20; font-size: 13px; }
+      .pay-v { color: #e65100 !important; font-size: 10px !important; }
+      .sig-section { display: flex; justify-content: space-between; margin-top: 6px; }
+      .sig-box { text-align: center; width: 44%; }
+      .sig-line { border-bottom: 1px solid #333; height: 18px; margin-bottom: 2px; }
+      .sig-box p { font-size: 6.5px; color: #666; }
+      .footer-note { text-align: center; font-size: 5.5px; color: #bbb; margin-top: 2px; }
+      .cut-line { border-top: 1.5px dashed #aaa; margin: 4mm 0; position: relative; height: 0; }
+      .cut-text { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); background: white; padding: 0 6px; font-size: 6.5px; color: #aaa; }
+      @media print { body { margin: 0; } .no-print { display: none !important; } .page { width: 138mm; height: auto; } }
+      @media screen { .page { padding: 10px; border: 1px solid #ccc; margin: 10px auto; max-width: 600px; height: auto; } .copy-block { height: auto; min-height: 80mm; } }
     </style></head><body>
     <div class="page">
-      ${copyHTML("PARTY COPY / पार्टी कॉपी", false)}
-      <div class="cut-line"><span class="cut-text">✂ CUT HERE / काटें</span></div>
-      ${copyHTML("CUSTOMER COPY / ग्राहक कॉपी", true)}
+      ${copyHTML("PARTY COPY / पार्टी प्रति", false)}
+      <div class="cut-line"><span class="cut-text">- - - CUT HERE / काटें - - -</span></div>
+      ${copyHTML("CUSTOMER COPY / ग्राहक प्रति", true)}
     </div>
     <div class="no-print" style="text-align:center;margin-top:20px;">
       <button onclick="window.print()" style="background:#d97706;color:white;border:none;padding:12px 30px;border-radius:6px;cursor:pointer;font-size:16px;font-weight:bold;">Print / प्रिंट करें</button>

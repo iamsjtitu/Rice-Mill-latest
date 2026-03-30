@@ -341,13 +341,11 @@ async def edit_weight_entry(entry_id: str, data: dict):
 
 @router.get("/vehicle-weight/{entry_id}/slip-pdf")
 async def weight_slip_pdf(entry_id: str):
-    """Generate weight slip PDF with proper company header."""
+    """Generate weight slip PDF - A5 portrait, 2 copies (Party + Customer) on single page."""
     from reportlab.lib.pagesizes import A5
     from reportlab.lib.units import mm
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
+    from reportlab.pdfgen import canvas
     from fastapi.responses import StreamingResponse
 
     entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
@@ -358,110 +356,187 @@ async def weight_slip_pdf(entry_id: str):
     company = branding.get("company_name", "NAVKAR AGRO")
     tagline = branding.get("tagline", "JOLKO, KESINGA")
 
+    # A5 portrait = 148mm x 210mm
+    W, H = A5  # (419.53, 595.28) points
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A5, leftMargin=10*mm, rightMargin=10*mm, topMargin=8*mm, bottomMargin=8*mm)
+    c = canvas.Canvas(buf, pagesize=A5)
 
-    styles = getSampleStyleSheet()
-    s_company = ParagraphStyle('Company', parent=styles['Title'], fontSize=16, spaceAfter=1, alignment=TA_CENTER, textColor=colors.HexColor("#1a1a2e"))
-    s_tagline = ParagraphStyle('Tagline', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER, textColor=colors.gray, spaceAfter=2)
-    s_slip_title = ParagraphStyle('SlipTitle', parent=styles['Normal'], fontSize=11, alignment=TA_CENTER, fontName='Helvetica-Bold', textColor=colors.HexColor("#333"), spaceAfter=4)
-    s_label = ParagraphStyle('Label', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor("#666"))
-    s_val = ParagraphStyle('Val', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
-    s_footer = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER, textColor=colors.gray)
-
-    elements = []
-
-    # Company Header
-    elements.append(Paragraph(company, s_company))
-    elements.append(Paragraph(tagline, s_tagline))
-    elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#1a1a2e"), spaceAfter=3, spaceBefore=2))
-    elements.append(Paragraph("WEIGHT SLIP / वजन पर्ची", s_slip_title))
-
-    # Details Grid
-    date_str = entry.get("date", "")
-    details = [
-        ["RST No:", f"#{entry.get('rst_no', '')}", "Date:", date_str],
-        ["Vehicle:", entry.get("vehicle_no", ""), "Trans:", entry.get("trans_type", "")],
-        ["Party:", entry.get("party_name", ""), "Farmer:", entry.get("farmer_name", "")],
-        ["Product:", entry.get("product", ""), "Bags:", str(entry.get("tot_pkts", 0))],
-    ]
-    dt = Table(details, colWidths=[18*mm, 42*mm, 18*mm, 42*mm])
-    dt.setStyle(TableStyle([
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (1, 0), (1, 0), 11),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor("#555")),
-        ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor("#555")),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-    ]))
-    elements.append(dt)
-    elements.append(Spacer(1, 4*mm))
-
-    # Weight Table - Only Gross, Tare, Net
     first_wt = entry.get("first_wt", 0)
     second_wt = entry.get("second_wt", 0)
     net_wt = entry.get("net_wt", 0)
     gross_wt = entry.get("gross_wt", max(first_wt, second_wt))
     tare_wt = entry.get("tare_wt", min(first_wt, second_wt))
+    cash = entry.get("cash_paid", 0) or 0
+    diesel = entry.get("diesel_paid", 0) or 0
+    rst = entry.get("rst_no", "")
 
-    wt_data = [
-        ["", "Weight (KG)"],
-        ["Gross Wt", f"{gross_wt:,.0f}"],
-        ["Tare Wt", f"{tare_wt:,.0f}"],
-        ["Net Wt", f"{net_wt:,.0f}"],
-    ]
-    wt = Table(wt_data, colWidths=[35*mm, 45*mm])
-    wt.setStyle(TableStyle([
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, -1), (-1, -1), 14),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor("#f0f0f0")),
-        ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor("#fff")),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#d4edda")),
-        ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor("#155724")),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#CCC")),
-        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-    ]))
-    elements.append(wt)
-    elements.append(Spacer(1, 3*mm))
+    LM = 5*mm   # left margin
+    RM = 5*mm   # right margin
+    PW = W - LM - RM  # printable width ~138mm
 
-    # Cash / Diesel section
-    cash = entry.get("cash_paid", 0)
-    diesel = entry.get("diesel_paid", 0)
-    if cash or diesel:
-        pay_data = [["Cash Paid", f"{cash:,.0f}"], ["Diesel Paid", f"{diesel:,.0f}"]]
-        pt = Table(pay_data, colWidths=[35*mm, 45*mm])
-        pt.setStyle(TableStyle([
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor("#555")),
-            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#ddd")),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        elements.append(pt)
-        elements.append(Spacer(1, 3*mm))
+    def draw_copy(c, top_y, copy_label, show_sig):
+        """Draw one copy block starting from top_y (in points from bottom)."""
+        x = LM
+        y = top_y
+        bh = 93*mm  # block height for each copy
 
-    if entry.get("remark"):
-        elements.append(Paragraph(f"<b>Remark:</b> {entry['remark']}", s_label))
-        elements.append(Spacer(1, 3*mm))
+        # Border box
+        c.setStrokeColor(colors.HexColor("#333"))
+        c.setLineWidth(1.2)
+        c.rect(x, y - bh, PW, bh)
 
-    # Footer
-    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#ccc"), spaceAfter=2, spaceBefore=4))
-    elements.append(Paragraph(f"{company} | Computer Generated Slip", s_footer))
+        # Copy label (top right)
+        c.setFont("Helvetica", 6)
+        c.setFillColor(colors.HexColor("#888"))
+        lw = c.stringWidth(copy_label, "Helvetica", 6)
+        c.setFillColor(colors.white)
+        c.rect(x + PW - lw - 14*mm, y - 0.5, lw + 4*mm, 5, fill=1, stroke=0)
+        c.setFillColor(colors.HexColor("#888"))
+        c.drawString(x + PW - lw - 12*mm, y + 0.5, copy_label)
 
-    doc.build(elements)
+        cy = y - 4*mm  # current y position inside box
+
+        # Company name
+        c.setFont("Helvetica-Bold", 13)
+        c.setFillColor(colors.HexColor("#1a1a2e"))
+        c.drawCentredString(W/2, cy, company)
+        cy -= 3.5*mm
+
+        # Tagline
+        c.setFont("Helvetica", 6.5)
+        c.setFillColor(colors.gray)
+        c.drawCentredString(W/2, cy, tagline)
+        cy -= 3*mm
+
+        # Line under header
+        c.setStrokeColor(colors.HexColor("#1a1a2e"))
+        c.setLineWidth(1.2)
+        c.line(x + 2*mm, cy, x + PW - 2*mm, cy)
+        cy -= 3.5*mm
+
+        # Slip title
+        c.setFont("Helvetica-Bold", 9)
+        c.setFillColor(colors.HexColor("#444"))
+        c.drawCentredString(W/2, cy, "WEIGHT SLIP")
+        cy -= 4.5*mm
+
+        # ── Info Grid (4 rows x 4 cols) ──
+        rows = [
+            ("RST No.", f"#{rst}", "Date", entry.get("date", "")),
+            ("Vehicle", entry.get("vehicle_no", ""), "Trans", entry.get("trans_type", "")),
+            ("Party", entry.get("party_name", ""), "Farmer", entry.get("farmer_name", "")),
+            ("Product", entry.get("product", ""), "Bags", str(entry.get("tot_pkts", 0))),
+        ]
+        rh = 3.8*mm  # row height
+        c1w = 16*mm  # label col width
+        c2w = 42*mm  # value col width
+        c3w = 14*mm
+        c4w = PW - c1w - c2w - c3w - 2*mm
+
+        for i, (l1, v1, l2, v2) in enumerate(rows):
+            ry = cy - i * rh
+            # Grid lines
+            c.setStrokeColor(colors.HexColor("#ddd"))
+            c.setLineWidth(0.3)
+            c.line(x + 2*mm, ry - 1*mm, x + PW - 2*mm, ry - 1*mm)
+
+            c.setFont("Helvetica-Bold", 7.5)
+            c.setFillColor(colors.HexColor("#555"))
+            c.drawString(x + 3*mm, ry, l1)
+
+            fsize = 9 if i == 0 else 8
+            c.setFont("Helvetica-Bold" if i == 0 else "Helvetica", fsize)
+            c.setFillColor(colors.HexColor("#000"))
+            c.drawString(x + 3*mm + c1w, ry, str(v1)[:22])
+
+            c.setFont("Helvetica-Bold", 7.5)
+            c.setFillColor(colors.HexColor("#555"))
+            c.drawString(x + 3*mm + c1w + c2w, ry, l2)
+
+            c.setFont("Helvetica", 8)
+            c.setFillColor(colors.HexColor("#000"))
+            c.drawString(x + 3*mm + c1w + c2w + c3w, ry, str(v2)[:22])
+
+        cy -= len(rows) * rh + 3*mm
+
+        # ── Weight boxes (Gross | Tare | Net + optional Cash/Diesel) ──
+        wt_items = [
+            ("Gross", f"{gross_wt:,.0f} KG", "#f5f5f5", "#111"),
+            ("Tare", f"{tare_wt:,.0f} KG", "#f5f5f5", "#111"),
+            ("Net", f"{net_wt:,.0f} KG", "#e8f5e9", "#1b5e20"),
+        ]
+        if cash > 0:
+            wt_items.append(("Cash", f"{cash:,.0f}", "#fff8e1", "#e65100"))
+        if diesel > 0:
+            wt_items.append(("Diesel", f"{diesel:,.0f}", "#fff8e1", "#e65100"))
+
+        num_cols = len(wt_items)
+        col_w = (PW - 4*mm) / num_cols
+        box_h = 10*mm
+
+        for i, (label, val, bg, fg) in enumerate(wt_items):
+            bx = x + 2*mm + i * col_w
+            # Background
+            c.setFillColor(colors.HexColor(bg))
+            c.rect(bx, cy - box_h, col_w - 0.8*mm, box_h, fill=1, stroke=0)
+            # Border
+            bc = "#388e3c" if label == "Net" else "#f9a825" if label in ("Cash", "Diesel") else "#bbb"
+            c.setStrokeColor(colors.HexColor(bc))
+            c.setLineWidth(0.6 if label == "Net" else 0.4)
+            c.rect(bx, cy - box_h, col_w - 0.8*mm, box_h)
+            # Label
+            c.setFont("Helvetica", 5.5)
+            c.setFillColor(colors.HexColor("#666"))
+            c.drawCentredString(bx + (col_w - 0.8*mm)/2, cy - 3*mm, label)
+            # Value
+            fz = 12 if label == "Net" else 9 if label in ("Cash", "Diesel") else 10
+            c.setFont("Helvetica-Bold", fz)
+            c.setFillColor(colors.HexColor(fg))
+            c.drawCentredString(bx + (col_w - 0.8*mm)/2, cy - 8*mm, val)
+
+        cy -= box_h + 3*mm
+
+        # ── Signature section (only Customer copy) ──
+        if show_sig:
+            sig_w = 35*mm
+            # Left sig
+            c.setStrokeColor(colors.HexColor("#333"))
+            c.setLineWidth(0.5)
+            c.line(x + 8*mm, cy - 8*mm, x + 8*mm + sig_w, cy - 8*mm)
+            c.setFont("Helvetica", 5.5)
+            c.setFillColor(colors.HexColor("#666"))
+            c.drawCentredString(x + 8*mm + sig_w/2, cy - 11*mm, "Driver")
+            # Right sig
+            c.line(x + PW - 8*mm - sig_w, cy - 8*mm, x + PW - 8*mm, cy - 8*mm)
+            c.drawCentredString(x + PW - 8*mm - sig_w/2, cy - 11*mm, "Authorized")
+
+        # Footer
+        c.setFont("Helvetica", 4.5)
+        c.setFillColor(colors.HexColor("#bbb"))
+        c.drawCentredString(W/2, y - bh + 1.5*mm, f"{company} | Computer Generated")
+
+    # Draw 2 copies
+    top_margin = 5*mm
+    copy1_top = H - top_margin
+    draw_copy(c, copy1_top, "PARTY COPY", False)
+
+    # Cut line
+    cut_y = copy1_top - 93*mm - 4*mm
+    c.setStrokeColor(colors.HexColor("#aaa"))
+    c.setDash(3, 3)
+    c.setLineWidth(0.8)
+    c.line(LM, cut_y, W - RM, cut_y)
+    c.setDash()
+    c.setFont("Helvetica", 5)
+    c.setFillColor(colors.HexColor("#aaa"))
+    c.drawCentredString(W/2, cut_y + 1, "- - - CUT HERE - - -")
+
+    copy2_top = cut_y - 3*mm
+    draw_copy(c, copy2_top, "CUSTOMER COPY", True)
+
+    c.save()
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=WeightSlip_RST{entry.get('rst_no','')}.pdf"})
+        headers={"Content-Disposition": f"attachment; filename=WeightSlip_RST{rst}.pdf"})
 
 
