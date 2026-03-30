@@ -332,36 +332,54 @@ async def send_party_ledger(data: dict):
         from urllib.parse import urlparse, parse_qs
         # Parse query params from pdf_url to get the same filters
         pdf_params = {}
+        is_cashbook_pdf = False
         if pdf_url:
             parsed = urlparse(pdf_url)
             qs = parse_qs(parsed.query)
             pdf_params = {k: v[0] for k, v in qs.items()}
+            # Detect if this is a cash-book PDF request
+            if "cash-book/pdf" in parsed.path:
+                is_cashbook_pdf = True
         
-        from routes.ledgers import _generate_party_ledger_pdf_bytes
-        pdf_bytes = await _generate_party_ledger_pdf_bytes(
-            party_name=pdf_params.get("party_name", party_name),
-            party_type=pdf_params.get("party_type", ""),
-            kms_year=pdf_params.get("kms_year", ""),
-            season=pdf_params.get("season", ""),
-            date_from=pdf_params.get("date_from", ""),
-            date_to=pdf_params.get("date_to", ""),
-        )
+        if is_cashbook_pdf:
+            from routes.cashbook import _generate_cash_book_pdf_bytes
+            pdf_bytes = await _generate_cash_book_pdf_bytes(
+                kms_year=pdf_params.get("kms_year", ""),
+                season=pdf_params.get("season", ""),
+                account=pdf_params.get("account", None),
+                txn_type=pdf_params.get("txn_type", None),
+                category=pdf_params.get("category", party_name),
+                party_type=pdf_params.get("party_type", None),
+                date_from=pdf_params.get("date_from", None),
+                date_to=pdf_params.get("date_to", None),
+            )
+        else:
+            from routes.ledgers import _generate_party_ledger_pdf_bytes
+            pdf_bytes = await _generate_party_ledger_pdf_bytes(
+                party_name=pdf_params.get("party_name", party_name),
+                party_type=pdf_params.get("party_type", ""),
+                kms_year=pdf_params.get("kms_year", ""),
+                season=pdf_params.get("season", ""),
+                date_from=pdf_params.get("date_from", ""),
+                date_to=pdf_params.get("date_to", ""),
+            )
         if pdf_bytes and len(pdf_bytes) > 100:
+            fname = f"cash_book_{party_name}.pdf" if is_cashbook_pdf else f"party_ledger_{party_name}.pdf"
             async with httpx.AsyncClient(timeout=30) as client:
-                files = {"file": (f"party_ledger_{party_name}.pdf", pdf_bytes, "application/pdf")}
+                files = {"file": (fname, pdf_bytes, "application/pdf")}
                 upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
                 if upload_resp.status_code == 200:
                     tmp_data = upload_resp.json()
                     tmp_url = tmp_data.get("data", {}).get("url", "")
                     if tmp_url:
                         public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
-                        logger.info(f"Party ledger PDF uploaded to tmpfiles: {public_pdf_url}")
+                        logger.info(f"PDF uploaded to tmpfiles: {public_pdf_url}")
                 else:
                     logger.error(f"tmpfiles upload failed: {upload_resp.status_code}")
         else:
-            logger.error(f"Party ledger PDF generation returned empty/small data")
+            logger.error(f"PDF generation returned empty/small data")
     except Exception as e:
-        logger.error(f"Party ledger PDF generation/upload error: {e}")
+        logger.error(f"PDF generation/upload error: {e}")
 
     default_numbers = settings.get("default_numbers", [])
     if isinstance(default_numbers, str):

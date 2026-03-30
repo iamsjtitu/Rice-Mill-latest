@@ -1592,11 +1592,9 @@ async def export_cash_book_excel(kms_year: Optional[str] = None, season: Optiona
         headers={"Content-Disposition": f"attachment; filename=cash_book_{datetime.now().strftime('%Y%m%d')}.xlsx"})
 
 
-@router.get("/cash-book/pdf")
-async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
-                                account: Optional[str] = None, txn_type: Optional[str] = None,
-                                category: Optional[str] = None, party_type: Optional[str] = None,
-                                date_from: Optional[str] = None, date_to: Optional[str] = None):
+async def _generate_cash_book_pdf_bytes(kms_year=None, season=None, account=None, txn_type=None,
+                                        category=None, party_type=None, date_from=None, date_to=None):
+    """Generate cash book PDF bytes - shared between download endpoint and WhatsApp route."""
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from utils.export_helpers import get_pdf_styles; from reportlab.lib.styles import ParagraphStyle
@@ -1722,7 +1720,18 @@ async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[
     tbl.setStyle(TableStyle(style_cmds))
     elements.append(tbl)
     doc.build(elements); buffer.seek(0)
-    return Response(content=buffer.getvalue(), media_type="application/pdf",
+    return buffer.getvalue()
+
+
+@router.get("/cash-book/pdf")
+async def export_cash_book_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                account: Optional[str] = None, txn_type: Optional[str] = None,
+                                category: Optional[str] = None, party_type: Optional[str] = None,
+                                date_from: Optional[str] = None, date_to: Optional[str] = None):
+    pdf_bytes = await _generate_cash_book_pdf_bytes(
+        kms_year=kms_year, season=season, account=account, txn_type=txn_type,
+        category=category, party_type=party_type, date_from=date_from, date_to=date_to)
+    return Response(content=pdf_bytes, media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=cash_book_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
 

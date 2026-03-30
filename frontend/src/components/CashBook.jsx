@@ -273,9 +273,10 @@ const CashBook = ({ filters, user }) => {
       const pdfParams = new URLSearchParams();
       if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
       if (filters.season) pdfParams.append('season', filters.season);
-      pdfParams.append('party_name', partyName);
+      pdfParams.append('category', partyName);
       if (txnFilters.party_type) pdfParams.append('party_type', txnFilters.party_type);
-      const pdfUrl = `${API}/reports/party-ledger/pdf?${pdfParams.toString()}`;
+      if (txnFilters.account) pdfParams.append('account', txnFilters.account);
+      const pdfUrl = `${API}/cash-book/pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-party-ledger`, {
         party_name: partyName, total_debit: totalDebit, total_credit: totalCredit,
         balance: totalDebit - totalCredit,
