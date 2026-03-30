@@ -1,13 +1,12 @@
 # Mill Entry System - PRD
 
-## Current Version: v55.16.0
+## Current Version: v55.18.0
 
 ## What's Been Implemented (Latest)
-- **v55.16.0**: AutoSuggest in Vehicle Weight - Party Name aur Mandi mein Entries jaisa auto-suggestion. Party select karne par mandi auto-fetch. GOVT PADDY targets se auto-fill.
-- **v55.15.0**: GOVT PADDY default + Target auto-fill
-- **v55.14.0**: Second Weight Auto Capture
-- **v55.13.0**: 3-column layout redesign
-- **v55.9.0-v55.12.0**: Vehicle Weight feature build + sub-tab + exports fix
+- **v55.18.0**: Cash Paid + Diesel Paid fields in Vehicle Weight. Weight Slip PDF redesigned with company header (from Settings), only Gross/Tare/Net weights (no duplicate), Cash/Diesel section. RST auto-fill in Entries now includes cash_paid and diesel_paid.
+- **v55.16.0-v55.17.0**: AutoSuggest, RST Net Weight auto-fill
+- **v55.13.0-v55.15.0**: 3-column layout, Second Weight Auto Capture, GOVT PADDY default
+- **v55.9.0-v55.12.0**: Vehicle Weight feature, sub-tab, exports fix
 
 ## Prioritized Backlog
 ### P2 - Future

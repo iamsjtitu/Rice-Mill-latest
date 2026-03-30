@@ -87,6 +87,8 @@ async def create_weight_entry(data: dict):
         "second_wt_time": "",
         "net_wt": 0,
         "remark": data.get("remark", ""),
+        "cash_paid": float(data.get("cash_paid", 0) or 0),
+        "diesel_paid": float(data.get("diesel_paid", 0) or 0),
         "status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
@@ -136,58 +138,66 @@ async def delete_weight_entry(entry_id: str):
 
 @router.get("/vehicle-weight/{entry_id}/slip-pdf")
 async def weight_slip_pdf(entry_id: str):
-    """Generate weight slip PDF."""
+    """Generate weight slip PDF with proper company header."""
     from reportlab.lib.pagesizes import A5
     from reportlab.lib.units import mm
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
     from fastapi.responses import StreamingResponse
 
     entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
 
-    # Get company name
-    branding = await db["settings"].find_one({"key": "branding"}, {"_id": 0})
-    company = branding.get("company_name", "Mill Entry System") if branding else "Mill Entry System"
+    branding = await db["settings"].find_one({"key": "branding"}, {"_id": 0}) or {}
+    company = branding.get("company_name", "NAVKAR AGRO")
+    tagline = branding.get("tagline", "JOLKO, KESINGA")
 
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A5, leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
+    doc = SimpleDocTemplate(buf, pagesize=A5, leftMargin=10*mm, rightMargin=10*mm, topMargin=8*mm, bottomMargin=8*mm)
 
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('Title2', parent=styles['Title'], fontSize=14, spaceAfter=4)
-    sub_style = ParagraphStyle('Sub', parent=styles['Normal'], fontSize=9, textColor=colors.gray)
-    normal = ParagraphStyle('N', parent=styles['Normal'], fontSize=10)
-    bold_style = ParagraphStyle('B', parent=styles['Normal'], fontSize=11, fontName='Helvetica-Bold')
+    s_company = ParagraphStyle('Company', parent=styles['Title'], fontSize=16, spaceAfter=1, alignment=TA_CENTER, textColor=colors.HexColor("#1a1a2e"))
+    s_tagline = ParagraphStyle('Tagline', parent=styles['Normal'], fontSize=9, alignment=TA_CENTER, textColor=colors.gray, spaceAfter=2)
+    s_slip_title = ParagraphStyle('SlipTitle', parent=styles['Normal'], fontSize=11, alignment=TA_CENTER, fontName='Helvetica-Bold', textColor=colors.HexColor("#333"), spaceAfter=4)
+    s_label = ParagraphStyle('Label', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor("#666"))
+    s_val = ParagraphStyle('Val', parent=styles['Normal'], fontSize=10, fontName='Helvetica-Bold')
+    s_footer = ParagraphStyle('Footer', parent=styles['Normal'], fontSize=7, alignment=TA_CENTER, textColor=colors.gray)
 
     elements = []
-    elements.append(Paragraph(company, title_style))
-    elements.append(Paragraph("Weight Slip / वजन पर्ची", sub_style))
-    elements.append(Spacer(1, 4*mm))
 
-    # Details table
+    # Company Header
+    elements.append(Paragraph(company, s_company))
+    elements.append(Paragraph(tagline, s_tagline))
+    elements.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#1a1a2e"), spaceAfter=3, spaceBefore=2))
+    elements.append(Paragraph("WEIGHT SLIP / वजन पर्ची", s_slip_title))
+
+    # Details Grid
     date_str = entry.get("date", "")
-    data = [
-        ["RST No:", str(entry.get("rst_no", "")), "Date:", date_str],
+    details = [
+        ["RST No:", f"#{entry.get('rst_no', '')}", "Date:", date_str],
         ["Vehicle:", entry.get("vehicle_no", ""), "Trans:", entry.get("trans_type", "")],
         ["Party:", entry.get("party_name", ""), "Farmer:", entry.get("farmer_name", "")],
         ["Product:", entry.get("product", ""), "Bags:", str(entry.get("tot_pkts", 0))],
     ]
-    t = Table(data, colWidths=[18*mm, 42*mm, 18*mm, 42*mm])
-    t.setStyle(TableStyle([
+    dt = Table(details, colWidths=[18*mm, 42*mm, 18*mm, 42*mm])
+    dt.setStyle(TableStyle([
         ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
         ('FONTNAME', (2, 0), (2, -1), 'Helvetica-Bold'),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor("#444")),
-        ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor("#444")),
+        ('FONTNAME', (1, 0), (1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (1, 0), (1, 0), 11),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor("#555")),
+        ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor("#555")),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('TOPPADDING', (0, 0), (-1, -1), 3),
     ]))
-    elements.append(t)
+    elements.append(dt)
     elements.append(Spacer(1, 4*mm))
 
-    # Weight table
+    # Weight Table - Only Gross, Tare, Net
     first_wt = entry.get("first_wt", 0)
     second_wt = entry.get("second_wt", 0)
     net_wt = entry.get("net_wt", 0)
@@ -195,31 +205,56 @@ async def weight_slip_pdf(entry_id: str):
     tare_wt = entry.get("tare_wt", min(first_wt, second_wt))
 
     wt_data = [
-        ["", "Weight (KG)", "Time"],
-        ["First Wt", f"{first_wt:.0f}", entry.get("first_wt_time", "")[:19].replace("T", " ")],
-        ["Second Wt", f"{second_wt:.0f}", entry.get("second_wt_time", "")[:19].replace("T", " ")],
-        ["Gross Wt", f"{gross_wt:.0f}", ""],
-        ["Tare Wt", f"{tare_wt:.0f}", ""],
-        ["Net Wt", f"{net_wt:.0f}", ""],
+        ["", "Weight (KG)"],
+        ["Gross Wt", f"{gross_wt:,.0f}"],
+        ["Tare Wt", f"{tare_wt:,.0f}"],
+        ["Net Wt", f"{net_wt:,.0f}"],
     ]
-    wt = Table(wt_data, colWidths=[28*mm, 35*mm, 55*mm])
+    wt = Table(wt_data, colWidths=[35*mm, 45*mm])
     wt.setStyle(TableStyle([
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#E8E8E8")),
-        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#D4EDDA")),
+        ('FONTSIZE', (0, -1), (-1, -1), 14),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor("#f0f0f0")),
+        ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor("#fff")),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#d4edda")),
+        ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor("#155724")),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#CCC")),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('FONTSIZE', (0, -1), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
     ]))
     elements.append(wt)
-    elements.append(Spacer(1, 4*mm))
+    elements.append(Spacer(1, 3*mm))
+
+    # Cash / Diesel section
+    cash = entry.get("cash_paid", 0)
+    diesel = entry.get("diesel_paid", 0)
+    if cash or diesel:
+        pay_data = [["Cash Paid", f"{cash:,.0f}"], ["Diesel Paid", f"{diesel:,.0f}"]]
+        pt = Table(pay_data, colWidths=[35*mm, 45*mm])
+        pt.setStyle(TableStyle([
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor("#555")),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#ddd")),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(pt)
+        elements.append(Spacer(1, 3*mm))
 
     if entry.get("remark"):
-        elements.append(Paragraph(f"<b>Remark:</b> {entry['remark']}", normal))
+        elements.append(Paragraph(f"<b>Remark:</b> {entry['remark']}", s_label))
+        elements.append(Spacer(1, 3*mm))
+
+    # Footer
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#ccc"), spaceAfter=2, spaceBefore=4))
+    elements.append(Paragraph(f"{company} | Computer Generated Slip", s_footer))
 
     doc.build(elements)
     buf.seek(0)

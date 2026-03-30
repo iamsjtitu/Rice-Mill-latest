@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.17.0";
+const APP_VERSION = "55.18.0";
 
 const CHANGELOG = [
+  {
+    version: "55.18.0",
+    date: "Mar 2026",
+    title: "v55.18.0 - Weight Slip PDF + Cash/Diesel",
+    items: [
+      { type: "new", text: "Cash Paid aur Diesel Paid fields Vehicle Weight mein + Entries auto-fill" },
+      { type: "new", text: "Weight Slip PDF sunder: Company header, Gross/Tare/Net, Cash/Diesel section" },
+      { type: "fix", text: "PDF se duplicate First/Second rows hataye - sirf Gross, Tare, Net dikhta hai" },
+    ]
+  },
   {
     version: "55.17.0",
     date: "Mar 2026",

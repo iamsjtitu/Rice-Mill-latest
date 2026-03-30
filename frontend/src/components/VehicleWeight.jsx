@@ -120,7 +120,7 @@ export default function VehicleWeight({ filters }) {
   const [showCompleted, setShowCompleted] = useState(true);
   const scale = useLiveScale();
 
-  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "" };
+  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "" };
   const [form, setForm] = useState(blank);
   const [mandiTargets, setMandiTargets] = useState([]);
   const [partySuggestions, setPartySuggestions] = useState([]);
@@ -306,10 +306,22 @@ export default function VehicleWeight({ filters }) {
                       placeholder="0" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-bags" />
                   </div>
                 </div>
-                <div>
-                  <Label className="text-slate-500 text-[10px] mb-0.5 block">Remark</Label>
-                  <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
-                    placeholder="Optional" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-remark" />
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-slate-500 text-[10px] mb-0.5 block">Remark</Label>
+                    <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
+                      placeholder="Optional" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-remark" />
+                  </div>
+                  <div>
+                    <Label className="text-green-500 text-[10px] mb-0.5 block">Cash Paid</Label>
+                    <Input type="number" value={form.cash_paid} onChange={e => setForm(p => ({ ...p, cash_paid: e.target.value }))}
+                      placeholder="0" className="bg-slate-900/50 border-green-800/30 text-green-300 h-8 text-xs font-medium" data-testid="vw-cash" />
+                  </div>
+                  <div>
+                    <Label className="text-orange-500 text-[10px] mb-0.5 block">Diesel Paid</Label>
+                    <Input type="number" value={form.diesel_paid} onChange={e => setForm(p => ({ ...p, diesel_paid: e.target.value }))}
+                      placeholder="0" className="bg-slate-900/50 border-orange-800/30 text-orange-300 h-8 text-xs font-medium" data-testid="vw-diesel" />
+                  </div>
                 </div>
 
                 {/* First Wt Input */}
@@ -457,12 +469,14 @@ export default function VehicleWeight({ filters }) {
                     <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
                     <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
                     <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
+                    <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
+                    <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
                     <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {completed.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="text-center text-slate-600 py-8 text-xs">Koi completed entry nahi</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={12} className="text-center text-slate-600 py-8 text-xs">Koi completed entry nahi</TableCell></TableRow>
                   ) : completed.map((e, i) => (
                     <TableRow key={e.id} className={`border-slate-700/20 hover:bg-slate-700/20 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-800/20'}`}>
                       <TableCell className="py-2 px-3"><span className="text-amber-400 font-bold text-xs">#{e.rst_no}</span></TableCell>
@@ -474,6 +488,8 @@ export default function VehicleWeight({ filters }) {
                       <TableCell className="text-cyan-300 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.first_wt)}</TableCell>
                       <TableCell className="text-cyan-300 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.second_wt)}</TableCell>
                       <TableCell className="text-right py-2 px-3"><span className="text-green-400 font-bold text-sm font-mono">{fmtWt(e.net_wt)}</span></TableCell>
+                      <TableCell className="text-right text-green-300 text-xs py-2 px-3 font-mono">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
+                      <TableCell className="text-right text-orange-300 text-xs py-2 px-3 font-mono">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-white" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`}><Download className="w-3 h-3" /></Button>

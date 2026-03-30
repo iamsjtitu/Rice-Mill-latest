@@ -473,9 +473,12 @@ function MainApp({ user, onLogout }) {
           agent_name: vw.party_name || prev.agent_name,
           mandi_name: vw.farmer_name || prev.mandi_name,
           kg: vw.net_wt ? String(vw.net_wt) : prev.kg,
+          cash_paid: vw.cash_paid ? String(vw.cash_paid) : prev.cash_paid,
+          diesel_paid: vw.diesel_paid ? String(vw.diesel_paid) : prev.diesel_paid,
         }));
         const netInfo = vw.net_wt ? ` | Net: ${Number(vw.net_wt).toLocaleString()} KG` : '';
-        toast.success(`RST #${rstNo} से auto-fill: ${vw.vehicle_no} | ${vw.party_name}${netInfo}`);
+        const cashInfo = vw.cash_paid ? ` | Cash: ${vw.cash_paid}` : '';
+        toast.success(`RST #${rstNo} से auto-fill: ${vw.vehicle_no} | ${vw.party_name}${netInfo}${cashInfo}`);
       }
     } catch {
       // RST not found in vehicle weight - ignore silently
