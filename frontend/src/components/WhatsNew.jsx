@@ -3,9 +3,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.41.0";
+const APP_VERSION = "55.42.0";
 
 const CHANGELOG = [
+  {
+    version: "55.42.0",
+    date: "Mar 2026",
+    title: "v55.42.0 - Smart Filters + Auto Weight Entries + Bags",
+    items: [
+      { type: "new", text: "Default Today: Mill Entries, Cash Book, Vehicle Weight ab sirf aaj ka data load karte hain - software faster" },
+      { type: "new", text: "Auto Weight Entries: Naya subtab - last 7 din ka VW data, 150/page, filters, Excel/PDF export" },
+      { type: "new", text: "Pending Badge: Auto Weight Entries tab par red badge dikhata hai kitne VW entries ki Mill Entry pending hai" },
+      { type: "new", text: "VW Filters: RST, Date, Vehicle, Party, Mandi se filter karein + Excel/PDF export" },
+      { type: "new", text: "Photo Zoom: Photo View dialog mai photo click karke bada photo dekhein" },
+      { type: "new", text: "Photo View redesigned - Print Slip jaisa layout with colored weight bars" },
+      { type: "fix", text: "Pkts → Bags: Har jagah Bags dikhai deta hai - table, export, WhatsApp, Telegram, print slip" },
+      { type: "fix", text: "RST Auto-fill: Bags (tot_pkts) ab bhi Mill Entry form mai auto-fill hota hai" },
+      { type: "fix", text: "Linked entries: Mill Entry banne ke baad VW mai Edit + Delete hat ke green tick aata hai" },
+    ]
+  },
   {
     version: "55.41.0",
     date: "Mar 2026",
