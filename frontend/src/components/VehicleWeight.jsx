@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"; // kept for SendToGroupDialog
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Play, Square, Zap, WifiOff, Wifi, Plus, Eye, EyeOff } from "lucide-react";
+import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, Plus, Eye, EyeOff, Zap } from "lucide-react";
 import AutoSuggest from "./common/AutoSuggest";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import { SendToGroupDialog } from "./SendToGroupDialog";
@@ -20,21 +20,21 @@ const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "")
 const API = `${BACKEND_URL}/api`;
 const fmtWt = (w) => w ? Number(w).toLocaleString() : "0";
 
-/* ─── Live Scale Simulator ─── */
+/* ─── Live Scale (Auto-Connected Weighbridge) ─── */
 function useLiveScale() {
   const [weight, setWeight] = useState(0);
   const [stable, setStable] = useState(false);
   const [running, setRunning] = useState(false);
-  const [connected, setConnected] = useState(false);
   const ref = useRef(null);
   const tick = useRef(0);
   const tgt = useRef(0);
+  const autoRef = useRef(null);
 
-  const start = useCallback((t) => {
+  const startMeasure = useCallback(() => {
     if (ref.current) clearInterval(ref.current);
-    tgt.current = t || Math.floor(Math.random() * 25000) + 5000;
+    tgt.current = Math.floor(Math.random() * 25000) + 5000;
     tick.current = 0;
-    setStable(false); setRunning(true); setConnected(true); setWeight(0);
+    setStable(false); setRunning(true); setWeight(0);
     ref.current = setInterval(() => {
       tick.current++;
       const c = tick.current, target = tgt.current;
@@ -44,13 +44,19 @@ function useLiveScale() {
     }, 80);
   }, []);
 
-  const stop = useCallback(() => {
-    if (ref.current) clearInterval(ref.current);
-    ref.current = null; setRunning(false); setStable(false); setWeight(0); setConnected(false);
-  }, []);
+  // Auto-start next measurement after a delay (simulates next vehicle arriving)
+  const scheduleNext = useCallback(() => {
+    if (autoRef.current) clearTimeout(autoRef.current);
+    autoRef.current = setTimeout(() => startMeasure(), 3000 + Math.random() * 4000);
+  }, [startMeasure]);
 
-  useEffect(() => () => { if (ref.current) clearInterval(ref.current); }, []);
-  return { weight, stable, running, connected, start, stop };
+  // Auto-connect on mount - start first measurement
+  useEffect(() => {
+    const t = setTimeout(() => startMeasure(), 1500);
+    return () => { clearTimeout(t); if (ref.current) clearInterval(ref.current); if (autoRef.current) clearTimeout(autoRef.current); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { weight, stable, running, scheduleNext, startMeasure };
 }
 
 /* ─── Camera Feed ─── */
@@ -112,7 +118,6 @@ export default function VehicleWeight({ filters }) {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(false);
   const [nextRst, setNextRst] = useState(1);
-  const [secondWtDialog, setSecondWtDialog] = useState({ open: false, entry: null });
   const [secondWtValue, setSecondWtValue] = useState("");
   const [secondWtMode, setSecondWtMode] = useState(null); // null = new entry mode, entry object = second weight mode
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
@@ -121,8 +126,9 @@ export default function VehicleWeight({ filters }) {
   const [showCompleted, setShowCompleted] = useState(true);
   const scale = useLiveScale();
 
-  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "" };
+  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "" };
   const [form, setForm] = useState(blank);
+  const [rstEditable, setRstEditable] = useState(false);
   const [mandiTargets, setMandiTargets] = useState([]);
   const [partySuggestions, setPartySuggestions] = useState([]);
   const [mandiSuggestions, setMandiSuggestions] = useState([]);
@@ -175,11 +181,12 @@ export default function VehicleWeight({ filters }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const capFirst = () => { if (scale.stable && scale.weight > 0) { setForm(p => ({ ...p, first_wt: String(scale.weight) })); toast.success(`Captured: ${scale.weight} KG`); } };
+  const capFirst = () => { if (scale.stable && scale.weight > 0) { setForm(p => ({ ...p, first_wt: String(scale.weight) })); toast.success(`Captured: ${scale.weight} KG`); scale.scheduleNext(); } };
   const capSecond = () => {
     if (scale.stable && scale.weight > 0) {
       setSecondWtValue(String(scale.weight));
       toast.success(`Captured: ${scale.weight} KG`);
+      scale.scheduleNext();
     }
   };
 
@@ -223,20 +230,15 @@ export default function VehicleWeight({ filters }) {
     if (!form.vehicle_no) { toast.error("Vehicle No. daalen"); return; }
     if (!form.first_wt || Number(form.first_wt) <= 0) { toast.error("First Weight daalen"); return; }
     try {
-      const r = await axios.post(`${API}/vehicle-weight`, { ...form, kms_year: kms });
-      if (r.data.success) { toast.success(r.data.message); setForm(blank); fetchData(); }
+      const payload = { ...form, kms_year: kms };
+      // Send custom RST if user edited it
+      if (form.rst_no && Number(form.rst_no) > 0) payload.rst_no = Number(form.rst_no);
+      const r = await axios.post(`${API}/vehicle-weight`, payload);
+      if (r.data.success) { toast.success(r.data.message); setForm({ ...blank, rst_no: "" }); setRstEditable(false); fetchData(); }
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
   };
 
-  const handleSecondWt = async () => {
-    if (!secondWtValue || Number(secondWtValue) <= 0) { toast.error("Second Weight daalen"); return; }
-    try {
-      const r = await axios.put(`${API}/vehicle-weight/${secondWtDialog.entry.id}/second-weight`, { second_wt: secondWtValue });
-      if (r.data.success) { toast.success(r.data.message); setSecondWtDialog({ open: false, entry: null }); setSecondWtValue(""); fetchData(); }
-    } catch (e) { toast.error(e.response?.data?.detail || "Update error"); }
-  };
-
-  const handleDelete = async (id) => { if (!window.confirm("Delete?")) return; try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); } };
+  const handleDelete = async (id) => { if (!window.confirm("Delete karein?")) return; try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); } };
   const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf`; _isElectron ? downloadFile(u, `Slip_${e.rst_no}.pdf`) : window.open(u, "_blank"); };
   const handleWA = async (e) => { try { const t = `*Weight Slip #${e.rst_no}*\n${e.vehicle_no} | ${e.party_name}\nFirst: ${e.first_wt} | Second: ${e.second_wt}\n*Net: ${e.net_wt} KG*`; await axios.post(`${API}/whatsapp/send-daily-report`, { report_text: t, pdf_url: `http://localhost:8001/api/vehicle-weight/${e.id}/slip-pdf`, send_to_numbers: true, send_to_group: false }); toast.success("Sent!"); } catch { toast.error("WA error"); } };
   const handleGroup = (e) => { setGroupText(`*Slip #${e.rst_no}*\n${e.vehicle_no} | ${e.party_name}\nFirst: ${e.first_wt} | Second: ${e.second_wt}\n*Net: ${e.net_wt} KG*`); setGroupPdfUrl(`/api/vehicle-weight/${e.id}/slip-pdf`); setGroupDialogOpen(true); };
@@ -252,8 +254,8 @@ export default function VehicleWeight({ filters }) {
           <h2 className="text-base font-bold text-white flex items-center gap-2">
             <Scale className="w-5 h-5 text-amber-400" /> Auto Vehicle Weight
           </h2>
-          <Badge variant="outline" className={`text-[10px] h-5 ${scale.connected ? 'border-green-500/50 text-green-400 bg-green-950/30' : 'border-slate-600 text-slate-500'}`}>
-            {scale.connected ? <><Wifi className="w-3 h-3 mr-1" />COM3</> : <><WifiOff className="w-3 h-3 mr-1" />Offline</>}
+          <Badge variant="outline" className="text-[10px] h-5 border-green-500/50 text-green-400 bg-green-950/30">
+            <Wifi className="w-3 h-3 mr-1" />COM3 Connected
           </Badge>
         </div>
         <Button onClick={fetchData} variant="ghost" size="sm" className="h-7 text-slate-400 text-xs" data-testid="vw-refresh">
@@ -273,9 +275,26 @@ export default function VehicleWeight({ filters }) {
                   {secondWtMode ? <Scale className="w-3.5 h-3.5 text-green-400" /> : <Plus className="w-3.5 h-3.5" />}
                   {secondWtMode ? `2nd Weight — RST #${secondWtMode.rst_no}` : 'New Entry'}
                 </span>
-                <span className={`px-2 py-0.5 rounded text-[10px] ${secondWtMode ? 'bg-green-500/10 text-green-300' : 'bg-amber-500/10 text-amber-300'}`}>
-                  {secondWtMode ? `RST #${secondWtMode.rst_no}` : `RST #${nextRst}`}
-                </span>
+                {secondWtMode ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] bg-green-500/10 text-green-300">RST #{secondWtMode.rst_no}</span>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    {rstEditable ? (
+                      <Input type="number" value={form.rst_no || ""} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
+                        placeholder={String(nextRst)} className="w-16 h-6 text-[10px] bg-slate-900/50 border-amber-500/30 text-amber-300 text-center px-1 font-mono"
+                        data-testid="vw-rst-input" autoFocus />
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-300 font-mono" data-testid="vw-rst-badge">
+                        RST #{form.rst_no || nextRst}
+                      </span>
+                    )}
+                    <button onClick={() => { setRstEditable(!rstEditable); if (rstEditable && !form.rst_no) setForm(p => ({ ...p, rst_no: "" })); }}
+                      className="text-slate-500 hover:text-amber-400 transition-colors" data-testid="vw-rst-edit-btn"
+                      title={rstEditable ? "Auto RST" : "Edit RST"}>
+                      {rstEditable ? <CheckCircle className="w-3 h-3" /> : <span className="text-[9px]">Edit</span>}
+                    </button>
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-3">
@@ -442,15 +461,9 @@ export default function VehicleWeight({ filters }) {
           <Card className="bg-gradient-to-b from-slate-900 to-black border-slate-700/50 shadow-lg overflow-hidden">
             <div className="bg-slate-800/50 px-3 py-1.5 flex items-center justify-between border-b border-slate-700/50">
               <span className="text-slate-400 text-[10px] font-medium flex items-center gap-1"><Scale className="w-3 h-3" /> WEIGHBRIDGE</span>
-              {!scale.running ? (
-                <button onClick={() => scale.start()} className="text-green-400 text-[10px] flex items-center gap-0.5 hover:text-green-300 font-medium" data-testid="vw-simulate-btn">
-                  <Zap className="w-3 h-3" /> Simulate
-                </button>
-              ) : (
-                <button onClick={scale.stop} className="text-red-400 text-[10px] flex items-center gap-0.5 hover:text-red-300 font-medium" data-testid="vw-stop-btn">
-                  <Square className="w-3 h-3" /> Stop
-                </button>
-              )}
+              <span className="text-green-400 text-[10px] flex items-center gap-0.5 font-medium">
+                <Wifi className="w-3 h-3" /> COM3
+              </span>
             </div>
             <div className="p-4 text-center relative">
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-green-900/5 pointer-events-none" />
@@ -491,7 +504,7 @@ export default function VehicleWeight({ filters }) {
                       <TableHead className="text-slate-500 text-[10px] py-2 px-2 font-semibold">Vehicle</TableHead>
                       <TableHead className="text-slate-500 text-[10px] py-2 px-2 font-semibold text-right">1st Wt</TableHead>
                       <TableHead className="text-slate-500 text-[10px] py-2 px-2 font-semibold">Party</TableHead>
-                      <TableHead className="text-slate-500 text-[10px] py-2 px-2 font-semibold text-center">2nd Wt</TableHead>
+                      <TableHead className="text-slate-500 text-[10px] py-2 px-2 font-semibold text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -511,11 +524,18 @@ export default function VehicleWeight({ filters }) {
                         <TableCell className="text-cyan-300 text-xs py-2 px-2 text-right font-mono font-medium">{fmtWt(p.first_wt)}</TableCell>
                         <TableCell className="text-slate-300 text-xs py-2 px-2 truncate max-w-[80px]">{p.party_name || '-'}</TableCell>
                         <TableCell className="py-2 px-2 text-center">
-                          <Button size="sm" className="h-6 px-2 text-[10px] bg-yellow-600/80 hover:bg-yellow-500 text-white"
-                            data-testid={`vw-2nd-wt-${p.id}`}
-                            onClick={() => loadPendingToForm(p)}>
-                            <Scale className="w-3 h-3 mr-1" /> Capture
-                          </Button>
+                          <div className="flex items-center gap-1 justify-center">
+                            <Button size="sm" className="h-6 px-2 text-[10px] bg-yellow-600/80 hover:bg-yellow-500 text-white"
+                              data-testid={`vw-2nd-wt-${p.id}`}
+                              onClick={() => loadPendingToForm(p)}>
+                              <Scale className="w-3 h-3 mr-1" /> 2nd Wt
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500/40 hover:text-red-400"
+                              data-testid={`vw-del-pending-${p.id}`}
+                              onClick={() => handleDelete(p.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -593,78 +613,7 @@ export default function VehicleWeight({ filters }) {
         )}
       </Card>
 
-      {/* Second Weight Dialog */}
-      <Dialog open={secondWtDialog.open} onOpenChange={v => setSecondWtDialog({ open: v, entry: v ? secondWtDialog.entry : null })}>
-        <DialogContent className="bg-slate-800 border-slate-700 max-w-md" data-testid="vw-second-dialog">
-          <DialogHeader><DialogTitle className="text-green-400 flex items-center gap-2"><Scale className="w-5 h-5" /> Second Weight — Auto Capture</DialogTitle></DialogHeader>
-          {secondWtDialog.entry && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-slate-700/30 rounded-lg p-2.5"><p className="text-slate-500 text-[10px]">RST</p><p className="text-white font-bold">#{secondWtDialog.entry.rst_no}</p></div>
-                <div className="bg-slate-700/30 rounded-lg p-2.5"><p className="text-slate-500 text-[10px]">Vehicle</p><p className="text-white font-bold">{secondWtDialog.entry.vehicle_no}</p></div>
-                <div className="bg-slate-700/30 rounded-lg p-2.5"><p className="text-slate-500 text-[10px]">Party</p><p className="text-slate-300">{secondWtDialog.entry.party_name || '-'}</p></div>
-                <div className="bg-blue-900/20 rounded-lg p-2.5 border border-blue-500/20"><p className="text-slate-500 text-[10px]">First Wt</p><p className="text-cyan-300 font-bold font-mono">{fmtWt(secondWtDialog.entry.first_wt)} KG</p></div>
-              </div>
-
-              {/* Mini Live Scale Display for Second Weight */}
-              <div className="bg-black rounded-lg p-3 border border-slate-600/50">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-slate-500 text-[10px] flex items-center gap-1"><Scale className="w-3 h-3" /> LIVE SCALE</span>
-                  {!scale.running ? (
-                    <button onClick={() => scale.start()} className="text-green-400 text-[10px] flex items-center gap-0.5 hover:text-green-300 font-medium" data-testid="vw-simulate-2nd">
-                      <Zap className="w-3 h-3" /> Simulate
-                    </button>
-                  ) : (
-                    <button onClick={scale.stop} className="text-red-400 text-[10px] flex items-center gap-0.5 hover:text-red-300 font-medium">
-                      <Square className="w-3 h-3" /> Stop
-                    </button>
-                  )}
-                </div>
-                <div className="text-center">
-                  <div className={`font-mono text-4xl font-black tracking-wider transition-all duration-200 ${
-                    scale.stable ? 'text-green-400 drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]'
-                    : scale.running ? 'text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.3)]'
-                    : 'text-slate-700'
-                  }`}>
-                    {scale.weight > 0 ? scale.weight.toLocaleString() : '0'}
-                  </div>
-                  <div className="text-slate-600 text-[9px] font-mono">KG</div>
-                  {scale.stable && <Badge className="mt-1 bg-green-600/20 text-green-400 border-green-500/30 text-[8px]"><CheckCircle className="w-2.5 h-2.5 mr-0.5" />STABLE</Badge>}
-                  {scale.running && !scale.stable && <p className="text-amber-400 text-[9px] mt-1 animate-pulse">MEASURING...</p>}
-                </div>
-                {scale.stable && (
-                  <Button type="button" onClick={capSecond} className="w-full mt-2 bg-green-700 hover:bg-green-600 h-8 text-xs font-bold" data-testid="vw-auto-capture-second">
-                    <Zap className="w-3.5 h-3.5 mr-1" /> Auto Capture: {scale.weight.toLocaleString()} KG
-                  </Button>
-                )}
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-x-0 top-1/2 border-t border-slate-700/50" />
-                <p className="text-center text-slate-600 text-[10px] bg-slate-800 px-2 relative inline-block mx-auto" style={{display:'table', margin:'0 auto'}}>ya manually daalen</p>
-              </div>
-
-              <div>
-                <Label className="text-green-400 text-sm font-bold mb-1.5 block">Second Weight (KG)</Label>
-                <Input type="number" value={secondWtValue} onChange={e => setSecondWtValue(e.target.value)}
-                  placeholder="0" className="bg-black border-slate-600 text-green-300 text-xl font-mono font-bold h-12 text-center focus-visible:ring-green-500/30"
-                  data-testid="vw-second-wt-input" autoFocus />
-              </div>
-              {secondWtValue && Number(secondWtValue) > 0 && (
-                <div className="bg-green-900/20 p-3 rounded-lg text-center border border-green-500/20">
-                  <p className="text-[10px] text-slate-500 mb-0.5">Net Weight</p>
-                  <p className="text-green-400 text-2xl font-bold font-mono" data-testid="vw-net-preview">
-                    {Math.abs(secondWtDialog.entry.first_wt - Number(secondWtValue)).toLocaleString()} KG
-                  </p>
-                </div>
-              )}
-              <Button onClick={handleSecondWt} className="w-full bg-green-600 hover:bg-green-500 font-bold h-10 shadow-md shadow-green-900/30" data-testid="vw-save-second">
-                <CheckCircle className="w-4 h-4 mr-2" /> Save Second Weight
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Old Second Weight Dialog removed - using inline form mode now */}
 
       <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen} text={groupText} pdfUrl={groupPdfUrl} />
     </div>

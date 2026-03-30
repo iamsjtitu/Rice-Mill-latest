@@ -66,7 +66,12 @@ async def get_by_rst(rst_no: int, kms_year: str = ""):
 async def create_weight_entry(data: dict):
     """Create new weight entry with first weight."""
     kms_year = data.get("kms_year", "")
-    rst_no = await _next_rst(kms_year)
+    # Allow custom RST number, fallback to auto-increment
+    custom_rst = data.get("rst_no")
+    if custom_rst and int(custom_rst) > 0:
+        rst_no = int(custom_rst)
+    else:
+        rst_no = await _next_rst(kms_year)
 
     entry = {
         "id": str(uuid.uuid4()),
