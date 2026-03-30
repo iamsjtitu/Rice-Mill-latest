@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -57,11 +57,30 @@ function useLiveScale() {
   return { weight, stable, running, scheduleNext, startMeasure };
 }
 
-/* ─── Single Camera Feed ─── */
-function CameraFeed({ label, compact }) {
+/* ─── Single Camera Feed with Snapshot Capture ─── */
+const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
   const [active, setActive] = useState(false);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  // Expose captureFrame method to parent via ref
+  useImperativeHandle(ref, () => ({
+    captureFrame: () => {
+      if (!active || !videoRef.current) return null;
+      const video = videoRef.current;
+      if (!canvasRef.current) canvasRef.current = document.createElement("canvas");
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Return base64 without the data:image prefix
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+      return dataUrl.split(",")[1];
+    },
+    isActive: () => active
+  }));
 
   const toggle = useCallback(async () => {
     if (active) {
@@ -107,7 +126,7 @@ function CameraFeed({ label, compact }) {
       </div>
     </div>
   );
-}
+});
 
 export default function VehicleWeight({ filters }) {
   const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "" };
@@ -123,8 +142,11 @@ export default function VehicleWeight({ filters }) {
   const [groupText, setGroupText] = useState("");
   const [groupPdfUrl, setGroupPdfUrl] = useState("");
   const [showCompleted, setShowCompleted] = useState(true);
+  const [autoNotify, setAutoNotify] = useState(false);
   const scale = useLiveScale();
   const wa = useMessagingEnabled();
+  const frontCamRef = useRef(null);
+  const sideCamRef = useRef(null);
 
   const [mandiTargets, setMandiTargets] = useState([]);
   const [partySuggestions, setPartySuggestions] = useState([]);
@@ -137,11 +159,13 @@ export default function VehicleWeight({ filters }) {
       axios.get(`${API}/suggestions/agents`),
       axios.get(`${API}/suggestions/mandis`),
       axios.get(`${API}/suggestions/trucks`),
-      axios.get(`${API}/mandi-targets?kms_year=${kms}`)
-    ]).then(([agR, mnR, trR, tgR]) => {
+      axios.get(`${API}/mandi-targets?kms_year=${kms}`),
+      axios.get(`${API}/vehicle-weight/auto-notify-setting`)
+    ]).then(([agR, mnR, trR, tgR, anR]) => {
       setPartySuggestions(agR.data.suggestions || []);
       setMandiSuggestions(mnR.data.suggestions || []);
       setTruckSuggestions(trR.data.suggestions || []);
+      setAutoNotify(anR.data.enabled || false);
       const targets = tgR.data || [];
       setMandiTargets(targets);
       if (targets.length > 0) {
@@ -213,7 +237,13 @@ export default function VehicleWeight({ filters }) {
         cash_paid: form.cash_paid || "0",
         diesel_paid: form.diesel_paid || "0"
       });
-      if (r.data.success) { toast.success(r.data.message); clearSecondWtMode(); fetchData(); }
+      if (r.data.success) {
+        toast.success(r.data.message);
+        // Auto-notify on weight completion
+        sendAutoNotify(secondWtMode.id);
+        clearSecondWtMode();
+        fetchData();
+      }
     } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
   };
 
@@ -230,6 +260,25 @@ export default function VehicleWeight({ filters }) {
   };
 
   const handleDelete = async (id) => { if (!window.confirm("Delete karein?")) return; try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); } };
+
+  // Auto-notify: capture camera frames & send to WhatsApp/Telegram
+  const sendAutoNotify = async (entryId) => {
+    if (!autoNotify) return;
+    try {
+      const frontImg = frontCamRef.current?.captureFrame?.() || "";
+      const sideImg = sideCamRef.current?.captureFrame?.() || "";
+      const r = await axios.post(`${API}/vehicle-weight/auto-notify`, {
+        entry_id: entryId,
+        front_image: frontImg,
+        side_image: sideImg
+      });
+      if (r.data.success) {
+        toast.success(`Auto Msg: ${r.data.message}`);
+      }
+    } catch (e) {
+      console.error("Auto-notify error:", e);
+    }
+  };
   const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf`; _isElectron ? downloadFile(u, `Slip_${e.rst_no}.pdf`) : window.open(u, "_blank"); };
   const handleWA = async (e) => { try { const t = `*Weight Slip #${e.rst_no}*\n${e.vehicle_no} | ${e.party_name}\nFirst: ${e.first_wt} | Second: ${e.second_wt}\n*Net: ${e.net_wt} KG*`; await axios.post(`${API}/whatsapp/send-daily-report`, { report_text: t, pdf_url: `http://localhost:8001/api/vehicle-weight/${e.id}/slip-pdf`, send_to_numbers: true, send_to_group: false }); toast.success("Sent!"); } catch { toast.error("WA error"); } };
   const handleGroup = (e) => { setGroupText(`*Slip #${e.rst_no}*\n${e.vehicle_no} | ${e.party_name}\nFirst: ${e.first_wt} | Second: ${e.second_wt}\n*Net: ${e.net_wt} KG*`); setGroupPdfUrl(`/api/vehicle-weight/${e.id}/slip-pdf`); setGroupDialogOpen(true); };
@@ -482,8 +531,8 @@ export default function VehicleWeight({ filters }) {
 
           {/* 2 Cameras - Different Angles */}
           <div className="grid grid-cols-2 gap-2">
-            <CameraFeed label="Front View" compact />
-            <CameraFeed label="Side View" compact />
+            <CameraFeed ref={frontCamRef} label="Front View" compact />
+            <CameraFeed ref={sideCamRef} label="Side View" compact />
           </div>
         </div>
 

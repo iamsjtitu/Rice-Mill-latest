@@ -50,6 +50,105 @@ async def get_next_rst(kms_year: str = ""):
     return {"rst_no": rst}
 
 
+@router.get("/vehicle-weight/auto-notify-setting")
+async def get_auto_notify_setting():
+    """Get auto VW messaging setting."""
+    doc = await db["settings"].find_one({"key": "auto_vw_messaging"}, {"_id": 0})
+    if doc:
+        return {"enabled": doc.get("enabled", False)}
+    return {"enabled": False}
+
+
+@router.put("/vehicle-weight/auto-notify-setting")
+async def update_auto_notify_setting(data: dict):
+    """Update auto VW messaging setting."""
+    enabled = data.get("enabled", False)
+    await db["settings"].update_one(
+        {"key": "auto_vw_messaging"},
+        {"$set": {"key": "auto_vw_messaging", "enabled": enabled}},
+        upsert=True
+    )
+    return {"success": True, "enabled": enabled}
+
+
+@router.post("/vehicle-weight/auto-notify")
+async def auto_notify_weight(data: dict):
+    """Auto-send weight details + camera images to WhatsApp & Telegram."""
+    import base64
+
+    entry_id = data.get("entry_id", "")
+    front_image_b64 = data.get("front_image", "")
+    side_image_b64 = data.get("side_image", "")
+
+    entry = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    rst = entry.get("rst_no", "?")
+    text = (
+        f"*Weight Slip #{rst}*\n"
+        f"Vehicle: {entry.get('vehicle_no','')}\n"
+        f"Party: {entry.get('party_name','')}\n"
+        f"Product: {entry.get('product','')}\n"
+        f"Gross: {entry.get('gross_wt', entry.get('first_wt',0)):,.0f} KG\n"
+        f"Tare: {entry.get('tare_wt', entry.get('second_wt',0)):,.0f} KG\n"
+        f"*Net: {entry.get('net_wt',0):,.0f} KG*\n"
+    )
+    cash = entry.get("cash_paid", 0) or 0
+    diesel = entry.get("diesel_paid", 0) or 0
+    if cash > 0:
+        text += f"Cash Paid: {cash:,.0f}\n"
+    if diesel > 0:
+        text += f"Diesel Paid: {diesel:,.0f}\n"
+
+    results = {"whatsapp": [], "telegram": []}
+    front_bytes = base64.b64decode(front_image_b64) if front_image_b64 else None
+    side_bytes = base64.b64decode(side_image_b64) if side_image_b64 else None
+
+    # Send via WhatsApp
+    try:
+        from routes.whatsapp import _get_wa_settings, _send_wa_message
+        wa_settings = await _get_wa_settings()
+        if wa_settings.get("enabled") and wa_settings.get("api_key"):
+            numbers = wa_settings.get("default_numbers", [])
+            for num in numbers:
+                if num:
+                    r = await _send_wa_message(num.strip(), text)
+                    results["whatsapp"].append(r)
+    except Exception as e:
+        logger.error(f"WA auto-notify error: {e}")
+
+    # Send via Telegram
+    try:
+        from routes.telegram import get_telegram_config, _send_photo_to_all
+        import httpx
+        tg_config = await get_telegram_config()
+        if tg_config and tg_config.get("bot_token") and tg_config.get("chat_ids"):
+            bot_token = tg_config["bot_token"]
+            chat_ids = tg_config["chat_ids"]
+            async with httpx.AsyncClient() as client:
+                for item in chat_ids:
+                    cid = str(item.get("chat_id", "")).strip()
+                    if cid:
+                        await client.post(
+                            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                            json={"chat_id": cid, "text": text, "parse_mode": "Markdown"},
+                            timeout=15
+                        )
+            if front_bytes:
+                r = await _send_photo_to_all(bot_token, chat_ids, front_bytes, f"Front View - RST #{rst}", f"front_rst{rst}.jpg")
+                results["telegram"].extend(r)
+            if side_bytes:
+                r = await _send_photo_to_all(bot_token, chat_ids, side_bytes, f"Side View - RST #{rst}", f"side_rst{rst}.jpg")
+                results["telegram"].extend(r)
+    except Exception as e:
+        logger.error(f"Telegram auto-notify error: {e}")
+
+    wa_sent = sum(1 for r in results["whatsapp"] if r.get("success"))
+    tg_sent = sum(1 for r in results["telegram"] if r.get("ok"))
+    return {"success": True, "message": f"WA: {wa_sent} sent, TG: {tg_sent} sent", "results": results}
+
+
 @router.get("/vehicle-weight/by-rst/{rst_no}")
 async def get_by_rst(rst_no: int, kms_year: str = ""):
     """Lookup vehicle weight entry by RST number - used by Entries form auto-fill."""
@@ -272,3 +371,5 @@ async def weight_slip_pdf(entry_id: str):
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=WeightSlip_RST{entry.get('rst_no','')}.pdf"})
+
+

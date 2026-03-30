@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import {
   Trash2, Plus, Calculator, RefreshCw, Key, FileText,
-  AlertCircle, HardDrive, ShieldCheck, Send, Package,
+  AlertCircle, HardDrive, ShieldCheck, Send, Package, Scale,
 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 
@@ -930,11 +930,68 @@ function MessagingTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Auto Vehicle Weight Messaging */}
+      <AutoVWMessagingCard />
     </div>
   );
 }
 
-// ---- Data Tab (Backup, Health Check, Error Log) ----
+// ---- Auto Vehicle Weight Messaging Card ----
+function AutoVWMessagingCard() {
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get(`${API}/vehicle-weight/auto-notify-setting`)
+      .then(r => { setEnabled(r.data.enabled || false); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const toggle = async () => {
+    const newVal = !enabled;
+    setEnabled(newVal);
+    try {
+      await axios.put(`${API}/vehicle-weight/auto-notify-setting`, { enabled: newVal });
+      toast.success(newVal ? "Auto VW Messaging ON" : "Auto VW Messaging OFF");
+    } catch { toast.error("Setting save error"); setEnabled(!newVal); }
+  };
+
+  return (
+    <Card className="bg-slate-800 border-slate-700" data-testid="auto-vw-messaging-section">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-amber-400 flex items-center gap-2">
+            <Scale className="w-5 h-5" />
+            Auto Vehicle Weight Messaging
+          </CardTitle>
+          <label className="flex items-center gap-3 cursor-pointer select-none" data-testid="auto-vw-toggle">
+            <span className={`text-sm font-bold ${enabled ? 'text-amber-400' : 'text-red-400'}`}>
+              {loading ? '...' : enabled ? 'ON' : 'OFF'}
+            </span>
+            <div className="relative" onClick={toggle}>
+              <div className={`w-12 h-6 rounded-full transition-colors ${enabled ? 'bg-amber-600' : 'bg-slate-600'}`} />
+              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+            </div>
+          </label>
+        </div>
+        <p className="text-slate-400 text-sm mt-1">
+          {enabled
+            ? 'Weight complete hote hi WhatsApp + Telegram par auto message + camera images jayega.'
+            : 'OFF hai — weight complete hone par koi auto message nahi jayega. ON karne ke baad WhatsApp/Telegram setup zaroori hai.'}
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600 text-xs text-slate-400 space-y-1">
+          <p>* Jab second weight capture hota hai, auto message jayega with details</p>
+          <p>* Camera ON hai toh Front View + Side View image bhi attach hogi</p>
+          <p>* WhatsApp numbers aur Telegram Chat IDs upar configure karein</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function DataTab({ user }) {
   const showConfirm = useConfirm();
   const [healthResult, setHealthResult] = useState(null);

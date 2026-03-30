@@ -146,6 +146,35 @@ async def _send_pdf_to_all(bot_token, chat_ids, pdf_bytes, caption):
     return results
 
 
+async def _send_photo_to_all(bot_token, chat_ids, photo_bytes, caption="", filename="photo.jpg"):
+    """Send photo to all chat_ids via Telegram sendPhoto API."""
+    results = []
+    async with httpx.AsyncClient() as client:
+        for item in chat_ids:
+            cid = str(item.get("chat_id", "")).strip()
+            label = item.get("label", cid)
+            if not cid:
+                continue
+            try:
+                buf = io.BytesIO(photo_bytes)
+                files = {"photo": (filename, buf, "image/jpeg")}
+                form_data = {"chat_id": cid}
+                if caption:
+                    form_data["caption"] = caption
+                    form_data["parse_mode"] = "Markdown"
+                resp = await client.post(
+                    f"https://api.telegram.org/bot{bot_token}/sendPhoto",
+                    data=form_data, files=files, timeout=30
+                )
+                result = resp.json()
+                results.append({"label": label, "ok": result.get("ok", False),
+                    "error": "" if result.get("ok") else result.get("description", "Unknown error")})
+            except Exception as e:
+                results.append({"label": label, "ok": False, "error": str(e)})
+    return results
+
+
+
 @router.post("/telegram/send-report")
 async def send_daily_report_now(data: dict = None):
     config = await get_telegram_config()
