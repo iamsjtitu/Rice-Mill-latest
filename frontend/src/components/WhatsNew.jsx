@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.0.0";
+const APP_VERSION = "55.1.0";
 
 const CHANGELOG = [
+  {
+    version: "55.1.0",
+    date: "Mar 2026",
+    title: "v55.1.0 - Beautiful Balance Sheet PDF",
+    items: [
+      { type: "new", text: "Balance Sheet PDF redesign - professional layout with color-coded sections" },
+      { type: "fix", text: "FY Summary + Balance Sheet PDF 500 error fix (duplicate stream conflict)" },
+    ]
+  },
   {
     version: "55.0.0",
     date: "Mar 2026",
