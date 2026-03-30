@@ -3,18 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "54.8.0";
+const APP_VERSION = "54.9.0";
 
 const CHANGELOG = [
   {
-    version: "54.8.0",
+    version: "54.9.0",
     date: "Feb 2026",
-    title: "v54.8.0 - WhatsApp PDF Mismatch Fix",
+    title: "v54.9.0 - All Downloads Fixed + WhatsApp PDF Match",
     items: [
-      { type: "fix", text: "Cash Book WhatsApp PDF ab direct download jaisa same design aata hai" },
-      { type: "fix", text: "Cash Book PDF 500 error fix (Desktop + Local Server)" },
-      { type: "fix", text: "Sale Book PDF blank page fix - proper PDF generate hota hai ab" },
-      { type: "new", text: "GitHub auto-release: Save to GitHub karo, .exe automatic ban jayega" },
+      { type: "fix", text: "FY Summary, Balance Sheet, Leased Truck, Sale Invoice, Purchase Invoice - sab PDF/Excel ab sahi download hota hai" },
+      { type: "fix", text: "Sabhi window.open downloads hatake IPC downloadFile se replace kiya" },
+      { type: "fix", text: "WhatsApp Cash Book PDF ab direct download jaisa same design aata hai" },
     ]
   },
   {
