@@ -3,9 +3,28 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.13.0";
+const APP_VERSION = "55.15.0";
 
 const CHANGELOG = [
+  {
+    version: "55.15.0",
+    date: "Mar 2026",
+    title: "v55.15.0 - GOVT PADDY Default + Target Auto-fill",
+    items: [
+      { type: "new", text: "GOVT PADDY default product in Auto Vehicle Weight" },
+      { type: "new", text: "GOVT PADDY select karne par Party aur Mandi targets se auto-fill / dropdown" },
+      { type: "new", text: "Second Weight dialog mein Live Scale + Auto Capture button" },
+    ]
+  },
+  {
+    version: "55.14.0",
+    date: "Mar 2026",
+    title: "v55.14.0 - Second Weight Auto Capture",
+    items: [
+      { type: "new", text: "Second Weight dialog mein Live Scale display + Auto Capture button" },
+      { type: "fix", text: "Pending Vehicle List compact kiya - columns thoda tight" },
+    ]
+  },
   {
     version: "55.13.0",
     date: "Mar 2026",

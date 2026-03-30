@@ -119,9 +119,27 @@ export default function VehicleWeight({ filters }) {
   const [showCompleted, setShowCompleted] = useState(true);
   const scale = useLiveScale();
 
-  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "" };
+  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "" };
   const [form, setForm] = useState(blank);
+  const [mandiTargets, setMandiTargets] = useState([]);
   const kms = filters?.kms_year || "";
+
+  // Fetch mandi targets for GOVT PADDY auto-fill
+  useEffect(() => {
+    axios.get(`${API}/mandi-targets?kms_year=${kms}`).then(r => {
+      const targets = r.data || [];
+      setMandiTargets(targets);
+      // Auto-fill if GOVT PADDY and targets available
+      if (targets.length > 0) {
+        setForm(prev => {
+          if (prev.product === "GOVT PADDY" && !prev.party_name && !prev.farmer_name) {
+            return { ...prev, party_name: targets[0].agent_name || '', farmer_name: targets[0].mandi_name || '' };
+          }
+          return prev;
+        });
+      }
+    }).catch(() => {});
+  }, [kms]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -213,19 +231,60 @@ export default function VehicleWeight({ filters }) {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-slate-500 text-[10px] mb-0.5 block">Party Name</Label>
-                    <Input value={form.party_name} onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
-                      placeholder="Party" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-party" />
+                    {form.product === "GOVT PADDY" && mandiTargets.length > 0 ? (
+                      (() => {
+                        const agents = [...new Set(mandiTargets.map(t => t.agent_name || '').filter(a => a && a !== '-'))];
+                        return agents.length > 0 ? (
+                          <Select value={form.party_name} onValueChange={v => {
+                            const tgt = mandiTargets.find(t => (t.agent_name || '') === v);
+                            setForm(p => ({ ...p, party_name: v, farmer_name: tgt?.mandi_name || p.farmer_name }));
+                          }}>
+                            <SelectTrigger className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-party"><SelectValue placeholder="Select Party" /></SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-slate-600">
+                              {agents.map(a => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input value={form.party_name} onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
+                            placeholder="Party" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-party" />
+                        );
+                      })()
+                    ) : (
+                      <Input value={form.party_name} onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
+                        placeholder="Party" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-party" />
+                    )}
                   </div>
                   <div>
-                    <Label className="text-slate-500 text-[10px] mb-0.5 block">Farmer Name</Label>
-                    <Input value={form.farmer_name} onChange={e => setForm(p => ({ ...p, farmer_name: e.target.value }))}
-                      placeholder="Farmer" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-farmer" />
+                    <Label className="text-slate-500 text-[10px] mb-0.5 block">Farmer/Mandi</Label>
+                    {form.product === "GOVT PADDY" && mandiTargets.length > 0 ? (
+                      <Select value={form.farmer_name} onValueChange={v => setForm(p => ({ ...p, farmer_name: v }))}>
+                        <SelectTrigger className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-farmer"><SelectValue placeholder="Select Mandi" /></SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-600">
+                          {[...new Set(mandiTargets.map(t => t.mandi_name || '').filter(Boolean))].map(m => (
+                            <SelectItem key={m} value={m}>{m}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input value={form.farmer_name} onChange={e => setForm(p => ({ ...p, farmer_name: e.target.value }))}
+                        placeholder="Farmer" className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-farmer" />
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <Label className="text-slate-500 text-[10px] mb-0.5 block">Product</Label>
-                    <Select value={form.product} onValueChange={v => setForm(p => ({ ...p, product: v }))}>
+                    <Select value={form.product} onValueChange={v => {
+                      setForm(p => {
+                        const updated = { ...p, product: v };
+                        // Auto-fill from targets when GOVT PADDY selected
+                        if (v === "GOVT PADDY" && mandiTargets.length > 0) {
+                          updated.party_name = mandiTargets[0].agent_name || '';
+                          updated.farmer_name = mandiTargets[0].mandi_name || '';
+                        }
+                        return updated;
+                      });
+                    }}>
                       <SelectTrigger className="bg-slate-900/50 border-slate-600/50 text-white h-8 text-xs" data-testid="vw-product"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-slate-800 border-slate-600">
                         {["PADDY","GOVT PADDY","RICE","BHUSI","KANDA","OTHER"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
@@ -331,47 +390,35 @@ export default function VehicleWeight({ filters }) {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-slate-700/50 bg-slate-800/50">
-                      <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold">RST No</TableHead>
-                      <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold">Date</TableHead>
-                      <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold">Vehicle</TableHead>
-                      <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
-                      <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold">Party Name</TableHead>
-                      <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
-                      <TableHead className="text-slate-500 text-[10px] py-2 px-3 font-semibold text-center">Action</TableHead>
+                      <TableHead className="text-slate-500 text-[10px] py-2 px-2 font-semibold">RST</TableHead>
+                      <TableHead className="text-slate-500 text-[10px] py-2 px-2 font-semibold">Vehicle</TableHead>
+                      <TableHead className="text-slate-500 text-[10px] py-2 px-2 font-semibold text-right">1st Wt</TableHead>
+                      <TableHead className="text-slate-500 text-[10px] py-2 px-2 font-semibold">Party</TableHead>
+                      <TableHead className="text-slate-500 text-[10px] py-2 px-2 font-semibold text-center">2nd Wt</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pending.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-12">
+                        <TableCell colSpan={5} className="text-center py-12">
                           <Truck className="w-8 h-8 text-slate-700 mx-auto mb-2" />
                           <p className="text-slate-600 text-xs">Koi pending vehicle nahi</p>
                         </TableCell>
                       </TableRow>
                     ) : pending.map((p, i) => (
                       <TableRow key={p.id} className={`border-slate-700/30 hover:bg-yellow-500/5 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-800/30'}`} data-testid={`vw-pending-row-${p.id}`}>
-                        <TableCell className="py-2 px-3">
+                        <TableCell className="py-2 px-2">
                           <span className="text-amber-400 font-bold text-xs bg-amber-400/10 px-1.5 py-0.5 rounded">#{p.rst_no}</span>
                         </TableCell>
-                        <TableCell className="text-slate-400 text-[11px] py-2 px-3">{p.date}</TableCell>
-                        <TableCell className="text-white text-xs py-2 px-3 font-medium">{p.vehicle_no}</TableCell>
-                        <TableCell className="text-cyan-300 text-xs py-2 px-3 text-right font-mono font-medium">{fmtWt(p.first_wt)}</TableCell>
-                        <TableCell className="text-slate-300 text-xs py-2 px-3">{p.party_name || '-'}</TableCell>
-                        <TableCell className="py-2 px-3">
-                          <Badge variant="outline" className="text-[9px] border-slate-600/50 text-slate-400 font-normal">{p.product}</Badge>
-                        </TableCell>
-                        <TableCell className="py-2 px-3 text-center">
-                          <div className="flex items-center gap-1 justify-center">
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300"
-                              title="Add 2nd Weight" data-testid={`vw-2nd-wt-${p.id}`}
-                              onClick={() => { setSecondWtDialog({ open: true, entry: p }); setSecondWtValue(""); }}>
-                              <Scale className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500/60 hover:bg-red-500/10 hover:text-red-400"
-                              data-testid={`vw-del-pending-${p.id}`} onClick={() => handleDelete(p.id)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
+                        <TableCell className="text-white text-xs py-2 px-2 font-medium">{p.vehicle_no}</TableCell>
+                        <TableCell className="text-cyan-300 text-xs py-2 px-2 text-right font-mono font-medium">{fmtWt(p.first_wt)}</TableCell>
+                        <TableCell className="text-slate-300 text-xs py-2 px-2 truncate max-w-[80px]">{p.party_name || '-'}</TableCell>
+                        <TableCell className="py-2 px-2 text-center">
+                          <Button size="sm" className="h-6 px-2 text-[10px] bg-yellow-600/80 hover:bg-yellow-500 text-white"
+                            data-testid={`vw-2nd-wt-${p.id}`}
+                            onClick={() => { setSecondWtDialog({ open: true, entry: p }); setSecondWtValue(""); }}>
+                            <Scale className="w-3 h-3 mr-1" /> Capture
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -447,8 +494,8 @@ export default function VehicleWeight({ filters }) {
 
       {/* Second Weight Dialog */}
       <Dialog open={secondWtDialog.open} onOpenChange={v => setSecondWtDialog({ open: v, entry: v ? secondWtDialog.entry : null })}>
-        <DialogContent className="bg-slate-800 border-slate-700 max-w-sm" data-testid="vw-second-dialog">
-          <DialogHeader><DialogTitle className="text-green-400 flex items-center gap-2"><Scale className="w-5 h-5" /> Second Weight</DialogTitle></DialogHeader>
+        <DialogContent className="bg-slate-800 border-slate-700 max-w-md" data-testid="vw-second-dialog">
+          <DialogHeader><DialogTitle className="text-green-400 flex items-center gap-2"><Scale className="w-5 h-5" /> Second Weight — Auto Capture</DialogTitle></DialogHeader>
           {secondWtDialog.entry && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -457,18 +504,50 @@ export default function VehicleWeight({ filters }) {
                 <div className="bg-slate-700/30 rounded-lg p-2.5"><p className="text-slate-500 text-[10px]">Party</p><p className="text-slate-300">{secondWtDialog.entry.party_name || '-'}</p></div>
                 <div className="bg-blue-900/20 rounded-lg p-2.5 border border-blue-500/20"><p className="text-slate-500 text-[10px]">First Wt</p><p className="text-cyan-300 font-bold font-mono">{fmtWt(secondWtDialog.entry.first_wt)} KG</p></div>
               </div>
-              <div>
-                <Label className="text-green-400 text-sm font-bold mb-1.5 block">Second Weight (KG) *</Label>
-                <div className="flex gap-2">
-                  <Input type="number" value={secondWtValue} onChange={e => setSecondWtValue(e.target.value)}
-                    placeholder="0" className="bg-black border-slate-600 text-green-300 text-xl font-mono font-bold h-12 text-center flex-1 focus-visible:ring-green-500/30"
-                    data-testid="vw-second-wt-input" autoFocus />
-                  {scale.stable && (
-                    <Button type="button" onClick={capSecond} className="bg-green-700 hover:bg-green-600 h-12 px-3" data-testid="vw-capture-second-dialog">
-                      <Zap className="w-4 h-4 mr-1" />{scale.weight.toLocaleString()}
-                    </Button>
+
+              {/* Mini Live Scale Display for Second Weight */}
+              <div className="bg-black rounded-lg p-3 border border-slate-600/50">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-slate-500 text-[10px] flex items-center gap-1"><Scale className="w-3 h-3" /> LIVE SCALE</span>
+                  {!scale.running ? (
+                    <button onClick={() => scale.start()} className="text-green-400 text-[10px] flex items-center gap-0.5 hover:text-green-300 font-medium" data-testid="vw-simulate-2nd">
+                      <Zap className="w-3 h-3" /> Simulate
+                    </button>
+                  ) : (
+                    <button onClick={scale.stop} className="text-red-400 text-[10px] flex items-center gap-0.5 hover:text-red-300 font-medium">
+                      <Square className="w-3 h-3" /> Stop
+                    </button>
                   )}
                 </div>
+                <div className="text-center">
+                  <div className={`font-mono text-4xl font-black tracking-wider transition-all duration-200 ${
+                    scale.stable ? 'text-green-400 drop-shadow-[0_0_15px_rgba(74,222,128,0.4)]'
+                    : scale.running ? 'text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.3)]'
+                    : 'text-slate-700'
+                  }`}>
+                    {scale.weight > 0 ? scale.weight.toLocaleString() : '0'}
+                  </div>
+                  <div className="text-slate-600 text-[9px] font-mono">KG</div>
+                  {scale.stable && <Badge className="mt-1 bg-green-600/20 text-green-400 border-green-500/30 text-[8px]"><CheckCircle className="w-2.5 h-2.5 mr-0.5" />STABLE</Badge>}
+                  {scale.running && !scale.stable && <p className="text-amber-400 text-[9px] mt-1 animate-pulse">MEASURING...</p>}
+                </div>
+                {scale.stable && (
+                  <Button type="button" onClick={capSecond} className="w-full mt-2 bg-green-700 hover:bg-green-600 h-8 text-xs font-bold" data-testid="vw-auto-capture-second">
+                    <Zap className="w-3.5 h-3.5 mr-1" /> Auto Capture: {scale.weight.toLocaleString()} KG
+                  </Button>
+                )}
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-x-0 top-1/2 border-t border-slate-700/50" />
+                <p className="text-center text-slate-600 text-[10px] bg-slate-800 px-2 relative inline-block mx-auto" style={{display:'table', margin:'0 auto'}}>ya manually daalen</p>
+              </div>
+
+              <div>
+                <Label className="text-green-400 text-sm font-bold mb-1.5 block">Second Weight (KG)</Label>
+                <Input type="number" value={secondWtValue} onChange={e => setSecondWtValue(e.target.value)}
+                  placeholder="0" className="bg-black border-slate-600 text-green-300 text-xl font-mono font-bold h-12 text-center focus-visible:ring-green-500/30"
+                  data-testid="vw-second-wt-input" autoFocus />
               </div>
               {secondWtValue && Number(secondWtValue) > 0 && (
                 <div className="bg-green-900/20 p-3 rounded-lg text-center border border-green-500/20">
