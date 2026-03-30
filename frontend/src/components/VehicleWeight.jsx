@@ -569,8 +569,12 @@ export default function VehicleWeight({ filters }) {
   const openPhotos = async (entry) => {
     setPhotoDialog({ open: true, data: null, loading: true });
     try {
-      const r = await axios.get(`${API}/vehicle-weight/${entry.id}/photos`);
-      setPhotoDialog({ open: true, data: r.data, loading: false });
+      const [r, br] = await Promise.all([
+        axios.get(`${API}/vehicle-weight/${entry.id}/photos`),
+        axios.get(`${API}/branding`).catch(() => ({ data: null }))
+      ]);
+      const brandInfo = { company: br.data?.company_name || "NAVKAR AGRO", tagline: br.data?.tagline || "JOLKO, KESINGA - Mill Entry System" };
+      setPhotoDialog({ open: true, data: { ...r.data, _brand: brandInfo }, loading: false });
     } catch {
       toast.error("Photos load nahi hue");
       setPhotoDialog({ open: false, data: null, loading: false });
@@ -1136,80 +1140,145 @@ export default function VehicleWeight({ filters }) {
         </DialogContent>
       </Dialog>
 
-      {/* Photo View Dialog */}
+      {/* Photo View Dialog - Print Slip Style */}
       <Dialog open={photoDialog.open} onOpenChange={v => !v && setPhotoDialog({ open: false, data: null, loading: false })}>
-        <DialogContent className="bg-white border-gray-200 max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="vw-photo-dialog">
-          <DialogHeader>
-            <DialogTitle className="text-cyan-700 flex items-center gap-2">
-              <Camera className="w-5 h-5" /> Photos - RST #{photoDialog.data?.rst_no}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="bg-white border-gray-300 max-w-[520px] max-h-[90vh] overflow-y-auto p-0" data-testid="vw-photo-dialog">
           {photoDialog.loading ? (
-            <div className="flex justify-center py-8"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>
+            <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>
           ) : photoDialog.data ? (
-            <div className="space-y-4">
-              {/* Entry Details - All fields */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm bg-gray-50 p-3 rounded-lg">
-                <div><span className="text-gray-500">RST:</span> <span className="font-bold text-amber-700">#{photoDialog.data.rst_no}</span></div>
-                <div><span className="text-gray-500">Date:</span> <span className="font-semibold">{photoDialog.data.date || '-'}</span></div>
-                <div><span className="text-gray-500">Vehicle:</span> <span className="font-semibold">{photoDialog.data.vehicle_no}</span></div>
-                <div><span className="text-gray-500">Party:</span> <span className="font-semibold">{photoDialog.data.party_name}</span></div>
-                <div><span className="text-gray-500">Mandi:</span> <span className="font-semibold">{photoDialog.data.farmer_name || '-'}</span></div>
-                <div><span className="text-gray-500">Product:</span> <span className="font-semibold">{photoDialog.data.product}</span></div>
-                <div><span className="text-gray-500">Pkts:</span> <span className="font-semibold">{photoDialog.data.tot_pkts || '-'}</span></div>
-                <div><span className="text-gray-500">Trans:</span> <span className="font-semibold">{photoDialog.data.trans_type || '-'}</span></div>
-                <div><span className="text-gray-500">1st Wt:</span> <span className="font-semibold text-blue-700">{Number(photoDialog.data.first_wt || 0).toLocaleString()} KG</span></div>
-                <div><span className="text-gray-500">2nd Wt:</span> <span className="font-semibold text-blue-700">{Number(photoDialog.data.second_wt || 0).toLocaleString()} KG</span></div>
-                <div><span className="text-gray-500">Net Wt:</span> <span className="font-bold text-green-700">{Number(photoDialog.data.net_wt || 0).toLocaleString()} KG</span></div>
-                <div><span className="text-gray-500">Remark:</span> <span className="font-semibold">{photoDialog.data.remark || '-'}</span></div>
-                <div><span className="text-gray-500">Cash:</span> <span className="font-semibold text-green-700">{photoDialog.data.cash_paid ? `₹${Number(photoDialog.data.cash_paid).toLocaleString()}` : '-'}</span></div>
-                <div><span className="text-gray-500">Diesel:</span> <span className="font-semibold text-orange-700">{photoDialog.data.diesel_paid ? `₹${Number(photoDialog.data.diesel_paid).toLocaleString()}` : '-'}</span></div>
+            <>
+            <div className="border-[2px] border-gray-800 rounded m-3" data-testid="vw-photo-slip">
+              {/* ── Slip Header ── */}
+              <div className="text-center border-b-[2px] border-gray-800 py-2 px-3 relative">
+                <div className="absolute top-1 right-2 text-[9px] text-gray-500 font-semibold tracking-wide">VIEW COPY</div>
+                <h2 className="text-lg font-black text-gray-900 leading-tight tracking-wide" data-testid="slip-company-name">{photoDialog.data?._brand?.company || "NAVKAR AGRO"}</h2>
+                <p className="text-[10px] text-gray-500 mt-0.5">{photoDialog.data?._brand?.tagline || "JOLKO, KESINGA - Mill Entry System"}</p>
+                <div className="text-xs font-bold text-gray-700 mt-0.5">WEIGHT SLIP / तौल पर्ची</div>
               </div>
 
-              {/* 1st Weight Section */}
-              <div className="border border-blue-200 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-blue-700 font-bold text-sm">1st Weight (Gross)</h3>
-                  <span className="text-blue-900 font-mono font-bold">{Number(photoDialog.data.first_wt || 0).toLocaleString()} KG</span>
+              {/* ── Info Table ── */}
+              <table className="w-full border-collapse text-[11px]" data-testid="slip-info-table">
+                <tbody>
+                  <tr>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap w-[22%]">RST No.</td>
+                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900 text-xs w-[28%]">#{photoDialog.data.rst_no}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap w-[22%]">Date / दिनांक</td>
+                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900 w-[28%]">{photoDialog.data.date || '-'}</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Vehicle / गाड़ी</td>
+                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.vehicle_no}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Trans</td>
+                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.trans_type || '-'}</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Party / पार्टी</td>
+                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.party_name || '-'}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Farmer</td>
+                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.farmer_name || '-'}</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Product / माल</td>
+                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.product || '-'}</td>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Bags / बोरे</td>
+                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tot_pkts || '-'}</td>
+                  </tr>
+                  {photoDialog.data.remark && photoDialog.data.remark !== '-' && (
+                    <tr>
+                      <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Remark / टिप्पणी</td>
+                      <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900" colSpan={3}>{photoDialog.data.remark}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              {/* ── Weight Summary Bar ── */}
+              <div className="flex border-t-[2px] border-gray-800" data-testid="slip-weight-bar">
+                <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-gray-50">
+                  <span className="block text-[8px] font-bold text-gray-500 uppercase">Gross / कुल</span>
+                  <span className="block text-sm font-black text-gray-900">{fmtWt(photoDialog.data.first_wt)} KG</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Front View</p>
-                    {photoDialog.data.first_wt_front_img ? (
-                      <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`} alt="1st Wt Front" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 200 }} />
-                    ) : <div className="h-24 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">No Photo</div>}
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Side View</p>
-                    {photoDialog.data.first_wt_side_img ? (
-                      <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`} alt="1st Wt Side" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 200 }} />
-                    ) : <div className="h-24 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">No Photo</div>}
-                  </div>
+                <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-gray-50">
+                  <span className="block text-[8px] font-bold text-gray-500 uppercase">Tare / खाली</span>
+                  <span className="block text-sm font-black text-gray-900">{fmtWt(photoDialog.data.second_wt)} KG</span>
                 </div>
+                <div className="flex-1 text-center py-1.5 border-r border-gray-400" style={{ background: '#e8f5e9' }}>
+                  <span className="block text-[8px] font-bold text-green-800 uppercase">Net / शुद्ध</span>
+                  <span className="block text-base font-black text-green-900">{fmtWt(photoDialog.data.net_wt)} KG</span>
+                </div>
+                {(Number(photoDialog.data.cash_paid || 0) > 0) && (
+                  <div className="flex-1 text-center py-1.5 border-r border-gray-400" style={{ background: '#fff3e0' }}>
+                    <span className="block text-[8px] font-bold text-orange-800 uppercase">Cash / नकद</span>
+                    <span className="block text-sm font-black text-orange-900">{Number(photoDialog.data.cash_paid).toLocaleString()}</span>
+                  </div>
+                )}
+                {(Number(photoDialog.data.diesel_paid || 0) > 0) && (
+                  <div className="flex-1 text-center py-1.5" style={{ background: '#fff3e0' }}>
+                    <span className="block text-[8px] font-bold text-orange-800 uppercase">Diesel / डीजल</span>
+                    <span className="block text-sm font-black text-orange-900">{Number(photoDialog.data.diesel_paid).toLocaleString()}</span>
+                  </div>
+                )}
               </div>
 
-              {/* 2nd Weight Section */}
-              <div className="border border-green-200 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-green-700 font-bold text-sm">2nd Weight (Tare)</h3>
-                  <span className="text-green-900 font-mono font-bold">{Number(photoDialog.data.second_wt || 0).toLocaleString()} KG</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Front View</p>
-                    {photoDialog.data.second_wt_front_img ? (
-                      <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`} alt="2nd Wt Front" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 200 }} />
-                    ) : <div className="h-24 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">No Photo</div>}
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Side View</p>
-                    {photoDialog.data.second_wt_side_img ? (
-                      <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`} alt="2nd Wt Side" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 200 }} />
-                    ) : <div className="h-24 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-xs">No Photo</div>}
-                  </div>
-                </div>
+              {/* ── Footer ── */}
+              <div className="text-center py-1 border-t border-gray-300">
+                <span className="text-[8px] text-gray-400">{photoDialog.data?._brand?.company || "NAVKAR AGRO"} | Computer Generated</span>
               </div>
             </div>
+
+            {/* ── Photos Section (Outside slip border) ── */}
+            {(photoDialog.data.first_wt_front_img || photoDialog.data.first_wt_side_img || photoDialog.data.second_wt_front_img || photoDialog.data.second_wt_side_img) && (
+              <div className="space-y-3 mx-3 mb-3">
+                {/* 1st Weight Photos */}
+                {(photoDialog.data.first_wt_front_img || photoDialog.data.first_wt_side_img) && (
+                  <div className="border border-blue-300 rounded p-2.5 bg-blue-50/30">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <h3 className="text-blue-800 font-bold text-[11px] flex items-center gap-1"><Scale className="w-3 h-3" /> 1st Weight (Gross)</h3>
+                      <span className="text-blue-900 font-mono font-bold text-xs">{fmtWt(photoDialog.data.first_wt)} KG</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Front View</p>
+                        {photoDialog.data.first_wt_front_img ? (
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`} alt="1st Wt Front" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 180 }} />
+                        ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Side View</p>
+                        {photoDialog.data.first_wt_side_img ? (
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`} alt="1st Wt Side" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 180 }} />
+                        ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2nd Weight Photos */}
+                {(photoDialog.data.second_wt_front_img || photoDialog.data.second_wt_side_img) && (
+                  <div className="border border-green-300 rounded p-2.5 bg-green-50/30">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <h3 className="text-green-800 font-bold text-[11px] flex items-center gap-1"><Scale className="w-3 h-3" /> 2nd Weight (Tare)</h3>
+                      <span className="text-green-900 font-mono font-bold text-xs">{fmtWt(photoDialog.data.second_wt)} KG</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Front View</p>
+                        {photoDialog.data.second_wt_front_img ? (
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`} alt="2nd Wt Front" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 180 }} />
+                        ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Side View</p>
+                        {photoDialog.data.second_wt_side_img ? (
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`} alt="2nd Wt Side" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 180 }} />
+                        ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            </>
           ) : null}
         </DialogContent>
       </Dialog>

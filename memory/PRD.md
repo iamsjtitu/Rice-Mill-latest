@@ -18,6 +18,7 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - MongoDB indexes on all key fields (kms_year, date, party_name, account, etc.)
 - Desktop JSON compact save (40% smaller file)
 - All three backends fully synced with pagination
+- **Photo View Dialog Redesigned** (Mar 2026): Print-slip-style layout with bordered table, colored weight summary bar (Gross/Tare/Net-green/Cash-orange/Diesel-orange), dynamic branding
 
 ## Key API Changes
 - `/api/entries?page=1&page_size=200` → Paginated mill entries
