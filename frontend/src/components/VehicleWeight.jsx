@@ -122,7 +122,9 @@ function useLiveScale() {
 /* ─── Single Camera Feed with Snapshot Capture ─── */
 const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
   const [active, setActive] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
   const videoRef = useRef(null);
+  const zoomVideoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -137,7 +139,6 @@ const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
       canvas.height = video.videoHeight || 480;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      // Return base64 without the data:image prefix
       const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
       return dataUrl.split(",")[1];
     },
@@ -149,6 +150,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
       if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
       if (videoRef.current) videoRef.current.srcObject = null;
       setActive(false);
+      setZoomed(false);
     } else {
       try {
         const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
@@ -159,34 +161,72 @@ const CameraFeed = forwardRef(function CameraFeed({ label, compact }, ref) {
     }
   }, [active]);
 
+  // Attach stream to zoom video when zoomed opens
+  useEffect(() => {
+    if (zoomed && zoomVideoRef.current && streamRef.current) {
+      zoomVideoRef.current.srcObject = streamRef.current;
+      zoomVideoRef.current.play().catch(() => {});
+    }
+  }, [zoomed]);
+
+  // ESC key to close zoom
+  useEffect(() => {
+    if (!zoomed) return;
+    const handler = (e) => { if (e.key === 'Escape') setZoomed(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [zoomed]);
+
   useEffect(() => () => {
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); }
   }, []);
 
   return (
-    <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-900" data-testid="camera-feed-panel">
-      <div className="absolute top-1 left-1 z-10 flex items-center gap-1">
-        <Badge className={`text-[8px] px-1 py-0 ${active ? 'bg-green-600' : 'bg-gray-600'}`}>
-          {active ? <Camera className="w-2.5 h-2.5 mr-0.5" /> : <CameraOff className="w-2.5 h-2.5 mr-0.5" />}
-          {active ? 'LIVE' : 'OFF'}
-        </Badge>
-      </div>
-      <button onClick={toggle} className="absolute top-1 right-1 z-10 bg-black/60 rounded px-1.5 py-0.5 text-[8px] text-white hover:bg-black/80" data-testid="camera-toggle-btn">
-        {active ? 'Stop' : 'Start'}
-      </button>
-      <div className={compact ? "h-[88px]" : "h-[140px]"}>
-        {active ? (
-          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-900">
-            <div className="text-center">
-              <Camera className="w-4 h-4 text-gray-600 mx-auto" />
-              <p className="text-gray-500 text-[7px] mt-0.5">{label || "Camera"}</p>
+    <>
+      <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-900 cursor-pointer" data-testid="camera-feed-panel"
+        onClick={() => { if (active) setZoomed(true); }}>
+        <div className="absolute top-1 left-1 z-10 flex items-center gap-1">
+          <Badge className={`text-[8px] px-1 py-0 ${active ? 'bg-green-600' : 'bg-gray-600'}`}>
+            {active ? <Camera className="w-2.5 h-2.5 mr-0.5" /> : <CameraOff className="w-2.5 h-2.5 mr-0.5" />}
+            {active ? 'LIVE' : 'OFF'}
+          </Badge>
+        </div>
+        <button onClick={(e) => { e.stopPropagation(); toggle(); }} className="absolute top-1 right-1 z-10 bg-black/60 rounded px-1.5 py-0.5 text-[8px] text-white hover:bg-black/80" data-testid="camera-toggle-btn">
+          {active ? 'Stop' : 'Start'}
+        </button>
+        {active && <div className="absolute bottom-1 right-1 z-10 bg-black/50 rounded px-1 py-0.5 text-[7px] text-white/70">Click to zoom</div>}
+        <div className={compact ? "h-[88px]" : "h-[140px]"}>
+          {active ? (
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-900">
+              <div className="text-center">
+                <Camera className="w-4 h-4 text-gray-600 mx-auto" />
+                <p className="text-gray-500 text-[7px] mt-0.5">{label || "Camera"}</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Zoom Popup */}
+      {zoomed && (
+        <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center" onClick={() => setZoomed(false)} data-testid="camera-zoom-overlay">
+          <div className="relative w-[85vw] max-w-[900px] rounded-xl overflow-hidden shadow-2xl border border-gray-700" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gray-900 px-4 py-2 flex items-center justify-between border-b border-gray-700">
+              <span className="text-white text-sm font-semibold flex items-center gap-2">
+                <Camera className="w-4 h-4 text-green-400" /> {label || "Camera"}
+                <Badge className="bg-green-600 text-[9px] ml-1">LIVE</Badge>
+              </span>
+              <button onClick={() => setZoomed(false)} className="text-gray-400 hover:text-white text-xs bg-gray-800 rounded px-2 py-1">
+                ESC
+              </button>
+            </div>
+            <video ref={zoomVideoRef} className="w-full aspect-video object-contain bg-black" autoPlay muted playsInline />
+          </div>
+        </div>
+      )}
+    </>
   );
 });
 

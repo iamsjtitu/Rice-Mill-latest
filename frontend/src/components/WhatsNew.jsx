@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.31.0";
+const APP_VERSION = "55.32.0";
 
 const CHANGELOG = [
+  {
+    version: "55.32.0",
+    date: "Mar 2026",
+    title: "v55.32.0 - Camera Zoom Popup",
+    items: [
+      { type: "new", text: "Camera click karo toh bada popup khulta hai - full screen live view" },
+      { type: "new", text: "ESC ya bahar click karne se popup band ho jata hai" },
+    ]
+  },
   {
     version: "55.31.0",
     date: "Mar 2026",
