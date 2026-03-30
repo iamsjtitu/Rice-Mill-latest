@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.34.0";
+const APP_VERSION = "55.35.0";
 
 const CHANGELOG = [
+  {
+    version: "55.35.0",
+    date: "Mar 2026",
+    title: "v55.35.0 - A5 Print Fix + Settings Tab Fix",
+    items: [
+      { type: "fix", text: "Weight Slip A5 size perfect fit - fonts bade kiye, signature gap hataya" },
+      { type: "fix", text: "Settings tabs ek line mai - Error Log tab ab wrap nahi hota" },
+    ]
+  },
   {
     version: "55.34.0",
     date: "Mar 2026",

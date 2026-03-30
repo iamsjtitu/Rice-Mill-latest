@@ -1,6 +1,6 @@
 # Mill Entry System - PRD
 
-## Current Version: v55.34.0
+## Current Version: v55.35.0
 
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Features double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, and automated hardware integration for vehicle weight capture.
@@ -12,6 +12,7 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - **Hardware**: Serial Port (Electron) for Weighbridge, IP Cameras
 
 ## What's Been Implemented (Latest)
+- **v55.35.0**: A5 Print CSS fix (bigger fonts, no signature gap), Settings tab wrapping fix (all tabs in single line)
 - **v55.23.0**: 
   - Electron Serial Port integration for real weighbridge hardware (COM4, 2400 baud).
   - `serial-handler.js`, `preload.js` IPC bridge, `useRealScale` / `useSimulatorScale` hooks.
