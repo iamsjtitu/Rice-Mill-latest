@@ -351,6 +351,7 @@ export default function VehicleWeight({ filters }) {
   const [editForm, setEditForm] = useState({});
   const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
   const [linkedRst, setLinkedRst] = useState(new Set());
+  const [zoomImg, setZoomImg] = useState(null); // for photo zoom
   const scale = useLiveScale();
   const { wa } = useMessagingEnabled();
   const showConfirm = useConfirm();
@@ -1127,7 +1128,9 @@ export default function VehicleWeight({ filters }) {
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-cyan-600" onClick={() => openPhotos(e)} data-testid={`vw-photos-${e.id}`} title="View Photos"><Eye className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`vw-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
+                          {!linkedRst.has(e.rst_no) && (
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`vw-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
+                          )}
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`vw-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
                           {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-green-400 hover:text-green-600" onClick={() => handleWA(e)} data-testid={`vw-wa-${e.id}`} title="WhatsApp"><Send className="w-3 h-3" /></Button>}
@@ -1309,13 +1312,13 @@ export default function VehicleWeight({ filters }) {
                       <div>
                         <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Front View</p>
                         {photoDialog.data.first_wt_front_img ? (
-                          <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`} alt="1st Wt Front" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 180 }} />
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`} alt="1st Wt Front" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`)} />
                         ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
                       </div>
                       <div>
                         <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Side View</p>
                         {photoDialog.data.first_wt_side_img ? (
-                          <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`} alt="1st Wt Side" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 180 }} />
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`} alt="1st Wt Side" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`)} />
                         ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
                       </div>
                     </div>
@@ -1331,13 +1334,13 @@ export default function VehicleWeight({ filters }) {
                       <div>
                         <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Front View</p>
                         {photoDialog.data.second_wt_front_img ? (
-                          <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`} alt="2nd Wt Front" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 180 }} />
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`} alt="2nd Wt Front" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`)} />
                         ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
                       </div>
                       <div>
                         <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Side View</p>
                         {photoDialog.data.second_wt_side_img ? (
-                          <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`} alt="2nd Wt Side" className="w-full rounded border border-gray-200 object-cover" style={{ maxHeight: 180 }} />
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`} alt="2nd Wt Side" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`)} />
                         ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
                       </div>
                     </div>
@@ -1347,6 +1350,13 @@ export default function VehicleWeight({ filters }) {
           ) : null}
         </DialogContent>
       </Dialog>
+      {/* Photo Zoom Dialog */}
+      {zoomImg && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center cursor-pointer" onClick={() => setZoomImg(null)} data-testid="photo-zoom-overlay">
+          <img src={zoomImg} alt="Zoomed" className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl object-contain" />
+          <button className="absolute top-4 right-4 text-white bg-black/50 rounded-full w-8 h-8 flex items-center justify-center hover:bg-black/80 text-lg font-bold" onClick={() => setZoomImg(null)} data-testid="photo-zoom-close">&times;</button>
+        </div>
+      )}
 
     </div>
   );
