@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.38.0";
+const APP_VERSION = "55.39.0";
 
 const CHANGELOG = [
+  {
+    version: "55.39.0",
+    date: "Mar 2026",
+    title: "v55.39.0 - Dual Photo WhatsApp + Performance Fix",
+    items: [
+      { type: "new", text: "1st Weight aur 2nd Weight dono ka photo ab WhatsApp/Telegram mai jayega" },
+      { type: "fix", text: "Tab switch karne par software hang fix - AbortController se fast response" },
+      { type: "fix", text: "Camera feed cleanup - tab change par MJPEG stream band hota hai" },
+      { type: "fix", text: "Desktop + Local Server image save/load parity - teeno backends sync" },
+    ]
+  },
   {
     version: "55.38.0",
     date: "Mar 2026",
