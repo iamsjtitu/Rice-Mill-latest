@@ -12,11 +12,12 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - **Hardware**: Serial Port (Electron) for Weighbridge, IP Cameras
 
 ## What's Been Implemented (Latest)
-- **v55.35.0**: A5 Print CSS fix (bigger fonts, no signature gap), Settings tab wrapping fix (all tabs in single line)
+- **v55.35.0**: 
+  - A5 Print CSS fix (bigger fonts, no signature gap), Settings tab wrapping fix
+  - Fixed PDFKit coordinate system in Node.js backends (slip was rendering upside-down)
 - **v55.23.0**: 
-  - Electron Serial Port integration for real weighbridge hardware (COM4, 2400 baud).
-  - `serial-handler.js`, `preload.js` IPC bridge, `useRealScale` / `useSimulatorScale` hooks.
-  - **Vehicle Weight JS Routes Created**: `desktop-app/routes/vehicle_weight.js` and `local-server/routes/vehicle_weight.js` now fully mirror the Python `vehicle_weight.py` backend. All 13 API endpoints ported: list, pending, next-rst, auto-notify-setting, auto-notify, by-rst, send-manual, create, second-weight, delete, edit, slip-pdf. Mounted in `main.js` and `server.js`. Desktop "Data fetch error" FIXED.
+  - Electron Serial Port integration for real weighbridge hardware
+  - Vehicle Weight JS Routes ported to desktop-app and local-server
 - **v55.22.0**: Edit dialog, A5 Print (2 copies), manual WA/Group with complete text.
 - **v55.21.x**: Auto messaging, Settings toggle, manual WA/Group updated.
 - **v55.20.0**: White theme, 2 cameras.
