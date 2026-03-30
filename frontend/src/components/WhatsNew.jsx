@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.28.0";
+const APP_VERSION = "55.29.0";
 
 const CHANGELOG = [
+  {
+    version: "55.29.0",
+    date: "Mar 2026",
+    title: "v55.29.0 - WhatsApp + Weighbridge Toggle Fix",
+    items: [
+      { type: "fix", text: "WhatsApp toggle OFF/ON ab auto-save hota hai - alag se Save button dabane ki zarurat nahi" },
+      { type: "fix", text: "Weighbridge toggle disable ab properly persist hota hai" },
+      { type: "fix", text: "WhatsApp Group dropdown Desktop App mai ab load hota hai" },
+    ]
+  },
   {
     version: "55.28.0",
     date: "Mar 2026",
