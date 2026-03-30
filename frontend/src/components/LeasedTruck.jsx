@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truck, Edit, Send } from "lucide-react";
 import { printHtml } from "@/components/PrintButton";
 import { useConfirm } from "./ConfirmProvider";
+import { downloadFile } from "../utils/download";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -277,9 +278,9 @@ export default function LeasedTruck({ filters }) {
           <div className="flex items-center gap-2">
             <Input placeholder="Search truck no. / owner..." value={searchText} onChange={e => setSearchText(e.target.value)}
               className="bg-slate-700 border-slate-600 text-white w-52 h-8 text-xs" data-testid="lease-search" />
-            <Button onClick={() => window.open(`${API}/truck-leases/export/pdf?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, '_blank')}
+            <Button onClick={() => downloadFile(`${API}/truck-leases/export/pdf?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, `truck_leases_${filters.kms_year || 'all'}.pdf`)}
               variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:text-white h-8 text-xs" data-testid="lease-export-pdf">PDF</Button>
-            <Button onClick={() => window.open(`${API}/truck-leases/export/excel?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, '_blank')}
+            <Button onClick={() => downloadFile(`${API}/truck-leases/export/excel?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, `truck_leases_${filters.kms_year || 'all'}.xlsx`)}
               variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:text-white h-8 text-xs" data-testid="lease-export-excel">Excel</Button>
             <Button onClick={() => { setEditLease(null); setForm({ truck_no: "", owner_name: "", monthly_rent: "", start_date: "", end_date: "", advance_deposit: "" }); setShowAddLease(true); }}
               size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-8" data-testid="add-lease-btn">

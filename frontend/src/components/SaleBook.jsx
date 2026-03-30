@@ -234,8 +234,9 @@ export default function SaleBook({ filters, user }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Undo error"); }
   };
 
-  const handlePrintInvoice = (v) => {
-    window.open(`${API}/sale-book/${v.id}/pdf`, '_blank');
+  const handlePrintInvoice = async (v) => {
+    const { downloadFile } = await import('../utils/download');
+    downloadFile(`${API}/sale-book/${v.id}/pdf`, `sale_invoice_${v.voucher_no || v.id}.pdf`);
   };
 
   const getStockForItem = (itemName) => {

@@ -253,7 +253,7 @@ export default function PurchaseVouchers({ filters, user }) {
   };
 
   const handlePrintInvoice = (v) => {
-    window.open(`${API}/purchase-book/${v.id}/pdf`, '_blank');
+    downloadFile(`${API}/purchase-book/${v.id}/pdf`, `purchase_invoice_${v.voucher_no || v.id}.pdf`);
   };
 
   const handlePayment = async () => {

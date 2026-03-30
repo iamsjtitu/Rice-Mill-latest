@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { FileDown, FileSpreadsheet, ChevronDown, ChevronRight, RefreshCw, Printer } from 'lucide-react';
+import { downloadFile } from '../utils/download';
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -177,14 +178,14 @@ export default function BalanceSheet({ filters }) {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
-    window.open(`${API}/fy-summary/balance-sheet/pdf?${p}`, '_blank');
+    downloadFile(`${API}/fy-summary/balance-sheet/pdf?${p}`, `balance_sheet_${filters.kms_year || 'all'}.pdf`);
   };
 
   const downloadExcel = () => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
-    window.open(`${API}/fy-summary/balance-sheet/excel?${p}`, '_blank');
+    downloadFile(`${API}/fy-summary/balance-sheet/excel?${p}`, `balance_sheet_${filters.kms_year || 'all'}.xlsx`);
   };
 
   const handlePrint = () => {

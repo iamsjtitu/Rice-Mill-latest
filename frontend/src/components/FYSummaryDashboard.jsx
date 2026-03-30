@@ -6,6 +6,7 @@ import { TrendingUp, TrendingDown, Banknote, Package, Fuel, Users, Wheat, Wrench
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 import { useConfirm } from './ConfirmProvider';
+import { downloadFile } from '../utils/download';
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -77,7 +78,7 @@ export default function FYSummaryDashboard({ filters }) {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
     if (filters.season) p.append('season', filters.season);
-    window.open(`${API}/fy-summary/pdf?${p}`, '_blank');
+    downloadFile(`${API}/fy-summary/pdf?${p}`, `fy_summary_${filters.kms_year || 'all'}.pdf`);
   };
 
   const handleCarryForward = async () => {
