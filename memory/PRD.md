@@ -15,6 +15,9 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - **v55.35.0**: 
   - A5 Print CSS fix (bigger fonts, no signature gap), Settings tab wrapping fix
   - Fixed PDFKit coordinate system in Node.js backends (slip was rendering upside-down)
+  - Fixed WhatsApp toggle not saving OFF state (desktop backend was ignoring enabled field)
+  - Improved PDF slip: bigger fonts (15pt company, 10pt title), better spacing (95mm blocks), Hindi labels, signatures
+  - Download now shows both copies (Party + Customer) with cut line
 - **v55.23.0**: 
   - Electron Serial Port integration for real weighbridge hardware
   - Vehicle Weight JS Routes ported to desktop-app and local-server
