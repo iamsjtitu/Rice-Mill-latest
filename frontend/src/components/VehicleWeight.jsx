@@ -586,6 +586,8 @@ export default function VehicleWeight({ filters }) {
                         onSelect={(val) => setForm(p => ({ ...p, vehicle_no: val.toUpperCase() }))}
                         label="Vehicle No *"
                         testId="vw-vehicle"
+                        labelClassName="text-gray-600 text-[10px] mb-0.5 block"
+                        inputClassName="bg-white border-gray-300 text-gray-900 h-8 text-xs font-medium"
                       />
                     )}
                   </div>
@@ -600,6 +602,8 @@ export default function VehicleWeight({ filters }) {
                       onSelect={(val) => { setForm(p => ({ ...p, party_name: val })); fetchMandisForParty(val); }}
                       label="Party Name"
                       testId="vw-party"
+                      labelClassName="text-gray-600 text-[10px] mb-0.5 block"
+                      inputClassName="bg-white border-gray-300 text-gray-900 h-8 text-xs"
                     />
                   </div>
                   <div>
@@ -611,6 +615,8 @@ export default function VehicleWeight({ filters }) {
                       onSelect={(val) => setForm(p => ({ ...p, farmer_name: val }))}
                       label="Farmer/Mandi"
                       testId="vw-farmer"
+                      labelClassName="text-gray-600 text-[10px] mb-0.5 block"
+                      inputClassName="bg-white border-gray-300 text-gray-900 h-8 text-xs"
                     />
                   </div>
                 </div>

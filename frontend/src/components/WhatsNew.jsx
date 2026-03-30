@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.29.0";
+const APP_VERSION = "55.30.0";
 
 const CHANGELOG = [
+  {
+    version: "55.30.0",
+    date: "Mar 2026",
+    title: "v55.30.0 - Vehicle No Field Fix",
+    items: [
+      { type: "fix", text: "Vehicle No field position fix - Date ke saath proper alignment" },
+      { type: "fix", text: "AutoSuggest component white theme support - label aur input consistent" },
+    ]
+  },
   {
     version: "55.29.0",
     date: "Mar 2026",

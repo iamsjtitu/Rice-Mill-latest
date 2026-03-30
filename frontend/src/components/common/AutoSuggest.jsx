@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
  * AutoSuggest - Dropdown Component with Keyboard Support
  * Features: Arrow keys navigation, Enter to select, Escape to close
  */
-const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBlur, label, testId }) => {
+const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBlur, label, testId, labelClassName, inputClassName }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState([]);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -87,7 +87,7 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBl
 
   return (
     <div ref={wrapperRef} className="relative">
-      <Label className="text-slate-300">{label}</Label>
+      <Label className={labelClassName || "text-slate-300"}>{label}</Label>
       <Input
         value={value}
         onChange={(e) => {
@@ -100,21 +100,21 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBl
         }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="bg-slate-700 border-slate-600 text-white"
+        className={inputClassName || "bg-slate-700 border-slate-600 text-white"}
         data-testid={testId}
       />
       {showSuggestions && filteredSuggestions.length > 0 && (
         <div 
           ref={listRef}
-          className="absolute z-50 w-full mt-1 bg-slate-700 border border-slate-600 rounded-md shadow-lg max-h-48 overflow-y-auto"
+          className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto"
         >
           {filteredSuggestions.map((suggestion, index) => (
             <div
               key={index}
-              className={`px-3 py-2 cursor-pointer text-white text-sm transition-colors ${
+              className={`px-3 py-2 cursor-pointer text-gray-900 text-sm transition-colors ${
                 index === activeIndex 
-                  ? 'bg-amber-600 text-white' 
-                  : 'hover:bg-slate-600'
+                  ? 'bg-amber-100 text-amber-800' 
+                  : 'hover:bg-gray-100'
               }`}
               onClick={() => {
                 onSelect(suggestion);
