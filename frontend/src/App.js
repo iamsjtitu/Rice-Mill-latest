@@ -458,6 +458,32 @@ function MainApp({ user, onLogout }) {
     }
   };
 
+  // Auto-fill from Vehicle Weight RST number
+  const rstTimerRef = useRef(null);
+  const fetchVehicleWeightByRst = useCallback(async (rstNo) => {
+    if (!rstNo || isNaN(rstNo)) return;
+    try {
+      const res = await axios.get(`${API}/vehicle-weight/by-rst/${rstNo}?kms_year=${filters.kms_year || ''}`);
+      if (res.data.success && res.data.entry) {
+        const vw = res.data.entry;
+        setFormData(prev => ({
+          ...prev,
+          truck_no: vw.vehicle_no || prev.truck_no,
+          agent_name: vw.party_name || prev.agent_name,
+          mandi_name: vw.farmer_name || prev.mandi_name,
+        }));
+        toast.success(`RST #${rstNo} से auto-fill: ${vw.vehicle_no} | ${vw.party_name}`);
+      }
+    } catch {
+      // RST not found in vehicle weight - ignore silently
+    }
+  }, [filters.kms_year]);
+
+  const debouncedRstLookup = useCallback((rstNo) => {
+    if (rstTimerRef.current) clearTimeout(rstTimerRef.current);
+    rstTimerRef.current = setTimeout(() => fetchVehicleWeightByRst(rstNo), 600);
+  }, [fetchVehicleWeightByRst]);
+
   const fetchEntries = useCallback(async () => {
     try {
       setLoading(true);
@@ -1648,7 +1674,14 @@ function MainApp({ user, onLogout }) {
                       <Label className="text-slate-300">RST No.</Label>
                       <Input
                         value={formData.rst_no}
-                        onChange={(e) => setFormData(prev => ({ ...prev, rst_no: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFormData(prev => ({ ...prev, rst_no: val }));
+                          // Auto-fill from Vehicle Weight when RST number entered
+                          if (val && !isNaN(val) && Number(val) > 0) {
+                            debouncedRstLookup(val);
+                          }
+                        }}
                         placeholder="RST Number"
                         className="bg-slate-700 border-slate-600 text-white"
                         data-testid="input-rst-no"

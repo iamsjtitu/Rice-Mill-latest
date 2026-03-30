@@ -50,6 +50,18 @@ async def get_next_rst(kms_year: str = ""):
     return {"rst_no": rst}
 
 
+@router.get("/vehicle-weight/by-rst/{rst_no}")
+async def get_by_rst(rst_no: int, kms_year: str = ""):
+    """Lookup vehicle weight entry by RST number - used by Entries form auto-fill."""
+    query = {"rst_no": rst_no}
+    if kms_year:
+        query["kms_year"] = kms_year
+    entry = await db["vehicle_weights"].find_one(query, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="RST not found in Vehicle Weight")
+    return {"success": True, "entry": entry}
+
+
 @router.post("/vehicle-weight")
 async def create_weight_entry(data: dict):
     """Create new weight entry with first weight."""

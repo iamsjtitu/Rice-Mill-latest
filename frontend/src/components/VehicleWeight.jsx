@@ -518,6 +518,7 @@ export default function VehicleWeight({ filters }) {
                   </SelectTrigger>
                   <SelectContent className="bg-slate-700 border-slate-600">
                     <SelectItem value="PADDY">PADDY</SelectItem>
+                    <SelectItem value="GOVT PADDY">GOVT PADDY</SelectItem>
                     <SelectItem value="RICE">RICE</SelectItem>
                     <SelectItem value="BHUSI">BHUSI</SelectItem>
                     <SelectItem value="KANDA">KANDA</SelectItem>

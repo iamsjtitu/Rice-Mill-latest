@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.9.0";
+const APP_VERSION = "55.10.0";
 
 const CHANGELOG = [
+  {
+    version: "55.10.0",
+    date: "Mar 2026",
+    title: "v55.10.0 - VW RST Auto-fill + Govt Paddy",
+    items: [
+      { type: "new", text: "Entries: RST No. dalte hi Vehicle Weight se auto-fill (Truck, Agent, Mandi)" },
+      { type: "new", text: "Vehicle Weight: GOVT PADDY option add kiya Product dropdown mein" },
+    ]
+  },
   {
     version: "55.9.0",
     date: "Mar 2026",
