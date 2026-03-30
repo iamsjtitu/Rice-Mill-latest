@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.16.0";
+const APP_VERSION = "55.17.0";
 
 const CHANGELOG = [
+  {
+    version: "55.17.0",
+    date: "Mar 2026",
+    title: "v55.17.0 - RST Net Weight Auto-fill",
+    items: [
+      { type: "new", text: "Entries mai RST No. dalte hi Net Weight (KG) b auto aata hai Vehicle Weight se" },
+    ]
+  },
   {
     version: "55.16.0",
     date: "Mar 2026",

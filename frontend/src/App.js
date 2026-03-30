@@ -472,8 +472,10 @@ function MainApp({ user, onLogout }) {
           truck_no: vw.vehicle_no || prev.truck_no,
           agent_name: vw.party_name || prev.agent_name,
           mandi_name: vw.farmer_name || prev.mandi_name,
+          kg: vw.net_wt ? String(vw.net_wt) : prev.kg,
         }));
-        toast.success(`RST #${rstNo} से auto-fill: ${vw.vehicle_no} | ${vw.party_name}`);
+        const netInfo = vw.net_wt ? ` | Net: ${Number(vw.net_wt).toLocaleString()} KG` : '';
+        toast.success(`RST #${rstNo} से auto-fill: ${vw.vehicle_no} | ${vw.party_name}${netInfo}`);
       }
     } catch {
       // RST not found in vehicle weight - ignore silently
