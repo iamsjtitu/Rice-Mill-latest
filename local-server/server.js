@@ -878,6 +878,10 @@ async function startServer() {
     const voucherPaymentsRoutes = require('./routes/voucher_payments')(database);
     app.use(voucherPaymentsRoutes);
 
+    // Vehicle Weight routes
+    const vehicleWeightRoutes = require('./routes/vehicle_weight')(database);
+    app.use(vehicleWeightRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
