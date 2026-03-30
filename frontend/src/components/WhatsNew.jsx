@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.35.0";
+const APP_VERSION = "55.36.0";
 
 const CHANGELOG = [
+  {
+    version: "55.36.0",
+    date: "Mar 2026",
+    title: "v55.36.0 - IP Camera + PDF Fix + WhatsApp Fix",
+    items: [
+      { type: "new", text: "IP Camera support - Settings > Camera mai ab IP camera URL se connect karo" },
+      { type: "fix", text: "Download Slip PDF fix - ulta layout theek kiya, dono copies + signatures" },
+      { type: "fix", text: "WhatsApp toggle OFF fix - ab OFF karne par sahi save hota hai" },
+      { type: "fix", text: "PDF fonts bade kiye, gaps improve kiye, Hindi labels add kiye" },
+    ]
+  },
   {
     version: "55.35.0",
     date: "Mar 2026",
