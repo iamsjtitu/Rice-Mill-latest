@@ -27,6 +27,10 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - **Photo Dialog Fix** (Mar 2026): Photo sections always visible with "No Photo" placeholders.
 - **Photo Zoom** (Mar 2026): Click any photo in dialog to open full-screen zoom overlay.
 - **Edit+Delete Hide** (Mar 2026): Both Edit and Delete buttons hidden in VW & AWE tabs when entry is linked to Mill Entry.
+- **Pkts→Bags Rename** (Mar 2026): All "Pkts/Packets" renamed to "Bags" across tables, exports, print slips, WhatsApp, Telegram.
+- **RST Auto-fill Bags** (Mar 2026): RST auto-fill now includes bags (tot_pkts → bag field).
+- **Pending VW Badge** (Mar 2026): Red notification badge on Auto Weight Entries tab showing count of pending VW entries.
+- **Photo Zoom** (Mar 2026): Click any photo to open full-screen zoom overlay.
 
 ## Key API Changes
 - `/api/entries?page=1&page_size=200` - Paginated mill entries
