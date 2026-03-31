@@ -1097,8 +1097,8 @@ function MainApp({ user, onLogout }) {
       mandi_name: "", 
       kms_year: CURRENT_FY,
       season: "",
-      date_from: "",
-      date_to: ""
+      date_from: todayStr,
+      date_to: todayStr
     });
   };
 
