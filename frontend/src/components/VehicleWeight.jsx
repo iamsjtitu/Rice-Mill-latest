@@ -147,9 +147,13 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         setCamUrl(url);
         if (url) { setActive(true); setImgError(false); }
       } else if (type === "vigi") {
+        const frontIp = cfg.vigiFrontIp || '';
+        const sideIp = cfg.vigiSideIp || '';
         const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
-        if (ch && cfg.vigiIp) {
-          const params = new URLSearchParams({ channel: ch, fps: '3', nvr_ip: cfg.vigiIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
+        const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
+        const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
+        if (deviceIp && channel) {
+          const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
           setCamUrl(`${API}/vigi-stream?${params.toString()}`);
           setActive(true); setImgError(false);
         }
@@ -165,9 +169,13 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
           setCamUrl(url);
           if (url) { setActive(true); setImgError(false); }
         } else if (cfg.type === "vigi") {
+          const frontIp = cfg.vigiFrontIp || '';
+          const sideIp = cfg.vigiSideIp || '';
           const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
-          if (ch && cfg.vigiIp) {
-            const params = new URLSearchParams({ channel: ch, fps: '3', nvr_ip: cfg.vigiIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
+          const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
+          const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
+          if (deviceIp && channel) {
+            const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
             setCamUrl(`${API}/vigi-stream?${params.toString()}`);
             setActive(true); setImgError(false);
           }
