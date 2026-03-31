@@ -64,6 +64,17 @@ module.exports = function cameraProxyRoutes(router) {
       if (agent) opts.agent = agent;
 
       const req1 = mod.request(opts, (res1) => {
+        // Follow redirects
+        if ([301, 302, 303, 307, 308].includes(res1.statusCode) && res1.headers.location) {
+          res1.resume();
+          let newUrl = res1.headers.location;
+          try {
+            const parsed = new URL(newUrl.startsWith('/') ? `${protocol}://${host}${newUrl}` : newUrl);
+            const newProto = parsed.protocol === 'https:' ? 'https' : 'http';
+            return httpSnapshot(parsed.hostname, parsed.pathname + parsed.search, username, password, newProto).then(resolve).catch(reject);
+          } catch { reject(new Error('Bad redirect URL')); return; }
+        }
+
         if (res1.statusCode !== 401) {
           const chunks = [];
           res1.on('data', c => chunks.push(c));
@@ -88,6 +99,16 @@ module.exports = function cameraProxyRoutes(router) {
           headers: { 'Authorization': authHeader, 'User-Agent': 'MillEntrySystem/1.0' }, timeout: 8000 };
         if (agent) opts2.agent = agent;
         const req2 = mod.request(opts2, (res2) => {
+          // Follow redirects after auth too
+          if ([301, 302, 303, 307, 308].includes(res2.statusCode) && res2.headers.location) {
+            res2.resume();
+            let newUrl = res2.headers.location;
+            try {
+              const parsed = new URL(newUrl.startsWith('/') ? `${protocol}://${host}${newUrl}` : newUrl);
+              const newProto = parsed.protocol === 'https:' ? 'https' : 'http';
+              return httpSnapshot(parsed.hostname, parsed.pathname + parsed.search, username, password, newProto).then(resolve).catch(reject);
+            } catch { reject(new Error('Bad redirect URL')); return; }
+          }
           const chunks = [];
           res2.on('data', c => chunks.push(c));
           res2.on('end', () => resolve({ status: res2.statusCode, body: Buffer.concat(chunks) }));

@@ -1,11 +1,12 @@
 /**
  * VIGI Camera/NVR Proxy – Direct snapshot via HTTP/HTTPS OpenAPI (no ffmpeg!)
  * Supports: NVR (with channels) + Direct Camera IP (single channel)
- * Uses Digest Authentication. Tries HTTP first, then HTTPS.
+ * Uses Digest Authentication. Follows 301/302 redirects. Tries HTTP then HTTPS.
  */
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const url = require('url');
 
 module.exports = function vigiProxyRoutes(router, database) {
 
@@ -23,110 +24,131 @@ module.exports = function vigiProxyRoutes(router, database) {
     const parts = {};
     const regex = /(\w+)="([^"]+)"/g;
     let match;
-    while ((match = regex.exec(header)) !== null) {
-      parts[match[1]] = match[2];
-    }
+    while ((match = regex.exec(header)) !== null) parts[match[1]] = match[2];
     const qopMatch = header.match(/qop=([^,\s]+)/);
     if (qopMatch && !parts.qop) parts.qop = qopMatch[1].replace(/"/g, '');
     return parts;
   }
 
-  /**
-   * Make authenticated request to VIGI device with Digest auth.
-   * Tries HTTP first (port 80), then HTTPS (port 443) as fallback.
-   */
-  function vigiRequest(deviceIp, path, username, password, forceProtocol) {
-    return new Promise(async (resolve, reject) => {
-      const protocols = forceProtocol === 'https' ? ['https'] :
-                        forceProtocol === 'http'  ? ['http'] :
-                        ['http', 'https']; // Try HTTP first (most NVRs/cameras use HTTP)
+  /** Single HTTP/HTTPS request that follows redirects (max 5) */
+  function rawRequest(fullUrl, headers, maxRedirects) {
+    return new Promise((resolve, reject) => {
+      if (maxRedirects <= 0) return reject(new Error('Too many redirects'));
 
-      let lastError = null;
-      for (const proto of protocols) {
-        try {
-          const result = await _doDigestRequest(deviceIp, path, username, password, proto);
-          return resolve(result);
-        } catch (err) {
-          lastError = err;
-          console.log(`[VIGI] ${proto.toUpperCase()} failed for ${deviceIp}: ${err.message}, trying next...`);
+      const parsed = new URL(fullUrl);
+      const isHttps = parsed.protocol === 'https:';
+      const mod = isHttps ? https : http;
+      const agent = isHttps ? new https.Agent({ rejectUnauthorized: false }) : undefined;
+
+      const opts = {
+        hostname: parsed.hostname,
+        port: parsed.port || (isHttps ? 443 : 80),
+        path: parsed.pathname + parsed.search,
+        method: 'GET',
+        headers: { 'User-Agent': 'MillEntrySystem/1.0', ...headers },
+        timeout: 10000
+      };
+      if (agent) opts.agent = agent;
+
+      const req = mod.request(opts, (res) => {
+        // Follow redirects
+        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+          res.resume();
+          let newUrl = res.headers.location;
+          if (newUrl.startsWith('/')) {
+            newUrl = `${parsed.protocol}//${parsed.host}${newUrl}`;
+          }
+          console.log(`[VIGI] Following redirect ${res.statusCode} → ${newUrl}`);
+          return rawRequest(newUrl, headers, maxRedirects - 1).then(resolve).catch(reject);
         }
-      }
-      reject(lastError || new Error('All protocols failed'));
+
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => resolve({
+          status: res.statusCode,
+          headers: res.headers,
+          body: Buffer.concat(chunks),
+          finalUrl: fullUrl
+        }));
+      });
+
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
+      req.end();
     });
   }
 
-  function _doDigestRequest(host, path, username, password, protocol) {
-    return new Promise((resolve, reject) => {
-      const isHttps = protocol === 'https';
-      const mod = isHttps ? https : http;
-      const port = isHttps ? 443 : 80;
-      const agent = isHttps ? new https.Agent({ rejectUnauthorized: false }) : undefined;
+  /**
+   * Digest Auth request with redirect following.
+   * Step 1: Hit the URL → get 401 + Digest challenge (or follow redirects)
+   * Step 2: Build Digest auth header → hit again
+   */
+  async function digestRequest(deviceIp, path, username, password) {
+    // Try HTTP first, then HTTPS
+    const protocols = ['http', 'https'];
+    let lastError = null;
 
-      const opts1 = {
-        hostname: host, port, path, method: 'GET',
-        headers: { 'User-Agent': 'MillEntrySystem/1.0' },
-        timeout: 8000
-      };
-      if (agent) opts1.agent = agent;
+    for (const proto of protocols) {
+      try {
+        const baseUrl = `${proto}://${deviceIp}${path}`;
 
-      const req1 = mod.request(opts1, (res1) => {
-        if (res1.statusCode !== 401) {
-          const chunks = [];
-          res1.on('data', c => chunks.push(c));
-          res1.on('end', () => resolve({ status: res1.statusCode, headers: res1.headers, body: Buffer.concat(chunks) }));
-          return;
+        // Step 1: Initial request (expect 401 for Digest, or snapshot directly)
+        const res1 = await rawRequest(baseUrl, {}, 5);
+
+        // If we got the image directly (no auth needed)
+        if (res1.status === 200 && res1.body.length > 100) {
+          return res1;
         }
-        res1.resume();
 
+        // If NOT 401, this protocol doesn't work
+        if (res1.status !== 401) {
+          lastError = new Error(`${proto}: HTTP ${res1.status}, body ${res1.body.length} bytes`);
+          console.log(`[VIGI] ${proto} returned ${res1.status} (not 401), trying next...`);
+          continue;
+        }
+
+        // Step 2: Got 401, do Digest auth
         const wwwAuth = res1.headers['www-authenticate'] || '';
         const challenge = parseDigestChallenge(wwwAuth);
         if (!challenge || !challenge.nonce) {
-          reject(new Error('No digest challenge received'));
-          return;
+          lastError = new Error(`${proto}: No digest nonce in 401 response`);
+          continue;
         }
 
-        const realm = challenge.realm || 'TP-LINK IP-Camera';
+        const realm = challenge.realm || '';
         const nonce = challenge.nonce;
         const qop = challenge.qop || 'auth';
         const nc = '00000001';
         const cnonce = crypto.randomBytes(8).toString('hex');
         const algorithm = (challenge.algorithm || 'MD5').toUpperCase();
 
+        // Use the final URL's path for the digest URI (in case of redirects)
+        const digestPath = path;
         let ha1, ha2, response;
         if (algorithm === 'SHA-256') {
           const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
           ha1 = sha256(`${username}:${realm}:${password}`);
-          ha2 = sha256(`GET:${path}`);
+          ha2 = sha256(`GET:${digestPath}`);
           response = sha256(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`);
         } else {
           ha1 = md5(`${username}:${realm}:${password}`);
-          ha2 = md5(`GET:${path}`);
+          ha2 = md5(`GET:${digestPath}`);
           response = md5(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`);
         }
 
-        const authHeader = `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${path}", algorithm=${algorithm}, response="${response}", qop=${qop}, nc=${nc}, cnonce="${cnonce}"`;
+        const authHeader = `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${digestPath}", algorithm=${algorithm}, response="${response}", qop=${qop}, nc=${nc}, cnonce="${cnonce}"`;
 
-        const opts2 = {
-          hostname: host, port, path, method: 'GET',
-          headers: { 'Authorization': authHeader, 'User-Agent': 'MillEntrySystem/1.0' },
-          timeout: 8000
-        };
-        if (agent) opts2.agent = agent;
+        // Step 3: Authenticated request (also follows redirects)
+        const res2 = await rawRequest(baseUrl, { 'Authorization': authHeader }, 5);
+        return res2;
 
-        const req2 = mod.request(opts2, (res2) => {
-          const chunks = [];
-          res2.on('data', c => chunks.push(c));
-          res2.on('end', () => resolve({ status: res2.statusCode, headers: res2.headers, body: Buffer.concat(chunks) }));
-        });
-        req2.on('error', reject);
-        req2.on('timeout', () => { req2.destroy(); reject(new Error(`${protocol} timeout`)); });
-        req2.end();
-      });
+      } catch (err) {
+        lastError = err;
+        console.log(`[VIGI] ${proto} failed for ${deviceIp}: ${err.message}`);
+      }
+    }
 
-      req1.on('error', reject);
-      req1.on('timeout', () => { req1.destroy(); reject(new Error(`${protocol} connection timeout`)); });
-      req1.end();
-    });
+    throw lastError || new Error('All protocols failed');
   }
 
   /** GET /api/vigi-snapshot?channel=X&nvr_ip=...&username=...&password=... */
@@ -140,14 +162,14 @@ module.exports = function vigiProxyRoutes(router, database) {
     if (!deviceIp) return res.status(400).json({ error: 'Device IP not configured' });
 
     try {
-      const result = await vigiRequest(deviceIp, `/snapshot?channel=${channel}`, username, password);
+      const result = await digestRequest(deviceIp, `/snapshot?channel=${channel}`, username, password);
       if (result.status === 200 && result.body.length > 100) {
         res.set('Content-Type', 'image/jpeg');
         res.set('Cache-Control', 'no-cache, no-store');
         res.send(result.body);
       } else {
         console.error(`[VIGI] Snapshot failed: status=${result.status}, bodyLen=${result.body.length}`);
-        res.status(502).json({ error: 'Snapshot failed', status: result.status });
+        res.status(502).json({ error: 'Snapshot failed', status: result.status, bodyLength: result.body.length });
       }
     } catch (err) {
       console.error('[VIGI] Snapshot error:', err.message);
@@ -181,7 +203,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     const poll = async () => {
       while (running) {
         try {
-          const result = await vigiRequest(deviceIp, `/snapshot?channel=${channel}`, username, password);
+          const result = await digestRequest(deviceIp, `/snapshot?channel=${channel}`, username, password);
           if (result.status === 200 && result.body.length > 100) {
             try {
               res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${result.body.length}\r\n\r\n`);
@@ -199,7 +221,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     poll();
   });
 
-  /** GET /api/vigi-test → Test connection (tries HTTP then HTTPS) */
+  /** GET /api/vigi-test → Test connection (tries HTTP then HTTPS, follows redirects) */
   router.get('/api/vigi-test', async (req, res) => {
     const config = getVigiConfig();
     const deviceIp = req.query.nvr_ip || config.nvr_ip;
@@ -210,7 +232,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     if (!deviceIp) return res.json({ success: false, error: 'IP not set' });
 
     try {
-      const result = await vigiRequest(deviceIp, `/snapshot?channel=${channel}`, username, password);
+      const result = await digestRequest(deviceIp, `/snapshot?channel=${channel}`, username, password);
       if (result.status === 200 && result.body.length > 100) {
         res.json({ success: true, message: `Connected! Snapshot: ${result.body.length} bytes`, imageSize: result.body.length });
       } else {
