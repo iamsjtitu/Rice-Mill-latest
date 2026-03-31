@@ -330,9 +330,6 @@ module.exports = function cameraProxyRoutes(router) {
 
   /** GET /api/camera-snapshot?url=rtsp://... → single JPEG */
   router.get('/api/camera-snapshot', (req, res) => {
-
-  return router;
-};
     const rawUrl = req.query.url;
     if (!rawUrl) return res.status(400).json({ error: 'url required' });
 
@@ -495,3 +492,6 @@ module.exports = function cameraProxyRoutes(router) {
 
     res.json(result);
   });
+
+  return router;
+};
