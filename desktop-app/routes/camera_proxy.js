@@ -330,6 +330,9 @@ module.exports = function cameraProxyRoutes(router) {
 
   /** GET /api/camera-snapshot?url=rtsp://... → single JPEG */
   router.get('/api/camera-snapshot', (req, res) => {
+
+  return router;
+};
     const rawUrl = req.query.url;
     if (!rawUrl) return res.status(400).json({ error: 'url required' });
 
@@ -384,5 +387,36 @@ module.exports = function cameraProxyRoutes(router) {
     setTimeout(() => { try { ffmpeg.kill('SIGKILL'); } catch {} }, 15000);
   });
 
-  return router;
-};
+  /** GET /api/camera-check → Diagnostic info */
+  router.get('/api/camera-check', async (req, res) => {
+    const url = req.query.url || '';
+    const result = { ffmpegPath, ffmpegAvailable: false, urlParsed: null, snapshotTest: null };
+
+    // Check ffmpeg
+    try {
+      const { execSync } = require('child_process');
+      execSync(`"${ffmpegPath}" -version`, { timeout: 5000, stdio: 'pipe' });
+      result.ffmpegAvailable = true;
+    } catch (e) {
+      result.ffmpegError = e.message;
+    }
+
+    // Parse URL
+    if (url) {
+      result.urlParsed = parseRtspUrl(url);
+      result.encodedUrl = encodeRtspUrl(url);
+
+      // Try HTTP snapshot on the camera IP
+      if (result.urlParsed) {
+        const { ip, user, pass } = result.urlParsed;
+        try {
+          const jpeg = await getSnapshot(ip, user, pass);
+          result.snapshotTest = jpeg ? `OK - ${jpeg.length} bytes` : 'Failed - no snapshot endpoint found';
+        } catch (e) {
+          result.snapshotTest = `Error: ${e.message}`;
+        }
+      }
+    }
+
+    res.json(result);
+  });

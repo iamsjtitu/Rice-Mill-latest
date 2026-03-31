@@ -1636,6 +1636,18 @@ function CameraSetupTab() {
     return url;
   };
 
+  const [diagResult, setDiagResult] = useState(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const diagnoseCam = async (url) => {
+    if (!url) { toast.error("URL daalo pehle"); return; }
+    setDiagLoading(true); setDiagResult(null);
+    try {
+      const r = await axios.get(`${API}/camera-check?url=${encodeURIComponent(url)}`, { timeout: 30000 });
+      setDiagResult(r.data);
+    } catch (e) { setDiagResult({ error: e.message }); }
+    setDiagLoading(false);
+  };
+
   // Load saved config
   useEffect(() => {
     try {
