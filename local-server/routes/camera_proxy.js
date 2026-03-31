@@ -42,12 +42,13 @@ module.exports = function cameraProxyRoutes(router) {
 
     const ffmpeg = spawn(ffmpegPath, [
       '-rtsp_transport', 'tcp',
+      '-stimeout', '10000000',
       '-i', safeUrl,
-      '-vf', 'scale=640:-1',
+      '-vf', 'scale=800:-1',
       '-f', 'image2pipe',
       '-vcodec', 'mjpeg',
-      '-q:v', '12',
-      '-r', '3',
+      '-q:v', '8',
+      '-r', '5',
       '-an',
       'pipe:1'
     ], { stdio: ['ignore', 'pipe', 'ignore'] });

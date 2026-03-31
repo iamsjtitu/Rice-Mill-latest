@@ -130,7 +130,54 @@ function openPort(config) {
 
   try {
     activePort = new SerialPort.SerialPort(portConfig);
-    const parser = activePort.pipe(new SerialPort.ReadlineParser({ delimiter: '\r\n' }));
+
+    // Use raw data handler instead of ReadlineParser for better compatibility
+    // Many Indian weighbridges use different line endings (\r, \n, \r\n, or none)
+    let rawBuffer = '';
+    activePort.on('data', (chunk) => {
+      rawBuffer += chunk.toString();
+      // Try to extract weight from accumulated buffer
+      // Split on any line ending or when buffer exceeds threshold
+      const lines = rawBuffer.split(/[\r\n]+/);
+      // Process all complete lines (keep last incomplete chunk in buffer)
+      rawBuffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const parsed = parseWeight(trimmed);
+        if (parsed) {
+          lastWeight = parsed.weight;
+          const wasStable = isStable;
+          isStable = parsed.hasStableFlag || checkStability(parsed.weight);
+
+          sendToRenderer('serial-weight', {
+            weight: parsed.weight,
+            stable: isStable,
+            raw: trimmed,
+            timestamp: Date.now()
+          });
+
+          if (isStable && !wasStable) {
+            console.log(`[Serial] Weight STABLE at ${parsed.weight} KG`);
+          }
+        }
+      }
+      // Fallback: if buffer grows too large (no line endings), try to parse it directly
+      if (rawBuffer.length > 50) {
+        const parsed = parseWeight(rawBuffer);
+        if (parsed) {
+          lastWeight = parsed.weight;
+          isStable = parsed.hasStableFlag || checkStability(parsed.weight);
+          sendToRenderer('serial-weight', {
+            weight: parsed.weight,
+            stable: isStable,
+            raw: rawBuffer.trim(),
+            timestamp: Date.now()
+          });
+        }
+        rawBuffer = '';
+      }
+    });
 
     activePort.open((err) => {
       if (err) {
@@ -142,27 +189,6 @@ function openPort(config) {
       stableBuffer = [];
       isStable = false;
       sendToRenderer('serial-status', { connected: true, port: config.port, baudRate: config.baudRate });
-    });
-
-    parser.on('data', (data) => {
-      const parsed = parseWeight(data);
-      if (parsed) {
-        lastWeight = parsed.weight;
-        const wasStable = isStable;
-        isStable = parsed.hasStableFlag || checkStability(parsed.weight);
-
-        sendToRenderer('serial-weight', {
-          weight: parsed.weight,
-          stable: isStable,
-          raw: data,
-          timestamp: Date.now()
-        });
-
-        // Log when stability changes
-        if (isStable && !wasStable) {
-          console.log(`[Serial] Weight STABLE at ${parsed.weight} KG`);
-        }
-      }
     });
 
     activePort.on('error', (err) => {
