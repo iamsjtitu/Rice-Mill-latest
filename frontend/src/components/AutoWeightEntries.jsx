@@ -71,7 +71,10 @@ export default function AutoWeightEntries({ filters }) {
     if (!ctrl.signal.aborted) setLoading(false);
   }, [kms, page, vwFilters]);
 
-  useEffect(() => { fetchData(); return () => { if (abortRef.current) abortRef.current.abort(); }; }, [fetchData]);
+  useEffect(() => {
+    const timer = setTimeout(() => fetchData(), 300);
+    return () => { clearTimeout(timer); if (abortRef.current) abortRef.current.abort(); };
+  }, [fetchData]);
 
   // ── Action handlers ──
   const handleDelete = async (id) => {

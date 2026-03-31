@@ -430,7 +430,10 @@ export default function VehicleWeight({ filters }) {
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Data fetch error"); }
     if (!ctrl.signal.aborted) setLoading(false);
   }, [kms, vwPage, vwFilters]);
-  useEffect(() => { fetchData(); return () => { if (abortRef.current) abortRef.current.abort(); }; }, [fetchData]);
+  useEffect(() => {
+    const timer = setTimeout(() => fetchData(), 300);
+    return () => { clearTimeout(timer); if (abortRef.current) abortRef.current.abort(); };
+  }, [fetchData]);
 
   const capFirst = () => { if (scale.stable && scale.weight > 0) { setForm(p => ({ ...p, first_wt: String(scale.weight) })); toast.success(`Captured: ${scale.weight} KG`); scale.scheduleNext(); } };
   const capSecond = () => {
