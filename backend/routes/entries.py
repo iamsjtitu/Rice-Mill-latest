@@ -749,16 +749,24 @@ async def get_kms_year_suggestions():
 @router.get("/export/excel")
 async def export_excel(
     truck_no: Optional[str] = None,
+    rst_no: Optional[str] = None,
+    tp_no: Optional[str] = None,
     agent_name: Optional[str] = None,
     mandi_name: Optional[str] = None,
     kms_year: Optional[str] = None,
-    season: Optional[str] = None
+    season: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None
 ):
     """Export entries to styled Excel file"""
     query = {}
     
     if truck_no:
         query["truck_no"] = {"$regex": truck_no, "$options": "i"}
+    if rst_no:
+        query["rst_no"] = {"$regex": rst_no, "$options": "i"}
+    if tp_no:
+        query["tp_no"] = {"$regex": tp_no, "$options": "i"}
     if agent_name:
         query["agent_name"] = {"$regex": agent_name, "$options": "i"}
     if mandi_name:
@@ -767,6 +775,11 @@ async def export_excel(
         query["kms_year"] = kms_year
     if season:
         query["season"] = season
+    if date_from or date_to:
+        dq = {}
+        if date_from: dq["$gte"] = date_from
+        if date_to: dq["$lte"] = date_to
+        if dq: query["date"] = dq
     
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
     
@@ -837,7 +850,7 @@ async def export_excel(
         style_excel_data_rows(ws, data_start, row_num - 1, ncols, headers)
     
     # Totals row
-    totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season)
+    totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season, date_from, date_to)
     totals_data = [
         "TOTAL", "", "", "", "", "",
         round(totals.total_qntl, 2),
@@ -883,10 +896,14 @@ async def export_excel(
 @router.get("/export/pdf")
 async def export_pdf(
     truck_no: Optional[str] = None,
+    rst_no: Optional[str] = None,
+    tp_no: Optional[str] = None,
     agent_name: Optional[str] = None,
     mandi_name: Optional[str] = None,
     kms_year: Optional[str] = None,
-    season: Optional[str] = None
+    season: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None
 ):
     """Export entries to styled PDF file (A4 Landscape)"""
     from reportlab.lib import colors
@@ -900,6 +917,10 @@ async def export_pdf(
     
     if truck_no:
         query["truck_no"] = {"$regex": truck_no, "$options": "i"}
+    if rst_no:
+        query["rst_no"] = {"$regex": rst_no, "$options": "i"}
+    if tp_no:
+        query["tp_no"] = {"$regex": tp_no, "$options": "i"}
     if agent_name:
         query["agent_name"] = {"$regex": agent_name, "$options": "i"}
     if mandi_name:
@@ -908,9 +929,14 @@ async def export_pdf(
         query["kms_year"] = kms_year
     if season:
         query["season"] = season
+    if date_from or date_to:
+        dq = {}
+        if date_from: dq["$gte"] = date_from
+        if date_to: dq["$lte"] = date_to
+        if dq: query["date"] = dq
     
     entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season)
+    totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season, date_from, date_to)
     
     # Create PDF buffer
     buffer = io.BytesIO()

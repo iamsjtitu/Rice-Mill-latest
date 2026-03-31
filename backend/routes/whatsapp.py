@@ -724,3 +724,57 @@ async def scheduled_wa_group_send():
             "status": "failed",
             "error": str(e)
         })
+
+
+@router.post("/whatsapp/send-pdf")
+async def send_pdf_via_whatsapp(data: dict):
+    """Send any internal PDF URL via WhatsApp to default numbers/group."""
+    settings = await _get_wa_settings()
+    if not settings.get("enabled") or not settings.get("api_key"):
+        raise HTTPException(status_code=400, detail="WhatsApp settings configure nahi hai.")
+
+    caption = data.get("text", "Report")
+    pdf_url = data.get("pdf_url", "")
+    if not pdf_url:
+        raise HTTPException(status_code=400, detail="pdf_url required")
+
+    fetch_url = pdf_url
+    if pdf_url.startswith("/api/"):
+        fetch_url = f"http://localhost:8001{pdf_url}"
+
+    public_pdf_url = ""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            pdf_resp = await client.get(fetch_url)
+            if pdf_resp.status_code == 200 and len(pdf_resp.content) > 100:
+                files = {"file": ("report.pdf", pdf_resp.content, "application/pdf")}
+                upload_resp = await client.post("https://tmpfiles.org/api/v1/upload", files=files)
+                if upload_resp.status_code == 200:
+                    tmp_url = upload_resp.json().get("data", {}).get("url", "")
+                    if tmp_url:
+                        public_pdf_url = tmp_url.replace("http://tmpfiles.org/", "https://tmpfiles.org/dl/")
+    except Exception as e:
+        logger.error(f"PDF upload error: {e}")
+
+    if not public_pdf_url:
+        raise HTTPException(status_code=500, detail="PDF upload fail hua")
+
+    default_numbers = settings.get("default_numbers", [])
+    if isinstance(default_numbers, str):
+        default_numbers = [n.strip() for n in default_numbers.split(",") if n.strip()]
+    group_id = settings.get("default_group_id", "").strip() or settings.get("group_id", "").strip()
+
+    results = []
+    if group_id:
+        r = await _send_wa_to_group(group_id, caption, public_pdf_url)
+        results.append({"target": "group", "success": r.get("success", False)})
+    for num in default_numbers:
+        if num and num.strip():
+            r = await _send_wa_message(num.strip(), caption, public_pdf_url)
+            results.append({"target": num, "success": r.get("success", False)})
+
+    if not results:
+        return {"success": False, "error": "Koi number ya group set nahi hai."}
+
+    sent = sum(1 for r in results if r["success"])
+    return {"success": sent > 0, "message": f"{sent}/{len(results)} recipients ko bhej diya!"}

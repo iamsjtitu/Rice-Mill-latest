@@ -46,7 +46,7 @@ import {
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
   Info, Printer, HardDrive, Download, RotateCcw, Shield, ShieldCheck, Sun, Moon,
-  Wheat, Wallet, Package, UserCheck, Send, Eye, Scale
+  Wheat, Wallet, Package, UserCheck, Send, Eye, Scale, ClipboardList
 } from "lucide-react";
 
 // Import extracted components
@@ -76,6 +76,7 @@ import Settings from "@/components/Settings";
 import VehicleWeight from "@/components/VehicleWeight";
 import AutoWeightEntries from "@/components/AutoWeightEntries";
 import PaginationBar from "@/components/PaginationBar";
+import PaddyPurchaseRegister from "@/components/PaddyPurchaseRegister";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -2192,35 +2193,60 @@ function MainApp({ user, onLogout }) {
         ) : (
           <>
             {/* Entries Sub-tabs: Mill Entries | Vehicle Weight */}
-            <div className="flex gap-1 mb-4 border-b border-slate-700 pb-1" data-testid="entries-sub-tabs">
-              <button
+            <div className="flex gap-2 mb-4 border-b border-slate-700 pb-2" data-testid="entries-sub-tabs">
+              <Button
                 onClick={() => setEntriesSubTab("mill-entries")}
-                className={`px-4 py-1.5 rounded-t text-sm font-medium transition ${entriesSubTab === 'mill-entries' ? 'bg-amber-500/20 text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
+                variant={entriesSubTab === 'mill-entries' ? "default" : "ghost"}
+                size="sm"
+                className={entriesSubTab === 'mill-entries'
+                  ? "bg-amber-500 hover:bg-amber-600 text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700"}
                 data-testid="subtab-mill-entries"
               >
-                Mill Entries
-              </button>
-              <button
+                <FileSpreadsheet className="w-4 h-4 mr-1" /> Mill Entries
+              </Button>
+              <Button
                 onClick={() => setEntriesSubTab("vehicle-weight")}
-                className={`px-4 py-1.5 rounded-t text-sm font-medium transition flex items-center gap-1 ${entriesSubTab === 'vehicle-weight' ? 'bg-amber-500/20 text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
+                variant={entriesSubTab === 'vehicle-weight' ? "default" : "ghost"}
+                size="sm"
+                className={entriesSubTab === 'vehicle-weight'
+                  ? "bg-amber-500 hover:bg-amber-600 text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700"}
                 data-testid="subtab-vehicle-weight"
               >
-                <Scale className="w-3.5 h-3.5" /> Auto Vehicle Weight
-              </button>
-              <button
+                <Scale className="w-4 h-4 mr-1" /> Auto Vehicle Weight
+              </Button>
+              <Button
                 onClick={() => setEntriesSubTab("auto-weight-entries")}
-                className={`px-4 py-1.5 rounded-t text-sm font-medium transition flex items-center gap-1 ${entriesSubTab === 'auto-weight-entries' ? 'bg-amber-500/20 text-amber-400 border-b-2 border-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
+                variant={entriesSubTab === 'auto-weight-entries' ? "default" : "ghost"}
+                size="sm"
+                className={entriesSubTab === 'auto-weight-entries'
+                  ? "bg-amber-500 hover:bg-amber-600 text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700"}
                 data-testid="subtab-auto-weight-entries"
               >
-                <CheckCircle className="w-3.5 h-3.5" /> Auto Weight Entries
-                {pendingVwCount > 0 && <span className="ml-1 bg-red-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-pulse" data-testid="pending-vw-badge">{pendingVwCount}</span>}
-              </button>
+                <CheckCircle className="w-4 h-4 mr-1" /> Auto Weight Entries
+                {pendingVwCount > 0 && <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{pendingVwCount}</span>}
+              </Button>
+              <Button
+                onClick={() => setEntriesSubTab("purchase-register")}
+                variant={entriesSubTab === 'purchase-register' ? "default" : "ghost"}
+                size="sm"
+                className={entriesSubTab === 'purchase-register'
+                  ? "bg-amber-500 hover:bg-amber-600 text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700"}
+                data-testid="subtab-purchase-register"
+              >
+                <ClipboardList className="w-4 h-4 mr-1" /> Paddy Purchase Register
+              </Button>
             </div>
 
             {entriesSubTab === "vehicle-weight" ? (
               <VehicleWeight filters={filters} />
             ) : entriesSubTab === "auto-weight-entries" ? (
               <AutoWeightEntries filters={filters} />
+            ) : entriesSubTab === "purchase-register" ? (
+              <PaddyPurchaseRegister filters={filters} />
             ) : (
             <>
             {/* Totals Summary */}
