@@ -1,6 +1,6 @@
 # Mill Entry System PRD
 
-## Current Version: v55.49.0
+## Current Version: v55.61.0
 
 ## Architecture
 - **Web Backend**: Python FastAPI + MongoDB
@@ -8,40 +8,40 @@
 - **Local Server**: Express + Local JSON (LAN access)
 - **Frontend**: React (shared across all 3 backends)
 
-## Recent Completed (This Session)
-- [2026-03-31] Tab switching hang fix (AbortController + debounce in App.js, CashBook.jsx)
-- [2026-03-31] RAM fix: ffmpeg params optimized (scale=800, q:v=8, r=5)
-- [2026-03-31] WhatsApp image sending via tmpfiles.org upload in auto-notify
-- [2026-03-31] Paddy Purchase Register subtab with filters, PDF/Excel, WA/TG send
-- [2026-03-31] Subtab styling fixed (Button component matching main tabs)
-- [2026-03-31] Clear filters resets to today's date
-- [2026-03-31] Toolbar hidden on non-Mill-Entries subtabs
-- [2026-03-31] Serial handler improved (handles any line ending)
-- [2026-03-31] Camera proxy enhanced: -fflags nobuffer, -flags low_delay, error logging
-- [2026-03-31] **VIGI NVR Integration**: Direct snapshot API (no ffmpeg needed!)
-  - New routes: /api/vigi-stream, /api/vigi-snapshot, /api/vigi-test, /api/vigi-config
-  - Digest Authentication (MD5/SHA-256) support
-  - Camera Setup UI: VIGI NVR mode (Recommended) with NVR IP, channels config
-  - Snapshot polling at configurable FPS (no ffmpeg = 0 MB extra RAM)
+## Recent Completed
+- [2026-03-31] Camera Diagnostics Tool - "Diagnose Camera" button in Settings > Camera > IP Camera mode
+  - Backend `/api/camera-check` endpoint with: ffmpeg check, URL parse, TCP port scan (80/554/443/8080), HTTP snapshot test
+  - Hindi diagnosis messages (e.g., "Network nahi mil raha", "Camera chal raha hai!")
+  - Added to both desktop-app and local-server Express backends
+  - Frontend results panel shows URL Parse, Network, Ports, ffmpeg, Snapshot status
+- [2026-03-31] Tab switching crash fix (camera auto-start disabled)
+- [2026-03-31] VIGI NVR Integration (snapshot API, digest auth)
+- [2026-03-31] Camera proxy enhanced: ffmpeg RTSP + HTTP snapshot fallback
+- [2026-03-31] Vehicle Weight PDF redesign + Print custom fields
+- [2026-03-31] Smart Camera Proxy: fallback from ffmpeg to HTTP polling
+- [2026-03-31] HTTP 302 Redirect handling for camera proxy
 
 ## Key API Endpoints
-- GET /api/vigi-stream?channel=X&fps=N → MJPEG stream from NVR
+- GET /api/camera-check?url=rtsp://... → Full camera diagnostics (Desktop/Local only)
+- GET /api/camera-stream?url=rtsp://... → RTSP→MJPEG via ffmpeg
+- GET /api/camera-kill-all → Kill all ffmpeg processes
+- GET /api/vigi-stream?channel=X&fps=N → MJPEG from NVR
 - GET /api/vigi-snapshot?channel=X → Single JPEG from NVR
 - GET /api/vigi-test → Test NVR connection
 - POST/GET /api/vigi-config → Save/Get VIGI NVR settings
-- GET /api/camera-stream?url=rtsp://... → RTSP→MJPEG via ffmpeg (fallback)
 - GET /api/entries, /api/totals, /api/export/excel, /api/export/pdf
-- POST /api/whatsapp/send-pdf
 
 ## 3rd Party Integrations
 - 360Messenger API (WhatsApp), Telegram Bot API
-- tmpfiles.org (free image/PDF hosting for WhatsApp)
-- **VIGI NVR OpenAPI** (direct snapshot, no ffmpeg)
+- tmpfiles.org (free image/PDF hosting)
+- VIGI NVR OpenAPI (direct snapshot)
 
 ## Backlog
-- P1: Export Preview feature
-- P2: App.js refactor, code deduplication
-- P3: SQLite migration
+- P1: Export Preview feature (preview data before Excel/PDF export)
+- P2: Centralize payment/stock logic across triple backends
+- P2: App.js refactor (~2500 lines) - state management + hooks
+- P3: SQLite migration for desktop app (1 Lakh+ entries)
 
 ## Test Reports
-- iteration_148.json: PPR + subtab styling (13/13 PASS)
+- iteration_149.json: Backend/Frontend tests (All PASS)
+- iteration_150.json: Camera Diagnostics feature (100% Frontend PASS, Express code review PASS)
