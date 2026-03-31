@@ -476,7 +476,7 @@ module.exports = function(database) {
 
   router.get('/api/vehicle-weight/linked-rst', safeAsync(async (req, res) => {
     const kmsYear = req.query.kms_year || '';
-    let entries = col('mill_entries');
+    let entries = col('entries');
     if (kmsYear) entries = entries.filter(e => e.kms_year === kmsYear);
     const linked = [...new Set(entries.map(e => parseInt(e.rst_no)).filter(n => !isNaN(n)))];
     res.json({ linked_rst: linked });
@@ -486,7 +486,7 @@ module.exports = function(database) {
   router.get('/api/vehicle-weight/pending-count', safeAsync(async (req, res) => {
     const kmsYear = req.query.kms_year || '';
     let vwEntries = col('vehicle_weights').filter(w => w.status === 'completed');
-    let meEntries = col('mill_entries');
+    let meEntries = col('entries');
     if (kmsYear) { vwEntries = vwEntries.filter(w => w.kms_year === kmsYear); meEntries = meEntries.filter(e => e.kms_year === kmsYear); }
     const vwRsts = new Set(vwEntries.map(w => w.rst_no).filter(Boolean));
     const linked = new Set(meEntries.map(e => parseInt(e.rst_no)).filter(n => !isNaN(n)));
