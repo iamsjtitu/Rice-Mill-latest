@@ -384,5 +384,114 @@ module.exports = function cameraProxyRoutes(router) {
     setTimeout(() => { try { ffmpeg.kill('SIGKILL'); } catch {} }, 15000);
   });
 
+  /** TCP connect test helper */
+  function tcpCheck(host, port, timeoutMs = 4000) {
+    const net = require('net');
+    return new Promise((resolve) => {
+      const sock = new net.Socket();
+      const timer = setTimeout(() => { sock.destroy(); resolve({ open: false, error: 'timeout' }); }, timeoutMs);
+      sock.connect(port, host, () => { clearTimeout(timer); sock.destroy(); resolve({ open: true }); });
+      sock.on('error', (e) => { clearTimeout(timer); sock.destroy(); resolve({ open: false, error: e.code || e.message }); });
+    });
+  }
+
+  /** GET /api/camera-check → Full diagnostic info */
+  router.get('/api/camera-check', async (req, res) => {
+    const url = req.query.url || '';
+    const result = {
+      ffmpegAvailable: false,
+      urlParsed: null,
+      networkReachable: false,
+      portScan: {},
+      snapshotTest: null,
+      diagnosis: '',
+      diagnosisHi: ''
+    };
+
+    // 1. Check ffmpeg
+    try {
+      const { execSync } = require('child_process');
+      execSync(`"${ffmpegPath}" -version`, { timeout: 5000, stdio: 'pipe' });
+      result.ffmpegAvailable = true;
+    } catch (e) {
+      result.ffmpegError = e.message;
+    }
+
+    if (!url) {
+      result.diagnosis = 'No URL provided';
+      result.diagnosisHi = 'URL nahi diya gaya';
+      return res.json(result);
+    }
+
+    // 2. Parse URL
+    result.urlParsed = parseRtspUrl(url);
+    result.encodedUrl = encodeRtspUrl(url);
+
+    if (!result.urlParsed) {
+      result.diagnosis = 'URL format invalid - cannot parse';
+      result.diagnosisHi = 'URL ka format galat hai - parse nahi ho paya';
+      return res.json(result);
+    }
+
+    const { ip, user, pass, port } = result.urlParsed;
+
+    // 3. TCP port scan (80, 554, 443, 8080 + user port)
+    const portsToCheck = [...new Set([80, 554, 443, 8080, parseInt(port) || 554])];
+    const scanPromises = portsToCheck.map(async (p) => {
+      const r = await tcpCheck(ip, p);
+      return [p, r];
+    });
+    const scanResults = await Promise.all(scanPromises);
+    for (const [p, r] of scanResults) {
+      result.portScan[p] = r.open ? 'OPEN' : `CLOSED (${r.error})`;
+      if (r.open) result.networkReachable = true;
+    }
+
+    // 4. Try HTTP snapshot
+    if (result.networkReachable) {
+      try {
+        const jpeg = await getSnapshot(ip, user, pass);
+        result.snapshotTest = jpeg ? `OK - ${jpeg.length} bytes received` : 'Failed - koi bhi snapshot path se image nahi mili';
+      } catch (e) {
+        result.snapshotTest = `Error: ${e.message}`;
+      }
+    }
+
+    // 5. Final diagnosis
+    if (!result.networkReachable) {
+      const firstErr = scanResults[0]?.[1]?.error || 'unknown';
+      if (firstErr === 'ECONNREFUSED') {
+        result.diagnosis = `Camera IP ${ip} refused connection - camera OFF or firewall blocking`;
+        result.diagnosisHi = `Camera IP ${ip} ne connection refuse kiya - camera band hai ya firewall block kar raha hai`;
+      } else if (firstErr === 'EHOSTUNREACH' || firstErr === 'ENETUNREACH') {
+        result.diagnosis = `Camera IP ${ip} is not reachable - you are NOT on the same network as the camera`;
+        result.diagnosisHi = `Camera IP ${ip} tak pahuncha nahi ja raha - aap camera wale network (LAN) pe nahi ho. Mill ka WiFi connect karo`;
+      } else if (firstErr === 'timeout') {
+        result.diagnosis = `Camera IP ${ip} timed out - device not responding or different network`;
+        result.diagnosisHi = `Camera IP ${ip} se koi response nahi aaya - camera band hai ya aap alag network pe ho`;
+      } else {
+        result.diagnosis = `Camera IP ${ip} not reachable: ${firstErr}`;
+        result.diagnosisHi = `Camera IP ${ip} se connect nahi ho paya: ${firstErr}`;
+      }
+    } else if (result.snapshotTest && result.snapshotTest.startsWith('OK')) {
+      result.diagnosis = `Camera is working! Snapshot received successfully`;
+      result.diagnosisHi = `Camera chal raha hai! Snapshot mil gaya`;
+    } else {
+      const rtspOpen = result.portScan[parseInt(port) || 554] === 'OPEN';
+      if (rtspOpen && result.ffmpegAvailable) {
+        result.diagnosis = `Network OK, RTSP port open, but HTTP snapshot failed. ffmpeg RTSP stream should work`;
+        result.diagnosisHi = `Network OK hai, RTSP port khula hai, HTTP snapshot nahi mila. ffmpeg RTSP stream chal sakta hai`;
+      } else if (rtspOpen) {
+        result.diagnosis = `Network OK, RTSP port open, but ffmpeg not found. Install ffmpeg for RTSP`;
+        result.diagnosisHi = `Network OK hai, RTSP port khula hai lekin ffmpeg nahi mila. ffmpeg install karo`;
+      } else {
+        result.diagnosis = `Network reachable but camera ports closed. Check camera settings`;
+        result.diagnosisHi = `Network mil raha hai lekin camera ke ports band hain. Camera ki settings check karo`;
+      }
+    }
+
+    res.json(result);
+  });
+
   return router;
 };

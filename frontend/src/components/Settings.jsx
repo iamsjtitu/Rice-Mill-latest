@@ -2044,6 +2044,96 @@ function CameraSetupTab() {
                   )}
                 </div>
               </div>
+
+              {/* Diagnose Button */}
+              <div className="mt-4 space-y-3">
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => diagnoseCam(frontUrl || sideUrl)}
+                    disabled={diagLoading || (!frontUrl && !sideUrl)}
+                    size="sm"
+                    className="bg-orange-700 hover:bg-orange-600 text-white"
+                    data-testid="camera-diagnose-btn"
+                  >
+                    {diagLoading ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <AlertCircle className="w-4 h-4 mr-1.5" />}
+                    {diagLoading ? 'Checking...' : 'Diagnose Camera'}
+                  </Button>
+                  <p className="text-slate-500 text-[10px] self-center">Camera connect nahi ho raha? Isse click karke wajah pata karein</p>
+                </div>
+
+                {diagResult && (
+                  <div className={`rounded-lg border p-3 text-xs space-y-2 ${
+                    diagResult.error ? 'bg-red-900/20 border-red-700/50' :
+                    diagResult.networkReachable && diagResult.snapshotTest?.startsWith('OK') ? 'bg-green-900/20 border-green-700/50' :
+                    'bg-amber-900/20 border-amber-700/50'
+                  }`} data-testid="camera-diagnose-result">
+                    {/* Diagnosis Summary */}
+                    <div className="flex items-start gap-2">
+                      {diagResult.error ? (
+                        <CameraOff className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                      ) : diagResult.networkReachable && diagResult.snapshotTest?.startsWith('OK') ? (
+                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                      )}
+                      <div>
+                        <p className="font-semibold text-white text-sm">
+                          {diagResult.error ? 'Diagnose Error' : diagResult.diagnosisHi || diagResult.diagnosis}
+                        </p>
+                        {diagResult.error && <p className="text-red-300 mt-1">{diagResult.error}</p>}
+                      </div>
+                    </div>
+
+                    {!diagResult.error && (
+                      <div className="space-y-1.5 pt-1 border-t border-slate-700">
+                        {/* URL Parse */}
+                        {diagResult.urlParsed && (
+                          <div className="flex gap-2">
+                            <span className="text-slate-500 w-20">URL Parse:</span>
+                            <span className="text-green-400">OK - IP: {diagResult.urlParsed.ip}, Port: {diagResult.urlParsed.port}, User: {diagResult.urlParsed.user || 'none'}</span>
+                          </div>
+                        )}
+                        {/* Network */}
+                        <div className="flex gap-2">
+                          <span className="text-slate-500 w-20">Network:</span>
+                          <span className={diagResult.networkReachable ? 'text-green-400' : 'text-red-400'}>
+                            {diagResult.networkReachable ? 'Reachable' : 'NOT Reachable'}
+                          </span>
+                        </div>
+                        {/* Port Scan */}
+                        {diagResult.portScan && Object.keys(diagResult.portScan).length > 0 && (
+                          <div className="flex gap-2">
+                            <span className="text-slate-500 w-20">Ports:</span>
+                            <span className="text-slate-300">
+                              {Object.entries(diagResult.portScan).map(([p, s]) => (
+                                <span key={p} className={`mr-2 ${s === 'OPEN' ? 'text-green-400' : 'text-red-400'}`}>
+                                  {p}: {s}
+                                </span>
+                              ))}
+                            </span>
+                          </div>
+                        )}
+                        {/* ffmpeg */}
+                        <div className="flex gap-2">
+                          <span className="text-slate-500 w-20">ffmpeg:</span>
+                          <span className={diagResult.ffmpegAvailable ? 'text-green-400' : 'text-amber-400'}>
+                            {diagResult.ffmpegAvailable ? 'Available' : 'Not Found'}
+                          </span>
+                        </div>
+                        {/* Snapshot Test */}
+                        {diagResult.snapshotTest && (
+                          <div className="flex gap-2">
+                            <span className="text-slate-500 w-20">Snapshot:</span>
+                            <span className={diagResult.snapshotTest.startsWith('OK') ? 'text-green-400' : 'text-red-400'}>
+                              {diagResult.snapshotTest}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             /* ─── USB Webcam Mode ─── */
