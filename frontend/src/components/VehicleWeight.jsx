@@ -148,8 +148,9 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         if (url) { setActive(true); setImgError(false); }
       } else if (type === "vigi") {
         const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
-        if (ch) {
-          setCamUrl(`${API}/vigi-stream?channel=${ch}&fps=3`);
+        if (ch && cfg.vigiIp) {
+          const params = new URLSearchParams({ channel: ch, fps: '3', nvr_ip: cfg.vigiIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
+          setCamUrl(`${API}/vigi-stream?${params.toString()}`);
           setActive(true); setImgError(false);
         }
       }
@@ -165,8 +166,9 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
           if (url) { setActive(true); setImgError(false); }
         } else if (cfg.type === "vigi") {
           const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
-          if (ch) {
-            setCamUrl(`${API}/vigi-stream?channel=${ch}&fps=3`);
+          if (ch && cfg.vigiIp) {
+            const params = new URLSearchParams({ channel: ch, fps: '3', nvr_ip: cfg.vigiIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
+            setCamUrl(`${API}/vigi-stream?${params.toString()}`);
             setActive(true); setImgError(false);
           }
         }
@@ -189,10 +191,18 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 
   const getSnapshotUrl = useCallback((url) => {
     if (!url) return "";
-    // VIGI stream - use vigi-snapshot endpoint
+    // VIGI stream - use vigi-snapshot endpoint with same params
     if (url.includes('/api/vigi-stream')) {
-      const ch = new URL(url, 'http://localhost').searchParams.get('channel');
-      return `${API}/vigi-snapshot?channel=${ch}`;
+      const u = new URL(url, 'http://localhost');
+      const ch = u.searchParams.get('channel');
+      const nvrIp = u.searchParams.get('nvr_ip') || '';
+      const user = u.searchParams.get('username') || '';
+      const pass = u.searchParams.get('password') || '';
+      const params = new URLSearchParams({ channel: ch });
+      if (nvrIp) params.set('nvr_ip', nvrIp);
+      if (user) params.set('username', user);
+      if (pass) params.set('password', pass);
+      return `${API}/vigi-snapshot?${params.toString()}`;
     }
     if (url.toLowerCase().startsWith("rtsp://")) {
       return `${API}/camera-snapshot?url=${encodeURIComponent(url)}`;
@@ -208,8 +218,16 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
       // VIGI mode: fetch snapshot directly from API (no CORS issues)
       if (camType === "vigi" && camUrl.includes('/api/vigi-stream')) {
         try {
-          const ch = new URL(camUrl, 'http://localhost').searchParams.get('channel');
-          const resp = await fetch(`${API}/vigi-snapshot?channel=${ch}`);
+          const u = new URL(camUrl, 'http://localhost');
+          const ch = u.searchParams.get('channel');
+          const nvrIp = u.searchParams.get('nvr_ip') || '';
+          const user = u.searchParams.get('username') || '';
+          const pass = u.searchParams.get('password') || '';
+          const params = new URLSearchParams({ channel: ch });
+          if (nvrIp) params.set('nvr_ip', nvrIp);
+          if (user) params.set('username', user);
+          if (pass) params.set('password', pass);
+          const resp = await fetch(`${API}/vigi-snapshot?${params.toString()}`);
           if (resp.ok) {
             const blob = await resp.blob();
             return new Promise((resolve) => {
@@ -294,10 +312,10 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
   }, []);
 
   const renderFeed = (imgRefToUse, vidRefToUse, cssClass) => {
-    if (camType === "ip") {
+    if (camType === "ip" || camType === "vigi") {
       return imgError ? (
         <div className={`${cssClass} flex items-center justify-center bg-red-900/30`}>
-          <p className="text-red-400 text-[9px] text-center px-2">IP Camera connect nahi ho paya.<br/>URL check karein.</p>
+          <p className="text-red-400 text-[9px] text-center px-2">{camType === "vigi" ? "NVR" : "IP Camera"} connect nahi ho paya.<br/>{camType === "vigi" ? "NVR settings check karein." : "URL check karein."}</p>
         </div>
       ) : (
         <img ref={imgRefToUse} src={displayUrl} alt={label} className={`${cssClass} object-cover`}
@@ -320,6 +338,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
             {active ? 'LIVE' : 'OFF'}
           </Badge>
           {camType === "ip" && <Badge className="text-[7px] px-1 py-0 bg-blue-700">IP</Badge>}
+          {camType === "vigi" && <Badge className="text-[7px] px-1 py-0 bg-green-700">NVR</Badge>}
         </div>
         <button onClick={(e) => { e.stopPropagation(); toggle(); }} className="absolute top-1 right-1 z-10 bg-black/60 rounded px-1.5 py-0.5 text-[8px] text-white hover:bg-black/80" data-testid="camera-toggle-btn">
           {active ? 'Stop' : 'Start'}
@@ -331,8 +350,8 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-900">
               <div className="text-center">
-                {camType === "ip" ? <Wifi className="w-4 h-4 text-blue-500 mx-auto" /> : <Camera className="w-4 h-4 text-gray-600 mx-auto" />}
-                <p className="text-gray-500 text-[7px] mt-0.5">{label || "Camera"} {camType === "ip" ? "(IP)" : ""}</p>
+                {(camType === "ip" || camType === "vigi") ? <Wifi className="w-4 h-4 text-blue-500 mx-auto" /> : <Camera className="w-4 h-4 text-gray-600 mx-auto" />}
+                <p className="text-gray-500 text-[7px] mt-0.5">{label || "Camera"} {camType === "ip" ? "(IP)" : camType === "vigi" ? "(NVR)" : ""}</p>
               </div>
             </div>
           )}
@@ -348,12 +367,13 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
                 <Camera className="w-4 h-4 text-green-400" /> {label || "Camera"}
                 <Badge className="bg-green-600 text-[9px] ml-1">LIVE</Badge>
                 {camType === "ip" && <Badge className="bg-blue-700 text-[9px]">IP Camera</Badge>}
+                {camType === "vigi" && <Badge className="bg-green-700 text-[9px]">NVR</Badge>}
               </span>
               <button onClick={() => setZoomed(false)} className="text-gray-400 hover:text-white text-xs bg-gray-800 rounded px-2 py-1">
                 ESC
               </button>
             </div>
-            {camType === "ip" ? (
+            {(camType === "ip" || camType === "vigi") ? (
               <img ref={zoomImgRef} src={displayUrl} alt={label} className="w-full aspect-video object-contain bg-black" crossOrigin="anonymous" />
             ) : (
               <video ref={zoomVideoRef} className="w-full aspect-video object-contain bg-black" autoPlay muted playsInline />

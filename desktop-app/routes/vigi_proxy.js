@@ -116,8 +116,8 @@ module.exports = function vigiProxyRoutes(router, database) {
 
     const config = getVigiConfig();
     const nvrIp = req.query.nvr_ip || config.nvr_ip;
-    const username = config.username || 'admin';
-    const password = config.password || '';
+    const username = req.query.username || config.username || 'admin';
+    const password = req.query.password || config.password || '';
 
     if (!nvrIp) return res.status(400).json({ error: 'VIGI NVR IP not configured' });
 
@@ -144,8 +144,8 @@ module.exports = function vigiProxyRoutes(router, database) {
 
     const config = getVigiConfig();
     const nvrIp = req.query.nvr_ip || config.nvr_ip;
-    const username = config.username || 'admin';
-    const password = config.password || '';
+    const username = req.query.username || config.username || 'admin';
+    const password = req.query.password || config.password || '';
     const fps = parseInt(req.query.fps) || 2;
     const interval = Math.max(200, Math.floor(1000 / fps));
 
@@ -183,7 +183,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     poll();
   });
 
-  /** GET /api/vigi-test → Test NVR connection */
+  /** GET /api/vigi-test → Test NVR connection (already accepts query params) */
   router.get('/api/vigi-test', async (req, res) => {
     const config = getVigiConfig();
     const nvrIp = req.query.nvr_ip || config.nvr_ip;

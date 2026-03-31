@@ -1860,7 +1860,7 @@ function CameraSetupTab() {
                   <p className="text-slate-400 text-xs mb-1">Front (Ch {vigiFrontCh || '?'})</p>
                   <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[180px]">
                     {vigiIp && vigiFrontCh ? (
-                      <img src={`${API}/vigi-stream?channel=${vigiFrontCh}&fps=2`}
+                      <img src={`${API}/vigi-stream?channel=${vigiFrontCh}&fps=2&nvr_ip=${encodeURIComponent(vigiIp)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}`}
                         alt="Front" className="w-full h-full object-contain"
                         onError={() => {}} />
                     ) : (
@@ -1874,7 +1874,7 @@ function CameraSetupTab() {
                   <p className="text-slate-400 text-xs mb-1">Side (Ch {vigiSideCh || '?'})</p>
                   <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[180px]">
                     {vigiIp && vigiSideCh ? (
-                      <img src={`${API}/vigi-stream?channel=${vigiSideCh}&fps=2`}
+                      <img src={`${API}/vigi-stream?channel=${vigiSideCh}&fps=2&nvr_ip=${encodeURIComponent(vigiIp)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}`}
                         alt="Side" className="w-full h-full object-contain"
                         onError={() => {}} />
                     ) : (
