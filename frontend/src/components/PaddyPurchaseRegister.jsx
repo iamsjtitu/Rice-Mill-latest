@@ -4,11 +4,28 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, FileText, Send, Filter, X, Loader2 } from "lucide-react";
+import { Download, FileText, Filter, X, Loader2, Users } from "lucide-react";
+import { useMessagingEnabled } from "@/hooks/useMessagingEnabled";
+import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
+const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "");
+const API = `${BACKEND_URL}/api`;
+
+const WhatsAppIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+  </svg>
+);
+
+const TelegramIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+  </svg>
+);
 
 export default function PaddyPurchaseRegister({ filters: globalFilters }) {
+  const { wa, tg } = useMessagingEnabled();
   const [entries, setEntries] = useState([]);
   const [totals, setTotals] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -17,16 +34,14 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [groupText, setGroupText] = useState("");
+  const [groupPdfUrl, setGroupPdfUrl] = useState("");
   const PAGE_SIZE = 100;
 
   const [regFilters, setRegFilters] = useState({
-    date_from: "",
-    date_to: "",
-    rst_no: "",
-    tp_no: "",
-    truck_no: "",
-    agent_name: "",
-    mandi_name: ""
+    date_from: "", date_to: "", rst_no: "", tp_no: "",
+    truck_no: "", agent_name: "", mandi_name: ""
   });
 
   const abortRef = useRef(null);
@@ -40,13 +55,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
       const params = new URLSearchParams();
       if (globalFilters.kms_year) params.append("kms_year", globalFilters.kms_year);
       if (globalFilters.season) params.append("season", globalFilters.season);
-      if (regFilters.date_from) params.append("date_from", regFilters.date_from);
-      if (regFilters.date_to) params.append("date_to", regFilters.date_to);
-      if (regFilters.rst_no) params.append("rst_no", regFilters.rst_no);
-      if (regFilters.tp_no) params.append("tp_no", regFilters.tp_no);
-      if (regFilters.truck_no) params.append("truck_no", regFilters.truck_no);
-      if (regFilters.agent_name) params.append("agent_name", regFilters.agent_name);
-      if (regFilters.mandi_name) params.append("mandi_name", regFilters.mandi_name);
+      Object.entries(regFilters).forEach(([k, v]) => { if (v) params.append(k, v); });
       params.append("page", p);
       params.append("page_size", PAGE_SIZE);
 
@@ -78,58 +87,45 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
     const params = new URLSearchParams();
     if (globalFilters.kms_year) params.append("kms_year", globalFilters.kms_year);
     if (globalFilters.season) params.append("season", globalFilters.season);
-    if (regFilters.date_from) params.append("date_from", regFilters.date_from);
-    if (regFilters.date_to) params.append("date_to", regFilters.date_to);
-    if (regFilters.rst_no) params.append("rst_no", regFilters.rst_no);
-    if (regFilters.tp_no) params.append("tp_no", regFilters.tp_no);
-    if (regFilters.truck_no) params.append("truck_no", regFilters.truck_no);
-    if (regFilters.agent_name) params.append("agent_name", regFilters.agent_name);
-    if (regFilters.mandi_name) params.append("mandi_name", regFilters.mandi_name);
+    Object.entries(regFilters).forEach(([k, v]) => { if (v) params.append(k, v); });
     return params.toString();
   };
 
-  const downloadExcel = () => {
-    window.open(`${API}/export/excel?${buildExportParams()}`, "_blank");
-  };
-
-  const downloadPDF = () => {
-    window.open(`${API}/export/pdf?${buildExportParams()}`, "_blank");
+  const dateLabel = () => {
+    if (regFilters.date_from && regFilters.date_to) return `${regFilters.date_from} to ${regFilters.date_to}`;
+    return regFilters.date_from || regFilters.date_to || "All Dates";
   };
 
   const sendWhatsApp = async () => {
     setSending("wa");
     try {
-      const pdfUrl = `/api/export/pdf?${buildExportParams()}`;
-      const dateLabel = regFilters.date_from && regFilters.date_to
-        ? `${regFilters.date_from} to ${regFilters.date_to}`
-        : regFilters.date_from || regFilters.date_to || "All Dates";
       const res = await axios.post(`${API}/whatsapp/send-pdf`, {
-        pdf_url: pdfUrl,
-        text: `Paddy Purchase Register - ${dateLabel} | FY: ${globalFilters.kms_year || "All"} | ${totalCount} entries`
+        pdf_url: `/api/export/pdf?${buildExportParams()}`,
+        text: `*Paddy Purchase Register*\n${dateLabel()} | FY: ${globalFilters.kms_year || "All"} | ${totalCount} entries`
       });
       if (res.data.success) toast.success(res.data.message || "WhatsApp bhej diya!");
       else toast.error(res.data.error || "WhatsApp send fail");
-    } catch (e) {
-      toast.error(e.response?.data?.detail || "WhatsApp send error");
-    } finally { setSending(""); }
+    } catch (e) { toast.error(e.response?.data?.detail || "WhatsApp send error"); }
+    finally { setSending(""); }
+  };
+
+  const openGroupDialog = () => {
+    setGroupText(`*Paddy Purchase Register*\n${dateLabel()} | FY: ${globalFilters.kms_year || "All"} | ${totalCount} entries`);
+    setGroupPdfUrl(`/api/export/pdf?${buildExportParams()}`);
+    setGroupDialogOpen(true);
   };
 
   const sendTelegram = async () => {
     setSending("tg");
     try {
-      const pdfUrl = `/api/export/pdf?${buildExportParams()}`;
-      const dateLabel = regFilters.date_from && regFilters.date_to
-        ? `${regFilters.date_from} to ${regFilters.date_to}`
-        : regFilters.date_from || regFilters.date_to || "All Dates";
       const res = await axios.post(`${API}/telegram/send-custom`, {
-        pdf_url: pdfUrl,
-        text: `Paddy Purchase Register - ${dateLabel} | FY: ${globalFilters.kms_year || "All"} | ${totalCount} entries`
+        pdf_url: `/api/export/pdf?${buildExportParams()}`,
+        text: `Paddy Purchase Register | ${dateLabel()} | FY: ${globalFilters.kms_year || "All"} | ${totalCount} entries`
       });
       if (res.data.success) toast.success(res.data.message || "Telegram bhej diya!");
       else toast.error("Telegram send fail");
-    } catch (e) {
-      toast.error(e.response?.data?.detail || "Telegram send error");
-    } finally { setSending(""); }
+    } catch (e) { toast.error(e.response?.data?.detail || "Telegram send error"); }
+    finally { setSending(""); }
   };
 
   const clearFilters = () => {
@@ -157,24 +153,34 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
             className="border-slate-600 text-slate-300" data-testid="ppr-toggle-filters">
             <Filter className="w-4 h-4 mr-1" /> Filters
           </Button>
-          <Button size="sm" onClick={downloadExcel} className="bg-green-700 hover:bg-green-600 text-white"
-            data-testid="ppr-download-excel">
+          <Button size="sm" onClick={() => window.open(`${API}/export/excel?${buildExportParams()}`, "_blank")}
+            className="bg-green-700 hover:bg-green-600 text-white" data-testid="ppr-download-excel">
             <Download className="w-4 h-4 mr-1" /> Excel
           </Button>
-          <Button size="sm" onClick={downloadPDF} className="bg-red-700 hover:bg-red-600 text-white"
-            data-testid="ppr-download-pdf">
+          <Button size="sm" onClick={() => window.open(`${API}/export/pdf?${buildExportParams()}`, "_blank")}
+            className="bg-red-700 hover:bg-red-600 text-white" data-testid="ppr-download-pdf">
             <FileText className="w-4 h-4 mr-1" /> PDF
           </Button>
-          <Button size="sm" onClick={sendWhatsApp} disabled={!!sending}
-            className="bg-green-600 hover:bg-green-500 text-white" data-testid="ppr-send-wa">
-            {sending === "wa" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
-            WhatsApp
-          </Button>
-          <Button size="sm" onClick={sendTelegram} disabled={!!sending}
-            className="bg-blue-600 hover:bg-blue-500 text-white" data-testid="ppr-send-tg">
-            {sending === "tg" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Send className="w-4 h-4 mr-1" />}
-            Telegram
-          </Button>
+          {wa && (
+            <Button size="sm" onClick={sendWhatsApp} disabled={!!sending}
+              className="bg-[#25D366] hover:bg-[#1da851] text-white" data-testid="ppr-send-wa">
+              {sending === "wa" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <WhatsAppIcon />}
+              <span className="ml-1">WhatsApp</span>
+            </Button>
+          )}
+          {wa && (
+            <Button size="sm" onClick={openGroupDialog} variant="outline"
+              className="border-teal-600 text-teal-400 hover:bg-teal-900/30" data-testid="ppr-send-wa-group">
+              <Users className="w-4 h-4 mr-1" /> Group
+            </Button>
+          )}
+          {tg && (
+            <Button size="sm" onClick={sendTelegram} disabled={!!sending}
+              className="bg-[#0088cc] hover:bg-[#006da3] text-white" data-testid="ppr-send-tg">
+              {sending === "tg" ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <TelegramIcon />}
+              <span className="ml-1">Telegram</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -288,7 +294,6 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
                 <td className="p-2 text-right">{e.g_issued || "-"}</td>
               </tr>
             ))}
-            {/* Totals row */}
             {totals && entries.length > 0 && (
               <tr className="border-t-2 border-amber-500/50 bg-amber-500/10 font-semibold text-amber-300">
                 <td colSpan={7} className="p-2 text-right">TOTAL</td>
@@ -319,6 +324,10 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
             disabled={page >= totalPages} className="border-slate-600 text-slate-300 h-8">Next</Button>
         </div>
       )}
+
+      {/* WhatsApp Group Send Dialog */}
+      <SendToGroupDialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}
+        text={groupText} pdfUrl={groupPdfUrl} />
     </div>
   );
 }
