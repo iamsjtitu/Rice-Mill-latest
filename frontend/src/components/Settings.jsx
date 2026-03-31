@@ -1648,6 +1648,20 @@ function CameraSetupTab() {
     setDiagLoading(false);
   };
 
+  const [vigiDiagResult, setVigiDiagResult] = useState(null);
+  const [vigiDiagLoading, setVigiDiagLoading] = useState(false);
+  const diagnoseVigi = async () => {
+    const ip = vigiFrontIp || vigiSideIp || vigiIp;
+    if (!ip) { toast.error("Camera/NVR IP daalo pehle"); return; }
+    setVigiDiagLoading(true); setVigiDiagResult(null);
+    try {
+      const ch = vigiFrontIp ? '1' : (vigiFrontCh || '1');
+      const r = await axios.get(`${API}/vigi-diagnose?ip=${encodeURIComponent(ip)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}&channel=${ch}`, { timeout: 30000 });
+      setVigiDiagResult(r.data);
+    } catch (e) { setVigiDiagResult({ error: e.message }); }
+    setVigiDiagLoading(false);
+  };
+
   // Load saved config
   useEffect(() => {
     try {
@@ -1887,11 +1901,16 @@ function CameraSetupTab() {
               </div>
 
               {/* Test & Preview */}
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2 items-center flex-wrap">
                 <Button onClick={testVigiConnection} disabled={vigiTesting || (!vigiIp && !vigiFrontIp)}
                   size="sm" className="bg-green-700 hover:bg-green-600 text-white" data-testid="vigi-test-btn">
                   {vigiTesting ? <RefreshCw className="w-4 h-4 mr-1 animate-spin" /> : <Wifi className="w-4 h-4 mr-1" />}
                   Test Connection
+                </Button>
+                <Button onClick={diagnoseVigi} disabled={vigiDiagLoading || (!vigiIp && !vigiFrontIp && !vigiSideIp)}
+                  size="sm" className="bg-orange-700 hover:bg-orange-600 text-white" data-testid="vigi-diagnose-btn">
+                  {vigiDiagLoading ? <RefreshCw className="w-4 h-4 mr-1 animate-spin" /> : <AlertCircle className="w-4 h-4 mr-1" />}
+                  {vigiDiagLoading ? 'Checking...' : 'Diagnose'}
                 </Button>
                 {vigiTestResult && (
                   <span className={`text-xs ${vigiTestResult.success ? 'text-green-400' : 'text-red-400'}`}>
@@ -1899,6 +1918,88 @@ function CameraSetupTab() {
                   </span>
                 )}
               </div>
+
+              {/* VIGI Diagnose Results */}
+              {vigiDiagResult && (
+                <div className={`rounded-lg border p-3 text-xs space-y-2 ${
+                  vigiDiagResult.error ? 'bg-red-900/20 border-red-700/50' :
+                  vigiDiagResult.snapshotTest?.startsWith('OK') ? 'bg-green-900/20 border-green-700/50' :
+                  'bg-amber-900/20 border-amber-700/50'
+                }`} data-testid="vigi-diagnose-result">
+                  <div className="flex items-start gap-2">
+                    {vigiDiagResult.error ? (
+                      <CameraOff className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                    ) : vigiDiagResult.snapshotTest?.startsWith('OK') ? (
+                      <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                    )}
+                    <div>
+                      <p className="font-semibold text-white text-sm">
+                        {vigiDiagResult.error ? 'Diagnose Error' : vigiDiagResult.diagnosisHi || vigiDiagResult.diagnosis}
+                      </p>
+                      {vigiDiagResult.error && <p className="text-red-300 mt-1">{vigiDiagResult.error}</p>}
+                    </div>
+                  </div>
+
+                  {!vigiDiagResult.error && (
+                    <div className="space-y-1.5 pt-1 border-t border-slate-700">
+                      <div className="flex gap-2">
+                        <span className="text-slate-500 w-20">IP:</span>
+                        <span className="text-slate-300">{vigiDiagResult.ip}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="text-slate-500 w-20">Network:</span>
+                        <span className={vigiDiagResult.networkReachable ? 'text-green-400' : 'text-red-400'}>
+                          {vigiDiagResult.networkReachable ? 'Reachable' : 'NOT Reachable'}
+                        </span>
+                      </div>
+                      {vigiDiagResult.portScan && Object.keys(vigiDiagResult.portScan).length > 0 && (
+                        <div className="flex gap-2">
+                          <span className="text-slate-500 w-20">Ports:</span>
+                          <span className="text-slate-300">
+                            {Object.entries(vigiDiagResult.portScan).map(([p, s]) => (
+                              <span key={p} className={`mr-2 ${s === 'OPEN' ? 'text-green-400' : 'text-red-400'}`}>
+                                {p}: {s}
+                              </span>
+                            ))}
+                          </span>
+                        </div>
+                      )}
+                      {vigiDiagResult.httpAccess && (
+                        <div className="flex gap-2">
+                          <span className="text-slate-500 w-20">HTTP:</span>
+                          <span className={vigiDiagResult.httpAccess === 'OK' ? 'text-green-400' : 'text-amber-400'}>
+                            {vigiDiagResult.httpAccess}
+                          </span>
+                        </div>
+                      )}
+                      {vigiDiagResult.digestAuth && (
+                        <div className="flex gap-2">
+                          <span className="text-slate-500 w-20">Auth:</span>
+                          <span className={vigiDiagResult.digestAuth === 'OK' ? 'text-green-400' : 'text-red-400'}>
+                            {vigiDiagResult.digestAuth}
+                          </span>
+                        </div>
+                      )}
+                      {vigiDiagResult.snapshotTest && (
+                        <div className="flex gap-2">
+                          <span className="text-slate-500 w-20">Snapshot:</span>
+                          <span className={vigiDiagResult.snapshotTest.startsWith('OK') ? 'text-green-400' : 'text-red-400'}>
+                            {vigiDiagResult.snapshotTest}
+                          </span>
+                        </div>
+                      )}
+                      {vigiDiagResult.snapshotPath && (
+                        <div className="flex gap-2">
+                          <span className="text-slate-500 w-20">Path:</span>
+                          <span className="text-green-400">{vigiDiagResult.snapshotPath}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Preview boxes */}
               <div className="grid grid-cols-2 gap-3">

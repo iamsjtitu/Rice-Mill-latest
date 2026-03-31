@@ -256,6 +256,118 @@ module.exports = function vigiProxyRoutes(router, database) {
     res.json({ success: false, error: `Camera ${deviceIp} pe koi snapshot endpoint nahi mila. Ye camera HTTP snapshot support nahi karta - RTSP mode use karein.` });
   });
 
+  /** GET /api/vigi-diagnose → Full VIGI camera diagnostics */
+  router.get('/api/vigi-diagnose', async (req, res) => {
+    const deviceIp = req.query.ip || '';
+    const username = req.query.username || 'admin';
+    const password = req.query.password || '';
+    const channel = req.query.channel || '1';
+
+    const result = {
+      ip: deviceIp,
+      networkReachable: false,
+      portScan: {},
+      httpAccess: null,
+      digestAuth: null,
+      snapshotTest: null,
+      snapshotPath: null,
+      diagnosis: '',
+      diagnosisHi: ''
+    };
+
+    if (!deviceIp) {
+      result.diagnosis = 'No IP provided';
+      result.diagnosisHi = 'Camera/NVR ka IP nahi diya gaya';
+      return res.json(result);
+    }
+
+    // 1. TCP port scan
+    const net = require('net');
+    function tcpCheck(host, port, timeoutMs = 4000) {
+      return new Promise((resolve) => {
+        const sock = new net.Socket();
+        const timer = setTimeout(() => { sock.destroy(); resolve({ open: false, error: 'timeout' }); }, timeoutMs);
+        sock.connect(port, host, () => { clearTimeout(timer); sock.destroy(); resolve({ open: true }); });
+        sock.on('error', (e) => { clearTimeout(timer); sock.destroy(); resolve({ open: false, error: e.code || e.message }); });
+      });
+    }
+
+    const portsToCheck = [80, 443, 554, 8080];
+    const scanResults = await Promise.all(portsToCheck.map(async (p) => {
+      const r = await tcpCheck(deviceIp, p);
+      return [p, r];
+    }));
+    for (const [p, r] of scanResults) {
+      result.portScan[p] = r.open ? 'OPEN' : `CLOSED (${r.error})`;
+      if (r.open) result.networkReachable = true;
+    }
+
+    if (!result.networkReachable) {
+      const firstErr = scanResults[0]?.[1]?.error || 'unknown';
+      if (firstErr === 'EHOSTUNREACH' || firstErr === 'ENETUNREACH') {
+        result.diagnosis = `IP ${deviceIp} not reachable - not on same network`;
+        result.diagnosisHi = `IP ${deviceIp} tak pahuncha nahi ja raha - aap camera wale network (LAN) pe nahi ho. Mill ka WiFi connect karo`;
+      } else if (firstErr === 'ECONNREFUSED') {
+        result.diagnosis = `IP ${deviceIp} refused connection - device OFF or firewall`;
+        result.diagnosisHi = `IP ${deviceIp} ne connection refuse kiya - device band hai ya firewall block kar raha hai`;
+      } else if (firstErr === 'timeout') {
+        result.diagnosis = `IP ${deviceIp} timed out - device not responding or different network`;
+        result.diagnosisHi = `IP ${deviceIp} se koi response nahi aaya - device band hai ya aap alag network pe ho`;
+      } else {
+        result.diagnosis = `IP ${deviceIp} not reachable: ${firstErr}`;
+        result.diagnosisHi = `IP ${deviceIp} se connect nahi ho paya: ${firstErr}`;
+      }
+      return res.json(result);
+    }
+
+    // 2. HTTP access + Digest Auth + Snapshot test
+    const paths = [
+      `/snapshot?channel=${channel}`,
+      '/cgi-bin/snapshot.cgi',
+      `/cgi-bin/snapshot.cgi?channel=${channel}`,
+      '/ISAPI/Streaming/channels/101/picture',
+      '/snap.jpg',
+      '/onvif-http/snapshot',
+    ];
+
+    for (const path of paths) {
+      try {
+        const r = await digestRequest(deviceIp, path, username, password);
+        result.httpAccess = 'OK';
+        if (r.status === 200 && r.body.length > 100) {
+          result.digestAuth = 'OK';
+          result.snapshotTest = `OK - ${r.body.length} bytes`;
+          result.snapshotPath = path;
+          result.diagnosis = 'Camera working! Snapshot received successfully';
+          result.diagnosisHi = `Camera chal raha hai! Snapshot mil gaya (${path})`;
+          return res.json(result);
+        } else if (r.status === 401) {
+          result.digestAuth = 'FAILED - wrong username/password';
+        } else {
+          result.httpAccess = `HTTP ${r.status}`;
+        }
+      } catch (err) {
+        if (err.message.includes('No digest nonce')) {
+          result.httpAccess = 'OK';
+          result.digestAuth = 'No Digest Auth support on this path';
+        }
+      }
+    }
+
+    // No snapshot found
+    if (result.digestAuth && result.digestAuth.startsWith('FAILED')) {
+      result.snapshotTest = 'Not tested - auth failed';
+      result.diagnosis = 'Network OK but wrong username/password';
+      result.diagnosisHi = 'Network OK hai lekin username ya password galat hai. Credentials check karo';
+    } else {
+      result.snapshotTest = 'Failed - no working snapshot path found';
+      result.diagnosis = 'Network OK but no HTTP snapshot endpoint found. Camera may not support HTTP snapshots';
+      result.diagnosisHi = 'Network OK hai lekin koi snapshot endpoint nahi mila. Ye camera HTTP snapshot support nahi karta - RTSP mode try karo';
+    }
+
+    res.json(result);
+  });
+
   /** POST /api/vigi-config → Save settings */
   router.post('/api/vigi-config', (req, res) => {
     try {
