@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "55.61.0";
+const APP_VERSION = "56.0.0";
 
 const CHANGELOG = [
+  {
+    version: "56.0.0",
+    date: "Mar 2026",
+    title: "v56.0.0 - Camera Fix + Diagnostics Tool",
+    items: [
+      { type: "fix", text: "CRITICAL: Camera module crash fix - camera_proxy.js mein syntax error tha jisse KOI BHI camera route kaam nahi karta tha (stream, snapshot, kill-all sab 404 deta tha)" },
+      { type: "new", text: "Camera Diagnose: IP Camera settings mein 'Diagnose Camera' button - network check, port scan, ffmpeg check, snapshot test sab ek click mein" },
+      { type: "new", text: "VIGI Diagnose: VIGI NVR settings mein 'Diagnose' button - TCP port scan, HTTP access, Digest Auth check, snapshot path discovery" },
+      { type: "fix", text: "Hindi diagnosis messages - 'Network nahi mil raha', 'Password galat hai', 'Camera chal raha hai' jaise clear messages" },
+    ]
+  },
   {
     version: "55.43.0",
     date: "Mar 2026",
