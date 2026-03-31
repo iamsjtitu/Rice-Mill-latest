@@ -12,14 +12,14 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 ### Triple Backend Parity
 Any logic change in Python MUST be replicated in both JS backends (desktop-app + local-server).
 
-## Current Version: v55.44.0
+## Current Version: v55.45.0
 
 ## What's Implemented
 - Full CRUD for Mill Entries, Vehicle Weight, Private Paddy, Cash Book
 - Server-Side Pagination
 - Auto Vehicle Weight tracking (WhatsApp/Telegram integration)
 - Bulk PDF/Excel exports for all modules
-- Custom Branding in exports (custom_fields above/below company name) — ALL 3 BACKENDS
+- Custom Branding in exports (custom_fields) — ALL 3 BACKENDS
 - Default "Today" filters for CashBook, Mill Entries, Vehicle Weight
 - "Auto Weight Entries" subtab with 7-day view
 - Red notification badge for pending vehicle weights
@@ -27,28 +27,31 @@ Any logic change in Python MUST be replicated in both JS backends (desktop-app +
 - Linked RST logic (hide edit/delete, show checkmark)
 - Global "Pkts" to "Bags" rename
 - GitHub Actions workflow for .exe build
-- API Request Debouncing + AbortController (prevents app freeze on rapid tab switching)
+- API Request Debouncing + AbortController (prevents app freeze)
 - WhatsApp image sending via tmpfiles.org upload (Desktop/Local backends)
 - Optimized camera streaming (reduced ffmpeg resolution/quality/framerate)
+- **Paddy Purchase Register** - New subtab with independent filters, PDF/Excel export, WhatsApp/Telegram send
+- Subtab styling consistent with main tabs (Button component)
+- Clear filters resets to today's date (not empty)
 
 ## Recent Completed
-- [2026-03-31] Fixed high RAM usage from camera streaming (ffmpeg):
-  - Reduced ffmpeg resolution to 640px width (scale=640:-1)
-  - Reduced framerate from 10fps to 3fps
-  - Reduced quality from q:v=5 to q:v=12
-  - Applied to both desktop-app and local-server camera_proxy.js
-  - Expected RAM reduction: ~60-70% per ffmpeg process
+- [2026-03-31] New "Paddy Purchase Register" subtab:
+  - Independent filters: From/To Date, RST, TP, Truck, Agent, Mandi
+  - Data table with all entry columns and TOTAL row
+  - PDF/Excel download buttons
+  - WhatsApp and Telegram send with PDF
+  - Backend export endpoints updated with date_from, date_to, rst_no, tp_no filters
+  - New /whatsapp/send-pdf endpoint for sending any PDF via WhatsApp
+  - Testing: 13/13 passed (iteration_148)
 
-- [2026-03-31] Fixed WhatsApp images not sending in auto-notify:
-  - Added uploadImageForWa() helper that uploads images to tmpfiles.org
-  - WhatsApp auto-notify now sends text + images (via public URL)
-  - Updated sendWaMessage() to support mediaUrl parameter
-  - Applied to both desktop-app and local-server vehicle_weight.js
-  - Python backend already had correct image sending (uses public server URL)
+- [2026-03-31] Subtab font/styling fix:
+  - Subtabs now use Button component matching main tab styling
+  - Consistent font size across all subtabs
 
-- [2026-03-31] Fixed app freeze/hang on rapid tab switching:
-  - Added AbortController + 300ms debounce to App.js and CashBook.jsx
-  - Testing: 7/7 tests passed (iteration_147)
+- [2026-03-31] Clear Filters bug fix:
+  - clearFilters() now resets dates to todayStr instead of empty strings
+
+- [2026-03-31] RAM fix + WhatsApp image fix + Tab switching hang fix
 
 ## Backlog (Prioritized)
 ### P1
@@ -63,27 +66,23 @@ Any logic change in Python MUST be replicated in both JS backends (desktop-app +
 - SQLite migration for desktop app (100k+ entries performance)
 
 ## Key API Endpoints
+- GET /api/entries (supports all filters + pagination)
+- GET /api/totals (supports all filters)
+- GET /api/export/excel (supports date_from, date_to, rst_no, tp_no, truck_no, agent, mandi, kms_year, season)
+- GET /api/export/pdf (supports same filters)
+- POST /api/whatsapp/send-pdf (sends any internal PDF via WhatsApp)
+- POST /api/telegram/send-custom (sends any internal PDF via Telegram)
 - POST/GET/PUT/DELETE /api/vehicle-weight
-- GET /api/vehicle-weight/{id}/slip-pdf
-- GET /api/vehicle-weight/export/pdf
-- GET /api/vehicle-weight/export/excel
-- GET /api/vehicle-weight/pending-count
-- POST /api/vehicle-weight/auto-notify
 - GET/PUT /api/branding
-- GET /api/entries
-- GET /api/totals
 - GET /api/cash-book
-
-## DB Schema (Key)
-- `branding`: {company_name, tagline, custom_fields}
-- `vehicle_weights`: {id, date, rst_no, vehicle_no, party_name, farmer_name, first_wt, second_wt, net_wt, first_wt_front_img, first_wt_side_img, second_wt_front_img, second_wt_side_img}
 
 ## 3rd Party Integrations
 - 360Messenger API (WhatsApp) — requires User API Key
 - Telegram Bot API — requires User Bot Token
-- tmpfiles.org — free image hosting for WhatsApp media URLs (no API key)
+- tmpfiles.org — free image/PDF hosting for WhatsApp media URLs (no API key)
 
 ## Test Reports
 - iteration_145.json: Custom branding in VW exports (8/8 PASS)
 - iteration_146.json: Rapid tab switching fix (5/5 PASS)
 - iteration_147.json: RAM fix + WhatsApp image fix (7/7 PASS)
+- iteration_148.json: Paddy Purchase Register + subtab styling (13/13 PASS)
