@@ -47,7 +47,7 @@ const CashBook = ({ filters, user }) => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const PAGE_SIZE = 200;
+  const PAGE_SIZE = 30;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [customCategories, setCustomCategories] = useState([]);
   const [form, setForm] = useState({
@@ -356,7 +356,7 @@ const CashBook = ({ filters, user }) => {
 
   const handlePartyClick = (p) => {
     setActiveView("transactions");
-    setTxnFilters(prev => ({ ...prev, category: p.party_name, party_type: p.party_type || "" }));
+    setTxnFilters(prev => ({ ...prev, category: p.party_name, party_type: p.party_type || "", date_from: "", date_to: "" }));
   };
 
   const handleObSubmit = async (e) => {
@@ -488,12 +488,12 @@ const CashBook = ({ filters, user }) => {
       {/* Sub-tabs */}
       <div className="flex gap-2 flex-wrap items-center">
         <div className="flex bg-slate-800 rounded-lg p-0.5 border border-slate-700">
-          <Button onClick={() => { setActiveView("cash-transactions"); setTxnFilters(prev => ({ ...prev, category: "", party_type: "" })); }} variant="ghost" size="sm"
+          <Button onClick={() => { setActiveView("cash-transactions"); const today = new Date().toISOString().split('T')[0]; setTxnFilters(prev => ({ ...prev, category: "", party_type: "", date_from: today, date_to: today })); }} variant="ghost" size="sm"
             className={activeView === "cash-transactions" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
             data-testid="cashbook-tab-cash-transactions">
             <Banknote className="w-4 h-4 mr-1" /> Cash Transactions
           </Button>
-          <Button onClick={() => { setActiveView("transactions"); setTxnFilters(prev => ({ ...prev, category: "", party_type: "" })); }} variant="ghost" size="sm"
+          <Button onClick={() => { setActiveView("transactions"); setTxnFilters(prev => ({ ...prev, category: "", party_type: "", date_from: "", date_to: "" })); }} variant="ghost" size="sm"
             className={activeView === "transactions" ? "bg-amber-500 text-slate-900 hover:bg-amber-600" : "text-slate-300 hover:bg-slate-700"}
             data-testid="cashbook-tab-transactions">
             <Wallet className="w-4 h-4 mr-1" /> Party Ledgers
