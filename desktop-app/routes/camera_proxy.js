@@ -36,6 +36,14 @@ module.exports = function cameraProxyRoutes(router) {
     for (const [id] of activeProcesses) cleanupProcess(id);
   }
 
+  /** GET /api/camera-kill-all → Force kill ALL active camera streams */
+  router.get('/api/camera-kill-all', (req, res) => {
+    const count = activeProcesses.size;
+    cleanupAllProcesses();
+    console.log(`[Camera] Force killed ${count} active streams`);
+    res.json({ killed: count });
+  });
+
   /** Encode special chars in RTSP credentials (e.g. @ in password) */
   function encodeRtspUrl(raw) {
     const m = raw.match(/^(rtsp:\/\/)([^:]+):(.+)@([^@]+)$/);

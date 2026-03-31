@@ -329,6 +329,8 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
     // Immediately disconnect MJPEG streams (kills ffmpeg on server)
     if (imgRef.current) { imgRef.current.src = ""; imgRef.current.removeAttribute('src'); }
     if (zoomImgRef.current) { zoomImgRef.current.src = ""; zoomImgRef.current.removeAttribute('src'); }
+    // Force kill any lingering ffmpeg processes on server
+    try { axios.get(`${API}/camera-kill-all`).catch(() => {}); } catch {}
   }, []);
 
   const renderFeed = (imgRefToUse, vidRefToUse, cssClass) => {

@@ -213,6 +213,21 @@ function MainApp({ user, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("entries"); // "entries", "dashboard", "payments", "milling", "settings"
   const [entriesSubTab, setEntriesSubTab] = useState("mill-entries"); // "mill-entries" | "vehicle-weight" | "auto-weight-entries"
+
+  // Kill camera streams when switching away from vehicle-weight
+  const setActiveTabSafe = useCallback((tab) => {
+    if (activeTab === "entries" && entriesSubTab === "vehicle-weight" && tab !== "entries") {
+      try { axios.get(`${API}/camera-kill-all`).catch(() => {}); } catch {}
+    }
+    setActiveTab(tab);
+  }, [activeTab, entriesSubTab]);
+
+  const setEntriesSubTabSafe = useCallback((sub) => {
+    if (entriesSubTab === "vehicle-weight" && sub !== "vehicle-weight") {
+      try { axios.get(`${API}/camera-kill-all`).catch(() => {}); } catch {}
+    }
+    setEntriesSubTab(sub);
+  }, [entriesSubTab]);
   const [pendingVwCount, setPendingVwCount] = useState(0);
   const { wa, tg } = useMessagingEnabled();
   const [entryGroupDialogOpen, setEntryGroupDialogOpen] = useState(false);
@@ -773,10 +788,10 @@ function MainApp({ user, onLogout }) {
         };
         if (tabMap[e.key]) {
           e.preventDefault();
-          setActiveTab(tabMap[e.key]);
+          setActiveTabSafe(tabMap[e.key]);
           toast.info(`${tabNames[tabMap[e.key]]} (Alt+${e.key.toUpperCase()})`);
         }
-        if (e.key === 'n') { e.preventDefault(); setActiveTab("entries"); setIsDialogOpen(true); setEditingId(null); setFormData(initialFormState); toast.info("New Entry (Alt+N)"); }
+        if (e.key === 'n') { e.preventDefault(); setActiveTabSafe("entries"); setIsDialogOpen(true); setEditingId(null); setFormData(initialFormState); toast.info("New Entry (Alt+N)"); }
         if (e.key === 'r') { e.preventDefault(); fetchEntries(); fetchTotals(); toast.info("Refreshed (Alt+R)"); }
         if (e.key === 'f') { e.preventDefault(); setShowFilters(true); toast.info("Filters (Alt+F)"); }
       }
@@ -1410,7 +1425,7 @@ function MainApp({ user, onLogout }) {
           {/* Tab Navigation */}
           <div className="flex gap-2 mt-4 border-b border-slate-700 pb-2">
             <Button
-              onClick={() => setActiveTab("entries")}
+              onClick={() => setActiveTabSafe("entries")}
               variant={activeTab === "entries" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "entries" 
@@ -1422,7 +1437,7 @@ function MainApp({ user, onLogout }) {
               Entries
             </Button>
             <Button
-              onClick={() => setActiveTab("dashboard")}
+              onClick={() => setActiveTabSafe("dashboard")}
               variant={activeTab === "dashboard" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "dashboard" 
@@ -1434,7 +1449,7 @@ function MainApp({ user, onLogout }) {
               Dashboard & Targets
             </Button>
             <Button
-              onClick={() => setActiveTab("milling")}
+              onClick={() => setActiveTabSafe("milling")}
               variant={activeTab === "milling" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "milling" 
@@ -1446,7 +1461,7 @@ function MainApp({ user, onLogout }) {
               Milling (CMR)
             </Button>
             <Button
-              onClick={() => setActiveTab("dctracker")}
+              onClick={() => setActiveTabSafe("dctracker")}
               variant={activeTab === "dctracker" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "dctracker" 
@@ -1458,7 +1473,7 @@ function MainApp({ user, onLogout }) {
               DC (Payments)
             </Button>
             <Button
-              onClick={() => setActiveTab("vouchers")}
+              onClick={() => setActiveTabSafe("vouchers")}
               variant={activeTab === "vouchers" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "vouchers" 
@@ -1470,7 +1485,7 @@ function MainApp({ user, onLogout }) {
               Vouchers
             </Button>
             <Button
-              onClick={() => setActiveTab("cashbook")}
+              onClick={() => setActiveTabSafe("cashbook")}
               variant={activeTab === "cashbook" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "cashbook" 
@@ -1482,7 +1497,7 @@ function MainApp({ user, onLogout }) {
               Cash Book & Ledgers
             </Button>
             <Button
-              onClick={() => setActiveTab("payments")}
+              onClick={() => setActiveTabSafe("payments")}
               variant={activeTab === "payments" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "payments" 
@@ -1494,7 +1509,7 @@ function MainApp({ user, onLogout }) {
               Payments
             </Button>
             <Button
-              onClick={() => setActiveTab("reports")}
+              onClick={() => setActiveTabSafe("reports")}
               variant={activeTab === "reports" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "reports" 
@@ -1506,7 +1521,7 @@ function MainApp({ user, onLogout }) {
               Reports
             </Button>
             <Button
-              onClick={() => setActiveTab("mill-parts")}
+              onClick={() => setActiveTabSafe("mill-parts")}
               variant={activeTab === "mill-parts" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "mill-parts" 
@@ -1518,7 +1533,7 @@ function MainApp({ user, onLogout }) {
               Mill Parts
             </Button>
             <Button
-              onClick={() => setActiveTab("staff")}
+              onClick={() => setActiveTabSafe("staff")}
               variant={activeTab === "staff" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "staff" 
@@ -1530,7 +1545,7 @@ function MainApp({ user, onLogout }) {
               Staff
             </Button>
             <Button
-              onClick={() => setActiveTab("hemali")}
+              onClick={() => setActiveTabSafe("hemali")}
               variant={activeTab === "hemali" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "hemali" 
@@ -1542,7 +1557,7 @@ function MainApp({ user, onLogout }) {
               Hemali
             </Button>
             <Button
-              onClick={() => setActiveTab("fy-summary")}
+              onClick={() => setActiveTabSafe("fy-summary")}
               variant={activeTab === "fy-summary" ? "default" : "ghost"}
               size="sm"
               className={activeTab === "fy-summary" 
@@ -1555,7 +1570,7 @@ function MainApp({ user, onLogout }) {
             </Button>
             {user.role === 'admin' && (
               <Button
-                onClick={() => setActiveTab("settings")}
+                onClick={() => setActiveTabSafe("settings")}
                 variant={activeTab === "settings" ? "default" : "ghost"}
                 size="sm"
                 className={activeTab === "settings" 
@@ -2179,7 +2194,7 @@ function MainApp({ user, onLogout }) {
         ) : activeTab === "reports" ? (
           <Reports filters={filters} user={user} />
         ) : activeTab === "vouchers" ? (
-          <Vouchers filters={filters} user={user} onNavigate={(tab) => setActiveTab(tab)} />
+          <Vouchers filters={filters} user={user} onNavigate={(tab) => setActiveTabSafe(tab)} />
         ) : activeTab === "mill-parts" ? (
           <MillPartsStock filters={filters} user={user} />
         ) : activeTab === "staff" ? (
@@ -2195,7 +2210,7 @@ function MainApp({ user, onLogout }) {
             {/* Entries Sub-tabs: Mill Entries | Vehicle Weight */}
             <div className="flex gap-2 mb-4 border-b border-slate-700 pb-2" data-testid="entries-sub-tabs">
               <Button
-                onClick={() => setEntriesSubTab("mill-entries")}
+                onClick={() => setEntriesSubTabSafe("mill-entries")}
                 variant={entriesSubTab === 'mill-entries' ? "default" : "ghost"}
                 size="sm"
                 className={entriesSubTab === 'mill-entries'
@@ -2206,7 +2221,7 @@ function MainApp({ user, onLogout }) {
                 <FileSpreadsheet className="w-4 h-4 mr-1" /> Mill Entries
               </Button>
               <Button
-                onClick={() => setEntriesSubTab("vehicle-weight")}
+                onClick={() => setEntriesSubTabSafe("vehicle-weight")}
                 variant={entriesSubTab === 'vehicle-weight' ? "default" : "ghost"}
                 size="sm"
                 className={entriesSubTab === 'vehicle-weight'
@@ -2217,7 +2232,7 @@ function MainApp({ user, onLogout }) {
                 <Scale className="w-4 h-4 mr-1" /> Auto Vehicle Weight
               </Button>
               <Button
-                onClick={() => setEntriesSubTab("auto-weight-entries")}
+                onClick={() => setEntriesSubTabSafe("auto-weight-entries")}
                 variant={entriesSubTab === 'auto-weight-entries' ? "default" : "ghost"}
                 size="sm"
                 className={entriesSubTab === 'auto-weight-entries'
@@ -2229,7 +2244,7 @@ function MainApp({ user, onLogout }) {
                 {pendingVwCount > 0 && <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{pendingVwCount}</span>}
               </Button>
               <Button
-                onClick={() => setEntriesSubTab("purchase-register")}
+                onClick={() => setEntriesSubTabSafe("purchase-register")}
                 variant={entriesSubTab === 'purchase-register' ? "default" : "ghost"}
                 size="sm"
                 className={entriesSubTab === 'purchase-register'
