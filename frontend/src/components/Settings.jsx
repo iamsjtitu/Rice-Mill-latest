@@ -1306,9 +1306,6 @@ function WeighbridgeConfigCard() {
                     </Button>
                   )}
                 </div>
-                <div className="bg-slate-700/50 rounded p-2 text-[10px] text-slate-500">
-                  Keshav Computer WetBridge: COM{config.port.replace('COM','')}, {config.baudRate} baud, {config.dataBits}N{config.stopBits}
-                </div>
               </div>
             )}
           </>
