@@ -46,7 +46,7 @@ module.exports = function vigiProxyRoutes(router, database) {
         path: parsed.pathname + parsed.search,
         method: 'GET',
         headers: { 'User-Agent': 'MillEntrySystem/1.0', ...headers },
-        timeout: 15000
+        timeout: 5000
       };
       if (agent) opts.agent = agent;
 
@@ -82,10 +82,13 @@ module.exports = function vigiProxyRoutes(router, database) {
    * Digest Auth request with redirect following.
    * Step 1: Hit the URL → get 401 + Digest challenge (or follow redirects)
    * Step 2: Build Digest auth header → hit again
+   * Tries HTTPS first (modern NVRs), then HTTP fallback.
    */
+  const _protocolCache = {}; // Cache working protocol per IP
   async function digestRequest(deviceIp, path, username, password) {
-    // Try HTTP first, then HTTPS
-    const protocols = ['http', 'https'];
+    // Use cached protocol if known, otherwise try HTTPS first then HTTP
+    const cached = _protocolCache[deviceIp];
+    const protocols = cached ? [cached] : ['https', 'http'];
     let lastError = null;
 
     for (const proto of protocols) {
@@ -97,6 +100,7 @@ module.exports = function vigiProxyRoutes(router, database) {
 
         // If we got the image directly (no auth needed)
         if (res1.status === 200 && res1.body.length > 100) {
+          _protocolCache[deviceIp] = proto;
           return res1;
         }
 
@@ -140,6 +144,7 @@ module.exports = function vigiProxyRoutes(router, database) {
 
         // Step 3: Authenticated request (also follows redirects)
         const res2 = await rawRequest(baseUrl, { 'Authorization': authHeader }, 5);
+        _protocolCache[deviceIp] = proto; // Cache working protocol
         return res2;
 
       } catch (err) {
