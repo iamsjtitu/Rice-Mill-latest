@@ -44,6 +44,8 @@ module.exports = function cameraProxyRoutes(router) {
     const ffmpeg = spawn(ffmpegPath, [
       '-rtsp_transport', 'tcp',
       '-stimeout', '10000000',
+      '-analyzeduration', '1000000',
+      '-probesize', '500000',
       '-i', safeUrl,
       '-vf', 'scale=800:-1',
       '-f', 'image2pipe',
@@ -52,7 +54,18 @@ module.exports = function cameraProxyRoutes(router) {
       '-r', '5',
       '-an',
       'pipe:1'
-    ], { stdio: ['ignore', 'pipe', 'ignore'] });
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    // Log ffmpeg errors for debugging
+    let stderrLog = '';
+    ffmpeg.stderr.on('data', (chunk) => {
+      stderrLog += chunk.toString();
+      if (stderrLog.length > 2000) stderrLog = stderrLog.slice(-1000);
+    });
+    ffmpeg.on('close', (code) => {
+      if (code !== 0 && stderrLog) console.error(`[Camera] ffmpeg exit ${code}:`, stderrLog.slice(-500));
+      res.end();
+    });
 
     const SOI = Buffer.from([0xFF, 0xD8]);
     const EOI = Buffer.from([0xFF, 0xD9]);
@@ -74,7 +87,6 @@ module.exports = function cameraProxyRoutes(router) {
     });
 
     ffmpeg.on('error', () => { res.end(); });
-    ffmpeg.on('close', () => { res.end(); });
 
     req.on('close', () => {
       try { ffmpeg.kill('SIGKILL'); } catch {}
@@ -90,13 +102,16 @@ module.exports = function cameraProxyRoutes(router) {
 
     const ffmpeg = spawn(ffmpegPath, [
       '-rtsp_transport', 'tcp',
+      '-stimeout', '10000000',
+      '-analyzeduration', '1000000',
+      '-probesize', '500000',
       '-i', safeUrl,
       '-frames:v', '1',
       '-f', 'image2',
       '-vcodec', 'mjpeg',
       '-q:v', '2',
       'pipe:1'
-    ], { stdio: ['ignore', 'pipe', 'ignore'] });
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
     let chunks = [];
     ffmpeg.stdout.on('data', (chunk) => { chunks.push(chunk); });
