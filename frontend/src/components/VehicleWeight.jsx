@@ -77,7 +77,7 @@ function useRealScale() {
 }
 
 /* ─── Simulator Scale (Cloud/Web Demo) ─── */
-function useSimulatorScale() {
+function useSimulatorScale(active = true) {
   const [weight, setWeight] = useState(0);
   const [stable, setStable] = useState(false);
   const [running, setRunning] = useState(false);
@@ -106,6 +106,7 @@ function useSimulatorScale() {
   }, [startMeasure]);
 
   useEffect(() => {
+    if (!active) return;
     const t = setTimeout(() => startMeasure(), 1500);
     return () => { clearTimeout(t); if (ref.current) clearInterval(ref.current); if (autoRef.current) clearTimeout(autoRef.current); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -117,7 +118,7 @@ function useSimulatorScale() {
 function useLiveScale() {
   const isElectronApp = _isElectron && window.electronAPI?.serialGetStatus;
   const real = useRealScale();
-  const sim = useSimulatorScale();
+  const sim = useSimulatorScale(!isElectronApp);
   return isElectronApp ? real : sim;
 }
 
@@ -342,7 +343,7 @@ export default function VehicleWeight({ filters }) {
   const [vwPage, setVwPage] = useState(1);
   const [vwTotalPages, setVwTotalPages] = useState(1);
   const [vwTotalCount, setVwTotalCount] = useState(0);
-  const VW_PAGE_SIZE = 200;
+  const VW_PAGE_SIZE = 30;
   const [secondWtValue, setSecondWtValue] = useState("");
   const [secondWtMode, setSecondWtMode] = useState(null);
   const [showCompleted, setShowCompleted] = useState(true);

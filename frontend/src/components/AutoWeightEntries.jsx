@@ -26,7 +26,7 @@ const todayStr = new Date().toISOString().split("T")[0];
 
 export default function AutoWeightEntries({ filters }) {
   const kms = filters?.kms_year || "";
-  const PAGE_SIZE = 150;
+  const PAGE_SIZE = 30;
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
