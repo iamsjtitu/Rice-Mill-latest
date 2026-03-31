@@ -136,33 +136,29 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Load camera config — DELAYED to prevent crash on rapid tab switching
+  // Load camera config — ONLY loads config, does NOT auto-start stream
+  // User must click "Start" button to begin camera feed
   useEffect(() => {
-    let mounted = true;
-    const loadTimer = setTimeout(() => {
-      if (!mounted) return;
-      try {
-        const cfg = JSON.parse(localStorage.getItem('camera_config') || '{}');
-        const type = cfg.type || "usb";
-        setCamType(type);
-        if (type === "ip") {
-          const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
-          setCamUrl(url);
-          if (url) { setActive(true); setImgError(false); }
-        } else if (type === "vigi") {
-          const frontIp = cfg.vigiFrontIp || '';
-          const sideIp = cfg.vigiSideIp || '';
-          const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
-          const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
-          const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
-          if (deviceIp && channel) {
-            const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
-            setCamUrl(`${API}/vigi-stream?${params.toString()}`);
-            setActive(true); setImgError(false);
-          }
+    try {
+      const cfg = JSON.parse(localStorage.getItem('camera_config') || '{}');
+      const type = cfg.type || "usb";
+      setCamType(type);
+      if (type === "ip") {
+        const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
+        setCamUrl(url);
+        // Do NOT auto-start: setActive stays false
+      } else if (type === "vigi") {
+        const frontIp = cfg.vigiFrontIp || '';
+        const sideIp = cfg.vigiSideIp || '';
+        const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
+        const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
+        const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
+        if (deviceIp && channel) {
+          const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
+          setCamUrl(`${API}/vigi-stream?${params.toString()}`);
         }
-      } catch { /* ignore */ }
-    }, 1200); // 1.2 second delay to let tab render first
+      }
+    } catch { /* ignore */ }
 
     const handleConfigChange = () => {
       try {
@@ -171,7 +167,6 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         if (cfg.type === "ip") {
           const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
           setCamUrl(url);
-          if (url) { setActive(true); setImgError(false); }
         } else if (cfg.type === "vigi") {
           const frontIp = cfg.vigiFrontIp || '';
           const sideIp = cfg.vigiSideIp || '';
@@ -181,17 +176,12 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
           if (deviceIp && channel) {
             const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
             setCamUrl(`${API}/vigi-stream?${params.toString()}`);
-            setActive(true); setImgError(false);
           }
         }
       } catch { /* ignore */ }
     };
     window.addEventListener('camera-config-changed', handleConfigChange);
-    return () => {
-      mounted = false;
-      clearTimeout(loadTimer);
-      window.removeEventListener('camera-config-changed', handleConfigChange);
-    };
+    return () => window.removeEventListener('camera-config-changed', handleConfigChange);
   }, [camKey]);
 
   // Get display URL - use proxy for RTSP, direct for VIGI
@@ -370,10 +360,11 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
           {active ? (
             renderFeed(imgRef, videoRef, "w-full h-full")
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-900">
+            <div className="w-full h-full flex items-center justify-center bg-gray-900 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggle(); }}>
               <div className="text-center">
-                {(camType === "ip" || camType === "vigi") ? <Wifi className="w-4 h-4 text-blue-500 mx-auto" /> : <Camera className="w-4 h-4 text-gray-600 mx-auto" />}
-                <p className="text-gray-500 text-[7px] mt-0.5">{label || "Camera"} {camType === "ip" ? "(IP)" : camType === "vigi" ? "(NVR)" : ""}</p>
+                {(camType === "ip" || camType === "vigi") ? <Wifi className="w-5 h-5 text-blue-500 mx-auto" /> : <Camera className="w-5 h-5 text-gray-500 mx-auto" />}
+                <p className="text-gray-400 text-[8px] mt-1 font-semibold">{label || "Camera"}</p>
+                <p className="text-green-500 text-[9px] mt-1 font-bold">Click to Start</p>
               </div>
             </div>
           )}
