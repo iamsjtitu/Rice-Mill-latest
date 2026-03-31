@@ -1730,7 +1730,7 @@ function CameraSetupTab() {
     setVigiTesting(true); setVigiTestResult(null);
     try {
       const ch = vigiFrontIp ? '1' : (vigiFrontCh || '1');
-      const r = await axios.get(`${API}/vigi-test?nvr_ip=${encodeURIComponent(testIp)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}&channel=${ch}`, { timeout: 20000 });
+      const r = await axios.get(`${API}/vigi-test?nvr_ip=${encodeURIComponent(testIp)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}&channel=${ch}`, { timeout: 30000 });
       setVigiTestResult(r.data);
       if (r.data.success) toast.success("Connected!");
       else toast.error(r.data.error || "Connection fail");

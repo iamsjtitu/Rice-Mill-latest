@@ -46,20 +46,32 @@ module.exports = function cameraProxyRoutes(router) {
 
   /** Encode special chars in RTSP credentials (e.g. @ in password) */
   function encodeRtspUrl(raw) {
-    const m = raw.match(/^(rtsp:\/\/)([^:]+):(.+)@([^@]+)$/);
-    if (m) {
-      const [, scheme, user, pass, host] = m;
+    // Format: rtsp://user:pass@host
+    const m1 = raw.match(/^(rtsp:\/\/)([^:]+):(.+)@([^@]+)$/);
+    if (m1) {
+      const [, scheme, user, pass, host] = m1;
       return `${scheme}${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}`;
+    }
+    // Format: rtsp://user@host (no password)
+    const m2 = raw.match(/^(rtsp:\/\/)([^@:]+)@(.+)$/);
+    if (m2) {
+      const [, scheme, user, host] = m2;
+      return `${scheme}${encodeURIComponent(user)}@${host}`;
     }
     return raw;
   }
 
-  /** Parse RTSP URL to extract IP and credentials */
+  /** Parse RTSP URL to extract IP and credentials - handles all formats */
   function parseRtspUrl(raw) {
-    const m = raw.match(/^rtsp:\/\/([^:]+):(.+)@([^@:]+):?(\d+)?(\/.*)?$/);
-    if (m) return { user: m[1], pass: m[2], ip: m[3], port: m[4] || '554', path: m[5] || '' };
-    const m2 = raw.match(/^rtsp:\/\/([^:\/]+):?(\d+)?(\/.*)?$/);
-    if (m2) return { user: '', pass: '', ip: m2[1], port: m2[2] || '554', path: m2[3] || '' };
+    // Format 1: rtsp://user:pass@host:port/path
+    const m1 = raw.match(/^rtsp:\/\/([^:]+):(.+)@([^@:]+):?(\d+)?(\/.*)?$/);
+    if (m1) return { user: m1[1], pass: m1[2], ip: m1[3], port: m1[4] || '554', path: m1[5] || '' };
+    // Format 2: rtsp://user@host:port/path (no password)
+    const m2 = raw.match(/^rtsp:\/\/([^@:]+)@([^:\/]+):?(\d+)?(\/.*)?$/);
+    if (m2) return { user: m2[1], pass: '', ip: m2[2], port: m2[3] || '554', path: m2[4] || '' };
+    // Format 3: rtsp://host:port/path (no auth)
+    const m3 = raw.match(/^rtsp:\/\/([^:\/]+):?(\d+)?(\/.*)?$/);
+    if (m3) return { user: '', pass: '', ip: m3[1], port: m3[2] || '554', path: m3[3] || '' };
     return null;
   }
 
@@ -148,7 +160,18 @@ module.exports = function cameraProxyRoutes(router) {
   }
 
   async function getSnapshot(ip, user, pass) {
-    const paths = ['/snapshot?channel=1', '/cgi-bin/snapshot.cgi', '/ISAPI/Streaming/channels/101/picture', '/snap.jpg'];
+    const paths = [
+      '/snapshot?channel=1',           // TP-Link VIGI
+      '/cgi-bin/snapshot.cgi',         // Dahua
+      '/cgi-bin/snapshot.cgi?channel=1', // Dahua with channel
+      '/ISAPI/Streaming/channels/101/picture', // Hikvision
+      '/ISAPI/Streaming/channels/1/picture',   // Hikvision alt
+      '/snap.jpg',                     // Generic
+      '/capture',                      // Generic
+      '/onvif-http/snapshot',          // ONVIF
+      '/jpg/image.jpg',               // Some IP cameras
+      '/cgi-bin/images_cgi?channel=0&user=' + encodeURIComponent(user) + '&pwd=' + encodeURIComponent(pass), // Direct auth URL
+    ];
     for (const proto of ['http', 'https']) {
       for (const p of paths) {
         try {
@@ -209,10 +232,10 @@ module.exports = function cameraProxyRoutes(router) {
       if (stderrLog.length > 2000) stderrLog = stderrLog.slice(-1000);
     });
 
-    // If ffmpeg fails within 15s, fall back to HTTP snapshot
+    // If ffmpeg fails within 10s, fall back to HTTP snapshot
     const fallbackTimeout = setTimeout(() => {
       if (!gotFrame) {
-        console.log('[Camera] ffmpeg no frames in 15s, trying HTTP snapshot fallback...');
+        console.log('[Camera] ffmpeg no frames in 10s, trying HTTP snapshot fallback...');
         try { ffmpeg.kill('SIGKILL'); } catch {}
         const parsed = parseRtspUrl(rawUrl);
         if (parsed) {
@@ -221,7 +244,7 @@ module.exports = function cameraProxyRoutes(router) {
           res.end();
         }
       }
-    }, 15000);
+    }, 10000);
 
     ffmpeg.on('error', (err) => {
       console.log('[Camera] ffmpeg spawn error:', err.message, '- using HTTP snapshot fallback');

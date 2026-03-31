@@ -46,7 +46,7 @@ module.exports = function vigiProxyRoutes(router, database) {
         path: parsed.pathname + parsed.search,
         method: 'GET',
         headers: { 'User-Agent': 'MillEntrySystem/1.0', ...headers },
-        timeout: 10000
+        timeout: 15000
       };
       if (agent) opts.agent = agent;
 
@@ -231,16 +231,29 @@ module.exports = function vigiProxyRoutes(router, database) {
 
     if (!deviceIp) return res.json({ success: false, error: 'IP not set' });
 
-    try {
-      const result = await digestRequest(deviceIp, `/snapshot?channel=${channel}`, username, password);
-      if (result.status === 200 && result.body.length > 100) {
-        res.json({ success: true, message: `Connected! Snapshot: ${result.body.length} bytes`, imageSize: result.body.length });
-      } else {
-        res.json({ success: false, error: `HTTP ${result.status}, body ${result.body.length} bytes` });
+    // Try multiple snapshot paths
+    const paths = [
+      `/snapshot?channel=${channel}`,
+      '/cgi-bin/snapshot.cgi',
+      `/cgi-bin/snapshot.cgi?channel=${channel}`,
+      '/ISAPI/Streaming/channels/101/picture',
+      '/snap.jpg',
+      '/onvif-http/snapshot',
+    ];
+
+    for (const path of paths) {
+      try {
+        const result = await digestRequest(deviceIp, path, username, password);
+        if (result.status === 200 && result.body.length > 100) {
+          return res.json({ success: true, message: `Connected via ${path}! Snapshot: ${result.body.length} bytes`, imageSize: result.body.length, path });
+        }
+      } catch (err) {
+        console.log(`[VIGI Test] ${path} failed: ${err.message}`);
       }
-    } catch (err) {
-      res.json({ success: false, error: err.message });
     }
+
+    // All paths failed
+    res.json({ success: false, error: `Camera ${deviceIp} pe koi snapshot endpoint nahi mila. Ye camera HTTP snapshot support nahi karta - RTSP mode use karein.` });
   });
 
   /** POST /api/vigi-config → Save settings */
