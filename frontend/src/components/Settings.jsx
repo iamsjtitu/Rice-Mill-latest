@@ -1602,7 +1602,7 @@ function ErrorLogTab() {
 
 // ======================= CAMERA SETUP TAB =======================
 function CameraSetupTab() {
-  const [camType, setCamType] = useState("ip"); // "ip" or "usb"
+  const [camType, setCamType] = useState("ip"); // "ip", "usb", or "vigi"
   const [frontUrl, setFrontUrl] = useState("");
   const [sideUrl, setSideUrl] = useState("");
   const [frontPreview, setFrontPreview] = useState(false);
@@ -1616,6 +1616,14 @@ function CameraSetupTab() {
   const [previewStream, setPreviewStream] = useState({ front: null, side: null });
   const frontRef = useRef(null);
   const sideRef = useRef(null);
+  // VIGI NVR state
+  const [vigiIp, setVigiIp] = useState("");
+  const [vigiUser, setVigiUser] = useState("admin");
+  const [vigiPass, setVigiPass] = useState("");
+  const [vigiFrontCh, setVigiFrontCh] = useState("");
+  const [vigiSideCh, setVigiSideCh] = useState("");
+  const [vigiTesting, setVigiTesting] = useState(false);
+  const [vigiTestResult, setVigiTestResult] = useState(null);
   // Image cleanup state
   const [cleanupDays, setCleanupDays] = useState(0);
   const [cleanupLoading, setCleanupLoading] = useState(false);
@@ -1638,12 +1646,17 @@ function CameraSetupTab() {
       if (type === "ip") {
         setFrontUrl(saved.frontUrl || "");
         setSideUrl(saved.sideUrl || "");
+      } else if (type === "vigi") {
+        setVigiIp(saved.vigiIp || "");
+        setVigiUser(saved.vigiUser || "admin");
+        setVigiPass(saved.vigiPass || "");
+        setVigiFrontCh(saved.vigiFrontChannel || "");
+        setVigiSideCh(saved.vigiSideChannel || "");
       } else {
         if (saved.frontId) setFrontId(saved.frontId);
         if (saved.sideId) setSideId(saved.sideId);
       }
     } catch { /* ignore */ }
-    // Load image cleanup setting
     axios.get(`${API}/settings/image-cleanup`).then(r => {
       setCleanupDays(r.data.days || 0);
     }).catch(() => {});
@@ -1686,15 +1699,38 @@ function CameraSetupTab() {
   const handleSave = async () => {
     if (camType === "ip") {
       localStorage.setItem('camera_config', JSON.stringify({ type: "ip", frontUrl, sideUrl }));
+    } else if (camType === "vigi") {
+      localStorage.setItem('camera_config', JSON.stringify({
+        type: "vigi", vigiIp, vigiUser, vigiPass,
+        vigiFrontChannel: vigiFrontCh, vigiSideChannel: vigiSideCh
+      }));
+      // Also save to backend for server-side access
+      try {
+        await axios.post(`${API}/vigi-config`, {
+          nvr_ip: vigiIp, username: vigiUser, password: vigiPass,
+          front_channel: vigiFrontCh, side_channel: vigiSideCh, enabled: true
+        });
+      } catch { /* ignore on web */ }
     } else {
       localStorage.setItem('camera_config', JSON.stringify({ type: "usb", frontId, sideId }));
     }
     window.dispatchEvent(new Event('camera-config-changed'));
-    // Save cleanup setting to backend
     try {
       await axios.put(`${API}/settings/image-cleanup`, { days: cleanupDays });
     } catch { /* ignore */ }
     toast.success("Camera config save ho gaya!");
+  };
+
+  const testVigiConnection = async () => {
+    if (!vigiIp) { toast.error("NVR IP daalo"); return; }
+    setVigiTesting(true); setVigiTestResult(null);
+    try {
+      const r = await axios.get(`${API}/vigi-test?nvr_ip=${vigiIp}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}&channel=${vigiFrontCh || '1'}`);
+      setVigiTestResult(r.data);
+      if (r.data.success) toast.success("NVR connected!");
+      else toast.error(r.data.error || "Connection fail");
+    } catch (e) { setVigiTestResult({ success: false, error: e.message }); toast.error("Connection error"); }
+    setVigiTesting(false);
   };
 
   const handleManualCleanup = async () => {
@@ -1727,12 +1763,20 @@ function CameraSetupTab() {
           {/* Camera Type Selector */}
           <div className="flex gap-2" data-testid="camera-type-selector">
             <button
+              onClick={() => setCamType("vigi")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${camType === "vigi" ? "bg-green-600 text-white" : "bg-slate-700 text-slate-400 hover:bg-slate-600"}`}
+              data-testid="camera-type-vigi-btn"
+            >
+              <Wifi className="w-4 h-4 inline mr-1.5" />
+              VIGI NVR (Recommended)
+            </button>
+            <button
               onClick={() => setCamType("ip")}
               className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${camType === "ip" ? "bg-blue-600 text-white" : "bg-slate-700 text-slate-400 hover:bg-slate-600"}`}
               data-testid="camera-type-ip-btn"
             >
               <Wifi className="w-4 h-4 inline mr-1.5" />
-              IP Camera (Network)
+              IP Camera (RTSP)
             </button>
             <button
               onClick={() => setCamType("usb")}
@@ -1744,7 +1788,108 @@ function CameraSetupTab() {
             </button>
           </div>
 
-          {camType === "ip" ? (
+          {camType === "vigi" ? (
+            /* ─── VIGI NVR Mode ─── */
+            <div className="space-y-4">
+              <div className="bg-green-900/20 border border-green-700/50 rounded-lg p-3 text-xs text-slate-300 space-y-1">
+                <p className="text-green-400 font-semibold text-sm">VIGI NVR Mode (No ffmpeg = Fast + Low RAM)</p>
+                <p>NVR se direct snapshot lega - ffmpeg process nahi chalega, RAM bahut kam lagega</p>
+                <p>NVR ka IP, username, password aur camera channel numbers daalo</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-slate-300 text-xs">NVR IP Address</Label>
+                  <input type="text" value={vigiIp}
+                    onChange={e => setVigiIp(e.target.value)}
+                    placeholder="192.168.31.2"
+                    className="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-md px-3 py-2"
+                    data-testid="vigi-nvr-ip" />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-xs">Username</Label>
+                  <input type="text" value={vigiUser}
+                    onChange={e => setVigiUser(e.target.value)}
+                    placeholder="admin"
+                    className="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-md px-3 py-2"
+                    data-testid="vigi-username" />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-xs">Password</Label>
+                  <input type="password" value={vigiPass}
+                    onChange={e => setVigiPass(e.target.value)}
+                    placeholder="Admin@123"
+                    className="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-md px-3 py-2"
+                    data-testid="vigi-password" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-slate-300 text-xs">Front Camera Channel</Label>
+                  <input type="number" value={vigiFrontCh}
+                    onChange={e => setVigiFrontCh(e.target.value)}
+                    placeholder="9"
+                    className="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-md px-3 py-2"
+                    data-testid="vigi-front-channel" />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-xs">Side Camera Channel</Label>
+                  <input type="number" value={vigiSideCh}
+                    onChange={e => setVigiSideCh(e.target.value)}
+                    placeholder="5"
+                    className="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-md px-3 py-2"
+                    data-testid="vigi-side-channel" />
+                </div>
+              </div>
+
+              {/* Test & Preview */}
+              <div className="flex gap-2 items-center">
+                <Button onClick={testVigiConnection} disabled={vigiTesting || !vigiIp}
+                  size="sm" className="bg-green-700 hover:bg-green-600 text-white" data-testid="vigi-test-btn">
+                  {vigiTesting ? <RefreshCw className="w-4 h-4 mr-1 animate-spin" /> : <Wifi className="w-4 h-4 mr-1" />}
+                  Test Connection
+                </Button>
+                {vigiTestResult && (
+                  <span className={`text-xs ${vigiTestResult.success ? 'text-green-400' : 'text-red-400'}`}>
+                    {vigiTestResult.success ? `Connected! (${vigiTestResult.imageSize} bytes)` : vigiTestResult.error}
+                  </span>
+                )}
+              </div>
+
+              {/* Preview boxes */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-slate-400 text-xs mb-1">Front (Ch {vigiFrontCh || '?'})</p>
+                  <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[180px]">
+                    {vigiIp && vigiFrontCh ? (
+                      <img src={`${API}/vigi-stream?channel=${vigiFrontCh}&fps=2`}
+                        alt="Front" className="w-full h-full object-contain"
+                        onError={() => {}} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <p className="text-slate-500 text-xs">NVR IP aur Channel daalo</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-slate-400 text-xs mb-1">Side (Ch {vigiSideCh || '?'})</p>
+                  <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[180px]">
+                    {vigiIp && vigiSideCh ? (
+                      <img src={`${API}/vigi-stream?channel=${vigiSideCh}&fps=2`}
+                        alt="Side" className="w-full h-full object-contain"
+                        onError={() => {}} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <p className="text-slate-500 text-xs">NVR IP aur Channel daalo</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : camType === "ip" ? (
             /* ─── IP Camera Mode ─── */
             <div className="space-y-4">
               <div className="bg-slate-700/50 rounded-lg p-3 text-xs text-slate-400 space-y-1">

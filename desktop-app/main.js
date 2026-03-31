@@ -1101,6 +1101,7 @@ function createApiServer(database) {
     { name: 'whatsapp', load: () => require('./routes/whatsapp')(database) },
     { name: 'vehicle_weight', load: () => require('./routes/vehicle_weight')(database) },
     { name: 'camera_proxy', load: () => require('./routes/camera_proxy')(require('express').Router()) },
+    { name: 'vigi_proxy', load: () => require('./routes/vigi_proxy')(require('express').Router(), database) },
   ];
 
   let loadedCount = 0;

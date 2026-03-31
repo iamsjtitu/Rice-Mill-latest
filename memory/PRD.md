@@ -1,7 +1,6 @@
 # Mill Entry System PRD
 
-## Original Problem Statement
-A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app using local JSON storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, and automated hardware integration for vehicle weight capture.
+## Current Version: v55.49.0
 
 ## Architecture
 - **Web Backend**: Python FastAPI + MongoDB
@@ -9,80 +8,40 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - **Local Server**: Express + Local JSON (LAN access)
 - **Frontend**: React (shared across all 3 backends)
 
-### Triple Backend Parity
-Any logic change in Python MUST be replicated in both JS backends (desktop-app + local-server).
-
-## Current Version: v55.45.0
-
-## What's Implemented
-- Full CRUD for Mill Entries, Vehicle Weight, Private Paddy, Cash Book
-- Server-Side Pagination
-- Auto Vehicle Weight tracking (WhatsApp/Telegram integration)
-- Bulk PDF/Excel exports for all modules
-- Custom Branding in exports (custom_fields) — ALL 3 BACKENDS
-- Default "Today" filters for CashBook, Mill Entries, Vehicle Weight
-- "Auto Weight Entries" subtab with 7-day view
-- Red notification badge for pending vehicle weights
-- Photo zoom capabilities
-- Linked RST logic (hide edit/delete, show checkmark)
-- Global "Pkts" to "Bags" rename
-- GitHub Actions workflow for .exe build
-- API Request Debouncing + AbortController (prevents app freeze)
-- WhatsApp image sending via tmpfiles.org upload (Desktop/Local backends)
-- Optimized camera streaming (reduced ffmpeg resolution/quality/framerate)
-- **Paddy Purchase Register** - New subtab with independent filters, PDF/Excel export, WhatsApp/Telegram send
-- Subtab styling consistent with main tabs (Button component)
-- Clear filters resets to today's date (not empty)
-
-## Recent Completed
-- [2026-03-31] New "Paddy Purchase Register" subtab:
-  - Independent filters: From/To Date, RST, TP, Truck, Agent, Mandi
-  - Data table with all entry columns and TOTAL row
-  - PDF/Excel download buttons
-  - WhatsApp and Telegram send with PDF
-  - Backend export endpoints updated with date_from, date_to, rst_no, tp_no filters
-  - New /whatsapp/send-pdf endpoint for sending any PDF via WhatsApp
-  - Testing: 13/13 passed (iteration_148)
-
-- [2026-03-31] Subtab font/styling fix:
-  - Subtabs now use Button component matching main tab styling
-  - Consistent font size across all subtabs
-
-- [2026-03-31] Clear Filters bug fix:
-  - clearFilters() now resets dates to todayStr instead of empty strings
-
-- [2026-03-31] RAM fix + WhatsApp image fix + Tab switching hang fix
-
-## Backlog (Prioritized)
-### P1
-- Export Preview feature (preview data before exporting to Excel/PDF)
-
-### P2
-- JS backends code deduplication
-- Refactor App.js (~2500 lines)
-- Centralize payment/stock logic across triple-backend system
-
-### P3
-- SQLite migration for desktop app (100k+ entries performance)
+## Recent Completed (This Session)
+- [2026-03-31] Tab switching hang fix (AbortController + debounce in App.js, CashBook.jsx)
+- [2026-03-31] RAM fix: ffmpeg params optimized (scale=800, q:v=8, r=5)
+- [2026-03-31] WhatsApp image sending via tmpfiles.org upload in auto-notify
+- [2026-03-31] Paddy Purchase Register subtab with filters, PDF/Excel, WA/TG send
+- [2026-03-31] Subtab styling fixed (Button component matching main tabs)
+- [2026-03-31] Clear filters resets to today's date
+- [2026-03-31] Toolbar hidden on non-Mill-Entries subtabs
+- [2026-03-31] Serial handler improved (handles any line ending)
+- [2026-03-31] Camera proxy enhanced: -fflags nobuffer, -flags low_delay, error logging
+- [2026-03-31] **VIGI NVR Integration**: Direct snapshot API (no ffmpeg needed!)
+  - New routes: /api/vigi-stream, /api/vigi-snapshot, /api/vigi-test, /api/vigi-config
+  - Digest Authentication (MD5/SHA-256) support
+  - Camera Setup UI: VIGI NVR mode (Recommended) with NVR IP, channels config
+  - Snapshot polling at configurable FPS (no ffmpeg = 0 MB extra RAM)
 
 ## Key API Endpoints
-- GET /api/entries (supports all filters + pagination)
-- GET /api/totals (supports all filters)
-- GET /api/export/excel (supports date_from, date_to, rst_no, tp_no, truck_no, agent, mandi, kms_year, season)
-- GET /api/export/pdf (supports same filters)
-- POST /api/whatsapp/send-pdf (sends any internal PDF via WhatsApp)
-- POST /api/telegram/send-custom (sends any internal PDF via Telegram)
-- POST/GET/PUT/DELETE /api/vehicle-weight
-- GET/PUT /api/branding
-- GET /api/cash-book
+- GET /api/vigi-stream?channel=X&fps=N → MJPEG stream from NVR
+- GET /api/vigi-snapshot?channel=X → Single JPEG from NVR
+- GET /api/vigi-test → Test NVR connection
+- POST/GET /api/vigi-config → Save/Get VIGI NVR settings
+- GET /api/camera-stream?url=rtsp://... → RTSP→MJPEG via ffmpeg (fallback)
+- GET /api/entries, /api/totals, /api/export/excel, /api/export/pdf
+- POST /api/whatsapp/send-pdf
 
 ## 3rd Party Integrations
-- 360Messenger API (WhatsApp) — requires User API Key
-- Telegram Bot API — requires User Bot Token
-- tmpfiles.org — free image/PDF hosting for WhatsApp media URLs (no API key)
+- 360Messenger API (WhatsApp), Telegram Bot API
+- tmpfiles.org (free image/PDF hosting for WhatsApp)
+- **VIGI NVR OpenAPI** (direct snapshot, no ffmpeg)
+
+## Backlog
+- P1: Export Preview feature
+- P2: App.js refactor, code deduplication
+- P3: SQLite migration
 
 ## Test Reports
-- iteration_145.json: Custom branding in VW exports (8/8 PASS)
-- iteration_146.json: Rapid tab switching fix (5/5 PASS)
-- iteration_147.json: RAM fix + WhatsApp image fix (7/7 PASS)
-- iteration_148.json: Paddy Purchase Register + subtab styling (13/13 PASS)
+- iteration_148.json: PPR + subtab styling (13/13 PASS)

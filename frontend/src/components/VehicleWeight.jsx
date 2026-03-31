@@ -145,8 +145,13 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
       if (type === "ip") {
         const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
         setCamUrl(url);
-        // Auto-start IP cameras immediately
         if (url) { setActive(true); setImgError(false); }
+      } else if (type === "vigi") {
+        const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
+        if (ch) {
+          setCamUrl(`${API}/vigi-stream?channel=${ch}&fps=3`);
+          setActive(true); setImgError(false);
+        }
       }
     } catch { /* ignore */ }
 
@@ -158,6 +163,12 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
           const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
           setCamUrl(url);
           if (url) { setActive(true); setImgError(false); }
+        } else if (cfg.type === "vigi") {
+          const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
+          if (ch) {
+            setCamUrl(`${API}/vigi-stream?channel=${ch}&fps=3`);
+            setActive(true); setImgError(false);
+          }
         }
       } catch { /* ignore */ }
     };
@@ -165,9 +176,11 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
     return () => window.removeEventListener('camera-config-changed', handleConfigChange);
   }, [camKey]);
 
-  // Get display URL - use proxy for RTSP streams
+  // Get display URL - use proxy for RTSP, direct for VIGI
   const getStreamUrl = useCallback((url) => {
     if (!url) return "";
+    // VIGI stream URLs are already API URLs
+    if (url.includes('/api/vigi-stream')) return url;
     if (url.toLowerCase().startsWith("rtsp://")) {
       return `${API}/camera-stream?url=${encodeURIComponent(url)}`;
     }
@@ -176,6 +189,11 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 
   const getSnapshotUrl = useCallback((url) => {
     if (!url) return "";
+    // VIGI stream - use vigi-snapshot endpoint
+    if (url.includes('/api/vigi-stream')) {
+      const ch = new URL(url, 'http://localhost').searchParams.get('channel');
+      return `${API}/vigi-snapshot?channel=${ch}`;
+    }
     if (url.toLowerCase().startsWith("rtsp://")) {
       return `${API}/camera-snapshot?url=${encodeURIComponent(url)}`;
     }
@@ -184,21 +202,36 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 
   // Expose captureFrame method to parent via ref
   useImperativeHandle(ref, () => ({
-    captureFrame: () => {
+    captureFrame: async () => {
       if (!active) return null;
+
+      // VIGI mode: fetch snapshot directly from API (no CORS issues)
+      if (camType === "vigi" && camUrl.includes('/api/vigi-stream')) {
+        try {
+          const ch = new URL(camUrl, 'http://localhost').searchParams.get('channel');
+          const resp = await fetch(`${API}/vigi-snapshot?channel=${ch}`);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            return new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result.split(",")[1]);
+              reader.readAsDataURL(blob);
+            });
+          }
+        } catch {}
+        return null;
+      }
+
       if (!canvasRef.current) canvasRef.current = document.createElement("canvas");
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
 
-      if (camType === "ip" && imgRef.current) {
+      if ((camType === "ip" || camType === "vigi") && imgRef.current) {
         const img = imgRef.current;
         canvas.width = img.naturalWidth || 640;
         canvas.height = img.naturalHeight || 480;
         try { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); }
-        catch {
-          // CORS fallback: fetch snapshot via proxy
-          return null;
-        }
+        catch { return null; }
       } else if (videoRef.current) {
         const video = videoRef.current;
         canvas.width = video.videoWidth || 640;
@@ -222,8 +255,8 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
       setZoomed(false);
       setImgError(false);
     } else {
-      if (camType === "ip") {
-        if (!camUrl) { toast.error("Camera URL set nahi hai. Settings > Camera Setup mai URL daalein"); return; }
+      if (camType === "ip" || camType === "vigi") {
+        if (!camUrl) { toast.error("Camera URL set nahi hai. Settings > Camera Setup mai configure karein"); return; }
         setImgError(false);
         setActive(true);
       } else {

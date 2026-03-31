@@ -899,6 +899,9 @@ async function startServer() {
     const cameraProxyRoutes = require('./routes/camera_proxy')(require('express').Router());
     app.use(cameraProxyRoutes);
 
+    const vigiProxyRoutes = require('./routes/vigi_proxy')(require('express').Router(), database);
+    app.use(vigiProxyRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
