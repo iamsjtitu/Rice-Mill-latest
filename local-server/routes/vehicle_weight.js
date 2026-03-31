@@ -968,7 +968,7 @@ module.exports = function(database) {
 
     const fontDir2 = path.join(__dirname, '..', 'fonts');
     const hasFS2 = fs.existsSync(path.join(fontDir2, 'FreeSans.ttf'));
-    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     if (hasFS2) {
       doc.registerFont('ExFont', path.join(fontDir2, 'FreeSans.ttf'));
       doc.registerFont('ExFontBold', path.join(fontDir2, 'FreeSansBold.ttf'));
@@ -979,34 +979,77 @@ module.exports = function(database) {
     res.setHeader('Content-Disposition', `attachment; filename=vehicle_weight.pdf`);
     doc.pipe(res);
 
-    if (abParts2.length > 0) doc.fontSize(8).font(efb).fillColor('#8B0000').text(abParts2.join('  |  '), { align: 'center' });
-    doc.fontSize(16).font(efb).fillColor('#1a1a2e').text(`${company} - Vehicle Weight`, { align: 'center' });
-    if (pdfTagline) doc.fontSize(8).font(efn).fillColor('#888').text(pdfTagline, { align: 'center' });
-    if (blParts2.length > 0) doc.fontSize(8).font(efn).fillColor('#374151').text(blParts2.join('  |  '), { align: 'center' });
-    doc.fontSize(8).font(efn).fillColor('#000').text(`Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'} | Total: ${items.length}`, { align: 'center' });
-    doc.moveDown(0.5);
+    const PW = 792;
+    const LM = 25;
+    const TW = PW - 2 * LM;
 
-    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
-    const colW = [30, 55, 65, 70, 55, 60, 55, 30, 50, 50, 50, 45, 45];
-    let x = 30, y = doc.y;
+    // Dark header bar
+    doc.rect(LM, 20, TW, abParts2.length > 0 ? 55 : 48).fill('#1a1a2e');
+    let hy = 24;
+    if (abParts2.length > 0) {
+      doc.fontSize(7).font(efn).fillColor('#f9a825').text(abParts2.join('  |  '), LM, hy, { width: TW, align: 'center' });
+      hy += 10;
+    }
+    doc.fontSize(16).font(efb).fillColor('#ffffff').text(company, LM, hy, { width: TW, align: 'center' });
+    hy += 20;
+    if (pdfTagline) { doc.fontSize(8).font(efn).fillColor('#aaaacc').text(pdfTagline, LM, hy, { width: TW, align: 'center' }); hy += 10; }
+    if (blParts2.length > 0) { doc.fontSize(7).font(efn).fillColor('#ccccdd').text(blParts2.join('  |  '), LM, hy, { width: TW, align: 'center' }); hy += 10; }
 
-    // Header row
-    doc.fontSize(7).font(efb);
-    headers.forEach((h, i) => { doc.text(h, x, y, { width: colW[i], align: 'center' }); x += colW[i]; });
-    y += 15; doc.moveTo(30, y).lineTo(790, y).stroke();
+    const subY = abParts2.length > 0 ? 78 : 71;
+    doc.rect(LM, subY, TW, 16).fill('#f0f0f5');
+    doc.fontSize(8).font(efb).fillColor('#333').text('Vehicle Weight Register', LM + 8, subY + 4);
+    doc.font(efn).fontSize(8).fillColor('#666').text(`Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'}  |  Total: ${items.length}`, LM, subY + 4, { width: TW - 8, align: 'right' });
 
-    // Data rows
+    let y = subY + 22;
+
+    const headers = ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
+    const colW = [20, 30, 55, 62, 72, 55, 58, 30, 50, 50, 52, 48, 48];
+    const rightAlign = [false, true, false, false, false, false, false, true, true, true, true, true, true];
+
+    function drawTableHeader(atY) {
+      doc.rect(LM, atY, TW, 14).fill('#2d3748');
+      doc.fontSize(7).font(efb).fillColor('#ffffff');
+      let hx = LM + 2;
+      headers.forEach((h, i) => { doc.text(h, hx, atY + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' }); hx += colW[i]; });
+      return atY + 14;
+    }
+
+    y = drawTableHeader(y);
+    let totBags = 0, tot1st = 0, tot2nd = 0, totNet = 0, totCash = 0, totDiesel = 0;
+
     doc.font(efn).fontSize(7);
-    items.forEach(e => {
-      if (y > 540) { doc.addPage(); y = 30; }
-      x = 30;
-      const vals = [e.rst_no, e.date, e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts,
-        (e.first_wt || 0).toLocaleString(), (e.second_wt || 0).toLocaleString(), (e.net_wt || 0).toLocaleString(),
-        e.cash_paid ? Number(e.cash_paid).toLocaleString() : '-', e.diesel_paid ? Number(e.diesel_paid).toLocaleString() : '-'];
-      vals.forEach((v, i) => { doc.text(String(v || ''), x, y, { width: colW[i], align: i >= 7 ? 'right' : 'left' }); x += colW[i]; });
+    items.forEach((e, idx) => {
+      if (y > 540) { doc.addPage(); y = drawTableHeader(25); doc.font(efn).fontSize(7); }
+      if (idx % 2 === 0) doc.rect(LM, y, TW, 12).fill('#f8f9fa');
+
+      const bags = Number(e.tot_pkts || 0), first = Number(e.first_wt || 0), second = Number(e.second_wt || 0);
+      const net = Number(e.net_wt || 0), cash = Number(e.cash_paid || 0), diesel = Number(e.diesel_paid || 0);
+      totBags += bags; tot1st += first; tot2nd += second; totNet += net; totCash += cash; totDiesel += diesel;
+
+      let x = LM + 2;
+      const vals = [idx + 1, e.rst_no, e.date, e.vehicle_no, e.party_name, e.farmer_name, e.product, bags || '-',
+        first ? first.toLocaleString() : '-', second ? second.toLocaleString() : '-', net ? net.toLocaleString() : '-',
+        cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-'];
+      vals.forEach((v, i) => {
+        if (i === 10 && net > 0) doc.font(efb).fillColor('#1b5e20');
+        else if ((i === 11 && cash > 0) || (i === 12 && diesel > 0)) doc.font(efn).fillColor('#e65100');
+        else doc.font(efn).fillColor('#000');
+        doc.text(String(v || '-'), x, y + 2, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
+        x += colW[i];
+      });
       y += 12;
     });
 
+    y += 2;
+    doc.rect(LM, y, TW, 14).fill('#e8f5e9');
+    doc.lineWidth(1).strokeColor('#2e7d32').moveTo(LM, y).lineTo(LM + TW, y).stroke();
+    doc.fontSize(7.5).font(efb).fillColor('#1b5e20');
+    let x = LM + 2;
+    const totVals = ['', '', '', '', '', '', 'TOTAL:', totBags.toLocaleString(), tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(), totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-'];
+    totVals.forEach((v, i) => { doc.text(String(v), x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === 6 ? 'right' : 'left') }); x += colW[i]; });
+
+    y += 20;
+    doc.fontSize(7).font(efn).fillColor('#999').text(`${company} | Generated: ${new Date().toLocaleString('en-IN')}`, LM, y, { width: TW, align: 'center' });
     doc.end();
   }));
 

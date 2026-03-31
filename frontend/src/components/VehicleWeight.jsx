@@ -670,11 +670,24 @@ export default function VehicleWeight({ filters }) {
 
   // ── Print A5 with 2 copies (Party Copy + Customer Copy) ──
   const handlePrint = async (e) => {
-    // Fetch settings branding
+    // Fetch settings branding with custom fields
     let company = "NAVKAR AGRO", tagline = "JOLKO, KESINGA";
+    let aboveFields = [], belowFields = [];
     try {
       const r = await axios.get(`${API}/branding`);
-      if (r.data) { company = r.data.company_name || company; tagline = r.data.tagline || tagline; }
+      if (r.data) {
+        company = r.data.company_name || company;
+        tagline = r.data.tagline || tagline;
+        const cf = r.data.custom_fields || [];
+        cf.forEach(f => {
+          const val = (f.value || '').trim();
+          if (!val) return;
+          const lbl = (f.label || '').trim();
+          const txt = lbl ? `<b>${lbl}:</b> ${val}` : val;
+          if (f.placement === 'above') aboveFields.push(txt);
+          else belowFields.push(txt);
+        });
+      }
     } catch {}
 
     const rst = e.rst_no;
@@ -684,12 +697,17 @@ export default function VehicleWeight({ filters }) {
     const cash = Number(e.cash_paid || 0);
     const diesel = Number(e.diesel_paid || 0);
 
+    const aboveHTML = aboveFields.length > 0 ? `<div class="custom-row above">${aboveFields.join(' &nbsp;|&nbsp; ')}</div>` : '';
+    const belowHTML = belowFields.length > 0 ? `<div class="custom-row below">${belowFields.join(' &nbsp;|&nbsp; ')}</div>` : '';
+
     const copyHTML = (copyLabel, showSignature) => `
       <div class="copy-block">
         <div class="copy-label">${copyLabel}</div>
         <div class="header">
+          ${aboveHTML}
           <h1>${company}</h1>
           <p class="tagline">${tagline}</p>
+          ${belowHTML}
           <div class="slip-title">WEIGHT SLIP / तौल पर्ची</div>
         </div>
         <table class="info-table">
@@ -730,6 +748,9 @@ export default function VehicleWeight({ filters }) {
       .header { text-align: center; margin-bottom: 4px; border-bottom: 2px solid #1a1a2e; padding-bottom: 4px; }
       .header h1 { font-size: 18px; font-weight: 900; color: #1a1a2e; line-height: 1.1; }
       .tagline { font-size: 9px; color: #777; margin: 2px 0; }
+      .custom-row { font-size: 8px; color: #555; margin: 2px 0; line-height: 1.4; }
+      .custom-row.above { color: #8B0000; font-weight: 600; }
+      .custom-row.below { color: #374151; }
       .slip-title { font-size: 11px; color: #333; font-weight: 700; margin-top: 2px; }
       .info-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
       .info-table td { padding: 3px 5px; font-size: 10px; border: 0.5px solid #ccc; line-height: 1.3; }
