@@ -1784,6 +1784,26 @@ async function createMainWindow(port) {
     setupAutoUpdater();
   });
 
+  // CRASH RECOVERY: If renderer crashes, reload instead of closing
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    logError('RENDERER_CRASHED', `Reason: ${details.reason}, exitCode: ${details.exitCode}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      setTimeout(() => {
+        try { mainWindow.webContents.reload(); } catch (e) { logError('RELOAD_FAILED', e); }
+      }, 1500);
+    }
+  });
+
+  mainWindow.webContents.on('unresponsive', () => {
+    logError('RENDERER_UNRESPONSIVE', 'WebContents became unresponsive');
+    // Give it 5 seconds, then force reload
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        try { mainWindow.webContents.reload(); } catch (e) { logError('RELOAD_FAILED', e); }
+      }
+    }, 5000);
+  });
+
   // Fix: Ensure webContents focus when window is focused (fixes typing issue)
   mainWindow.on('focus', () => {
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {

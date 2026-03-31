@@ -20,6 +20,22 @@ try {
 
 module.exports = function cameraProxyRoutes(router) {
 
+  // Global ffmpeg process tracking - max 2 simultaneous
+  const activeProcesses = new Map();
+  const MAX_FFMPEG = 2;
+
+  function cleanupProcess(id) {
+    const proc = activeProcesses.get(id);
+    if (proc) {
+      try { proc.kill('SIGKILL'); } catch {}
+      activeProcesses.delete(id);
+    }
+  }
+
+  function cleanupAllProcesses() {
+    for (const [id] of activeProcesses) cleanupProcess(id);
+  }
+
   /** Encode special chars in RTSP credentials (e.g. @ in password) */
   function encodeRtspUrl(raw) {
     const m = raw.match(/^(rtsp:\/\/)([^:]+):(.+)@([^@]+)$/);
@@ -152,6 +168,15 @@ module.exports = function cameraProxyRoutes(router) {
       'Access-Control-Allow-Origin': '*'
     });
 
+    // Kill oldest ffmpeg if at max limit
+    if (activeProcesses.size >= MAX_FFMPEG) {
+      const oldest = activeProcesses.keys().next().value;
+      console.log('[Camera] Killing oldest ffmpeg process to make room');
+      cleanupProcess(oldest);
+    }
+
+    const processId = Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+
     // Original working ffmpeg flags - simple and stable
     const ffmpeg = spawn(ffmpegPath, [
       '-rtsp_transport', 'tcp',
@@ -165,6 +190,8 @@ module.exports = function cameraProxyRoutes(router) {
       '-an',
       'pipe:1'
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    activeProcesses.set(processId, ffmpeg);
 
     let gotFrame = false;
     let stderrLog = '';
@@ -201,6 +228,7 @@ module.exports = function cameraProxyRoutes(router) {
 
     ffmpeg.on('close', (code) => {
       clearTimeout(fallbackTimeout);
+      activeProcesses.delete(processId);
       if (!gotFrame && code !== 0) {
         console.log('[Camera] ffmpeg exit', code, '- trying HTTP snapshot fallback');
         const parsed = parseRtspUrl(rawUrl);
@@ -238,7 +266,7 @@ module.exports = function cameraProxyRoutes(router) {
 
     req.on('close', () => {
       clearTimeout(fallbackTimeout);
-      try { ffmpeg.kill('SIGKILL'); } catch {}
+      cleanupProcess(processId);
     });
   });
 

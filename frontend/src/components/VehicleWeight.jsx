@@ -136,29 +136,33 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Load camera config
+  // Load camera config — DELAYED to prevent crash on rapid tab switching
   useEffect(() => {
-    try {
-      const cfg = JSON.parse(localStorage.getItem('camera_config') || '{}');
-      const type = cfg.type || "usb";
-      setCamType(type);
-      if (type === "ip") {
-        const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
-        setCamUrl(url);
-        if (url) { setActive(true); setImgError(false); }
-      } else if (type === "vigi") {
-        const frontIp = cfg.vigiFrontIp || '';
-        const sideIp = cfg.vigiSideIp || '';
-        const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
-        const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
-        const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
-        if (deviceIp && channel) {
-          const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
-          setCamUrl(`${API}/vigi-stream?${params.toString()}`);
-          setActive(true); setImgError(false);
+    let mounted = true;
+    const loadTimer = setTimeout(() => {
+      if (!mounted) return;
+      try {
+        const cfg = JSON.parse(localStorage.getItem('camera_config') || '{}');
+        const type = cfg.type || "usb";
+        setCamType(type);
+        if (type === "ip") {
+          const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
+          setCamUrl(url);
+          if (url) { setActive(true); setImgError(false); }
+        } else if (type === "vigi") {
+          const frontIp = cfg.vigiFrontIp || '';
+          const sideIp = cfg.vigiSideIp || '';
+          const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
+          const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
+          const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
+          if (deviceIp && channel) {
+            const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
+            setCamUrl(`${API}/vigi-stream?${params.toString()}`);
+            setActive(true); setImgError(false);
+          }
         }
-      }
-    } catch { /* ignore */ }
+      } catch { /* ignore */ }
+    }, 1200); // 1.2 second delay to let tab render first
 
     const handleConfigChange = () => {
       try {
@@ -183,7 +187,11 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
       } catch { /* ignore */ }
     };
     window.addEventListener('camera-config-changed', handleConfigChange);
-    return () => window.removeEventListener('camera-config-changed', handleConfigChange);
+    return () => {
+      mounted = false;
+      clearTimeout(loadTimer);
+      window.removeEventListener('camera-config-changed', handleConfigChange);
+    };
   }, [camKey]);
 
   // Get display URL - use proxy for RTSP, direct for VIGI
@@ -313,10 +321,14 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
   }, [zoomed]);
 
   useEffect(() => () => {
-    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); }
-    // Stop IP camera MJPEG streams on unmount
-    if (imgRef.current) imgRef.current.src = "";
-    if (zoomImgRef.current) zoomImgRef.current.src = "";
+    // CRITICAL CLEANUP: Kill ALL camera resources on unmount to prevent crash
+    if (streamRef.current) {
+      try { streamRef.current.getTracks().forEach(t => t.stop()); } catch {}
+      streamRef.current = null;
+    }
+    // Immediately disconnect MJPEG streams (kills ffmpeg on server)
+    if (imgRef.current) { imgRef.current.src = ""; imgRef.current.removeAttribute('src'); }
+    if (zoomImgRef.current) { zoomImgRef.current.src = ""; zoomImgRef.current.removeAttribute('src'); }
   }, []);
 
   const renderFeed = (imgRefToUse, vidRefToUse, cssClass) => {
