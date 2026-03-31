@@ -12,29 +12,34 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 ### Triple Backend Parity
 Any logic change in Python MUST be replicated in both JS backends (desktop-app + local-server).
 
-## Current Version: v55.42.0
+## Current Version: v55.44.0
 
 ## What's Implemented
 - Full CRUD for Mill Entries, Vehicle Weight, Private Paddy, Cash Book
 - Server-Side Pagination
 - Auto Vehicle Weight tracking (WhatsApp/Telegram integration)
 - Bulk PDF/Excel exports for all modules
-- Custom Branding in exports (custom_fields above/below company name) — **ALL 3 BACKENDS**
+- Custom Branding in exports (custom_fields above/below company name) — ALL 3 BACKENDS
 - Default "Today" filters for CashBook, Mill Entries, Vehicle Weight
 - "Auto Weight Entries" subtab with 7-day view
 - Red notification badge for pending vehicle weights
 - Photo zoom capabilities
 - Linked RST logic (hide edit/delete, show checkmark)
-- Global "Pkts" → "Bags" rename
+- Global "Pkts" to "Bags" rename
 - GitHub Actions workflow for .exe build
+- API Request Debouncing + AbortController (prevents app freeze on rapid tab switching)
 
-## Recent Completed (This Session)
-- [2026-03-30] Fixed custom branding fields (custom_fields) missing from Vehicle Weight exports:
-  - Python slip-pdf: Updated to use branding_helper.py with FreeSans font for Hindi text
-  - Python export/pdf and export/excel: Already fixed by previous agent
-  - Desktop-app JS: Updated slip-pdf, export/excel, export/pdf with custom_fields + FreeSans support
-  - Local-server JS: Same updates as desktop-app
-  - Testing: 8/8 backend tests passed (iteration_145)
+## Recent Completed
+- [2026-03-31] Fixed app freeze/hang on rapid tab switching (API request pile-up):
+  - Added AbortController + 300ms debounce to App.js (fetchEntries, fetchTotals, fetchSuggestions, main useEffect)
+  - Added AbortController + 300ms debounce to CashBook.jsx (fetchData)
+  - VehicleWeight.jsx and AutoWeightEntries.jsx already had the fix from previous session
+  - Frontend built and synced to desktop-app and local-server
+  - Testing: 5/5 frontend tests passed (iteration_146)
+
+- [2026-03-30] Fixed custom branding fields (custom_fields) missing from Vehicle Weight exports
+- [2026-03-30] Fixed desktop app crash (getEntries returning paginated objects, vw_images EPERM)
+- [2026-03-30] Adjusted Cashbook date filters
 
 ## Backlog (Prioritized)
 ### P1
@@ -55,6 +60,9 @@ Any logic change in Python MUST be replicated in both JS backends (desktop-app +
 - GET /api/vehicle-weight/export/excel
 - GET /api/vehicle-weight/pending-count
 - GET/PUT /api/branding
+- GET /api/entries
+- GET /api/totals
+- GET /api/cash-book
 
 ## DB Schema (Key)
 - `branding`: {company_name, tagline, custom_fields: [{label, value, placement: "above"/"below", position}]}
@@ -66,3 +74,4 @@ Any logic change in Python MUST be replicated in both JS backends (desktop-app +
 
 ## Test Reports
 - iteration_145.json: Custom branding in VW exports (8/8 PASS)
+- iteration_146.json: Rapid tab switching fix verification (5/5 PASS)
