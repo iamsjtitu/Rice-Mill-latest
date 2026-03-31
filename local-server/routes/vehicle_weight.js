@@ -14,7 +14,7 @@ const router = express.Router();
 module.exports = function(database) {
 
   // Image storage directory
-  const imgDir = path.join(database.dir || '.', 'vw_images');
+  const imgDir = path.join(database.dataFolder || '.', 'vw_images');
   try { if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true }); } catch(e) { console.error('[VW] Cannot create vw_images dir:', e.message); }
 
   function saveImage(entryId, tag, b64data) {
