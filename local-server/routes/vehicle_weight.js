@@ -31,6 +31,39 @@ module.exports = function(database) {
     return '';
   }
 
+  // Upload image to tmpfiles.org and return public download URL
+  function uploadImageForWa(imageBuffer, filename) {
+    return new Promise((resolve) => {
+      const boundary = '----WaUpload' + Date.now().toString(36);
+      const head = Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: image/jpeg\r\n\r\n`
+      );
+      const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+      const body = Buffer.concat([head, imageBuffer, tail]);
+      const options = {
+        hostname: 'tmpfiles.org', path: '/api/v1/upload', method: 'POST',
+        headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
+      };
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const result = JSON.parse(data);
+            if (result.status === 'success' && result.data && result.data.url) {
+              const dlUrl = result.data.url.replace('://tmpfiles.org/', '://tmpfiles.org/dl/').replace('http://', 'https://');
+              resolve(dlUrl);
+            } else { resolve(''); }
+          } catch { resolve(''); }
+        });
+      });
+      req.on('error', () => resolve(''));
+      req.setTimeout(30000, () => { req.destroy(); resolve(''); });
+      req.write(body);
+      req.end();
+    });
+  }
+
   function col(name) {
     if (!database.data[name]) database.data[name] = [];
     return database.data[name];
@@ -60,9 +93,9 @@ module.exports = function(database) {
     return phone;
   }
 
-  function sendWaMessage(apiKey, phone, text) {
+  function sendWaMessage(apiKey, phone, text, mediaUrl) {
     return new Promise((resolve) => {
-      const postData = `phonenumber=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}`;
+      const postData = `phonenumber=${encodeURIComponent(phone)}&text=${encodeURIComponent(text)}${mediaUrl ? '&url=' + encodeURIComponent(mediaUrl) : ''}`;
       const options = {
         hostname: 'api.360messenger.com', path: '/v2/sendMessage', method: 'POST',
         headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(postData) }
@@ -350,9 +383,29 @@ module.exports = function(database) {
     try {
       const waSettings = getWaSettings();
       if (waSettings.enabled && waSettings.api_key) {
+        // Upload images to get public URLs for WhatsApp
+        const imgKeys = [
+          { b64: firstFrontB64, label: '1st Wt Front', tag: 'first_front' },
+          { b64: firstSideB64, label: '1st Wt Side', tag: 'first_side' },
+          { b64: secondFrontB64, label: '2nd Wt Front', tag: 'second_front' },
+          { b64: secondSideB64, label: '2nd Wt Side', tag: 'second_side' }
+        ];
+        const imgUrls = [];
+        for (const img of imgKeys) {
+          if (img.b64) {
+            const url = await uploadImageForWa(Buffer.from(img.b64, 'base64'), `rst${rst}_${img.tag}.jpg`);
+            if (url) imgUrls.push({ url, label: img.label });
+          }
+        }
+
         if (vwWaGroupId) {
           const r = await sendWaToGroup(waSettings.api_key, vwWaGroupId, text);
           results.whatsapp.push(r);
+          // Send photos to VW group
+          for (const img of imgUrls) {
+            const r = await sendWaToGroup(waSettings.api_key, vwWaGroupId, `${img.label} - RST #${rst}`, img.url);
+            results.whatsapp.push(r);
+          }
         } else {
           let nums = waSettings.default_numbers || [];
           if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
@@ -360,6 +413,11 @@ module.exports = function(database) {
             if (num) {
               const r = await sendWaMessage(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), text);
               results.whatsapp.push(r);
+              // Send photos to individual numbers
+              for (const img of imgUrls) {
+                const r = await sendWaMessage(waSettings.api_key, cleanPhone(num.trim(), waSettings.country_code || '91'), `${img.label} - RST #${rst}`, img.url);
+                results.whatsapp.push(r);
+              }
             }
           }
         }
