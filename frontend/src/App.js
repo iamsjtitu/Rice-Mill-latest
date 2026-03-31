@@ -437,18 +437,24 @@ function MainApp({ user, onLogout }) {
 
 
   // Fetch suggestions
+  const suggestionsAbortRef = useRef(null);
   const fetchSuggestions = useCallback(async () => {
+    if (suggestionsAbortRef.current) suggestionsAbortRef.current.abort();
+    const ctrl = new AbortController();
+    suggestionsAbortRef.current = ctrl;
     try {
       const [trucksRes, agentsRes, mandisRes] = await Promise.all([
-        axios.get(`${API}/suggestions/trucks`),
-        axios.get(`${API}/suggestions/agents`),
-        axios.get(`${API}/suggestions/mandis`)
+        axios.get(`${API}/suggestions/trucks`, { signal: ctrl.signal }),
+        axios.get(`${API}/suggestions/agents`, { signal: ctrl.signal }),
+        axios.get(`${API}/suggestions/mandis`, { signal: ctrl.signal })
       ]);
-      setTruckSuggestions(trucksRes.data.suggestions || []);
-      setAgentSuggestions(agentsRes.data.suggestions || []);
-      setMandiSuggestions(mandisRes.data.suggestions || []);
+      if (!ctrl.signal.aborted) {
+        setTruckSuggestions(trucksRes.data.suggestions || []);
+        setAgentSuggestions(agentsRes.data.suggestions || []);
+        setMandiSuggestions(mandisRes.data.suggestions || []);
+      }
     } catch (error) {
-      console.error("Suggestions fetch error:", error);
+      if (!ctrl.signal.aborted) console.error("Suggestions fetch error:", error);
     }
   }, []);
 
@@ -510,7 +516,11 @@ function MainApp({ user, onLogout }) {
   const [entriesTotalCount, setEntriesTotalCount] = useState(0);
   const ENTRIES_PAGE_SIZE = 200;
 
+  const entriesAbortRef = useRef(null);
   const fetchEntries = useCallback(async (fetchPage) => {
+    if (entriesAbortRef.current) entriesAbortRef.current.abort();
+    const ctrl = new AbortController();
+    entriesAbortRef.current = ctrl;
     try {
       setLoading(true);
       const p = fetchPage || entriesPage;
@@ -527,21 +537,24 @@ function MainApp({ user, onLogout }) {
       params.append('page', p);
       params.append('page_size', ENTRIES_PAGE_SIZE);
       
-      const response = await axios.get(`${API}/entries?${params.toString()}`);
+      const response = await axios.get(`${API}/entries?${params.toString()}`, { signal: ctrl.signal });
       const data = response.data;
       setEntries(data.entries || data);
       setEntriesTotalPages(data.total_pages || 1);
       setEntriesTotalCount(data.total || 0);
       setEntriesPage(data.page || 1);
     } catch (error) {
-      toast.error("Entries load karne mein error");
-      console.error(error);
+      if (!ctrl.signal.aborted) { toast.error("Entries load karne mein error"); console.error(error); }
     } finally {
-      setLoading(false);
+      if (!ctrl.signal.aborted) setLoading(false);
     }
   }, [filters, entriesPage]);
 
+  const totalsAbortRef = useRef(null);
   const fetchTotals = useCallback(async () => {
+    if (totalsAbortRef.current) totalsAbortRef.current.abort();
+    const ctrl = new AbortController();
+    totalsAbortRef.current = ctrl;
     try {
       const params = new URLSearchParams();
       if (filters.truck_no) params.append('truck_no', filters.truck_no);
@@ -552,34 +565,40 @@ function MainApp({ user, onLogout }) {
       if (filters.date_from) params.append('date_from', filters.date_from);
       if (filters.date_to) params.append('date_to', filters.date_to);
       
-      const response = await axios.get(`${API}/totals?${params.toString()}`);
-      setTotals(response.data);
+      const response = await axios.get(`${API}/totals?${params.toString()}`, { signal: ctrl.signal });
+      if (!ctrl.signal.aborted) setTotals(response.data);
     } catch (error) {
-      console.error("Totals fetch error:", error);
+      if (!ctrl.signal.aborted) console.error("Totals fetch error:", error);
     }
   }, [filters]);
 
+  const mainFetchAbortRef = useRef(null);
   useEffect(() => {
-    fetchEntries();
-    fetchTotals();
-    fetchSuggestions();
-    // Fetch mandi targets for auto cutting %
-    axios.get(`${API}/mandi-targets?kms_year=${filters.kms_year || ''}`).then(r => {
-      const targets = r.data || [];
-      setMandiTargets(targets);
-      console.log('[MILL] Mandi Targets API response:', targets.length, 'targets found', targets.length > 0 ? targets.map(t => `${t.mandi_name}=${t.cutting_percent}%`) : '(empty)');
-      if (targets.length > 0) {
-        const targetNames = targets.map(t => t.mandi_name).filter(Boolean);
-        setMandiSuggestions(prev => {
-          const combined = [...new Set([...prev, ...targetNames])];
-          return combined.sort();
-        });
-      }
-    }).catch(err => { console.error('[MILL] Mandi targets fetch FAILED:', err.message || err); });
-    // Fetch leased truck numbers for badge display
-    axios.get(`${API}/truck-leases?status=active`).then(res => {
-      setLeasedTruckNos(new Set((res.data || []).map(l => l.truck_no.toUpperCase())));
-    }).catch(() => {});
+    const timer = setTimeout(() => {
+      if (mainFetchAbortRef.current) mainFetchAbortRef.current.abort();
+      const ctrl = new AbortController();
+      mainFetchAbortRef.current = ctrl;
+      fetchEntries();
+      fetchTotals();
+      fetchSuggestions();
+      // Fetch mandi targets for auto cutting %
+      axios.get(`${API}/mandi-targets?kms_year=${filters.kms_year || ''}`, { signal: ctrl.signal }).then(r => {
+        const targets = r.data || [];
+        setMandiTargets(targets);
+        if (targets.length > 0) {
+          const targetNames = targets.map(t => t.mandi_name).filter(Boolean);
+          setMandiSuggestions(prev => {
+            const combined = [...new Set([...prev, ...targetNames])];
+            return combined.sort();
+          });
+        }
+      }).catch(() => {});
+      // Fetch leased truck numbers for badge display
+      axios.get(`${API}/truck-leases?status=active`, { signal: ctrl.signal }).then(res => {
+        setLeasedTruckNos(new Set((res.data || []).map(l => l.truck_no.toUpperCase())));
+      }).catch(() => {});
+    }, 300);
+    return () => { clearTimeout(timer); if (mainFetchAbortRef.current) mainFetchAbortRef.current.abort(); };
   }, [fetchEntries, fetchTotals, fetchSuggestions, filters.kms_year]);
 
   // Reset selection when entries change

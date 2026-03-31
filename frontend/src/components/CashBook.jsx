@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { fmtDate } from "@/utils/date";
 import axios from "axios";
 import { toast } from "sonner";
@@ -133,7 +133,11 @@ const CashBook = ({ filters, user }) => {
     } catch (e) { /* ignore */ }
   }, []);
 
+  const cbAbortRef = useRef(null);
   const fetchData = useCallback(async (fetchPage) => {
+    if (cbAbortRef.current) cbAbortRef.current.abort();
+    const ctrl = new AbortController();
+    cbAbortRef.current = ctrl;
     try {
       setLoading(true);
       const p = fetchPage || page;
@@ -158,9 +162,9 @@ const CashBook = ({ filters, user }) => {
       if (filters.season) allParams.append('season', filters.season);
       allParams.append('page_size', '0');
       const [txnRes, sumRes, allRes] = await Promise.all([
-        axios.get(`${API}/cash-book?${params}`),
-        axios.get(`${API}/cash-book/summary?${params}`),
-        axios.get(`${API}/cash-book?${allParams}`)
+        axios.get(`${API}/cash-book?${params}`, { signal: ctrl.signal }),
+        axios.get(`${API}/cash-book/summary?${params}`, { signal: ctrl.signal }),
+        axios.get(`${API}/cash-book?${allParams}`, { signal: ctrl.signal })
       ]);
       const txnData = txnRes.data;
       setTxns(txnData.transactions || []);
@@ -171,14 +175,17 @@ const CashBook = ({ filters, user }) => {
       setAllTxns((allRes.data.transactions || allRes.data) || []);
       // Fetch opening balances
       try {
-        const obRes = await axios.get(`${API}/opening-balances?kms_year=${filters.kms_year || ''}`);
-        setObList(obRes.data);
+        const obRes = await axios.get(`${API}/opening-balances?kms_year=${filters.kms_year || ''}`, { signal: ctrl.signal });
+        if (!ctrl.signal.aborted) setObList(obRes.data);
       } catch {}
-    } catch (e) { toast.error("Cash book load nahi hua"); }
-    finally { setLoading(false); }
+    } catch (e) { if (!ctrl.signal.aborted) toast.error("Cash book load nahi hua"); }
+    finally { if (!ctrl.signal.aborted) setLoading(false); }
   }, [filters.kms_year, filters.season, txnFilters, activeView, page]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const timer = setTimeout(() => fetchData(), 300);
+    return () => { clearTimeout(timer); if (cbAbortRef.current) cbAbortRef.current.abort(); };
+  }, [fetchData]);
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
   useEffect(() => { fetchAgentNames(); }, [fetchAgentNames]);
   useEffect(() => { fetchBankAccounts(); }, [fetchBankAccounts]);
