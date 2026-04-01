@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "58.0.0";
+const APP_VERSION = "59.0.0";
 
 const CHANGELOG = [
+  {
+    version: "59.0.0",
+    date: "Apr 2026",
+    title: "v59.0.0 - Cert Fix + JPEG Validation",
+    items: [
+      { type: "fix", text: "Electron ab self-signed HTTPS certificates accept karta hai (VIGI camera ke liye zaroori)" },
+      { type: "fix", text: "JPEG magic byte validation: Ab sirf real images accept hoti hain, HTML error pages reject" },
+      { type: "fix", text: "Minimum snapshot size 2KB: Fake 521-byte responses ab ignore honge" },
+      { type: "fix", text: "Better error logging: Camera ka actual response hex mein log hota hai debugging ke liye" },
+    ]
+  },
   {
     version: "58.0.0",
     date: "Apr 2026",
