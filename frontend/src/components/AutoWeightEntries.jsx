@@ -443,6 +443,12 @@ export default function AutoWeightEntries({ filters }) {
                     <td className="border border-gray-300 px-2 py-1"></td>
                   </tr>
                 )}
+                {photoDialog.data.remark && (
+                  <tr>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Remark / टिप्पणी</td>
+                    <td colSpan="3" className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.remark}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
             <div className="flex border-t-[2px] border-gray-800">
