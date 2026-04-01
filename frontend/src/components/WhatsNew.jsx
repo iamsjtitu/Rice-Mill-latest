@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "57.0.0";
+const APP_VERSION = "58.0.0";
 
 const CHANGELOG = [
+  {
+    version: "58.0.0",
+    date: "Apr 2026",
+    title: "v58.0.0 - VIGI OpenAPI Port Fix",
+    items: [
+      { type: "fix", text: "CRITICAL: VIGI camera ab OpenAPI port 20443 pe snapshot le sakta hai - pehle sirf standard ports (80/443) try hote the" },
+      { type: "new", text: "OpenAPI Port field add kiya VIGI Settings mein - camera ki settings se port number daalo" },
+      { type: "new", text: "Smart Endpoint Discovery: 20443 → 8443 → 8800 → standard ports automatically try hote hain" },
+      { type: "fix", text: "Endpoint cache: Ek baar sahi port mila toh repeat nahi karta - fast streaming" },
+    ]
+  },
   {
     version: "57.0.0",
     date: "Mar 2026",
