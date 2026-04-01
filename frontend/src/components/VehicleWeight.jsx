@@ -537,8 +537,8 @@ export default function VehicleWeight({ filters }) {
     if (!secondWtValue || Number(secondWtValue) <= 0) { toast.error("Second Weight daalen"); return; }
     try {
       // Capture camera photos on second weight
-      const frontImg = frontCamRef.current?.captureFrame?.() || "";
-      const sideImg = sideCamRef.current?.captureFrame?.() || "";
+      const frontImg = (await frontCamRef.current?.captureFrame?.()) || "";
+      const sideImg = (await sideCamRef.current?.captureFrame?.()) || "";
       const r = await axios.put(`${API}/vehicle-weight/${secondWtMode.id}/second-weight`, {
         second_wt: secondWtValue,
         cash_paid: form.cash_paid || "0",
@@ -562,8 +562,8 @@ export default function VehicleWeight({ filters }) {
     if (!form.first_wt || Number(form.first_wt) <= 0) { toast.error("First Weight daalen"); return; }
     try {
       // Capture camera photos on first weight
-      const frontImg = frontCamRef.current?.captureFrame?.() || "";
-      const sideImg = sideCamRef.current?.captureFrame?.() || "";
+      const frontImg = (await frontCamRef.current?.captureFrame?.()) || "";
+      const sideImg = (await sideCamRef.current?.captureFrame?.()) || "";
       const payload = { ...form, kms_year: kms, first_wt_front_img: frontImg, first_wt_side_img: sideImg };
       if (form.rst_no && Number(form.rst_no) > 0) payload.rst_no = Number(form.rst_no);
       const r = await axios.post(`${API}/vehicle-weight`, payload);
@@ -614,8 +614,8 @@ export default function VehicleWeight({ filters }) {
   const handleWA = async (e) => {
     try {
       const text = buildWeightText(e);
-      const frontImg = frontCamRef.current?.captureFrame?.() || "";
-      const sideImg = sideCamRef.current?.captureFrame?.() || "";
+      const frontImg = (await frontCamRef.current?.captureFrame?.()) || "";
+      const sideImg = (await sideCamRef.current?.captureFrame?.()) || "";
       await axios.post(`${API}/vehicle-weight/send-manual`, {
         entry_id: e.id, text, front_image: frontImg, side_image: sideImg,
         send_to_numbers: true, send_to_group: false
@@ -627,8 +627,8 @@ export default function VehicleWeight({ filters }) {
   const handleGroup = async (e) => {
     try {
       const text = buildWeightText(e);
-      const frontImg = frontCamRef.current?.captureFrame?.() || "";
-      const sideImg = sideCamRef.current?.captureFrame?.() || "";
+      const frontImg = (await frontCamRef.current?.captureFrame?.()) || "";
+      const sideImg = (await sideCamRef.current?.captureFrame?.()) || "";
       await axios.post(`${API}/vehicle-weight/send-manual`, {
         entry_id: e.id, text, front_image: frontImg, side_image: sideImg,
         send_to_numbers: false, send_to_group: true

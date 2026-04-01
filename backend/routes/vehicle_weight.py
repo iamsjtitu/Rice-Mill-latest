@@ -252,6 +252,11 @@ async def auto_notify_weight(data: dict):
                     if num:
                         r = await _send_wa_message(num.strip(), text)
                         results["whatsapp"].append(r)
+                        # Send photos to individual numbers
+                        for key, label in [("first_wt_front_img", "1st Wt Front"), ("first_wt_side_img", "1st Wt Side"), ("second_wt_front_img", "2nd Wt Front"), ("second_wt_side_img", "2nd Wt Side")]:
+                            if key in img_urls:
+                                r = await _send_wa_message(num.strip(), f"{label} - RST #{rst}", img_urls[key])
+                                results["whatsapp"].append(r)
     except Exception as e:
         logger.error(f"WA auto-notify error: {e}")
 

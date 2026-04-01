@@ -135,6 +135,128 @@ module.exports = function(database) {
     res.json({ success: true, message: 'Opening stock save ho gaya', data: doc });
   }));
 
+  // ===== CARRY FORWARD OPENING STOCK =====
+  router.post('/api/opening-stock/carry-forward', safeSync(async (req, res) => {
+    const { source_kms_year, target_kms_year, target_financial_year } = req.body;
+    if (!source_kms_year || !target_kms_year) {
+      return res.status(400).json({ detail: 'Source and target FY years required' });
+    }
+
+    // Calculate stock summary for source KMS year (mirrors salebook.js stock-summary logic)
+    const round2 = v => Math.round((v || 0) * 100) / 100;
+    const filterByKms = (arr) => (arr || []).filter(e => e.kms_year === source_kms_year);
+
+    // Fetch opening stock for source year
+    const ob = {};
+    if (database.data.opening_stock) {
+      const obDoc = database.data.opening_stock.find(s => s.kms_year === source_kms_year);
+      if (obDoc && obDoc.stocks) Object.assign(ob, obDoc.stocks);
+    }
+    const obPaddy = parseFloat(ob.paddy || 0);
+    const obUsna = parseFloat(ob.rice_usna || ob.rice || 0);
+    const obRaw = parseFloat(ob.rice_raw || 0);
+    const obBran = parseFloat(ob.bran || 0);
+    const obKunda = parseFloat(ob.kunda || 0);
+    const obBroken = parseFloat(ob.broken || 0);
+    const obKanki = parseFloat(ob.kanki || 0);
+    const obHusk = parseFloat(ob.husk || 0);
+    const obFrk = parseFloat(ob.frk || 0);
+    const bpObMap = { bran: obBran, kunda: obKunda, broken: obBroken, kanki: obKanki, husk: obHusk };
+
+    const milling = filterByKms(database.data.milling_entries);
+    const dc = filterByKms(database.data.dc_entries);
+    const pvtSales = filterByKms(database.data.rice_sales);
+    const saleVouchers = filterByKms(database.data.sale_vouchers);
+    const bpSales = filterByKms(database.data.byproduct_sales);
+    const purchaseVouchers = filterByKms(database.data.purchase_vouchers);
+    const millEntries = filterByKms(database.data.entries);
+    const pvtPaddy = filterByKms(database.data.private_paddy).filter(e => e.source !== 'agent_extra');
+    const frkPurchases = filterByKms(database.data.frk_purchases);
+
+    const cmrPaddyIn = round2(millEntries.reduce((s, e) => s + (e.qntl || 0) - (e.bag || 0) / 100 - (e.p_pkt_cut || 0) / 100, 0));
+    const pvtPaddyIn = round2(pvtPaddy.reduce((s, e) => s + ((e.final_qntl || 0) || ((e.qntl || 0) - (e.bag || 0) / 100)), 0));
+    const paddyUsedMilling = round2(milling.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0));
+    const usnaProduced = round2(milling.filter(e => ['usna', 'parboiled'].includes((e.rice_type || '').toLowerCase())).reduce((s, e) => s + (e.rice_qntl || 0), 0));
+    const rawProduced = round2(milling.filter(e => (e.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0));
+    const govtDelivered = round2(dc.reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+    const pvtSoldUsna = round2(pvtSales.filter(s => ['usna', 'parboiled'].includes((s.rice_type || '').toLowerCase())).reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+    const pvtSoldRaw = round2(pvtSales.filter(s => (s.rice_type || '').toLowerCase() === 'raw').reduce((s, e) => s + (e.quantity_qntl || 0), 0));
+
+    const sbSold = {};
+    saleVouchers.forEach(sv => (sv.items || []).forEach(i => { const n = i.item_name || ''; sbSold[n] = (sbSold[n] || 0) + (parseFloat(i.quantity) || 0); }));
+    const pvBought = {};
+    purchaseVouchers.forEach(pv => (pv.items || []).forEach(i => { const n = i.item_name || ''; pvBought[n] = (pvBought[n] || 0) + (parseFloat(i.quantity) || 0); }));
+
+    const byProducts = ['bran', 'kunda', 'broken', 'kanki', 'husk'];
+    const bpProduced = {};
+    byProducts.forEach(p => { bpProduced[p] = round2(milling.reduce((s, e) => s + (e[`${p}_qntl`] || 0), 0)); });
+    const bpSoldMap = {};
+    bpSales.forEach(s => { const p = s.product || ''; bpSoldMap[p] = (bpSoldMap[p] || 0) + (s.quantity_qntl || 0); });
+
+    const frkIn = round2((frkPurchases || []).reduce((s, e) => s + (e.quantity_qntl || e.quantity || 0), 0));
+
+    // Calculate available (closing) stock for each item
+    const pvPaddy = round2(pvBought['Paddy'] || 0);
+    const paddyTotalIn = round2(cmrPaddyIn + pvtPaddyIn + pvPaddy);
+    const paddyAvail = round2(obPaddy + paddyTotalIn - paddyUsedMilling);
+
+    const pvUsna = round2(pvBought['Rice (Usna)'] || 0);
+    const usnaSoldTotal = round2(govtDelivered + pvtSoldUsna + (sbSold['Rice (Usna)'] || 0));
+    const usnaAvail = round2(obUsna + usnaProduced + pvUsna - usnaSoldTotal);
+
+    const pvRaw = round2(pvBought['Rice (Raw)'] || 0);
+    const rawSoldTotal = round2(pvtSoldRaw + (sbSold['Rice (Raw)'] || 0));
+    const rawAvail = round2(obRaw + rawProduced + pvRaw - rawSoldTotal);
+
+    const bpClosing = {};
+    byProducts.forEach(p => {
+      const produced = bpProduced[p] || 0;
+      const soldBp = round2(bpSoldMap[p] || 0);
+      const soldSb = sbSold[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const purchased = pvBought[p.charAt(0).toUpperCase() + p.slice(1)] || 0;
+      const itemOb = bpObMap[p] || 0;
+      bpClosing[p] = round2(itemOb + produced + purchased - soldBp - soldSb);
+    });
+
+    const frkPurchasedPv = pvBought['FRK'] || 0;
+    const frkTotalIn = round2(frkIn + frkPurchasedPv);
+    const frkSoldSb = sbSold['FRK'] || 0;
+    const frkAvail = round2(obFrk + frkTotalIn - frkSoldSb);
+
+    // Map closing stock to opening stock keys
+    const closing = {
+      paddy: paddyAvail,
+      rice_usna: usnaAvail,
+      rice_raw: rawAvail,
+      bran: bpClosing.bran || 0,
+      kunda: bpClosing.kunda || 0,
+      broken: bpClosing.broken || 0,
+      kanki: bpClosing.kanki || 0,
+      husk: bpClosing.husk || 0,
+      frk: frkAvail
+    };
+
+    // Ensure all keys exist
+    STOCK_ITEMS.forEach(k => { if (!(k in closing)) closing[k] = 0; });
+
+    const doc = {
+      kms_year: target_kms_year,
+      financial_year: target_financial_year || '',
+      stocks: closing,
+      auto_carried: true,
+      carried_from: source_kms_year,
+      updated_at: new Date().toISOString()
+    };
+
+    if (!database.data.opening_stock) database.data.opening_stock = [];
+    const idx = database.data.opening_stock.findIndex(s => s.kms_year === target_kms_year);
+    if (idx >= 0) database.data.opening_stock[idx] = doc;
+    else database.data.opening_stock.push(doc);
+    database.save();
+
+    res.json({ success: true, message: `Closing stock ${source_kms_year} → Opening stock ${target_kms_year} carry forward ho gaya`, data: doc });
+  }));
+
   // ===== HEALTH CHECK =====
   router.get('/api/health', safeSync(async (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
