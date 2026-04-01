@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "72.0.0";
+const APP_VERSION = "73.0.0";
 
 const CHANGELOG = [
+  {
+    version: "73.0.0",
+    date: "Apr 2026",
+    title: "v73.0.0 - Remark View + Dialog Warnings Fix",
+    items: [
+      { type: "fix", text: "Auto Weight Entries - View mein Remark / टिप्पणी field ab dikhega" },
+      { type: "fix", text: "Console errors fix - DialogTitle missing warnings sab Dialogs se hata diye" },
+    ]
+  },
   {
     version: "72.0.0",
     date: "Apr 2026",
