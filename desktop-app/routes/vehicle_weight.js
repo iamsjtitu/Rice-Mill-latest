@@ -243,9 +243,11 @@ module.exports = function(database) {
       `───────────────\n`;
     const cash = entry.cash_paid || 0;
     const diesel = entry.diesel_paid || 0;
+    const gIssued = parseFloat(entry.g_issued || 0) || 0;
+    if (gIssued > 0) text += `G.Issued: ${gIssued.toLocaleString()}\n`;
     if (cash > 0) text += `Cash Paid: \u20b9${Number(cash).toLocaleString()}\n`;
     if (diesel > 0) text += `Diesel Paid: \u20b9${Number(diesel).toLocaleString()}\n`;
-    if (cash > 0 || diesel > 0) text += `───────────────\n`;
+    if (gIssued > 0 || cash > 0 || diesel > 0) text += `───────────────\n`;
     return text;
   }
 
@@ -355,6 +357,7 @@ module.exports = function(database) {
       remark: entry.remark || '',
       cash_paid: entry.cash_paid || 0,
       diesel_paid: entry.diesel_paid || 0,
+      g_issued: entry.g_issued || 0,
       first_wt_front_img: loadImageB64(entry.first_wt_front_img || ''),
       first_wt_side_img: loadImageB64(entry.first_wt_side_img || ''),
       second_wt_front_img: loadImageB64(entry.second_wt_front_img || ''),

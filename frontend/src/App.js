@@ -512,6 +512,7 @@ function MainApp({ user, onLogout }) {
           bag: vw.tot_pkts ? String(vw.tot_pkts) : prev.bag,
           cash_paid: vw.cash_paid ? String(vw.cash_paid) : prev.cash_paid,
           diesel_paid: vw.diesel_paid ? String(vw.diesel_paid) : prev.diesel_paid,
+          g_issued: vw.g_issued ? String(vw.g_issued) : prev.g_issued,
         }));
         const netInfo = vw.net_wt ? ` | Net: ${Number(vw.net_wt).toLocaleString()} KG` : '';
         const cashInfo = vw.cash_paid ? ` | Cash: ${vw.cash_paid}` : '';

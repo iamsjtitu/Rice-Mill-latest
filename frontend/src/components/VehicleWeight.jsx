@@ -605,9 +605,11 @@ export default function VehicleWeight({ filters }) {
     t += `───────────────\n`;
     const cash = Number(e.cash_paid || 0);
     const diesel = Number(e.diesel_paid || 0);
+    const gIssued = Number(e.g_issued || 0);
+    if (gIssued > 0) t += `G.Issued: ${gIssued.toLocaleString()}\n`;
     if (cash > 0) t += `Cash Paid: ₹${cash.toLocaleString()}\n`;
     if (diesel > 0) t += `Diesel Paid: ₹${diesel.toLocaleString()}\n`;
-    if (cash > 0 || diesel > 0) t += `───────────────\n`;
+    if (gIssued > 0 || cash > 0 || diesel > 0) t += `───────────────\n`;
     return t;
   };
 

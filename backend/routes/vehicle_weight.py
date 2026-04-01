@@ -68,6 +68,7 @@ async def get_entry_photos(entry_id: str):
         "remark": entry.get("remark", ""),
         "cash_paid": entry.get("cash_paid", 0),
         "diesel_paid": entry.get("diesel_paid", 0),
+        "g_issued": entry.get("g_issued", 0),
         "first_wt_front_img": _load_image_b64(entry.get("first_wt_front_img", "")),
         "first_wt_side_img": _load_image_b64(entry.get("first_wt_side_img", "")),
         "second_wt_front_img": _load_image_b64(entry.get("second_wt_front_img", "")),
@@ -204,6 +205,9 @@ async def auto_notify_weight(data: dict):
     )
     cash = entry.get("cash_paid", 0) or 0
     diesel = entry.get("diesel_paid", 0) or 0
+    g_issued = float(entry.get("g_issued", 0) or 0)
+    if g_issued > 0:
+        text += f"G.Issued: {g_issued:,.0f}\n"
     if cash > 0:
         text += f"Cash Paid: \u20b9{cash:,.0f}\n"
     if diesel > 0:
