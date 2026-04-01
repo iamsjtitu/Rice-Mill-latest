@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "56.0.0";
+const APP_VERSION = "57.0.0";
 
 const CHANGELOG = [
+  {
+    version: "57.0.0",
+    date: "Mar 2026",
+    title: "v57.0.0 - VIGI HTTPS Fix + Protocol Cache",
+    items: [
+      { type: "fix", text: "CRITICAL: VIGI camera ab HTTPS pe kaam karta hai - pehle sirf HTTP try hota tha jo fail hota tha" },
+      { type: "fix", text: "Protocol Cache: Ek baar HTTPS kaam kiya toh baaki frames direct HTTPS pe - no retry delay" },
+      { type: "fix", text: "Timeout 15s se 5s kiya - faster fallback agar ek protocol fail ho" },
+    ]
+  },
   {
     version: "56.0.0",
     date: "Mar 2026",
