@@ -69,6 +69,7 @@ async def get_entry_photos(entry_id: str):
         "cash_paid": entry.get("cash_paid", 0),
         "diesel_paid": entry.get("diesel_paid", 0),
         "g_issued": entry.get("g_issued", 0),
+        "tp_no": entry.get("tp_no", ""),
         "first_wt_front_img": _load_image_b64(entry.get("first_wt_front_img", "")),
         "first_wt_side_img": _load_image_b64(entry.get("first_wt_side_img", "")),
         "second_wt_front_img": _load_image_b64(entry.get("second_wt_front_img", "")),
@@ -208,6 +209,12 @@ async def auto_notify_weight(data: dict):
     g_issued = float(entry.get("g_issued", 0) or 0)
     if g_issued > 0:
         text += f"G.Issued: {g_issued:,.0f}\n"
+    tp_no = entry.get("tp_no", "")
+    if tp_no:
+        text += f"TP: {tp_no}\n"
+    remark = entry.get("remark", "")
+    if remark:
+        text += f"Remark: {remark}\n"
     if cash > 0:
         text += f"Cash Paid: \u20b9{cash:,.0f}\n"
     if diesel > 0:
@@ -456,6 +463,7 @@ async def create_weight_entry(data: dict):
         "kms_year": kms_year,
         "vehicle_no": (data.get("vehicle_no", "") or "").strip().upper(),
         "party_name": (data.get("party_name", "") or "").strip(),
+        "tp_no": (data.get("tp_no", "") or "").strip(),
         "g_issued": float(data.get("g_issued", 0) or 0),
         "farmer_name": (data.get("farmer_name", "") or "").strip(),
         "product": data.get("product", "PADDY"),
@@ -544,7 +552,7 @@ async def edit_weight_entry(entry_id: str, data: dict):
         raise HTTPException(status_code=404, detail="Entry not found")
 
     update_fields = {}
-    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "cash_paid", "diesel_paid", "g_issued"]
+    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "cash_paid", "diesel_paid", "g_issued", "tp_no", "remark"]
     for f in editable:
         if f in data:
             if f in ("cash_paid", "diesel_paid"):
@@ -678,8 +686,14 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
             ("Product / \u092e\u093e\u0932", entry.get("product", ""), "Bags / \u092c\u094b\u0930\u0947", str(entry.get("tot_pkts", 0))),
         ]
         g_issued = float(entry.get("g_issued", 0) or 0)
+        tp_no = entry.get("tp_no", "") or ""
+        remark_text = entry.get("remark", "") or ""
         if g_issued > 0:
-            rows.append(("G.Issued", f"{g_issued:,.0f}", "", ""))
+            rows.append(("G.Issued", f"{g_issued:,.0f}", "TP No.", tp_no or "-"))
+        elif tp_no:
+            rows.append(("TP No.", tp_no, "", ""))
+        if remark_text:
+            rows.append(("Remark", remark_text, "", ""))
         rh = 6*mm  # row height - taller for proper table cells
         table_x = x
         c1w = PW * 0.18   # label col 1

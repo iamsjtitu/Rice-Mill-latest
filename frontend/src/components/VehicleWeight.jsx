@@ -399,7 +399,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 });
 
 export default function VehicleWeight({ filters }) {
-  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "" };
+  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "", tp_no: "" };
   const [form, setForm] = useState(blank);
   const [rstEditable, setRstEditable] = useState(false);
   const [entries, setEntries] = useState([]);
@@ -524,6 +524,7 @@ export default function VehicleWeight({ filters }) {
       p_pkts: entry.p_pkts || "",
       first_wt: String(entry.first_wt || 0),
       remark: entry.remark || "",
+      tp_no: entry.tp_no || "",
       cash_paid: entry.cash_paid ? String(entry.cash_paid) : "",
       diesel_paid: entry.diesel_paid ? String(entry.diesel_paid) : "",
       g_issued: entry.g_issued ? String(entry.g_issued) : "",
@@ -607,6 +608,8 @@ export default function VehicleWeight({ filters }) {
     const diesel = Number(e.diesel_paid || 0);
     const gIssued = Number(e.g_issued || 0);
     if (gIssued > 0) t += `G.Issued: ${gIssued.toLocaleString()}\n`;
+    if (e.tp_no) t += `TP: ${e.tp_no}\n`;
+    if (e.remark) t += `Remark: ${e.remark}\n`;
     if (cash > 0) t += `Cash Paid: ₹${cash.toLocaleString()}\n`;
     if (diesel > 0) t += `Diesel Paid: ₹${diesel.toLocaleString()}\n`;
     if (gIssued > 0 || cash > 0 || diesel > 0) t += `───────────────\n`;
@@ -651,7 +654,9 @@ export default function VehicleWeight({ filters }) {
       tot_pkts: entry.tot_pkts || "",
       cash_paid: entry.cash_paid || "",
       diesel_paid: entry.diesel_paid || "",
-      g_issued: entry.g_issued || ""
+      g_issued: entry.g_issued || "",
+      tp_no: entry.tp_no || "",
+      remark: entry.remark || ""
     });
     setEditDialog({ open: true, entry });
   };
@@ -725,7 +730,8 @@ export default function VehicleWeight({ filters }) {
           <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans</td><td class="val">${e.trans_type || '-'}</td></tr>
           <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source/Mandi</td><td class="val">${e.farmer_name || '-'}</td></tr>
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
-          ${Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
+          ${Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl">TP No.</td><td class="val">${e.tp_no || '-'}</td></tr>` : (e.tp_no ? `<tr><td class="lbl">TP No.</td><td class="val">${e.tp_no}</td><td class="lbl"></td><td class="val"></td></tr>` : '')}
+          ${e.remark ? `<tr><td class="lbl">Remark</td><td class="val" colspan="3">${e.remark}</td></tr>` : ''}
         </table>
         <table class="wt-table">
           <tr>
@@ -944,7 +950,12 @@ export default function VehicleWeight({ filters }) {
                       placeholder="0" className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-bags" />
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-5 gap-2">
+                  <div>
+                    <Label className="text-gray-600 text-[10px] mb-0.5 block">TP No.</Label>
+                    <Input value={form.tp_no} onChange={e => setForm(p => ({ ...p, tp_no: e.target.value }))}
+                      placeholder="Optional" className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-tp-no" />
+                  </div>
                   <div>
                     <Label className="text-gray-600 text-[10px] mb-0.5 block">Remark</Label>
                     <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
@@ -1295,7 +1306,7 @@ export default function VehicleWeight({ filters }) {
                   className="h-9 text-sm border-gray-300" data-testid="edit-farmer" />
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               <div>
                 <Label className="text-gray-600 text-xs mb-1 block">Bags</Label>
                 <Input type="number" value={editForm.tot_pkts || ""} onChange={e => setEditForm(p => ({ ...p, tot_pkts: e.target.value }))}
@@ -1305,6 +1316,11 @@ export default function VehicleWeight({ filters }) {
                 <Label className="text-gray-600 text-xs mb-1 block">G.Issued</Label>
                 <Input type="number" value={editForm.g_issued || ""} onChange={e => setEditForm(p => ({ ...p, g_issued: e.target.value }))}
                   className="h-9 text-sm border-gray-300" data-testid="edit-g-issued" />
+              </div>
+              <div>
+                <Label className="text-gray-600 text-xs mb-1 block">TP No.</Label>
+                <Input value={editForm.tp_no || ""} onChange={e => setEditForm(p => ({ ...p, tp_no: e.target.value }))}
+                  className="h-9 text-sm border-gray-300" data-testid="edit-tp-no" />
               </div>
               <div>
                 <Label className="text-green-700 text-xs mb-1 block font-semibold">Cash Paid</Label>
@@ -1375,7 +1391,15 @@ export default function VehicleWeight({ filters }) {
                     <tr>
                       <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">G.Issued</td>
                       <td className="border border-gray-300 px-2 py-1 font-extrabold text-indigo-700">{fmtWt(photoDialog.data.g_issued)}</td>
-                      <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap"></td>
+                      <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">TP No.</td>
+                      <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tp_no || '-'}</td>
+                    </tr>
+                  )}
+                  {(!photoDialog.data.g_issued || Number(photoDialog.data.g_issued) === 0) && photoDialog.data.tp_no && (
+                    <tr>
+                      <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">TP No.</td>
+                      <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tp_no}</td>
+                      <td className="border border-gray-300 px-2 py-1"></td>
                       <td className="border border-gray-300 px-2 py-1"></td>
                     </tr>
                   )}

@@ -245,6 +245,8 @@ module.exports = function(database) {
     const diesel = entry.diesel_paid || 0;
     const gIssued = parseFloat(entry.g_issued || 0) || 0;
     if (gIssued > 0) text += `G.Issued: ${gIssued.toLocaleString()}\n`;
+    if (entry.tp_no) text += `TP: ${entry.tp_no}\n`;
+    if (entry.remark) text += `Remark: ${entry.remark}\n`;
     if (cash > 0) text += `Cash Paid: \u20b9${Number(cash).toLocaleString()}\n`;
     if (diesel > 0) text += `Diesel Paid: \u20b9${Number(diesel).toLocaleString()}\n`;
     if (gIssued > 0 || cash > 0 || diesel > 0) text += `───────────────\n`;
@@ -358,6 +360,7 @@ module.exports = function(database) {
       cash_paid: entry.cash_paid || 0,
       diesel_paid: entry.diesel_paid || 0,
       g_issued: entry.g_issued || 0,
+      tp_no: entry.tp_no || '',
       first_wt_front_img: loadImageB64(entry.first_wt_front_img || ''),
       first_wt_side_img: loadImageB64(entry.first_wt_side_img || ''),
       second_wt_front_img: loadImageB64(entry.second_wt_front_img || ''),
@@ -602,6 +605,7 @@ module.exports = function(database) {
       kms_year: kmsYear,
       vehicle_no: (data.vehicle_no || '').trim().toUpperCase(),
       party_name: (data.party_name || '').trim(),
+      tp_no: (data.tp_no || '').trim(),
       g_issued: parseFloat(data.g_issued || 0) || 0,
       farmer_name: (data.farmer_name || '').trim(),
       product: data.product || 'PADDY',
@@ -678,7 +682,7 @@ module.exports = function(database) {
     const entry = weights.find(w => w.id === req.params.entry_id);
     if (!entry) return res.status(404).json({ detail: 'Entry not found' });
 
-    const editable = ['vehicle_no', 'party_name', 'farmer_name', 'product', 'tot_pkts', 'cash_paid', 'diesel_paid', 'g_issued'];
+    const editable = ['vehicle_no', 'party_name', 'farmer_name', 'product', 'tot_pkts', 'cash_paid', 'diesel_paid', 'g_issued', 'tp_no', 'remark'];
     for (const f of editable) {
       if (f in req.body) {
         if (f === 'cash_paid' || f === 'diesel_paid') {
@@ -803,7 +807,11 @@ module.exports = function(database) {
         ['Product / \u092e\u093e\u0932', entry.product || '', 'Bags / \u092c\u094b\u0930\u0947', String(entry.tot_pkts || 0)],
       ];
       const gIssued = parseFloat(entry.g_issued || 0) || 0;
-      if (gIssued > 0) rows.push(['G.Issued', gIssued.toLocaleString(), '', '']);
+      const tpNo = entry.tp_no || '';
+      const remarkText = entry.remark || '';
+      if (gIssued > 0) rows.push(['G.Issued', gIssued.toLocaleString(), 'TP No.', tpNo || '-']);
+      else if (tpNo) rows.push(['TP No.', tpNo, '', '']);
+      if (remarkText) rows.push(['Remark', remarkText, '', '']);
       const rh = 6 * mm;
       const c1w = PW * 0.18;
       const c2w = PW * 0.32;
