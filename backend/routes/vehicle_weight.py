@@ -612,37 +612,36 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         y = top_y
         bh = 95*mm  # block height for each copy
 
-        # Border box
-        c.setStrokeColor(colors.HexColor("#333"))
-        c.setLineWidth(1.5)
+        # Border box (outer)
+        c.setStrokeColor(colors.HexColor("#1a1a2e"))
+        c.setLineWidth(2)
         c.rect(x, y - bh, PW, bh)
 
-        # Copy label (top right)
+        # Copy label (top right on border)
         c.setFont("Helvetica-Bold", 7)
-        c.setFillColor(colors.HexColor("#888"))
         lw = c.stringWidth(copy_label, "Helvetica-Bold", 7)
         c.setFillColor(colors.white)
         c.rect(x + PW - lw - 14*mm, y - 1, lw + 4*mm, 6, fill=1, stroke=0)
         c.setFillColor(colors.HexColor("#888"))
         c.drawString(x + PW - lw - 12*mm, y + 0.5, copy_label)
 
-        cy = y - 5*mm  # current y position inside box
+        cy = y - 5*mm
 
         # Custom fields ABOVE company name
         if above_text:
-            c.setFont("FreeSans", 7)
+            c.setFont("FreeSans", 8)
             c.setFillColor(colors.HexColor("#8B0000"))
             c.drawCentredString(W/2, cy, above_text)
-            cy -= 3.5*mm
+            cy -= 4.5*mm
 
-        # Company name
-        c.setFont("Helvetica-Bold", 15)
-        c.setFillColor(colors.HexColor("#1a1a2e"))
+        # Company name - large bold
+        c.setFont("Helvetica-Bold", 18)
+        c.setFillColor(colors.HexColor("#000"))
         c.drawCentredString(W/2, cy, company)
-        cy -= 4.5*mm
+        cy -= 5.5*mm
 
         # Tagline
-        c.setFont("Helvetica", 7.5)
+        c.setFont("Helvetica", 8)
         c.setFillColor(colors.gray)
         c.drawCentredString(W/2, cy, tagline)
         cy -= 3.5*mm
@@ -654,111 +653,127 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
             c.drawCentredString(W/2, cy, below_text)
             cy -= 3*mm
 
-        # Line under header
-        c.setStrokeColor(colors.HexColor("#1a1a2e"))
-        c.setLineWidth(1.5)
-        c.line(x + 2*mm, cy, x + PW - 2*mm, cy)
-        cy -= 4*mm
-
         # Slip title
-        c.setFont("Helvetica-Bold", 10)
+        c.setFont("Helvetica-Bold", 11)
         c.setFillColor(colors.HexColor("#333"))
         c.drawCentredString(W/2, cy, "WEIGHT SLIP / \u0924\u094c\u0932 \u092a\u0930\u094d\u091a\u0940")
-        cy -= 5*mm
+        cy -= 2*mm
 
-        # ── Info Grid (4 rows x 4 cols) ──
+        # ── Bordered Info Table (4 rows x 4 cols) ──
+        # Header separator line
+        c.setStrokeColor(colors.HexColor("#1a1a2e"))
+        c.setLineWidth(1.5)
+        c.line(x, cy, x + PW, cy)
+
         rows = [
             ("RST No.", f"#{rst}", "Date / \u0926\u093f\u0928\u093e\u0902\u0915", entry.get("date", "")),
             ("Vehicle / \u0917\u093e\u0921\u093c\u0940", entry.get("vehicle_no", ""), "Trans", entry.get("trans_type", "")),
             ("Party / \u092a\u093e\u0930\u094d\u091f\u0940", entry.get("party_name", ""), "Farmer", entry.get("farmer_name", "")),
             ("Product / \u092e\u093e\u0932", entry.get("product", ""), "Bags / \u092c\u094b\u0930\u0947", str(entry.get("tot_pkts", 0))),
         ]
-        rh = 4.5*mm  # row height
-        c1w = 18*mm  # label col width
-        c2w = 40*mm  # value col width
-        c3w = 14*mm
-        c4w = PW - c1w - c2w - c3w - 2*mm
+        rh = 6*mm  # row height - taller for proper table cells
+        table_x = x
+        c1w = PW * 0.18   # label col 1
+        c2w = PW * 0.32   # value col 1
+        c3w = PW * 0.18   # label col 2
+        c4w = PW * 0.32   # value col 2
 
         for i, (l1, v1, l2, v2) in enumerate(rows):
-            ry = cy - i * rh
-            # Grid lines
-            c.setStrokeColor(colors.HexColor("#ccc"))
-            c.setLineWidth(0.4)
-            c.line(x + 2*mm, ry - 1.5*mm, x + PW - 2*mm, ry - 1.5*mm)
+            row_top = cy - i * rh
+            row_bottom = row_top - rh
 
-            c.setFont("Helvetica-Bold", 7)
-            c.setFillColor(colors.HexColor("#555"))
-            c.drawString(x + 3*mm, ry, l1)
+            # Draw cell borders
+            c.setStrokeColor(colors.HexColor("#999"))
+            c.setLineWidth(0.5)
+            # Horizontal line at bottom of row
+            c.line(table_x, row_bottom, table_x + PW, row_bottom)
+            # Vertical lines for column separators
+            c.line(table_x + c1w, row_top, table_x + c1w, row_bottom)
+            c.line(table_x + c1w + c2w, row_top, table_x + c1w + c2w, row_bottom)
+            c.line(table_x + c1w + c2w + c3w, row_top, table_x + c1w + c2w + c3w, row_bottom)
 
-            fsize = 9.5 if i == 0 else 8.5
-            c.setFont("Helvetica-Bold" if i == 0 else "Helvetica", fsize)
+            # Text vertical center in cell
+            text_y = row_top - rh * 0.65
+
+            # Label 1
+            c.setFont("FreeSans", 8)
+            c.setFillColor(colors.HexColor("#333"))
+            c.drawString(table_x + 2*mm, text_y, l1)
+
+            # Value 1 - bold
+            c.setFont("FreeSansBold" if i == 0 else "FreeSans", 10 if i == 0 else 9)
             c.setFillColor(colors.HexColor("#000"))
-            c.drawString(x + 3*mm + c1w, ry, str(v1)[:22])
+            c.drawString(table_x + c1w + 2*mm, text_y, str(v1)[:22])
 
-            c.setFont("Helvetica-Bold", 7)
-            c.setFillColor(colors.HexColor("#555"))
-            c.drawString(x + 3*mm + c1w + c2w, ry, l2)
+            # Label 2
+            c.setFont("FreeSans", 8)
+            c.setFillColor(colors.HexColor("#333"))
+            c.drawString(table_x + c1w + c2w + 2*mm, text_y, l2)
 
-            c.setFont("Helvetica", 8.5)
+            # Value 2 - bold
+            c.setFont("FreeSansBold" if i == 0 else "FreeSans", 10 if i == 0 else 9)
             c.setFillColor(colors.HexColor("#000"))
-            c.drawString(x + 3*mm + c1w + c2w + c3w, ry, str(v2)[:22])
+            c.drawString(table_x + c1w + c2w + c3w + 2*mm, text_y, str(v2)[:22])
 
-        cy -= len(rows) * rh + 4*mm
+        cy -= len(rows) * rh
+
+        # Thick line separating table from weight boxes
+        c.setStrokeColor(colors.HexColor("#1a1a2e"))
+        c.setLineWidth(1.5)
+        c.line(x, cy, x + PW, cy)
+        cy -= 1*mm
 
         # ── Weight boxes (Gross | Tare | Net + optional Cash/Diesel) ──
         wt_items = [
-            ("Gross / \u0915\u0941\u0932", f"{gross_wt:,.0f} KG", "#f5f5f5", "#111"),
-            ("Tare / \u0916\u093e\u0932\u0940", f"{tare_wt:,.0f} KG", "#f5f5f5", "#111"),
-            ("Net / \u0936\u0941\u0926\u094d\u0927", f"{net_wt:,.0f} KG", "#e8f5e9", "#1b5e20"),
+            ("GROSS / \u0915\u0941\u0932", f"{gross_wt:,.0f} KG", "#f0f0f0", "#000", "#999"),
+            ("TARE / \u0916\u093e\u0932\u0940", f"{tare_wt:,.0f} KG", "#f0f0f0", "#000", "#999"),
+            ("NET / \u0936\u0941\u0926\u094d\u0927", f"{net_wt:,.0f} KG", "#dcf5dc", "#1b5e20", "#2e7d32"),
         ]
         if cash > 0:
-            wt_items.append(("Cash / \u0928\u0915\u0926", f"\u20b9{cash:,.0f}", "#fff8e1", "#e65100"))
+            wt_items.append(("CASH / \u0928\u0915\u0926", f"\u20b9{cash:,.0f}", "#fff8e1", "#e65100", "#f9a825"))
         if diesel > 0:
-            wt_items.append(("Diesel / \u0921\u0940\u091c\u0932", f"\u20b9{diesel:,.0f}", "#fff8e1", "#e65100"))
+            wt_items.append(("DIESEL / \u0921\u0940\u091c\u0932", f"\u20b9{diesel:,.0f}", "#fff8e1", "#e65100", "#f9a825"))
 
         num_cols = len(wt_items)
-        col_w = (PW - 4*mm) / num_cols
-        box_h = 11*mm
+        col_w = PW / num_cols
+        box_h = 13*mm
 
-        for i, (label, val, bg, fg) in enumerate(wt_items):
-            bx = x + 2*mm + i * col_w
-            # Background
+        for i, (label, val, bg, fg, bc) in enumerate(wt_items):
+            bx = x + i * col_w
+            # Background fill
             c.setFillColor(colors.HexColor(bg))
-            c.rect(bx, cy - box_h, col_w - 0.8*mm, box_h, fill=1, stroke=0)
-            # Border
-            bc = "#388e3c" if "Net" in label else "#f9a825" if "Cash" in label or "Diesel" in label else "#bbb"
+            c.rect(bx, cy - box_h, col_w, box_h, fill=1, stroke=0)
+            # Cell border
             c.setStrokeColor(colors.HexColor(bc))
-            c.setLineWidth(0.8 if "Net" in label else 0.4)
-            c.rect(bx, cy - box_h, col_w - 0.8*mm, box_h)
-            # Label
-            c.setFont("Helvetica", 6)
-            c.setFillColor(colors.HexColor("#666"))
-            c.drawCentredString(bx + (col_w - 0.8*mm)/2, cy - 3.5*mm, label)
-            # Value
-            fz = 13 if "Net" in label else 10 if "Cash" in label or "Diesel" in label else 11
+            c.setLineWidth(1.2 if "NET" in label else 0.5)
+            c.rect(bx, cy - box_h, col_w, box_h)
+            # Label (uppercase, small)
+            c.setFont("Helvetica-Bold", 7)
+            c.setFillColor(colors.HexColor("#555"))
+            c.drawCentredString(bx + col_w/2, cy - 4*mm, label)
+            # Value (large, bold)
+            fz = 14 if "NET" in label else 11 if "CASH" in label or "DIESEL" in label else 12
             c.setFont("Helvetica-Bold", fz)
             c.setFillColor(colors.HexColor(fg))
-            c.drawCentredString(bx + (col_w - 0.8*mm)/2, cy - 8.5*mm, val)
+            c.drawCentredString(bx + col_w/2, cy - 10*mm, val)
 
-        cy -= box_h + 3*mm
+        cy -= box_h + 2*mm
 
         # ── Signature section (only Customer copy) ──
         if show_sig:
             sig_w = 38*mm
-            # Left sig
             c.setStrokeColor(colors.HexColor("#333"))
             c.setLineWidth(0.6)
             c.line(x + 8*mm, cy - 10*mm, x + 8*mm + sig_w, cy - 10*mm)
             c.setFont("Helvetica", 6)
             c.setFillColor(colors.HexColor("#555"))
             c.drawCentredString(x + 8*mm + sig_w/2, cy - 13*mm, "Driver / \u0921\u094d\u0930\u093e\u0907\u0935\u0930")
-            # Right sig
             c.line(x + PW - 8*mm - sig_w, cy - 10*mm, x + PW - 8*mm, cy - 10*mm)
             c.drawCentredString(x + PW - 8*mm - sig_w/2, cy - 13*mm, "Authorized / \u0905\u0927\u093f\u0915\u0943\u0924")
 
         # Footer
-        c.setFont("Helvetica", 5)
-        c.setFillColor(colors.HexColor("#bbb"))
+        c.setFont("Helvetica", 6)
+        c.setFillColor(colors.HexColor("#999"))
         c.drawCentredString(W/2, y - bh + 2*mm, f"{company} | Computer Generated")
 
     # Draw copies based on mode

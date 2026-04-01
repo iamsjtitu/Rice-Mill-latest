@@ -753,8 +753,8 @@ module.exports = function(database) {
       let y = startY;
       const bh = 95 * mm;
 
-      // Border box
-      doc.lineWidth(1.5).strokeColor('#333').rect(x, y, PW, bh).stroke();
+      // Border box (outer) - dark thick border
+      doc.lineWidth(2).strokeColor('#1a1a2e').rect(x, y, PW, bh).stroke();
 
       // Copy label (top-right on border)
       const lw = doc.font(fb).fontSize(7).widthOfString(copyLabel);
@@ -765,16 +765,16 @@ module.exports = function(database) {
 
       // Custom fields ABOVE company name
       if (aboveText) {
-        doc.font(fn).fontSize(7).fillColor('#8B0000').text(aboveText, x, y, { width: PW, align: 'center' });
-        y += 3.5 * mm;
+        doc.font(fn).fontSize(8).fillColor('#8B0000').text(aboveText, x, y, { width: PW, align: 'center' });
+        y += 4.5 * mm;
       }
 
-      // Company name
-      doc.font(fb).fontSize(15).fillColor('#1a1a2e').text(company, x, y, { width: PW, align: 'center' });
-      y += 6 * mm;
+      // Company name - large bold
+      doc.font(fb).fontSize(18).fillColor('#000').text(company, x, y, { width: PW, align: 'center' });
+      y += 7 * mm;
 
       // Tagline
-      doc.font(fn).fontSize(7.5).fillColor('#888').text(tagline, x, y, { width: PW, align: 'center' });
+      doc.font(fn).fontSize(8).fillColor('#888').text(tagline, x, y, { width: PW, align: 'center' });
       y += 4 * mm;
 
       // Custom fields BELOW tagline
@@ -783,73 +783,91 @@ module.exports = function(database) {
         y += 3 * mm;
       }
 
-      // Header line
-      doc.lineWidth(1.5).strokeColor('#1a1a2e').moveTo(x + 6, y).lineTo(x + PW - 6, y).stroke();
-      y += 3.5 * mm;
-
       // Slip title
-      doc.font(fb).fontSize(10).fillColor('#333').text('WEIGHT SLIP', x, y, { width: PW, align: 'center' });
+      doc.font(fb).fontSize(11).fillColor('#333').text('WEIGHT SLIP / \u0924\u094c\u0932 \u092a\u0930\u094d\u091a\u0940', x, y, { width: PW, align: 'center' });
       y += 5 * mm;
 
-      // Info grid
+      // Header separator line (thick)
+      doc.lineWidth(1.5).strokeColor('#1a1a2e').moveTo(x, y).lineTo(x + PW, y).stroke();
+
+      // ── Bordered Info Table (4 rows x 4 cols with cell borders) ──
       const rows = [
-        ['RST No.', `#${rst}`, 'Date', entry.date || ''],
-        ['Vehicle', entry.vehicle_no || '', 'Trans', entry.trans_type || ''],
-        ['Party', entry.party_name || '', 'Farmer', entry.farmer_name || ''],
-        ['Product', entry.product || '', 'Bags', String(entry.tot_pkts || 0)],
+        ['RST No.', `#${rst}`, 'Date / \u0926\u093f\u0928\u093e\u0902\u0915', entry.date || ''],
+        ['Vehicle / \u0917\u093e\u0921\u093c\u0940', entry.vehicle_no || '', 'Trans', entry.trans_type || ''],
+        ['Party / \u092a\u093e\u0930\u094d\u091f\u0940', entry.party_name || '', 'Farmer', entry.farmer_name || ''],
+        ['Product / \u092e\u093e\u0932', entry.product || '', 'Bags / \u092c\u094b\u0930\u0947', String(entry.tot_pkts || 0)],
       ];
-      const rh = 4.5 * mm;
-      const c1w = 18 * mm, c2w = 40 * mm, c3w = 14 * mm;
+      const rh = 6 * mm;
+      const c1w = PW * 0.18;
+      const c2w = PW * 0.32;
+      const c3w = PW * 0.18;
 
       rows.forEach((row, i) => {
         const ry = y + i * rh;
-        doc.lineWidth(0.4).strokeColor('#ccc').moveTo(x + 6, ry + rh).lineTo(x + PW - 6, ry + rh).stroke();
-        doc.font(fb).fontSize(7).fillColor('#555').text(row[0], x + 8, ry, { lineBreak: false });
-        const fsize = i === 0 ? 9.5 : 8.5;
-        doc.font(i === 0 ? fb : fn).fontSize(fsize).fillColor('#000').text(String(row[1]).substring(0, 22), x + 8 + c1w, ry, { lineBreak: false });
-        doc.font(fb).fontSize(7).fillColor('#555').text(row[2], x + 8 + c1w + c2w, ry, { lineBreak: false });
-        doc.font(fn).fontSize(8.5).fillColor('#000').text(String(row[3]).substring(0, 22), x + 8 + c1w + c2w + c3w, ry, { lineBreak: false });
+        const ryBottom = ry + rh;
+
+        // Horizontal line at bottom of each row
+        doc.lineWidth(0.5).strokeColor('#999').moveTo(x, ryBottom).lineTo(x + PW, ryBottom).stroke();
+        // Vertical column separators
+        doc.moveTo(x + c1w, ry).lineTo(x + c1w, ryBottom).stroke();
+        doc.moveTo(x + c1w + c2w, ry).lineTo(x + c1w + c2w, ryBottom).stroke();
+        doc.moveTo(x + c1w + c2w + c3w, ry).lineTo(x + c1w + c2w + c3w, ryBottom).stroke();
+
+        const textY = ry + rh * 0.25;
+
+        // Label 1
+        doc.font(fn).fontSize(8).fillColor('#333').text(row[0], x + 2 * mm, textY, { lineBreak: false });
+        // Value 1 - bold
+        doc.font(i === 0 ? fb : fn).fontSize(i === 0 ? 10 : 9).fillColor('#000').text(String(row[1]).substring(0, 22), x + c1w + 2 * mm, textY, { lineBreak: false });
+        // Label 2
+        doc.font(fn).fontSize(8).fillColor('#333').text(row[2], x + c1w + c2w + 2 * mm, textY, { lineBreak: false });
+        // Value 2 - bold
+        doc.font(i === 0 ? fb : fn).fontSize(i === 0 ? 10 : 9).fillColor('#000').text(String(row[3]).substring(0, 22), x + c1w + c2w + c3w + 2 * mm, textY, { lineBreak: false });
       });
 
-      y += rows.length * rh + 4 * mm;
+      y += rows.length * rh;
 
-      // Weight boxes
+      // Thick line separating table from weight boxes
+      doc.lineWidth(1.5).strokeColor('#1a1a2e').moveTo(x, y).lineTo(x + PW, y).stroke();
+      y += 1 * mm;
+
+      // ── Weight boxes (Gross | Tare | Net + optional Cash/Diesel) ──
       const wtItems = [
-        { label: 'Gross', val: `${Number(grossWt).toLocaleString()} KG`, bg: '#f5f5f5', fg: '#111', bc: '#bbb' },
-        { label: 'Tare', val: `${Number(tareWt).toLocaleString()} KG`, bg: '#f5f5f5', fg: '#111', bc: '#bbb' },
-        { label: 'Net', val: `${Number(netWt).toLocaleString()} KG`, bg: '#e8f5e9', fg: '#1b5e20', bc: '#388e3c' },
+        { label: 'GROSS / \u0915\u0941\u0932', val: `${Number(grossWt).toLocaleString()} KG`, bg: '#f0f0f0', fg: '#000', bc: '#999' },
+        { label: 'TARE / \u0916\u093e\u0932\u0940', val: `${Number(tareWt).toLocaleString()} KG`, bg: '#f0f0f0', fg: '#000', bc: '#999' },
+        { label: 'NET / \u0936\u0941\u0926\u094d\u0927', val: `${Number(netWt).toLocaleString()} KG`, bg: '#dcf5dc', fg: '#1b5e20', bc: '#2e7d32' },
       ];
-      if (cash > 0) wtItems.push({ label: 'Cash', val: `Rs.${Number(cash).toLocaleString()}`, bg: '#fff8e1', fg: '#e65100', bc: '#f9a825' });
-      if (diesel > 0) wtItems.push({ label: 'Diesel', val: `Rs.${Number(diesel).toLocaleString()}`, bg: '#fff8e1', fg: '#e65100', bc: '#f9a825' });
+      if (cash > 0) wtItems.push({ label: 'CASH / \u0928\u0915\u0926', val: `Rs.${Number(cash).toLocaleString()}`, bg: '#fff8e1', fg: '#e65100', bc: '#f9a825' });
+      if (diesel > 0) wtItems.push({ label: 'DIESEL / \u0921\u0940\u091c\u0932', val: `Rs.${Number(diesel).toLocaleString()}`, bg: '#fff8e1', fg: '#e65100', bc: '#f9a825' });
 
       const numCols = wtItems.length;
-      const colW = (PW - 12) / numCols;
-      const boxH = 11 * mm;
+      const colW = PW / numCols;
+      const boxH = 13 * mm;
 
       wtItems.forEach((item, i) => {
-        const bx = x + 6 + i * colW;
-        doc.rect(bx, y, colW - 2, boxH).fill(item.bg);
-        doc.lineWidth(item.label === 'Net' ? 0.8 : 0.4).strokeColor(item.bc).rect(bx, y, colW - 2, boxH).stroke();
-        doc.font(fn).fontSize(6).fillColor('#666').text(item.label, bx, y + 2, { width: colW - 2, align: 'center' });
-        const fz = item.label === 'Net' ? 13 : (item.label === 'Cash' || item.label === 'Diesel') ? 10 : 11;
-        doc.font(fb).fontSize(fz).fillColor(item.fg).text(item.val, bx, y + 4.5 * mm, { width: colW - 2, align: 'center' });
+        const bx = x + i * colW;
+        doc.rect(bx, y, colW, boxH).fill(item.bg);
+        doc.lineWidth(item.label.includes('NET') ? 1.2 : 0.5).strokeColor(item.bc).rect(bx, y, colW, boxH).stroke();
+        doc.font(fb).fontSize(7).fillColor('#555').text(item.label, bx, y + 2, { width: colW, align: 'center' });
+        const fz = item.label.includes('NET') ? 14 : (item.label.includes('CASH') || item.label.includes('DIESEL')) ? 11 : 12;
+        doc.font(fb).fontSize(fz).fillColor(item.fg).text(item.val, bx, y + 4.5 * mm, { width: colW, align: 'center' });
       });
 
-      y += boxH + 3 * mm;
+      y += boxH + 2 * mm;
 
-      // Signatures
+      // Signatures (only for customer copy)
       if (showSig) {
         const sigW = 38 * mm;
         const sigLineY = y + 10 * mm;
         doc.lineWidth(0.6).strokeColor('#333');
         doc.moveTo(x + 22, sigLineY).lineTo(x + 22 + sigW, sigLineY).stroke();
-        doc.font(fn).fontSize(6).fillColor('#555').text('Driver', x + 22, sigLineY + 2, { width: sigW, align: 'center' });
+        doc.font(fn).fontSize(6).fillColor('#555').text('Driver / \u0921\u094d\u0930\u093e\u0907\u0935\u0930', x + 22, sigLineY + 2, { width: sigW, align: 'center' });
         doc.moveTo(x + PW - 22 - sigW, sigLineY).lineTo(x + PW - 22, sigLineY).stroke();
-        doc.font(fn).fontSize(6).fillColor('#555').text('Authorized', x + PW - 22 - sigW, sigLineY + 2, { width: sigW, align: 'center' });
+        doc.font(fn).fontSize(6).fillColor('#555').text('Authorized / \u0905\u0927\u093f\u0915\u0943\u0924', x + PW - 22 - sigW, sigLineY + 2, { width: sigW, align: 'center' });
       }
 
       // Footer at bottom of copy block
-      doc.font(fn).fontSize(5).fillColor('#bbb').text(`${company} | Computer Generated`, x, startY + bh - 10, { width: PW, align: 'center' });
+      doc.font(fn).fontSize(6).fillColor('#999').text(`${company} | Computer Generated`, x, startY + bh - 10, { width: PW, align: 'center' });
     }
 
     // Draw copies (PDFKit top-down: start from top margin)
