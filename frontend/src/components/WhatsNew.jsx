@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "68.0.0";
+const APP_VERSION = "69.0.0";
 
 const CHANGELOG = [
+  {
+    version: "69.0.0",
+    date: "Apr 2026",
+    title: "v69.0.0 - Camera Image Fix + FY Carry Forward",
+    items: [
+      { type: "fix", text: "Camera images ab sahi se save ho rahi hain - pehle async captureFrame await nahi hota tha" },
+      { type: "fix", text: "WhatsApp auto-notify mein ab individual numbers ko bhi camera images jaayengi" },
+      { type: "fix", text: "View Entry modal mein ab camera photos dikhenge (agar capture hue ho)" },
+      { type: "new", text: "FY Carry Forward ab Desktop aur Local-Server dono mein kaam karega" },
+    ]
+  },
   {
     version: "68.0.0",
     date: "Apr 2026",
