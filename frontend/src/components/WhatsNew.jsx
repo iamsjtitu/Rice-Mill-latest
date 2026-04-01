@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "59.0.0";
+const APP_VERSION = "60.0.0";
 
 const CHANGELOG = [
+  {
+    version: "60.0.0",
+    date: "Apr 2026",
+    title: "v60.0.0 - Discovery Timeout + Stability",
+    items: [
+      { type: "fix", text: "VIGI Discovery ab max 12 second mein complete hoga - app hang nahi hoga" },
+      { type: "fix", text: "Electron self-signed certificate bypass for VIGI cameras" },
+      { type: "fix", text: "JPEG validation: Sirf valid images accept, fake responses reject" },
+    ]
+  },
   {
     version: "59.0.0",
     date: "Apr 2026",
