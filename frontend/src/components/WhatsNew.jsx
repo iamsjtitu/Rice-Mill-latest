@@ -3,13 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "61.0.0";
+const APP_VERSION = "62.0.0";
 
 const CHANGELOG = [
   {
-    version: "61.0.0",
+    version: "62.0.0",
     date: "Apr 2026",
-    title: "v61.0.0 - FFmpeg Auto-Bundle Fix",
+    title: "v62.0.0 - FFmpeg Auto-Bundle + Syntax Crash Fix",
     items: [
       { type: "fix", text: "FFmpeg ab software ke andar bundle hota hai - alag se install karne ki zarurat nahi" },
       { type: "fix", text: "Camera RTSP stream ab packaged .exe build mein kaam karega" },
