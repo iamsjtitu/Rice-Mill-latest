@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "71.0.0";
+const APP_VERSION = "72.0.0";
 
 const CHANGELOG = [
+  {
+    version: "72.0.0",
+    date: "Apr 2026",
+    title: "v72.0.0 - RST Auto-Increment Fix + Photo ESC",
+    items: [
+      { type: "fix", text: "RST number ab sahi se auto-increment hota hai - pehle hamesha 1 dikhata tha" },
+      { type: "fix", text: "Photo zoom ab ESC key se band hota hai" },
+      { type: "fix", text: "What's New mein sirf last 5 updates dikhenge" },
+    ]
+  },
   {
     version: "70.0.0",
     date: "Apr 2026",
