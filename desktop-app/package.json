@@ -1,6 +1,6 @@
 {
   "name": "mill-entry-system",
-  "version": "60.0.0",
+  "version": "61.0.0",
   "description": "Mill Entry Management System - Desktop Application",
   "main": "main.js",
   "scripts": {
@@ -68,7 +68,13 @@
           ]
         }
       ],
-      "icon": "icon.ico"
+      "icon": "icon.ico",
+      "extraResources": [
+        {
+          "from": "node_modules/ffmpeg-static/ffmpeg.exe",
+          "to": "ffmpeg.exe"
+        }
+      ]
     },
     "mac": {
       "target": [
@@ -89,7 +95,13 @@
       "category": "public.app-category.business",
       "identity": null,
       "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "gatekeeperAssess": false,
+      "extraResources": [
+        {
+          "from": "node_modules/ffmpeg-static/ffmpeg",
+          "to": "ffmpeg"
+        }
+      ]
     },
     "dmg": {
       "title": "Mill Entry System",

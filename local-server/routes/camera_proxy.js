@@ -7,16 +7,58 @@ const { spawn } = require('child_process');
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
 
-let ffmpegPath;
-try {
-  ffmpegPath = require('ffmpeg-static');
-  if (ffmpegPath && ffmpegPath.includes('app.asar')) {
-    ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked');
+/** Resolve ffmpeg binary path - checks multiple locations for packaged Electron app */
+function resolveFfmpegPath() {
+  const exeName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+
+  // 1. Check extraResources in packaged Electron app (most reliable for production)
+  if (process.resourcesPath) {
+    const resPath = path.join(process.resourcesPath, exeName);
+    if (fs.existsSync(resPath)) {
+      console.log('[FFmpeg] Found in extraResources:', resPath);
+      return resPath;
+    }
   }
-} catch {
-  ffmpegPath = 'ffmpeg';
+
+  // 2. Try ffmpeg-static npm package
+  try {
+    let staticPath = require('ffmpeg-static');
+    if (staticPath) {
+      if (staticPath.includes('app.asar')) {
+        staticPath = staticPath.replace('app.asar', 'app.asar.unpacked');
+      }
+      if (fs.existsSync(staticPath)) {
+        console.log('[FFmpeg] Found via ffmpeg-static:', staticPath);
+        return staticPath;
+      }
+    }
+  } catch {}
+
+  // 3. Check common install locations on Windows
+  if (process.platform === 'win32') {
+    const winPaths = [
+      'C:\\ffmpeg\\bin\\ffmpeg.exe',
+      'C:\\ffmpeg\\ffmpeg.exe',
+      path.join(process.env.LOCALAPPDATA || '', 'ffmpeg', 'bin', 'ffmpeg.exe'),
+      path.join(process.env.ProgramFiles || '', 'ffmpeg', 'bin', 'ffmpeg.exe'),
+    ];
+    for (const wp of winPaths) {
+      if (wp && fs.existsSync(wp)) {
+        console.log('[FFmpeg] Found at Windows path:', wp);
+        return wp;
+      }
+    }
+  }
+
+  // 4. Fallback to system PATH
+  console.log('[FFmpeg] Using system PATH fallback');
+  return 'ffmpeg';
 }
+
+const ffmpegPath = resolveFfmpegPath();
 
 module.exports = function cameraProxyRoutes(router) {
 
@@ -409,6 +451,7 @@ module.exports = function cameraProxyRoutes(router) {
     };
 
     // 1. Check ffmpeg
+    result.ffmpegPath = ffmpegPath;
     try {
       const { execSync } = require('child_process');
       execSync(`"${ffmpegPath}" -version`, { timeout: 5000, stdio: 'pipe' });
