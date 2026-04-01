@@ -14,6 +14,7 @@ const CHANGELOG = [
       { type: "fix", text: "FFmpeg ab software ke andar bundle hota hai - alag se install karne ki zarurat nahi" },
       { type: "fix", text: "Camera RTSP stream ab packaged .exe build mein kaam karega" },
       { type: "fix", text: "Smart FFmpeg path detection: extraResources > ffmpeg-static > system PATH" },
+      { type: "fix", text: "SyntaxError crash fix: Sab route files se bare catch blocks hata diye (Electron compatibility)" },
       { type: "fix", text: "Diagnose mein ffmpeg path info dikhai degi debugging ke liye" },
     ]
   },

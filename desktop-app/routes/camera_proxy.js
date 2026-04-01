@@ -36,7 +36,7 @@ function resolveFfmpegPath() {
         return staticPath;
       }
     }
-  } catch {}
+  } catch (_e) {}
 
   // 3. Check common install locations on Windows
   if (process.platform === 'win32') {
@@ -70,7 +70,7 @@ module.exports = function cameraProxyRoutes(router) {
   function cleanupProcess(id) {
     const proc = activeProcesses.get(id);
     if (proc) {
-      try { proc.kill('SIGKILL'); } catch {}
+      try { proc.kill('SIGKILL'); } catch (_e) {}
       activeProcesses.delete(id);
     }
   }
@@ -151,7 +151,7 @@ module.exports = function cameraProxyRoutes(router) {
             const parsed = new URL(newUrl.startsWith('/') ? `${protocol}://${host}${newUrl}` : newUrl);
             const newProto = parsed.protocol === 'https:' ? 'https' : 'http';
             return httpSnapshot(parsed.hostname, parsed.pathname + parsed.search, username, password, newProto).then(resolve).catch(reject);
-          } catch { reject(new Error('Bad redirect URL')); return; }
+          } catch (_e) { reject(new Error('Bad redirect URL')); return; }
         }
 
         if (res1.statusCode !== 401) {
@@ -186,7 +186,7 @@ module.exports = function cameraProxyRoutes(router) {
               const parsed = new URL(newUrl.startsWith('/') ? `${protocol}://${host}${newUrl}` : newUrl);
               const newProto = parsed.protocol === 'https:' ? 'https' : 'http';
               return httpSnapshot(parsed.hostname, parsed.pathname + parsed.search, username, password, newProto).then(resolve).catch(reject);
-            } catch { reject(new Error('Bad redirect URL')); return; }
+            } catch (_e) { reject(new Error('Bad redirect URL')); return; }
           }
           const chunks = [];
           res2.on('data', c => chunks.push(c));
@@ -220,7 +220,7 @@ module.exports = function cameraProxyRoutes(router) {
         try {
           const r = await httpSnapshot(ip, p, user, pass, proto);
           if (r.status === 200 && r.body.length > 500) return r.body;
-        } catch { /* next */ }
+        } catch (_e) { /* next */ }
       }
     }
     return null;
@@ -279,7 +279,7 @@ module.exports = function cameraProxyRoutes(router) {
     const fallbackTimeout = setTimeout(() => {
       if (!gotFrame) {
         console.log('[Camera] ffmpeg no frames in 10s, trying HTTP snapshot fallback...');
-        try { ffmpeg.kill('SIGKILL'); } catch {}
+        try { ffmpeg.kill('SIGKILL'); } catch (_e) {}
         const parsed = parseRtspUrl(rawUrl);
         if (parsed) {
           startSnapshotFallback(res, parsed.ip, parsed.user, parsed.pass, req, boundary);
@@ -334,7 +334,7 @@ module.exports = function cameraProxyRoutes(router) {
           res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`);
           res.write(frame);
           res.write('\r\n');
-        } catch { /* client disconnected */ }
+        } catch (_e) { /* client disconnected */ }
       }
     });
 
@@ -359,7 +359,7 @@ module.exports = function cameraProxyRoutes(router) {
               res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpeg.length}\r\n\r\n`);
               res.write(jpeg);
               res.write('\r\n');
-            } catch { running = false; break; }
+            } catch (_e) { running = false; break; }
           }
         } catch (err) {
           console.error('[Camera Fallback] Error:', err.message);
@@ -424,7 +424,7 @@ module.exports = function cameraProxyRoutes(router) {
       }
     });
 
-    setTimeout(() => { try { ffmpeg.kill('SIGKILL'); } catch {} }, 15000);
+    setTimeout(() => { try { ffmpeg.kill('SIGKILL'); } catch (_e) {} }, 15000);
   });
 
   /** TCP connect test helper */

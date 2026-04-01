@@ -14,7 +14,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     try {
       const settings = database.getData('/settings') || {};
       return settings.vigi_nvr || {};
-    } catch { return {}; }
+    } catch (_e) { return {}; }
   }
 
   function md5(str) { return crypto.createHash('md5').update(str).digest('hex'); }
@@ -288,7 +288,7 @@ module.exports = function vigiProxyRoutes(router, database) {
               res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${result.body.length}\r\n\r\n`);
               res.write(result.body);
               res.write('\r\n');
-            } catch { running = false; break; }
+            } catch (_e) { running = false; break; }
           }
         } catch (err) {
           console.error('[VIGI Stream] Poll error:', err.message);
@@ -445,7 +445,7 @@ module.exports = function vigiProxyRoutes(router, database) {
   router.post('/api/vigi-config', (req, res) => {
     try {
       let settings = {};
-      try { settings = database.getData('/settings'); } catch {}
+      try { settings = database.getData('/settings'); } catch (_e) {}
       settings.vigi_nvr = {
         nvr_ip: req.body.nvr_ip || '',
         username: req.body.username || 'admin',

@@ -55,7 +55,7 @@ module.exports = function(database) {
               const dlUrl = result.data.url.replace('://tmpfiles.org/', '://tmpfiles.org/dl/').replace('http://', 'https://');
               resolve(dlUrl);
             } else { resolve(''); }
-          } catch { resolve(''); }
+          } catch (_e) { resolve(''); }
         });
       });
       req.on('error', () => resolve(''));
