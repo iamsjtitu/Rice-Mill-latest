@@ -9,9 +9,11 @@
 - **Frontend**: React (shared across all 3 backends)
 
 ## Recent Completed (Apr 2026)
-- [v69] Camera captureFrame() await fix - images now save correctly during weight capture
+- [v69] Camera captureFrame() await fix — images now save correctly during weight capture
 - [v69] WhatsApp auto-notify sends images to individual numbers (not just groups)
 - [v69] FY Carry Forward endpoint added to Desktop + Local-Server backends (triple parity)
+- [v69] View modal now shows header extra fields (custom_fields from branding settings)
+- [v69] Auto Weight Entries print button now matches Completed Entries print format (HTML with Party Copy + Customer Copy, custom_fields)
 - [v68] Entry form kms_year now matches filter FY
 - [v67] saveImage crash fix (Object vs string type check)
 - [v65] FFmpeg 6.0 compatibility: -stimeout to -timeout
@@ -23,15 +25,16 @@
 - POST /api/opening-stock/carry-forward (All 3 backends)
 - POST /api/vehicle-weight/auto-notify (WhatsApp + Telegram with images)
 - GET /api/vehicle-weight/:id/photos (base64 image data for view modal)
+- GET /api/branding (Returns company info + custom_fields array)
 - GET/POST /api/entries, /api/vehicle-weight
 - GET /api/camera-stream, /api/camera-test-rtsp
 
 ## Backlog
-- P1: Export Preview feature
+- P1: Export Preview feature (Preview data before exporting to Excel/PDF)
 - P2: Centralize payment/stock logic across triple backends
 - P2: App.js refactor (~2500 lines) - state management + hooks
 - P3: SQLite migration for desktop (1 Lakh+ entries)
 
 ## Test Reports
+- iteration_154.json: Print/View modal custom_fields (All PASS - 100%)
 - iteration_153.json: Carry Forward + Camera Image Fix (All PASS - 100%)
-- iteration_152.json: FFmpeg bundle + v61 (All PASS)
