@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "67.0.0";
+const APP_VERSION = "68.0.0";
 
 const CHANGELOG = [
+  {
+    version: "68.0.0",
+    date: "Apr 2026",
+    title: "v68.0.0 - Entry Save + Tick Mark Fix",
+    items: [
+      { type: "fix", text: "Entry form ab filter ki kms_year match karta hai - entries sahi FY mein jaayengi" },
+      { type: "fix", text: "Auto Weight Entries mein tick mark ab sahi se dikhega jab Mill Entry bane" },
+    ]
+  },
   {
     version: "65.0.0",
     date: "Apr 2026",

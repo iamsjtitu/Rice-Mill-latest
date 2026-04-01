@@ -719,7 +719,7 @@ function MainApp({ user, onLogout }) {
       if (e.ctrlKey && e.key === 'n') {
         e.preventDefault();
         if (activeTab === "entries") {
-          setIsDialogOpen(true); setEditingId(null); setFormData(initialFormState);
+          setIsDialogOpen(true); setEditingId(null); setFormData({...initialFormState, kms_year: filters.kms_year || CURRENT_FY, season: filters.season || "Kharif"});
         } else {
           // Click any visible "Add" button on current tab (exclude whats-new-btn)
           const addBtn = document.querySelector('[data-testid$="-add-btn"]');
@@ -791,7 +791,7 @@ function MainApp({ user, onLogout }) {
           setActiveTabSafe(tabMap[e.key]);
           toast.info(`${tabNames[tabMap[e.key]]} (Alt+${e.key.toUpperCase()})`);
         }
-        if (e.key === 'n') { e.preventDefault(); setActiveTabSafe("entries"); setIsDialogOpen(true); setEditingId(null); setFormData(initialFormState); toast.info("New Entry (Alt+N)"); }
+        if (e.key === 'n') { e.preventDefault(); setActiveTabSafe("entries"); setIsDialogOpen(true); setEditingId(null); setFormData({...initialFormState, kms_year: filters.kms_year || CURRENT_FY, season: filters.season || "Kharif"}); toast.info("New Entry (Alt+N)"); }
         if (e.key === 'r') { e.preventDefault(); fetchEntries(); fetchTotals(); toast.info("Refreshed (Alt+R)"); }
         if (e.key === 'f') { e.preventDefault(); setShowFilters(true); toast.info("Filters (Alt+F)"); }
       }
@@ -920,7 +920,7 @@ function MainApp({ user, onLogout }) {
       // Save mandi→cutting mapping for future auto-fill
       saveCuttingToLocal(formData.mandi_name, formData.cutting_percent);
 
-      setFormData(initialFormState);
+      setFormData({...initialFormState, kms_year: filters.kms_year || CURRENT_FY, season: filters.season || "Kharif"});
       setEditingId(null);
       setIsDialogOpen(false);
       fetchEntries();
@@ -994,7 +994,7 @@ function MainApp({ user, onLogout }) {
   };
 
   const openNewEntryDialog = () => {
-    setFormData(initialFormState);
+    setFormData({...initialFormState, kms_year: filters.kms_year || CURRENT_FY, season: filters.season || "Kharif"});
     setEditingId(null);
     setIsDialogOpen(true);
   };
