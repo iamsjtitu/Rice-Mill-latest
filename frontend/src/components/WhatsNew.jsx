@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "64.0.0";
+const APP_VERSION = "65.0.0";
 
 const CHANGELOG = [
+  {
+    version: "65.0.0",
+    date: "Apr 2026",
+    title: "v65.0.0 - FFmpeg 6.0 Compatibility Fix",
+    items: [
+      { type: "fix", text: "FFmpeg 6.0 mein -stimeout hata di gayi thi - ab -timeout use hota hai" },
+      { type: "fix", text: "Yahi wajah thi camera stream nahi chal raha tha!" },
+    ]
+  },
   {
     version: "64.0.0",
     date: "Apr 2026",

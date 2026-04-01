@@ -260,7 +260,7 @@ module.exports = function cameraProxyRoutes(router) {
     // Original working ffmpeg flags - simple and stable
     const ffmpeg = spawn(ffmpegPath, [
       '-rtsp_transport', 'tcp',
-      '-stimeout', '10000000',
+      '-timeout', '10000000',
       '-i', rawUrl,
       '-vf', 'scale=640:-1',
       '-f', 'image2pipe',
@@ -386,7 +386,7 @@ module.exports = function cameraProxyRoutes(router) {
     // Pass raw URL to ffmpeg - no encoding needed
     const ffmpeg = spawn(ffmpegPath, [
       '-rtsp_transport', 'tcp',
-      '-stimeout', '10000000',
+      '-timeout', '10000000',
       '-i', rawUrl,
       '-frames:v', '1',
       '-f', 'image2',
@@ -562,7 +562,7 @@ module.exports = function cameraProxyRoutes(router) {
     const tryTransport = (transport, callback) => {
       const args = [
         '-rtsp_transport', transport,
-        '-stimeout', '8000000',
+        '-timeout', '8000000',
         '-i', rawUrl,
         '-frames:v', '1',
         '-f', 'image2',
