@@ -219,7 +219,12 @@ module.exports = function cameraProxyRoutes(router) {
       for (const p of paths) {
         try {
           const r = await httpSnapshot(ip, p, user, pass, proto);
-          if (r.status === 200 && r.body.length > 500) return r.body;
+          if (r.status === 200 && r.body.length > 2000) {
+            // Validate JPEG magic bytes
+            if (r.body[0] === 0xFF && r.body[1] === 0xD8) {
+              return r.body;
+            }
+          }
         } catch (_e) { /* next */ }
       }
     }
@@ -231,7 +236,8 @@ module.exports = function cameraProxyRoutes(router) {
     const rawUrl = req.query.url;
     if (!rawUrl) return res.status(400).json({ error: 'url required' });
 
-    const safeUrl = encodeRtspUrl(rawUrl);
+    // Pass raw URL to ffmpeg - ffmpeg handles @ in passwords using last-@ split (same as VLC)
+    // Do NOT use encodeRtspUrl here - %40 encoding breaks ffmpeg RTSP authentication
     const boundary = 'frame';
 
     res.writeHead(200, {
@@ -255,7 +261,7 @@ module.exports = function cameraProxyRoutes(router) {
     const ffmpeg = spawn(ffmpegPath, [
       '-rtsp_transport', 'tcp',
       '-stimeout', '10000000',
-      '-i', safeUrl,
+      '-i', rawUrl,
       '-vf', 'scale=640:-1',
       '-f', 'image2pipe',
       '-vcodec', 'mjpeg',
@@ -303,6 +309,7 @@ module.exports = function cameraProxyRoutes(router) {
     ffmpeg.on('close', (code) => {
       clearTimeout(fallbackTimeout);
       activeProcesses.delete(processId);
+      console.log(`[Camera] ffmpeg exited code=${code}, gotFrame=${gotFrame}, stderr: ${stderrLog.slice(-300)}`);
       if (!gotFrame && code !== 0) {
         console.log('[Camera] ffmpeg exit', code, '- trying HTTP snapshot fallback');
         const parsed = parseRtspUrl(rawUrl);
@@ -376,12 +383,11 @@ module.exports = function cameraProxyRoutes(router) {
     const rawUrl = req.query.url;
     if (!rawUrl) return res.status(400).json({ error: 'url required' });
 
-    const safeUrl = encodeRtspUrl(rawUrl);
-
+    // Pass raw URL to ffmpeg - no encoding needed
     const ffmpeg = spawn(ffmpegPath, [
       '-rtsp_transport', 'tcp',
       '-stimeout', '10000000',
-      '-i', safeUrl,
+      '-i', rawUrl,
       '-frames:v', '1',
       '-f', 'image2',
       '-vcodec', 'mjpeg',

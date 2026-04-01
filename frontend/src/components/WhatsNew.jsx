@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "62.0.0";
+const APP_VERSION = "63.0.0";
 
 const CHANGELOG = [
+  {
+    version: "63.0.0",
+    date: "Apr 2026",
+    title: "v63.0.0 - RTSP Stream Fix (@ in Password)",
+    items: [
+      { type: "fix", text: "Password mein @ hone par RTSP stream fail hota tha - ab raw URL ffmpeg ko diya jaata hai (VLC jaisa)" },
+      { type: "fix", text: "Fake snapshot reject: 521 bytes wala response ab valid nahi maana jaayega (min 2KB + JPEG check)" },
+      { type: "fix", text: "Better ffmpeg error logging: stderr output ab console mein dikhega debugging ke liye" },
+    ]
+  },
   {
     version: "62.0.0",
     date: "Apr 2026",
