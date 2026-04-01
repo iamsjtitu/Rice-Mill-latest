@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "63.0.0";
+const APP_VERSION = "64.0.0";
 
 const CHANGELOG = [
+  {
+    version: "64.0.0",
+    date: "Apr 2026",
+    title: "v64.0.0 - RTSP Deep Diagnostic Tool",
+    items: [
+      { type: "new", text: "Test RTSP Stream button - ffmpeg ke saath actual RTSP stream test karo aur exact error dekho" },
+      { type: "fix", text: "TCP aur UDP dono automatically try hote hain - jo bhi chale woh use hoga" },
+      { type: "fix", text: "ffmpeg ka stderr output ab screen par dikhega - exact wajah pata chalegi" },
+    ]
+  },
   {
     version: "63.0.0",
     date: "Apr 2026",

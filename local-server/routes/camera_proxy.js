@@ -542,5 +542,87 @@ module.exports = function cameraProxyRoutes(router) {
     res.json(result);
   });
 
+  /** GET /api/camera-test-rtsp?url=rtsp://... → Test ffmpeg RTSP and return detailed result */
+  router.get('/api/camera-test-rtsp', (req, res) => {
+    const rawUrl = req.query.url || '';
+    if (!rawUrl) return res.json({ success: false, error: 'URL required' });
+
+    const result = {
+      success: false,
+      ffmpegPath: ffmpegPath,
+      url: rawUrl,
+      stderr: '',
+      frameSize: 0,
+      exitCode: null,
+      transport: 'tcp'
+    };
+
+    const tryTransport = (transport, callback) => {
+      const args = [
+        '-rtsp_transport', transport,
+        '-stimeout', '8000000',
+        '-i', rawUrl,
+        '-frames:v', '1',
+        '-f', 'image2',
+        '-vcodec', 'mjpeg',
+        '-q:v', '5',
+        'pipe:1'
+      ];
+
+      console.log(`[RTSP-Test] Trying ${transport}: "${ffmpegPath}" ${args.join(' ')}`);
+      const proc = spawn(ffmpegPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+      let stdout = [];
+      let stderr = '';
+      const timer = setTimeout(() => {
+        try { proc.kill('SIGKILL'); } catch (_e) {}
+      }, 12000);
+
+      proc.stdout.on('data', (c) => stdout.push(c));
+      proc.stderr.on('data', (c) => {
+        stderr += c.toString();
+        if (stderr.length > 4000) stderr = stderr.slice(-3000);
+      });
+
+      proc.on('error', (err) => {
+        clearTimeout(timer);
+        callback({ success: false, error: err.message, stderr, transport });
+      });
+
+      proc.on('close', (code) => {
+        clearTimeout(timer);
+        const frame = Buffer.concat(stdout);
+        callback({
+          success: frame.length > 1000,
+          frameSize: frame.length,
+          exitCode: code,
+          stderr: stderr.slice(-1500),
+          transport,
+          hasJpeg: frame.length > 2 && frame[0] === 0xFF && frame[1] === 0xD8
+        });
+      });
+    };
+
+    tryTransport('tcp', (tcpResult) => {
+      if (tcpResult.success) {
+        res.json({ ...result, ...tcpResult, diagnosis: 'TCP RTSP kaam kar raha hai!', diagnosisHi: 'TCP RTSP se frame mil gaya!' });
+      } else {
+        tryTransport('udp', (udpResult) => {
+          if (udpResult.success) {
+            res.json({ ...result, ...udpResult, diagnosis: 'UDP RTSP works! Change transport to UDP', diagnosisHi: 'UDP RTSP se frame mil gaya! TCP nahi chala lekin UDP chal raha hai' });
+          } else {
+            res.json({
+              ...result,
+              ...tcpResult,
+              udpStderr: udpResult.stderr.slice(-500),
+              diagnosis: 'ffmpeg RTSP se frame nahi le paya - TCP aur UDP dono fail',
+              diagnosisHi: 'ffmpeg se RTSP stream nahi chal raha. Neeche stderr mein error dekhein'
+            });
+          }
+        });
+      }
+    });
+  });
+
   return router;
 };

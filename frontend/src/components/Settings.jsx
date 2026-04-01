@@ -1649,6 +1649,21 @@ function CameraSetupTab() {
     setDiagLoading(false);
   };
 
+  const [rtspTestResult, setRtspTestResult] = useState(null);
+  const [rtspTestLoading, setRtspTestLoading] = useState(false);
+  const testRtsp = async (url) => {
+    if (!url) { toast.error("URL daalo pehle"); return; }
+    setRtspTestLoading(true); setRtspTestResult(null);
+    toast.info("RTSP test shuru... 15-20 sec lag sakte hain");
+    try {
+      const r = await axios.get(`${API}/camera-test-rtsp?url=${encodeURIComponent(url)}`, { timeout: 35000 });
+      setRtspTestResult(r.data);
+      if (r.data.success) toast.success("RTSP stream kaam kar raha hai!");
+      else toast.error("RTSP test fail hua");
+    } catch (e) { setRtspTestResult({ error: e.message }); }
+    setRtspTestLoading(false);
+  };
+
   const [vigiDiagResult, setVigiDiagResult] = useState(null);
   const [vigiDiagLoading, setVigiDiagLoading] = useState(false);
   const diagnoseVigi = async () => {
@@ -2161,7 +2176,7 @@ function CameraSetupTab() {
 
               {/* Diagnose Button */}
               <div className="mt-4 space-y-3">
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     onClick={() => diagnoseCam(frontUrl || sideUrl)}
                     disabled={diagLoading || (!frontUrl && !sideUrl)}
@@ -2171,6 +2186,16 @@ function CameraSetupTab() {
                   >
                     {diagLoading ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <AlertCircle className="w-4 h-4 mr-1.5" />}
                     {diagLoading ? 'Checking...' : 'Diagnose Camera'}
+                  </Button>
+                  <Button
+                    onClick={() => testRtsp(frontUrl || sideUrl)}
+                    disabled={rtspTestLoading || (!frontUrl && !sideUrl)}
+                    size="sm"
+                    className="bg-blue-700 hover:bg-blue-600 text-white"
+                    data-testid="camera-test-rtsp-btn"
+                  >
+                    {rtspTestLoading ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Camera className="w-4 h-4 mr-1.5" />}
+                    {rtspTestLoading ? 'Testing RTSP...' : 'Test RTSP Stream'}
                   </Button>
                   <p className="text-slate-500 text-[10px] self-center">Camera connect nahi ho raha? Isse click karke wajah pata karein</p>
                 </div>
@@ -2245,6 +2270,64 @@ function CameraSetupTab() {
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* RTSP Test Result */}
+                {rtspTestResult && (
+                  <div className={`rounded-lg border p-3 text-xs space-y-2 ${
+                    rtspTestResult.success ? 'bg-green-900/20 border-green-700/50' : 'bg-red-900/20 border-red-700/50'
+                  }`} data-testid="rtsp-test-result">
+                    <div className="flex items-start gap-2">
+                      {rtspTestResult.success ? (
+                        <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <CameraOff className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                      )}
+                      <div>
+                        <p className="font-semibold text-white text-sm">
+                          {rtspTestResult.diagnosisHi || rtspTestResult.diagnosis || (rtspTestResult.error ? 'Test Error' : 'RTSP Test')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5 pt-1 border-t border-slate-700">
+                      <div className="flex gap-2">
+                        <span className="text-slate-500 w-20">FFmpeg:</span>
+                        <span className="text-slate-300 break-all text-[10px]">{rtspTestResult.ffmpegPath || 'N/A'}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="text-slate-500 w-20">Transport:</span>
+                        <span className="text-slate-300">{rtspTestResult.transport || 'N/A'}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="text-slate-500 w-20">Frame:</span>
+                        <span className={rtspTestResult.frameSize > 1000 ? 'text-green-400' : 'text-red-400'}>
+                          {rtspTestResult.frameSize || 0} bytes {rtspTestResult.hasJpeg ? '(Valid JPEG)' : ''}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="text-slate-500 w-20">Exit Code:</span>
+                        <span className={rtspTestResult.exitCode === 0 ? 'text-green-400' : 'text-red-400'}>
+                          {rtspTestResult.exitCode ?? 'N/A'}
+                        </span>
+                      </div>
+                      {rtspTestResult.stderr && (
+                        <div>
+                          <span className="text-slate-500">FFmpeg Output:</span>
+                          <pre className="mt-1 p-2 bg-slate-900 rounded text-[10px] text-slate-400 max-h-40 overflow-auto whitespace-pre-wrap break-all">
+                            {rtspTestResult.stderr}
+                          </pre>
+                        </div>
+                      )}
+                      {rtspTestResult.udpStderr && (
+                        <div>
+                          <span className="text-slate-500">UDP stderr:</span>
+                          <pre className="mt-1 p-2 bg-slate-900 rounded text-[10px] text-slate-400 max-h-24 overflow-auto whitespace-pre-wrap break-all">
+                            {rtspTestResult.udpStderr}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
