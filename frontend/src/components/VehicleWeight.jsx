@@ -659,7 +659,7 @@ export default function VehicleWeight({ filters }) {
         axios.get(`${API}/vehicle-weight/${entry.id}/photos`),
         axios.get(`${API}/branding`).catch(() => ({ data: null }))
       ]);
-      const brandInfo = { company: br.data?.company_name || "NAVKAR AGRO", tagline: br.data?.tagline || "JOLKO, KESINGA - Mill Entry System" };
+      const brandInfo = { company: br.data?.company_name || "NAVKAR AGRO", tagline: br.data?.tagline || "JOLKO, KESINGA - Mill Entry System", custom_fields: br.data?.custom_fields || [] };
       setPhotoDialog({ open: true, data: { ...r.data, _brand: brandInfo }, loading: false });
     } catch {
       toast.error("Photos load nahi hue");
@@ -1316,8 +1316,12 @@ export default function VehicleWeight({ filters }) {
               {/* ── Slip Header ── */}
               <div className="text-center border-b-[2px] border-gray-800 py-2 px-3 relative">
                 <div className="absolute top-1 right-2 text-[9px] text-gray-500 font-semibold tracking-wide">VIEW COPY</div>
+                {/* Custom fields ABOVE */}
+                {(() => { const above = (photoDialog.data?._brand?.custom_fields || []).filter(f => f.placement === 'above' && f.value); return above.length > 0 ? <p className="text-[9px] text-red-800 font-semibold mb-0.5">{above.map(f => f.label ? `${f.label}: ${f.value}` : f.value).join('  |  ')}</p> : null; })()}
                 <h2 className="text-lg font-black text-gray-900 leading-tight tracking-wide" data-testid="slip-company-name">{photoDialog.data?._brand?.company || "NAVKAR AGRO"}</h2>
                 <p className="text-[10px] text-gray-500 mt-0.5">{photoDialog.data?._brand?.tagline || "JOLKO, KESINGA - Mill Entry System"}</p>
+                {/* Custom fields BELOW */}
+                {(() => { const below = (photoDialog.data?._brand?.custom_fields || []).filter(f => f.placement !== 'above' && f.value); return below.length > 0 ? <p className="text-[9px] text-gray-600 mt-0.5">{below.map(f => f.label ? `${f.label}: ${f.value}` : f.value).join('  |  ')}</p> : null; })()}
                 <div className="text-xs font-bold text-gray-700 mt-0.5">WEIGHT SLIP / तौल पर्ची</div>
               </div>
 

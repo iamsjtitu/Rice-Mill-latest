@@ -13,9 +13,31 @@ import { downloadFile } from "../utils/download";
 import { useConfirm } from "./ConfirmProvider";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
+const _isElectronEnv = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "");
 const API = `${BACKEND_URL}/api`;
 const fmtWt = (w) => w ? Number(w).toLocaleString() : "0";
+
+const safePrintHTML = (htmlContent) => {
+  try {
+    if (_isElectronEnv) {
+      const w = window.open('', '_blank', 'width=900,height=700');
+      if (w) { w.document.open(); w.document.write(htmlContent); w.document.close(); w.onload = () => w.focus(); }
+    } else {
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      iframe.contentDocument.open();
+      iframe.contentDocument.write(htmlContent);
+      iframe.contentDocument.close();
+      setTimeout(() => { iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 500);
+    }
+  } catch (e) {
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  }
+};
 
 function getLast7DaysDate() {
   const d = new Date();
@@ -82,6 +104,125 @@ export default function AutoWeightEntries({ filters }) {
     try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); }
   };
   const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf?party_only=1`; _isElectron ? downloadFile(u, `Slip_${e.rst_no}.pdf`) : window.open(u, "_blank"); };
+
+  // ── Print A5 with 2 copies (Party Copy + Customer Copy) ──
+  const handlePrint = async (e) => {
+    let company = "NAVKAR AGRO", tagline = "JOLKO, KESINGA";
+    let aboveFields = [], belowFields = [];
+    try {
+      const r = await axios.get(`${API}/branding`);
+      if (r.data) {
+        company = r.data.company_name || company;
+        tagline = r.data.tagline || tagline;
+        const cf = r.data.custom_fields || [];
+        cf.forEach(f => {
+          const val = (f.value || '').trim();
+          if (!val) return;
+          const lbl = (f.label || '').trim();
+          const txt = lbl ? `<b>${lbl}:</b> ${val}` : val;
+          if (f.placement === 'above') aboveFields.push(txt);
+          else belowFields.push(txt);
+        });
+      }
+    } catch {}
+
+    const rst = e.rst_no;
+    const gross = Number(e.gross_wt || e.first_wt || 0).toLocaleString();
+    const tare = Number(e.tare_wt || e.second_wt || 0).toLocaleString();
+    const net = Number(e.net_wt || 0).toLocaleString();
+    const cash = Number(e.cash_paid || 0);
+    const diesel = Number(e.diesel_paid || 0);
+
+    const aboveHTML = aboveFields.length > 0 ? `<div class="custom-row above">${aboveFields.join(' &nbsp;|&nbsp; ')}</div>` : '';
+    const belowHTML = belowFields.length > 0 ? `<div class="custom-row below">${belowFields.join(' &nbsp;|&nbsp; ')}</div>` : '';
+
+    const copyHTML = (copyLabel, showSignature) => `
+      <div class="copy-block">
+        <div class="copy-label">${copyLabel}</div>
+        <div class="header">
+          ${aboveHTML}
+          <h1>${company}</h1>
+          <p class="tagline">${tagline}</p>
+          ${belowHTML}
+          <div class="slip-title">WEIGHT SLIP / तौल पर्ची</div>
+        </div>
+        <table class="info-table">
+          <tr><td class="lbl">RST No.</td><td class="val rst">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${e.date}</td></tr>
+          <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans</td><td class="val">${e.trans_type || '-'}</td></tr>
+          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Farmer</td><td class="val">${e.farmer_name || '-'}</td></tr>
+          <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
+        </table>
+        <table class="wt-table">
+          <tr>
+            <td class="wt-cell"><span class="wt-label">Gross / कुल</span><span class="wt-val">${gross} KG</span></td>
+            <td class="wt-cell"><span class="wt-label">Tare / खाली</span><span class="wt-val">${tare} KG</span></td>
+            <td class="wt-cell net"><span class="wt-label">Net / शुद्ध</span><span class="wt-val">${net} KG</span></td>
+            ${(cash > 0 || diesel > 0) ? `
+              ${cash > 0 ? `<td class="wt-cell pay"><span class="wt-label">Cash / नकद</span><span class="wt-val pay-v">${cash.toLocaleString()}</span></td>` : ''}
+              ${diesel > 0 ? `<td class="wt-cell pay"><span class="wt-label">Diesel / डीजल</span><span class="wt-val pay-v">${diesel.toLocaleString()}</span></td>` : ''}
+            ` : ''}
+          </tr>
+        </table>
+        ${showSignature ? `
+        <div class="sig-section">
+          <div class="sig-box"><div class="sig-line"></div><p>Driver / ड्राइवर</p></div>
+          <div class="sig-box"><div class="sig-line"></div><p>Authorized / अधिकृत</p></div>
+        </div>
+        ` : ''}
+        <p class="footer-note">${company} | Computer Generated</p>
+      </div>
+    `;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Weight Slip #${rst}</title>
+    <style>
+      @page { size: 148mm 210mm; margin: 3mm 4mm; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Arial, Helvetica, sans-serif; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .page { width: 140mm; margin: 0 auto; }
+      .copy-block { border: 1.5px solid #222; border-radius: 3px; padding: 6px 8px 5px; position: relative; }
+      .copy-label { position: absolute; top: -1px; right: 8px; background: white; padding: 0 5px; font-size: 8px; font-weight: bold; color: #666; letter-spacing: 0.8px; text-transform: uppercase; }
+      .header { text-align: center; margin-bottom: 4px; border-bottom: 2px solid #1a1a2e; padding-bottom: 4px; }
+      .header h1 { font-size: 18px; font-weight: 900; color: #1a1a2e; line-height: 1.1; }
+      .tagline { font-size: 9px; color: #777; margin: 2px 0; }
+      .custom-row { font-size: 8px; color: #555; margin: 2px 0; line-height: 1.4; }
+      .custom-row.above { color: #8B0000; font-weight: 600; }
+      .custom-row.below { color: #374151; }
+      .slip-title { font-size: 11px; color: #333; font-weight: 700; margin-top: 2px; }
+      .info-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
+      .info-table td { padding: 3px 5px; font-size: 10px; border: 0.5px solid #ccc; line-height: 1.3; }
+      .lbl { color: #333; font-weight: 700; width: 20%; white-space: nowrap; }
+      .val { color: #000; font-weight: 800; width: 30%; }
+      .val.rst { font-size: 12px; color: #1a1a2e; }
+      .wt-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+      .wt-cell { text-align: center; padding: 4px 3px; border: 1.5px solid #999; background: #f5f5f5; vertical-align: middle; }
+      .wt-cell.net { background: #e8f5e9; border-color: #2e7d32; }
+      .wt-cell.pay { background: #fff8e1; border-color: #f9a825; }
+      .wt-label { display: block; font-size: 8px; color: #444; font-weight: 600; margin-bottom: 1px; }
+      .wt-val { display: block; font-size: 15px; font-weight: 900; color: #000; }
+      .wt-cell.net .wt-val { color: #1b5e20; font-size: 16px; }
+      .pay-v { color: #e65100 !important; font-size: 13px !important; }
+      .sig-section { display: flex; justify-content: space-between; margin-top: 3px; }
+      .sig-box { text-align: center; width: 44%; }
+      .sig-line { border-bottom: 1.5px solid #333; height: 16px; margin-bottom: 2px; }
+      .sig-box p { font-size: 8px; color: #444; font-weight: 600; }
+      .footer-note { text-align: center; font-size: 7px; color: #999; margin-top: 3px; }
+      .cut-line { border-top: 1.5px dashed #aaa; margin: 3mm 0; position: relative; height: 0; }
+      .cut-text { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); background: white; padding: 0 6px; font-size: 7px; color: #aaa; }
+      @media print { body { margin: 0; } .no-print { display: none !important; } }
+      @media screen { .page { padding: 10px; border: 1px solid #ccc; margin: 10px auto; max-width: 550px; } }
+    </style></head><body>
+    <div class="page">
+      ${copyHTML("PARTY COPY / पार्टी प्रति", false)}
+      <div class="cut-line"><span class="cut-text">- - - CUT HERE / काटें - - -</span></div>
+      ${copyHTML("CUSTOMER COPY / ग्राहक प्रति", true)}
+    </div>
+    <div class="no-print" style="text-align:center;margin-top:20px;">
+      <button onclick="window.print()" style="background:#d97706;color:white;border:none;padding:12px 30px;border-radius:6px;cursor:pointer;font-size:16px;font-weight:bold;">Print / प्रिंट करें</button>
+    </div>
+    </body></html>`;
+
+    safePrintHTML(html);
+  };
   const openPhotos = async (entry) => {
     setPhotoDialog({ open: true, data: null, loading: true });
     try {
@@ -89,7 +230,7 @@ export default function AutoWeightEntries({ filters }) {
         axios.get(`${API}/vehicle-weight/${entry.id}/photos`),
         axios.get(`${API}/branding`).catch(() => ({ data: null }))
       ]);
-      const brandInfo = { company: br.data?.company_name || "NAVKAR AGRO", tagline: br.data?.tagline || "JOLKO, KESINGA - Mill Entry System" };
+      const brandInfo = { company: br.data?.company_name || "NAVKAR AGRO", tagline: br.data?.tagline || "JOLKO, KESINGA - Mill Entry System", custom_fields: br.data?.custom_fields || [] };
       setPhotoDialog({ open: true, data: { ...r.data, _brand: brandInfo }, loading: false });
     } catch {
       toast.error("Photos load nahi hue");
@@ -218,7 +359,7 @@ export default function AutoWeightEntries({ filters }) {
                           {!isLinked && (
                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`awe-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
                           )}
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-purple-600" onClick={() => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf?party_only=1`; window.open(u, "_blank"); }} data-testid={`awe-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`awe-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`awe-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
                           {isLinked ? (
                             <span className="h-6 w-6 flex items-center justify-center text-green-500" title="Mill Entry done" data-testid={`awe-linked-${e.rst_no}`}><CheckCircle className="w-4 h-4" /></span>
@@ -249,8 +390,12 @@ export default function AutoWeightEntries({ filters }) {
           <div className="border-[2px] border-gray-800 rounded m-3" data-testid="awe-photo-slip">
             <div className="text-center border-b-[2px] border-gray-800 py-2 px-3 relative">
               <div className="absolute top-1 right-2 text-[9px] text-gray-500 font-semibold tracking-wide">VIEW COPY</div>
+              {/* Custom fields ABOVE */}
+              {(() => { const above = (photoDialog.data?._brand?.custom_fields || []).filter(f => f.placement === 'above' && f.value); return above.length > 0 ? <p className="text-[9px] text-red-800 font-semibold mb-0.5">{above.map(f => f.label ? `${f.label}: ${f.value}` : f.value).join('  |  ')}</p> : null; })()}
               <h2 className="text-lg font-black text-gray-900 leading-tight tracking-wide">{photoDialog.data?._brand?.company || "NAVKAR AGRO"}</h2>
               <p className="text-[10px] text-gray-500 mt-0.5">{photoDialog.data?._brand?.tagline || "JOLKO, KESINGA - Mill Entry System"}</p>
+              {/* Custom fields BELOW */}
+              {(() => { const below = (photoDialog.data?._brand?.custom_fields || []).filter(f => f.placement !== 'above' && f.value); return below.length > 0 ? <p className="text-[9px] text-gray-600 mt-0.5">{below.map(f => f.label ? `${f.label}: ${f.value}` : f.value).join('  |  ')}</p> : null; })()}
               <div className="text-xs font-bold text-gray-700 mt-0.5">WEIGHT SLIP / तौल पर्ची</div>
             </div>
             <table className="w-full border-collapse text-[11px]">
