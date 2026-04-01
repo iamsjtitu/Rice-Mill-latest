@@ -598,6 +598,7 @@ module.exports = function(database) {
       kms_year: kmsYear,
       vehicle_no: (data.vehicle_no || '').trim().toUpperCase(),
       party_name: (data.party_name || '').trim(),
+      g_issued: parseFloat(data.g_issued || 0) || 0,
       farmer_name: (data.farmer_name || '').trim(),
       product: data.product || 'PADDY',
       trans_type: data.trans_type || 'Receive(Pur)',
@@ -673,7 +674,7 @@ module.exports = function(database) {
     const entry = weights.find(w => w.id === req.params.entry_id);
     if (!entry) return res.status(404).json({ detail: 'Entry not found' });
 
-    const editable = ['vehicle_no', 'party_name', 'farmer_name', 'product', 'tot_pkts', 'cash_paid', 'diesel_paid'];
+    const editable = ['vehicle_no', 'party_name', 'farmer_name', 'product', 'tot_pkts', 'cash_paid', 'diesel_paid', 'g_issued'];
     for (const f of editable) {
       if (f in req.body) {
         if (f === 'cash_paid' || f === 'diesel_paid') {
@@ -794,9 +795,11 @@ module.exports = function(database) {
       const rows = [
         ['RST No.', `#${rst}`, 'Date / \u0926\u093f\u0928\u093e\u0902\u0915', entry.date || ''],
         ['Vehicle / \u0917\u093e\u0921\u093c\u0940', entry.vehicle_no || '', 'Trans', entry.trans_type || ''],
-        ['Party / \u092a\u093e\u0930\u094d\u091f\u0940', entry.party_name || '', 'Farmer', entry.farmer_name || ''],
+        ['Party / \u092a\u093e\u0930\u094d\u091f\u0940', entry.party_name || '', 'Source', entry.farmer_name || ''],
         ['Product / \u092e\u093e\u0932', entry.product || '', 'Bags / \u092c\u094b\u0930\u0947', String(entry.tot_pkts || 0)],
       ];
+      const gIssued = parseFloat(entry.g_issued || 0) || 0;
+      if (gIssued > 0) rows.push(['G.Issued', gIssued.toLocaleString(), '', '']);
       const rh = 6 * mm;
       const c1w = PW * 0.18;
       const c2w = PW * 0.32;

@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "69.3.0";
+const APP_VERSION = "70.0.0";
 
 const CHANGELOG = [
+  {
+    version: "70.0.0",
+    date: "Apr 2026",
+    title: "v70.0.0 - G.Issued Field + Source Label",
+    items: [
+      { type: "new", text: "G.Issued column added - Vehicle Weight form, table, view, PDF, print, Excel sab jagah" },
+      { type: "fix", text: "Farmer → Source rename - view modal, PDF slip, HTML print, WhatsApp, Excel sab jagah" },
+      { type: "fix", text: "PDF slip proper bordered table with cell borders - view modal jaisa exact design" },
+    ]
+  },
   {
     version: "69.0.0",
     date: "Apr 2026",

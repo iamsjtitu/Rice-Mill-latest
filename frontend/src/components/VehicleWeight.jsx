@@ -399,7 +399,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 });
 
 export default function VehicleWeight({ filters }) {
-  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "" };
+  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "" };
   const [form, setForm] = useState(blank);
   const [rstEditable, setRstEditable] = useState(false);
   const [entries, setEntries] = useState([]);
@@ -526,6 +526,7 @@ export default function VehicleWeight({ filters }) {
       remark: entry.remark || "",
       cash_paid: entry.cash_paid ? String(entry.cash_paid) : "",
       diesel_paid: entry.diesel_paid ? String(entry.diesel_paid) : "",
+      g_issued: entry.g_issued ? String(entry.g_issued) : "",
       rst_no: ""
     });
     setSecondWtValue("");
@@ -593,7 +594,7 @@ export default function VehicleWeight({ filters }) {
     t += `Date: ${e.date}\n`;
     t += `Vehicle: ${e.vehicle_no}\n`;
     t += `Party: ${e.party_name || '-'}\n`;
-    t += `Farmer/Mandi: ${e.farmer_name || '-'}\n`;
+    t += `Source: ${e.farmer_name || '-'}\n`;
     t += `Product: ${e.product || '-'}\n`;
     t += `Bags: ${e.tot_pkts || '-'}\n`;
     t += `───────────────\n`;
@@ -646,7 +647,8 @@ export default function VehicleWeight({ filters }) {
       product: entry.product || "",
       tot_pkts: entry.tot_pkts || "",
       cash_paid: entry.cash_paid || "",
-      diesel_paid: entry.diesel_paid || ""
+      diesel_paid: entry.diesel_paid || "",
+      g_issued: entry.g_issued || ""
     });
     setEditDialog({ open: true, entry });
   };
@@ -718,8 +720,9 @@ export default function VehicleWeight({ filters }) {
         <table class="info-table">
           <tr><td class="lbl">RST No.</td><td class="val rst">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${e.date}</td></tr>
           <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans</td><td class="val">${e.trans_type || '-'}</td></tr>
-          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Farmer</td><td class="val">${e.farmer_name || '-'}</td></tr>
+          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source</td><td class="val">${e.farmer_name || '-'}</td></tr>
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
+          ${Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
         </table>
         <table class="wt-table">
           <tr>
@@ -893,9 +896,9 @@ export default function VehicleWeight({ filters }) {
                       value={form.farmer_name}
                       onChange={e => setForm(p => ({ ...p, farmer_name: e.target.value }))}
                       suggestions={mandiSuggestions}
-                      placeholder="Farmer / Mandi"
+                      placeholder="Source"
                       onSelect={(val) => setForm(p => ({ ...p, farmer_name: val }))}
-                      label="Farmer/Mandi"
+                      label="Source"
                       testId="vw-farmer"
                       labelClassName="text-gray-600 text-[10px] mb-0.5 block"
                       inputClassName="bg-white border-gray-300 text-gray-900 h-8 text-xs"
@@ -937,11 +940,16 @@ export default function VehicleWeight({ filters }) {
                       placeholder="0" className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-bags" />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   <div>
                     <Label className="text-gray-600 text-[10px] mb-0.5 block">Remark</Label>
                     <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
                       placeholder="Optional" className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-remark" />
+                  </div>
+                  <div>
+                    <Label className="text-gray-600 text-[10px] mb-0.5 block">G.Issued</Label>
+                    <Input type="number" value={form.g_issued} onChange={e => setForm(p => ({ ...p, g_issued: e.target.value }))}
+                      placeholder="0" className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-g-issued" />
                   </div>
                   <div>
                     <Label className="text-green-700 text-[10px] mb-0.5 block font-semibold">Cash Paid</Label>
@@ -1184,12 +1192,13 @@ export default function VehicleWeight({ filters }) {
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Date</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Vehicle</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Mandi</TableHead>
+                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Source</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Bags</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
+                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
@@ -1197,7 +1206,7 @@ export default function VehicleWeight({ filters }) {
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
-                    <TableRow><TableCell colSpan={13} className="text-center text-gray-400 py-8 text-xs" data-testid="vw-no-entries-today">
+                    <TableRow><TableCell colSpan={14} className="text-center text-gray-400 py-8 text-xs" data-testid="vw-no-entries-today">
                       {vwFilters.date_from === todayStr && vwFilters.date_to === todayStr
                         ? "Aaj ki koi Vehicle Weight entry nahi hai"
                         : "Koi entry nahi mili - Filter change karke dekhein"}
@@ -1214,6 +1223,7 @@ export default function VehicleWeight({ filters }) {
                       <TableCell className="text-blue-700 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.first_wt)}</TableCell>
                       <TableCell className="text-blue-700 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.second_wt)}</TableCell>
                       <TableCell className="text-right py-2 px-3"><span className="text-green-700 font-bold text-sm font-mono">{fmtWt(e.net_wt)}</span></TableCell>
+                      <TableCell className="text-right text-indigo-700 text-xs py-2 px-3 font-mono">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
                       <TableCell className="text-right text-green-700 text-xs py-2 px-3 font-mono">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="text-right text-orange-700 text-xs py-2 px-3 font-mono">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
@@ -1276,16 +1286,21 @@ export default function VehicleWeight({ filters }) {
                   className="h-9 text-sm border-gray-300" data-testid="edit-party" />
               </div>
               <div>
-                <Label className="text-gray-600 text-xs mb-1 block">Farmer/Mandi</Label>
+                <Label className="text-gray-600 text-xs mb-1 block">Source</Label>
                 <Input value={editForm.farmer_name || ""} onChange={e => setEditForm(p => ({ ...p, farmer_name: e.target.value }))}
                   className="h-9 text-sm border-gray-300" data-testid="edit-farmer" />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               <div>
                 <Label className="text-gray-600 text-xs mb-1 block">Bags</Label>
                 <Input type="number" value={editForm.tot_pkts || ""} onChange={e => setEditForm(p => ({ ...p, tot_pkts: e.target.value }))}
                   className="h-9 text-sm border-gray-300" data-testid="edit-bags" />
+              </div>
+              <div>
+                <Label className="text-gray-600 text-xs mb-1 block">G.Issued</Label>
+                <Input type="number" value={editForm.g_issued || ""} onChange={e => setEditForm(p => ({ ...p, g_issued: e.target.value }))}
+                  className="h-9 text-sm border-gray-300" data-testid="edit-g-issued" />
               </div>
               <div>
                 <Label className="text-green-700 text-xs mb-1 block font-semibold">Cash Paid</Label>
@@ -1343,7 +1358,7 @@ export default function VehicleWeight({ filters }) {
                   <tr>
                     <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Party / पार्टी</td>
                     <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.party_name || '-'}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Farmer</td>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Source</td>
                     <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.farmer_name || '-'}</td>
                   </tr>
                   <tr>
@@ -1352,6 +1367,14 @@ export default function VehicleWeight({ filters }) {
                     <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Bags / बोरे</td>
                     <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tot_pkts || '-'}</td>
                   </tr>
+                  {(photoDialog.data.g_issued > 0) && (
+                    <tr>
+                      <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">G.Issued</td>
+                      <td className="border border-gray-300 px-2 py-1 font-extrabold text-indigo-700">{fmtWt(photoDialog.data.g_issued)}</td>
+                      <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap"></td>
+                      <td className="border border-gray-300 px-2 py-1"></td>
+                    </tr>
+                  )}
                   {photoDialog.data.remark && photoDialog.data.remark !== '-' && (
                     <tr>
                       <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Remark / टिप्पणी</td>

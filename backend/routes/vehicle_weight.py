@@ -191,7 +191,7 @@ async def auto_notify_weight(data: dict):
         f"Party: {entry.get('party_name','')}\n"
     )
     if farmer_mandi:
-        text += f"Farmer/Mandi: {farmer_mandi}\n"
+        text += f"Source: {farmer_mandi}\n"
     text += (
         f"Product: {entry.get('product','')}\n"
         f"Bags: {pkts if pkts > 0 else '-'}\n"
@@ -451,6 +451,7 @@ async def create_weight_entry(data: dict):
         "kms_year": kms_year,
         "vehicle_no": (data.get("vehicle_no", "") or "").strip().upper(),
         "party_name": (data.get("party_name", "") or "").strip(),
+        "g_issued": float(data.get("g_issued", 0) or 0),
         "farmer_name": (data.get("farmer_name", "") or "").strip(),
         "product": data.get("product", "PADDY"),
         "trans_type": data.get("trans_type", "Receive(Pur)"),
@@ -538,7 +539,7 @@ async def edit_weight_entry(entry_id: str, data: dict):
         raise HTTPException(status_code=404, detail="Entry not found")
 
     update_fields = {}
-    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "cash_paid", "diesel_paid"]
+    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "cash_paid", "diesel_paid", "g_issued"]
     for f in editable:
         if f in data:
             if f in ("cash_paid", "diesel_paid"):
@@ -668,9 +669,12 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         rows = [
             ("RST No.", f"#{rst}", "Date / \u0926\u093f\u0928\u093e\u0902\u0915", entry.get("date", "")),
             ("Vehicle / \u0917\u093e\u0921\u093c\u0940", entry.get("vehicle_no", ""), "Trans", entry.get("trans_type", "")),
-            ("Party / \u092a\u093e\u0930\u094d\u091f\u0940", entry.get("party_name", ""), "Farmer", entry.get("farmer_name", "")),
+            ("Party / \u092a\u093e\u0930\u094d\u091f\u0940", entry.get("party_name", ""), "Source", entry.get("farmer_name", "")),
             ("Product / \u092e\u093e\u0932", entry.get("product", ""), "Bags / \u092c\u094b\u0930\u0947", str(entry.get("tot_pkts", 0))),
         ]
+        g_issued = float(entry.get("g_issued", 0) or 0)
+        if g_issued > 0:
+            rows.append(("G.Issued", f"{g_issued:,.0f}", "", ""))
         rh = 6*mm  # row height - taller for proper table cells
         table_x = x
         c1w = PW * 0.18   # label col 1
@@ -901,8 +905,8 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     # Header row
     hdr_row = cur_row + 1
 
-    headers = ["RST", "Date", "Vehicle", "Party", "Mandi", "Product", "Trans", "Bags",
-               "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "Cash", "Diesel"]
+    headers = ["RST", "Date", "Vehicle", "Party", "Source", "Product", "Trans", "Bags",
+               "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "G.Issued", "Cash", "Diesel"]
     hdr_fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
     hdr_font = Font(bold=True, color="FFFFFF", size=10)
     for c, h in enumerate(headers, 1):
@@ -916,7 +920,7 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
         vals = [e.get("rst_no",""), e.get("date",""), e.get("vehicle_no",""), e.get("party_name",""),
                 e.get("farmer_name",""), e.get("product",""), e.get("trans_type",""), e.get("tot_pkts",""),
                 e.get("first_wt",0), e.get("second_wt",0), e.get("net_wt",0),
-                e.get("cash_paid",0), e.get("diesel_paid",0)]
+                e.get("g_issued",0), e.get("cash_paid",0), e.get("diesel_paid",0)]
         for c, v in enumerate(vals, 1):
             cell = ws.cell(row=i, column=c, value=v)
             cell.border = border
@@ -966,7 +970,7 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     elements.append(Spacer(1, 3*mm))
 
     # Table
-    headers = ["RST", "Date", "Vehicle", "Party", "Mandi", "Product", "Trans", "Bags", "1st Wt", "2nd Wt", "Net Wt", "Cash", "Diesel"]
+    headers = ["RST", "Date", "Vehicle", "Party", "Source", "Product", "Trans", "Bags", "1st Wt", "2nd Wt", "Net Wt", "G.Issued", "Cash", "Diesel"]
     data = [headers]
     for e in items:
         data.append([
@@ -974,11 +978,12 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
             e.get("party_name",""), e.get("farmer_name",""), e.get("product",""),
             e.get("trans_type",""), e.get("tot_pkts",""),
             f"{e.get('first_wt',0):,.0f}", f"{e.get('second_wt',0):,.0f}", f"{e.get('net_wt',0):,.0f}",
+            f"{e.get('g_issued',0):,.0f}" if e.get('g_issued') else "-",
             f"{e.get('cash_paid',0):,.0f}" if e.get('cash_paid') else "-",
             f"{e.get('diesel_paid',0):,.0f}" if e.get('diesel_paid') else "-"
         ])
 
-    col_widths = [30, 55, 65, 70, 55, 60, 55, 30, 50, 50, 50, 45, 45]
+    col_widths = [30, 55, 65, 70, 55, 60, 55, 30, 50, 50, 50, 40, 40, 40]
     t = Table(data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a2e')),

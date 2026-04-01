@@ -1,0 +1,68 @@
+{
+  "summary": "Iteration 155: Verified G.Issued field addition and Farmer→Source rename in Vehicle Weight module. All backend APIs pass (8/8 tests). Frontend UI shows G.Issued input field in form, Source label (renamed from Farmer/Mandi), and both columns in completed entries tables.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_vw_g_issued_source.py",
+    "/app/test_reports/pytest/pytest_results_iteration155.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "PASS: VehicleWeight.jsx line 402 - blank form includes g_issued field",
+    "PASS: VehicleWeight.jsx line 454 - g_issued saved as float in POST /api/vehicle-weight",
+    "PASS: VehicleWeight.jsx line 541 - g_issued editable in PUT /api/vehicle-weight/{id}/edit",
+    "PASS: VehicleWeight.jsx line 950-952 - G.Issued input field with data-testid='vw-g-issued'",
+    "PASS: VehicleWeight.jsx line 895-905 - Source label (renamed from Farmer/Mandi) with data-testid='vw-farmer'",
+    "PASS: VehicleWeight.jsx completed entries table has 'Source' and 'G.Issued' column headers",
+    "PASS: AutoWeightEntries.jsx line 325 - 'Source' column header in table",
+    "PASS: AutoWeightEntries.jsx line 331 - 'G.Issued' column header in table",
+    "PASS: AutoWeightEntries.jsx line 421-423 - View modal shows 'Source' label",
+    "PASS: AutoWeightEntries.jsx line 430-437 - View modal shows G.Issued value if > 0",
+    "PASS: vehicle_weight.py line 454 - g_issued saved as float in create_weight_entry",
+    "PASS: vehicle_weight.py line 542 - g_issued editable in edit_weight_entry",
+    "PASS: vehicle_weight.py line 671-678 - PDF slip includes G.Issued row if value > 0",
+    "PASS: vehicle_weight.py line 908-923 - Excel export includes G.Issued column",
+    "PASS: vehicle_weight.py line 973-984 - PDF export includes G.Issued column"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% - 8/8 pytest tests passed",
+    "frontend": "100% - Login, G.Issued field, Source label, table headers all verified"
+  },
+  "test_credentials": "Username: admin, Password: admin123",
+  "seed_data_creation": "Created test VW entries with g_issued values (5000, 3500, 2000, 6000, 4500) during backend testing - all cleaned up after tests",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "G.Issued field and Source rename fully implemented and tested. Vehicle Weight form has G.Issued input (data-testid='vw-g-issued') and Source label (data-testid='vw-farmer'). Completed entries tables in both VehicleWeight and AutoWeightEntries show Source and G.Issued columns. Backend APIs save/edit/return g_issued field correctly. PDF slip and Excel/PDF exports include G.Issued. View modal shows Source label and G.Issued value. What's New modal (v70.0.0) confirms these features.",
+  "features_tested": {
+    "login_admin": "PASS - admin/admin123 login works",
+    "g_issued_input_field": "PASS - G.Issued input field found in VW form (data-testid='vw-g-issued')",
+    "source_label_in_form": "PASS - Source label found (renamed from Farmer/Mandi)",
+    "vw_completed_entries_source_column": "PASS - 'Source' column in completed entries table",
+    "vw_completed_entries_g_issued_column": "PASS - 'G.Issued' column in completed entries table",
+    "awe_source_column": "PASS - 'Source' column in Auto Weight Entries table",
+    "awe_g_issued_column": "PASS - 'G.Issued' column in Auto Weight Entries table",
+    "post_vehicle_weight_g_issued": "PASS - POST /api/vehicle-weight saves g_issued field",
+    "get_vehicle_weight_g_issued": "PASS - GET /api/vehicle-weight returns g_issued in entries",
+    "put_vehicle_weight_edit_g_issued": "PASS - PUT /api/vehicle-weight/{id}/edit accepts g_issued",
+    "pdf_slip_generation": "PASS - GET /api/vehicle-weight/{id}/slip-pdf works",
+    "branding_api": "PASS - GET /api/branding returns data",
+    "excel_export": "PASS - GET /api/vehicle-weight/export/excel works",
+    "pdf_export": "PASS - GET /api/vehicle-weight/export/pdf works"
+  },
+  "whats_new_modal_confirmation": {
+    "version": "v70.0.0",
+    "features": [
+      "G.Issued column added - Vehicle Weight form, table, view, PDF, print, Excel sab jagah",
+      "Farmer → Source rename - view modal, PDF slip, HTML print, WhatsApp, Excel sab jagah",
+      "PDF slip proper bordered table with cell borders - view modal jaisa exact design"
+    ]
+  }
+}

@@ -149,8 +149,9 @@ export default function AutoWeightEntries({ filters }) {
         <table class="info-table">
           <tr><td class="lbl">RST No.</td><td class="val rst">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${e.date}</td></tr>
           <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans</td><td class="val">${e.trans_type || '-'}</td></tr>
-          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Farmer</td><td class="val">${e.farmer_name || '-'}</td></tr>
+          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source</td><td class="val">${e.farmer_name || '-'}</td></tr>
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
+          ${Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
         </table>
         <table class="wt-table">
           <tr>
@@ -321,12 +322,13 @@ export default function AutoWeightEntries({ filters }) {
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Date</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Vehicle</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Mandi</TableHead>
+                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Source</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Bags</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
+                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
@@ -334,7 +336,7 @@ export default function AutoWeightEntries({ filters }) {
               </TableHeader>
               <TableBody>
                 {entries.length === 0 ? (
-                  <TableRow><TableCell colSpan={13} className="text-center text-gray-400 py-8 text-xs" data-testid="awe-no-entries">
+                  <TableRow><TableCell colSpan={14} className="text-center text-gray-400 py-8 text-xs" data-testid="awe-no-entries">
                     Koi entry nahi mili - Filter change karke dekhein
                   </TableCell></TableRow>
                 ) : entries.map((e, i) => {
@@ -351,6 +353,7 @@ export default function AutoWeightEntries({ filters }) {
                       <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-semibold">{fmtWt(e.first_wt)}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-semibold">{fmtWt(e.second_wt)}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-green-700 font-bold">{fmtWt(e.net_wt)}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs text-right text-indigo-700 font-semibold">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-amber-700 font-semibold">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-red-600 font-semibold">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
@@ -415,7 +418,7 @@ export default function AutoWeightEntries({ filters }) {
                 <tr>
                   <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Party / पार्टी</td>
                   <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.party_name || '-'}</td>
-                  <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Farmer</td>
+                  <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Source</td>
                   <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.farmer_name || '-'}</td>
                 </tr>
                 <tr>
@@ -424,6 +427,14 @@ export default function AutoWeightEntries({ filters }) {
                   <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Bags / बोरे</td>
                   <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tot_pkts || '-'}</td>
                 </tr>
+                {(Number(photoDialog.data.g_issued || 0) > 0) && (
+                  <tr>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">G.Issued</td>
+                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-indigo-700">{fmtWt(photoDialog.data.g_issued)}</td>
+                    <td className="border border-gray-300 px-2 py-1"></td>
+                    <td className="border border-gray-300 px-2 py-1"></td>
+                  </tr>
+                )}
               </tbody>
             </table>
             <div className="flex border-t-[2px] border-gray-800">
@@ -511,7 +522,7 @@ export default function AutoWeightEntries({ filters }) {
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div><label className="text-gray-500 text-[10px]">Vehicle</label><Input className="h-7 text-xs" value={editEntry.vehicle_no || ''} onChange={ev => setEditEntry(p => ({...p, vehicle_no: ev.target.value}))} /></div>
             <div><label className="text-gray-500 text-[10px]">Party</label><Input className="h-7 text-xs" value={editEntry.party_name || ''} onChange={ev => setEditEntry(p => ({...p, party_name: ev.target.value}))} /></div>
-            <div><label className="text-gray-500 text-[10px]">Mandi</label><Input className="h-7 text-xs" value={editEntry.farmer_name || ''} onChange={ev => setEditEntry(p => ({...p, farmer_name: ev.target.value}))} /></div>
+            <div><label className="text-gray-500 text-[10px]">Source</label><Input className="h-7 text-xs" value={editEntry.farmer_name || ''} onChange={ev => setEditEntry(p => ({...p, farmer_name: ev.target.value}))} /></div>
             <div><label className="text-gray-500 text-[10px]">Bags</label><Input className="h-7 text-xs" type="number" value={editEntry.tot_pkts || ''} onChange={ev => setEditEntry(p => ({...p, tot_pkts: ev.target.value}))} /></div>
             <div><label className="text-gray-500 text-[10px]">Cash</label><Input className="h-7 text-xs" type="number" value={editEntry.cash_paid || ''} onChange={ev => setEditEntry(p => ({...p, cash_paid: ev.target.value}))} /></div>
             <div><label className="text-gray-500 text-[10px]">Diesel</label><Input className="h-7 text-xs" type="number" value={editEntry.diesel_paid || ''} onChange={ev => setEditEntry(p => ({...p, diesel_paid: ev.target.value}))} /></div>
