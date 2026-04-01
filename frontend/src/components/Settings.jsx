@@ -1619,6 +1619,7 @@ function CameraSetupTab() {
   const [vigiPass, setVigiPass] = useState("");
   const [vigiFrontCh, setVigiFrontCh] = useState("");
   const [vigiSideCh, setVigiSideCh] = useState("");
+  const [vigiOpenApiPort, setVigiOpenApiPort] = useState("");
   const [vigiFrontIp, setVigiFrontIp] = useState("");
   const [vigiSideIp, setVigiSideIp] = useState("");
   const [vigiTesting, setVigiTesting] = useState(false);
@@ -1656,7 +1657,7 @@ function CameraSetupTab() {
     setVigiDiagLoading(true); setVigiDiagResult(null);
     try {
       const ch = vigiFrontIp ? '1' : (vigiFrontCh || '1');
-      const r = await axios.get(`${API}/vigi-diagnose?ip=${encodeURIComponent(ip)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}&channel=${ch}`, { timeout: 30000 });
+      const r = await axios.get(`${API}/vigi-diagnose?ip=${encodeURIComponent(ip)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}&channel=${ch}&openapi_port=${encodeURIComponent(vigiOpenApiPort)}`, { timeout: 30000 });
       setVigiDiagResult(r.data);
     } catch (e) { setVigiDiagResult({ error: e.message }); }
     setVigiDiagLoading(false);
@@ -1679,6 +1680,7 @@ function CameraSetupTab() {
         setVigiSideCh(saved.vigiSideChannel || "");
         setVigiFrontIp(saved.vigiFrontIp || "");
         setVigiSideIp(saved.vigiSideIp || "");
+        setVigiOpenApiPort(saved.vigiOpenApiPort || "");
       } else {
         if (saved.frontId) setFrontId(saved.frontId);
         if (saved.sideId) setSideId(saved.sideId);
@@ -1730,14 +1732,16 @@ function CameraSetupTab() {
       localStorage.setItem('camera_config', JSON.stringify({
         type: "vigi", vigiIp, vigiUser, vigiPass,
         vigiFrontChannel: vigiFrontCh, vigiSideChannel: vigiSideCh,
-        vigiFrontIp: vigiFrontIp, vigiSideIp: vigiSideIp
+        vigiFrontIp: vigiFrontIp, vigiSideIp: vigiSideIp,
+        vigiOpenApiPort: vigiOpenApiPort
       }));
       // Also save to backend for server-side access
       try {
         await axios.post(`${API}/vigi-config`, {
           nvr_ip: vigiIp, username: vigiUser, password: vigiPass,
           front_channel: vigiFrontCh, side_channel: vigiSideCh,
-          front_ip: vigiFrontIp, side_ip: vigiSideIp, enabled: true
+          front_ip: vigiFrontIp, side_ip: vigiSideIp,
+          openapi_port: vigiOpenApiPort, enabled: true
         });
       } catch { /* ignore on web */ }
     } else {
@@ -1756,7 +1760,7 @@ function CameraSetupTab() {
     setVigiTesting(true); setVigiTestResult(null);
     try {
       const ch = vigiFrontIp ? '1' : (vigiFrontCh || '1');
-      const r = await axios.get(`${API}/vigi-test?nvr_ip=${encodeURIComponent(testIp)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}&channel=${ch}`, { timeout: 30000 });
+      const r = await axios.get(`${API}/vigi-test?nvr_ip=${encodeURIComponent(testIp)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}&channel=${ch}&openapi_port=${encodeURIComponent(vigiOpenApiPort)}`, { timeout: 30000 });
       setVigiTestResult(r.data);
       if (r.data.success) toast.success("Connected!");
       else toast.error(r.data.error || "Connection fail");
@@ -1853,6 +1857,15 @@ function CameraSetupTab() {
                     placeholder="192.168.31.2"
                     className="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-md px-3 py-2"
                     data-testid="vigi-nvr-ip" />
+                </div>
+                <div>
+                  <Label className="text-slate-300 text-xs">OpenAPI Port</Label>
+                  <input type="text" value={vigiOpenApiPort}
+                    onChange={e => setVigiOpenApiPort(e.target.value)}
+                    placeholder="20443"
+                    className="w-full bg-slate-700 border border-slate-600 text-white text-sm rounded-md px-3 py-2"
+                    data-testid="vigi-openapi-port" />
+                  <p className="text-slate-500 text-[10px] mt-1">VIGI camera settings se dekhein (default: 20443)</p>
                 </div>
               </div>
 
@@ -2007,7 +2020,7 @@ function CameraSetupTab() {
                   <p className="text-slate-400 text-xs mb-1">Front {vigiFrontIp ? `(${vigiFrontIp})` : vigiFrontCh ? `(NVR Ch ${vigiFrontCh})` : ''}</p>
                   <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[180px]">
                     {(vigiFrontIp || (vigiIp && vigiFrontCh)) ? (
-                      <img src={`${API}/vigi-stream?channel=${vigiFrontIp ? '1' : vigiFrontCh}&fps=2&nvr_ip=${encodeURIComponent(vigiFrontIp || vigiIp)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}`}
+                      <img src={`${API}/vigi-stream?channel=${vigiFrontIp ? '1' : vigiFrontCh}&fps=2&nvr_ip=${encodeURIComponent(vigiFrontIp || vigiIp)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}&openapi_port=${encodeURIComponent(vigiOpenApiPort)}`}
                         alt="Front" className="w-full h-full object-contain"
                         onError={() => {}} />
                     ) : (
@@ -2021,7 +2034,7 @@ function CameraSetupTab() {
                   <p className="text-slate-400 text-xs mb-1">Side {vigiSideIp ? `(${vigiSideIp})` : vigiSideCh ? `(NVR Ch ${vigiSideCh})` : ''}</p>
                   <div className="rounded-lg overflow-hidden border border-slate-600 bg-black h-[180px]">
                     {(vigiSideIp || (vigiIp && vigiSideCh)) ? (
-                      <img src={`${API}/vigi-stream?channel=${vigiSideIp ? '1' : vigiSideCh}&fps=2&nvr_ip=${encodeURIComponent(vigiSideIp || vigiIp)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}`}
+                      <img src={`${API}/vigi-stream?channel=${vigiSideIp ? '1' : vigiSideCh}&fps=2&nvr_ip=${encodeURIComponent(vigiSideIp || vigiIp)}&username=${encodeURIComponent(vigiUser)}&password=${encodeURIComponent(vigiPass)}&openapi_port=${encodeURIComponent(vigiOpenApiPort)}`}
                         alt="Side" className="w-full h-full object-contain"
                         onError={() => {}} />
                     ) : (

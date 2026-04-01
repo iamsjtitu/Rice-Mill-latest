@@ -154,7 +154,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
         const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
         if (deviceIp && channel) {
-          const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
+          const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '', openapi_port: cfg.vigiOpenApiPort || '' });
           setCamUrl(`${API}/vigi-stream?${params.toString()}`);
         }
       }
@@ -174,7 +174,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
           const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
           const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
           if (deviceIp && channel) {
-            const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '' });
+            const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '', openapi_port: cfg.vigiOpenApiPort || '' });
             setCamUrl(`${API}/vigi-stream?${params.toString()}`);
           }
         }

@@ -158,23 +158,33 @@ module.exports = function vigiProxyRoutes(router, database) {
 
   /**
    * Discover the correct snapshot endpoint (port + path) for a VIGI device.
-   * Tries VIGI-specific ports (8443, 8800) first, then standard ports.
+   * Tries configured OpenAPI port first, then VIGI defaults, then standard ports.
    * Caches result per IP for fast subsequent calls.
    */
   const _endpointCache = {};
-  async function discoverEndpoint(deviceIp, channel, username, password) {
-    if (_endpointCache[deviceIp]) return _endpointCache[deviceIp];
+  async function discoverEndpoint(deviceIp, channel, username, password, openApiPort) {
+    const cacheKey = `${deviceIp}:${openApiPort || 'auto'}`;
+    if (_endpointCache[cacheKey]) return _endpointCache[cacheKey];
 
     const baseIp = deviceIp.split(':')[0]; // Strip any existing port
-    const attempts = [
-      { ipPort: `${baseIp}:8443`, path: '/snapshot' },                    // VIGI direct camera HTTPS (port 8443)
-      { ipPort: `${baseIp}:8800`, path: '/snapshot' },                    // VIGI direct camera HTTP (port 8800)
-      { ipPort: baseIp, path: `/snapshot?channel=${channel}` },            // NVR standard port
+    const attempts = [];
+
+    // If user configured OpenAPI port, try that FIRST
+    if (openApiPort) {
+      attempts.push({ ipPort: `${baseIp}:${openApiPort}`, path: '/snapshot' });
+      attempts.push({ ipPort: `${baseIp}:${openApiPort}`, path: `/snapshot?channel=${channel}` });
+    }
+
+    // Common VIGI OpenAPI ports
+    attempts.push(
+      { ipPort: `${baseIp}:20443`, path: '/snapshot' },                   // Common VIGI NVR OpenAPI
+      { ipPort: `${baseIp}:20443`, path: `/snapshot?channel=${channel}` }, // NVR with channel
+      { ipPort: `${baseIp}:8443`, path: '/snapshot' },                    // VIGI default HTTPS
+      { ipPort: `${baseIp}:8800`, path: '/snapshot' },                    // VIGI default HTTP
+      { ipPort: baseIp, path: `/snapshot?channel=${channel}` },            // Standard port
       { ipPort: baseIp, path: '/snapshot' },                               // Standard no channel
       { ipPort: baseIp, path: '/cgi-bin/snapshot.cgi' },                   // Dahua/Generic
-      { ipPort: baseIp, path: `/cgi-bin/snapshot.cgi?channel=${channel}` },// Dahua with channel
-      { ipPort: baseIp, path: '/ISAPI/Streaming/channels/101/picture' },   // Hikvision
-    ];
+    );
 
     for (const attempt of attempts) {
       try {
@@ -182,7 +192,7 @@ module.exports = function vigiProxyRoutes(router, database) {
         const result = await digestRequest(attempt.ipPort, attempt.path, username, password);
         if (result.status === 200 && result.body.length > 100) {
           console.log(`[VIGI Discovery] SUCCESS: ${attempt.ipPort}${attempt.path} → ${result.body.length} bytes`);
-          _endpointCache[deviceIp] = attempt;
+          _endpointCache[cacheKey] = attempt;
           return attempt;
         }
       } catch (err) {
@@ -190,23 +200,24 @@ module.exports = function vigiProxyRoutes(router, database) {
       }
     }
 
-    // Fallback: return NVR style (will likely fail but caller handles error)
+    // Fallback
     console.log(`[VIGI Discovery] No working endpoint found for ${deviceIp}`);
     return { ipPort: baseIp, path: `/snapshot?channel=${channel}` };
   }
 
-  /** GET /api/vigi-snapshot?channel=X&nvr_ip=...&username=...&password=... */
+  /** GET /api/vigi-snapshot?channel=X&nvr_ip=...&username=...&password=...&openapi_port=... */
   router.get('/api/vigi-snapshot', async (req, res) => {
     const channel = req.query.channel || '1';
     const config = getVigiConfig();
     const deviceIp = req.query.nvr_ip || config.nvr_ip;
     const username = req.query.username || config.username || 'admin';
     const password = req.query.password || config.password || '';
+    const openApiPort = req.query.openapi_port || config.openapi_port || '';
 
     if (!deviceIp) return res.status(400).json({ error: 'Device IP not configured' });
 
     try {
-      const ep = await discoverEndpoint(deviceIp, channel, username, password);
+      const ep = await discoverEndpoint(deviceIp, channel, username, password, openApiPort);
       const result = await digestRequest(ep.ipPort, ep.path, username, password);
       if (result.status === 200 && result.body.length > 100) {
         res.set('Content-Type', 'image/jpeg');
@@ -229,6 +240,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     const deviceIp = req.query.nvr_ip || config.nvr_ip;
     const username = req.query.username || config.username || 'admin';
     const password = req.query.password || config.password || '';
+    const openApiPort = req.query.openapi_port || config.openapi_port || '';
     const fps = parseInt(req.query.fps) || 2;
     const interval = Math.max(200, Math.floor(1000 / fps));
 
@@ -237,7 +249,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     // Discover the correct endpoint (port + path) before starting stream
     let ep;
     try {
-      ep = await discoverEndpoint(deviceIp, channel, username, password);
+      ep = await discoverEndpoint(deviceIp, channel, username, password, openApiPort);
     } catch (err) {
       return res.status(502).json({ error: `Endpoint discovery failed: ${err.message}` });
     }
@@ -281,11 +293,12 @@ module.exports = function vigiProxyRoutes(router, database) {
     const username = req.query.username || config.username || 'admin';
     const password = req.query.password || config.password || '';
     const channel = req.query.channel || '1';
+    const openApiPort = req.query.openapi_port || config.openapi_port || '';
 
     if (!deviceIp) return res.json({ success: false, error: 'IP not set' });
 
     try {
-      const ep = await discoverEndpoint(deviceIp, channel, username, password);
+      const ep = await discoverEndpoint(deviceIp, channel, username, password, openApiPort);
       const result = await digestRequest(ep.ipPort, ep.path, username, password);
       if (result.status === 200 && result.body.length > 100) {
         return res.json({ success: true, message: `Connected via ${ep.ipPort}${ep.path}! Snapshot: ${result.body.length} bytes`, imageSize: result.body.length, path: ep.path, port: ep.ipPort });
@@ -294,7 +307,7 @@ module.exports = function vigiProxyRoutes(router, database) {
       console.log(`[VIGI Test] Discovery failed: ${err.message}`);
     }
 
-    res.json({ success: false, error: `Camera ${deviceIp} pe koi snapshot endpoint nahi mila (ports 8443, 8800, 443, 80 sab try kiye). RTSP mode use karein.` });
+    res.json({ success: false, error: `Camera ${deviceIp} pe koi snapshot endpoint nahi mila (ports 20443, 8443, 8800, 443, 80 sab try kiye). RTSP mode use karein.` });
   });
 
   /** GET /api/vigi-diagnose → Full VIGI camera diagnostics */
@@ -303,6 +316,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     const username = req.query.username || 'admin';
     const password = req.query.password || '';
     const channel = req.query.channel || '1';
+    const openApiPort = req.query.openapi_port || '';
 
     const result = {
       ip: deviceIp,
@@ -322,7 +336,7 @@ module.exports = function vigiProxyRoutes(router, database) {
       return res.json(result);
     }
 
-    // 1. TCP port scan
+    // 1. TCP port scan (including VIGI OpenAPI ports)
     const net = require('net');
     function tcpCheck(host, port, timeoutMs = 4000) {
       return new Promise((resolve) => {
@@ -333,7 +347,7 @@ module.exports = function vigiProxyRoutes(router, database) {
       });
     }
 
-    const portsToCheck = [80, 443, 554, 8080, 8443, 8800];
+    const portsToCheck = [...new Set([80, 443, 554, 8080, 8443, 8800, 20443, ...(openApiPort ? [parseInt(openApiPort)] : [])])];
     const scanResults = await Promise.all(portsToCheck.map(async (p) => {
       const r = await tcpCheck(deviceIp, p);
       return [p, r];
@@ -363,7 +377,7 @@ module.exports = function vigiProxyRoutes(router, database) {
 
     // 2. Use endpoint discovery (tries VIGI ports 8443, 8800 + standard ports)
     try {
-      const ep = await discoverEndpoint(deviceIp, channel, username, password);
+      const ep = await discoverEndpoint(deviceIp, channel, username, password, openApiPort);
       const r = await digestRequest(ep.ipPort, ep.path, username, password);
       if (r.status === 200 && r.body.length > 100) {
         result.httpAccess = 'OK';
@@ -426,6 +440,7 @@ module.exports = function vigiProxyRoutes(router, database) {
         side_channel: req.body.side_channel || '',
         front_ip: req.body.front_ip || '',
         side_ip: req.body.side_ip || '',
+        openapi_port: req.body.openapi_port || '',
         enabled: req.body.enabled !== false
       };
       database.push('/settings', settings, false);
@@ -446,6 +461,7 @@ module.exports = function vigiProxyRoutes(router, database) {
       side_channel: config.side_channel || '',
       front_ip: config.front_ip || '',
       side_ip: config.side_ip || '',
+      openapi_port: config.openapi_port || '',
       enabled: config.enabled !== false
     });
   });
