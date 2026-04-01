@@ -253,23 +253,28 @@ module.exports = function(database) {
 
   // GET /api/vehicle-weight - List weights
   router.get('/api/vehicle-weight', safeAsync(async (req, res) => {
-    const { kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no } = req.query;
-    let items = col('vehicle_weights');
-    if (kms_year) items = items.filter(w => w.kms_year === kms_year);
-    if (status) items = items.filter(w => w.status === status);
-    if (date_from) items = items.filter(w => (w.date || '') >= date_from);
-    if (date_to) items = items.filter(w => (w.date || '') <= date_to);
-    if (vehicle_no) items = items.filter(w => (w.vehicle_no || '').toLowerCase().includes(vehicle_no.toLowerCase()));
-    if (party_name) items = items.filter(w => (w.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
-    if (farmer_name) items = items.filter(w => (w.farmer_name || '').toLowerCase().includes(farmer_name.toLowerCase()));
-    if (rst_no) items = items.filter(w => String(w.rst_no) === String(rst_no));
-    items = [...items].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-    const total = items.length;
-    const pageSize = parseInt(req.query.page_size) || 200;
-    const page = parseInt(req.query.page) || 1;
-    const skip = (page - 1) * pageSize;
-    items = items.slice(skip, skip + pageSize);
-    res.json({ entries: items, count: items.length, total, page, page_size: pageSize, total_pages: Math.max(1, Math.ceil(total / pageSize)) });
+    try {
+      const { kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no } = req.query;
+      let items = col('vehicle_weights');
+      if (kms_year) items = items.filter(w => w.kms_year === kms_year);
+      if (status) items = items.filter(w => w.status === status);
+      if (date_from) items = items.filter(w => (w.date || '') >= date_from);
+      if (date_to) items = items.filter(w => (w.date || '') <= date_to);
+      if (vehicle_no) items = items.filter(w => (w.vehicle_no || '').toLowerCase().includes(vehicle_no.toLowerCase()));
+      if (party_name) items = items.filter(w => (w.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
+      if (farmer_name) items = items.filter(w => (w.farmer_name || '').toLowerCase().includes(farmer_name.toLowerCase()));
+      if (rst_no) items = items.filter(w => String(w.rst_no) === String(rst_no));
+      items = [...items].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      const total = items.length;
+      const pageSize = parseInt(req.query.page_size) || 200;
+      const page = parseInt(req.query.page) || 1;
+      const skip = (page - 1) * pageSize;
+      items = items.slice(skip, skip + pageSize);
+      res.json({ entries: items, count: items.length, total, page, page_size: pageSize, total_pages: Math.max(1, Math.ceil(total / pageSize)) });
+    } catch (err) {
+      console.error('[VW] GET /api/vehicle-weight error:', err.message, err.stack);
+      res.status(500).json({ detail: err.message, stack: (err.stack || '').slice(0, 500) });
+    }
   }));
 
   // GET /api/vehicle-weight/pending

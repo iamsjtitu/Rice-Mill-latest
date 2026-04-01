@@ -21,7 +21,7 @@ function safeAsync(fn) {
     Promise.resolve(fn(req, res, next)).catch((err) => {
       logError('ASYNC_ROUTE_ERROR: ' + req.method + ' ' + req.originalUrl, err);
       if (!res.headersSent) {
-        res.status(500).json({ detail: 'Internal server error' });
+        res.status(500).json({ detail: 'Internal server error', error_message: err.message || String(err) });
       }
     });
   };
