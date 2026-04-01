@@ -2164,6 +2164,9 @@ async function startApplication(folderPath) {
 }
 
 // ============ APP LIFECYCLE ============
+// Accept self-signed SSL certificates from local cameras/NVRs
+app.commandLine.appendSwitch('ignore-certificate-errors');
+
 app.whenReady().then(() => {
   createSplashWindow();
 });

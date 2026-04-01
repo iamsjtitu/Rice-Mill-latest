@@ -19,6 +19,11 @@ module.exports = function vigiProxyRoutes(router, database) {
 
   function md5(str) { return crypto.createHash('md5').update(str).digest('hex'); }
 
+  /** Check if buffer starts with JPEG magic bytes (FF D8 FF) */
+  function isJpeg(buf) {
+    return buf && buf.length > 3 && buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
+  }
+
   function parseDigestChallenge(header) {
     if (!header) return null;
     const parts = {};
@@ -190,10 +195,12 @@ module.exports = function vigiProxyRoutes(router, database) {
       try {
         console.log(`[VIGI Discovery] Trying ${attempt.ipPort}${attempt.path}...`);
         const result = await digestRequest(attempt.ipPort, attempt.path, username, password);
-        if (result.status === 200 && result.body.length > 100) {
-          console.log(`[VIGI Discovery] SUCCESS: ${attempt.ipPort}${attempt.path} → ${result.body.length} bytes`);
+        if (result.status === 200 && result.body.length > 2000 && isJpeg(result.body)) {
+          console.log(`[VIGI Discovery] SUCCESS: ${attempt.ipPort}${attempt.path} → ${result.body.length} bytes (valid JPEG)`);
           _endpointCache[cacheKey] = attempt;
           return attempt;
+        } else if (result.status === 200) {
+          console.log(`[VIGI Discovery] ${attempt.ipPort}${attempt.path} → ${result.body.length} bytes, JPEG=${isJpeg(result.body)} (skipping - not valid image)`);
         }
       } catch (err) {
         console.log(`[VIGI Discovery] ${attempt.ipPort}${attempt.path} failed: ${err.message}`);
@@ -219,13 +226,13 @@ module.exports = function vigiProxyRoutes(router, database) {
     try {
       const ep = await discoverEndpoint(deviceIp, channel, username, password, openApiPort);
       const result = await digestRequest(ep.ipPort, ep.path, username, password);
-      if (result.status === 200 && result.body.length > 100) {
+      if (result.status === 200 && result.body.length > 2000 && isJpeg(result.body)) {
         res.set('Content-Type', 'image/jpeg');
         res.set('Cache-Control', 'no-cache, no-store');
         res.send(result.body);
       } else {
-        console.error(`[VIGI] Snapshot failed: status=${result.status}, bodyLen=${result.body.length}`);
-        res.status(502).json({ error: 'Snapshot failed', status: result.status, bodyLength: result.body.length });
+        console.error(`[VIGI] Snapshot failed: status=${result.status}, bodyLen=${result.body.length}, isJpeg=${isJpeg(result.body)}, first20=${result.body.slice(0, 20).toString('hex')}`);
+        res.status(502).json({ error: 'Snapshot failed - response is not a valid JPEG image', status: result.status, bodyLength: result.body.length, isJpeg: isJpeg(result.body) });
       }
     } catch (err) {
       console.error('[VIGI] Snapshot error:', err.message);
@@ -269,7 +276,7 @@ module.exports = function vigiProxyRoutes(router, database) {
       while (running) {
         try {
           const result = await digestRequest(ep.ipPort, ep.path, username, password);
-          if (result.status === 200 && result.body.length > 100) {
+          if (result.status === 200 && result.body.length > 2000 && isJpeg(result.body)) {
             try {
               res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${result.body.length}\r\n\r\n`);
               res.write(result.body);
@@ -300,8 +307,8 @@ module.exports = function vigiProxyRoutes(router, database) {
     try {
       const ep = await discoverEndpoint(deviceIp, channel, username, password, openApiPort);
       const result = await digestRequest(ep.ipPort, ep.path, username, password);
-      if (result.status === 200 && result.body.length > 100) {
-        return res.json({ success: true, message: `Connected via ${ep.ipPort}${ep.path}! Snapshot: ${result.body.length} bytes`, imageSize: result.body.length, path: ep.path, port: ep.ipPort });
+      if (result.status === 200 && result.body.length > 2000 && isJpeg(result.body)) {
+        return res.json({ success: true, message: `Connected via ${ep.ipPort}${ep.path}! Valid JPEG: ${result.body.length} bytes`, imageSize: result.body.length, path: ep.path, port: ep.ipPort });
       }
     } catch (err) {
       console.log(`[VIGI Test] Discovery failed: ${err.message}`);
@@ -379,7 +386,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     try {
       const ep = await discoverEndpoint(deviceIp, channel, username, password, openApiPort);
       const r = await digestRequest(ep.ipPort, ep.path, username, password);
-      if (r.status === 200 && r.body.length > 100) {
+      if (r.status === 200 && r.body.length > 2000 && isJpeg(r.body)) {
         result.httpAccess = 'OK';
         result.digestAuth = 'OK';
         result.snapshotTest = `OK - ${r.body.length} bytes`;
