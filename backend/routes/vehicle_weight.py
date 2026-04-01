@@ -340,7 +340,12 @@ async def get_pending_vw_count(kms_year: str = ""):
         me_query["kms_year"] = kms_year
     # Get all VW RST numbers
     vw_entries = await db["vehicle_weights"].find(vw_query, {"_id": 0, "rst_no": 1}).to_list(50000)
-    vw_rsts = set(e.get("rst_no") for e in vw_entries if e.get("rst_no"))
+    vw_rsts = set()
+    for e in vw_entries:
+        r = e.get("rst_no")
+        if r is not None:
+            try: vw_rsts.add(int(r))
+            except: pass
     # Get all Mill Entry RST numbers
     me_entries = await db["mill_entries"].find(me_query, {"_id": 0, "rst_no": 1}).to_list(50000)
     linked = set()

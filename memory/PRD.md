@@ -1,6 +1,6 @@
 # Mill Entry System PRD
 
-## Current Version: v69.0.0
+## Current Version: v69.1.0
 
 ## Architecture
 - **Web Backend**: Python FastAPI + MongoDB
@@ -9,28 +9,22 @@
 - **Frontend**: React (shared across all 3 backends)
 
 ## Recent Completed (Apr 2026)
+- [v69.1] Badge count fix - type mismatch between VW rst_no (string) and Mill Entry rst_no (int) causing wrong pending count
 - [v69] Camera captureFrame() await fix — images now save correctly during weight capture
 - [v69] WhatsApp auto-notify sends images to individual numbers (not just groups)
 - [v69] FY Carry Forward endpoint added to Desktop + Local-Server backends (triple parity)
 - [v69] View modal now shows header extra fields (custom_fields from branding settings)
-- [v69] Auto Weight Entries print button now matches Completed Entries print format (HTML with Party Copy + Customer Copy, custom_fields)
-- [v68] Entry form kms_year now matches filter FY
-- [v67] saveImage crash fix (Object vs string type check)
-- [v65] FFmpeg 6.0 compatibility: -stimeout to -timeout
-- [v64] RTSP Deep Diagnostic Tool
-- [v63] Raw URL passed to ffmpeg (@ in password fix)
-- [v62] Bare catch blocks fixed for Electron compatibility
+- [v69] Auto Weight Entries print button matches Completed Entries print format
 
 ## Key API Endpoints
+- GET /api/vehicle-weight/pending-count (Badge count - fixed type normalization)
 - POST /api/opening-stock/carry-forward (All 3 backends)
 - POST /api/vehicle-weight/auto-notify (WhatsApp + Telegram with images)
-- GET /api/vehicle-weight/:id/photos (base64 image data for view modal)
+- GET /api/vehicle-weight/:id/photos, GET /api/vehicle-weight/:id/slip-pdf
 - GET /api/branding (Returns company info + custom_fields array)
-- GET/POST /api/entries, /api/vehicle-weight
-- GET /api/camera-stream, /api/camera-test-rtsp
 
 ## Backlog
-- P1: Export Preview feature (Preview data before exporting to Excel/PDF)
+- P1: Export Preview feature
 - P2: Centralize payment/stock logic across triple backends
 - P2: App.js refactor (~2500 lines) - state management + hooks
 - P3: SQLite migration for desktop (1 Lakh+ entries)

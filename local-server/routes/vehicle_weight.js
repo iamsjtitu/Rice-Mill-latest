@@ -493,7 +493,7 @@ module.exports = function(database) {
     let vwEntries = col('vehicle_weights').filter(w => w.status === 'completed');
     let meEntries = col('entries');
     if (kmsYear) { vwEntries = vwEntries.filter(w => w.kms_year === kmsYear); meEntries = meEntries.filter(e => e.kms_year === kmsYear); }
-    const vwRsts = new Set(vwEntries.map(w => w.rst_no).filter(Boolean));
+    const vwRsts = new Set(vwEntries.map(w => { const n = parseInt(w.rst_no); return isNaN(n) ? null : n; }).filter(n => n !== null));
     const linked = new Set(meEntries.map(e => parseInt(e.rst_no)).filter(n => !isNaN(n)));
     let pendingCount = 0;
     vwRsts.forEach(r => { if (!linked.has(r)) pendingCount++; });
