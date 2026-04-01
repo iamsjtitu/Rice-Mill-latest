@@ -191,7 +191,14 @@ module.exports = function vigiProxyRoutes(router, database) {
       { ipPort: baseIp, path: '/cgi-bin/snapshot.cgi' },                   // Dahua/Generic
     );
 
+    // Overall timeout: abort discovery after 12 seconds max
+    const deadline = Date.now() + 12000;
+
     for (const attempt of attempts) {
+      if (Date.now() > deadline) {
+        console.log(`[VIGI Discovery] Deadline exceeded for ${deviceIp}, stopping`);
+        break;
+      }
       try {
         console.log(`[VIGI Discovery] Trying ${attempt.ipPort}${attempt.path}...`);
         const result = await digestRequest(attempt.ipPort, attempt.path, username, password);
