@@ -188,10 +188,11 @@ async def auto_notify_weight(data: dict):
         f"*Weight Slip — RST #{rst}*\n"
         f"Date: {entry.get('date','')}\n"
         f"Vehicle: {entry.get('vehicle_no','')}\n"
+        f"Trans: {entry.get('trans_type','')}\n"
         f"Party: {entry.get('party_name','')}\n"
     )
     if farmer_mandi:
-        text += f"Source: {farmer_mandi}\n"
+        text += f"Source/Mandi: {farmer_mandi}\n"
     text += (
         f"Product: {entry.get('product','')}\n"
         f"Bags: {pkts if pkts > 0 else '-'}\n"
@@ -669,7 +670,7 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         rows = [
             ("RST No.", f"#{rst}", "Date / \u0926\u093f\u0928\u093e\u0902\u0915", entry.get("date", "")),
             ("Vehicle / \u0917\u093e\u0921\u093c\u0940", entry.get("vehicle_no", ""), "Trans", entry.get("trans_type", "")),
-            ("Party / \u092a\u093e\u0930\u094d\u091f\u0940", entry.get("party_name", ""), "Source", entry.get("farmer_name", "")),
+            ("Party / \u092a\u093e\u0930\u094d\u091f\u0940", entry.get("party_name", ""), "Source/Mandi", entry.get("farmer_name", "")),
             ("Product / \u092e\u093e\u0932", entry.get("product", ""), "Bags / \u092c\u094b\u0930\u0947", str(entry.get("tot_pkts", 0))),
         ]
         g_issued = float(entry.get("g_issued", 0) or 0)
@@ -905,7 +906,7 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     # Header row
     hdr_row = cur_row + 1
 
-    headers = ["RST", "Date", "Vehicle", "Party", "Source", "Product", "Trans", "Bags",
+    headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans", "Bags",
                "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "G.Issued", "Cash", "Diesel"]
     hdr_fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
     hdr_font = Font(bold=True, color="FFFFFF", size=10)
@@ -970,7 +971,7 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     elements.append(Spacer(1, 3*mm))
 
     # Table
-    headers = ["RST", "Date", "Vehicle", "Party", "Source", "Product", "Trans", "Bags", "1st Wt", "2nd Wt", "Net Wt", "G.Issued", "Cash", "Diesel"]
+    headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans", "Bags", "1st Wt", "2nd Wt", "Net Wt", "G.Issued", "Cash", "Diesel"]
     data = [headers]
     for e in items:
         data.append([

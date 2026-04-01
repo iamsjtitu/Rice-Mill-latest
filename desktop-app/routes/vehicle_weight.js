@@ -231,8 +231,9 @@ module.exports = function(database) {
     let text = `*Weight Slip — RST #${rst}*\n` +
       `Date: ${entry.date || ''}\n` +
       `Vehicle: ${entry.vehicle_no || ''}\n` +
+      `Trans: ${entry.trans_type || ''}\n` +
       `Party: ${entry.party_name || ''}\n`;
-    if (farmerMandi) text += `Farmer/Mandi: ${farmerMandi}\n`;
+    if (farmerMandi) text += `Source/Mandi: ${farmerMandi}\n`;
     text += `Product: ${entry.product || ''}\n` +
       `Bags: ${pkts > 0 ? pkts : '-'}\n` +
       `───────────────\n` +
@@ -601,7 +602,7 @@ module.exports = function(database) {
       g_issued: parseFloat(data.g_issued || 0) || 0,
       farmer_name: (data.farmer_name || '').trim(),
       product: data.product || 'PADDY',
-      trans_type: data.trans_type || 'Receive(Pur)',
+      trans_type: data.trans_type || 'Receive(Purchase)',
       j_pkts: parseInt(data.j_pkts || 0) || 0,
       p_pkts: parseInt(data.p_pkts || 0) || 0,
       tot_pkts: parseInt(data.tot_pkts || 0) || 0,
@@ -795,7 +796,7 @@ module.exports = function(database) {
       const rows = [
         ['RST No.', `#${rst}`, 'Date / \u0926\u093f\u0928\u093e\u0902\u0915', entry.date || ''],
         ['Vehicle / \u0917\u093e\u0921\u093c\u0940', entry.vehicle_no || '', 'Trans', entry.trans_type || ''],
-        ['Party / \u092a\u093e\u0930\u094d\u091f\u0940', entry.party_name || '', 'Source', entry.farmer_name || ''],
+        ['Party / \u092a\u093e\u0930\u094d\u091f\u0940', entry.party_name || '', 'Source/Mandi', entry.farmer_name || ''],
         ['Product / \u092e\u093e\u0932', entry.product || '', 'Bags / \u092c\u094b\u0930\u0947', String(entry.tot_pkts || 0)],
       ];
       const gIssued = parseFloat(entry.g_issued || 0) || 0;

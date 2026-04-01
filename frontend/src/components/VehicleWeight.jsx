@@ -399,7 +399,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 });
 
 export default function VehicleWeight({ filters }) {
-  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Pur)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "" };
+  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "" };
   const [form, setForm] = useState(blank);
   const [rstEditable, setRstEditable] = useState(false);
   const [entries, setEntries] = useState([]);
@@ -518,7 +518,7 @@ export default function VehicleWeight({ filters }) {
       party_name: entry.party_name || "",
       farmer_name: entry.farmer_name || "",
       product: entry.product || "GOVT PADDY",
-      trans_type: entry.trans_type || "Receive(Pur)",
+      trans_type: entry.trans_type || "Receive(Purchase)",
       tot_pkts: entry.tot_pkts || "",
       j_pkts: entry.j_pkts || "",
       p_pkts: entry.p_pkts || "",
@@ -593,8 +593,9 @@ export default function VehicleWeight({ filters }) {
     let t = `*Weight Slip — RST #${e.rst_no}*\n`;
     t += `Date: ${e.date}\n`;
     t += `Vehicle: ${e.vehicle_no}\n`;
+    t += `Trans: ${e.trans_type || '-'}\n`;
     t += `Party: ${e.party_name || '-'}\n`;
-    t += `Source: ${e.farmer_name || '-'}\n`;
+    t += `Source/Mandi: ${e.farmer_name || '-'}\n`;
     t += `Product: ${e.product || '-'}\n`;
     t += `Bags: ${e.tot_pkts || '-'}\n`;
     t += `───────────────\n`;
@@ -720,7 +721,7 @@ export default function VehicleWeight({ filters }) {
         <table class="info-table">
           <tr><td class="lbl">RST No.</td><td class="val rst">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${e.date}</td></tr>
           <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans</td><td class="val">${e.trans_type || '-'}</td></tr>
-          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source</td><td class="val">${e.farmer_name || '-'}</td></tr>
+          <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source/Mandi</td><td class="val">${e.farmer_name || '-'}</td></tr>
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
           ${Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
         </table>
@@ -929,7 +930,7 @@ export default function VehicleWeight({ filters }) {
                     <Select value={form.trans_type} onValueChange={v => setForm(p => ({ ...p, trans_type: v }))}>
                       <SelectTrigger className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-trans"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Receive(Pur)">Receive(Pur)</SelectItem>
+                        <SelectItem value="Receive(Purchase)">Receive(Purchase)</SelectItem>
                         <SelectItem value="Dispatch(Sale)">Dispatch(Sale)</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1358,7 +1359,7 @@ export default function VehicleWeight({ filters }) {
                   <tr>
                     <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Party / पार्टी</td>
                     <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.party_name || '-'}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Source</td>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Source/Mandi</td>
                     <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.farmer_name || '-'}</td>
                   </tr>
                   <tr>
