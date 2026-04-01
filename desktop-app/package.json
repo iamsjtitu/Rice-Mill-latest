@@ -6,13 +6,13 @@
   "scripts": {
     "start": "npx electron .",
     "setup": "node setup-desktop.js",
-    "build": "node setup-desktop.js && npx electron-builder --win",
-    "build:win": "npx electron-builder --win --x64",
-    "build:mac": "npx electron-builder --mac --arm64",
-    "build:mac-dmg": "npx electron-builder --mac dmg --arm64",
-    "build:mac-pkg": "npx electron-builder --mac pkg --arm64",
-    "build:mac-all": "npx electron-builder --mac dmg pkg --arm64",
-    "pack": "npx electron-builder --dir"
+    "build": "node setup-desktop.js && npx electron-builder --win --publish never",
+    "build:win": "npx electron-builder --win --x64 --publish never",
+    "build:mac": "npx electron-builder --mac --arm64 --publish never",
+    "build:mac-dmg": "npx electron-builder --mac dmg --arm64 --publish never",
+    "build:mac-pkg": "npx electron-builder --mac pkg --arm64 --publish never",
+    "build:mac-all": "npx electron-builder --mac dmg pkg --arm64 --publish never",
+    "pack": "npx electron-builder --dir --publish never"
   },
   "author": "Mill Entry System",
   "license": "MIT",
