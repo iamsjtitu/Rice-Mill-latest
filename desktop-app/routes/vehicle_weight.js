@@ -75,7 +75,7 @@ module.exports = function(database) {
     const weights = col('vehicle_weights');
     const filtered = kmsYear ? weights.filter(w => w.kms_year === kmsYear) : weights;
     if (filtered.length === 0) return 1;
-    const maxRst = Math.max(...filtered.map(w => w.rst_no || 0));
+    const maxRst = Math.max(...filtered.map(w => parseInt(w.rst_no, 10) || 0));
     return maxRst + 1;
   }
 

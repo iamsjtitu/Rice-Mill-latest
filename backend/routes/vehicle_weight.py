@@ -82,8 +82,12 @@ async def _next_rst(kms_year: str = ""):
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
-    last = await db["vehicle_weights"].find_one(query, sort=[("rst_no", -1)])
-    return (last["rst_no"] + 1) if last else 1
+    cursor = db["vehicle_weights"].find(query, {"_id": 0, "rst_no": 1})
+    docs = await cursor.to_list(length=10000)
+    if not docs:
+        return 1
+    max_rst = max(int(d.get("rst_no", 0) or 0) for d in docs)
+    return max_rst + 1
 
 
 @router.get("/vehicle-weight")

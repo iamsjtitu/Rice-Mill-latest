@@ -491,7 +491,7 @@ export default function VehicleWeight({ filters }) {
       setVwTotalCount(eR.data.total || 0);
       setVwPage(eR.data.page || 1);
       setPending(pR.data.pending || []);
-      setNextRst(nR.data.next_rst || 1);
+      setNextRst(nR.data.rst_no || 1);
       setLinkedRst(new Set(lR.data.linked_rst || []));
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Data fetch error"); }
     if (!ctrl.signal.aborted) setLoading(false);

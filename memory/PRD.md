@@ -1,6 +1,6 @@
 # Mill Entry System PRD
 
-## Current Version: v70.2.0
+## Current Version: v71.0.0
 
 ## Architecture
 - **Web Backend**: Python FastAPI + MongoDB
@@ -9,6 +9,7 @@
 - **Frontend**: React (shared across all 3 backends)
 
 ## Recent Completed (Apr 2026)
+- [v71] RST auto-increment bug fix - frontend was accessing wrong response key (`next_rst` → `rst_no`), added parseInt in JS backends, robust max calculation in Python backend
 - [v70.2] G.Issued now shows in View modal, WhatsApp/Telegram text, and Mill Entry RST auto-fill
 - [v70.1] Receive(Pur)→Receive(Purchase), Source→Source/Mandi, Trans in WhatsApp
 - [v70] G.Issued field added, Farmer→Source rename, PDF bordered table
