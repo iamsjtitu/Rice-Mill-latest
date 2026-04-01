@@ -80,11 +80,10 @@ module.exports = function vigiProxyRoutes(router, database) {
 
   /**
    * Digest Auth request with redirect following.
-   * Step 1: Hit the URL → get 401 + Digest challenge (or follow redirects)
-   * Step 2: Build Digest auth header → hit again
    * Tries HTTPS first (modern NVRs), then HTTP fallback.
+   * deviceIp can include port like "192.168.31.65:8443"
    */
-  const _protocolCache = {}; // Cache working protocol per IP
+  const _protocolCache = {}; // Cache working protocol per IP:port
   async function digestRequest(deviceIp, path, username, password) {
     // Use cached protocol if known, otherwise try HTTPS first then HTTP
     const cached = _protocolCache[deviceIp];
@@ -93,7 +92,10 @@ module.exports = function vigiProxyRoutes(router, database) {
 
     for (const proto of protocols) {
       try {
-        const baseUrl = `${proto}://${deviceIp}${path}`;
+        // If deviceIp already has port (e.g. "192.168.31.65:8443"), use as-is
+        const baseUrl = deviceIp.includes(':') && !deviceIp.startsWith('[')
+          ? `${proto}://${deviceIp}${path}`
+          : `${proto}://${deviceIp}${path}`;
 
         // Step 1: Initial request (expect 401 for Digest, or snapshot directly)
         const res1 = await rawRequest(baseUrl, {}, 5);
@@ -126,7 +128,6 @@ module.exports = function vigiProxyRoutes(router, database) {
         const cnonce = crypto.randomBytes(8).toString('hex');
         const algorithm = (challenge.algorithm || 'MD5').toUpperCase();
 
-        // Use the final URL's path for the digest URI (in case of redirects)
         const digestPath = path;
         let ha1, ha2, response;
         if (algorithm === 'SHA-256') {
@@ -142,9 +143,8 @@ module.exports = function vigiProxyRoutes(router, database) {
 
         const authHeader = `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${digestPath}", algorithm=${algorithm}, response="${response}", qop=${qop}, nc=${nc}, cnonce="${cnonce}"`;
 
-        // Step 3: Authenticated request (also follows redirects)
         const res2 = await rawRequest(baseUrl, { 'Authorization': authHeader }, 5);
-        _protocolCache[deviceIp] = proto; // Cache working protocol
+        _protocolCache[deviceIp] = proto;
         return res2;
 
       } catch (err) {
@@ -154,6 +154,45 @@ module.exports = function vigiProxyRoutes(router, database) {
     }
 
     throw lastError || new Error('All protocols failed');
+  }
+
+  /**
+   * Discover the correct snapshot endpoint (port + path) for a VIGI device.
+   * Tries VIGI-specific ports (8443, 8800) first, then standard ports.
+   * Caches result per IP for fast subsequent calls.
+   */
+  const _endpointCache = {};
+  async function discoverEndpoint(deviceIp, channel, username, password) {
+    if (_endpointCache[deviceIp]) return _endpointCache[deviceIp];
+
+    const baseIp = deviceIp.split(':')[0]; // Strip any existing port
+    const attempts = [
+      { ipPort: `${baseIp}:8443`, path: '/snapshot' },                    // VIGI direct camera HTTPS (port 8443)
+      { ipPort: `${baseIp}:8800`, path: '/snapshot' },                    // VIGI direct camera HTTP (port 8800)
+      { ipPort: baseIp, path: `/snapshot?channel=${channel}` },            // NVR standard port
+      { ipPort: baseIp, path: '/snapshot' },                               // Standard no channel
+      { ipPort: baseIp, path: '/cgi-bin/snapshot.cgi' },                   // Dahua/Generic
+      { ipPort: baseIp, path: `/cgi-bin/snapshot.cgi?channel=${channel}` },// Dahua with channel
+      { ipPort: baseIp, path: '/ISAPI/Streaming/channels/101/picture' },   // Hikvision
+    ];
+
+    for (const attempt of attempts) {
+      try {
+        console.log(`[VIGI Discovery] Trying ${attempt.ipPort}${attempt.path}...`);
+        const result = await digestRequest(attempt.ipPort, attempt.path, username, password);
+        if (result.status === 200 && result.body.length > 100) {
+          console.log(`[VIGI Discovery] SUCCESS: ${attempt.ipPort}${attempt.path} → ${result.body.length} bytes`);
+          _endpointCache[deviceIp] = attempt;
+          return attempt;
+        }
+      } catch (err) {
+        console.log(`[VIGI Discovery] ${attempt.ipPort}${attempt.path} failed: ${err.message}`);
+      }
+    }
+
+    // Fallback: return NVR style (will likely fail but caller handles error)
+    console.log(`[VIGI Discovery] No working endpoint found for ${deviceIp}`);
+    return { ipPort: baseIp, path: `/snapshot?channel=${channel}` };
   }
 
   /** GET /api/vigi-snapshot?channel=X&nvr_ip=...&username=...&password=... */
@@ -167,7 +206,8 @@ module.exports = function vigiProxyRoutes(router, database) {
     if (!deviceIp) return res.status(400).json({ error: 'Device IP not configured' });
 
     try {
-      const result = await digestRequest(deviceIp, `/snapshot?channel=${channel}`, username, password);
+      const ep = await discoverEndpoint(deviceIp, channel, username, password);
+      const result = await digestRequest(ep.ipPort, ep.path, username, password);
       if (result.status === 200 && result.body.length > 100) {
         res.set('Content-Type', 'image/jpeg');
         res.set('Cache-Control', 'no-cache, no-store');
@@ -194,6 +234,14 @@ module.exports = function vigiProxyRoutes(router, database) {
 
     if (!deviceIp) return res.status(400).json({ error: 'Device IP not configured' });
 
+    // Discover the correct endpoint (port + path) before starting stream
+    let ep;
+    try {
+      ep = await discoverEndpoint(deviceIp, channel, username, password);
+    } catch (err) {
+      return res.status(502).json({ error: `Endpoint discovery failed: ${err.message}` });
+    }
+
     const boundary = 'vigiframe';
     res.writeHead(200, {
       'Content-Type': `multipart/x-mixed-replace; boundary=${boundary}`,
@@ -208,7 +256,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     const poll = async () => {
       while (running) {
         try {
-          const result = await digestRequest(deviceIp, `/snapshot?channel=${channel}`, username, password);
+          const result = await digestRequest(ep.ipPort, ep.path, username, password);
           if (result.status === 200 && result.body.length > 100) {
             try {
               res.write(`--${boundary}\r\nContent-Type: image/jpeg\r\nContent-Length: ${result.body.length}\r\n\r\n`);
@@ -226,7 +274,7 @@ module.exports = function vigiProxyRoutes(router, database) {
     poll();
   });
 
-  /** GET /api/vigi-test → Test connection (tries HTTP then HTTPS, follows redirects) */
+  /** GET /api/vigi-test → Test connection using endpoint discovery */
   router.get('/api/vigi-test', async (req, res) => {
     const config = getVigiConfig();
     const deviceIp = req.query.nvr_ip || config.nvr_ip;
@@ -236,29 +284,17 @@ module.exports = function vigiProxyRoutes(router, database) {
 
     if (!deviceIp) return res.json({ success: false, error: 'IP not set' });
 
-    // Try multiple snapshot paths
-    const paths = [
-      `/snapshot?channel=${channel}`,
-      '/cgi-bin/snapshot.cgi',
-      `/cgi-bin/snapshot.cgi?channel=${channel}`,
-      '/ISAPI/Streaming/channels/101/picture',
-      '/snap.jpg',
-      '/onvif-http/snapshot',
-    ];
-
-    for (const path of paths) {
-      try {
-        const result = await digestRequest(deviceIp, path, username, password);
-        if (result.status === 200 && result.body.length > 100) {
-          return res.json({ success: true, message: `Connected via ${path}! Snapshot: ${result.body.length} bytes`, imageSize: result.body.length, path });
-        }
-      } catch (err) {
-        console.log(`[VIGI Test] ${path} failed: ${err.message}`);
+    try {
+      const ep = await discoverEndpoint(deviceIp, channel, username, password);
+      const result = await digestRequest(ep.ipPort, ep.path, username, password);
+      if (result.status === 200 && result.body.length > 100) {
+        return res.json({ success: true, message: `Connected via ${ep.ipPort}${ep.path}! Snapshot: ${result.body.length} bytes`, imageSize: result.body.length, path: ep.path, port: ep.ipPort });
       }
+    } catch (err) {
+      console.log(`[VIGI Test] Discovery failed: ${err.message}`);
     }
 
-    // All paths failed
-    res.json({ success: false, error: `Camera ${deviceIp} pe koi snapshot endpoint nahi mila. Ye camera HTTP snapshot support nahi karta - RTSP mode use karein.` });
+    res.json({ success: false, error: `Camera ${deviceIp} pe koi snapshot endpoint nahi mila (ports 8443, 8800, 443, 80 sab try kiye). RTSP mode use karein.` });
   });
 
   /** GET /api/vigi-diagnose → Full VIGI camera diagnostics */
@@ -297,7 +333,7 @@ module.exports = function vigiProxyRoutes(router, database) {
       });
     }
 
-    const portsToCheck = [80, 443, 554, 8080];
+    const portsToCheck = [80, 443, 554, 8080, 8443, 8800];
     const scanResults = await Promise.all(portsToCheck.map(async (p) => {
       const r = await tcpCheck(deviceIp, p);
       return [p, r];
@@ -325,36 +361,40 @@ module.exports = function vigiProxyRoutes(router, database) {
       return res.json(result);
     }
 
-    // 2. HTTP access + Digest Auth + Snapshot test
+    // 2. Use endpoint discovery (tries VIGI ports 8443, 8800 + standard ports)
+    try {
+      const ep = await discoverEndpoint(deviceIp, channel, username, password);
+      const r = await digestRequest(ep.ipPort, ep.path, username, password);
+      if (r.status === 200 && r.body.length > 100) {
+        result.httpAccess = 'OK';
+        result.digestAuth = 'OK';
+        result.snapshotTest = `OK - ${r.body.length} bytes`;
+        result.snapshotPath = `${ep.ipPort}${ep.path}`;
+        result.diagnosis = `Camera working! Snapshot via ${ep.ipPort}${ep.path}`;
+        result.diagnosisHi = `Camera chal raha hai! Snapshot mil gaya (${ep.ipPort}${ep.path})`;
+        return res.json(result);
+      }
+    } catch (err) {
+      console.log(`[VIGI Diagnose] Discovery failed: ${err.message}`);
+    }
+
+    // 3. Fallback: try individual paths on standard ports for detailed error
     const paths = [
       `/snapshot?channel=${channel}`,
+      '/snapshot',
       '/cgi-bin/snapshot.cgi',
-      `/cgi-bin/snapshot.cgi?channel=${channel}`,
-      '/ISAPI/Streaming/channels/101/picture',
-      '/snap.jpg',
-      '/onvif-http/snapshot',
     ];
 
     for (const path of paths) {
       try {
         const r = await digestRequest(deviceIp, path, username, password);
         result.httpAccess = 'OK';
-        if (r.status === 200 && r.body.length > 100) {
-          result.digestAuth = 'OK';
-          result.snapshotTest = `OK - ${r.body.length} bytes`;
-          result.snapshotPath = path;
-          result.diagnosis = 'Camera working! Snapshot received successfully';
-          result.diagnosisHi = `Camera chal raha hai! Snapshot mil gaya (${path})`;
-          return res.json(result);
-        } else if (r.status === 401) {
+        if (r.status === 401) {
           result.digestAuth = 'FAILED - wrong username/password';
-        } else {
-          result.httpAccess = `HTTP ${r.status}`;
         }
       } catch (err) {
         if (err.message.includes('No digest nonce')) {
           result.httpAccess = 'OK';
-          result.digestAuth = 'No Digest Auth support on this path';
         }
       }
     }
