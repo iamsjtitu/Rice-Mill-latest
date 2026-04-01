@@ -1272,12 +1272,12 @@ const WhatsNew = ({ forceOpen = false, onClose }) => {
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-5 mt-2">
-          {CHANGELOG.map((release, ri) => (
+          {CHANGELOG.slice(0, 5).map((release, ri) => (
             <div key={release.version} className={`space-y-2 ${ri > 0 ? 'pt-4 border-t border-slate-700/60' : ''}`}>
               <div className="flex items-center gap-2">
                 {ri === 0 && <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />}
                 <h3 className={`font-bold text-sm ${ri === 0 ? 'text-amber-400' : 'text-slate-300'}`}>
-                  v{release.version} - {release.title}
+                  {release.title}
                 </h3>
                 <span className="text-[10px] text-slate-500 ml-auto">{release.date}</span>
               </div>
