@@ -831,46 +831,11 @@ export default function VehicleWeight({ filters }) {
         </Button>
       </div>
 
-      {/* ─── 2-SECTION LAYOUT: Main + Sticky Sidebar ─── */}
-      <div className="flex flex-col lg:flex-row gap-3">
-
-        {/* ═══ SIDEBAR: Live Scale + 2 Cameras (sticky on desktop, shows first on mobile) ═══ */}
-        <div className="lg:w-[260px] lg:shrink-0 space-y-2 order-1 lg:order-2 lg:sticky lg:top-4 lg:self-start">
-          {/* Digital Scale Display */}
-          <Card className="bg-gradient-to-b from-gray-900 to-black border-gray-300 shadow overflow-hidden">
-            <div className="bg-gray-800 px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
-              <span className="text-gray-400 text-[10px] font-medium flex items-center gap-1"><Scale className="w-3 h-3" /> WEIGHBRIDGE</span>
-              <span className="text-green-400 text-[10px] flex items-center gap-0.5 font-medium">
-                <Wifi className="w-3 h-3" /> COM3
-              </span>
-            </div>
-            <div className="p-4 text-center relative">
-              <div className={`font-mono text-5xl font-black tracking-wider transition-all duration-200 ${
-                scale.stable ? 'text-green-400 drop-shadow-[0_0_20px_rgba(74,222,128,0.4)]'
-                : scale.running ? 'text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]'
-                : 'text-gray-700'
-              }`} data-testid="live-weight-display">
-                {scale.weight > 0 ? scale.weight.toLocaleString() : '00,000'}
-              </div>
-              <div className="text-gray-500 text-[10px] mt-0.5 font-mono tracking-widest">KILOGRAM</div>
-              {scale.stable && <Badge className="mt-2 bg-green-600/20 text-green-400 border-green-500/30 text-[9px]"><CheckCircle className="w-2.5 h-2.5 mr-1" />STABLE - LOCKED</Badge>}
-              {scale.running && !scale.stable && <p className="text-amber-400 text-[9px] mt-2 animate-pulse font-mono">MEASURING...</p>}
-            </div>
-          </Card>
-
-          {/* 2 Cameras - Stacked Vertically */}
-          <div className="space-y-2">
-            <CameraFeed ref={frontCamRef} label="Front View" camKey="front" />
-            <CameraFeed ref={sideCamRef} label="Side View" camKey="side" />
-          </div>
-        </div>
-
-        {/* ═══ MAIN CONTENT: Form + Pending + Completed ═══ */}
-        <div className="flex-1 min-w-0 space-y-3 order-2 lg:order-1">
-          <div className="grid grid-cols-12 gap-3">
+      {/* ─── 3-COLUMN LAYOUT ─── */}
+      <div className="grid grid-cols-12 gap-3">
 
         {/* ═══ COL 1: Entry Form ═══ */}
-        <div className="col-span-12 lg:col-span-5">
+        <div className="col-span-12 lg:col-span-4">
           <Card className="bg-white border-gray-200 shadow-sm">
             <CardHeader className="pb-2 pt-3 px-4 border-b border-gray-100 bg-gray-50/50">
               <CardTitle className="text-xs text-amber-700 font-bold flex items-center justify-between">
@@ -1085,8 +1050,39 @@ export default function VehicleWeight({ filters }) {
           </Card>
         </div>
 
-        {/* ═══ COL 2: Pending Vehicle List ═══ */}
-        <div className="col-span-12 lg:col-span-7">
+        {/* ═══ COL 2: Live Scale + 2 Cameras ═══ */}
+        <div className="col-span-12 lg:col-span-3 space-y-2">
+          {/* Digital Scale Display */}
+          <Card className="bg-gradient-to-b from-gray-900 to-black border-gray-300 shadow overflow-hidden">
+            <div className="bg-gray-800 px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
+              <span className="text-gray-400 text-[10px] font-medium flex items-center gap-1"><Scale className="w-3 h-3" /> WEIGHBRIDGE</span>
+              <span className="text-green-400 text-[10px] flex items-center gap-0.5 font-medium">
+                <Wifi className="w-3 h-3" /> COM3
+              </span>
+            </div>
+            <div className="p-4 text-center relative">
+              <div className={`font-mono text-5xl font-black tracking-wider transition-all duration-200 ${
+                scale.stable ? 'text-green-400 drop-shadow-[0_0_20px_rgba(74,222,128,0.4)]'
+                : scale.running ? 'text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]'
+                : 'text-gray-700'
+              }`} data-testid="live-weight-display">
+                {scale.weight > 0 ? scale.weight.toLocaleString() : '00,000'}
+              </div>
+              <div className="text-gray-500 text-[10px] mt-0.5 font-mono tracking-widest">KILOGRAM</div>
+              {scale.stable && <Badge className="mt-2 bg-green-600/20 text-green-400 border-green-500/30 text-[9px]"><CheckCircle className="w-2.5 h-2.5 mr-1" />STABLE - LOCKED</Badge>}
+              {scale.running && !scale.stable && <p className="text-amber-400 text-[9px] mt-2 animate-pulse font-mono">MEASURING...</p>}
+            </div>
+          </Card>
+
+          {/* 2 Cameras - Stacked Vertically */}
+          <div className="space-y-2">
+            <CameraFeed ref={frontCamRef} label="Front View" camKey="front" />
+            <CameraFeed ref={sideCamRef} label="Side View" camKey="side" />
+          </div>
+        </div>
+
+        {/* ═══ COL 3: Pending Vehicle List ═══ */}
+        <div className="col-span-12 lg:col-span-5">
           <Card className="bg-white border-gray-200 shadow-sm h-full">
             <CardHeader className="pb-2 pt-3 px-4 border-b border-gray-100 bg-yellow-50/50">
               <CardTitle className="text-xs font-bold flex items-center justify-between">
@@ -1280,8 +1276,6 @@ export default function VehicleWeight({ filters }) {
           </CardContent>
         )}
       </Card>
-        </div>{/* close main content */}
-      </div>{/* close flex container */}
 
       {/* Edit Dialog */}
       <Dialog open={editDialog.open} onOpenChange={v => setEditDialog({ open: v, entry: v ? editDialog.entry : null })}>

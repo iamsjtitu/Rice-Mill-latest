@@ -10,6 +10,8 @@
 
 ## Recent Completed (Apr 2026)
 - [v71] RST auto-increment bug fix - frontend was accessing wrong response key (`next_rst` → `rst_no`), added parseInt in JS backends, robust max calculation in Python backend
+- [v71] Photo ESC handler added - zoomImg overlay now closes on ESC key press
+- [v71] What's New dialog limited to last 5 changelog entries, fixed duplicate version in titles
 - [v70.2] G.Issued now shows in View modal, WhatsApp/Telegram text, and Mill Entry RST auto-fill
 - [v70.1] Receive(Pur)→Receive(Purchase), Source→Source/Mandi, Trans in WhatsApp
 - [v70] G.Issued field added, Farmer→Source rename, PDF bordered table
