@@ -106,6 +106,16 @@ async def delete_all_data():
         deleted[col] = result.deleted_count
     return {"message": "All data cleared", "deleted": deleted}
 
+# Session status - Web version (always returns empty others since MongoDB is multi-user by design)
+@api_router.get("/session-status")
+async def session_status():
+    import socket
+    return {"self": {"computer_name": socket.gethostname(), "active": True}, "others": []}
+
+@api_router.post("/data-refresh")
+async def data_refresh():
+    return {"success": True, "message": "Web version - data is always live"}
+
 # Include the api_router in the main app
 app.include_router(api_router)
 

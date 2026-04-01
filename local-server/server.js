@@ -9,6 +9,7 @@ const cors = require('cors');
 const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 
 
@@ -930,6 +931,66 @@ async function startServer() {
       res.json({ success: true, message: 'Error log clear ho gaya' });
     } catch (err) {
       res.status(500).json({ detail: 'Log clear nahi ho paya: ' + err.message });
+    }
+  });
+
+  // ===== SESSION HEARTBEAT SYSTEM =====
+  const computerName = os.hostname();
+  const sessionsDir = path.join(DATA_DIR, 'sessions');
+  if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir, { recursive: true });
+
+  const sessionFile = path.join(sessionsDir, `session_${computerName}.json`);
+
+  function writeHeartbeat(active = true) {
+    try {
+      const data = {
+        computer_name: computerName,
+        active,
+        last_heartbeat: new Date().toISOString(),
+        started_at: fs.existsSync(sessionFile)
+          ? JSON.parse(fs.readFileSync(sessionFile, 'utf8')).started_at || new Date().toISOString()
+          : new Date().toISOString()
+      };
+      fs.writeFileSync(sessionFile, JSON.stringify(data, null, 2));
+    } catch (e) { console.error('Heartbeat write error:', e.message); }
+  }
+
+  writeHeartbeat(true);
+  const heartbeatInterval = setInterval(() => writeHeartbeat(true), 30000);
+  process.on('exit', () => { clearInterval(heartbeatInterval); writeHeartbeat(false); });
+  process.on('SIGINT', () => { writeHeartbeat(false); process.exit(); });
+
+  app.get('/api/session-status', (req, res) => {
+    const self = { computer_name: computerName, active: true };
+    const others = [];
+    try {
+      if (fs.existsSync(sessionsDir)) {
+        const files = fs.readdirSync(sessionsDir).filter(f => f.startsWith('session_') && f.endsWith('.json'));
+        const now = Date.now();
+        for (const f of files) {
+          try {
+            const s = JSON.parse(fs.readFileSync(path.join(sessionsDir, f), 'utf8'));
+            if (s.computer_name === computerName) continue;
+            const minutesAgo = (now - new Date(s.last_heartbeat).getTime()) / 60000;
+            others.push({
+              computer_name: s.computer_name,
+              active: s.active && minutesAgo < 3,
+              last_heartbeat: s.last_heartbeat,
+              minutes_ago: Math.round(minutesAgo * 10) / 10
+            });
+          } catch { /* skip */ }
+        }
+      }
+    } catch (e) { console.error('Session status error:', e.message); }
+    res.json({ self, others });
+  });
+
+  app.post('/api/data-refresh', (req, res) => {
+    try {
+      database.data = database.load();
+      res.json({ success: true, message: 'Data refreshed from file' });
+    } catch (e) {
+      res.status(500).json({ success: false, message: e.message });
     }
   });
 

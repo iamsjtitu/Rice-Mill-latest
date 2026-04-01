@@ -7,6 +7,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron')
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
@@ -1139,6 +1140,76 @@ function createApiServer(database) {
   // Debug endpoint to check route loading status
   apiApp.get('/api/debug/routes', safeSync((req, res) => {
     res.json({ loaded: loadedCount, total: routeDefs.length, failed: failedRoutes, version: require('./package.json').version });
+  }));
+
+  // ===== SESSION HEARTBEAT SYSTEM =====
+  const computerName = os.hostname();
+  const sessionsDir = path.join(database.dataFolder, 'sessions');
+  if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir, { recursive: true });
+
+  const sessionFile = path.join(sessionsDir, `session_${computerName}.json`);
+
+  function writeHeartbeat(active = true) {
+    try {
+      const data = {
+        computer_name: computerName,
+        active,
+        last_heartbeat: new Date().toISOString(),
+        started_at: fs.existsSync(sessionFile)
+          ? JSON.parse(fs.readFileSync(sessionFile, 'utf8')).started_at || new Date().toISOString()
+          : new Date().toISOString()
+      };
+      fs.writeFileSync(sessionFile, JSON.stringify(data, null, 2));
+    } catch (e) { console.error('Heartbeat write error:', e.message); }
+  }
+
+  // Write heartbeat immediately and every 30 seconds
+  writeHeartbeat(true);
+  const heartbeatInterval = setInterval(() => writeHeartbeat(true), 30000);
+
+  // Cleanup on process exit
+  const cleanupSession = () => {
+    clearInterval(heartbeatInterval);
+    writeHeartbeat(false);
+  };
+  process.on('exit', cleanupSession);
+  process.on('SIGINT', () => { cleanupSession(); process.exit(); });
+  app.on('before-quit', cleanupSession);
+
+  // GET /api/session-status - Read all session files
+  apiApp.get('/api/session-status', safeSync((req, res) => {
+    const self = { computer_name: computerName, active: true };
+    const others = [];
+    try {
+      if (fs.existsSync(sessionsDir)) {
+        const files = fs.readdirSync(sessionsDir).filter(f => f.startsWith('session_') && f.endsWith('.json'));
+        const now = Date.now();
+        for (const f of files) {
+          try {
+            const s = JSON.parse(fs.readFileSync(path.join(sessionsDir, f), 'utf8'));
+            if (s.computer_name === computerName) continue;
+            const minutesAgo = (now - new Date(s.last_heartbeat).getTime()) / 60000;
+            others.push({
+              computer_name: s.computer_name,
+              active: s.active && minutesAgo < 3,
+              last_heartbeat: s.last_heartbeat,
+              minutes_ago: Math.round(minutesAgo * 10) / 10
+            });
+          } catch { /* skip corrupted files */ }
+        }
+      }
+    } catch (e) { console.error('Session status error:', e.message); }
+    res.json({ self, others });
+  }));
+
+  // POST /api/data-refresh - Reload data from JSON file (Google Drive sync)
+  apiApp.post('/api/data-refresh', safeSync((req, res) => {
+    try {
+      database.data = database.load();
+      res.json({ success: true, message: 'Data refreshed from file' });
+    } catch (e) {
+      res.status(500).json({ success: false, message: e.message });
+    }
   }));
 
   // ===== ONE-TIME STARTUP: Cleanup orphaned auto-ledger entries & fix data issues =====

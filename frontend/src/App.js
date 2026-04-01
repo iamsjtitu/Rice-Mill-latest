@@ -70,6 +70,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import HemaliPayment from "@/components/HemaliPayment";
 import WhatsNew, { APP_VERSION } from "@/components/WhatsNew";
 import AutoUpdate from "@/components/AutoUpdate";
+import SessionIndicator from "@/components/SessionIndicator";
 import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import { useMessagingEnabled } from "./hooks/useMessagingEnabled";
 import Settings from "@/components/Settings";
@@ -1166,6 +1167,8 @@ function MainApp({ user, onLogout }) {
                   </SelectContent>
                 </Select>
               </div>
+
+              <SessionIndicator onDataRefresh={() => { fetchEntries(); fetchTotals(); toast.success("Data refreshed!"); }} />
 
               <div className="flex items-center gap-2 px-3 py-1 bg-slate-700 rounded-full">
                 <User className="w-4 h-4 text-amber-400" />
