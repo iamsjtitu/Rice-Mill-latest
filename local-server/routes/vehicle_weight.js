@@ -51,6 +51,7 @@ module.exports = function(database) {
           try {
             const result = JSON.parse(data);
             if (result.status === 'success' && result.data && result.data.url) {
+              // Convert http://tmpfiles.org/12345/file.jpg → https://tmpfiles.org/dl/12345/file.jpg
               const dlUrl = result.data.url.replace('://tmpfiles.org/', '://tmpfiles.org/dl/').replace('http://', 'https://');
               resolve(dlUrl);
             } else { resolve(''); }
@@ -411,6 +412,7 @@ module.exports = function(database) {
         }
 
         if (vwWaGroupId) {
+          // Send text to VW-specific WhatsApp group
           const r = await sendWaToGroup(waSettings.api_key, vwWaGroupId, text);
           results.whatsapp.push(r);
           // Send photos to VW group
@@ -419,6 +421,7 @@ module.exports = function(database) {
             results.whatsapp.push(r);
           }
         } else {
+          // Fallback: send to default numbers
           let nums = waSettings.default_numbers || [];
           if (typeof nums === 'string') nums = nums.split(',').map(n => n.trim()).filter(Boolean);
           for (const num of nums) {
@@ -441,14 +444,17 @@ module.exports = function(database) {
       const tgConfig = getTelegramConfig();
       if (tgConfig && tgConfig.bot_token) {
         const botToken = tgConfig.bot_token;
+        // Use VW-specific chat IDs if set, otherwise fallback
         const chatIds = (vwTgChatIds && vwTgChatIds.length > 0) ? vwTgChatIds : (tgConfig.chat_ids || []);
         if (chatIds.length > 0) {
+          // Send text
           for (const item of chatIds) {
             const cid = String(item.chat_id || '').trim();
             if (cid) {
               await telegramApi('sendMessage', botToken, { chat_id: cid, text: text, parse_mode: 'Markdown' });
             }
           }
+          // Send 1st weight photos
           if (firstFrontB64) {
             const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(firstFrontB64, 'base64'), `1st Weight Front - RST #${rst}`, `1st_front_rst${rst}.jpg`);
             results.telegram.push(...r);
@@ -457,6 +463,7 @@ module.exports = function(database) {
             const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(firstSideB64, 'base64'), `1st Weight Side - RST #${rst}`, `1st_side_rst${rst}.jpg`);
             results.telegram.push(...r);
           }
+          // Send 2nd weight photos
           if (secondFrontB64) {
             const r = await sendPhotoToAll(botToken, chatIds, Buffer.from(secondFrontB64, 'base64'), `2nd Weight Front - RST #${rst}`, `2nd_front_rst${rst}.jpg`);
             results.telegram.push(...r);
@@ -1017,12 +1024,14 @@ module.exports = function(database) {
     res.setHeader('Content-Disposition', `attachment; filename=vehicle_weight.pdf`);
     doc.pipe(res);
 
-    const PW = 792;
+    const PW = 792; // A4 landscape width
     const LM = 25;
     const TW = PW - 2 * LM;
 
+    // ── Header Section ──
     // Dark header bar
     doc.rect(LM, 20, TW, abParts2.length > 0 ? 55 : 48).fill('#1a1a2e');
+
     let hy = 24;
     if (abParts2.length > 0) {
       doc.fontSize(7).font(efn).fillColor('#f9a825').text(abParts2.join('  |  '), LM, hy, { width: TW, align: 'center' });
@@ -1030,64 +1039,108 @@ module.exports = function(database) {
     }
     doc.fontSize(16).font(efb).fillColor('#ffffff').text(company, LM, hy, { width: TW, align: 'center' });
     hy += 20;
-    if (pdfTagline) { doc.fontSize(8).font(efn).fillColor('#aaaacc').text(pdfTagline, LM, hy, { width: TW, align: 'center' }); hy += 10; }
-    if (blParts2.length > 0) { doc.fontSize(7).font(efn).fillColor('#ccccdd').text(blParts2.join('  |  '), LM, hy, { width: TW, align: 'center' }); hy += 10; }
+    if (pdfTagline) {
+      doc.fontSize(8).font(efn).fillColor('#aaaacc').text(pdfTagline, LM, hy, { width: TW, align: 'center' });
+      hy += 10;
+    }
+    if (blParts2.length > 0) {
+      doc.fontSize(7).font(efn).fillColor('#ccccdd').text(blParts2.join('  |  '), LM, hy, { width: TW, align: 'center' });
+      hy += 10;
+    }
 
+    // Subtitle bar
     const subY = abParts2.length > 0 ? 78 : 71;
     doc.rect(LM, subY, TW, 16).fill('#f0f0f5');
-    doc.fontSize(8).font(efb).fillColor('#333').text('Vehicle Weight Register', LM + 8, subY + 4);
-    doc.font(efn).fontSize(8).fillColor('#666').text(`Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'}  |  Total: ${items.length}`, LM, subY + 4, { width: TW - 8, align: 'right' });
+    doc.fontSize(8).font(efb).fillColor('#333');
+    const dateRange = `${req.query.date_from || 'All'} to ${req.query.date_to || 'All'}`;
+    doc.text(`Vehicle Weight Register`, LM + 8, subY + 4, { continued: false });
+    doc.font(efn).fontSize(8).fillColor('#666').text(`Date: ${dateRange}  |  Total Records: ${items.length}`, LM, subY + 4, { width: TW - 8, align: 'right' });
 
     let y = subY + 22;
 
+    // ── Table ──
     const headers = ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
     const colW = [20, 30, 55, 62, 72, 55, 58, 30, 50, 50, 52, 48, 48];
     const rightAlign = [false, true, false, false, false, false, false, true, true, true, true, true, true];
 
-    function drawTableHeader(atY) {
-      doc.rect(LM, atY, TW, 14).fill('#2d3748');
-      doc.fontSize(7).font(efb).fillColor('#ffffff');
-      let hx = LM + 2;
-      headers.forEach((h, i) => { doc.text(h, hx, atY + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' }); hx += colW[i]; });
-      return atY + 14;
-    }
+    // Table header
+    doc.rect(LM, y, TW, 14).fill('#2d3748');
+    doc.fontSize(7).font(efb).fillColor('#ffffff');
+    let x = LM + 2;
+    headers.forEach((h, i) => {
+      doc.text(h, x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
+      x += colW[i];
+    });
+    y += 14;
 
-    y = drawTableHeader(y);
+    // Totals accumulators
     let totBags = 0, tot1st = 0, tot2nd = 0, totNet = 0, totCash = 0, totDiesel = 0;
 
+    // Data rows with alternating colors
     doc.font(efn).fontSize(7);
     items.forEach((e, idx) => {
-      if (y > 540) { doc.addPage(); y = drawTableHeader(25); doc.font(efn).fontSize(7); }
+      if (y > 540) {
+        doc.addPage();
+        y = 25;
+        // Repeat header on new page
+        doc.rect(LM, y, TW, 14).fill('#2d3748');
+        doc.fontSize(7).font(efb).fillColor('#ffffff');
+        let hx = LM + 2;
+        headers.forEach((h, i) => { doc.text(h, hx, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' }); hx += colW[i]; });
+        y += 14;
+        doc.font(efn).fontSize(7);
+      }
+
+      // Alternating row background
       if (idx % 2 === 0) doc.rect(LM, y, TW, 12).fill('#f8f9fa');
 
-      const bags = Number(e.tot_pkts || 0), first = Number(e.first_wt || 0), second = Number(e.second_wt || 0);
-      const net = Number(e.net_wt || 0), cash = Number(e.cash_paid || 0), diesel = Number(e.diesel_paid || 0);
+      const bags = Number(e.tot_pkts || 0);
+      const first = Number(e.first_wt || 0);
+      const second = Number(e.second_wt || 0);
+      const net = Number(e.net_wt || 0);
+      const cash = Number(e.cash_paid || 0);
+      const diesel = Number(e.diesel_paid || 0);
+
       totBags += bags; tot1st += first; tot2nd += second; totNet += net; totCash += cash; totDiesel += diesel;
 
-      let x = LM + 2;
-      const vals = [idx + 1, e.rst_no, e.date, e.vehicle_no, e.party_name, e.farmer_name, e.product, bags || '-',
-        first ? first.toLocaleString() : '-', second ? second.toLocaleString() : '-', net ? net.toLocaleString() : '-',
-        cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-'];
+      x = LM + 2;
+      const vals = [
+        idx + 1, e.rst_no, e.date, e.vehicle_no, e.party_name, e.farmer_name, e.product, bags || '-',
+        first ? first.toLocaleString() : '-', second ? second.toLocaleString() : '-',
+        net ? net.toLocaleString() : '-', cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-'
+      ];
+
+      doc.fillColor('#000');
       vals.forEach((v, i) => {
-        if (i === 10 && net > 0) doc.font(efb).fillColor('#1b5e20');
-        else if ((i === 11 && cash > 0) || (i === 12 && diesel > 0)) doc.font(efn).fillColor('#e65100');
-        else doc.font(efn).fillColor('#000');
+        // Net weight in green bold
+        if (i === 10 && net > 0) { doc.font(efb).fillColor('#1b5e20'); }
+        // Cash/Diesel in orange
+        else if ((i === 11 && cash > 0) || (i === 12 && diesel > 0)) { doc.font(efn).fillColor('#e65100'); }
+        else { doc.font(efn).fillColor('#000'); }
         doc.text(String(v || '-'), x, y + 2, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
         x += colW[i];
       });
       y += 12;
     });
 
+    // Totals row
     y += 2;
     doc.rect(LM, y, TW, 14).fill('#e8f5e9');
     doc.lineWidth(1).strokeColor('#2e7d32').moveTo(LM, y).lineTo(LM + TW, y).stroke();
     doc.fontSize(7.5).font(efb).fillColor('#1b5e20');
-    let x = LM + 2;
-    const totVals = ['', '', '', '', '', '', 'TOTAL:', totBags.toLocaleString(), tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(), totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-'];
-    totVals.forEach((v, i) => { doc.text(String(v), x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === 6 ? 'right' : 'left') }); x += colW[i]; });
+    x = LM + 2;
+    const totVals = ['', '', '', '', '', '', 'TOTAL:', totBags.toLocaleString(),
+      tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(),
+      totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-'];
+    totVals.forEach((v, i) => {
+      doc.text(String(v), x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === 6 ? 'right' : 'left') });
+      x += colW[i];
+    });
 
+    // Footer
     y += 20;
     doc.fontSize(7).font(efn).fillColor('#999').text(`${company} | Generated: ${new Date().toLocaleString('en-IN')}`, LM, y, { width: TW, align: 'center' });
+
     doc.end();
   }));
 

@@ -30,14 +30,29 @@ module.exports = function(database) {
   }));
 
   // ===== AUTH =====
+  const DEFAULT_USERS = {
+    'admin': { password: 'admin123', role: 'admin' },
+    'staff': { password: 'staff123', role: 'staff' }
+  };
+
   router.post('/api/auth/login', safeSync(async (req, res) => {
     const { username, password } = req.body;
+    console.log(`[LOGIN] Attempt: username="${username}"`);
+    // Check database first (supports changed passwords)
     const user = database.getUser(username);
-    if (user && user.password === password) {
-      res.json({ success: true, username: user.username, role: user.role, message: 'Login successful' });
-    } else {
-      res.status(401).json({ detail: 'Invalid username or password' });
+    if (user) {
+      console.log(`[LOGIN] User "${username}" found in DB, stored_pass_len=${(user.password||'').length}, entered_pass_len=${(password||'').length}, match=${user.password === password}`);
+      if (user.password === password) {
+        return res.json({ success: true, username: user.username, role: user.role, message: 'Login successful' });
+      }
+      return res.status(401).json({ detail: `Password galat hai (DB user found, stored=${(user.password||'').length} chars, entered=${(password||'').length} chars)` });
     }
+    console.log(`[LOGIN] User "${username}" NOT in DB, total_users=${(database.data.users||[]).length}, checking defaults...`);
+    // Fallback to defaults if user not in database
+    if (DEFAULT_USERS[username] && DEFAULT_USERS[username].password === password) {
+      return res.json({ success: true, username, role: DEFAULT_USERS[username].role, message: 'Login successful' });
+    }
+    res.status(401).json({ detail: `User "${username}" nahi mila (total users in DB: ${(database.data.users||[]).length})` });
   }));
 
   router.post('/api/auth/change-password', safeSync(async (req, res) => {
@@ -54,10 +69,13 @@ module.exports = function(database) {
     const { username, role } = req.query;
     const user = database.getUser(username);
     if (user && user.role === role) {
-      res.json({ valid: true, username, role });
-    } else {
-      res.json({ valid: false });
+      return res.json({ valid: true, username, role });
     }
+    // Fallback to defaults
+    if (DEFAULT_USERS[username] && DEFAULT_USERS[username].role === role) {
+      return res.json({ valid: true, username, role });
+    }
+    res.json({ valid: false });
   }));
 
   // ===== FY SETTINGS =====
@@ -112,6 +130,7 @@ module.exports = function(database) {
     const kms_year = req.query.kms_year || '';
     const financial_year = req.query.financial_year || '';
     if (!database.data.opening_stock) database.data.opening_stock = [];
+    const key = kms_year || financial_year;
     const found = database.data.opening_stock.find(s => s.kms_year === kms_year || s.financial_year === financial_year);
     if (found) return res.json(found);
     const defaults = {};

@@ -48,4 +48,4 @@ function safeSync(fn) {
   };
 }
 
-module.exports = { safeAsync, safeSync, logError };
+module.exports = { safeAsync, safeSync, safeHandler: safeAsync, logError };

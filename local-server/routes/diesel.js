@@ -74,12 +74,18 @@ module.exports = function(database) {
       }
     }
 
+    const allCashTxns = database.data.cash_transactions || [];
     const pumps = (database.data.diesel_pumps || []).map(p => {
       const pt = txns.filter(t => t.pump_id === p.id);
       const td = pt.filter(t=>t.txn_type==='debit').reduce((s,t)=>s+t.amount,0);
-      const tp = pt.filter(t=>t.txn_type==='payment').reduce((s,t)=>s+t.amount,0);
       const ob = Math.round((openingBalances[p.id] || 0) * 100) / 100;
-      return { pump_id:p.id, pump_name:p.name, is_default:p.is_default||false, opening_balance:ob, total_diesel:+td.toFixed(2), total_paid:+tp.toFixed(2), balance:+(ob+td-tp).toFixed(2), txn_count:pt.filter(t=>t.txn_type==='debit').length };
+      // Use ledger as source of truth for total_paid (includes manual Cash Book payments)
+      let ledgerPaid = allCashTxns.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === p.name
+        && (!req.query.kms_year || t.kms_year === req.query.kms_year)
+        && (!req.query.season || t.season === req.query.season)
+      ).reduce((s,t) => s + (t.amount||0), 0);
+      const tp = Math.round(ledgerPaid * 100) / 100;
+      return { pump_id:p.id, pump_name:p.name, is_default:p.is_default||false, opening_balance:ob, total_diesel:+td.toFixed(2), total_paid:tp, balance:+(ob+td-tp).toFixed(2), txn_count:pt.filter(t=>t.txn_type==='debit').length };
     });
     const grandOb = +pumps.reduce((s,p)=>s+p.opening_balance,0).toFixed(2);
     res.json({ pumps, grand_opening_balance:grandOb, grand_total_diesel:+pumps.reduce((s,p)=>s+p.total_diesel,0).toFixed(2), grand_total_paid:+pumps.reduce((s,p)=>s+p.total_paid,0).toFixed(2), grand_balance:+pumps.reduce((s,p)=>s+p.balance,0).toFixed(2) });
@@ -93,9 +99,14 @@ module.exports = function(database) {
     if (!pump) return res.status(404).json({ detail: 'Pump not found' });
     if (!database.data.diesel_accounts) database.data.diesel_accounts = [];
     if (!database.data.cash_transactions) database.data.cash_transactions = [];
-    const txn = { id:uuidv4(), date:date||new Date().toISOString().split('T')[0], pump_id, pump_name:pump.name, truck_no:'', agent_name:'', amount:+amt.toFixed(2), txn_type:'payment', description:`Payment to ${pump.name}${notes?' - '+notes:''}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', created_at:new Date().toISOString() };
+    const roundOff = parseFloat(req.body.round_off) || 0;
+    const totalSettled = Math.round((amt + roundOff) * 100) / 100;
+    const txn = { id:uuidv4(), date:date||new Date().toISOString().split('T')[0], pump_id, pump_name:pump.name, truck_no:'', agent_name:'', amount:totalSettled, txn_type:'payment', description:`Payment to ${pump.name} - Rs.${amt}${roundOff?' (Round Off: '+(roundOff>0?'+':'')+roundOff+')':''}${notes?' - '+notes:''}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', created_at:new Date().toISOString() };
     database.data.diesel_accounts.push(txn);
+    // Cash nikasi - actual cash
     database.data.cash_transactions.push({ id:uuidv4(), date:txn.date, account:'cash', txn_type:'nikasi', category:pump.name, party_type:'Diesel', description:`Diesel Payment: ${pump.name} - Rs.${amt}${notes?' ('+notes+')':''}`, amount:+amt.toFixed(2), reference:`diesel_pay:${txn.id.slice(0,8)}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', linked_diesel_payment_id:txn.id, created_at:new Date().toISOString(), updated_at:new Date().toISOString() });
+    // Ledger nikasi - total including round off
+    database.data.cash_transactions.push({ id:uuidv4(), date:txn.date, account:'ledger', txn_type:'nikasi', category:pump.name, party_type:'Diesel', description:`Diesel Payment: ${pump.name} - Rs.${totalSettled}${roundOff?' (Cash: '+amt+', RoundOff: '+roundOff+')':''}${notes?' ('+notes+')':''}`, amount:totalSettled, reference:`diesel_pay_ledger:${txn.id.slice(0,8)}`, kms_year:kms_year||'', season:season||'', created_by:req.query.username||'system', linked_diesel_payment_id:txn.id, created_at:new Date().toISOString(), updated_at:new Date().toISOString() });
     database.save();
     res.json({ success:true, message:`Rs.${amt} payment to ${pump.name} recorded`, txn_id:txn.id });
   }));
@@ -136,7 +147,12 @@ module.exports = function(database) {
     const pumpSummaries = pumps.map(p => {
       const pt = txns.filter(t => t.pump_id === p.id);
       const td = pt.filter(t=>t.txn_type==='debit').reduce((s,t)=>s+t.amount,0);
-      const tp = pt.filter(t=>t.txn_type==='payment').reduce((s,t)=>s+t.amount,0);
+      // Use ledger nikasi as source of truth for paid (consistent with summary endpoint)
+      const allCashTxns = database.data.cash_transactions || [];
+      const tp = allCashTxns.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === p.name
+        && (!req.query.kms_year || t.kms_year === req.query.kms_year)
+        && (!req.query.season || t.season === req.query.season)
+      ).reduce((s,t) => s + (t.amount||0), 0);
       return { name: p.name, is_default: p.is_default, td, tp, bal: td-tp, cnt: pt.filter(t=>t.txn_type==='debit').length };
     });
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Diesel Account');
@@ -184,11 +200,15 @@ module.exports = function(database) {
     res.setHeader('Content-Disposition', `attachment; filename=diesel_account.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Diesel Account / Diesel Khata');
+    const allCashTxns = database.data.cash_transactions || [];
     const sumHeaders = ['Pump Name', 'Total Diesel', 'Total Paid', 'Balance', 'Entries'];
     const sumRows = pumps.map(p => {
       const pt = txns.filter(t => t.pump_id === p.id);
       const td = pt.filter(t=>t.txn_type==='debit').reduce((s,t)=>s+t.amount,0);
-      const tp = pt.filter(t=>t.txn_type==='payment').reduce((s,t)=>s+t.amount,0);
+      const tp = allCashTxns.filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === p.name
+        && (!req.query.kms_year || t.kms_year === req.query.kms_year)
+        && (!req.query.season || t.season === req.query.season)
+      ).reduce((s,t) => s + (t.amount||0), 0);
       return [p.name+(p.is_default?' *':''), 'Rs.'+td, 'Rs.'+tp, 'Rs.'+(td-tp), pt.filter(t=>t.txn_type==='debit').length.toString()];
     });
     addPdfTable(doc, sumHeaders, sumRows, [150, 80, 80, 80, 50]);

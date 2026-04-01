@@ -695,6 +695,7 @@ module.exports = function(database) {
       .map(p => p.id);
     // Collect ALL cash txn IDs to delete (for auto_ledger cleanup)
     const txnIdsToDelete = new Set();
+    // Find cash entries linked to individual payments
     (database.data.cash_transactions || []).forEach(t => {
       if (paymentIds.includes(t.linked_payment_id)) txnIdsToDelete.add(t.id);
       const lp = t.linked_payment_id || '';
@@ -703,14 +704,18 @@ module.exports = function(database) {
       if (tref.includes('pvt_paddy_adv') && t.linked_entry_id === entryId) txnIdsToDelete.add(t.id);
       if (t.cashbook_pvt_linked === entryId) txnIdsToDelete.add(t.id);
     });
+    // Also collect auto_ledger entries for all deleted txns
     const autoLedgerRefs = new Set();
     txnIdsToDelete.forEach(tid => autoLedgerRefs.add(`auto_ledger:${tid.slice(0, 8)}`));
+    // Delete all matched entries + their auto_ledger pairs
     database.data.cash_transactions = (database.data.cash_transactions || []).filter(t => {
       if (txnIdsToDelete.has(t.id)) return false;
       if (autoLedgerRefs.has(t.reference)) return false;
       return true;
     });
+    // Delete all linked payments
     database.data.private_payments = (database.data.private_payments || []).filter(p => !(p.ref_id === entryId && p.ref_type === 'paddy_purchase'));
+    // Reset entry
     item.paid_amount = 0;
     item.balance = total;
     item.payment_status = 'pending';
@@ -723,14 +728,17 @@ module.exports = function(database) {
     const entryId = req.params.id;
     const entryIdShort = entryId.slice(0, 8);
     const payments = (database.data.private_payments || []).filter(p => p.ref_id === entryId && p.ref_type === 'paddy_purchase').sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    // Advance entries
     const advEntries = (database.data.cash_transactions || []).filter(t => t.linked_entry_id === entryId && (t.reference || '').startsWith('pvt_paddy_adv:') && t.account === 'cash');
     advEntries.forEach(adv => {
       payments.push({ id: adv.id || '', date: adv.date || '', amount: adv.amount || 0, mode: 'advance', reference: adv.reference || '', remark: 'Advance (Entry ke saath bhara tha)', payment_type: 'advance', created_at: adv.created_at || '' });
     });
+    // Mark-paid entries
     const markEntries = (database.data.cash_transactions || []).filter(t => (t.reference || '').startsWith(`mark_paid:${entryIdShort}`) && t.account === 'cash');
     markEntries.forEach(mk => {
       payments.push({ id: mk.id || '', date: mk.date || '', amount: mk.amount || 0, mode: 'mark_paid', reference: mk.reference || '', remark: 'Mark Paid se clear hua', payment_type: 'mark_paid', created_at: mk.created_at || '' });
     });
+    // Manual cash book entries (cashbook_pvt_linked)
     const existingIds = new Set(payments.map(p => p.id));
     const manualEntries = (database.data.cash_transactions || []).filter(t => t.cashbook_pvt_linked === entryId && (t.account === 'cash' || t.account === 'bank'));
     manualEntries.forEach(me => {

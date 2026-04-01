@@ -373,7 +373,7 @@ module.exports = function(database) {
     vouchers.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Purchase Book');
     const colCount = 12;
-    let title = 'Purchase Book'; if (kms_year) title += ` | KMS: ${kms_year}`; if (season) title += ` | ${season}`;
+    let title = 'Purchase Book'; if (kms_year) title += ` | FY: ${kms_year}`; if (season) title += ` | ${season}`;
     addExcelTitle(ws, title, colCount, database);
     const hdrs = ['No.', 'Date', 'Inv No.', 'Party', 'Items', 'Truck', 'E-Way Bill', 'Total', 'Advance', 'Cash', 'Diesel', 'Balance'];
     hdrs.forEach((h, i) => { ws.getCell(4, i + 1).value = h; });

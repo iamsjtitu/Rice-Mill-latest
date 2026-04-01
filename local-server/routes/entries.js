@@ -1,4 +1,5 @@
 const express = require('express');
+const { v4: uuidv4 } = require('uuid');
 const { safeSync } = require('./safe_handler');
 const router = express.Router();
 
@@ -80,16 +81,56 @@ module.exports = function(database) {
 
   router.post('/api/mandi-targets', safeSync(async (req, res) => {
     const target = database.addMandiTarget({ ...req.body, created_by: req.query.username || 'admin' });
+    // Create ledger jama entry for agent (so Party Ledger shows what's owed)
+    const cutting_qntl = (target.target_qntl || 0) * (target.cutting_percent || 0) / 100;
+    const agentAmount = Math.round(((target.target_qntl || 0) * (target.base_rate || 10) + cutting_qntl * (target.cutting_rate != null ? target.cutting_rate : 5)) * 100) / 100;
+    if (!database.data.cash_transactions) database.data.cash_transactions = [];
+    database.data.cash_transactions.push({
+      id: uuidv4(), date: new Date().toISOString().split('T')[0],
+      account: 'ledger', txn_type: 'jama', category: target.mandi_name,
+      party_type: 'Agent', description: `Agent Target: ${target.mandi_name} - ${target.agent_name || ''} (${target.target_qntl}Q)`,
+      amount: agentAmount, reference: `agent_target:${target.id.slice(0, 8)}`,
+      kms_year: target.kms_year || '', season: target.season || '',
+      linked_target_id: target.id,
+      created_at: new Date().toISOString()
+    });
+    database.save();
     res.json(target);
   }));
 
   router.put('/api/mandi-targets/:id', safeSync(async (req, res) => {
     const target = database.updateMandiTarget(req.params.id, req.body);
-    if (target) res.json(target);
-    else res.status(404).json({ detail: 'Target not found' });
+    if (target) {
+      // Update corresponding ledger jama entry
+      const cutting_qntl = (target.target_qntl || 0) * (target.cutting_percent || 0) / 100;
+      const agentAmount = Math.round(((target.target_qntl || 0) * (target.base_rate || 10) + cutting_qntl * (target.cutting_rate != null ? target.cutting_rate : 5)) * 100) / 100;
+      if (database.data.cash_transactions) {
+        const idx = database.data.cash_transactions.findIndex(t => t.linked_target_id === req.params.id);
+        if (idx !== -1) {
+          database.data.cash_transactions[idx].amount = agentAmount;
+          database.data.cash_transactions[idx].description = `Agent Target: ${target.mandi_name} - ${target.agent_name || ''} (${target.target_qntl}Q)`;
+          database.data.cash_transactions[idx].updated_at = new Date().toISOString();
+        } else {
+          database.data.cash_transactions.push({
+            id: uuidv4(), date: new Date().toISOString().split('T')[0],
+            account: 'ledger', txn_type: 'jama', category: target.mandi_name,
+            party_type: 'Agent', description: `Agent Target: ${target.mandi_name} - ${target.agent_name || ''} (${target.target_qntl}Q)`,
+            amount: agentAmount, reference: `agent_target:${target.id.slice(0, 8)}`,
+            kms_year: target.kms_year || '', season: target.season || '',
+            linked_target_id: target.id, created_at: new Date().toISOString()
+          });
+        }
+        database.save();
+      }
+      res.json(target);
+    } else res.status(404).json({ detail: 'Target not found' });
   }));
 
   router.delete('/api/mandi-targets/:id', safeSync(async (req, res) => {
+    // Delete corresponding ledger jama entry
+    if (database.data.cash_transactions) {
+      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_target_id !== req.params.id);
+    }
     database.deleteMandiTarget(req.params.id);
     res.json({ success: true });
   }));

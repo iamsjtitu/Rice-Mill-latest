@@ -27,6 +27,7 @@ function resolveFfmpegPath() {
   try {
     let staticPath = require('ffmpeg-static');
     if (staticPath) {
+      // Handle asar archive path
       if (staticPath.includes('app.asar')) {
         staticPath = staticPath.replace('app.asar', 'app.asar.unpacked');
       }
@@ -557,6 +558,7 @@ module.exports = function cameraProxyRoutes(router) {
       transport: 'tcp'
     };
 
+    // Try TCP first, then UDP if TCP fails
     const tryTransport = (transport, callback) => {
       const args = [
         '-rtsp_transport', transport,
@@ -603,14 +605,17 @@ module.exports = function cameraProxyRoutes(router) {
       });
     };
 
+    // Try TCP first
     tryTransport('tcp', (tcpResult) => {
       if (tcpResult.success) {
         res.json({ ...result, ...tcpResult, diagnosis: 'TCP RTSP kaam kar raha hai!', diagnosisHi: 'TCP RTSP se frame mil gaya!' });
       } else {
+        // Try UDP
         tryTransport('udp', (udpResult) => {
           if (udpResult.success) {
             res.json({ ...result, ...udpResult, diagnosis: 'UDP RTSP works! Change transport to UDP', diagnosisHi: 'UDP RTSP se frame mil gaya! TCP nahi chala lekin UDP chal raha hai' });
           } else {
+            // Both failed - return TCP result with stderr for debugging
             res.json({
               ...result,
               ...tcpResult,

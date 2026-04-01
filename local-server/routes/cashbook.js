@@ -533,7 +533,7 @@ module.exports = function(database) {
       }
     }
 
-    // 6. Fix duplicate party names
+    // 6. Fix duplicate party names (e.g. "Kridha (Kesinga) - Kesinga" → "Kridha (Kesinga)")
     const allCats = [...new Set(database.data.cash_transactions.map(t => t.category).filter(Boolean))];
     for (const cat of allCats) {
       if (!cat.includes(' - ')) continue;
@@ -546,7 +546,7 @@ module.exports = function(database) {
       }
     }
 
-    // 7. Clean orphaned auto_ledger entries
+    // 7. Clean orphaned auto_ledger entries (original cash entry was deleted)
     const autoLedgers2 = database.data.cash_transactions.filter(t => (t.reference || '').startsWith('auto_ledger:'));
     const orphanAutoIds = [];
     for (const al of autoLedgers2) {
@@ -566,9 +566,13 @@ module.exports = function(database) {
       const totalAmt2 = parseFloat(pvt.total_amount) || 0;
       if (!eid || totalAmt2 <= 0) continue;
       let paySum = 0;
+      // a. private_payments
       (database.data.private_payments || []).filter(p => p.ref_id === eid && p.ref_type === 'paddy_purchase').forEach(p => { paySum += (parseFloat(p.amount) || 0) + (parseFloat(p.round_off) || 0); });
+      // b. advance entries
       database.data.cash_transactions.filter(t => t.linked_entry_id === eid && (t.reference || '').startsWith('pvt_paddy_adv:') && t.account === 'cash').forEach(t => { paySum += parseFloat(t.amount) || 0; });
+      // c. mark-paid entries
       database.data.cash_transactions.filter(t => (t.reference || '').startsWith(`mark_paid:${eid.slice(0,8)}`) && t.account === 'cash').forEach(t => { paySum += parseFloat(t.amount) || 0; });
+      // d. manual cashbook entries
       database.data.cash_transactions.filter(t => t.cashbook_pvt_linked === eid && (t.account === 'cash' || t.account === 'bank')).forEach(t => { paySum += parseFloat(t.amount) || 0; });
       paySum = Math.round(paySum * 100) / 100;
       const storedPaid = Math.round((parseFloat(pvt.paid_amount) || 0) * 100) / 100;

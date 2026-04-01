@@ -57,6 +57,20 @@ router.get('/api/local-party/summary', safeSync(async (req, res) => {
     partyMap[pn].txn_count++;
   }
 
+  // Use ledger as source of truth for total_paid (includes manual Cash Book payments)
+  const allCashTxns = database.data.cash_transactions || [];
+  const allPartyNames = Object.keys(partyMap);
+  for (const pn of allPartyNames) {
+    const ledgerPaid = allCashTxns
+      .filter(t => t.account === 'ledger' && t.txn_type === 'nikasi' && t.category === pn
+        && (!req.query.kms_year || t.kms_year === req.query.kms_year)
+        && (!req.query.season || t.season === req.query.season))
+      .reduce((s, t) => s + (t.amount || 0), 0);
+    if (ledgerPaid > partyMap[pn].total_paid) {
+      partyMap[pn].total_paid = Math.round(ledgerPaid * 100) / 100;
+    }
+  }
+
   const parties = Object.values(partyMap).map(p => ({
     ...p,
     total_debit: Math.round(p.total_debit * 100) / 100,
@@ -95,13 +109,44 @@ router.get('/api/local-party/transactions', safeSync(async (req, res) => {
 // ============ PARTY-WISE REPORT (PRINT) ============
 router.get('/api/local-party/report/:partyName', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
+  ensureCollection('cash_transactions');
   const pn = req.params.partyName.toLowerCase();
   let txns = database.data.local_party_accounts.filter(t => (t.party_name || '').toLowerCase() === pn);
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
   if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
   if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
-  txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  // Include manual cashbook payments (ledger nikasi for this party)
+  const existingRefs = new Set(txns.filter(t => t.reference).map(t => t.reference));
+  const existingIds = new Set(txns.map(t => t.id));
+  let cbPayments = (database.data.cash_transactions || []).filter(t =>
+    t.account === 'ledger' && t.txn_type === 'nikasi' &&
+    (t.category || '').toLowerCase() === pn
+  );
+  if (req.query.kms_year) cbPayments = cbPayments.filter(t => t.kms_year === req.query.kms_year);
+  if (req.query.season) cbPayments = cbPayments.filter(t => t.season === req.query.season);
+  if (req.query.date_from) cbPayments = cbPayments.filter(t => (t.date || '') >= req.query.date_from);
+  if (req.query.date_to) cbPayments = cbPayments.filter(t => (t.date || '') <= req.query.date_to);
+  for (const cb of cbPayments) {
+    if (cb.linked_local_party_id && existingIds.has(cb.linked_local_party_id)) continue;
+    const ref = cb.reference || '';
+    if (ref.startsWith('local_party_ledger:') || ref.startsWith('local_party:')) continue;
+    if (ref && existingRefs.has(ref)) continue;
+    // Check ref_id overlap
+    const refIdPart = ref.includes(':') ? ref.split(':')[1] : '';
+    if (refIdPart && [...existingRefs].some(er => er.includes(refIdPart))) continue;
+    txns.push({
+      id: cb.id || '', date: cb.date || '', party_name: req.params.partyName,
+      txn_type: 'payment', amount: cb.amount || 0,
+      description: cb.description || 'CashBook Payment',
+      source_type: 'cashbook', reference: ref,
+      kms_year: cb.kms_year || '', season: cb.season || '',
+      created_by: cb.created_by || '', created_at: cb.created_at || ''
+    });
+  }
+  txns.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.created_at || '').localeCompare(b.created_at || ''));
+
   let runBal = 0;
   const rows = txns.map(t => {
     runBal += t.txn_type === 'debit' ? (t.amount || 0) : -(t.amount || 0);
@@ -115,6 +160,7 @@ router.get('/api/local-party/report/:partyName', safeSync(async (req, res) => {
 // ============ MANUAL PURCHASE ============
 router.post('/api/local-party/manual', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
+  ensureCollection('cash_transactions');
   const d = req.body;
   const party_name = (d.party_name || '').trim();
   const amount = parseFloat(d.amount) || 0;
@@ -128,17 +174,31 @@ router.post('/api/local-party/manual', safeSync(async (req, res) => {
     created_by: d.created_by || 'system', created_at: new Date().toISOString()
   };
   database.data.local_party_accounts.push(doc);
+
+  // Auto create Cash Book Ledger Jama entry (purchase from local party)
+  database.data.cash_transactions.push({
+    id: uuidv4(), date: doc.date, account: 'ledger', txn_type: 'jama',
+    category: party_name, party_type: 'Local Party',
+    description: `Purchase: ${party_name} - ${d.description || 'Manual Purchase'} Rs.${amount}`,
+    amount: Math.round(amount * 100) / 100, reference: `lp_purchase:${doc.id.slice(0,8)}`,
+    kms_year: d.kms_year || '', season: d.season || '',
+    created_by: d.created_by || 'system', linked_local_party_id: doc.id,
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+  });
+
   database.save();
   res.json(doc);
 }));
 
-// ============ SETTLEMENT / PAY ============
+// ============ SETTLEMENT / PAY / RECEIVE ============
 router.post('/api/local-party/settle', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
   ensureCollection('cash_transactions');
   const d = req.body;
   const party_name = (d.party_name || '').trim();
   const amount = parseFloat(d.amount) || 0;
+  const type = d.type || 'paid'; // 'paid' or 'received'
+
   if (!party_name || amount <= 0) return res.status(400).json({ detail: 'Party name aur amount (>0) required hai' });
 
   const date = d.date || new Date().toISOString().split('T')[0];
@@ -146,40 +206,59 @@ router.post('/api/local-party/settle', safeSync(async (req, res) => {
   const kms_year = d.kms_year || '';
   const season = d.season || '';
   const username = d.created_by || 'system';
+  const roundOff = parseFloat(d.round_off) || 0;
+  const totalSettled = Math.round((amount + roundOff) * 100) / 100;
+
+  // Local Party Account: payment = total (amount + round_off) so balance clears
+  const cashTxnType = type === 'received' ? 'jama' : 'nikasi';
+  const descPrefix = type === 'received' ? 'Received from' : 'Payment to';
 
   const payTxn = {
     id: uuidv4(), date, party_name, txn_type: 'payment',
-    amount: Math.round(amount * 100) / 100,
-    description: `Payment to ${party_name}${notes ? ' - ' + notes : ''}`,
+    amount: totalSettled,
+    description: `${descPrefix} ${party_name} - Rs.${amount}${roundOff ? ' (Round Off: ' + (roundOff > 0 ? '+' : '') + roundOff + ')' : ''}${notes ? ' - ' + notes : ''}`,
     source_type: 'settlement', reference: '', kms_year, season,
     created_by: username, created_at: new Date().toISOString()
   };
   database.data.local_party_accounts.push(payTxn);
 
+  // Cash Book - only actual cash amount
   const cb = {
-    id: uuidv4(), date, account: 'cash', txn_type: 'nikasi', category: 'Local Party Payment',
-    description: `Local Party Payment: ${party_name} - Rs.${amount}${notes ? ' (' + notes + ')' : ''}`,
+    id: uuidv4(), date, account: 'cash', txn_type: cashTxnType, category: party_name,
+    party_type: 'Local Party',
+    description: `Local Party: ${descPrefix} ${party_name} - Rs.${amount}${notes ? ' (' + notes + ')' : ''}`,
     amount: Math.round(amount * 100) / 100, reference: `local_party:${payTxn.id.slice(0, 8)}`,
     kms_year, season, created_by: username,
     linked_local_party_id: payTxn.id,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString()
   };
   database.data.cash_transactions.push(cb);
+  
+  // Ledger Entry - total (amount + round_off) so party ledger balances
+  database.data.cash_transactions.push({
+    id: uuidv4(), date, account: 'ledger', txn_type: cashTxnType, category: party_name,
+    party_type: 'Local Party',
+    description: `Local Party: ${descPrefix} ${party_name} - Rs.${totalSettled}${roundOff ? ' (Cash: ' + amount + ', Round Off: ' + roundOff + ')' : ''}${notes ? ' (' + notes + ')' : ''}`,
+    amount: totalSettled, reference: `local_party_ledger:${payTxn.id.slice(0, 8)}`,
+    kms_year, season, created_by: username,
+    linked_local_party_id: payTxn.id,
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+  });
   database.save();
 
-  res.json({ success: true, message: `Rs.${amount} payment to ${party_name} recorded`, txn_id: payTxn.id });
+  res.json({ success: true, message: `Rs.${amount} ${type} recorded for ${party_name}`, txn_id: payTxn.id });
 }));
 
 // ============ DELETE TRANSACTION ============
 router.delete('/api/local-party/:id', safeSync(async (req, res) => {
   ensureCollection('local_party_accounts');
+  ensureCollection('cash_transactions');
   const txn = database.data.local_party_accounts.find(t => t.id === req.params.id);
   if (!txn) return res.status(404).json({ detail: 'Transaction not found' });
 
-  if (txn.txn_type === 'payment' && txn.source_type === 'settlement') {
-    ensureCollection('cash_transactions');
-    database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_local_party_id !== txn.id);
-  }
+  // Remove all linked cash_transactions entries (both settlement and purchase jama)
+  database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_local_party_id !== txn.id);
+
   database.data.local_party_accounts = database.data.local_party_accounts.filter(t => t.id !== req.params.id);
   database.save();
   res.json({ message: 'Deleted', id: req.params.id });

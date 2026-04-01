@@ -591,13 +591,14 @@ module.exports = function(database) {
         for (const g of groups) {
           // Group header row
           doc.rect(x, y, sideW, 14).fill('#e2e8f0');
-          doc.rect(x, y, sideW, 0.5).fill('#94a3b8');
+          doc.rect(x, y, sideW, 0.5).fill('#94a3b8'); // top border
           doc.fontSize(8).font(F('bold')).fillColor('#1e293b')
             .text(g.group, x + 8, y + 3, {width: nameW - 8});
           doc.text(fmt(g.amount), x + nameW, y + 3, {width: amtW - 5, align: 'right'});
           doc.fillColor('#000');
           y += 14;
 
+          // Children
           for (const c of (g.children || [])) {
             if (rowIdx % 2 === 0) {
               doc.rect(x, y, sideW, 12).fill('#f8fafc');
@@ -629,7 +630,7 @@ module.exports = function(database) {
       let assetY = drawSectionHeader(rightX, startY, 'ASSETS / \u0938\u0902\u092A\u0924\u094D\u0924\u093F', '#047857');
       drawSideRows(rightX, assetY, assets, totalAssets, '#047857');
 
-      // Divider line
+      // Divider line between two sides
       doc.rect(leftX + sideW + 2, startY, 1, Math.max(liabY, assetY) - startY + 80).fill('#cbd5e1');
 
       // Footer
