@@ -1741,6 +1741,7 @@ function MainApp({ user, onLogout }) {
                             debouncedRstLookup(val);
                           }
                         }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
                         placeholder="RST Number"
                         className="bg-slate-700 border-slate-600 text-white"
                         data-testid="input-rst-no"

@@ -835,6 +835,7 @@ export default function VehicleWeight({ filters }) {
                   <span className="flex items-center gap-1">
                     {rstEditable ? (
                       <Input type="number" value={form.rst_no || ""} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setRstEditable(false); } }}
                         placeholder={String(nextRst)} className="w-16 h-6 text-[10px] bg-white border-amber-300 text-amber-700 text-center px-1 font-mono"
                         data-testid="vw-rst-input" autoFocus />
                     ) : (

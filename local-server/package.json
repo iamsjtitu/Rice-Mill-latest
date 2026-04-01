@@ -1,6 +1,6 @@
 {
   "name": "mill-entry-local-server",
-  "version": "70.2.0",
+  "version": "70.3.0",
   "description": "Mill Entry System - Local Server (Windows/Mac/Linux)",
   "main": "server.js",
   "scripts": {
