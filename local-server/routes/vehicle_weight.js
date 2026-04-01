@@ -18,7 +18,7 @@ module.exports = function(database) {
   try { if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true }); } catch(e) { console.error('[VW] Cannot create vw_images dir:', e.message); }
 
   function saveImage(entryId, tag, b64data) {
-    if (!b64data) return '';
+    if (!b64data || typeof b64data !== 'string') return '';
     const filename = `${entryId}_${tag}.jpg`;
     fs.writeFileSync(path.join(imgDir, filename), Buffer.from(b64data, 'base64'));
     return filename;
