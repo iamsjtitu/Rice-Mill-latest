@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Trash2, Plus, Calculator, RefreshCw, Key, FileText,
   AlertCircle, HardDrive, ShieldCheck, Send, Package, Scale,
-  Camera, CameraOff, Eye, EyeOff, Wifi, CheckCircle, Users,
+  Camera, CameraOff, Eye, EyeOff, Wifi, CheckCircle, Users, History,
 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 
@@ -2463,10 +2463,142 @@ function UsersTab({ user }) {
 }
 
 
+// ======================= AUDIT LOG TAB =======================
+
+const COLLECTION_LABELS = {
+  mill_entries: "Mill Entry",
+  cash_transactions: "Cash Book",
+  private_paddy: "Pvt Paddy",
+  rice_sales: "Rice Sale",
+  truck_payments: "Truck Payment",
+};
+
+const ACTION_COLORS = {
+  create: "bg-green-600/20 text-green-400",
+  update: "bg-amber-600/20 text-amber-400",
+  delete: "bg-red-600/20 text-red-400",
+  payment: "bg-blue-600/20 text-blue-400",
+  undo_payment: "bg-red-600/20 text-red-400",
+};
+
+function AuditLogTab({ user }) {
+  const [logs, setLogs] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [filterUser, setFilterUser] = useState("");
+  const [filterCollection, setFilterCollection] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+
+  const fetchLogs = async () => {
+    try {
+      let url = `${API}/audit-log?username=${user.username}&role=${user.role}&page=${page}&page_size=30`;
+      if (filterUser) url += `&filter_user=${filterUser}`;
+      if (filterCollection) url += `&filter_collection=${filterCollection}`;
+      if (filterDate) url += `&filter_date=${filterDate}`;
+      const res = await axios.get(url);
+      setLogs(res.data.logs || []);
+      setTotal(res.data.total || 0);
+    } catch { toast.error("Audit log load nahi ho saka"); }
+  };
+
+  useEffect(() => { fetchLogs(); }, [page, filterUser, filterCollection, filterDate]);
+
+  const formatTime = (ts) => {
+    if (!ts) return "-";
+    const d = new Date(ts);
+    return `${d.toLocaleDateString("en-IN")} ${d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`;
+  };
+
+  return (
+    <div className="space-y-3" data-testid="audit-log-tab">
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardHeader className="py-3 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm text-slate-200 flex items-center gap-2">
+              <History className="w-4 h-4 text-amber-400" /> Audit Log - Kisne Kya Kiya
+            </CardTitle>
+            <span className="text-[10px] text-slate-500">{total} records</span>
+          </div>
+          {/* Filters */}
+          <div className="flex gap-2 mt-2">
+            <Input value={filterUser} onChange={e => { setFilterUser(e.target.value); setPage(1); }}
+              placeholder="User filter..." className="bg-slate-700 border-slate-600 text-white h-7 text-xs w-32" />
+            <Select value={filterCollection || "_all"} onValueChange={v => { setFilterCollection(v === "_all" ? "" : v); setPage(1); }}>
+              <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-7 text-xs w-36">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-slate-600">
+                <SelectItem value="_all" className="text-white text-xs">All Types</SelectItem>
+                {Object.entries(COLLECTION_LABELS).map(([k, v]) => (
+                  <SelectItem key={k} value={k} className="text-white text-xs">{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input type="date" value={filterDate} onChange={e => { setFilterDate(e.target.value); setPage(1); }}
+              className="bg-slate-700 border-slate-600 text-white h-7 text-xs w-36" />
+            {(filterUser || filterCollection || filterDate) && (
+              <Button variant="ghost" size="sm" className="h-7 text-xs text-slate-400"
+                onClick={() => { setFilterUser(""); setFilterCollection(""); setFilterDate(""); setPage(1); }}>Clear</Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <div className="space-y-1">
+            {logs.map((log) => (
+              <div key={log.id} className="flex items-start gap-3 px-3 py-2 bg-slate-700/30 rounded hover:bg-slate-700/50 transition-colors">
+                <div className="flex-shrink-0 mt-0.5">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${ACTION_COLORS[log.action] || "bg-slate-600/30 text-slate-400"}`}>
+                    {log.action.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-200">{log.summary}</p>
+                  {log.changes && Object.keys(log.changes).length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {Object.entries(log.changes).slice(0, 4).map(([field, val]) => (
+                        <span key={field} className="text-[9px] bg-slate-600/30 text-slate-400 px-1.5 py-0.5 rounded">
+                          {field}: {val.old !== undefined ? `${val.old} → ` : ""}{val.new !== undefined ? val.new : ""}
+                        </span>
+                      ))}
+                      {Object.keys(log.changes).length > 4 && (
+                        <span className="text-[9px] text-slate-500">+{Object.keys(log.changes).length - 4} more</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-shrink-0 text-right">
+                  <p className="text-[10px] text-amber-400 font-medium">{log.username}</p>
+                  <p className="text-[9px] text-slate-500">{formatTime(log.timestamp)}</p>
+                  <p className="text-[9px] text-slate-600">{COLLECTION_LABELS[log.collection] || log.collection}</p>
+                </div>
+              </div>
+            ))}
+            {logs.length === 0 && (
+              <p className="text-center text-slate-500 text-xs py-6">Koi audit log nahi mila</p>
+            )}
+          </div>
+          {/* Pagination */}
+          {total > 30 && (
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <Button variant="outline" size="sm" className="h-6 text-[10px] border-slate-600 text-slate-300"
+                onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>Prev</Button>
+              <span className="text-[10px] text-slate-400">Page {page} / {Math.ceil(total / 30)}</span>
+              <Button variant="outline" size="sm" className="h-6 text-[10px] border-slate-600 text-slate-300"
+                onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(total / 30)}>Next</Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
 // ======================= MAIN SETTINGS COMPONENT =======================
 
 const SUB_TABS = [
   { id: "users", label: "Users", icon: Users },
+  { id: "audit", label: "Audit Log", icon: History },
   { id: "branding", label: "Branding", icon: Key },
   { id: "gst", label: "GST", icon: Calculator },
   { id: "stock", label: "Stock", icon: Package },
@@ -2501,6 +2633,9 @@ export default function Settings({ user, kmsYear, onBrandingUpdate }) {
 
           <TabsContent value="users">
             <UsersTab user={user} />
+          </TabsContent>
+          <TabsContent value="audit">
+            <AuditLogTab user={user} />
           </TabsContent>
           <TabsContent value="branding">
             <BrandingTab user={user} onBrandingUpdate={onBrandingUpdate} />

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Trash2, Edit, RefreshCw } from "lucide-react";
+import RecordHistory from "@/components/RecordHistory";
 import PaginationBar from "@/components/PaginationBar";
 import { fmtDate } from "@/utils/date";
 
@@ -232,6 +233,7 @@ export function EntryTable({
                       </TableCell>
                       <TableCell className="text-center px-0.5">
                         <div className="flex gap-0.5 justify-center">
+                          <RecordHistory recordId={entry.id} label={entry.truck_no} />
                           <Button
                             size="sm"
                             variant="ghost"

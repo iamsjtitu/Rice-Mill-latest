@@ -5,6 +5,38 @@ const router = express.Router();
 
 module.exports = function(database) {
 
+  const logAudit = (collection, recordId, action, username, oldData, newData, summary) => {
+    if (!database.data.audit_log) database.data.audit_log = [];
+    const changes = {};
+    const skipKeys = new Set(['_id', '_v', 'updated_at', 'created_at']);
+    if (action === 'update' && oldData && newData) {
+      for (const key of new Set([...Object.keys(oldData), ...Object.keys(newData)])) {
+        if (skipKeys.has(key)) continue;
+        if (oldData[key] !== newData[key]) changes[key] = { old: oldData[key], new: newData[key] };
+      }
+      if (Object.keys(changes).length === 0) return;
+    }
+    if (action === 'create' && newData) {
+      for (const key of ['truck_no', 'party_name', 'amount', 'kg', 'bag', 'category', 'description']) {
+        if (newData[key]) changes[key] = { new: newData[key] };
+      }
+    }
+    if (!summary) {
+      if (action === 'create') summary = `${username} ne naya record banaya`;
+      else if (action === 'delete') summary = `${username} ne record delete kiya`;
+      else if (action === 'update') {
+        const parts = Object.entries(changes).slice(0, 3).map(([k, v]) => v.old !== undefined && v.new !== undefined ? `${k}: ${v.old} → ${v.new}` : k);
+        summary = `${username} ne ${parts.join(', ')} change kiya`;
+      }
+    }
+    database.data.audit_log.push({
+      id: require('crypto').randomUUID(), collection, record_id: String(recordId), action,
+      changes, username: username || 'system', summary: summary || '',
+      timestamp: new Date().toISOString()
+    });
+    database.save();
+  };
+
   // ===== ENTRIES CRUD =====
   router.get('/api/entries', safeSync(async (req, res) => {
     res.json(database.getEntriesPaginated(req.query));

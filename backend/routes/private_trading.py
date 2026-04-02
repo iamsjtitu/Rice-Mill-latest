@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
 from utils.optimistic_lock import optimistic_update, stamp_version
+from utils.audit import log_audit
 import uuid
 import io
 import csv
@@ -77,6 +78,7 @@ async def create_private_paddy(data: dict, username: str = "", role: str = ""):
     doc["paid_amount"] = float(data.get("paid_amount", 0))
     doc["balance"] = round(doc["total_amount"] - doc["paid_amount"], 2)
     await db.private_paddy.insert_one(stamp_version(doc))
+    await log_audit("private_paddy", doc["id"], "create", doc.get("created_by", ""), new_data=doc)
     doc.pop("_id", None)
     # Auto gunny bag entries
     await _create_gunny_entries_for_pvt_paddy(doc, username)
@@ -304,6 +306,7 @@ async def update_private_paddy(item_id: str, request: Request, username: str = "
     merged["updated_at"] = datetime.now(timezone.utc).isoformat()
     merged.pop("_id", None)
     await optimistic_update(db.private_paddy, item_id, merged, client_v)
+    await log_audit("private_paddy", item_id, "update", username, old_data=existing, new_data=merged)
     # Re-create gunny bag entries
     await db.gunny_bags.delete_many({"linked_entry_id": item_id})
     await _create_gunny_entries_for_pvt_paddy(merged, username)

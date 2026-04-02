@@ -459,3 +459,37 @@ async def carry_forward_stock(data: dict, username: str = "", role: str = ""):
     }
     await db.opening_stock.update_one({"kms_year": target_kms}, {"$set": doc}, upsert=True)
     return {"success": True, "message": f"Closing stock {source_kms} → Opening stock {target_kms} carry forward ho gaya", "data": doc}
+
+
+
+# ============ AUDIT LOG ENDPOINTS ============
+
+@router.get("/audit-log")
+async def get_audit_log(username: str = "", role: str = "",
+                        filter_user: str = "", filter_collection: str = "",
+                        filter_date: str = "", record_id: str = "",
+                        page: int = 1, page_size: int = 50):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf Admin audit log dekh sakta hai")
+    
+    query = {}
+    if filter_user:
+        query["username"] = filter_user
+    if filter_collection:
+        query["collection"] = filter_collection
+    if filter_date:
+        query["timestamp"] = {"$gte": filter_date + "T00:00:00", "$lte": filter_date + "T23:59:59"}
+    if record_id:
+        query["record_id"] = record_id
+    
+    total = await db.audit_log.count_documents(query)
+    skip = (page - 1) * page_size
+    logs = await db.audit_log.find(query, {"_id": 0}).sort("timestamp", -1).skip(skip).limit(page_size).to_list(page_size)
+    
+    return {"logs": logs, "total": total, "page": page, "page_size": page_size}
+
+
+@router.get("/audit-log/record/{record_id}")
+async def get_record_audit(record_id: str):
+    logs = await db.audit_log.find({"record_id": record_id}, {"_id": 0}).sort("timestamp", -1).to_list(100)
+    return {"logs": logs}

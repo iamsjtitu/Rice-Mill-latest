@@ -54,6 +54,7 @@ import BalanceSheet from "@/components/BalanceSheet";
 import ExcelImport from "@/components/ExcelImport";
 import Vouchers from "@/components/Vouchers";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import RecordHistory from "@/components/RecordHistory";
 import HemaliPayment from "@/components/HemaliPayment";
 import WhatsNew, { APP_VERSION } from "@/components/WhatsNew";
 import AutoUpdate from "@/components/AutoUpdate";

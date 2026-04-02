@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
 from utils.optimistic_lock import optimistic_update, stamp_version
+from utils.audit import log_audit
 import uuid, io, csv
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -36,6 +37,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
     doc = stamp_version(entry_obj.model_dump())
     
     await db.mill_entries.insert_one(doc)
+    await log_audit("mill_entries", doc["id"], "create", entry_dict.get("created_by", ""), new_data=doc)
     
     truck_no = doc.get("truck_no", "")
     
@@ -507,6 +509,7 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
     merged_data.pop("_id", None)
     
     await optimistic_update(db.mill_entries, entry_id, merged_data, client_v)
+    await log_audit("mill_entries", entry_id, "update", raw_body.get("username", username), old_data=existing, new_data=merged_data)
     
     # Update auto cash book entries for this entry (delete all and recreate)
     await db.cash_transactions.delete_many({"linked_entry_id": entry_id})
@@ -631,6 +634,7 @@ async def delete_entry(entry_id: str, username: str = "", role: str = ""):
     result = await db.mill_entries.delete_one({"id": entry_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Entry not found")
+    await log_audit("mill_entries", entry_id, "delete", username, old_data=existing)
     
     # Clean up linked auto entries
     await db.cash_transactions.delete_many({"linked_entry_id": entry_id})
