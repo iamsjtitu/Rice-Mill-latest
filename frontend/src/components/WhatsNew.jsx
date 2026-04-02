@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "84.1.0";
+const APP_VERSION = "85.0.0";
 
 const CHANGELOG = [
+  {
+    version: "85.0.0",
+    date: "Feb 2026",
+    title: "v85.0.0 - Users & Permissions",
+    items: [
+      { type: "feature", text: "Settings mein Users tab - naye users banao, unko role assign karo (Admin/Entry Operator/Accountant/Viewer)" },
+      { type: "feature", text: "Granular permissions - Edit, Delete, Export, Payments, CashBook, Reports, Settings access on/off karo" },
+      { type: "feature", text: "Staff ko user account se link kar sakte ho" },
+      { type: "feature", text: "Permission ke hisaab se tabs show/hide hote hain - sirf wahi dikhega jiska access hai" },
+    ]
+  },
   {
     version: "84.0.0",
     date: "Feb 2026",
