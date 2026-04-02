@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "79.0.0";
+const APP_VERSION = "80.0.0";
 
 const CHANGELOG = [
+  {
+    version: "80.0.0",
+    date: "Feb 2026",
+    title: "v80.0.0 - Complete Shared Service Layer + Bug Fixes",
+    items: [
+      { type: "feature", text: "Staff advance/salary logic centralized in shared service layer" },
+      { type: "fix", text: "GET /api/hemali/items 404 fix - endpoint restore kiya" },
+      { type: "fix", text: "GET /api/gst-company-settings 404 fix - naya endpoint add kiya" },
+      { type: "feature", text: "7 shared modules + 37 route files = 44 files 100% identical between desktop aur local-server" },
+    ]
+  },
   {
     version: "79.0.0",
     date: "Feb 2026",
