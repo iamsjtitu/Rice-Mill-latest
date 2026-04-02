@@ -40,17 +40,22 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - Backup/Restore system
 - Auto-updater for desktop app
 
-### Recent Changes (Feb 2026)
-- Extracted `MillEntryForm.jsx` and `EntryTable.jsx` from App.js (refactoring)
-- App.js reduced from 2504 to 1909 lines
-- Previously extracted: `print.js`, `constants.js`, `date.js` utilities
-- RST auto-increment fix
-- Photo ESC button fix
-- Dialog accessibility warnings fixed
-- Remark field added to Auto Weight Entries
-- Active Session Heartbeat indicator
-- 100% route parity between desktop-app and local-server
-- Global date formatting (DD-MM-YYYY) centralized
+### App.js Refactoring (Feb 2026) - COMPLETE
+App.js reduced from **2504 → 1429 lines** (43% reduction, 1075 lines extracted)
+
+Extracted components in `/app/frontend/src/components/entries/`:
+| Component | Lines | Description |
+|-----------|-------|-------------|
+| MillEntryForm.jsx | 439 | Entry form dialog with 26 fields + auto-calculations |
+| EntryTable.jsx | 269 | Total Summary card (6 metrics) + Mill Entries table (23 columns) |
+| TabNavigation.jsx | 56 | 12 main tabs + Settings (admin only) |
+| FilterPanel.jsx | 141 | 9 filter inputs + Clear All |
+| HeaderDialogs.jsx | 169 | ShortcutsDialog, BackupReminderDialog, PasswordChangeDialog |
+
+Previously extracted utilities in `/app/frontend/src/utils/`:
+- `print.js` - Print utility
+- `constants.js` - FY_YEARS, SEASONS, initialFormState
+- `date.js` - fmtDate (DD-MM-YYYY formatting)
 
 ## Prioritized Backlog
 
@@ -62,7 +67,6 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 
 ### P2 (Medium)
 - Centralize payment/stock logic across triple-backend system
-- Further App.js refactoring (extract more sections if needed)
 
 ### P3 (Low/Future)
 - SQLite migration for desktop app (when data exceeds 1 Lakh+ entries)
@@ -75,7 +79,8 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 
 ## Test Reports
 - `/app/test_reports/iteration_156.json` - Previous session tests
-- `/app/test_reports/iteration_157.json` - Refactoring verification (100% pass)
+- `/app/test_reports/iteration_157.json` - Phase 1 refactoring (MillEntryForm + EntryTable)
+- `/app/test_reports/iteration_158.json` - Phase 2 refactoring (TabNavigation + FilterPanel + HeaderDialogs)
 
 ## Credentials
 - Username: admin
