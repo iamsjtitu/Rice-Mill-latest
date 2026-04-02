@@ -2613,7 +2613,7 @@ export default function Settings({ user, kmsYear, onBrandingUpdate }) {
   const [activeSubTab, setActiveSubTab] = useState("users");
 
   return (
-    <div className="max-w-2xl mx-auto" data-testid="settings-page">
+    <div className="max-w-4xl mx-auto" data-testid="settings-page">
       {/* Sub-tab Navigation */}
       <div className="mb-6">
         <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
