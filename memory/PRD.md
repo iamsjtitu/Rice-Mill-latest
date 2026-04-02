@@ -1,56 +1,57 @@
-# Mill Entry System - PRD
+# Mill Entry System - Product Requirements Document
 
 ## Original Problem Statement
-A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, and offline-first desktop capabilities.
+A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app. Requires highly accurate double-entry accounting ledgers, advanced reporting, and offline-first desktop capabilities with automated hardware integration for vehicle weight capture.
 
-## Core Architecture
-- **Web Backend**: Python FastAPI + MongoDB
-- **Desktop Backend**: Electron + Express + Local JSON
-- **Local Server**: Express + Local JSON (network-accessible)
-- **Frontend**: React (shared across all backends)
-- **Triple Backend Rule**: Any logic change MUST be replicated in all 3 backends
+## Architecture
+```
+/app
+├── backend/                  # Python FastAPI web backend (MongoDB)
+├── desktop-app/              # Electron Express desktop app (SQLite - v77.0.0)
+│   ├── sqlite-database.js    # SQLite engine (better-sqlite3 + WAL mode)
+│   ├── main.js               # Entry point (SQLite default, JSON fallback)
+│   └── routes/               # Must mirror Python backend logic
+├── local-server/             # Express local network server (SQLite - v77.0.0)
+│   ├── sqlite-database.js    # Same SQLite engine as desktop-app
+│   ├── server.js             # Updated with SQLite init + JSON fallback
+│   └── routes/               # Must mirror Python backend logic
+├── frontend/                 # React Frontend (shared by all backends)
+│   └── src/components/entries/ # Modularized App.js components
+└── .github/workflows/        # CI/CD for .exe builds
+```
 
-## Current Version: v76.0.0
+## Current Version: v77.0.0
 
 ## What's Been Implemented
+- Full rice mill entry system with double-entry accounting
+- Triple backend support (Python/MongoDB, Electron/SQLite, Express/SQLite)
+- Camera integration (USB + VIGI NVR) with 1080p async capture
+- Auto-updater via GitHub releases
+- Backup/restore system compatible with both JSON and SQLite
+- Session heartbeat for multi-computer detection
+- Modularized App.js into 5 entry components
 
-### Core Features (Complete)
-- Mill Entry CRUD with auto-calculations
-- Dashboard with targets & analytics
-- Milling (CMR) Tracker, DC Tracker, Cash Book, Vouchers, Payments
-- Private Paddy Purchase, Reports, Staff, Mill Parts, Hemali, FY Summary
-- Vehicle Weight (Weighbridge + IP Camera), Auto Weight Entries
-- Excel Import/Export, WhatsApp/Telegram messaging
-- Session heartbeat, Keyboard shortcuts, Theme toggle, Backup/Restore
+## Key Technical Details
+- **SQLite Migration**: Both desktop-app and local-server now use `better-sqlite3` with WAL mode as default storage. Auto-migration from JSON is built-in. JsonDatabase kept as fallback.
+- **Triple Backend Parity**: Any logic change in Python routes MUST be replicated in both JS route folders.
+- **Camera Optimization**: Uses async `toBlob()` to prevent UI freezing during capture.
 
-### v76.0.0 - Camera Quality + Performance (Feb 2026)
-- USB Camera: 640x480 → 1920x1080 (ideal), frameRate limited to 15-30fps
-- Snapshot: toDataURL (sync/freeze) → toBlob (async/smooth)
-- JPEG quality: 70% → 85% (quality + size balance)
-- Canvas memory: auto-cleanup after capture (1x1 reset)
-- MJPEG img tags: decoding="async" for off-thread decode
-- RTSP stream: q:v 5 → q:v 3 (better quality, controlled data)
-
-### v75.0.0 - App.js Refactoring (Feb 2026)
-- App.js: 2504 → 1429 lines (43% reduction)
-- Extracted: MillEntryForm, EntryTable, TabNavigation, FilterPanel, HeaderDialogs
-- Utilities: print.js, constants.js, date.js
+## Credentials
+- Username: admin, Password: admin123
+- Username: staff, Password: staff123
 
 ## Prioritized Backlog
 
-### P1 (High)
-- "Export Preview" feature (preview data before Excel/PDF export)
+### P0 (Completed This Session)
+- [x] Desktop App SQLite migration + runtime verification
+- [x] Local Server SQLite migration + runtime verification  
+- [x] Fix `dbEngine` scope bug in desktop main.js
+- [x] Fix `col()` function bug in hemali integrity check (main.js)
 
-### P2 (Medium)
-- Centralize payment/stock logic across triple-backend
+### P1 (Next Up)
+- [ ] Export Preview feature (preview data before Excel/PDF export)
 
-### P3 (Low/Future)
-- SQLite migration for desktop app (1 Lakh+ entries)
-
-## Test Reports
-- `/app/test_reports/iteration_157.json` - Refactoring Phase 1
-- `/app/test_reports/iteration_158.json` - Refactoring Phase 2
-
-## Credentials
-- Username: admin
-- Password: admin123
+### P2 (Future)
+- [ ] Centralize payment/stock logic across triple backends
+- [ ] Refactor payment processing into shared service layer
+- [ ] Reduce code duplication between desktop-app and local-server routes
