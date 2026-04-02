@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "80.0.0";
+const APP_VERSION = "81.0.0";
 
 const CHANGELOG = [
+  {
+    version: "81.0.0",
+    date: "Feb 2026",
+    title: "v81.0.0 - FY Auto-Switch",
+    items: [
+      { type: "feature", text: "April mein app automatically naye FY (2026-2027) pe switch ho jayega - manually change karne ki zaroorat nahi" },
+    ]
+  },
   {
     version: "80.0.0",
     date: "Feb 2026",
