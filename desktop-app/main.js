@@ -65,6 +65,7 @@ let dataPath = null;
 let db = null;
 let server = null;
 let manualCheckInProgress = false;
+let dbEngine = 'sqlite';
 const DESKTOP_API_PORT = 9876;
 global.DESKTOP_API_PORT = DESKTOP_API_PORT;
 const MAX_BACKUPS = 7;
@@ -1326,13 +1327,13 @@ function createApiServer(database) {
         if ((p.advance_deducted || 0) > 0) advInfo += ` | Adv Deducted: Rs.${Math.round(p.advance_deducted)}`;
         if ((p.new_advance || 0) > 0) advInfo += ` | New Advance: Rs.${Math.round(p.new_advance)}`;
         const base = { kms_year: p.kms_year || '', season: p.season || '', created_by: p.created_by || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-        col('cash_transactions').push({
+        database.data.cash_transactions.push({
           id: _uuid(), date: p.date, account: 'ledger', txn_type: 'jama',
           amount: p.total || 0, category: 'Hemali Payment', party_type: 'Hemali',
           description: `${sardar} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`,
           reference: `hemali_work:${p.id}`, ...base
         });
-        col('cash_transactions').push({
+        database.data.cash_transactions.push({
           id: _uuid(), date: p.date, account: 'ledger', txn_type: 'nikasi',
           amount: p.amount_paid || 0, category: 'Hemali Payment', party_type: 'Hemali',
           description: `${sardar} - Paid Rs.${Math.round(p.amount_paid || 0)}${advInfo}`,
@@ -2174,7 +2175,7 @@ async function startApplication(folderPath) {
 
   // Initialize database - SQLite is default, JSON fallback if better-sqlite3 not available
   console.log('[Startup] Loading database...');
-  let dbEngine = 'sqlite';
+  dbEngine = 'sqlite';
   try {
     const { SqliteDatabase } = require('./sqlite-database');
     db = new SqliteDatabase(folderPath);

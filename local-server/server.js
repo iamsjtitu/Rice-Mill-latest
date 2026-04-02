@@ -16,6 +16,7 @@ const { v4: uuidv4 } = require('uuid');
 const PORT = 8080;
 let DATA_DIR = null;  // Will be set after user input
 let BACKUP_DIR = null;
+let dbEngine = 'sqlite';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const MAX_BACKUPS = 7;
 
@@ -656,7 +657,8 @@ function createBackup(label = 'auto') {
   const backupPath = path.join(BACKUP_DIR, filename);
   
   try {
-    const data = fs.readFileSync(database.dbFile, 'utf8');
+    // Works for both JSON and SQLite databases
+    const data = database.exportToJson ? database.exportToJson() : fs.readFileSync(database.dbFile, 'utf8');
     fs.writeFileSync(backupPath, data);
     console.log(`[Backup] Created: ${filename}`);
     cleanupOldBackups();
@@ -693,8 +695,14 @@ function restoreBackup(filename) {
     createBackup('pre-restore');
     const data = fs.readFileSync(backupPath, 'utf8');
     JSON.parse(data); // Validate JSON
-    fs.writeFileSync(database.dbFile, data);
-    database.data = database.load(); // Reload database
+    if (database.importFromJson) {
+      // SQLite mode: import via method
+      database.importFromJson(data);
+    } else {
+      // JSON mode: write file and reload
+      fs.writeFileSync(database.dbFile, data);
+      database.data = database.load();
+    }
     return { success: true, message: 'Data restore ho gaya! Page refresh karein.' };
   } catch (e) {
     return { success: false, error: 'Restore failed: ' + e.message };
@@ -785,8 +793,19 @@ async function startServer() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
 
-  // Initialize database
-  database = new JsonDatabase(DATA_DIR);
+  // Initialize database - SQLite is default, JSON fallback if better-sqlite3 not available
+  console.log('[Startup] Loading database...');
+  dbEngine = 'sqlite';
+  try {
+    const { SqliteDatabase } = require('./sqlite-database');
+    database = new SqliteDatabase(DATA_DIR);
+    console.log(`[Startup] SQLite database loaded`);
+  } catch (e) {
+    console.warn('[Startup] SQLite not available, using JSON fallback:', e.message);
+    database = new JsonDatabase(DATA_DIR);
+    dbEngine = 'json';
+    console.log(`[Startup] JSON fallback database loaded`);
+  }
 
   // Auto-backup on startup
   if (!hasTodayBackup() && fs.existsSync(database.dbFile)) {
@@ -987,11 +1006,22 @@ async function startServer() {
 
   app.post('/api/data-refresh', (req, res) => {
     try {
-      database.data = database.load();
+      if (database._loadAll) {
+        // SQLite mode
+        database.data = database._loadAll();
+      } else {
+        // JSON mode
+        database.data = database.load();
+      }
       res.json({ success: true, message: 'Data refreshed from file' });
     } catch (e) {
       res.status(500).json({ success: false, message: e.message });
     }
+  });
+
+  // ===== STORAGE ENGINE API =====
+  app.get('/api/settings/storage-engine', (req, res) => {
+    res.json({ engine: dbEngine });
   });
 
   // ===== SERVE FRONTEND (AFTER all API routes) =====
@@ -1042,11 +1072,17 @@ startServer();
 // Graceful shutdown - save data
 process.on('SIGINT', () => {
   console.log('\n[Server] Shutting down... data save ho raha hai...');
-  if (database) database.save();
+  if (database) {
+    if (database.close) database.close();
+    else database.save();
+  }
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  if (database) database.save();
+  if (database) {
+    if (database.close) database.close();
+    else database.save();
+  }
   process.exit(0);
 });
