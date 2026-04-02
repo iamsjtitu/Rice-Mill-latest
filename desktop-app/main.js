@@ -1442,8 +1442,9 @@ function createApiServer(database) {
     apiApp.get('*', safeSync((req, res) => {
       if (!req.path.startsWith('/api')) {
         let html = fs.readFileSync(path.join(frontendDir, 'index.html'), 'utf8');
-        const activePort = server ? server.address().port : DESKTOP_API_PORT;
-        html = html.replace('<head>', `<head><script>window.ELECTRON_API_URL='http://127.0.0.1:${activePort}';window.REACT_APP_BACKEND_URL='http://127.0.0.1:${activePort}';</script>`);
+        // Use request Host header so it works from both localhost AND network IPs
+        const hostUrl = `http://${req.headers.host}`;
+        html = html.replace('<head>', `<head><script>window.ELECTRON_API_URL='${hostUrl}';window.REACT_APP_BACKEND_URL='${hostUrl}';</script>`);
         res.type('html').send(html);
       } else {
         res.status(404).json({ detail: 'API endpoint not found' });
@@ -1452,16 +1453,16 @@ function createApiServer(database) {
     console.log('Frontend served from: ' + frontendDir);
   }
 
-  // Start server on fixed port
+  // Start server on all interfaces (0.0.0.0) so other computers on the network can access
   return new Promise((resolve, reject) => {
-    server = apiApp.listen(DESKTOP_API_PORT, '127.0.0.1', () => {
-      console.log(`API Server started on port ${DESKTOP_API_PORT}`);
+    server = apiApp.listen(DESKTOP_API_PORT, '0.0.0.0', () => {
+      console.log(`API Server started on port ${DESKTOP_API_PORT} (accessible on network)`);
       resolve(DESKTOP_API_PORT);
     });
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
         console.log(`Port ${DESKTOP_API_PORT} busy, trying random port...`);
-        server = apiApp.listen(0, '127.0.0.1', () => {
+        server = apiApp.listen(0, '0.0.0.0', () => {
           const port = server.address().port;
           console.log(`API Server started on fallback port ${port}`);
           resolve(port);
