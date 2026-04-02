@@ -186,7 +186,18 @@ function MainApp({ user, onLogout }) {
       try {
         const res = await axios.get(`${API}/fy-settings`);
         if (res.data?.active_fy) {
-          setFilters(prev => ({ ...prev, kms_year: res.data.active_fy, season: res.data.season || prev.season }));
+          const savedFy = res.data.active_fy;
+          // Auto-detect new FY: if saved FY is older than current FY, auto-switch
+          const savedStart = parseInt(savedFy.split('-')[0]) || 0;
+          const currentStart = parseInt(CURRENT_FY.split('-')[0]) || 0;
+          if (savedStart < currentStart) {
+            // New FY started - auto-update to current FY
+            setFilters(prev => ({ ...prev, kms_year: CURRENT_FY, season: res.data.season || prev.season }));
+            // Save the new FY to server
+            axios.put(`${API}/fy-settings`, { active_fy: CURRENT_FY, season: res.data.season || 'Kharif' }).catch(() => {});
+          } else {
+            setFilters(prev => ({ ...prev, kms_year: savedFy, season: res.data.season || prev.season }));
+          }
         }
       } catch {}
     };
