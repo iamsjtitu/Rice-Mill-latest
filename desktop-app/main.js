@@ -1016,7 +1016,8 @@ function createBackup(database, label = 'auto') {
   const dateStr = now.toISOString().replace(/[:.]/g, '-').substring(0, 19);
   const filename = `backup_${label}_${dateStr}.json`;
   try {
-    const data = fs.readFileSync(database.dbFile, 'utf8');
+    // Works for both JSON and SQLite databases
+    const data = database.exportToJson ? database.exportToJson() : fs.readFileSync(database.dbFile, 'utf8');
     fs.writeFileSync(path.join(backupDir, filename), data);
     cleanupOldBackups();
     return { success: true, filename, size: data.length, created_at: now.toISOString() };
@@ -1041,9 +1042,15 @@ function restoreBackup(database, filename) {
   try {
     createBackup(database, 'pre-restore');
     const data = fs.readFileSync(backupPath, 'utf8');
-    JSON.parse(data);
-    fs.writeFileSync(database.dbFile, data);
-    database.data = database.load();
+    JSON.parse(data); // Validate JSON
+    if (database.importFromJson) {
+      // SQLite mode: import via method
+      database.importFromJson(data);
+    } else {
+      // JSON mode: write file and reload
+      fs.writeFileSync(database.dbFile, data);
+      database.data = database.load();
+    }
     return { success: true, message: 'Data restore ho gaya! Page refresh karein.' };
   } catch (e) { return { success: false, error: e.message }; }
 }
@@ -1142,6 +1149,61 @@ function createApiServer(database) {
     res.json({ loaded: loadedCount, total: routeDefs.length, failed: failedRoutes, version: require('./package.json').version });
   }));
 
+  // ===== STORAGE ENGINE API =====
+  apiApp.get('/api/settings/storage-engine', safeSync((req, res) => {
+    const cfg = loadConfig();
+    const currentEngine = cfg.storageEngine || 'json';
+    const sqliteAvailable = (() => {
+      try { require('better-sqlite3'); return true; } catch { return false; }
+    })();
+    res.json({ engine: currentEngine, sqlite_available: sqliteAvailable });
+  }));
+
+  apiApp.post('/api/settings/storage-engine', safeSync((req, res) => {
+    const { engine } = req.body;
+    if (!['json', 'sqlite'].includes(engine)) {
+      return res.status(400).json({ success: false, message: 'Invalid engine. Use "json" or "sqlite"' });
+    }
+    if (engine === 'sqlite') {
+      try { require('better-sqlite3'); } catch {
+        return res.status(400).json({ success: false, message: 'better-sqlite3 install nahi hai. Run: yarn add better-sqlite3' });
+      }
+    }
+    const cfg = loadConfig();
+    const oldEngine = cfg.storageEngine || 'json';
+    if (oldEngine === engine) {
+      return res.json({ success: true, message: `Already using ${engine}`, restart_needed: false });
+    }
+
+    // If switching from JSON to SQLite, migrate data
+    if (oldEngine === 'json' && engine === 'sqlite') {
+      try {
+        const { SqliteDatabase } = require('./sqlite-database');
+        const tempDb = new SqliteDatabase(database.dataFolder);
+        tempDb.close();
+        console.log('[StorageEngine] JSON → SQLite migration done');
+      } catch (e) {
+        return res.status(500).json({ success: false, message: 'Migration failed: ' + e.message });
+      }
+    }
+
+    // If switching from SQLite to JSON, export data back to JSON file
+    if (oldEngine === 'sqlite' && engine === 'json') {
+      try {
+        const jsonData = database.exportToJson ? database.exportToJson() : JSON.stringify(database.data);
+        const jsonFile = path.join(database.dataFolder, 'millentry-data.json');
+        fs.writeFileSync(jsonFile, jsonData);
+        console.log('[StorageEngine] SQLite → JSON export done');
+      } catch (e) {
+        return res.status(500).json({ success: false, message: 'Export failed: ' + e.message });
+      }
+    }
+
+    cfg.storageEngine = engine;
+    saveConfig(cfg);
+    res.json({ success: true, message: `Storage engine changed to ${engine}. Software restart karein.`, restart_needed: true });
+  }));
+
   // ===== SESSION HEARTBEAT SYSTEM =====
   const computerName = os.hostname();
   const sessionsDir = path.join(database.dataFolder, 'sessions');
@@ -1174,7 +1236,13 @@ function createApiServer(database) {
   };
   process.on('exit', cleanupSession);
   process.on('SIGINT', () => { cleanupSession(); process.exit(); });
-  app.on('before-quit', cleanupSession);
+  app.on('before-quit', () => {
+    cleanupSession();
+    // Close SQLite connection gracefully
+    if (database && database.close) {
+      try { database.close(); } catch (e) { console.error('[Quit] SQLite close error:', e.message); }
+    }
+  });
 
   // GET /api/session-status - Read all session files
   apiApp.get('/api/session-status', safeSync((req, res) => {
@@ -1202,10 +1270,16 @@ function createApiServer(database) {
     res.json({ self, others });
   }));
 
-  // POST /api/data-refresh - Reload data from JSON file (Google Drive sync)
+  // POST /api/data-refresh - Reload data from storage (JSON file or SQLite)
   apiApp.post('/api/data-refresh', safeSync((req, res) => {
     try {
-      database.data = database.load();
+      if (database._loadAll) {
+        // SQLite mode
+        database.data = database._loadAll();
+      } else {
+        // JSON mode
+        database.data = database.load();
+      }
       res.json({ success: true, message: 'Data refreshed from file' });
     } catch (e) {
       res.status(500).json({ success: false, message: e.message });
@@ -2148,10 +2222,24 @@ async function startApplication(folderPath) {
   config.lastPath = null;
   saveConfig(config);
 
-  // Initialize database
+  // Initialize database - check config for storage engine preference
   console.log('[Startup] Loading database...');
-  db = new JsonDatabase(folderPath);
-  console.log(`[Startup] Database loaded in ${Date.now() - startTime}ms`);
+  const storageEngine = config.storageEngine || 'json'; // 'json' or 'sqlite'
+  if (storageEngine === 'sqlite') {
+    try {
+      const { SqliteDatabase } = require('./sqlite-database');
+      db = new SqliteDatabase(folderPath);
+      console.log(`[Startup] SQLite database loaded in ${Date.now() - startTime}ms`);
+    } catch (e) {
+      console.error('[Startup] SQLite failed, falling back to JSON:', e.message);
+      logError('SQLITE_FALLBACK', e);
+      db = new JsonDatabase(folderPath);
+      console.log(`[Startup] JSON fallback database loaded in ${Date.now() - startTime}ms`);
+    }
+  } else {
+    db = new JsonDatabase(folderPath);
+    console.log(`[Startup] JSON database loaded in ${Date.now() - startTime}ms`);
+  }
 
   // === MIGRATION: Fix auto_ledger txn_type (v31 - double-entry fix) ===
   try {

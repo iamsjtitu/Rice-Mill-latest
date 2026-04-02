@@ -1098,3 +1098,13 @@ async def image_cleanup_scheduler():
                 _cleanup_old_images(days)
         except Exception as e:
             logger.error(f"Image cleanup scheduler error: {e}")
+
+
+# Storage Engine (Web version always uses MongoDB - this is for frontend compatibility)
+@router.get("/settings/storage-engine")
+async def get_storage_engine():
+    return {"engine": "mongodb", "sqlite_available": False}
+
+@router.post("/settings/storage-engine")
+async def set_storage_engine():
+    return {"success": False, "message": "Web version uses MongoDB. SQLite sirf desktop app mein available hai.", "restart_needed": False}

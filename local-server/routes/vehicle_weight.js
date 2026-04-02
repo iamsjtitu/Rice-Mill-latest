@@ -1214,5 +1214,15 @@ module.exports = function(database) {
     res.json({ success: true, message: `${deleted} purani images delete hui`, deleted });
   }));
 
+  // Storage Engine API (Local server uses JSON - placeholder for frontend compatibility)
+  router.get('/api/settings/storage-engine', safeAsync(async (req, res) => {
+    res.json({ engine: 'json', sqlite_available: false });
+  }));
+
+  router.post('/api/settings/storage-engine', safeAsync(async (req, res) => {
+    res.json({ success: false, message: 'Local server uses JSON. SQLite sirf desktop app mein available hai.', restart_needed: false });
+  }));
+
+
   return router;
 };

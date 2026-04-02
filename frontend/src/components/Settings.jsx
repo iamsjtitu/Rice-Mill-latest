@@ -1323,6 +1323,11 @@ function DataTab({ user }) {
   const [backupStatus, setBackupStatus] = useState(null);
   const [backupLoading, setBackupLoading] = useState(false);
 
+  // Storage Engine state
+  const [storageEngine, setStorageEngine] = useState('json');
+  const [sqliteAvailable, setSqliteAvailable] = useState(false);
+  const [engineSwitching, setEngineSwitching] = useState(false);
+
   const fetchBackups = async () => {
     try {
       const res = await axios.get(`${API}/backups`);
@@ -1333,6 +1338,11 @@ function DataTab({ user }) {
 
   useEffect(() => {
     fetchBackups();
+    // Load storage engine status
+    axios.get(`${API}/settings/storage-engine`).then(r => {
+      setStorageEngine(r.data.engine || 'json');
+      setSqliteAvailable(r.data.sqlite_available || false);
+    }).catch(() => {});
   }, []);
 
   const handleCreateBackup = async () => {
@@ -1537,6 +1547,89 @@ function DataTab({ user }) {
           <div className="text-center text-slate-500 text-xs">
             <p>Auto Backup: Har din automatically hota hai | Max {backupStatus?.max_backups || 7} backups save hote hain | Location: data/backups/</p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Storage Engine Card */}
+      <Card className="bg-slate-800/50 border-slate-700">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-amber-400 text-base flex items-center gap-2">
+            <HardDrive className="w-4 h-4" />
+            Storage Engine
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <p className="text-slate-300 text-sm font-medium">
+                Current: <span className={storageEngine === 'sqlite' ? 'text-green-400 font-bold' : storageEngine === 'mongodb' ? 'text-blue-400 font-bold' : 'text-amber-400 font-bold'}>
+                  {storageEngine === 'sqlite' ? 'SQLite' : storageEngine === 'mongodb' ? 'MongoDB (Web)' : 'JSON File'}
+                </span>
+              </p>
+              <p className="text-slate-500 text-xs mt-1">
+                {storageEngine === 'sqlite' 
+                  ? 'SQLite mode - Faster saves, crash-safe, large data support'
+                  : storageEngine === 'mongodb'
+                  ? 'MongoDB - Web version, always MongoDB'
+                  : 'JSON mode - Simple file storage, Google Drive compatible'}
+              </p>
+            </div>
+            {storageEngine !== 'mongodb' && (
+              <div className="flex gap-2">
+                <Button
+                  onClick={async () => {
+                    if (storageEngine === 'json') return;
+                    if (!window.confirm('SQLite se JSON pe wapas switch karna hai?')) return;
+                    setEngineSwitching(true);
+                    try {
+                      const r = await axios.post(`${API}/settings/storage-engine`, { engine: 'json' });
+                      if (r.data.success) { setStorageEngine('json'); toast.success(r.data.message); }
+                      else toast.error(r.data.message);
+                    } catch (e) { toast.error(e.response?.data?.message || "Switch error"); }
+                    setEngineSwitching(false);
+                  }}
+                  disabled={storageEngine === 'json' || engineSwitching}
+                  size="sm"
+                  className={storageEngine === 'json' 
+                    ? 'bg-amber-600 text-white cursor-default' 
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}
+                  data-testid="engine-json-btn"
+                >
+                  JSON
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (storageEngine === 'sqlite') return;
+                    if (!sqliteAvailable) { toast.error("better-sqlite3 install nahi hai. Run: yarn add better-sqlite3"); return; }
+                    if (!window.confirm('JSON se SQLite pe switch karna hai? Data migrate ho jayega.')) return;
+                    setEngineSwitching(true);
+                    try {
+                      const r = await axios.post(`${API}/settings/storage-engine`, { engine: 'sqlite' });
+                      if (r.data.success) { setStorageEngine('sqlite'); toast.success(r.data.message); }
+                      else toast.error(r.data.message);
+                    } catch (e) { toast.error(e.response?.data?.message || "Switch error"); }
+                    setEngineSwitching(false);
+                  }}
+                  disabled={storageEngine === 'sqlite' || engineSwitching}
+                  size="sm"
+                  className={storageEngine === 'sqlite' 
+                    ? 'bg-green-600 text-white cursor-default' 
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}
+                  data-testid="engine-sqlite-btn"
+                >
+                  {engineSwitching ? 'Switching...' : 'SQLite'}
+                </Button>
+              </div>
+            )}
+          </div>
+          {!sqliteAvailable && storageEngine === 'json' && (
+            <p className="text-orange-400 text-xs bg-orange-900/20 p-2 rounded border border-orange-700/30">
+              SQLite use karne ke liye pehle install karein: <code className="bg-slate-700 px-1 rounded">yarn add better-sqlite3</code>
+            </p>
+          )}
+          <p className="text-slate-500 text-xs">
+            {storageEngine === 'mongodb' ? 'Web version hamesha MongoDB use karta hai.' : 'SQLite 1 Lakh+ entries ke liye recommended hai. Switch ke baad software restart zaroori hai.'}
+          </p>
         </CardContent>
       </Card>
     </div>
