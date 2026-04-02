@@ -7,16 +7,19 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 ```
 /app
 ├── backend/                  # Python FastAPI web backend (MongoDB)
+│   └── routes/quick_search.py  # NEW: Global search across 13 collections
 ├── desktop-app/              # Electron Express desktop app (SQLite - v77.0.0)
 │   ├── sqlite-database.js    # SQLite engine (better-sqlite3 + WAL mode)
 │   ├── main.js               # Entry point (SQLite default, JSON fallback)
-│   └── routes/               # Must mirror Python backend logic
+│   └── routes/quick_search.js # NEW: Quick search for desktop
 ├── local-server/             # Express local network server (SQLite - v77.0.0)
 │   ├── sqlite-database.js    # Same SQLite engine as desktop-app
 │   ├── server.js             # Updated with SQLite init + JSON fallback
-│   └── routes/               # Must mirror Python backend logic
+│   └── routes/quick_search.js # NEW: Quick search for local server
 ├── frontend/                 # React Frontend (shared by all backends)
-│   └── src/components/entries/ # Modularized App.js components
+│   └── src/components/
+│       ├── QuickSearch.jsx   # NEW: Global search modal (Ctrl+K)
+│       └── entries/          # Modularized App.js components
 └── .github/workflows/        # CI/CD for .exe builds
 ```
 
@@ -25,16 +28,20 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 ## What's Been Implemented
 - Full rice mill entry system with double-entry accounting
 - Triple backend support (Python/MongoDB, Electron/SQLite, Express/SQLite)
+- **Quick Search** (Ctrl+K) - searches across ALL 13 collections with grouped results, preview panel, and tab navigation
 - Camera integration (USB + VIGI NVR) with 1080p async capture
 - Auto-updater via GitHub releases
 - Backup/restore system compatible with both JSON and SQLite
-- Session heartbeat for multi-computer detection
 - Modularized App.js into 5 entry components
 
-## Key Technical Details
-- **SQLite Migration**: Both desktop-app and local-server now use `better-sqlite3` with WAL mode as default storage. Auto-migration from JSON is built-in. JsonDatabase kept as fallback.
-- **Triple Backend Parity**: Any logic change in Python routes MUST be replicated in both JS route folders.
-- **Camera Optimization**: Uses async `toBlob()` to prevent UI freezing during capture.
+## Key Features
+### Quick Search (NEW)
+- Header button + Ctrl+K shortcut
+- Searches: entries, cash book, private paddy, sale/purchase vouchers, DC, staff, milling, diesel, mill parts, hemali, rice sales, truck leases
+- Grouped results with category icons
+- Quick view preview panel
+- Click to navigate to relevant tab
+- Keyboard navigation (arrow keys, Enter, ESC)
 
 ## Credentials
 - Username: admin, Password: admin123
@@ -42,11 +49,12 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 
 ## Prioritized Backlog
 
-### P0 (Completed This Session)
+### P0 (Completed)
 - [x] Desktop App SQLite migration + runtime verification
 - [x] Local Server SQLite migration + runtime verification  
 - [x] Fix `dbEngine` scope bug in desktop main.js
-- [x] Fix `col()` function bug in hemali integrity check (main.js)
+- [x] Fix `col()` function bug in hemali integrity check
+- [x] Quick Search feature (all 3 backends + frontend)
 
 ### P1 (Next Up)
 - [ ] Export Preview feature (preview data before Excel/PDF export)
