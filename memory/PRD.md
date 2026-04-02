@@ -1,61 +1,59 @@
 # Mill Entry System - Product Requirements Document
 
 ## Original Problem Statement
-A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app. Requires highly accurate double-entry accounting ledgers, advanced reporting, and offline-first desktop capabilities with automated hardware integration for vehicle weight capture.
+A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app. Requires highly accurate double-entry accounting ledgers, advanced reporting, and offline-first desktop capabilities.
 
 ## Architecture
 ```
 /app
 ├── backend/                  # Python FastAPI web backend (MongoDB)
-│   └── routes/quick_search.py  # Global search across 13 collections
+│   └── routes/quick_search.py
 ├── desktop-app/              # Electron Express desktop app (SQLite)
 │   ├── sqlite-database.js    # SQLite engine (better-sqlite3 + WAL mode)
-│   ├── shared/               # Shared business logic modules
+│   ├── shared/               # SHARED business logic (source of truth)
 │   │   ├── party-helpers.js  # makePartyLabel, fmtDetail
-│   │   ├── paddy-calc.js     # calcPaddyAuto (weight/deduction calculations)
-│   │   ├── payment-service.js # All payment processing logic (centralized)
-│   │   └── report_helper.js  # Report column configs
-│   ├── main.js               # Entry point (SQLite default, JSON fallback)
-│   └── routes/               # Must mirror Python backend logic
+│   │   ├── paddy-calc.js     # calcPaddyAuto
+│   │   ├── payment-service.js # Private paddy/rice sale payments
+│   │   ├── cashbook-service.js # Party detection, cash txn side effects
+│   │   ├── hemali-service.js  # Hemali payment processing
+│   │   ├── staff-service.js   # Staff advance/salary processing
+│   │   └── report_helper.js   # Report column configs
+│   ├── main.js
+│   └── routes/               # Thin HTTP handlers → call shared services
 ├── local-server/             # Express local network server (SQLite)
-│   ├── sqlite-database.js    # Same SQLite engine as desktop-app
-│   ├── shared/               # IDENTICAL to desktop-app/shared/
-│   ├── server.js             # Updated with SQLite init + JSON fallback
-│   └── routes/               # IDENTICAL to desktop-app/routes/
-├── frontend/                 # React Frontend (shared by all backends)
+│   ├── sqlite-database.js    # Same as desktop-app
+│   ├── shared/               # IDENTICAL copy of desktop-app/shared/
+│   ├── server.js
+│   └── routes/               # IDENTICAL copy of desktop-app/routes/
+├── frontend/                 # React Frontend
 │   └── src/components/
-│       ├── QuickSearch.jsx   # Global search modal (Ctrl+K)
+│       ├── QuickSearch.jsx   # Ctrl+K global search
 │       └── entries/          # Modularized App.js components
-└── .github/workflows/        # CI/CD for .exe builds
+└── .github/workflows/
 ```
 
 ## Current Version: v78.0.0
 
-## What's Been Implemented
-- Full rice mill entry system with double-entry accounting
-- Triple backend support (Python/MongoDB, Electron/SQLite, Express/SQLite)
-- **Quick Search** (Ctrl+K) - searches across ALL 13 collections
-- **Shared Service Layer** - Payment logic centralized in shared/ modules
-- Camera integration (USB + VIGI NVR) with 1080p async capture
-- Auto-updater via GitHub releases
-- Backup/restore system compatible with both JSON and SQLite
+## Key Design Decisions
+- **Shared Service Layer**: All business logic centralized in `shared/` modules. Route files are thin HTTP handlers that delegate to shared functions. Both desktop-app and local-server have identical copies.
+- **SQLite Migration**: Both JS backends use better-sqlite3 with WAL mode. Auto-migration from JSON built-in.
+- **100% File Parity**: All 38+ route and shared files are identical between desktop-app and local-server.
 
 ## Credentials
 - Username: admin, Password: admin123
-- Username: staff, Password: staff123
 
 ## Prioritized Backlog
 
-### P0 (Completed)
-- [x] Desktop App SQLite migration + verification
-- [x] Local Server SQLite migration + verification
-- [x] Quick Search feature (all 3 backends + frontend)
-- [x] Shared Service Layer for payment processing
-- [x] Version bump to v78.0.0
+### Completed
+- [x] Desktop + Local Server SQLite migration
+- [x] Quick Search (Ctrl+K) - 13 collections
+- [x] Shared Service Layer - cashbook, hemali, staff, payment, paddy-calc, party-helpers
+- [x] 100% file parity between desktop-app and local-server
+- [x] Version v78.0.0
 
 ### P1 (Next Up)
 - [ ] Export Preview feature (preview data before Excel/PDF export)
 
 ### P2 (Future)
-- [ ] Extend shared service layer to more routes (cashbook, hemali, etc.)
-- [ ] Code deduplication between desktop-app and local-server routes
+- [ ] Integrate staff-service.js into staff.js route handlers
+- [ ] Python backend: mirror shared service logic for web version parity
