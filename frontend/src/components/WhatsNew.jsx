@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "82.0.0";
+const APP_VERSION = "83.0.0";
 
 const CHANGELOG = [
+  {
+    version: "83.0.0",
+    date: "Feb 2026",
+    title: "v83.0.0 - Multi-User Safety + Heartbeat",
+    items: [
+      { type: "feature", text: "Optimistic Locking: 2 log ek saath kaam karein toh data corrupt nahi hoga - conflict pe auto-refresh" },
+      { type: "feature", text: "Heartbeat Indicator: Header mein heart icon - doosra computer connect ho toh dhadkega, click pe list dikhegi" },
+      { type: "feature", text: "LAN Network Access: Same WiFi pe doosre computer ke browser se software khol sakte ho" },
+      { type: "feature", text: "Header Cleanup: Password/Logout admin dropdown mein, Print button hataya" },
+    ]
+  },
   {
     version: "82.0.0",
     date: "Feb 2026",
