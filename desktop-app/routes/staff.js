@@ -3,6 +3,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { fmtDate, fmtAmt, addPdfTable, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
+const { calculateAdvanceBalance, createStaffAdvanceCashEntries, deleteStaffAdvanceCashEntries, createStaffPaymentCashEntry, deleteStaffPaymentCashEntry } = require('../shared/staff-service');
 
 module.exports = function(database) {
 
@@ -101,28 +102,7 @@ router.post('/api/staff/advance', safeSync(async (req, res) => {
     created_at: new Date().toISOString()
   };
   col('staff_advances').push(adv);
-  const staffName = adv.staff_name || 'Staff';
-  const now = new Date().toISOString();
-  // Cash Book Nikasi entry (cash going out)
-  col('cash_transactions').push({
-    id: uuidv4(), date: adv.date, account: 'cash', txn_type: 'nikasi',
-    category: staffName, party_type: 'Staff',
-    description: `Staff Advance: ${staffName} - ${adv.description}`,
-    amount: adv.amount, reference: `staff_advance:${adv.id}`,
-    kms_year: adv.kms_year, season: adv.season,
-    created_by: d.created_by || '', linked_payment_id: adv.id,
-    created_at: now, updated_at: now
-  });
-  // Ledger Jama entry (staff owes us the advance)
-  col('cash_transactions').push({
-    id: uuidv4(), date: adv.date, account: 'ledger', txn_type: 'jama',
-    category: staffName, party_type: 'Staff',
-    description: `Staff Advance: ${staffName} - ${adv.description}`,
-    amount: adv.amount, reference: `staff_advance_ledger:${adv.id}`,
-    kms_year: adv.kms_year, season: adv.season,
-    created_by: d.created_by || '', linked_payment_id: adv.id,
-    created_at: now, updated_at: now
-  });
+  createStaffAdvanceCashEntries(database, adv, d.created_by || '');
   database.save(); res.json(adv);
 }));
 
@@ -138,45 +118,15 @@ router.delete('/api/staff/advance/:id', safeSync(async (req, res) => {
   const adv = list.find(a => a.id === req.params.id);
   if (!adv) return res.status(404).json({ detail: 'Not found' });
   database.data.staff_advances = list.filter(a => a.id !== req.params.id);
-  // Remove linked cash transaction + ledger entry
-  database.data.cash_transactions = col('cash_transactions').filter(t =>
-    t.linked_payment_id !== req.params.id &&
-    t.reference !== `staff_advance:${req.params.id}` &&
-    t.reference !== `staff_advance_ledger:${req.params.id}`
-  );
+  deleteStaffAdvanceCashEntries(database, req.params.id);
   database.save(); res.json({ message: 'Deleted', id: req.params.id });
 }));
 
 // ============ STAFF ADVANCE BALANCE ============
 router.get('/api/staff/advance-balance/:staffId', safeSync(async (req, res) => {
   const { kms_year, season } = req.query;
-  let advances = col('staff_advances').filter(a => a.staff_id === req.params.staffId);
-  if (kms_year) advances = advances.filter(a => a.kms_year === kms_year);
-  if (season) advances = advances.filter(a => a.season === season);
-  const totalAdvance = +(advances.reduce((s, a) => s + (a.amount || 0), 0).toFixed(2));
-
-  let payments = col('staff_payments').filter(p => p.staff_id === req.params.staffId);
-  if (kms_year) payments = payments.filter(p => p.kms_year === kms_year);
-  if (season) payments = payments.filter(p => p.season === season);
-  const totalDeducted = +(payments.reduce((s, p) => s + (p.advance_deducted || 0), 0).toFixed(2));
-
-  // Opening balance from previous FY
-  let openingBalance = 0;
-  if (kms_year) {
-    const fyParts = kms_year.split('-');
-    if (fyParts.length === 2) {
-      const prevFy = `${parseInt(fyParts[0])-1}-${parseInt(fyParts[1])-1}`;
-      let prevAdv = col('staff_advances').filter(a => a.staff_id === req.params.staffId && a.kms_year === prevFy);
-      if (season) prevAdv = prevAdv.filter(a => a.season === season);
-      const prevTotalAdv = prevAdv.reduce((s, a) => s + (a.amount || 0), 0);
-      let prevPay = col('staff_payments').filter(p => p.staff_id === req.params.staffId && p.kms_year === prevFy);
-      if (season) prevPay = prevPay.filter(p => p.season === season);
-      const prevTotalDed = prevPay.reduce((s, p) => s + (p.advance_deducted || 0), 0);
-      openingBalance = Math.round((prevTotalAdv - prevTotalDed) * 100) / 100;
-    }
-  }
-
-  res.json({ opening_balance: openingBalance, total_advance: totalAdvance, total_deducted: totalDeducted, balance: +(openingBalance + totalAdvance - totalDeducted).toFixed(2) });
+  const result = calculateAdvanceBalance(database, req.params.staffId, kms_year, season);
+  res.json(result);
 }));
 
 
@@ -213,32 +163,8 @@ router.get('/api/staff/salary-calculate', safeSync(async (req, res) => {
   if (staff.salary_type === 'monthly') perDay = staff.salary_amount / 30;
   const grossSalary = Math.round(daysWorked * perDay);
 
-  let advances = col('staff_advances').filter(a => a.staff_id === staff_id);
-  if (kms_year) advances = advances.filter(a => a.kms_year === kms_year);
-  if (season) advances = advances.filter(a => a.season === season);
-  const totalAdvances = advances.reduce((s, a) => s + (a.amount || 0), 0);
-
-  let payments = col('staff_payments').filter(p => p.staff_id === staff_id);
-  if (kms_year) payments = payments.filter(p => p.kms_year === kms_year);
-  if (season) payments = payments.filter(p => p.season === season);
-  const totalDeducted = payments.reduce((s, p) => s + (p.advance_deducted || 0), 0);
-
-  // Opening advance balance from previous FY
-  let advOpening = 0;
-  if (kms_year) {
-    const fyParts = kms_year.split('-');
-    if (fyParts.length === 2) {
-      const prevFy = `${parseInt(fyParts[0])-1}-${parseInt(fyParts[1])-1}`;
-      let prevAdv = col('staff_advances').filter(a => a.staff_id === staff_id && a.kms_year === prevFy);
-      if (season) prevAdv = prevAdv.filter(a => a.season === season);
-      const prevTotalAdv = prevAdv.reduce((s, a) => s + (a.amount || 0), 0);
-      let prevPay = col('staff_payments').filter(p => p.staff_id === staff_id && p.kms_year === prevFy);
-      if (season) prevPay = prevPay.filter(p => p.season === season);
-      const prevTotalDed = prevPay.reduce((s, p) => s + (p.advance_deducted || 0), 0);
-      advOpening = Math.round((prevTotalAdv - prevTotalDed) * 100) / 100;
-    }
-  }
-  const advanceBalance = Math.round((advOpening + totalAdvances - totalDeducted) * 100) / 100;
+  const advBalance = calculateAdvanceBalance(database, staff_id, kms_year, season);
+  const advanceBalance = advBalance.balance;
 
   res.json({
     staff: staff,
@@ -267,17 +193,7 @@ router.post('/api/staff/payments', safeSync(async (req, res) => {
     created_at: new Date().toISOString()
   };
   col('staff_payments').push(payment);
-  // Cash Book Nikasi entry
-  if (payment.net_payment > 0) {
-    col('cash_transactions').push({
-      id: uuidv4(), date: payment.date, account: 'cash', txn_type: 'nikasi',
-      category: 'Staff Salary',
-      description: `Salary: ${payment.staff_name} (${payment.from_date} to ${payment.to_date})`,
-      amount: payment.net_payment, reference: `staff_payment:${payment.id}`,
-      kms_year: payment.kms_year, season: payment.season,
-      created_by: d.created_by || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString()
-    });
-  }
+  createStaffPaymentCashEntry(database, payment, d.created_by || '');
   database.save(); res.json(payment);
 }));
 
@@ -293,7 +209,7 @@ router.delete('/api/staff/payments/:id', safeSync(async (req, res) => {
   const payment = list.find(p => p.id === req.params.id);
   if (!payment) return res.status(404).json({ detail: 'Not found' });
   database.data.staff_payments = list.filter(p => p.id !== req.params.id);
-  database.data.cash_transactions = col('cash_transactions').filter(t => t.reference !== `staff_payment:${req.params.id}`);
+  deleteStaffPaymentCashEntry(database, req.params.id);
   database.save(); res.json({ message: 'Deleted', id: req.params.id });
 }));
 

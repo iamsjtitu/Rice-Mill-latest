@@ -3,14 +3,14 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app. Requires highly accurate double-entry accounting ledgers, advanced reporting, and offline-first desktop capabilities.
 
+## Current Version: v79.0.0
+
 ## Architecture
 ```
 /app
 ├── backend/                  # Python FastAPI web backend (MongoDB)
-│   └── routes/quick_search.py
 ├── desktop-app/              # Electron Express desktop app (SQLite)
-│   ├── sqlite-database.js    # SQLite engine (better-sqlite3 + WAL mode)
-│   ├── shared/               # SHARED business logic (source of truth)
+│   ├── shared/               # SHARED business logic (7 modules)
 │   │   ├── party-helpers.js  # makePartyLabel, fmtDetail
 │   │   ├── paddy-calc.js     # calcPaddyAuto
 │   │   ├── payment-service.js # Private paddy/rice sale payments
@@ -18,42 +18,31 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 │   │   ├── hemali-service.js  # Hemali payment processing
 │   │   ├── staff-service.js   # Staff advance/salary processing
 │   │   └── report_helper.js   # Report column configs
-│   ├── main.js
 │   └── routes/               # Thin HTTP handlers → call shared services
-├── local-server/             # Express local network server (SQLite)
-│   ├── sqlite-database.js    # Same as desktop-app
-│   ├── shared/               # IDENTICAL copy of desktop-app/shared/
-│   ├── server.js
-│   └── routes/               # IDENTICAL copy of desktop-app/routes/
-├── frontend/                 # React Frontend
-│   └── src/components/
-│       ├── QuickSearch.jsx   # Ctrl+K global search
-│       └── entries/          # Modularized App.js components
-└── .github/workflows/
+├── local-server/             # Express (SQLite) - 100% identical to desktop-app
+└── frontend/                 # React Frontend
 ```
 
-## Current Version: v78.0.0
-
-## Key Design Decisions
-- **Shared Service Layer**: All business logic centralized in `shared/` modules. Route files are thin HTTP handlers that delegate to shared functions. Both desktop-app and local-server have identical copies.
-- **SQLite Migration**: Both JS backends use better-sqlite3 with WAL mode. Auto-migration from JSON built-in.
-- **100% File Parity**: All 38+ route and shared files are identical between desktop-app and local-server.
+## Shared Service Layer (Complete)
+All business logic centralized in 7 shared modules:
+- `party-helpers.js` - Party label dedup
+- `paddy-calc.js` - Paddy weight/amount calculations
+- `payment-service.js` - Private paddy/rice sale payments
+- `cashbook-service.js` - Party detection, cash transaction side effects
+- `hemali-service.js` - Hemali advance/payment processing
+- `staff-service.js` - Staff advance/salary cash entries
+- `report_helper.js` - Report configs
 
 ## Credentials
 - Username: admin, Password: admin123
 
-## Prioritized Backlog
-
+## Backlog
 ### Completed
-- [x] Desktop + Local Server SQLite migration
-- [x] Quick Search (Ctrl+K) - 13 collections
-- [x] Shared Service Layer - cashbook, hemali, staff, payment, paddy-calc, party-helpers
-- [x] 100% file parity between desktop-app and local-server
-- [x] Version v78.0.0
+- [x] SQLite migration (desktop + local-server) 
+- [x] Quick Search (Ctrl+K)
+- [x] Shared Service Layer (7 modules, 100% parity)
+- [x] Staff service integration into staff.js
+- [x] Version v79.0.0
 
-### P1 (Next Up)
-- [ ] Export Preview feature (preview data before Excel/PDF export)
-
-### P2 (Future)
-- [ ] Integrate staff-service.js into staff.js route handlers
-- [ ] Python backend: mirror shared service logic for web version parity
+### P2 (Future/Optional)
+- [ ] Python backend: mirror shared service logic for web parity

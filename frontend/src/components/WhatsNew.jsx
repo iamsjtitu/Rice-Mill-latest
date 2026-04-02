@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "78.0.0";
+const APP_VERSION = "79.0.0";
 
 const CHANGELOG = [
+  {
+    version: "79.0.0",
+    date: "Feb 2026",
+    title: "v79.0.0 - Staff Service Shared Layer",
+    items: [
+      { type: "feature", text: "Staff advance/salary logic ab shared service layer mein - code drift risk zero" },
+      { type: "feature", text: "calculateAdvanceBalance, createStaffAdvanceCashEntries, createStaffPaymentCashEntry sab centralized" },
+    ]
+  },
   {
     version: "78.0.0",
     date: "Feb 2026",
