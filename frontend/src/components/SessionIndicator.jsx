@@ -11,7 +11,6 @@ export default function SessionIndicator({ onDataRefresh }) {
   const [lanInfo, setLanInfo] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Google Drive session status
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch(`${API}/session-status`);
@@ -19,7 +18,6 @@ export default function SessionIndicator({ onDataRefresh }) {
     } catch { /* ignore */ }
   }, []);
 
-  // LAN clients (desktop/Electron only)
   const fetchLan = useCallback(async () => {
     if (!_isElectron) return;
     try {
@@ -45,7 +43,6 @@ export default function SessionIndicator({ onDataRefresh }) {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  // Build connected list
   const activeOthers = status ? (status.others || []).filter(o => o.active) : [];
   const selfName = status?.self?.computer_name || "This PC";
   const lanClients = lanInfo?.lan_clients || [];
@@ -56,81 +53,81 @@ export default function SessionIndicator({ onDataRefresh }) {
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className="relative flex items-center justify-center w-8 h-8 rounded-full hover:bg-slate-700/60 transition-colors cursor-pointer"
+          className="relative flex items-center justify-center w-7 h-7 rounded-full hover:bg-black/5 dark:hover:bg-slate-700/60 transition-colors cursor-pointer"
           data-testid="session-indicator"
           title={hasOthers ? `${totalCount} computers connected` : "Sirf aap"}
         >
           <Heart
-            className={`w-5 h-5 transition-colors ${
+            className={`w-4 h-4 transition-colors ${
               hasOthers
-                ? "text-red-400 fill-red-400/30"
-                : "text-slate-400"
+                ? "text-red-500 fill-red-500/40 dark:text-red-400 dark:fill-red-400/30"
+                : "text-gray-400 dark:text-slate-500"
             }`}
             style={hasOthers ? { animation: 'heartbeat 1s ease-in-out infinite' } : {}}
           />
           {hasOthers && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white">
+            <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-[7px] font-bold text-white leading-none">
               {totalCount}
             </span>
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 bg-slate-800 border-slate-600 p-3" align="end">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Connected Computers</span>
+      <PopoverContent className="w-56 bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 p-2.5 shadow-lg" align="end">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-0.5">
+            <span className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Connected</span>
             <button
               onClick={handleRefresh}
-              className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+              className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer"
               data-testid="session-refresh-btn"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
             </button>
           </div>
 
-          {/* Self - always shown */}
-          <div className="flex items-center gap-2 px-2 py-1.5 rounded bg-amber-900/20 border border-amber-700/30">
-            <Monitor className="w-4 h-4 text-amber-400 shrink-0" />
+          {/* Self */}
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30">
+            <Monitor className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-amber-300 font-medium truncate">{selfName}</p>
-              <p className="text-[10px] text-amber-400/60">Ye computer (Host)</p>
+              <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium truncate">{selfName}</p>
+              <p className="text-[9px] text-amber-500/70 dark:text-amber-400/60 leading-tight">Ye computer</p>
             </div>
-            <div className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
           </div>
 
-          {/* Active Google Drive sessions */}
+          {/* Google Drive sessions */}
           {activeOthers.map((other, i) => (
-            <div key={`gd-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded bg-green-900/20 border border-green-700/30">
-              <Monitor className="w-4 h-4 text-green-400 shrink-0" />
+            <div key={`gd-${i}`} className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/30">
+              <Monitor className="w-3 h-3 text-green-600 dark:text-green-400 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-green-300 font-medium truncate">{other.computer_name}</p>
-                <p className="text-[10px] text-green-400/60">
-                  {other.minutes_ago < 1 ? "Abhi active" : `${Math.round(other.minutes_ago)} min pehle`}
+                <p className="text-[11px] text-green-700 dark:text-green-300 font-medium truncate">{other.computer_name}</p>
+                <p className="text-[9px] text-green-500/70 dark:text-green-400/60 leading-tight">
+                  {other.minutes_ago < 1 ? "Abhi" : `${Math.round(other.minutes_ago)} min`}
                 </p>
               </div>
-              <Wifi className="w-3.5 h-3.5 text-green-400 shrink-0 animate-pulse" />
+              <Wifi className="w-3 h-3 text-green-500 dark:text-green-400 shrink-0 animate-pulse" />
             </div>
           ))}
 
           {/* LAN clients */}
           {lanClients.map((client, i) => (
-            <div key={`lan-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded bg-cyan-900/20 border border-cyan-700/30">
-              <Monitor className="w-4 h-4 text-cyan-400 shrink-0" />
+            <div key={`lan-${i}`} className="flex items-center gap-1.5 px-2 py-1 rounded bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-700/30">
+              <Monitor className="w-3 h-3 text-cyan-600 dark:text-cyan-400 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-cyan-300 font-medium truncate">{client.ip}</p>
-                <p className="text-[10px] text-cyan-400/60">LAN Browser</p>
+                <p className="text-[11px] text-cyan-700 dark:text-cyan-300 font-medium truncate">{client.ip}</p>
+                <p className="text-[9px] text-cyan-500/70 dark:text-cyan-400/60 leading-tight">LAN Browser</p>
               </div>
-              <Wifi className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <Wifi className="w-3 h-3 text-cyan-500 dark:text-cyan-400 shrink-0" />
             </div>
           ))}
 
-          {/* Summary */}
+          {/* Footer */}
           {!hasOthers && (
-            <p className="text-[11px] text-slate-500 text-center">Koi aur computer connected nahi hai</p>
+            <p className="text-[9px] text-gray-400 dark:text-slate-500 text-center py-0.5">Koi aur connected nahi</p>
           )}
           {hasOthers && (
-            <p className="text-[10px] text-amber-400/70 text-center">
-              Dhyan se - ek hi record dono jagah mat edit karo
+            <p className="text-[9px] text-amber-500 dark:text-amber-400/70 text-center py-0.5">
+              Ek hi record dono jagah mat edit karo
             </p>
           )}
         </div>
