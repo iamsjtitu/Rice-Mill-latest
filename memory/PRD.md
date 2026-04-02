@@ -10,77 +10,46 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **Frontend**: React (shared across all backends)
 - **Triple Backend Rule**: Any logic change MUST be replicated in all 3 backends
 
-## Current Version: v74.0.0
+## Current Version: v76.0.0
 
 ## What's Been Implemented
 
 ### Core Features (Complete)
-- Mill Entry CRUD with auto-calculations (KG→QNTL, GBW cut, P.Pkt cut, Cutting, Moisture cut, Final W)
+- Mill Entry CRUD with auto-calculations
 - Dashboard with targets & analytics
-- Milling (CMR) Tracker
-- DC Tracker with payments
-- Cash Book with double-entry accounting & party ledgers
-- Vouchers system
-- Payment management with round-off
-- Private Paddy Purchase (PaddyPurchase.jsx)
-- Paddy Purchase Register
-- Reports with Excel/PDF export
-- Staff Management
-- Mill Parts Stock tracking
-- Hemali Payment module
-- FY Summary with Balance Sheet
-- Vehicle Weight (Weighbridge + IP Camera integration)
-- Auto Weight Entries
-- Excel Import
-- WhatsApp/Telegram messaging integration
-- Session heartbeat indicator (Google Drive sync protection)
-- Keyboard shortcuts (Ctrl+N, Ctrl+S, Ctrl+F, etc.)
-- Theme toggle (dark/light)
-- Branding customization
-- Backup/Restore system
-- Auto-updater for desktop app
+- Milling (CMR) Tracker, DC Tracker, Cash Book, Vouchers, Payments
+- Private Paddy Purchase, Reports, Staff, Mill Parts, Hemali, FY Summary
+- Vehicle Weight (Weighbridge + IP Camera), Auto Weight Entries
+- Excel Import/Export, WhatsApp/Telegram messaging
+- Session heartbeat, Keyboard shortcuts, Theme toggle, Backup/Restore
 
-### App.js Refactoring (Feb 2026) - COMPLETE
-App.js reduced from **2504 → 1429 lines** (43% reduction, 1075 lines extracted)
+### v76.0.0 - Camera Quality + Performance (Feb 2026)
+- USB Camera: 640x480 → 1920x1080 (ideal), frameRate limited to 15-30fps
+- Snapshot: toDataURL (sync/freeze) → toBlob (async/smooth)
+- JPEG quality: 70% → 85% (quality + size balance)
+- Canvas memory: auto-cleanup after capture (1x1 reset)
+- MJPEG img tags: decoding="async" for off-thread decode
+- RTSP stream: q:v 5 → q:v 3 (better quality, controlled data)
 
-Extracted components in `/app/frontend/src/components/entries/`:
-| Component | Lines | Description |
-|-----------|-------|-------------|
-| MillEntryForm.jsx | 439 | Entry form dialog with 26 fields + auto-calculations |
-| EntryTable.jsx | 269 | Total Summary card (6 metrics) + Mill Entries table (23 columns) |
-| TabNavigation.jsx | 56 | 12 main tabs + Settings (admin only) |
-| FilterPanel.jsx | 141 | 9 filter inputs + Clear All |
-| HeaderDialogs.jsx | 169 | ShortcutsDialog, BackupReminderDialog, PasswordChangeDialog |
-
-Previously extracted utilities in `/app/frontend/src/utils/`:
-- `print.js` - Print utility
-- `constants.js` - FY_YEARS, SEASONS, initialFormState
-- `date.js` - fmtDate (DD-MM-YYYY formatting)
+### v75.0.0 - App.js Refactoring (Feb 2026)
+- App.js: 2504 → 1429 lines (43% reduction)
+- Extracted: MillEntryForm, EntryTable, TabNavigation, FilterPanel, HeaderDialogs
+- Utilities: print.js, constants.js, date.js
 
 ## Prioritized Backlog
-
-### P0 (Critical)
-- None currently
 
 ### P1 (High)
 - "Export Preview" feature (preview data before Excel/PDF export)
 
 ### P2 (Medium)
-- Centralize payment/stock logic across triple-backend system
+- Centralize payment/stock logic across triple-backend
 
 ### P3 (Low/Future)
-- SQLite migration for desktop app (when data exceeds 1 Lakh+ entries)
-
-## Key Technical Notes
-- User communicates in Hindi/Hinglish
-- User is sensitive to UI layout changes - ensure visual parity during refactoring
-- GitHub Actions workflow (.github/workflows/build-desktop.yml) handles .exe builds
-- All 3 backends must stay in sync for any logic changes
+- SQLite migration for desktop app (1 Lakh+ entries)
 
 ## Test Reports
-- `/app/test_reports/iteration_156.json` - Previous session tests
-- `/app/test_reports/iteration_157.json` - Phase 1 refactoring (MillEntryForm + EntryTable)
-- `/app/test_reports/iteration_158.json` - Phase 2 refactoring (TabNavigation + FilterPanel + HeaderDialogs)
+- `/app/test_reports/iteration_157.json` - Refactoring Phase 1
+- `/app/test_reports/iteration_158.json` - Refactoring Phase 2
 
 ## Credentials
 - Username: admin

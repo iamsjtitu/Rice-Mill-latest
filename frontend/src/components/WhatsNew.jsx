@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "75.0.0";
+const APP_VERSION = "76.0.0";
 
 const CHANGELOG = [
+  {
+    version: "76.0.0",
+    date: "Feb 2026",
+    title: "v76.0.0 - Camera Quality + Performance",
+    items: [
+      { type: "feature", text: "Camera photo quality improved - 1080p Full HD capture (pehle 480p tha)" },
+      { type: "feature", text: "Snapshot capture async - software freeze nahi hoga photo lete waqt" },
+      { type: "fix", text: "Canvas memory auto-cleanup - RAM free hota hai capture ke baad" },
+      { type: "fix", text: "MJPEG async decoding - live feed smooth rahega" },
+    ]
+  },
   {
     version: "75.0.0",
     date: "Feb 2026",
