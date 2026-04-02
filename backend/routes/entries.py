@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
+from utils.optimistic_lock import optimistic_update, stamp_version
 import uuid, io, csv
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -25,14 +26,14 @@ async def root():
     return {"message": "Mill Entry API - Navkar Agro"}
 
 
-@router.post("/entries", response_model=MillEntry)
+@router.post("/entries")
 async def create_entry(input: MillEntryCreate, username: str = "", role: str = ""):
     entry_dict = input.model_dump()
     entry_dict = calculate_auto_fields(entry_dict)
     entry_dict['created_by'] = username
     
     entry_obj = MillEntry(**entry_dict)
-    doc = entry_obj.model_dump()
+    doc = stamp_version(entry_obj.model_dump())
     
     await db.mill_entries.insert_one(doc)
     
@@ -143,7 +144,9 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
     # Auto Gunny Bag entries for g_issued and g_deposite
     await _create_gunny_entries_for_mill(doc, username)
     
-    return entry_obj
+    # Return doc (which has _v) instead of entry_obj
+    doc.pop("_id", None)
+    return doc
 
 
 async def _create_gunny_entries_for_mill(doc, username=""):
@@ -473,7 +476,7 @@ async def get_entries(
     return {"entries": entries, "total": total_count, "page": page, "page_size": page_size, "total_pages": max(1, (total_count + page_size - 1) // page_size)}
 
 
-@router.get("/entries/{entry_id}", response_model=MillEntry)
+@router.get("/entries/{entry_id}")
 async def get_entry(entry_id: str):
     entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     if not entry:
@@ -481,8 +484,11 @@ async def get_entry(entry_id: str):
     return entry
 
 
-@router.put("/entries/{entry_id}", response_model=MillEntry)
-async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = "", role: str = ""):
+@router.put("/entries/{entry_id}")
+async def update_entry(entry_id: str, request: Request, username: str = "", role: str = ""):
+    raw_body = await request.json()
+    client_v = raw_body.pop("_v", None)
+
     existing = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     if not existing:
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -492,17 +498,15 @@ async def update_entry(entry_id: str, input: MillEntryUpdate, username: str = ""
     if not can_edit:
         raise HTTPException(status_code=403, detail=message)
     
-    update_data = {k: v for k, v in input.model_dump().items() if v is not None}
+    update_data = {k: v for k, v in raw_body.items() if v is not None}
     
     # Merge existing data with updates
     merged_data = {**existing, **update_data}
     merged_data = calculate_auto_fields(merged_data)
     merged_data['updated_at'] = datetime.now(timezone.utc).isoformat()
+    merged_data.pop("_id", None)
     
-    await db.mill_entries.update_one(
-        {"id": entry_id},
-        {"$set": merged_data}
-    )
+    await optimistic_update(db.mill_entries, entry_id, merged_data, client_v)
     
     # Update auto cash book entries for this entry (delete all and recreate)
     await db.cash_transactions.delete_many({"linked_entry_id": entry_id})

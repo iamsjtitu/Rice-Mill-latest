@@ -224,6 +224,7 @@ const CashBook = ({ filters, user }) => {
       category: t.category || "", party_type: t.party_type || "", description: t.description || "",
       amount: String(t.amount || ""), reference: t.reference || "", bank_name: t.bank_name || "",
       kms_year: t.kms_year || CURRENT_KMS_YEAR, season: t.season || "Kharif",
+      _v: t._v,
     });
     setIsDialogOpen(true);
   };

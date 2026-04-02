@@ -23,6 +23,7 @@ module.exports = function(database) {
 
   router.put('/api/entries/:id', safeSync(async (req, res) => {
     const entry = database.updateEntry(req.params.id, req.body);
+    if (entry && entry._conflict) return res.status(409).json({ detail: entry.message });
     if (entry) res.json(entry);
     else res.status(404).json({ detail: 'Entry not found' });
   }));

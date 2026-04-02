@@ -15,7 +15,7 @@ module.exports = function(database) {
   // ===== PRIVATE PADDY =====
   router.post('/api/private-paddy', safeSync(async (req, res) => {
     if (!database.data.private_paddy) database.data.private_paddy = [];
-    const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const d = { id: require('crypto').randomUUID(), ...req.body, _v: 1, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     ['kg','bag','rate_per_qntl','g_deposite','plastic_bag','moisture','cutting_percent','disc_dust_poll','paid_amount'].forEach(f => { d[f] = parseFloat(d[f]) || 0; });
     d.bag = parseInt(d.bag) || 0; d.plastic_bag = parseInt(d.plastic_bag) || 0;
     calcPaddyAuto(d);
@@ -41,7 +41,15 @@ module.exports = function(database) {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
-    const merged = { ...database.data.private_paddy[idx], ...req.body, updated_at: new Date().toISOString() };
+    const current = database.data.private_paddy[idx];
+    const body = req.body;
+    const clientV = body._v; delete body._v;
+    if (clientV !== undefined && clientV !== null && current._v !== undefined) {
+      if (parseInt(clientV) !== current._v) {
+        return res.status(409).json({ detail: 'Ye record kisi aur ne update kar diya hai. Data refresh ho raha hai.' });
+      }
+    }
+    const merged = { ...current, ...body, _v: (current._v || 0) + 1, updated_at: new Date().toISOString() };
     ['kg','bag','rate_per_qntl','g_deposite','plastic_bag','moisture','cutting_percent','disc_dust_poll','paid_amount'].forEach(f => { merged[f] = parseFloat(merged[f]) || 0; });
     merged.bag = parseInt(merged.bag) || 0; merged.plastic_bag = parseInt(merged.plastic_bag) || 0;
     calcPaddyAuto(merged);
@@ -65,7 +73,7 @@ module.exports = function(database) {
   // ===== RICE SALES =====
   router.post('/api/rice-sales', safeSync(async (req, res) => {
     if (!database.data.rice_sales) database.data.rice_sales = [];
-    const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const d = { id: require('crypto').randomUUID(), ...req.body, _v: 1, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     d.quantity_qntl = parseFloat(d.quantity_qntl) || 0; d.rate_per_qntl = parseFloat(d.rate_per_qntl) || 0;
     d.bags = parseInt(d.bags) || 0; d.paid_amount = parseFloat(d.paid_amount) || 0;
     d.total_amount = Math.round(d.quantity_qntl * d.rate_per_qntl * 100) / 100;
@@ -91,7 +99,15 @@ module.exports = function(database) {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
-    const merged = { ...database.data.rice_sales[idx], ...req.body, updated_at: new Date().toISOString() };
+    const current = database.data.rice_sales[idx];
+    const body = req.body;
+    const clientV = body._v; delete body._v;
+    if (clientV !== undefined && clientV !== null && current._v !== undefined) {
+      if (parseInt(clientV) !== current._v) {
+        return res.status(409).json({ detail: 'Ye record kisi aur ne update kar diya hai. Data refresh ho raha hai.' });
+      }
+    }
+    const merged = { ...current, ...body, _v: (current._v || 0) + 1, updated_at: new Date().toISOString() };
     merged.quantity_qntl = parseFloat(merged.quantity_qntl) || 0; merged.rate_per_qntl = parseFloat(merged.rate_per_qntl) || 0;
     merged.bags = parseInt(merged.bags) || 0; merged.paid_amount = parseFloat(merged.paid_amount) || 0;
     merged.total_amount = Math.round(merged.quantity_qntl * merged.rate_per_qntl * 100) / 100;

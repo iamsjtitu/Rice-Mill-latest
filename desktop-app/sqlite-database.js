@@ -291,7 +291,7 @@ class SqliteDatabase {
   addEntry(entry) {
     const newEntry = {
       id: uuidv4(), ...entry, ...this.calculateFields(entry),
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+      _v: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString()
     };
     this.data.entries.push(newEntry);
     if (!this.data.cash_transactions) this.data.cash_transactions = [];
@@ -416,8 +416,18 @@ class SqliteDatabase {
   updateEntry(id, entry) {
     const index = this.data.entries.findIndex(e => e.id === id);
     if (index !== -1) {
+      const current = this.data.entries[index];
+      // Optimistic locking: check _v if provided
+      if (entry._v !== undefined && entry._v !== null && current._v !== undefined) {
+        if (parseInt(entry._v) !== current._v) {
+          return { _conflict: true, message: 'Ye record kisi aur ne update kar diya hai. Data refresh ho raha hai.' };
+        }
+      }
+      const clientV = entry._v;
+      delete entry._v;
       this.data.entries[index] = {
-        ...this.data.entries[index], ...entry, ...this.calculateFields(entry),
+        ...current, ...entry, ...this.calculateFields(entry),
+        _v: (current._v || 0) + 1,
         updated_at: new Date().toISOString()
       };
       const updated = this.data.entries[index];

@@ -75,6 +75,19 @@ const _isElectron = typeof window !== 'undefined' && (window.electronAPI || wind
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
 
+// Global 409 Conflict handler (Optimistic Locking)
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 409) {
+      toast.error(error.response?.data?.detail || "Ye record kisi aur ne update kar diya hai. Data refresh ho raha hai.", { duration: 4000 });
+      // Dispatch a custom event so components can auto-refresh their data
+      window.dispatchEvent(new CustomEvent('data-conflict-refresh'));
+    }
+    return Promise.reject(error);
+  }
+);
+
 import { safePrintHTML } from './utils/print';
 import { FY_YEARS, CURRENT_FY, SEASONS, initialFormState } from './utils/constants';
 
@@ -177,6 +190,16 @@ function MainApp({ user, onLogout }) {
     fetchLan();
     const interval = setInterval(fetchLan, 15000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Listen for data conflict refresh events (optimistic locking)
+  useEffect(() => {
+    const handleConflictRefresh = () => {
+      fetchEntries();
+      fetchTotals();
+    };
+    window.addEventListener('data-conflict-refresh', handleConflictRefresh);
+    return () => window.removeEventListener('data-conflict-refresh', handleConflictRefresh);
   }, []);
 
   // Suggestions state
@@ -853,7 +876,7 @@ function MainApp({ user, onLogout }) {
       const params = `?username=${user.username}&role=${user.role}`;
 
       if (editingId) {
-        await axios.put(`${API}/entries/${editingId}${params}`, dataToSend);
+        await axios.put(`${API}/entries/${editingId}${params}`, { ...dataToSend, _v: formData._v });
         toast.success("Entry update ho gayi!");
       } else {
         await axios.post(`${API}/entries${params}`, dataToSend);
@@ -905,6 +928,7 @@ function MainApp({ user, onLogout }) {
       cash_paid: entry.cash_paid?.toString() || "",
       diesel_paid: entry.diesel_paid?.toString() || "",
       remark: entry.remark || "",
+      _v: entry._v,
     });
     setEditingId(entry.id);
     setIsDialogOpen(true);

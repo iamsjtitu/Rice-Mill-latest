@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
+from utils.optimistic_lock import optimistic_update, stamp_version
 import uuid
 import io
 import csv
@@ -125,7 +126,7 @@ async def add_cash_transaction(txn: CashTransaction, username: str = "", role: s
                 {"$set": {"party_type": txn_dict['party_type']}}
             )
     
-    await db.cash_transactions.insert_one(txn_dict)
+    await db.cash_transactions.insert_one(stamp_version(txn_dict))
     txn_dict.pop('_id', None)
     
     # Auto-create corresponding ledger entry if this is a cash/bank transaction
@@ -600,17 +601,16 @@ async def delete_cash_transaction(txn_id: str):
 @router.put("/cash-book/{txn_id}")
 async def update_cash_transaction(txn_id: str, request: Request, username: str = "", role: str = ""):
     body = await request.json()
+    client_v = body.pop("_v", None)
     body.pop("_id", None)
     body.pop("id", None)
     body["updated_at"] = datetime.now(timezone.utc).isoformat()
     body["updated_by"] = username or body.get("updated_by", "")
     if "amount" in body:
         body["amount"] = round(float(body["amount"]), 2)
-    result = await db.cash_transactions.update_one({"id": txn_id}, {"$set": body})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Transaction not found")
+    await optimistic_update(db.cash_transactions, txn_id, body, client_v)
     # Update auto-created ledger entry too
-    ledger_body = {k: v for k, v in body.items() if k not in ('account', 'reference')}
+    ledger_body = {k: v for k, v in body.items() if k not in ('account', 'reference', '_v')}
     # Keep same txn_type for auto-ledger (no reversal - party's khata matches direction)
     await db.cash_transactions.update_many({"reference": f"auto_ledger:{txn_id[:8]}"}, {"$set": ledger_body})
     updated = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})

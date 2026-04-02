@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
+from utils.optimistic_lock import optimistic_update, stamp_version
 import uuid
 import io
 import csv
@@ -75,7 +76,7 @@ async def create_private_paddy(data: dict, username: str = "", role: str = ""):
     doc["total_amount"] = round(doc["final_qntl"] * doc["rate_per_qntl"], 2)
     doc["paid_amount"] = float(data.get("paid_amount", 0))
     doc["balance"] = round(doc["total_amount"] - doc["paid_amount"], 2)
-    await db.private_paddy.insert_one(doc)
+    await db.private_paddy.insert_one(stamp_version(doc))
     doc.pop("_id", None)
     # Auto gunny bag entries
     await _create_gunny_entries_for_pvt_paddy(doc, username)
@@ -277,7 +278,9 @@ async def get_private_paddy(kms_year: Optional[str] = None, season: Optional[str
     return items
 
 @router.put("/private-paddy/{item_id}")
-async def update_private_paddy(item_id: str, data: dict, username: str = ""):
+async def update_private_paddy(item_id: str, request: Request, username: str = ""):
+    data = await request.json()
+    client_v = data.pop("_v", None)
     existing = await db.private_paddy.find_one({"id": item_id})
     if not existing: raise HTTPException(status_code=404, detail="Not found")
     update_data = {k: v for k, v in data.items() if v is not None}
@@ -300,7 +303,7 @@ async def update_private_paddy(item_id: str, data: dict, username: str = ""):
     merged["balance"] = round(merged["total_amount"] - merged.get("paid_amount", 0), 2)
     merged["updated_at"] = datetime.now(timezone.utc).isoformat()
     merged.pop("_id", None)
-    await db.private_paddy.update_one({"id": item_id}, {"$set": merged})
+    await optimistic_update(db.private_paddy, item_id, merged, client_v)
     # Re-create gunny bag entries
     await db.gunny_bags.delete_many({"linked_entry_id": item_id})
     await _create_gunny_entries_for_pvt_paddy(merged, username)
@@ -464,7 +467,9 @@ async def get_rice_sales(kms_year: Optional[str] = None, season: Optional[str] =
     return items
 
 @router.put("/rice-sales/{item_id}")
-async def update_rice_sale(item_id: str, data: dict):
+async def update_rice_sale(item_id: str, request: Request):
+    data = await request.json()
+    client_v = data.pop("_v", None)
     existing = await db.rice_sales.find_one({"id": item_id})
     if not existing: raise HTTPException(status_code=404, detail="Not found")
     update_data = {k: v for k, v in data.items() if v is not None}
@@ -476,7 +481,7 @@ async def update_rice_sale(item_id: str, data: dict):
     merged["balance"] = round(merged["total_amount"] - merged.get("paid_amount", 0), 2)
     merged["updated_at"] = datetime.now(timezone.utc).isoformat()
     merged.pop("_id", None)
-    await db.rice_sales.update_one({"id": item_id}, {"$set": merged})
+    await optimistic_update(db.rice_sales, item_id, merged, client_v)
     # Re-create cash/diesel entries
     await db.cash_transactions.delete_many({"linked_entry_id": item_id, "reference": {"$regex": "^rice_sale_"}})
     await db.diesel_accounts.delete_many({"linked_entry_id": item_id})

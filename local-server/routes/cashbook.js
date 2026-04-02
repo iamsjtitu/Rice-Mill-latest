@@ -31,7 +31,7 @@ module.exports = function(database) {
     const txn = { id: uuidv4(), date: d.date, account: d.account || 'cash', txn_type: d.txn_type || 'jama',
       category: category, party_type: partyType, description: d.description || '', amount: +(d.amount || 0),
       reference: d.reference || '', bank_name: d.bank_name || '', kms_year: d.kms_year || '', season: d.season || '',
-      created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+      _v: 1, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     database.data.cash_transactions.push(txn);
     
     const roundOff = parseFloat(req.query.round_off) || 0;
@@ -100,8 +100,18 @@ module.exports = function(database) {
     if (!database.data.cash_transactions) return res.status(404).json({ detail: 'Not found' });
     const idx = database.data.cash_transactions.findIndex(t => t.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
-    const body = req.body; delete body._id; delete body.id;
+    const current = database.data.cash_transactions[idx];
+    const body = req.body;
+    // Optimistic locking check
+    const clientV = body._v;
+    delete body._v; delete body._id; delete body.id;
+    if (clientV !== undefined && clientV !== null && current._v !== undefined) {
+      if (parseInt(clientV) !== current._v) {
+        return res.status(409).json({ detail: 'Ye record kisi aur ne update kar diya hai. Data refresh ho raha hai.' });
+      }
+    }
     body.updated_at = new Date().toISOString();
+    body._v = (current._v || 0) + 1;
     if (body.amount) body.amount = Math.round(parseFloat(body.amount) * 100) / 100;
     Object.assign(database.data.cash_transactions[idx], body);
     // Update auto-created ledger entry too (keep same txn_type, no reversal)

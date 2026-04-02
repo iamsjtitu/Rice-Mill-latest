@@ -148,6 +148,7 @@ export const PaddyPurchase = ({ filters, user }) => {
       disc_dust_poll: item.disc_dust_poll || "",
       g_issued: item.g_issued || "", cash_paid: item.cash_paid || "", diesel_paid: item.diesel_paid || "",
       paid_amount: item.paid_amount || "0", remark: item.remark || "",
+      _v: item._v,
     });
     setEditId(item.id);
     setDialogOpen(true);
