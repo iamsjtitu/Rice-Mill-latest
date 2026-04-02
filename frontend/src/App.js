@@ -7,19 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -39,9 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { 
-  Trash2, Edit, Plus, Calculator, RefreshCw, Filter, X, 
+  RefreshCw, Filter, X, 
   FileSpreadsheet, FileText, LogOut, User, Lock, Key, Target, 
   BarChart3, TrendingUp, Calendar, Truck, Users, IndianRupee, 
   CheckCircle, Clock, AlertCircle, Undo2, History, Keyboard, 
@@ -51,7 +41,6 @@ import {
 
 // Import extracted components
 import LoginPage from "@/components/LoginPage";
-import AutoSuggest from "@/components/common/AutoSuggest";
 import Dashboard from "@/components/Dashboard";
 import Payments from "@/components/Payments";
 import MillingTracker from "@/components/MillingTracker";
@@ -76,15 +65,14 @@ import { useMessagingEnabled } from "./hooks/useMessagingEnabled";
 import Settings from "@/components/Settings";
 import VehicleWeight from "@/components/VehicleWeight";
 import AutoWeightEntries from "@/components/AutoWeightEntries";
-import PaginationBar from "@/components/PaginationBar";
 import PaddyPurchaseRegister from "@/components/PaddyPurchaseRegister";
+import { MillEntryForm } from "@/components/entries/MillEntryForm";
+import { EntryTable } from "@/components/entries/EntryTable";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
 
-// Format date: YYYY-MM-DD → DD-MM-YYYY
-import { fmtDate } from './utils/date';
 import { safePrintHTML } from './utils/print';
 import { FY_YEARS, CURRENT_FY, SEASONS, initialFormState } from './utils/constants';
 
@@ -1564,402 +1552,24 @@ function MainApp({ user, onLogout }) {
             {user.role === 'admin' && (
               <ExcelImport filters={filters} user={user} onImportDone={fetchEntries} />
             )}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  onClick={openNewEntryDialog}
-                  className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"
-                  data-testid="add-entry-btn"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Nayi Entry
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-800 border-slate-700 text-white">
-                <DialogHeader>
-                  <DialogTitle className="text-amber-400 text-xl">
-                    {editingId ? "Entry Edit Karein" : "Nayi Entry"}
-                  </DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* FY Year & Season */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <Label className="text-slate-300">FY Year</Label>
-                      <Select
-                        value={formData.kms_year}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, kms_year: value }))}
-                      >
-                        <SelectTrigger className="bg-slate-700 border-slate-600 text-white" data-testid="select-kms-year">
-                          <SelectValue placeholder="Select Year" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-700 border-slate-600">
-                          {FY_YEARS.map(year => (
-                            <SelectItem key={year} value={year} className="text-white hover:bg-slate-600">
-                              {year}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-slate-300">Season</Label>
-                      <Select
-                        value={formData.season}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, season: value }))}
-                      >
-                        <SelectTrigger className="bg-slate-700 border-slate-600 text-white" data-testid="select-season">
-                          <SelectValue placeholder="Select Season" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-700 border-slate-600">
-                          {SEASONS.map(season => (
-                            <SelectItem key={season} value={season} className="text-white hover:bg-slate-600">
-                              {season}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-slate-300">Date</Label>
-                      <Input
-                        type="date"
-                        name="date"
-                        value={formData.date}
-                        onChange={handleInputChange}
-                        className="bg-slate-700 border-slate-600 text-white"
-                        data-testid="input-date"
-                      />
-                    </div>
-                    <AutoSuggest
-                      value={formData.truck_no}
-                      onChange={(e) => setFormData(prev => ({ ...prev, truck_no: e.target.value }))}
-                      suggestions={truckSuggestions}
-                      placeholder="OD00XX0000"
-                      onSelect={(val) => setFormData(prev => ({ ...prev, truck_no: val }))}
-                      label="Truck No."
-                      testId="input-truck-no"
-                    />
-                    {leasedTruckNos.has((formData.truck_no || '').toUpperCase()) && (
-                      <div className="mt-1 flex items-center gap-1 text-xs text-violet-400 bg-violet-500/10 border border-violet-500/30 rounded px-2 py-1" data-testid="leased-truck-indicator">
-                        <span className="font-medium">Leased Truck</span> - Yeh truck lease par hai
-                      </div>
-                    )}
-                  </div>
-
-                  {/* RST No. & TP No. */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-slate-300">RST No.</Label>
-                      <Input
-                        value={formData.rst_no}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setFormData(prev => ({ ...prev, rst_no: val }));
-                          // Auto-fill from Vehicle Weight when RST number entered
-                          if (val && !isNaN(val) && Number(val) > 0) {
-                            debouncedRstLookup(val);
-                          }
-                        }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
-                        placeholder="RST Number"
-                        className="bg-slate-700 border-slate-600 text-white"
-                        data-testid="input-rst-no"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-300">TP No.</Label>
-                      <Input
-                        value={formData.tp_no}
-                        onChange={(e) => setFormData(prev => ({ ...prev, tp_no: e.target.value }))}
-                        placeholder="TP Number"
-                        className="bg-slate-700 border-slate-600 text-white"
-                        data-testid="input-tp-no"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Agent & Mandi */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <AutoSuggest
-                      value={formData.agent_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, agent_name: e.target.value }))}
-                      suggestions={agentSuggestions}
-                      placeholder="Agent name"
-                      onSelect={handleAgentSelect}
-                      label="Agent Name"
-                      testId="input-agent-name"
-                    />
-                    <AutoSuggest
-                      value={formData.mandi_name}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const target = findMandiCutting(val);
-                        if (target) {
-                          setFormData(prev => ({ ...prev, mandi_name: val, cutting_percent: String(target.cutting_percent) }));
-                        } else {
-                          setFormData(prev => ({ ...prev, mandi_name: val }));
-                        }
-                      }}
-                      suggestions={mandiSuggestions}
-                      placeholder="Mandi name"
-                      onSelect={(val) => {
-                        const target = findMandiCutting(val);
-                        if (target) {
-                          setFormData(prev => ({ ...prev, mandi_name: target.mandi_name, cutting_percent: String(target.cutting_percent) }));
-                          toast.success(`Cutting ${target.cutting_percent}% set from ${target.mandi_name}`);
-                        } else {
-                          setFormData(prev => ({ ...prev, mandi_name: val }));
-                        }
-                      }}
-                      onBlur={() => {
-                        const target = findMandiCutting(formData.mandi_name);
-                        if (target) {
-                          setFormData(prev => ({ ...prev, mandi_name: target.mandi_name, cutting_percent: String(target.cutting_percent) }));
-                        }
-                      }}
-                      label="Mandi Name"
-                      testId="input-mandi-name"
-                    />
-                  </div>
-
-                  {/* Weight Inputs */}
-                  <Card className="bg-slate-700/50 border-slate-600">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-amber-400 text-lg flex items-center gap-2">
-                        <Calculator className="w-5 h-5" />
-                        Weight & Auto Calculations (KG mein entry, QNTL mein display)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <Label className="text-slate-300">KG *</Label>
-                        <Input
-                          type="number"
-                          name="kg"
-                          value={formData.kg}
-                          onChange={handleInputChange}
-                          placeholder="Enter KG"
-                          className="bg-slate-600 border-slate-500 text-white text-lg font-semibold"
-                          data-testid="input-kg"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-green-400 font-semibold">QNTL (Auto)</Label>
-                        <Input
-                          value={calculatedFields.qntl}
-                          readOnly
-                          className="bg-green-900/30 border-green-700 text-green-400 text-lg font-bold"
-                          data-testid="calculated-qntl"
-                        />
-                        <span className="text-xs text-slate-400">KG ÷ 100</span>
-                      </div>
-                      <div>
-                        <Label className="text-slate-300">BAG</Label>
-                        <Input
-                          type="number"
-                          name="bag"
-                          value={formData.bag}
-                          onChange={handleInputChange}
-                          className="bg-slate-600 border-slate-500 text-white"
-                          data-testid="input-bag"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-cyan-400">G.Deposite (Gunny Bag)</Label>
-                        <Input
-                          type="number"
-                          name="g_deposite"
-                          value={formData.g_deposite}
-                          onChange={handleInputChange}
-                          placeholder="Gunny bags deposited"
-                          className="bg-cyan-900/30 border-cyan-700 text-cyan-400"
-                          data-testid="input-g-deposite"
-                        />
-                        <span className="text-xs text-slate-400">Fill → 0.5kg | Empty → 1kg</span>
-                      </div>
-                      <div>
-                        <Label className="text-orange-400">GBW Cut (Auto)</Label>
-                        <Input
-                          type="number"
-                          name="gbw_cut"
-                          value={formData.gbw_cut}
-                          onChange={handleInputChange}
-                          className="bg-orange-900/30 border-orange-700 text-orange-400 font-bold"
-                          data-testid="input-gbw-cut"
-                          readOnly
-                        />
-                        <span className="text-xs text-slate-400">G.Dep: 0.5kg | Empty: 1kg/bag</span>
-                      </div>
-                      <div>
-                        <Label className="text-pink-400">P.Pkt (Plastic Bags)</Label>
-                        <Input
-                          type="number"
-                          name="plastic_bag"
-                          value={formData.plastic_bag}
-                          onChange={handleInputChange}
-                          placeholder="Bags count"
-                          className="bg-pink-900/30 border-pink-700 text-pink-400"
-                          data-testid="input-plastic-bag"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-pink-400 font-semibold">P.Pkt Cut (Auto)</Label>
-                        <Input
-                          value={calculatedFields.p_pkt_cut}
-                          readOnly
-                          className="bg-pink-900/30 border-pink-700 text-pink-400 font-bold"
-                          data-testid="calculated-p-pkt-cut"
-                        />
-                        <span className="text-xs text-slate-400">0.50 kg × Bags</span>
-                      </div>
-                      <div>
-                        <Label className="text-blue-400 font-semibold">Mill W. QNTL (Auto)</Label>
-                        <Input
-                          value={calculatedFields.mill_w}
-                          readOnly
-                          className="bg-blue-900/30 border-blue-700 text-blue-400 text-lg font-bold"
-                          data-testid="calculated-mill-w"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-purple-400">Cutting %</Label>
-                        <Input
-                          type="number"
-                          name="cutting_percent"
-                          value={formData.cutting_percent}
-                          onChange={handleInputChange}
-                          placeholder="5, 5.26..."
-                          step="0.01"
-                          className="bg-purple-900/30 border-purple-700 text-purple-400"
-                          data-testid="input-cutting-percent"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-purple-400 font-semibold">Cutting QNTL (Auto)</Label>
-                        <Input
-                          value={`${calculatedFields.cutting_qntl} QNTL`}
-                          readOnly
-                          className="bg-purple-900/30 border-purple-700 text-purple-400 font-bold"
-                          data-testid="calculated-cutting"
-                        />
-                        <span className="text-xs text-slate-400">Mill W × {formData.cutting_percent || 0}%</span>
-                      </div>
-                      <div>
-                        <Label className="text-yellow-400">Moisture %</Label>
-                        <Input
-                          type="number"
-                          name="moisture"
-                          value={formData.moisture}
-                          onChange={handleInputChange}
-                          placeholder="17, 18..."
-                          step="0.1"
-                          className="bg-yellow-900/30 border-yellow-700 text-yellow-400"
-                          data-testid="input-moisture"
-                        />
-                        <span className="text-xs text-slate-400">17% tak no cut</span>
-                      </div>
-                      <div>
-                        <Label className="text-yellow-400 font-semibold">Moisture Cut QNTL (Auto)</Label>
-                        <Input
-                          value={`${calculatedFields.moisture_cut_qntl} QNTL (${calculatedFields.moisture_cut_percent}%)`}
-                          readOnly
-                          className="bg-yellow-900/30 border-yellow-700 text-yellow-400 font-bold"
-                          data-testid="calculated-moisture-cut"
-                        />
-                        <span className="text-xs text-slate-400">{formData.moisture > 17 ? `Mill W × ${calculatedFields.moisture_cut_percent}%` : 'No cut'}</span>
-                      </div>
-                      <div>
-                        <Label className="text-slate-300">Disc/Dust/Poll (kg)</Label>
-                        <Input
-                          type="number"
-                          name="disc_dust_poll"
-                          value={formData.disc_dust_poll}
-                          onChange={handleInputChange}
-                          className="bg-slate-600 border-slate-500 text-white"
-                          data-testid="input-disc-dust-poll"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Label className="text-amber-400 font-semibold">Final W. QNTL (Auto)</Label>
-                        <Input
-                          value={calculatedFields.final_w}
-                          readOnly
-                          className="bg-amber-900/30 border-amber-700 text-amber-400 text-xl font-bold"
-                          data-testid="calculated-final-w"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Other Fields */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <Label className="text-slate-300">G.Issued</Label>
-                      <Input
-                        type="number"
-                        name="g_issued"
-                        value={formData.g_issued}
-                        onChange={handleInputChange}
-                        className="bg-slate-700 border-slate-600 text-white"
-                        data-testid="input-g-issued"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-300">Cash Paid</Label>
-                      <Input
-                        type="number"
-                        name="cash_paid"
-                        value={formData.cash_paid}
-                        onChange={handleInputChange}
-                        className="bg-slate-700 border-slate-600 text-white"
-                        data-testid="input-cash-paid"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-300">Diesel Paid</Label>
-                      <Input
-                        type="number"
-                        name="diesel_paid"
-                        value={formData.diesel_paid}
-                        onChange={handleInputChange}
-                        className="bg-slate-700 border-slate-600 text-white"
-                        data-testid="input-diesel-paid"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-slate-300">Remark</Label>
-                      <Input
-                        name="remark"
-                        value={formData.remark}
-                        onChange={handleInputChange}
-                        className="bg-slate-700 border-slate-600 text-white"
-                        data-testid="input-remark"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 justify-end pt-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsDialogOpen(false)}
-                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                      data-testid="cancel-btn"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      type="submit"
-                      className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold"
-                      data-testid="submit-btn"
-                    >
-                      {editingId ? "Update Karein" : "Save Karein"}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <MillEntryForm
+              isDialogOpen={isDialogOpen}
+              setIsDialogOpen={setIsDialogOpen}
+              editingId={editingId}
+              formData={formData}
+              setFormData={setFormData}
+              calculatedFields={calculatedFields}
+              leasedTruckNos={leasedTruckNos}
+              truckSuggestions={truckSuggestions}
+              agentSuggestions={agentSuggestions}
+              mandiSuggestions={mandiSuggestions}
+              openNewEntryDialog={openNewEntryDialog}
+              handleSubmit={handleSubmit}
+              handleInputChange={handleInputChange}
+              debouncedRstLookup={debouncedRstLookup}
+              handleAgentSelect={handleAgentSelect}
+              findMandiCutting={findMandiCutting}
+            />
           </div>
           )}
 
@@ -2186,233 +1796,29 @@ function MainApp({ user, onLogout }) {
               <PaddyPurchaseRegister filters={filters} />
             ) : (
             <>
-            {/* Totals Summary */}
-            <Card className="bg-slate-800/50 border-slate-700 mb-6">
-          <CardHeader>
-            <CardTitle className="text-amber-400 flex items-center justify-between">
-              <span>Total Summary</span>
-              {hasActiveFilters && <span className="text-sm text-slate-400">(Filtered)</span>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              <div className="bg-green-900/30 p-3 rounded-lg border border-green-700">
-                <p className="text-green-400 text-xs">Total QNTL</p>
-                <p className="text-green-400 text-lg font-bold" data-testid="total-qntl">
-                  {totals.total_qntl?.toFixed(2) || 0}
-                </p>
-              </div>
-              <div className="bg-slate-700/50 p-3 rounded-lg">
-                <p className="text-slate-400 text-xs">Total BAG</p>
-                <p className="text-white text-lg font-bold" data-testid="total-bag">
-                  {totals.total_bag?.toLocaleString() || 0}
-                </p>
-              </div>
-              <div className="bg-blue-900/30 p-3 rounded-lg border border-blue-700">
-                <p className="text-blue-400 text-xs">Total Mill W (QNTL)</p>
-                <p className="text-blue-400 text-lg font-bold" data-testid="total-mill-w">
-                  {(totals.total_mill_w / 100)?.toFixed(2) || 0}
-                </p>
-              </div>
-              <div className="bg-amber-900/30 p-3 rounded-lg border border-amber-700">
-                <p className="text-amber-400 text-xs">Total Final W (QNTL)</p>
-                <p className="text-amber-400 text-lg font-bold" data-testid="total-final-w">
-                  {(totals.total_final_w / 100)?.toFixed(2) || 0}
-                </p>
-              </div>
-              <div className="bg-cyan-900/30 p-3 rounded-lg border border-cyan-700">
-                <p className="text-cyan-400 text-xs">Total G.Issued</p>
-                <p className="text-cyan-400 text-lg font-bold" data-testid="total-g-issued">
-                  {totals.total_g_issued?.toLocaleString() || 0}
-                </p>
-              </div>
-              <div className="bg-slate-700/50 p-3 rounded-lg">
-                <p className="text-slate-400 text-xs">Total Cash Paid</p>
-                <p className="text-white text-lg font-bold" data-testid="total-cash">
-                  {totals.total_cash_paid?.toLocaleString() || 0}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Entries Table */}
-        <Card className="bg-slate-800/50 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-amber-400 flex items-center justify-between">
-              <span>Mill Entries ({entriesTotalCount.toLocaleString()}) - FY: {filters.kms_year || "All"}</span>
-              <div className="flex items-center gap-3">
-                {selectedEntries.length > 0 && (
-                  <Button
-                    onClick={handleBulkDelete}
-                    size="sm"
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                    data-testid="bulk-delete-btn"
-                  >
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Delete ({selectedEntries.length})
-                  </Button>
-                )}
-                {loading && <RefreshCw className="w-5 h-5 animate-spin text-slate-400" />}
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto" id="entries-table">
-              <Table className="text-[11px]">
-                <TableHeader>
-                  <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                    <TableHead className="text-slate-300 w-8 px-0.5">
-                      <input
-                        type="checkbox"
-                        checked={selectAll}
-                        onChange={handleSelectAll}
-                        className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500"
-                        data-testid="select-all-checkbox"
-                      />
-                    </TableHead>
-                    <TableHead className="text-slate-300 whitespace-nowrap px-1">Date</TableHead>
-                    <TableHead className="text-slate-300 whitespace-nowrap px-1">Season</TableHead>
-                    <TableHead className="text-slate-300 whitespace-nowrap px-1">Truck</TableHead>
-                    <TableHead className="text-slate-300 whitespace-nowrap px-1">RST</TableHead>
-                    <TableHead className="text-slate-300 whitespace-nowrap px-1">TP</TableHead>
-                    <TableHead className="text-slate-300 whitespace-nowrap px-1">Agent</TableHead>
-                    <TableHead className="text-slate-300 whitespace-nowrap px-1">Mandi</TableHead>
-                    <TableHead className="text-green-400 text-right whitespace-nowrap px-1">QNTL</TableHead>
-                    <TableHead className="text-slate-300 text-right whitespace-nowrap px-1">BAG</TableHead>
-                    <TableHead className="text-cyan-400 text-right whitespace-nowrap px-1">G.Dep</TableHead>
-                    <TableHead className="text-slate-300 text-right whitespace-nowrap px-1">GBW</TableHead>
-                    <TableHead className="text-pink-400 text-right whitespace-nowrap px-1">P.Pkt</TableHead>
-                    <TableHead className="text-pink-300 text-right whitespace-nowrap px-1">P.Cut</TableHead>
-                    <TableHead className="text-blue-400 text-right whitespace-nowrap px-1">Mill W</TableHead>
-                    <TableHead className="text-orange-400 text-right whitespace-nowrap px-1">M%</TableHead>
-                    <TableHead className="text-orange-300 text-right whitespace-nowrap px-1">M.Cut</TableHead>
-                    <TableHead className="text-purple-400 text-right whitespace-nowrap px-1">C%</TableHead>
-                    <TableHead className="text-slate-400 text-right whitespace-nowrap px-1">D/D/P</TableHead>
-                    <TableHead className="text-amber-400 text-right whitespace-nowrap px-1">Final W</TableHead>
-                    <TableHead className="text-cyan-400 text-right whitespace-nowrap px-1">G.Iss</TableHead>
-                    <TableHead className="text-slate-300 text-right whitespace-nowrap px-1">Cash</TableHead>
-                    <TableHead className="text-slate-300 text-right whitespace-nowrap px-1">Diesel</TableHead>
-                    <TableHead className="text-slate-300 text-center whitespace-nowrap px-0.5">Act</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entries.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={24} className="text-center text-slate-400 py-8">
-                        {filters.date_from === todayStr && filters.date_to === todayStr 
-                          ? "Aaj ki koi Mill Entry nahi hai" 
-                          : "Koi entry nahi mili. Filter change karein ya \"Nayi Entry\" button click karein."}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    entries.map((entry) => (
-                      <TableRow 
-                        key={entry.id} 
-                        className={`border-slate-700 hover:bg-slate-700/30 ${selectedEntries.includes(entry.id) ? 'bg-amber-900/20' : ''}`}
-                        data-testid={`entry-row-${entry.id}`}
-                      >
-                        <TableCell className="px-0.5">
-                          <input
-                            type="checkbox"
-                            checked={selectedEntries.includes(entry.id)}
-                            onChange={() => handleSelectEntry(entry.id)}
-                            disabled={!canEditEntry(entry)}
-                            className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500 disabled:opacity-50"
-                            data-testid={`select-${entry.id}`}
-                          />
-                        </TableCell>
-                        <TableCell className="text-white whitespace-nowrap px-1">{fmtDate(entry.date)}</TableCell>
-                        <TableCell className="text-white whitespace-nowrap px-1">{entry.season}</TableCell>
-                        <TableCell className="text-white font-mono whitespace-nowrap px-1">
-                          {entry.truck_no}
-                          {leasedTruckNos.has((entry.truck_no || '').toUpperCase()) && (
-                            <span className="ml-1 inline-block text-[10px] px-1 py-0.5 rounded bg-violet-500/20 text-violet-400 border border-violet-500/30 font-sans" data-testid={`leased-badge-${entry.id}`}>Leased</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.rst_no || '-'}</TableCell>
-                        <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.tp_no || '-'}</TableCell>
-                        <TableCell className="text-white whitespace-nowrap px-1">{entry.agent_name}</TableCell>
-                        <TableCell className="text-white whitespace-nowrap px-1">{entry.mandi_name}</TableCell>
-                        <TableCell className="text-green-400 text-right font-mono font-bold whitespace-nowrap px-1">
-                          {entry.qntl?.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-white text-right font-mono whitespace-nowrap px-1">
-                          {entry.bag}
-                        </TableCell>
-                        <TableCell className="text-cyan-400 text-right font-mono whitespace-nowrap px-1">
-                          {entry.g_deposite || 0}
-                        </TableCell>
-                        <TableCell className="text-slate-300 text-right font-mono whitespace-nowrap px-1">
-                          {(entry.gbw_cut / 100)?.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-pink-400 text-right font-mono whitespace-nowrap px-1">
-                          {entry.plastic_bag || 0}
-                        </TableCell>
-                        <TableCell className="text-pink-300 text-right font-mono whitespace-nowrap px-1">
-                          {(entry.p_pkt_cut / 100)?.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-blue-400 text-right font-mono font-bold whitespace-nowrap px-1">
-                          {(entry.mill_w / 100)?.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-orange-400 text-right font-mono whitespace-nowrap px-1">
-                          {entry.moisture || 0}
-                        </TableCell>
-                        <TableCell className="text-orange-300 text-right font-mono whitespace-nowrap px-1">
-                          {((entry.moisture_cut || 0) / 100)?.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-purple-400 text-right font-mono whitespace-nowrap px-1">
-                          {entry.cutting_percent}%
-                        </TableCell>
-                        <TableCell className="text-slate-400 text-right font-mono whitespace-nowrap px-1">
-                          {entry.disc_dust_poll || 0}
-                        </TableCell>
-                        <TableCell className="text-amber-400 text-right font-mono font-bold whitespace-nowrap px-1">
-                          {(entry.final_w / 100)?.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-cyan-400 text-right font-mono whitespace-nowrap px-1">
-                          {entry.g_issued?.toLocaleString() || 0}
-                        </TableCell>
-                        <TableCell className="text-white text-right font-mono whitespace-nowrap px-1">
-                          {entry.cash_paid?.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-white text-right font-mono whitespace-nowrap px-1">
-                          {entry.diesel_paid?.toLocaleString() || 0}
-                        </TableCell>
-                        <TableCell className="text-center px-0.5">
-                          <div className="flex gap-0.5 justify-center">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleEdit(entry)}
-                              className={`h-6 w-6 p-0 ${canEditEntry(entry) ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/30' : 'text-slate-600 cursor-not-allowed'}`}
-                              data-testid={`edit-btn-${entry.id}`}
-                              disabled={!canEditEntry(entry)}
-                            >
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(entry)}
-                              className={`h-6 w-6 p-0 ${canEditEntry(entry) ? 'text-red-400 hover:text-red-300 hover:bg-red-900/30' : 'text-slate-600 cursor-not-allowed'}`}
-                              data-testid={`delete-btn-${entry.id}`}
-                              disabled={!canEditEntry(entry)}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-            <PaginationBar page={entriesPage} totalPages={entriesTotalPages} total={entriesTotalCount} pageSize={ENTRIES_PAGE_SIZE}
-              onPageChange={(p) => { setEntriesPage(p); fetchEntries(p); }} />
-          </CardContent>
-        </Card>
+            <EntryTable
+              totals={totals}
+              entries={entries}
+              entriesPage={entriesPage}
+              entriesTotalPages={entriesTotalPages}
+              entriesTotalCount={entriesTotalCount}
+              pageSize={ENTRIES_PAGE_SIZE}
+              selectedEntries={selectedEntries}
+              selectAll={selectAll}
+              loading={loading}
+              leasedTruckNos={leasedTruckNos}
+              hasActiveFilters={hasActiveFilters}
+              filters={filters}
+              todayStr={todayStr}
+              handleSelectAll={handleSelectAll}
+              handleSelectEntry={handleSelectEntry}
+              handleBulkDelete={handleBulkDelete}
+              handleEdit={handleEdit}
+              handleDelete={handleDelete}
+              canEditEntry={canEditEntry}
+              fetchEntries={fetchEntries}
+              setEntriesPage={setEntriesPage}
+            />
             </>
             )}
           </>
