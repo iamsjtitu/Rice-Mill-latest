@@ -8,6 +8,7 @@ import logging
 import io
 import os
 import base64 as b64mod
+from utils.date_format import fmt_date
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -684,7 +685,7 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         c.line(x, cy, x + PW, cy)
 
         rows = [
-            ("RST No.", f"#{rst}", "Date / \u0926\u093f\u0928\u093e\u0902\u0915", entry.get("date", "")),
+            ("RST No.", f"#{rst}", "Date / \u0926\u093f\u0928\u093e\u0902\u0915", fmt_date(entry.get("date", ""))),
             ("Vehicle / \u0917\u093e\u0921\u093c\u0940", entry.get("vehicle_no", ""), "Trans", entry.get("trans_type", "")),
             ("Party / \u092a\u093e\u0930\u094d\u091f\u0940", entry.get("party_name", ""), "Source/Mandi", entry.get("farmer_name", "")),
             ("Product / \u092e\u093e\u0932", entry.get("product", ""), "Bags / \u092c\u094b\u0930\u0947", str(entry.get("tot_pkts", 0))),
@@ -940,7 +941,7 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
         cell.border = border
 
     for i, e in enumerate(items, hdr_row + 1):
-        vals = [e.get("rst_no",""), e.get("date",""), e.get("vehicle_no",""), e.get("party_name",""),
+        vals = [e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""), e.get("party_name",""),
                 e.get("farmer_name",""), e.get("product",""), e.get("trans_type",""), e.get("tot_pkts",""),
                 e.get("first_wt",0), e.get("second_wt",0), e.get("net_wt",0),
                 e.get("g_issued",0), e.get("cash_paid",0), e.get("diesel_paid",0)]
@@ -997,7 +998,7 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     data = [headers]
     for e in items:
         data.append([
-            e.get("rst_no",""), e.get("date",""), e.get("vehicle_no",""),
+            e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""),
             e.get("party_name",""), e.get("farmer_name",""), e.get("product",""),
             e.get("trans_type",""), e.get("tot_pkts",""),
             f"{e.get('first_wt',0):,.0f}", f"{e.get('second_wt',0):,.0f}", f"{e.get('net_wt',0):,.0f}",

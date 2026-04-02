@@ -302,7 +302,7 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
   const tHdr = ws.addRow(['Date', 'Party', 'Type', 'Amount', 'Description', 'Source']);
   tHdr.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF065f46' } }; });
   for (const t of txns) {
-    ws.addRow([t.date, t.party_name, t.txn_type === 'payment' ? 'Payment' : 'Purchase', t.amount, t.description, t.source_type]);
+    ws.addRow([fmtDate(t.date), t.party_name, t.txn_type === 'payment' ? 'Payment' : 'Purchase', t.amount, t.description, t.source_type]);
   }
   for (let i = 1; i <= 6; i++) ws.getColumn(i).width = 20;
 
@@ -315,7 +315,7 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
 // ============ PDF EXPORT ============
 router.get('/api/local-party/pdf', safeSync(async (req, res) => {
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader, addPdfTable, addTotalsRow , safePdfPipe} = require('./pdf_helpers');
+  const { addPdfHeader, addPdfTable, addTotalsRow, safePdfPipe, fmtDate } = require('./pdf_helpers');
   ensureCollection('local_party_accounts');
   let txns = [...database.data.local_party_accounts];
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
@@ -333,7 +333,7 @@ router.get('/api/local-party/pdf', safeSync(async (req, res) => {
 
   const headers = ['Date', 'Party', 'Type', 'Amount (Rs)', 'Description', 'Source'];
   const colW = [65, 110, 55, 70, 220, 65];
-  const rows = txns.map(t => [t.date, t.party_name, t.txn_type === 'payment' ? 'PAYMENT' : 'PURCHASE',
+  const rows = txns.map(t => [fmtDate(t.date), t.party_name, t.txn_type === 'payment' ? 'PAYMENT' : 'PURCHASE',
     `Rs.${(t.amount||0).toLocaleString()}`, (t.description||'').slice(0, 40), t.source_type||'']);
   addPdfTable(doc, headers, rows, colW);
 

@@ -476,7 +476,7 @@ module.exports = function(database) {
   // ===== PARTY SUMMARY PDF =====
   router.get('/api/private-trading/party-summary/pdf', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt, safePdfPipe, fmtDate } = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     if (!database.data.private_paddy) database.data.private_paddy = [];
     if (!database.data.rice_sales) database.data.rice_sales = [];

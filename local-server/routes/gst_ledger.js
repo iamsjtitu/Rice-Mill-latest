@@ -1,5 +1,6 @@
 const express = require('express');
 const { safeHandler } = require('./safe_handler');
+const { fmtDate } = require('./pdf_helpers');
 
 module.exports = function(database) {
   const router = express.Router();

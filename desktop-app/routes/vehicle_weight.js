@@ -9,6 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { safeAsync } = require('./safe_handler');
+const { fmtDate } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -229,7 +230,7 @@ module.exports = function(database) {
     const mandi = entry.mandi_name || '';
     const farmerMandi = farmer || mandi;
     let text = `*Weight Slip — RST #${rst}*\n` +
-      `Date: ${entry.date || ''}\n` +
+      `Date: ${fmtDate(entry.date) || ''}\n` +
       `Vehicle: ${entry.vehicle_no || ''}\n` +
       `Trans: ${entry.trans_type || ''}\n` +
       `Party: ${entry.party_name || ''}\n`;
@@ -801,7 +802,7 @@ module.exports = function(database) {
 
       // ── Bordered Info Table (4 rows x 4 cols with cell borders) ──
       const rows = [
-        ['RST No.', `#${rst}`, 'Date / \u0926\u093f\u0928\u093e\u0902\u0915', entry.date || ''],
+        ['RST No.', `#${rst}`, 'Date / \u0926\u093f\u0928\u093e\u0902\u0915', fmtDate(entry.date) || ''],
         ['Vehicle / \u0917\u093e\u0921\u093c\u0940', entry.vehicle_no || '', 'Trans', entry.trans_type || ''],
         ['Party / \u092a\u093e\u0930\u094d\u091f\u0940', entry.party_name || '', 'Source/Mandi', entry.farmer_name || ''],
         ['Product / \u092e\u093e\u0932', entry.product || '', 'Bags / \u092c\u094b\u0930\u0947', String(entry.tot_pkts || 0)],
@@ -981,7 +982,7 @@ module.exports = function(database) {
 
     items.forEach((e, idx) => {
       const row = ws.getRow(hdrRowNum + 1 + idx);
-      [e.rst_no, e.date, e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts, e.first_wt || 0, e.second_wt || 0, e.net_wt || 0, e.cash_paid || 0, e.diesel_paid || 0].forEach((v, i) => {
+      [e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts, e.first_wt || 0, e.second_wt || 0, e.net_wt || 0, e.cash_paid || 0, e.diesel_paid || 0].forEach((v, i) => {
         const cell = row.getCell(i + 1);
         cell.value = v;
         cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
@@ -1105,7 +1106,7 @@ module.exports = function(database) {
 
       x = LM + 2;
       const vals = [
-        idx + 1, e.rst_no, e.date, e.vehicle_no, e.party_name, e.farmer_name, e.product, bags || '-',
+        idx + 1, e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, bags || '-',
         first ? first.toLocaleString() : '-', second ? second.toLocaleString() : '-',
         net ? net.toLocaleString() : '-', cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-'
       ];

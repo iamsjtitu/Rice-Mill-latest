@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Plus, Trash2, CreditCard, History, Printer, IndianRupee, Calendar, Truck, Edit, Send, Users } from "lucide-react";
 import { printHtml } from "@/components/PrintButton";
 import { useConfirm } from "./ConfirmProvider";
+import { fmtDate } from "../utils/date";
 import { downloadFile } from "../utils/download";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
@@ -131,7 +132,7 @@ export default function LeasedTruck({ filters }) {
     // Build payment history rows if available
     const paymentsHtml = (record.payments || []).map(p => `
       <tr>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${p.date || '-'}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px;">${fmtDate(p.date) || '-'}</td>
         <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-align: right; font-weight: bold; color: #059669;">Rs. ${fmtAmt(p.amount)}</td>
         <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; text-transform: capitalize;">${p.account || 'cash'}${p.bank_name ? ' - ' + p.bank_name : ''}</td>
         <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">${p.notes || '-'}</td>

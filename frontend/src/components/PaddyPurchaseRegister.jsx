@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Download, FileText, Filter, X, Loader2, Users } from "lucide-react";
 import { useMessagingEnabled } from "@/hooks/useMessagingEnabled";
 import { SendToGroupDialog } from "@/components/SendToGroupDialog";
+import { fmtDate } from "../utils/date";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "");
@@ -275,7 +276,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
             ) : entries.map((e, i) => (
               <tr key={e.id || i} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-800/10'} hover:bg-slate-700/30`}>
                 <td className="p-2 text-slate-500 text-xs">{(page - 1) * PAGE_SIZE + i + 1}</td>
-                <td className="p-2 whitespace-nowrap">{e.date}</td>
+                <td className="p-2 whitespace-nowrap">{fmtDate(e.date)}</td>
                 <td className="p-2 whitespace-nowrap font-mono text-xs">{e.truck_no}</td>
                 <td className="p-2 whitespace-nowrap">{e.rst_no}</td>
                 <td className="p-2 whitespace-nowrap">{e.tp_no}</td>

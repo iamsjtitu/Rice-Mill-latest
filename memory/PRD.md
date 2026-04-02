@@ -1,6 +1,6 @@
 # Mill Entry System PRD
 
-## Current Version: v71.0.0
+## Current Version: v74.0.0
 
 ## Architecture
 - **Web Backend**: Python FastAPI + MongoDB

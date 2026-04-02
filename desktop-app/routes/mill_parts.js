@@ -2,7 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { safePdfPipe, addPdfTable, registerFonts } = require('./pdf_helpers');
+const { safePdfPipe, addPdfTable, registerFonts, fmtDate } = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -657,7 +657,7 @@ router.get('/api/mill-parts-stock/export/excel', safeAsync(async (req, res) => {
     const typ = t.txn_type === 'in' ? 'IN' : 'USED';
     const amt = t.total_amount || t.total_cost || 0;
     if (t.txn_type === 'in') totalAmt += amt;
-    const r = ws.addRow([t.date, t.part_name, t.store_room_name||'', typ, t.quantity, t.rate||0, amt, t.party_name||'', t.bill_no||'', t.remark||'']);
+    const r = ws.addRow([fmtDate(t.date), t.part_name, t.store_room_name||'', typ, t.quantity, t.rate||0, amt, t.party_name||'', t.bill_no||'', t.remark||'']);
     r.eachCell((c, ci) => { c.border = thinB; c.font = { size: 9 }; if (ci === 4) c.fill = typ === 'IN' ? inFill : usedFill; });
   });
   const tr = ws.addRow(['TOTAL','','','','','',totalAmt,'','','']);
@@ -720,7 +720,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync(async (req, res) => {
     x = startX;
     const bg = ri%2===0 ? (isIn?C.inBg:C.usedBg) : (isIn?C.inBg2:C.usedBg2);
     doc.rect(x, y, totalW, rowH).fill(bg);
-    const vals = [t.date, t.part_name, t.store_room_name||'', isIn?'IN':'USED', t.quantity, t.rate||0, amt?`Rs.${Math.round(amt).toLocaleString()}`:'-', t.party_name||'', t.bill_no||'', t.remark||''];
+    const vals = [fmtDate(t.date), t.part_name, t.store_room_name||'', isIn?'IN':'USED', t.quantity, t.rate||0, amt?`Rs.${Math.round(amt).toLocaleString()}`:'-', t.party_name||'', t.bill_no||'', t.remark||''];
     vals.forEach((v, i) => {
       doc.rect(x, y, colW[i], rowH).stroke(C.border);
       doc.fillColor('#1e293b').font(F('normal')).fontSize(6).text(String(v??''), x+2, y+3, {width:colW[i]-4,height:rowH,lineBreak:false});

@@ -35,35 +35,7 @@ const API = `${BACKEND_URL}/api`;
 // Safe print helper - uses iframe approach (works in Electron + browser)
 const _isElectronEnv = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 
-const safePrintHTML = (htmlContent) => {
-  try {
-    if (_isElectronEnv) {
-      const w = window.open('', '_blank', 'width=900,height=700');
-      if (w) { w.document.open(); w.document.write(htmlContent); w.document.close(); w.onload = () => w.focus(); }
-      else { const b = new Blob([htmlContent], {type:'text/html'}); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href=u; a.download='print.html'; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(() => URL.revokeObjectURL(u), 30000); }
-    } else {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-      iframe.contentDocument.open();
-      iframe.contentDocument.write(htmlContent);
-      iframe.contentDocument.close();
-      setTimeout(() => {
-        iframe.contentWindow.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
-      }, 500);
-    }
-  } catch(e) {
-    // Fallback: blob download as HTML
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'print.html';
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
-  }
-};
+import { safePrintHTML } from "../utils/print";
 
 export const Payments = ({ filters, user, branding }) => {
   const showConfirm = useConfirm();

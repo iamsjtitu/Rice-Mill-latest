@@ -318,13 +318,13 @@ module.exports = function(database) {
     const v = database.data.purchase_vouchers.find(x => x.id === req.params.id);
     if (!v) return res.status(404).json({ detail: 'Not found' });
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, fmtAmt: pFmt, safePdfPipe, fmtDate } = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     const doc = new PDFDocument({ size: 'A4', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=purchase_voucher_${v.voucher_no || ''}.pdf`);
     // PDF will be sent via safePdfPipe
-    _addPdfHeader(doc, `Purchase Voucher #${v.voucher_no || ''}`, branding, `Date: ${v.date || ''} | Party: ${v.party_name || ''} | Invoice: ${v.invoice_no || ''} | Truck: ${v.truck_no || ''}`);
+    _addPdfHeader(doc, `Purchase Voucher #${v.voucher_no || ''}`, branding, `Date: ${fmtDate(v.date) || ''} | Party: ${v.party_name || ''} | Invoice: ${v.invoice_no || ''} | Truck: ${v.truck_no || ''}`);
     const headers = ['Item', 'HSN', 'Qty', 'Rate', 'Amount'];
     const rows = (v.items || []).map(i => [i.item_name||'', i.hsn_code||'', i.quantity||0, i.rate||0, i.amount||0]);
     addPdfTable(doc, headers, rows, [180, 80, 60, 60, 80]);
@@ -354,7 +354,7 @@ module.exports = function(database) {
     const rows = vouchers.map(v => {
       const itemsStr = (v.items || []).map(i => `${i.item_name}(${i.quantity||0})`).join(', ');
       g.total += v.total || 0; g.adv += v.advance || 0; g.cash += v.cash_paid || 0; g.diesel += v.diesel_paid || 0; g.bal += v.balance || 0;
-      return [v.voucher_no||'', v.date||'', v.invoice_no||'', v.party_name||'', itemsStr, v.truck_no||'', v.eway_bill_no||'', pFmt(v.total||0), pFmt(v.advance||0), pFmt(v.cash_paid||0), pFmt(v.diesel_paid||0), pFmt(v.balance||0)];
+      return [v.voucher_no||'', fmtDate(v.date)||'', v.invoice_no||'', v.party_name||'', itemsStr, v.truck_no||'', v.eway_bill_no||'', pFmt(v.total||0), pFmt(v.advance||0), pFmt(v.cash_paid||0), pFmt(v.diesel_paid||0), pFmt(v.balance||0)];
     });
     addPdfTable(doc, headers, rows, colW, { fontSize: 6.5 });
     addTotalsRow(doc, [`TOTAL (${vouchers.length})`, '', '', '', '', '', '', pFmt(Math.round(g.total)), pFmt(Math.round(g.adv)), pFmt(Math.round(g.cash)), pFmt(Math.round(g.diesel)), pFmt(Math.round(g.bal))], colW, { fontSize: 6.5 });
@@ -385,7 +385,7 @@ module.exports = function(database) {
     const g = { total: 0, adv: 0, cash: 0, diesel: 0, bal: 0 };
     vouchers.forEach((v, idx) => {
       const itemsStr = (v.items || []).map(i => `${i.item_name}(${i.quantity||0})`).join(', ');
-      const vals = [v.voucher_no, v.date, v.invoice_no, v.party_name, itemsStr, v.truck_no, v.eway_bill_no || '', v.total||0, v.advance||0, v.cash_paid||0, v.diesel_paid||0, v.balance||0];
+      const vals = [v.voucher_no, fmtDate(v.date), v.invoice_no, v.party_name, itemsStr, v.truck_no, v.eway_bill_no || '', v.total||0, v.advance||0, v.cash_paid||0, v.diesel_paid||0, v.balance||0];
       vals.forEach((val, ci) => { ws.getCell(5 + idx, ci + 1).value = val; });
       g.total += v.total || 0; g.adv += v.advance || 0; g.cash += v.cash_paid || 0; g.diesel += v.diesel_paid || 0; g.bal += v.balance || 0;
     });

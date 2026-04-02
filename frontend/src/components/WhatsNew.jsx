@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "73.0.0";
+const APP_VERSION = "74.0.0";
 
 const CHANGELOG = [
+  {
+    version: "74.0.0",
+    date: "Apr 2026",
+    title: "v74.0.0 - Date Format DD-MM-YYYY + Code Refactor",
+    items: [
+      { type: "feature", text: "Sab jagah date DD-MM-YYYY format mein dikhega (PDFs, Excel, UI)" },
+      { type: "feature", text: "Session Indicator - doosre computer pe software active hai toh badge dikhega" },
+      { type: "fix", text: "Local Server aur Desktop App ke routes 100% sync kiye" },
+      { type: "fix", text: "Code refactor - duplicate code hataya, shared utilities banaye" },
+    ]
+  },
   {
     version: "73.0.0",
     date: "Apr 2026",

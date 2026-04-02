@@ -253,7 +253,7 @@ module.exports = function(database) {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sale Invoice</title>
     <style>body{font-family:Arial;margin:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #333;padding:6px 10px}th{background:#1a365d;color:#fff}.header{text-align:center}.r{text-align:right}.b{font-weight:bold}.info{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.info div{flex:1;min-width:130px;background:#f7f7f7;padding:5px 8px;border-radius:4px}.info label{font-size:10px;color:#666;display:block}.info span{font-size:13px;font-weight:bold}@media print{button{display:none}}</style></head><body>
     <div class="header"><h2>${mill}</h2><p>${addr} - Sale Invoice</p></div>
-    <div class="info"><div><label>Invoice No</label><span>${v.invoice_no || ''}</span></div><div><label>Date</label><span>${v.date || ''}</span></div><div><label>Party</label><span>${v.party_name || ''}</span></div><div><label>Voucher</label><span>#${v.voucher_no || ''}</span></div><div><label>Truck</label><span>${v.truck_no || ''}</span></div><div><label>RST</label><span>${v.rst_no || ''}</span></div><div><label>E-Way Bill</label><span>${v.eway_bill_no || ''}</span></div></div>
+    <div class="info"><div><label>Invoice No</label><span>${v.invoice_no || ''}</span></div><div><label>Date</label><span>${fmtDate(v.date) || ''}</span></div><div><label>Party</label><span>${v.party_name || ''}</span></div><div><label>Voucher</label><span>#${v.voucher_no || ''}</span></div><div><label>Truck</label><span>${v.truck_no || ''}</span></div><div><label>RST</label><span>${v.rst_no || ''}</span></div><div><label>E-Way Bill</label><span>${v.eway_bill_no || ''}</span></div></div>
     <table><tr><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr>${items}
     <tr><td colspan="3" class="b">Subtotal</td><td class="r b">Rs.${(v.subtotal || 0).toLocaleString()}</td></tr>
     <tr><td colspan="3">CGST (${v.cgst_percent || 0}%)</td><td class="r">Rs.${(v.cgst_amount || 0).toLocaleString()}</td></tr>
@@ -266,7 +266,7 @@ module.exports = function(database) {
   // PDF export
   router.get('/api/sale-book/export/pdf', safeHandler(async (req, res) => {
     ensure();
-    const { addPdfHeader, addPdfTable, addTotalsRow, fmtAmt, safePdfPipe } = require('./pdf_helpers');
+    const { addPdfHeader, addPdfTable, addTotalsRow, fmtAmt, safePdfPipe, fmtDate } = require('./pdf_helpers');
     let vouchers = [...database.data.sale_vouchers];
     const { kms_year, season } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
@@ -328,7 +328,7 @@ module.exports = function(database) {
     for (const v of vouchers) {
       const itemsStr = (v.items || []).map(i => `${i.item_name}(${i.quantity}Q)`).join(', ');
       const gst = (v.cgst_amount || 0) + (v.sgst_amount || 0) + (v.igst_amount || 0);
-      ws.addRow([v.voucher_no, v.date, v.invoice_no, v.party_name, itemsStr, `${v.truck_no||''}${v.rst_no?'/'+v.rst_no:''}`, v.eway_bill_no || '', v.subtotal||0, Math.round(gst), v.total||0, v.advance||0, v.cash_paid||0, v.diesel_paid||0, v.balance||0]);
+      ws.addRow([v.voucher_no, fmtDate(v.date), v.invoice_no, v.party_name, itemsStr, `${v.truck_no||''}${v.rst_no?'/'+v.rst_no:''}`, v.eway_bill_no || '', v.subtotal||0, Math.round(gst), v.total||0, v.advance||0, v.cash_paid||0, v.diesel_paid||0, v.balance||0]);
     }
     ws.columns.forEach(c => c.width = 15);
     const buf = await wb.xlsx.writeBuffer();
@@ -428,7 +428,7 @@ module.exports = function(database) {
     const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
     let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sale Invoice</title><style>body{font-family:Arial;margin:20px;font-size:12px}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{border:1px solid #ccc;padding:5px}th{background:#1e40af;color:#fff}.r{text-align:right}.b{font-weight:bold}</style></head><body>`;
     html += `<h2 style="text-align:center">${company}</h2><h3 style="text-align:center">Sale Invoice #${v.voucher_no || ''}</h3>`;
-    html += `<p><b>Date:</b> ${v.date || ''} | <b>Party:</b> ${v.party_name || ''} | <b>Invoice:</b> ${v.invoice_no || ''} | <b>Truck:</b> ${v.truck_no || ''}</p>`;
+    html += `<p><b>Date:</b> ${fmtDate(v.date) || ''} | <b>Party:</b> ${v.party_name || ''} | <b>Invoice:</b> ${v.invoice_no || ''} | <b>Truck:</b> ${v.truck_no || ''}</p>`;
     html += `<table><tr><th>Item</th><th>HSN</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr>`;
     (v.items || []).forEach(i => { html += `<tr><td>${i.item_name||''}</td><td>${i.hsn_code||''}</td><td class="r">${i.quantity||0}</td><td class="r">${i.rate||0}</td><td class="r">${i.amount||0}</td></tr>`; });
     html += `</table><p class="b">Subtotal: ${v.subtotal||0} | CGST: ${v.cgst_amount||0} | SGST: ${v.sgst_amount||0} | Total: ${v.total||0}</p>`;
@@ -728,7 +728,7 @@ module.exports = function(database) {
 
   // ===== STOCK SUMMARY PDF (COLORFUL with pdfkit) =====
   router.get('/api/stock-summary/export/pdf', safeHandler(async (req, res) => {
-    const { addPdfHeader, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
+    const { addPdfHeader, registerFonts, F, safePdfPipe, fmtDate: _fd } = require('./pdf_helpers');
     const items = getStockItems(req);
     const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
 

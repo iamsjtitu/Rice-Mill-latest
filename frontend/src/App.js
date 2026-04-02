@@ -84,12 +84,9 @@ const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')
 const API = `${BACKEND_URL}/api`;
 
 // Format date: YYYY-MM-DD → DD-MM-YYYY
-const fmtDate = (d) => {
-  if (!d) return '';
-  const parts = String(d).split('-');
-  if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-  return d;
-};
+import { fmtDate } from './utils/date';
+import { safePrintHTML } from './utils/print';
+import { FY_YEARS, CURRENT_FY, SEASONS, initialFormState } from './utils/constants';
 
 // FY Summary with sub-tabs (Summary + Balance Sheet)
 function FYSummaryWithTabs({ filters, user }) {
@@ -117,89 +114,7 @@ function FYSummaryWithTabs({ filters, user }) {
   );
 }
 
-// Safe print helper - uses iframe approach (works in Electron + browser)
-const safePrintHTML = (htmlContent) => {
-  try {
-    const isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
-    if (isElectron) {
-      // Electron: open a new window with the content for preview + print
-      const printWindow = window.open('', '_blank', 'width=900,height=700');
-      if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.onload = () => printWindow.focus();
-      } else {
-        // Fallback: download as HTML
-        const blob = new Blob([htmlContent], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = 'print.html';
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
-      }
-    } else {
-      // Browser: use iframe approach
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-      iframe.contentDocument.open();
-      iframe.contentDocument.write(htmlContent);
-      iframe.contentDocument.close();
-      setTimeout(() => {
-        iframe.contentWindow.print();
-        setTimeout(() => document.body.removeChild(iframe), 1000);
-      }, 500);
-    }
-  } catch(e) {
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'print.html';
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
-  }
-};
-
-// Generate FY years (April - March)
-const generateFYYears = () => {
-  const currentYear = new Date().getFullYear();
-  const years = [];
-  for (let i = currentYear - 3; i <= currentYear + 1; i++) {
-    years.push(`${i}-${i + 1}`);
-  }
-  return years;
-};
-
-const FY_YEARS = generateFYYears();
-// Current FY: if month < April (0-indexed: 3), use prev year
-const CURRENT_FY = new Date().getMonth() < 3 ? `${new Date().getFullYear() - 1}-${new Date().getFullYear()}` : `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`;
-const SEASONS = ["Kharif", "Rabi"];
-
-const initialFormState = {
-  date: new Date().toISOString().split("T")[0],
-  kms_year: CURRENT_FY,
-  season: "Kharif",
-  truck_no: "",
-  rst_no: "",
-  tp_no: "",
-  agent_name: "",
-  mandi_name: "",
-  kg: "",
-  bag: "",
-  g_deposite: "",
-  gbw_cut: "",
-  plastic_bag: "",
-  cutting_percent: "",
-  disc_dust_poll: "",
-  g_issued: "",
-  moisture: "",
-  cash_paid: "",
-  diesel_paid: "",
-  remark: "",
-};
+// Main App Component
 
 
 

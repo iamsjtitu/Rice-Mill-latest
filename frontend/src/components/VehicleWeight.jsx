@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, RefreshCw, Scale, Truck, Clock, CheckCircle, Download, Send, Users, Camera, CameraOff, Wifi, Plus, Eye, EyeOff, Zap, Pencil, Printer, FileSpreadsheet, FileText, Filter, Search, X } from "lucide-react";
+import { fmtDate } from "../utils/date";
 import AutoSuggest from "./common/AutoSuggest";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import { useConfirm } from "./ConfirmProvider";
@@ -22,26 +23,7 @@ const BACKEND_URL = _isElectron ? "" : (process.env.REACT_APP_BACKEND_URL || "")
 const API = `${BACKEND_URL}/api`;
 const fmtWt = (w) => w ? Number(w).toLocaleString() : "0";
 
-const safePrintHTML = (htmlContent) => {
-  try {
-    if (_isElectronEnv) {
-      const w = window.open('', '_blank', 'width=900,height=700');
-      if (w) { w.document.open(); w.document.write(htmlContent); w.document.close(); w.onload = () => w.focus(); }
-    } else {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-      iframe.contentDocument.open();
-      iframe.contentDocument.write(htmlContent);
-      iframe.contentDocument.close();
-      setTimeout(() => { iframe.contentWindow.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 500);
-    }
-  } catch (e) {
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-  }
-};
+import { safePrintHTML } from "../utils/print";
 
 /* ─── Real Weighbridge Scale (Electron Serial Port) ─── */
 function useRealScale() {
@@ -601,7 +583,7 @@ export default function VehicleWeight({ filters }) {
   // Build complete weight text for messaging
   const buildWeightText = (e) => {
     let t = `*Weight Slip — RST #${e.rst_no}*\n`;
-    t += `Date: ${e.date}\n`;
+    t += `Date: ${fmtDate(e.date)}\n`;
     t += `Vehicle: ${e.vehicle_no}\n`;
     t += `Trans: ${e.trans_type || '-'}\n`;
     t += `Party: ${e.party_name || '-'}\n`;
@@ -735,7 +717,7 @@ export default function VehicleWeight({ filters }) {
           <div class="slip-title">WEIGHT SLIP / तौल पर्ची</div>
         </div>
         <table class="info-table">
-          <tr><td class="lbl">RST No.</td><td class="val rst">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${e.date}</td></tr>
+          <tr><td class="lbl">RST No.</td><td class="val rst">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${fmtDate(e.date)}</td></tr>
           <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans</td><td class="val">${e.trans_type || '-'}</td></tr>
           <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source/Mandi</td><td class="val">${e.farmer_name || '-'}</td></tr>
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
@@ -1237,7 +1219,7 @@ export default function VehicleWeight({ filters }) {
                   ) : entries.map((e, i) => (
                     <TableRow key={e.id} className={`border-gray-100 hover:bg-gray-50 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
                       <TableCell className="py-2 px-3"><span className="text-amber-700 font-bold text-xs">#{e.rst_no}</span></TableCell>
-                      <TableCell className="text-gray-500 text-[11px] py-2 px-3">{e.date}</TableCell>
+                      <TableCell className="text-gray-500 text-[11px] py-2 px-3">{fmtDate(e.date)}</TableCell>
                       <TableCell className="text-gray-900 text-xs py-2 px-3 font-medium">{e.vehicle_no}</TableCell>
                       <TableCell className="text-gray-700 text-xs py-2 px-3">{e.party_name}</TableCell>
                       <TableCell className="text-gray-500 text-xs py-2 px-3">{e.farmer_name || '-'}</TableCell>
@@ -1375,7 +1357,7 @@ export default function VehicleWeight({ filters }) {
                     <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap w-[22%]">RST No.</td>
                     <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900 text-xs w-[28%]">#{photoDialog.data.rst_no}</td>
                     <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap w-[22%]">Date / दिनांक</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900 w-[28%]">{photoDialog.data.date || '-'}</td>
+                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900 w-[28%]">{fmtDate(photoDialog.data.date) || '-'}</td>
                   </tr>
                   <tr>
                     <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Vehicle / गाड़ी</td>
