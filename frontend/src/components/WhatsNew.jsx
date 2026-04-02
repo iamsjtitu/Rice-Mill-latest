@@ -3,9 +3,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "77.0.0";
+const APP_VERSION = "78.0.0";
 
 const CHANGELOG = [
+  {
+    version: "78.0.0",
+    date: "Feb 2026",
+    title: "v78.0.0 - Quick Search + Shared Service Layer",
+    items: [
+      { type: "feature", text: "Quick Search (Ctrl+K) - Sabhi data mein instantly search karo - Entries, Cash Book, Vouchers, Staff, Diesel, Milling sab" },
+      { type: "feature", text: "Search results grouped by category dikhte hain with preview panel" },
+      { type: "feature", text: "Click se direct tab pe navigate aur Eye icon se quick view" },
+      { type: "feature", text: "Shared Service Layer - Payment logic ab centralized hai, desktop aur local-server dono sync mein" },
+      { type: "fix", text: "Desktop app dbEngine scope bug fix - storage engine API ab sahi kaam karega" },
+      { type: "fix", text: "Hemali integrity check col() function bug fix" },
+    ]
+  },
   {
     version: "77.0.0",
     date: "Feb 2026",

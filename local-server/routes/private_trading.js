@@ -1,170 +1,16 @@
 const express = require('express');
 const { safeSync } = require('./safe_handler');
 const { getColumns, getEntryRow, getTotalRow, getExcelHeaders, getExcelWidths, getPdfHeaders, getPdfWidthsMm, colCount } = require('../shared/report_helper');
+const { makePartyLabel, fmtDetail } = require('../shared/party-helpers');
+const { calcPaddyAuto } = require('../shared/paddy-calc');
+const { createCashDieselForPvtPaddy, ensurePartyJamaExists, deleteCashDieselForPvtPaddy, createCashForRiceSale, deleteCashForRiceSale, processPrivatePayment, deletePrivatePayment, computePaymentStatus } = require('../shared/payment-service');
 const router = express.Router();
 
 module.exports = function(database) {
 
-  function _fmtDetail(qntl, rate) {
-    const q = qntl === Math.floor(qntl) ? Math.floor(qntl) : qntl;
-    const r = rate === Math.floor(rate) ? Math.floor(rate) : Math.round(rate * 100) / 100;
-    return `${q} Qntl @ Rs.${r}`;
-  }
-
-  function _makePartyLabel(party, mandi) {
-    party = (party || '').trim();
-    mandi = (mandi || '').trim();
-    if (!party) return 'Pvt Paddy';
-    if (mandi && !party.toLowerCase().includes(mandi.toLowerCase())) return `${party} - ${mandi}`;
-    return party;
-  }
-
-  // Helper: Create truck payment + advance entries for pvt paddy
-  function _createCashDieselForPvtPaddy(db, doc, username) {
-    if (!db.data.cash_transactions) db.data.cash_transactions = [];
-    if (!db.data.diesel_accounts) db.data.diesel_accounts = [];
-    const entryId = doc.id;
-    const party = doc.party_name || '';
-    const mandi = doc.mandi_name || '';
-    const partyLabel = _makePartyLabel(party, mandi);
-    const truckNo = doc.truck_no || '';
-    const date = doc.date || new Date().toISOString().slice(0, 10);
-    const qntl = doc.final_qntl || doc.qntl || 0;
-    const rate = doc.rate_per_qntl || doc.rate || ((qntl && doc.total_amount) ? Math.round(doc.total_amount / qntl * 100) / 100 : 0);
-    const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : '';
-    const base = { kms_year: doc.kms_year || '', season: doc.season || '', created_by: username || 'system', linked_entry_id: entryId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-
-    // --- Party Jama (Ledger) --- what we owe the party for paddy purchase
-    const totalAmount = parseFloat(doc.total_amount) || 0;
-    if (totalAmount > 0) {
-      const partyJamaDesc = detail ? `Paddy Purchase: ${partyLabel} - ${detail}` : `Paddy Purchase: ${partyLabel} - Rs.${totalAmount}`;
-      db.data.cash_transactions.push({
-        id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'jama',
-        category: partyLabel, party_type: 'Pvt Paddy Purchase',
-        description: partyJamaDesc,
-        amount: Math.round(totalAmount * 100) / 100,
-        reference: `pvt_party_jama:${entryId.slice(0,8)}`,
-        ...base
-      });
-    }
-
-    const cashPaid = parseFloat(doc.cash_paid) || 0;
-    if (cashPaid > 0 && truckNo) {
-      const cashDesc = detail ? `${partyLabel} - ${detail}` : `${partyLabel} - Rs.${cashPaid}`;
-      db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'nikasi', category: truckNo, party_type: 'Truck', description: cashDesc, amount: Math.round(cashPaid * 100) / 100, reference: `pvt_paddy_cash:${entryId.slice(0,8)}`, ...base });
-      db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'nikasi', category: truckNo, party_type: 'Truck', description: cashDesc, amount: Math.round(cashPaid * 100) / 100, reference: `pvt_paddy_tcash:${entryId.slice(0,8)}`, ...base });
-    }
-    const dieselPaid = parseFloat(doc.diesel_paid) || 0;
-    if (dieselPaid > 0) {
-      const dieselDesc = detail ? `${partyLabel} - ${detail}` : `${partyLabel} - Rs.${dieselPaid}`;
-      const pumps = db.data.diesel_pumps || [];
-      const defPump = pumps.find(p => p.is_default) || { id: 'default', name: 'Default Pump' };
-      db.data.diesel_accounts.push({ id: require('crypto').randomUUID(), date, pump_id: defPump.id, pump_name: defPump.name, truck_no: truckNo, agent_name: doc.agent_name || '', mandi_name: mandi, amount: Math.round(dieselPaid * 100) / 100, txn_type: 'debit', description: dieselDesc, ...base });
-      if (truckNo) {
-        db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'nikasi', category: truckNo, party_type: 'Truck', description: dieselDesc, amount: Math.round(dieselPaid * 100) / 100, reference: `pvt_paddy_tdiesel:${entryId.slice(0,8)}`, ...base });
-      }
-    }
-    const advancePaid = parseFloat(doc.paid_amount) || 0;
-    if (advancePaid > 0) {
-      const advDesc = detail ? `Advance - ${detail}` : `Advance - ${partyLabel} - Rs.${advancePaid}`;
-      db.data.cash_transactions.push({ id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'nikasi', category: partyLabel, party_type: 'Pvt Paddy Purchase', description: advDesc, amount: Math.round(advancePaid * 100) / 100, reference: `pvt_paddy_adv:${entryId.slice(0,8)}`, ...base });
-    }
-  }
-
-  // Helper: Ensure party jama entry exists for a pvt paddy entry
-  function _ensurePartyJamaExists(db, doc, username) {
-    if (!db.data.cash_transactions) db.data.cash_transactions = [];
-    const totalAmt = parseFloat(doc.total_amount) || 0;
-    if (totalAmt <= 0 || !doc.id) return;
-    const ref = `pvt_party_jama:${doc.id.slice(0, 8)}`;
-    const exists = db.data.cash_transactions.find(t => t.reference === ref);
-    if (exists) return; // Already exists
-    const party = doc.party_name || 'Pvt Paddy';
-    const qntl = doc.final_qntl || doc.qntl || (doc.kg ? doc.kg / 100 : 0);
-    const rate = doc.rate_per_qntl || doc.rate || 0;
-    const desc = (qntl && rate) ? `Paddy Purchase: ${party} - ${qntl}Q @ Rs.${rate}/Q = Rs.${totalAmt}` : `Paddy Purchase: ${party} - Rs.${totalAmt}`;
-    db.data.cash_transactions.push({
-      id: require('crypto').randomUUID(),
-      date: doc.date || new Date().toISOString().slice(0, 10),
-      account: 'cash', txn_type: 'jama',
-      category: party, party_type: 'Pvt Paddy Purchase',
-      description: desc,
-      amount: Math.round(totalAmt * 100) / 100, bank_name: '',
-      reference: ref,
-      kms_year: doc.kms_year || '', season: doc.season || '',
-      created_by: username || 'system', linked_entry_id: doc.id,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    });
-  }
-
-  // Helper: Delete linked cash book + diesel entries for pvt paddy
-  function _deleteCashDieselForPvtPaddy(db, entryId) {
-    if (db.data.cash_transactions) db.data.cash_transactions = db.data.cash_transactions.filter(t => {
-      if (t.linked_entry_id !== entryId) return true;
-      const ref = (t.reference || '');
-      // Delete both pvt_paddy_* and pvt_party_jama:* entries
-      if (ref.startsWith('pvt_paddy') || ref.startsWith('pvt_party_jama') || ref.startsWith('pvt_truck_jama:')) return false;
-      return true;
-    });
-    if (db.data.diesel_accounts) db.data.diesel_accounts = db.data.diesel_accounts.filter(t => t.linked_entry_id !== entryId);
-  }
-
-  // Helper: Create cash entries for rice sales (Auto-receipt)
-  function _createCashForRiceSale(db, doc, username) {
-    if (!db.data.cash_transactions) db.data.cash_transactions = [];
-    const entryId = doc.id;
-    const party = doc.party_name || '';
-    const date = doc.date || new Date().toISOString().slice(0, 10);
-    const amount = parseFloat(doc.paid_amount) || 0;
-    const base = { kms_year: doc.kms_year || '', season: doc.season || '', created_by: username || 'system', linked_entry_id: entryId, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-
-    if (amount > 0) {
-      const desc = `Rice Sale - ${party} - Rs.${amount}`;
-      // Cash Book (Jama = Money In)
-      db.data.cash_transactions.push({
-        id: require('crypto').randomUUID(), date, account: 'cash', txn_type: 'jama',
-        category: party, party_type: 'Rice Sale', description: desc,
-        amount: Math.round(amount * 100) / 100,
-        reference: `rice_sale_cash:${entryId.slice(0,8)}`,
-        ...base
-      });
-      // Ledger (Jama = Payment Received from Party)
-      db.data.cash_transactions.push({
-        id: require('crypto').randomUUID(), date, account: 'ledger', txn_type: 'jama',
-        category: party, party_type: 'Rice Sale', description: desc,
-        amount: Math.round(amount * 100) / 100,
-        reference: `rice_sale_lcash:${entryId.slice(0,8)}`,
-        ...base
-      });
-    }
-  }
-
-  // Helper: Delete linked cash entries for rice sales
-  function _deleteCashForRiceSale(db, entryId) {
-    if (db.data.cash_transactions) {
-      db.data.cash_transactions = db.data.cash_transactions.filter(t => 
-        !(t.linked_entry_id === entryId && (t.reference || '').startsWith('rice_sale_'))
-      );
-    }
-  }
-
-
-  function calcPaddyAutoDesktop(d) {
-    d.qntl = Math.round((d.kg || 0) / 100 * 100) / 100;
-    d.gbw_cut = d.g_deposite > 0 ? Math.round(d.g_deposite * 0.5 * 100) / 100 : Math.round((d.bag || 0) * 1 * 100) / 100;
-    d.mill_w = Math.round(((d.kg || 0) - d.gbw_cut) * 100) / 100;
-    d.p_pkt_cut = Math.round((d.plastic_bag || 0) * 0.5 * 100) / 100;
-    const moistPct = (d.moisture || 0) > 17 ? Math.round(((d.moisture || 0) - 17) * 100) / 100 : 0;
-    d.moisture_cut_percent = moistPct;
-    d.moisture_cut = Math.round(d.mill_w * moistPct / 100 * 100) / 100;
-    const afterM = d.mill_w - d.moisture_cut;
-    d.cutting = Math.round(afterM * (d.cutting_percent || 0) / 100 * 100) / 100;
-    d.final_w = Math.round((afterM - d.cutting - d.p_pkt_cut - (d.disc_dust_poll || 0)) * 100) / 100;
-    d.final_qntl = Math.round(d.final_w / 100 * 100) / 100;
-    d.total_amount = Math.round(d.final_qntl * (d.rate_per_qntl || 0) * 100) / 100;
-    d.balance = Math.round(d.total_amount - (d.paid_amount || 0), 2);
-    return d;
-  }
+  // Local aliases for backward compat (used in mark-paid/undo-paid/history)
+  const _makePartyLabel = makePartyLabel;
+  const _fmtDetail = fmtDetail;
 
   // ===== PRIVATE PADDY =====
   router.post('/api/private-paddy', safeSync(async (req, res) => {
@@ -172,12 +18,10 @@ module.exports = function(database) {
     const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     ['kg','bag','rate_per_qntl','g_deposite','plastic_bag','moisture','cutting_percent','disc_dust_poll','paid_amount'].forEach(f => { d[f] = parseFloat(d[f]) || 0; });
     d.bag = parseInt(d.bag) || 0; d.plastic_bag = parseInt(d.plastic_bag) || 0;
-    calcPaddyAutoDesktop(d);
+    calcPaddyAuto(d);
     database.data.private_paddy.push(d);
-    // Auto cash book + diesel entries
-    try { _createCashDieselForPvtPaddy(database, d, req.query.username || ''); } catch(e) { console.error('[PvtPaddy] _createCashDieselForPvtPaddy error:', e); }
-    // SAFETY NET: Always ensure party jama entry exists even if above function failed
-    _ensurePartyJamaExists(database, d, req.query.username || '');
+    try { createCashDieselForPvtPaddy(database, d, req.query.username || ''); } catch(e) { console.error('[PvtPaddy] createCashDieselForPvtPaddy error:', e); }
+    ensurePartyJamaExists(database, d, req.query.username || '');
     database.save(); res.json(d);
   }));
 
@@ -189,16 +33,7 @@ module.exports = function(database) {
     if (season) items = items.filter(i => i.season === season);
     if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
     items.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
-    // Compute payment_status dynamically
-    items.forEach(item => {
-      const total = parseFloat(item.total_amount) || 0;
-      const paid = parseFloat(item.paid_amount) || 0;
-      if (total > 0 && paid >= total) {
-        item.payment_status = 'paid';
-      } else if (!item.payment_status) {
-        item.payment_status = 'pending';
-      }
-    });
+    items = computePaymentStatus(items);
     res.json(items);
   }));
 
@@ -209,13 +44,11 @@ module.exports = function(database) {
     const merged = { ...database.data.private_paddy[idx], ...req.body, updated_at: new Date().toISOString() };
     ['kg','bag','rate_per_qntl','g_deposite','plastic_bag','moisture','cutting_percent','disc_dust_poll','paid_amount'].forEach(f => { merged[f] = parseFloat(merged[f]) || 0; });
     merged.bag = parseInt(merged.bag) || 0; merged.plastic_bag = parseInt(merged.plastic_bag) || 0;
-    calcPaddyAutoDesktop(merged);
+    calcPaddyAuto(merged);
     database.data.private_paddy[idx] = merged;
-    // Re-create cash book + diesel entries
-    _deleteCashDieselForPvtPaddy(database, req.params.id);
-    try { _createCashDieselForPvtPaddy(database, merged, req.query.username || ''); } catch(e) { console.error('[PvtPaddy] _createCashDieselForPvtPaddy error:', e); }
-    // SAFETY NET: Always ensure party jama entry exists
-    _ensurePartyJamaExists(database, merged, req.query.username || '');
+    deleteCashDieselForPvtPaddy(database, req.params.id);
+    try { createCashDieselForPvtPaddy(database, merged, req.query.username || ''); } catch(e) { console.error('[PvtPaddy] createCashDieselForPvtPaddy error:', e); }
+    ensurePartyJamaExists(database, merged, req.query.username || '');
     database.save(); res.json(merged);
   }));
 
@@ -224,8 +57,7 @@ module.exports = function(database) {
     const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     database.data.private_paddy.splice(idx, 1);
-    // Delete linked cash book + diesel + truck_payments entries
-    _deleteCashDieselForPvtPaddy(database, req.params.id);
+    deleteCashDieselForPvtPaddy(database, req.params.id);
     if (database.data.truck_payments) database.data.truck_payments = database.data.truck_payments.filter(t => t.entry_id !== req.params.id);
     database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
@@ -239,7 +71,7 @@ module.exports = function(database) {
     d.total_amount = Math.round(d.quantity_qntl * d.rate_per_qntl * 100) / 100;
     d.balance = Math.round(d.total_amount - d.paid_amount, 2);
     database.data.rice_sales.push(d);
-    _createCashForRiceSale(database, d, req.query.username || '');
+    createCashForRiceSale(database, d, req.query.username || '');
     database.save(); res.json(d);
   }));
 
@@ -251,16 +83,7 @@ module.exports = function(database) {
     if (season) items = items.filter(i => i.season === season);
     if (party_name) items = items.filter(i => (i.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
     items.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
-    // Compute payment_status dynamically
-    items.forEach(item => {
-      const total = parseFloat(item.total_amount) || 0;
-      const paid = parseFloat(item.paid_amount) || 0;
-      if (total > 0 && paid >= total) {
-        item.payment_status = 'paid';
-      } else if (!item.payment_status) {
-        item.payment_status = 'pending';
-      }
-    });
+    items = computePaymentStatus(items);
     res.json(items);
   }));
 
@@ -274,8 +97,8 @@ module.exports = function(database) {
     merged.total_amount = Math.round(merged.quantity_qntl * merged.rate_per_qntl * 100) / 100;
     merged.balance = Math.round(merged.total_amount - merged.paid_amount, 2);
     database.data.rice_sales[idx] = merged;
-    _deleteCashForRiceSale(database, req.params.id);
-    _createCashForRiceSale(database, merged, req.query.username || '');
+    deleteCashForRiceSale(database, req.params.id);
+    createCashForRiceSale(database, merged, req.query.username || '');
     database.save(); res.json(merged);
   }));
 
@@ -284,53 +107,13 @@ module.exports = function(database) {
     const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     database.data.rice_sales.splice(idx, 1);
-    _deleteCashForRiceSale(database, req.params.id);
+    deleteCashForRiceSale(database, req.params.id);
     database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
 
   // ===== PRIVATE PAYMENTS =====
   router.post('/api/private-payments', safeSync(async (req, res) => {
-    if (!database.data.private_payments) database.data.private_payments = [];
-    if (!database.data.cash_transactions) database.data.cash_transactions = [];
-    const d = { id: require('crypto').randomUUID(), ...req.body, created_by: req.query.username || '', created_at: new Date().toISOString() };
-    d.amount = parseFloat(d.amount) || 0;
-    const roundOff = parseFloat(req.body.round_off) || 0;
-    const totalSettled = Math.round((d.amount + roundOff) * 100) / 100;
-    database.data.private_payments.push(d);
-    if (d.ref_type === 'paddy_purchase' && d.ref_id) {
-      const entry = (database.data.private_paddy || []).find(e => e.id === d.ref_id);
-      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + totalSettled) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
-    } else if (d.ref_type === 'rice_sale' && d.ref_id) {
-      const entry = (database.data.rice_sales || []).find(e => e.id === d.ref_id);
-      if (entry) { entry.paid_amount = Math.round(((entry.paid_amount || 0) + totalSettled) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
-    }
-    const account = d.mode === 'bank' ? 'bank' : 'cash';
-    const isPaddy = d.ref_type === 'paddy_purchase';
-    // Get mandi + qntl/rate from ref entry for party label + description
-    let mandi = '', qntl = 0, rate = 0;
-    if (isPaddy && d.ref_id) {
-      const refEntry = (database.data.private_paddy || []).find(e => e.id === d.ref_id);
-      if (refEntry) { mandi = refEntry.mandi_name || ''; qntl = refEntry.qntl || 0; rate = refEntry.rate || ((qntl && refEntry.total_amount) ? Math.round(refEntry.total_amount / qntl * 100) / 100 : 0); }
-    }
-    const partyLabel = _makePartyLabel(d.party_name, mandi);
-    const partyType = isPaddy ? 'Pvt Paddy Purchase' : 'Rice Sale';
-    const txnType = isPaddy ? 'nikasi' : 'jama';
-    const detail = (qntl && rate) ? _fmtDetail(qntl, rate) : `Rs.${d.amount}`;
-    const desc = `${partyLabel} - ${detail}`;
-    const baseCb = { date: d.date, kms_year: d.kms_year || '', season: d.season || '', created_by: d.created_by, linked_payment_id: d.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    // Cash Book entry - actual cash
-    database.data.cash_transactions.push({
-      id: require('crypto').randomUUID(), account, txn_type: txnType,
-      category: partyLabel, party_type: partyType, description: desc,
-      amount: d.amount, reference: d.reference || `pvt_pay:${d.id.substring(0, 8)}`, ...baseCb
-    });
-    // Party Ledger entry - total including round off
-    database.data.cash_transactions.push({
-      id: require('crypto').randomUUID(), account: 'ledger', txn_type: txnType,
-      category: partyLabel, party_type: partyType,
-      description: desc + (roundOff ? ` (Cash: ${d.amount}, RoundOff: ${roundOff})` : ''),
-      amount: totalSettled, reference: d.reference || `pvt_pay_ledger:${d.id.substring(0, 8)}`, ...baseCb
-    });
+    const d = processPrivatePayment(database, req.body, req.query.username || '');
     database.save();
     res.json(d);
   }));
@@ -349,22 +132,9 @@ module.exports = function(database) {
   }));
 
   router.delete('/api/private-payments/:id', safeSync(async (req, res) => {
-    if (!database.data.private_payments) database.data.private_payments = [];
-    const idx = database.data.private_payments.findIndex(i => i.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ detail: 'Not found' });
-    const pay = database.data.private_payments[idx];
-    const reversalAmount = Math.round(((pay.amount || 0) + (parseFloat(pay.round_off) || 0)) * 100) / 100;
-    if (pay.ref_type === 'paddy_purchase' && pay.ref_id) {
-      const entry = (database.data.private_paddy || []).find(e => e.id === pay.ref_id);
-      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - reversalAmount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
-    } else if (pay.ref_type === 'rice_sale' && pay.ref_id) {
-      const entry = (database.data.rice_sales || []).find(e => e.id === pay.ref_id);
-      if (entry) { entry.paid_amount = Math.round(Math.max(0, (entry.paid_amount || 0) - reversalAmount) * 100) / 100; entry.balance = Math.round((entry.total_amount - entry.paid_amount) * 100) / 100; }
-    }
-    if (database.data.cash_transactions) {
-      database.data.cash_transactions = database.data.cash_transactions.filter(t => t.linked_payment_id !== pay.id);
-    }
-    database.data.private_payments.splice(idx, 1); database.save(); res.json({ message: 'Deleted', id: req.params.id });
+    const result = deletePrivatePayment(database, req.params.id);
+    if (!result.success) return res.status(404).json({ detail: result.error });
+    database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
 
   // ===== PARTY SUMMARY =====
