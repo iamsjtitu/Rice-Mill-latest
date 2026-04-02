@@ -735,6 +735,30 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 
+// ===== LAN CLIENT TRACKING =====
+const lanClients = new Map();
+app.use((req, res, next) => {
+  const rawIp = req.ip || req.connection?.remoteAddress || '';
+  const ip = rawIp.replace('::ffff:', '');
+  if (ip && ip !== '127.0.0.1' && ip !== '::1') {
+    lanClients.set(ip, { ip, lastSeen: Date.now() });
+  }
+  next();
+});
+
+app.get('/api/lan-clients', (req, res) => {
+  const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+  const active = [];
+  for (const [ip, client] of lanClients.entries()) {
+    if (client.lastSeen > fiveMinAgo) {
+      active.push({ ip: client.ip, minutes_ago: Math.round((Date.now() - client.lastSeen) / 60000) });
+    } else {
+      lanClients.delete(ip);
+    }
+  }
+  res.json({ host_computer: true, lan_clients: active, total_connected: active.length + 1 });
+});
+
 // ============ PRINT PAGE (Server-side for Electron/browser compatibility) ============
 const printPages = {};
 app.post('/api/print', (req, res) => {

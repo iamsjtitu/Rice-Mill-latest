@@ -15,6 +15,13 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,7 +34,8 @@ import {
   Calendar, Users, 
   CheckCircle, Keyboard, 
   Info, Sun, Moon,
-  Send, Scale, ClipboardList, Search
+  Send, Scale, ClipboardList, Search,
+  Monitor, ChevronDown
 } from "lucide-react";
 
 // Import extracted components
@@ -45,7 +53,6 @@ import FYSummaryDashboard from "@/components/FYSummaryDashboard";
 import BalanceSheet from "@/components/BalanceSheet";
 import ExcelImport from "@/components/ExcelImport";
 import Vouchers from "@/components/Vouchers";
-import { PrintButton } from "@/components/PrintButton";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import HemaliPayment from "@/components/HemaliPayment";
 import WhatsNew, { APP_VERSION } from "@/components/WhatsNew";
@@ -156,6 +163,21 @@ function MainApp({ user, onLogout }) {
   const [backupLoading, setBackupLoading] = useState(false);
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+
+  // LAN clients state (only for desktop/Electron mode)
+  const [lanInfo, setLanInfo] = useState(null);
+  useEffect(() => {
+    if (!_isElectron) return;
+    const fetchLan = async () => {
+      try {
+        const res = await axios.get(`${API}/lan-clients`);
+        setLanInfo(res.data);
+      } catch { /* not available in web mode */ }
+    };
+    fetchLan();
+    const interval = setInterval(fetchLan, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Suggestions state
   const [truckSuggestions, setTruckSuggestions] = useState([]);
@@ -1056,8 +1078,8 @@ function MainApp({ user, onLogout }) {
               <p className="text-slate-400 text-sm">{branding.tagline}</p>
             </div>
             
-            {/* User Info & Logout */}
-            <div className="flex items-center gap-3">
+            {/* User Info & Actions */}
+            <div className="flex items-center gap-2">
               {/* Global FY Selector */}
               <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-900/30 border border-amber-700/50 rounded-lg" data-testid="global-fy-selector">
                 <Calendar className="w-4 h-4 text-amber-400" />
@@ -1087,6 +1109,14 @@ function MainApp({ user, onLogout }) {
 
               <SessionIndicator onDataRefresh={() => { fetchEntries(); fetchTotals(); toast.success("Data refreshed!"); }} />
 
+              {/* LAN Connected Indicator - only in Electron/Desktop mode */}
+              {_isElectron && lanInfo && lanInfo.total_connected > 1 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-900/30 border border-cyan-700/40 rounded-lg text-[11px] text-cyan-300" data-testid="lan-indicator" title={`${lanInfo.total_connected} computers connected\n${lanInfo.lan_clients.map(c => c.ip).join('\n')}`}>
+                  <Monitor className="w-3.5 h-3.5" />
+                  <span className="font-medium">{lanInfo.total_connected} Connected</span>
+                </div>
+              )}
+
               {/* Quick Search Button */}
               <button
                 onClick={() => setQuickSearchOpen(true)}
@@ -1101,13 +1131,6 @@ function MainApp({ user, onLogout }) {
                 </kbd>
               </button>
 
-              <div className="flex items-center gap-2 px-3 py-1 bg-slate-700 rounded-full">
-                <User className="w-4 h-4 text-amber-400" />
-                <span className="text-white text-sm">{user.username}</span>
-                <span className={`text-xs px-2 py-0.5 rounded ${user.role === 'admin' ? 'bg-red-600' : 'bg-blue-600'}`}>
-                  {user.role.toUpperCase()}
-                </span>
-              </div>
               <Button
                 onClick={toggleTheme}
                 variant="outline"
@@ -1118,16 +1141,7 @@ function MainApp({ user, onLogout }) {
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </Button>
-              <Button
-                onClick={() => setIsPasswordDialogOpen(true)}
-                variant="outline"
-                size="sm"
-                className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                data-testid="change-password-btn"
-              >
-                <Key className="w-4 h-4 mr-1" />
-                Password
-              </Button>
+
               <Button
                 onClick={() => setShowShortcuts(true)}
                 variant="outline"
@@ -1138,6 +1152,7 @@ function MainApp({ user, onLogout }) {
               >
                 <Keyboard className="w-4 h-4" />
               </Button>
+
               <Button
                 onClick={() => setShowWhatsNew(true)}
                 variant="outline"
@@ -1149,17 +1164,39 @@ function MainApp({ user, onLogout }) {
                 <Info className="w-4 h-4 mr-1" />
                 v{APP_VERSION}
               </Button>
-              <PrintButton title={activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} />
-              <Button
-                onClick={onLogout}
-                variant="outline"
-                size="sm"
-                className="border-red-600 text-red-400 hover:bg-red-900/30"
-                data-testid="logout-btn"
-              >
-                <LogOut className="w-4 h-4 mr-1" />
-                Logout
-              </Button>
+
+              {/* Admin Dropdown - Username, Password Change, Logout */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors cursor-pointer" data-testid="admin-dropdown-trigger">
+                    <User className="w-4 h-4 text-amber-400" />
+                    <span className="text-white text-sm">{user.username}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded ${user.role === 'admin' ? 'bg-red-600' : 'bg-blue-600'}`}>
+                      {user.role.toUpperCase()}
+                    </span>
+                    <ChevronDown className="w-3 h-3 text-slate-400" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-slate-800 border-slate-600 min-w-[180px]" align="end">
+                  <DropdownMenuItem
+                    onClick={() => setIsPasswordDialogOpen(true)}
+                    className="text-slate-200 hover:bg-slate-700 cursor-pointer gap-2"
+                    data-testid="change-password-btn"
+                  >
+                    <Key className="w-4 h-4 text-amber-400" />
+                    Password Change
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-slate-600" />
+                  <DropdownMenuItem
+                    onClick={onLogout}
+                    className="text-red-400 hover:bg-red-900/30 cursor-pointer gap-2"
+                    data-testid="logout-btn"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 

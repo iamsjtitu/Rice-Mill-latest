@@ -13,6 +13,8 @@ const CHANGELOG = [
     items: [
       { type: "feature", text: "Same WiFi/LAN network pe doosre computer se browser mein software khol sakte ho - host computer ka IP use karo (e.g. http://192.168.1.100:9876)" },
       { type: "feature", text: "Ek computer mein software open karo, baaki computers mein browser se kaam karo - bilkul same data dikhega" },
+      { type: "feature", text: "LAN pe connected computers ka count dikhega header mein (e.g. '2 Connected')" },
+      { type: "feature", text: "Header cleanup - Password Change aur Logout ab admin dropdown mein, Print button hataya" },
     ]
   },
   {
