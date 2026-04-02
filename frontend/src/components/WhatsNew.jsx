@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "74.0.0";
+const APP_VERSION = "75.0.0";
 
 const CHANGELOG = [
+  {
+    version: "75.0.0",
+    date: "Feb 2026",
+    title: "v75.0.0 - App.js Refactoring Complete",
+    items: [
+      { type: "feature", text: "App.js se 5 components extract kiye - MillEntryForm, EntryTable, TabNavigation, FilterPanel, HeaderDialogs" },
+      { type: "feature", text: "App.js 2504 se 1429 lines pe aaya (43% reduction)" },
+      { type: "fix", text: "Unused imports aur code cleanup - faster load time" },
+    ]
+  },
   {
     version: "74.0.0",
     date: "Apr 2026",
