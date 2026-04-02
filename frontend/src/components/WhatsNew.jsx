@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "76.0.0";
+const APP_VERSION = "77.0.0";
 
 const CHANGELOG = [
+  {
+    version: "77.0.0",
+    date: "Feb 2026",
+    title: "v77.0.0 - Image Auto-Cleanup Fix",
+    items: [
+      { type: "fix", text: "Image Auto-Cleanup 'Abhi Clean Karo' button ab sahi se kaam karega - pehle days save hoga phir cleanup chalega" },
+    ]
+  },
   {
     version: "76.0.0",
     date: "Feb 2026",
