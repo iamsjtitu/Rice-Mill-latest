@@ -1787,6 +1787,8 @@ function CameraSetupTab() {
     if (cleanupDays <= 0) { toast.error("Pehle cleanup days set karein"); return; }
     setCleanupLoading(true);
     try {
+      // Pehle days save karo DB mein, phir run karo
+      await axios.put(`${API}/settings/image-cleanup`, { days: cleanupDays });
       const r = await axios.post(`${API}/settings/image-cleanup/run`);
       if (r.data.success) {
         toast.success(r.data.message || `${r.data.deleted} images deleted`);
