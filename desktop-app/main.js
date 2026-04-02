@@ -1211,7 +1211,7 @@ function createApiServer(database) {
             const minutesAgo = (now - new Date(s.last_heartbeat).getTime()) / 60000;
             others.push({
               computer_name: s.computer_name,
-              active: s.active && minutesAgo < 3,
+              active: s.active && minutesAgo < 10,
               last_heartbeat: s.last_heartbeat,
               minutes_ago: Math.round(minutesAgo * 10) / 10
             });
