@@ -72,62 +72,53 @@ export default function SessionIndicator({ onDataRefresh }) {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 p-2.5 shadow-lg" align="end">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between px-0.5">
-            <span className="text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Connected</span>
+      <PopoverContent className="w-48 bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 p-2 shadow-lg" align="end">
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Connected</span>
             <button
               onClick={handleRefresh}
               className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer"
               data-testid="session-refresh-btn"
             >
-              <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-2.5 h-2.5 ${refreshing ? "animate-spin" : ""}`} />
             </button>
           </div>
 
           {/* Self */}
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30">
-            <Monitor className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium truncate">{selfName}</p>
-              <p className="text-[9px] text-amber-500/70 dark:text-amber-400/60 leading-tight">Ye computer</p>
-            </div>
+          <div className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200/80 dark:border-amber-700/30">
+            <Monitor className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <p className="text-[10px] text-amber-700 dark:text-amber-300 font-bold truncate flex-1">{selfName}</p>
             <div className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
           </div>
 
           {/* Google Drive sessions */}
           {activeOthers.map((other, i) => (
-            <div key={`gd-${i}`} className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/30">
-              <Monitor className="w-3 h-3 text-green-600 dark:text-green-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] text-green-700 dark:text-green-300 font-medium truncate">{other.computer_name}</p>
-                <p className="text-[9px] text-green-500/70 dark:text-green-400/60 leading-tight">
-                  {other.minutes_ago < 1 ? "Abhi" : `${Math.round(other.minutes_ago)} min`}
-                </p>
-              </div>
-              <Wifi className="w-3 h-3 text-green-500 dark:text-green-400 shrink-0 animate-pulse" />
+            <div key={`gd-${i}`} className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-green-50 dark:bg-green-900/20 border border-green-200/80 dark:border-green-700/30">
+              <Monitor className="w-2.5 h-2.5 text-green-600 dark:text-green-400 shrink-0" />
+              <p className="text-[10px] text-green-700 dark:text-green-300 font-bold truncate flex-1">{other.computer_name}</p>
+              <span className="text-[8px] text-green-500/70 dark:text-green-400/60 shrink-0">
+                {other.minutes_ago < 1 ? "now" : `${Math.round(other.minutes_ago)}m`}
+              </span>
             </div>
           ))}
 
           {/* LAN clients */}
           {lanClients.map((client, i) => (
-            <div key={`lan-${i}`} className="flex items-center gap-1.5 px-2 py-1 rounded bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200 dark:border-cyan-700/30">
-              <Monitor className="w-3 h-3 text-cyan-600 dark:text-cyan-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] text-cyan-700 dark:text-cyan-300 font-medium truncate">{client.ip}</p>
-                <p className="text-[9px] text-cyan-500/70 dark:text-cyan-400/60 leading-tight">LAN Browser</p>
-              </div>
-              <Wifi className="w-3 h-3 text-cyan-500 dark:text-cyan-400 shrink-0" />
+            <div key={`lan-${i}`} className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-cyan-50 dark:bg-cyan-900/20 border border-cyan-200/80 dark:border-cyan-700/30">
+              <Wifi className="w-2.5 h-2.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
+              <p className="text-[10px] text-cyan-700 dark:text-cyan-300 font-bold truncate flex-1">{client.ip}</p>
+              <span className="text-[8px] text-cyan-500/70 shrink-0">LAN</span>
             </div>
           ))}
 
           {/* Footer */}
           {!hasOthers && (
-            <p className="text-[9px] text-gray-400 dark:text-slate-500 text-center py-0.5">Koi aur connected nahi</p>
+            <p className="text-[8px] text-gray-400 dark:text-slate-500 text-center">Sirf aap</p>
           )}
           {hasOthers && (
-            <p className="text-[9px] text-amber-500 dark:text-amber-400/70 text-center py-0.5">
-              Ek hi record dono jagah mat edit karo
+            <p className="text-[8px] text-amber-500/80 dark:text-amber-400/60 text-center">
+              Same record dono jagah mat edit karo
             </p>
           )}
         </div>
