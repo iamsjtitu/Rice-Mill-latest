@@ -31,7 +31,6 @@ class SqliteDatabase {
     this.dataFolder = dataFolder;
     this.dbFile = path.join(dataFolder, 'millentry-data.db');
     this.jsonFile = path.join(dataFolder, 'millentry-data.json');
-
     // Lazy-load better-sqlite3 (native module)
     const Database = require('better-sqlite3');
     this.sqlite = new Database(this.dbFile);
@@ -827,6 +826,36 @@ class SqliteDatabase {
     data._migrations.accounting_entries_v2 = { date: now, entries_created: created };
     console.log(`[Migration] Complete: ${created} accounting entries created`);
     if (created > 0) this.save();
+  }
+
+  // getData - used by vigi_proxy for /settings path
+  getData(path) {
+    if (path === '/settings') {
+      const settings = (this.data.app_settings || []);
+      return settings.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {});
+    }
+    const key = path.replace(/^\//, '');
+    return this.data[key];
+  }
+
+  // push - used by vigi_proxy to save settings
+  push(path, value, _save = true) {
+    const key = path.replace(/^\//, '');
+    if (key === 'settings') {
+      // Save as app_settings items
+      if (!this.data.app_settings) this.data.app_settings = [];
+      for (const [k, v] of Object.entries(value)) {
+        const idx = this.data.app_settings.findIndex(s => s.key === k);
+        if (idx >= 0) {
+          this.data.app_settings[idx].value = v;
+        } else {
+          this.data.app_settings.push({ id: uuidv4(), key: k, value: v });
+        }
+      }
+    } else {
+      this.data[key] = value;
+    }
+    this.save();
   }
 
   // Close database connection
