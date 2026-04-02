@@ -798,5 +798,17 @@ module.exports = function(database) {
     res.json(database.data.gst_settings);
   }));
 
+  // === GST Company Settings (used by frontend Settings page) ===
+  router.get('/api/gst-company-settings', safeSync(async (req, res) => {
+    if (!database.data.gst_company_settings) database.data.gst_company_settings = { company_name: '', gstin: '', address: '', state_code: '21', state_name: 'Odisha', phone: '', bank_name: '', bank_account: '', bank_ifsc: '' };
+    res.json(database.data.gst_company_settings);
+  }));
+
+  router.put('/api/gst-company-settings', safeSync(async (req, res) => {
+    database.data.gst_company_settings = { ...req.body, updated_at: new Date().toISOString() };
+    database.save();
+    res.json(database.data.gst_company_settings);
+  }));
+
   return router;
 };

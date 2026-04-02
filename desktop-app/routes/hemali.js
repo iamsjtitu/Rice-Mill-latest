@@ -15,6 +15,11 @@ module.exports = (database) => {
     return getAdvanceBalance(payments, sardarName);
   }
 
+  // ============ HEMALI ITEMS (Rate Config) ============
+  router.get('/api/hemali/items', safeHandler(async (req, res) => {
+    res.json(col('hemali_items').filter(i => i.is_active !== false));
+  }));
+
   router.post('/api/hemali/items', safeHandler(async (req, res) => {
     const d = req.body;
     if (!d.name || !d.rate) return res.status(400).json({ detail: 'Name aur rate required' });
