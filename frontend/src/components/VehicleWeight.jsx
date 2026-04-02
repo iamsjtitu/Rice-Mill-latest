@@ -136,7 +136,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
         const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
         if (deviceIp && channel) {
-          const params = new URLSearchParams({ channel, fps: '5', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '', openapi_port: cfg.vigiOpenApiPort || '' });
+          const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '', openapi_port: cfg.vigiOpenApiPort || '' });
           setCamUrl(`${API}/vigi-stream?${params.toString()}`);
         }
       }
@@ -245,8 +245,21 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       } else { return null; }
 
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-      return dataUrl.split(",")[1];
+      // Async blob conversion - UI thread block nahi hoga
+      const base64 = await new Promise((resolve) => {
+        canvas.toBlob((blob) => {
+          if (!blob) { resolve(null); return; }
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            // Canvas memory free karo capture ke baad
+            canvas.width = 1;
+            canvas.height = 1;
+            resolve(reader.result.split(",")[1]);
+          };
+          reader.readAsDataURL(blob);
+        }, "image/jpeg", 0.85);
+      });
+      return base64;
     },
     isActive: () => active
   }));
@@ -267,7 +280,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         setActive(true);
       } else {
         try {
-          const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 } } });
+          const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 15, max: 30 } } });
           streamRef.current = s;
           if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play(); }
           setActive(true);
@@ -313,7 +326,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         </div>
       ) : (
         <img ref={imgRefToUse} src={displayUrl} alt={label} className={`${cssClass} object-cover`}
-          crossOrigin="anonymous"
+          crossOrigin="anonymous" decoding="async"
           onError={() => setImgError(true)}
           onLoad={() => setImgError(false)}
         />
@@ -369,7 +382,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
               </button>
             </div>
             {(camType === "ip" || camType === "vigi") ? (
-              <img ref={zoomImgRef} src={displayUrl} alt={label} className="w-full aspect-video object-contain bg-black" crossOrigin="anonymous" />
+              <img ref={zoomImgRef} src={displayUrl} alt={label} className="w-full aspect-video object-contain bg-black" crossOrigin="anonymous" decoding="async" />
             ) : (
               <video ref={zoomVideoRef} className="w-full aspect-video object-contain bg-black" autoPlay muted playsInline />
             )}

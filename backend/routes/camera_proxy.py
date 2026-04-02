@@ -31,7 +31,7 @@ async def camera_stream(url: str = Query(...)):
                 "ffmpeg", "-rtsp_transport", "tcp",
                 "-i", safe_url,
                 "-f", "image2pipe", "-vcodec", "mjpeg",
-                "-q:v", "2", "-r", "10", "-an",
+                "-q:v", "3", "-r", "10", "-an",
                 "pipe:1"
             ],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
