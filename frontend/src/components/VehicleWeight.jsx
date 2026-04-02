@@ -136,7 +136,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
         const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
         if (deviceIp && channel) {
-          const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '', openapi_port: cfg.vigiOpenApiPort || '' });
+          const params = new URLSearchParams({ channel, fps: '5', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '', openapi_port: cfg.vigiOpenApiPort || '' });
           setCamUrl(`${API}/vigi-stream?${params.toString()}`);
         }
       }
@@ -234,18 +234,18 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 
       if ((camType === "ip" || camType === "vigi") && imgRef.current) {
         const img = imgRef.current;
-        canvas.width = img.naturalWidth || 640;
-        canvas.height = img.naturalHeight || 480;
+        canvas.width = img.naturalWidth || 1920;
+        canvas.height = img.naturalHeight || 1080;
         try { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); }
         catch { return null; }
       } else if (videoRef.current) {
         const video = videoRef.current;
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
+        canvas.width = video.videoWidth || 1920;
+        canvas.height = video.videoHeight || 1080;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       } else { return null; }
 
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
       return dataUrl.split(",")[1];
     },
     isActive: () => active
@@ -267,7 +267,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
         setActive(true);
       } else {
         try {
-          const s = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+          const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 } } });
           streamRef.current = s;
           if (videoRef.current) { videoRef.current.srcObject = s; videoRef.current.play(); }
           setActive(true);
