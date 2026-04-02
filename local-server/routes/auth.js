@@ -35,24 +35,38 @@ module.exports = function(database) {
     'staff': { password: 'staff123', role: 'staff' }
   };
 
+  const ROLE_PERMISSIONS = {
+    admin: { can_edit: true, can_delete: true, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: true },
+    entry_operator: { can_edit: true, can_delete: false, can_export: false, can_see_payments: false, can_see_cashbook: false, can_see_reports: false, can_edit_settings: false },
+    accountant: { can_edit: true, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false },
+    viewer: { can_edit: false, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false },
+    staff: { can_edit: false, can_delete: false, can_export: false, can_see_payments: false, can_see_cashbook: false, can_see_reports: false, can_edit_settings: false },
+  };
+
+  const getPerms = (userDoc) => {
+    const role = userDoc.role || 'viewer';
+    const defaults = { ...(ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.viewer) };
+    if (userDoc.permissions) Object.assign(defaults, userDoc.permissions);
+    return defaults;
+  };
+
   router.post('/api/auth/login', safeSync(async (req, res) => {
     const { username, password } = req.body;
-    console.log(`[LOGIN] Attempt: username="${username}"`);
-    // Check database first (supports changed passwords)
     const user = database.getUser(username);
     if (user) {
-      console.log(`[LOGIN] User "${username}" found in DB, stored_pass_len=${(user.password||'').length}, entered_pass_len=${(password||'').length}, match=${user.password === password}`);
+      if (user.active === false) return res.status(401).json({ detail: 'Account deactivated hai. Admin se baat karo.' });
       if (user.password === password) {
-        return res.json({ success: true, username: user.username, role: user.role, message: 'Login successful' });
+        return res.json({ success: true, username: user.username, role: user.role,
+          display_name: user.display_name || user.username, permissions: getPerms(user), message: 'Login successful' });
       }
-      return res.status(401).json({ detail: `Password galat hai (DB user found, stored=${(user.password||'').length} chars, entered=${(password||'').length} chars)` });
+      return res.status(401).json({ detail: 'Password galat hai' });
     }
-    console.log(`[LOGIN] User "${username}" NOT in DB, total_users=${(database.data.users||[]).length}, checking defaults...`);
-    // Fallback to defaults if user not in database
     if (DEFAULT_USERS[username] && DEFAULT_USERS[username].password === password) {
-      return res.json({ success: true, username, role: DEFAULT_USERS[username].role, message: 'Login successful' });
+      const role = DEFAULT_USERS[username].role;
+      return res.json({ success: true, username, role, display_name: username,
+        permissions: { ...(ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.admin) }, message: 'Login successful' });
     }
-    res.status(401).json({ detail: `User "${username}" nahi mila (total users in DB: ${(database.data.users||[]).length})` });
+    res.status(401).json({ detail: `User "${username}" nahi mila` });
   }));
 
   router.post('/api/auth/change-password', safeSync(async (req, res) => {
@@ -69,13 +83,90 @@ module.exports = function(database) {
     const { username, role } = req.query;
     const user = database.getUser(username);
     if (user && user.role === role) {
-      return res.json({ valid: true, username, role });
+      return res.json({ valid: true, username, role, display_name: user.display_name || username, permissions: getPerms(user) });
     }
-    // Fallback to defaults
     if (DEFAULT_USERS[username] && DEFAULT_USERS[username].role === role) {
-      return res.json({ valid: true, username, role });
+      return res.json({ valid: true, username, role, display_name: username, permissions: { ...(ROLE_PERMISSIONS[role] || {}) } });
     }
     res.json({ valid: false });
+  }));
+
+  // ===== USER MANAGEMENT (CRUD) =====
+  router.get('/api/users', safeSync(async (req, res) => {
+    if (req.query.role !== 'admin') return res.status(403).json({ detail: 'Sirf Admin users dekh sakta hai' });
+    if (!database.data.users) database.data.users = [];
+    const dbUsers = database.data.users.map(u => {
+      const { password, ...rest } = u;
+      rest.permissions = getPerms(u);
+      return rest;
+    });
+    const dbUsernames = new Set(dbUsers.map(u => u.username));
+    for (const [uname, udata] of Object.entries(DEFAULT_USERS)) {
+      if (!dbUsernames.has(uname)) {
+        dbUsers.push({ username: uname, role: udata.role, display_name: uname, active: true, is_default: true,
+          permissions: { ...(ROLE_PERMISSIONS[udata.role] || {}) } });
+      }
+    }
+    const staffList = (database.data.staff || []).filter(s => s.active !== false);
+    const linkedIds = new Set(database.data.users.filter(u => u.staff_id).map(u => u.staff_id));
+    res.json({
+      users: dbUsers,
+      staff: staffList.map(s => ({ id: s.id, name: s.name, linked: linkedIds.has(s.id) }))
+    });
+  }));
+
+  router.post('/api/users', safeSync(async (req, res) => {
+    if (req.query.role !== 'admin') return res.status(403).json({ detail: 'Sirf Admin user create kar sakta hai' });
+    if (!database.data.users) database.data.users = [];
+    const d = req.body;
+    const uname = (d.username || '').trim().toLowerCase();
+    if (!uname || !d.password) return res.status(400).json({ detail: 'Username aur password zaruri hai' });
+    if (d.password.length < 4) return res.status(400).json({ detail: 'Password kam se kam 4 characters' });
+    const exists = database.data.users.some(u => u.username === uname) || DEFAULT_USERS[uname];
+    if (exists) return res.status(400).json({ detail: 'Ye username already exist karta hai' });
+    const doc = {
+      id: require('crypto').randomUUID(), username: uname, password: d.password,
+      display_name: d.display_name || uname, role: d.role || 'viewer',
+      permissions: d.permissions || {}, staff_id: d.staff_id || '',
+      active: true, created_by: req.query.username || '',
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+    };
+    database.data.users.push(doc);
+    database.save();
+    const { password, ...safe } = doc;
+    safe.permissions = getPerms(doc);
+    res.json({ success: true, message: `User '${uname}' ban gaya`, user: safe });
+  }));
+
+  router.put('/api/users/:id', safeSync(async (req, res) => {
+    if (req.query.role !== 'admin') return res.status(403).json({ detail: 'Sirf Admin user update kar sakta hai' });
+    if (!database.data.users) return res.status(404).json({ detail: 'User nahi mila' });
+    const idx = database.data.users.findIndex(u => u.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ detail: 'User nahi mila' });
+    const d = req.body;
+    if (d.display_name !== undefined) database.data.users[idx].display_name = d.display_name;
+    if (d.role !== undefined) database.data.users[idx].role = d.role;
+    if (d.permissions !== undefined) database.data.users[idx].permissions = d.permissions;
+    if (d.active !== undefined) database.data.users[idx].active = d.active;
+    if (d.staff_id !== undefined) database.data.users[idx].staff_id = d.staff_id;
+    if (d.password && d.password.trim().length >= 4) database.data.users[idx].password = d.password;
+    database.data.users[idx].updated_at = new Date().toISOString();
+    database.save();
+    const { password, ...safe } = database.data.users[idx];
+    safe.permissions = getPerms(database.data.users[idx]);
+    res.json({ success: true, message: 'User update ho gaya', user: safe });
+  }));
+
+  router.delete('/api/users/:id', safeSync(async (req, res) => {
+    if (req.query.role !== 'admin') return res.status(403).json({ detail: 'Sirf Admin user delete kar sakta hai' });
+    if (!database.data.users) return res.status(404).json({ detail: 'User nahi mila' });
+    const idx = database.data.users.findIndex(u => u.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ detail: 'User nahi mila' });
+    if (database.data.users[idx].username === 'admin') return res.status(400).json({ detail: 'Admin user delete nahi ho sakta' });
+    database.data.users[idx].active = false;
+    database.data.users[idx].updated_at = new Date().toISOString();
+    database.save();
+    res.json({ success: true, message: 'User deactivate ho gaya' });
   }));
 
   // ===== FY SETTINGS =====

@@ -18,6 +18,8 @@ class LoginResponse(BaseModel):
     username: str
     role: str
     message: str
+    display_name: str = ""
+    permissions: dict = {}
 
 class PasswordChangeRequest(BaseModel):
     username: str

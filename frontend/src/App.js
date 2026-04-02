@@ -1476,8 +1476,8 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const handleLogin = (username, role) => {
-    const userData = { username, role };
+  const handleLogin = (username, role, permissions = {}, display_name = "") => {
+    const userData = { username, role, permissions, display_name: display_name || username };
     setUser(userData);
     localStorage.setItem('mill_user', JSON.stringify(userData));
   };

@@ -59,8 +59,8 @@ const LoginPage = ({ onLogin }) => {
     try {
       const response = await axios.post(`${API}/auth/login`, { username, password });
       if (response.data.success) {
-        onLogin(response.data.username, response.data.role);
-        toast.success(`Welcome ${response.data.role === 'admin' ? 'Admin' : 'Staff'}!`);
+        onLogin(response.data.username, response.data.role, response.data.permissions || {}, response.data.display_name || "");
+        toast.success(`Welcome ${response.data.display_name || response.data.username}!`);
       }
     } catch (error) {
       const msg = error.response?.data?.detail || "Invalid username or password";

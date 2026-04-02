@@ -13,45 +13,89 @@ router = APIRouter()
 
 # ============ AUTH ENDPOINTS ============
 
-@router.post("/auth/login", response_model=LoginResponse)
+# Default permissions per role
+ROLE_PERMISSIONS = {
+    "admin": {
+        "can_edit": True, "can_delete": True, "can_export": True,
+        "can_see_payments": True, "can_see_cashbook": True,
+        "can_see_reports": True, "can_edit_settings": True
+    },
+    "entry_operator": {
+        "can_edit": True, "can_delete": False, "can_export": False,
+        "can_see_payments": False, "can_see_cashbook": False,
+        "can_see_reports": False, "can_edit_settings": False
+    },
+    "accountant": {
+        "can_edit": True, "can_delete": False, "can_export": True,
+        "can_see_payments": True, "can_see_cashbook": True,
+        "can_see_reports": True, "can_edit_settings": False
+    },
+    "viewer": {
+        "can_edit": False, "can_delete": False, "can_export": True,
+        "can_see_payments": True, "can_see_cashbook": True,
+        "can_see_reports": True, "can_edit_settings": False
+    },
+    "staff": {
+        "can_edit": False, "can_delete": False, "can_export": False,
+        "can_see_payments": False, "can_see_cashbook": False,
+        "can_see_reports": False, "can_edit_settings": False
+    },
+}
+
+def _get_permissions(user_doc):
+    """Get merged permissions: role defaults + custom overrides"""
+    role = user_doc.get("role", "viewer")
+    defaults = ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["viewer"]).copy()
+    custom = user_doc.get("permissions", {})
+    defaults.update(custom)
+    return defaults
+
+
+@router.post("/auth/login")
 async def login(request: LoginRequest):
     username = request.username
     password = request.password
     
-    # Check from database first (for changed passwords)
+    # Check from database first
     user_doc = await db.users.find_one({"username": username}, {"_id": 0})
     
     if user_doc:
+        if user_doc.get("active", True) is False:
+            raise HTTPException(status_code=401, detail="Account deactivated hai. Admin se baat karo.")
         if user_doc.get("password") == password:
-            return LoginResponse(
-                success=True,
-                username=username,
-                role=user_doc.get("role"),
-                message="Login successful"
-            )
+            perms = _get_permissions(user_doc)
+            return {
+                "success": True, "username": username,
+                "role": user_doc.get("role", "staff"),
+                "display_name": user_doc.get("display_name", username),
+                "permissions": perms, "message": "Login successful"
+            }
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
     # Fallback to default users
     if username in USERS and USERS[username]["password"] == password:
-        return LoginResponse(
-            success=True,
-            username=username,
-            role=USERS[username]["role"],
-            message="Login successful"
-        )
+        role = USERS[username]["role"]
+        perms = ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["admin"]).copy()
+        return {
+            "success": True, "username": username,
+            "role": role, "display_name": username,
+            "permissions": perms, "message": "Login successful"
+        }
     
     raise HTTPException(status_code=401, detail="Invalid username or password")
 
 
 @router.get("/auth/verify")
 async def verify_user(username: str, role: str):
-    # Check from database first
     user_doc = await db.users.find_one({"username": username}, {"_id": 0})
     if user_doc and user_doc.get("role") == role:
-        return {"valid": True, "username": username, "role": role}
-    # Fallback to default users
+        perms = _get_permissions(user_doc)
+        return {"valid": True, "username": username, "role": role,
+                "display_name": user_doc.get("display_name", username), "permissions": perms}
     if username in USERS and USERS[username]["role"] == role:
-        return {"valid": True, "username": username, "role": role}
+        perms = ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["admin"]).copy()
+        return {"valid": True, "username": username, "role": role,
+                "display_name": username, "permissions": perms}
     return {"valid": False}
 
 
@@ -89,6 +133,122 @@ async def change_password(request: PasswordChangeRequest):
         return {"success": True, "message": "Password changed successfully"}
     
     raise HTTPException(status_code=404, detail="User not found")
+
+
+# ============ USER MANAGEMENT (CRUD) ============
+
+@router.get("/users")
+async def list_users(username: str = "", role: str = ""):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf Admin users dekh sakta hai")
+    
+    # Get DB users
+    db_users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(500)
+    
+    # Add default users if not in DB
+    db_usernames = {u["username"] for u in db_users}
+    for uname, udata in USERS.items():
+        if uname not in db_usernames:
+            db_users.append({
+                "username": uname, "role": udata["role"],
+                "display_name": uname, "active": True, "is_default": True,
+                "permissions": ROLE_PERMISSIONS.get(udata["role"], {})
+            })
+    
+    # Get staff list and mark which are linked
+    staff_list = await db.staff.find({"active": {"$ne": False}}, {"_id": 0}).to_list(500)
+    linked_staff_ids = {u.get("staff_id") for u in db_users if u.get("staff_id")}
+    
+    for u in db_users:
+        u["permissions"] = _get_permissions(u)
+    
+    return {
+        "users": db_users,
+        "staff": [{"id": s["id"], "name": s["name"], "linked": s["id"] in linked_staff_ids} for s in staff_list]
+    }
+
+
+@router.post("/users")
+async def create_user(data: dict, username: str = "", role: str = ""):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf Admin user create kar sakta hai")
+    
+    new_username = data.get("username", "").strip().lower()
+    password = data.get("password", "").strip()
+    if not new_username or not password:
+        raise HTTPException(status_code=400, detail="Username aur password zaruri hai")
+    if len(password) < 4:
+        raise HTTPException(status_code=400, detail="Password kam se kam 4 characters ka hona chahiye")
+    
+    # Check duplicate
+    existing = await db.users.find_one({"username": new_username})
+    if existing or new_username in USERS:
+        raise HTTPException(status_code=400, detail="Ye username already exist karta hai")
+    
+    user_role = data.get("role", "viewer")
+    permissions = data.get("permissions", {})
+    
+    user_doc = {
+        "id": str(uuid.uuid4()),
+        "username": new_username,
+        "password": password,
+        "display_name": data.get("display_name", new_username),
+        "role": user_role,
+        "permissions": permissions,
+        "staff_id": data.get("staff_id", ""),
+        "active": True,
+        "created_by": username,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    user_doc.pop("_id", None)
+    user_doc.pop("password", None)
+    user_doc["permissions"] = _get_permissions(user_doc)
+    return {"success": True, "message": f"User '{new_username}' ban gaya", "user": user_doc}
+
+
+@router.put("/users/{user_id}")
+async def update_user(user_id: str, data: dict, username: str = "", role: str = ""):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf Admin user update kar sakta hai")
+    
+    existing = await db.users.find_one({"id": user_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="User nahi mila")
+    
+    update = {}
+    if "display_name" in data: update["display_name"] = data["display_name"]
+    if "role" in data: update["role"] = data["role"]
+    if "permissions" in data: update["permissions"] = data["permissions"]
+    if "active" in data: update["active"] = data["active"]
+    if "staff_id" in data: update["staff_id"] = data["staff_id"]
+    if "password" in data and data["password"].strip():
+        if len(data["password"]) < 4:
+            raise HTTPException(status_code=400, detail="Password kam se kam 4 characters")
+        update["password"] = data["password"]
+    
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": user_id}, {"$set": update})
+    
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    updated["permissions"] = _get_permissions(updated)
+    return {"success": True, "message": "User update ho gaya", "user": updated}
+
+
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: str, username: str = "", role: str = ""):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf Admin user delete kar sakta hai")
+    
+    existing = await db.users.find_one({"id": user_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="User nahi mila")
+    if existing.get("username") == "admin":
+        raise HTTPException(status_code=400, detail="Admin user delete nahi ho sakta")
+    
+    await db.users.update_one({"id": user_id}, {"$set": {"active": False, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    return {"success": True, "message": "User deactivate ho gaya"}
 
 
 # ============ BRANDING SETTINGS ============

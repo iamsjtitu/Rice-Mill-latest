@@ -5,20 +5,23 @@ import {
 } from "lucide-react";
 
 export function TabNavigation({ activeTab, setActiveTabSafe, user }) {
+  const perms = user.permissions || {};
+  const isAdmin = user.role === 'admin';
+
   const tabs = [
     { id: "entries", label: "Entries", icon: FileSpreadsheet },
     { id: "dashboard", label: "Dashboard & Targets", icon: BarChart3 },
     { id: "milling", label: "Milling (CMR)", icon: Wheat },
     { id: "dctracker", label: "DC (Payments)", icon: Truck },
     { id: "vouchers", label: "Vouchers", icon: FileText },
-    { id: "cashbook", label: "Cash Book & Ledgers", icon: Wallet },
-    { id: "payments", label: "Payments", icon: IndianRupee },
-    { id: "reports", label: "Reports", icon: BarChart3 },
+    { id: "cashbook", label: "Cash Book & Ledgers", icon: Wallet, perm: "can_see_cashbook" },
+    { id: "payments", label: "Payments", icon: IndianRupee, perm: "can_see_payments" },
+    { id: "reports", label: "Reports", icon: BarChart3, perm: "can_see_reports" },
     { id: "mill-parts", label: "Mill Parts", icon: Package },
     { id: "staff", label: "Staff", icon: UserCheck },
     { id: "hemali", label: "Hemali", icon: Users },
     { id: "fy-summary", label: "FY Summary", icon: TrendingUp },
-  ];
+  ].filter(t => !t.perm || isAdmin || perms[t.perm]);
 
   return (
     <div className="flex gap-2 mt-4 border-b border-slate-700 pb-2">
@@ -37,7 +40,7 @@ export function TabNavigation({ activeTab, setActiveTabSafe, user }) {
           {label}
         </Button>
       ))}
-      {user.role === 'admin' && (
+      {(isAdmin || perms.can_edit_settings) && (
         <Button
           onClick={() => setActiveTabSafe("settings")}
           variant={activeTab === "settings" ? "default" : "ghost"}
