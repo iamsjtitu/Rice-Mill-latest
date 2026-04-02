@@ -1,25 +1,82 @@
-# Mill Entry System PRD
+# Mill Entry System - PRD
+
+## Original Problem Statement
+A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, and offline-first desktop capabilities.
+
+## Core Architecture
+- **Web Backend**: Python FastAPI + MongoDB
+- **Desktop Backend**: Electron + Express + Local JSON
+- **Local Server**: Express + Local JSON (network-accessible)
+- **Frontend**: React (shared across all backends)
+- **Triple Backend Rule**: Any logic change MUST be replicated in all 3 backends
 
 ## Current Version: v74.0.0
 
-## Architecture
-- **Web Backend**: Python FastAPI + MongoDB
-- **Desktop App**: Electron + Express + Local JSON
-- **Local Server**: Express + Local JSON (LAN access)
-- **Frontend**: React (shared across all 3 backends)
+## What's Been Implemented
 
-## Recent Completed (Apr 2026)
-- [v71] RST auto-increment bug fix - frontend was accessing wrong response key (`next_rst` → `rst_no`), added parseInt in JS backends, robust max calculation in Python backend
-- [v71] Photo ESC handler added - zoomImg overlay now closes on ESC key press
-- [v71] What's New dialog limited to last 5 changelog entries, fixed duplicate version in titles
-- [v70.2] G.Issued now shows in View modal, WhatsApp/Telegram text, and Mill Entry RST auto-fill
-- [v70.1] Receive(Pur)→Receive(Purchase), Source→Source/Mandi, Trans in WhatsApp
-- [v70] G.Issued field added, Farmer→Source rename, PDF bordered table
-- [v69.2] Badge count type mismatch fix
-- [v69] Camera captureFrame await fix, WhatsApp image fix, FY Carry Forward
+### Core Features (Complete)
+- Mill Entry CRUD with auto-calculations (KG→QNTL, GBW cut, P.Pkt cut, Cutting, Moisture cut, Final W)
+- Dashboard with targets & analytics
+- Milling (CMR) Tracker
+- DC Tracker with payments
+- Cash Book with double-entry accounting & party ledgers
+- Vouchers system
+- Payment management with round-off
+- Private Paddy Purchase (PaddyPurchase.jsx)
+- Paddy Purchase Register
+- Reports with Excel/PDF export
+- Staff Management
+- Mill Parts Stock tracking
+- Hemali Payment module
+- FY Summary with Balance Sheet
+- Vehicle Weight (Weighbridge + IP Camera integration)
+- Auto Weight Entries
+- Excel Import
+- WhatsApp/Telegram messaging integration
+- Session heartbeat indicator (Google Drive sync protection)
+- Keyboard shortcuts (Ctrl+N, Ctrl+S, Ctrl+F, etc.)
+- Theme toggle (dark/light)
+- Branding customization
+- Backup/Restore system
+- Auto-updater for desktop app
 
-## Backlog
-- P1: Export Preview feature
-- P2: Centralize payment/stock logic across triple backends
-- P2: App.js refactor (~2500 lines)
-- P3: SQLite migration for desktop
+### Recent Changes (Feb 2026)
+- Extracted `MillEntryForm.jsx` and `EntryTable.jsx` from App.js (refactoring)
+- App.js reduced from 2504 to 1909 lines
+- Previously extracted: `print.js`, `constants.js`, `date.js` utilities
+- RST auto-increment fix
+- Photo ESC button fix
+- Dialog accessibility warnings fixed
+- Remark field added to Auto Weight Entries
+- Active Session Heartbeat indicator
+- 100% route parity between desktop-app and local-server
+- Global date formatting (DD-MM-YYYY) centralized
+
+## Prioritized Backlog
+
+### P0 (Critical)
+- None currently
+
+### P1 (High)
+- "Export Preview" feature (preview data before Excel/PDF export)
+
+### P2 (Medium)
+- Centralize payment/stock logic across triple-backend system
+- Further App.js refactoring (extract more sections if needed)
+
+### P3 (Low/Future)
+- SQLite migration for desktop app (when data exceeds 1 Lakh+ entries)
+
+## Key Technical Notes
+- User communicates in Hindi/Hinglish
+- User is sensitive to UI layout changes - ensure visual parity during refactoring
+- GitHub Actions workflow (.github/workflows/build-desktop.yml) handles .exe builds
+- All 3 backends must stay in sync for any logic changes
+
+## Test Reports
+- `/app/test_reports/iteration_156.json` - Previous session tests
+- `/app/test_reports/iteration_157.json` - Refactoring verification (100% pass)
+
+## Credentials
+- Username: admin
+- Password: admin123
