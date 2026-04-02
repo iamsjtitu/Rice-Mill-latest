@@ -1151,55 +1151,7 @@ function createApiServer(database) {
 
   // ===== STORAGE ENGINE API =====
   apiApp.get('/api/settings/storage-engine', safeSync((req, res) => {
-    const sqliteAvailable = (() => {
-      try { require('better-sqlite3'); return true; } catch { return false; }
-    })();
-    res.json({ engine: dbEngine, sqlite_available: sqliteAvailable });
-  }));
-
-  apiApp.post('/api/settings/storage-engine', safeSync((req, res) => {
-    const { engine } = req.body;
-    if (!['json', 'sqlite'].includes(engine)) {
-      return res.status(400).json({ success: false, message: 'Invalid engine. Use "json" or "sqlite"' });
-    }
-    if (engine === 'sqlite') {
-      try { require('better-sqlite3'); } catch {
-        return res.status(400).json({ success: false, message: 'better-sqlite3 install nahi hai. Run: yarn add better-sqlite3' });
-      }
-    }
-    const cfg = loadConfig();
-    const oldEngine = cfg.storageEngine || 'json';
-    if (oldEngine === engine) {
-      return res.json({ success: true, message: `Already using ${engine}`, restart_needed: false });
-    }
-
-    // If switching from JSON to SQLite, migrate data
-    if (oldEngine === 'json' && engine === 'sqlite') {
-      try {
-        const { SqliteDatabase } = require('./sqlite-database');
-        const tempDb = new SqliteDatabase(database.dataFolder);
-        tempDb.close();
-        console.log('[StorageEngine] JSON → SQLite migration done');
-      } catch (e) {
-        return res.status(500).json({ success: false, message: 'Migration failed: ' + e.message });
-      }
-    }
-
-    // If switching from SQLite to JSON, export data back to JSON file
-    if (oldEngine === 'sqlite' && engine === 'json') {
-      try {
-        const jsonData = database.exportToJson ? database.exportToJson() : JSON.stringify(database.data);
-        const jsonFile = path.join(database.dataFolder, 'millentry-data.json');
-        fs.writeFileSync(jsonFile, jsonData);
-        console.log('[StorageEngine] SQLite → JSON export done');
-      } catch (e) {
-        return res.status(500).json({ success: false, message: 'Export failed: ' + e.message });
-      }
-    }
-
-    cfg.storageEngine = engine;
-    saveConfig(cfg);
-    res.json({ success: true, message: `Storage engine changed to ${engine}. Software restart karein.`, restart_needed: true });
+    res.json({ engine: dbEngine });
   }));
 
   // ===== SESSION HEARTBEAT SYSTEM =====
