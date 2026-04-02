@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "83.0.0";
+const APP_VERSION = "84.0.0";
 
 const CHANGELOG = [
+  {
+    version: "84.0.0",
+    date: "Feb 2026",
+    title: "v84.0.0 - UI Polish",
+    items: [
+      { type: "fix", text: "Heartbeat popover chota aur sundar kiya - white/dark dono theme mein accha dikhega" },
+    ]
+  },
   {
     version: "83.0.0",
     date: "Feb 2026",
