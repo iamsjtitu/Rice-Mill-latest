@@ -1214,11 +1214,5 @@ module.exports = function(database) {
     res.json({ success: true, message: `${deleted} purani images delete hui`, deleted });
   }));
 
-  // Storage Engine API (Local server always JSON)
-  router.get('/api/settings/storage-engine', safeAsync(async (req, res) => {
-    res.json({ engine: 'json' });
-  }));
-
-
   return router;
 };

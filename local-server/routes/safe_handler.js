@@ -35,14 +35,14 @@ function safeSync(fn) {
         result.catch((err) => {
           logError('ASYNC_ROUTE_ERROR: ' + req.method + ' ' + req.originalUrl, err);
           if (!res.headersSent) {
-            res.status(500).json({ detail: 'Internal server error', error_message: err.message || String(err) });
+            res.status(500).json({ detail: 'Internal server error' });
           }
         });
       }
     } catch (err) {
       logError('SYNC_ROUTE_ERROR: ' + req.method + ' ' + req.originalUrl, err);
       if (!res.headersSent) {
-        res.status(500).json({ detail: 'Internal server error', error_message: err.message || String(err) });
+        res.status(500).json({ detail: 'Internal server error' });
       }
     }
   };

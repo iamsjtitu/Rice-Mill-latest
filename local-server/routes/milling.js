@@ -1,5 +1,6 @@
 const express = require('express');
 const { safeSync } = require('./safe_handler');
+const { fmtDate } = require('./pdf_helpers');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 

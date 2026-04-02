@@ -4,19 +4,16 @@ const { safeHandler } = require('./safe_handler');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const { safePdfPipe, addPdfHeader, registerFonts, fmtDate } = require('./pdf_helpers');
+const { filterByFy, getAdvanceBalance, calcHemaliTotals, markHemaliPaidSideEffects, undoHemaliPaidSideEffects, deleteHemaliPaymentSideEffects } = require('../shared/hemali-service');
 
 module.exports = (database) => {
   const router = express.Router();
   const col = (name) => { if (!database.data[name]) database.data[name] = []; return database.data[name]; };
 
-  function filterByFy(arr, ky, season) {
-    return arr.filter(t => (!ky || t.kms_year === ky) && (!season || !t.season || t.season === season));
+  function _getAdvanceBalance(sardarName, kmsYear, season) {
+    const payments = filterByFy(col('hemali_payments'), kmsYear, season);
+    return getAdvanceBalance(payments, sardarName);
   }
-
-  // ============ HEMALI ITEMS (Rate Config) ============
-  router.get('/api/hemali/items', safeHandler(async (req, res) => {
-    res.json(col('hemali_items').filter(i => i.is_active !== false));
-  }));
 
   router.post('/api/hemali/items', safeHandler(async (req, res) => {
     const d = req.body;
@@ -46,20 +43,11 @@ module.exports = (database) => {
     res.json({ message: 'Item deactivated' });
   }));
 
-  // ============ HEMALI ADVANCE BALANCE ============
-  function getAdvanceBalance(sardarName, kmsYear, season) {
-    const payments = filterByFy(col('hemali_payments'), kmsYear, season);
-    let advance = 0;
-    payments.filter(p => p.sardar_name === sardarName && p.status === 'paid').forEach(p => {
-      advance += (p.new_advance || 0) - (p.advance_deducted || 0);
-    });
-    return Math.round(advance * 100) / 100;
-  }
-
+  // ============ HEMALI ADVANCE BALANCE (uses shared service) ============
   router.get('/api/hemali/advance', safeHandler(async (req, res) => {
     const { sardar_name, kms_year, season } = req.query;
     if (!sardar_name) return res.json({ advance: 0 });
-    const advance = getAdvanceBalance(sardar_name, kms_year, season);
+    const advance = _getAdvanceBalance(sardar_name, kms_year, season);
     res.json({ advance, sardar_name });
   }));
 
@@ -80,10 +68,7 @@ module.exports = (database) => {
     const items = d.items || [];
     if (!items.length) return res.status(400).json({ detail: 'Items select karein' });
 
-    const total = Math.round(items.reduce((s, i) => s + ((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0)), 0) * 100) / 100;
-    const prevAdvance = getAdvanceBalance(sardarName, d.kms_year, d.season);
-    const advanceDeducted = Math.min(prevAdvance, total);
-    const amountPayable = Math.round((total - advanceDeducted) * 100) / 100;
+    const { total, prevAdvance, advanceDeducted, amountPayable } = calcHemaliTotals(items, sardarName, d.kms_year, d.season, col('hemali_payments'));
     const amountPaid = parseFloat(d.amount_paid) || amountPayable;
     const newAdvance = Math.round(Math.max(0, amountPaid - amountPayable) * 100) / 100;
 
@@ -127,10 +112,7 @@ module.exports = (database) => {
     const kmsYear = d.kms_year || p.kms_year || '';
     const season = d.season || p.season || '';
 
-    const total = Math.round(items.reduce((s, i) => s + ((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0)), 0) * 100) / 100;
-    const prevAdvance = getAdvanceBalance(sardarName, kmsYear, season);
-    const advanceDeducted = Math.min(prevAdvance, total);
-    const amountPayable = Math.round((total - advanceDeducted) * 100) / 100;
+    const { total, prevAdvance, advanceDeducted, amountPayable } = calcHemaliTotals(items, sardarName, kmsYear, season, col('hemali_payments'));
     const amountPaid = parseFloat(d.amount_paid) || amountPayable;
     const newAdvance = Math.round(Math.max(0, amountPaid - amountPayable) * 100) / 100;
 
@@ -152,52 +134,13 @@ module.exports = (database) => {
     if (!p) return res.status(404).json({ detail: 'Payment not found' });
     if (p.status === 'paid') return res.status(400).json({ detail: 'Payment already paid' });
     const amountPaid = parseFloat(req.body.amount_paid) || p.amount_paid || p.amount_payable || 0;
+    const roundOff = parseFloat(req.body.round_off) || 0;
     const newAdvance = Math.round(Math.max(0, amountPaid - (p.amount_payable || 0)) * 100) / 100;
     p.status = 'paid';
     p.amount_paid = amountPaid;
     p.new_advance = newAdvance;
     p.updated_at = new Date().toISOString();
-    // Create cash entry (cashbook nikasi)
-    const roundOff = parseFloat(req.body.round_off) || 0;
-    const totalSettled = Math.round((amountPaid + roundOff) * 100) / 100;
-    const itemsDesc = (p.items || []).map(i => `${i.item_name} x${i.quantity}`).join(', ');
-    const base = { kms_year: p.kms_year || '', season: p.season || '', created_by: p.created_by || '', created_at: p.updated_at, updated_at: p.updated_at };
-    col('cash_transactions').push({
-      id: uuidv4(), date: p.date, account: 'cash', txn_type: 'nikasi',
-      amount: amountPaid, category: 'Hemali Payment', party_type: 'Hemali',
-      description: `Hemali: ${p.sardar_name} - ${itemsDesc}`,
-      reference: `hemali_payment:${p.id}`, ...base
-    });
-    // Ledger: Jama (work done)
-    col('cash_transactions').push({
-      id: uuidv4(), date: p.date, account: 'ledger', txn_type: 'jama',
-      amount: p.total || 0, category: 'Hemali Payment', party_type: 'Hemali',
-      description: `${p.sardar_name} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`,
-      reference: `hemali_work:${p.id}`, ...base
-    });
-    // Ledger: Nikasi (payment) - includes round off for correct balance
-    let advInfo = '';
-    if ((p.advance_deducted || 0) > 0) advInfo += ` | Adv Deducted: Rs.${Math.round(p.advance_deducted)}`;
-    if (newAdvance > 0) advInfo += ` | New Advance: Rs.${Math.round(newAdvance)}`;
-    col('cash_transactions').push({
-      id: uuidv4(), date: p.date, account: 'ledger', txn_type: 'nikasi',
-      amount: totalSettled, category: 'Hemali Payment', party_type: 'Hemali',
-      description: `${p.sardar_name} - Paid Rs.${Math.round(totalSettled)}${advInfo}${roundOff ? ' (Cash: '+amountPaid+', RoundOff: '+roundOff+')' : ''}`,
-      reference: `hemali_paid:${p.id}`, ...base
-    });
-    // Local Party: Update debit + add payment entry (total including round off)
-    if (!database.data.local_party_accounts) database.data.local_party_accounts = [];
-    const debitEntry = database.data.local_party_accounts.find(t => t.reference === `hemali_debit:${p.id}`);
-    if (debitEntry) {
-      debitEntry.amount = p.total || 0;
-      debitEntry.description = `${p.sardar_name} - ${itemsDesc} | Total: Rs.${Math.round(p.total || 0)}`;
-    }
-    database.data.local_party_accounts.push({
-      id: uuidv4(), date: p.date, party_name: 'Hemali Payment',
-      txn_type: 'payment', amount: totalSettled,
-      description: `${p.sardar_name} - Paid Rs.${Math.round(totalSettled)}${advInfo}`,
-      reference: `hemali_paid:${p.id}`, source_type: 'hemali', ...base
-    });
+    markHemaliPaidSideEffects(database, p, amountPaid, roundOff);
     database.save();
     res.json({ message: 'Payment marked as paid', id: p.id, amount_paid: amountPaid, new_advance: newAdvance });
   }));
@@ -210,14 +153,7 @@ module.exports = (database) => {
     if (p.status !== 'paid') return res.status(400).json({ detail: 'Payment already undone' });
     p.status = 'unpaid';
     p.updated_at = new Date().toISOString();
-    // Remove linked cash_transactions (cash + ledger entries)
-    database.data.cash_transactions = col('cash_transactions').filter(t =>
-      t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
-    );
-    // Remove local party payment entry only (keep debit)
-    database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
-      t.reference !== `hemali_paid:${p.id}`
-    );
+    undoHemaliPaidSideEffects(database, p.id);
     database.save();
     res.json({ message: 'Payment undone', id: p.id });
   }));
@@ -227,15 +163,7 @@ module.exports = (database) => {
     const payments = col('hemali_payments');
     const idx = payments.findIndex(p => p.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Payment not found' });
-    const p = payments[idx];
-    // Remove cash + ledger entries
-    database.data.cash_transactions = col('cash_transactions').filter(t =>
-      t.reference !== `hemali_payment:${p.id}` && t.reference !== `hemali_work:${p.id}` && t.reference !== `hemali_paid:${p.id}`
-    );
-    // Remove ALL local party entries (debit + payment) on delete
-    database.data.local_party_accounts = (database.data.local_party_accounts || []).filter(t =>
-      t.reference !== `hemali_debit:${p.id}` && t.reference !== `hemali_paid:${p.id}`
-    );
+    deleteHemaliPaymentSideEffects(database, payments[idx].id);
     payments.splice(idx, 1);
     database.save();
     res.json({ message: 'Deleted', id: req.params.id });
