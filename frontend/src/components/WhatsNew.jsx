@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "85.1.0";
+const APP_VERSION = "86.0.0";
 
 const CHANGELOG = [
+  {
+    version: "86.0.0",
+    date: "Feb 2026",
+    title: "v86.0.0 - Audit Log (Kisne Kya Kiya)",
+    items: [
+      { type: "feature", text: "Audit Log - Settings mein naya tab, har change ka record rakhta hai (kisne, kab, kya badla)" },
+      { type: "feature", text: "Create/Update/Delete teeno track hote hain - Entries, CashBook, Private Trading, Payments sab mein" },
+      { type: "feature", text: "Har record ke paas History icon - click karo toh uss record ki poori history dikhegi" },
+      { type: "feature", text: "Filters - user wise, action type wise, date wise audit log dekh sakte ho" },
+    ]
+  },
   {
     version: "85.0.0",
     date: "Feb 2026",
