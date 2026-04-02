@@ -22,6 +22,7 @@ import { downloadFile } from "../utils/download";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
+import RecordHistory from "./RecordHistory";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -345,6 +346,7 @@ export const PaddyPurchase = ({ filters, user }) => {
                       <Button variant="ghost" size="sm" className="h-6 px-1 text-blue-400" onClick={() => handleEdit(item)} data-testid={`paddy-edit-${item.id}`} title="Edit">
                         <Eye className="w-3 h-3" />
                       </Button>
+                      <RecordHistory recordId={item.id} label={item.party_name} />
                       {user.role === 'admin' && (
                         <Button variant="ghost" size="sm" className="h-6 px-1 text-red-400" onClick={() => handleDelete(item.id)} data-testid={`paddy-del-${item.id}`} title="Delete">
                           <Trash2 className="w-3 h-3" />

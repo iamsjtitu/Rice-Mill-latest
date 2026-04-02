@@ -11,6 +11,43 @@ const { autoDetectPartyType, retroFixPartyType, createCashTxnSideEffects, delete
 
 module.exports = function(database) {
 
+  const logAudit = (collection, recordId, action, username, oldData, newData, summary) => {
+    if (!database.data.audit_log) database.data.audit_log = [];
+    const changes = {};
+    const skipKeys = new Set(['_id', '_v', 'updated_at', 'created_at']);
+    if (action === 'update' && oldData && newData) {
+      for (const key of new Set([...Object.keys(oldData), ...Object.keys(newData)])) {
+        if (skipKeys.has(key)) continue;
+        if (oldData[key] !== newData[key]) changes[key] = { old: oldData[key], new: newData[key] };
+      }
+      if (Object.keys(changes).length === 0) return;
+    }
+    if (action === 'create' && newData) {
+      for (const key of ['truck_no', 'party_name', 'amount', 'kg', 'bag', 'category', 'description']) {
+        if (newData[key]) changes[key] = { new: newData[key] };
+      }
+    }
+    if (action === 'delete' && oldData) {
+      for (const key of ['truck_no', 'party_name', 'amount', 'kg', 'bag', 'category', 'description']) {
+        if (oldData[key]) changes[key] = { old: oldData[key] };
+      }
+    }
+    if (!summary) {
+      if (action === 'create') summary = `${username} ne naya record banaya`;
+      else if (action === 'delete') summary = `${username} ne record delete kiya`;
+      else if (action === 'update') {
+        const parts = Object.entries(changes).slice(0, 3).map(([k, v]) => v.old !== undefined && v.new !== undefined ? `${k}: ${v.old} → ${v.new}` : k);
+        summary = `${username} ne ${parts.join(', ')} change kiya`;
+      }
+    }
+    database.data.audit_log.push({
+      id: require('crypto').randomUUID(), collection, record_id: String(recordId), action,
+      changes, username: username || 'system', summary: summary || '',
+      timestamp: new Date().toISOString()
+    });
+    database.save();
+  };
+
   function addPdfHeader(doc, title) {
     const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
     _addPdfHeader(doc, title, branding);
@@ -37,6 +74,7 @@ module.exports = function(database) {
     const roundOff = parseFloat(req.query.round_off) || 0;
     createCashTxnSideEffects(database, txn, roundOff, req.query.username);
     
+    logAudit('cash_transactions', txn.id, 'create', req.query.username || '', null, txn);
     database.save(); res.json(txn);
   }));
 
@@ -67,6 +105,8 @@ module.exports = function(database) {
     if (!database.data.cash_transactions) return res.status(404).json({ detail: 'Not found' });
     const txn = database.data.cash_transactions.find(t => t.id === req.params.id);
     if (!txn) return res.status(404).json({ detail: 'Not found' });
+
+    logAudit('cash_transactions', req.params.id, 'delete', req.query.username || '', txn, null);
 
     // Handle all cascading side effects using shared service
     deleteCashTxnSideEffects(database, txn);
@@ -101,6 +141,7 @@ module.exports = function(database) {
     const idx = database.data.cash_transactions.findIndex(t => t.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     const current = database.data.cash_transactions[idx];
+    const oldCopy = { ...current };
     const body = req.body;
     // Optimistic locking check
     const clientV = body._v;
@@ -114,6 +155,7 @@ module.exports = function(database) {
     body._v = (current._v || 0) + 1;
     if (body.amount) body.amount = Math.round(parseFloat(body.amount) * 100) / 100;
     Object.assign(database.data.cash_transactions[idx], body);
+    logAudit('cash_transactions', req.params.id, 'update', req.query.username || body.updated_by || '', oldCopy, database.data.cash_transactions[idx]);
     // Update auto-created ledger entry too (keep same txn_type, no reversal)
     const txnIdShort = req.params.id.slice(0, 8);
     const ledgerBody = { ...body };

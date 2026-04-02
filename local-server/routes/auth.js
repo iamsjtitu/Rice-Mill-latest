@@ -399,5 +399,31 @@ module.exports = function(database) {
     }
   }));
 
+  // ===== AUDIT LOG =====
+  router.get('/api/audit-log', safeSync(async (req, res) => {
+    if (req.query.role !== 'admin') return res.status(403).json({ detail: 'Sirf Admin audit log dekh sakta hai' });
+    if (!database.data.audit_log) database.data.audit_log = [];
+    let logs = [...database.data.audit_log];
+    if (req.query.filter_user) logs = logs.filter(l => l.username === req.query.filter_user);
+    if (req.query.filter_collection) logs = logs.filter(l => l.collection === req.query.filter_collection);
+    if (req.query.filter_date) logs = logs.filter(l => l.timestamp && l.timestamp.startsWith(req.query.filter_date));
+    if (req.query.record_id) logs = logs.filter(l => l.record_id === req.query.record_id);
+    logs.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = parseInt(req.query.page_size) || 30;
+    const start = (page - 1) * pageSize;
+    res.json({ logs: logs.slice(start, start + pageSize), total: logs.length, page, page_size: pageSize });
+  }));
+
+  router.get('/api/audit-log/record/:recordId', safeSync(async (req, res) => {
+    if (!database.data.audit_log) database.data.audit_log = [];
+    const logs = database.data.audit_log
+      .filter(l => l.record_id === req.params.recordId)
+      .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+    res.json({ logs });
+  }));
+
+
+
   return router;
 };

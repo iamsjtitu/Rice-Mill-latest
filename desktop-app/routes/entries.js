@@ -50,17 +50,24 @@ module.exports = function(database) {
 
   router.post('/api/entries', safeSync(async (req, res) => {
     const entry = database.addEntry({ ...req.body, created_by: req.query.username || 'admin' });
+    logAudit('mill_entries', entry.id, 'create', req.query.username || 'admin', null, entry);
     res.json(entry);
   }));
 
   router.put('/api/entries/:id', safeSync(async (req, res) => {
+    const oldEntry = database.data.entries.find(e => e.id === req.params.id);
+    const oldCopy = oldEntry ? { ...oldEntry } : null;
     const entry = database.updateEntry(req.params.id, req.body);
     if (entry && entry._conflict) return res.status(409).json({ detail: entry.message });
-    if (entry) res.json(entry);
-    else res.status(404).json({ detail: 'Entry not found' });
+    if (entry) {
+      logAudit('mill_entries', req.params.id, 'update', req.query.username || req.body.username || '', oldCopy, entry);
+      res.json(entry);
+    } else res.status(404).json({ detail: 'Entry not found' });
   }));
 
   router.delete('/api/entries/:id', safeSync(async (req, res) => {
+    const oldEntry = database.data.entries.find(e => e.id === req.params.id);
+    if (oldEntry) logAudit('mill_entries', req.params.id, 'delete', req.query.username || '', oldEntry, null);
     database.deleteEntry(req.params.id);
     res.json({ success: true });
   }));

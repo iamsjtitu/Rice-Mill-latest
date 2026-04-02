@@ -8,6 +8,45 @@ const router = express.Router();
 
 module.exports = function(database) {
 
+  const logAudit = (collection, recordId, action, username, oldData, newData, summary) => {
+    if (!database.data.audit_log) database.data.audit_log = [];
+    const changes = {};
+    const skipKeys = new Set(['_id', '_v', 'updated_at', 'created_at']);
+    if (action === 'update' && oldData && newData) {
+      for (const key of new Set([...Object.keys(oldData), ...Object.keys(newData)])) {
+        if (skipKeys.has(key)) continue;
+        if (oldData[key] !== newData[key]) changes[key] = { old: oldData[key], new: newData[key] };
+      }
+      if (Object.keys(changes).length === 0) return;
+    }
+    if (action === 'create' && newData) {
+      for (const key of ['truck_no', 'party_name', 'amount', 'kg', 'bag', 'category', 'description', 'total_amount', 'quantity_qntl']) {
+        if (newData[key]) changes[key] = { new: newData[key] };
+      }
+    }
+    if (action === 'delete' && oldData) {
+      for (const key of ['truck_no', 'party_name', 'amount', 'kg', 'bag', 'category', 'description', 'total_amount', 'quantity_qntl']) {
+        if (oldData[key]) changes[key] = { old: oldData[key] };
+      }
+    }
+    if (!summary) {
+      if (action === 'create') summary = `${username} ne naya record banaya`;
+      else if (action === 'delete') summary = `${username} ne record delete kiya`;
+      else if (action === 'update') {
+        const parts = Object.entries(changes).slice(0, 3).map(([k, v]) => v.old !== undefined && v.new !== undefined ? `${k}: ${v.old} → ${v.new}` : k);
+        summary = `${username} ne ${parts.join(', ')} change kiya`;
+      } else if (action === 'payment' || action === 'undo_payment') {
+        summary = summary || `${username} ne ${action} kiya`;
+      }
+    }
+    database.data.audit_log.push({
+      id: require('crypto').randomUUID(), collection, record_id: String(recordId), action,
+      changes, username: username || 'system', summary: summary || '',
+      timestamp: new Date().toISOString()
+    });
+    database.save();
+  };
+
   // Local aliases for backward compat (used in mark-paid/undo-paid/history)
   const _makePartyLabel = makePartyLabel;
   const _fmtDetail = fmtDetail;
@@ -22,6 +61,7 @@ module.exports = function(database) {
     database.data.private_paddy.push(d);
     try { createCashDieselForPvtPaddy(database, d, req.query.username || ''); } catch(e) { console.error('[PvtPaddy] createCashDieselForPvtPaddy error:', e); }
     ensurePartyJamaExists(database, d, req.query.username || '');
+    logAudit('private_paddy', d.id, 'create', req.query.username || '', null, d);
     database.save(); res.json(d);
   }));
 
@@ -42,6 +82,7 @@ module.exports = function(database) {
     const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     const current = database.data.private_paddy[idx];
+    const oldCopy = { ...current };
     const body = req.body;
     const clientV = body._v; delete body._v;
     if (clientV !== undefined && clientV !== null && current._v !== undefined) {
@@ -57,6 +98,7 @@ module.exports = function(database) {
     deleteCashDieselForPvtPaddy(database, req.params.id);
     try { createCashDieselForPvtPaddy(database, merged, req.query.username || ''); } catch(e) { console.error('[PvtPaddy] createCashDieselForPvtPaddy error:', e); }
     ensurePartyJamaExists(database, merged, req.query.username || '');
+    logAudit('private_paddy', req.params.id, 'update', req.query.username || '', oldCopy, merged);
     database.save(); res.json(merged);
   }));
 
@@ -64,9 +106,11 @@ module.exports = function(database) {
     if (!database.data.private_paddy) database.data.private_paddy = [];
     const idx = database.data.private_paddy.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+    const oldItem = { ...database.data.private_paddy[idx] };
     database.data.private_paddy.splice(idx, 1);
     deleteCashDieselForPvtPaddy(database, req.params.id);
     if (database.data.truck_payments) database.data.truck_payments = database.data.truck_payments.filter(t => t.entry_id !== req.params.id);
+    logAudit('private_paddy', req.params.id, 'delete', req.query.username || '', oldItem, null);
     database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
 
@@ -80,6 +124,7 @@ module.exports = function(database) {
     d.balance = Math.round(d.total_amount - d.paid_amount, 2);
     database.data.rice_sales.push(d);
     createCashForRiceSale(database, d, req.query.username || '');
+    logAudit('rice_sales', d.id, 'create', req.query.username || '', null, d);
     database.save(); res.json(d);
   }));
 
@@ -100,6 +145,7 @@ module.exports = function(database) {
     const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
     const current = database.data.rice_sales[idx];
+    const oldCopy = { ...current };
     const body = req.body;
     const clientV = body._v; delete body._v;
     if (clientV !== undefined && clientV !== null && current._v !== undefined) {
@@ -115,6 +161,7 @@ module.exports = function(database) {
     database.data.rice_sales[idx] = merged;
     deleteCashForRiceSale(database, req.params.id);
     createCashForRiceSale(database, merged, req.query.username || '');
+    logAudit('rice_sales', req.params.id, 'update', req.query.username || '', oldCopy, merged);
     database.save(); res.json(merged);
   }));
 
@@ -122,14 +169,17 @@ module.exports = function(database) {
     if (!database.data.rice_sales) database.data.rice_sales = [];
     const idx = database.data.rice_sales.findIndex(i => i.id === req.params.id);
     if (idx === -1) return res.status(404).json({ detail: 'Not found' });
+    const oldItem = { ...database.data.rice_sales[idx] };
     database.data.rice_sales.splice(idx, 1);
     deleteCashForRiceSale(database, req.params.id);
+    logAudit('rice_sales', req.params.id, 'delete', req.query.username || '', oldItem, null);
     database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
 
   // ===== PRIVATE PAYMENTS =====
   router.post('/api/private-payments', safeSync(async (req, res) => {
     const d = processPrivatePayment(database, req.body, req.query.username || '');
+    logAudit('private_payments', d.id, 'payment', req.query.username || '', null, d, `${req.query.username || ''} ne Rs.${d.amount || 0} payment kiya`);
     database.save();
     res.json(d);
   }));
@@ -148,8 +198,10 @@ module.exports = function(database) {
   }));
 
   router.delete('/api/private-payments/:id', safeSync(async (req, res) => {
+    const oldPay = (database.data.private_payments || []).find(p => p.id === req.params.id);
     const result = deletePrivatePayment(database, req.params.id);
     if (!result.success) return res.status(404).json({ detail: result.error });
+    if (oldPay) logAudit('private_payments', req.params.id, 'undo_payment', req.query.username || '', oldPay, null, `${req.query.username || ''} ne Rs.${oldPay.amount || 0} payment undo kiya`);
     database.save(); res.json({ message: 'Deleted', id: req.params.id });
   }));
 

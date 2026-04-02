@@ -317,9 +317,11 @@ async def update_private_paddy(item_id: str, request: Request, username: str = "
     return merged
 
 @router.delete("/private-paddy/{item_id}")
-async def delete_private_paddy(item_id: str):
+async def delete_private_paddy(item_id: str, username: str = ""):
+    existing = await db.private_paddy.find_one({"id": item_id}, {"_id": 0})
     result = await db.private_paddy.delete_one({"id": item_id})
     if result.deleted_count == 0: raise HTTPException(status_code=404, detail="Not found")
+    if existing: await log_audit("private_paddy", item_id, "delete", username, old_data=existing)
     await db.gunny_bags.delete_many({"linked_entry_id": item_id})
     await db.cash_transactions.delete_many({"linked_entry_id": item_id, "reference": {"$regex": "^(pvt_paddy|pvt_party_jama|pvt_truck_jama:)"}})
     await db.diesel_accounts.delete_many({"linked_entry_id": item_id})
@@ -492,9 +494,11 @@ async def update_rice_sale(item_id: str, request: Request):
     return merged
 
 @router.delete("/rice-sales/{item_id}")
-async def delete_rice_sale(item_id: str):
+async def delete_rice_sale(item_id: str, username: str = ""):
+    existing = await db.rice_sales.find_one({"id": item_id}, {"_id": 0})
     result = await db.rice_sales.delete_one({"id": item_id})
     if result.deleted_count == 0: raise HTTPException(status_code=404, detail="Not found")
+    if existing: await log_audit("rice_sales", item_id, "delete", username, old_data=existing)
     # Cascade delete linked entries
     await db.cash_transactions.delete_many({"linked_entry_id": item_id})
     await db.diesel_accounts.delete_many({"linked_entry_id": item_id})
@@ -579,6 +583,7 @@ async def create_private_payment(data: dict, username: str = "", role: str = "")
         )
 
     doc.pop("_id", None)
+    await log_audit("private_payments", doc["id"], "payment", username, new_data=doc, summary=f"{username} ne Rs.{doc['amount']} payment kiya")
     return doc
 
 @router.get("/private-payments")
@@ -593,10 +598,11 @@ async def get_private_payments(party_name: Optional[str] = None, ref_type: Optio
     return items
 
 @router.delete("/private-payments/{pay_id}")
-async def delete_private_payment(pay_id: str):
+async def delete_private_payment(pay_id: str, username: str = ""):
     from utils.payment_service import delete_linked_cash_entries, update_entry_paid_amount
-    pay = await db.private_payments.find_one({"id": pay_id})
+    pay = await db.private_payments.find_one({"id": pay_id}, {"_id": 0})
     if not pay: raise HTTPException(status_code=404, detail="Not found")
+    await log_audit("private_payments", pay_id, "undo_payment", username, old_data=pay, summary=f"{username} ne Rs.{pay.get('amount', 0)} payment undo kiya")
     # Reverse the payment from the referenced entry (include round_off)
     round_off_val = float(pay.get("round_off", 0))
     reversal_amount = round(pay["amount"] + round_off_val, 2)

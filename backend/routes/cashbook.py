@@ -416,11 +416,13 @@ async def delete_cash_transactions_bulk(request: Request):
 
 
 @router.delete("/cash-book/{txn_id}")
-async def delete_cash_transaction(txn_id: str):
+async def delete_cash_transaction(txn_id: str, username: str = ""):
     # Find the transaction first to check if we need to revert payment amounts
     txn = await db.cash_transactions.find_one({"id": txn_id}, {"_id": 0})
     if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    await log_audit("cash_transactions", txn_id, "delete", username, old_data=txn)
     
     ref = txn.get("reference", "")
     linked_pay_id = txn.get("linked_payment_id", "")

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Pencil, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import RecordHistory from "@/components/RecordHistory";
 
 import { fmtDate } from "@/utils/date";
 
@@ -113,10 +114,11 @@ const TransactionsTable = ({
               <td className="px-3 py-2.5 text-slate-500 text-xs truncate">{t.reference}</td>
               <td className="px-3 py-2.5">
                 {user.role === 'admin' && (
-                  <div className="flex gap-0.5">
+                  <div className="flex gap-0.5 items-center">
                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-blue-500 hover:text-blue-700" onClick={() => handleEdit(t)} data-testid={`txn-edit-${t.id}`}>
                       <Pencil className="w-3 h-3" />
                     </Button>
+                    <RecordHistory recordId={t.id} label={t.category || t.description} />
                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" onClick={() => handleDelete(t.id)} data-testid={`txn-delete-${t.id}`}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
