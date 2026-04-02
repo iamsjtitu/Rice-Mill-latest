@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "81.0.0";
+const APP_VERSION = "82.0.0";
 
 const CHANGELOG = [
+  {
+    version: "82.0.0",
+    date: "Feb 2026",
+    title: "v82.0.0 - LAN Network Access",
+    items: [
+      { type: "feature", text: "Same WiFi/LAN network pe doosre computer se browser mein software khol sakte ho - host computer ka IP use karo (e.g. http://192.168.1.100:9876)" },
+      { type: "feature", text: "Ek computer mein software open karo, baaki computers mein browser se kaam karo - bilkul same data dikhega" },
+    ]
+  },
   {
     version: "81.0.0",
     date: "Feb 2026",

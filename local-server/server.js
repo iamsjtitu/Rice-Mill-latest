@@ -1029,7 +1029,9 @@ async function startServer() {
 
   // ===== SERVE FRONTEND (AFTER all API routes) =====
   if (fs.existsSync(PUBLIC_DIR)) {
+    // Serve static assets (JS/CSS/images) but NOT index.html (we inject API URL into it)
     app.use(express.static(PUBLIC_DIR, {
+      index: false,
       maxAge: '1y',
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('.html')) {
@@ -1037,9 +1039,13 @@ async function startServer() {
         }
       }
     }));
+    // Serve index.html with API URL injected so it works from both localhost AND network IPs
     app.get('*', (req, res) => {
       if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+        let html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+        const hostUrl = `http://${req.headers.host}`;
+        html = html.replace('<head>', `<head><script>window.ELECTRON_API_URL='${hostUrl}';window.REACT_APP_BACKEND_URL='${hostUrl}';</script>`);
+        res.type('html').send(html);
       } else {
         res.status(404).json({ detail: 'API endpoint not found' });
       }
