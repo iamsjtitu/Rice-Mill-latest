@@ -1151,12 +1151,10 @@ function createApiServer(database) {
 
   // ===== STORAGE ENGINE API =====
   apiApp.get('/api/settings/storage-engine', safeSync((req, res) => {
-    const cfg = loadConfig();
-    const currentEngine = cfg.storageEngine || 'json';
     const sqliteAvailable = (() => {
       try { require('better-sqlite3'); return true; } catch { return false; }
     })();
-    res.json({ engine: currentEngine, sqlite_available: sqliteAvailable });
+    res.json({ engine: dbEngine, sqlite_available: sqliteAvailable });
   }));
 
   apiApp.post('/api/settings/storage-engine', safeSync((req, res) => {
@@ -2222,23 +2220,19 @@ async function startApplication(folderPath) {
   config.lastPath = null;
   saveConfig(config);
 
-  // Initialize database - check config for storage engine preference
+  // Initialize database - SQLite is default, JSON fallback if better-sqlite3 not available
   console.log('[Startup] Loading database...');
-  const storageEngine = config.storageEngine || 'json'; // 'json' or 'sqlite'
-  if (storageEngine === 'sqlite') {
-    try {
-      const { SqliteDatabase } = require('./sqlite-database');
-      db = new SqliteDatabase(folderPath);
-      console.log(`[Startup] SQLite database loaded in ${Date.now() - startTime}ms`);
-    } catch (e) {
-      console.error('[Startup] SQLite failed, falling back to JSON:', e.message);
-      logError('SQLITE_FALLBACK', e);
-      db = new JsonDatabase(folderPath);
-      console.log(`[Startup] JSON fallback database loaded in ${Date.now() - startTime}ms`);
-    }
-  } else {
+  let dbEngine = 'sqlite';
+  try {
+    const { SqliteDatabase } = require('./sqlite-database');
+    db = new SqliteDatabase(folderPath);
+    console.log(`[Startup] SQLite database loaded in ${Date.now() - startTime}ms`);
+  } catch (e) {
+    console.warn('[Startup] SQLite not available, using JSON fallback:', e.message);
+    logError('SQLITE_FALLBACK', e);
     db = new JsonDatabase(folderPath);
-    console.log(`[Startup] JSON database loaded in ${Date.now() - startTime}ms`);
+    dbEngine = 'json';
+    console.log(`[Startup] JSON fallback database loaded in ${Date.now() - startTime}ms`);
   }
 
   // === MIGRATION: Fix auto_ledger txn_type (v31 - double-entry fix) ===
