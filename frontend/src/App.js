@@ -27,7 +27,7 @@ import {
   Calendar, Users, 
   CheckCircle, Keyboard, 
   Info, Sun, Moon,
-  Send, Scale, ClipboardList
+  Send, Scale, ClipboardList, Search
 } from "lucide-react";
 
 // Import extracted components
@@ -62,6 +62,7 @@ import { EntryTable } from "@/components/entries/EntryTable";
 import { TabNavigation } from "@/components/entries/TabNavigation";
 import { FilterPanel } from "@/components/entries/FilterPanel";
 import { ShortcutsDialog, BackupReminderDialog, PasswordChangeDialog } from "@/components/entries/HeaderDialogs";
+import QuickSearch from "@/components/QuickSearch";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -127,6 +128,7 @@ function MainApp({ user, onLogout }) {
     setEntriesSubTab(sub);
   }, [entriesSubTab]);
   const [pendingVwCount, setPendingVwCount] = useState(0);
+  const [quickSearchOpen, setQuickSearchOpen] = useState(false);
   const { wa, tg } = useMessagingEnabled();
   const [entryGroupDialogOpen, setEntryGroupDialogOpen] = useState(false);
   const [entryGroupText, setEntryGroupText] = useState("");
@@ -653,6 +655,13 @@ function MainApp({ user, onLogout }) {
         return;
       }
 
+      // Ctrl+K: Quick Search
+      if (e.ctrlKey && e.key === 'k') {
+        e.preventDefault();
+        setQuickSearchOpen(true);
+        return;
+      }
+
       // Ctrl+Delete / Ctrl+Backspace: Delete selected entries
       if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace') && !inInput) {
         e.preventDefault();
@@ -1067,6 +1076,20 @@ function MainApp({ user, onLogout }) {
 
               <SessionIndicator onDataRefresh={() => { fetchEntries(); fetchTotals(); toast.success("Data refreshed!"); }} />
 
+              {/* Quick Search Button */}
+              <button
+                onClick={() => setQuickSearchOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg hover:bg-slate-700 hover:border-slate-500 transition-all group cursor-pointer"
+                data-testid="quick-search-btn"
+                title="Quick Search (Ctrl+K)"
+              >
+                <Search className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition-colors" />
+                <span className="text-xs text-slate-400 hidden sm:inline">Search...</span>
+                <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-slate-500 bg-slate-800 border border-slate-600 rounded ml-1">
+                  Ctrl+K
+                </kbd>
+              </button>
+
               <div className="flex items-center gap-2 px-3 py-1 bg-slate-700 rounded-full">
                 <User className="w-4 h-4 text-amber-400" />
                 <span className="text-white text-sm">{user.username}</span>
@@ -1134,6 +1157,12 @@ function MainApp({ user, onLogout }) {
           <BackupReminderDialog open={showBackupReminder} onOpenChange={setShowBackupReminder} onBackup={handleCreateBackup} loading={backupLoading} />
 
           <PasswordChangeDialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen} passwordData={passwordData} setPasswordData={setPasswordData} onSubmit={handlePasswordChange} />
+
+          <QuickSearch
+            open={quickSearchOpen}
+            onOpenChange={setQuickSearchOpen}
+            onNavigate={(tab) => { setActiveTabSafe(tab); }}
+          />
 
           <TabNavigation activeTab={activeTab} setActiveTabSafe={setActiveTabSafe} user={user} />
 

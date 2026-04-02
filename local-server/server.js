@@ -922,6 +922,9 @@ async function startServer() {
     const vigiProxyRoutes = require('./routes/vigi_proxy')(require('express').Router(), database);
     app.use(vigiProxyRoutes);
 
+    const quickSearchRoutes = require('./routes/quick_search')(database);
+    app.use(quickSearchRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
