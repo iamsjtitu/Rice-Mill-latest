@@ -35,7 +35,7 @@ import {
   CheckCircle, Keyboard, 
   Info, Sun, Moon,
   Send, Scale, ClipboardList, Search,
-  Monitor, ChevronDown
+  ChevronDown
 } from "lucide-react";
 
 // Import extracted components
@@ -176,21 +176,6 @@ function MainApp({ user, onLogout }) {
   const [backupLoading, setBackupLoading] = useState(false);
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
-
-  // LAN clients state (only for desktop/Electron mode)
-  const [lanInfo, setLanInfo] = useState(null);
-  useEffect(() => {
-    if (!_isElectron) return;
-    const fetchLan = async () => {
-      try {
-        const res = await axios.get(`${API}/lan-clients`);
-        setLanInfo(res.data);
-      } catch { /* not available in web mode */ }
-    };
-    fetchLan();
-    const interval = setInterval(fetchLan, 15000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Listen for data conflict refresh events (optimistic locking)
   useEffect(() => {
@@ -1132,14 +1117,6 @@ function MainApp({ user, onLogout }) {
               </div>
 
               <SessionIndicator onDataRefresh={() => { fetchEntries(); fetchTotals(); toast.success("Data refreshed!"); }} />
-
-              {/* LAN Connected Indicator - only in Electron/Desktop mode */}
-              {_isElectron && lanInfo && lanInfo.total_connected > 1 && (
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-900/30 border border-cyan-700/40 rounded-lg text-[11px] text-cyan-300" data-testid="lan-indicator" title={`${lanInfo.total_connected} computers connected\n${lanInfo.lan_clients.map(c => c.ip).join('\n')}`}>
-                  <Monitor className="w-3.5 h-3.5" />
-                  <span className="font-medium">{lanInfo.total_connected} Connected</span>
-                </div>
-              )}
 
               {/* Quick Search Button */}
               <button
