@@ -1075,7 +1075,7 @@ function createApiServer(database) {
   // NOTE: compression() removed entirely - localhost pe compression unnecessary hai
   // aur PDFKit streaming ke saath ERR_STREAM_WRITE_AFTER_END crash karta hai
   apiApp.use(cors());
-  apiApp.use(express.json({ limit: '5mb' }));
+  apiApp.use(express.json({ limit: '50mb' }));
 
   // ===== LAN CLIENT TRACKING =====
   const lanClients = new Map();
@@ -1173,6 +1173,22 @@ function createApiServer(database) {
   // Debug endpoint to check route loading status
   apiApp.get('/api/debug/routes', safeSync((req, res) => {
     res.json({ loaded: loadedCount, total: routeDefs.length, failed: failedRoutes, version: require('./package.json').version });
+  }));
+
+  // Health check with data folder info - helps diagnose LAN data mismatch
+  apiApp.get('/api/health', safeSync((req, res) => {
+    const entriesCount = (database.data.entries || []).length;
+    const vwCount = (database.data.vehicle_weights || []).length;
+    res.json({
+      status: 'ok',
+      version: require('./package.json').version,
+      engine: dbEngine,
+      data_folder: database.dataFolder || 'unknown',
+      entries_count: entriesCount,
+      vehicle_weights_count: vwCount,
+      server_port: DESKTOP_API_PORT,
+      uptime_seconds: Math.floor(process.uptime())
+    });
   }));
 
   // ===== STORAGE ENGINE API =====

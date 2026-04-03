@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "87.3.0";
+const APP_VERSION = "87.4.0";
 
 const CHANGELOG = [
+  {
+    version: "87.4.0",
+    date: "Apr 2026",
+    title: "v87.4.0 - LAN Bug Fix",
+    items: [
+      { type: "fix", text: "Vehicle Weight - LAN se save karne par crash (saveImage TypeError) fix kiya" },
+      { type: "fix", text: "Camera image payload limit 5MB se 50MB kiya - badi images bhi save hongi" },
+      { type: "fix", text: "Image data URL prefix (data:image/...) auto-strip hota hai ab" },
+      { type: "feature", text: "Health check endpoint (/api/health) - LAN connection verify karne ke liye" },
+    ]
+  },
   {
     version: "86.0.0",
     date: "Feb 2026",

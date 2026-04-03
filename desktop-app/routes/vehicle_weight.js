@@ -19,10 +19,27 @@ module.exports = function(database) {
   try { if (!fs.existsSync(imgDir)) fs.mkdirSync(imgDir, { recursive: true }); } catch(e) { console.error('[VW] Cannot create vw_images dir:', e.message); }
 
   function saveImage(entryId, tag, b64data) {
-    if (!b64data || typeof b64data !== 'string') return '';
-    const filename = `${entryId}_${tag}.jpg`;
-    fs.writeFileSync(path.join(imgDir, filename), Buffer.from(b64data, 'base64'));
-    return filename;
+    try {
+      if (!b64data) return '';
+      // If somehow received as object (e.g. {type:'Buffer', data:[...]}), skip
+      if (typeof b64data !== 'string') {
+        console.warn('[VW] saveImage: received non-string type:', typeof b64data);
+        return '';
+      }
+      // Strip data URL prefix if present (data:image/jpeg;base64,...)
+      let raw = b64data;
+      if (raw.startsWith('data:')) {
+        const commaIdx = raw.indexOf(',');
+        if (commaIdx > 0) raw = raw.substring(commaIdx + 1);
+      }
+      if (!raw || raw.length < 100) return ''; // too small = invalid
+      const filename = `${entryId}_${tag}.jpg`;
+      fs.writeFileSync(path.join(imgDir, filename), Buffer.from(raw, 'base64'));
+      return filename;
+    } catch (e) {
+      console.error('[VW] saveImage error:', e.message);
+      return '';
+    }
   }
 
   function loadImageB64(filename) {

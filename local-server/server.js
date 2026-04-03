@@ -733,7 +733,7 @@ const app = express();
 // NOTE: compression() removed entirely - local network pe compression unnecessary hai
 // aur PDFKit streaming ke saath ERR_STREAM_WRITE_AFTER_END crash karta hai
 app.use(cors());
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // ===== LAN CLIENT TRACKING =====
 const lanClients = new Map();

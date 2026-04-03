@@ -17,13 +17,25 @@ IMG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "vw_i
 os.makedirs(IMG_DIR, exist_ok=True)
 
 
-def _save_image(entry_id: str, tag: str, b64data: str) -> str:
-    if not b64data:
+def _save_image(entry_id: str, tag: str, b64data) -> str:
+    try:
+        if not b64data or not isinstance(b64data, str):
+            return ""
+        raw = b64data
+        # Strip data URL prefix if present (data:image/jpeg;base64,...)
+        if raw.startswith("data:"):
+            comma_idx = raw.find(",")
+            if comma_idx > 0:
+                raw = raw[comma_idx + 1:]
+        if not raw or len(raw) < 100:
+            return ""
+        filename = f"{entry_id}_{tag}.jpg"
+        with open(os.path.join(IMG_DIR, filename), "wb") as f:
+            f.write(b64mod.b64decode(raw))
+        return filename
+    except Exception as e:
+        print(f"[VW] save_image error: {e}")
         return ""
-    filename = f"{entry_id}_{tag}.jpg"
-    with open(os.path.join(IMG_DIR, filename), "wb") as f:
-        f.write(b64mod.b64decode(b64data))
-    return filename
 
 
 def _load_image_b64(filename: str) -> str:
