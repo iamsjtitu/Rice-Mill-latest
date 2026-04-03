@@ -455,6 +455,26 @@ module.exports = function(database) {
     res.json({ logs });
   }));
 
+  router.delete('/api/audit-log/clear', safeSync(async (req, res) => {
+    if (req.query.role !== 'admin') return res.status(403).json({ detail: 'Sirf Admin audit log clear kar sakta hai' });
+    if (!database.data.audit_log) database.data.audit_log = [];
+    const days = parseInt(req.query.days) || 0;
+    if (days > 0) {
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+      const before = database.data.audit_log.length;
+      database.data.audit_log = database.data.audit_log.filter(l => (l.timestamp || '') >= cutoff);
+      const deleted = before - database.data.audit_log.length;
+      database.save();
+      res.json({ deleted, message: `${days} din se purane ${deleted} logs delete ho gaye` });
+    } else {
+      const deleted = database.data.audit_log.length;
+      database.data.audit_log = [];
+      database.save();
+      res.json({ deleted, message: `Sab ${deleted} audit logs clear ho gaye` });
+    }
+  }));
+
+
 
 
   return router;

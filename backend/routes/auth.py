@@ -525,3 +525,17 @@ async def get_audit_log(username: str = "", role: str = "",
 async def get_record_audit(record_id: str):
     logs = await db.audit_log.find({"record_id": record_id}, {"_id": 0}).sort("timestamp", -1).to_list(100)
     return {"logs": logs}
+
+
+@router.delete("/audit-log/clear")
+async def clear_audit_log(username: str = "", role: str = "", days: int = 0):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf Admin audit log clear kar sakta hai")
+    if days > 0:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        result = await db.audit_log.delete_many({"timestamp": {"$lt": cutoff}})
+        return {"deleted": result.deleted_count, "message": f"{days} din se purane {result.deleted_count} logs delete ho gaye"}
+    else:
+        result = await db.audit_log.delete_many({})
+        return {"deleted": result.deleted_count, "message": f"Sab {result.deleted_count} audit logs clear ho gaye"}
+

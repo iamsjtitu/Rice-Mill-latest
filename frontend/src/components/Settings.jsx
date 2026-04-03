@@ -2513,6 +2513,8 @@ function AuditLogTab({ user }) {
   const [filterUser, setFilterUser] = useState("");
   const [filterCollection, setFilterCollection] = useState("");
   const [filterDate, setFilterDate] = useState("");
+  const [retentionDays, setRetentionDays] = useState("");
+  const showConfirm = useConfirm();
 
   const fetchLogs = async () => {
     try {
@@ -2527,6 +2529,27 @@ function AuditLogTab({ user }) {
   };
 
   useEffect(() => { fetchLogs(); }, [page, filterUser, filterCollection, filterDate]);
+
+  const handleClearAll = async () => {
+    if (!await showConfirm("Clear All Audit Logs", "Kya aap sure hain? Saare audit logs delete ho jayenge!")) return;
+    try {
+      const res = await axios.delete(`${API}/audit-log/clear?username=${user.username}&role=${user.role}`);
+      toast.success(res.data.message);
+      fetchLogs();
+    } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
+  };
+
+  const handleClearOld = async () => {
+    const days = parseInt(retentionDays);
+    if (!days || days < 1) { toast.error("Valid din enter karo (1+)"); return; }
+    if (!await showConfirm("Purane Logs Delete", `${days} din se purane audit logs delete ho jayenge. Sure?`)) return;
+    try {
+      const res = await axios.delete(`${API}/audit-log/clear?username=${user.username}&role=${user.role}&days=${days}`);
+      toast.success(res.data.message);
+      setRetentionDays("");
+      fetchLogs();
+    } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
+  };
 
   const formatTime = (ts) => {
     if (!ts) return "-";
@@ -2543,6 +2566,19 @@ function AuditLogTab({ user }) {
               <History className="w-4 h-4 text-amber-400" /> Audit Log - Kisne Kya Kiya
             </CardTitle>
             <span className="text-[10px] text-slate-500">{total} records</span>
+          </div>
+          {/* Cleanup controls */}
+          <div className="flex items-center gap-2 mt-2">
+            <Input type="number" min="1" value={retentionDays} onChange={e => setRetentionDays(e.target.value)}
+              placeholder="Din..." className="bg-slate-700 border-slate-600 text-white h-7 text-xs w-20" data-testid="audit-retention-days" />
+            <Button size="sm" variant="outline" className="h-7 text-xs border-amber-600 text-amber-400 hover:bg-amber-600/20"
+              onClick={handleClearOld} data-testid="audit-clear-old-btn">
+              <Trash2 className="w-3 h-3 mr-1" /> Purane Delete
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs border-red-600 text-red-400 hover:bg-red-600/20"
+              onClick={handleClearAll} data-testid="audit-clear-all-btn">
+              <Trash2 className="w-3 h-3 mr-1" /> Sab Clear
+            </Button>
           </div>
           {/* Filters */}
           <div className="flex gap-2 mt-2">
