@@ -2257,8 +2257,10 @@ function UsersTab({ user }) {
         // If admin edited their own user, refresh permissions in App
         if (editingUser.username === user.username && resp.data?.user?.permissions) {
           const updatedUser = { ...user, permissions: resp.data.user.permissions };
-          localStorage.setItem("mill_user", JSON.stringify(updatedUser));
-          if (setUser) setUser(updatedUser);
+          try {
+            localStorage.setItem("mill_user", JSON.stringify(updatedUser));
+            if (typeof setUser === 'function') setUser(updatedUser);
+          } catch(_) {}
         }
       } else {
         await axios.post(`${API}/users?username=${user.username}&role=${user.role}`, form);
