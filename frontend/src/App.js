@@ -1481,19 +1481,20 @@ import { ConfirmProvider } from "@/components/ConfirmProvider";
 // Main App with Auth
 function App() {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('mill_user');
+    const saved = sessionStorage.getItem('mill_user');
     return saved ? JSON.parse(saved) : null;
   });
 
   const handleLogin = (username, role, permissions = {}, display_name = "") => {
     const userData = { username, role, permissions, display_name: display_name || username };
     setUser(userData);
-    localStorage.setItem('mill_user', JSON.stringify(userData));
+    sessionStorage.setItem('mill_user', JSON.stringify(userData));
   };
 
   const handleLogout = () => {
     setUser(null);
-    localStorage.removeItem('mill_user');
+    sessionStorage.removeItem('mill_user');
+    localStorage.removeItem('mill_user'); // cleanup old persistent login
     toast.success("Logged out successfully");
   };
 
