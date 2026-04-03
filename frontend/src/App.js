@@ -445,19 +445,24 @@ function MainApp({ user, setUser, onLogout }) {
       const res = await axios.get(`${API}/vehicle-weight/by-rst/${rstNo}?kms_year=${filters.kms_year || ''}`);
       if (res.data.success && res.data.entry) {
         const vw = res.data.entry;
-        setFormData(prev => ({
-          ...prev,
-          truck_no: vw.vehicle_no || prev.truck_no,
-          agent_name: vw.party_name || prev.agent_name,
-          mandi_name: vw.farmer_name || prev.mandi_name,
-          kg: vw.net_wt ? String(vw.net_wt) : prev.kg,
-          bag: vw.tot_pkts ? String(vw.tot_pkts) : prev.bag,
-          cash_paid: vw.cash_paid ? String(vw.cash_paid) : prev.cash_paid,
-          diesel_paid: vw.diesel_paid ? String(vw.diesel_paid) : prev.diesel_paid,
-          g_issued: vw.g_issued ? String(vw.g_issued) : prev.g_issued,
-          tp_no: vw.tp_no || prev.tp_no,
-          remark: vw.remark || prev.remark,
-        }));
+        setFormData(prev => {
+          const mandiName = vw.farmer_name || prev.mandi_name;
+          const cuttingTarget = findMandiCutting(mandiName);
+          return {
+            ...prev,
+            truck_no: vw.vehicle_no || prev.truck_no,
+            agent_name: vw.party_name || prev.agent_name,
+            mandi_name: mandiName,
+            kg: vw.net_wt ? String(vw.net_wt) : prev.kg,
+            bag: vw.tot_pkts ? String(vw.tot_pkts) : prev.bag,
+            cash_paid: vw.cash_paid ? String(vw.cash_paid) : prev.cash_paid,
+            diesel_paid: vw.diesel_paid ? String(vw.diesel_paid) : prev.diesel_paid,
+            g_issued: vw.g_issued ? String(vw.g_issued) : prev.g_issued,
+            tp_no: vw.tp_no || prev.tp_no,
+            remark: vw.remark || prev.remark,
+            cutting_percent: cuttingTarget ? String(cuttingTarget.cutting_percent) : prev.cutting_percent,
+          };
+        });
         const netInfo = vw.net_wt ? ` | Net: ${Number(vw.net_wt).toLocaleString()} KG` : '';
         const cashInfo = vw.cash_paid ? ` | Cash: ${vw.cash_paid}` : '';
         toast.success(`RST #${rstNo} से auto-fill: ${vw.vehicle_no} | ${vw.party_name}${netInfo}${cashInfo}`);
@@ -465,7 +470,7 @@ function MainApp({ user, setUser, onLogout }) {
     } catch {
       // RST not found in vehicle weight - ignore silently
     }
-  }, [filters.kms_year]);
+  }, [filters.kms_year, findMandiCutting]);
 
   const debouncedRstLookup = useCallback((rstNo) => {
     if (rstTimerRef.current) clearTimeout(rstTimerRef.current);
