@@ -983,17 +983,28 @@ function getBackupDir() {
 // Cleanup duplicate backup folders created by Google Drive sync conflicts
 function cleanupDuplicateBackupFolders() {
   if (!dataPath) return;
+  cleanupDuplicateFolders('backups');
+  cleanupDuplicateFolders('sessions');
+  cleanupDuplicateFolders('vw_images');
+}
+
+// Generic: merge & remove duplicate folders like "sessions (1)", "vw_images (3)" etc.
+function cleanupDuplicateFolders(baseName) {
+  if (!dataPath) return;
   try {
     const items = fs.readdirSync(dataPath);
-    const dupeFolders = items.filter(name => /^backups\s*\(\d+\)$/.test(name));
-    const mainDir = getBackupDir();
+    const regex = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\(\\d+\\)$`);
+    const dupeFolders = items.filter(name => regex.test(name));
+    if (dupeFolders.length === 0) return;
+    const mainDir = path.join(dataPath, baseName);
+    if (!fs.existsSync(mainDir)) fs.mkdirSync(mainDir, { recursive: true });
     for (const folder of dupeFolders) {
       const folderPath = path.join(dataPath, folder);
       try {
         const stat = fs.statSync(folderPath);
         if (stat.isDirectory()) {
-          // Move any backup files to main backups folder
-          const files = fs.readdirSync(folderPath).filter(f => f.startsWith('backup_') && f.endsWith('.json'));
+          // Move files to main folder
+          const files = fs.readdirSync(folderPath);
           for (const file of files) {
             const src = path.join(folderPath, file);
             const dest = path.join(mainDir, file);
@@ -1001,9 +1012,9 @@ function cleanupDuplicateBackupFolders() {
               try { fs.copyFileSync(src, dest); } catch(_) {}
             }
           }
-          // Remove the duplicate folder
+          // Remove duplicate folder
           fs.rmSync(folderPath, { recursive: true, force: true });
-          logError('BACKUP_CLEANUP', `Removed duplicate folder: ${folder}`);
+          logError('FOLDER_CLEANUP', `Removed duplicate: ${folder}`);
         }
       } catch (_) {}
     }
