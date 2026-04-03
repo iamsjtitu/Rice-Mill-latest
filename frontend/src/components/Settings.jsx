@@ -2192,13 +2192,14 @@ const PERMISSION_DEFS = [
   { key: "can_see_cashbook", label: "Cash Book Tab", desc: "Cash Book dekh/manage kar sakta hai" },
   { key: "can_see_reports", label: "Reports Tab", desc: "Reports dekh sakta hai" },
   { key: "can_edit_settings", label: "Settings Access", desc: "Settings change kar sakta hai" },
+  { key: "can_manual_weight", label: "Manual Weight", desc: "Weighbridge mein manually weight type kar sakta hai" },
 ];
 
 const ROLE_DEFAULTS = {
-  admin: { can_edit: true, can_delete: true, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: true },
-  entry_operator: { can_edit: true, can_delete: false, can_export: false, can_see_payments: false, can_see_cashbook: false, can_see_reports: false, can_edit_settings: false },
-  accountant: { can_edit: true, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false },
-  viewer: { can_edit: false, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false },
+  admin: { can_edit: true, can_delete: true, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: true, can_manual_weight: true },
+  entry_operator: { can_edit: true, can_delete: false, can_export: false, can_see_payments: false, can_see_cashbook: false, can_see_reports: false, can_edit_settings: false, can_manual_weight: false },
+  accountant: { can_edit: true, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false },
+  viewer: { can_edit: false, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false },
 };
 
 function UsersTab({ user }) {
@@ -2325,6 +2326,7 @@ function UsersTab({ user }) {
                         {perms.can_see_payments && <span className="text-[9px] bg-green-600/20 text-green-400 px-1 rounded">Pay</span>}
                         {perms.can_see_cashbook && <span className="text-[9px] bg-cyan-600/20 text-cyan-400 px-1 rounded">CB</span>}
                         {perms.can_see_reports && <span className="text-[9px] bg-purple-600/20 text-purple-400 px-1 rounded">Rpt</span>}
+                        {perms.can_manual_weight && <span className="text-[9px] bg-orange-600/20 text-orange-400 px-1 rounded">MnWt</span>}
                       </div>
                     </td>
                     <td className="py-2 px-2 text-slate-400 text-[10px]">

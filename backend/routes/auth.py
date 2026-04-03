@@ -18,27 +18,32 @@ ROLE_PERMISSIONS = {
     "admin": {
         "can_edit": True, "can_delete": True, "can_export": True,
         "can_see_payments": True, "can_see_cashbook": True,
-        "can_see_reports": True, "can_edit_settings": True
+        "can_see_reports": True, "can_edit_settings": True,
+        "can_manual_weight": True
     },
     "entry_operator": {
         "can_edit": True, "can_delete": False, "can_export": False,
         "can_see_payments": False, "can_see_cashbook": False,
-        "can_see_reports": False, "can_edit_settings": False
+        "can_see_reports": False, "can_edit_settings": False,
+        "can_manual_weight": False
     },
     "accountant": {
         "can_edit": True, "can_delete": False, "can_export": True,
         "can_see_payments": True, "can_see_cashbook": True,
-        "can_see_reports": True, "can_edit_settings": False
+        "can_see_reports": True, "can_edit_settings": False,
+        "can_manual_weight": False
     },
     "viewer": {
         "can_edit": False, "can_delete": False, "can_export": True,
         "can_see_payments": True, "can_see_cashbook": True,
-        "can_see_reports": True, "can_edit_settings": False
+        "can_see_reports": True, "can_edit_settings": False,
+        "can_manual_weight": False
     },
     "staff": {
         "can_edit": False, "can_delete": False, "can_export": False,
         "can_see_payments": False, "can_see_cashbook": False,
-        "can_see_reports": False, "can_edit_settings": False
+        "can_see_reports": False, "can_edit_settings": False,
+        "can_manual_weight": False
     },
 }
 

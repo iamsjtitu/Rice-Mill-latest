@@ -1388,7 +1388,7 @@ function MainApp({ user, onLogout }) {
             </div>
 
             {entriesSubTab === "vehicle-weight" ? (
-              <VehicleWeight filters={filters} />
+              <VehicleWeight filters={filters} user={user} />
             ) : entriesSubTab === "auto-weight-entries" ? (
               <AutoWeightEntries filters={filters} />
             ) : entriesSubTab === "purchase-register" ? (

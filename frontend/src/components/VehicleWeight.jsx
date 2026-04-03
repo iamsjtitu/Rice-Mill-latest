@@ -393,7 +393,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
   );
 });
 
-export default function VehicleWeight({ filters }) {
+export default function VehicleWeight({ filters, user }) {
   const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "", tp_no: "" };
   const [form, setForm] = useState(blank);
   const [rstEditable, setRstEditable] = useState(false);
@@ -414,6 +414,7 @@ export default function VehicleWeight({ filters }) {
   const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
   const [linkedRst, setLinkedRst] = useState(new Set());
   const [zoomImg, setZoomImg] = useState(null); // for photo zoom
+  const canManualWeight = user?.permissions?.can_manual_weight !== false && user?.role === 'admin' || user?.permissions?.can_manual_weight === true;
 
   // ESC key to close photo zoom
   useEffect(() => {
@@ -993,8 +994,9 @@ export default function VehicleWeight({ filters }) {
                       <div className="bg-green-50 rounded-lg p-3 border border-green-200">
                         <Label className="text-green-700 text-[10px] font-bold mb-1 block">Second Wt (Tare) *</Label>
                         <div className="flex gap-1.5 items-center">
-                          <Input type="number" value={secondWtValue} onChange={e => setSecondWtValue(e.target.value)}
-                            placeholder="0" className="bg-white border-green-300 text-green-800 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-green-500/30"
+                          <Input type="number" value={secondWtValue} onChange={e => { if (canManualWeight) setSecondWtValue(e.target.value); }}
+                            placeholder="0" className={`bg-white border-green-300 text-green-800 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-green-500/30 ${!canManualWeight ? 'cursor-not-allowed opacity-70' : ''}`}
+                            readOnly={!canManualWeight}
                             data-testid="vw-second-wt-input" autoFocus />
                           {scale.stable && (
                             <Button type="button" onClick={capSecond} className="bg-green-600 hover:bg-green-500 h-10 px-2 shrink-0" data-testid="vw-capture-second-form">
@@ -1022,8 +1024,9 @@ export default function VehicleWeight({ filters }) {
                     <div className="bg-amber-50 rounded-lg p-3 border border-amber-200 mt-3">
                       <Label className="text-amber-700 text-xs font-bold mb-1.5 block">First Weight (KG) *</Label>
                       <div className="flex gap-2 items-center">
-                        <Input type="number" value={form.first_wt} onChange={e => setForm(p => ({ ...p, first_wt: e.target.value }))}
-                          placeholder="0" className="bg-white border-amber-300 text-amber-800 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-amber-500/30"
+                        <Input type="number" value={form.first_wt} onChange={e => { if (canManualWeight) setForm(p => ({ ...p, first_wt: e.target.value })); }}
+                          placeholder="0" className={`bg-white border-amber-300 text-amber-800 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-amber-500/30 ${!canManualWeight ? 'cursor-not-allowed opacity-70' : ''}`}
+                          readOnly={!canManualWeight}
                           data-testid="vw-first-wt" />
                         {scale.stable && (
                           <Button type="button" onClick={capFirst} className="bg-green-600 hover:bg-green-500 h-10 px-3 shrink-0" data-testid="vw-capture-first">
