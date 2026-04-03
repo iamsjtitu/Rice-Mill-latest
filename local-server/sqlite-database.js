@@ -20,7 +20,8 @@ const ARRAY_COLLECTIONS = [
   'staff', 'mill_parts', 'mill_parts_stock', 'diesel_pumps',
   'msp_payments', 'staff_payments', 'staff_advances', 'staff_attendance',
   'vehicle_weights', 'hemali_entries', 'hemali_payments',
-  'private_payments', 'app_settings', 'party_ledger'
+  'private_payments', 'app_settings', 'party_ledger',
+  'audit_log'
 ];
 
 // KV items (non-array objects)
