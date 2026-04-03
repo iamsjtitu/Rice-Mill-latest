@@ -122,7 +122,7 @@ function FYSummaryWithTabs({ filters, user }) {
 
 
 
-function MainApp({ user, onLogout }) {
+function MainApp({ user, setUser, onLogout }) {
   const [entries, setEntries] = useState([]);
   const [totals, setTotals] = useState({});
   const [formData, setFormData] = useState(initialFormState);
@@ -1500,7 +1500,7 @@ function App() {
 
   return (
     <ConfirmProvider>
-      <MainApp user={user} onLogout={handleLogout} />
+      <MainApp user={user} setUser={setUser} onLogout={handleLogout} />
     </ConfirmProvider>
   );
 }
