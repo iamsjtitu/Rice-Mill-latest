@@ -1379,7 +1379,7 @@ function MainApp({ user, setUser, onLogout }) {
                 data-testid="subtab-auto-weight-entries"
               >
                 <CheckCircle className="w-4 h-4 mr-1" /> Auto Weight Entries
-                {pendingVwCount > 0 && <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none">{pendingVwCount}</span>}
+                {pendingVwCount > 0 && <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 leading-none animate-pulse">{pendingVwCount}</span>}
               </Button>
               <Button
                 onClick={() => setEntriesSubTabSafe("purchase-register")}

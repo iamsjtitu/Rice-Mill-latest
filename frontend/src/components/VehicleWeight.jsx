@@ -582,6 +582,8 @@ export default function VehicleWeight({ filters, user }) {
         second_wt: secondWtValue,
         cash_paid: form.cash_paid || "0",
         diesel_paid: form.diesel_paid || "0",
+        g_issued: form.g_issued || "0",
+        tp_no: form.tp_no || "",
         second_wt_front_img: frontImg,
         second_wt_side_img: sideImg
       });
@@ -1119,7 +1121,7 @@ export default function VehicleWeight({ filters, user }) {
                 <span className="text-yellow-700 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5" /> Pending Vehicle List
                 </span>
-                <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 text-[10px]">{pending.length}</Badge>
+                <Badge className={`text-[10px] ${pending.length > 0 ? 'bg-red-100 text-red-700 border-red-400 animate-pulse' : 'bg-yellow-100 text-yellow-700 border-yellow-300'}`}>{pending.length}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0" data-testid="vw-pending-card">
@@ -1252,6 +1254,7 @@ export default function VehicleWeight({ filters, user }) {
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
+                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
                     <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
@@ -1259,7 +1262,7 @@ export default function VehicleWeight({ filters, user }) {
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
-                    <TableRow><TableCell colSpan={14} className="text-center text-gray-400 py-8 text-xs" data-testid="vw-no-entries-today">
+                    <TableRow><TableCell colSpan={15} className="text-center text-gray-400 py-8 text-xs" data-testid="vw-no-entries-today">
                       {vwFilters.date_from === todayStr && vwFilters.date_to === todayStr
                         ? "Aaj ki koi Vehicle Weight entry nahi hai"
                         : "Koi entry nahi mili - Filter change karke dekhein"}
@@ -1277,6 +1280,7 @@ export default function VehicleWeight({ filters, user }) {
                       <TableCell className="text-blue-700 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.second_wt)}</TableCell>
                       <TableCell className="text-right py-2 px-3"><span className="text-green-700 font-bold text-sm font-mono">{fmtWt(e.net_wt)}</span></TableCell>
                       <TableCell className="text-right text-indigo-700 text-xs py-2 px-3 font-mono">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
+                      <TableCell className="text-gray-600 text-xs py-2 px-3">{e.tp_no || '-'}</TableCell>
                       <TableCell className="text-right text-green-700 text-xs py-2 px-3 font-mono">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="text-right text-orange-700 text-xs py-2 px-3 font-mono">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">

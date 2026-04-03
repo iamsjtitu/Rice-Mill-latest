@@ -679,6 +679,8 @@ module.exports = function(database) {
 
     if ('cash_paid' in req.body) entry.cash_paid = parseFloat(req.body.cash_paid || 0) || 0;
     if ('diesel_paid' in req.body) entry.diesel_paid = parseFloat(req.body.diesel_paid || 0) || 0;
+    if ('g_issued' in req.body) entry.g_issued = parseFloat(req.body.g_issued || 0) || 0;
+    if ('tp_no' in req.body) entry.tp_no = (req.body.tp_no || '').trim();
 
     database.save();
     res.json({ success: true, entry, message: `RST #${entry.rst_no} - Net Wt: ${netWt} KG` });

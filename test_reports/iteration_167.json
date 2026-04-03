@@ -1,0 +1,53 @@
+{
+  "summary": "Vehicle Weight Bug Fixes Testing Complete - All 11 backend tests passed, all frontend UI elements verified",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_vehicle_weight_bugfixes.py",
+    "/app/test_reports/pytest/pytest_results_iteration167.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_vehicle_weight_bugfixes.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% - All UI elements verified"
+  },
+  "test_credentials": "Username: admin, Password: admin123",
+  "seed_data_creation": "Test entries created with TEST_ prefix during backend testing, automatically cleaned up",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Vehicle Weight bug fixes fully tested. Key fixes verified: (1) G.Issued and TP No. now save correctly on second weight completion via PUT /api/vehicle-weight/{id}/second-weight, (2) saveImage function handles non-string data (null, object, number) without crashing, (3) saveImage strips data:image/jpeg;base64 prefix correctly, (4) TP No. column visible in both VehicleWeight and AutoWeightEntries tables, (5) G.Issued and TP No. fields present in VehicleWeight entry form, (6) Pending count badge has animate-pulse class when count > 0.",
+  "features_tested": {
+    "backend_vehicle_weight_bugfixes": {
+      "create_entry_with_g_issued_tp_no": "PASS - POST /api/vehicle-weight saves g_issued and tp_no",
+      "second_weight_saves_g_issued_tp_no": "PASS - PUT /api/vehicle-weight/{id}/second-weight now saves g_issued and tp_no (was missing before fix)",
+      "rst_lookup_returns_g_issued_tp_no": "PASS - GET /api/vehicle-weight/by-rst/{rst_no} returns g_issued and tp_no",
+      "save_image_null_data_no_crash": "PASS - POST with null image data does not crash",
+      "save_image_object_data_no_crash": "PASS - POST with object/number image data does not crash",
+      "save_image_strips_data_url_prefix": "PASS - data:image/jpeg;base64 prefix stripped correctly",
+      "weighbridge_live_weight_endpoint": "PASS - GET /api/weighbridge/live-weight returns connected/weight/stable status",
+      "pending_count_endpoint": "PASS - GET /api/vehicle-weight/pending-count returns pending_count",
+      "edit_entry_updates_g_issued_tp_no": "PASS - PUT /api/vehicle-weight/{id}/edit updates g_issued and tp_no",
+      "list_entries_includes_g_issued_tp_no": "PASS - GET /api/vehicle-weight returns entries with g_issued and tp_no fields",
+      "pending_entries_list": "PASS - GET /api/vehicle-weight/pending returns pending entries"
+    },
+    "frontend_vehicle_weight_ui": {
+      "auto_weight_entries_tp_no_column": "PASS - TP No. column header found in Auto Weight Entries table",
+      "vehicle_weight_tp_no_column": "PASS - TP No. column header found in VehicleWeight completed entries table",
+      "vehicle_weight_g_issued_input": "PASS - G.Issued input field found in VehicleWeight form (data-testid='vw-g-issued')",
+      "vehicle_weight_tp_no_input": "PASS - TP No. input field found in VehicleWeight form (data-testid='vw-tp-no')",
+      "pending_count_badge_animation": "PASS - Code verified: animate-pulse class applied when pendingVwCount > 0 (line 1382 in App.js)"
+    }
+  },
+  "notes": "The weighbridge/live-weight endpoint returns dummy data (connected:false) in the web/Python backend since there's no serial port. The real implementation is in desktop-app only. This is expected behavior."
+}

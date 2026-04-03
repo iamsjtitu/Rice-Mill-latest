@@ -311,6 +311,7 @@ export default function AutoWeightEntries({ filters }) {
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
+                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
                   <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
@@ -318,7 +319,7 @@ export default function AutoWeightEntries({ filters }) {
               </TableHeader>
               <TableBody>
                 {entries.length === 0 ? (
-                  <TableRow><TableCell colSpan={14} className="text-center text-gray-400 py-8 text-xs" data-testid="awe-no-entries">
+                  <TableRow><TableCell colSpan={15} className="text-center text-gray-400 py-8 text-xs" data-testid="awe-no-entries">
                     Koi entry nahi mili - Filter change karke dekhein
                   </TableCell></TableRow>
                 ) : entries.map((e, i) => {
@@ -336,6 +337,7 @@ export default function AutoWeightEntries({ filters }) {
                       <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-semibold">{fmtWt(e.second_wt)}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-green-700 font-bold">{fmtWt(e.net_wt)}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-indigo-700 font-semibold">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs text-gray-600">{e.tp_no || '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-amber-700 font-semibold">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-red-600 font-semibold">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
@@ -522,6 +524,8 @@ export default function AutoWeightEntries({ filters }) {
             <div><label className="text-gray-500 text-[10px]">Bags</label><Input className="h-7 text-xs" type="number" value={editEntry.tot_pkts || ''} onChange={ev => setEditEntry(p => ({...p, tot_pkts: ev.target.value}))} /></div>
             <div><label className="text-gray-500 text-[10px]">Cash</label><Input className="h-7 text-xs" type="number" value={editEntry.cash_paid || ''} onChange={ev => setEditEntry(p => ({...p, cash_paid: ev.target.value}))} /></div>
             <div><label className="text-gray-500 text-[10px]">Diesel</label><Input className="h-7 text-xs" type="number" value={editEntry.diesel_paid || ''} onChange={ev => setEditEntry(p => ({...p, diesel_paid: ev.target.value}))} /></div>
+            <div><label className="text-gray-500 text-[10px]">G.Issued</label><Input className="h-7 text-xs" type="number" value={editEntry.g_issued || ''} onChange={ev => setEditEntry(p => ({...p, g_issued: ev.target.value}))} /></div>
+            <div><label className="text-gray-500 text-[10px]">TP No.</label><Input className="h-7 text-xs" value={editEntry.tp_no || ''} onChange={ev => setEditEntry(p => ({...p, tp_no: ev.target.value}))} /></div>
           </div>
           <div className="flex justify-end gap-2 mt-3">
             <Button variant="outline" size="sm" onClick={() => setEditEntry(null)}>Cancel</Button>
