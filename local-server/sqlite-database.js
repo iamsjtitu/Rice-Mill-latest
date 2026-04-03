@@ -165,6 +165,43 @@ class SqliteDatabase {
   }
 
   // ============ SAVE (Debounced) ============
+  
+  logAudit(collection, recordId, action, username, oldData, newData, summary) {
+    if (!this.data.audit_log) this.data.audit_log = [];
+    const changes = {};
+    const skipKeys = new Set(['_id', '_v', 'updated_at', 'created_at']);
+    if (action === 'update' && oldData && newData) {
+      for (const key of new Set([...Object.keys(oldData), ...Object.keys(newData)])) {
+        if (skipKeys.has(key)) continue;
+        if (oldData[key] !== newData[key]) changes[key] = { old: oldData[key], new: newData[key] };
+      }
+      if (Object.keys(changes).length === 0) return;
+    }
+    if (action === 'create' && newData) {
+      for (const key of ['truck_no', 'party_name', 'amount', 'kg', 'bag', 'category', 'description', 'total_amount', 'quantity_qntl']) {
+        if (newData[key]) changes[key] = { new: newData[key] };
+      }
+    }
+    if (action === 'delete' && oldData) {
+      for (const key of ['truck_no', 'party_name', 'amount', 'kg', 'bag', 'category', 'description', 'total_amount', 'quantity_qntl']) {
+        if (oldData[key]) changes[key] = { old: oldData[key] };
+      }
+    }
+    if (!summary) {
+      if (action === 'create') summary = `${username} ne naya record banaya`;
+      else if (action === 'delete') summary = `${username} ne record delete kiya`;
+      else if (action === 'update') {
+        const parts = Object.entries(changes).slice(0, 3).map(([k, v]) => v.old !== undefined && v.new !== undefined ? `${k}: ${v.old} → ${v.new}` : k);
+        summary = `${username} ne ${parts.join(', ')} change kiya`;
+      }
+    }
+    this.data.audit_log.push({
+      id: uuidv4(), collection, record_id: String(recordId), action,
+      changes, username: username || 'system', summary: summary || '',
+      timestamp: new Date().toISOString()
+    });
+  }
+
   save() {
     if (this._saveTimer) clearTimeout(this._saveTimer);
     this._pendingSave = true;
@@ -313,7 +350,7 @@ class SqliteDatabase {
       const dieselTaken = parseFloat(newEntry.diesel_paid) || 0;
       const deductions = cashTaken + dieselTaken;
 
-      this.data.cash_transactions.push({
+      const jamaEntry = {
         id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: truckNo,
         party_type: 'Truck',
         description: `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : ''),
@@ -321,10 +358,12 @@ class SqliteDatabase {
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
         created_at: now, updated_at: now
-      });
+      };
+      this.data.cash_transactions.push(jamaEntry);
+      this.logAudit('cash_transactions', jamaEntry.id, 'create', newEntry.created_by || '', null, jamaEntry);
 
       if (dieselTaken > 0) {
-        this.data.cash_transactions.push({
+        const dieselDed = {
           id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
           party_type: 'Truck',
           description: `Truck Diesel Advance: ${truckNo} - Rs.${dieselTaken}`,
@@ -332,13 +371,15 @@ class SqliteDatabase {
           kms_year: newEntry.kms_year||'', season: newEntry.season||'',
           created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
           created_at: now, updated_at: now
-        });
+        };
+        this.data.cash_transactions.push(dieselDed);
+        this.logAudit('cash_transactions', dieselDed.id, 'create', newEntry.created_by || '', null, dieselDed);
       }
     }
 
     const cashPaid = parseFloat(newEntry.cash_paid) || 0;
     if (cashPaid > 0) {
-      this.data.cash_transactions.push({
+      const cashNikasi = {
         id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: truckNo || 'Cash Paid (Entry)',
         party_type: 'Truck',
         description: `Cash Paid: Truck ${truckNo} - Mandi ${newEntry.mandi_name||''} - Rs.${cashPaid}`,
@@ -346,9 +387,11 @@ class SqliteDatabase {
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
         created_at: now, updated_at: now
-      });
+      };
+      this.data.cash_transactions.push(cashNikasi);
+      this.logAudit('cash_transactions', cashNikasi.id, 'create', newEntry.created_by || '', null, cashNikasi);
       if (truckNo) {
-        this.data.cash_transactions.push({
+        const cashDed = {
           id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
           party_type: 'Truck',
           description: `Truck Cash Advance: ${truckNo} - Rs.${cashPaid}`,
@@ -356,7 +399,9 @@ class SqliteDatabase {
           kms_year: newEntry.kms_year||'', season: newEntry.season||'',
           created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
           created_at: now, updated_at: now
-        });
+        };
+        this.data.cash_transactions.push(cashDed);
+        this.logAudit('cash_transactions', cashDed.id, 'create', newEntry.created_by || '', null, cashDed);
       }
     }
 
@@ -376,7 +421,7 @@ class SqliteDatabase {
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
         created_at: now
       });
-      this.data.cash_transactions.push({
+      const dieselJama = {
         id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: pumpName,
         party_type: 'Diesel',
         description: `Diesel Fill: Truck ${truckNo} - ${pumpName} - Rs.${dieselPaid}`,
@@ -384,7 +429,9 @@ class SqliteDatabase {
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
         created_at: now, updated_at: now
-      });
+      };
+      this.data.cash_transactions.push(dieselJama);
+      this.logAudit('cash_transactions', dieselJama.id, 'create', newEntry.created_by || '', null, dieselJama);
     }
 
     this._createGunnyEntriesForMill(newEntry);

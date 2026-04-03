@@ -67,8 +67,8 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.cash_transactions.insert_one(jama_entry)
-        
-        # Also create Nikasi ledger entry for diesel deduction (counted against truck)
+        jama_entry.pop("_id", None)
+        await log_audit("cash_transactions", jama_entry["id"], "create", username, new_data=jama_entry)
         if diesel_taken > 0:
             diesel_ded = {
                 "id": str(uuid.uuid4()), "date": doc.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
@@ -81,6 +81,8 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
                 "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
             }
             await db.cash_transactions.insert_one(diesel_ded)
+            diesel_ded.pop("_id", None)
+            await log_audit("cash_transactions", diesel_ded["id"], "create", username, new_data=diesel_ded)
     
     # Auto Cash Book entry for cash_paid
     cash_paid = float(doc.get("cash_paid", 0) or 0)
@@ -96,6 +98,8 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.cash_transactions.insert_one(cb)
+        cb.pop("_id", None)
+        await log_audit("cash_transactions", cb["id"], "create", username, new_data=cb)
         # Also create Ledger Nikasi entry for cash deduction (counted against truck balance)
         if truck_no:
             cash_ded = {
@@ -109,6 +113,8 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
                 "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
             }
             await db.cash_transactions.insert_one(cash_ded)
+            cash_ded.pop("_id", None)
+            await log_audit("cash_transactions", cash_ded["id"], "create", username, new_data=cash_ded)
     
     # Auto Diesel Account entry for diesel_paid
     diesel_paid = float(doc.get("diesel_paid", 0) or 0)
@@ -142,8 +148,8 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.cash_transactions.insert_one(diesel_jama)
-    
-    # Auto Gunny Bag entries for g_issued and g_deposite
+        diesel_jama.pop("_id", None)
+        await log_audit("cash_transactions", diesel_jama["id"], "create", username, new_data=diesel_jama)
     await _create_gunny_entries_for_mill(doc, username)
     
     # Return doc (which has _v) instead of entry_obj
@@ -537,6 +543,8 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.cash_transactions.insert_one(jama_entry)
+        jama_entry.pop("_id", None)
+        await log_audit("cash_transactions", jama_entry["id"], "create", username, new_data=jama_entry)
         
         if diesel_taken > 0:
             diesel_ded = {
@@ -550,6 +558,8 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
                 "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
             }
             await db.cash_transactions.insert_one(diesel_ded)
+            diesel_ded.pop("_id", None)
+            await log_audit("cash_transactions", diesel_ded["id"], "create", username, new_data=diesel_ded)
     
     # Recreate Cash Book Nikasi entry for cash_paid
     cash_paid = float(merged_data.get("cash_paid", 0) or 0)
@@ -565,6 +575,8 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.cash_transactions.insert_one(cb)
+        cb.pop("_id", None)
+        await log_audit("cash_transactions", cb["id"], "create", username, new_data=cb)
         # Also create Ledger Nikasi entry for cash deduction (counted against truck balance)
         if truck_no:
             cash_ded = {
@@ -578,6 +590,8 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
                 "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
             }
             await db.cash_transactions.insert_one(cash_ded)
+            cash_ded.pop("_id", None)
+            await log_audit("cash_transactions", cash_ded["id"], "create", username, new_data=cash_ded)
     
     # Update auto diesel account entry for diesel_paid
     await db.diesel_accounts.delete_many({"linked_entry_id": entry_id})
@@ -611,6 +625,8 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
         }
         await db.cash_transactions.insert_one(diesel_jama)
+        diesel_jama.pop("_id", None)
+        await log_audit("cash_transactions", diesel_jama["id"], "create", username, new_data=diesel_jama)
     
     # Update auto gunny bag entries (delete old + recreate)
     await db.gunny_bags.delete_many({"linked_entry_id": entry_id})
