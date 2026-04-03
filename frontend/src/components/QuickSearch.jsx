@@ -67,9 +67,27 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
   const [loading, setLoading] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [previewItem, setPreviewItem] = useState(null);
+
+  // Keep ref synced for closure access in onEscapeKeyDown
+  useEffect(() => { previewRef.current = previewItem; }, [previewItem]);
+
+  // Intercept ESC at document level BEFORE Radix Dialog captures it
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (e.key === 'Escape' && previewRef.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setPreviewItem(null);
+      }
+    };
+    document.addEventListener('keydown', handler, true); // capture phase
+    return () => document.removeEventListener('keydown', handler, true);
+  }, [open]);
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const debounceRef = useRef(null);
+  const previewRef = useRef(null);
 
   useEffect(() => {
     if (open) {
@@ -99,7 +117,10 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
     if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIdx(i => Math.min(i + 1, results.length - 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIdx(i => Math.max(i - 1, 0)); }
     else if (e.key === "Enter" && results[selectedIdx]) { e.preventDefault(); handleNavigate(results[selectedIdx]); }
-    else if (e.key === "Escape") { previewItem ? setPreviewItem(null) : onOpenChange(false); }
+    else if (e.key === "Escape") {
+      if (previewItem) { e.preventDefault(); e.stopPropagation(); setPreviewItem(null); }
+      else { onOpenChange(false); }
+    }
     else if (e.key === "q" && e.ctrlKey && results[selectedIdx]) { e.preventDefault(); setPreviewItem(results[selectedIdx]); }
   };
 
@@ -122,8 +143,15 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
   const kbdClass = isDark ? "bg-slate-800 border-slate-700 text-slate-500" : "bg-gray-100 border-gray-300 text-gray-500";
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`p-0 ${dialogBg} max-w-2xl gap-0 overflow-hidden`} data-testid="quick-search-dialog">
+    <Dialog open={open} onOpenChange={(v) => {
+      if (!v && previewRef.current) { setPreviewItem(null); return; }
+      onOpenChange(v);
+    }}>
+      <DialogContent
+        className={`p-0 ${dialogBg} max-w-2xl gap-0 overflow-hidden`}
+        data-testid="quick-search-dialog"
+        onEscapeKeyDown={(e) => { if (previewItem) { e.preventDefault(); setPreviewItem(null); } }}
+      >
         <VisuallyHidden><DialogTitle>Quick Search</DialogTitle></VisuallyHidden>
 
         {/* Search bar */}
