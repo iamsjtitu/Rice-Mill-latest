@@ -3,18 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "87.4.0";
+const APP_VERSION = "87.5.0";
 
 const CHANGELOG = [
   {
-    version: "87.4.0",
+    version: "87.5.0",
     date: "Apr 2026",
-    title: "v87.4.0 - LAN Bug Fix",
+    title: "v87.5.0 - Weighbridge Fixes + LAN Scale",
     items: [
-      { type: "fix", text: "Vehicle Weight - LAN se save karne par crash (saveImage TypeError) fix kiya" },
-      { type: "fix", text: "Camera image payload limit 5MB se 50MB kiya - badi images bhi save hongi" },
-      { type: "fix", text: "Image data URL prefix (data:image/...) auto-strip hota hai ab" },
-      { type: "feature", text: "Health check endpoint (/api/health) - LAN connection verify karne ke liye" },
+      { type: "fix", text: "G.Issued aur TP No. ab second weight save par bhi save hoga" },
+      { type: "fix", text: "TP No. column ab Completed Entries aur Auto Weight Entries dono tables mai dikhega" },
+      { type: "fix", text: "Auto Weight Entries edit mai G.Issued aur TP No. fields add kiye" },
+      { type: "fix", text: "Pending count badge ab red mai blink karega jab entries pending hon" },
+      { type: "feature", text: "LAN browser mai ab REAL weighbridge weight dikhega (API polling se)" },
+      { type: "fix", text: "saveImage crash fix - non-string data (object/null) se crash nahi hoga" },
+      { type: "fix", text: "Camera image limit 5MB se 50MB kiya + data:image prefix auto-strip" },
     ]
   },
   {
