@@ -919,6 +919,8 @@ function MainApp({ user, setUser, onLogout }) {
       cash_paid: entry.cash_paid?.toString() || "",
       diesel_paid: entry.diesel_paid?.toString() || "",
       remark: entry.remark || "",
+      rst_no: entry.rst_no || "",
+      tp_no: entry.tp_no || "",
       _v: entry._v,
     });
     setEditingId(entry.id);
