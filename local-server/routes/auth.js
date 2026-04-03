@@ -95,6 +95,15 @@ module.exports = function(database) {
   router.get('/api/users', safeSync(async (req, res) => {
     if (req.query.role !== 'admin') return res.status(403).json({ detail: 'Sirf Admin users dekh sakta hai' });
     if (!database.data.users) database.data.users = [];
+    // Ensure all DB users have an id field
+    let needsSave = false;
+    for (const u of database.data.users) {
+      if (!u.id) {
+        u.id = DEFAULT_USERS[u.username] ? `default_${u.username}` : require('crypto').randomUUID();
+        needsSave = true;
+      }
+    }
+    if (needsSave) database.save();
     const dbUsers = database.data.users.map(u => {
       const { password, ...rest } = u;
       rest.permissions = getPerms(u);
@@ -103,7 +112,7 @@ module.exports = function(database) {
     const dbUsernames = new Set(dbUsers.map(u => u.username));
     for (const [uname, udata] of Object.entries(DEFAULT_USERS)) {
       if (!dbUsernames.has(uname)) {
-        dbUsers.push({ username: uname, role: udata.role, display_name: uname, active: true, is_default: true,
+        dbUsers.push({ id: `default_${uname}`, username: uname, role: udata.role, display_name: uname, active: true, is_default: true,
           permissions: { ...(ROLE_PERMISSIONS[udata.role] || {}) } });
       }
     }
@@ -140,8 +149,25 @@ module.exports = function(database) {
 
   router.put('/api/users/:id', safeSync(async (req, res) => {
     if (req.query.role !== 'admin') return res.status(403).json({ detail: 'Sirf Admin user update kar sakta hai' });
-    if (!database.data.users) return res.status(404).json({ detail: 'User nahi mila' });
-    const idx = database.data.users.findIndex(u => u.id === req.params.id);
+    if (!database.data.users) database.data.users = [];
+    const paramId = req.params.id;
+    let idx = database.data.users.findIndex(u => u.id === paramId);
+    // Handle default users that aren't in DB yet
+    if (idx === -1 && paramId.startsWith('default_')) {
+      const uname = paramId.replace('default_', '');
+      const defUser = DEFAULT_USERS[uname];
+      if (defUser) {
+        // Create the default user in DB so it can be edited
+        const newDoc = {
+          id: paramId, username: uname, password: defUser.password,
+          display_name: uname, role: defUser.role,
+          permissions: {}, staff_id: '', active: true,
+          created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+        };
+        database.data.users.push(newDoc);
+        idx = database.data.users.length - 1;
+      }
+    }
     if (idx === -1) return res.status(404).json({ detail: 'User nahi mila' });
     const d = req.body;
     if (d.display_name !== undefined) database.data.users[idx].display_name = d.display_name;

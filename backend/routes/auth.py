@@ -150,11 +150,19 @@ async def list_users(username: str = "", role: str = ""):
     # Get DB users
     db_users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(500)
     
+    # Ensure all DB users have an id field
+    for u in db_users:
+        if not u.get("id"):
+            gen_id = f"default_{u['username']}" if u["username"] in USERS else str(uuid.uuid4())
+            u["id"] = gen_id
+            await db.users.update_one({"username": u["username"]}, {"$set": {"id": gen_id}})
+    
     # Add default users if not in DB
     db_usernames = {u["username"] for u in db_users}
     for uname, udata in USERS.items():
         if uname not in db_usernames:
             db_users.append({
+                "id": f"default_{uname}",
                 "username": uname, "role": udata["role"],
                 "display_name": uname, "active": True, "is_default": True,
                 "permissions": ROLE_PERMISSIONS.get(udata["role"], {})
@@ -219,6 +227,20 @@ async def update_user(user_id: str, data: dict, username: str = "", role: str = 
         raise HTTPException(status_code=403, detail="Sirf Admin user update kar sakta hai")
     
     existing = await db.users.find_one({"id": user_id})
+    if not existing and user_id.startswith("default_"):
+        # Auto-create default user in DB for editing
+        uname = user_id.replace("default_", "")
+        if uname in USERS:
+            default_doc = {
+                "id": user_id, "username": uname, "password": USERS[uname]["password"],
+                "display_name": uname, "role": USERS[uname]["role"],
+                "permissions": {}, "staff_id": "", "active": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.users.insert_one(default_doc)
+            default_doc.pop("_id", None)
+            existing = default_doc
     if not existing:
         raise HTTPException(status_code=404, detail="User nahi mila")
     
