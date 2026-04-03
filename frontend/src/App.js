@@ -1335,7 +1335,7 @@ function MainApp({ user, onLogout }) {
         ) : activeTab === "fy-summary" ? (
           <FYSummaryWithTabs filters={filters} user={user} />
         ) : activeTab === "settings" ? (
-          <Settings user={user} kmsYear={filters.kms_year} onBrandingUpdate={(updated) => setBranding(updated)} />
+          <Settings user={user} setUser={setUser} kmsYear={filters.kms_year} onBrandingUpdate={(updated) => setBranding(updated)} />
         ) : (
           <>
             {/* Entries Sub-tabs: Mill Entries | Vehicle Weight */}

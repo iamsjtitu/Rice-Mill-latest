@@ -53,6 +53,11 @@ def _get_permissions(user_doc):
     defaults = ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["viewer"]).copy()
     custom = user_doc.get("permissions", {})
     defaults.update(custom)
+    # Admin role: core permissions are always true
+    if role == "admin":
+        defaults["can_edit"] = True
+        defaults["can_delete"] = True
+        defaults["can_edit_settings"] = True
     return defaults
 
 

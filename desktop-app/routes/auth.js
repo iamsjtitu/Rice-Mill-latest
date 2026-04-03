@@ -47,6 +47,12 @@ module.exports = function(database) {
     const role = userDoc.role || 'viewer';
     const defaults = { ...(ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.viewer) };
     if (userDoc.permissions) Object.assign(defaults, userDoc.permissions);
+    // Admin role: core permissions always true
+    if (role === 'admin') {
+      defaults.can_edit = true;
+      defaults.can_delete = true;
+      defaults.can_edit_settings = true;
+    }
     return defaults;
   };
 

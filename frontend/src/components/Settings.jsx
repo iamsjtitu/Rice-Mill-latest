@@ -2251,8 +2251,14 @@ function UsersTab({ user }) {
     if (!editingUser && !form.password.trim()) return toast.error("Password zaruri hai");
     try {
       if (editingUser) {
-        await axios.put(`${API}/users/${editingUser.id}?username=${user.username}&role=${user.role}`, form);
+        const resp = await axios.put(`${API}/users/${editingUser.id}?username=${user.username}&role=${user.role}`, form);
         toast.success("User update ho gaya");
+        // If admin edited their own user, refresh permissions in App
+        if (editingUser.username === user.username && resp.data?.user?.permissions) {
+          const updatedUser = { ...user, permissions: resp.data.user.permissions };
+          localStorage.setItem("mill_user", JSON.stringify(updatedUser));
+          if (setUser) setUser(updatedUser);
+        }
       } else {
         await axios.post(`${API}/users?username=${user.username}&role=${user.role}`, form);
         toast.success("User ban gaya!");
@@ -2435,19 +2441,24 @@ function UsersTab({ user }) {
             <div>
               <Label className="text-[11px] text-slate-400 mb-1.5 block">Permissions (Fine-tune)</Label>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {PERMISSION_DEFS.map(p => (
+                {PERMISSION_DEFS.map(p => {
+                  const isAdminLocked = form.role === 'admin' && ['can_edit', 'can_delete', 'can_edit_settings'].includes(p.key);
+                  return (
                   <div key={p.key} className="flex items-center justify-between bg-slate-700/40 rounded px-2 py-1.5">
                     <div>
                       <span className="text-[11px] text-slate-200">{p.label}</span>
+                      {isAdminLocked && <span className="text-[8px] text-amber-400 ml-1">(Admin)</span>}
                     </div>
                     <Switch
-                      checked={!!form.permissions[p.key]}
-                      onCheckedChange={() => togglePerm(p.key)}
+                      checked={isAdminLocked ? true : !!form.permissions[p.key]}
+                      onCheckedChange={() => { if (!isAdminLocked) togglePerm(p.key); }}
+                      disabled={isAdminLocked}
                       className="scale-75"
                       data-testid={`perm-${p.key}`}
                     />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -2611,7 +2622,7 @@ const SUB_TABS = [
   { id: "errorlog", label: "Error Log", icon: AlertCircle },
 ];
 
-export default function Settings({ user, kmsYear, onBrandingUpdate }) {
+export default function Settings({ user, setUser, kmsYear, onBrandingUpdate }) {
   const [activeSubTab, setActiveSubTab] = useState("users");
 
   return (
