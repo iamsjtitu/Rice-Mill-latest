@@ -215,6 +215,7 @@ class SqliteDatabase {
 
   _doSave() {
     this._pendingSave = false;
+    this.lastSaveTime = new Date().toISOString();
     try {
       const transaction = this.sqlite.transaction(() => {
         // Save KV items

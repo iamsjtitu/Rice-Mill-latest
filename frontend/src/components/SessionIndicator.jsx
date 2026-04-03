@@ -9,6 +9,7 @@ const API = `${BACKEND_URL}/api`;
 export default function SessionIndicator({ onDataRefresh }) {
   const [status, setStatus] = useState(null);
   const [lanInfo, setLanInfo] = useState(null);
+  const [syncInfo, setSyncInfo] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchStatus = useCallback(async () => {
@@ -26,13 +27,22 @@ export default function SessionIndicator({ onDataRefresh }) {
     } catch { /* ignore */ }
   }, []);
 
+  const fetchSync = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/sync-status`);
+      if (res.ok) setSyncInfo(await res.json());
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     fetchStatus();
     fetchLan();
+    fetchSync();
     const i1 = setInterval(fetchStatus, 30000);
     const i2 = setInterval(fetchLan, 15000);
-    return () => { clearInterval(i1); clearInterval(i2); };
-  }, [fetchStatus, fetchLan]);
+    const i3 = setInterval(fetchSync, 15000);
+    return () => { clearInterval(i1); clearInterval(i2); clearInterval(i3); };
+  }, [fetchStatus, fetchLan, fetchSync]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -120,6 +130,41 @@ export default function SessionIndicator({ onDataRefresh }) {
             <p className="text-[8px] text-amber-500/80 dark:text-amber-400/60 text-center">
               Same record dono jagah mat edit karo
             </p>
+          )}
+
+          {/* Data Sync Status */}
+          {syncInfo && (
+            <>
+              <div className="border-t border-gray-200 dark:border-slate-600 my-1" />
+              <span className="text-[9px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Data Sync</span>
+              <div className="px-1.5 py-1 rounded bg-gray-50 dark:bg-slate-700/50 border border-gray-200/80 dark:border-slate-600/50 space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-gray-500 dark:text-slate-400">Entries</span>
+                  <span className="text-[9px] font-bold text-gray-700 dark:text-slate-200">{syncInfo.entries || 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-gray-500 dark:text-slate-400">Vehicle Wt</span>
+                  <span className="text-[9px] font-bold text-gray-700 dark:text-slate-200">{syncInfo.vehicle_weights || 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-gray-500 dark:text-slate-400">Cash Txns</span>
+                  <span className="text-[9px] font-bold text-gray-700 dark:text-slate-200">{syncInfo.cash_transactions || 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-gray-500 dark:text-slate-400">Last Save</span>
+                  <span className="text-[9px] font-bold text-green-600 dark:text-green-400">
+                    {syncInfo.last_save ? new Date(syncInfo.last_save).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-gray-500 dark:text-slate-400">Engine</span>
+                  <span className="text-[9px] font-mono text-gray-600 dark:text-slate-300">{syncInfo.engine || '?'}</span>
+                </div>
+                {syncInfo.pending_save && (
+                  <p className="text-[8px] text-amber-500 animate-pulse text-center">Saving...</p>
+                )}
+              </div>
+            </>
           )}
         </div>
       </PopoverContent>

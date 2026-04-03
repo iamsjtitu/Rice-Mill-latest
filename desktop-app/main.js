@@ -1196,6 +1196,19 @@ function createApiServer(database) {
     res.json(getWeightStatus());
   }));
 
+  // Data sync status - for heartbeat popover
+  apiApp.get('/api/sync-status', safeSync((req, res) => {
+    const d = database.data;
+    res.json({
+      last_save: database.lastSaveTime || null,
+      entries: (d.entries || []).length,
+      vehicle_weights: (d.vehicle_weights || []).length,
+      cash_transactions: (d.cash_transactions || []).length,
+      engine: dbEngine,
+      pending_save: !!database._pendingSave
+    });
+  }));
+
   // ===== STORAGE ENGINE API =====
   apiApp.get('/api/settings/storage-engine', safeSync((req, res) => {
     res.json({ engine: dbEngine });

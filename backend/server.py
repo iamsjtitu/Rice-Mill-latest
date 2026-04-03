@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter, Request
 from fastapi.responses import HTMLResponse
 from starlette.middleware.cors import CORSMiddleware
-from database import client, print_pages
+from database import client, print_pages, db
 import os
 import logging
 import secrets
@@ -113,6 +113,21 @@ async def delete_all_data():
 async def session_status():
     import socket
     return {"self": {"computer_name": socket.gethostname(), "active": True}, "others": []}
+
+@api_router.get("/sync-status")
+async def sync_status():
+    from datetime import datetime, timezone
+    entries_count = await db["entries"].count_documents({})
+    vw_count = await db["vehicle_weights"].count_documents({})
+    cash_count = await db["cash_transactions"].count_documents({})
+    return {
+        "last_save": datetime.now(timezone.utc).isoformat(),
+        "entries": entries_count,
+        "vehicle_weights": vw_count,
+        "cash_transactions": cash_count,
+        "engine": "mongodb",
+        "pending_save": False
+    }
 
 @api_router.post("/data-refresh")
 async def data_refresh():
