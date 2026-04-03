@@ -2254,13 +2254,15 @@ function UsersTab({ user }) {
         const userId = editingUser.id || `default_${editingUser.username}`;
         const resp = await axios.put(`${API}/users/${userId}?username=${user.username}&role=${user.role}`, form);
         toast.success("User update ho gaya");
-        // If admin edited their own user, refresh permissions in App
+        // If admin edited their own user, refresh permissions in App instantly
         if (editingUser.username === user.username && resp.data?.user?.permissions) {
           const updatedUser = { ...user, permissions: resp.data.user.permissions };
-          try {
-            localStorage.setItem("mill_user", JSON.stringify(updatedUser));
-            if (typeof setUser === 'function') setUser(updatedUser);
-          } catch(_) {}
+          localStorage.setItem("mill_user", JSON.stringify(updatedUser));
+          if (typeof setUser === 'function') {
+            setUser(updatedUser);
+          } else {
+            window.location.reload();
+          }
         }
       } else {
         await axios.post(`${API}/users?username=${user.username}&role=${user.role}`, form);
