@@ -1116,3 +1116,9 @@ async def image_cleanup_scheduler():
 @router.get("/settings/storage-engine")
 async def get_storage_engine():
     return {"engine": "mongodb"}
+
+
+@router.get("/weighbridge/live-weight")
+async def get_live_weight():
+    """Web version has no serial port - return disconnected status"""
+    return {"connected": False, "weight": 0, "stable": False, "timestamp": 0}

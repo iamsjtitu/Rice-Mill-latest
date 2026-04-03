@@ -303,4 +303,14 @@ function cleanupSerial() {
   closePort();
 }
 
-module.exports = { initSerialHandler, cleanupSerial };
+// Get current weight status (for REST API / LAN access)
+function getWeightStatus() {
+  return {
+    connected: !!(activePort && activePort.isOpen),
+    weight: lastWeight,
+    stable: isStable,
+    timestamp: Date.now()
+  };
+}
+
+module.exports = { initSerialHandler, cleanupSerial, getWeightStatus };

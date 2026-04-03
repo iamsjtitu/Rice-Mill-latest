@@ -12,7 +12,7 @@ const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
-const { initSerialHandler, cleanupSerial } = require('./serial-handler');
+const { initSerialHandler, cleanupSerial, getWeightStatus } = require('./serial-handler');
 
 // ============ CRASH PROTECTION & ERROR LOGGING ============
 const errorLogPath = path.join(app.getPath('userData'), 'mill-entry-error.log');
@@ -1189,6 +1189,11 @@ function createApiServer(database) {
       server_port: DESKTOP_API_PORT,
       uptime_seconds: Math.floor(process.uptime())
     });
+  }));
+
+  // Live weight from serial port - for LAN browser access
+  apiApp.get('/api/weighbridge/live-weight', safeSync((req, res) => {
+    res.json(getWeightStatus());
   }));
 
   // ===== STORAGE ENGINE API =====

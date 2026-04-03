@@ -58,6 +58,34 @@ function useRealScale() {
   return { weight, stable, running: connected, connected, scheduleNext };
 }
 
+/* ─── LAN Scale (Poll weight from desktop API over network) ─── */
+function useLanScale() {
+  const [weight, setWeight] = useState(0);
+  const [stable, setStable] = useState(false);
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const poll = async () => {
+      try {
+        const r = await fetch(`${API}/weighbridge/live-weight`);
+        if (r.ok && active) {
+          const d = await r.json();
+          setWeight(d.weight || 0);
+          setStable(d.stable || false);
+          setConnected(d.connected || false);
+        }
+      } catch { if (active) setConnected(false); }
+    };
+    poll();
+    const iv = setInterval(poll, 500);
+    return () => { active = false; clearInterval(iv); };
+  }, []);
+
+  const scheduleNext = useCallback(() => {}, []);
+  return { weight, stable, running: connected, connected, scheduleNext };
+}
+
 /* ─── Simulator Scale (Cloud/Web Demo) ─── */
 function useSimulatorScale(active = true) {
   const [weight, setWeight] = useState(0);
@@ -96,12 +124,16 @@ function useSimulatorScale(active = true) {
   return { weight, stable, running, scheduleNext, startMeasure };
 }
 
-/* ─── Auto-select: Real scale in Electron, Simulator in Web ─── */
+/* ─── Auto-select: Real scale in Electron, LAN poll over network, Simulator in Web ─── */
 function useLiveScale() {
   const isElectronApp = _isElectron && window.electronAPI?.serialGetStatus;
+  const isLanBrowser = _isElectron && !window.electronAPI;
   const real = useRealScale();
-  const sim = useSimulatorScale(!isElectronApp);
-  return isElectronApp ? real : sim;
+  const lan = useLanScale();
+  const sim = useSimulatorScale(!isElectronApp && !isLanBrowser);
+  if (isElectronApp) return real;
+  if (isLanBrowser) return lan;
+  return sim;
 }
 
 /* ─── Single Camera Feed with Snapshot Capture (IP Camera + USB Webcam) ─── */
@@ -819,7 +851,7 @@ export default function VehicleWeight({ filters, user }) {
             <Scale className="w-5 h-5 text-amber-600" /> Auto Vehicle Weight
           </h2>
           <Badge variant="outline" className={`text-[10px] h-5 ${scale.running || scale.connected ? 'border-green-500 text-green-700 bg-green-50' : 'border-gray-400 text-gray-500 bg-gray-50'}`}>
-            <Wifi className="w-3 h-3 mr-1" />{_isElectron && window.electronAPI?.serialGetStatus ? (scale.connected ? 'COM Connected' : 'COM Disconnected') : 'COM3 Demo'}
+            <Wifi className="w-3 h-3 mr-1" />{_isElectron && window.electronAPI?.serialGetStatus ? (scale.connected ? 'COM Connected' : 'COM Disconnected') : (_isElectron && !window.electronAPI) ? (scale.connected ? 'LAN Scale' : 'LAN No Scale') : 'COM3 Demo'}
           </Badge>
         </div>
         <Button onClick={fetchData} variant="ghost" size="sm" className="h-7 text-gray-500 hover:text-gray-800 text-xs" data-testid="vw-refresh">
