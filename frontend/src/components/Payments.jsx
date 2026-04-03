@@ -37,13 +37,22 @@ const _isElectronEnv = typeof window !== 'undefined' && (window.electronAPI || w
 
 import { safePrintHTML } from "../utils/print";
 
-export const Payments = ({ filters, user, branding }) => {
+export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsumed }) => {
   const showConfirm = useConfirm();
   const { wa } = useMessagingEnabled();
   const [truckPayments, setTruckPayments] = useState([]);
   const [agentPayments, setAgentPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activePaymentTab, setActivePaymentTab] = useState("truck");
+
+  // Handle navigation from QuickSearch with subtab
+  useEffect(() => {
+    if (initialSubTab) {
+      setActivePaymentTab(initialSubTab);
+      if (onSubTabConsumed) onSubTabConsumed();
+    }
+  }, [initialSubTab, onSubTabConsumed]);
+
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showRateDialog, setShowRateDialog] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);

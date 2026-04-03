@@ -149,6 +149,7 @@ function MainApp({ user, setUser, onLogout }) {
     setEntriesSubTab(sub);
   }, [entriesSubTab]);
   const [pendingVwCount, setPendingVwCount] = useState(0);
+  const [paymentsInitSubTab, setPaymentsInitSubTab] = useState(null);
   const [quickSearchOpen, setQuickSearchOpen] = useState(false);
   const { wa, tg } = useMessagingEnabled();
   const [entryGroupDialogOpen, setEntryGroupDialogOpen] = useState(false);
@@ -1218,7 +1219,7 @@ function MainApp({ user, setUser, onLogout }) {
           <QuickSearch
             open={quickSearchOpen}
             onOpenChange={setQuickSearchOpen}
-            onNavigate={(tab) => { setActiveTabSafe(tab); }}
+            onNavigate={(tab, id, subtab) => { setActiveTabSafe(tab); if (subtab) setPaymentsInitSubTab(subtab); }}
           />
 
           <TabNavigation activeTab={activeTab} setActiveTabSafe={setActiveTabSafe} user={user} />
@@ -1322,7 +1323,7 @@ function MainApp({ user, setUser, onLogout }) {
         {activeTab === "dashboard" ? (
           <Dashboard filters={filters} user={user} />
         ) : activeTab === "payments" ? (
-          <Payments filters={filters} user={user} branding={branding} />
+          <Payments filters={filters} user={user} branding={branding} initialSubTab={paymentsInitSubTab} onSubTabConsumed={() => setPaymentsInitSubTab(null)} />
         ) : activeTab === "milling" ? (
           <MillingTracker filters={filters} user={user} />
         ) : activeTab === "cashbook" ? (

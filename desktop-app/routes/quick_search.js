@@ -118,7 +118,7 @@ module.exports = function quickSearchRoutes(database) {
       .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
       .slice(0, limit)
       .forEach(d => results.push({
-        id: d.id, type: 'diesel', tab: 'cashbook',
+        id: d.id, type: 'diesel', tab: 'payments', subtab: 'diesel',
         title: `Diesel: ${d.truck_no || ''}`,
         subtitle: `${d.pump_name || ''} | Rs.${(d.amount || 0).toLocaleString('en-IN')}`,
         date: d.date || '', data: { id: d.id, date: d.date, truck_no: d.truck_no, pump_name: d.pump_name, amount: d.amount }

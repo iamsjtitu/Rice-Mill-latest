@@ -94,7 +94,7 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
   }, [selectedIdx]);
 
   const handleNavigate = (item) => {
-    onNavigate(item.tab, item.id);
+    onNavigate(item.tab, item.id, item.subtab);
     onOpenChange(false);
   };
 

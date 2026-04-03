@@ -131,7 +131,7 @@ async def quick_search(q: str = Query(..., min_length=1), limit: int = Query(5, 
     ).sort("created_at", -1).limit(limit)
     async for d in diesel_cur:
         results.append({
-            "id": d.get("id"), "type": "diesel", "tab": "cashbook",
+            "id": d.get("id"), "type": "diesel", "tab": "payments", "subtab": "diesel",
             "title": f"Diesel: {d.get('truck_no', '')}",
             "subtitle": f"{d.get('pump_name', '')} | Rs.{d.get('amount', 0):,.0f}",
             "date": d.get("date", ""), "data": d
