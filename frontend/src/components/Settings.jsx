@@ -2251,7 +2251,8 @@ function UsersTab({ user }) {
     if (!editingUser && !form.password.trim()) return toast.error("Password zaruri hai");
     try {
       if (editingUser) {
-        const resp = await axios.put(`${API}/users/${editingUser.id}?username=${user.username}&role=${user.role}`, form);
+        const userId = editingUser.id || `default_${editingUser.username}`;
+        const resp = await axios.put(`${API}/users/${userId}?username=${user.username}&role=${user.role}`, form);
         toast.success("User update ho gaya");
         // If admin edited their own user, refresh permissions in App
         if (editingUser.username === user.username && resp.data?.user?.permissions) {
@@ -2265,16 +2266,23 @@ function UsersTab({ user }) {
       }
       setShowDialog(false);
       fetchUsers();
-    } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
+    } catch (e) { 
+      const msg = e.response?.data?.detail || e.response?.data?.error_message || e.message || "Error";
+      toast.error(msg);
+    }
   };
 
   const deactivate = async (u) => {
     if (!await showConfirm("Deactivate", `${u.display_name || u.username} ko deactivate karein?`)) return;
     try {
-      await axios.delete(`${API}/users/${u.id}?username=${user.username}&role=${user.role}`);
+      const userId = u.id || `default_${u.username}`;
+      await axios.delete(`${API}/users/${userId}?username=${user.username}&role=${user.role}`);
       toast.success("User deactivate ho gaya");
       fetchUsers();
-    } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
+    } catch (e) { 
+      const msg = e.response?.data?.detail || e.response?.data?.error_message || e.message || "Error";
+      toast.error(msg);
+    }
   };
 
   const roleLabel = (r) => ROLES.find(x => x.value === r)?.label || r;
