@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.0.0";
+const APP_VERSION = "88.1.0";
 
 const CHANGELOG = [
+  {
+    version: "88.1.0",
+    date: "Apr 2026",
+    title: "v88.1.0 - Vehicle Suggestions + Edit Fix",
+    items: [
+      { type: "fix", text: "Vehicle No. suggestions ab mill entries + vehicle weight dono se aayenge - saare gaadi numbers dikhenge" },
+      { type: "fix", text: "Auto Weight Entries edit 'Update error' fix - ab entry edit hoke save hoga" },
+      { type: "fix", text: "RST auto-fill se back-date wali date sahi aayegi mill entry mai" },
+      { type: "feature", text: "Enter key press karne par next field mai jump karega (Tab jaisa) - poore software mai" },
+    ]
+  },
   {
     version: "87.5.0",
     date: "Apr 2026",
