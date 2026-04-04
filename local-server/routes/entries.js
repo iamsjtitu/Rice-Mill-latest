@@ -56,6 +56,12 @@ module.exports = function(database) {
       const existing = (database.data.entries || []).find(e => String(e.rst_no) === rst && e.kms_year === kms);
       if (existing) return res.status(400).json({ detail: `RST #${rst} se entry pehle se hai is FY (${kms}) mein. Duplicate RST allowed nahi hai.` });
     }
+    // Duplicate TP check
+    const tp = String(req.body.tp_no || '').trim();
+    if (tp) {
+      const existingTp = (database.data.entries || []).find(e => String(e.tp_no || '') === tp && e.kms_year === kms);
+      if (existingTp) return res.status(400).json({ detail: `TP No. ${tp} pehle se RST #${existingTp.rst_no || '?'} mein added hai. Duplicate TP allowed nahi hai.` });
+    }
     const entry = database.addEntry({ ...req.body, created_by: req.query.username || 'admin' });
     logAudit('mill_entries', entry.id, 'create', req.query.username || 'admin', null, entry);
     res.json(entry);

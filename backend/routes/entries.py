@@ -35,9 +35,16 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
     rst = str(entry_dict.get("rst_no", "")).strip()
     kms = entry_dict.get("kms_year", "")
     if rst:
-        existing = await db.mill_entries.find_one({"rst_no": rst, "kms_year": kms}, {"_id": 0, "id": 1})
+        existing = await db.mill_entries.find_one({"rst_no": rst, "kms_year": kms}, {"_id": 0, "id": 1, "rst_no": 1})
         if existing:
             raise HTTPException(status_code=400, detail=f"RST #{rst} se entry pehle se hai is FY ({kms}) mein. Duplicate RST allowed nahi hai.")
+    
+    # Duplicate TP check - same tp_no + kms_year not allowed
+    tp = str(entry_dict.get("tp_no", "")).strip()
+    if tp:
+        existing_tp = await db.mill_entries.find_one({"tp_no": tp, "kms_year": kms}, {"_id": 0, "id": 1, "rst_no": 1})
+        if existing_tp:
+            raise HTTPException(status_code=400, detail=f"TP No. {tp} pehle se RST #{existing_tp.get('rst_no', '?')} mein added hai. Duplicate TP allowed nahi hai.")
     
     entry_dict = calculate_auto_fields(entry_dict)
     entry_dict['created_by'] = username
