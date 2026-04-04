@@ -29,6 +29,7 @@ const DCEntries = ({ filters, user }) => {
   const [deliveries, setDeliveries] = useState([]);
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
   const [riceStockAvail, setRiceStockAvail] = useState(null);
+  const [riceStockByType, setRiceStockByType] = useState({ parboiled: null, raw: null });
   const [form, setForm] = useState({ dc_number: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", rice_type: "parboiled", godown_name: "", deadline: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
   const [delForm, setDelForm] = useState({ dc_id: "", date: new Date().toISOString().split('T')[0], quantity_qntl: "", vehicle_no: "", driver_name: "", slip_no: "", godown_name: "", invoice_no: "", rst_no: "", eway_bill_no: "", bags_used: "", cash_paid: "", diesel_paid: "", cgst_amount: "", sgst_amount: "", notes: "", kms_year: CURRENT_KMS, season: "Kharif" });
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,7 +42,7 @@ const DCEntries = ({ filters, user }) => {
       if (filters.season) p.append('season', filters.season);
       const [dcRes, sumRes] = await Promise.all([axios.get(`${API}/dc-entries?${p}`), axios.get(`${API}/dc-summary?${p}`)]);
       setDcs(dcRes.data); setSummary(sumRes.data);
-      try { const stockRes = await axios.get(`${API}/rice-stock?${p}`); setRiceStockAvail(stockRes.data.available_qntl); } catch { setRiceStockAvail(null); }
+      try { const stockRes = await axios.get(`${API}/rice-stock?${p}`); setRiceStockAvail(stockRes.data.available_qntl); setRiceStockByType({ parboiled: stockRes.data.parboiled_available_qntl, raw: stockRes.data.raw_available_qntl }); } catch { setRiceStockAvail(null); setRiceStockByType({ parboiled: null, raw: null }); }
     } catch (e) { toast.error("DC data load nahi hua"); }
     finally { setLoading(false); }
   }, [filters.kms_year, filters.season]);
@@ -187,7 +188,7 @@ const DCEntries = ({ filters, user }) => {
                 <TableCell colSpan={11} className="p-3">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-amber-400 font-medium">Deliveries for {dc.dc_number}</p>
-                    <Button onClick={() => { setDelForm(f => ({ ...f, dc_id: dc.id, kms_year: dc.kms_year, season: dc.season, godown_name: dc.godown_name })); setShowDeliveryForm(true); }} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-6 text-xs" data-testid="dc-add-delivery-btn"><Plus className="w-3 h-3 mr-1" /> Add Delivery</Button>
+                    <Button onClick={() => { setDelForm(f => ({ ...f, dc_id: dc.id, kms_year: dc.kms_year, season: dc.season, godown_name: dc.godown_name, _rice_type: dc.rice_type || 'parboiled' })); setShowDeliveryForm(true); }} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-6 text-xs" data-testid="dc-add-delivery-btn"><Plus className="w-3 h-3 mr-1" /> Add Delivery</Button>
                   </div>
                   {deliveries.length === 0 ? <p className="text-xs text-slate-500 py-2">No deliveries yet</p> : (
                     <Table className="w-full table-auto"><TableHeader><TableRow className="border-slate-600 hover:bg-transparent">
@@ -231,7 +232,7 @@ const DCEntries = ({ filters, user }) => {
                 <Input type="date" value={form.date} onChange={e => setForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="dc-form-date" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockAvail !== null && <span className={`font-bold ${(riceStockAvail - (parseFloat(form.quantity_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((riceStockAvail - (parseFloat(form.quantity_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
+              <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockByType[form.rice_type] !== null && <span className={`font-bold ${(riceStockByType[form.rice_type] - (parseFloat(form.quantity_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>({form.rice_type === 'parboiled' ? 'Parboiled' : 'Raw'} Stock: {Math.round((riceStockByType[form.rice_type] - (parseFloat(form.quantity_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
                 <Input type="number" step="0.01" value={form.quantity_qntl} onChange={e => setForm(p=>({...p,quantity_qntl:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="dc-form-qty" /></div>
               <div><Label className="text-xs text-slate-400">Rice Type</Label>
                 <Select value={form.rice_type} onValueChange={v => setForm(p=>({...p,rice_type:v}))}>
@@ -263,7 +264,7 @@ const DCEntries = ({ filters, user }) => {
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs text-slate-400">Date</Label>
                 <Input type="date" value={delForm.date} onChange={e => setDelForm(p=>({...p,date:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-date" /></div>
-              <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockAvail !== null && <span className={`font-bold ${(riceStockAvail - (parseFloat(delForm.quantity_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>(Stock: {Math.round((riceStockAvail - (parseFloat(delForm.quantity_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
+              <div><Label className="text-xs text-slate-400">Quantity (QNTL) {riceStockByType[delForm._rice_type || 'parboiled'] !== null && <span className={`font-bold ${(riceStockByType[delForm._rice_type || 'parboiled'] - (parseFloat(delForm.quantity_qntl) || 0)) > 0 ? 'text-emerald-400' : 'text-red-400'}`}>({(delForm._rice_type || 'parboiled') === 'parboiled' ? 'Parboiled' : 'Raw'} Stock: {Math.round((riceStockByType[delForm._rice_type || 'parboiled'] - (parseFloat(delForm.quantity_qntl) || 0)) * 100) / 100} Q)</span>}</Label>
                 <Input type="number" step="0.01" value={delForm.quantity_qntl} onChange={e => setDelForm(p=>({...p,quantity_qntl:e.target.value}))} className="bg-slate-700 border-slate-600 text-white h-8 text-sm" required data-testid="delivery-form-qty" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
