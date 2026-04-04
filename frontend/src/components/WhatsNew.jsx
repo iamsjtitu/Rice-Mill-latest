@@ -3,9 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.4.0";
+const APP_VERSION = "88.5.0";
 
 const CHANGELOG = [
+  {
+    version: "88.5.0",
+    date: "Apr 2026",
+    title: "v88.5.0 - Duplicate RST/TP Warning + Toast Fix",
+    items: [
+      { type: "feature", text: "RST ya TP number duplicate dalte hi warning toast aayega - RST #X pehle se entry hai" },
+      { type: "feature", text: "TP duplicate mai batayega ki kaun se RST mein entry hai - TP No. X pehle se RST #Y mein entry hai" },
+      { type: "feature", text: "RST/TP field pe red border + warning text bhi dikhega form mein" },
+      { type: "fix", text: "Toast ab hamesha expand rehega - mouse hover ki zaroorat nahi" },
+      { type: "fix", text: "Entry edit karte waqt apni RST/TP duplicate nahi manegi" },
+    ]
+  },
   {
     version: "88.4.0",
     date: "Apr 2026",
