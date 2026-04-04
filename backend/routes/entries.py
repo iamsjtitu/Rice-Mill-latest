@@ -500,6 +500,29 @@ async def get_entries(
     return {"entries": entries, "total": total_count, "page": page, "page_size": page_size, "total_pages": max(1, (total_count + page_size - 1) // page_size)}
 
 
+@router.get("/entries/check-duplicate")
+async def check_duplicate_rst_tp(rst_no: str = "", tp_no: str = "", kms_year: str = "", exclude_id: str = ""):
+    """Real-time check if RST or TP already exists."""
+    result = {"rst_exists": False, "tp_exists": False, "rst_entry": None, "tp_entry": None}
+    if rst_no.strip():
+        q = {"rst_no": rst_no.strip(), "kms_year": kms_year}
+        if exclude_id:
+            q["id"] = {"$ne": exclude_id}
+        found = await db.mill_entries.find_one(q, {"_id": 0, "id": 1, "rst_no": 1, "truck_no": 1})
+        if found:
+            result["rst_exists"] = True
+            result["rst_entry"] = f"RST #{rst_no} - {found.get('truck_no', '')}"
+    if tp_no.strip():
+        q = {"tp_no": tp_no.strip(), "kms_year": kms_year}
+        if exclude_id:
+            q["id"] = {"$ne": exclude_id}
+        found = await db.mill_entries.find_one(q, {"_id": 0, "id": 1, "rst_no": 1, "truck_no": 1})
+        if found:
+            result["tp_exists"] = True
+            result["tp_entry"] = f"RST #{found.get('rst_no', '?')} - {found.get('truck_no', '')}"
+    return result
+
+
 @router.get("/entries/{entry_id}")
 async def get_entry(entry_id: str):
     entry = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
@@ -523,6 +546,19 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
         raise HTTPException(status_code=403, detail=message)
     
     update_data = {k: v for k, v in raw_body.items() if v is not None}
+    
+    # Duplicate RST/TP check (exclude self)
+    kms = update_data.get("kms_year", existing.get("kms_year", ""))
+    rst = str(update_data.get("rst_no", existing.get("rst_no", ""))).strip()
+    if rst:
+        dup_rst = await db.mill_entries.find_one({"rst_no": rst, "kms_year": kms, "id": {"$ne": entry_id}}, {"_id": 0, "id": 1})
+        if dup_rst:
+            raise HTTPException(status_code=400, detail=f"RST #{rst} pehle se hai is FY mein. Duplicate RST allowed nahi hai.")
+    tp = str(update_data.get("tp_no", existing.get("tp_no", ""))).strip()
+    if tp:
+        dup_tp = await db.mill_entries.find_one({"tp_no": tp, "kms_year": kms, "id": {"$ne": entry_id}}, {"_id": 0, "id": 1, "rst_no": 1})
+        if dup_tp:
+            raise HTTPException(status_code=400, detail=f"TP No. {tp} pehle se RST #{dup_tp.get('rst_no','?')} mein hai. Duplicate TP allowed nahi hai.")
     
     # Merge existing data with updates
     merged_data = {**existing, **update_data}

@@ -16,10 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calculator, Plus } from "lucide-react";
+import { Calculator, Plus, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import AutoSuggest from "@/components/common/AutoSuggest";
 import { FY_YEARS, SEASONS } from "@/utils/constants";
+import { useState, useEffect, useRef } from "react";
+import axios from "axios";
+
+const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
 export function MillEntryForm({
   isDialogOpen,
@@ -39,6 +43,32 @@ export function MillEntryForm({
   handleAgentSelect,
   findMandiCutting,
 }) {
+  const [dupWarning, setDupWarning] = useState({ rst: null, tp: null });
+  const dupTimer = useRef(null);
+
+  // Real-time duplicate check for RST & TP
+  useEffect(() => {
+    clearTimeout(dupTimer.current);
+    dupTimer.current = setTimeout(async () => {
+      const rst = String(formData.rst_no || '').trim();
+      const tp = String(formData.tp_no || '').trim();
+      if (!rst && !tp) { setDupWarning({ rst: null, tp: null }); return; }
+      try {
+        const params = new URLSearchParams();
+        if (rst) params.set('rst_no', rst);
+        if (tp) params.set('tp_no', tp);
+        params.set('kms_year', formData.kms_year || '');
+        if (editingId) params.set('exclude_id', editingId);
+        const { data } = await axios.get(`${API}/entries/check-duplicate?${params}`);
+        setDupWarning({
+          rst: data.rst_exists ? data.rst_entry : null,
+          tp: data.tp_exists ? data.tp_entry : null,
+        });
+      } catch { setDupWarning({ rst: null, tp: null }); }
+    }, 400);
+    return () => clearTimeout(dupTimer.current);
+  }, [formData.rst_no, formData.tp_no, formData.kms_year, editingId]);
+
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
@@ -138,9 +168,14 @@ export function MillEntryForm({
                 }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }}
                 placeholder="RST Number"
-                className="bg-slate-700 border-slate-600 text-white"
+                className={`bg-slate-700 border-slate-600 text-white ${dupWarning.rst ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                 data-testid="input-rst-no"
               />
+              {dupWarning.rst && (
+                <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Ye RST pehle se hai: {dupWarning.rst}
+                </p>
+              )}
             </div>
             <div>
               <Label className="text-slate-300">TP No.</Label>
@@ -148,9 +183,14 @@ export function MillEntryForm({
                 value={formData.tp_no}
                 onChange={(e) => setFormData(prev => ({ ...prev, tp_no: e.target.value }))}
                 placeholder="TP Number"
-                className="bg-slate-700 border-slate-600 text-white"
+                className={`bg-slate-700 border-slate-600 text-white ${dupWarning.tp ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                 data-testid="input-tp-no"
               />
+              {dupWarning.tp && (
+                <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" /> Ye TP pehle se hai: {dupWarning.tp}
+                </p>
+              )}
             </div>
           </div>
 

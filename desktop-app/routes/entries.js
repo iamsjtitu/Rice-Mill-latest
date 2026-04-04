@@ -42,6 +42,21 @@ module.exports = function(database) {
     res.json(database.getEntriesPaginated(req.query));
   }));
 
+  // Real-time duplicate check API (MUST be before /:id route)
+  router.get('/api/entries/check-duplicate', safeSync(async (req, res) => {
+    const { rst_no = '', tp_no = '', kms_year = '', exclude_id = '' } = req.query;
+    const result = { rst_exists: false, tp_exists: false, rst_entry: null, tp_entry: null };
+    if (rst_no.trim()) {
+      const found = (database.data.entries || []).find(e => String(e.rst_no) === rst_no.trim() && e.kms_year === kms_year && e.id !== exclude_id);
+      if (found) { result.rst_exists = true; result.rst_entry = `RST #${rst_no} - ${found.truck_no || ''}`; }
+    }
+    if (tp_no.trim()) {
+      const found = (database.data.entries || []).find(e => String(e.tp_no || '') === tp_no.trim() && e.kms_year === kms_year && e.id !== exclude_id);
+      if (found) { result.tp_exists = true; result.tp_entry = `RST #${found.rst_no || '?'} - ${found.truck_no || ''}`; }
+    }
+    res.json(result);
+  }));
+
   router.get('/api/entries/:id', safeSync(async (req, res) => {
     const entry = database.data.entries.find(e => e.id === req.params.id);
     if (entry) res.json(entry);
@@ -69,7 +84,20 @@ module.exports = function(database) {
 
   router.put('/api/entries/:id', safeSync(async (req, res) => {
     const oldEntry = database.data.entries.find(e => e.id === req.params.id);
-    const oldCopy = oldEntry ? { ...oldEntry } : null;
+    if (!oldEntry) return res.status(404).json({ detail: 'Entry not found' });
+    const oldCopy = { ...oldEntry };
+    // Duplicate RST/TP check (exclude self)
+    const kms = req.body.kms_year || oldEntry.kms_year || '';
+    const rst = String(req.body.rst_no || oldEntry.rst_no || '').trim();
+    if (rst) {
+      const dupRst = (database.data.entries || []).find(e => String(e.rst_no) === rst && e.kms_year === kms && e.id !== req.params.id);
+      if (dupRst) return res.status(400).json({ detail: `RST #${rst} pehle se hai is FY mein. Duplicate RST allowed nahi hai.` });
+    }
+    const tp = String(req.body.tp_no || oldEntry.tp_no || '').trim();
+    if (tp) {
+      const dupTp = (database.data.entries || []).find(e => String(e.tp_no || '') === tp && e.kms_year === kms && e.id !== req.params.id);
+      if (dupTp) return res.status(400).json({ detail: `TP No. ${tp} pehle se RST #${dupTp.rst_no || '?'} mein hai. Duplicate TP allowed nahi hai.` });
+    }
     const entry = database.updateEntry(req.params.id, req.body);
     if (entry && entry._conflict) return res.status(409).json({ detail: entry.message });
     if (entry) {
