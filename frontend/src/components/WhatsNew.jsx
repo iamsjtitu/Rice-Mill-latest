@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.5.0";
+const APP_VERSION = "88.6.0";
 
 const CHANGELOG = [
+  {
+    version: "88.6.0",
+    date: "Apr 2026",
+    title: "v88.6.0 - Global Round Figure System",
+    items: [
+      { type: "feature", text: "Poore software mai amount round figure hoga - 2296.51 toh 2297, 2296.50 toh 2296" },
+      { type: "fix", text: "Toast ab hamesha dikhega - hover ki zaroorat nahi, side mai upar aayega" },
+      { type: "fix", text: "TP duplicate toast mai batayega ki kaun se RST mein hai" },
+    ]
+  },
   {
     version: "88.5.0",
     date: "Apr 2026",
