@@ -30,6 +30,15 @@ async def root():
 @router.post("/entries")
 async def create_entry(input: MillEntryCreate, username: str = "", role: str = ""):
     entry_dict = input.model_dump()
+    
+    # Duplicate RST check - same rst_no + kms_year not allowed
+    rst = str(entry_dict.get("rst_no", "")).strip()
+    kms = entry_dict.get("kms_year", "")
+    if rst:
+        existing = await db.mill_entries.find_one({"rst_no": rst, "kms_year": kms}, {"_id": 0, "id": 1})
+        if existing:
+            raise HTTPException(status_code=400, detail=f"RST #{rst} se entry pehle se hai is FY ({kms}) mein. Duplicate RST allowed nahi hai.")
+    
     entry_dict = calculate_auto_fields(entry_dict)
     entry_dict['created_by'] = username
     

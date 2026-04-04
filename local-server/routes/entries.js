@@ -49,6 +49,13 @@ module.exports = function(database) {
   }));
 
   router.post('/api/entries', safeSync(async (req, res) => {
+    // Duplicate RST check
+    const rst = String(req.body.rst_no || '').trim();
+    const kms = req.body.kms_year || '';
+    if (rst) {
+      const existing = (database.data.entries || []).find(e => String(e.rst_no) === rst && e.kms_year === kms);
+      if (existing) return res.status(400).json({ detail: `RST #${rst} se entry pehle se hai is FY (${kms}) mein. Duplicate RST allowed nahi hai.` });
+    }
     const entry = database.addEntry({ ...req.body, created_by: req.query.username || 'admin' });
     logAudit('mill_entries', entry.id, 'create', req.query.username || 'admin', null, entry);
     res.json(entry);

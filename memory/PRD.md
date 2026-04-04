@@ -3,36 +3,35 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local SQLite storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, LAN network access, multi-user data safety, and role-based access control.
 
-## Current Version: v88.2.0
+## Current Version: v88.3.0
 
 ## Architecture
 ```
 /app
 ├── backend/                  # Python FastAPI web backend
-│   └── routes/entries.py     # Suggestions combine mill_entries + vehicle_weights
+│   └── routes/entries.py     # Duplicate RST check added
 ├── desktop-app/              # Electron Express local backend
-│   └── routes/entries.js     # Same combined suggestions
+│   └── routes/entries.js     # Duplicate RST check added
 ├── local-server/             # Express local network (mirrors desktop-app)
-│   └── routes/entries.js     # Same combined suggestions
+│   └── routes/entries.js     # Duplicate RST check added
 └── frontend/
-    ├── src/App.js             # Global Enter key handler (now includes save buttons)
-    ├── src/components/VehicleWeight.jsx    # Save btn testid updated
-    ├── src/components/AutoWeightEntries.jsx # Fixed edit URL
-    └── src/components/common/AutoSuggest.jsx # Enter key conflict fixed
+    ├── src/App.js             # Global Enter key handler
+    ├── src/components/VehicleWeight.jsx
+    └── src/components/common/AutoSuggest.jsx
 ```
 
 ## Credentials
 - Default Admin: admin / admin123
 - Default Staff: staff / staff123
 
-## Completed Features (v88.2.0)
-- [x] Vehicle No. suggestions combine mill_entries + vehicle_weights (all 3 backends)
-- [x] Party Name + Source suggestions combine mill_entries + vehicle_weights
-- [x] Auto Weight Entries edit "Update error" fix
-- [x] Enter key navigation now reaches Save button in VW form
-- [x] AutoSuggest Enter key conflict resolved (no more blocking global handler)
-- [x] RST Date auto-fill from back-dated Vehicle Weight entries
-- [x] Global Enter key = next field navigation (all forms)
+## Completed Features (v88.3.0+)
+- [x] Duplicate RST number blocked (same rst_no + kms_year = error)
+- [x] Vehicle/Party/Source suggestions combine mill_entries + vehicle_weights
+- [x] Enter key navigation reaches Save button in VW form
+- [x] AutoSuggest Enter key conflict resolved
+- [x] Auto Weight Entries edit fix
+- [x] RST Date auto-fill from back-dated VW entries
+- [x] Global Enter key = next field navigation
 
 ## Upcoming Tasks
 - [ ] P0: Version bump + GitHub release
