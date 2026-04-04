@@ -224,7 +224,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
   const saveEdit = async () => {
     if (!editEntry) return;
     try {
-      await axios.put(`${API}/vehicle-weight/${editEntry.id}`, editEntry);
+      await axios.put(`${API}/vehicle-weight/${editEntry.id}/edit`, editEntry);
       toast.success("Updated");
       setEditEntry(null);
       fetchData();

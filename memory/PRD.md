@@ -21,7 +21,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 └── frontend/
     ├── src/App.js             # Global keyboard shortcuts, Router, RST auto-fill
     ├── src/components/VehicleWeight.jsx    # LAN scale polling, AutoSuggest
-    ├── src/components/AutoWeightEntries.jsx # Completed weight entries
+    ├── src/components/AutoWeightEntries.jsx # Completed weight entries, edit dialog
     ├── src/components/QuickSearch.jsx       # Theme-aware, Ctrl+Q
     └── src/components/common/AutoSuggest.jsx # Reusable autocomplete component
 ```
@@ -42,6 +42,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - [x] RST Date auto-fill from back-dated Vehicle Weight entries
 - [x] Global Enter key = next field navigation
 - [x] Vehicle No. suggestions now combine mill_entries + vehicle_weights (all 3 backends)
+- [x] Fixed Auto Weight Entries edit "Update error" (missing /edit URL suffix)
 
 ## Upcoming Tasks
 - [ ] P0: Version bump to v88.1.0 + GitHub release for desktop testing
