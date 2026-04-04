@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.6.0";
+const APP_VERSION = "88.7.0";
 
 const CHANGELOG = [
+  {
+    version: "88.7.0",
+    date: "Apr 2026",
+    title: "v88.7.0 - Rice Type Stock + Image Fix",
+    items: [
+      { type: "feature", text: "DC form mai ab Rice Type wise stock dikhega - Parboiled aur Raw alag alag" },
+      { type: "fix", text: "Vehicle Weight image save crash fix (Buffer object handle)" },
+    ]
+  },
   {
     version: "88.6.0",
     date: "Apr 2026",
