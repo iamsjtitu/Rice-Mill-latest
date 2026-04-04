@@ -84,7 +84,11 @@ module.exports = function(database) {
 
   // ===== SUGGESTIONS =====
   router.get('/api/suggestions/trucks', safeSync(async (req, res) => {
-    let suggestions = database.getSuggestions('truck_no');
+    // Combine truck_no from mill entries + vehicle_no from vehicle_weights
+    const truckSet = new Set();
+    (database.data.entries || []).forEach(e => { if (e.truck_no) truckSet.add(e.truck_no); });
+    (database.data.vehicle_weights || []).forEach(e => { if (e.vehicle_no) truckSet.add(e.vehicle_no); });
+    let suggestions = Array.from(truckSet).sort();
     const q = req.query.q || '';
     if (q) suggestions = suggestions.filter(s => s.toLowerCase().includes(q.toLowerCase()));
     res.json({ suggestions });
