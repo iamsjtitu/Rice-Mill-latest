@@ -60,10 +60,18 @@ export function MillEntryForm({
         params.set('kms_year', formData.kms_year || '');
         if (editingId) params.set('exclude_id', editingId);
         const { data } = await axios.get(`${API}/entries/check-duplicate?${params}`);
-        setDupWarning({
+        const newWarning = {
           rst: data.rst_exists ? data.rst_entry : null,
           tp: data.tp_exists ? data.tp_entry : null,
-        });
+        };
+        // Show toast for newly detected duplicates
+        if (data.rst_exists && !dupWarning.rst) {
+          toast.warning(`RST #${rst} duplicate hai! Pehle se entry: ${data.rst_entry}`);
+        }
+        if (data.tp_exists && !dupWarning.tp) {
+          toast.warning(`TP No. ${tp} duplicate hai! Pehle se entry: ${data.tp_entry}`);
+        }
+        setDupWarning(newWarning);
       } catch { setDupWarning({ rst: null, tp: null }); }
     }, 400);
     return () => clearTimeout(dupTimer.current);
