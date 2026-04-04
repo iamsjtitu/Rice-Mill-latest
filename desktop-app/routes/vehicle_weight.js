@@ -21,7 +21,15 @@ module.exports = function(database) {
   function saveImage(entryId, tag, b64data) {
     try {
       if (!b64data) return '';
-      // If somehow received as object (e.g. {type:'Buffer', data:[...]}), skip
+      // Handle Buffer-like objects {type:'Buffer', data:[...]}
+      if (typeof b64data === 'object') {
+        if (b64data.type === 'Buffer' && Array.isArray(b64data.data)) {
+          b64data = Buffer.from(b64data.data).toString('base64');
+        } else {
+          console.warn('[VW] saveImage: received object type, skipping');
+          return '';
+        }
+      }
       if (typeof b64data !== 'string') {
         console.warn('[VW] saveImage: received non-string type:', typeof b64data);
         return '';
