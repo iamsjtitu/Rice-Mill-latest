@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.7.0";
+const APP_VERSION = "88.8.0";
 
 const CHANGELOG = [
+  {
+    version: "88.8.0",
+    date: "Apr 2026",
+    title: "v88.8.0 - Rice Stock NaN Fix",
+    items: [
+      { type: "fix", text: "DC form mai Parboiled/Raw stock NaN fix - desktop aur LAN dono mai sahi dikhega" },
+    ]
+  },
   {
     version: "88.7.0",
     date: "Apr 2026",
