@@ -59,23 +59,33 @@ module.exports = function(database) {
     const parboiledProduced = +millingEntries.filter(e => e.rice_type === 'parboiled').reduce((s, e) => s + (e.rice_qntl || 0), 0).toFixed(2);
     const rawProduced = +millingEntries.filter(e => e.rice_type === 'raw').reduce((s, e) => s + (e.rice_qntl || 0), 0).toFixed(2);
 
-    // DC deliveries (govt)
+    // DC deliveries (govt) - split by rice_type via DC
     let dcDeliveries = database.data.dc_deliveries || [];
     if (filters.kms_year) dcDeliveries = dcDeliveries.filter(d => d.kms_year === filters.kms_year);
     if (filters.season) dcDeliveries = dcDeliveries.filter(d => d.season === filters.season);
     const govtDelivered = +dcDeliveries.reduce((s, d) => s + (d.quantity_qntl || 0), 0).toFixed(2);
+    const dcEntries = database.data.dc_entries || [];
+    const dcTypeMap = {};
+    dcEntries.forEach(dc => { dcTypeMap[dc.id] = dc.rice_type || 'parboiled'; });
+    const parboiledDelivered = +dcDeliveries.filter(d => (dcTypeMap[d.dc_id] || 'parboiled') === 'parboiled').reduce((s, d) => s + (d.quantity_qntl || 0), 0).toFixed(2);
+    const rawDelivered = +dcDeliveries.filter(d => (dcTypeMap[d.dc_id] || 'parboiled') === 'raw').reduce((s, d) => s + (d.quantity_qntl || 0), 0).toFixed(2);
 
     // Pvt rice sales
     let riceSales = database.data.rice_sales || [];
     if (filters.kms_year) riceSales = riceSales.filter(s => s.kms_year === filters.kms_year);
     if (filters.season) riceSales = riceSales.filter(s => s.season === filters.season);
     const pvtSold = +riceSales.reduce((s, r) => s + (r.quantity_qntl || 0), 0).toFixed(2);
+    const parboiledSold = +riceSales.filter(s => (s.rice_type || 'parboiled') === 'parboiled').reduce((s, r) => s + (r.quantity_qntl || 0), 0).toFixed(2);
+    const rawSold = +riceSales.filter(s => (s.rice_type || 'parboiled') === 'raw').reduce((s, r) => s + (r.quantity_qntl || 0), 0).toFixed(2);
 
     const available = +(totalProduced - govtDelivered - pvtSold).toFixed(2);
+    const parboiledAvailable = +(parboiledProduced - parboiledDelivered - parboiledSold).toFixed(2);
+    const rawAvailable = +(rawProduced - rawDelivered - rawSold).toFixed(2);
     res.json({
       total_produced_qntl: totalProduced, parboiled_produced_qntl: parboiledProduced,
       raw_produced_qntl: rawProduced, govt_delivered_qntl: govtDelivered,
       pvt_sold_qntl: pvtSold, available_qntl: available,
+      parboiled_available_qntl: parboiledAvailable, raw_available_qntl: rawAvailable,
       milling_count: millingEntries.length, dc_delivery_count: dcDeliveries.length, pvt_sale_count: riceSales.length
     });
   }));
