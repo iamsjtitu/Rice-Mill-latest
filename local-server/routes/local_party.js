@@ -1,5 +1,5 @@
 const express = require('express');
-const { safeAsync, safeSync } = require('./safe_handler');
+const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
@@ -168,7 +168,7 @@ router.post('/api/local-party/manual', safeSync(async (req, res) => {
 
   const doc = {
     id: uuidv4(), date: d.date || new Date().toISOString().split('T')[0],
-    party_name, txn_type: 'debit', amount: Math.round(amount * 100) / 100,
+    party_name, txn_type: 'debit', amount: roundAmount(amount * 100) / 100,
     description: d.description || 'Manual Purchase', source_type: 'manual', reference: '',
     kms_year: d.kms_year || '', season: d.season || '',
     created_by: d.created_by || 'system', created_at: new Date().toISOString()
@@ -180,7 +180,7 @@ router.post('/api/local-party/manual', safeSync(async (req, res) => {
     id: uuidv4(), date: doc.date, account: 'ledger', txn_type: 'jama',
     category: party_name, party_type: 'Local Party',
     description: `Purchase: ${party_name} - ${d.description || 'Manual Purchase'} Rs.${amount}`,
-    amount: Math.round(amount * 100) / 100, reference: `lp_purchase:${doc.id.slice(0,8)}`,
+    amount: roundAmount(amount * 100) / 100, reference: `lp_purchase:${doc.id.slice(0,8)}`,
     kms_year: d.kms_year || '', season: d.season || '',
     created_by: d.created_by || 'system', linked_local_party_id: doc.id,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString()
@@ -227,7 +227,7 @@ router.post('/api/local-party/settle', safeSync(async (req, res) => {
     id: uuidv4(), date, account: 'cash', txn_type: cashTxnType, category: party_name,
     party_type: 'Local Party',
     description: `Local Party: ${descPrefix} ${party_name} - Rs.${amount}${notes ? ' (' + notes + ')' : ''}`,
-    amount: Math.round(amount * 100) / 100, reference: `local_party:${payTxn.id.slice(0, 8)}`,
+    amount: roundAmount(amount * 100) / 100, reference: `local_party:${payTxn.id.slice(0, 8)}`,
     kms_year, season, created_by: username,
     linked_local_party_id: payTxn.id,
     created_at: new Date().toISOString(), updated_at: new Date().toISOString()

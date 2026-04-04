@@ -343,6 +343,15 @@ class MakePaymentRequest(BaseModel):
 
 
 # ===== Utility Functions =====
+def round_amount(val):
+    """Round amount: >0.50 rounds up, <=0.50 rounds down"""
+    n = float(val or 0)
+    decimal = n - int(n) if n >= 0 else n - int(n)
+    if abs(decimal) > 0.50:
+        return int(n) + (1 if n >= 0 else -1)
+    return int(n)
+
+
 def calculate_auto_fields(data: dict) -> dict:
     kg = data.get('kg', 0) or 0
     gbw_cut = data.get('gbw_cut', 0) or 0

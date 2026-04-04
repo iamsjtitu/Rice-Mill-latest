@@ -1,3 +1,4 @@
+from models import round_amount
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 import io
@@ -181,7 +182,7 @@ async def add_advance(adv: StaffAdvance, username: str = ""):
             "category": staff_name,
             "party_type": "Staff",
             "description": f"Staff Advance: {staff_name} - {doc.get('description', '')}",
-            "amount": round(doc["amount"], 2),
+            "amount": round_amount(doc["amount"], 2),
             "reference": f"staff_advance:{doc['id']}",
             "kms_year": doc.get("kms_year", ""),
             "season": doc.get("season", ""),
@@ -201,7 +202,7 @@ async def add_advance(adv: StaffAdvance, username: str = ""):
             "category": staff_name,
             "party_type": "Staff",
             "description": f"Staff Advance: {staff_name} - {doc.get('description', '')}",
-            "amount": round(doc["amount"], 2),
+            "amount": round_amount(doc["amount"], 2),
             "reference": f"staff_advance_ledger:{doc['id']}",
             "kms_year": doc.get("kms_year", ""),
             "season": doc.get("season", ""),
@@ -371,7 +372,7 @@ async def settle_salary(pay: StaffPayment):
             "txn_type": "nikasi",
             "category": "Staff Salary",
             "description": f"Salary: {doc['staff_name']} ({doc['period_from']} to {doc['period_to']})",
-            "amount": round(doc["net_payment"], 2),
+            "amount": round_amount(doc["net_payment"], 2),
             "reference": f"staff_payment:{doc['id']}",
             "kms_year": doc.get("kms_year", ""),
             "season": doc.get("season", ""),

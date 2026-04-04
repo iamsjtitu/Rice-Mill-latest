@@ -143,7 +143,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
             "account": "ledger", "txn_type": "jama",
             "category": party_label, "party_type": "Pvt Paddy Purchase",
             "description": party_jama_desc,
-            "amount": round(total_amount, 2), "bank_name": "",
+            "amount": round_amount(total_amount, 2), "bank_name": "",
             "reference": f"pvt_party_jama:{entry_id[:8]}",
             **base_fields
         })
@@ -168,7 +168,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
             "account": "ledger", "txn_type": "jama",
             "category": truck_no, "party_type": "Truck",
             "description": jama_desc,
-            "amount": round(gross_amount, 2), "bank_name": "",
+            "amount": round_amount(gross_amount, 2), "bank_name": "",
             "reference": f"pvt_truck_jama:{entry_id[:8]}",
             **base_fields
         })
@@ -182,7 +182,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
             "account": "cash", "txn_type": "nikasi",
             "category": truck_no, "party_type": "Truck",
             "description": cash_desc,
-            "amount": round(cash_paid, 2), "reference": f"pvt_paddy_cash:{entry_id[:8]}",
+            "amount": round_amount(cash_paid, 2), "reference": f"pvt_paddy_cash:{entry_id[:8]}",
             **base_fields
         })
         # Truck Ledger nikasi (so it shows in truck payment)
@@ -191,7 +191,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
             "account": "ledger", "txn_type": "nikasi",
             "category": truck_no, "party_type": "Truck",
             "description": cash_desc,
-            "amount": round(cash_paid, 2), "reference": f"pvt_paddy_tcash:{entry_id[:8]}",
+            "amount": round_amount(cash_paid, 2), "reference": f"pvt_paddy_tcash:{entry_id[:8]}",
             **base_fields
         })
     diesel_paid = float(doc.get("diesel_paid", 0) or 0)
@@ -205,7 +205,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
             "id": str(uuid.uuid4()), "date": date,
             "pump_id": pump_id, "pump_name": pump_name,
             "truck_no": truck_no, "agent_name": doc.get("agent_name", ""),
-            "mandi_name": mandi, "amount": round(diesel_paid, 2), "txn_type": "debit",
+            "mandi_name": mandi, "amount": round_amount(diesel_paid, 2), "txn_type": "debit",
             "description": diesel_desc,
             **base_fields
         })
@@ -216,7 +216,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
                 "account": "ledger", "txn_type": "nikasi",
                 "category": truck_no, "party_type": "Truck",
                 "description": diesel_desc,
-                "amount": round(diesel_paid, 2), "reference": f"pvt_paddy_tdiesel:{entry_id[:8]}",
+                "amount": round_amount(diesel_paid, 2), "reference": f"pvt_paddy_tdiesel:{entry_id[:8]}",
                 **base_fields
             })
     advance_paid = float(doc.get("paid_amount", 0) or 0)
@@ -228,7 +228,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
             "account": "cash", "txn_type": "nikasi",
             "category": party_label, "party_type": "Pvt Paddy Purchase",
             "description": adv_desc,
-            "amount": round(advance_paid, 2), "reference": f"pvt_paddy_adv:{entry_id[:8]}",
+            "amount": round_amount(advance_paid, 2), "reference": f"pvt_paddy_adv:{entry_id[:8]}",
             **base_fields
         })
         # Ledger nikasi for advance (so it shows in party ledger)
@@ -237,7 +237,7 @@ async def _create_cashbook_diesel_for_pvt_paddy(doc, username=""):
             "account": "ledger", "txn_type": "nikasi",
             "category": party_label, "party_type": "Pvt Paddy Purchase",
             "description": adv_desc,
-            "amount": round(advance_paid, 2), "reference": f"pvt_paddy_advl:{entry_id[:8]}",
+            "amount": round_amount(advance_paid, 2), "reference": f"pvt_paddy_advl:{entry_id[:8]}",
             **base_fields
         })
 
@@ -379,7 +379,7 @@ async def _create_cashbook_for_rice_sale(doc, username=""):
             "account": "ledger", "txn_type": "jama",
             "category": party, "party_type": "Rice Sale",
             "description": sale_desc,
-            "amount": round(total, 2), "reference": f"rice_sale_jama:{entry_id[:8]}",
+            "amount": round_amount(total, 2), "reference": f"rice_sale_jama:{entry_id[:8]}",
             **base
         })
     # 2. Cash paid → truck payment
@@ -391,7 +391,7 @@ async def _create_cashbook_for_rice_sale(doc, username=""):
             "account": "cash", "txn_type": "nikasi",
             "category": truck_no, "party_type": "Truck",
             "description": cash_desc,
-            "amount": round(cash_paid, 2), "reference": f"rice_sale_cash:{entry_id[:8]}",
+            "amount": round_amount(cash_paid, 2), "reference": f"rice_sale_cash:{entry_id[:8]}",
             **base
         })
         await db.cash_transactions.insert_one({
@@ -399,7 +399,7 @@ async def _create_cashbook_for_rice_sale(doc, username=""):
             "account": "ledger", "txn_type": "nikasi",
             "category": truck_no, "party_type": "Truck",
             "description": cash_desc,
-            "amount": round(cash_paid, 2), "reference": f"rice_sale_tcash:{entry_id[:8]}",
+            "amount": round_amount(cash_paid, 2), "reference": f"rice_sale_tcash:{entry_id[:8]}",
             **base
         })
     # 3. Diesel paid → diesel account + truck ledger
@@ -413,7 +413,7 @@ async def _create_cashbook_for_rice_sale(doc, username=""):
             "id": str(uuid.uuid4()), "date": date,
             "pump_id": pump_id, "pump_name": pump_name,
             "truck_no": truck_no, "agent_name": "",
-            "mandi_name": "", "amount": round(diesel_paid, 2), "txn_type": "debit",
+            "mandi_name": "", "amount": round_amount(diesel_paid, 2), "txn_type": "debit",
             "description": diesel_desc,
             **base
         })
@@ -423,7 +423,7 @@ async def _create_cashbook_for_rice_sale(doc, username=""):
                 "account": "ledger", "txn_type": "nikasi",
                 "category": truck_no, "party_type": "Truck",
                 "description": diesel_desc,
-                "amount": round(diesel_paid, 2), "reference": f"rice_sale_tdiesel:{entry_id[:8]}",
+                "amount": round_amount(diesel_paid, 2), "reference": f"rice_sale_tdiesel:{entry_id[:8]}",
                 **base
             })
     # 4. Advance received → cash jama + ledger nikasi
@@ -435,7 +435,7 @@ async def _create_cashbook_for_rice_sale(doc, username=""):
             "account": "cash", "txn_type": "jama",
             "category": party, "party_type": "Rice Sale",
             "description": adv_desc,
-            "amount": round(advance, 2), "reference": f"rice_sale_adv:{entry_id[:8]}",
+            "amount": round_amount(advance, 2), "reference": f"rice_sale_adv:{entry_id[:8]}",
             **base
         })
         await db.cash_transactions.insert_one({
@@ -443,7 +443,7 @@ async def _create_cashbook_for_rice_sale(doc, username=""):
             "account": "ledger", "txn_type": "nikasi",
             "category": party, "party_type": "Rice Sale",
             "description": adv_desc,
-            "amount": round(advance, 2), "reference": f"rice_sale_adv_ledger:{entry_id[:8]}",
+            "amount": round_amount(advance, 2), "reference": f"rice_sale_adv_ledger:{entry_id[:8]}",
             **base
         })
 

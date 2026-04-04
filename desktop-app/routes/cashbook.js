@@ -1,5 +1,5 @@
 const express = require('express');
-const { safeAsync, safeSync } = require('./safe_handler');
+const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
@@ -286,7 +286,7 @@ module.exports = function(database) {
           id: require('crypto').randomUUID(), date: pvt.date || '',
           account: 'ledger', txn_type: 'jama',
           category: party, party_type: 'Pvt Paddy Purchase',
-          description: desc, amount: Math.round(totalAmt * 100) / 100, bank_name: '',
+          description: desc, amount: roundAmount(totalAmt * 100) / 100, bank_name: '',
           reference: ref,
           kms_year: pvt.kms_year || '', season: pvt.season || 'Kharif',
           created_by: 'auto-fix', linked_entry_id: pvt.id,

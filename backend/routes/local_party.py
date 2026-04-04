@@ -1,3 +1,4 @@
+from models import round_amount
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from typing import Optional
@@ -277,7 +278,7 @@ async def add_manual_purchase(request: Request):
         "date": data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
         "party_name": party_name,
         "txn_type": "debit",
-        "amount": round(amount, 2),
+        "amount": round_amount(amount, 2),
         "description": data.get("description", "Manual Purchase"),
         "source_type": "manual",
         "reference": "",
@@ -298,7 +299,7 @@ async def add_manual_purchase(request: Request):
         "category": party_name,
         "party_type": "Local Party",
         "description": f"Purchase: {party_name} - {data.get('description', 'Manual Purchase')} Rs.{amount}",
-        "amount": round(amount, 2),
+        "amount": round_amount(amount, 2),
         "reference": f"lp_purchase:{doc['id'][:8]}",
         "kms_year": data.get("kms_year", ""),
         "season": data.get("season", ""),
@@ -355,7 +356,7 @@ async def settle_local_party(request: Request):
         "category": party_name,
         "party_type": "Local Party",
         "description": f"Local Party Payment: {party_name} - Rs.{amount}" + (f" ({notes})" if notes else ""),
-        "amount": round(amount, 2),
+        "amount": round_amount(amount, 2),
         "reference": f"local_party:{pay_txn['id'][:8]}",
         "kms_year": kms_year,
         "season": season,

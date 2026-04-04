@@ -1,3 +1,4 @@
+from models import round_amount
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from typing import Optional
@@ -157,7 +158,7 @@ async def create_hemali_payment(request: Request):
                 "item_name": i.get("item_name", ""),
                 "rate": float(i.get("rate") or 0),
                 "quantity": float(i.get("quantity") or 0),
-                "amount": round(float(i.get("quantity") or 0) * float(i.get("rate") or 0), 2),
+                "amount": round_amount(float(i.get("quantity") or 0) * float(i.get("rate") or 0), 2),
             }
             for i in items
         ],
@@ -350,7 +351,7 @@ async def update_hemali_payment(payment_id: str, request: Request):
                 "item_name": i.get("item_name", ""),
                 "rate": float(i.get("rate") or 0),
                 "quantity": float(i.get("quantity") or 0),
-                "amount": round(float(i.get("quantity") or 0) * float(i.get("rate") or 0), 2),
+                "amount": round_amount(float(i.get("quantity") or 0) * float(i.get("rate") or 0), 2),
             }
             for i in items
         ],

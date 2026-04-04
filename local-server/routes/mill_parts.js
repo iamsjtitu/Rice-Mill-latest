@@ -1,5 +1,5 @@
 const express = require('express');
-const { safeAsync, safeSync } = require('./safe_handler');
+const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { safePdfPipe, addPdfTable, registerFonts, fmtDate } = require('./pdf_helpers');
@@ -102,7 +102,7 @@ router.post('/api/mill-parts-stock', safeSync(async (req, res) => {
   if (!(d.part_name || '').trim() || qty <= 0) return res.status(400).json({ detail: 'Part name and quantity required' });
   const doc = {
     id: uuidv4(), date: d.date || '', part_name: d.part_name || '', txn_type: d.txn_type || 'in',
-    quantity: qty, rate, total_amount: Math.round(qty * rate * 100) / 100,
+    quantity: qty, rate, total_amount: roundAmount(qty * rate * 100) / 100,
     party_name: d.party_name || '', bill_no: d.bill_no || '', remark: d.remark || '',
     store_room: d.store_room || '', store_room_name: d.store_room_name || '',
     kms_year: d.kms_year || '', season: d.season || '',
@@ -199,7 +199,7 @@ router.put('/api/mill-parts-stock/:id', safeSync(async (req, res) => {
     ...existing,
     date: d.date || existing.date, part_name: d.part_name || existing.part_name,
     txn_type: d.txn_type || existing.txn_type, quantity: qty, rate,
-    total_amount: Math.round(qty * rate * 100) / 100,
+    total_amount: roundAmount(qty * rate * 100) / 100,
     party_name: d.party_name !== undefined ? d.party_name : existing.party_name,
     bill_no: d.bill_no !== undefined ? d.bill_no : existing.bill_no,
     remark: d.remark !== undefined ? d.remark : existing.remark,
