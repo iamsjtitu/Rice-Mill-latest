@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.3.0";
+const APP_VERSION = "88.4.0";
 
 const CHANGELOG = [
+  {
+    version: "88.4.0",
+    date: "Apr 2026",
+    title: "v88.4.0 - Duplicate RST & TP Block",
+    items: [
+      { type: "feature", text: "Same RST number se dobara mill entry nahi hogi - duplicate RST block" },
+      { type: "feature", text: "Same TP number bhi dobara nahi chalega - error batayega ki ye TP kis RST mai already hai" },
+    ]
+  },
   {
     version: "88.3.0",
     date: "Apr 2026",
