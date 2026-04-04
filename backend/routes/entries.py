@@ -745,9 +745,13 @@ async def get_truck_suggestions(q: str = ""):
 async def get_agent_suggestions(q: str = ""):
     if len(q) < 1:
         agents = await db.mill_entries.distinct("agent_name")
+        vw_parties = await db.vehicle_weights.distinct("party_name")
     else:
         agents = await db.mill_entries.distinct("agent_name", {"agent_name": {"$regex": q, "$options": "i"}})
-    return {"suggestions": [a for a in agents if a]}
+        vw_parties = await db.vehicle_weights.distinct("party_name", {"party_name": {"$regex": q, "$options": "i"}})
+    combined = list(set([a for a in (agents + vw_parties) if a]))
+    combined.sort()
+    return {"suggestions": combined}
 
 
 @router.get("/suggestions/mandis")
@@ -759,7 +763,16 @@ async def get_mandi_suggestions(q: str = "", agent_name: str = ""):
         query["agent_name"] = agent_name
     
     mandis = await db.mill_entries.distinct("mandi_name", query if query else None)
-    return {"suggestions": [m for m in mandis if m]}
+    # Also get farmer_name from vehicle_weights as source suggestions
+    vw_query = {}
+    if q:
+        vw_query["farmer_name"] = {"$regex": q, "$options": "i"}
+    if agent_name:
+        vw_query["party_name"] = agent_name
+    vw_sources = await db.vehicle_weights.distinct("farmer_name", vw_query if vw_query else None)
+    combined = list(set([m for m in (mandis + vw_sources) if m]))
+    combined.sort()
+    return {"suggestions": combined}
 
 
 @router.get("/suggestions/kms_years")

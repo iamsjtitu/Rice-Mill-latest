@@ -95,21 +95,30 @@ module.exports = function(database) {
   }));
 
   router.get('/api/suggestions/agents', safeSync(async (req, res) => {
-    let suggestions = database.getSuggestions('agent_name');
+    // Combine agent_name from mill entries + party_name from vehicle_weights
+    const partySet = new Set();
+    (database.data.entries || []).forEach(e => { if (e.agent_name) partySet.add(e.agent_name); });
+    (database.data.vehicle_weights || []).forEach(e => { if (e.party_name) partySet.add(e.party_name); });
+    let suggestions = Array.from(partySet).sort();
     const q = req.query.q || '';
     if (q) suggestions = suggestions.filter(s => s.toLowerCase().includes(q.toLowerCase()));
     res.json({ suggestions });
   }));
 
   router.get('/api/suggestions/mandis', safeSync(async (req, res) => {
-    let suggestions = database.getSuggestions('mandi_name');
+    // Combine mandi_name from mill entries + farmer_name from vehicle_weights
+    const sourceSet = new Set();
+    (database.data.entries || []).forEach(e => { if (e.mandi_name) sourceSet.add(e.mandi_name); });
+    (database.data.vehicle_weights || []).forEach(e => { if (e.farmer_name) sourceSet.add(e.farmer_name); });
+    let suggestions = Array.from(sourceSet).sort();
     const q = req.query.q || '';
     const agent_name = req.query.agent_name || '';
     if (q) suggestions = suggestions.filter(s => s.toLowerCase().includes(q.toLowerCase()));
     if (agent_name) {
-      const agentMandis = new Set();
-      database.data.entries.filter(e => e.agent_name === agent_name).forEach(e => { if (e.mandi_name) agentMandis.add(e.mandi_name); });
-      suggestions = suggestions.filter(s => agentMandis.has(s));
+      const agentSources = new Set();
+      (database.data.entries || []).filter(e => e.agent_name === agent_name).forEach(e => { if (e.mandi_name) agentSources.add(e.mandi_name); });
+      (database.data.vehicle_weights || []).filter(e => e.party_name === agent_name).forEach(e => { if (e.farmer_name) agentSources.add(e.farmer_name); });
+      suggestions = suggestions.filter(s => agentSources.has(s));
     }
     res.json({ suggestions });
   }));
