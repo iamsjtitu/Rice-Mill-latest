@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.1.0";
+const APP_VERSION = "88.2.0";
 
 const CHANGELOG = [
+  {
+    version: "88.2.0",
+    date: "Apr 2026",
+    title: "v88.2.0 - Auto Suggestions Fix",
+    items: [
+      { type: "fix", text: "Party Name aur Source suggestions ab Vehicle Weight entries se bhi aayenge - bina Mill Entry complete kiye" },
+    ]
+  },
   {
     version: "88.1.0",
     date: "Apr 2026",
