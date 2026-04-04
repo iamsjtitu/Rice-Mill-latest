@@ -69,7 +69,7 @@ export function MillEntryForm({
           toast.warning(`RST #${rst} pehle se entry hai`);
         }
         if (data.tp_exists && !dupWarning.tp) {
-          toast.warning(`TP No. ${tp} pehle se entry hai`);
+          toast.warning(`TP No. ${tp} pehle se RST #${data.tp_rst_no || '?'} mein entry hai`);
         }
         setDupWarning(newWarning);
       } catch { setDupWarning({ rst: null, tp: null }); }

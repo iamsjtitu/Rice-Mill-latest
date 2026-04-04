@@ -503,7 +503,7 @@ async def get_entries(
 @router.get("/entries/check-duplicate")
 async def check_duplicate_rst_tp(rst_no: str = "", tp_no: str = "", kms_year: str = "", exclude_id: str = ""):
     """Real-time check if RST or TP already exists."""
-    result = {"rst_exists": False, "tp_exists": False, "rst_entry": None, "tp_entry": None}
+    result = {"rst_exists": False, "tp_exists": False, "rst_entry": None, "tp_entry": None, "tp_rst_no": None}
     if rst_no.strip():
         q = {"rst_no": rst_no.strip(), "kms_year": kms_year}
         if exclude_id:
@@ -519,6 +519,7 @@ async def check_duplicate_rst_tp(rst_no: str = "", tp_no: str = "", kms_year: st
         found = await db.mill_entries.find_one(q, {"_id": 0, "id": 1, "rst_no": 1, "truck_no": 1})
         if found:
             result["tp_exists"] = True
+            result["tp_rst_no"] = found.get('rst_no', '?')
             result["tp_entry"] = f"RST #{found.get('rst_no', '?')} - {found.get('truck_no', '')}"
     return result
 

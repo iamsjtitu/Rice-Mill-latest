@@ -45,14 +45,14 @@ module.exports = function(database) {
   // Real-time duplicate check API (MUST be before /:id route)
   router.get('/api/entries/check-duplicate', safeSync(async (req, res) => {
     const { rst_no = '', tp_no = '', kms_year = '', exclude_id = '' } = req.query;
-    const result = { rst_exists: false, tp_exists: false, rst_entry: null, tp_entry: null };
+    const result = { rst_exists: false, tp_exists: false, rst_entry: null, tp_entry: null, tp_rst_no: null };
     if (rst_no.trim()) {
       const found = (database.data.entries || []).find(e => String(e.rst_no) === rst_no.trim() && e.kms_year === kms_year && e.id !== exclude_id);
       if (found) { result.rst_exists = true; result.rst_entry = `RST #${rst_no} - ${found.truck_no || ''}`; }
     }
     if (tp_no.trim()) {
       const found = (database.data.entries || []).find(e => String(e.tp_no || '') === tp_no.trim() && e.kms_year === kms_year && e.id !== exclude_id);
-      if (found) { result.tp_exists = true; result.tp_entry = `RST #${found.rst_no || '?'} - ${found.truck_no || ''}`; }
+      if (found) { result.tp_exists = true; result.tp_rst_no = found.rst_no || '?'; result.tp_entry = `RST #${found.rst_no || '?'} - ${found.truck_no || ''}`; }
     }
     res.json(result);
   }));
