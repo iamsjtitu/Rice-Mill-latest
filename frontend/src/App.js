@@ -1115,7 +1115,7 @@ function MainApp({ user, setUser, onLogout }) {
 
   return (
     <div className={`min-h-screen ${theme === 'light' ? 'bg-gradient-to-br from-slate-100 via-white to-slate-50' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900'}`} data-theme={theme}>
-      <Toaster position="top-center" richColors toastOptions={{ style: { zIndex: 99999 } }} />
+      <Toaster position="top-right" richColors toastOptions={{ style: { zIndex: 99999 } }} />
       
       {/* Header */}
       <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-10 no-print">
@@ -1533,7 +1533,7 @@ function App() {
   if (!user) {
     return (
       <>
-        <Toaster position="top-center" richColors toastOptions={{ style: { zIndex: 99999 } }} />
+        <Toaster position="top-right" richColors toastOptions={{ style: { zIndex: 99999 } }} />
         <LoginPage onLogin={handleLogin} />
       </>
     );
