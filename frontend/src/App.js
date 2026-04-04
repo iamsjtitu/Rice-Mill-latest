@@ -1396,9 +1396,9 @@ function MainApp({ user, setUser, onLogout }) {
             </div>
 
             {entriesSubTab === "vehicle-weight" ? (
-              <VehicleWeight filters={filters} user={user} />
+              <VehicleWeight filters={filters} user={user} onVwChange={fetchPendingVwCount} />
             ) : entriesSubTab === "auto-weight-entries" ? (
-              <AutoWeightEntries filters={filters} />
+              <AutoWeightEntries filters={filters} onVwChange={fetchPendingVwCount} />
             ) : entriesSubTab === "purchase-register" ? (
               <PaddyPurchaseRegister filters={filters} />
             ) : (

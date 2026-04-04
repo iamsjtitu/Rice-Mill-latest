@@ -28,7 +28,7 @@ function getLast7DaysDate() {
 }
 const todayStr = new Date().toISOString().split("T")[0];
 
-export default function AutoWeightEntries({ filters }) {
+export default function AutoWeightEntries({ filters, onVwChange }) {
   const kms = filters?.kms_year || "";
   const PAGE_SIZE = 30;
   const [entries, setEntries] = useState([]);
@@ -83,7 +83,7 @@ export default function AutoWeightEntries({ filters }) {
   // ── Action handlers ──
   const handleDelete = async (id) => {
     if (!await showConfirm("Delete", "Kya aap ye entry delete karna chahte hain?")) return;
-    try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); }
+    try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch { toast.error("Error"); }
   };
   const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf?party_only=1`; _isElectron ? downloadFile(u, `Slip_${e.rst_no}.pdf`) : window.open(u, "_blank"); };
 

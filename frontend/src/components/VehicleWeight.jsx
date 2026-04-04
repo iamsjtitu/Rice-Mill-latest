@@ -425,7 +425,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
   );
 });
 
-export default function VehicleWeight({ filters, user }) {
+export default function VehicleWeight({ filters, user, onVwChange }) {
   const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "", tp_no: "" };
   const [form, setForm] = useState(blank);
   const [rstEditable, setRstEditable] = useState(false);
@@ -589,10 +589,10 @@ export default function VehicleWeight({ filters, user }) {
       });
       if (r.data.success) {
         toast.success(r.data.message);
-        // Auto-notify on weight completion (images already saved, just send)
         sendAutoNotify(secondWtMode.id);
         clearSecondWtMode();
         fetchData();
+        if (onVwChange) onVwChange();
       }
     } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
   };
@@ -608,11 +608,11 @@ export default function VehicleWeight({ filters, user }) {
       const payload = { ...form, kms_year: kms, first_wt_front_img: frontImg, first_wt_side_img: sideImg };
       if (form.rst_no && Number(form.rst_no) > 0) payload.rst_no = Number(form.rst_no);
       const r = await axios.post(`${API}/vehicle-weight`, payload);
-      if (r.data.success) { toast.success(r.data.message); setForm({ ...blank, rst_no: "" }); setRstEditable(false); fetchData(); }
+      if (r.data.success) { toast.success(r.data.message); setForm({ ...blank, rst_no: "" }); setRstEditable(false); fetchData(); if (onVwChange) onVwChange(); }
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
   };
 
-  const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye transaction delete karna chahte hain?")) return; try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); } };
+  const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye transaction delete karna chahte hain?")) return; try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch { toast.error("Error"); } };
 
   // Auto-notify: images already saved with entry, just trigger notify
   const sendAutoNotify = async (entryId) => {
