@@ -3,39 +3,41 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local SQLite storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, LAN network access, multi-user data safety, and role-based access control.
 
-## Current Version: v88.1.0
+## Current Version: v88.2.0
 
 ## Architecture
 ```
 /app
 ├── backend/                  # Python FastAPI web backend
-│   └── routes/entries.py     # Suggestions now combine mill_entries + vehicle_weights
+│   └── routes/entries.py     # Suggestions combine mill_entries + vehicle_weights
 ├── desktop-app/              # Electron Express local backend
 │   └── routes/entries.js     # Same combined suggestions
 ├── local-server/             # Express local network (mirrors desktop-app)
 │   └── routes/entries.js     # Same combined suggestions
 └── frontend/
-    ├── src/components/AutoWeightEntries.jsx # Fixed edit URL (/edit suffix)
-    └── src/components/common/AutoSuggest.jsx # Reusable autocomplete
+    ├── src/App.js             # Global Enter key handler (now includes save buttons)
+    ├── src/components/VehicleWeight.jsx    # Save btn testid updated
+    ├── src/components/AutoWeightEntries.jsx # Fixed edit URL
+    └── src/components/common/AutoSuggest.jsx # Enter key conflict fixed
 ```
 
 ## Credentials
 - Default Admin: admin / admin123
 - Default Staff: staff / staff123
 
-## Completed Features (v88.1.0)
-- [x] Vehicle No. suggestions combine mill_entries + vehicle_weights
-- [x] Party Name suggestions combine mill_entries.agent_name + vehicle_weights.party_name
-- [x] Source suggestions combine mill_entries.mandi_name + vehicle_weights.farmer_name
-- [x] Auto Weight Entries edit "Update error" fix (missing /edit URL suffix)
+## Completed Features (v88.2.0)
+- [x] Vehicle No. suggestions combine mill_entries + vehicle_weights (all 3 backends)
+- [x] Party Name + Source suggestions combine mill_entries + vehicle_weights
+- [x] Auto Weight Entries edit "Update error" fix
+- [x] Enter key navigation now reaches Save button in VW form
+- [x] AutoSuggest Enter key conflict resolved (no more blocking global handler)
 - [x] RST Date auto-fill from back-dated Vehicle Weight entries
-- [x] Global Enter key = next field navigation
-- [x] All previous features from v87.5.0 and earlier
+- [x] Global Enter key = next field navigation (all forms)
 
 ## Upcoming Tasks
-- [ ] P0: Version bump + GitHub release for desktop testing
-- [ ] P1: Daily Summary Report (Auto) - end-of-day summary
-- [ ] P2: Export Preview feature (Preview before Excel/PDF export)
+- [ ] P0: Version bump + GitHub release
+- [ ] P1: Daily Summary Report (Auto)
+- [ ] P2: Export Preview feature
 
 ## Future Tasks
 - [ ] P3: Python backend service layer refactoring

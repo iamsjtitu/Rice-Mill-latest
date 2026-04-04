@@ -655,15 +655,18 @@ function MainApp({ user, setUser, onLogout }) {
         }
       }
 
-      // Enter key = move to next field (Tab behavior). On last field = submit form.
-      if (e.key === 'Enter' && inInput && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      // Enter key = move to next field (Tab behavior). On last field = focus save button.
+      if (e.key === 'Enter' && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        // If a button is focused, let the browser handle it (Enter = click)
+        if (e.target.tagName === 'BUTTON') return;
+        if (!inInput) return;
         if (e.target.tagName === 'TEXTAREA') return;
         const el = e.target;
         // Search in dialog first, then form, then any parent container
         const container = el.closest('[role="dialog"]') || el.closest('form') || el.closest('.space-y-4, .space-y-3, .grid');
         if (container) {
           const fields = Array.from(container.querySelectorAll(
-            'input:not([type="hidden"]):not([disabled]):not([readonly]), textarea:not([disabled])'
+            'input:not([type="hidden"]):not([disabled]):not([readonly]), textarea:not([disabled]), button[type="submit"], [data-testid="save-btn"]'
           )).filter(f => f.offsetParent !== null && f.offsetWidth > 0);
           const idx = fields.indexOf(el);
           if (idx >= 0 && idx < fields.length - 1) {

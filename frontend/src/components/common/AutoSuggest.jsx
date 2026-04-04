@@ -62,9 +62,13 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBl
         );
         break;
       case 'Enter':
-        e.preventDefault();
         if (activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
+          e.preventDefault();
           onSelect(filteredSuggestions[activeIndex]);
+          setShowSuggestions(false);
+          setActiveIndex(-1);
+        } else {
+          // No suggestion selected - close dropdown & let global Enter handler navigate
           setShowSuggestions(false);
           setActiveIndex(-1);
         }

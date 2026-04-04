@@ -1047,7 +1047,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       </div>
                     )}
                     <div className="flex gap-2 mt-3">
-                      <Button type="button" onClick={handleSaveSecondWt} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold h-9 text-xs" data-testid="vw-save-second-form">
+                      <Button type="button" onClick={handleSaveSecondWt} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold h-9 text-xs" data-testid="save-btn">
                         <CheckCircle className="w-3.5 h-3.5 mr-1" /> Save Second Weight
                       </Button>
                       <Button type="button" onClick={clearSecondWtMode} variant="outline" className="border-gray-300 text-gray-600 h-9 text-xs px-3 hover:bg-gray-50">Cancel</Button>
@@ -1070,7 +1070,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
-                      <Button type="submit" className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold h-9 text-xs" data-testid="vw-save-first">
+                      <Button type="submit" className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold h-9 text-xs" data-testid="save-btn">
                         <Plus className="w-3.5 h-3.5 mr-1" /> Save First Weight
                       </Button>
                       <Button type="button" onClick={() => setForm(blank)} variant="outline" className="border-gray-300 text-gray-600 h-9 text-xs px-3 hover:bg-gray-50">Clear</Button>
