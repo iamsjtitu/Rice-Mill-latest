@@ -451,6 +451,7 @@ function MainApp({ user, setUser, onLogout }) {
           const cuttingTarget = findMandiCutting(mandiName);
           return {
             ...prev,
+            date: vw.date || prev.date,
             truck_no: vw.vehicle_no || prev.truck_no,
             agent_name: vw.party_name || prev.agent_name,
             mandi_name: mandiName,
@@ -642,7 +643,6 @@ function MainApp({ user, setUser, onLogout }) {
         const val = el.value || el.textContent || '';
         if (val === '') {
           e.preventDefault();
-          // Find all focusable fields in the closest form or dialog
           const container = el.closest('form, [role="dialog"], .space-y-4, .space-y-3, .grid');
           if (container) {
             const fields = Array.from(container.querySelectorAll('input, textarea, select, [tabindex]')).filter(f => !f.disabled && f.offsetParent !== null);
@@ -652,6 +652,35 @@ function MainApp({ user, setUser, onLogout }) {
             }
           }
           return;
+        }
+      }
+
+      // Enter key = move to next field (Tab behavior). On last field = submit form.
+      if (e.key === 'Enter' && inInput && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        if (e.target.tagName === 'TEXTAREA') return;
+        const el = e.target;
+        // Search in dialog first, then form, then any parent container
+        const container = el.closest('[role="dialog"]') || el.closest('form') || el.closest('.space-y-4, .space-y-3, .grid');
+        if (container) {
+          const fields = Array.from(container.querySelectorAll(
+            'input:not([type="hidden"]):not([disabled]):not([readonly]), textarea:not([disabled])'
+          )).filter(f => f.offsetParent !== null && f.offsetWidth > 0);
+          const idx = fields.indexOf(el);
+          if (idx >= 0 && idx < fields.length - 1) {
+            e.preventDefault();
+            e.stopPropagation();
+            fields[idx + 1].focus();
+            if (fields[idx + 1].select) fields[idx + 1].select();
+            return;
+          }
+          // Last field — find submit button and click it
+          if (idx === fields.length - 1) {
+            e.preventDefault();
+            e.stopPropagation();
+            const submitBtn = container.querySelector('button[type="submit"], [data-testid="save-btn"], [data-testid="submit-btn"]');
+            if (submitBtn) submitBtn.click();
+            return;
+          }
         }
       }
 
