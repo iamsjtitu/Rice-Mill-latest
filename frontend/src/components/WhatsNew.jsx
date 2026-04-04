@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.2.0";
+const APP_VERSION = "88.3.0";
 
 const CHANGELOG = [
+  {
+    version: "88.3.0",
+    date: "Apr 2026",
+    title: "v88.3.0 - Enter Key Save Fix",
+    items: [
+      { type: "fix", text: "Auto Vehicle Weight mai Enter-Enter karke Save button tak pohchega ab" },
+      { type: "fix", text: "AutoSuggest mai Enter key conflict fix - suggestion select na ho toh next field mai jayega" },
+    ]
+  },
   {
     version: "88.2.0",
     date: "Apr 2026",
