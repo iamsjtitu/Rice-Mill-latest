@@ -37,14 +37,14 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
     if rst:
         existing = await db.mill_entries.find_one({"rst_no": rst, "kms_year": kms}, {"_id": 0, "id": 1, "rst_no": 1})
         if existing:
-            raise HTTPException(status_code=400, detail=f"RST #{rst} se entry pehle se hai is FY ({kms}) mein. Duplicate RST allowed nahi hai.")
+            raise HTTPException(status_code=400, detail=f"RST #{rst} pehle se entry hai")
     
     # Duplicate TP check - same tp_no + kms_year not allowed
     tp = str(entry_dict.get("tp_no", "")).strip()
     if tp:
         existing_tp = await db.mill_entries.find_one({"tp_no": tp, "kms_year": kms}, {"_id": 0, "id": 1, "rst_no": 1})
         if existing_tp:
-            raise HTTPException(status_code=400, detail=f"TP No. {tp} pehle se RST #{existing_tp.get('rst_no', '?')} mein added hai. Duplicate TP allowed nahi hai.")
+            raise HTTPException(status_code=400, detail=f"TP No. {tp} pehle se entry hai")
     
     entry_dict = calculate_auto_fields(entry_dict)
     entry_dict['created_by'] = username
@@ -553,12 +553,12 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
     if rst:
         dup_rst = await db.mill_entries.find_one({"rst_no": rst, "kms_year": kms, "id": {"$ne": entry_id}}, {"_id": 0, "id": 1})
         if dup_rst:
-            raise HTTPException(status_code=400, detail=f"RST #{rst} pehle se hai is FY mein. Duplicate RST allowed nahi hai.")
+            raise HTTPException(status_code=400, detail=f"RST #{rst} pehle se entry hai")
     tp = str(update_data.get("tp_no", existing.get("tp_no", ""))).strip()
     if tp:
         dup_tp = await db.mill_entries.find_one({"tp_no": tp, "kms_year": kms, "id": {"$ne": entry_id}}, {"_id": 0, "id": 1, "rst_no": 1})
         if dup_tp:
-            raise HTTPException(status_code=400, detail=f"TP No. {tp} pehle se RST #{dup_tp.get('rst_no','?')} mein hai. Duplicate TP allowed nahi hai.")
+            raise HTTPException(status_code=400, detail=f"TP No. {tp} pehle se entry hai")
     
     # Merge existing data with updates
     merged_data = {**existing, **update_data}

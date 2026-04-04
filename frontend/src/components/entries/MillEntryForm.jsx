@@ -66,10 +66,10 @@ export function MillEntryForm({
         };
         // Show toast for newly detected duplicates
         if (data.rst_exists && !dupWarning.rst) {
-          toast.warning(`RST #${rst} duplicate hai! Pehle se entry: ${data.rst_entry}`);
+          toast.warning(`RST #${rst} pehle se entry hai`);
         }
         if (data.tp_exists && !dupWarning.tp) {
-          toast.warning(`TP No. ${tp} duplicate hai! Pehle se entry: ${data.tp_entry}`);
+          toast.warning(`TP No. ${tp} pehle se entry hai`);
         }
         setDupWarning(newWarning);
       } catch { setDupWarning({ rst: null, tp: null }); }
