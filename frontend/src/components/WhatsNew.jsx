@@ -3,9 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.8.0";
+const APP_VERSION = "88.9.0";
 
 const CHANGELOG = [
+  {
+    version: "88.9.0",
+    date: "Apr 2026",
+    title: "v88.9.0 - View Dialog + Round-off Fix + Date Format",
+    items: [
+      { type: "feature", text: "Mill Entries mai View button (Eye icon) - click karo toh poori entry dialog mai dikhegi" },
+      { type: "feature", text: "Paddy Purchase Register mai row click karo toh Mill Entries mai redirect hoke View dialog khulega - kisi bhi date ki entry ho" },
+      { type: "fix", text: "Round-off ab desktop aur LAN dono mai kaam karega - 4000.51 = 4001, 4000.50 = 4000" },
+      { type: "fix", text: "Sabhi Excel aur PDF export mai date DD-MM-YYYY format mai aayegi (pehle YYYY-MM-DD tha)" },
+      { type: "feature", text: "Google Drive sync detect - 5 second mai dusre PC ka data auto-reload hoga" },
+    ]
+  },
   {
     version: "88.8.0",
     date: "Apr 2026",
