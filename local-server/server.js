@@ -862,10 +862,29 @@ async function startServer() {
     database = new SqliteDatabase(DATA_DIR);
     console.log(`[Startup] SQLite database loaded`);
   } catch (e) {
-    console.warn('[Startup] SQLite not available, using JSON fallback:', e.message);
-    database = new JsonDatabase(DATA_DIR);
-    dbEngine = 'json';
-    console.log(`[Startup] JSON fallback database loaded`);
+    console.warn('[Startup] SQLite failed:', e.message);
+    const dbFile = path.join(DATA_DIR, 'millentry-data.db');
+    const jsonFile = path.join(DATA_DIR, 'millentry-data.json');
+    if (fs.existsSync(dbFile) && !fs.existsSync(jsonFile)) {
+      console.warn('[Startup] SQLite DB exists but failed. Retrying after WAL cleanup...');
+      try {
+        const walF = dbFile + '-wal';
+        const shmF = dbFile + '-shm';
+        if (fs.existsSync(walF)) fs.unlinkSync(walF);
+        if (fs.existsSync(shmF)) fs.unlinkSync(shmF);
+        const { SqliteDatabase } = require('./sqlite-database');
+        database = new SqliteDatabase(DATA_DIR);
+        console.log('[Startup] SQLite database loaded (retry)');
+      } catch (e2) {
+        console.error('[Startup] SQLite retry also failed:', e2.message);
+        database = new JsonDatabase(DATA_DIR);
+        dbEngine = 'json';
+      }
+    } else {
+      database = new JsonDatabase(DATA_DIR);
+      dbEngine = 'json';
+      console.log(`[Startup] JSON fallback database loaded`);
+    }
   }
 
   // Auto-backup on startup

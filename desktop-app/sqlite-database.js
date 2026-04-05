@@ -32,6 +32,23 @@ class SqliteDatabase {
     this.dataFolder = dataFolder;
     this.dbFile = path.join(dataFolder, 'millentry-data.db');
     this.jsonFile = path.join(dataFolder, 'millentry-data.json');
+
+    // Clean up stale WAL/SHM files before opening (Google Drive sync safety)
+    const walFile = this.dbFile + '-wal';
+    const shmFile = this.dbFile + '-shm';
+    try {
+      if (fs.existsSync(walFile)) {
+        console.log('[SQLite] Removing stale WAL file for clean open...');
+        fs.unlinkSync(walFile);
+      }
+      if (fs.existsSync(shmFile)) {
+        console.log('[SQLite] Removing stale SHM file for clean open...');
+        fs.unlinkSync(shmFile);
+      }
+    } catch (e) {
+      console.warn('[SQLite] Could not clean WAL/SHM:', e.message);
+    }
+
     // Lazy-load better-sqlite3 (native module)
     const Database = require('better-sqlite3');
     this.sqlite = new Database(this.dbFile);
@@ -923,7 +940,12 @@ class SqliteDatabase {
       clearTimeout(this._saveTimer);
       this._doSave();
     }
-    try { this.sqlite.close(); } catch {}
+    try {
+      // Force WAL checkpoint before close (merges WAL into main DB file)
+      // This ensures Google Drive syncs a complete, self-contained .db file
+      this.sqlite.pragma('wal_checkpoint(TRUNCATE)');
+      this.sqlite.close();
+    } catch {}
   }
 }
 

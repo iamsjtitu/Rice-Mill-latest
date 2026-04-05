@@ -2299,11 +2299,33 @@ async function startApplication(folderPath) {
     db = new SqliteDatabase(folderPath);
     console.log(`[Startup] SQLite database loaded in ${Date.now() - startTime}ms`);
   } catch (e) {
-    console.warn('[Startup] SQLite not available, using JSON fallback:', e.message);
-    logError('SQLITE_FALLBACK', e);
-    db = new JsonDatabase(folderPath);
-    dbEngine = 'json';
-    console.log(`[Startup] JSON fallback database loaded in ${Date.now() - startTime}ms`);
+    console.warn('[Startup] SQLite failed:', e.message);
+    // If SQLite DB file exists but failed to open, try recovery
+    const dbFile = require('path').join(folderPath, 'millentry-data.db');
+    const jsonFile = require('path').join(folderPath, 'millentry-data.json');
+    if (require('fs').existsSync(dbFile) && !require('fs').existsSync(jsonFile)) {
+      console.warn('[Startup] SQLite DB exists but failed. Retrying after cleanup...');
+      try {
+        // Force delete WAL/SHM and retry
+        const walF = dbFile + '-wal';
+        const shmF = dbFile + '-shm';
+        if (require('fs').existsSync(walF)) require('fs').unlinkSync(walF);
+        if (require('fs').existsSync(shmF)) require('fs').unlinkSync(shmF);
+        const { SqliteDatabase } = require('./sqlite-database');
+        db = new SqliteDatabase(folderPath);
+        console.log(`[Startup] SQLite database loaded (retry) in ${Date.now() - startTime}ms`);
+      } catch (e2) {
+        console.error('[Startup] SQLite retry also failed:', e2.message);
+        logError('SQLITE_RETRY_FAIL', e2);
+        db = new JsonDatabase(folderPath);
+        dbEngine = 'json';
+      }
+    } else {
+      logError('SQLITE_FALLBACK', e);
+      db = new JsonDatabase(folderPath);
+      dbEngine = 'json';
+      console.log(`[Startup] JSON fallback database loaded in ${Date.now() - startTime}ms`);
+    }
   }
 
   // === MIGRATION: Fix auto_ledger txn_type (v31 - double-entry fix) ===

@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.11.2";
+const APP_VERSION = "88.12.0";
 
 const CHANGELOG = [
+  {
+    version: "88.12.0",
+    date: "Apr 2026",
+    title: "v88.12.0 - macOS Compatibility + Cross-Platform DB Fix",
+    items: [
+      { type: "feature", text: "Electron 36 upgrade - macOS Tahoe (26.x) ab fully supported hai" },
+      { type: "fix", text: "Google Drive se existing folder open na hone ka issue fix - WAL/SHM cleanup" },
+      { type: "fix", text: "App band hone pai database properly checkpoint hota hai - sync safe" },
+    ]
+  },
   {
     version: "88.11.0",
     date: "Apr 2026",
