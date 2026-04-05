@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from database import db
 from datetime import datetime, timezone
 from typing import Optional
+from utils.date_format import fmt_date
 import uuid
 
 router = APIRouter()
@@ -318,8 +319,8 @@ async def export_leases_pdf(kms_year: Optional[str] = None, season: Optional[str
         grand_paid += paid
         data.append([
             lease.get("truck_no", ""), lease.get("owner_name", ""),
-            f"Rs.{lease.get('monthly_rent', 0):,.0f}", lease.get("start_date", ""),
-            lease.get("end_date", "") or "Ongoing", f"Rs.{lease.get('advance_deposit', 0):,.0f}",
+            f"Rs.{lease.get('monthly_rent', 0):,.0f}", fmt_date(lease.get("start_date", "")),
+            fmt_date(lease.get("end_date", "")) or "Ongoing", f"Rs.{lease.get('advance_deposit', 0):,.0f}",
             lease.get("status", "").upper(),
             f"Rs.{total_rent:,.0f}", f"Rs.{paid:,.0f}", f"Rs.{max(0, balance):,.0f}"
         ])
@@ -374,8 +375,8 @@ async def export_leases_excel(kms_year: Optional[str] = None, season: Optional[s
         ws.cell(row=row, column=1, value=lease.get("truck_no", ""))
         ws.cell(row=row, column=2, value=lease.get("owner_name", ""))
         ws.cell(row=row, column=3, value=lease.get("monthly_rent", 0))
-        ws.cell(row=row, column=4, value=lease.get("start_date", ""))
-        ws.cell(row=row, column=5, value=lease.get("end_date", "") or "Ongoing")
+        ws.cell(row=row, column=4, value=fmt_date(lease.get("start_date", "")))
+        ws.cell(row=row, column=5, value=fmt_date(lease.get("end_date", "")) or "Ongoing")
         ws.cell(row=row, column=6, value=lease.get("advance_deposit", 0))
         ws.cell(row=row, column=7, value=lease.get("status", "").upper())
         ws.cell(row=row, column=8, value=len(months))

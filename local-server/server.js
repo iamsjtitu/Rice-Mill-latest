@@ -75,8 +75,44 @@ class JsonDatabase {
   _doSave() {
     try {
       fs.writeFileSync(this.dbFile, JSON.stringify(this.data, null, 2));
+      this._lastOwnSaveTime = Date.now();
     } catch (e) {
       console.error('[DB] Save error:', e.message);
+    }
+  }
+
+  // --- Google Drive / External Sync File Watcher ---
+  startFileWatcher() {
+    if (this._fileWatcher) return;
+    this._lastOwnSaveTime = Date.now();
+    this._lastKnownMtime = 0;
+    try {
+      const stat = fs.statSync(this.dbFile);
+      this._lastKnownMtime = stat.mtimeMs;
+    } catch (_) {}
+
+    this._fileWatcher = setInterval(() => {
+      try {
+        if (!fs.existsSync(this.dbFile)) return;
+        const stat = fs.statSync(this.dbFile);
+        const fileMtime = stat.mtimeMs;
+        if (fileMtime > this._lastKnownMtime && (fileMtime - this._lastOwnSaveTime) > 2000) {
+          console.log('[FileWatcher] External file change detected, reloading data...');
+          this._lastKnownMtime = fileMtime;
+          const newData = JSON.parse(fs.readFileSync(this.dbFile, 'utf8'));
+          this.data = newData;
+          console.log('[FileWatcher] Data reloaded. Entries:', (this.data.entries || []).length);
+        } else {
+          this._lastKnownMtime = fileMtime;
+        }
+      } catch (_) {}
+    }, 5000);
+  }
+
+  stopFileWatcher() {
+    if (this._fileWatcher) {
+      clearInterval(this._fileWatcher);
+      this._fileWatcher = null;
     }
   }
 
@@ -1097,6 +1133,12 @@ async function startServer() {
         console.log(`  Browser mein kholein: http://localhost:${PORT}`);
       }
     }
+
+    // Start file watcher for Google Drive / external sync detection
+    if (database && database.startFileWatcher) {
+      database.startFileWatcher();
+      console.log('[Server] File watcher started for external sync detection');
+    }
   });
 }
 
@@ -1106,6 +1148,7 @@ startServer();
 process.on('SIGINT', () => {
   console.log('\n[Server] Shutting down... data save ho raha hai...');
   if (database) {
+    if (database.stopFileWatcher) database.stopFileWatcher();
     if (database.close) database.close();
     else database.save();
   }
@@ -1114,6 +1157,7 @@ process.on('SIGINT', () => {
 
 process.on('SIGTERM', () => {
   if (database) {
+    if (database.stopFileWatcher) database.stopFileWatcher();
     if (database.close) database.close();
     else database.save();
   }

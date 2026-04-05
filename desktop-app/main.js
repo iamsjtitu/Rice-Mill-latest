@@ -360,8 +360,50 @@ class JsonDatabase {
         try { fs.copyFileSync(this.dbFile, bakFile); } catch (_) {}
       }
       fs.renameSync(tmpFile, this.dbFile);
+      // Track our own save time to distinguish from external changes
+      this._lastOwnSaveTime = Date.now();
     } catch (e) {
       logError('DATABASE_SAVE_ERROR', e);
+    }
+  }
+
+  // --- Google Drive / External Sync File Watcher ---
+  startFileWatcher() {
+    if (this._fileWatcher) return; // Already watching
+    this._lastOwnSaveTime = Date.now();
+    this._lastKnownMtime = 0;
+    try {
+      const stat = fs.statSync(this.dbFile);
+      this._lastKnownMtime = stat.mtimeMs;
+    } catch (_) {}
+
+    // Poll every 5 seconds - works reliably on Google Drive / network folders
+    this._fileWatcher = setInterval(() => {
+      try {
+        if (!fs.existsSync(this.dbFile)) return;
+        const stat = fs.statSync(this.dbFile);
+        const fileMtime = stat.mtimeMs;
+        // File changed and it was NOT our own save (allow 2s buffer)
+        if (fileMtime > this._lastKnownMtime && (fileMtime - this._lastOwnSaveTime) > 2000) {
+          console.log('[FileWatcher] External file change detected, reloading data...');
+          this._lastKnownMtime = fileMtime;
+          const newData = JSON.parse(fs.readFileSync(this.dbFile, 'utf8'));
+          this.data = newData;
+          this.migrateOldEntries(this.data);
+          console.log('[FileWatcher] Data reloaded from external change. Entries:', (this.data.entries || []).length);
+        } else {
+          this._lastKnownMtime = fileMtime;
+        }
+      } catch (e) {
+        // Ignore transient read errors during sync
+      }
+    }, 5000);
+  }
+
+  stopFileWatcher() {
+    if (this._fileWatcher) {
+      clearInterval(this._fileWatcher);
+      this._fileWatcher = null;
     }
   }
 
@@ -1259,6 +1301,10 @@ function createApiServer(database) {
   process.on('SIGINT', () => { cleanupSession(); process.exit(); });
   app.on('before-quit', () => {
     cleanupSession();
+    // Stop file watcher
+    if (database && database.stopFileWatcher) {
+      database.stopFileWatcher();
+    }
     // Close SQLite connection gracefully
     if (database && database.close) {
       try { database.close(); } catch (e) { console.error('[Quit] SQLite close error:', e.message); }
@@ -2314,6 +2360,11 @@ async function startApplication(folderPath) {
     }
     // Cleanup duplicate backup folders (Google Drive sync conflict)
     cleanupDuplicateBackupFolders();
+    // Start file watcher for Google Drive / external sync detection
+    if (db && db.startFileWatcher) {
+      db.startFileWatcher();
+      console.log('[Startup] File watcher started for external sync detection');
+    }
   }, 3000);
 
   // Daily backup check

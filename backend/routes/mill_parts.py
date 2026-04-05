@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import Optional
 from datetime import datetime, timezone
 from database import db
+from utils.date_format import fmt_date
 import uuid
 
 router = APIRouter()
@@ -680,7 +681,7 @@ async def export_transactions_excel(kms_year: Optional[str] = None, season: Opti
             total_in_amt += amt; total_in_qty += qty
         else:
             total_used_qty += qty
-        vals = [t.get('date',''), t.get('part_name',''), t.get('store_room_name','') or '', typ, qty, t.get('rate',0), amt, t.get('party_name',''), t.get('bill_no',''), t.get('remark','')]
+        vals = [fmt_date(t.get('date','')), t.get('part_name',''), t.get('store_room_name','') or '', typ, qty, t.get('rate',0), amt, t.get('party_name',''), t.get('bill_no',''), t.get('remark','')]
         for ci, v in enumerate(vals, 1):
             ws.cell(row=row, column=ci, value=v)
 
@@ -749,7 +750,7 @@ async def export_transactions_pdf(kms_year: Optional[str] = None, season: Option
         typ = 'IN' if t.get('txn_type') == 'in' else 'USED'
         amt = t.get('total_amount') or t.get('total_cost') or 0
         if t.get('txn_type') == 'in': total_amt += amt
-        data.append([t.get('date',''), t.get('part_name',''), t.get('store_room_name','') or '', typ, t.get('quantity',0), t.get('rate',0),
+        data.append([fmt_date(t.get('date','')), t.get('part_name',''), t.get('store_room_name','') or '', typ, t.get('quantity',0), t.get('rate',0),
             f'Rs.{amt:,.0f}' if amt else '-', t.get('party_name',''), t.get('bill_no',''), t.get('remark','')])
     data.append(['TOTAL', '', '', '', '', '', f'Rs.{total_amt:,.0f}', '', '', ''])
 
@@ -880,7 +881,7 @@ async def export_part_summary_excel(part_name: str, kms_year: Optional[str] = No
     for idx, t in enumerate(txns):
         typ = "IN" if t.get("txn_type") == "in" else "USED"
         amt = t.get("total_amount") or 0
-        vals = [t.get("date",""), typ, t.get("quantity",0), t.get("rate",0), amt, t.get("party_name",""), t.get("bill_no",""), t.get("remark","")]
+        vals = [fmt_date(t.get("date","")), typ, t.get("quantity",0), t.get("rate",0), amt, t.get("party_name",""), t.get("bill_no",""), t.get("remark","")]
         for ci, v in enumerate(vals):
             c = ws.cell(tr, ci + 1, v)
             c.border = thin
@@ -1004,7 +1005,7 @@ async def export_part_summary_pdf(part_name: str, kms_year: Optional[str] = None
         for t in txns:
             typ = "IN" if t.get("txn_type") == "in" else "USED"
             amt = t.get("total_amount") or 0
-            txn_data.append([t.get("date",""), typ, t.get("quantity",0), t.get("rate",0),
+            txn_data.append([fmt_date(t.get("date","")), typ, t.get("quantity",0), t.get("rate",0),
                              f"Rs.{amt:,.0f}" if amt else "-", t.get("party_name",""),
                              t.get("bill_no",""), (t.get("remark","") or "")[:20]])
 

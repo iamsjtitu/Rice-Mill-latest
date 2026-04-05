@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
+from utils.date_format import fmt_date
 import uuid, io, csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side

@@ -30,7 +30,7 @@ module.exports = function(database) {
         { header: 'D/D/P', key: 'disc_dust_poll', width: 8 }, { header: 'Final W', key: 'final_w', width: 12 },
         { header: 'G.Issued', key: 'g_issued', width: 10 }
       ];
-      entries.forEach(e => ws.addRow({ date: e.date, truck_no: e.truck_no, rst_no: e.rst_no || '', tp_no: e.tp_no || '', agent_name: e.agent_name, mandi_name: e.mandi_name, qntl: +(e.qntl||0).toFixed(2), bag: e.bag||0, g_deposite: e.g_deposite||0, gbw_cut: +((e.gbw_cut||0)/100).toFixed(2), plastic_bag: e.plastic_bag||0, p_pkt_cut: +((e.p_pkt_cut||0)/100).toFixed(2), mill_w: +((e.mill_w||0)/100).toFixed(2), moisture: e.moisture||0, moisture_cut: +((e.moisture_cut||0)/100).toFixed(2), cutting_percent: e.cutting_percent||0, disc_dust_poll: e.disc_dust_poll||0, final_w: +((e.final_w||0)/100).toFixed(2), g_issued: e.g_issued||0 }));
+      entries.forEach(e => ws.addRow({ date: fmtDate(e.date), truck_no: e.truck_no, rst_no: e.rst_no || '', tp_no: e.tp_no || '', agent_name: e.agent_name, mandi_name: e.mandi_name, qntl: +(e.qntl||0).toFixed(2), bag: e.bag||0, g_deposite: e.g_deposite||0, gbw_cut: +((e.gbw_cut||0)/100).toFixed(2), plastic_bag: e.plastic_bag||0, p_pkt_cut: +((e.p_pkt_cut||0)/100).toFixed(2), mill_w: +((e.mill_w||0)/100).toFixed(2), moisture: e.moisture||0, moisture_cut: +((e.moisture_cut||0)/100).toFixed(2), cutting_percent: e.cutting_percent||0, disc_dust_poll: e.disc_dust_poll||0, final_w: +((e.final_w||0)/100).toFixed(2), g_issued: e.g_issued||0 }));
 
       // Add totals row
       if (entries.length > 0) {
@@ -99,7 +99,7 @@ module.exports = function(database) {
       const entries = database.getEntries(req.query);
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Truck Payments');
       ws.columns = [{header:'Date',key:'date',width:12},{header:'Truck No',key:'truck_no',width:14},{header:'Mandi',key:'mandi',width:14},{header:'Final QNTL',key:'fq',width:12},{header:'Rate',key:'rate',width:8},{header:'Gross',key:'gross',width:12},{header:'Cash',key:'cash',width:10},{header:'Diesel',key:'diesel',width:10},{header:'Deductions',key:'ded',width:12},{header:'Net',key:'net',width:12},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
-      entries.forEach(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); ws.addRow({date:e.date,truck_no:e.truck_no,mandi:e.mandi_name,fq:+fq.toFixed(2),rate:p.rate_per_qntl,gross:+g.toFixed(2),cash:e.cash_paid||0,diesel:e.diesel_paid||0,ded:+d.toFixed(2),net:+n.toFixed(2),paid:p.paid_amount,bal:+b.toFixed(2),status:b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
+      entries.forEach(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); ws.addRow({date:fmtDate(e.date),truck_no:e.truck_no,mandi:e.mandi_name,fq:+fq.toFixed(2),rate:p.rate_per_qntl,gross:+g.toFixed(2),cash:e.cash_paid||0,diesel:e.diesel_paid||0,ded:+d.toFixed(2),net:+n.toFixed(2),paid:p.paid_amount,bal:+b.toFixed(2),status:b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
       addExcelTitle(ws, 'Truck Payments', 13, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=truck_payments_${Date.now()}.xlsx`);
@@ -117,7 +117,7 @@ module.exports = function(database) {
       // PDF will be sent via safePdfPipe
       addPdfHeader(doc, 'Truck Payments Report');
       const h = ['Date','Truck','Mandi','Final QNTL','Rate','Gross','Ded','Net','Paid','Balance','Status'];
-      const rows = entries.map(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); return [e.date,e.truck_no,e.mandi_name,fq.toFixed(2),p.rate_per_qntl,g.toFixed(2),d.toFixed(2),n.toFixed(2),p.paid_amount,b.toFixed(2),b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
+      const rows = entries.map(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); return [fmtDate(e.date),e.truck_no,e.mandi_name,fq.toFixed(2),p.rate_per_qntl,g.toFixed(2),d.toFixed(2),n.toFixed(2),p.paid_amount,b.toFixed(2),b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')]; });
       addPdfTable(doc, h, rows, [50,55,55,45,35,50,50,50,45,50,40]); await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: err.message }); }
   }));
@@ -326,7 +326,7 @@ module.exports = function(database) {
         { header: 'Husk %', key: 'husk_pct', width: 9 }, { header: 'Note', key: 'note', width: 14 }
       ];
       entries.forEach(e => {
-        ws.addRow({ date: e.date, rice_type: (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
+        ws.addRow({ date: fmtDate(e.date), rice_type: (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
           paddy: e.paddy_input_qntl||0, rice_pct: e.rice_percent||0, rice: e.rice_qntl||0,
           frk: e.frk_used_qntl||0, cmr: e.cmr_delivery_qntl||0, outturn: e.outturn_ratio||0,
           bran: e.bran_qntl||0, kunda: e.kunda_qntl||0, husk_pct: e.husk_percent||0, note: e.note||'' });
@@ -370,7 +370,7 @@ module.exports = function(database) {
         { header: 'Qty (QNTL)', key: 'qty', width: 12 }, { header: 'Rate (Rs./Q)', key: 'rate', width: 12 },
         { header: 'Amount (Rs.)', key: 'amount', width: 14 }, { header: 'Note', key: 'note', width: 16 }
       ];
-      purchases.forEach(p => ws.addRow({ date: p.date, party: p.party_name||'', qty: p.quantity_qntl||0, rate: p.rate_per_qntl||0, amount: p.total_amount||0, note: p.note||'' }));
+      purchases.forEach(p => ws.addRow({ date: fmtDate(p.date), party: p.party_name||'', qty: p.quantity_qntl||0, rate: p.rate_per_qntl||0, amount: p.total_amount||0, note: p.note||'' }));
       const totalRow = ws.addRow({ date: 'TOTAL', party: '', qty: +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2), rate: '', amount: +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2), note: '' });
       totalRow.font = { bold: true };
       addExcelTitle(ws, 'FRK Purchase Register', 6, database); styleExcelHeader(ws); styleExcelData(ws, 5);
@@ -429,7 +429,7 @@ module.exports = function(database) {
       ws.addRow({});
       const detailHeaderRow = ws.addRow({ product: 'Date', produced: 'Product', sold: 'Qty (Q)', available: 'Rate (Rs./Q)', revenue: 'Amount (Rs.)' });
       detailHeaderRow.font = { bold: true };
-      sales.forEach(s => ws.addRow({ product: s.date||'', produced: (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), sold: s.quantity_qntl||0, available: s.rate_per_qntl||0, revenue: s.total_amount||0 }));
+      sales.forEach(s => ws.addRow({ product: fmtDate(s.date)||'', produced: (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), sold: s.quantity_qntl||0, available: s.rate_per_qntl||0, revenue: s.total_amount||0 }));
       const totalRow = ws.addRow({ product: 'TOTAL', produced: '', sold: +sales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2), available: '', revenue: +sales.reduce((s,e)=>s+(e.total_amount||0),0).toFixed(2) });
       totalRow.font = { bold: true };
       addExcelTitle(ws, 'By-Product Stock & Sales Report', 5, database); styleExcelHeader(ws); styleExcelData(ws, 5);
@@ -469,7 +469,7 @@ module.exports = function(database) {
       const headers = ['Date','Product','Qty(Q)','Rate(Rs.)','Amount(Rs.)','Buyer'];
       const tq = +sales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2);
       const ta = +sales.reduce((s,e)=>s+(e.total_amount||0),0).toFixed(2);
-      const rows = sales.map(s => [s.date||'', (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), s.quantity_qntl||0, s.rate_per_qntl||0, s.total_amount||0, (s.buyer_name||'').substring(0,20)]);
+      const rows = sales.map(s => [fmtDate(s.date)||'', (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), s.quantity_qntl||0, s.rate_per_qntl||0, s.total_amount||0, (s.buyer_name||'').substring(0,20)]);
       rows.push(['TOTAL', '', tq, '', ta, '']);
       addPdfTable(doc, headers, rows, [55, 55, 45, 50, 60, 90]);
       await safePdfPipe(doc, res);
@@ -485,9 +485,9 @@ module.exports = function(database) {
       if (filters.season) entries = entries.filter(e => e.season === filters.season);
       const millingEntries = database.getMillingEntries(filters);
       const rows = [];
-      entries.forEach(e => rows.push({ date: fmtDate(e.date), type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
-      millingEntries.forEach(e => rows.push({ date: fmtDate(e.date), type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
-      rows.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      entries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
+      millingEntries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
+      rows.sort((a,b) => (a._rawDate).localeCompare(b._rawDate));
       let balance = 0;
       rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Paddy Custody Register');
@@ -514,9 +514,9 @@ module.exports = function(database) {
       if (filters.season) entries = entries.filter(e => e.season === filters.season);
       const millingEntries = database.getMillingEntries(filters);
       const rows = [];
-      entries.forEach(e => rows.push({ date: fmtDate(e.date), type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
-      millingEntries.forEach(e => rows.push({ date: fmtDate(e.date), type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
-      rows.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      entries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
+      millingEntries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
+      rows.sort((a,b) => (a._rawDate).localeCompare(b._rawDate));
       let balance = 0;
       rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
       const doc = new PDFDocument({ size: 'A4', margin: 30 });

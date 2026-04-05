@@ -1,4 +1,5 @@
 import json, os
+from utils.date_format import fmt_date
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), '../../shared/report_config.json')
 
@@ -10,7 +11,9 @@ def get_columns(report_name, subkey="columns"):
     return load_config()[report_name][subkey]
 
 def fmt_val(value, col_type):
-    if col_type == "qntl":
+    if col_type == "date":
+        return fmt_date(value or "")
+    elif col_type == "qntl":
         return round((value or 0) / 100, 2)
     elif col_type == "integer":
         return int(value or 0)

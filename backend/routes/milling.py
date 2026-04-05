@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
+from utils.date_format import fmt_date
 import uuid
 import io
 import csv
@@ -451,7 +452,7 @@ async def export_milling_report_excel(kms_year: Optional[str] = None, season: Op
     data_start = 5
     for idx, e in enumerate(entries):
         row = idx + data_start
-        vals = [e.get('date',''), e.get('rice_type','').title(), e.get('paddy_input_qntl',0), e.get('rice_percent',0),
+        vals = [fmt_date(e.get('date','')), e.get('rice_type','').title(), e.get('paddy_input_qntl',0), e.get('rice_percent',0),
             e.get('rice_qntl',0), e.get('frk_used_qntl',0), e.get('cmr_delivery_qntl',0), e.get('outturn_ratio',0),
             e.get('bran_qntl',0), e.get('kunda_qntl',0), e.get('husk_percent',0), e.get('note','')]
         for col, v in enumerate(vals, 1):
@@ -511,7 +512,7 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
     for e in entries:
         tp += e.get('paddy_input_qntl',0); tr += e.get('rice_qntl',0); tf += e.get('frk_used_qntl',0)
         tc += e.get('cmr_delivery_qntl',0); tb += e.get('bran_qntl',0); tk += e.get('kunda_qntl',0)
-        data.append([e.get('date',''), e.get('rice_type','').title()[:3], e.get('paddy_input_qntl',0),
+        data.append([fmt_date(e.get('date','')), e.get('rice_type','').title()[:3], e.get('paddy_input_qntl',0),
             f"{e.get('rice_percent',0)}%", e.get('rice_qntl',0), e.get('frk_used_qntl',0),
             e.get('cmr_delivery_qntl',0), f"{e.get('outturn_ratio',0)}%", e.get('bran_qntl',0), e.get('kunda_qntl',0), f"{e.get('husk_percent',0)}%"])
     data.append(['TOTAL', '', round(tp,2), '', round(tr,2), round(tf,2), round(tc,2), '', round(tb,2), round(tk,2), ''])
@@ -561,7 +562,7 @@ async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Opt
     data_start = 5
     for idx, r in enumerate(rows):
         row_num = idx + data_start
-        vals = [r['date'], r['description'], r['received_qntl'] if r['received_qntl'] > 0 else '',
+        vals = [fmt_date(r['date']), r['description'], r['received_qntl'] if r['received_qntl'] > 0 else '',
             r['issued_qntl'] if r['issued_qntl'] > 0 else '', r['balance_qntl']]
         for col, v in enumerate(vals, 1):
             cell = ws.cell(row=row_num, column=col, value=v)
@@ -616,7 +617,7 @@ async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optio
     
     data = [['Date', 'Description', 'Received (Q)', 'Released (Q)', 'Balance (Q)']]
     for r in rows:
-        data.append([r['date'], r['description'][:60], r['received_qntl'] if r['received_qntl'] > 0 else '-',
+        data.append([fmt_date(r['date']), r['description'][:60], r['received_qntl'] if r['received_qntl'] > 0 else '-',
             r['issued_qntl'] if r['issued_qntl'] > 0 else '-', r['balance_qntl']])
     data.append(['TOTAL', '', register['total_received'], register['total_issued'], register['final_balance']])
     
@@ -657,7 +658,7 @@ async def export_frk_purchases_excel(kms_year: Optional[str] = None, season: Opt
     data_start = 5
     for idx, p in enumerate(purchases):
         row = idx + data_start
-        for col, v in enumerate([p.get('date',''), p.get('party_name',''), p.get('quantity_qntl',0), p.get('rate_per_qntl',0), p.get('total_amount',0), p.get('note','')], 1):
+        for col, v in enumerate([fmt_date(p.get('date','')), p.get('party_name',''), p.get('quantity_qntl',0), p.get('rate_per_qntl',0), p.get('total_amount',0), p.get('note','')], 1):
             ws.cell(row=row, column=col, value=v)
             if col >= 3: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
     
@@ -704,7 +705,7 @@ async def export_frk_purchases_pdf(kms_year: Optional[str] = None, season: Optio
     tq = ta = 0
     for p in purchases:
         tq += p.get('quantity_qntl',0); ta += p.get('total_amount',0)
-        data.append([p.get('date',''), p.get('party_name','')[:25], p.get('quantity_qntl',0), p.get('rate_per_qntl',0), p.get('total_amount',0), p.get('note','')[:20]])
+        data.append([fmt_date(p.get('date','')), p.get('party_name','')[:25], p.get('quantity_qntl',0), p.get('rate_per_qntl',0), p.get('total_amount',0), p.get('note','')[:20]])
     data.append(['TOTAL', '', round(tq,2), '', round(ta,2), ''])
     
     table = RLTable(data, colWidths=[60, 120, 55, 55, 70, 80], repeatRows=1)

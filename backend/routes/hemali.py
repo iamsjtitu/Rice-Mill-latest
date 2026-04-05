@@ -5,6 +5,7 @@ from typing import Optional
 from datetime import datetime, timezone
 from database import db
 from pydantic import BaseModel, Field, ConfigDict
+from utils.date_format import fmt_date
 import uuid
 import io
 
@@ -837,7 +838,7 @@ async def export_hemali_excel(
     grand_total = grand_paid = 0
     for idx, p in enumerate(payments, 1):
         items_str = ", ".join(f"{i.get('item_name','')} x{i.get('quantity',0)}" for i in p.get("items", []))
-        vals = [idx, p.get("date", ""), p.get("sardar_name", ""), items_str,
+        vals = [idx, fmt_date(p.get("date", "")), p.get("sardar_name", ""), items_str,
                 p.get("total", 0), p.get("advance_deducted", 0), p.get("amount_payable", 0),
                 p.get("amount_paid", 0), p.get("new_advance", 0)]
         for ci, v in enumerate(vals, 1):

@@ -6,6 +6,7 @@ from database import db, USERS, print_pages
 from models import *
 from utils.optimistic_lock import optimistic_update, stamp_version
 from utils.audit import log_audit
+from utils.date_format import fmt_date
 import uuid, io, csv
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -908,7 +909,7 @@ async def export_excel(
     
     for idx, entry in enumerate(entries):
         row_data = [
-            entry.get('date', ''),
+            fmt_date(entry.get('date', '')),
             entry.get('truck_no', ''),
             entry.get('rst_no', ''),
             entry.get('tp_no', ''),
@@ -1100,7 +1101,7 @@ async def export_pdf(
     
     for entry in entries:
         row = [
-            entry.get('date', '')[:10] if entry.get('date') else '',
+            fmt_date(entry.get('date', '')[:10]) if entry.get('date') else '',
             entry.get('truck_no', '')[:10] if entry.get('truck_no') else '',
             entry.get('rst_no', '')[:8] if entry.get('rst_no') else '',
             entry.get('tp_no', '')[:8] if entry.get('tp_no') else '',
@@ -1223,7 +1224,7 @@ async def export_truck_payments_excel(
         total_balance += balance
         
         payments_data.append({
-            "date": entry.get("date", ""),
+            "date": fmt_date(entry.get("date", "")),
             "truck_no": entry.get("truck_no", ""),
             "mandi_name": entry.get("mandi_name", ""),
             "final_qntl": final_qntl,
@@ -1363,7 +1364,7 @@ async def export_truck_payments_pdf(
         total_balance += balance
         
         payments_data.append([
-            entry.get("date", "")[:10],
+            fmt_date(entry.get("date", "")[:10]),
             entry.get("truck_no", "")[:12],
             entry.get("mandi_name", "")[:12],
             f"{final_qntl}",
