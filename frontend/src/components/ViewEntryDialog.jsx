@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Truck, MapPin, User, Calendar, Wheat, Weight, Droplets, Scissors, CircleDollarSign } from "lucide-react";
 import { fmtDate } from "@/utils/date";
@@ -29,7 +30,15 @@ function Val({ label, value, color, large, mono }) {
 }
 
 export default function ViewEntryDialog({ entry, onClose }) {
+  useEffect(() => {
+    if (!entry) return;
+    const handleKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [entry, onClose]);
+
   if (!entry) return null;
+
   const q = (v) => ((v || 0) / 100).toFixed(2);
   const rs = (v) => v ? `Rs. ${Number(v).toLocaleString('en-IN')}` : '-';
 
