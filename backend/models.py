@@ -352,6 +352,14 @@ def round_amount(val):
     return int(n)
 
 
+def fmt_date(d):
+    """Convert YYYY-MM-DD to DD-MM-YYYY"""
+    if not d:
+        return ''
+    p = str(d)[:10].split('-')
+    return f"{p[2]}-{p[1]}-{p[0]}" if len(p) == 3 else str(d)
+
+
 def calculate_auto_fields(data: dict) -> dict:
     kg = data.get('kg', 0) or 0
     gbw_cut = data.get('gbw_cut', 0) or 0

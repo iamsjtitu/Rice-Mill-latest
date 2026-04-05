@@ -99,6 +99,8 @@ const LoginPage = ({ onLogin }) => {
                   placeholder="Enter username"
                   className="pl-10 bg-slate-700 border-slate-600 text-white"
                   data-testid="login-username"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); document.querySelector('[data-testid="login-password"]')?.focus(); } }}
                 />
               </div>
             </div>
