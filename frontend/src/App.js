@@ -150,15 +150,8 @@ function MainApp({ user, setUser, onLogout }) {
   }, [entriesSubTab]);
   const [pendingVwCount, setPendingVwCount] = useState(0);
   const [paymentsInitSubTab, setPaymentsInitSubTab] = useState(null);
-  const [highlightEntryId, setHighlightEntryId] = useState(null);
-
-  // Navigate from PPR to Mill Entries and highlight specific entry
-  const navigateToMillEntry = useCallback((entryId) => {
-    setEntriesSubTabSafe("mill-entries");
-    setHighlightEntryId(entryId);
-    // Clear highlight after 5 seconds
-    setTimeout(() => setHighlightEntryId(null), 5000);
-  }, [setEntriesSubTabSafe]);
+  const [viewEntryData, setViewEntryData] = useState(null);
+  const [savedFiltersBeforeView, setSavedFiltersBeforeView] = useState(null);
   const [quickSearchOpen, setQuickSearchOpen] = useState(false);
   const { wa, tg } = useMessagingEnabled();
   const [entryGroupDialogOpen, setEntryGroupDialogOpen] = useState(false);
@@ -220,6 +213,29 @@ function MainApp({ user, setUser, onLogout }) {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Navigate from PPR to Mill Entries and open View dialog
+  const navigateToMillEntry = useCallback(async (entryId) => {
+    try {
+      const res = await axios.get(`${API}/entries/${entryId}`);
+      if (res.data) {
+        setSavedFiltersBeforeView({ ...filters });
+        setEntriesSubTabSafe("mill-entries");
+        setViewEntryData(res.data);
+      }
+    } catch (err) {
+      console.error("Entry fetch failed:", err);
+    }
+  }, [filters, setEntriesSubTabSafe]);
+
+  // Called when View dialog is closed after PPR navigation
+  const handleCloseViewEntry = useCallback(() => {
+    setViewEntryData(null);
+    if (savedFiltersBeforeView) {
+      setFilters(savedFiltersBeforeView);
+      setSavedFiltersBeforeView(null);
+    }
+  }, [savedFiltersBeforeView]);
 
   // Load saved FY setting on mount
   useEffect(() => {
@@ -1466,7 +1482,8 @@ function MainApp({ user, setUser, onLogout }) {
               canEditEntry={canEditEntry}
               fetchEntries={fetchEntries}
               setEntriesPage={setEntriesPage}
-              highlightEntryId={highlightEntryId}
+              viewEntryData={viewEntryData}
+              onCloseViewEntry={handleCloseViewEntry}
             />
             </>
             )}

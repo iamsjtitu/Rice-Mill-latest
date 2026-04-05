@@ -1,53 +1,99 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Trash2, Edit, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
+import { Trash2, Edit, RefreshCw, Eye, X } from "lucide-react";
 import RecordHistory from "@/components/RecordHistory";
 import PaginationBar from "@/components/PaginationBar";
 import { fmtDate } from "@/utils/date";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+
+function ViewEntryDialog({ entry, onClose }) {
+  if (!entry) return null;
+  const fmt = (v, isQntl) => isQntl ? ((v || 0) / 100).toFixed(2) : (v || 0);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose} data-testid="view-entry-dialog">
+      <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-2xl w-[95vw] max-w-[700px] max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 border-b border-slate-700 sticky top-0 bg-slate-800 z-10">
+          <h2 className="text-amber-400 font-semibold text-lg">Entry Details - {entry.truck_no}</h2>
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0 text-slate-400 hover:text-white" data-testid="view-dialog-close">
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+        <div className="p-5 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+          <Field label="Date" value={fmtDate(entry.date)} />
+          <Field label="KMS Year" value={entry.kms_year} />
+          <Field label="Season" value={entry.season} />
+          <Field label="Truck No" value={entry.truck_no} highlight />
+          <Field label="RST No" value={entry.rst_no} />
+          <Field label="TP No" value={entry.tp_no} />
+          <Field label="Agent" value={entry.agent_name} />
+          <Field label="Mandi" value={entry.mandi_name} />
+          <Field label="QNTL" value={entry.qntl?.toFixed(2)} color="text-green-400" />
+          <Field label="Bags" value={entry.bag} />
+          <Field label="G.Deposite" value={entry.g_deposite} color="text-cyan-400" />
+          <Field label="GBW Cut (Q)" value={fmt(entry.gbw_cut, true)} />
+          <Field label="Plastic Bag" value={entry.plastic_bag} color="text-pink-400" />
+          <Field label="P.Pkt Cut (Q)" value={fmt(entry.p_pkt_cut, true)} color="text-pink-300" />
+          <Field label="Mill W (Q)" value={fmt(entry.mill_w, true)} color="text-blue-400" />
+          <Field label="Moisture %" value={entry.moisture} color="text-orange-400" />
+          <Field label="Moisture Cut (Q)" value={fmt(entry.moisture_cut, true)} color="text-orange-300" />
+          <Field label="Cutting %" value={entry.cutting_percent} color="text-purple-400" />
+          <Field label="Cutting (Q)" value={fmt(entry.cutting, true)} />
+          <Field label="D/D/P" value={entry.disc_dust_poll} />
+          <Field label="Final W (Q)" value={fmt(entry.final_w, true)} color="text-amber-400" bold />
+          <Field label="G.Issued" value={entry.g_issued} color="text-cyan-400" />
+          <Field label="KG" value={entry.kg} />
+          <Field label="Cash Paid" value={entry.cash_paid ? `Rs.${Number(entry.cash_paid).toLocaleString('en-IN')}` : '-'} color="text-green-400" />
+          <Field label="Diesel Paid" value={entry.diesel_paid ? `Rs.${Number(entry.diesel_paid).toLocaleString('en-IN')}` : '-'} color="text-orange-400" />
+          <Field label="Created By" value={entry.created_by} />
+          <Field label="Created At" value={entry.created_at ? new Date(entry.created_at).toLocaleString('en-IN') : '-'} />
+          <div className="col-span-2 sm:col-span-3">
+            <Field label="Remark" value={entry.remark || '-'} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, value, color, highlight, bold }) {
+  return (
+    <div>
+      <p className="text-slate-500 text-xs mb-0.5">{label}</p>
+      <p className={`${color || 'text-slate-200'} ${bold ? 'font-bold text-base' : ''} ${highlight ? 'font-mono font-semibold' : ''}`}>
+        {value || '-'}
+      </p>
+    </div>
+  );
+}
 
 export function EntryTable({
-  totals,
-  entries,
-  entriesPage,
-  entriesTotalPages,
-  entriesTotalCount,
-  pageSize,
-  selectedEntries,
-  selectAll,
-  loading,
-  leasedTruckNos,
-  hasActiveFilters,
-  filters,
-  todayStr,
-  handleSelectAll,
-  handleSelectEntry,
-  handleBulkDelete,
-  handleEdit,
-  handleDelete,
-  canEditEntry,
-  fetchEntries,
-  setEntriesPage,
-  highlightEntryId,
+  totals, entries, entriesPage, entriesTotalPages, entriesTotalCount, pageSize,
+  selectedEntries, selectAll, loading, leasedTruckNos, hasActiveFilters, filters, todayStr,
+  handleSelectAll, handleSelectEntry, handleBulkDelete, handleEdit, handleDelete,
+  canEditEntry, fetchEntries, setEntriesPage, viewEntryData, onCloseViewEntry,
 }) {
-  const [expandedRow, setExpandedRow] = useState(null);
+  const [viewEntry, setViewEntry] = useState(null);
 
-  // Auto-expand highlighted entry from PPR navigation
+  // Open view dialog when navigated from PPR
   useEffect(() => {
-    if (highlightEntryId) {
-      setExpandedRow(highlightEntryId);
+    if (viewEntryData) {
+      setViewEntry(viewEntryData);
     }
-  }, [highlightEntryId]);
+  }, [viewEntryData]);
+
+  const handleCloseView = () => {
+    setViewEntry(null);
+    if (onCloseViewEntry) onCloseViewEntry();
+  };
+
   return (
     <>
+      {/* View Entry Dialog */}
+      {viewEntry && <ViewEntryDialog entry={viewEntry} onClose={handleCloseView} />}
+
       {/* Totals Summary */}
       <Card className="bg-slate-800/50 border-slate-700 mb-6">
         <CardHeader>
@@ -60,39 +106,27 @@ export function EntryTable({
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
             <div className="bg-green-900/30 p-3 rounded-lg border border-green-700">
               <p className="text-green-400 text-xs">Total QNTL</p>
-              <p className="text-green-400 text-lg font-bold" data-testid="total-qntl">
-                {totals.total_qntl?.toFixed(2) || 0}
-              </p>
+              <p className="text-green-400 text-lg font-bold" data-testid="total-qntl">{totals.total_qntl?.toFixed(2) || 0}</p>
             </div>
             <div className="bg-slate-700/50 p-3 rounded-lg">
               <p className="text-slate-400 text-xs">Total BAG</p>
-              <p className="text-white text-lg font-bold" data-testid="total-bag">
-                {totals.total_bag?.toLocaleString() || 0}
-              </p>
+              <p className="text-white text-lg font-bold" data-testid="total-bag">{totals.total_bag?.toLocaleString() || 0}</p>
             </div>
             <div className="bg-blue-900/30 p-3 rounded-lg border border-blue-700">
               <p className="text-blue-400 text-xs">Total Mill W (QNTL)</p>
-              <p className="text-blue-400 text-lg font-bold" data-testid="total-mill-w">
-                {(totals.total_mill_w / 100)?.toFixed(2) || 0}
-              </p>
+              <p className="text-blue-400 text-lg font-bold" data-testid="total-mill-w">{(totals.total_mill_w / 100)?.toFixed(2) || 0}</p>
             </div>
             <div className="bg-amber-900/30 p-3 rounded-lg border border-amber-700">
               <p className="text-amber-400 text-xs">Total Final W (QNTL)</p>
-              <p className="text-amber-400 text-lg font-bold" data-testid="total-final-w">
-                {(totals.total_final_w / 100)?.toFixed(2) || 0}
-              </p>
+              <p className="text-amber-400 text-lg font-bold" data-testid="total-final-w">{(totals.total_final_w / 100)?.toFixed(2) || 0}</p>
             </div>
             <div className="bg-cyan-900/30 p-3 rounded-lg border border-cyan-700">
               <p className="text-cyan-400 text-xs">Total G.Issued</p>
-              <p className="text-cyan-400 text-lg font-bold" data-testid="total-g-issued">
-                {totals.total_g_issued?.toLocaleString() || 0}
-              </p>
+              <p className="text-cyan-400 text-lg font-bold" data-testid="total-g-issued">{totals.total_g_issued?.toLocaleString() || 0}</p>
             </div>
             <div className="bg-slate-700/50 p-3 rounded-lg">
               <p className="text-slate-400 text-xs">Total Cash Paid</p>
-              <p className="text-white text-lg font-bold" data-testid="total-cash">
-                {totals.total_cash_paid?.toLocaleString() || 0}
-              </p>
+              <p className="text-white text-lg font-bold" data-testid="total-cash">{totals.total_cash_paid?.toLocaleString() || 0}</p>
             </div>
           </div>
         </CardContent>
@@ -105,14 +139,8 @@ export function EntryTable({
             <span>Mill Entries ({entriesTotalCount.toLocaleString()}) - FY: {filters.kms_year || "All"}</span>
             <div className="flex items-center gap-3">
               {selectedEntries.length > 0 && (
-                <Button
-                  onClick={handleBulkDelete}
-                  size="sm"
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                  data-testid="bulk-delete-btn"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Delete ({selectedEntries.length})
+                <Button onClick={handleBulkDelete} size="sm" className="bg-red-600 hover:bg-red-700 text-white" data-testid="bulk-delete-btn">
+                  <Trash2 className="w-4 h-4 mr-1" /> Delete ({selectedEntries.length})
                 </Button>
               )}
               {loading && <RefreshCw className="w-5 h-5 animate-spin text-slate-400" />}
@@ -124,15 +152,10 @@ export function EntryTable({
             <Table className="text-[11px]">
               <TableHeader>
                 <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                  <TableHead className="text-slate-300 w-6 px-0.5"></TableHead>
                   <TableHead className="text-slate-300 w-8 px-0.5">
-                    <input
-                      type="checkbox"
-                      checked={selectAll}
-                      onChange={handleSelectAll}
+                    <input type="checkbox" checked={selectAll} onChange={handleSelectAll}
                       className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500"
-                      data-testid="select-all-checkbox"
-                    />
+                      data-testid="select-all-checkbox" />
                   </TableHead>
                   <TableHead className="text-slate-300 whitespace-nowrap px-1">Date</TableHead>
                   <TableHead className="text-slate-300 whitespace-nowrap px-1">Season</TableHead>
@@ -162,38 +185,22 @@ export function EntryTable({
               <TableBody>
                 {entries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={25} className="text-center text-slate-400 py-8">
-                      {filters.date_from === todayStr && filters.date_to === todayStr 
-                        ? "Aaj ki koi Mill Entry nahi hai" 
+                    <TableCell colSpan={24} className="text-center text-slate-400 py-8">
+                      {filters.date_from === todayStr && filters.date_to === todayStr
+                        ? "Aaj ki koi Mill Entry nahi hai"
                         : "Koi entry nahi mili. Filter change karein ya \"Nayi Entry\" button click karein."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  entries.map((entry) => {
-                    const isExpanded = expandedRow === entry.id;
-                    const isHighlighted = highlightEntryId === entry.id;
-                    return (
-                    <React.Fragment key={entry.id}>
-                    <TableRow 
-                      className={`border-slate-700 hover:bg-slate-700/30 cursor-pointer ${selectedEntries.includes(entry.id) ? 'bg-amber-900/20' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-amber-500/40' : ''}`}
-                      data-testid={`entry-row-${entry.id}`}
-                      onClick={(e) => {
-                        if (e.target.closest('button') || e.target.closest('input')) return;
-                        setExpandedRow(isExpanded ? null : entry.id);
-                      }}
-                    >
-                      <TableCell className="px-0.5 text-center">
-                        {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-amber-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />}
-                      </TableCell>
+                  entries.map((entry) => (
+                    <TableRow key={entry.id}
+                      className={`border-slate-700 hover:bg-slate-700/30 ${selectedEntries.includes(entry.id) ? 'bg-amber-900/20' : ''}`}
+                      data-testid={`entry-row-${entry.id}`}>
                       <TableCell className="px-0.5">
-                        <input
-                          type="checkbox"
-                          checked={selectedEntries.includes(entry.id)}
-                          onChange={() => handleSelectEntry(entry.id)}
-                          disabled={!canEditEntry(entry)}
+                        <input type="checkbox" checked={selectedEntries.includes(entry.id)}
+                          onChange={() => handleSelectEntry(entry.id)} disabled={!canEditEntry(entry)}
                           className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-amber-500 focus:ring-amber-500 disabled:opacity-50"
-                          data-testid={`select-${entry.id}`}
-                        />
+                          data-testid={`select-${entry.id}`} />
                       </TableCell>
                       <TableCell className="text-white whitespace-nowrap px-1">{fmtDate(entry.date)}</TableCell>
                       <TableCell className="text-white whitespace-nowrap px-1">{entry.season}</TableCell>
@@ -207,95 +214,43 @@ export function EntryTable({
                       <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.tp_no || '-'}</TableCell>
                       <TableCell className="text-white whitespace-nowrap px-1">{entry.agent_name}</TableCell>
                       <TableCell className="text-white whitespace-nowrap px-1">{entry.mandi_name}</TableCell>
-                      <TableCell className="text-green-400 text-right font-mono font-bold whitespace-nowrap px-1">
-                        {entry.qntl?.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-white text-right font-mono whitespace-nowrap px-1">
-                        {entry.bag}
-                      </TableCell>
-                      <TableCell className="text-cyan-400 text-right font-mono whitespace-nowrap px-1">
-                        {entry.g_deposite || 0}
-                      </TableCell>
-                      <TableCell className="text-slate-300 text-right font-mono whitespace-nowrap px-1">
-                        {(entry.gbw_cut / 100)?.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-pink-400 text-right font-mono whitespace-nowrap px-1">
-                        {entry.plastic_bag || 0}
-                      </TableCell>
-                      <TableCell className="text-pink-300 text-right font-mono whitespace-nowrap px-1">
-                        {(entry.p_pkt_cut / 100)?.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-blue-400 text-right font-mono font-bold whitespace-nowrap px-1">
-                        {(entry.mill_w / 100)?.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-orange-400 text-right font-mono whitespace-nowrap px-1">
-                        {entry.moisture || 0}
-                      </TableCell>
-                      <TableCell className="text-orange-300 text-right font-mono whitespace-nowrap px-1">
-                        {((entry.moisture_cut || 0) / 100)?.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-purple-400 text-right font-mono whitespace-nowrap px-1">
-                        {entry.cutting_percent}%
-                      </TableCell>
-                      <TableCell className="text-slate-400 text-right font-mono whitespace-nowrap px-1">
-                        {entry.disc_dust_poll || 0}
-                      </TableCell>
-                      <TableCell className="text-amber-400 text-right font-mono font-bold whitespace-nowrap px-1">
-                        {(entry.final_w / 100)?.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-cyan-400 text-right font-mono whitespace-nowrap px-1">
-                        {entry.g_issued?.toLocaleString() || 0}
-                      </TableCell>
-                      <TableCell className="text-white text-right font-mono whitespace-nowrap px-1">
-                        {entry.cash_paid?.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-white text-right font-mono whitespace-nowrap px-1">
-                        {entry.diesel_paid?.toLocaleString() || 0}
-                      </TableCell>
+                      <TableCell className="text-green-400 text-right font-mono font-bold whitespace-nowrap px-1">{entry.qntl?.toFixed(2)}</TableCell>
+                      <TableCell className="text-white text-right font-mono whitespace-nowrap px-1">{entry.bag}</TableCell>
+                      <TableCell className="text-cyan-400 text-right font-mono whitespace-nowrap px-1">{entry.g_deposite || 0}</TableCell>
+                      <TableCell className="text-slate-300 text-right font-mono whitespace-nowrap px-1">{(entry.gbw_cut / 100)?.toFixed(2)}</TableCell>
+                      <TableCell className="text-pink-400 text-right font-mono whitespace-nowrap px-1">{entry.plastic_bag || 0}</TableCell>
+                      <TableCell className="text-pink-300 text-right font-mono whitespace-nowrap px-1">{(entry.p_pkt_cut / 100)?.toFixed(2)}</TableCell>
+                      <TableCell className="text-blue-400 text-right font-mono font-bold whitespace-nowrap px-1">{(entry.mill_w / 100)?.toFixed(2)}</TableCell>
+                      <TableCell className="text-orange-400 text-right font-mono whitespace-nowrap px-1">{entry.moisture || 0}</TableCell>
+                      <TableCell className="text-orange-300 text-right font-mono whitespace-nowrap px-1">{((entry.moisture_cut || 0) / 100)?.toFixed(2)}</TableCell>
+                      <TableCell className="text-purple-400 text-right font-mono whitespace-nowrap px-1">{entry.cutting_percent}%</TableCell>
+                      <TableCell className="text-slate-400 text-right font-mono whitespace-nowrap px-1">{entry.disc_dust_poll || 0}</TableCell>
+                      <TableCell className="text-amber-400 text-right font-mono font-bold whitespace-nowrap px-1">{(entry.final_w / 100)?.toFixed(2)}</TableCell>
+                      <TableCell className="text-cyan-400 text-right font-mono whitespace-nowrap px-1">{entry.g_issued?.toLocaleString() || 0}</TableCell>
+                      <TableCell className="text-white text-right font-mono whitespace-nowrap px-1">{entry.cash_paid?.toLocaleString()}</TableCell>
+                      <TableCell className="text-white text-right font-mono whitespace-nowrap px-1">{entry.diesel_paid?.toLocaleString() || 0}</TableCell>
                       <TableCell className="text-center px-0.5">
                         <div className="flex gap-0.5 justify-center">
+                          <Button size="sm" variant="ghost" onClick={() => setViewEntry(entry)}
+                            className="h-6 w-6 p-0 text-amber-400 hover:text-amber-300 hover:bg-amber-900/30"
+                            data-testid={`view-btn-${entry.id}`} title="View Details">
+                            <Eye className="w-3 h-3" />
+                          </Button>
                           <RecordHistory recordId={entry.id} label={entry.truck_no} />
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleEdit(entry)}
+                          <Button size="sm" variant="ghost" onClick={() => handleEdit(entry)}
                             className={`h-6 w-6 p-0 ${canEditEntry(entry) ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-900/30' : 'text-slate-600 cursor-not-allowed'}`}
-                            data-testid={`edit-btn-${entry.id}`}
-                            disabled={!canEditEntry(entry)}
-                          >
+                            data-testid={`edit-btn-${entry.id}`} disabled={!canEditEntry(entry)}>
                             <Edit className="w-3 h-3" />
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDelete(entry)}
+                          <Button size="sm" variant="ghost" onClick={() => handleDelete(entry)}
                             className={`h-6 w-6 p-0 ${canEditEntry(entry) ? 'text-red-400 hover:text-red-300 hover:bg-red-900/30' : 'text-slate-600 cursor-not-allowed'}`}
-                            data-testid={`delete-btn-${entry.id}`}
-                            disabled={!canEditEntry(entry)}
-                          >
+                            data-testid={`delete-btn-${entry.id}`} disabled={!canEditEntry(entry)}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                    {isExpanded && (
-                      <TableRow className="bg-slate-900/60 border-t border-amber-500/30">
-                        <TableCell colSpan={25} className="p-3">
-                          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-6 gap-y-2 text-xs">
-                            <div><span className="text-slate-500">KMS Year:</span> <span className="text-slate-200">{entry.kms_year || '-'}</span></div>
-                            <div><span className="text-slate-500">Season:</span> <span className="text-slate-200">{entry.season || '-'}</span></div>
-                            <div><span className="text-slate-500">Cutting:</span> <span className="text-slate-200">{((entry.cutting || 0) / 100)?.toFixed(2)}</span></div>
-                            <div><span className="text-slate-500">KG:</span> <span className="text-slate-200">{entry.kg || '-'}</span></div>
-                            <div><span className="text-slate-500">Created By:</span> <span className="text-slate-200">{entry.created_by || '-'}</span></div>
-                            <div><span className="text-slate-500">Created:</span> <span className="text-slate-200">{entry.created_at ? new Date(entry.created_at).toLocaleString('en-IN') : '-'}</span></div>
-                            <div className="col-span-2"><span className="text-slate-500">Remark:</span> <span className="text-slate-200">{entry.remark || '-'}</span></div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    </React.Fragment>
-                    );
-                  })
+                  ))
                 )}
               </TableBody>
             </Table>
