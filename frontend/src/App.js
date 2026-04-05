@@ -207,7 +207,7 @@ function MainApp({ user, setUser, onLogout }) {
     agent_name: "",
     mandi_name: "",
     kms_year: CURRENT_FY,
-    season: "",
+    season: localStorage.getItem("mill_season") || "",
     date_from: todayStr,
     date_to: todayStr
   });
@@ -249,10 +249,13 @@ function MainApp({ user, setUser, onLogout }) {
           const currentStart = parseInt(CURRENT_FY.split('-')[0]) || 0;
           if (savedStart < currentStart) {
             // New FY started - auto-update to current FY
+            const season = res.data.season || prev.season;
+            if (season) localStorage.setItem("mill_season", season);
             setFilters(prev => ({ ...prev, kms_year: CURRENT_FY, season: res.data.season || prev.season }));
             // Save the new FY to server
             axios.put(`${API}/fy-settings`, { active_fy: CURRENT_FY, season: res.data.season || 'Kharif' }).catch(() => {});
           } else {
+            if (res.data.season) localStorage.setItem("mill_season", res.data.season);
             setFilters(prev => ({ ...prev, kms_year: savedFy, season: res.data.season || prev.season }));
           }
         }
@@ -269,6 +272,7 @@ function MainApp({ user, setUser, onLogout }) {
 
   // Save FY setting when year changes
   const handleFyChange = useCallback(async (newFy, newSeason) => {
+    if (newSeason !== undefined) localStorage.setItem("mill_season", newSeason);
     setFilters(prev => {
       const updated = { ...prev };
       if (newFy !== undefined) updated.kms_year = newFy;
