@@ -2216,7 +2216,19 @@ ipcMain.on('select-folder', async () => {
   });
 
   if (!result.canceled && result.filePaths.length > 0) {
-    await startApplication(result.filePaths[0]);
+    try {
+      await startApplication(result.filePaths[0]);
+    } catch (err) {
+      console.error('[select-folder] startApplication failed:', err.message);
+      logError('SELECT_FOLDER_FAIL', err);
+      // Show error to user on splash screen
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        const safeMsg = (err.message || 'Unknown error').replace(/'/g, "\\'").replace(/\n/g, ' ');
+        splashWindow.webContents.executeJavaScript(`
+          document.querySelector('.content').innerHTML = '<div style="text-align:center;padding:40px 20px;"><div style="font-size:50px;margin-bottom:15px;">⚠️</div><h2 style="color:#ef4444;margin-bottom:10px;">Folder Open Failed</h2><p style="color:#f59e0b;font-size:13px;margin-bottom:15px;">Error: ${safeMsg}</p><p style="color:#94a3b8;font-size:12px;margin-bottom:20px;">Google Drive streaming mode mein SQLite kaam nahi karta. Folder ko local disk (Desktop/Documents) mein copy karein.</p><button onclick="location.reload()" style="background:#f59e0b;color:#000;border:none;padding:10px 25px;border-radius:8px;font-size:14px;cursor:pointer;">Try Again</button></div>';
+        `).catch(() => {});
+      }
+    }
   }
 });
 
@@ -2238,7 +2250,18 @@ ipcMain.on('create-folder', async () => {
 
 ipcMain.on('open-recent', async (event, folderPath) => {
   if (fs.existsSync(folderPath)) {
-    await startApplication(folderPath);
+    try {
+      await startApplication(folderPath);
+    } catch (err) {
+      console.error('[open-recent] startApplication failed:', err.message);
+      logError('OPEN_RECENT_FAIL', err);
+      if (splashWindow && !splashWindow.isDestroyed()) {
+        const safeMsg = (err.message || 'Unknown error').replace(/'/g, "\\'").replace(/\n/g, ' ');
+        splashWindow.webContents.executeJavaScript(`
+          document.querySelector('.content').innerHTML = '<div style="text-align:center;padding:40px 20px;"><div style="font-size:50px;margin-bottom:15px;">⚠️</div><h2 style="color:#ef4444;margin-bottom:10px;">Folder Open Failed</h2><p style="color:#f59e0b;font-size:13px;margin-bottom:15px;">Error: ${safeMsg}</p><p style="color:#94a3b8;font-size:12px;margin-bottom:20px;">Folder ko local disk mein copy karke try karein.</p><button onclick="location.reload()" style="background:#f59e0b;color:#000;border:none;padding:10px 25px;border-radius:8px;font-size:14px;cursor:pointer;">Try Again</button></div>';
+        `).catch(() => {});
+      }
+    }
   } else {
     dialog.showErrorBox('Error', `Folder not found:\n${folderPath}`);
   }

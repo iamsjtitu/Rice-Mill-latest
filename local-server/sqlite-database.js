@@ -33,7 +33,14 @@ class SqliteDatabase {
     this.dbFile = path.join(dataFolder, 'millentry-data.db');
     this.jsonFile = path.join(dataFolder, 'millentry-data.json');
 
-    // Clean up stale WAL/SHM files before opening (Google Drive sync safety)
+    // Detect if folder is on cloud storage
+    const isCloudPath = dataFolder.includes('CloudStorage') || 
+                        dataFolder.includes('Google Drive') ||
+                        dataFolder.includes('GoogleDrive') ||
+                        dataFolder.includes('iCloud') ||
+                        dataFolder.includes('OneDrive');
+
+    // Clean up stale WAL/SHM files before opening
     const walFile = this.dbFile + '-wal';
     const shmFile = this.dbFile + '-shm';
     try {
@@ -52,7 +59,13 @@ class SqliteDatabase {
     // Lazy-load better-sqlite3 (native module)
     const Database = require('better-sqlite3');
     this.sqlite = new Database(this.dbFile);
-    this.sqlite.pragma('journal_mode = WAL');
+
+    if (isCloudPath) {
+      console.log('[SQLite] Cloud storage detected - using DELETE journal mode');
+      this.sqlite.pragma('journal_mode = DELETE');
+    } else {
+      this.sqlite.pragma('journal_mode = WAL');
+    }
     this.sqlite.pragma('synchronous = NORMAL');
     this.sqlite.pragma('cache_size = -8000'); // 8MB cache
 
