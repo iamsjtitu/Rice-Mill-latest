@@ -1,31 +1,37 @@
 # Mill Entry System - Product Requirements Document
 
 ## Original Problem Statement
-A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local SQLite storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, LAN network access, multi-user data safety, and role-based access control.
+A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, LAN network access, multi-user data safety, and role-based access control.
 
-## Current Version: v88.5.0
+## Current Version: v88.8.0
 
 ## Architecture
 - Triple Backend: Python (web), Desktop JS (Electron), Local JS (LAN)
 - Frontend: React with shadcn/ui
 - All three backends share identical business logic
+- Shared report_config.json for report column definitions
 
-## Global Rounding System (v88.6.0)
-- `round_amount(val)`: >.50 rounds up, <=.50 rounds down
-- Python: `models.py`, JS: `safe_handler.js`, Frontend: `utils/constants.js`
-- Applied to all `"amount"` fields across all route files
+## Global Systems
+- **Rounding**: `round_amount(val)`: >.50 rounds up, <=.50 rounds down (Python, JS, Frontend)
+- **Date Format**: DD-MM-YYYY globally via `fmt_date()` / `fmtDate()` across all exports and report_helper
+- **File Watcher**: Desktop/Local-server poll JSON file every 5s for Google Drive sync detection
 
-## Completed Features (v88.5.0+)
-- [x] Global round figure amount system (entire software)
+## Completed Features (v88.8.0)
+- [x] Global round figure amount system
 - [x] Duplicate RST/TP blocking with real-time warning toast
 - [x] TP duplicate shows which RST has it
 - [x] Toast expand=true (no hover needed)
 - [x] Vehicle/Party/Source suggestions from mill_entries + vehicle_weights
 - [x] Enter key navigation reaches Save button
 - [x] Auto Weight Entries edit fix
+- [x] Login page Enter key navigation (Username -> Enter -> Password -> Enter -> Login)
+- [x] Rice Stock Split: Raw vs Parboiled in APIs and DC Tracker
+- [x] Image Upload Crash fix (Buffer support in JS backends)
+- [x] Global Date Format DD-MM-YYYY in ALL Excel and PDF exports (Python + JS backends)
+- [x] Paddy Purchase Register - expandable row details on click
+- [x] Google Drive LAN sync - file watcher (5s polling) in desktop-app and local-server
 
 ## Upcoming Tasks
-- [ ] P0: Version bump v88.6.0
 - [ ] P1: Daily Summary Report (Auto)
 - [ ] P2: Export Preview feature
 
