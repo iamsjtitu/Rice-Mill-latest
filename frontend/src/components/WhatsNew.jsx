@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.9.0";
+const APP_VERSION = "88.10.0";
 
 const CHANGELOG = [
+  {
+    version: "88.10.0",
+    date: "Apr 2026",
+    title: "v88.10.0 - PPR View Dialog Upgrade",
+    items: [
+      { type: "feature", text: "Paddy Purchase Register mai ab row click karo toh seedha View dialog khulega - koi redirect nahi" },
+      { type: "feature", text: "PPR mai Eye button bhi hai har row mai - dono tarike se dekh sakte ho" },
+      { type: "fix", text: "View dialog ab PPR ke andar hi khulta hai - Mill Entries tab mai jaane ki zaroorat nahi" },
+    ]
+  },
   {
     version: "88.9.0",
     date: "Apr 2026",
