@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.10.0";
+const APP_VERSION = "88.11.0";
 
 const CHANGELOG = [
+  {
+    version: "88.11.0",
+    date: "Apr 2026",
+    title: "v88.11.0 - macOS Build + Season Persist + ESC Fix",
+    items: [
+      { type: "feature", text: "macOS Apple Silicon (.dmg) build ab GitHub release mai auto-generate hoga" },
+      { type: "feature", text: "macOS mai bhi auto-update kaam karega - Windows jaisa" },
+      { type: "fix", text: "Season filter (Kharif/Rabi) ab software restart karne pai bhi yaad rahega" },
+      { type: "fix", text: "View dialog ab ESC key se turant band hoga - latak nahi raha" },
+    ]
+  },
   {
     version: "88.10.0",
     date: "Apr 2026",
