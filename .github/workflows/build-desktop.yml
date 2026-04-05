@@ -277,7 +277,9 @@ jobs:
       - name: Install desktop dependencies
         if: steps.check_mac.outputs.SKIP != 'true'
         working-directory: desktop-app
-        run: npm install
+        run: |
+          npm install
+          npm install dmg-license
 
       - name: Verify ffmpeg binary exists
         if: steps.check_mac.outputs.SKIP != 'true'
