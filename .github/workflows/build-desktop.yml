@@ -281,6 +281,20 @@ jobs:
           npm install
           npm install dmg-license
 
+      - name: Setup Python for native module builds
+        if: steps.check_mac.outputs.SKIP != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rebuild native modules for Electron (macOS arm64)
+        if: steps.check_mac.outputs.SKIP != 'true'
+        working-directory: desktop-app
+        run: |
+          pip install setuptools
+          npx electron-builder install-app-deps --arch arm64
+          echo "Native modules rebuilt for Electron arm64"
+
       - name: Verify ffmpeg binary exists
         if: steps.check_mac.outputs.SKIP != 'true'
         working-directory: desktop-app
