@@ -269,7 +269,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
               <th className="p-2 text-right whitespace-nowrap">D/D/P</th>
               <th className="p-2 text-right whitespace-nowrap">Final W</th>
               <th className="p-2 text-right whitespace-nowrap">G.Issued</th>
-              <th className="p-2 text-center whitespace-nowrap w-10"></th>
+              <th className="p-2 text-center whitespace-nowrap w-10">View</th>
             </tr>
           </thead>
           <tbody className="text-slate-200">
@@ -300,6 +300,13 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
                 <td className="p-2 text-right">{e.disc_dust_poll || "-"}</td>
                 <td className="p-2 text-right font-semibold text-amber-300">{fmt(e.final_w, true)}</td>
                 <td className="p-2 text-right">{e.g_issued || "-"}</td>
+                <td className="p-2 text-center">
+                  <Button size="sm" variant="ghost" onClick={() => setViewEntry(e)}
+                    className="h-6 w-6 p-0 text-amber-400 hover:text-amber-300 hover:bg-amber-900/30"
+                    data-testid={`ppr-view-btn-${i}`} title="View Details">
+                    <Eye className="w-3.5 h-3.5" />
+                  </Button>
+                </td>
               </tr>
             ))}
             {totals && entries.length > 0 && (
@@ -316,6 +323,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
                 <td className="p-2 text-right">{totals.total_disc_dust_poll || "-"}</td>
                 <td className="p-2 text-right font-bold">{fmt(totals.total_final_w, true)}</td>
                 <td className="p-2 text-right">{totals.total_g_issued || "-"}</td>
+                <td></td>
               </tr>
             )}
           </tbody>

@@ -22,12 +22,13 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - [x] Login page Enter key navigation
 - [x] Rice Stock Split: Raw vs Parboiled
 - [x] Global Date Format DD-MM-YYYY in ALL exports
-- [x] Mill Entries View button (Eye icon) → Dialog popup
-- [x] PPR row click → Mill Entries redirect + View dialog (any date)
-- [x] Dialog close → original filters restore
+- [x] Mill Entries View button (Eye icon) -> Dialog popup
+- [x] PPR Eye button -> ViewEntryDialog opens in-place (no tab redirect)
+- [x] Dialog close -> original filters restore
 - [x] Google Drive LAN sync file watcher (5s polling)
 - [x] Frontend build synced to desktop-app and local-server
 - [x] WhatsNew + Version bumped to v88.9.0
+- [x] ViewEntryDialog shared component for beautiful entry viewing
 
 ## Upcoming Tasks
 - [ ] P1: Daily Summary Report (Auto)
