@@ -2300,12 +2300,47 @@ ipcMain.on('open-error-log', () => {
 async function startApplication(folderPath) {
   const startTime = Date.now();
   dataPath = folderPath;
+  console.log(`[Startup] Opening folder: ${folderPath}`);
   
   // Show loading state on splash screen immediately
   if (splashWindow && !splashWindow.isDestroyed()) {
     splashWindow.webContents.executeJavaScript(`
       document.querySelector('.content').innerHTML = '<div style="text-align:center;padding:60px 20px;"><div style="font-size:50px;margin-bottom:15px;">⏳</div><h2 style="color:#f59e0b;margin-bottom:10px;">Loading Data...</h2><p style="color:#94a3b8;font-size:13px;">Database initialize ho raha hai</p><div id="load-status" style="margin-top:20px;color:#64748b;font-size:12px;">Reading data file...</div></div>';
     `).catch(() => {});
+  }
+
+  // Pre-check: verify folder is accessible and writable
+  const dbFile = path.join(folderPath, 'millentry-data.db');
+  const jsonFile = path.join(folderPath, 'millentry-data.json');
+  try {
+    // Test write access
+    const testFile = path.join(folderPath, '.mill-access-test');
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    console.log('[Startup] Folder write access OK');
+  } catch (accessErr) {
+    console.error('[Startup] Folder not writable:', accessErr.message);
+    throw new Error(`Folder mein write permission nahi hai: ${accessErr.message}`);
+  }
+
+  // Pre-check: if SQLite DB exists, verify it's readable and valid
+  if (fs.existsSync(dbFile)) {
+    try {
+      const fd = fs.openSync(dbFile, 'r');
+      const buf = Buffer.alloc(16);
+      fs.readSync(fd, buf, 0, 16, 0);
+      fs.closeSync(fd);
+      const header = buf.toString('utf8', 0, 16);
+      if (!header.startsWith('SQLite format 3')) {
+        console.error('[Startup] DB file is not valid SQLite! Header:', header);
+        throw new Error('Database file corrupt hai - valid SQLite nahi hai');
+      }
+      console.log('[Startup] SQLite file header valid');
+    } catch (readErr) {
+      if (readErr.message.includes('corrupt')) throw readErr;
+      console.error('[Startup] Cannot read DB file:', readErr.message);
+      throw new Error(`Database file read nahi ho rahi: ${readErr.message}`);
+    }
   }
   
   // Update config (fast - tiny file)
@@ -2324,16 +2359,14 @@ async function startApplication(folderPath) {
   } catch (e) {
     console.warn('[Startup] SQLite failed:', e.message);
     // If SQLite DB file exists but failed to open, try recovery
-    const dbFile = require('path').join(folderPath, 'millentry-data.db');
-    const jsonFile = require('path').join(folderPath, 'millentry-data.json');
-    if (require('fs').existsSync(dbFile) && !require('fs').existsSync(jsonFile)) {
+    if (fs.existsSync(dbFile) && !fs.existsSync(jsonFile)) {
       console.warn('[Startup] SQLite DB exists but failed. Retrying after cleanup...');
       try {
         // Force delete WAL/SHM and retry
         const walF = dbFile + '-wal';
         const shmF = dbFile + '-shm';
-        if (require('fs').existsSync(walF)) require('fs').unlinkSync(walF);
-        if (require('fs').existsSync(shmF)) require('fs').unlinkSync(shmF);
+        if (fs.existsSync(walF)) fs.unlinkSync(walF);
+        if (fs.existsSync(shmF)) fs.unlinkSync(shmF);
         const { SqliteDatabase } = require('./sqlite-database');
         db = new SqliteDatabase(folderPath);
         console.log(`[Startup] SQLite database loaded (retry) in ${Date.now() - startTime}ms`);
@@ -2436,6 +2469,27 @@ async function startApplication(folderPath) {
     });
   }, 30000);
 }
+
+
+// ============ CRASH HANDLERS ============
+process.on('uncaughtException', (err) => {
+  console.error('[CRASH] Uncaught exception:', err.message);
+  logError('UNCAUGHT_EXCEPTION', err);
+  // Show error dialog if splash is visible
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    const safeMsg = (err.message || 'Unknown').replace(/'/g, "\\'").replace(/\n/g, ' ').substring(0, 200);
+    splashWindow.webContents.executeJavaScript(`
+      document.querySelector('.content').innerHTML = '<div style="text-align:center;padding:40px 20px;"><div style="font-size:50px;margin-bottom:15px;">⚠️</div><h2 style="color:#ef4444;margin-bottom:10px;">Application Error</h2><p style="color:#f59e0b;font-size:12px;word-break:break-all;margin-bottom:15px;">${safeMsg}</p><button onclick="location.reload()" style="background:#f59e0b;color:#000;border:none;padding:10px 25px;border-radius:8px;font-size:14px;cursor:pointer;">Retry</button></div>';
+    `).catch(() => {});
+  } else {
+    dialog.showErrorBox('Mill Entry System Error', `Error: ${err.message}\n\nApp ko restart karein.`);
+  }
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[CRASH] Unhandled rejection:', reason);
+  logError('UNHANDLED_REJECTION', reason);
+});
 
 // ============ APP LIFECYCLE ============
 // Accept self-signed SSL certificates from local cameras/NVRs
