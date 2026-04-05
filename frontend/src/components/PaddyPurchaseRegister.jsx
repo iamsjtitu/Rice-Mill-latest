@@ -280,7 +280,8 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
             ) : entries.length === 0 ? (
               <tr><td colSpan={19} className="p-8 text-center text-slate-500">Koi entry nahi mili</td></tr>
             ) : entries.map((e, i) => (
-              <tr key={e.id || i} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-800/10'} hover:bg-slate-700/30`}
+              <tr key={e.id || i} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-800/10'} hover:bg-slate-700/30 cursor-pointer`}
+                onClick={() => setViewEntry(e)}
                 data-testid={`ppr-row-${i}`}>
                 <td className="p-2 text-slate-500 text-xs">{(page - 1) * PAGE_SIZE + i + 1}</td>
                 <td className="p-2 whitespace-nowrap">{fmtDate(e.date)}</td>
@@ -301,7 +302,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
                 <td className="p-2 text-right font-semibold text-amber-300">{fmt(e.final_w, true)}</td>
                 <td className="p-2 text-right">{e.g_issued || "-"}</td>
                 <td className="p-2 text-center">
-                  <Button size="sm" variant="ghost" onClick={() => setViewEntry(e)}
+                  <Button size="sm" variant="ghost" onClick={(ev) => { ev.stopPropagation(); setViewEntry(e); }}
                     className="h-6 w-6 p-0 text-amber-400 hover:text-amber-300 hover:bg-amber-900/30"
                     data-testid={`ppr-view-btn-${i}`} title="View Details">
                     <Eye className="w-3.5 h-3.5" />
