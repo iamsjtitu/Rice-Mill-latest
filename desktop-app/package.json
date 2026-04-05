@@ -93,7 +93,7 @@
           ]
         }
       ],
-      "icon": "icon.icns",
+      "icon": "icon.png",
       "category": "public.app-category.business",
       "identity": null,
       "hardenedRuntime": false,

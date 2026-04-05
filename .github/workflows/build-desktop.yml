@@ -160,7 +160,7 @@ jobs:
           Get-ChildItem | ForEach-Object { Write-Host "  $($_.Name) ($($_.Length) bytes)" }
         shell: powershell
 
-      - name: Create GitHub Release & Upload Assets
+      - name: Create GitHub Release & Upload Windows Assets
         if: steps.check_release.outputs.EXISTS == 'false'
         uses: softprops/action-gh-release@v2
         with:
@@ -169,7 +169,9 @@ jobs:
           body: |
             ## Mill Entry System v${{ steps.version.outputs.APP_VERSION }}
             
-            Auto-generated release. Download the .exe file below to install/update.
+            Auto-generated release.
+            - **Windows:** Download `.exe` file
+            - **macOS (Apple Silicon):** Download `.dmg` file
           files: |
             desktop-app/dist/*.exe
             desktop-app/dist/*.exe.blockmap
@@ -185,4 +187,174 @@ jobs:
           path: |
             desktop-app/dist/*.exe
             desktop-app/dist/latest.yml
+          retention-days: 30
+
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Read version from package.json
+        id: version
+        run: |
+          VER=$(node -p "require('./desktop-app/package.json').version")
+          echo "Detected version: $VER"
+          echo "APP_VERSION=$VER" >> $GITHUB_OUTPUT
+
+      - name: Check if release has mac assets
+        id: check_mac
+        run: |
+          TAG="v${{ steps.version.outputs.APP_VERSION }}"
+          echo "Checking for existing mac assets in release: $TAG"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG")
+          if [ "$HTTP_CODE" = "200" ]; then
+            # Release exists, check if .dmg is already attached
+            ASSETS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG" | \
+              python3 -c "import sys,json; assets=json.load(sys.stdin).get('assets',[]); print(' '.join(a['name'] for a in assets))")
+            if echo "$ASSETS" | grep -q "\.dmg"; then
+              echo "DMG already exists in release - skipping build"
+              echo "SKIP=true" >> $GITHUB_OUTPUT
+            else
+              echo "Release exists but no DMG - will build and upload"
+              echo "SKIP=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Release does not exist yet - will build and create"
+            echo "SKIP=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.check_mac.outputs.SKIP != 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        if: steps.check_mac.outputs.SKIP != 'true'
+        working-directory: frontend
+        run: |
+          npm install --legacy-peer-deps
+          npm install ajv@8 --legacy-peer-deps
+
+      - name: Build frontend for desktop
+        if: steps.check_mac.outputs.SKIP != 'true'
+        working-directory: frontend
+        env:
+          REACT_APP_BACKEND_URL: http://127.0.0.1:9876
+          CI: false
+        run: npx craco build
+
+      - name: Copy frontend build to desktop-app
+        if: steps.check_mac.outputs.SKIP != 'true'
+        run: |
+          rm -rf desktop-app/frontend-build
+          cp -r frontend/build desktop-app/frontend-build
+
+      - name: Fix index.html for desktop
+        if: steps.check_mac.outputs.SKIP != 'true'
+        run: |
+          INDEX="desktop-app/frontend-build/index.html"
+          sed -i '' 's/Emergent | Fullstack App/Mill Entry System/g' "$INDEX"
+          sed -i '' 's/A product of emergent\.sh/Mill Entry System/g' "$INDEX"
+          sed -i '' 's|<script src="https://assets\.emergent\.sh/[^"]*"></script>||g' "$INDEX"
+          sed -i '' 's|<a id="emergent-badge"[^>]*>.*</a>||g' "$INDEX"
+          echo "index.html fixed for desktop (macOS)"
+
+      - name: Verify frontend-build exists
+        if: steps.check_mac.outputs.SKIP != 'true'
+        run: |
+          if [ ! -f "desktop-app/frontend-build/index.html" ]; then
+            echo "ERROR: frontend-build not found!"
+            exit 1
+          fi
+          echo "frontend-build verified OK"
+
+      - name: Install desktop dependencies
+        if: steps.check_mac.outputs.SKIP != 'true'
+        working-directory: desktop-app
+        run: npm install
+
+      - name: Verify ffmpeg binary exists
+        if: steps.check_mac.outputs.SKIP != 'true'
+        working-directory: desktop-app
+        run: |
+          FFMPEG_PATH="node_modules/ffmpeg-static/ffmpeg"
+          if [ -f "$FFMPEG_PATH" ]; then
+            SIZE=$(du -h "$FFMPEG_PATH" | cut -f1)
+            echo "ffmpeg found! Size: $SIZE"
+          else
+            echo "ffmpeg not found, downloading manually..."
+            ARCH=$(uname -m)
+            if [ "$ARCH" = "arm64" ]; then
+              FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-darwin-arm64.gz"
+            else
+              FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-darwin-x64.gz"
+            fi
+            echo "Downloading from: $FFMPEG_URL"
+            curl -L -o ffmpeg.gz "$FFMPEG_URL"
+            gunzip -c ffmpeg.gz > "$FFMPEG_PATH"
+            chmod +x "$FFMPEG_PATH"
+            rm ffmpeg.gz
+            if [ -f "$FFMPEG_PATH" ]; then
+              SIZE=$(du -h "$FFMPEG_PATH" | cut -f1)
+              echo "ffmpeg manually downloaded! Size: $SIZE"
+            else
+              echo "FAILED to obtain ffmpeg!"
+              exit 1
+            fi
+          fi
+
+      - name: Build macOS App (no publish)
+        if: steps.check_mac.outputs.SKIP != 'true'
+        working-directory: desktop-app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npx electron-builder --mac dmg --arm64 --publish never
+
+      - name: Fix filenames (spaces to hyphens)
+        if: steps.check_mac.outputs.SKIP != 'true'
+        working-directory: desktop-app/dist
+        run: |
+          for f in *.dmg; do
+            NEW_NAME=$(echo "$f" | tr ' ' '-')
+            if [ "$NEW_NAME" != "$f" ]; then
+              mv "$f" "$NEW_NAME"
+              echo "Renamed: $f -> $NEW_NAME"
+            fi
+          done
+          echo "Files in dist:"
+          ls -la
+
+      - name: Upload macOS Assets to GitHub Release
+        if: steps.check_mac.outputs.SKIP != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.APP_VERSION }}
+          name: v${{ steps.version.outputs.APP_VERSION }}
+          body: |
+            ## Mill Entry System v${{ steps.version.outputs.APP_VERSION }}
+            
+            Auto-generated release.
+            - **Windows:** Download `.exe` file
+            - **macOS (Apple Silicon):** Download `.dmg` file
+          files: |
+            desktop-app/dist/*.dmg
+            desktop-app/dist/*.dmg.blockmap
+            desktop-app/dist/latest-mac.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts (backup)
+        if: steps.check_mac.outputs.SKIP != 'true'
+        uses: actions/upload-artifact@v5
+        with:
+          name: macos-build
+          path: |
+            desktop-app/dist/*.dmg
+            desktop-app/dist/latest-mac.yml
           retention-days: 30
