@@ -3,71 +3,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Trash2, Edit, RefreshCw, Eye, X } from "lucide-react";
+import { Trash2, Edit, RefreshCw, Eye } from "lucide-react";
 import RecordHistory from "@/components/RecordHistory";
 import PaginationBar from "@/components/PaginationBar";
+import ViewEntryDialog from "@/components/ViewEntryDialog";
 import { fmtDate } from "@/utils/date";
 import { useState, useEffect } from "react";
-
-function ViewEntryDialog({ entry, onClose }) {
-  if (!entry) return null;
-  const fmt = (v, isQntl) => isQntl ? ((v || 0) / 100).toFixed(2) : (v || 0);
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose} data-testid="view-entry-dialog">
-      <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-2xl w-[95vw] max-w-[700px] max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-4 border-b border-slate-700 sticky top-0 bg-slate-800 z-10">
-          <h2 className="text-amber-400 font-semibold text-lg">Entry Details - {entry.truck_no}</h2>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0 text-slate-400 hover:text-white" data-testid="view-dialog-close">
-            <X className="w-5 h-5" />
-          </Button>
-        </div>
-        <div className="p-5 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 text-sm">
-          <Field label="Date" value={fmtDate(entry.date)} />
-          <Field label="KMS Year" value={entry.kms_year} />
-          <Field label="Season" value={entry.season} />
-          <Field label="Truck No" value={entry.truck_no} highlight />
-          <Field label="RST No" value={entry.rst_no} />
-          <Field label="TP No" value={entry.tp_no} />
-          <Field label="Agent" value={entry.agent_name} />
-          <Field label="Mandi" value={entry.mandi_name} />
-          <Field label="QNTL" value={entry.qntl?.toFixed(2)} color="text-green-400" />
-          <Field label="Bags" value={entry.bag} />
-          <Field label="G.Deposite" value={entry.g_deposite} color="text-cyan-400" />
-          <Field label="GBW Cut (Q)" value={fmt(entry.gbw_cut, true)} />
-          <Field label="Plastic Bag" value={entry.plastic_bag} color="text-pink-400" />
-          <Field label="P.Pkt Cut (Q)" value={fmt(entry.p_pkt_cut, true)} color="text-pink-300" />
-          <Field label="Mill W (Q)" value={fmt(entry.mill_w, true)} color="text-blue-400" />
-          <Field label="Moisture %" value={entry.moisture} color="text-orange-400" />
-          <Field label="Moisture Cut (Q)" value={fmt(entry.moisture_cut, true)} color="text-orange-300" />
-          <Field label="Cutting %" value={entry.cutting_percent} color="text-purple-400" />
-          <Field label="Cutting (Q)" value={fmt(entry.cutting, true)} />
-          <Field label="D/D/P" value={entry.disc_dust_poll} />
-          <Field label="Final W (Q)" value={fmt(entry.final_w, true)} color="text-amber-400" bold />
-          <Field label="G.Issued" value={entry.g_issued} color="text-cyan-400" />
-          <Field label="KG" value={entry.kg} />
-          <Field label="Cash Paid" value={entry.cash_paid ? `Rs.${Number(entry.cash_paid).toLocaleString('en-IN')}` : '-'} color="text-green-400" />
-          <Field label="Diesel Paid" value={entry.diesel_paid ? `Rs.${Number(entry.diesel_paid).toLocaleString('en-IN')}` : '-'} color="text-orange-400" />
-          <Field label="Created By" value={entry.created_by} />
-          <Field label="Created At" value={entry.created_at ? new Date(entry.created_at).toLocaleString('en-IN') : '-'} />
-          <div className="col-span-2 sm:col-span-3">
-            <Field label="Remark" value={entry.remark || '-'} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, value, color, highlight, bold }) {
-  return (
-    <div>
-      <p className="text-slate-500 text-xs mb-0.5">{label}</p>
-      <p className={`${color || 'text-slate-200'} ${bold ? 'font-bold text-base' : ''} ${highlight ? 'font-mono font-semibold' : ''}`}>
-        {value || '-'}
-      </p>
-    </div>
-  );
-}
 
 export function EntryTable({
   totals, entries, entriesPage, entriesTotalPages, entriesTotalCount, pageSize,
@@ -77,11 +18,8 @@ export function EntryTable({
 }) {
   const [viewEntry, setViewEntry] = useState(null);
 
-  // Open view dialog when navigated from PPR
   useEffect(() => {
-    if (viewEntryData) {
-      setViewEntry(viewEntryData);
-    }
+    if (viewEntryData) setViewEntry(viewEntryData);
   }, [viewEntryData]);
 
   const handleCloseView = () => {
@@ -91,7 +29,6 @@ export function EntryTable({
 
   return (
     <>
-      {/* View Entry Dialog */}
       {viewEntry && <ViewEntryDialog entry={viewEntry} onClose={handleCloseView} />}
 
       {/* Totals Summary */}

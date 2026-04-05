@@ -4,9 +4,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, FileText, Filter, X, Loader2, Users } from "lucide-react";
+import { Download, FileText, Filter, X, Loader2, Users, Eye } from "lucide-react";
 import { useMessagingEnabled } from "@/hooks/useMessagingEnabled";
 import { SendToGroupDialog } from "@/components/SendToGroupDialog";
+import ViewEntryDialog from "@/components/ViewEntryDialog";
 import { fmtDate } from "../utils/date";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
@@ -25,7 +26,7 @@ const TelegramIcon = () => (
   </svg>
 );
 
-export default function PaddyPurchaseRegister({ filters: globalFilters, onNavigateToEntry }) {
+export default function PaddyPurchaseRegister({ filters: globalFilters }) {
   const { wa, tg } = useMessagingEnabled();
   const [entries, setEntries] = useState([]);
   const [totals, setTotals] = useState(null);
@@ -38,6 +39,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters, onNaviga
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupText, setGroupText] = useState("");
   const [groupPdfUrl, setGroupPdfUrl] = useState("");
+  const [viewEntry, setViewEntry] = useState(null);
   const PAGE_SIZE = 100;
 
   const [regFilters, setRegFilters] = useState({
@@ -241,6 +243,9 @@ export default function PaddyPurchaseRegister({ filters: globalFilters, onNaviga
         </div>
       )}
 
+      {/* View Entry Dialog */}
+      {viewEntry && <ViewEntryDialog entry={viewEntry} onClose={() => setViewEntry(null)} />}
+
       {/* Data Table */}
       <div className="overflow-x-auto rounded-lg border border-slate-700">
         <table className="w-full text-sm" data-testid="ppr-table">
@@ -264,19 +269,19 @@ export default function PaddyPurchaseRegister({ filters: globalFilters, onNaviga
               <th className="p-2 text-right whitespace-nowrap">D/D/P</th>
               <th className="p-2 text-right whitespace-nowrap">Final W</th>
               <th className="p-2 text-right whitespace-nowrap">G.Issued</th>
+              <th className="p-2 text-center whitespace-nowrap w-10"></th>
             </tr>
           </thead>
           <tbody className="text-slate-200">
             {loading ? (
-              <tr><td colSpan={18} className="p-8 text-center text-slate-400">
+              <tr><td colSpan={19} className="p-8 text-center text-slate-400">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" /> Loading...
               </td></tr>
             ) : entries.length === 0 ? (
-              <tr><td colSpan={18} className="p-8 text-center text-slate-500">Koi entry nahi mili</td></tr>
+              <tr><td colSpan={19} className="p-8 text-center text-slate-500">Koi entry nahi mili</td></tr>
             ) : entries.map((e, i) => (
-              <tr key={e.id || i} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-800/10'} hover:bg-amber-500/10 cursor-pointer transition-colors`}
-                onClick={() => onNavigateToEntry && onNavigateToEntry(e.id)} data-testid={`ppr-row-${i}`}
-                title="Click to view in Mill Entries">
+              <tr key={e.id || i} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-800/10'} hover:bg-slate-700/30`}
+                data-testid={`ppr-row-${i}`}>
                 <td className="p-2 text-slate-500 text-xs">{(page - 1) * PAGE_SIZE + i + 1}</td>
                 <td className="p-2 whitespace-nowrap">{fmtDate(e.date)}</td>
                 <td className="p-2 whitespace-nowrap font-mono text-xs">{e.truck_no}</td>
