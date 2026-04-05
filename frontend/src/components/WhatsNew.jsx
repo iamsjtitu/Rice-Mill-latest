@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.12.2";
+const APP_VERSION = "88.13.0";
 
 const CHANGELOG = [
+  {
+    version: "88.13.0",
+    date: "Apr 2026",
+    title: "v88.13.0 - Stability Fix",
+    items: [
+      { type: "fix", text: "macOS build hata diya - sirf Windows build hogi (pehle jaisa)" },
+      { type: "fix", text: "Electron 28 pe wapas - Windows stability restore" },
+      { type: "feature", text: "Google Drive folder open hone mai better error handling" },
+      { type: "feature", text: "SQLite WAL checkpoint on close - data sync safe" },
+    ]
+  },
   {
     version: "88.12.0",
     date: "Apr 2026",
