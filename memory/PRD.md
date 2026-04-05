@@ -12,12 +12,12 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - Shared report_config.json for report column definitions
 
 ## Global Systems
-- **Rounding**: `round_amount(val)`: >.50 rounds up, <=.50 rounds down (Python, JS, Frontend)
-- **Date Format**: DD-MM-YYYY globally via `fmt_date()` / `fmtDate()` across all exports and report_helper
+- **Rounding**: `round_amount(val)` / `roundAmount(val)`: >.50 rounds up, <=.50 rounds down (Python, JS, Frontend). Fixed 72 broken `round_amount(val, 2)` calls in Python and 60+ broken `roundAmount(val*100)/100` no-op patterns in JS
+- **Date Format**: DD-MM-YYYY globally via `fmt_date()` / `fmtDate()` across ALL exports (Excel/PDF) and report_helper
 - **File Watcher**: Desktop/Local-server poll JSON file every 5s for Google Drive sync detection
 
-## Completed Features (v88.8.0)
-- [x] Global round figure amount system
+## Completed Features
+- [x] Global round figure amount system (FIXED in all backends - was broken in JS)
 - [x] Duplicate RST/TP blocking with real-time warning toast
 - [x] TP duplicate shows which RST has it
 - [x] Toast expand=true (no hover needed)
@@ -28,8 +28,9 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - [x] Rice Stock Split: Raw vs Parboiled in APIs and DC Tracker
 - [x] Image Upload Crash fix (Buffer support in JS backends)
 - [x] Global Date Format DD-MM-YYYY in ALL Excel and PDF exports (Python + JS backends)
-- [x] Paddy Purchase Register - expandable row details on click
-- [x] Google Drive LAN sync - file watcher (5s polling) in desktop-app and local-server
+- [x] Mill Entries - expandable row details on click (KMS Year, Season, Cutting, KG, Created By, Remark)
+- [x] Paddy Purchase Register row click navigates to Mill Entries tab with highlighted entry
+- [x] Google Drive LAN sync file watcher (5s polling) in desktop-app and local-server
 
 ## Upcoming Tasks
 - [ ] P1: Daily Summary Report (Auto)
