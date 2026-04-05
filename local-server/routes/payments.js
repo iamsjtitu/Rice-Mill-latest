@@ -97,9 +97,9 @@ module.exports = function(database) {
           final_qntl: Math.round(finalQntl * 100) / 100,
           cash_taken: entry.cash_paid || 0, diesel_taken: entry.diesel_paid || 0,
           rate_per_qntl: payment.rate_per_qntl,
-          gross_amount: roundAmount(grossAmount * 100) / 100,
+          gross_amount: roundAmount(grossAmount),
           deductions: Math.round(deductions * 100) / 100,
-          net_amount: roundAmount(netAmount * 100) / 100,
+          net_amount: roundAmount(netAmount),
           paid_amount: paidAmount,
           balance_amount: balanceAmount,
           status, kms_year: entry.kms_year, season: entry.season
@@ -160,7 +160,7 @@ module.exports = function(database) {
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
         category: truckNo, party_type: 'Truck',
         description: `Truck Payment: ${truckNo} - Rs.${req.body.amount}`,
-        amount: roundAmount(req.body.amount * 100) / 100, reference: `truck_pay:${req.params.entryId.substring(0,8)}`,
+        amount: roundAmount(req.body.amount), reference: `truck_pay:${req.params.entryId.substring(0,8)}`,
         kms_year: entry?.kms_year || '', season: entry?.season || '',
         created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
@@ -199,7 +199,7 @@ module.exports = function(database) {
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
         category: truckNo, party_type: 'Truck',
         description: `Truck Payment: ${truckNo} (Full - Mark Paid)`,
-        amount: roundAmount(net_amount * 100) / 100, reference: `truck_markpaid:${req.params.entryId}`,
+        amount: roundAmount(net_amount), reference: `truck_markpaid:${req.params.entryId}`,
         kms_year: entry.kms_year || '', season: entry.season || '',
         created_by: req.query.username || 'system', linked_payment_id: `truck:${req.params.entryId}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
@@ -209,7 +209,7 @@ module.exports = function(database) {
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'nikasi',
         category: truckNo, party_type: 'Truck',
         description: `Truck Payment: ${truckNo} (Full - Mark Paid)`,
-        amount: roundAmount(net_amount * 100) / 100, reference: `truck_markpaid_ledger:${req.params.entryId}`,
+        amount: roundAmount(net_amount), reference: `truck_markpaid_ledger:${req.params.entryId}`,
         kms_year: entry.kms_year || '', season: entry.season || '',
         created_by: req.query.username || 'system', linked_payment_id: `truck_ledger_markpaid:${req.params.entryId}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
@@ -316,9 +316,9 @@ module.exports = function(database) {
         target_qntl: target.target_qntl, cutting_percent: target.cutting_percent,
         cutting_qntl: Math.round(cutting_qntl * 100) / 100,
         base_rate: target.base_rate ?? 10, cutting_rate: target.cutting_rate ?? 5,
-        target_amount: roundAmount(target_amount * 100) / 100,
-        cutting_amount: roundAmount(cutting_amount * 100) / 100,
-        total_amount: roundAmount(total_amount * 100) / 100,
+        target_amount: roundAmount(target_amount),
+        cutting_amount: roundAmount(cutting_amount),
+        total_amount: roundAmount(total_amount),
         achieved_qntl: Math.round(achieved_qntl * 100) / 100,
         is_target_complete: achieved_qntl >= target.expected_total,
         paid_amount: paidAmount,
@@ -377,7 +377,7 @@ module.exports = function(database) {
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
         category: mandiName, party_type: 'Agent',
         description: `Agent Payment: ${mandiName} - Rs.${req.body.amount}`,
-        amount: roundAmount(req.body.amount * 100) / 100, reference: `agent_pay:${mandiName.substring(0,10)}`,
+        amount: roundAmount(req.body.amount), reference: `agent_pay:${mandiName.substring(0,10)}`,
         kms_year: kms_year || '', season: season || '',
         created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
@@ -422,7 +422,7 @@ module.exports = function(database) {
           id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'jama',
           category: mandiName, party_type: 'Agent',
           description: `Agent Commission: ${mandiName} @ Rs.${base_rate}`,
-          amount: roundAmount(total_amount * 100) / 100, reference: `agent_comm:${mandiName.substring(0,10)}`,
+          amount: roundAmount(total_amount), reference: `agent_comm:${mandiName.substring(0,10)}`,
           kms_year: kms_year || '', season: season || '',
           created_by: req.query.username || 'system', linked_payment_id: linked_jama_id,
           created_at: new Date().toISOString(), updated_at: new Date().toISOString()
@@ -437,7 +437,7 @@ module.exports = function(database) {
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'cash', txn_type: 'nikasi',
         category: mandiName, party_type: 'Agent',
         description: `Agent Payment: ${mandiName} (Full - Mark Paid)`,
-        amount: roundAmount(total_amount * 100) / 100, reference: `agent_markpaid:${mandiName.substring(0,10)}`,
+        amount: roundAmount(total_amount), reference: `agent_markpaid:${mandiName.substring(0,10)}`,
         kms_year: kms_year || '', season: season || '',
         created_by: req.query.username || 'system', linked_payment_id: `agent:${mandiName}:${kms_year}:${season}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()
@@ -447,7 +447,7 @@ module.exports = function(database) {
         id: uuidv4(), date: new Date().toISOString().split('T')[0], account: 'ledger', txn_type: 'nikasi',
         category: mandiName, party_type: 'Agent',
         description: `Agent Payment: ${mandiName} (Full - Mark Paid)`,
-        amount: roundAmount(total_amount * 100) / 100, reference: `agent_markpaid_ledger:${mandiName.substring(0,10)}`,
+        amount: roundAmount(total_amount), reference: `agent_markpaid_ledger:${mandiName.substring(0,10)}`,
         kms_year: kms_year || '', season: season || '',
         created_by: req.query.username || 'system', linked_payment_id: `agent_ledger_markpaid:${mandiName}:${kms_year}:${season}`,
         created_at: new Date().toISOString(), updated_at: new Date().toISOString()

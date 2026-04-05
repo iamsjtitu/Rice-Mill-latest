@@ -128,7 +128,7 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
             "id": str(uuid.uuid4()), "date": d["date"], "account": "cash", "txn_type": "nikasi",
             "category": vehicle or f"Truck-{dc_num}", "party_type": "Truck",
             "description": cash_desc,
-            "amount": round_amount(cash_paid, 2), "reference": f"delivery:{d['id'][:8]}",
+            "amount": round_amount(cash_paid), "reference": f"delivery:{d['id'][:8]}",
             "bank_name": "", "linked_entry_id": d["id"], **base
         }
         await db.cash_transactions.insert_one(cash_entry)
@@ -139,7 +139,7 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
                 "id": str(uuid.uuid4()), "date": d["date"], "account": "ledger", "txn_type": "nikasi",
                 "category": vehicle, "party_type": "Truck",
                 "description": cash_desc,
-                "amount": round_amount(cash_paid, 2), "reference": f"delivery_tcash:{d['id'][:8]}",
+                "amount": round_amount(cash_paid), "reference": f"delivery_tcash:{d['id'][:8]}",
                 "bank_name": "", "linked_entry_id": d["id"], **base
             }
             await db.cash_transactions.insert_one(ledger_entry)
@@ -154,7 +154,7 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
                 "id": str(uuid.uuid4()), "date": d["date"], "account": "ledger", "txn_type": "nikasi",
                 "category": vehicle, "party_type": "Truck",
                 "description": diesel_desc,
-                "amount": round_amount(diesel_paid, 2), "reference": f"delivery_tdiesel:{d['id'][:8]}",
+                "amount": round_amount(diesel_paid), "reference": f"delivery_tdiesel:{d['id'][:8]}",
                 "bank_name": "", "linked_entry_id": d["id"], **base
             }
             await db.cash_transactions.insert_one(ledger_diesel)
@@ -166,7 +166,7 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
             "id": str(uuid.uuid4()), "date": d["date"],
             "pump_id": pump_id, "pump_name": pump_name,
             "truck_no": vehicle, "agent_name": "",
-            "mandi_name": "", "amount": round_amount(diesel_paid, 2), "txn_type": "debit",
+            "mandi_name": "", "amount": round_amount(diesel_paid), "txn_type": "debit",
             "description": diesel_desc, "linked_entry_id": d["id"],
             **base
         })
@@ -175,7 +175,7 @@ async def add_dc_delivery(delivery: DCDelivery, username: str = ""):
             "id": str(uuid.uuid4()), "date": d["date"], "account": "ledger", "txn_type": "jama",
             "category": pump_name, "party_type": "Diesel",
             "description": f"Diesel Fill: Truck {vehicle} - {pump_name} - Rs.{diesel_paid}",
-            "amount": round_amount(diesel_paid, 2), "reference": f"delivery_dfill:{d['id'][:8]}",
+            "amount": round_amount(diesel_paid), "reference": f"delivery_dfill:{d['id'][:8]}",
             "bank_name": "", "linked_entry_id": d["id"], **base
         }
         await db.cash_transactions.insert_one(pump_jama)
@@ -439,7 +439,7 @@ async def add_msp_payment(pay: MSPPayment, username: str = ""):
             "category": "MSP Payment",
             "party_type": "MSP",
             "description": f"MSP Payment: {d.get('quantity_qntl', 0)}Q @ Rs.{d.get('rate_per_qntl', 0)}/Q",
-            "amount": round_amount(d['amount'], 2),
+            "amount": round_amount(d['amount']),
             "bank_name": d.get("bank_name", ""),
             "reference": f"msp:{d['id'][:8]}",
             "kms_year": d.get("kms_year", ""),

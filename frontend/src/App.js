@@ -150,6 +150,15 @@ function MainApp({ user, setUser, onLogout }) {
   }, [entriesSubTab]);
   const [pendingVwCount, setPendingVwCount] = useState(0);
   const [paymentsInitSubTab, setPaymentsInitSubTab] = useState(null);
+  const [highlightEntryId, setHighlightEntryId] = useState(null);
+
+  // Navigate from PPR to Mill Entries and highlight specific entry
+  const navigateToMillEntry = useCallback((entryId) => {
+    setEntriesSubTabSafe("mill-entries");
+    setHighlightEntryId(entryId);
+    // Clear highlight after 5 seconds
+    setTimeout(() => setHighlightEntryId(null), 5000);
+  }, [setEntriesSubTabSafe]);
   const [quickSearchOpen, setQuickSearchOpen] = useState(false);
   const { wa, tg } = useMessagingEnabled();
   const [entryGroupDialogOpen, setEntryGroupDialogOpen] = useState(false);
@@ -1432,7 +1441,7 @@ function MainApp({ user, setUser, onLogout }) {
             ) : entriesSubTab === "auto-weight-entries" ? (
               <AutoWeightEntries filters={filters} onVwChange={fetchPendingVwCount} />
             ) : entriesSubTab === "purchase-register" ? (
-              <PaddyPurchaseRegister filters={filters} />
+              <PaddyPurchaseRegister filters={filters} onNavigateToEntry={navigateToMillEntry} />
             ) : (
             <>
             <EntryTable
@@ -1457,6 +1466,7 @@ function MainApp({ user, setUser, onLogout }) {
               canEditEntry={canEditEntry}
               fetchEntries={fetchEntries}
               setEntriesPage={setEntriesPage}
+              highlightEntryId={highlightEntryId}
             />
             </>
             )}

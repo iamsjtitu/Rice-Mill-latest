@@ -8,10 +8,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Trash2, Edit, RefreshCw } from "lucide-react";
+import { Trash2, Edit, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 import RecordHistory from "@/components/RecordHistory";
 import PaginationBar from "@/components/PaginationBar";
 import { fmtDate } from "@/utils/date";
+import React, { useState, useEffect } from "react";
 
 export function EntryTable({
   totals,
@@ -35,7 +36,16 @@ export function EntryTable({
   canEditEntry,
   fetchEntries,
   setEntriesPage,
+  highlightEntryId,
 }) {
+  const [expandedRow, setExpandedRow] = useState(null);
+
+  // Auto-expand highlighted entry from PPR navigation
+  useEffect(() => {
+    if (highlightEntryId) {
+      setExpandedRow(highlightEntryId);
+    }
+  }, [highlightEntryId]);
   return (
     <>
       {/* Totals Summary */}
@@ -114,6 +124,7 @@ export function EntryTable({
             <Table className="text-[11px]">
               <TableHeader>
                 <TableRow className="border-slate-700 hover:bg-slate-700/50">
+                  <TableHead className="text-slate-300 w-6 px-0.5"></TableHead>
                   <TableHead className="text-slate-300 w-8 px-0.5">
                     <input
                       type="checkbox"
@@ -151,19 +162,29 @@ export function EntryTable({
               <TableBody>
                 {entries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={24} className="text-center text-slate-400 py-8">
+                    <TableCell colSpan={25} className="text-center text-slate-400 py-8">
                       {filters.date_from === todayStr && filters.date_to === todayStr 
                         ? "Aaj ki koi Mill Entry nahi hai" 
                         : "Koi entry nahi mili. Filter change karein ya \"Nayi Entry\" button click karein."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  entries.map((entry) => (
+                  entries.map((entry) => {
+                    const isExpanded = expandedRow === entry.id;
+                    const isHighlighted = highlightEntryId === entry.id;
+                    return (
+                    <React.Fragment key={entry.id}>
                     <TableRow 
-                      key={entry.id} 
-                      className={`border-slate-700 hover:bg-slate-700/30 ${selectedEntries.includes(entry.id) ? 'bg-amber-900/20' : ''}`}
+                      className={`border-slate-700 hover:bg-slate-700/30 cursor-pointer ${selectedEntries.includes(entry.id) ? 'bg-amber-900/20' : ''} ${isHighlighted ? 'bg-amber-500/10 ring-1 ring-amber-500/40' : ''}`}
                       data-testid={`entry-row-${entry.id}`}
+                      onClick={(e) => {
+                        if (e.target.closest('button') || e.target.closest('input')) return;
+                        setExpandedRow(isExpanded ? null : entry.id);
+                      }}
                     >
+                      <TableCell className="px-0.5 text-center">
+                        {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-amber-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-500" />}
+                      </TableCell>
                       <TableCell className="px-0.5">
                         <input
                           type="checkbox"
@@ -257,7 +278,24 @@ export function EntryTable({
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))
+                    {isExpanded && (
+                      <TableRow className="bg-slate-900/60 border-t border-amber-500/30">
+                        <TableCell colSpan={25} className="p-3">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-6 gap-y-2 text-xs">
+                            <div><span className="text-slate-500">KMS Year:</span> <span className="text-slate-200">{entry.kms_year || '-'}</span></div>
+                            <div><span className="text-slate-500">Season:</span> <span className="text-slate-200">{entry.season || '-'}</span></div>
+                            <div><span className="text-slate-500">Cutting:</span> <span className="text-slate-200">{((entry.cutting || 0) / 100)?.toFixed(2)}</span></div>
+                            <div><span className="text-slate-500">KG:</span> <span className="text-slate-200">{entry.kg || '-'}</span></div>
+                            <div><span className="text-slate-500">Created By:</span> <span className="text-slate-200">{entry.created_by || '-'}</span></div>
+                            <div><span className="text-slate-500">Created:</span> <span className="text-slate-200">{entry.created_at ? new Date(entry.created_at).toLocaleString('en-IN') : '-'}</span></div>
+                            <div className="col-span-2"><span className="text-slate-500">Remark:</span> <span className="text-slate-200">{entry.remark || '-'}</span></div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </React.Fragment>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

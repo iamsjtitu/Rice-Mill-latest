@@ -557,7 +557,7 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
 
     # Capital Account
     capital = cb["opening_cash"] + cb["opening_bank"]
-    liabilities.append({"group": "Capital Account", "amount": round_amount(capital, 2), "children": [
+    liabilities.append({"group": "Capital Account", "amount": round_amount(capital), "children": [
         {"name": "Opening Cash", "amount": cb["opening_cash"]},
         {"name": "Opening Bank", "amount": cb["opening_bank"]},
     ]})
@@ -611,7 +611,7 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
             creditors_children.append({"name": f"Truck Lease - {lease['truck_no']}", "amount": balance})
             lease_total_balance += balance
     creditors_total += lease_total_balance
-    liabilities.append({"group": "Sundry Creditors", "amount": round_amount(creditors_total, 2), "children": creditors_children})
+    liabilities.append({"group": "Sundry Creditors", "amount": round_amount(creditors_total), "children": creditors_children})
 
     total_liabilities = round(sum(l["amount"] for l in liabilities), 2)
 
@@ -619,7 +619,7 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
     assets = []
 
     # Cash & Bank
-    assets.append({"group": "Cash & Bank Balances", "amount": round_amount(cb["closing_cash"] + cb["closing_bank"], 2), "children": [
+    assets.append({"group": "Cash & Bank Balances", "amount": round_amount(cb["closing_cash"] + cb["closing_bank"]), "children": [
         {"name": "Cash-in-Hand", "amount": cb["closing_cash"]},
         {"name": "Bank Accounts", "amount": cb["closing_bank"]},
     ]})
@@ -641,7 +641,7 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
         if p.get("closing_value", 0) > 0:
             stock_children.append({"name": f"Mill Part - {p['name']} ({p['closing_stock']} {p.get('unit', 'Pcs')})", "amount": p["closing_value"], "unit": "Rs"})
             stock_total += p["closing_value"]
-    assets.append({"group": "Stock-in-Hand", "amount": round_amount(stock_total, 2), "children": stock_children})
+    assets.append({"group": "Stock-in-Hand", "amount": round_amount(stock_total), "children": stock_children})
 
     # Sundry Debtors (Ledger parties who owe us + Rice sale receivables + MSP)
     debtors_children = []
@@ -653,12 +653,12 @@ async def get_balance_sheet(kms_year: Optional[str] = None, season: Optional[str
         debtors_children.append({"name": "Rice Sale Receivable", "amount": pt["rice_balance"]})
         debtors_total += pt["rice_balance"]
     if msp_total - msp_received > 0:
-        debtors_children.append({"name": "MSP Receivable", "amount": round_amount(msp_total - msp_received, 2)})
+        debtors_children.append({"name": "MSP Receivable", "amount": round_amount(msp_total - msp_received)})
         debtors_total += msp_total - msp_received
     if lp["closing_balance"] < 0:
         debtors_children.append({"name": "Local Party Advance", "amount": abs(lp["closing_balance"])})
         debtors_total += abs(lp["closing_balance"])
-    assets.append({"group": "Sundry Debtors", "amount": round_amount(debtors_total, 2), "children": debtors_children})
+    assets.append({"group": "Sundry Debtors", "amount": round_amount(debtors_total), "children": debtors_children})
 
     # Staff Advances
     staff_total = round(sum(s["closing_balance"] for s in staff_list if s["closing_balance"] > 0), 2)

@@ -305,7 +305,7 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
                 "party_name": t.get("category", ""),
                 "party_type": t.get("party_type", ""),
                 "txn_type": t.get("txn_type", ""),
-                "amount": round_amount(t.get("amount", 0), 2),
+                "amount": round_amount(t.get("amount", 0)),
                 "description": t.get("description", ""),
                 "payment_mode": "Cash"
             } for t in cash_txns if t.get("account") == "cash"]

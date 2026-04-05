@@ -153,7 +153,7 @@ module.exports = function(database) {
         id: uuidv4(), date: del.date, account: 'cash', txn_type: 'nikasi',
         category: vehicle || `Truck-${dcNum}`, party_type: 'Truck',
         description: `DC Delivery Cash - ${dcNum} | ${vehicle}`,
-        amount: roundAmount(del.cash_paid * 100) / 100, reference: `delivery:${del.id.slice(0,8)}`,
+        amount: roundAmount(del.cash_paid), reference: `delivery:${del.id.slice(0,8)}`,
         bank_name: '', ...base
       });
       // Truck Ledger Nikasi for cash deduction
@@ -162,7 +162,7 @@ module.exports = function(database) {
           id: uuidv4(), date: del.date, account: 'ledger', txn_type: 'nikasi',
           category: vehicle, party_type: 'Truck',
           description: `DC Delivery Cash Deduction - ${dcNum} | ${vehicle}`,
-          amount: roundAmount(del.cash_paid * 100) / 100, reference: `delivery_tcash:${del.id.slice(0,8)}`,
+          amount: roundAmount(del.cash_paid), reference: `delivery_tcash:${del.id.slice(0,8)}`,
           ...base
         });
       }
@@ -180,14 +180,14 @@ module.exports = function(database) {
           id: uuidv4(), date: del.date, account: 'ledger', txn_type: 'nikasi',
           category: vehicle, party_type: 'Truck',
           description: `DC Delivery Diesel Deduction - ${dcNum} | ${vehicle}`,
-          amount: roundAmount(del.diesel_paid * 100) / 100, reference: `delivery_tdiesel:${del.id.slice(0,8)}`,
+          amount: roundAmount(del.diesel_paid), reference: `delivery_tdiesel:${del.id.slice(0,8)}`,
           ...base
         });
       }
       // Diesel account entry
       database.data.diesel_accounts.push({
         id: uuidv4(), date: del.date, pump_id: pumpId, pump_name: pumpName,
-        truck_no: vehicle, agent_name: '', amount: roundAmount(del.diesel_paid * 100) / 100,
+        truck_no: vehicle, agent_name: '', amount: roundAmount(del.diesel_paid),
         txn_type: 'debit', description: `DC Delivery Diesel - ${dcNum} | ${vehicle}`,
         reference: `delivery_dfill:${del.id.slice(0,8)}`, ...base
       });
@@ -196,7 +196,7 @@ module.exports = function(database) {
         id: uuidv4(), date: del.date, account: 'ledger', txn_type: 'jama',
         category: pumpName, party_type: 'Diesel',
         description: `Diesel for DC Delivery - ${dcNum} | ${vehicle}`,
-        amount: roundAmount(del.diesel_paid * 100) / 100, reference: `delivery_jama:${del.id.slice(0,8)}`,
+        amount: roundAmount(del.diesel_paid), reference: `delivery_jama:${del.id.slice(0,8)}`,
         ...base
       });
     }
@@ -326,7 +326,7 @@ module.exports = function(database) {
       database.data.cash_transactions.push({
         id: uuidv4(), date: pay.date, account: 'bank', txn_type: 'jama',
         category: 'MSP Payment', description: `MSP Payment: ${pay.quantity_qntl}Q @ Rs.${pay.rate_per_qntl}/Q`,
-        amount: roundAmount(pay.amount * 100) / 100, reference: `msp:${pay.id.substring(0,8)}`,
+        amount: roundAmount(pay.amount), reference: `msp:${pay.id.substring(0,8)}`,
         kms_year: pay.kms_year, season: pay.season,
         created_by: req.query.username || 'system', linked_payment_id: `msp:${pay.id}`,
         created_at: new Date().toISOString()

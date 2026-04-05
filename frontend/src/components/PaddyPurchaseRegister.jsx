@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, FileText, Filter, X, Loader2, Users, Eye, ChevronDown, ChevronRight } from "lucide-react";
+import { Download, FileText, Filter, X, Loader2, Users } from "lucide-react";
 import { useMessagingEnabled } from "@/hooks/useMessagingEnabled";
 import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import { fmtDate } from "../utils/date";
@@ -25,7 +25,7 @@ const TelegramIcon = () => (
   </svg>
 );
 
-export default function PaddyPurchaseRegister({ filters: globalFilters }) {
+export default function PaddyPurchaseRegister({ filters: globalFilters, onNavigateToEntry }) {
   const { wa, tg } = useMessagingEnabled();
   const [entries, setEntries] = useState([]);
   const [totals, setTotals] = useState(null);
@@ -38,7 +38,6 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupText, setGroupText] = useState("");
   const [groupPdfUrl, setGroupPdfUrl] = useState("");
-  const [expandedRow, setExpandedRow] = useState(null);
   const PAGE_SIZE = 100;
 
   const [regFilters, setRegFilters] = useState({
@@ -247,7 +246,6 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
         <table className="w-full text-sm" data-testid="ppr-table">
           <thead>
             <tr className="bg-slate-800 text-slate-300 text-xs">
-              <th className="p-2 text-left whitespace-nowrap w-8"></th>
               <th className="p-2 text-left whitespace-nowrap">#</th>
               <th className="p-2 text-left whitespace-nowrap">Date</th>
               <th className="p-2 text-left whitespace-nowrap">Truck No</th>
@@ -270,20 +268,15 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
           </thead>
           <tbody className="text-slate-200">
             {loading ? (
-              <tr><td colSpan={19} className="p-8 text-center text-slate-400">
+              <tr><td colSpan={18} className="p-8 text-center text-slate-400">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" /> Loading...
               </td></tr>
             ) : entries.length === 0 ? (
-              <tr><td colSpan={19} className="p-8 text-center text-slate-500">Koi entry nahi mili</td></tr>
-            ) : entries.map((e, i) => {
-              const isExpanded = expandedRow === e.id;
-              return (
-              <React.Fragment key={e.id || i}>
-              <tr className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-800/10'} hover:bg-slate-700/30 cursor-pointer`}
-                onClick={() => setExpandedRow(isExpanded ? null : e.id)} data-testid={`ppr-row-${i}`}>
-                <td className="p-2 text-center">
-                  {isExpanded ? <ChevronDown className="w-4 h-4 text-amber-400" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
-                </td>
+              <tr><td colSpan={18} className="p-8 text-center text-slate-500">Koi entry nahi mili</td></tr>
+            ) : entries.map((e, i) => (
+              <tr key={e.id || i} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-800/10'} hover:bg-amber-500/10 cursor-pointer transition-colors`}
+                onClick={() => onNavigateToEntry && onNavigateToEntry(e.id)} data-testid={`ppr-row-${i}`}
+                title="Click to view in Mill Entries">
                 <td className="p-2 text-slate-500 text-xs">{(page - 1) * PAGE_SIZE + i + 1}</td>
                 <td className="p-2 whitespace-nowrap">{fmtDate(e.date)}</td>
                 <td className="p-2 whitespace-nowrap font-mono text-xs">{e.truck_no}</td>
@@ -303,31 +296,9 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
                 <td className="p-2 text-right font-semibold text-amber-300">{fmt(e.final_w, true)}</td>
                 <td className="p-2 text-right">{e.g_issued || "-"}</td>
               </tr>
-              {isExpanded && (
-                <tr className="bg-slate-900/60 border-t border-amber-500/30">
-                  <td colSpan={19} className="p-3">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-6 gap-y-2 text-xs">
-                      <div><span className="text-slate-500">KMS Year:</span> <span className="text-slate-200">{e.kms_year || '-'}</span></div>
-                      <div><span className="text-slate-500">Season:</span> <span className="text-slate-200">{e.season || '-'}</span></div>
-                      <div><span className="text-slate-500">P.Pkt Cut:</span> <span className="text-slate-200">{fmt(e.p_pkt_cut, true)}</span></div>
-                      <div><span className="text-slate-500">Moisture Cut:</span> <span className="text-slate-200">{fmt(e.moisture_cut, true)}</span></div>
-                      <div><span className="text-slate-500">Cash Paid:</span> <span className="text-green-400">{e.cash_paid ? `Rs.${Number(e.cash_paid).toLocaleString('en-IN')}` : '-'}</span></div>
-                      <div><span className="text-slate-500">Diesel Paid:</span> <span className="text-orange-400">{e.diesel_paid ? `Rs.${Number(e.diesel_paid).toLocaleString('en-IN')}` : '-'}</span></div>
-                      <div><span className="text-slate-500">Cutting:</span> <span className="text-slate-200">{fmt(e.cutting, true)}</span></div>
-                      <div><span className="text-slate-500">GBW Cut:</span> <span className="text-slate-200">{fmt(e.gbw_cut, true)}</span></div>
-                      <div><span className="text-slate-500">KG:</span> <span className="text-slate-200">{e.kg || '-'}</span></div>
-                      <div><span className="text-slate-500">Created By:</span> <span className="text-slate-200">{e.created_by || '-'}</span></div>
-                      <div className="col-span-2"><span className="text-slate-500">Remark:</span> <span className="text-slate-200">{e.remark || '-'}</span></div>
-                    </div>
-                  </td>
-                </tr>
-              )}
-              </React.Fragment>
-              );
-            })}
+            ))}
             {totals && entries.length > 0 && (
               <tr className="border-t-2 border-amber-500/50 bg-amber-500/10 font-semibold text-amber-300">
-                <td></td>
                 <td colSpan={7} className="p-2 text-right">TOTAL</td>
                 <td className="p-2 text-right">{fmt(totals.total_qntl)}</td>
                 <td className="p-2 text-right">{totals.total_bag || "-"}</td>

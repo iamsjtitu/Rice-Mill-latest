@@ -423,7 +423,7 @@ async def move_extra_to_pvt(request: Request):
         "category": party_name,
         "party_type": "Pvt Paddy Purchase",
         "description": f"Paddy Purchase: {party_name} - {extra_qntl}Q @ Rs.{rate}/Q = Rs.{total_amount}",
-        "amount": round_amount(total_amount, 2),
+        "amount": round_amount(total_amount),
         "reference": f"pvt_party_jama:{pvt_entry['id'][:8]}",
         "kms_year": kms_year,
         "season": season,

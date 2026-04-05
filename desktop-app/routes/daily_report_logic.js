@@ -179,7 +179,7 @@ function getDailyReportData(database, query) {
         party_name: t.category || '',
         party_type: t.party_type || '',
         txn_type: t.txn_type || '',
-        amount: roundAmount((t.amount || 0) * 100) / 100,
+        amount: roundAmount(t.amount || 0),
         description: t.description || '',
         payment_mode: 'Cash'
       }))
@@ -202,7 +202,7 @@ function getDailyReportData(database, query) {
     },
     sale_vouchers: {
       count: saleVouchers.length,
-      total_amount: roundAmount(saleVouchers.reduce((s, sv) => s + (sv.total || sv.subtotal || 0), 0) * 100) / 100,
+      total_amount: roundAmount(saleVouchers.reduce((s, sv) => s + (sv.total || sv.subtotal || 0), 0)),
       details: saleVouchers.map(sv => ({
         voucher_no: sv.voucher_no || '', date: sv.date || '', party: sv.party_name || sv.buyer_name || '',
         items_count: (sv.items || []).length, amount: sv.total || sv.subtotal || 0
@@ -210,7 +210,7 @@ function getDailyReportData(database, query) {
     },
     purchase_vouchers: {
       count: purchaseVouchers.length,
-      total_amount: roundAmount(purchaseVouchers.reduce((s, pv) => s + (pv.total || pv.subtotal || 0), 0) * 100) / 100,
+      total_amount: roundAmount(purchaseVouchers.reduce((s, pv) => s + (pv.total || pv.subtotal || 0), 0)),
       details: purchaseVouchers.map(pv => ({
         voucher_no: pv.voucher_no || '', date: pv.date || '', party: pv.party_name || pv.seller_name || '',
         items_count: (pv.items || []).length, amount: pv.total || pv.subtotal || 0

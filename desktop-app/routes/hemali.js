@@ -82,7 +82,7 @@ module.exports = (database) => {
     const paymentId = uuidv4();
     const payment = {
       id: paymentId, sardar_name: sardarName, date: d.date || now.split('T')[0],
-      items: items.map(i => ({ item_name: i.item_name, rate: parseFloat(i.rate) || 0, quantity: parseFloat(i.quantity) || 0, amount: roundAmount((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0) * 100) / 100 })),
+      items: items.map(i => ({ item_name: i.item_name, rate: parseFloat(i.rate) || 0, quantity: parseFloat(i.quantity) || 0, amount: roundAmount((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0)) })),
       total, advance_before: prevAdvance, advance_deducted: advanceDeducted,
       amount_payable: amountPayable, amount_paid: amountPaid, new_advance: newAdvance,
       status: 'unpaid', kms_year: d.kms_year || '', season: d.season || '',
@@ -124,7 +124,7 @@ module.exports = (database) => {
 
     Object.assign(p, {
       sardar_name: sardarName, date: dateVal,
-      items: items.map(i => ({ item_name: i.item_name, rate: parseFloat(i.rate) || 0, quantity: parseFloat(i.quantity) || 0, amount: roundAmount((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0) * 100) / 100 })),
+      items: items.map(i => ({ item_name: i.item_name, rate: parseFloat(i.rate) || 0, quantity: parseFloat(i.quantity) || 0, amount: roundAmount((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0)) })),
       total, advance_before: prevAdvance, advance_deducted: advanceDeducted,
       amount_payable: amountPayable, amount_paid: amountPaid, new_advance: newAdvance,
       updated_at: new Date().toISOString()

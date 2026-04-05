@@ -129,7 +129,7 @@ module.exports = function(database) {
       ? Object.values(bank_details).reduce((s, v) => s + (parseFloat(v) || 0), 0)
       : (parseFloat(bank) || 0);
     const idx = database.data.opening_balances.findIndex(ob => ob.kms_year === kms_year);
-    const doc = { kms_year, cash: parseFloat(cash) || 0, bank: Math.round(totalBank * 100) / 100, bank_details: bank_details || {}, updated_at: new Date().toISOString() };
+    const doc = { kms_year, cash: parseFloat(cash) || 0, bank: roundAmount(totalBank), bank_details: bank_details || {}, updated_at: new Date().toISOString() };
     if (idx >= 0) database.data.opening_balances[idx] = doc;
     else database.data.opening_balances.push(doc);
     database.save();
@@ -153,7 +153,7 @@ module.exports = function(database) {
     }
     body.updated_at = new Date().toISOString();
     body._v = (current._v || 0) + 1;
-    if (body.amount) body.amount = Math.round(parseFloat(body.amount) * 100) / 100;
+    if (body.amount) body.amount = roundAmount(parseFloat(body.amount));
     Object.assign(database.data.cash_transactions[idx], body);
     logAudit('cash_transactions', req.params.id, 'update', req.query.username || body.updated_by || '', oldCopy, database.data.cash_transactions[idx]);
     // Update auto-created ledger entry too (keep same txn_type, no reversal)
@@ -272,7 +272,7 @@ module.exports = function(database) {
         pvt.final_qntl = pvt.quantity_qntl;
         pvt.qntl = pvt.quantity_qntl;
         if (!pvt.kg) pvt.kg = Math.round(pvt.quantity_qntl * 100 * 100) / 100;
-        if (!pvt.balance) pvt.balance = Math.round((totalAmt - (pvt.paid_amount || 0)) * 100) / 100;
+        if (!pvt.balance) pvt.balance = roundAmount(totalAmt - (pvt.paid_amount || 0));
         fixes.agent_extra_fields_fixed = (fixes.agent_extra_fields_fixed || 0) + 1;
       }
       const ref = `pvt_party_jama:${pvt.id.slice(0, 8)}`;
@@ -286,7 +286,7 @@ module.exports = function(database) {
           id: require('crypto').randomUUID(), date: pvt.date || '',
           account: 'ledger', txn_type: 'jama',
           category: party, party_type: 'Pvt Paddy Purchase',
-          description: desc, amount: roundAmount(totalAmt * 100) / 100, bank_name: '',
+          description: desc, amount: roundAmount(totalAmt), bank_name: '',
           reference: ref,
           kms_year: pvt.kms_year || '', season: pvt.season || 'Kharif',
           created_by: 'auto-fix', linked_entry_id: pvt.id,
@@ -375,11 +375,11 @@ module.exports = function(database) {
       database.data.cash_transactions.filter(t => (t.reference || '').startsWith(`mark_paid:${eid.slice(0,8)}`) && t.account === 'cash').forEach(t => { paySum += parseFloat(t.amount) || 0; });
       // d. manual cashbook entries
       database.data.cash_transactions.filter(t => t.cashbook_pvt_linked === eid && (t.account === 'cash' || t.account === 'bank')).forEach(t => { paySum += parseFloat(t.amount) || 0; });
-      paySum = Math.round(paySum * 100) / 100;
-      const storedPaid = Math.round((parseFloat(pvt.paid_amount) || 0) * 100) / 100;
+      paySum = roundAmount(paySum);
+      const storedPaid = roundAmount(parseFloat(pvt.paid_amount) || 0);
       if (Math.abs(paySum - storedPaid) > 0.5) {
         pvt.paid_amount = paySum;
-        pvt.balance = Math.round((totalAmt2 - paySum) * 100) / 100;
+        pvt.balance = roundAmount(totalAmt2 - paySum);
         pvt.payment_status = paySum >= totalAmt2 ? 'paid' : 'pending';
         fixes.paid_amount_recalculated = (fixes.paid_amount_recalculated || 0) + 1;
       }
@@ -728,8 +728,8 @@ module.exports = function(database) {
       });
     }
     const result = Object.values(parties).map(p => ({
-      ...p, jama: Math.round(p.jama * 100) / 100, nikasi: Math.round(p.nikasi * 100) / 100,
-      balance: Math.round((p.jama - p.nikasi) * 100) / 100
+      ...p, jama: roundAmount(p.jama), nikasi: roundAmount(p.nikasi),
+      balance: roundAmount(p.jama - p.nikasi)
     }));
     const statusFilter = req.query.status;
     let filtered = result;

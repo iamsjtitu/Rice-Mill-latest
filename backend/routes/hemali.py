@@ -159,7 +159,7 @@ async def create_hemali_payment(request: Request):
                 "item_name": i.get("item_name", ""),
                 "rate": float(i.get("rate") or 0),
                 "quantity": float(i.get("quantity") or 0),
-                "amount": round_amount(float(i.get("quantity") or 0) * float(i.get("rate") or 0), 2),
+                "amount": round_amount(float(i.get("quantity") or 0) * float(i.get("rate") or 0)),
             }
             for i in items
         ],
@@ -352,7 +352,7 @@ async def update_hemali_payment(payment_id: str, request: Request):
                 "item_name": i.get("item_name", ""),
                 "rate": float(i.get("rate") or 0),
                 "quantity": float(i.get("quantity") or 0),
-                "amount": round_amount(float(i.get("quantity") or 0) * float(i.get("rate") or 0), 2),
+                "amount": round_amount(float(i.get("quantity") or 0) * float(i.get("rate") or 0)),
             }
             for i in items
         ],

@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { v4: uuidv4 } = require('uuid');
+const { roundAmount } = require('./routes/safe_handler');
 
 
 const PORT = 8080;
@@ -196,7 +197,7 @@ class JsonDatabase {
         return !!e;
       });
       const rate = existingRateDoc ? (existingRateDoc.rate_per_qntl || 32) : 32;
-      const grossAmount = Math.round(finalQntl * rate * 100) / 100;
+      const grossAmount = roundAmount(finalQntl * rate);
       const cashTaken = parseFloat(newEntry.cash_paid) || 0;
       const dieselTaken = parseFloat(newEntry.diesel_paid) || 0;
       const deductions = cashTaken + dieselTaken;
@@ -205,7 +206,7 @@ class JsonDatabase {
         id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: truckNo,
         party_type: 'Truck',
         description: `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : ''),
-        amount: Math.round(grossAmount * 100) / 100, reference: `truck_entry:${newEntry.id.slice(0,8)}`,
+        amount: roundAmount(grossAmount), reference: `truck_entry:${newEntry.id.slice(0,8)}`,
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
         created_at: now, updated_at: now
@@ -216,7 +217,7 @@ class JsonDatabase {
           id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
           party_type: 'Truck',
           description: `Truck Diesel Advance: ${truckNo} - Rs.${dieselTaken}`,
-          amount: Math.round(dieselTaken * 100) / 100, reference: `truck_diesel_ded:${newEntry.id.slice(0,8)}`,
+          amount: roundAmount(dieselTaken), reference: `truck_diesel_ded:${newEntry.id.slice(0,8)}`,
           kms_year: newEntry.kms_year||'', season: newEntry.season||'',
           created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
           created_at: now, updated_at: now
@@ -231,7 +232,7 @@ class JsonDatabase {
         id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: truckNo || 'Cash Paid (Entry)',
         party_type: 'Truck',
         description: `Cash Paid: Truck ${truckNo} - Mandi ${newEntry.mandi_name||''} - Rs.${cashPaid}`,
-        amount: Math.round(cashPaid * 100) / 100, reference: `entry_cash:${newEntry.id.slice(0,8)}`,
+        amount: roundAmount(cashPaid), reference: `entry_cash:${newEntry.id.slice(0,8)}`,
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
         created_at: now, updated_at: now
@@ -250,7 +251,7 @@ class JsonDatabase {
       this.data.diesel_accounts.push({
         id: uuidv4(), date: entryDate, pump_id: pumpId, pump_name: pumpName,
         truck_no: truckNo, agent_name: newEntry.agent_name||'', mandi_name: newEntry.mandi_name||'',
-        amount: Math.round(dieselPaid * 100) / 100, txn_type: 'debit',
+        amount: roundAmount(dieselPaid), txn_type: 'debit',
         description: `Diesel: Truck ${truckNo} - Mandi ${newEntry.mandi_name||''}`,
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
@@ -261,7 +262,7 @@ class JsonDatabase {
         id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: pumpName,
         party_type: 'Diesel',
         description: `Diesel Fill: Truck ${truckNo} - ${pumpName} - Rs.${dieselPaid}`,
-        amount: Math.round(dieselPaid * 100) / 100, reference: `diesel_fill:${newEntry.id.slice(0,8)}`,
+        amount: roundAmount(dieselPaid), reference: `diesel_fill:${newEntry.id.slice(0,8)}`,
         kms_year: newEntry.kms_year||'', season: newEntry.season||'',
         created_by: newEntry.created_by||'system', linked_entry_id: newEntry.id,
         created_at: now, updated_at: now
@@ -319,7 +320,7 @@ class JsonDatabase {
     if (finalQntl > 0 && truckNo) {
       const paymentDoc = this.data.truck_payments.find(p => p.entry_id === id);
       const rate = paymentDoc ? (paymentDoc.rate_per_qntl || 32) : 32;
-      const grossAmount = Math.round(finalQntl * rate * 100) / 100;
+      const grossAmount = roundAmount(finalQntl * rate);
       const cashTaken = parseFloat(updated.cash_paid) || 0;
       const dieselTaken = parseFloat(updated.diesel_paid) || 0;
       const deductions = cashTaken + dieselTaken;
@@ -328,7 +329,7 @@ class JsonDatabase {
         id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: truckNo,
         party_type: 'Truck',
         description: `Truck Entry: ${truckNo} - ${finalQntl}Q @ Rs.${rate}` + (deductions > 0 ? ` (Ded: Rs.${deductions})` : ''),
-        amount: Math.round(grossAmount * 100) / 100, reference: `truck_entry:${id.slice(0,8)}`,
+        amount: roundAmount(grossAmount), reference: `truck_entry:${id.slice(0,8)}`,
         kms_year: updated.kms_year||'', season: updated.season||'',
         created_by: updated.created_by||'system', linked_entry_id: id,
         created_at: now, updated_at: now
@@ -339,7 +340,7 @@ class JsonDatabase {
           id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'nikasi', category: truckNo,
           party_type: 'Truck',
           description: `Truck Diesel Advance: ${truckNo} - Rs.${dieselTaken}`,
-          amount: Math.round(dieselTaken * 100) / 100, reference: `truck_diesel_ded:${id.slice(0,8)}`,
+          amount: roundAmount(dieselTaken), reference: `truck_diesel_ded:${id.slice(0,8)}`,
           kms_year: updated.kms_year||'', season: updated.season||'',
           created_by: updated.created_by||'system', linked_entry_id: id,
           created_at: now, updated_at: now
@@ -354,7 +355,7 @@ class JsonDatabase {
         id: uuidv4(), date: entryDate, account: 'cash', txn_type: 'nikasi', category: truckNo || 'Cash Paid (Entry)',
         party_type: 'Truck',
         description: `Cash Paid: Truck ${truckNo} - Mandi ${updated.mandi_name||''} - Rs.${cashPaid}`,
-        amount: Math.round(cashPaid * 100) / 100, reference: `entry_cash:${id.slice(0,8)}`,
+        amount: roundAmount(cashPaid), reference: `entry_cash:${id.slice(0,8)}`,
         kms_year: updated.kms_year||'', season: updated.season||'',
         created_by: updated.created_by||'system', linked_entry_id: id,
         created_at: now, updated_at: now
@@ -373,7 +374,7 @@ class JsonDatabase {
       this.data.diesel_accounts.push({
         id: uuidv4(), date: entryDate, pump_id: pumpId, pump_name: pumpName,
         truck_no: truckNo, agent_name: updated.agent_name||'', mandi_name: updated.mandi_name||'',
-        amount: Math.round(dieselPaid * 100) / 100, txn_type: 'debit',
+        amount: roundAmount(dieselPaid), txn_type: 'debit',
         description: `Diesel: Truck ${truckNo} - Mandi ${updated.mandi_name||''}`,
         kms_year: updated.kms_year||'', season: updated.season||'',
         created_by: updated.created_by||'system', linked_entry_id: id,
@@ -384,7 +385,7 @@ class JsonDatabase {
         id: uuidv4(), date: entryDate, account: 'ledger', txn_type: 'jama', category: pumpName,
         party_type: 'Diesel',
         description: `Diesel Fill: Truck ${truckNo} - ${pumpName} - Rs.${dieselPaid}`,
-        amount: Math.round(dieselPaid * 100) / 100, reference: `diesel_fill:${id.slice(0,8)}`,
+        amount: roundAmount(dieselPaid), reference: `diesel_fill:${id.slice(0,8)}`,
         kms_year: updated.kms_year||'', season: updated.season||'',
         created_by: updated.created_by||'system', linked_entry_id: id,
         created_at: now, updated_at: now

@@ -57,7 +57,7 @@ async def make_voucher_payment(request: Request):
         # Cash/Bank JAMA - payment coming in (actual cash)
         cash_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": pay_account, "txn_type": "jama",
-            "amount": round_amount(amount, 2), "category": party, "party_type": party_type,
+            "amount": round_amount(amount), "category": party, "party_type": party_type,
             "description": f"Payment received - {source_label} - {party}" + (f" ({notes})" if notes else ""),
             "reference": f"voucher_payment:{payment_id}", **base
         }
@@ -101,7 +101,7 @@ async def make_voucher_payment(request: Request):
         # Cash/Bank NIKASI - payment going out (actual cash)
         cash_entry = {
             "id": str(uuid.uuid4()), "date": date, "account": pay_account, "txn_type": "nikasi",
-            "amount": round_amount(amount, 2), "category": party, "party_type": party_type,
+            "amount": round_amount(amount), "category": party, "party_type": party_type,
             "description": f"Payment made - {source_label} - {party}" + (f" ({notes})" if notes else ""),
             "reference": f"voucher_payment:{payment_id}", **base
         }

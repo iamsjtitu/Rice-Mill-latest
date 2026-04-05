@@ -182,7 +182,7 @@ async def make_diesel_payment(request: Request, username: str = "", role: str = 
         "account": "cash", "txn_type": "nikasi", "category": pump['name'],
         "party_type": "Diesel",
         "description": f"Diesel Payment: {pump['name']} - Rs.{amount}" + (f" ({notes})" if notes else ""),
-        "amount": round_amount(amount, 2), "reference": f"diesel_pay:{pay_txn['id'][:8]}",
+        "amount": round_amount(amount), "reference": f"diesel_pay:{pay_txn['id'][:8]}",
         "kms_year": kms_year, "season": season,
         "created_by": username or "system",
         "linked_diesel_payment_id": pay_txn["id"],

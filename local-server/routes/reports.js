@@ -432,7 +432,7 @@ module.exports = function(database) {
       account: 'ledger', txn_type: 'jama',
       category: partyLabel, party_type: 'Pvt Paddy Purchase',
       description: `Paddy Purchase: ${partyLabel} - ${extra_qntl}Q @ Rs.${rate}/Q = Rs.${total_amount}`,
-      amount: roundAmount(total_amount * 100) / 100,
+      amount: roundAmount(total_amount),
       reference: `pvt_party_jama:${pvtEntry.id.slice(0, 8)}`,
       kms_year: kms_year || '', season: season || '',
       created_by: username || 'admin', linked_entry_id: pvtEntry.id,

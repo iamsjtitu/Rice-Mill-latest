@@ -78,7 +78,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             "account": "ledger", "txn_type": "jama", "category": truck_no,
             "party_type": "Truck",
             "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{rate}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
-            "amount": round_amount(gross_amount, 2), "reference": f"truck_entry:{doc['id'][:8]}",
+            "amount": round_amount(gross_amount), "reference": f"truck_entry:{doc['id'][:8]}",
             "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
             "created_by": username or "system", "linked_entry_id": doc["id"],
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -92,7 +92,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
                 "account": "ledger", "txn_type": "nikasi", "category": truck_no,
                 "party_type": "Truck",
                 "description": f"Truck Diesel Advance: {truck_no} - Rs.{diesel_taken}",
-                "amount": round_amount(diesel_taken, 2), "reference": f"truck_diesel_ded:{doc['id'][:8]}",
+                "amount": round_amount(diesel_taken), "reference": f"truck_diesel_ded:{doc['id'][:8]}",
                 "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
                 "created_by": username or "system", "linked_entry_id": doc["id"],
                 "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -109,7 +109,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             "account": "cash", "txn_type": "nikasi", "category": doc.get("truck_no", "Cash Paid (Entry)"),
             "party_type": "Truck",
             "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}",
-            "amount": round_amount(cash_paid, 2), "reference": f"entry_cash:{doc['id'][:8]}",
+            "amount": round_amount(cash_paid), "reference": f"entry_cash:{doc['id'][:8]}",
             "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
             "created_by": username or "system", "linked_entry_id": doc["id"],
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -124,7 +124,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
                 "account": "ledger", "txn_type": "nikasi", "category": truck_no,
                 "party_type": "Truck",
                 "description": f"Truck Cash Advance: {truck_no} - Rs.{cash_paid}",
-                "amount": round_amount(cash_paid, 2), "reference": f"truck_cash_ded:{doc['id'][:8]}",
+                "amount": round_amount(cash_paid), "reference": f"truck_cash_ded:{doc['id'][:8]}",
                 "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
                 "created_by": username or "system", "linked_entry_id": doc["id"],
                 "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -145,7 +145,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             "pump_id": pump_id, "pump_name": pump_name,
             "truck_no": doc.get("truck_no", ""), "agent_name": doc.get("agent_name", ""),
             "mandi_name": doc.get("mandi_name", ""),
-            "amount": round_amount(diesel_paid, 2), "txn_type": "debit",
+            "amount": round_amount(diesel_paid), "txn_type": "debit",
             "description": f"Diesel: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')}",
             "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
             "created_by": username or "system", "linked_entry_id": doc["id"],
@@ -159,7 +159,7 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
             "account": "ledger", "txn_type": "jama", "category": pump_name,
             "party_type": "Diesel",
             "description": f"Diesel Fill: Truck {doc.get('truck_no','')} - {pump_name} - Rs.{diesel_paid}",
-            "amount": round_amount(diesel_paid, 2), "reference": f"diesel_fill:{doc['id'][:8]}",
+            "amount": round_amount(diesel_paid), "reference": f"diesel_fill:{doc['id'][:8]}",
             "kms_year": doc.get("kms_year", ""), "season": doc.get("season", ""),
             "created_by": username or "system", "linked_entry_id": doc["id"],
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -219,7 +219,7 @@ async def fix_cash_ledger_entries():
                     "account": "ledger", "txn_type": "nikasi", "category": truck_no,
                     "party_type": "Truck",
                     "description": f"Truck Cash Advance: {truck_no} - Rs.{cash_paid}",
-                    "amount": round_amount(cash_paid, 2), "reference": f"truck_cash_ded:{entry_id[:8]}",
+                    "amount": round_amount(cash_paid), "reference": f"truck_cash_ded:{entry_id[:8]}",
                     "kms_year": entry.get("kms_year", ""), "season": entry.get("season", ""),
                     "created_by": "system", "linked_entry_id": entry_id,
                     "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -388,7 +388,7 @@ async def import_entries_from_excel(
                 "account": "cash", "txn_type": "nikasi", "category": doc.get("truck_no", "Cash Paid (Entry)"),
                 "party_type": "Truck",
                 "description": f"Cash Paid: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')} - Rs.{cash_paid}",
-                "amount": round_amount(cash_paid, 2), "reference": f"entry_cash:{doc['id'][:8]}",
+                "amount": round_amount(cash_paid), "reference": f"entry_cash:{doc['id'][:8]}",
                 "kms_year": kms_year, "season": season,
                 "created_by": username, "linked_entry_id": doc["id"],
                 "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -403,7 +403,7 @@ async def import_entries_from_excel(
                 "pump_id": pump_id, "pump_name": pump_name,
                 "truck_no": doc.get("truck_no", ""), "agent_name": doc.get("agent_name", ""),
             "mandi_name": doc.get("mandi_name", ""),
-                "amount": round_amount(diesel_paid, 2), "txn_type": "debit",
+                "amount": round_amount(diesel_paid), "txn_type": "debit",
                 "description": f"Diesel: Truck {doc.get('truck_no','')} - Mandi {doc.get('mandi_name','')}",
                 "kms_year": kms_year, "season": season,
                 "created_by": username, "linked_entry_id": doc["id"],
@@ -416,7 +416,7 @@ async def import_entries_from_excel(
                 "account": "ledger", "txn_type": "jama", "category": pump_name,
                 "party_type": "Diesel",
                 "description": f"Diesel Fill: Truck {doc.get('truck_no','')} - {pump_name} - Rs.{diesel_paid}",
-                "amount": round_amount(diesel_paid, 2), "reference": f"diesel_fill:{doc['id'][:8]}",
+                "amount": round_amount(diesel_paid), "reference": f"diesel_fill:{doc['id'][:8]}",
                 "kms_year": kms_year, "season": season,
                 "created_by": username, "linked_entry_id": doc["id"],
                 "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -591,7 +591,7 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
             "account": "ledger", "txn_type": "jama", "category": truck_no,
             "party_type": "Truck",
             "description": f"Truck Entry: {truck_no} - {final_qntl}Q @ Rs.{rate}" + (f" (Ded: Rs.{deductions})" if deductions > 0 else ""),
-            "amount": round_amount(gross_amount, 2), "reference": f"truck_entry:{entry_id[:8]}",
+            "amount": round_amount(gross_amount), "reference": f"truck_entry:{entry_id[:8]}",
             "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
             "created_by": username or "system", "linked_entry_id": entry_id,
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -606,7 +606,7 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
                 "account": "ledger", "txn_type": "nikasi", "category": truck_no,
                 "party_type": "Truck",
                 "description": f"Truck Diesel Advance: {truck_no} - Rs.{diesel_taken}",
-                "amount": round_amount(diesel_taken, 2), "reference": f"truck_diesel_ded:{entry_id[:8]}",
+                "amount": round_amount(diesel_taken), "reference": f"truck_diesel_ded:{entry_id[:8]}",
                 "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
                 "created_by": username or "system", "linked_entry_id": entry_id,
                 "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -623,7 +623,7 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
             "account": "cash", "txn_type": "nikasi", "category": merged_data.get("truck_no", "Cash Paid (Entry)"),
             "party_type": "Truck",
             "description": f"Cash Paid: Truck {merged_data.get('truck_no','')} - Mandi {merged_data.get('mandi_name','')} - Rs.{cash_paid}",
-            "amount": round_amount(cash_paid, 2), "reference": f"entry_cash:{entry_id[:8]}",
+            "amount": round_amount(cash_paid), "reference": f"entry_cash:{entry_id[:8]}",
             "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
             "created_by": username or "system", "linked_entry_id": entry_id,
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -638,7 +638,7 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
                 "account": "ledger", "txn_type": "nikasi", "category": truck_no,
                 "party_type": "Truck",
                 "description": f"Truck Cash Advance: {truck_no} - Rs.{cash_paid}",
-                "amount": round_amount(cash_paid, 2), "reference": f"truck_cash_ded:{entry_id[:8]}",
+                "amount": round_amount(cash_paid), "reference": f"truck_cash_ded:{entry_id[:8]}",
                 "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
                 "created_by": username or "system", "linked_entry_id": entry_id,
                 "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -659,7 +659,7 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
             "pump_id": pump_id, "pump_name": pump_name,
             "truck_no": merged_data.get("truck_no", ""), "agent_name": merged_data.get("agent_name", ""),
             "mandi_name": merged_data.get("mandi_name", ""),
-            "amount": round_amount(diesel_paid, 2), "txn_type": "debit",
+            "amount": round_amount(diesel_paid), "txn_type": "debit",
             "description": f"Diesel: Truck {merged_data.get('truck_no','')} - Mandi {merged_data.get('mandi_name','')}",
             "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
             "created_by": username or "system", "linked_entry_id": entry_id,
@@ -673,7 +673,7 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
             "account": "ledger", "txn_type": "jama", "category": pump_name,
             "party_type": "Diesel",
             "description": f"Diesel Fill: Truck {merged_data.get('truck_no','')} - {pump_name} - Rs.{diesel_paid}",
-            "amount": round_amount(diesel_paid, 2), "reference": f"diesel_fill:{entry_id[:8]}",
+            "amount": round_amount(diesel_paid), "reference": f"diesel_fill:{entry_id[:8]}",
             "kms_year": merged_data.get("kms_year", ""), "season": merged_data.get("season", ""),
             "created_by": username or "system", "linked_entry_id": entry_id,
             "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
@@ -1215,7 +1215,7 @@ async def export_truck_payments_excel(
         
         gross_amount = round_amount(final_qntl * rate)
         deductions = cash_taken + diesel_taken
-        net_amount = round(gross_amount - deductions, 2)
+        net_amount = round(gross_amount - deductions)
         balance = round(max(0, net_amount - paid_amount), 2)
         status = "Paid" if balance < 0.10 else ("Partial" if paid_amount > 0 else "Pending")
         
@@ -1355,7 +1355,7 @@ async def export_truck_payments_pdf(
         
         gross_amount = round_amount(final_qntl * rate)
         deductions = cash_taken + diesel_taken
-        net_amount = round(gross_amount - deductions, 2)
+        net_amount = round(gross_amount - deductions)
         balance = round(max(0, net_amount - paid_amount), 2)
         status = "Paid" if balance < 0.10 else ("Partial" if paid_amount > 0 else "Pending")
         
