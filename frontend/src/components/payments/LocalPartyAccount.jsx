@@ -16,6 +16,7 @@ import {
 import { Label } from "@/components/ui/label";
 import RoundOffInput from "../common/RoundOffInput";
 import { useConfirm } from "../ConfirmProvider";
+import ExportPreviewDialog from "../common/ExportPreviewDialog";
 import {
   IndianRupee, RefreshCw, Download, FileText, Plus, Trash2, Handshake, Printer, Search, Loader2,
 } from "lucide-react";
@@ -267,6 +268,22 @@ const LocalPartyAccount = ({ filters, user }) => {
           <Button onClick={() => handleExport('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="local-party-export-pdf">
             <FileText className="w-4 h-4 mr-1" /> PDF
           </Button>
+          <ExportPreviewDialog
+            data={reportData?.ledger || []}
+            title="Local Party Ledger / स्थानीय पार्टी खाता"
+            columns={[
+              { header: "Date", field: "date", format: "date" },
+              { header: "Type", field: "type" },
+              { header: "Note", field: "narration" },
+              { header: "Debit", field: "debit", format: "rupees", align: "right" },
+              { header: "Credit", field: "credit", format: "rupees", align: "right" },
+              { header: "Balance", field: "balance", format: "rupees", align: "right" },
+            ]}
+            onPdfExport={() => handleExport('pdf')}
+            onExcelExport={() => handleExport('excel')}
+            triggerClassName="border-slate-600 text-blue-400 h-9"
+            iconOnly
+          />
         </div>
       </div>
 

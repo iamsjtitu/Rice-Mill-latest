@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, RefreshCw, Download, FileText, Truck, ClipboardList, ChevronDown, ChevronUp, IndianRupee, Package, Edit, Clock, History, Search } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
+import ExportPreviewDialog from "./common/ExportPreviewDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -141,6 +142,22 @@ const DCEntries = ({ filters, user }) => {
         <Button onClick={() => setShowForm(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="dc-add-btn"><Plus className="w-4 h-4 mr-1" /> New DC</Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="dc-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="dc-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+        <ExportPreviewDialog
+          data={filteredDCs}
+          title="DC Entries / डीसी एंट्री"
+          columns={[
+            { header: "DC No", field: "dc_number" },
+            { header: "Date", field: "date", format: "date" },
+            { header: "Party", field: "party_name" },
+            { header: "Rice Type", field: "rice_type" },
+            { header: "QNTL", field: "qntl", format: "number", align: "right" },
+            { header: "Status", field: "status" },
+          ]}
+          onPdfExport={() => exportData('pdf')}
+          onExcelExport={() => exportData('excel')}
+          triggerClassName="border-slate-600 text-blue-400 hover:bg-slate-700"
+          iconOnly
+        />
         <div className="relative ml-auto">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
           <Input
@@ -391,6 +408,22 @@ const MSPPayments = ({ filters, user, dcList }) => {
         <Button onClick={() => setShowForm(true)} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="msp-add-btn"><Plus className="w-4 h-4 mr-1" /> New Payment</Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="msp-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="msp-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+        <ExportPreviewDialog
+          data={payments}
+          title="MSP Payments / MSP भुगतान"
+          columns={[
+            { header: "Date", field: "date", format: "date" },
+            { header: "DC No", field: "dc_number" },
+            { header: "Qty Q", field: "paid_qty", format: "number", align: "right" },
+            { header: "Rate", field: "rate_per_qntl", format: "number", align: "right" },
+            { header: "Amount", field: "amount", format: "rupees", align: "right" },
+            { header: "Mode", field: "payment_mode" },
+          ]}
+          onPdfExport={() => exportData('pdf')}
+          onExcelExport={() => exportData('excel')}
+          triggerClassName="border-slate-600 text-blue-400 hover:bg-slate-700"
+          iconOnly
+        />
       </div>
       <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">
         <Table><TableHeader><TableRow className="border-slate-700 hover:bg-transparent">
@@ -675,6 +708,21 @@ export const GunnyBags = ({ filters, user }) => {
           <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900" size="sm" data-testid="gunny-add-btn"><Plus className="w-4 h-4 mr-1" /> New Entry</Button>
           <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="gunny-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
           <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="gunny-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+          <ExportPreviewDialog
+            data={entries}
+            title="Gunny Bags / बोरा लेनदेन"
+            columns={[
+              { header: "Date", field: "date", format: "date" },
+              { header: "Type", field: "txn_type" },
+              { header: "Source", field: "source_type" },
+              { header: "Qty", field: "quantity", format: "integer", align: "right" },
+              { header: "Note", field: "note" },
+            ]}
+            onPdfExport={() => exportData('pdf')}
+            onExcelExport={() => exportData('excel')}
+            triggerClassName="border-slate-600 text-blue-400 hover:bg-slate-700"
+            iconOnly
+          />
           <Button onClick={async () => {
             const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season);
             try { const { downloadFile } = await import('../utils/download'); downloadFile(`/api/gunny-bags/purchase-report/excel?${p}`, 'gunny_purchase_report.xlsx'); } catch(e) { toast.error("Report export failed"); }

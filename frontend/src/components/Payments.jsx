@@ -27,6 +27,7 @@ import { GunnyBags } from "./DCTracker";
 import LeasedTruck from "./LeasedTruck";
 import { useConfirm } from "./ConfirmProvider";
 import RoundOffInput from "./common/RoundOffInput";
+import ExportPreviewDialog from "./common/ExportPreviewDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -978,6 +979,24 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
               <FileText className="w-4 h-4 mr-1" />
               PDF
             </Button>
+            <ExportPreviewDialog
+              data={filteredTruckPayments}
+              title="Truck Payments / ट्रक भुगतान"
+              columns={[
+                { header: "Date", field: "date", format: "date" },
+                { header: "Truck", field: "truck_no" },
+                { header: "Mandi", field: "mandi_name" },
+                { header: "QNTL", field: "qntl", format: "number", align: "right" },
+                { header: "Net Rs", field: "net_amount", format: "rupees", align: "right" },
+                { header: "Paid Rs", field: "paid_amount", format: "rupees", align: "right" },
+                { header: "Balance", field: "balance", format: "rupees", align: "right" },
+                { header: "Status", field: "status" },
+              ]}
+              onPdfExport={handleExportTruckPDF}
+              onExcelExport={handleExportTruckExcel}
+              triggerClassName="bg-blue-600 hover:bg-blue-700 text-white"
+              iconOnly
+            />
           </div>
         </div>
       )}
@@ -1189,6 +1208,22 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                   <FileText className="w-4 h-4 mr-1" />
                   PDF
                 </Button>
+                <ExportPreviewDialog
+                  data={consolidatedTruckList}
+                  title="Truck Owner Consolidated / ट्रक मालिक समेकित"
+                  columns={[
+                    { header: "Truck", field: "truck_no" },
+                    { header: "Trips", field: "trip_count", format: "integer", align: "right" },
+                    { header: "Gross Rs", field: "total_gross", format: "rupees", align: "right" },
+                    { header: "Net Rs", field: "total_net", format: "rupees", align: "right" },
+                    { header: "Paid Rs", field: "total_paid", format: "rupees", align: "right" },
+                    { header: "Balance", field: "total_balance", format: "rupees", align: "right" },
+                  ]}
+                  onPdfExport={handleExportTruckOwnerPDF}
+                  onExcelExport={handleExportTruckOwnerExcel}
+                  triggerClassName="bg-blue-600 hover:bg-blue-700 text-white"
+                  iconOnly
+                />
               </div>
             </div>
           </CardHeader>
@@ -1375,6 +1410,22 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
                   <FileText className="w-4 h-4 mr-1" />
                   PDF
                 </Button>
+                <ExportPreviewDialog
+                  data={agentPayments}
+                  title="Agent/Mandi Payments / एजेंट भुगतान"
+                  columns={[
+                    { header: "Mandi", field: "mandi_name" },
+                    { header: "Agent", field: "agent_name" },
+                    { header: "Target", field: "target_qntl", format: "number", align: "right" },
+                    { header: "Amount", field: "total_amount", format: "rupees", align: "right" },
+                    { header: "Paid", field: "paid_amount", format: "rupees", align: "right" },
+                    { header: "Balance", field: "balance", format: "rupees", align: "right" },
+                  ]}
+                  onPdfExport={handleExportAgentPDF}
+                  onExcelExport={handleExportAgentExcel}
+                  triggerClassName="bg-blue-600 hover:bg-blue-700 text-white"
+                  iconOnly
+                />
               </div>
             </div>
           </CardHeader>

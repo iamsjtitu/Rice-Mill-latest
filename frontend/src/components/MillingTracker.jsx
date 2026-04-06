@@ -17,6 +17,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Trash2, Edit, Plus, RefreshCw, Filter, X, ShoppingCart, Package, Download, FileText, ClipboardList } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
+import ExportPreviewDialog from "./common/ExportPreviewDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -204,6 +205,21 @@ const MillingEntriesTab = ({ filters, user, paddyStock, frkStock, onRefresh }) =
         <Button onClick={() => exportReport('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="milling-export-pdf">
           <FileText className="w-4 h-4 mr-1" /> PDF
         </Button>
+        <ExportPreviewDialog
+          data={entries}
+          title="Milling Report / मिलिंग रिपोर्ट"
+          columns={[
+            { header: "Date", field: "date", format: "date" },
+            { header: "Rice Type", field: "rice_type" },
+            { header: "Paddy Q", field: "paddy_in_qntl", format: "number", align: "right" },
+            { header: "Rice Q", field: "rice_out_qntl", format: "number", align: "right" },
+            { header: "Recovery %", field: "recovery_pct", format: "number", align: "right" },
+          ]}
+          onPdfExport={() => exportReport('pdf')}
+          onExcelExport={() => exportReport('excel')}
+          triggerClassName="border-slate-600 text-blue-400 hover:bg-slate-700"
+          iconOnly
+        />
       </div>
 
       {showFilters && (

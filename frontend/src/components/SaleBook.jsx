@@ -17,6 +17,7 @@ import { fmtDate } from "@/utils/date";
 import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
+import ExportPreviewDialog from "./common/ExportPreviewDialog";
 
 const HSN_MAP = {
   "Rice (Usna)": "1006 30 20", "Rice (Raw)": "1006 30 10",
@@ -332,6 +333,22 @@ export default function SaleBook({ filters, user }) {
           <Button onClick={handleExportExcel} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="sale-book-excel-btn">
             <FileSpreadsheet className="w-3 h-3 mr-1" /> Excel
           </Button>
+          <ExportPreviewDialog
+            data={vouchers}
+            title="Sale Book / बिक्री बही"
+            columns={[
+              { header: "Date", field: "date", format: "date" },
+              { header: "Party", field: "party_name" },
+              { header: "Invoice", field: "invoice_no" },
+              { header: "Amount", field: "total_amount", format: "rupees", align: "right" },
+              { header: "Paid", field: "paid_amount", format: "rupees", align: "right" },
+              { header: "Balance", field: "balance", format: "rupees", align: "right" },
+            ]}
+            onPdfExport={handleExportPDF}
+            onExcelExport={handleExportExcel}
+            triggerClassName="border-blue-600 text-blue-400 hover:bg-blue-900/30"
+            iconOnly
+          />
           <Button onClick={openNewForm} className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold" data-testid="sale-book-add-btn">
             <Plus className="w-4 h-4 mr-1" /> New Sale
           </Button>

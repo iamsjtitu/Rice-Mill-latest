@@ -21,6 +21,7 @@ import {
   RefreshCw, Download, FileText, AlertCircle, Truck, Users,
   IndianRupee, FileSpreadsheet, BookOpen, ClipboardList, Receipt, Wallet, Send
 } from "lucide-react";
+import ExportPreviewDialog from "./common/ExportPreviewDialog";
 
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -72,6 +73,24 @@ export const OutstandingReport = ({ filters }) => {
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="outstanding-export-pdf">
           <FileText className="w-4 h-4 mr-1" /> PDF
         </Button>
+        <ExportPreviewDialog
+          data={[
+            ...(data?.dc_pending?.entries || []).map(e => ({...e, _type: "DC"})),
+            ...(data?.truck_payments?.entries || []).map(e => ({...e, _type: "Truck"})),
+          ]}
+          title="Outstanding Report / बकाया रिपोर्ट"
+          columns={[
+            { header: "Type", field: "_type" },
+            { header: "Party", field: "party_name", render: v => v || "-" },
+            { header: "Amount", field: "total_amount", format: "rupees", align: "right" },
+            { header: "Paid", field: "paid_amount", format: "rupees", align: "right" },
+            { header: "Balance", field: "balance", format: "rupees", align: "right" },
+          ]}
+          onPdfExport={() => exportData('pdf')}
+          onExcelExport={() => exportData('excel')}
+          triggerClassName="border-slate-600 text-blue-400"
+          iconOnly
+        />
       </div>
 
       {/* DC Pending Deliveries */}
@@ -420,6 +439,22 @@ const PartyLedger = ({ filters }) => {
           <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="party-ledger-export-pdf">
             <FileText className="w-4 h-4 mr-1" /> PDF
           </Button>
+          <ExportPreviewDialog
+            data={data?.ledger || []}
+            title="Party Ledger / पार्टी खाता"
+            columns={[
+              { header: "Date", field: "date", format: "date" },
+              { header: "Type", field: "type" },
+              { header: "Narration", field: "description" },
+              { header: "Debit", field: "debit", format: "rupees", align: "right" },
+              { header: "Credit", field: "credit", format: "rupees", align: "right" },
+              { header: "Balance", field: "balance", format: "rupees", align: "right" },
+            ]}
+            onPdfExport={() => exportData('pdf')}
+            onExcelExport={() => exportData('excel')}
+            triggerClassName="border-slate-600 text-blue-400"
+            iconOnly
+          />
           {wa && <Button onClick={sendLedgerWhatsApp} variant="outline" size="sm" className="border-green-500 text-green-400 hover:bg-green-500/10" data-testid="party-ledger-whatsapp">
             <Send className="w-4 h-4 mr-1" /> WhatsApp
           </Button>}

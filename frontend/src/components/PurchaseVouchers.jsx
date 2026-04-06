@@ -21,6 +21,7 @@ import {
 import { downloadFile } from "../utils/download";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
+import ExportPreviewDialog from "./common/ExportPreviewDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -345,6 +346,22 @@ export default function PurchaseVouchers({ filters, user }) {
         <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="pv-export-excel">
           <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
         </Button>
+        <ExportPreviewDialog
+          data={vouchers}
+          title="Purchase Book / खरीद बही"
+          columns={[
+            { header: "Date", field: "date", format: "date" },
+            { header: "Party", field: "party_name" },
+            { header: "Invoice", field: "invoice_no" },
+            { header: "Amount", field: "total_amount", format: "rupees", align: "right" },
+            { header: "Paid", field: "ledger_paid", format: "rupees", align: "right" },
+            { header: "Balance", field: "balance", format: "rupees", align: "right" },
+          ]}
+          onPdfExport={() => handleExport('pdf')}
+          onExcelExport={() => handleExport('excel')}
+          triggerClassName="border-blue-700 text-blue-400 hover:bg-blue-900/30"
+          iconOnly
+        />
         <div className="relative ml-auto min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input value={searchText} onChange={e => setSearchText(e.target.value)}

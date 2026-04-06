@@ -18,6 +18,8 @@ import {
   Plus, Trash2, Edit, Calculator, Target, TrendingUp, TrendingDown, Users, IndianRupee, BarChart3, FileText, RefreshCw, Wheat, Package, Truck, ShoppingCart,
 } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
+import ExportPreviewDialog from "./common/ExportPreviewDialog";
+import { downloadFile } from "../utils/download";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -235,6 +237,26 @@ export const Dashboard = ({ filters, user }) => {
           }} className="bg-purple-600 hover:bg-purple-700 text-white" size="sm" data-testid="dash-summary-pdf">
             <FileText className="w-4 h-4 mr-1" /> Summary Report
           </Button>
+          <ExportPreviewDialog
+            data={agentTotals}
+            title="Dashboard Overview / डैशबोर्ड"
+            columns={[
+              { header: "Mandi", field: "mandi" },
+              { header: "Agent", field: "agent" },
+              { header: "Trips", field: "trips", format: "integer", align: "right" },
+              { header: "Total Q", field: "total_qntl", format: "number", align: "right" },
+              { header: "Amount", field: "total_amount", format: "rupees", align: "right" },
+            ]}
+            onPdfExport={async () => {
+              const params = new URLSearchParams();
+              if (filters.kms_year) params.append('kms_year', filters.kms_year);
+              if (filters.season) params.append('season', filters.season);
+              if (dashFilter && dashFilter !== 'all') params.append('filter', dashFilter);
+              downloadFile(`/api/export/dashboard-pdf?${params.toString()}`, 'dashboard_report.pdf');
+            }}
+            triggerClassName="border-blue-700 text-blue-400 hover:bg-blue-900/30"
+            iconOnly
+          />
         </div>
       </div>
 

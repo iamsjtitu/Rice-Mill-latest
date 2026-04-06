@@ -11,6 +11,7 @@ import { Plus, Trash2, Edit, Users, IndianRupee, RefreshCw, Undo2, Download, Fil
 import { fmtDate } from "@/utils/date";
 import RoundOffInput from "@/components/common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
+import ExportPreviewDialog from "./common/ExportPreviewDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
@@ -173,6 +174,21 @@ const MonthlySummary = ({ filters }) => {
         <Button onClick={() => handleExport("excel")} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="monthly-export-excel">
           <Download className="w-4 h-4 mr-1" /> Excel
         </Button>
+        <ExportPreviewDialog
+          data={data}
+          title="Hemali Monthly Summary / हेमाली मासिक सारांश"
+          columns={[
+            { header: "Month", field: "month" },
+            { header: "Sardar", field: "sardar_name" },
+            { header: "Amount", field: "total_amount", format: "rupees", align: "right" },
+            { header: "Paid", field: "total_paid", format: "rupees", align: "right" },
+            { header: "Balance", field: "balance", format: "rupees", align: "right" },
+          ]}
+          onPdfExport={() => handleExport('pdf')}
+          onExcelExport={() => handleExport('excel')}
+          triggerClassName="border-blue-600 text-blue-400 hover:bg-blue-900/30"
+          iconOnly
+        />
         <div className="flex items-center gap-2 ml-auto">
           <Select value={filterMonth || "all"} onValueChange={v => setFilterMonth(v === "all" ? "" : v)}>
             <SelectTrigger className="bg-slate-700 border-slate-600 text-white h-8 text-xs w-[140px]" data-testid="monthly-filter-month">
@@ -541,6 +557,21 @@ export default function HemaliPayment({ filters, user }) {
             <Button onClick={handleExportExcel} variant="outline" size="sm" className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="hemali-export-excel">
               <Download className="w-4 h-4 mr-1" /> Excel
             </Button>
+            <ExportPreviewDialog
+              data={payments}
+              title="Hemali Payments / हेमाली भुगतान"
+              columns={[
+                { header: "Date", field: "date", format: "date" },
+                { header: "Sardar", field: "sardar_name" },
+                { header: "Amount", field: "amount_paid", format: "rupees", align: "right" },
+                { header: "Mode", field: "payment_mode" },
+                { header: "Note", field: "note" },
+              ]}
+              onPdfExport={handleExportPDF}
+              onExcelExport={handleExportExcel}
+              triggerClassName="border-blue-600 text-blue-400 hover:bg-blue-900/30"
+              iconOnly
+            />
 
             {/* Filters */}
             <div className="flex items-center gap-2 ml-auto">

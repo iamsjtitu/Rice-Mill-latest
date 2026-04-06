@@ -8,6 +8,7 @@ import { Download, FileText, Filter, X, Loader2, Users, Eye } from "lucide-react
 import { useMessagingEnabled } from "@/hooks/useMessagingEnabled";
 import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import ViewEntryDialog from "@/components/ViewEntryDialog";
+import ExportPreviewDialog from "@/components/common/ExportPreviewDialog";
 import { fmtDate } from "../utils/date";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
@@ -164,6 +165,25 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
             className="bg-red-700 hover:bg-red-600 text-white" data-testid="ppr-download-pdf">
             <FileText className="w-4 h-4 mr-1" /> PDF
           </Button>
+          <ExportPreviewDialog
+            data={entries}
+            title="Paddy Purchase Register / पैडी खरीद रजिस्टर"
+            columns={[
+              { header: "Date", field: "date", format: "date" },
+              { header: "Truck", field: "truck_no" },
+              { header: "RST", field: "rst_no" },
+              { header: "TP", field: "tp_no" },
+              { header: "Agent", field: "agent_name" },
+              { header: "Mandi", field: "mandi_name" },
+              { header: "QNTL", field: "qntl", format: "number", align: "right" },
+              { header: "BAG", field: "bag", format: "integer", align: "right" },
+              { header: "Mill W", field: "mill_w", format: "qntl", align: "right" },
+              { header: "Final W", field: "final_w", format: "qntl", align: "right" },
+              { header: "G.Iss", field: "g_issued", format: "integer", align: "right" },
+            ]}
+            onPdfExport={() => window.open(`${API}/export/pdf?${buildExportParams()}`, "_blank")}
+            onExcelExport={() => window.open(`${API}/export/excel?${buildExportParams()}`, "_blank")}
+          />
           {wa && (
             <Button size="sm" onClick={sendWhatsApp} disabled={!!sending}
               className="bg-[#25D366] hover:bg-[#1da851] text-white" data-testid="ppr-send-wa">

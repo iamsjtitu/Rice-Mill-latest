@@ -16,6 +16,7 @@ import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 import { useConfirm } from "./ConfirmProvider";
 import { downloadFile } from "../utils/download";
 import PaginationBar from "./PaginationBar";
+import ExportPreviewDialog from "./common/ExportPreviewDialog";
 
 const _isElectron = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
 const _isElectronEnv = typeof window !== "undefined" && (window.electronAPI || window.ELECTRON_API_URL);
@@ -1196,6 +1197,26 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, `vehicle_weight.pdf`); }}>
                 <FileText className="w-3 h-3 mr-1" />PDF
               </Button>
+              <ExportPreviewDialog
+                data={entries}
+                title="Vehicle Weight / तौल पर्ची"
+                columns={[
+                  { header: "RST", field: "rst_no" },
+                  { header: "Date", field: "date", format: "date" },
+                  { header: "Vehicle", field: "vehicle_no" },
+                  { header: "Party", field: "party_name" },
+                  { header: "Source", field: "farmer_name" },
+                  { header: "Product", field: "product" },
+                  { header: "1st Wt", field: "first_wt", format: "number", align: "right" },
+                  { header: "2nd Wt", field: "second_wt", format: "number", align: "right" },
+                  { header: "Net Wt", field: "net_wt", format: "number", align: "right" },
+                ]}
+                onPdfExport={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, `vehicle_weight.pdf`); }}
+                onExcelExport={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/excel?${fp.toString()}`, `vehicle_weight.xlsx`); }}
+                buttonSize="sm"
+                triggerClassName="h-6 px-2 text-[10px] text-blue-700 border-blue-300 hover:bg-blue-50"
+                iconOnly
+              />
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-gray-500 hover:text-gray-800" data-testid="vw-toggle-completed" onClick={() => setShowCompleted(!showCompleted)}>
                 {showCompleted ? <><EyeOff className="w-3 h-3 mr-1" />Hide</> : <><Eye className="w-3 h-3 mr-1" />Show</>}
               </Button>

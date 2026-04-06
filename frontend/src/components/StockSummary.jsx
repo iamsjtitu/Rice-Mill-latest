@@ -10,6 +10,7 @@ import {
   RefreshCw, FileText, FileSpreadsheet, Package, Wheat, ShoppingBag, Box,
 } from "lucide-react";
 import { downloadFile } from "../utils/download";
+import ExportPreviewDialog from "./common/ExportPreviewDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -97,6 +98,23 @@ export default function StockSummary({ filters }) {
         <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="stock-export-excel">
           <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
         </Button>
+        <ExportPreviewDialog
+          data={filteredItems}
+          title="Stock Summary / स्टॉक सारांश"
+          columns={[
+            { header: "Item", field: "item_name" },
+            { header: "Category", field: "category" },
+            { header: "Opening", field: "opening_stock", format: "number", align: "right" },
+            { header: "In", field: "total_in", format: "number", align: "right" },
+            { header: "Out", field: "total_out", format: "number", align: "right" },
+            { header: "Current", field: "current_stock", format: "number", align: "right" },
+            { header: "Unit", field: "unit" },
+          ]}
+          onPdfExport={() => handleExport('pdf')}
+          onExcelExport={() => handleExport('excel')}
+          triggerClassName="border-blue-700 text-blue-400 hover:bg-blue-900/30"
+          iconOnly
+        />
         {categories.length > 0 && (
           <div className="flex gap-1 bg-slate-900 p-0.5 rounded border border-slate-700 ml-2">
             <Button onClick={() => setFilterCategory("all")} variant={filterCategory === "all" ? "default" : "ghost"} size="sm"

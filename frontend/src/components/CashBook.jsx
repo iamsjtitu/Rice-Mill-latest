@@ -491,7 +491,7 @@ const CashBook = ({ filters, user }) => {
         </Button>
       </div>
 
-      <SummaryCards summary={summary} onNewTransaction={openNewTransaction} onExport={exportData} />
+      <SummaryCards summary={summary} onNewTransaction={openNewTransaction} onExport={exportData} previewData={txns} />
 
       {/* Sub-tabs */}
       <div className="flex gap-2 flex-wrap items-center">

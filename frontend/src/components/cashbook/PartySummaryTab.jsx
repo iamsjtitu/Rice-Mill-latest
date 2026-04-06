@@ -5,6 +5,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Download, FileText, CheckCircle, AlertCircle } from "lucide-react";
+import ExportPreviewDialog from "../common/ExportPreviewDialog";
 
 const PartySummaryTab = ({
   partySummary, partySummaryFilter, setPartySummaryFilter,
@@ -61,6 +62,23 @@ const PartySummaryTab = ({
           variant="outline" size="sm" className="border-red-600/50 text-red-400 hover:bg-red-900/30 h-8 px-3 text-xs" data-testid="party-summary-export-pdf">
           <FileText className="w-3 h-3 mr-1" /> PDF
         </Button>
+        <ExportPreviewDialog
+          data={partySummary?.parties || []}
+          title="Party Summary / पार्टी सारांश"
+          columns={[
+            { header: "Party", field: "party" },
+            { header: "Type", field: "party_type" },
+            { header: "Debit", field: "total_debit", format: "rupees", align: "right" },
+            { header: "Credit", field: "total_credit", format: "rupees", align: "right" },
+            { header: "Balance", field: "balance", format: "rupees", align: "right" },
+            { header: "Status", field: "status" },
+          ]}
+          onPdfExport={() => { const u = `${API}/cash-book/party-summary/pdf?kms_year=${filters.kms_year||''}&season=${filters.season||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}${statusFilter?'&status='+statusFilter:''}`; window.open(u); }}
+          onExcelExport={() => { const u = `${API}/cash-book/party-summary/excel?kms_year=${filters.kms_year||''}&season=${filters.season||''}${partySummaryFilter?'&party_type='+partySummaryFilter:''}${statusFilter?'&status='+statusFilter:''}`; window.open(u); }}
+          buttonSize="sm"
+          triggerClassName="border-blue-600/50 text-blue-400 hover:bg-blue-900/30 h-8 px-3 text-xs"
+          iconOnly
+        />
       </div>
 
       {/* Compact Stats Row */}
