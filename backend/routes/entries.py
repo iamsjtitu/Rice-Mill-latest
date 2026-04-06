@@ -877,7 +877,7 @@ async def export_excel(
         if dq: query["date"] = dq
     
     entries = await db.mill_entries.find(query, {"_id": 0}).to_list(1000)
-    entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)), reverse=True)
+    entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)))
     
     # Create workbook
     from utils.export_helpers import (style_excel_title, style_excel_header_row,
@@ -1032,7 +1032,7 @@ async def export_pdf(
         if dq: query["date"] = dq
     
     entries = await db.mill_entries.find(query, {"_id": 0}).to_list(1000)
-    entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)), reverse=True)
+    entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)))
     totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season, date_from, date_to)
     
     # Create PDF buffer
@@ -1112,7 +1112,7 @@ async def export_pdf(
             entry.get('rst_no', '')[:8] if entry.get('rst_no') else '',
             entry.get('tp_no', '')[:8] if entry.get('tp_no') else '',
             entry.get('agent_name', '')[:10] if entry.get('agent_name') else '',
-            entry.get('mandi_name', '')[:10] if entry.get('mandi_name') else '',
+            entry.get('mandi_name', '')[:16] if entry.get('mandi_name') else '',
             f"{entry.get('qntl', 0):.2f}",
             str(entry.get('bag', 0)),
             str(entry.get('g_deposite', 0)),
@@ -1149,7 +1149,7 @@ async def export_pdf(
     table_data.append(totals_row)
     
     # Column widths (19 columns for A4 landscape with margins)
-    col_widths = [15*mm, 15*mm, 11*mm, 11*mm, 15*mm, 15*mm, 13*mm, 9*mm, 9*mm, 11*mm, 
+    col_widths = [15*mm, 15*mm, 11*mm, 11*mm, 15*mm, 22*mm, 13*mm, 9*mm, 9*mm, 11*mm, 
                   9*mm, 11*mm, 13*mm, 9*mm, 11*mm, 9*mm, 9*mm, 13*mm, 11*mm]
     
     # Create table
@@ -1200,7 +1200,7 @@ async def export_truck_payments_excel(
     if truck_no:
         query["truck_no"] = {"$regex": truck_no, "$options": "i"}
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(1000)
     
     # Build payment data
     payments_data = []
@@ -1340,7 +1340,7 @@ async def export_truck_payments_pdf(
     if truck_no:
         query["truck_no"] = {"$regex": truck_no, "$options": "i"}
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(1000)
     
     # Build payment data
     payments_data = []

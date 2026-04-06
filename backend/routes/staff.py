@@ -842,7 +842,7 @@ async def export_payments(fmt: str = "excel", kms_year: Optional[str] = None, se
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    payments = await db.staff_payments.find(query, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    payments = await db.staff_payments.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(5000)
 
     if fmt == "pdf":
         from reportlab.lib.pagesizes import A4, landscape

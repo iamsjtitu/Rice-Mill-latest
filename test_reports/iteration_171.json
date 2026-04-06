@@ -1,0 +1,95 @@
+{
+  "summary": "Tested all PDF/Excel export endpoints for ascending date sort order and 200 status codes. All 21 tests passed. Verified: 1) Export endpoints sort ascending (oldest first), 2) UI listing endpoints still sort descending (newest first), 3) Mandi column widths increased in report_config.json.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_export_endpoints_iteration171.py",
+    "/app/test_reports/pytest/pytest_results_iteration171.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Export endpoints correctly changed from sort(-1) to sort(1) for ascending date order",
+    "UI listing endpoints correctly preserved sort(-1) for descending date order (newest first)",
+    "Mandi column widths increased in report_config.json: pdf_w 22->28, excel_w 14->18 for private_paddy_report and party_summary_report"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "N/A - backend only testing"
+  },
+  "test_credentials": {
+    "username": "admin",
+    "password": "admin123"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All export endpoints verified working with ascending date sort. Key changes: 1) entries.py lines 880, 1035, 1203, 1343 - sort ascending for exports, 2) private_trading.py lines 1036, 1115, 1182, 1254 - sort ascending for exports, 3) staff.py line 845 - sort ascending for payments export, 4) UI listing endpoints preserved descending sort at private_trading.py lines 271, 463.",
+  "tests_passed": {
+    "mill_entries_exports": {
+      "export_pdf": "PASS - 200",
+      "export_excel": "PASS - 200",
+      "truck_payments_excel": "PASS - 200",
+      "truck_payments_pdf": "PASS - 200"
+    },
+    "private_trading_exports": {
+      "private_paddy_pdf": "PASS - 200",
+      "private_paddy_excel": "PASS - 200",
+      "rice_sales_pdf": "PASS - 200",
+      "rice_sales_excel": "PASS - 200",
+      "party_summary_pdf": "PASS - 200",
+      "party_summary_excel": "PASS - 200"
+    },
+    "staff_exports": {
+      "staff_payments_export": "PASS - 200"
+    },
+    "mill_parts_exports": {
+      "mill_parts_stock_excel": "PASS - 200",
+      "mill_parts_stock_pdf": "PASS - 200"
+    },
+    "cashbook_exports": {
+      "cash_book_excel": "PASS - 200"
+    },
+    "vehicle_weight_exports": {
+      "vehicle_weight_pdf": "PASS - 200",
+      "vehicle_weight_excel": "PASS - 200"
+    },
+    "exports_route": {
+      "truck_owner_excel": "PASS - 200",
+      "truck_owner_pdf": "PASS - 200",
+      "summary_report_pdf": "PASS - 200"
+    },
+    "ui_listing_sort_verification": {
+      "rice_sales_descending": "PASS - sorts newest first",
+      "private_paddy_descending": "PASS - sorts newest first"
+    }
+  },
+  "code_verification": {
+    "ascending_sort_exports": [
+      "entries.py:880 - entries.sort(key=lambda e: (e.get('date', ''), int(e.get('rst_no') or 0)))",
+      "entries.py:1035 - entries.sort(key=lambda e: (e.get('date', ''), int(e.get('rst_no') or 0)))",
+      "entries.py:1203 - .sort([('date', 1), ('created_at', 1)])",
+      "entries.py:1343 - .sort([('date', 1), ('created_at', 1)])",
+      "private_trading.py:1036 - .sort([('date', 1), ('created_at', 1)])",
+      "private_trading.py:1115 - .sort([('date', 1), ('created_at', 1)])",
+      "private_trading.py:1182 - .sort([('date', 1), ('created_at', 1)])",
+      "private_trading.py:1254 - .sort([('date', 1), ('created_at', 1)])",
+      "staff.py:845 - .sort([('date', 1), ('created_at', 1)])"
+    ],
+    "descending_sort_ui_listings": [
+      "private_trading.py:271 - .sort([('date', -1), ('created_at', -1)]) for GET /api/private-paddy",
+      "private_trading.py:463 - .sort([('date', -1), ('created_at', -1)]) for GET /api/rice-sales"
+    ],
+    "mandi_column_widths": {
+      "private_paddy_report": "pdf_w: 28mm, excel_w: 18",
+      "party_summary_report": "pdf_w: 28mm, excel_w: 18"
+    }
+  }
+}

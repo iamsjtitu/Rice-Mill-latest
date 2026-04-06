@@ -353,7 +353,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
 
     # ---- SECTION 3: TRUCK PAYMENTS ----
     elements.append(Paragraph("3. TRUCK PAYMENTS", sec))
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     truck_total_net = truck_total_paid = truck_total_balance = 0
     truck_rows = []
     for entry in entries:
@@ -367,14 +367,14 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
         net = round(fq * rate - cash - diesel, 2)
         bal = round(max(0, net - paid), 2)
         truck_total_net += net; truck_total_paid += paid; truck_total_balance += bal
-        truck_rows.append([fmt_date(entry.get("date", "")[:10]), entry.get("truck_no", "")[:12], entry.get("mandi_name", "")[:10],
+        truck_rows.append([fmt_date(entry.get("date", "")[:10]), entry.get("truck_no", "")[:12], entry.get("mandi_name", "")[:16],
             str(fq), f"Rs.{net:,.0f}", f"Rs.{paid:,.0f}", f"Rs.{bal:,.0f}",
             "Paid" if bal < 0.10 else "Pending"])
 
     if truck_rows:
         tdata = [["Date", "Truck", "Mandi", "QNTL", "Net", "Paid", "Balance", "Status"]] + truck_rows
         tdata.append(["TOTAL", "", "", "", f"Rs.{round(truck_total_net):,}", f"Rs.{round(truck_total_paid):,}", f"Rs.{round(truck_total_balance):,}", ""])
-        tt = Table(tdata, colWidths=[20*mm, 22*mm, 18*mm, 16*mm, 22*mm, 20*mm, 22*mm, 16*mm])
+        tt = Table(tdata, colWidths=[20*mm, 22*mm, 22*mm, 16*mm, 22*mm, 20*mm, 22*mm, 16*mm])
         tts = [
             ('BACKGROUND', (0, 0), (-1, 0), hdr_bg), ('TEXTCOLOR', (0, 0), (-1, 0), hdr_fg),
             ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
@@ -463,7 +463,7 @@ async def export_truck_owner_excel(
     if season:
         query["season"] = season
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     
     # Group by truck_no
     truck_data = {}
@@ -603,7 +603,7 @@ async def export_truck_owner_pdf(
     if season:
         query["season"] = season
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", -1).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
     
     # Group by truck_no
     truck_data = {}

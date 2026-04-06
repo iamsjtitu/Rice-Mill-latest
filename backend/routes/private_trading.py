@@ -1033,7 +1033,7 @@ async def export_private_paddy_excel(kms_year: Optional[str] = None, season: Opt
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    items = await db.private_paddy.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    items = await db.private_paddy.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(5000)
     if search:
         s = search.lower()
         items = [i for i in items if s in (i.get("party_name","")).lower() or s in (i.get("mandi_name","")).lower() or s in (i.get("agent_name","")).lower()]
@@ -1112,7 +1112,7 @@ async def export_private_paddy_pdf(kms_year: Optional[str] = None, season: Optio
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    items = await db.private_paddy.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    items = await db.private_paddy.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(5000)
     if search:
         s = search.lower()
         items = [i for i in items if s in (i.get("party_name","")).lower() or s in (i.get("mandi_name","")).lower() or s in (i.get("agent_name","")).lower()]
@@ -1179,7 +1179,7 @@ async def export_rice_sales_excel(kms_year: Optional[str] = None, season: Option
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    items = await db.rice_sales.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    items = await db.rice_sales.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(5000)
     if search:
         s = search.lower()
         items = [i for i in items if s in (i.get("party_name","")).lower()]
@@ -1251,7 +1251,7 @@ async def export_rice_sales_pdf(kms_year: Optional[str] = None, season: Optional
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
-    items = await db.rice_sales.find(query, {"_id": 0}).sort([("date", -1), ("created_at", -1)]).to_list(5000)
+    items = await db.rice_sales.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(5000)
     if search:
         s = search.lower()
         items = [i for i in items if s in (i.get("party_name","")).lower()]

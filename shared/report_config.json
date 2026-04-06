@@ -358,8 +358,8 @@
         "pdf_header": "Mandi",
         "type": "text",
         "align": "left",
-        "width_excel": 14,
-        "width_pdf_mm": 22
+        "width_excel": 18,
+        "width_pdf_mm": 28
       },
       {
         "field": "agent_name",
@@ -588,8 +588,8 @@
         "pdf_header": "Mandi",
         "type": "text",
         "align": "left",
-        "width_excel": 14,
-        "width_pdf_mm": 22
+        "width_excel": 18,
+        "width_pdf_mm": 28
       },
       {
         "field": "agent_name",
@@ -941,8 +941,8 @@
         "pdf_header": "Mandi",
         "type": "text",
         "align": "left",
-        "width_excel": 12,
-        "width_pdf_mm": 18
+        "width_excel": 14,
+        "width_pdf_mm": 22
       },
       {
         "field": "rst_no",

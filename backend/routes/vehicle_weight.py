@@ -885,7 +885,8 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     from fastapi.responses import StreamingResponse
     from utils.branding_helper import get_branding_data
     query = await _build_vw_query(kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no)
-    items = await db["vehicle_weights"].find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    items = await db["vehicle_weights"].find(query, {"_id": 0}).to_list(10000)
+    items.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)))
 
     branding = await get_branding_data()
     company_name = branding.get("company_name", "NAVKAR AGRO")
@@ -997,7 +998,8 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     from utils.branding_helper import get_pdf_header_elements_from_db
 
     query = await _build_vw_query(kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no)
-    items = await db["vehicle_weights"].find(query, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    items = await db["vehicle_weights"].find(query, {"_id": 0}).to_list(10000)
+    items.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)))
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
@@ -1023,7 +1025,7 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
             f"{e.get('diesel_paid',0):,.0f}" if e.get('diesel_paid') else "-"
         ])
 
-    col_widths = [30, 55, 65, 70, 55, 60, 55, 30, 50, 50, 50, 40, 40, 40]
+    col_widths = [30, 55, 65, 70, 70, 60, 55, 30, 50, 50, 50, 40, 40, 40]
     t = Table(data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a2e')),

@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.16.0";
+const APP_VERSION = "88.17.0";
 
 const CHANGELOG = [
+  {
+    version: "88.17.0",
+    date: "Apr 2026",
+    title: "v88.17.0 - Export Sort + Mandi Width Fix",
+    items: [
+      { type: "fix", text: "Sabhi PDF/Excel exports ab date ascending order mai hain (purani date upar)" },
+      { type: "fix", text: "Mandi column width badaya - Maa Jogamaya jaise lambe naam ab nahi katenge" },
+    ]
+  },
   {
     version: "88.16.0",
     date: "Apr 2026",
