@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.17.0";
+const APP_VERSION = "88.18.0";
 
 const CHANGELOG = [
+  {
+    version: "88.18.0",
+    date: "Apr 2026",
+    title: "v88.18.0 - Export Preview Feature",
+    items: [
+      { type: "new", text: "Export Preview - PDF/Excel download se pehle data dekho modal mai" },
+      { type: "new", text: "Sabhi sections mai Preview (Eye) button - PPR, Private Paddy, Vehicle Weight, Staff, Cash Book, Mill Parts, DC, Reports, aur baki sab" },
+      { type: "new", text: "Preview mai Search, full scrollable table, aur PDF/Excel download buttons" },
+    ]
+  },
   {
     version: "88.17.0",
     date: "Apr 2026",
