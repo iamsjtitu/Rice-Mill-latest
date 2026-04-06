@@ -35,7 +35,7 @@ export default function ViewEntryDialog({ entry, onClose }) {
     const handleKey = (e) => {
       if (e.key === "Escape") {
         // Don't close dialog if a photo/camera zoom is open - let zoom handler close first
-        const zoomOpen = document.querySelector('[data-testid="photo-zoom-overlay"], [data-testid="camera-zoom-overlay"]');
+        const zoomOpen = document.querySelector('[data-testid="photo-zoom-overlay"], [data-testid="camera-zoom-overlay"], [data-testid="awe-photo-zoom-overlay"]');
         if (zoomOpen) return;
         onClose();
       }

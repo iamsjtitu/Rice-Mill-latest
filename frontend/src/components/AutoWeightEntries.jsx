@@ -41,6 +41,15 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
   const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
   const [zoomImg, setZoomImg] = useState(null);
   const showConfirm = useConfirm();
+
+  // ESC key handler for photo zoom overlay
+  useEffect(() => {
+    if (!zoomImg) return;
+    const handler = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); setZoomImg(null); } };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [zoomImg]);
+
   const [vwFilters, setVwFilters] = useState({
     date_from: getLast7DaysDate(), date_to: todayStr,
     vehicle_no: "", party_name: "", farmer_name: "", rst_no: ""
@@ -368,7 +377,11 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
 
     {/* Photo View Dialog - Print Slip Style */}
     <Dialog open={photoDialog.open} onOpenChange={v => !v && setPhotoDialog({ open: false, data: null, loading: false })}>
-      <DialogContent className="bg-white border-gray-300 max-w-[520px] max-h-[90vh] overflow-y-auto p-0" data-testid="awe-photo-dialog">
+      <DialogContent className="bg-white border-gray-300 max-w-[520px] max-h-[90vh] overflow-y-auto p-0" data-testid="awe-photo-dialog"
+        onEscapeKeyDown={(e) => {
+          const zoomOpen = document.querySelector('[data-testid="awe-photo-zoom-overlay"], [data-testid="photo-zoom-overlay"], [data-testid="camera-zoom-overlay"]');
+          if (zoomOpen) e.preventDefault();
+        }}>
         {photoDialog.loading ? (
           <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>
         ) : photoDialog.data ? (

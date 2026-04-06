@@ -1,0 +1,101 @@
+{
+  "summary": "Verified two P0 frontend bug fixes: 1) KG & QNTL fields lock correctly in edit mode, 2) ESC key handlers implemented for photo zoom overlays. Both features working as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "feature_1_kg_qntl_lock": {
+      "new_entry_mode": {
+        "kg_enabled": "PASS - KG input is ENABLED when creating new entry",
+        "qntl_enabled": "PASS - QNTL input is ENABLED when creating new entry",
+        "no_locked_label": "PASS - Labels do NOT show '(Locked)' text"
+      },
+      "edit_mode": {
+        "kg_disabled": "PASS - KG input is DISABLED when editing existing entry",
+        "qntl_disabled": "PASS - QNTL input is DISABLED when editing existing entry",
+        "locked_label": "PASS - Labels show '(Locked)' text (KG * (Locked), QNTL (Auto) (Locked))"
+      },
+      "code_verification": {
+        "disabled_attribute": "Line 273, 283: disabled={rstFetched || !!editingId}",
+        "locked_label": "Line 264, 277: Shows '(Locked)' when rstFetched || editingId"
+      }
+    },
+    "feature_2_esc_key_photo_zoom": {
+      "code_review": "PASS - All components have correct ESC key handlers",
+      "vehicle_weight_jsx": {
+        "line_1387": "onEscapeKeyDown handler checks for photo-zoom-overlay, camera-zoom-overlay",
+        "line_451_456": "useEffect ESC handler for zoomImg state with stopImmediatePropagation"
+      },
+      "auto_weight_entries_jsx": {
+        "line_381": "onEscapeKeyDown handler checks for awe-photo-zoom-overlay, photo-zoom-overlay, camera-zoom-overlay",
+        "line_44_50": "useEffect ESC handler for zoomImg state with stopImmediatePropagation"
+      },
+      "view_entry_dialog_jsx": {
+        "line_38": "Checks for awe-photo-zoom-overlay in addition to photo-zoom-overlay and camera-zoom-overlay"
+      }
+    },
+    "ui_verification": {
+      "login": "PASS - admin/admin123 credentials work",
+      "mill_entries_page": "PASS - Loads correctly",
+      "new_entry_dialog": "PASS - Opens with KG/QNTL enabled",
+      "edit_entry_dialog": "PASS - Opens with KG/QNTL disabled and (Locked) labels"
+    }
+  },
+  "test_report_links": [
+    "/app/frontend/src/components/entries/MillEntryForm.jsx",
+    "/app/frontend/src/components/VehicleWeight.jsx",
+    "/app/frontend/src/components/AutoWeightEntries.jsx",
+    "/app/frontend/src/components/ViewEntryDialog.jsx"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "KG/QNTL lock implementation is correct: disabled={rstFetched || !!editingId} on lines 273, 283",
+    "Label shows '(Locked)' text conditionally: {(rstFetched || editingId) ? ' (Locked)' : ''} on lines 264, 277",
+    "ESC key handlers use stopImmediatePropagation() to prevent parent dialog from closing",
+    "All photo zoom overlays have data-testid attributes for detection: photo-zoom-overlay, camera-zoom-overlay, awe-photo-zoom-overlay"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A - frontend only testing",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "username": "admin",
+    "password": "admin123"
+  },
+  "seed_data_creation": "Created test entry RST 77777, Truck TESTKG01, KG 1000 for edit mode testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Both P0 bugs verified fixed: 1) KG/QNTL fields are locked (disabled) in edit mode with '(Locked)' label text, 2) ESC key handlers prevent parent dialog from closing when photo zoom overlay is open. Test entry RST 77777 exists in FY 2026-2027.",
+  "implementation_verification": {
+    "feature_1_kg_qntl_lock": {
+      "file": "/app/frontend/src/components/entries/MillEntryForm.jsx",
+      "kg_input_disabled": "Line 273: disabled={rstFetched || !!editingId}",
+      "qntl_input_disabled": "Line 283: disabled={rstFetched || !!editingId}",
+      "kg_label_locked": "Line 264: KG *{(rstFetched || editingId) ? ' (Locked)' : ''}",
+      "qntl_label_locked": "Line 277: QNTL (Auto){(rstFetched || editingId) ? ' (Locked)' : ''}"
+    },
+    "feature_2_esc_key": {
+      "vehicle_weight": {
+        "file": "/app/frontend/src/components/VehicleWeight.jsx",
+        "dialog_handler": "Line 1387: onEscapeKeyDown checks for zoom overlays",
+        "zoom_handler": "Lines 451-456: useEffect ESC handler for zoomImg"
+      },
+      "auto_weight_entries": {
+        "file": "/app/frontend/src/components/AutoWeightEntries.jsx",
+        "dialog_handler": "Line 381: onEscapeKeyDown checks for zoom overlays",
+        "zoom_handler": "Lines 44-50: useEffect ESC handler for zoomImg"
+      },
+      "view_entry_dialog": {
+        "file": "/app/frontend/src/components/ViewEntryDialog.jsx",
+        "handler": "Line 38: Checks for awe-photo-zoom-overlay in addition to other overlays"
+      }
+    }
+  }
+}

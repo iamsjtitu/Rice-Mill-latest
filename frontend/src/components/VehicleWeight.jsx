@@ -1383,7 +1383,11 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
 
       {/* Photo View Dialog - Print Slip Style */}
       <Dialog open={photoDialog.open} onOpenChange={v => !v && setPhotoDialog({ open: false, data: null, loading: false })}>
-        <DialogContent className="bg-white border-gray-300 max-w-[520px] max-h-[90vh] overflow-y-auto p-0" data-testid="vw-photo-dialog">
+        <DialogContent className="bg-white border-gray-300 max-w-[520px] max-h-[90vh] overflow-y-auto p-0" data-testid="vw-photo-dialog"
+          onEscapeKeyDown={(e) => {
+            const zoomOpen = document.querySelector('[data-testid="photo-zoom-overlay"], [data-testid="camera-zoom-overlay"]');
+            if (zoomOpen) e.preventDefault();
+          }}>
           {photoDialog.loading ? (
             <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>
           ) : photoDialog.data ? (
