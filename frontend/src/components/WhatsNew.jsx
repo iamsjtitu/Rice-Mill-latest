@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.13.0";
+const APP_VERSION = "88.14.0";
 
 const CHANGELOG = [
+  {
+    version: "88.14.0",
+    date: "Apr 2026",
+    title: "v88.14.0 - RST Lock + View Dialog + Season Fix",
+    items: [
+      { type: "feature", text: "RST se fetch hone par KG aur QNTL fields lock ho jaate hain - koi edit nahi kar sakta" },
+      { type: "feature", text: "PPR mai row click ya Eye button se View dialog khulta hai - bina redirect" },
+      { type: "fix", text: "Season filter (Kharif/Rabi) ab software restart ke baad bhi yaad rehta hai" },
+      { type: "fix", text: "View dialog ESC key se turant band hota hai" },
+    ]
+  },
   {
     version: "88.13.0",
     date: "Apr 2026",
