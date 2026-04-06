@@ -90,7 +90,11 @@ export function MillEntryForm({
           Nayi Entry
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-800 border-slate-700 text-white">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-800 border-slate-700 text-white"
+        onEscapeKeyDown={(e) => {
+          const zoomOpen = document.querySelector('[data-testid="photo-zoom-overlay"], [data-testid="camera-zoom-overlay"]');
+          if (zoomOpen) e.preventDefault();
+        }}>
         <DialogHeader>
           <DialogTitle className="text-amber-400 text-xl">
             {editingId ? "Entry Edit Karein" : "Nayi Entry"}

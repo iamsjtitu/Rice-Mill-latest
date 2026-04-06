@@ -332,9 +332,9 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
   // ESC key to close zoom
   useEffect(() => {
     if (!zoomed) return;
-    const handler = (e) => { if (e.key === 'Escape') setZoomed(false); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    const handler = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); setZoomed(false); } };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, [zoomed]);
 
   useEffect(() => () => {
@@ -451,9 +451,9 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   // ESC key to close photo zoom
   useEffect(() => {
     if (!zoomImg) return;
-    const handler = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setZoomImg(null); } };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    const handler = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); setZoomImg(null); } };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
   }, [zoomImg]);
 
   const scale = useLiveScale();
