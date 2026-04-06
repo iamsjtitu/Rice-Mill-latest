@@ -55,6 +55,18 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - daily_report.py ✅ (FIXED v88.19.0)
 - ledgers.py ✅ (FIXED v88.19.0)
 
+## JS Backend Date Format Fix (desktop-app + local-server) - COMPLETED
+All export routes in BOTH `/app/desktop-app/routes/` and `/app/local-server/routes/` now use `fmtDate()` for dates in PDF/Excel/HTML outputs:
+- cashbook.js ✅ (Excel pre-processed rows + PDF rows)
+- daily_report.js ✅ (writeRow + Excel title)
+- gunny_bags.js ✅ (Excel, PDF, HTML purchase report)
+- reports.js ✅ (Party Ledger Excel cells)
+- diesel.js ✅ (Excel cells + PDF rows)
+- mill_parts.js ✅ (Part summary PDF + Excel)
+- dc_payments.js ✅ (Excel DC entries, deliveries, MSP payments + HTML delivery slip)
+- truck_lease.js ✅ (PDF + Excel start/end dates)
+- report_config.json ✅ (All date columns: type 'text' → 'date' for auto-format via fmtVal)
+
 ## Upcoming Tasks
 - [ ] P1: Daily Summary Report (Auto) - End of day summary of entries, payments, cash position
 
