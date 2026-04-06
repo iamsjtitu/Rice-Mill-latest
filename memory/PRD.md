@@ -17,7 +17,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **File Watcher**: Desktop/Local-server poll JSON file every 5s for Google Drive sync
 - **Export Sorting**: All PDF/Excel exports sort ascending by date (oldest first)
 - **Mandi Column Width**: 28mm PDF, 18 Excel for private_paddy and party_summary reports
-- **Export Preview**: ExportPreviewDialog component (/app/frontend/src/components/common/ExportPreviewDialog.jsx)
+- **Export Preview**: ExportPreviewDialog component with Print, PDF, Excel, Search (/app/frontend/src/components/common/ExportPreviewDialog.jsx)
 
 ## Completed Features (v88.18.0)
 - [x] Global round figure amount system (ALL 3 backends)
@@ -37,6 +37,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - [x] Global PDF/Excel export sorting (ascending by date) - v88.17.0
 - [x] Mandi column width increased (28mm PDF) for long names - v88.17.0
 - [x] Export Preview feature - all sections (20+ components) - v88.18.0
+- [x] Print button in Export Preview modal - direct browser print - v88.18.0
 
 ## Upcoming Tasks
 - [ ] P1: Daily Summary Report (Auto) - End of day summary of entries, payments, cash position

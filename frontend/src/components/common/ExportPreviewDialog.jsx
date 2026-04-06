@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Eye, FileText, FileSpreadsheet, Search, Loader2, Download, X } from "lucide-react";
+import { Eye, FileText, FileSpreadsheet, Search, Loader2, Printer } from "lucide-react";
 import { fmtDate } from "@/utils/date";
 
 /**
@@ -37,6 +37,7 @@ const ExportPreviewDialog = ({
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const tableRef = useRef(null);
 
   const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
   const API = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -80,6 +81,38 @@ const ExportPreviewDialog = ({
       }))
     : data;
 
+  const handlePrint = useCallback(() => {
+    const printWin = window.open('', '_blank', 'width=1100,height=700');
+    if (!printWin) return;
+    const rows = filtered.map((row, ri) =>
+      `<tr>${[ri + 1, ...columns.map(c => {
+        const val = row[c.field];
+        let display = '-';
+        if (val !== undefined && val !== null && val !== '') {
+          switch (c.format) {
+            case 'date': display = fmtDate(String(val).substring(0, 10)); break;
+            case 'rupees': display = `Rs.${Number(val).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`; break;
+            case 'number': display = Number(val).toLocaleString('en-IN', { maximumFractionDigits: 2 }); break;
+            case 'qntl': display = (Number(val) / 100).toFixed(2); break;
+            case 'integer': display = Math.round(Number(val)).toLocaleString('en-IN'); break;
+            default: display = String(val);
+          }
+        }
+        return display;
+      })].map((v, i) => `<td style="padding:4px 8px;border:1px solid #ddd;font-size:11px;${i > 0 && columns[i-1]?.align === 'right' ? 'text-align:right;font-family:monospace;' : ''}">${v}</td>`).join('')}</tr>`
+    ).join('');
+    printWin.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+      <style>body{font-family:Arial,sans-serif;margin:20px;color:#333}
+      h2{margin:0 0 4px;font-size:16px}p{margin:0 0 12px;font-size:11px;color:#666}
+      table{border-collapse:collapse;width:100%}th{background:#f5f5f5;padding:6px 8px;border:1px solid #ddd;font-size:10px;text-align:left}
+      @media print{body{margin:10px}}</style></head>
+      <body><h2>${title}</h2><p>${filtered.length} rows | Printed: ${new Date().toLocaleString('en-IN')}</p>
+      <table><thead><tr>${['#', ...columns.map(c => c.header)].map(h => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${rows}</tbody></table></body></html>`);
+    printWin.document.close();
+    setTimeout(() => { printWin.print(); }, 300);
+  }, [filtered, columns, title]);
+
   return (
     <>
       <Button
@@ -115,6 +148,11 @@ const ExportPreviewDialog = ({
                 <span className="text-xs text-slate-400 whitespace-nowrap">
                   {filtered.length} / {data.length} rows
                 </span>
+                <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-slate-500 text-slate-300 hover:bg-slate-700"
+                  onClick={handlePrint}
+                  data-testid="preview-print-btn">
+                  <Printer className="w-3.5 h-3.5 mr-1" /> Print
+                </Button>
                 {onPdfExport && (
                   <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-red-600 text-red-400 hover:bg-red-900/30"
                     onClick={() => { onPdfExport(); }}
