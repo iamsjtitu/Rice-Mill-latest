@@ -127,6 +127,7 @@ function MainApp({ user, setUser, onLogout }) {
   const [totals, setTotals] = useState({});
   const [formData, setFormData] = useState(initialFormState);
   const [editingId, setEditingId] = useState(null);
+  const [rstFetched, setRstFetched] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
@@ -497,6 +498,7 @@ function MainApp({ user, setUser, onLogout }) {
         const netInfo = vw.net_wt ? ` | Net: ${Number(vw.net_wt).toLocaleString()} KG` : '';
         const cashInfo = vw.cash_paid ? ` | Cash: ${vw.cash_paid}` : '';
         toast.success(`RST #${rstNo} से auto-fill: ${vw.vehicle_no} | ${vw.party_name}${netInfo}${cashInfo}`);
+        setRstFetched(true);
       }
     } catch {
       // RST not found in vehicle weight - ignore silently
@@ -1018,6 +1020,7 @@ function MainApp({ user, setUser, onLogout }) {
   const openNewEntryDialog = () => {
     setFormData({...initialFormState, kms_year: filters.kms_year || CURRENT_FY, season: filters.season || "Kharif"});
     setEditingId(null);
+    setRstFetched(false);
     setIsDialogOpen(true);
   };
 
@@ -1361,6 +1364,7 @@ function MainApp({ user, setUser, onLogout }) {
               debouncedRstLookup={debouncedRstLookup}
               handleAgentSelect={handleAgentSelect}
               findMandiCutting={findMandiCutting}
+              rstFetched={rstFetched}
             />
           </div>
           )}

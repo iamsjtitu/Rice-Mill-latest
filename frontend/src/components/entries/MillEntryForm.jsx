@@ -42,6 +42,7 @@ export function MillEntryForm({
   debouncedRstLookup,
   handleAgentSelect,
   findMandiCutting,
+  rstFetched,
 }) {
   const [dupWarning, setDupWarning] = useState({ rst: null, tp: null });
   const dupTimer = useRef(null);
@@ -256,24 +257,26 @@ export function MillEntryForm({
             </CardHeader>
             <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <Label className="text-slate-300">KG *</Label>
+                <Label className="text-slate-300">KG *{rstFetched ? ' (RST Locked)' : ''}</Label>
                 <Input
                   type="number"
                   name="kg"
                   value={formData.kg}
                   onChange={handleInputChange}
                   placeholder="Enter KG"
-                  className="bg-slate-600 border-slate-500 text-white text-lg font-semibold"
+                  className={`text-lg font-semibold ${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-600 border-slate-500 text-white'}`}
                   data-testid="input-kg"
+                  disabled={rstFetched}
                 />
               </div>
               <div>
-                <Label className="text-green-400 font-semibold">QNTL (Auto)</Label>
+                <Label className="text-green-400 font-semibold">QNTL (Auto){rstFetched ? ' (Locked)' : ''}</Label>
                 <Input
                   value={calculatedFields.qntl}
                   readOnly
-                  className="bg-green-900/30 border-green-700 text-green-400 text-lg font-bold"
+                  className={`text-lg font-bold ${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-green-900/30 border-green-700 text-green-400'}`}
                   data-testid="calculated-qntl"
+                  disabled={rstFetched}
                 />
                 <span className="text-xs text-slate-400">KG / 100</span>
               </div>
