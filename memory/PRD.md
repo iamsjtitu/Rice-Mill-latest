@@ -76,14 +76,17 @@ All export routes in BOTH `/app/desktop-app/routes/` and `/app/local-server/rout
 
 ## JS Backend Ascending Sort Fix for ALL Exports - COMPLETED
 All PDF/Excel export handlers in BOTH desktop-app and local-server now sort data ascending by date (oldest first):
-- exports.js: Mill entries Excel/PDF, Truck payments Excel/PDF
-- reports.js: Party Ledger Excel/PDF, Agent-Mandi-Wise Excel/PDF  
+- exports.js: Mill entries Excel/PDF, Truck payments Excel/PDF, Paddy Custody Excel/PDF
+- reports.js: Party Ledger Excel/PDF, Agent-Mandi-Wise Excel/PDF
+- private_trading.js: Pvt Paddy Excel/PDF, Rice Sales Excel/PDF
 - vehicle_weight.js: VW Export Excel/PDF
 - dc_payments.js: DC Entries Excel/PDF, MSP Payments Excel/PDF
 - gunny_bags.js: Gunny Bags Excel/PDF
-- mill_parts.js: Parts Stock Excel/PDF, Part Detail Excel/PDF (4 sorts)
+- mill_parts.js: Parts Stock Excel/PDF, Part Detail Excel/PDF
 - staff.js: Staff Payments Excel/PDF
-- Total: 34 ascending sort calls in each backend (perfect parity)
+- cmr_exports.js (local-server): Milling Report, FRK Purchases, Byproduct Sales, Paddy Custody
+- ledgers.js (local-server): Party Ledger Excel/PDF
+- Total: Desktop-app 49 sorts, Local-server 59 sorts (extra from cmr_exports + ledgers)
 
 ## Export Preview Feature - REMOVED (v88.21.0)
 - User ne request kiya "bekar hai" — ExportPreviewDialog.jsx deleted

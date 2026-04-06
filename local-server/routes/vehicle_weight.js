@@ -991,7 +991,7 @@ module.exports = function(database) {
       cr++;
     }
     ws.mergeCells(`A${cr}:M${cr}`);
-    ws.getCell(`A${cr}`).value = `Date: ${req.query.date_from || 'All'} to ${req.query.date_to || 'All'} | Total: ${items.length}`;
+    ws.getCell(`A${cr}`).value = `Date: ${fmtDate(req.query.date_from) || 'All'} to ${fmtDate(req.query.date_to) || 'All'} | Total: ${items.length}`;
     ws.getCell(`A${cr}`).font = { size: 9, color: { argb: '666666' } };
     ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
     cr++;

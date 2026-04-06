@@ -1,5 +1,5 @@
 const express = require('express');
-const { safePdfPipe } = require('./pdf_helpers');
+const { safePdfPipe, fmtDate } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -229,7 +229,8 @@ router.get('/api/reports/party-ledger/excel', async (req, res) => {
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Ledger');
     ws.mergeCells('A1:G1'); ws.getCell('A1').value = `Party Ledger${party_name ? ' - ' + party_name : ''}`; ws.getCell('A1').font = { bold: true, size: 14 };
     ['Date', 'Party', 'Type', 'Description', 'Debit(₹)', 'Credit(₹)', 'Ref'].forEach((h, i) => { ws.getCell(3, i + 1).value = h; ws.getCell(3, i + 1).font = { bold: true, color: { argb: 'FFFFFFFF' } }; ws.getCell(3, i + 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }; });
-    ledger.forEach((l, i) => { [l.date, l.party_name, l.party_type, l.description, l.debit || '', l.credit || '', l.ref].forEach((v, j) => { ws.getCell(i + 4, j + 1).value = v; }); });
+    ledger.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    ledger.forEach((l, i) => { [fmtDate(l.date), l.party_name, l.party_type, l.description, l.debit || '', l.credit || '', l.ref].forEach((v, j) => { ws.getCell(i + 4, j + 1).value = v; }); });
     const buf = await wb.xlsx.writeBuffer();
     res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename=party_ledger_${Date.now()}.xlsx` });
     res.send(Buffer.from(buf));
@@ -249,7 +250,8 @@ router.get('/api/reports/party-ledger/pdf', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
     doc.fontSize(18).text(`Party Ledger${party_name ? ' - ' + party_name : ''}`, { align: 'center' }); doc.moveDown();
-    for (const l of ledger) doc.fontSize(8).text(`${l.date} | ${l.party_name} (${l.party_type}) | ${l.description} | Dr:Rs.${l.debit} | Cr:Rs.${l.credit}`);
+    ledger.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    for (const l of ledger) doc.fontSize(8).text(`${fmtDate(l.date)} | ${l.party_name} (${l.party_type}) | ${l.description} | Dr:Rs.${l.debit} | Cr:Rs.${l.credit}`);
     await safePdfPipe(doc, res);
   } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
 });

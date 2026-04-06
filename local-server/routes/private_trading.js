@@ -356,7 +356,7 @@ module.exports = function(database) {
       items = items.filter(i => (i.party_name||'').toLowerCase().includes(s) || (i.mandi_name||'').toLowerCase().includes(s) || (i.agent_name||'').toLowerCase().includes(s));
     }
     items.forEach(i => { if (!i.final_qntl && i.quantity_qntl) i.final_qntl = i.quantity_qntl; if (!i.balance) i.balance = Math.round(((i.total_amount||0)-(i.paid_amount||0))*100)/100; });
-    items.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
+    items.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.created_at||'').localeCompare(b.created_at||''));
     const cols = getColumns('private_paddy_report');
     const headers = getExcelHeaders(cols);
     const widths = getExcelWidths(cols);
@@ -407,7 +407,7 @@ module.exports = function(database) {
       items = items.filter(i => (i.party_name||'').toLowerCase().includes(s) || (i.mandi_name||'').toLowerCase().includes(s) || (i.agent_name||'').toLowerCase().includes(s));
     }
     items.forEach(i => { if (!i.final_qntl && i.quantity_qntl) i.final_qntl = i.quantity_qntl; if (!i.balance) i.balance = Math.round(((i.total_amount||0)-(i.paid_amount||0))*100)/100; });
-    items.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
+    items.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.created_at||'').localeCompare(b.created_at||''));
     const cols = getColumns('private_paddy_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });
@@ -433,7 +433,7 @@ module.exports = function(database) {
     if (season) items = items.filter(i => i.season === season);
     if (search) { const s = search.toLowerCase(); items = items.filter(i => (i.party_name||'').toLowerCase().includes(s)); }
     items.forEach(i => { if (!i.balance) i.balance = Math.round(((i.total_amount||0)-(i.paid_amount||0))*100)/100; });
-    items.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
+    items.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.created_at||'').localeCompare(b.created_at||''));
     const cols = getColumns('rice_sales_report');
     const headers = getExcelHeaders(cols);
     const widths = getExcelWidths(cols);
@@ -481,7 +481,7 @@ module.exports = function(database) {
     if (season) items = items.filter(i => i.season === season);
     if (search) { const s = search.toLowerCase(); items = items.filter(i => (i.party_name||'').toLowerCase().includes(s)); }
     items.forEach(i => { if (!i.balance) i.balance = Math.round(((i.total_amount||0)-(i.paid_amount||0))*100)/100; });
-    items.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
+    items.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.created_at||'').localeCompare(b.created_at||''));
     const cols = getColumns('rice_sales_report');
     const headers = getPdfHeaders(cols);
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 20, bottom: 20, left: 20, right: 20 } });

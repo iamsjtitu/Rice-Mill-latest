@@ -5,8 +5,9 @@ module.exports = function(database) {
   // Helper reference
   const ExcelJS = require('exceljs');
   const PDFDocument = require('pdfkit');
-  const { addPdfHeader: _addPdfHeader, addPdfTable , safePdfPipe} = require('./pdf_helpers');
+  const { addPdfHeader: _addPdfHeader, addPdfTable , safePdfPipe, fmtDate} = require('./pdf_helpers');
   const addPdfHeader = (doc, title) => _addPdfHeader(doc, title, database.getBranding());
+  const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
 
 // ============ CMR EXPORT ENDPOINTS (continued) ============
 
@@ -14,6 +15,7 @@ module.exports = function(database) {
 router.get('/api/milling-report/excel', async (req, res) => {
   try {
     const entries = database.getMillingEntries(req.query);
+    entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Milling Report');
     ws.columns = [
@@ -25,7 +27,7 @@ router.get('/api/milling-report/excel', async (req, res) => {
       { header: 'Husk %', key: 'husk_pct', width: 9 }, { header: 'Note', key: 'note', width: 14 }
     ];
     entries.forEach(e => {
-      ws.addRow({ date: e.date, rice_type: (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
+      ws.addRow({ date: fmtDate(e.date), rice_type: (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
         paddy: e.paddy_input_qntl||0, rice_pct: e.rice_percent||0, rice: e.rice_qntl||0,
         frk: e.frk_used_qntl||0, cmr: e.cmr_delivery_qntl||0, outturn: e.outturn_ratio||0,
         bran: e.bran_qntl||0, kunda: e.kunda_qntl||0, husk_pct: e.husk_percent||0, note: e.note||'' });
@@ -43,13 +45,14 @@ router.get('/api/milling-report/excel', async (req, res) => {
 router.get('/api/milling-report/pdf', async (req, res) => {
   try {
     const entries = database.getMillingEntries(req.query);
+    entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'Milling Report');
     const headers = ['Date','Type','Paddy(Q)','Rice%','Rice(Q)','FRK(Q)','CMR(Q)','Outturn%','Bran(Q)','Husk%','Note'];
-    const rows = entries.map(e => [e.date||'', (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
+    const rows = entries.map(e => [fmtDate(e.date), (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1),
       (e.paddy_input_qntl||0), (e.rice_percent||0)+'%', (e.rice_qntl||0), (e.frk_used_qntl||0),
       (e.cmr_delivery_qntl||0), (e.outturn_ratio||0)+'%', (e.bran_qntl||0), (e.husk_percent||0)+'%', (e.note||'').substring(0,15)]);
     addPdfTable(doc, headers, rows, [50,45,45,35,40,35,40,40,35,35,60]);
@@ -72,7 +75,7 @@ router.get('/api/frk-purchases/excel', async (req, res) => {
       { header: 'Qty (QNTL)', key: 'qty', width: 12 }, { header: 'Rate (₹/Q)', key: 'rate', width: 12 },
       { header: 'Amount (₹)', key: 'amount', width: 14 }, { header: 'Note', key: 'note', width: 16 }
     ];
-    purchases.forEach(p => ws.addRow({ date: p.date, party: p.party_name||'', qty: p.quantity_qntl||0, rate: p.rate_per_qntl||0, amount: p.total_amount||0, note: p.note||'' }));
+    purchases.forEach(p => ws.addRow({ date: fmtDate(p.date), party: p.party_name||'', qty: p.quantity_qntl||0, rate: p.rate_per_qntl||0, amount: p.total_amount||0, note: p.note||'' }));
     const totalRow = ws.addRow({ date: 'TOTAL', party: '', qty: +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2), rate: '', amount: +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2), note: '' });
     totalRow.font = { bold: true };
     addExcelTitle(ws, 'FRK Purchase Register', 6);
@@ -100,7 +103,7 @@ router.get('/api/frk-purchases/pdf', async (req, res) => {
     const tq = +purchases.reduce((s,p)=>s+(p.quantity_qntl||0),0).toFixed(2);
     const ta = +purchases.reduce((s,p)=>s+(p.total_amount||0),0).toFixed(2);
     const headers = ['Date','Party','Qty(Q)','Rate(Rs.)','Amount(Rs.)','Note'];
-    const rows = purchases.map(p => [p.date||'', (p.party_name||'').substring(0,25), p.quantity_qntl||0, p.rate_per_qntl||0, p.total_amount||0, (p.note||'').substring(0,20)]);
+    const rows = purchases.map(p => [fmtDate(p.date), (p.party_name||'').substring(0,25), p.quantity_qntl||0, p.rate_per_qntl||0, p.total_amount||0, (p.note||'').substring(0,20)]);
     rows.push(['TOTAL', '', tq, '', ta, '']);
     addPdfTable(doc, headers, rows, [60, 120, 55, 55, 70, 80]);
     await safePdfPipe(doc, res);
@@ -136,7 +139,7 @@ router.get('/api/byproduct-sales/excel', async (req, res) => {
     ws.addRow({});
     const detailHeaderRow = ws.addRow({ product: 'Date', produced: 'Product', sold: 'Qty (Q)', available: 'Rate (₹/Q)', revenue: 'Amount (₹)' });
     detailHeaderRow.font = { bold: true };
-    sales.forEach(s => ws.addRow({ product: s.date||'', produced: (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), sold: s.quantity_qntl||0, available: s.rate_per_qntl||0, revenue: s.total_amount||0 }));
+    sales.forEach(s => ws.addRow({ product: fmtDate(s.date), produced: (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), sold: s.quantity_qntl||0, available: s.rate_per_qntl||0, revenue: s.total_amount||0 }));
     const totalRow = ws.addRow({ product: 'TOTAL', produced: '', sold: +sales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2), available: '', revenue: +sales.reduce((s,e)=>s+(e.total_amount||0),0).toFixed(2) });
     totalRow.font = { bold: true };
     addExcelTitle(ws, 'By-Product Stock & Sales Report', 5);
@@ -180,7 +183,7 @@ router.get('/api/byproduct-sales/pdf', async (req, res) => {
     const headers = ['Date','Product','Qty(Q)','Rate(Rs.)','Amount(Rs.)','Buyer'];
     const tq = +sales.reduce((s,e)=>s+(e.quantity_qntl||0),0).toFixed(2);
     const ta = +sales.reduce((s,e)=>s+(e.total_amount||0),0).toFixed(2);
-    const rows = sales.map(s => [s.date||'', (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), s.quantity_qntl||0, s.rate_per_qntl||0, s.total_amount||0, (s.buyer_name||'').substring(0,20)]);
+    const rows = sales.map(s => [fmtDate(s.date), (s.product||'').charAt(0).toUpperCase()+(s.product||'').slice(1), s.quantity_qntl||0, s.rate_per_qntl||0, s.total_amount||0, (s.buyer_name||'').substring(0,20)]);
     rows.push(['TOTAL', '', tq, '', ta, '']);
     addPdfTable(doc, headers, rows, [55, 55, 45, 50, 60, 90]);
     await safePdfPipe(doc, res);
@@ -196,9 +199,9 @@ router.get('/api/paddy-custody-register/excel', async (req, res) => {
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
     const millingEntries = database.getMillingEntries(filters);
     const rows = [];
-    entries.forEach(e => rows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.mill_w||0)/100).toFixed(2), released_qntl: 0 }));
-    millingEntries.forEach(e => rows.push({ date: e.date||'', type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
-    rows.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    entries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.mill_w||0)/100).toFixed(2), released_qntl: 0 }));
+    millingEntries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
+    rows.sort((a,b) => (a._rawDate).localeCompare(b._rawDate));
     let balance = 0;
     rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
     const wb = new ExcelJS.Workbook();
@@ -229,9 +232,9 @@ router.get('/api/paddy-custody-register/pdf', async (req, res) => {
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
     const millingEntries = database.getMillingEntries(filters);
     const rows = [];
-    entries.forEach(e => rows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.mill_w||0)/100).toFixed(2), released_qntl: 0 }));
-    millingEntries.forEach(e => rows.push({ date: e.date||'', type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
-    rows.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    entries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.mill_w||0)/100).toFixed(2), released_qntl: 0 }));
+    millingEntries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
+    rows.sort((a,b) => (a._rawDate).localeCompare(b._rawDate));
     let balance = 0;
     rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
