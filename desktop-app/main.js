@@ -1206,6 +1206,14 @@ function createApiServer(database) {
   }
   console.log(`[Routes] Loaded ${loadedCount}/${routeDefs.length} routes.` + (failedRoutes.length ? ` Failed: ${failedRoutes.join(', ')}` : ''));
 
+  // ===== DATE FORMAT VALIDATOR - Startup Health Check =====
+  try {
+    const { runStartupDateCheck } = require('./shared/report_helper');
+    runStartupDateCheck();
+  } catch (e) {
+    console.error('[DATE VALIDATOR] Failed to run:', e.message);
+  }
+
   // Delete all data endpoint
   apiApp.post('/api/delete-all-data', safeAsync(async (req, res) => {
     const collections = ['entries', 'dc_entries', 'dc_deliveries', 'dc_msp_payments',
@@ -1243,6 +1251,12 @@ function createApiServer(database) {
       server_port: DESKTOP_API_PORT,
       uptime_seconds: Math.floor(process.uptime())
     });
+  }));
+
+  // Date Format Validator API
+  apiApp.get('/api/health/date-format', safeSync((req, res) => {
+    const { validateDateFormats } = require('./shared/report_helper');
+    res.json(validateDateFormats());
   }));
 
   // Live weight from serial port - for LAN browser access

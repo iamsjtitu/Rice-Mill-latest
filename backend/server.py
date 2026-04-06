@@ -35,6 +35,21 @@ async def get_error_log():
 async def clear_error_log():
     return {"success": True, "message": "Error log clear ho gaya"}
 
+@api_router.get("/health/date-format")
+async def date_format_health_check():
+    """Health check: Validate date formatting across DB collections and fmt_date utility."""
+    from utils.date_validator import validate_fmt_date, scan_date_formats
+    fmt_results = validate_fmt_date()
+    fmt_ok = all(r["status"] == "PASS" for r in fmt_results)
+    db_report = await scan_date_formats(db, sample_size=10)
+    return {
+        "status": "healthy" if fmt_ok else "unhealthy",
+        "fmt_date_tests": fmt_results,
+        "fmt_date_ok": fmt_ok,
+        "db_scan": db_report,
+        "message": "fmt_date() utility OK. DB stores raw YYYY-MM-DD (normal). Export functions apply fmt_date() to convert to DD-MM-YYYY." if fmt_ok else "fmt_date() has failures!"
+    }
+
 # Import and include all route modules
 from routes.auth import router as auth_router
 from routes.entries import router as entries_router
@@ -240,6 +255,15 @@ async def create_db_indexes():
         logger.info("MongoDB indexes ensured")
     except Exception as e:
         logger.error(f"Index creation error: {e}")
+
+@app.on_event("startup")
+async def startup_date_format_check():
+    """Validate date formatting utilities on startup."""
+    try:
+        from utils.date_validator import run_startup_date_check
+        await run_startup_date_check(db)
+    except Exception as e:
+        logger.error(f"Date format startup check error: {e}")
 
 @app.on_event("startup")
 async def fix_empty_descriptions():

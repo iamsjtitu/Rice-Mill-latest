@@ -353,11 +353,14 @@ def round_amount(val):
 
 
 def fmt_date(d):
-    """Convert YYYY-MM-DD to DD-MM-YYYY"""
+    """Convert YYYY-MM-DD to DD-MM-YYYY (safe for already-formatted dates)"""
     if not d:
         return ''
-    p = str(d)[:10].split('-')
-    return f"{p[2]}-{p[1]}-{p[0]}" if len(p) == 3 else str(d)
+    s = str(d).split('T')[0]
+    p = s.split('-')
+    if len(p) == 3 and len(p[0]) == 4:
+        return f"{p[2]}-{p[1]}-{p[0]}"
+    return s
 
 
 def calculate_auto_fields(data: dict) -> dict:

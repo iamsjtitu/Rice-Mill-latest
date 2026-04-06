@@ -1006,11 +1006,29 @@ async function startServer() {
     app.use(quickSearchRoutes);
 
     console.log('  [Routes] All modular routes loaded successfully');
+
+    // ===== DATE FORMAT VALIDATOR - Startup Health Check =====
+    try {
+      const { runStartupDateCheck } = require('./shared/report_helper');
+      runStartupDateCheck();
+    } catch (e) {
+      console.error('[DATE VALIDATOR] Failed to run:', e.message);
+    }
   } catch (e) {
     console.log('  [Note] Some route modules not found:', e.message);
   }
 
   // ===== ERROR LOG =====
+  app.get('/api/health/date-format', (req, res) => {
+    try {
+      const { validateDateFormats } = require('./shared/report_helper');
+      const report = validateDateFormats();
+      res.json(report);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get('/api/error-log', (req, res) => {
     const logPath = path.join(DATA_DIR, 'error.log');
     try {

@@ -67,6 +67,13 @@ All export routes in BOTH `/app/desktop-app/routes/` and `/app/local-server/rout
 - truck_lease.js ✅ (PDF + Excel start/end dates)
 - report_config.json ✅ (All date columns: type 'text' → 'date' for auto-format via fmtVal)
 
+## Date Format Validator Health Check - COMPLETED
+- Python backend: Startup check (`run_startup_date_check`) validates `fmt_date()` + scans DB collections
+- Python API: `GET /api/health/date-format` returns full validation report
+- JS backends: `runStartupDateCheck()` validates `fmtDate()` + checks report_config.json column types
+- JS API: `GET /api/health/date-format` returns validation report
+- Bug found & fixed: Python `fmt_date()` was reversing already-formatted DD-MM-YYYY dates (missing `len(parts[0]) == 4` check)
+
 ## Upcoming Tasks
 - [ ] P1: Daily Summary Report (Auto) - End of day summary of entries, payments, cash position
 

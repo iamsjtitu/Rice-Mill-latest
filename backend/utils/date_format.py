@@ -2,5 +2,8 @@
 def fmt_date(d):
     if not d:
         return ''
-    parts = str(d).split('-')
-    return f"{parts[2]}-{parts[1]}-{parts[0]}" if len(parts) == 3 else d
+    s = str(d).split('T')[0]
+    parts = s.split('-')
+    if len(parts) == 3 and len(parts[0]) == 4:
+        return f"{parts[2]}-{parts[1]}-{parts[0]}"
+    return s
