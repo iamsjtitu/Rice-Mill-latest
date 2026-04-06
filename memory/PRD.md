@@ -1,12 +1,12 @@
 # Mill Entry System - Product Requirements Document
 
 ## Original Problem Statement
-A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, LAN network access, multi-user data safety, and role-based access control.
+A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON/SQLite storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, LAN network access, multi-user data safety, and role-based access control.
 
-## Current Version: v88.10.0
+## Current Version: v88.17.0
 
 ## Architecture
-- Triple Backend: Python (web), Desktop JS (Electron), Local JS (LAN)
+- Triple Backend: Python (web), Desktop JS (Electron 28), Local JS (LAN)
 - Frontend: React with shadcn/ui
 - All three backends share identical business logic
 - Shared report_config.json for report column definitions
@@ -15,24 +15,30 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **Rounding**: `round_amount(val)` / `roundAmount(val)`: >.50 rounds up, <=.50 rounds down
 - **Date Format**: DD-MM-YYYY globally via `fmt_date()` / `fmtDate()` across ALL exports
 - **File Watcher**: Desktop/Local-server poll JSON file every 5s for Google Drive sync
+- **Export Sorting**: All PDF/Excel exports sort ascending by date (oldest first)
+- **Mandi Column Width**: 28mm PDF, 18 Excel for private_paddy and party_summary reports
 
-## Completed Features (v88.9.0)
-- [x] Global round figure amount system (FIXED in ALL 3 backends)
+## Completed Features (v88.17.0)
+- [x] Global round figure amount system (ALL 3 backends)
 - [x] Duplicate RST/TP blocking with real-time warning toast
 - [x] Login page Enter key navigation
 - [x] Rice Stock Split: Raw vs Parboiled
 - [x] Global Date Format DD-MM-YYYY in ALL exports
-- [x] Mill Entries View button (Eye icon) -> Dialog popup
-- [x] PPR Eye button -> ViewEntryDialog opens in-place (no tab redirect)
+- [x] Mill Entries View button -> Dialog popup
+- [x] PPR Eye button -> ViewEntryDialog opens in-place
 - [x] Dialog close -> original filters restore
 - [x] Google Drive LAN sync file watcher (5s polling)
-- [x] Frontend build synced to desktop-app and local-server
-- [x] WhatsNew + Version bumped to v88.9.0
-- [x] ViewEntryDialog shared component for beautiful entry viewing
+- [x] ViewEntryDialog shared component
+- [x] ESC key priority: zoomed photo first, dialog second
+- [x] Season/FY filter persisted in localStorage
+- [x] KG/QNTL fields locked when auto-fetched via RST
+- [x] PPR and Mill Entries UI table sorting (descending by date/rst)
+- [x] Global PDF/Excel export sorting (ascending by date) - v88.17.0
+- [x] Mandi column width increased (28mm PDF) for long names - v88.17.0
 
 ## Upcoming Tasks
-- [ ] P1: Daily Summary Report (Auto)
-- [ ] P2: Export Preview feature
+- [ ] P1: Daily Summary Report (Auto) - End of day summary of entries, payments, cash position
+- [ ] P2: Export Preview feature - Preview data before exporting
 
 ## Future Tasks
 - [ ] P3: Python backend service layer refactoring
