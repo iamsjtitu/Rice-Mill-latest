@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON/SQLite storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, LAN network access, multi-user data safety, and role-based access control.
 
-## Current Version: v88.19.0
+## Current Version: v88.21.0
 
 ## Architecture
 - Triple Backend: Python (web), Desktop JS (Electron 28), Local JS (LAN)
@@ -30,9 +30,9 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - [x] Dialog close -> original filters restore
 - [x] Google Drive LAN sync file watcher (5s polling)
 - [x] ViewEntryDialog shared component
-- [x] ESC key priority: zoomed photo first, dialog second
+- [x] ESC key priority: zoomed photo first, dialog second (all 3 photo dialogs covered including AutoWeightEntries)
 - [x] Season/FY filter persisted in localStorage
-- [x] KG/QNTL fields locked when auto-fetched via RST
+- [x] KG/QNTL fields locked when auto-fetched via RST AND when editing existing entries
 - [x] PPR and Mill Entries UI table sorting (descending by date/rst)
 - [x] Global PDF/Excel export sorting (ascending by date) - v88.17.0
 - [x] Mandi column width increased (28mm PDF) for long names - v88.17.0
@@ -104,6 +104,11 @@ All PDF/Excel export handlers in BOTH desktop-app and local-server now sort data
 
 ## Upcoming Tasks
 - [ ] P1: Daily Summary Report (Auto) - End of day summary of entries, payments, cash position
+
+## Bug Fixes (v88.21.0)
+- [x] KG & QNTL fields now disabled in edit mode (editingId set) - prevents manual weight tampering
+- [x] ESC key no longer closes parent photo dialog when zoom overlay is open (VehicleWeight, AutoWeightEntries, ViewEntryDialog)
+- [x] AutoWeightEntries missing ESC handler for zoom overlay - added useEffect with stopImmediatePropagation
 
 ## Future Tasks
 - [ ] P3: Python backend service layer refactoring
