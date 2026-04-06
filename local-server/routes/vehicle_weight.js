@@ -954,7 +954,7 @@ module.exports = function(database) {
   router.get('/api/vehicle-weight/export/excel', safeAsync(async (req, res) => {
     const ExcelJS = require('exceljs');
     const items = _filterVwItems(req.query);
-    items.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    items.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const br = database.data.branding || {};
     const company = br.company_name || 'NAVKAR AGRO';
     const tagline = br.tagline || '';
@@ -1018,7 +1018,7 @@ module.exports = function(database) {
       });
     });
 
-    ws.columns.forEach(c => { c.width = 15; });
+    ws.columns.forEach((c, i) => { c.width = i === 4 ? 22 : 15; }); // Mandi column (index 4) wider
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=vehicle_weight.xlsx`);
     await wb.xlsx.write(res);
@@ -1028,7 +1028,7 @@ module.exports = function(database) {
   router.get('/api/vehicle-weight/export/pdf', safeAsync(async (req, res) => {
     const PDFDocument = require('pdfkit');
     const items = _filterVwItems(req.query);
-    items.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    items.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const br = database.data.branding || {};
     const company = br.company_name || 'NAVKAR AGRO';
     const pdfTagline = br.tagline || '';
@@ -1090,7 +1090,7 @@ module.exports = function(database) {
 
     // ── Table ──
     const headers = ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
-    const colW = [20, 30, 55, 62, 72, 55, 58, 30, 50, 50, 52, 48, 48];
+    const colW = [18, 30, 50, 55, 65, 72, 52, 30, 50, 50, 52, 48, 48];
     const rightAlign = [false, true, false, false, false, false, false, true, true, true, true, true, true];
 
     // Table header

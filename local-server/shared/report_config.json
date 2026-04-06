@@ -1,161 +1,1169 @@
 {
   "agent_mandi_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 22, "show_total": false},
-      {"field": "truck_no", "header": "Truck No", "pdf_header": "Truck", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 24, "show_total": false},
-      {"field": "qntl", "header": "QNTL", "pdf_header": "QNTL", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_qntl"},
-      {"field": "bag", "header": "BAG", "pdf_header": "BAG", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_bag"},
-      {"field": "g_deposite", "header": "G.Dep", "pdf_header": "G.Dep", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_g_deposite"},
-      {"field": "g_issued", "header": "G.Iss", "pdf_header": "G.Iss", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_g_issued"},
-      {"field": "gbw_cut", "header": "GBW", "pdf_header": "GBW", "type": "qntl", "align": "right", "width_excel": 10, "width_pdf_mm": 14, "show_total": true, "total_key": "total_gbw_cut"},
-      {"field": "plastic_bag", "header": "P.Pkt", "pdf_header": "P.Pkt", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_plastic_bag"},
-      {"field": "p_pkt_cut", "header": "P.Cut", "pdf_header": "P.Cut", "type": "qntl", "align": "right", "width_excel": 10, "width_pdf_mm": 14, "show_total": true, "total_key": "total_p_pkt_cut"},
-      {"field": "mill_w", "header": "Mill W", "pdf_header": "Mill W", "type": "qntl", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_mill_w"},
-      {"field": "moisture_cut_percent", "header": "M%", "pdf_header": "M%", "type": "number", "align": "right", "width_excel": 6, "width_pdf_mm": 12, "show_total": false},
-      {"field": "moisture_cut", "header": "M.Cut", "pdf_header": "M.Cut", "type": "qntl", "align": "right", "width_excel": 10, "width_pdf_mm": 14, "show_total": true, "total_key": "total_moisture_cut"},
-      {"field": "cutting_percent", "header": "C%", "pdf_header": "C%", "type": "number", "align": "right", "width_excel": 6, "width_pdf_mm": 12, "show_total": false},
-      {"field": "disc_dust_poll", "header": "D/D/P", "pdf_header": "D/D/P", "type": "qntl", "align": "right", "width_excel": 10, "width_pdf_mm": 14, "show_total": true, "total_key": "total_disc_dust_poll"},
-      {"field": "final_w", "header": "Final W", "pdf_header": "Final W", "type": "qntl", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_final_w"}
+      {
+        "field": "date",
+        "header": "Date",
+        "pdf_header": "Date",
+        "type": "date",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 22,
+        "show_total": false
+      },
+      {
+        "field": "truck_no",
+        "header": "Truck No",
+        "pdf_header": "Truck",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 24,
+        "show_total": false
+      },
+      {
+        "field": "qntl",
+        "header": "QNTL",
+        "pdf_header": "QNTL",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 16,
+        "show_total": true,
+        "total_key": "total_qntl"
+      },
+      {
+        "field": "bag",
+        "header": "BAG",
+        "pdf_header": "BAG",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 12,
+        "show_total": true,
+        "total_key": "total_bag"
+      },
+      {
+        "field": "g_deposite",
+        "header": "G.Dep",
+        "pdf_header": "G.Dep",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 12,
+        "show_total": true,
+        "total_key": "total_g_deposite"
+      },
+      {
+        "field": "g_issued",
+        "header": "G.Iss",
+        "pdf_header": "G.Iss",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 12,
+        "show_total": true,
+        "total_key": "total_g_issued"
+      },
+      {
+        "field": "gbw_cut",
+        "header": "GBW",
+        "pdf_header": "GBW",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 14,
+        "show_total": true,
+        "total_key": "total_gbw_cut"
+      },
+      {
+        "field": "plastic_bag",
+        "header": "P.Pkt",
+        "pdf_header": "P.Pkt",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 12,
+        "show_total": true,
+        "total_key": "total_plastic_bag"
+      },
+      {
+        "field": "p_pkt_cut",
+        "header": "P.Cut",
+        "pdf_header": "P.Cut",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 14,
+        "show_total": true,
+        "total_key": "total_p_pkt_cut"
+      },
+      {
+        "field": "mill_w",
+        "header": "Mill W",
+        "pdf_header": "Mill W",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 18,
+        "show_total": true,
+        "total_key": "total_mill_w"
+      },
+      {
+        "field": "moisture_cut_percent",
+        "header": "M%",
+        "pdf_header": "M%",
+        "type": "number",
+        "align": "right",
+        "width_excel": 6,
+        "width_pdf_mm": 12,
+        "show_total": false
+      },
+      {
+        "field": "moisture_cut",
+        "header": "M.Cut",
+        "pdf_header": "M.Cut",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 14,
+        "show_total": true,
+        "total_key": "total_moisture_cut"
+      },
+      {
+        "field": "cutting_percent",
+        "header": "C%",
+        "pdf_header": "C%",
+        "type": "number",
+        "align": "right",
+        "width_excel": 6,
+        "width_pdf_mm": 12,
+        "show_total": false
+      },
+      {
+        "field": "disc_dust_poll",
+        "header": "D/D/P",
+        "pdf_header": "D/D/P",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 14,
+        "show_total": true,
+        "total_key": "total_disc_dust_poll"
+      },
+      {
+        "field": "final_w",
+        "header": "Final W",
+        "pdf_header": "Final W",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 18,
+        "show_total": true,
+        "total_key": "total_final_w"
+      }
     ]
   },
   "gunny_bags_report": {
-    "summary_headers": ["Category", "In", "Out", "Balance", "Cost (Rs.)"],
+    "summary_headers": [
+      "Category",
+      "In",
+      "Out",
+      "Balance",
+      "Cost (Rs.)"
+    ],
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
-      {"field": "bag_type", "header": "Bag Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
-      {"field": "txn_type", "header": "In/Out", "pdf_header": "In/Out", "type": "text", "align": "center", "width_excel": 8, "width_pdf_mm": 14},
-      {"field": "quantity", "header": "Qty", "pdf_header": "Qty", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 14},
-      {"field": "source", "header": "Source/To", "pdf_header": "Source", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 30},
-      {"field": "rate", "header": "Rate", "pdf_header": "Rate", "type": "number", "align": "right", "width_excel": 8, "width_pdf_mm": 14},
-      {"field": "amount", "header": "Amount (Rs.)", "pdf_header": "Amt", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18},
-      {"field": "notes", "header": "Notes", "pdf_header": "Notes", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 25}
+      {
+        "field": "date",
+        "header": "Date",
+        "pdf_header": "Date",
+        "type": "date",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 20
+      },
+      {
+        "field": "bag_type",
+        "header": "Bag Type",
+        "pdf_header": "Type",
+        "type": "text",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 18
+      },
+      {
+        "field": "txn_type",
+        "header": "In/Out",
+        "pdf_header": "In/Out",
+        "type": "text",
+        "align": "center",
+        "width_excel": 8,
+        "width_pdf_mm": 14
+      },
+      {
+        "field": "quantity",
+        "header": "Qty",
+        "pdf_header": "Qty",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 14
+      },
+      {
+        "field": "source",
+        "header": "Source/To",
+        "pdf_header": "Source",
+        "type": "text",
+        "align": "left",
+        "width_excel": 18,
+        "width_pdf_mm": 30
+      },
+      {
+        "field": "rate",
+        "header": "Rate",
+        "pdf_header": "Rate",
+        "type": "number",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 14
+      },
+      {
+        "field": "amount",
+        "header": "Amount (Rs.)",
+        "pdf_header": "Amt",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 18
+      },
+      {
+        "field": "notes",
+        "header": "Notes",
+        "pdf_header": "Notes",
+        "type": "text",
+        "align": "left",
+        "width_excel": 18,
+        "width_pdf_mm": 25
+      }
     ]
   },
   "dc_entries_report": {
     "columns": [
-      {"field": "dc_number", "header": "DC No", "pdf_header": "DC No", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
-      {"field": "rice_type", "header": "Rice Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 16},
-      {"field": "quantity_qntl", "header": "Allotted (Q)", "pdf_header": "Allot", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 16},
-      {"field": "delivered_qntl", "header": "Delivered (Q)", "pdf_header": "Del", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 16},
-      {"field": "pending_qntl", "header": "Pending (Q)", "pdf_header": "Pend", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 16},
-      {"field": "status", "header": "Status", "pdf_header": "Status", "type": "text", "align": "center", "width_excel": 10, "width_pdf_mm": 16},
-      {"field": "deadline", "header": "Deadline", "pdf_header": "Deadline", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
-      {"field": "godown_name", "header": "Godown", "pdf_header": "Godown", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 20}
+      {
+        "field": "dc_number",
+        "header": "DC No",
+        "pdf_header": "DC No",
+        "type": "text",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 18
+      },
+      {
+        "field": "date",
+        "header": "Date",
+        "pdf_header": "Date",
+        "type": "date",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 18
+      },
+      {
+        "field": "rice_type",
+        "header": "Rice Type",
+        "pdf_header": "Type",
+        "type": "text",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "quantity_qntl",
+        "header": "Allotted (Q)",
+        "pdf_header": "Allot",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "delivered_qntl",
+        "header": "Delivered (Q)",
+        "pdf_header": "Del",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "pending_qntl",
+        "header": "Pending (Q)",
+        "pdf_header": "Pend",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "status",
+        "header": "Status",
+        "pdf_header": "Status",
+        "type": "text",
+        "align": "center",
+        "width_excel": 10,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "deadline",
+        "header": "Deadline",
+        "pdf_header": "Deadline",
+        "type": "text",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 18
+      },
+      {
+        "field": "godown_name",
+        "header": "Godown",
+        "pdf_header": "Godown",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 20
+      }
     ]
   },
   "private_paddy_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
-      {"field": "party_name", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 28},
-      {"field": "mandi_name", "header": "Mandi", "pdf_header": "Mandi", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
-      {"field": "agent_name", "header": "Agent", "pdf_header": "Agent", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
-      {"field": "truck_no", "header": "Truck No", "pdf_header": "Truck", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
-      {"field": "kg", "header": "KG", "pdf_header": "KG", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_kg"},
-      {"field": "final_qntl", "header": "Final Q", "pdf_header": "Final Q", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_final_qntl"},
-      {"field": "rate_per_qntl", "header": "Rate/Q", "pdf_header": "Rate", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16},
-      {"field": "total_amount", "header": "Total Rs", "pdf_header": "Total", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_amount"},
-      {"field": "paid_amount", "header": "Paid Rs", "pdf_header": "Paid", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_paid"},
-      {"field": "balance", "header": "Balance Rs", "pdf_header": "Balance", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_balance"},
-      {"field": "g_issued", "header": "G.Iss", "pdf_header": "G.Iss", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_g_issued"},
-      {"field": "cash_paid", "header": "Cash", "pdf_header": "Cash", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_cash"},
-      {"field": "diesel_paid", "header": "Diesel", "pdf_header": "Diesel", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_diesel"}
+      {
+        "field": "date",
+        "header": "Date",
+        "pdf_header": "Date",
+        "type": "date",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 20
+      },
+      {
+        "field": "party_name",
+        "header": "Party",
+        "pdf_header": "Party",
+        "type": "text",
+        "align": "left",
+        "width_excel": 18,
+        "width_pdf_mm": 28
+      },
+      {
+        "field": "mandi_name",
+        "header": "Mandi",
+        "pdf_header": "Mandi",
+        "type": "text",
+        "align": "left",
+        "width_excel": 20,
+        "width_pdf_mm": 35
+      },
+      {
+        "field": "agent_name",
+        "header": "Agent",
+        "pdf_header": "Agent",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 22
+      },
+      {
+        "field": "truck_no",
+        "header": "Truck No",
+        "pdf_header": "Truck",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 22
+      },
+      {
+        "field": "kg",
+        "header": "KG",
+        "pdf_header": "KG",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 16,
+        "show_total": true,
+        "total_key": "total_kg"
+      },
+      {
+        "field": "final_qntl",
+        "header": "Final Q",
+        "pdf_header": "Final Q",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 16,
+        "show_total": true,
+        "total_key": "total_final_qntl"
+      },
+      {
+        "field": "rate_per_qntl",
+        "header": "Rate/Q",
+        "pdf_header": "Rate",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "total_amount",
+        "header": "Total Rs",
+        "pdf_header": "Total",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 20,
+        "show_total": true,
+        "total_key": "total_amount"
+      },
+      {
+        "field": "paid_amount",
+        "header": "Paid Rs",
+        "pdf_header": "Paid",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 18,
+        "show_total": true,
+        "total_key": "total_paid"
+      },
+      {
+        "field": "balance",
+        "header": "Balance Rs",
+        "pdf_header": "Balance",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 18,
+        "show_total": true,
+        "total_key": "total_balance"
+      },
+      {
+        "field": "g_issued",
+        "header": "G.Iss",
+        "pdf_header": "G.Iss",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 12,
+        "show_total": true,
+        "total_key": "total_g_issued"
+      },
+      {
+        "field": "cash_paid",
+        "header": "Cash",
+        "pdf_header": "Cash",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 16,
+        "show_total": true,
+        "total_key": "total_cash"
+      },
+      {
+        "field": "diesel_paid",
+        "header": "Diesel",
+        "pdf_header": "Diesel",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 16,
+        "show_total": true,
+        "total_key": "total_diesel"
+      }
     ]
   },
   "rice_sales_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
-      {"field": "party_name", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 30},
-      {"field": "rice_type", "header": "Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 10, "width_pdf_mm": 16},
-      {"field": "quantity_qntl", "header": "Qntl", "pdf_header": "Qntl", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_qntl"},
-      {"field": "rate_per_qntl", "header": "Rate/Q", "pdf_header": "Rate", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16},
-      {"field": "total_amount", "header": "Total Rs", "pdf_header": "Total", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_amount"},
-      {"field": "paid_amount", "header": "Received Rs", "pdf_header": "Rcvd", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_paid"},
-      {"field": "balance", "header": "Balance Rs", "pdf_header": "Balance", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 18, "show_total": true, "total_key": "total_balance"},
-      {"field": "truck_no", "header": "Truck", "pdf_header": "Truck", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 20}
+      {
+        "field": "date",
+        "header": "Date",
+        "pdf_header": "Date",
+        "type": "date",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 20
+      },
+      {
+        "field": "party_name",
+        "header": "Party",
+        "pdf_header": "Party",
+        "type": "text",
+        "align": "left",
+        "width_excel": 18,
+        "width_pdf_mm": 30
+      },
+      {
+        "field": "rice_type",
+        "header": "Type",
+        "pdf_header": "Type",
+        "type": "text",
+        "align": "left",
+        "width_excel": 10,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "quantity_qntl",
+        "header": "Qntl",
+        "pdf_header": "Qntl",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 16,
+        "show_total": true,
+        "total_key": "total_qntl"
+      },
+      {
+        "field": "rate_per_qntl",
+        "header": "Rate/Q",
+        "pdf_header": "Rate",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "total_amount",
+        "header": "Total Rs",
+        "pdf_header": "Total",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 20,
+        "show_total": true,
+        "total_key": "total_amount"
+      },
+      {
+        "field": "paid_amount",
+        "header": "Received Rs",
+        "pdf_header": "Rcvd",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 18,
+        "show_total": true,
+        "total_key": "total_paid"
+      },
+      {
+        "field": "balance",
+        "header": "Balance Rs",
+        "pdf_header": "Balance",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 18,
+        "show_total": true,
+        "total_key": "total_balance"
+      },
+      {
+        "field": "truck_no",
+        "header": "Truck",
+        "pdf_header": "Truck",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 20
+      }
     ]
   },
   "party_summary_report": {
     "columns": [
-      {"field": "party_name", "header": "Party Name", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 20, "width_pdf_mm": 32},
-      {"field": "mandi_name", "header": "Mandi", "pdf_header": "Mandi", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
-      {"field": "agent_name", "header": "Agent", "pdf_header": "Agent", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
-      {"field": "purchase_amount", "header": "Purchase Amt", "pdf_header": "Purch", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_purchase"},
-      {"field": "purchase_paid", "header": "Paid (Paddy)", "pdf_header": "Paid", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_purchase_paid"},
-      {"field": "purchase_balance", "header": "Paddy Bal", "pdf_header": "P.Bal", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 18, "show_total": true, "total_key": "total_purchase_balance"},
-      {"field": "sale_amount", "header": "Sale Amt", "pdf_header": "Sale", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_sale"},
-      {"field": "sale_received", "header": "Received (Rice)", "pdf_header": "Rcvd", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_sale_received"},
-      {"field": "sale_balance", "header": "Rice Bal", "pdf_header": "R.Bal", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 18, "show_total": true, "total_key": "total_sale_balance"},
-      {"field": "net_balance", "header": "Net Balance", "pdf_header": "Net Bal", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20, "show_total": true, "total_key": "total_net_balance"}
+      {
+        "field": "party_name",
+        "header": "Party Name",
+        "pdf_header": "Party",
+        "type": "text",
+        "align": "left",
+        "width_excel": 20,
+        "width_pdf_mm": 32
+      },
+      {
+        "field": "mandi_name",
+        "header": "Mandi",
+        "pdf_header": "Mandi",
+        "type": "text",
+        "align": "left",
+        "width_excel": 20,
+        "width_pdf_mm": 35
+      },
+      {
+        "field": "agent_name",
+        "header": "Agent",
+        "pdf_header": "Agent",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 22
+      },
+      {
+        "field": "purchase_amount",
+        "header": "Purchase Amt",
+        "pdf_header": "Purch",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 20,
+        "show_total": true,
+        "total_key": "total_purchase"
+      },
+      {
+        "field": "purchase_paid",
+        "header": "Paid (Paddy)",
+        "pdf_header": "Paid",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 20,
+        "show_total": true,
+        "total_key": "total_purchase_paid"
+      },
+      {
+        "field": "purchase_balance",
+        "header": "Paddy Bal",
+        "pdf_header": "P.Bal",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 18,
+        "show_total": true,
+        "total_key": "total_purchase_balance"
+      },
+      {
+        "field": "sale_amount",
+        "header": "Sale Amt",
+        "pdf_header": "Sale",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 20,
+        "show_total": true,
+        "total_key": "total_sale"
+      },
+      {
+        "field": "sale_received",
+        "header": "Received (Rice)",
+        "pdf_header": "Rcvd",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 20,
+        "show_total": true,
+        "total_key": "total_sale_received"
+      },
+      {
+        "field": "sale_balance",
+        "header": "Rice Bal",
+        "pdf_header": "R.Bal",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 18,
+        "show_total": true,
+        "total_key": "total_sale_balance"
+      },
+      {
+        "field": "net_balance",
+        "header": "Net Balance",
+        "pdf_header": "Net Bal",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 20,
+        "show_total": true,
+        "total_key": "total_net_balance"
+      }
     ]
   },
   "cashbook_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 22},
-      {"field": "account_label", "header": "Account", "pdf_header": "Acct", "type": "text", "align": "left", "width_excel": 10, "width_pdf_mm": 16},
-      {"field": "type_label", "header": "Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 8, "width_pdf_mm": 14},
-      {"field": "category", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 35},
-      {"field": "party_type", "header": "Party Type", "pdf_header": "P.Type", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 20},
-      {"field": "description", "header": "Description", "pdf_header": "Desc", "type": "text", "align": "left", "width_excel": 40, "width_pdf_mm": 65},
-      {"field": "jama", "header": "Jama (Cr)", "pdf_header": "Jama(Cr)", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 22, "show_total": true, "total_key": "total_jama"},
-      {"field": "nikasi", "header": "Nikasi (Dr)", "pdf_header": "Nikasi(Dr)", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 22, "show_total": true, "total_key": "total_nikasi"},
-      {"field": "balance", "header": "Balance (Rs.)", "pdf_header": "Balance", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 22, "show_total": true, "total_key": "closing_balance"}
+      {
+        "field": "date",
+        "header": "Date",
+        "pdf_header": "Date",
+        "type": "date",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 22
+      },
+      {
+        "field": "account_label",
+        "header": "Account",
+        "pdf_header": "Acct",
+        "type": "text",
+        "align": "left",
+        "width_excel": 10,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "type_label",
+        "header": "Type",
+        "pdf_header": "Type",
+        "type": "text",
+        "align": "left",
+        "width_excel": 8,
+        "width_pdf_mm": 14
+      },
+      {
+        "field": "category",
+        "header": "Party",
+        "pdf_header": "Party",
+        "type": "text",
+        "align": "left",
+        "width_excel": 18,
+        "width_pdf_mm": 35
+      },
+      {
+        "field": "party_type",
+        "header": "Party Type",
+        "pdf_header": "P.Type",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 20
+      },
+      {
+        "field": "description",
+        "header": "Description",
+        "pdf_header": "Desc",
+        "type": "text",
+        "align": "left",
+        "width_excel": 40,
+        "width_pdf_mm": 65
+      },
+      {
+        "field": "jama",
+        "header": "Jama (Cr)",
+        "pdf_header": "Jama(Cr)",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 22,
+        "show_total": true,
+        "total_key": "total_jama"
+      },
+      {
+        "field": "nikasi",
+        "header": "Nikasi (Dr)",
+        "pdf_header": "Nikasi(Dr)",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 22,
+        "show_total": true,
+        "total_key": "total_nikasi"
+      },
+      {
+        "field": "balance",
+        "header": "Balance (Rs.)",
+        "pdf_header": "Balance",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 22,
+        "show_total": true,
+        "total_key": "closing_balance"
+      }
     ]
   },
   "party_ledger_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 22},
-      {"field": "party_name", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 22, "width_pdf_mm": 42},
-      {"field": "party_type", "header": "Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
-      {"field": "description", "header": "Description", "pdf_header": "Desc", "type": "text", "align": "left", "width_excel": 50, "width_pdf_mm": 90},
-      {"field": "debit", "header": "Debit (Rs.)", "pdf_header": "Debit", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 24, "show_total": true, "total_key": "total_debit"},
-      {"field": "credit", "header": "Credit (Rs.)", "pdf_header": "Credit", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 24, "show_total": true, "total_key": "total_credit"}
+      {
+        "field": "date",
+        "header": "Date",
+        "pdf_header": "Date",
+        "type": "date",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 22
+      },
+      {
+        "field": "party_name",
+        "header": "Party",
+        "pdf_header": "Party",
+        "type": "text",
+        "align": "left",
+        "width_excel": 22,
+        "width_pdf_mm": 42
+      },
+      {
+        "field": "party_type",
+        "header": "Type",
+        "pdf_header": "Type",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 22
+      },
+      {
+        "field": "description",
+        "header": "Description",
+        "pdf_header": "Desc",
+        "type": "text",
+        "align": "left",
+        "width_excel": 50,
+        "width_pdf_mm": 90
+      },
+      {
+        "field": "debit",
+        "header": "Debit (Rs.)",
+        "pdf_header": "Debit",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 24,
+        "show_total": true,
+        "total_key": "total_debit"
+      },
+      {
+        "field": "credit",
+        "header": "Credit (Rs.)",
+        "pdf_header": "Credit",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 24,
+        "show_total": true,
+        "total_key": "total_credit"
+      }
     ]
   },
   "daily_paddy_entries_report": {
     "summary_mode_columns": [
-      {"field": "truck_no", "header": "Truck", "pdf_header": "Truck", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 28},
-      {"field": "mandi", "header": "Mandi", "pdf_header": "Mandi", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 26},
-      {"field": "agent", "header": "Agent", "pdf_header": "Agent", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 24},
-      {"field": "qntl", "header": "QNTL", "pdf_header": "QNTL", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 22},
-      {"field": "bags", "header": "Bags", "pdf_header": "Bags", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 18},
-      {"field": "mill_w", "header": "Mill W", "pdf_header": "Mill W", "type": "qntl", "align": "right", "width_excel": 12, "width_pdf_mm": 24},
-      {"field": "final_w", "header": "Final W", "pdf_header": "Final W", "type": "qntl", "align": "right", "width_excel": 12, "width_pdf_mm": 24},
-      {"field": "cash_paid", "header": "Cash", "pdf_header": "Cash", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 24},
-      {"field": "diesel_paid", "header": "Diesel", "pdf_header": "Diesel", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 24}
+      {
+        "field": "truck_no",
+        "header": "Truck",
+        "pdf_header": "Truck",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 28
+      },
+      {
+        "field": "mandi",
+        "header": "Mandi",
+        "pdf_header": "Mandi",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 26
+      },
+      {
+        "field": "agent",
+        "header": "Agent",
+        "pdf_header": "Agent",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 24
+      },
+      {
+        "field": "qntl",
+        "header": "QNTL",
+        "pdf_header": "QNTL",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 22
+      },
+      {
+        "field": "bags",
+        "header": "Bags",
+        "pdf_header": "Bags",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 18
+      },
+      {
+        "field": "mill_w",
+        "header": "Mill W",
+        "pdf_header": "Mill W",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 24
+      },
+      {
+        "field": "final_w",
+        "header": "Final W",
+        "pdf_header": "Final W",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 24
+      },
+      {
+        "field": "cash_paid",
+        "header": "Cash",
+        "pdf_header": "Cash",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 24
+      },
+      {
+        "field": "diesel_paid",
+        "header": "Diesel",
+        "pdf_header": "Diesel",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 24
+      }
     ],
     "detail_mode_columns": [
-      {"field": "truck_no", "header": "Truck No", "pdf_header": "Truck", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
-      {"field": "agent", "header": "Agent", "pdf_header": "Agent", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
-      {"field": "mandi", "header": "Mandi", "pdf_header": "Mandi", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
-      {"field": "rst_no", "header": "RST", "pdf_header": "RST", "type": "text", "align": "left", "width_excel": 8, "width_pdf_mm": 11},
-      {"field": "tp_no", "header": "TP", "pdf_header": "TP", "type": "text", "align": "left", "width_excel": 8, "width_pdf_mm": 11},
-      {"field": "qntl", "header": "QNTL", "pdf_header": "QNTL", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 14},
-      {"field": "bags", "header": "Bags", "pdf_header": "Bag", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 11},
-      {"field": "g_deposite", "header": "G.Dep", "pdf_header": "GDep", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12},
-      {"field": "gbw_cut", "header": "GBW", "pdf_header": "GBW", "type": "qntl", "align": "right", "width_excel": 9, "width_pdf_mm": 13},
-      {"field": "plastic_bag", "header": "P.Pkt", "pdf_header": "PPkt", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12},
-      {"field": "p_pkt_cut", "header": "P.Cut", "pdf_header": "PCut", "type": "qntl", "align": "right", "width_excel": 9, "width_pdf_mm": 13},
-      {"field": "mill_w", "header": "Mill W", "pdf_header": "MllW", "type": "qntl", "align": "right", "width_excel": 10, "width_pdf_mm": 14},
-      {"field": "moisture", "header": "M%", "pdf_header": "M%", "type": "number", "align": "right", "width_excel": 7, "width_pdf_mm": 11},
-      {"field": "moisture_cut", "header": "M.Cut", "pdf_header": "MCut", "type": "qntl", "align": "right", "width_excel": 9, "width_pdf_mm": 13},
-      {"field": "cutting_percent", "header": "C%", "pdf_header": "C%", "type": "number", "align": "right", "width_excel": 7, "width_pdf_mm": 11},
-      {"field": "disc_dust_poll", "header": "D/D/P", "pdf_header": "DDP", "type": "number", "align": "right", "width_excel": 8, "width_pdf_mm": 12},
-      {"field": "final_w", "header": "Final W", "pdf_header": "FinW", "type": "qntl", "align": "right", "width_excel": 10, "width_pdf_mm": 14},
-      {"field": "g_issued", "header": "G.Iss", "pdf_header": "GIss", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12},
-      {"field": "cash_paid", "header": "Cash", "pdf_header": "Cash", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 14},
-      {"field": "diesel_paid", "header": "Diesel", "pdf_header": "Diesel", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 15}
+      {
+        "field": "truck_no",
+        "header": "Truck No",
+        "pdf_header": "Truck",
+        "type": "text",
+        "align": "left",
+        "width_excel": 14,
+        "width_pdf_mm": 22
+      },
+      {
+        "field": "agent",
+        "header": "Agent",
+        "pdf_header": "Agent",
+        "type": "text",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 18
+      },
+      {
+        "field": "mandi",
+        "header": "Mandi",
+        "pdf_header": "Mandi",
+        "type": "text",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 18
+      },
+      {
+        "field": "rst_no",
+        "header": "RST",
+        "pdf_header": "RST",
+        "type": "text",
+        "align": "left",
+        "width_excel": 8,
+        "width_pdf_mm": 11
+      },
+      {
+        "field": "tp_no",
+        "header": "TP",
+        "pdf_header": "TP",
+        "type": "text",
+        "align": "left",
+        "width_excel": 8,
+        "width_pdf_mm": 11
+      },
+      {
+        "field": "qntl",
+        "header": "QNTL",
+        "pdf_header": "QNTL",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 14
+      },
+      {
+        "field": "bags",
+        "header": "Bags",
+        "pdf_header": "Bag",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 11
+      },
+      {
+        "field": "g_deposite",
+        "header": "G.Dep",
+        "pdf_header": "GDep",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 12
+      },
+      {
+        "field": "gbw_cut",
+        "header": "GBW",
+        "pdf_header": "GBW",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 9,
+        "width_pdf_mm": 13
+      },
+      {
+        "field": "plastic_bag",
+        "header": "P.Pkt",
+        "pdf_header": "PPkt",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 12
+      },
+      {
+        "field": "p_pkt_cut",
+        "header": "P.Cut",
+        "pdf_header": "PCut",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 9,
+        "width_pdf_mm": 13
+      },
+      {
+        "field": "mill_w",
+        "header": "Mill W",
+        "pdf_header": "MllW",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 14
+      },
+      {
+        "field": "moisture",
+        "header": "M%",
+        "pdf_header": "M%",
+        "type": "number",
+        "align": "right",
+        "width_excel": 7,
+        "width_pdf_mm": 11
+      },
+      {
+        "field": "moisture_cut",
+        "header": "M.Cut",
+        "pdf_header": "MCut",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 9,
+        "width_pdf_mm": 13
+      },
+      {
+        "field": "cutting_percent",
+        "header": "C%",
+        "pdf_header": "C%",
+        "type": "number",
+        "align": "right",
+        "width_excel": 7,
+        "width_pdf_mm": 11
+      },
+      {
+        "field": "disc_dust_poll",
+        "header": "D/D/P",
+        "pdf_header": "DDP",
+        "type": "number",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 12
+      },
+      {
+        "field": "final_w",
+        "header": "Final W",
+        "pdf_header": "FinW",
+        "type": "qntl",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 14
+      },
+      {
+        "field": "g_issued",
+        "header": "G.Iss",
+        "pdf_header": "GIss",
+        "type": "integer",
+        "align": "right",
+        "width_excel": 8,
+        "width_pdf_mm": 12
+      },
+      {
+        "field": "cash_paid",
+        "header": "Cash",
+        "pdf_header": "Cash",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 14
+      },
+      {
+        "field": "diesel_paid",
+        "header": "Diesel",
+        "pdf_header": "Diesel",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 15
+      }
     ]
   },
   "msp_payments_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
-      {"field": "dc_number", "header": "DC No", "pdf_header": "DC", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
-      {"field": "quantity_qntl", "header": "Qty (Q)", "pdf_header": "Qty", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16},
-      {"field": "rate_per_qntl", "header": "Rate (Rs/Q)", "pdf_header": "Rate", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 16},
-      {"field": "amount", "header": "Amount (Rs.)", "pdf_header": "Amt", "type": "number", "align": "right", "width_excel": 14, "width_pdf_mm": 20},
-      {"field": "payment_mode", "header": "Mode", "pdf_header": "Mode", "type": "text", "align": "left", "width_excel": 10, "width_pdf_mm": 16},
-      {"field": "bank_name", "header": "Bank", "pdf_header": "Bank", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18}
+      {
+        "field": "date",
+        "header": "Date",
+        "pdf_header": "Date",
+        "type": "date",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 18
+      },
+      {
+        "field": "dc_number",
+        "header": "DC No",
+        "pdf_header": "DC",
+        "type": "text",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 18
+      },
+      {
+        "field": "quantity_qntl",
+        "header": "Qty (Q)",
+        "pdf_header": "Qty",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "rate_per_qntl",
+        "header": "Rate (Rs/Q)",
+        "pdf_header": "Rate",
+        "type": "number",
+        "align": "right",
+        "width_excel": 12,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "amount",
+        "header": "Amount (Rs.)",
+        "pdf_header": "Amt",
+        "type": "number",
+        "align": "right",
+        "width_excel": 14,
+        "width_pdf_mm": 20
+      },
+      {
+        "field": "payment_mode",
+        "header": "Mode",
+        "pdf_header": "Mode",
+        "type": "text",
+        "align": "left",
+        "width_excel": 10,
+        "width_pdf_mm": 16
+      },
+      {
+        "field": "bank_name",
+        "header": "Bank",
+        "pdf_header": "Bank",
+        "type": "text",
+        "align": "left",
+        "width_excel": 12,
+        "width_pdf_mm": 18
+      }
     ]
   }
 }

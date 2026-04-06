@@ -12,9 +12,10 @@ const CHANGELOG = [
     title: "v88.21.0 - Export Preview Removed + Sorting Fixes",
     items: [
       { type: "fix", text: "Export Preview feature hata diya - bekar tha" },
+      { type: "fix", text: "RST Number ab serial order mai aayega PDF/Excel mai (date + RST ascending)" },
+      { type: "fix", text: "Mandi column width badhaya - MAA JOGAMAYA jaisi lambi mandi names ab puri dikhegi" },
       { type: "fix", text: "SARE PDF/Excel exports ab ascending date order mai (purana upar, naya neeche) - Desktop/Local dono mai" },
       { type: "fix", text: "Desktop/Local app ke sabhi PDF/Excel mai dates ab DD-MM-YYYY format mai" },
-      { type: "new", text: "Date Format Validator - app startup pe automatically check karta hai ki date format sahi hai" },
     ]
   },
   {

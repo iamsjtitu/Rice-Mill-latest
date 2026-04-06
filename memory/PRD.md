@@ -88,6 +88,15 @@ All PDF/Excel export handlers in BOTH desktop-app and local-server now sort data
 - ledgers.js (local-server): Party Ledger Excel/PDF
 - Total: Desktop-app 49 sorts, Local-server 59 sorts (extra from cmr_exports + ledgers)
 
+## RST Number Sequential Sorting - COMPLETED
+- All export handlers in desktop-app, local-server, AND Python backend now sort by date ascending THEN rst_no ascending
+- Same-date entries will show RST 1, 2, 3... instead of random order
+
+## Mandi Column Width Increased - COMPLETED
+- exports.js: PDF Mandi width 40→55, Excel width 14→22
+- vehicle_weight.js: PDF Mandi width 55→72, Excel Mandi width 15→22
+- report_config.json: private_paddy_report/party_summary width_pdf_mm→35, width_excel→20
+
 ## Export Preview Feature - REMOVED (v88.21.0)
 - User ne request kiya "bekar hai" — ExportPreviewDialog.jsx deleted
 - 20 files se 30+ ExportPreviewDialog instances remove kiye

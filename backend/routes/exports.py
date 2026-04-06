@@ -353,7 +353,7 @@ async def export_summary_report_pdf(kms_year: Optional[str] = None, season: Opti
 
     # ---- SECTION 3: TRUCK PAYMENTS ----
     elements.append(Paragraph("3. TRUCK PAYMENTS", sec))
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", 1), ("rst_no", 1)]).to_list(1000)
     truck_total_net = truck_total_paid = truck_total_balance = 0
     truck_rows = []
     for entry in entries:
@@ -463,7 +463,7 @@ async def export_truck_owner_excel(
     if season:
         query["season"] = season
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", 1), ("rst_no", 1)]).to_list(1000)
     
     # Group by truck_no
     truck_data = {}
@@ -603,7 +603,7 @@ async def export_truck_owner_pdf(
     if season:
         query["season"] = season
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", 1), ("rst_no", 1)]).to_list(1000)
     
     # Group by truck_no
     truck_data = {}

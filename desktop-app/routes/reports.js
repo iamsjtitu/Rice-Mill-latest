@@ -275,7 +275,7 @@ module.exports = function(database) {
     try {
       const { party_name, party_type, kms_year, season, date_from, date_to } = req.query;
       const ledger = getLedgerData(party_name, party_type, kms_year, season, date_from, date_to);
-      ledger.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      ledger.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
       const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
 
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Ledger');
@@ -300,7 +300,7 @@ module.exports = function(database) {
     try {
       const { party_name, party_type, kms_year, season, date_from, date_to } = req.query;
       const ledger = getLedgerData(party_name, party_type, kms_year, season, date_from, date_to);
-      ledger.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      ledger.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
 
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);

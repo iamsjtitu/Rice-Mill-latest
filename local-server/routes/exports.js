@@ -17,12 +17,12 @@ module.exports = function(database) {
   router.get('/api/export/excel', safeAsync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
-      entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      entries.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Mill Entries');
       ws.columns = [
         { header: 'Date', key: 'date', width: 12 }, { header: 'Truck No', key: 'truck_no', width: 14 },
         { header: 'RST No', key: 'rst_no', width: 10 }, { header: 'TP No', key: 'tp_no', width: 10 },
-        { header: 'Agent', key: 'agent_name', width: 14 }, { header: 'Mandi', key: 'mandi_name', width: 14 },
+        { header: 'Agent', key: 'agent_name', width: 14 }, { header: 'Mandi', key: 'mandi_name', width: 22 },
         { header: 'QNTL', key: 'qntl', width: 10 }, { header: 'BAG', key: 'bag', width: 8 },
         { header: 'G.Dep', key: 'g_deposite', width: 8 }, { header: 'GBW Cut', key: 'gbw_cut', width: 10 },
         { header: 'P.Pkt', key: 'plastic_bag', width: 8 }, { header: 'P.Cut', key: 'p_pkt_cut', width: 10 },
@@ -64,7 +64,7 @@ module.exports = function(database) {
   router.get('/api/export/pdf', safeSync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
-      entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      entries.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 20 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
@@ -72,7 +72,7 @@ module.exports = function(database) {
       // PDF will be sent via safePdfPipe
       addPdfHeader(doc, 'Mill Entries Report');
       const h = ['Date','Truck','RST','TP','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss'];
-      const w = [40,40,30,30,40,40,34,26,26,30,26,30,36,24,30,24,26,36,28];
+      const w = [40,40,30,28,38,55,32,26,26,30,26,28,36,24,28,24,26,36,28];
       const rows = entries.map(e => [fmtDate(e.date),e.truck_no||'',e.rst_no||'',e.tp_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,e.g_deposite||0,((e.gbw_cut||0)/100).toFixed(2),e.plastic_bag||0,((e.p_pkt_cut||0)/100).toFixed(2),((e.mill_w||0)/100).toFixed(2),e.moisture||0,((e.moisture_cut||0)/100).toFixed(2),e.cutting_percent||0,e.disc_dust_poll||0,((e.final_w||0)/100).toFixed(2),e.g_issued||0]);
       addPdfTable(doc, h, rows, w);
 
@@ -99,9 +99,9 @@ module.exports = function(database) {
   router.get('/api/export/truck-payments-excel', safeAsync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
-      entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      entries.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Truck Payments');
-      ws.columns = [{header:'Date',key:'date',width:12},{header:'Truck No',key:'truck_no',width:14},{header:'Mandi',key:'mandi',width:14},{header:'Final QNTL',key:'fq',width:12},{header:'Rate',key:'rate',width:8},{header:'Gross',key:'gross',width:12},{header:'Cash',key:'cash',width:10},{header:'Diesel',key:'diesel',width:10},{header:'Deductions',key:'ded',width:12},{header:'Net',key:'net',width:12},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
+      ws.columns = [{header:'Date',key:'date',width:12},{header:'Truck No',key:'truck_no',width:14},{header:'Mandi',key:'mandi',width:22},{header:'Final QNTL',key:'fq',width:12},{header:'Rate',key:'rate',width:8},{header:'Gross',key:'gross',width:12},{header:'Cash',key:'cash',width:10},{header:'Diesel',key:'diesel',width:10},{header:'Deductions',key:'ded',width:12},{header:'Net',key:'net',width:12},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
       entries.forEach(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); ws.addRow({date:fmtDate(e.date),truck_no:e.truck_no,mandi:e.mandi_name,fq:+fq.toFixed(2),rate:p.rate_per_qntl,gross:+g.toFixed(2),cash:e.cash_paid||0,diesel:e.diesel_paid||0,ded:+d.toFixed(2),net:+n.toFixed(2),paid:p.paid_amount,bal:+b.toFixed(2),status:b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
       addExcelTitle(ws, 'Truck Payments', 13, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -113,7 +113,7 @@ module.exports = function(database) {
   router.get('/api/export/truck-payments-pdf', safeSync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
-      entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+      entries.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
@@ -131,7 +131,7 @@ module.exports = function(database) {
     try {
       const targets = database.getMandiTargets(req.query); const entries = database.getEntries(req.query);
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Agent Payments');
-      ws.columns = [{header:'Mandi',key:'mandi',width:14},{header:'Agent',key:'agent',width:14},{header:'Target',key:'target',width:12},{header:'Cutting',key:'cutting',width:12},{header:'B.Rate',key:'br',width:10},{header:'C.Rate',key:'cr',width:10},{header:'Total',key:'total',width:12},{header:'Achieved',key:'ach',width:10},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
+      ws.columns = [{header:'Mandi',key:'mandi',width:22},{header:'Agent',key:'agent',width:14},{header:'Target',key:'target',width:12},{header:'Cutting',key:'cutting',width:12},{header:'B.Rate',key:'br',width:10},{header:'C.Rate',key:'cr',width:10},{header:'Total',key:'total',width:12},{header:'Achieved',key:'ach',width:10},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
       targets.forEach(t => { const me=entries.filter(e=>e.mandi_name.toLowerCase()===t.mandi_name.toLowerCase()); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const cq=t.target_qntl*t.cutting_percent/100; const tot=(t.target_qntl*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); ws.addRow({mandi:t.mandi_name,agent:ae?ae.agent_name:'',target:t.target_qntl,cutting:+cq.toFixed(2),br:t.base_rate??10,cr:t.cutting_rate??5,total:+tot.toFixed(2),ach:+ach.toFixed(2),paid:p.paid_amount,bal:+bal.toFixed(2),status:bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
       addExcelTitle(ws, 'Agent Payments', 11, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

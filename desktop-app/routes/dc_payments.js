@@ -72,7 +72,7 @@ module.exports = function(database) {
     let allDels = [...database.data.dc_deliveries];
     if (req.query.kms_year) { entries = entries.filter(e => e.kms_year === req.query.kms_year); allDels = allDels.filter(d => d.kms_year === req.query.kms_year); }
     if (req.query.season) { entries = entries.filter(e => e.season === req.query.season); allDels = allDels.filter(d => d.season === req.query.season); }
-    entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    entries.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const wb = new ExcelJS.Workbook();
     // Sheet 1: DC Register
     const ws = wb.addWorksheet('DC Register');
@@ -114,7 +114,7 @@ module.exports = function(database) {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     let entries = [...database.data.dc_entries];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
-    entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    entries.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=dc_entries.pdf`);
@@ -375,7 +375,7 @@ module.exports = function(database) {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     let payments = [...database.data.msp_payments];
     if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
-    payments.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    payments.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('MSP Payments');
     ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rate/Q', key: 'rate_per_qntl', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Mode', key: 'payment_mode', width: 10 }, { header: 'Bank', key: 'bank_name', width: 15 }];
     payments.forEach(p => ws.addRow(p));
@@ -388,7 +388,7 @@ module.exports = function(database) {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     let payments = [...database.data.msp_payments];
     if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
-    payments.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    payments.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=msp_payments.pdf`);

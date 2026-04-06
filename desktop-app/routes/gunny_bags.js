@@ -137,7 +137,7 @@ module.exports = function(database) {
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
     if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
     const filtered = applyGunnyFilters(entries, req.query.bag_filter, req.query.txn_filter);
-    filtered.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    filtered.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
 
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Gunny Bags');
     ws.columns = [
@@ -168,7 +168,7 @@ module.exports = function(database) {
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
     if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
     const filtered = applyGunnyFilters(entries, req.query.bag_filter, req.query.txn_filter);
-    filtered.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    filtered.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');

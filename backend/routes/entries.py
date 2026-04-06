@@ -1200,7 +1200,7 @@ async def export_truck_payments_excel(
     if truck_no:
         query["truck_no"] = {"$regex": truck_no, "$options": "i"}
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", 1), ("rst_no", 1), ("created_at", 1)]).to_list(1000)
     
     # Build payment data
     payments_data = []
@@ -1340,7 +1340,7 @@ async def export_truck_payments_pdf(
     if truck_no:
         query["truck_no"] = {"$regex": truck_no, "$options": "i"}
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", 1), ("created_at", 1)]).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).sort([("date", 1), ("rst_no", 1), ("created_at", 1)]).to_list(1000)
     
     # Build payment data
     payments_data = []
