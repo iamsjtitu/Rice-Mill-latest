@@ -1024,7 +1024,7 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
             f"{e.get('diesel_paid',0):,.0f}" if e.get('diesel_paid') else "-"
         ])
 
-    col_widths = [30, 55, 65, 70, 70, 60, 55, 30, 50, 50, 50, 40, 40, 40]
+    col_widths = [38, 62, 70, 76, 72, 66, 58, 35, 58, 58, 58, 46, 46, 46]
     t = Table(data, colWidths=col_widths, repeatRows=1)
     
     # Color-coded column header: Navy(info), Teal(weights), Orange(money)

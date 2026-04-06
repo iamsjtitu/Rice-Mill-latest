@@ -1094,7 +1094,7 @@ module.exports = function(database) {
 
     // ── Table ──
     const headers = ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
-    const colW = [18, 30, 50, 55, 65, 72, 52, 30, 50, 50, 52, 48, 48];
+    const colW = [24, 40, 60, 70, 76, 72, 68, 38, 62, 62, 62, 54, 54];
     const rightAlign = [false, true, false, false, false, false, false, true, true, true, true, true, true];
 
     // Column group colors for header: Info=navy, Weight=teal, Money=dark green
