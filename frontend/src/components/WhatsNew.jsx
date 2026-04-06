@@ -7,6 +7,15 @@ const APP_VERSION = "88.21.0";
 
 const CHANGELOG = [
   {
+    version: "88.22.0",
+    date: "Apr 2026",
+    title: "v88.22.0 - KG/QNTL Lock + ESC Key Fix",
+    items: [
+      { type: "fix", text: "KG & QNTL fields ab edit mode mai bhi locked rahenge - koi manually change nahi kar sakta" },
+      { type: "fix", text: "Photo zoom mai ESC dabane par ab sirf photo band hoga, pura dialog nahi" },
+    ]
+  },
+  {
     version: "88.21.0",
     date: "Apr 2026",
     title: "v88.21.0 - Export Preview Removed + Sorting Fixes",
