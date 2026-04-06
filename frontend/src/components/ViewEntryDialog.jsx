@@ -32,7 +32,14 @@ function Val({ label, value, color, large, mono }) {
 export default function ViewEntryDialog({ entry, onClose }) {
   useEffect(() => {
     if (!entry) return;
-    const handleKey = (e) => { if (e.key === "Escape") onClose(); };
+    const handleKey = (e) => {
+      if (e.key === "Escape") {
+        // Don't close dialog if a photo/camera zoom is open - let zoom handler close first
+        const zoomOpen = document.querySelector('[data-testid="photo-zoom-overlay"], [data-testid="camera-zoom-overlay"]');
+        if (zoomOpen) return;
+        onClose();
+      }
+    };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [entry, onClose]);
