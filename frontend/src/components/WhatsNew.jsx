@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.14.0";
+const APP_VERSION = "88.15.0";
 
 const CHANGELOG = [
+  {
+    version: "88.15.0",
+    date: "Apr 2026",
+    title: "v88.15.0 - ESC Photo Priority Fix",
+    items: [
+      { type: "fix", text: "View mai zoom photo open ho toh ESC pehle photo band karega - dialog nahi" },
+      { type: "fix", text: "Photo band hone ke baad ESC se dialog band hoga" },
+    ]
+  },
   {
     version: "88.14.0",
     date: "Apr 2026",
