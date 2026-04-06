@@ -65,7 +65,7 @@ module.exports = function(database) {
       }
     });
 
-    entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    entries.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
     let rc = ob.cgst || 0, rs = ob.sgst || 0, ri = ob.igst || 0;
     for (const e of entries) {

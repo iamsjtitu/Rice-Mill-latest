@@ -102,7 +102,7 @@ router.get('/api/local-party/transactions', safeSync(async (req, res) => {
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
   if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
   if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
-  txns.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  txns.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
   res.json(txns);
 }));
 
@@ -145,7 +145,7 @@ router.get('/api/local-party/report/:partyName', safeSync(async (req, res) => {
       created_by: cb.created_by || '', created_at: cb.created_at || ''
     });
   }
-  txns.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.created_at || '').localeCompare(b.created_at || ''));
+  txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)) || (a.created_at || '').localeCompare(b.created_at || ''));
 
   let runBal = 0;
   const rows = txns.map(t => {
@@ -271,7 +271,7 @@ router.get('/api/local-party/excel', safeAsync(async (req, res) => {
   let txns = [...database.data.local_party_accounts];
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
-  txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
   const partyMap = {};
   for (const t of txns) {
@@ -321,7 +321,7 @@ router.get('/api/local-party/pdf', safeSync(async (req, res) => {
   if (req.query.kms_year) txns = txns.filter(t => t.kms_year === req.query.kms_year);
   if (req.query.season) txns = txns.filter(t => t.season === req.query.season);
   if (req.query.party_name) txns = txns.filter(t => t.party_name === req.query.party_name);
-  txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');

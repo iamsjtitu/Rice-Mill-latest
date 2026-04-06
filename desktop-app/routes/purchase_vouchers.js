@@ -14,7 +14,7 @@ module.exports = function(database) {
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
     if (search) { const s = search.toLowerCase(); vouchers = vouchers.filter(v => (v.party_name || '').toLowerCase().includes(s) || (v.voucher_no || '').toLowerCase().includes(s)); }
-    vouchers.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    vouchers.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     res.json(vouchers);
   }));
 
@@ -230,7 +230,7 @@ module.exports = function(database) {
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
     if (search) { const s = search.toLowerCase(); vouchers = vouchers.filter(v => (v.party_name || '').toLowerCase().includes(s) || (v.voucher_no || '').toLowerCase().includes(s)); }
-    vouchers.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    vouchers.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     res.json(vouchers);
   }));
 
@@ -341,7 +341,7 @@ module.exports = function(database) {
     const { kms_year, season } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
-    vouchers.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    vouchers.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=purchase_book.pdf`);
@@ -370,7 +370,7 @@ module.exports = function(database) {
     const { kms_year, season } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
-    vouchers.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    vouchers.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Purchase Book');
     const colCount = 12;
     let title = 'Purchase Book'; if (kms_year) title += ` | FY: ${kms_year}`; if (season) title += ` | ${season}`;

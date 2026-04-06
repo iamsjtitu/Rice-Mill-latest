@@ -110,7 +110,7 @@ router.get('/api/staff/advance', safeSync(async (req, res) => {
   let list = col('staff_advances');
   if (req.query.staff_id) list = list.filter(a => a.staff_id === req.query.staff_id);
   if (req.query.kms_year) list = list.filter(a => a.kms_year === req.query.kms_year);
-  res.json(list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||'')));
+  res.json(list.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)) || (b.created_at||'').localeCompare(a.created_at||'')));
 }));
 
 router.delete('/api/staff/advance/:id', safeSync(async (req, res) => {
@@ -176,7 +176,7 @@ router.get('/api/staff/salary-calculate', safeSync(async (req, res) => {
     per_day_rate: Math.round(perDay * 100) / 100,
     gross_salary: grossSalary,
     advance_balance: advanceBalance,
-    attendance_details: att.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+    attendance_details: att.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)))
   });
 }));
 
@@ -645,7 +645,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
   let list = col('staff_payments');
   if (kms_year) list = list.filter(p => p.kms_year === kms_year);
   if (season) list = list.filter(p => p.season === season);
-  list.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
+  list.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
 
   if (fmt === 'pdf') {
     const PDFDocument = require('pdfkit');

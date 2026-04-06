@@ -15,7 +15,7 @@ module.exports = function(database) {
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
     if (search) { const s = search.toLowerCase(); vouchers = vouchers.filter(v => (v.party_name || '').toLowerCase().includes(s) || (v.voucher_no || '').toLowerCase().includes(s)); }
-    vouchers.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    vouchers.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     res.json(vouchers);
   }));
 
@@ -271,7 +271,7 @@ module.exports = function(database) {
     const { kms_year, season } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
-    vouchers.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    vouchers.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
     const branding = database.getBranding ? database.getBranding() : {};
     const subtitleParts = ['Sale Book'];

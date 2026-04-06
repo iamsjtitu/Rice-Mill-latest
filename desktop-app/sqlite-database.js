@@ -343,7 +343,7 @@ class SqliteDatabase {
     if (filters.date_from) entries = entries.filter(e => e.date >= filters.date_from);
     if (filters.date_to) entries = entries.filter(e => e.date <= filters.date_to);
     entries.sort((a, b) => {
-      const dateComp = (b.date || '').localeCompare(a.date || '');
+      const dateComp = (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10));
       if (dateComp !== 0) return dateComp;
       return (parseInt(b.rst_no) || 0) - (parseInt(a.rst_no) || 0);
     });
@@ -783,7 +783,7 @@ class SqliteDatabase {
     if (filters.date_from) entries = entries.filter(e => e.date >= filters.date_from);
     if (filters.date_to) entries = entries.filter(e => e.date <= filters.date_to);
     return entries.sort((a, b) => {
-      const dateComp = (b.date || '').localeCompare(a.date || '');
+      const dateComp = (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10));
       if (dateComp !== 0) return dateComp;
       return (parseInt(b.rst_no) || 0) - (parseInt(a.rst_no) || 0);
     });

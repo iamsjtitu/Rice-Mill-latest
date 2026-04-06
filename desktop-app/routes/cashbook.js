@@ -90,7 +90,7 @@ module.exports = function(database) {
     if (req.query.exclude_round_off === 'true' && !req.query.party_type) txns = txns.filter(t => t.party_type !== 'Round Off');
     if (req.query.date_from) txns = txns.filter(t => t.date >= req.query.date_from);
     if (req.query.date_to) txns = txns.filter(t => t.date <= req.query.date_to);
-    txns.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||''));
+    txns.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)) || (b.created_at||'').localeCompare(a.created_at||''));
     const total = txns.length;
     const pageSize = parseInt(req.query.page_size) || 200;
     const page = parseInt(req.query.page) || 1;
@@ -538,7 +538,7 @@ module.exports = function(database) {
       if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
       if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
       if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
-      txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
       
       const cols = getColumns('cashbook_report');
       const headers = getExcelHeaders(cols);
@@ -628,7 +628,7 @@ module.exports = function(database) {
       if (req.query.party_type) txns = txns.filter(t => t.party_type === req.query.party_type);
       if (req.query.date_from) txns = txns.filter(t => (t.date || '') >= req.query.date_from);
       if (req.query.date_to) txns = txns.filter(t => (t.date || '') <= req.query.date_to);
-      txns.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
       const titleParts = ['Daily Cash Book'];
       if (req.query.category) titleParts.push(`- ${req.query.category}`);

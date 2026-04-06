@@ -158,7 +158,7 @@ router.get('/api/mill-parts-stock', safeSync(async (req, res) => {
   if (req.query.party_name) items = items.filter(t => (t.party_name || '').toLowerCase().includes(req.query.party_name.toLowerCase()));
   if (req.query.date_from) items = items.filter(t => (t.date || '') >= req.query.date_from);
   if (req.query.date_to) items = items.filter(t => (t.date || '') <= req.query.date_to);
-  res.json(items.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created_at||'').localeCompare(a.created_at||'')));
+  res.json(items.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)) || (b.created_at||'').localeCompare(a.created_at||'')));
 }));
 
 router.delete('/api/mill-parts-stock/:id', safeSync(async (req, res) => {
@@ -628,7 +628,7 @@ router.get('/api/mill-parts-stock/export/excel', safeAsync(async (req, res) => {
   if (req.query.txn_type) items = items.filter(t => t.txn_type === req.query.txn_type);
   if (req.query.date_from) items = items.filter(t => (t.date||'') >= req.query.date_from);
   if (req.query.date_to) items = items.filter(t => (t.date||'') <= req.query.date_to);
-  items.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.created_at||'').localeCompare(b.created_at||''));
+  items.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (a.created_at||'').localeCompare(b.created_at||''));
 
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Parts Transactions');
@@ -679,7 +679,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync(async (req, res) => {
   if (req.query.txn_type) items = items.filter(t => t.txn_type === req.query.txn_type);
   if (req.query.date_from) items = items.filter(t => (t.date||'') >= req.query.date_from);
   if (req.query.date_to) items = items.filter(t => (t.date||'') <= req.query.date_to);
-  items.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (a.created_at||'').localeCompare(b.created_at||''));
+  items.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (a.created_at||'').localeCompare(b.created_at||''));
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
@@ -751,7 +751,7 @@ router.get('/api/mill-parts/part-summary/excel', safeAsync(async (req, res) => {
   let txns = database.data.mill_parts_stock.filter(t => t.part_name === part_name);
   if (kms_year) txns = txns.filter(t => t.kms_year === kms_year);
   if (season) txns = txns.filter(t => t.season === season);
-  txns.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.created_at||'').localeCompare(b.created_at||''));
+  txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)) || (a.created_at||'').localeCompare(b.created_at||''));
   const partInfo = database.data.mill_parts.find(p => p.name === part_name) || {};
   const unit = partInfo.unit || 'Pcs';
   const category = partInfo.category || 'General';
@@ -839,7 +839,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync(async (req, res) => {
   let txns = database.data.mill_parts_stock.filter(t => t.part_name === part_name);
   if (kms_year) txns = txns.filter(t => t.kms_year === kms_year);
   if (season) txns = txns.filter(t => t.season === season);
-  txns.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.created_at||'').localeCompare(b.created_at||''));
+  txns.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)) || (a.created_at||'').localeCompare(b.created_at||''));
   const partInfo = database.data.mill_parts.find(p => p.name === part_name) || {};
   const unit = partInfo.unit || 'Pcs';
   const category = partInfo.category || 'General';

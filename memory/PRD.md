@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON/SQLite storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, LAN network access, multi-user data safety, and role-based access control.
 
-## Current Version: v88.22.0
+## Current Version: v88.23.0
 
 ## Architecture
 - Triple Backend: Python (web), Desktop JS (Electron 28), Local JS (LAN)
@@ -104,6 +104,15 @@ All PDF/Excel export handlers in BOTH desktop-app and local-server now sort data
 
 ## Upcoming Tasks
 - [ ] P1: Daily Summary Report (Auto) - End of day summary of entries, payments, cash position
+
+## Bug Fixes (v88.23.0 - Date Sort Root Cause Fix)
+- [x] Date sort normalization — `.slice(0,10)` on ALL date comparisons across ALL 3 backends (root cause: time components in dates prevented RST secondary sort)
+- [x] Mandi column width: PDF 55→72 (JS), 22mm→30mm (Python), Excel 10→16 (Python)
+- [x] 60+ sort instances fixed across desktop-app + local-server + Python backend
+
+## Bug Fixes (v88.22.0 - KG/QNTL Lock + ESC Key)
+- [x] KG & QNTL fields disabled in edit mode (editingId set)
+- [x] ESC key no longer closes parent photo dialog when zoom overlay is open
 
 ## Bug Fixes (v88.21.0)
 - [x] KG & QNTL fields now disabled in edit mode (editingId set) - prevents manual weight tampering

@@ -110,7 +110,7 @@ module.exports = function(database) {
     const vouchers = (database.data[col] || []).filter(v => v.party_name === partyName);
     const voucherIds = vouchers.map(v => v.id);
     const payments = database.data.voucher_payments.filter(p => voucherIds.includes(p.voucher_id));
-    payments.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    payments.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     res.json(payments);
   }));
 

@@ -484,7 +484,7 @@ async def get_entries(
     total_count = await db.mill_entries.count_documents(query)
     if page_size <= 0:
         entries = await db.mill_entries.find(query, {"_id": 0}).to_list(50000)
-        entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)), reverse=True)
+        entries.sort(key=lambda e: (e.get("date", "")[:10], int(e.get("rst_no") or 0)), reverse=True)
         return {"entries": entries, "total": total_count, "page": 1, "page_size": total_count, "total_pages": 1}
     if page < 1: page = 1
     skip = (page - 1) * page_size
@@ -877,7 +877,7 @@ async def export_excel(
         if dq: query["date"] = dq
     
     entries = await db.mill_entries.find(query, {"_id": 0}).to_list(1000)
-    entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)))
+    entries.sort(key=lambda e: (e.get("date", "")[:10], int(e.get("rst_no") or 0)))
     
     # Create workbook
     from utils.export_helpers import (style_excel_title, style_excel_header_row,
@@ -971,7 +971,7 @@ async def export_excel(
     style_excel_total_row(ws, row_num, ncols)
     
     # Column widths - A4 optimized (19 cols)
-    col_widths = [10, 12, 9, 9, 10, 10, 9, 6, 6, 7, 6, 7, 8, 6, 7, 6, 6, 9, 7]
+    col_widths = [10, 12, 9, 9, 10, 16, 9, 6, 6, 7, 6, 7, 8, 6, 7, 6, 6, 9, 7]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     
@@ -1032,7 +1032,7 @@ async def export_pdf(
         if dq: query["date"] = dq
     
     entries = await db.mill_entries.find(query, {"_id": 0}).to_list(1000)
-    entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)))
+    entries.sort(key=lambda e: (e.get("date", "")[:10], int(e.get("rst_no") or 0)))
     totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season, date_from, date_to)
     
     # Create PDF buffer
@@ -1149,7 +1149,7 @@ async def export_pdf(
     table_data.append(totals_row)
     
     # Column widths (19 columns for A4 landscape with margins)
-    col_widths = [15*mm, 15*mm, 11*mm, 11*mm, 15*mm, 22*mm, 13*mm, 9*mm, 9*mm, 11*mm, 
+    col_widths = [15*mm, 15*mm, 11*mm, 11*mm, 15*mm, 30*mm, 13*mm, 9*mm, 9*mm, 11*mm, 
                   9*mm, 11*mm, 13*mm, 9*mm, 11*mm, 9*mm, 9*mm, 13*mm, 11*mm]
     
     # Create table

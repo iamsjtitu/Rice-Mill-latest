@@ -33,7 +33,7 @@ module.exports = function(database) {
     
     for (const [truckNo, truckEntries] of Object.entries(truckEntriesMap)) {
       // Sort oldest first for FIFO
-      truckEntries.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.created_at || '').localeCompare(b.created_at || ''));
+      truckEntries.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)) || (a.created_at || '').localeCompare(b.created_at || ''));
       
       const truckLedger = ledgerNikasi.filter(t => t.category === truckNo);
       
@@ -108,7 +108,7 @@ module.exports = function(database) {
     }
     
     // Sort by date descending
-    payments.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    payments.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     res.json(payments);
   }));
 
@@ -276,7 +276,7 @@ module.exports = function(database) {
         by: t.created_by || 'system',
         source: 'ledger'
       }))
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      .sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     
     const totalPaid = Math.round(ledgerHistory.reduce((s, h) => s + h.amount, 0) * 100) / 100;
     res.json({ history: ledgerHistory, total_paid: totalPaid });
@@ -497,7 +497,7 @@ module.exports = function(database) {
         by: t.created_by || 'system',
         source: 'ledger'
       }))
-      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      .sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     
     const totalPaid = Math.round(ledgerHistory.reduce((s, h) => s + h.amount, 0) * 100) / 100;
     res.json({ history: ledgerHistory, total_paid: totalPaid });
@@ -516,7 +516,7 @@ module.exports = function(database) {
     if (season) entries = entries.filter(e => e.season === season);
     if (!entries.length) return res.status(404).json({ detail: 'Is truck ke entries nahi mile' });
 
-    entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    entries.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
     let remaining = amount;
     for (const entry of entries) {
       if (remaining <= 0) break;
@@ -714,7 +714,7 @@ module.exports = function(database) {
         source: 'ledger'
       });
     }
-    allHistory.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    allHistory.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     res.json({ history: allHistory });
   }));
 

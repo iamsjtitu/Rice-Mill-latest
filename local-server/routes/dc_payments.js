@@ -27,7 +27,7 @@ module.exports = function(database) {
     let entries = [...database.data.dc_entries];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
     if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
-    entries.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||''));
+    entries.sort((a,b) => (b.date||'').slice(0,10).localeCompare((a.date||'').slice(0,10)) || (b.created_at||'').localeCompare(a.created_at||''));
     entries.forEach(e => { const dels = database.data.dc_deliveries.filter(d => d.dc_id === e.id); const delivered = +dels.reduce((s,d)=>s+(d.quantity_qntl||0),0).toFixed(2); e.delivered_qntl = delivered; e.pending_qntl = +(e.quantity_qntl-delivered).toFixed(2); e.delivery_count = dels.length; e.status = delivered >= e.quantity_qntl ? 'completed' : (delivered > 0 ? 'partial' : 'pending'); });
     res.json(entries);
   }));
@@ -72,7 +72,7 @@ module.exports = function(database) {
     let allDels = [...database.data.dc_deliveries];
     if (req.query.kms_year) { entries = entries.filter(e => e.kms_year === req.query.kms_year); allDels = allDels.filter(d => d.kms_year === req.query.kms_year); }
     if (req.query.season) { entries = entries.filter(e => e.season === req.query.season); allDels = allDels.filter(d => d.season === req.query.season); }
-    entries.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
+    entries.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const wb = new ExcelJS.Workbook();
     // Sheet 1: DC Register
     const ws = wb.addWorksheet('DC Register');
@@ -102,7 +102,7 @@ module.exports = function(database) {
       { header: 'Notes', key: 'notes', width: 18 }
     ];
     const dcMap = Object.fromEntries(entries.map(e => [e.id, e.dc_number||'']));
-    allDels.sort((a,b) => (a.date||'').localeCompare(b.date||'')).forEach(dl => {
+    allDels.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10))).forEach(dl => {
       ws2.addRow({ dc_no: dcMap[dl.dc_id]||'', date: fmtDate(dl.date), invoice_no: dl.invoice_no||'', rst_no: dl.rst_no||'', eway_bill_no: dl.eway_bill_no||'', quantity_qntl: dl.quantity_qntl, vehicle_no: dl.vehicle_no, driver_name: dl.driver_name, bags_used: dl.bags_used||0, cash_paid: dl.cash_paid||0, diesel_paid: dl.diesel_paid||0, cgst_amount: dl.cgst_amount||0, sgst_amount: dl.sgst_amount||0, godown_name: dl.godown_name||'', notes: dl.notes||'' });
     });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -114,7 +114,7 @@ module.exports = function(database) {
     if (!database.data.dc_entries) database.data.dc_entries = [];
     let entries = [...database.data.dc_entries];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
-    entries.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
+    entries.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=dc_entries.pdf`);
@@ -223,7 +223,7 @@ module.exports = function(database) {
     if (req.query.dc_id) dels = dels.filter(d => d.dc_id === req.query.dc_id);
     if (req.query.kms_year) dels = dels.filter(d => d.kms_year === req.query.kms_year);
     if (req.query.season) dels = dels.filter(d => d.season === req.query.season);
-    res.json(dels.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||'')));
+    res.json(dels.sort((a,b) => (b.date||'').slice(0,10).localeCompare((a.date||'').slice(0,10)) || (b.created_at||'').localeCompare(a.created_at||'')));
   }));
 
   router.delete('/api/dc-deliveries/:id', safeSync(async (req, res) => {
@@ -345,7 +345,7 @@ module.exports = function(database) {
     if (req.query.season) pays = pays.filter(p=>p.season===req.query.season);
     const dcMap = Object.fromEntries(database.data.dc_entries.map(d=>[d.id,d.dc_number||'']));
     pays.forEach(p=>{p.dc_number=dcMap[p.dc_id]||'';});
-    res.json(pays.sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||'')));
+    res.json(pays.sort((a,b)=>(b.date||'').slice(0,10).localeCompare((a.date||'').slice(0,10)) || (b.created_at||'').localeCompare(a.created_at||'')));
   }));
 
   router.delete('/api/msp-payments/:id', safeSync(async (req, res) => {
@@ -375,7 +375,7 @@ module.exports = function(database) {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     let payments = [...database.data.msp_payments];
     if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
-    payments.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
+    payments.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('MSP Payments');
     ws.columns = [{ header: 'Date', key: 'date', width: 12 }, { header: 'Qty(Q)', key: 'quantity_qntl', width: 10 }, { header: 'Rate/Q', key: 'rate_per_qntl', width: 10 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Mode', key: 'payment_mode', width: 10 }, { header: 'Bank', key: 'bank_name', width: 15 }];
     payments.forEach(p => ws.addRow(p));
@@ -388,7 +388,7 @@ module.exports = function(database) {
     if (!database.data.msp_payments) database.data.msp_payments = [];
     let payments = [...database.data.msp_payments];
     if (req.query.kms_year) payments = payments.filter(p => p.kms_year === req.query.kms_year);
-    payments.sort((a,b) => (a.date||'').localeCompare(b.date||'') || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
+    payments.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (Number(a.rst_no)||0) - (Number(b.rst_no)||0));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=msp_payments.pdf`);

@@ -7,6 +7,16 @@ const APP_VERSION = "88.21.0";
 
 const CHANGELOG = [
   {
+    version: "88.23.0",
+    date: "Apr 2026",
+    title: "v88.23.0 - RST Sort Fix + Mandi Width Fix",
+    items: [
+      { type: "fix", text: "RST Number ab 100% sahi ascending order mein aayega — date normalization fix (time component strip)" },
+      { type: "fix", text: "Mandi column width badhaya — MEDINIPUR, MAA JOGAMAYA jaisi lambi names ab puri dikhegi PDF/Excel mein" },
+      { type: "fix", text: "SABHI route files mein date sort normalize kiya — Desktop + Local + Python teeno backends" },
+    ]
+  },
+  {
     version: "88.22.0",
     date: "Apr 2026",
     title: "v88.22.0 - KG/QNTL Lock + ESC Key Fix",

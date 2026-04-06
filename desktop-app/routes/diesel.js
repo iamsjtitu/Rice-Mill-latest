@@ -49,7 +49,7 @@ module.exports = function(database) {
     if (req.query.truck_no) txns = txns.filter(t => (t.truck_no||'').toLowerCase().includes(req.query.truck_no.toLowerCase()));
     if (req.query.date_from) txns = txns.filter(t => (t.date||'') >= req.query.date_from);
     if (req.query.date_to) txns = txns.filter(t => (t.date||'') <= req.query.date_to);
-    res.json(txns.sort((a,b) => (b.date||'').localeCompare(a.date||'') || (b.created_at||'').localeCompare(a.created_at||'')));
+    res.json(txns.sort((a,b) => (b.date||'').slice(0,10).localeCompare((a.date||'').slice(0,10)) || (b.created_at||'').localeCompare(a.created_at||'')));
   }));
 
   router.get('/api/diesel-accounts/summary', safeSync(async (req, res) => {
@@ -177,7 +177,7 @@ module.exports = function(database) {
       const c = ws.getCell(row, i+1); c.value = h; c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '7c2d12' } };
     });
     row++;
-    txns.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(t => {
+    txns.sort((a,b)=>(a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10))).forEach(t => {
       ws.getCell(row,1).value = fmtDate(t.date); ws.getCell(row,2).value = t.pump_name||'';
       ws.getCell(row,3).value = t.txn_type==='payment'?'Payment':'Diesel';
       ws.getCell(row,4).value = t.truck_no||''; ws.getCell(row,5).value = t.agent_name||'';
@@ -215,7 +215,7 @@ module.exports = function(database) {
     doc.moveDown();
     doc.fontSize(12).text('Transactions', { underline: true }); doc.moveDown(0.5);
     const tHeaders = ['Date', 'Pump', 'Type', 'Truck', 'Agent', 'Amount', 'Description'];
-    const tRows = txns.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map(t => [
+    const tRows = txns.sort((a,b)=>(a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10))).map(t => [
       fmtDate(t.date), (t.pump_name||'').substring(0,15), t.txn_type==='payment'?'Payment':'Diesel',
       t.truck_no||'', (t.agent_name||'').substring(0,12), 'Rs.'+(t.amount||0), (t.description||'').substring(0,25)
     ]);

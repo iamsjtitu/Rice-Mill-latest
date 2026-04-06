@@ -15,7 +15,7 @@ module.exports = function(database) {
 router.get('/api/milling-report/excel', async (req, res) => {
   try {
     const entries = database.getMillingEntries(req.query);
-    entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    entries.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Milling Report');
     ws.columns = [
@@ -45,7 +45,7 @@ router.get('/api/milling-report/excel', async (req, res) => {
 router.get('/api/milling-report/pdf', async (req, res) => {
   try {
     const entries = database.getMillingEntries(req.query);
-    entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    entries.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=milling_report_${Date.now()}.pdf`);
@@ -67,7 +67,7 @@ router.get('/api/frk-purchases/excel', async (req, res) => {
     let purchases = [...database.data.frk_purchases];
     if (req.query.kms_year) purchases = purchases.filter(x => x.kms_year === req.query.kms_year);
     if (req.query.season) purchases = purchases.filter(x => x.season === req.query.season);
-    purchases.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    purchases.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('FRK Purchases');
     ws.columns = [
@@ -94,7 +94,7 @@ router.get('/api/frk-purchases/pdf', async (req, res) => {
     let purchases = [...database.data.frk_purchases];
     if (req.query.kms_year) purchases = purchases.filter(x => x.kms_year === req.query.kms_year);
     if (req.query.season) purchases = purchases.filter(x => x.season === req.query.season);
-    purchases.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    purchases.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     const doc = new PDFDocument({ size: 'A4', margin: 30 });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=frk_purchases_${Date.now()}.pdf`);
@@ -117,7 +117,7 @@ router.get('/api/byproduct-sales/excel', async (req, res) => {
     let sales = [...database.data.byproduct_sales];
     if (req.query.kms_year) sales = sales.filter(s => s.kms_year === req.query.kms_year);
     if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
-    sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    sales.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     const millingEntries = database.getMillingEntries(req.query);
     const products = ['bran','kunda','broken','kanki','husk'];
     const wb = new ExcelJS.Workbook();
@@ -158,7 +158,7 @@ router.get('/api/byproduct-sales/pdf', async (req, res) => {
     let sales = [...database.data.byproduct_sales];
     if (req.query.kms_year) sales = sales.filter(s => s.kms_year === req.query.kms_year);
     if (req.query.season) sales = sales.filter(s => s.season === req.query.season);
-    sales.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    sales.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     const millingEntries = database.getMillingEntries(req.query);
     const products = ['bran','kunda','broken','kanki','husk'];
     const doc = new PDFDocument({ size: 'A4', margin: 30 });

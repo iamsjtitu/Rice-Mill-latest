@@ -64,7 +64,7 @@ module.exports = (database) => {
     if (from_date) payments = payments.filter(p => p.date >= from_date);
     if (to_date) payments = payments.filter(p => p.date <= to_date);
     if (sardar_name) payments = payments.filter(p => p.sardar_name === sardar_name);
-    res.json(payments.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
+    res.json(payments.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10))));
   }));
 
   router.post('/api/hemali/payments', safeHandler(async (req, res) => {
@@ -409,7 +409,7 @@ module.exports = (database) => {
     if (from_date) payments = payments.filter(p => p.date >= from_date);
     if (to_date) payments = payments.filter(p => p.date <= to_date);
     if (sardar_name) payments = payments.filter(p => p.sardar_name === sardar_name);
-    payments.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    payments.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
     const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
       registerFonts(doc);
@@ -469,7 +469,7 @@ module.exports = (database) => {
     if (from_date) payments = payments.filter(p => p.date >= from_date);
     if (to_date) payments = payments.filter(p => p.date <= to_date);
     if (sardar_name) payments = payments.filter(p => p.sardar_name === sardar_name);
-    payments.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    payments.sort((a, b) => (a.date || '').slice(0,10).localeCompare((b.date || '').slice(0,10)));
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Hemali Payments');
