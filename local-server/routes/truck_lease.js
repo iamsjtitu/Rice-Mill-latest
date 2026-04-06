@@ -176,7 +176,7 @@ module.exports = function(database) {
 
   router.get('/api/truck-leases/export/pdf', safeSync(async (req, res) => {
     const PDFDocument = require('pdfkit');
-    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe} = require('./pdf_helpers');
+    const { addPdfHeader: _addPdfHeader, addPdfTable, addTotalsRow, fmtAmt: pFmt , safePdfPipe, fmtDate} = require('./pdf_helpers');
     const branding = database.getBranding ? database.getBranding() : {};
     let leases = database.data.truck_leases || [];
     if (req.query.kms_year) leases = leases.filter(l => l.kms_year === req.query.kms_year);
@@ -199,7 +199,7 @@ module.exports = function(database) {
       const paid = allPayments.filter(p => p.lease_id === lease.id).reduce((s, p) => s + (p.amount || 0), 0);
       const balance = Math.max(0, totalRent - paid);
       grandTotal += totalRent; grandPaid += paid;
-      rows.push([lease.truck_no, lease.owner_name||'', pFmt(lease.monthly_rent||0), lease.start_date||'', lease.end_date||'Ongoing', pFmt(lease.advance_deposit||0), (lease.status||'').toUpperCase(), pFmt(totalRent), pFmt(Math.round(paid)), pFmt(Math.round(balance))]);
+      rows.push([lease.truck_no, lease.owner_name||'', pFmt(lease.monthly_rent||0), fmtDate(lease.start_date)||'', lease.end_date ? fmtDate(lease.end_date) : 'Ongoing', pFmt(lease.advance_deposit||0), (lease.status||'').toUpperCase(), pFmt(totalRent), pFmt(Math.round(paid)), pFmt(Math.round(balance))]);
     }
     addPdfTable(doc, headers, rows, colW);
     addTotalsRow(doc, ['', '', '', '', '', '', 'TOTAL', pFmt(grandTotal), pFmt(Math.round(grandPaid)), pFmt(Math.round(Math.max(0, grandTotal - grandPaid)))], colW);
@@ -211,6 +211,7 @@ module.exports = function(database) {
   router.get('/api/truck-leases/export/excel', safeSync(async (req, res) => {
     const ExcelJS = require('exceljs');
     const { styleExcelHeader, styleExcelData, addExcelTitle } = require('./excel_helpers');
+    const { fmtDate } = require('./pdf_helpers');
     let leases = database.data.truck_leases || [];
     if (req.query.kms_year) leases = leases.filter(l => l.kms_year === req.query.kms_year);
     if (req.query.season) leases = leases.filter(l => l.season === req.query.season);
@@ -235,7 +236,7 @@ module.exports = function(database) {
       const months = getMonthsBetween(lease.start_date, lease.end_date);
       const totalRent = months.length * (lease.monthly_rent || 0);
       const paid = allPayments.filter(p => p.lease_id === lease.id).reduce((s, p) => s + (p.amount || 0), 0);
-      const vals = [lease.truck_no, lease.owner_name||'', lease.monthly_rent||0, lease.start_date||'', lease.end_date||'Ongoing', lease.advance_deposit||0, (lease.status||'').toUpperCase(), months.length, totalRent, Math.round(paid), Math.max(0, Math.round(totalRent - paid))];
+      const vals = [lease.truck_no, lease.owner_name||'', lease.monthly_rent||0, fmtDate(lease.start_date)||'', lease.end_date ? fmtDate(lease.end_date) : 'Ongoing', lease.advance_deposit||0, (lease.status||'').toUpperCase(), months.length, totalRent, Math.round(paid), Math.max(0, Math.round(totalRent - paid))];
       vals.forEach((v, i) => { ws.getCell(r, i + 1).value = v; });
       r++;
     }

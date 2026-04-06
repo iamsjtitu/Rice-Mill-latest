@@ -86,7 +86,7 @@ module.exports = function(database) {
       const deld = +allDels.filter(d => d.dc_id === e.id).reduce((s,d) => s + (d.quantity_qntl||0), 0).toFixed(2);
       const pend = +(e.quantity_qntl - deld).toFixed(2);
       const status = deld >= e.quantity_qntl ? 'Completed' : (deld > 0 ? 'Partial' : 'Pending');
-      ws.addRow({ dc_number: e.dc_number, date: e.date, rice_type: (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1), quantity_qntl: e.quantity_qntl, delivered: deld, pending: pend, status, deadline: e.deadline, godown_name: e.godown_name });
+      ws.addRow({ dc_number: e.dc_number, date: fmtDate(e.date), rice_type: (e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1), quantity_qntl: e.quantity_qntl, delivered: deld, pending: pend, status, deadline: fmtDate(e.deadline), godown_name: e.godown_name });
     });
     // Sheet 2: Deliveries detail
     const ws2 = wb.addWorksheet('Deliveries');
@@ -102,7 +102,7 @@ module.exports = function(database) {
     ];
     const dcMap = Object.fromEntries(entries.map(e => [e.id, e.dc_number||'']));
     allDels.sort((a,b) => (a.date||'').localeCompare(b.date||'')).forEach(dl => {
-      ws2.addRow({ dc_no: dcMap[dl.dc_id]||'', date: dl.date, invoice_no: dl.invoice_no||'', rst_no: dl.rst_no||'', eway_bill_no: dl.eway_bill_no||'', quantity_qntl: dl.quantity_qntl, vehicle_no: dl.vehicle_no, driver_name: dl.driver_name, bags_used: dl.bags_used||0, cash_paid: dl.cash_paid||0, diesel_paid: dl.diesel_paid||0, cgst_amount: dl.cgst_amount||0, sgst_amount: dl.sgst_amount||0, godown_name: dl.godown_name||'', notes: dl.notes||'' });
+      ws2.addRow({ dc_no: dcMap[dl.dc_id]||'', date: fmtDate(dl.date), invoice_no: dl.invoice_no||'', rst_no: dl.rst_no||'', eway_bill_no: dl.eway_bill_no||'', quantity_qntl: dl.quantity_qntl, vehicle_no: dl.vehicle_no, driver_name: dl.driver_name, bags_used: dl.bags_used||0, cash_paid: dl.cash_paid||0, diesel_paid: dl.diesel_paid||0, cgst_amount: dl.cgst_amount||0, sgst_amount: dl.sgst_amount||0, godown_name: dl.godown_name||'', notes: dl.notes||'' });
     });
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=dc_register.xlsx`);
@@ -119,7 +119,7 @@ module.exports = function(database) {
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'DC Entries Report');
     const headers = ['Date', 'DC No', 'Qty(Q)', 'Rice Type', 'Godown', 'Deadline', 'Notes'];
-    const rows = entries.map(e => [e.date||'', e.dc_number||'', e.quantity_qntl||0, e.rice_type||'', e.godown_name||'', e.deadline||'', (e.notes||'').substring(0,25)]);
+    const rows = entries.map(e => [fmtDate(e.date)||'', e.dc_number||'', e.quantity_qntl||0, e.rice_type||'', e.godown_name||'', fmtDate(e.deadline)||'', (e.notes||'').substring(0,25)]);
     addPdfTable(doc, headers, rows, [60, 60, 50, 60, 80, 60, 100]); await safePdfPipe(doc, res);
   }));
 
@@ -277,7 +277,7 @@ module.exports = function(database) {
     <div class="header"><h1>${millName}</h1><p>${millAddr} - Delivery Challan</p></div>
     <div class="info-grid">
       <div class="info-item"><label>DC Number</label><span>${dcNum}</span></div>
-      <div class="info-item"><label>Date</label><span>${delivery.date||''}</span></div>
+      <div class="info-item"><label>Date</label><span>${fmtDate(delivery.date)}</span></div>
       <div class="info-item"><label>Invoice No</label><span>${delivery.invoice_no||''}</span></div>
       <div class="info-item"><label>RST No</label><span>${delivery.rst_no||''}</span></div>
       <div class="info-item"><label>E-Way Bill</label><span>${delivery.eway_bill_no||''}</span></div>
@@ -391,7 +391,7 @@ module.exports = function(database) {
     // PDF will be sent via safePdfPipe
     addPdfHeader(doc, 'MSP Payments Report');
     const headers = ['Date', 'Qty(Q)', 'Rate(Rs./Q)', 'Amount(Rs.)', 'Mode', 'Bank'];
-    const rows = payments.map(p => [p.date||'', p.quantity_qntl||0, p.rate_per_qntl||0, p.amount||0, p.payment_mode||'', (p.bank_name||'').substring(0,15)]);
+    const rows = payments.map(p => [fmtDate(p.date)||'', p.quantity_qntl||0, p.rate_per_qntl||0, p.amount||0, p.payment_mode||'', (p.bank_name||'').substring(0,15)]);
     addPdfTable(doc, headers, rows, [60, 50, 60, 70, 50, 80]); await safePdfPipe(doc, res);
   }));
 

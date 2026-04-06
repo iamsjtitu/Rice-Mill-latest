@@ -882,7 +882,7 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync(async (req, res) => {
   if (txns.length) {
     doc.fontSize(11).fillColor('#1a365d').font(F('bold')).text('All Transactions');
     doc.moveDown(0.3);
-    const tRows = txns.map(t => [t.date||'', t.txn_type==='in'?'IN':'USED', t.quantity||0, t.rate||0,
+    const tRows = txns.map(t => [fmtDate(t.date), t.txn_type==='in'?'IN':'USED', t.quantity||0, t.rate||0,
       (t.total_amount||t.total_cost||0), t.party_name||'-', t.bill_no||'-']);
     addPdfTable(doc, ['Date','Type','Qty','Rate','Amount','Party','Bill No'], tRows, [60,40,40,45,60,100,60]);
   }

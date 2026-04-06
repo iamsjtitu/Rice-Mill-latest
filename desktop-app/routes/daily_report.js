@@ -40,11 +40,11 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   const data = getDailyReportData(database, req.query);
   const isDetail = data.mode === 'detail';
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet(`Daily Report ${data.date}`);
+  const ws = wb.addWorksheet(`Daily Report ${fmtDate(data.date)}`);
   const dailyCols = isDetail ? getColumns('daily_paddy_entries_report', 'detail_mode_columns') : null;
   const colCount = isDetail && dailyCols ? dailyCols.length : 6;
 
-  addExcelTitle(ws, `Daily Report - ${data.date} (${isDetail ? 'DETAILED' : 'SUMMARY'})`, colCount, database);
+  addExcelTitle(ws, `Daily Report - ${fmtDate(data.date)} (${isDetail ? 'DETAILED' : 'SUMMARY'})`, colCount, database);
   ws.getCell('A4').value = `FY: ${req.query.kms_year || 'All'} | Season: ${req.query.season || 'All'}`;
   ws.getCell('A4').font = { italic: true, size: 9, color: { argb: 'FF666666' } };
   let row = 6;
@@ -128,11 +128,11 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
     if (ctxn.details && ctxn.details.length) {
       if (isDetail) {
         writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)', 'Description']);
-        ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount, d.description||'']));
+        ctxn.details.forEach(d => writeRow([fmtDate(d.date), d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount, d.description||'']));
         setColWidths([12, 22, 12, 14, 35]);
       } else {
         writeHeaders(['Date', 'Party Name', 'Type (Jama/Nikasi)', 'Amount (Rs.)']);
-        ctxn.details.forEach(d => writeRow([d.date||'', d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount]));
+        ctxn.details.forEach(d => writeRow([fmtDate(d.date), d.party_name||'', d.txn_type === 'jama' ? 'Jama' : 'Nikasi', d.amount]));
         setColWidths([12, 22, 12, 14]);
       }
     }

@@ -147,7 +147,7 @@ module.exports = function(database) {
       { header: 'Notes', key: 'notes', width: 25 }
     ];
     filtered.forEach(e => ws.addRow({
-      date: e.date||'', bag_type: e.bag_type==='new'?'New (Govt)':'Old (Market)',
+      date: fmtDate(e.date), bag_type: e.bag_type==='new'?'New (Govt)':'Old (Market)',
       txn_type: e.txn_type==='in'?'In':'Out', quantity: e.quantity||0,
       source: (e.source||'') + (e.linked_entry_id ? ' [Auto]' : ''),
       rate: e.rate||0, amount: e.amount||0, notes: e.notes||''
@@ -175,7 +175,7 @@ module.exports = function(database) {
     addPdfHeader(doc, 'Gunny Bags Report');
     const headers = ['Date', 'Bag Type', 'In/Out', 'Qty', 'Source/To', 'Rate', 'Amount(Rs.)', 'Notes'];
     const rows = filtered.map(e => [
-      e.date||'', e.bag_type==='new'?'New(Govt)':'Old(Mkt)',
+      fmtDate(e.date), e.bag_type==='new'?'New(Govt)':'Old(Mkt)',
       e.txn_type==='in'?'In':'Out', e.quantity||0,
       (e.source||'') + (e.linked_entry_id ? ' [Auto]' : ''),
       e.rate||0, e.amount||0, e.notes||''
@@ -213,7 +213,7 @@ module.exports = function(database) {
       if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Purchase Report');
       ws.addRow(['Date', 'Supplier', 'Qty', 'Rate', 'Amount', 'Description']);
-      entries.forEach(e => ws.addRow([e.date, e.supplier || e.party_name || '', e.quantity || 0, e.rate || 0, e.amount || 0, e.description || '']));
+      entries.forEach(e => ws.addRow([fmtDate(e.date), e.supplier || e.party_name || '', e.quantity || 0, e.rate || 0, e.amount || 0, e.description || '']));
       ws.columns.forEach(c => c.width = 15);
       const buf = await wb.xlsx.writeBuffer();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -230,7 +230,7 @@ module.exports = function(database) {
     const company = (database.data.settings || {}).mill_name || 'NAVKAR AGRO';
     let html = `<!DOCTYPE html><html><head><style>body{font:10px Arial;margin:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ccc;padding:3px 5px}th{background:#1e40af;color:#fff}.r{text-align:right}.b{font-weight:bold}</style></head><body>`;
     html += `<h2 style="text-align:center">${company} - Gunny Bags Purchase Report</h2><table><tr><th>Date</th><th>Supplier</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th><th>Description</th></tr>`;
-    entries.forEach(e => html += `<tr><td>${e.date||''}</td><td>${e.supplier||e.party_name||''}</td><td class="r">${e.quantity||0}</td><td class="r">${e.rate||0}</td><td class="r">${e.amount||0}</td><td>${e.description||''}</td></tr>`);
+    entries.forEach(e => html += `<tr><td>${fmtDate(e.date)}</td><td>${e.supplier||e.party_name||''}</td><td class="r">${e.quantity||0}</td><td class="r">${e.rate||0}</td><td class="r">${e.amount||0}</td><td>${e.description||''}</td></tr>`);
     html += `</table></body></html>`;
     res.type('html').send(html);
   }));

@@ -1,7 +1,7 @@
 {
   "agent_mandi_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 22, "show_total": false},
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 22, "show_total": false},
       {"field": "truck_no", "header": "Truck No", "pdf_header": "Truck", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 24, "show_total": false},
       {"field": "qntl", "header": "QNTL", "pdf_header": "QNTL", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_qntl"},
       {"field": "bag", "header": "BAG", "pdf_header": "BAG", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 12, "show_total": true, "total_key": "total_bag"},
@@ -21,7 +21,7 @@
   "gunny_bags_report": {
     "summary_headers": ["Category", "In", "Out", "Balance", "Cost (Rs.)"],
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
       {"field": "bag_type", "header": "Bag Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
       {"field": "txn_type", "header": "In/Out", "pdf_header": "In/Out", "type": "text", "align": "center", "width_excel": 8, "width_pdf_mm": 14},
       {"field": "quantity", "header": "Qty", "pdf_header": "Qty", "type": "integer", "align": "right", "width_excel": 8, "width_pdf_mm": 14},
@@ -34,7 +34,7 @@
   "dc_entries_report": {
     "columns": [
       {"field": "dc_number", "header": "DC No", "pdf_header": "DC No", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
       {"field": "rice_type", "header": "Rice Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 16},
       {"field": "quantity_qntl", "header": "Allotted (Q)", "pdf_header": "Allot", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 16},
       {"field": "delivered_qntl", "header": "Delivered (Q)", "pdf_header": "Del", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 16},
@@ -46,7 +46,7 @@
   },
   "private_paddy_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
       {"field": "party_name", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 28},
       {"field": "mandi_name", "header": "Mandi", "pdf_header": "Mandi", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
       {"field": "agent_name", "header": "Agent", "pdf_header": "Agent", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
@@ -64,7 +64,7 @@
   },
   "rice_sales_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 20},
       {"field": "party_name", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 30},
       {"field": "rice_type", "header": "Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 10, "width_pdf_mm": 16},
       {"field": "quantity_qntl", "header": "Qntl", "pdf_header": "Qntl", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16, "show_total": true, "total_key": "total_qntl"},
@@ -91,7 +91,7 @@
   },
   "cashbook_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 22},
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 22},
       {"field": "account_label", "header": "Account", "pdf_header": "Acct", "type": "text", "align": "left", "width_excel": 10, "width_pdf_mm": 16},
       {"field": "type_label", "header": "Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 8, "width_pdf_mm": 14},
       {"field": "category", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 18, "width_pdf_mm": 35},
@@ -104,7 +104,7 @@
   },
   "party_ledger_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 22},
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 22},
       {"field": "party_name", "header": "Party", "pdf_header": "Party", "type": "text", "align": "left", "width_excel": 22, "width_pdf_mm": 42},
       {"field": "party_type", "header": "Type", "pdf_header": "Type", "type": "text", "align": "left", "width_excel": 14, "width_pdf_mm": 22},
       {"field": "description", "header": "Description", "pdf_header": "Desc", "type": "text", "align": "left", "width_excel": 50, "width_pdf_mm": 90},
@@ -149,7 +149,7 @@
   },
   "msp_payments_report": {
     "columns": [
-      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
+      {"field": "date", "header": "Date", "pdf_header": "Date", "type": "date", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
       {"field": "dc_number", "header": "DC No", "pdf_header": "DC", "type": "text", "align": "left", "width_excel": 12, "width_pdf_mm": 18},
       {"field": "quantity_qntl", "header": "Qty (Q)", "pdf_header": "Qty", "type": "number", "align": "right", "width_excel": 10, "width_pdf_mm": 16},
       {"field": "rate_per_qntl", "header": "Rate (Rs/Q)", "pdf_header": "Rate", "type": "number", "align": "right", "width_excel": 12, "width_pdf_mm": 16},

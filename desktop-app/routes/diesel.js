@@ -178,7 +178,7 @@ module.exports = function(database) {
     });
     row++;
     txns.sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(t => {
-      ws.getCell(row,1).value = t.date||''; ws.getCell(row,2).value = t.pump_name||'';
+      ws.getCell(row,1).value = fmtDate(t.date); ws.getCell(row,2).value = t.pump_name||'';
       ws.getCell(row,3).value = t.txn_type==='payment'?'Payment':'Diesel';
       ws.getCell(row,4).value = t.truck_no||''; ws.getCell(row,5).value = t.agent_name||'';
       ws.getCell(row,6).value = t.amount||0; ws.getCell(row,7).value = t.description||'';

@@ -557,7 +557,7 @@ module.exports = function(database) {
         const nikasi = t.txn_type === 'nikasi' ? t.amount : 0;
         runBal += jama - nikasi;
         return {
-          date: t.date, account_label: t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
+          date: fmtDate(t.date), account_label: t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
           type_label: t.txn_type === 'jama' ? 'Jama' : 'Nikasi', category: t.category || '', party_type: t.party_type || '',
           description: t.description || '', jama: t.txn_type === 'jama' ? t.amount : '', nikasi: t.txn_type === 'nikasi' ? t.amount : '',
           balance: +runBal.toFixed(2), reference: t.reference || ''
@@ -663,7 +663,7 @@ module.exports = function(database) {
         runBal += jama - nikasi;
         totalJama += jama; totalNikasi += nikasi;
         return [
-          t.date || '', t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
+          fmtDate(t.date || ''), t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
           t.txn_type === 'jama' ? 'Jama' : 'Nikasi', t.category || '', t.party_type || '',
           t.description || '', jama ? pFmt(jama) : '-', nikasi ? pFmt(nikasi) : '-',
           pFmt(+runBal.toFixed(2))

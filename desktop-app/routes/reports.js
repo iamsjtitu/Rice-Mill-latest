@@ -281,7 +281,7 @@ module.exports = function(database) {
       ws.mergeCells('A1:F1'); ws.getCell('A1').value = `Party Ledger${party_name?' - '+party_name:''}`; ws.getCell('A1').font = { bold: true, size: 14 }; ws.getCell('A1').alignment = { horizontal: 'center' };
 
       ['Date','Party','Type','Description','Debit(Rs.)','Credit(Rs.)'].forEach((h, i) => { const c = ws.getCell(3, i+1); c.value = h; Object.assign(c, hdrStyle); });
-      ledger.forEach((l, i) => { [l.date, l.party_name, l.party_type, l.description, l.debit||'', l.credit||''].forEach((v, j) => { ws.getCell(i+4, j+1).value = v; }); });
+      ledger.forEach((l, i) => { [fmtDate(l.date), l.party_name, l.party_type, l.description, l.debit||'', l.credit||''].forEach((v, j) => { ws.getCell(i+4, j+1).value = v; }); });
 
       // Totals row
       const totalRow = ledger.length + 4;
