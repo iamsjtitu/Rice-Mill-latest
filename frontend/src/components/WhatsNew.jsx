@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.19.0";
+const APP_VERSION = "88.20.0";
 
 const CHANGELOG = [
+  {
+    version: "88.20.0",
+    date: "Apr 2026",
+    title: "v88.20.0 - Date Validator + JS Backend Date Fix",
+    items: [
+      { type: "fix", text: "Desktop/Local app ke sabhi PDF/Excel mai dates ab DD-MM-YYYY format mai (Cashbook, Gunny Bags, Diesel, Mill Parts, DC, Truck Lease, Daily Report, Ledger)" },
+      { type: "new", text: "Date Format Validator - app startup pe automatically check karta hai ki date format sahi hai ya nahi" },
+      { type: "new", text: "Health Check API: /api/health/date-format - manually date format verify kar sakte ho" },
+      { type: "fix", text: "Python fmt_date() bug fix - pehle se formatted dates ko reverse nahi karega ab" },
+    ]
+  },
   {
     version: "88.19.0",
     date: "Apr 2026",
