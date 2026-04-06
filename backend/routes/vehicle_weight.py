@@ -999,11 +999,10 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
 
     query = await _build_vw_query(kms_year, status, date_from, date_to, vehicle_no, party_name, farmer_name, rst_no)
     items = await db["vehicle_weights"].find(query, {"_id": 0}).to_list(10000)
-    items.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)))
+    items.sort(key=lambda e: (e.get("date", "")[:10], int(e.get("rst_no") or 0)))
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=10*mm, rightMargin=10*mm, topMargin=10*mm, bottomMargin=10*mm)
-    styles = getSampleStyleSheet()
     elements = []
 
     # Branding header with custom fields
@@ -1027,20 +1026,55 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
 
     col_widths = [30, 55, 65, 70, 70, 60, 55, 30, 50, 50, 50, 40, 40, 40]
     t = Table(data, colWidths=col_widths, repeatRows=1)
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a1a2e')),
+    
+    # Color-coded column header: Navy(info), Teal(weights), Orange(money)
+    navy = colors.HexColor('#1a237e')
+    teal = colors.HexColor('#004d40')
+    amber = colors.HexColor('#e65100')
+    
+    style_cmds = [
+        # Header colors by column group
+        ('BACKGROUND', (0, 0), (7, 0), navy),      # Info columns: RST to Bags
+        ('BACKGROUND', (8, 0), (11, 0), teal),      # Weight columns: 1st-Net-GIssued
+        ('BACKGROUND', (12, 0), (13, 0), amber),    # Money columns: Cash-Diesel
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTSIZE', (0, 0), (-1, 0), 8),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 1), (-1, -1), 7),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
         ('ALIGN', (7, 1), (-1, -1), 'RIGHT'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+        ('GRID', (0, 0), (-1, 0), 0.5, colors.HexColor('#ffffff')),
+        ('LINEBELOW', (0, 0), (-1, 0), 1.5, colors.HexColor('#f9a825')),
+        ('INNERGRID', (0, 1), (-1, -1), 0.3, colors.HexColor('#d0d5dd')),
+        ('BOX', (0, 0), (-1, -1), 0.8, colors.HexColor('#90a4ae')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f7ff')]),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 2),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-    ]))
+    ]
+    
+    # Color-code specific data cells
+    for row_idx in range(1, len(data)):
+        # RST bold navy
+        style_cmds.append(('TEXTCOLOR', (0, row_idx), (0, row_idx), navy))
+        style_cmds.append(('FONTNAME', (0, row_idx), (0, row_idx), 'Helvetica-Bold'))
+        # 1st Wt blue
+        style_cmds.append(('TEXTCOLOR', (8, row_idx), (8, row_idx), colors.HexColor('#0277bd')))
+        # 2nd Wt purple
+        style_cmds.append(('TEXTCOLOR', (9, row_idx), (9, row_idx), colors.HexColor('#7b1fa2')))
+        # Net Wt green bold
+        style_cmds.append(('TEXTCOLOR', (10, row_idx), (10, row_idx), colors.HexColor('#1b5e20')))
+        style_cmds.append(('FONTNAME', (10, row_idx), (10, row_idx), 'Helvetica-Bold'))
+        # Cash green bold
+        if data[row_idx][12] != "-":
+            style_cmds.append(('TEXTCOLOR', (12, row_idx), (12, row_idx), colors.HexColor('#2e7d32')))
+            style_cmds.append(('FONTNAME', (12, row_idx), (12, row_idx), 'Helvetica-Bold'))
+        # Diesel orange bold
+        if data[row_idx][13] != "-":
+            style_cmds.append(('TEXTCOLOR', (13, row_idx), (13, row_idx), colors.HexColor('#e65100')))
+            style_cmds.append(('FONTNAME', (13, row_idx), (13, row_idx), 'Helvetica-Bold'))
+    
+    t.setStyle(TableStyle(style_cmds))
     elements.append(t)
     doc.build(elements)
     buf.seek(0)

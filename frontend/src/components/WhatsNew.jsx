@@ -3,17 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.21.0";
+const APP_VERSION = "88.23.0";
 
 const CHANGELOG = [
   {
     version: "88.23.0",
     date: "Apr 2026",
-    title: "v88.23.0 - RST Sort Fix + Mandi Width Fix",
+    title: "v88.23.0 - RST Sort Fix + VW PDF Redesign",
     items: [
       { type: "fix", text: "RST Number ab 100% sahi ascending order mein aayega — date normalization fix (time component strip)" },
       { type: "fix", text: "Mandi column width badhaya — MEDINIPUR, MAA JOGAMAYA jaisi lambi names ab puri dikhegi PDF/Excel mein" },
       { type: "fix", text: "SABHI route files mein date sort normalize kiya — Desktop + Local + Python teeno backends" },
+      { type: "feature", text: "Vehicle Weight PDF sundar banaya — Color-coded columns (Navy/Teal/Orange headers), date separators, version footer" },
     ]
   },
   {

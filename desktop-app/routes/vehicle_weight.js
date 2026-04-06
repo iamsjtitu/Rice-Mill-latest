@@ -1059,70 +1059,96 @@ module.exports = function(database) {
     const TW = PW - 2 * LM;
 
     // ── Header Section ──
+    // Gold accent stripe on top
+    doc.rect(LM, 18, TW, 3).fill('#f9a825');
     // Dark header bar
-    doc.rect(LM, 20, TW, abParts2.length > 0 ? 55 : 48).fill('#1a1a2e');
+    const headerH = abParts2.length > 0 ? 58 : 50;
+    doc.rect(LM, 21, TW, headerH).fill('#0d1b2a');
 
-    let hy = 24;
+    let hy = 25;
     if (abParts2.length > 0) {
       doc.fontSize(7).font(efn).fillColor('#f9a825').text(abParts2.join('  |  '), LM, hy, { width: TW, align: 'center' });
-      hy += 10;
+      hy += 11;
     }
-    doc.fontSize(16).font(efb).fillColor('#ffffff').text(company, LM, hy, { width: TW, align: 'center' });
-    hy += 20;
+    doc.fontSize(18).font(efb).fillColor('#ffffff').text(company, LM, hy, { width: TW, align: 'center' });
+    hy += 22;
     if (pdfTagline) {
-      doc.fontSize(8).font(efn).fillColor('#aaaacc').text(pdfTagline, LM, hy, { width: TW, align: 'center' });
-      hy += 10;
+      doc.fontSize(8).font(efn).fillColor('#7ec8e3').text(pdfTagline, LM, hy, { width: TW, align: 'center' });
+      hy += 11;
     }
     if (blParts2.length > 0) {
-      doc.fontSize(7).font(efn).fillColor('#ccccdd').text(blParts2.join('  |  '), LM, hy, { width: TW, align: 'center' });
-      hy += 10;
+      doc.fontSize(7).font(efn).fillColor('#b0c4de').text(blParts2.join('  |  '), LM, hy, { width: TW, align: 'center' });
+      hy += 11;
     }
 
-    // Subtitle bar
-    const subY = abParts2.length > 0 ? 78 : 71;
-    doc.rect(LM, subY, TW, 16).fill('#f0f0f5');
-    doc.fontSize(8).font(efb).fillColor('#333');
+    // Subtitle bar with dual-tone
+    const subY = 21 + headerH + 2;
+    doc.rect(LM, subY, TW, 18).fill('#e8edf5');
+    doc.rect(LM, subY, 4, 18).fill('#1565c0'); // Blue left accent
+    doc.fontSize(9).font(efb).fillColor('#1a237e');
     const dateRange = `${req.query.date_from || 'All'} to ${req.query.date_to || 'All'}`;
-    doc.text(`Vehicle Weight Register`, LM + 8, subY + 4, { continued: false });
-    doc.font(efn).fontSize(8).fillColor('#666').text(`Date: ${dateRange}  |  Total Records: ${items.length}`, LM, subY + 4, { width: TW - 8, align: 'right' });
+    doc.text(`Vehicle Weight Register`, LM + 12, subY + 4, { continued: false });
+    doc.font(efn).fontSize(8).fillColor('#455a64').text(`Date: ${dateRange}  |  Records: ${items.length}`, LM, subY + 5, { width: TW - 10, align: 'right' });
 
-    let y = subY + 22;
+    let y = subY + 24;
 
     // ── Table ──
     const headers = ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
     const colW = [18, 30, 50, 55, 65, 72, 52, 30, 50, 50, 52, 48, 48];
     const rightAlign = [false, true, false, false, false, false, false, true, true, true, true, true, true];
 
-    // Table header
-    doc.rect(LM, y, TW, 14).fill('#2d3748');
-    doc.fontSize(7).font(efb).fillColor('#ffffff');
-    let x = LM + 2;
-    headers.forEach((h, i) => {
-      doc.text(h, x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
-      x += colW[i];
-    });
-    y += 14;
+    // Column group colors for header: Info=navy, Weight=teal, Money=dark green
+    const drawTableHeader = (yPos) => {
+      // Info columns (#, RST, Date, Vehicle, Party, Mandi, Product, Bags) - Navy
+      let infoW = colW.slice(0, 8).reduce((s,w) => s+w, 0);
+      doc.rect(LM, yPos, infoW, 15).fill('#1a237e');
+      // Weight columns (1st, 2nd, Net) - Teal
+      let wtW = colW.slice(8, 11).reduce((s,w) => s+w, 0);
+      doc.rect(LM + infoW, yPos, wtW, 15).fill('#004d40');
+      // Money columns (Cash, Diesel) - Dark amber
+      let monW = colW.slice(11, 13).reduce((s,w) => s+w, 0);
+      doc.rect(LM + infoW + wtW, yPos, monW, 15).fill('#e65100');
+
+      doc.fontSize(7).font(efb).fillColor('#ffffff');
+      let hx = LM + 2;
+      headers.forEach((h, i) => {
+        doc.text(h, hx, yPos + 4, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
+        hx += colW[i];
+      });
+      return yPos + 15;
+    };
+
+    y = drawTableHeader(y);
 
     // Totals accumulators
     let totBags = 0, tot1st = 0, tot2nd = 0, totNet = 0, totCash = 0, totDiesel = 0;
+    let lastDate = '';
 
-    // Data rows with alternating colors
+    // Data rows
     doc.font(efn).fontSize(7);
     items.forEach((e, idx) => {
-      if (y > 540) {
+      if (y > 535) {
         doc.addPage();
         y = 25;
-        // Repeat header on new page
-        doc.rect(LM, y, TW, 14).fill('#2d3748');
-        doc.fontSize(7).font(efb).fillColor('#ffffff');
-        let hx = LM + 2;
-        headers.forEach((h, i) => { doc.text(h, hx, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' }); hx += colW[i]; });
-        y += 14;
+        y = drawTableHeader(y);
         doc.font(efn).fontSize(7);
+        lastDate = '';
       }
 
+      const curDate = (e.date || '').slice(0, 10);
+      // Date group separator line when date changes
+      if (lastDate && curDate !== lastDate) {
+        doc.lineWidth(0.8).strokeColor('#1565c0').moveTo(LM, y).lineTo(LM + TW, y).stroke();
+      }
+      lastDate = curDate;
+
       // Alternating row background
-      if (idx % 2 === 0) doc.rect(LM, y, TW, 12).fill('#f8f9fa');
+      const rowColor = idx % 2 === 0 ? '#f5f7ff' : '#ffffff';
+      doc.rect(LM, y, TW, 13).fill(rowColor);
+
+      // Subtle column separators
+      let sepX = LM;
+      colW.forEach((w) => { sepX += w; doc.lineWidth(0.2).strokeColor('#d0d5dd').moveTo(sepX, y).lineTo(sepX, y + 13).stroke(); });
 
       const bags = Number(e.tot_pkts || 0);
       const first = Number(e.first_wt || 0);
@@ -1140,36 +1166,49 @@ module.exports = function(database) {
         net ? net.toLocaleString() : '-', cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-'
       ];
 
-      doc.fillColor('#000');
       vals.forEach((v, i) => {
-        // Net weight in green bold
-        if (i === 10 && net > 0) { doc.font(efb).fillColor('#1b5e20'); }
-        // Cash/Diesel in orange
-        else if ((i === 11 && cash > 0) || (i === 12 && diesel > 0)) { doc.font(efn).fillColor('#e65100'); }
-        else { doc.font(efn).fillColor('#000'); }
-        doc.text(String(v || '-'), x, y + 2, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
+        if (i === 0) { doc.font(efn).fillColor('#78909c'); } // # column gray
+        else if (i === 1) { doc.font(efb).fillColor('#1a237e'); } // RST bold navy
+        else if (i === 2) { doc.font(efn).fillColor('#37474f'); } // Date dark gray
+        else if (i === 8) { doc.font(efn).fillColor('#0277bd'); } // 1st Wt blue
+        else if (i === 9) { doc.font(efn).fillColor('#7b1fa2'); } // 2nd Wt purple
+        else if (i === 10 && net > 0) { doc.font(efb).fillColor('#1b5e20'); } // Net Wt green bold
+        else if (i === 11 && cash > 0) { doc.font(efb).fillColor('#2e7d32'); } // Cash green
+        else if (i === 12 && diesel > 0) { doc.font(efb).fillColor('#e65100'); } // Diesel orange
+        else { doc.font(efn).fillColor('#212121'); }
+        doc.text(String(v || '-'), x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : 'left' });
         x += colW[i];
       });
-      y += 12;
+
+      // Bottom row line
+      doc.lineWidth(0.2).strokeColor('#e0e0e0').moveTo(LM, y + 13).lineTo(LM + TW, y + 13).stroke();
+      y += 13;
     });
 
-    // Totals row
-    y += 2;
-    doc.rect(LM, y, TW, 14).fill('#e8f5e9');
-    doc.lineWidth(1).strokeColor('#2e7d32').moveTo(LM, y).lineTo(LM + TW, y).stroke();
-    doc.fontSize(7.5).font(efb).fillColor('#1b5e20');
+    // ── Totals Row ──
+    y += 3;
+    doc.lineWidth(1.5).strokeColor('#1b5e20').moveTo(LM, y).lineTo(LM + TW, y).stroke();
+    y += 1;
+    doc.rect(LM, y, TW, 16).fill('#e8f5e9');
+    // Green left accent on totals
+    doc.rect(LM, y, 4, 16).fill('#2e7d32');
+    doc.fontSize(8).font(efb).fillColor('#1b5e20');
     x = LM + 2;
     const totVals = ['', '', '', '', '', '', 'TOTAL:', totBags.toLocaleString(),
       tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(),
       totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-'];
     totVals.forEach((v, i) => {
-      doc.text(String(v), x, y + 3, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === 6 ? 'right' : 'left') });
+      doc.text(String(v), x, y + 4, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === 6 ? 'right' : 'left') });
       x += colW[i];
     });
+    doc.lineWidth(1).strokeColor('#2e7d32').moveTo(LM, y + 16).lineTo(LM + TW, y + 16).stroke();
 
-    // Footer
-    y += 20;
-    doc.fontSize(7).font(efn).fillColor('#999').text(`${company} | Generated: ${new Date().toLocaleString('en-IN')}`, LM, y, { width: TW, align: 'center' });
+    // ── Footer ──
+    y += 26;
+    doc.lineWidth(0.5).strokeColor('#b0bec5').moveTo(LM, y).lineTo(LM + TW, y).stroke();
+    y += 4;
+    doc.fontSize(7).font(efn).fillColor('#78909c').text(`${company}`, LM, y);
+    doc.text(`v${require('../package.json').version}  |  Generated: ${new Date().toLocaleString('en-IN')}`, LM, y, { width: TW, align: 'right' });
 
     doc.end();
   }));
