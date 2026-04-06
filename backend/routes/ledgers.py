@@ -11,6 +11,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from utils.report_helper import get_columns, get_entry_row, get_total_row, get_excel_headers, get_pdf_headers, get_excel_widths, get_pdf_widths_mm, col_count
+from utils.date_format import fmt_date
 
 router = APIRouter()
 
@@ -400,7 +401,7 @@ async def export_outstanding_pdf(kms_year: Optional[str] = None, season: Optiona
     elements.append(Paragraph("DC Pending Deliveries", styles['Heading2'])); elements.append(Spacer(1, 4))
     ddata = [['DC No', 'Allotted(Q)', 'Delivered(Q)', 'Pending(Q)', 'Deadline', 'Type']]
     for d in data["dc_outstanding"]["items"]:
-        ddata.append([d["dc_number"], d["allotted"], d["delivered"], d["pending"], d["deadline"], d["rice_type"]])
+        ddata.append([d["dc_number"], d["allotted"], d["delivered"], d["pending"], fmt_date(d["deadline"]), d["rice_type"]])
     ddata.append(['TOTAL', '', '', data["dc_outstanding"]["total_pending_qntl"], '', ''])
     dt = RLTable(ddata, colWidths=[60, 60, 60, 60, 60, 50])
     dt.setStyle(TableStyle(get_pdf_table_style(len(ddata))))

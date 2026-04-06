@@ -5,6 +5,7 @@ from typing import Optional
 from datetime import datetime
 from database import db
 from utils.report_helper import get_columns, fmt_val, get_pdf_headers, get_pdf_widths_mm, get_excel_headers, get_entry_row
+from utils.date_format import fmt_date
 import io
 
 router = APIRouter()
@@ -744,7 +745,7 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
             ct_rows = []
             for d in ct["details"]:
                 txn_label = "JAMA" if d.get("txn_type") == "jama" else "NIKASI"
-                row = [d.get("date", "")[:10], d.get("party_name", ""), txn_label, f"Rs.{_fmt_amt(d.get('amount', 0))}"]
+                row = [fmt_date(d.get("date", "")[:10]), d.get("party_name", ""), txn_label, f"Rs.{_fmt_amt(d.get('amount', 0))}"]
                 if is_detail:
                     row.append(d.get("description", ""))
                 ct_rows.append(row)
@@ -1013,9 +1014,9 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
             for d in ct["details"]:
                 txn_label = "Jama" if d.get("txn_type") == "jama" else "Nikasi"
                 if is_detail:
-                    write_row([d.get("date",""), d.get("party_name",""), txn_label, round(d.get("amount",0), 2), d.get("description",""), d.get("payment_mode","")])
+                    write_row([fmt_date(d.get("date","")), d.get("party_name",""), txn_label, round(d.get("amount",0), 2), d.get("description",""), d.get("payment_mode","")])
                 else:
-                    write_row([d.get("date",""), d.get("party_name",""), txn_label, round(d.get("amount",0), 2), d.get("payment_mode","")])
+                    write_row([fmt_date(d.get("date","")), d.get("party_name",""), txn_label, round(d.get("amount",0), 2), d.get("payment_mode","")])
 
     # Apply collected column widths + smart auto-fit
     from openpyxl.utils import get_column_letter

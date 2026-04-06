@@ -6,6 +6,7 @@ from typing import Optional
 from datetime import datetime, timezone
 from database import db
 from pydantic import BaseModel, Field, ConfigDict
+from utils.date_format import fmt_date
 import uuid
 
 router = APIRouter()
@@ -864,7 +865,7 @@ async def export_payments(fmt: str = "excel", kms_year: Optional[str] = None, se
         rows = [headers]
         total_gross = total_adv = total_net = 0
         for p in payments:
-            rows.append([p.get("date",""), p.get("staff_name",""),
+            rows.append([fmt_date(p.get("date","")), p.get("staff_name",""),
                 f"{p.get('period_from','')} to {p.get('period_to','')}",
                 str(p.get("days_worked",0)),
                 f"Rs.{p.get('gross_salary',0):,.0f}",
@@ -922,7 +923,7 @@ async def export_payments(fmt: str = "excel", kms_year: Optional[str] = None, se
         row_n = 4
         total_gross = total_adv = total_net = 0
         for p in payments:
-            vals = [p.get("date",""), p.get("staff_name",""),
+            vals = [fmt_date(p.get("date","")), p.get("staff_name",""),
                 f"{p.get('period_from','')} to {p.get('period_to','')}",
                 p.get("days_worked",0), p.get("gross_salary",0),
                 p.get("advance_deducted",0), p.get("net_payment",0)]

@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON/SQLite storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, LAN network access, multi-user data safety, and role-based access control.
 
-## Current Version: v88.18.0
+## Current Version: v88.19.0
 
 ## Architecture
 - Triple Backend: Python (web), Desktop JS (Electron 28), Local JS (LAN)
@@ -13,18 +13,18 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 
 ## Global Systems
 - **Rounding**: `round_amount(val)` / `roundAmount(val)`: >.50 rounds up, <=.50 rounds down
-- **Date Format**: DD-MM-YYYY globally via `fmt_date()` / `fmtDate()` across ALL exports
+- **Date Format**: DD-MM-YYYY globally via `fmt_date()` / `fmtDate()` across ALL exports (PDF, Excel, Print)
 - **File Watcher**: Desktop/Local-server poll JSON file every 5s for Google Drive sync
 - **Export Sorting**: All PDF/Excel exports sort ascending by date (oldest first)
 - **Mandi Column Width**: 28mm PDF, 18 Excel for private_paddy and party_summary reports
-- **Export Preview**: ExportPreviewDialog component with Print, PDF, Excel, Search (/app/frontend/src/components/common/ExportPreviewDialog.jsx)
+- **Export Preview**: ExportPreviewDialog component with Print, PDF, Excel, Search
 
-## Completed Features (v88.18.0)
+## Completed Features (v88.19.0)
 - [x] Global round figure amount system (ALL 3 backends)
 - [x] Duplicate RST/TP blocking with real-time warning toast
 - [x] Login page Enter key navigation
 - [x] Rice Stock Split: Raw vs Parboiled
-- [x] Global Date Format DD-MM-YYYY in ALL exports
+- [x] Global Date Format DD-MM-YYYY in ALL exports (all backend routes) - v88.19.0
 - [x] Mill Entries View button -> Dialog popup
 - [x] PPR Eye button -> ViewEntryDialog opens in-place
 - [x] Dialog close -> original filters restore
@@ -37,11 +37,26 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - [x] Global PDF/Excel export sorting (ascending by date) - v88.17.0
 - [x] Mandi column width increased (28mm PDF) for long names - v88.17.0
 - [x] Export Preview feature - all sections (20+ components) - v88.18.0
-- [x] Print button in Export Preview modal - direct browser print - v88.18.0
+- [x] Print button in Export Preview modal - direct browser print - v88.19.0
+
+## Files with fmt_date() in exports
+- entries.py ✅ (had it)
+- exports.py ✅ (had it)
+- hemali.py ✅ (had it)
+- mill_parts.py ✅ (had it)
+- milling.py ✅ (had it)
+- vehicle_weight.py ✅ (had it)
+- truck_lease.py ✅ (had it)
+- cashbook.py ✅ (via report_config)
+- private_trading.py ✅ (via report_config)
+- dc_payments.py ✅ (FIXED v88.19.0)
+- diesel.py ✅ (FIXED v88.19.0)
+- staff.py ✅ (FIXED v88.19.0)
+- daily_report.py ✅ (FIXED v88.19.0)
+- ledgers.py ✅ (FIXED v88.19.0)
 
 ## Upcoming Tasks
 - [ ] P1: Daily Summary Report (Auto) - End of day summary of entries, payments, cash position
-- [ ] P2: Mirror Export Preview changes to Desktop/Local JS backends (if applicable)
 
 ## Future Tasks
 - [ ] P3: Python backend service layer refactoring

@@ -4,6 +4,7 @@ from typing import Optional
 from datetime import datetime, timezone
 from database import db
 from models import *
+from utils.date_format import fmt_date
 import uuid
 
 router = APIRouter()
@@ -291,7 +292,7 @@ async def export_diesel_excel(kms_year: Optional[str] = None, season: Optional[s
     row += 1
     data_start = row
     for t in txns:
-        vals = [t.get("date",""), t.get("pump_name",""), "Payment" if t.get("txn_type")=="payment" else "Diesel",
+        vals = [fmt_date(t.get("date","")), t.get("pump_name",""), "Payment" if t.get("txn_type")=="payment" else "Diesel",
                 t.get("truck_no",""), t.get("agent_name",""), t.get("amount",0), t.get("description","")]
         for col, v in enumerate(vals, 1):
             ws.cell(row=row, column=col, value=v)
@@ -349,7 +350,7 @@ async def export_diesel_pdf(kms_year: Optional[str] = None, season: Optional[str
     elements.append(Paragraph("Transactions", styles['Heading2']))
     t_data = [['Date', 'Pump', 'Type', 'Truck', 'Agent', 'Amount', 'Description']]
     for t in txns:
-        t_data.append([t.get("date",""), t.get("pump_name","")[:15],
+        t_data.append([fmt_date(t.get("date","")), t.get("pump_name","")[:15],
                        "Payment" if t.get("txn_type")=="payment" else "Diesel",
                        t.get("truck_no",""), t.get("agent_name","")[:12],
                        f"Rs.{t.get('amount',0)}", t.get("description","")[:30]])

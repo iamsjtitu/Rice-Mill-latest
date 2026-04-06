@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.18.0";
+const APP_VERSION = "88.19.0";
 
 const CHANGELOG = [
+  {
+    version: "88.19.0",
+    date: "Apr 2026",
+    title: "v88.19.0 - Print Button + Global Date Fix",
+    items: [
+      { type: "new", text: "Export Preview mai Print button - seedha browser se print nikalo" },
+      { type: "fix", text: "Date format globally DD-MM-YYYY kar diya sabhi PDF/Excel mai (DC, Diesel, Staff, Daily Report, Ledger sab)" },
+    ]
+  },
   {
     version: "88.18.0",
     date: "Apr 2026",

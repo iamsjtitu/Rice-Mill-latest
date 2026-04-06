@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
+from utils.date_format import fmt_date
 import uuid, io, csv
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -323,7 +324,7 @@ async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] 
         deld = round(sum(d.get("quantity_qntl", 0) for d in all_deliveries if d.get("dc_id") == dc["id"]), 2)
         pend = round(dc["quantity_qntl"] - deld, 2)
         status = "Completed" if deld >= dc["quantity_qntl"] else ("Partial" if deld > 0 else "Pending")
-        for col, v in enumerate([dc.get("dc_number",""), dc.get("date",""), (dc.get("rice_type","")).capitalize(), dc["quantity_qntl"], deld, pend, status, dc.get("deadline",""), dc.get("godown_name","")], 1):
+        for col, v in enumerate([dc.get("dc_number",""), fmt_date(dc.get("date","")), (dc.get("rice_type","")).capitalize(), dc["quantity_qntl"], deld, pend, status, fmt_date(dc.get("deadline","")), dc.get("godown_name","")], 1):
             ws.cell(row=row, column=col, value=v)
             if col in [4,5,6]: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
         row += 1
@@ -346,7 +347,7 @@ async def export_dc_excel(kms_year: Optional[str] = None, season: Optional[str] 
     style_excel_header_row(ws2, 1, len(dheaders))
     dc_map = {d["id"]: d.get("dc_number","") for d in dcs}
     for i, dl in enumerate(sorted(all_deliveries, key=lambda x: x.get("date","")), 2):
-        vals = [dc_map.get(dl.get("dc_id",""),""), dl.get("date",""), dl.get("invoice_no",""), dl.get("rst_no",""),
+        vals = [dc_map.get(dl.get("dc_id",""),""), fmt_date(dl.get("date","")), dl.get("invoice_no",""), dl.get("rst_no",""),
                 dl.get("eway_bill_no",""), dl.get("quantity_qntl",0), dl.get("vehicle_no",""), dl.get("driver_name",""),
                 dl.get("bags_used",0), dl.get("cash_paid",0), dl.get("diesel_paid",0),
                 dl.get("cgst_amount",0), dl.get("sgst_amount",0), dl.get("godown_name",""), dl.get("notes","")]
@@ -389,7 +390,7 @@ async def export_dc_pdf(kms_year: Optional[str] = None, season: Optional[str] = 
         deld = round(sum(d.get("quantity_qntl",0) for d in all_deliveries if d.get("dc_id")==dc["id"]),2)
         pend = round(dc["quantity_qntl"]-deld,2); ta += dc["quantity_qntl"]; td += deld
         status = "Done" if deld >= dc["quantity_qntl"] else ("Partial" if deld > 0 else "Pending")
-        data.append([dc.get("dc_number",""), dc.get("date",""), (dc.get("rice_type","")).capitalize()[:5], dc["quantity_qntl"], deld, pend, status, dc.get("deadline",""), dc.get("godown_name","")[:12]])
+        data.append([dc.get("dc_number",""), fmt_date(dc.get("date","")), (dc.get("rice_type","")).capitalize()[:5], dc["quantity_qntl"], deld, pend, status, fmt_date(dc.get("deadline","")), dc.get("godown_name","")[:12]])
     data.append(['TOTAL','','', round(ta,2), round(td,2), round(ta-td,2), '','',''])
     table = RLTable(data, colWidths=[55,55,40,55,55,50,40,55,60], repeatRows=1)
     style_cmds = get_pdf_table_style(len(data))
@@ -530,7 +531,7 @@ async def export_msp_excel(kms_year: Optional[str] = None, season: Optional[str]
     
     data_start = 5; row = data_start
     for p in payments:
-        for col, v in enumerate([p.get("date",""), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("bank_name","")], 1):
+        for col, v in enumerate([fmt_date(p.get("date","")), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("bank_name","")], 1):
             ws.cell(row=row, column=col, value=v)
             if col in [3,4,5]: ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
         row += 1
@@ -575,7 +576,7 @@ async def export_msp_pdf(kms_year: Optional[str] = None, season: Optional[str] =
     tq = ta = 0
     for p in payments:
         tq += p.get("quantity_qntl",0); ta += p.get("amount",0)
-        data.append([p.get("date",""), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("bank_name","")])
+        data.append([fmt_date(p.get("date","")), dcs.get(p.get("dc_id",""),""), p.get("quantity_qntl",0), p.get("rate_per_qntl",0), p.get("amount",0), p.get("payment_mode",""), p.get("bank_name","")])
     data.append(['TOTAL','',round(tq,2),'',round(ta,2),'',''])
     table = RLTable(data, colWidths=[60,55,45,55,60,40,100], repeatRows=1)
     style_cmds = get_pdf_table_style(len(data))
@@ -949,7 +950,7 @@ async def export_gunny_bags_excel(kms_year: Optional[str] = None, season: Option
     for e in filtered:
         bt = "New (Govt)" if e.get("bag_type")=="new" else "Old (Market)"
         src = (e.get("source","") + (" [Auto]" if e.get("linked_entry_id") else ""))
-        for col, v in enumerate([e.get("date",""), bt, "In" if e.get("txn_type")=="in" else "Out",
+        for col, v in enumerate([fmt_date(e.get("date","")), bt, "In" if e.get("txn_type")=="in" else "Out",
             e.get("quantity",0), src, e.get("rate",0), e.get("amount",0), e.get("notes","")], 1):
             ws.cell(row=row, column=col, value=v)
         row += 1
@@ -1038,7 +1039,7 @@ async def export_gunny_bags_pdf(kms_year: Optional[str] = None, season: Optional
         bt = "New(Govt)" if e.get("bag_type")=="new" else "Old(Mkt)"
         src = e.get("source","")
         if e.get("linked_entry_id"): src += " [Auto]"
-        data.append([e.get("date",""), bt, "In" if e.get("txn_type")=="in" else "Out",
+        data.append([fmt_date(e.get("date","")), bt, "In" if e.get("txn_type")=="in" else "Out",
             e.get("quantity",0), Paragraph(src, src_style), e.get("rate",0), e.get("amount",0),
             e.get("notes","")])
     total_in = sum(e.get("quantity",0) for e in filtered if e.get("txn_type") == "in")
