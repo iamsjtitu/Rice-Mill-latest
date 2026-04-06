@@ -342,7 +342,11 @@ class SqliteDatabase {
     if (filters.mandi_name) entries = entries.filter(e => e.mandi_name?.toLowerCase().includes(filters.mandi_name.toLowerCase()));
     if (filters.date_from) entries = entries.filter(e => e.date >= filters.date_from);
     if (filters.date_to) entries = entries.filter(e => e.date <= filters.date_to);
-    entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    entries.sort((a, b) => {
+      const dateComp = (b.date || '').localeCompare(a.date || '');
+      if (dateComp !== 0) return dateComp;
+      return (parseInt(b.rst_no) || 0) - (parseInt(a.rst_no) || 0);
+    });
     return entries;
   }
 
@@ -778,7 +782,11 @@ class SqliteDatabase {
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
     if (filters.date_from) entries = entries.filter(e => e.date >= filters.date_from);
     if (filters.date_to) entries = entries.filter(e => e.date <= filters.date_to);
-    return entries.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return entries.sort((a, b) => {
+      const dateComp = (b.date || '').localeCompare(a.date || '');
+      if (dateComp !== 0) return dateComp;
+      return (parseInt(b.rst_no) || 0) - (parseInt(a.rst_no) || 0);
+    });
   }
 
   createMillingEntry(data) {

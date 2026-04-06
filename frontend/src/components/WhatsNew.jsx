@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.15.1";
+const APP_VERSION = "88.16.0";
 
 const CHANGELOG = [
+  {
+    version: "88.16.0",
+    date: "Apr 2026",
+    title: "v88.16.0 - Sorting + ESC Photo Fix",
+    items: [
+      { type: "fix", text: "PPR aur Mill Entries ab Date wise phir RST serial wise sorted hain" },
+      { type: "fix", text: "View mai zoomed photo ESC se pehle band hoga - dialog baad mai" },
+    ]
+  },
   {
     version: "88.15.0",
     date: "Apr 2026",

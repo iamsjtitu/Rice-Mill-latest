@@ -483,12 +483,16 @@ async def get_entries(
     
     total_count = await db.mill_entries.count_documents(query)
     if page_size <= 0:
-        entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(50000)
+        entries = await db.mill_entries.find(query, {"_id": 0}).to_list(50000)
+        entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)), reverse=True)
         return {"entries": entries, "total": total_count, "page": 1, "page_size": total_count, "total_pages": 1}
     if page < 1: page = 1
     skip = (page - 1) * page_size
 
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(page_size).to_list(page_size)
+    all_entries = await db.mill_entries.find(query, {"_id": 0}).to_list(50000)
+    all_entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)), reverse=True)
+    total = len(all_entries)
+    entries = all_entries[skip:skip + page_size]
     # Ensure every entry has a persistent 'id' field
     for e in entries:
         if not e.get("id"):
@@ -498,7 +502,7 @@ async def get_entries(
                 {"_id": (await db.mill_entries.find_one({"truck_no": e.get("truck_no"), "date": e.get("date"), "created_at": e.get("created_at")}, {"_id": 1}) or {}).get("_id")},
                 {"$set": {"id": new_id}}
             )
-    return {"entries": entries, "total": total_count, "page": page, "page_size": page_size, "total_pages": max(1, (total_count + page_size - 1) // page_size)}
+    return {"entries": entries, "total": total, "page": page, "page_size": page_size, "total_pages": max(1, (total + page_size - 1) // page_size)}
 
 
 @router.get("/entries/check-duplicate")
@@ -872,7 +876,8 @@ async def export_excel(
         if date_to: dq["$lte"] = date_to
         if dq: query["date"] = dq
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).to_list(1000)
+    entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)), reverse=True)
     
     # Create workbook
     from utils.export_helpers import (style_excel_title, style_excel_header_row,
@@ -1026,7 +1031,8 @@ async def export_pdf(
         if date_to: dq["$lte"] = date_to
         if dq: query["date"] = dq
     
-    entries = await db.mill_entries.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    entries = await db.mill_entries.find(query, {"_id": 0}).to_list(1000)
+    entries.sort(key=lambda e: (e.get("date", ""), int(e.get("rst_no") or 0)), reverse=True)
     totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season, date_from, date_to)
     
     # Create PDF buffer
