@@ -213,7 +213,7 @@ module.exports = function(database) {
       if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Purchase Report');
       ws.addRow(['Date', 'Supplier', 'Qty', 'Rate', 'Amount', 'Description']);
-      entries.forEach(e => ws.addRow([e.date, e.supplier || e.party_name || '', e.quantity || 0, e.rate || 0, e.amount || 0, e.description || '']));
+      entries.forEach(e => ws.addRow([fmtDate(e.date), e.supplier || e.party_name || '', e.quantity || 0, e.rate || 0, e.amount || 0, e.description || '']));
       ws.columns.forEach(c => c.width = 15);
       const buf = await wb.xlsx.writeBuffer();
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

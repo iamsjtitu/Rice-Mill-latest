@@ -814,7 +814,7 @@ router.get('/api/mill-parts/part-summary/excel', safeAsync(async (req, res) => {
     c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 };
   }); row++;
   txns.forEach(t => {
-    ws.getCell(row, 1).value = t.date || '';
+    ws.getCell(row, 1).value = fmtDate(t.date || '');
     ws.getCell(row, 2).value = t.txn_type === 'in' ? 'IN' : 'USED';
     ws.getCell(row, 3).value = t.quantity || 0;
     ws.getCell(row, 4).value = t.rate || 0;

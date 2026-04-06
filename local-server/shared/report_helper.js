@@ -12,7 +12,16 @@ function getColumns(reportName, subkey) {
     return loadConfig()[reportName][subkey];
 }
 
+function fmtDate(d) {
+    if (!d) return '';
+    const s = String(d).split('T')[0];
+    const parts = s.split('-');
+    if (parts.length === 3 && parts[0].length === 4) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    return s;
+}
+
 function fmtVal(value, type) {
+    if (type === 'date') return fmtDate(value);
     if (type === 'qntl') return Math.round((value || 0) / 100 * 100) / 100;
     if (type === 'integer') return Math.round(value || 0);
     if (type === 'number') return value || 0;
@@ -37,4 +46,4 @@ function getTotalKeys(columns) {
     return columns.filter(c => c.show_total && c.total_key).map(c => c.total_key);
 }
 
-module.exports = { getColumns, fmtVal, getEntryRow, getTotalRow, getExcelHeaders, getPdfHeaders, getExcelWidths, getPdfWidthsMm, colCount, getTotalKeys };
+module.exports = { getColumns, fmtVal, fmtDate, getEntryRow, getTotalRow, getExcelHeaders, getPdfHeaders, getExcelWidths, getPdfWidthsMm, colCount, getTotalKeys };

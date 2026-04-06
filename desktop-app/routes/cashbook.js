@@ -663,7 +663,7 @@ module.exports = function(database) {
         runBal += jama - nikasi;
         totalJama += jama; totalNikasi += nikasi;
         return [
-          t.date || '', t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
+          fmtDate(t.date || ''), t.account === 'ledger' ? 'Ledger' : (t.account === 'cash' ? 'Cash' : 'Bank'),
           t.txn_type === 'jama' ? 'Jama' : 'Nikasi', t.category || '', t.party_type || '',
           t.description || '', jama ? pFmt(jama) : '-', nikasi ? pFmt(nikasi) : '-',
           pFmt(+runBal.toFixed(2))
