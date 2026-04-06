@@ -17,6 +17,7 @@ module.exports = function(database) {
   router.get('/api/export/excel', safeAsync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
+      entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Mill Entries');
       ws.columns = [
         { header: 'Date', key: 'date', width: 12 }, { header: 'Truck No', key: 'truck_no', width: 14 },
@@ -63,6 +64,7 @@ module.exports = function(database) {
   router.get('/api/export/pdf', safeSync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
+      entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 20 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
@@ -97,6 +99,7 @@ module.exports = function(database) {
   router.get('/api/export/truck-payments-excel', safeAsync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
+      entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Truck Payments');
       ws.columns = [{header:'Date',key:'date',width:12},{header:'Truck No',key:'truck_no',width:14},{header:'Mandi',key:'mandi',width:14},{header:'Final QNTL',key:'fq',width:12},{header:'Rate',key:'rate',width:8},{header:'Gross',key:'gross',width:12},{header:'Cash',key:'cash',width:10},{header:'Diesel',key:'diesel',width:10},{header:'Deductions',key:'ded',width:12},{header:'Net',key:'net',width:12},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
       entries.forEach(e => { const p=database.getTruckPayment(e.id); const fq=(e.qntl||0)-(e.bag||0)/100; const g=fq*p.rate_per_qntl; const d=(e.cash_paid||0)+(e.diesel_paid||0); const n=g-d; const b=Math.max(0,n-p.paid_amount); ws.addRow({date:fmtDate(e.date),truck_no:e.truck_no,mandi:e.mandi_name,fq:+fq.toFixed(2),rate:p.rate_per_qntl,gross:+g.toFixed(2),cash:e.cash_paid||0,diesel:e.diesel_paid||0,ded:+d.toFixed(2),net:+n.toFixed(2),paid:p.paid_amount,bal:+b.toFixed(2),status:b<0.10?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
@@ -110,6 +113,7 @@ module.exports = function(database) {
   router.get('/api/export/truck-payments-pdf', safeSync(async (req, res) => {
     try {
       const entries = database.getEntries(req.query);
+      entries.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');

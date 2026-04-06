@@ -74,6 +74,17 @@ All export routes in BOTH `/app/desktop-app/routes/` and `/app/local-server/rout
 - JS API: `GET /api/health/date-format` returns validation report
 - Bug found & fixed: Python `fmt_date()` was reversing already-formatted DD-MM-YYYY dates (missing `len(parts[0]) == 4` check)
 
+## JS Backend Ascending Sort Fix for ALL Exports - COMPLETED
+All PDF/Excel export handlers in BOTH desktop-app and local-server now sort data ascending by date (oldest first):
+- exports.js: Mill entries Excel/PDF, Truck payments Excel/PDF
+- reports.js: Party Ledger Excel/PDF, Agent-Mandi-Wise Excel/PDF  
+- vehicle_weight.js: VW Export Excel/PDF
+- dc_payments.js: DC Entries Excel/PDF, MSP Payments Excel/PDF
+- gunny_bags.js: Gunny Bags Excel/PDF
+- mill_parts.js: Parts Stock Excel/PDF, Part Detail Excel/PDF (4 sorts)
+- staff.js: Staff Payments Excel/PDF
+- Total: 34 ascending sort calls in each backend (perfect parity)
+
 ## Upcoming Tasks
 - [ ] P1: Daily Summary Report (Auto) - End of day summary of entries, payments, cash position
 

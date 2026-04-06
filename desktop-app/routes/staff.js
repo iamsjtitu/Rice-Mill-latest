@@ -645,6 +645,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
   let list = col('staff_payments');
   if (kms_year) list = list.filter(p => p.kms_year === kms_year);
   if (season) list = list.filter(p => p.season === season);
+  list.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
   if (fmt === 'pdf') {
     const PDFDocument = require('pdfkit');

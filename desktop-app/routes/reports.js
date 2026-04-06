@@ -275,6 +275,7 @@ module.exports = function(database) {
     try {
       const { party_name, party_type, kms_year, season, date_from, date_to } = req.query;
       const ledger = getLedgerData(party_name, party_type, kms_year, season, date_from, date_to);
+      ledger.sort((a,b) => (a.date||'').localeCompare(b.date||''));
       const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
 
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Party Ledger');
@@ -299,6 +300,7 @@ module.exports = function(database) {
     try {
       const { party_name, party_type, kms_year, season, date_from, date_to } = req.query;
       const ledger = getLedgerData(party_name, party_type, kms_year, season, date_from, date_to);
+      ledger.sort((a,b) => (a.date||'').localeCompare(b.date||''));
 
       const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
       registerFonts(doc);
@@ -447,7 +449,7 @@ module.exports = function(database) {
     let entries = database.data.entries.filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
     if (search) { const s = search.toLowerCase(); entries = entries.filter(e => (e.mandi_name||'').toLowerCase().includes(s) || (e.agent_name||'').toLowerCase().includes(s)); }
     if (mandiFilter) { const names = mandiFilter.split(',').map(n => n.trim()).filter(Boolean); if (names.length) entries = entries.filter(e => names.includes(e.mandi_name||'')); }
-    entries.sort((a, b) => (b.date||'').localeCompare(a.date||''));
+    entries.sort((a, b) => (a.date||'').localeCompare(b.date||''));
 
     const cols = rptHelper.getColumns('agent_mandi_report');
     const ncols = rptHelper.colCount(cols);
@@ -521,7 +523,7 @@ module.exports = function(database) {
     if (search) { const s = search.toLowerCase(); entries = entries.filter(e => (e.mandi_name||'').toLowerCase().includes(s) || (e.agent_name||'').toLowerCase().includes(s)); }
     // Filter by expanded mandis
     if (mandiFilter) { const names = mandiFilter.split(',').map(n => n.trim()).filter(Boolean); if (names.length) entries = entries.filter(e => names.includes(e.mandi_name||'')); }
-    entries.sort((a, b) => (b.date||'').localeCompare(a.date||''));
+    entries.sort((a, b) => (a.date||'').localeCompare(b.date||''));
 
     const cols = rptHelper.getColumns('agent_mandi_report');
     const ncols = rptHelper.colCount(cols);

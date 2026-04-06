@@ -12,6 +12,7 @@ const CHANGELOG = [
     title: "v88.20.0 - Date Validator + JS Backend Date Fix",
     items: [
       { type: "fix", text: "Desktop/Local app ke sabhi PDF/Excel mai dates ab DD-MM-YYYY format mai (Cashbook, Gunny Bags, Diesel, Mill Parts, DC, Truck Lease, Daily Report, Ledger)" },
+      { type: "fix", text: "SARE PDF/Excel exports ab ascending date order mai (purana upar, naya neeche) - Entries, Reports, Vehicle Weight, DC, Gunny, Mill Parts, Staff sabhi fix" },
       { type: "new", text: "Date Format Validator - app startup pe automatically check karta hai ki date format sahi hai ya nahi" },
       { type: "new", text: "Health Check API: /api/health/date-format - manually date format verify kar sakte ho" },
       { type: "fix", text: "Python fmt_date() bug fix - pehle se formatted dates ko reverse nahi karega ab" },
