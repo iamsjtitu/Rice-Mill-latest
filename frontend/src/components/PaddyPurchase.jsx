@@ -24,8 +24,6 @@ import { useConfirm } from "./ConfirmProvider";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import RecordHistory from "./RecordHistory";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
-import ExportPreviewDialog from "./common/ExportPreviewDialog";
-
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -266,25 +264,6 @@ export const PaddyPurchase = ({ filters, user }) => {
         <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="paddy-export-excel">
           <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
         </Button>
-        <ExportPreviewDialog
-          data={filtered}
-          title="Private Paddy / निजी धान खरीदी"
-          columns={[
-            { header: "Date", field: "date", format: "date" },
-            { header: "Party", field: "party_name" },
-            { header: "Mandi", field: "mandi_name" },
-            { header: "Agent", field: "agent_name" },
-            { header: "Truck", field: "truck_no" },
-            { header: "KG", field: "kg", format: "number", align: "right" },
-            { header: "Qntl", field: "final_qntl", format: "number", align: "right" },
-            { header: "Rate", field: "rate_per_qntl", format: "number", align: "right" },
-            { header: "Total Rs", field: "total_amount", format: "rupees", align: "right" },
-            { header: "Paid Rs", field: "paid_amount", format: "rupees", align: "right" },
-            { header: "Balance", field: "balance", format: "rupees", align: "right" },
-          ]}
-          onPdfExport={() => handleExport('pdf')}
-          onExcelExport={() => handleExport('excel')}
-        />
         <div className="relative ml-auto min-w-[200px]">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input value={searchText} onChange={e => setSearchText(e.target.value)}
@@ -747,19 +726,6 @@ export const PartySummary = ({ filters, onNavigate }) => {
         <Button onClick={() => handleExport('excel')} variant="outline" size="sm" className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="summary-export-excel">
           <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
         </Button>
-        <ExportPreviewDialog
-          data={[...(paddy.parties || []).map(p => ({...p, _section: "Paddy"})), ...(sale.parties || []).map(p => ({...p, _section: "Sale"}))]}
-          title="Party Summary / पार्टी सारांश"
-          columns={[
-            { header: "Party", field: "party_name" },
-            { header: "Mandi", field: "mandi_name" },
-            { header: "Amount", field: "total_amount", format: "rupees", align: "right" },
-            { header: "Paid", field: "paid_amount", format: "rupees", align: "right" },
-            { header: "Balance", field: "balance", format: "rupees", align: "right" },
-          ]}
-          onPdfExport={() => handleExport('pdf')}
-          onExcelExport={() => handleExport('excel')}
-        />
         <div className="flex items-center gap-1 ml-2">
           <Calendar className="w-4 h-4 text-slate-400" />
           <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}

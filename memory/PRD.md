@@ -85,6 +85,11 @@ All PDF/Excel export handlers in BOTH desktop-app and local-server now sort data
 - staff.js: Staff Payments Excel/PDF
 - Total: 34 ascending sort calls in each backend (perfect parity)
 
+## Export Preview Feature - REMOVED (v88.21.0)
+- User ne request kiya "bekar hai" — ExportPreviewDialog.jsx deleted
+- 20 files se 30+ ExportPreviewDialog instances remove kiye
+- WhatsNew changelog entries bhi clean kiye
+
 ## Upcoming Tasks
 - [ ] P1: Daily Summary Report (Auto) - End of day summary of entries, payments, cash position
 

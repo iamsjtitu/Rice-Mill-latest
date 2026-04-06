@@ -11,8 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Edit, Users, Calendar, IndianRupee, RefreshCw, Check, X, Clock, Sun, Calculator, Download, FileText } from "lucide-react";
 import RoundOffInput from "./common/RoundOffInput";
 import { useConfirm } from "./ConfirmProvider";
-import ExportPreviewDialog from "./common/ExportPreviewDialog";
-
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const API = (_isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '')) + '/api';
 
@@ -173,20 +171,6 @@ const Attendance = ({ staff, filters }) => {
         <Button onClick={() => exportAtt('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="att-export-pdf">
           <FileText className="w-4 h-4 mr-1" /> PDF
         </Button>
-        <ExportPreviewDialog
-          data={staff.map(s => ({ name: s.name, status: records[s.id] || 'absent', shift: '-', ot_hours: 0 }))}
-          title="Staff Attendance / कर्मचारी उपस्थिति"
-          columns={[
-            { header: "Name", field: "name" },
-            { header: "Status", field: "status" },
-            { header: "Shift", field: "shift" },
-            { header: "OT Hrs", field: "ot_hours", format: "number", align: "right" },
-          ]}
-          onPdfExport={() => exportAtt('pdf')}
-          onExcelExport={() => exportAtt('excel')}
-          triggerClassName="border-slate-600 text-blue-400 h-9"
-          iconOnly
-        />
       </div>
       {loading ? <div className="text-slate-400 text-center py-4">Loading...</div> : (
         <div className="space-y-1">
@@ -327,24 +311,6 @@ const QuickMonthlyReport = ({ staff, filters }) => {
         <Button onClick={() => exportReport('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="report-export-pdf">
           <FileText className="w-4 h-4 mr-1" /> PDF
         </Button>
-        <ExportPreviewDialog
-          data={filtered}
-          title="Staff Monthly Report / मासिक रिपोर्ट"
-          columns={[
-            { header: "Name", field: "name" },
-            { header: "Present", field: "present", format: "integer", align: "right" },
-            { header: "Absent", field: "absent", format: "integer", align: "right" },
-            { header: "Half", field: "half", format: "integer", align: "right" },
-            { header: "OT", field: "total_ot", format: "number", align: "right" },
-            { header: "Salary", field: "calculated_salary", format: "rupees", align: "right" },
-            { header: "Advance", field: "advance_deduction", format: "rupees", align: "right" },
-            { header: "Net", field: "net_salary", format: "rupees", align: "right" },
-          ]}
-          onPdfExport={() => exportReport('pdf')}
-          onExcelExport={() => exportReport('excel')}
-          triggerClassName="border-slate-600 text-blue-400 h-9"
-          iconOnly
-        />
       </div>
 
       {loading ? <div className="text-slate-400 text-center py-8">Loading...</div> : (
@@ -544,21 +510,6 @@ const AdvanceSection = ({ staff, filters, fetchAdvances, advances, payments }) =
           <Button onClick={() => exportLedger('excel')} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-7 text-xs" data-testid="adv-export-excel">
             <Download className="w-3 h-3 mr-1" /> Excel
           </Button>
-          <ExportPreviewDialog
-            data={ledger}
-            title="Advance Ledger / अग्रिम खाता"
-            columns={[
-              { header: "Date", field: "date", format: "date" },
-              { header: "Staff", field: "staff_name" },
-              { header: "Type", field: "type" },
-              { header: "Amount", field: "amount", format: "rupees", align: "right" },
-              { header: "Note", field: "note" },
-            ]}
-            onPdfExport={() => exportLedger('pdf')}
-            onExcelExport={() => exportLedger('excel')}
-            triggerClassName="border-slate-600 text-blue-400 h-7 text-xs"
-            iconOnly
-          />
           <Button onClick={() => setShowAdd(true)} size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-7 text-xs" data-testid="add-advance-btn">
             <Plus className="w-3 h-3 mr-1" /> Advance
           </Button>
@@ -923,22 +874,6 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
               <Button onClick={() => exportPayments('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-7 text-xs" data-testid="pay-export-pdf">
                 <FileText className="w-3 h-3 mr-1" /> PDF
               </Button>
-              <ExportPreviewDialog
-                data={payments}
-                title="Staff Payments / कर्मचारी भुगतान"
-                columns={[
-                  { header: "Date", field: "date", format: "date" },
-                  { header: "Staff", field: "staff_name" },
-                  { header: "Type", field: "payment_type" },
-                  { header: "Amount", field: "amount", format: "rupees", align: "right" },
-                  { header: "Mode", field: "payment_mode" },
-                  { header: "Note", field: "note" },
-                ]}
-                onPdfExport={() => exportPayments('pdf')}
-                onExcelExport={() => exportPayments('excel')}
-                triggerClassName="border-slate-600 text-blue-400 h-7 text-xs"
-                iconOnly
-              />
             </div>
           </div>
         </CardHeader>

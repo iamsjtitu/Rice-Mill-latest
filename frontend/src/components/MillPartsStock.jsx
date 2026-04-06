@@ -12,8 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, RefreshCw, Package, ArrowDown, ArrowUp, Download, FileText, AlertTriangle, Settings, Edit, Search, Calendar, Filter, Warehouse } from "lucide-react";
 import { downloadFile } from "../utils/download";
 import { useConfirm } from "./ConfirmProvider";
-import ExportPreviewDialog from "./common/ExportPreviewDialog";
-
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -268,22 +266,6 @@ export default function MillPartsStock({ filters, user }) {
             <div className="ml-auto flex gap-2">
               <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="parts-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
               <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="parts-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
-              <ExportPreviewDialog
-                data={filteredSummary}
-                title="Mill Parts Summary / पार्ट्स सारांश"
-                columns={[
-                  { header: "Part", field: "part_name" },
-                  { header: "Category", field: "category" },
-                  { header: "Current Stock", field: "current_stock", format: "number", align: "right" },
-                  { header: "Total In", field: "total_in", format: "number", align: "right" },
-                  { header: "Total Used", field: "total_used", format: "number", align: "right" },
-                  { header: "Min Stock", field: "min_stock", format: "number", align: "right" },
-                ]}
-                onPdfExport={() => exportData('pdf')}
-                onExcelExport={() => exportData('excel')}
-                triggerClassName="border-slate-600 text-blue-400"
-                iconOnly
-              />
             </div>
           </div>
 
@@ -391,21 +373,6 @@ export default function MillPartsStock({ filters, user }) {
             <div className="ml-auto flex gap-2">
               <Button onClick={() => exportTxns('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="txn-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
               <Button onClick={() => exportTxns('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="txn-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
-              <ExportPreviewDialog
-                data={filteredStock}
-                title="Parts Transactions / पार्ट्स लेनदेन"
-                columns={[
-                  { header: "Date", field: "date", format: "date" },
-                  { header: "Part", field: "part_name" },
-                  { header: "Type", field: "txn_type" },
-                  { header: "Qty", field: "quantity", format: "number", align: "right" },
-                  { header: "Note", field: "note" },
-                ]}
-                onPdfExport={() => exportTxns('pdf')}
-                onExcelExport={() => exportTxns('excel')}
-                triggerClassName="border-slate-600 text-blue-400"
-                iconOnly
-              />
             </div>
           </div>
           <Card className="bg-slate-800 border-slate-700"><CardContent className="p-0"><div className="overflow-x-auto">

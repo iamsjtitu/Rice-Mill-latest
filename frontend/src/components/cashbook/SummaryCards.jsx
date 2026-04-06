@@ -1,8 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wallet, Landmark, Plus, Download, FileText } from "lucide-react";
-import ExportPreviewDialog from "../common/ExportPreviewDialog";
-
 const SummaryCards = ({ summary, onNewTransaction, onExport, previewData = [] }) => {
   if (!summary) return null;
   const bankDetails = summary.bank_details || {};
@@ -73,24 +71,6 @@ const SummaryCards = ({ summary, onNewTransaction, onExport, previewData = [] })
               <Button onClick={() => onExport('pdf')} variant="outline" size="sm" className="flex-1 border-red-300 text-red-600 hover:bg-red-50 text-xs" data-testid="cashbook-export-pdf">
                 <FileText className="w-3 h-3 mr-1" /> PDF
               </Button>
-              <ExportPreviewDialog
-                data={previewData}
-                title="Cash Book / कैश बुक"
-                columns={[
-                  { header: "Date", field: "date", format: "date" },
-                  { header: "Account", field: "account" },
-                  { header: "Type", field: "txn_type" },
-                  { header: "Category", field: "category" },
-                  { header: "Party", field: "party_type" },
-                  { header: "Amount", field: "amount", format: "rupees", align: "right" },
-                  { header: "Narration", field: "description" },
-                ]}
-                onPdfExport={() => onExport('pdf')}
-                onExcelExport={() => onExport('excel')}
-                buttonSize="sm"
-                triggerClassName="flex-none border-blue-300 text-blue-700 hover:bg-blue-50 text-xs"
-                iconOnly
-              />
             </div>
           </CardContent>
         </Card>

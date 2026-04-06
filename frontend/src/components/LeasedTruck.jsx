@@ -14,8 +14,6 @@ import { fmtDate } from "../utils/date";
 import { downloadFile } from "../utils/download";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
-import ExportPreviewDialog from "./common/ExportPreviewDialog";
-
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = BACKEND_URL + "/api";
@@ -290,22 +288,6 @@ export default function LeasedTruck({ filters }) {
               variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:text-white h-8 text-xs" data-testid="lease-export-pdf">PDF</Button>
             <Button onClick={() => downloadFile(`${API}/truck-leases/export/excel?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, `truck_leases_${filters.kms_year || 'all'}.xlsx`)}
               variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:text-white h-8 text-xs" data-testid="lease-export-excel">Excel</Button>
-            <ExportPreviewDialog
-              data={filteredLeases}
-              title="Leased Trucks / लीज़ ट्रक"
-              columns={[
-                { header: "Truck No", field: "truck_no" },
-                { header: "Owner", field: "owner_name" },
-                { header: "Rent/Month", field: "monthly_rent", format: "rupees", align: "right" },
-                { header: "Start", field: "start_date", format: "date" },
-                { header: "End", field: "end_date", format: "date" },
-                { header: "Advance", field: "advance_deposit", format: "rupees", align: "right" },
-              ]}
-              onPdfExport={() => downloadFile(`${API}/truck-leases/export/pdf?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, `truck_leases.pdf`)}
-              onExcelExport={() => downloadFile(`${API}/truck-leases/export/excel?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`, `truck_leases.xlsx`)}
-              triggerClassName="border-slate-600 text-blue-400 hover:text-white h-8 text-xs"
-              iconOnly
-            />
             <Button onClick={() => { setEditLease(null); setForm({ truck_no: "", owner_name: "", monthly_rent: "", start_date: "", end_date: "", advance_deposit: "" }); setShowAddLease(true); }}
               size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-900 h-8" data-testid="add-lease-btn">
               <Plus className="w-4 h-4 mr-1" /> New Lease

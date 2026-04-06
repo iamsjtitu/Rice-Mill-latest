@@ -3,38 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.20.0";
+const APP_VERSION = "88.21.0";
 
 const CHANGELOG = [
   {
-    version: "88.20.0",
+    version: "88.21.0",
     date: "Apr 2026",
-    title: "v88.20.0 - Date Validator + JS Backend Date Fix",
+    title: "v88.21.0 - Export Preview Removed + Sorting Fixes",
     items: [
-      { type: "fix", text: "Desktop/Local app ke sabhi PDF/Excel mai dates ab DD-MM-YYYY format mai (Cashbook, Gunny Bags, Diesel, Mill Parts, DC, Truck Lease, Daily Report, Ledger)" },
-      { type: "fix", text: "SARE PDF/Excel exports ab ascending date order mai (purana upar, naya neeche) - Entries, Reports, Vehicle Weight, DC, Gunny, Mill Parts, Staff sabhi fix" },
-      { type: "new", text: "Date Format Validator - app startup pe automatically check karta hai ki date format sahi hai ya nahi" },
-      { type: "new", text: "Health Check API: /api/health/date-format - manually date format verify kar sakte ho" },
-      { type: "fix", text: "Python fmt_date() bug fix - pehle se formatted dates ko reverse nahi karega ab" },
-    ]
-  },
-  {
-    version: "88.19.0",
-    date: "Apr 2026",
-    title: "v88.19.0 - Print Button + Global Date Fix",
-    items: [
-      { type: "new", text: "Export Preview mai Print button - seedha browser se print nikalo" },
-      { type: "fix", text: "Date format globally DD-MM-YYYY kar diya sabhi PDF/Excel mai (DC, Diesel, Staff, Daily Report, Ledger sab)" },
-    ]
-  },
-  {
-    version: "88.18.0",
-    date: "Apr 2026",
-    title: "v88.18.0 - Export Preview Feature",
-    items: [
-      { type: "new", text: "Export Preview - PDF/Excel download se pehle data dekho modal mai" },
-      { type: "new", text: "Sabhi sections mai Preview (Eye) button - PPR, Private Paddy, Vehicle Weight, Staff, Cash Book, Mill Parts, DC, Reports, aur baki sab" },
-      { type: "new", text: "Preview mai Search, full scrollable table, aur PDF/Excel download buttons" },
+      { type: "fix", text: "Export Preview feature hata diya - bekar tha" },
+      { type: "fix", text: "SARE PDF/Excel exports ab ascending date order mai (purana upar, naya neeche) - Desktop/Local dono mai" },
+      { type: "fix", text: "Desktop/Local app ke sabhi PDF/Excel mai dates ab DD-MM-YYYY format mai" },
+      { type: "new", text: "Date Format Validator - app startup pe automatically check karta hai ki date format sahi hai" },
     ]
   },
   {

@@ -11,8 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel, Send, AlertTriangle } from "lucide-react";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
-import ExportPreviewDialog from "./common/ExportPreviewDialog";
-
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
 const API = `${BACKEND_URL}/api`;
@@ -46,19 +44,6 @@ const CMRvsDC = ({ filters }) => {
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="cmr-dc-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="cmr-dc-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
-        <ExportPreviewDialog
-          data={data?.comparison ? [data.comparison] : []}
-          title="CMR vs DC Report"
-          columns={[
-            { header: "Rice Out Q", field: "rice_out_qntl", format: "number", align: "right" },
-            { header: "DC Q", field: "dc_qntl", format: "number", align: "right" },
-            { header: "Diff Q", field: "diff_qntl", format: "number", align: "right" },
-          ]}
-          onPdfExport={() => exportData('pdf')}
-          onExcelExport={() => exportData('excel')}
-          triggerClassName="border-slate-600 text-blue-400"
-          iconOnly
-        />
       </div>
       {/* Milling Output */}
       <Card className="bg-slate-800 border-slate-700"><CardHeader className="pb-2 pt-3 px-4"><CardTitle className="text-sm text-blue-400">Milling Output / उत्पादन</CardTitle></CardHeader>
@@ -137,19 +122,6 @@ const SeasonPnL = ({ filters }) => {
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400" data-testid="pnl-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400" data-testid="pnl-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
-        <ExportPreviewDialog
-          data={data ? [data] : []}
-          title="Profit & Loss / लाभ-हानि"
-          columns={[
-            { header: "Revenue", field: "revenue", format: "rupees", align: "right" },
-            { header: "Expense", field: "expense", format: "rupees", align: "right" },
-            { header: "Net", field: "net", format: "rupees", align: "right" },
-          ]}
-          onPdfExport={() => exportData('pdf')}
-          onExcelExport={() => exportData('excel')}
-          triggerClassName="border-slate-600 text-blue-400"
-          iconOnly
-        />
       </div>
       {/* Net P&L */}
       <Card className={`border-2 ${data.profit ? 'border-green-600 bg-gradient-to-r from-green-900/40 to-slate-800' : 'border-red-600 bg-gradient-to-r from-red-900/40 to-slate-800'}`}>
@@ -311,21 +283,6 @@ const DailyReport = ({ filters }) => {
         <Button onClick={fetchReport} variant="outline" size="sm" className="border-slate-600 text-slate-300 h-9"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
         <Button onClick={() => exportData('excel')} variant="outline" size="sm" className="border-slate-600 text-green-400 h-9" data-testid="daily-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
         <Button onClick={() => exportData('pdf')} variant="outline" size="sm" className="border-slate-600 text-red-400 h-9" data-testid="daily-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
-        <ExportPreviewDialog
-          data={data?.entries || []}
-          title="Daily Report / दैनिक रिपोर्ट"
-          columns={[
-            { header: "Date", field: "date", format: "date" },
-            { header: "Truck", field: "truck_no" },
-            { header: "Agent", field: "agent_name" },
-            { header: "Mandi", field: "mandi_name" },
-            { header: "QNTL", field: "qntl", format: "number", align: "right" },
-          ]}
-          onPdfExport={() => exportData('pdf')}
-          onExcelExport={() => exportData('excel')}
-          triggerClassName="border-slate-600 text-blue-400 h-9"
-          iconOnly
-        />
         {tg && isDetail && (
           <Button onClick={openTelegramConfirm} disabled={sendingTelegram} variant="outline" size="sm"
             className="border-blue-500 text-blue-400 hover:bg-blue-500/10 h-9" data-testid="daily-send-telegram">
@@ -1172,21 +1129,6 @@ const AgentMandiReport = ({ filters }) => {
           <Button onClick={() => exportData('pdf')} size="sm" className="bg-red-600 hover:bg-red-700 text-white" data-testid="agent-mandi-export-pdf">
             <FileText className="w-4 h-4 mr-1" /> PDF
           </Button>
-          <ExportPreviewDialog
-            data={data?.mandis || []}
-            title="Agent Mandi Report / एजेंट मंडी रिपोर्ट"
-            columns={[
-              { header: "Mandi", field: "mandi_name" },
-              { header: "Agent", field: "agent_name" },
-              { header: "Trips", field: "trip_count", format: "integer", align: "right" },
-              { header: "QNTL", field: "total_qntl", format: "number", align: "right" },
-              { header: "Amount", field: "total_amount", format: "rupees", align: "right" },
-            ]}
-            onPdfExport={() => exportData('pdf')}
-            onExcelExport={() => exportData('excel')}
-            triggerClassName="bg-blue-600 hover:bg-blue-700 text-white"
-            iconOnly
-          />
         </div>
       </div>
 
