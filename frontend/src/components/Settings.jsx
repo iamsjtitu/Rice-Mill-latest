@@ -1566,36 +1566,68 @@ function DataTab({ user }) {
 
           {/* ZIP Restore */}
           <div className="border border-slate-600 rounded-lg p-4 bg-slate-900/50">
-            <p className="text-slate-300 text-sm font-semibold mb-2">ZIP se Restore / ज़िप से रिस्टोर</p>
+            <p className="text-slate-300 text-sm font-semibold mb-2">Backup Upload & Restore</p>
             <p className="text-red-400 text-xs mb-3">Warning: Current data replace ho jayega! Pehle backup le lein.</p>
-            <input
-              type="file" accept=".zip" id="backup-restore-input" className="hidden"
-              data-testid="restore-file-input"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                if (!file.name.endsWith('.zip')) { toast.error("Sirf ZIP file upload karein"); return; }
-                if (!await showConfirm("Restore Data", "Kya aap sure hain? Current data replace ho jayega!")) { e.target.value = ''; return; }
-                try {
-                  setBackupLoading(true);
-                  const formData = new FormData();
-                  formData.append('file', file);
-                  const res = await axios.post(`${API}/backup/restore?username=${user.username}&role=${user.role}`, formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                  });
-                  toast.success(res.data.message || "Restore ho gaya!");
-                } catch (err) { toast.error(err.response?.data?.detail || "Restore fail!"); }
-                finally { setBackupLoading(false); e.target.value = ''; }
-              }}
-            />
-            <Button
-              onClick={() => document.getElementById('backup-restore-input')?.click()}
-              disabled={backupLoading} variant="outline"
-              className="w-full border-amber-600 text-amber-400 hover:bg-amber-900/30 font-semibold"
-              data-testid="restore-backup-btn"
-            >
-              {backupLoading ? 'Restoring...' : 'Upload ZIP & Restore / ज़िप अपलोड करके रिस्टोर'}
-            </Button>
+            <div className="flex gap-2">
+              {/* ZIP Upload */}
+              <input
+                type="file" accept=".zip" id="backup-restore-input" className="hidden"
+                data-testid="restore-file-input"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (!file.name.endsWith('.zip')) { toast.error("Sirf ZIP file upload karein"); return; }
+                  if (!await showConfirm("Restore Data", "Kya aap sure hain? Current data replace ho jayega!")) { e.target.value = ''; return; }
+                  try {
+                    setBackupLoading(true);
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await axios.post(`${API}/backup/restore?username=${user.username}&role=${user.role}`, formData, {
+                      headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    toast.success(res.data.message || "Restore ho gaya!");
+                  } catch (err) { toast.error(err.response?.data?.detail || "Restore fail!"); }
+                  finally { setBackupLoading(false); e.target.value = ''; }
+                }}
+              />
+              <Button
+                onClick={() => document.getElementById('backup-restore-input')?.click()}
+                disabled={backupLoading} variant="outline"
+                className="flex-1 border-amber-600 text-amber-400 hover:bg-amber-900/30 text-xs"
+                data-testid="restore-backup-btn"
+              >
+                {backupLoading ? 'Restoring...' : 'ZIP Upload & Restore'}
+              </Button>
+
+              {/* JSON Upload */}
+              <input
+                type="file" accept=".json" id="backup-json-restore-input" className="hidden"
+                data-testid="restore-json-file-input"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (!file.name.endsWith('.json')) { toast.error("Sirf JSON file upload karein"); return; }
+                  if (!await showConfirm("Restore Data", "Kya aap sure hain? JSON backup se data replace ho jayega!")) { e.target.value = ''; return; }
+                  try {
+                    setBackupLoading(true);
+                    const text = await file.text();
+                    JSON.parse(text); // Validate
+                    const res = await axios.post(`${API}/backups/restore-json`, { data: text, filename: file.name });
+                    toast.success(res.data.message || "Restore ho gaya!");
+                    window.location.reload();
+                  } catch (err) { toast.error(err.response?.data?.detail || err.message || "JSON Restore fail!"); }
+                  finally { setBackupLoading(false); e.target.value = ''; }
+                }}
+              />
+              <Button
+                onClick={() => document.getElementById('backup-json-restore-input')?.click()}
+                disabled={backupLoading} variant="outline"
+                className="flex-1 border-blue-600 text-blue-400 hover:bg-blue-900/30 text-xs"
+                data-testid="restore-json-backup-btn"
+              >
+                {backupLoading ? 'Restoring...' : 'JSON Upload & Restore'}
+              </Button>
+            </div>
           </div>
 
           <div className="text-center text-slate-500 text-xs">
