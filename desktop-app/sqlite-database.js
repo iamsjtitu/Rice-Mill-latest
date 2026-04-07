@@ -25,7 +25,7 @@ const ARRAY_COLLECTIONS = [
 ];
 
 // KV items (non-array objects)
-const KV_KEYS = ['branding', 'users', 'gst_opening_balances', '_migrations'];
+const KV_KEYS = ['branding', 'users', 'gst_opening_balances', '_migrations', 'settings'];
 
 class SqliteDatabase {
   constructor(dataFolder) {

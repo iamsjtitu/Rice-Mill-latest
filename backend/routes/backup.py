@@ -253,6 +253,15 @@ async def backup_status():
     return {"has_today_backup": has_today, "last_backup": backups[0] if backups else None,
             "total_backups": len(backups)}
 
+@router.post("/backups/on-logout")
+async def backup_on_logout():
+    """Create backup on user logout."""
+    now = datetime.now()
+    label = "logout_" + now.strftime("%H%M%S")
+    result = await _create_backup_to_folder(label)
+    return result
+
+
 
 # ---- Auto Daily Backup Scheduler ----
 
