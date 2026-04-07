@@ -308,32 +308,80 @@ class SqliteDatabase {
     }
   }
 
-  // ============ Google Drive / External Sync File Watcher ============
+  // ============ Google Drive / External Sync - Auto Sync ============
   startFileWatcher() {
     if (this._fileWatcher) return;
     this._lastOwnSaveTime = this._lastOwnSaveTime || Date.now();
     this._lastKnownMtime = 0;
+    this._lastKnownSize = 0;
+    this._lastSyncWindowTime = Date.now();
+    this._prevDataHash = '';
     try {
       const stat = fs.statSync(this.dbFile);
       this._lastKnownMtime = stat.mtimeMs;
+      this._lastKnownSize = stat.size;
     } catch (_) {}
+    this._prevDataHash = this._getDataFingerprint();
 
-    this._fileWatcher = setInterval(() => {
+    const SYNC_WINDOW_INTERVAL = 30000;
+    const POLL_INTERVAL = 5000;
+
+    this._fileWatcher = setInterval(async () => {
       try {
-        if (!fs.existsSync(this.dbFile)) return;
-        const stat = fs.statSync(this.dbFile);
-        const fileMtime = stat.mtimeMs;
-        if (fileMtime > this._lastKnownMtime && (fileMtime - (this._lastOwnSaveTime || 0)) > 2000) {
-          console.log('[SQLite FileWatcher] External file change detected, reloading...');
-          this._lastKnownMtime = fileMtime;
-          this._reloadFromDisk();
-          console.log('[SQLite FileWatcher] Data reloaded. Entries:', (this.data.entries || []).length);
-        } else {
-          this._lastKnownMtime = fileMtime;
+        const now = Date.now();
+        if (fs.existsSync(this.dbFile)) {
+          const stat = fs.statSync(this.dbFile);
+          if (stat.mtimeMs > this._lastKnownMtime && (stat.mtimeMs - (this._lastOwnSaveTime || 0)) > 2000) {
+            console.log('[AutoSync] File change detected, reloading...');
+            this._lastKnownMtime = stat.mtimeMs;
+            this._lastKnownSize = stat.size;
+            this._reloadFromDisk();
+            this._prevDataHash = this._getDataFingerprint();
+            this._lastSyncWindowTime = now;
+            return;
+          }
+          this._lastKnownMtime = stat.mtimeMs;
+          this._lastKnownSize = stat.size;
         }
-      } catch (e) {}
-    }, 5000);
-    console.log('[SQLite] File watcher started');
+        if (this._isCloudPath && (now - this._lastSyncWindowTime) >= SYNC_WINDOW_INTERVAL) {
+          this._lastSyncWindowTime = now;
+          try { this.sqlite.close(); } catch(_) {}
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const Database = require('better-sqlite3');
+          this.sqlite = new Database(this.dbFile);
+          try { this.sqlite.pragma('wal_checkpoint(TRUNCATE)'); } catch(_) {}
+          this.sqlite.pragma('journal_mode = DELETE');
+          this.sqlite.pragma('synchronous = NORMAL');
+          this.sqlite.pragma('cache_size = -8000');
+          this._cleanupWalFiles();
+          this.data = this._loadAll();
+          this.migrateOldEntries(this.data);
+          const newHash = this._getDataFingerprint();
+          if (newHash !== this._prevDataHash) {
+            console.log('[AutoSync] New data from Google Drive! Entries:', (this.data.entries||[]).length);
+            this._prevDataHash = newHash;
+          }
+        }
+      } catch (e) {
+        try {
+          const Database = require('better-sqlite3');
+          this.sqlite = new Database(this.dbFile);
+          this.data = this._loadAll();
+        } catch(_) {}
+      }
+    }, POLL_INTERVAL);
+    console.log('[SQLite] Auto-sync file watcher started (cloud:', this._isCloudPath, ')');
+  }
+
+  _getDataFingerprint() {
+    try {
+      const e = (this.data.entries || []).length;
+      const v = (this.data.vehicle_weights || []).length;
+      const c = (this.data.cash_transactions || []).length;
+      const lastEntry = (this.data.entries || []).slice(-1)[0];
+      const lastId = lastEntry ? (lastEntry.id || '') : '';
+      return `${e}-${v}-${c}-${lastId}`;
+    } catch(_) { return ''; }
   }
 
   stopFileWatcher() {
