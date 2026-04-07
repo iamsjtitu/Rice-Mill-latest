@@ -34,6 +34,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
   - Debounced upload on save (3s)
   - Upload/Download/Smart Sync buttons
   - Header Sync button GDrive-aware
+  - **Green/Red status dot on header Sync button**
   - Web mode shows "Desktop only" message
 
 ## Prioritized Backlog

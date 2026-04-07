@@ -181,6 +181,20 @@ function MainApp({ user, setUser, onLogout }) {
   const [backupLoading, setBackupLoading] = useState(false);
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+  const [gdriveConnected, setGdriveConnected] = useState(null); // null=loading, true/false
+
+  // Poll GDrive connection status
+  useEffect(() => {
+    const checkGdrive = async () => {
+      try {
+        const res = await axios.get(`${API}/gdrive/status`);
+        setGdriveConnected(res.data.connected || false);
+      } catch { setGdriveConnected(false); }
+    };
+    checkGdrive();
+    const iv = setInterval(checkGdrive, 10000);
+    return () => clearInterval(iv);
+  }, []);
 
   // Listen for data conflict refresh events (optimistic locking)
   useEffect(() => {
@@ -1233,6 +1247,7 @@ function MainApp({ user, setUser, onLogout }) {
                     // Try GDrive sync first, fall back to legacy sync
                     try {
                       const gs = await axios.get(`${API}/gdrive/status`);
+                      setGdriveConnected(gs.data.connected);
                       if (gs.data.connected) {
                         const res = await axios.post(`${API}/gdrive/sync`);
                         if (res.data.success) {
@@ -1255,10 +1270,11 @@ function MainApp({ user, setUser, onLogout }) {
                 }}
                 variant="outline"
                 size="sm"
-                className="border-cyan-600/50 text-cyan-400 hover:bg-cyan-900/30"
+                className="border-cyan-600/50 text-cyan-400 hover:bg-cyan-900/30 relative"
                 data-testid="sync-reload-btn"
-                title="Google Drive se data sync karo"
+                title={gdriveConnected ? "Google Drive Connected - Click to sync" : "Sync (GDrive not connected)"}
               >
+                <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-slate-900 ${gdriveConnected ? 'bg-green-500' : gdriveConnected === false ? 'bg-red-500' : 'bg-slate-500'}`} data-testid="gdrive-status-dot" />
                 <RefreshCw className="w-4 h-4 mr-1" />
                 Sync
               </Button>
