@@ -1075,6 +1075,14 @@ function createBackup(database, label = 'auto') {
     const data = database.exportToJson ? database.exportToJson() : fs.readFileSync(database.dbFile, 'utf8');
     fs.writeFileSync(path.join(backupDir, filename), data);
     cleanupOldBackups();
+    // Copy to custom backup dir if set
+    const customDir = database.data?.settings?.custom_backup_dir;
+    if (customDir) {
+      try {
+        if (!fs.existsSync(customDir)) fs.mkdirSync(customDir, { recursive: true });
+        fs.copyFileSync(path.join(backupDir, filename), path.join(customDir, filename));
+      } catch (e) { console.error('[Backup] Custom dir copy err:', e.message); }
+    }
     return { success: true, filename, size: data.length, created_at: now.toISOString() };
   } catch (e) { return { success: false, error: e.message }; }
 }

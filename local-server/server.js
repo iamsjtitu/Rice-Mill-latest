@@ -699,6 +699,14 @@ function createBackup(label = 'auto') {
     fs.writeFileSync(backupPath, data);
     console.log(`[Backup] Created: ${filename}`);
     cleanupOldBackups();
+    // Copy to custom backup dir if set
+    const customDir = database.data?.settings?.custom_backup_dir;
+    if (customDir) {
+      try {
+        if (!fs.existsSync(customDir)) fs.mkdirSync(customDir, { recursive: true });
+        fs.copyFileSync(backupPath, path.join(customDir, filename));
+      } catch (e) { console.error('[Backup] Custom dir copy err:', e.message); }
+    }
     return { success: true, filename, size: data.length, created_at: now.toISOString() };
   } catch (e) {
     console.error('[Backup] Error:', e.message);

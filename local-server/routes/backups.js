@@ -13,7 +13,8 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
   router.get('/api/backups', safeSync(async (req, res) => {
     const backups = getBackupsList();
     const today = new Date().toISOString().substring(0, 10);
-    res.json({ backups, has_today_backup: backups.some(b => b.created_at.substring(0, 10) === today), max_backups: MAX_BACKUPS });
+    const customDir = database.data?.settings?.custom_backup_dir || null;
+    res.json({ backups, has_today_backup: backups.some(b => b.created_at.substring(0, 10) === today), max_backups: MAX_BACKUPS, custom_backup_dir: customDir });
   }));
 
   router.post('/api/backups', safeSync(async (req, res) => {
@@ -38,7 +39,33 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
   router.get('/api/backups/status', safeSync(async (req, res) => {
     const backups = getBackupsList();
     const today = new Date().toISOString().substring(0, 10);
-    res.json({ has_today_backup: backups.some(b => b.created_at.substring(0, 10) === today), last_backup: backups[0] || null, total_backups: backups.length });
+    const customDir = database.data?.settings?.custom_backup_dir || null;
+    res.json({ has_today_backup: backups.some(b => b.created_at.substring(0, 10) === today), last_backup: backups[0] || null, total_backups: backups.length, custom_backup_dir: customDir });
+  }));
+
+  // Backup on logout
+  router.post('/api/backups/on-logout', safeSync(async (req, res) => {
+    const now = new Date();
+    const label = 'logout_' + now.toTimeString().substring(0,8).replace(/:/g, '');
+    const result = createBackup(database, label);
+    const customDir = database.data?.settings?.custom_backup_dir;
+    if (customDir && result.success) {
+      try {
+        if (!fs.existsSync(customDir)) fs.mkdirSync(customDir, { recursive: true });
+        const srcFile = path.join(getBackupDir(), result.filename);
+        fs.copyFileSync(srcFile, path.join(customDir, result.filename));
+      } catch (e) { console.error('[Backup] Custom dir copy err:', e.message); }
+    }
+    res.json(result);
+  }));
+
+  // Set custom backup directory
+  router.put('/api/backups/custom-dir', safeSync(async (req, res) => {
+    const { dir } = req.body;
+    if (!database.data.settings) database.data.settings = {};
+    database.data.settings.custom_backup_dir = dir || null;
+    database.save();
+    res.json({ success: true, custom_backup_dir: dir || null });
   }));
 
   // ZIP download - download all data as ZIP

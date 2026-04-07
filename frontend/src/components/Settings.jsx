@@ -1448,6 +1448,58 @@ function DataTab({ user }) {
             </div>
           )}
 
+          {/* Custom Backup Folder */}
+          <div className="p-3 bg-slate-700/40 rounded-lg space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-white font-medium">Backup Folder / बैकअप फोल्डर</p>
+                <p className="text-[10px] text-slate-400">
+                  {backupStatus?.custom_backup_dir 
+                    ? backupStatus.custom_backup_dir 
+                    : 'Default folder (data folder ke andar)'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={async () => {
+                    try {
+                      const res = await axios.post(`${API}/backups/browse-folder`);
+                      if (res.data.success && res.data.dir) {
+                        await axios.put(`${API}/backups/custom-dir`, { dir: res.data.dir });
+                        toast.success(`Backup folder: ${res.data.dir}`);
+                        fetchBackups();
+                      }
+                    } catch (e) {
+                      if (e.response?.status === 500 && e.response?.data?.detail?.includes('electron')) {
+                        toast.error("Ye feature sirf Desktop App mein kaam karega");
+                      } else {
+                        toast.error("Folder select error");
+                      }
+                    }
+                  }}
+                  variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700 h-7 text-xs"
+                  data-testid="select-backup-folder-btn"
+                >
+                  <HardDrive className="w-3.5 h-3.5 mr-1" /> Select Drive
+                </Button>
+                {backupStatus?.custom_backup_dir && (
+                  <Button 
+                    onClick={async () => {
+                      await axios.put(`${API}/backups/custom-dir`, { dir: null });
+                      toast.success("Default folder set");
+                      fetchBackups();
+                    }}
+                    variant="ghost" size="sm" className="text-red-400 hover:text-red-300 h-7 text-xs"
+                    data-testid="reset-backup-folder-btn"
+                  >
+                    Reset
+                  </Button>
+                )}
+              </div>
+            </div>
+            <p className="text-[10px] text-amber-400">Logout par auto backup + manual backup dono is folder mein save honge</p>
+          </div>
+
           {/* Backup Now */}
           <Button
             onClick={handleCreateBackup} disabled={backupLoading}

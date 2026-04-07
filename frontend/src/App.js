@@ -1580,11 +1580,15 @@ function App() {
     sessionStorage.setItem('mill_user', JSON.stringify(userData));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Auto backup on logout
+    try {
+      await axios.post(`${API}/backups/on-logout`);
+    } catch (_) {}
     setUser(null);
     sessionStorage.removeItem('mill_user');
-    localStorage.removeItem('mill_user'); // cleanup old persistent login
-    toast.success("Logged out successfully");
+    localStorage.removeItem('mill_user');
+    toast.success("Logged out - Backup saved!");
   };
 
   if (!user) {
