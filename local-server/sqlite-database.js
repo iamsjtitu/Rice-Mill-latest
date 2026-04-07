@@ -752,6 +752,20 @@ class SqliteDatabase {
       }
 
       this._createGunnyEntriesForMill(updated);
+
+      // Sync cash/diesel to linked vehicle_weight entry (same RST + kms_year)
+      const rstNo = String(updated.rst_no || '').trim();
+      if (rstNo && this.data.vehicle_weights) {
+        const vwIdx = this.data.vehicle_weights.findIndex(v => 
+          String(v.rst_no) === rstNo && v.kms_year === (updated.kms_year || '')
+        );
+        if (vwIdx >= 0) {
+          this.data.vehicle_weights[vwIdx].cash_paid = parseFloat(updated.cash_paid || 0);
+          this.data.vehicle_weights[vwIdx].diesel_paid = parseFloat(updated.diesel_paid || 0);
+          this.data.vehicle_weights[vwIdx].updated_at = new Date().toISOString();
+        }
+      }
+
       this.save();
       return updated;
     }

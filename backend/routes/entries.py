@@ -690,6 +690,27 @@ async def update_entry(entry_id: str, request: Request, username: str = "", role
     await db.gunny_bags.delete_many({"linked_entry_id": entry_id})
     await _create_gunny_entries_for_mill(merged_data | {"id": entry_id}, username)
     
+    # Sync cash/diesel to linked vehicle_weight entry (same RST + kms_year)
+    entry_rst = str(merged_data.get("rst_no", "")).strip()
+    entry_kms = merged_data.get("kms_year", "")
+    if entry_rst:
+        try:
+            rst_int = int(entry_rst)
+            vw_query = {"rst_no": rst_int, "kms_year": entry_kms}
+            vw_existing = await db["vehicle_weights"].find_one(vw_query, {"_id": 0, "id": 1})
+            if vw_existing:
+                vw_update_fields = {
+                    "cash_paid": float(merged_data.get("cash_paid", 0) or 0),
+                    "diesel_paid": float(merged_data.get("diesel_paid", 0) or 0),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db["vehicle_weights"].update_one({"id": vw_existing["id"]}, {"$set": vw_update_fields})
+                await log_audit("vehicle_weights", vw_existing["id"], "update", username,
+                    old_data={"cash_paid": vw_existing.get("cash_paid"), "diesel_paid": vw_existing.get("diesel_paid")},
+                    new_data=vw_update_fields)
+        except (ValueError, TypeError):
+            pass
+    
     updated = await db.mill_entries.find_one({"id": entry_id}, {"_id": 0})
     return updated
 
