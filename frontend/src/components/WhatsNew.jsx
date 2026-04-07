@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.33.0";
+const APP_VERSION = "88.34.0";
 
 const CHANGELOG = [
+  {
+    version: "88.34.0",
+    date: "Apr 2026",
+    title: "v88.34.0 - Cash/Diesel Sync Fix + Fast Auto-Sync",
+    items: [
+      { type: "fix", text: "Mill Entry mein cash/diesel edit karne par ab Vehicle Weight mein bhi turant update hoga" },
+      { type: "feature", text: "Fast Auto-Sync: Sync window 30s se 10s, lock release 2s se 0.5s" },
+      { type: "fix", text: "Google Drive API code hata diya — ab direct file sync se kaam hoga (no API key needed)" },
+    ]
+  },
   {
     version: "88.33.0",
     date: "Apr 2026",
