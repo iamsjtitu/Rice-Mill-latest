@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.35.0";
+const APP_VERSION = "88.36.0";
 
 const CHANGELOG = [
+  {
+    version: "88.36.0",
+    date: "Apr 2026",
+    title: "v88.36.0 - Auto Backup on Logout + Custom Backup Folder",
+    items: [
+      { type: "feature", text: "Logout karne par auto backup — din mein 100 baar bhi logout karo, har baar backup banega" },
+      { type: "feature", text: "Settings > Data mein backup folder/drive select karne ka option" },
+      { type: "feature", text: "Sab backups (manual, daily, logout) custom folder mein bhi copy hote hain" },
+      { type: "fix", text: "Trans → Trans Type fix (PDF slip + Excel export)" },
+    ]
+  },
   {
     version: "88.34.0",
     date: "Apr 2026",
