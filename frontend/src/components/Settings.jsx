@@ -1451,13 +1451,15 @@ function DataTab({ user }) {
           {/* Custom Backup Folder */}
           <div className="p-3 bg-slate-700/40 rounded-lg space-y-2">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex-1 mr-3">
                 <p className="text-sm text-white font-medium">Backup Folder / बैकअप फोल्डर</p>
-                <p className="text-[10px] text-slate-400">
-                  {backupStatus?.custom_backup_dir 
-                    ? backupStatus.custom_backup_dir 
-                    : 'Default folder (data folder ke andar)'}
-                </p>
+                {backupStatus?.custom_backup_dir ? (
+                  <div className="mt-1 p-1.5 bg-green-900/30 border border-green-700/50 rounded text-[11px] text-green-300 font-mono break-all">
+                    {backupStatus.custom_backup_dir}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-slate-400 mt-1">Default folder (data folder ke andar)</p>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button 
