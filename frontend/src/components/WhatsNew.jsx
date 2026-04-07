@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.32.0";
+const APP_VERSION = "88.33.0";
 
 const CHANGELOG = [
+  {
+    version: "88.33.0",
+    date: "Apr 2026",
+    title: "v88.33.0 - Fast Auto-Sync",
+    items: [
+      { type: "feature", text: "Fast Sync: Har save ke baad file lock release — Google Drive turant sync karega" },
+      { type: "feature", text: "Sync Window: 30sec se 10sec — data 3x fast sync" },
+      { type: "feature", text: "Lock release: 2sec se 0.5sec — app jyada responsive" },
+    ]
+  },
   {
     version: "88.31.0",
     date: "Apr 2026",

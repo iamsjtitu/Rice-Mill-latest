@@ -181,20 +181,6 @@ function MainApp({ user, setUser, onLogout }) {
   const [backupLoading, setBackupLoading] = useState(false);
 
   const [showWhatsNew, setShowWhatsNew] = useState(false);
-  const [gdriveConnected, setGdriveConnected] = useState(null); // null=loading, true/false
-
-  // Poll GDrive connection status
-  useEffect(() => {
-    const checkGdrive = async () => {
-      try {
-        const res = await axios.get(`${API}/gdrive/status`);
-        setGdriveConnected(res.data.connected || false);
-      } catch { setGdriveConnected(false); }
-    };
-    checkGdrive();
-    const iv = setInterval(checkGdrive, 10000);
-    return () => clearInterval(iv);
-  }, []);
 
   // Listen for data conflict refresh events (optimistic locking)
   useEffect(() => {
@@ -1244,21 +1230,6 @@ function MainApp({ user, setUser, onLogout }) {
               <Button
                 onClick={async () => {
                   try {
-                    // Try GDrive sync first, fall back to legacy sync
-                    try {
-                      const gs = await axios.get(`${API}/gdrive/status`);
-                      setGdriveConnected(gs.data.connected);
-                      if (gs.data.connected) {
-                        const res = await axios.post(`${API}/gdrive/sync`);
-                        if (res.data.success) {
-                          const dir = res.data.direction === 'upload' ? 'Uploaded' : res.data.direction === 'download' ? 'Downloaded' : 'In sync';
-                          toast.success(`GDrive: ${dir} (${res.data.elapsed || '0'}s)`);
-                          if (res.data.direction === 'download') window.location.reload();
-                          return;
-                        }
-                      }
-                    } catch (_) {}
-                    // Legacy sync
                     const res = await axios.post(`${API}/sync/reload`);
                     if (res.data.success) {
                       toast.success(`Sync Done! Entries: ${res.data.entries || 0}, VW: ${res.data.vehicle_weights || 0}`);
@@ -1270,11 +1241,10 @@ function MainApp({ user, setUser, onLogout }) {
                 }}
                 variant="outline"
                 size="sm"
-                className="border-cyan-600/50 text-cyan-400 hover:bg-cyan-900/30 relative"
+                className="border-cyan-600/50 text-cyan-400 hover:bg-cyan-900/30"
                 data-testid="sync-reload-btn"
-                title={gdriveConnected ? "Google Drive Connected - Click to sync" : "Sync (GDrive not connected)"}
+                title="Data sync karo"
               >
-                <span className={`absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-slate-900 ${gdriveConnected ? 'bg-green-500' : gdriveConnected === false ? 'bg-red-500' : 'bg-slate-500'}`} data-testid="gdrive-status-dot" />
                 <RefreshCw className="w-4 h-4 mr-1" />
                 Sync
               </Button>

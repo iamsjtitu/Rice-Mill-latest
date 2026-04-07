@@ -307,8 +307,39 @@ class SqliteDatabase {
         }
       });
       transaction();
+      
+      // After save: briefly release file lock so Google Drive can sync
+      if (this._isCloudPath) {
+        this._releaseLockBriefly();
+      }
     } catch (e) {
       console.error('[SQLite] Save error:', e.message);
+    }
+  }
+
+  // Release SQLite file lock briefly so Google Drive desktop app can sync
+  _releaseLockBriefly() {
+    try {
+      this.sqlite.close();
+      // Reopen immediately - the close itself is enough for GDrive to detect the file change
+      const Database = require('better-sqlite3');
+      this.sqlite = new Database(this.dbFile);
+      this.sqlite.pragma('journal_mode = DELETE');
+      this.sqlite.pragma('synchronous = NORMAL');
+      this.sqlite.pragma('cache_size = -8000');
+      this._cleanupWalFiles();
+      // Update our known mtime so we don't falsely detect our own save as external change
+      try {
+        const stat = fs.statSync(this.dbFile);
+        this._lastKnownMtime = stat.mtimeMs;
+        this._lastKnownSize = stat.size;
+      } catch (_) {}
+    } catch (e) {
+      console.error('[SQLite] Lock release error:', e.message);
+      try {
+        const Database = require('better-sqlite3');
+        this.sqlite = new Database(this.dbFile);
+      } catch (_) {}
     }
   }
 
@@ -328,18 +359,18 @@ class SqliteDatabase {
     // Build a quick data fingerprint for change detection
     this._prevDataHash = this._getDataFingerprint();
 
-    const SYNC_WINDOW_INTERVAL = 30000; // Every 30 sec, release file lock for Google Drive
+    const SYNC_WINDOW_INTERVAL = 10000; // Every 10 sec, release file lock for Google Drive
     const POLL_INTERVAL = 5000; // Check file every 5 sec
 
     this._fileWatcher = setInterval(async () => {
       try {
         const now = Date.now();
         
-        // Check 1: File mtime/size changed (external tool wrote directly)
+        // Check 1: File mtime/size changed (Google Drive downloaded new version)
         if (fs.existsSync(this.dbFile)) {
           const stat = fs.statSync(this.dbFile);
           if (stat.mtimeMs > this._lastKnownMtime && (stat.mtimeMs - (this._lastOwnSaveTime || 0)) > 2000) {
-            console.log('[AutoSync] File change detected, reloading...');
+            console.log('[AutoSync] External file change detected, reloading...');
             this._lastKnownMtime = stat.mtimeMs;
             this._lastKnownSize = stat.size;
             this._reloadFromDisk();
@@ -356,8 +387,8 @@ class SqliteDatabase {
           this._lastSyncWindowTime = now;
           // Close connection to release Windows file lock
           try { this.sqlite.close(); } catch(_) {}
-          // Wait 2 seconds for Google Drive to sync
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Brief pause for Google Drive to read/write
+          await new Promise(resolve => setTimeout(resolve, 500));
           // Reopen
           const Database = require('better-sqlite3');
           this.sqlite = new Database(this.dbFile);
@@ -384,7 +415,7 @@ class SqliteDatabase {
         } catch(_) {}
       }
     }, POLL_INTERVAL);
-    console.log('[SQLite] Auto-sync file watcher started (cloud:', this._isCloudPath, ')');
+    console.log('[SQLite] Auto-sync started (cloud:', this._isCloudPath, ', interval:', POLL_INTERVAL, 'ms, sync window:', SYNC_WINDOW_INTERVAL, 'ms)');
   }
 
   _getDataFingerprint() {
