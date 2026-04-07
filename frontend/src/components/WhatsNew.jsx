@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.30.0";
+const APP_VERSION = "88.31.0";
 
 const CHANGELOG = [
+  {
+    version: "88.31.0",
+    date: "Apr 2026",
+    title: "v88.31.0 - Google Drive API Direct Sync",
+    items: [
+      { type: "feature", text: "Google Drive Direct API — Settings > Sync mein Google Drive connect karo, data automatically sync hoga" },
+      { type: "feature", text: "Smart Sync — Newer file automatically detect hota hai (upload/download)" },
+      { type: "feature", text: "Auto Sync — Data save hone par 3s mein upload + configurable polling (default 10s)" },
+      { type: "feature", text: "Header Sync button ab Google Drive se sync karega (agar connected hai)" },
+    ]
+  },
   {
     version: "88.25.0",
     date: "Apr 2026",

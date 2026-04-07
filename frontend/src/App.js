@@ -1230,10 +1230,23 @@ function MainApp({ user, setUser, onLogout }) {
               <Button
                 onClick={async () => {
                   try {
+                    // Try GDrive sync first, fall back to legacy sync
+                    try {
+                      const gs = await axios.get(`${API}/gdrive/status`);
+                      if (gs.data.connected) {
+                        const res = await axios.post(`${API}/gdrive/sync`);
+                        if (res.data.success) {
+                          const dir = res.data.direction === 'upload' ? 'Uploaded' : res.data.direction === 'download' ? 'Downloaded' : 'In sync';
+                          toast.success(`GDrive: ${dir} (${res.data.elapsed || '0'}s)`);
+                          if (res.data.direction === 'download') window.location.reload();
+                          return;
+                        }
+                      }
+                    } catch (_) {}
+                    // Legacy sync
                     const res = await axios.post(`${API}/sync/reload`);
                     if (res.data.success) {
                       toast.success(`Sync Done! Entries: ${res.data.entries || 0}, VW: ${res.data.vehicle_weights || 0}`);
-                      // Refresh current tab data
                       window.location.reload();
                     }
                   } catch (e) {

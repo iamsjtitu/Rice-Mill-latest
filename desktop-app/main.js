@@ -67,6 +67,7 @@ let db = null;
 let server = null;
 let manualCheckInProgress = false;
 let dbEngine = 'sqlite';
+let gdriveSync = null;
 const DESKTOP_API_PORT = 9876;
 global.DESKTOP_API_PORT = DESKTOP_API_PORT;
 const MAX_BACKUPS = 7;
@@ -1597,6 +1598,72 @@ function createApiServer(database) {
     console.error('[Cleanup] Error:', e.message);
   }
 
+  // ===== GOOGLE DRIVE SYNC API =====
+  apiApp.get('/api/gdrive/status', safeSync((req, res) => {
+    if (!gdriveSync) return res.json({ connected: false, available: false });
+    res.json({ ...gdriveSync.getStatus(), available: true });
+  }));
+
+  apiApp.get('/api/gdrive/auth-url', safeSync((req, res) => {
+    if (!gdriveSync) return res.status(400).json({ detail: 'GDrive module not available' });
+    const url = gdriveSync.getAuthUrl();
+    if (!url) return res.status(500).json({ detail: 'Could not generate auth URL' });
+    res.json({ url });
+  }));
+
+  apiApp.get('/api/gdrive/callback', safeAsync(async (req, res) => {
+    if (!gdriveSync) return res.status(400).send('GDrive not available');
+    const code = req.query.code;
+    if (!code) return res.status(400).send('No code provided');
+    try {
+      await gdriveSync.handleCallback(code);
+      // Start auto-sync if was enabled before
+      if (gdriveSync.autoSyncEnabled) gdriveSync.startAutoSync(database);
+      res.send(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0f172a;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh}.card{text-align:center;padding:40px;background:#1e293b;border-radius:16px;border:1px solid #334155;max-width:400px}.icon{font-size:60px;margin-bottom:16px}.title{color:#4ade80;font-size:24px;margin-bottom:8px}.sub{color:#94a3b8;font-size:14px}</style></head><body><div class="card"><div class="icon">&#10004;</div><h1 class="title">Google Drive Connected!</h1><p class="sub">App mein wapas jayein. Ye window band kar sakte hain.</p><p class="sub" style="margin-top:12px;color:#64748b">Auto-closing in 3 seconds...</p></div><script>setTimeout(()=>window.close(),3000)</script></body></html>`);
+    } catch (e) {
+      console.error('[GDrive] Callback err:', e.message);
+      res.status(400).send(`<!DOCTYPE html><html><head><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0f172a;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh}.card{text-align:center;padding:40px;background:#1e293b;border-radius:16px;border:1px solid #334155;max-width:500px}.title{color:#ef4444;font-size:20px;margin-bottom:12px}.err{color:#f59e0b;font-size:12px;word-break:break-all;background:#1e1e2e;padding:12px;border-radius:8px}.hint{color:#94a3b8;font-size:12px;margin-top:12px}</style></head><body><div class="card"><h1 class="title">Connection Failed</h1><div class="err">${e.message}</div><p class="hint">Google Cloud Console mein Redirect URI check karein:<br><code>http://localhost:${DESKTOP_API_PORT}/api/gdrive/callback</code></p></div></body></html>`);
+    }
+  }));
+
+  apiApp.post('/api/gdrive/sync', safeAsync(async (req, res) => {
+    if (!gdriveSync?.isConnected()) return res.status(400).json({ detail: 'Google Drive not connected' });
+    const result = await gdriveSync.smartSync(database);
+    res.json(result);
+  }));
+
+  apiApp.post('/api/gdrive/upload', safeAsync(async (req, res) => {
+    if (!gdriveSync?.isConnected()) return res.status(400).json({ detail: 'Not connected' });
+    const result = await gdriveSync.upload();
+    res.json(result);
+  }));
+
+  apiApp.post('/api/gdrive/download', safeAsync(async (req, res) => {
+    if (!gdriveSync?.isConnected()) return res.status(400).json({ detail: 'Not connected' });
+    const result = await gdriveSync.download(database);
+    res.json(result);
+  }));
+
+  apiApp.post('/api/gdrive/disconnect', safeSync((req, res) => {
+    if (!gdriveSync) return res.status(400).json({ detail: 'Not available' });
+    gdriveSync.disconnect();
+    res.json({ success: true });
+  }));
+
+  apiApp.put('/api/gdrive/config', safeSync((req, res) => {
+    if (!gdriveSync) return res.status(400).json({ detail: 'Not available' });
+    const { autoSyncEnabled, autoSyncSecs } = req.body;
+    if (autoSyncSecs !== undefined) gdriveSync.autoSyncSecs = Math.max(5, parseInt(autoSyncSecs) || 10);
+    if (autoSyncEnabled !== undefined) {
+      if (autoSyncEnabled && gdriveSync.isConnected()) {
+        gdriveSync.startAutoSync(database);
+      } else {
+        gdriveSync.stopAutoSync();
+      }
+    }
+    res.json(gdriveSync.getStatus());
+  }));
+
   // ===== EXPRESS ERROR MIDDLEWARE (catches sync errors from routes) =====
   apiApp.use((err, req, res, next) => {
     logError('EXPRESS_ERROR: ' + req.method + ' ' + req.originalUrl, err);
@@ -2503,10 +2570,42 @@ async function startApplication(folderPath) {
     }
     // Cleanup duplicate backup folders (Google Drive sync conflict)
     cleanupDuplicateBackupFolders();
-    // Start file watcher for Google Drive / external sync detection
-    if (db && db.startFileWatcher) {
+
+    // Initialize Google Drive API Sync
+    try {
+      const { GDriveSync } = require('./gdrive-sync');
+      gdriveSync = new GDriveSync({
+        configDir: app.getPath('userData'),
+        dbFile: db.dbFile || path.join(dataPath, 'millentry-data.db'),
+        port: DESKTOP_API_PORT,
+        onReloadNeeded: () => {
+          try {
+            if (db._reloadFromDisk) db._reloadFromDisk();
+            else if (db._loadAll) db.data = db._loadAll();
+            else db.data = db.load();
+            console.log('[GDrive] DB reloaded, entries:', (db.data.entries || []).length);
+          } catch (e) { console.error('[GDrive] Reload err:', e.message); }
+        }
+      });
+      // Hook database.save() to trigger GDrive upload
+      const origSave = db.save.bind(db);
+      db.save = function() {
+        origSave();
+        if (gdriveSync) gdriveSync.notifySave();
+      };
+      // Start auto-sync if previously enabled
+      if (gdriveSync.isConnected() && gdriveSync.autoSyncEnabled) {
+        gdriveSync.startAutoSync(db);
+      }
+      console.log('[GDrive] Module ready, connected:', gdriveSync.isConnected());
+    } catch (e) {
+      console.warn('[GDrive] Module not available:', e.message);
+    }
+
+    // Start file watcher for Google Drive / external sync detection (legacy fallback)
+    if (!gdriveSync?.isConnected() && db && db.startFileWatcher) {
       db.startFileWatcher();
-      console.log('[Startup] File watcher started for external sync detection');
+      console.log('[Startup] Legacy file watcher started');
     }
   }, 3000);
 

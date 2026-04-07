@@ -14,6 +14,7 @@ import {
   Trash2, Plus, Calculator, RefreshCw, Key, FileText,
   AlertCircle, HardDrive, ShieldCheck, Send, Package, Scale,
   Camera, CameraOff, Eye, EyeOff, Wifi, CheckCircle, Users, History,
+  Cloud, CloudOff, Upload, Download,
 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 
@@ -2488,6 +2489,268 @@ function UsersTab({ user }) {
 }
 
 
+
+// ======================= GOOGLE DRIVE SYNC TAB =======================
+
+function GoogleDriveSyncTab() {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [intervalSecs, setIntervalSecs] = useState(10);
+
+  const fetchStatus = async () => {
+    try {
+      const res = await axios.get(`${API}/gdrive/status`);
+      setStatus(res.data);
+      if (res.data.autoSyncSecs) setIntervalSecs(res.data.autoSyncSecs);
+    } catch { setStatus(null); }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchStatus();
+    const iv = setInterval(fetchStatus, 4000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const handleConnect = async () => {
+    try {
+      const res = await axios.get(`${API}/gdrive/auth-url`);
+      window.open(res.data.url, '_blank', 'width=600,height=700');
+      toast.info("Google mein login karein jo window khuli hai...");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Auth URL nahi mil paya");
+    }
+  };
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await axios.post(`${API}/gdrive/sync`);
+      if (res.data.success) {
+        const dir = res.data.direction === 'upload' ? 'Upload' : res.data.direction === 'download' ? 'Download' : 'In sync';
+        toast.success(`${dir} - ${res.data.elapsed || '0'}s`);
+      } else {
+        toast.error(res.data.error || res.data.reason || "Sync failed");
+      }
+      fetchStatus();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Sync error");
+    }
+    setSyncing(false);
+  };
+
+  const handleUpload = async () => {
+    setSyncing(true);
+    try {
+      const res = await axios.post(`${API}/gdrive/upload`);
+      res.data.success ? toast.success(`Upload done (${res.data.elapsed}s)`) : toast.error(res.data.error || "Upload fail");
+      fetchStatus();
+    } catch (e) { toast.error("Upload error"); }
+    setSyncing(false);
+  };
+
+  const handleDownload = async () => {
+    setSyncing(true);
+    try {
+      const res = await axios.post(`${API}/gdrive/download`);
+      res.data.success ? toast.success(`Download done (${res.data.elapsed}s)`) : toast.error(res.data.error || res.data.reason || "Download fail");
+      fetchStatus();
+    } catch (e) { toast.error("Download error"); }
+    setSyncing(false);
+  };
+
+  const handleDisconnect = async () => {
+    if (!window.confirm("Google Drive disconnect karein? Sync band ho jayega.")) return;
+    try {
+      await axios.post(`${API}/gdrive/disconnect`);
+      toast.success("Disconnected");
+      fetchStatus();
+    } catch (e) { toast.error("Disconnect error"); }
+  };
+
+  const toggleAutoSync = async () => {
+    try {
+      const newVal = !(status?.autoSyncEnabled);
+      await axios.put(`${API}/gdrive/config`, { autoSyncEnabled: newVal, autoSyncSecs: intervalSecs });
+      toast.success(newVal ? `Auto-sync ON (${intervalSecs}s)` : "Auto-sync OFF");
+      fetchStatus();
+    } catch (e) { toast.error("Config save error"); }
+  };
+
+  const saveInterval = async () => {
+    try {
+      await axios.put(`${API}/gdrive/config`, { autoSyncEnabled: status?.autoSyncEnabled, autoSyncSecs: intervalSecs });
+      toast.success(`Interval: ${intervalSecs}s`);
+      fetchStatus();
+    } catch (e) { toast.error("Save error"); }
+  };
+
+  const formatTime = (ts) => {
+    if (!ts) return "-";
+    const d = new Date(ts);
+    const now = new Date();
+    const diffSec = Math.floor((now - d) / 1000);
+    if (diffSec < 60) return `${diffSec}s pehle`;
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m pehle`;
+    return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) + " " + d.toLocaleDateString("en-IN");
+  };
+
+  if (loading) return (
+    <Card className="bg-slate-800 border-slate-700">
+      <CardContent className="py-8 text-center">
+        <RefreshCw className="w-6 h-6 animate-spin text-amber-400 mx-auto" />
+      </CardContent>
+    </Card>
+  );
+
+  // Not available (web mode or module not loaded)
+  if (!status || status.available === false) return (
+    <Card className="bg-slate-800 border-slate-700">
+      <CardHeader>
+        <CardTitle className="text-amber-400 flex items-center gap-2">
+          <Cloud className="w-5 h-5" /> Google Drive Sync
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-center py-6">
+          <CloudOff className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+          <p className="text-slate-400 text-sm">Google Drive Sync sirf Desktop App mein available hai.</p>
+          <p className="text-slate-500 text-xs mt-1">Web version mein ye feature kaam nahi karega.</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="space-y-4" data-testid="gdrive-sync-tab">
+      {/* Connection Card */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-amber-400 flex items-center gap-2">
+            <Cloud className="w-5 h-5" /> Google Drive Sync
+          </CardTitle>
+          <p className="text-slate-400 text-xs">
+            Mill aur Ghar ke computer ka data automatically sync hoga
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Status */}
+          <div className="flex items-center justify-between p-3 bg-slate-700/40 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${status.connected ? 'bg-green-500' : 'bg-red-500'} ${status.syncing ? 'animate-pulse' : ''}`} />
+              <div>
+                <p className="text-sm text-white font-medium">
+                  {status.connected ? 'Google Drive Connected' : 'Not Connected'}
+                </p>
+                {status.connected && status.lastSyncTime && (
+                  <p className="text-[10px] text-slate-400">
+                    Last sync: {formatTime(status.lastSyncTime)}
+                    {status.lastSyncDirection && ` (${status.lastSyncDirection === 'upload' ? 'Uploaded' : 'Downloaded'})`}
+                  </p>
+                )}
+              </div>
+            </div>
+            {!status.connected ? (
+              <Button onClick={handleConnect} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs" data-testid="gdrive-connect-btn">
+                <Cloud className="w-3.5 h-3.5 mr-1" /> Connect
+              </Button>
+            ) : (
+              <Button onClick={handleDisconnect} variant="outline" size="sm" className="border-red-600/50 text-red-400 hover:bg-red-600/20 h-8 text-xs" data-testid="gdrive-disconnect-btn">
+                <CloudOff className="w-3.5 h-3.5 mr-1" /> Disconnect
+              </Button>
+            )}
+          </div>
+
+          {/* Error */}
+          {status.lastError && (
+            <div className="p-2 bg-red-900/20 border border-red-700/50 rounded text-xs text-red-300" data-testid="gdrive-error">
+              <AlertCircle className="w-3.5 h-3.5 inline mr-1" /> {status.lastError}
+            </div>
+          )}
+
+          {/* Connected Controls */}
+          {status.connected && (
+            <>
+              {/* Sync Buttons */}
+              <div className="grid grid-cols-3 gap-2">
+                <Button onClick={handleSync} disabled={syncing || status.syncing} className="bg-amber-600 hover:bg-amber-700 text-white h-9 text-xs" data-testid="gdrive-sync-btn">
+                  <RefreshCw className={`w-3.5 h-3.5 mr-1 ${(syncing || status.syncing) ? 'animate-spin' : ''}`} />
+                  Smart Sync
+                </Button>
+                <Button onClick={handleUpload} disabled={syncing || status.syncing} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700 h-9 text-xs" data-testid="gdrive-upload-btn">
+                  <Upload className="w-3.5 h-3.5 mr-1" /> Upload
+                </Button>
+                <Button onClick={handleDownload} disabled={syncing || status.syncing} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700 h-9 text-xs" data-testid="gdrive-download-btn">
+                  <Download className="w-3.5 h-3.5 mr-1" /> Download
+                </Button>
+              </div>
+
+              {/* Auto Sync */}
+              <div className="p-3 bg-slate-700/40 rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white font-medium">Auto Sync</p>
+                    <p className="text-[10px] text-slate-400">Data change hone par automatically sync hoga</p>
+                  </div>
+                  <Switch
+                    checked={!!status.autoSyncEnabled}
+                    onCheckedChange={toggleAutoSync}
+                    data-testid="gdrive-autosync-toggle"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-slate-400 whitespace-nowrap">Check interval:</Label>
+                  <Input
+                    type="number" min="5" max="300" value={intervalSecs}
+                    onChange={e => setIntervalSecs(parseInt(e.target.value) || 10)}
+                    className="bg-slate-900 border-slate-600 text-white h-7 text-xs w-20"
+                    data-testid="gdrive-interval-input"
+                  />
+                  <span className="text-xs text-slate-500">seconds</span>
+                  <Button onClick={saveInterval} size="sm" variant="outline" className="border-slate-600 text-slate-300 h-7 text-xs ml-auto" data-testid="gdrive-save-interval-btn">
+                    Save
+                  </Button>
+                </div>
+                {status.autoSyncEnabled && (
+                  <p className="text-[10px] text-green-400">
+                    Auto-sync active: har {status.autoSyncSecs || intervalSecs}s mein check + save par instant upload (3s delay)
+                  </p>
+                )}
+              </div>
+
+              {/* Info */}
+              <div className="text-[10px] text-slate-500 space-y-1">
+                <p>Drive File ID: {status.driveFileId || 'Not yet created'}</p>
+                <p>Drive Folder: MillEntrySync</p>
+                <p>Smart Sync: Newer file wins (local vs Drive timestamp comparison)</p>
+              </div>
+            </>
+          )}
+
+          {/* Setup Help */}
+          {!status.connected && (
+            <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg text-xs text-blue-300 space-y-2">
+              <p className="font-medium">Setup Guide:</p>
+              <ol className="list-decimal list-inside space-y-1 text-blue-200">
+                <li>Connect button dabayein - Google login page khulega</li>
+                <li>Apne Google account se login karein aur permission dein</li>
+                <li>Connected hone ke baad Auto Sync ON karein</li>
+                <li>Dusre computer par bhi same Google account se connect karein</li>
+              </ol>
+              <p className="text-blue-400 mt-2">
+                Note: Google Cloud Console mein ye Redirect URI add karein:<br/>
+                <code className="bg-slate-800 px-1 py-0.5 rounded text-[9px]">http://localhost:9876/api/gdrive/callback</code>
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
 // ======================= AUDIT LOG TAB =======================
 
 const COLLECTION_LABELS = {
@@ -2660,6 +2923,7 @@ function AuditLogTab({ user }) {
 const SUB_TABS = [
   { id: "users", label: "Users", icon: Users },
   { id: "audit", label: "Audit Log", icon: History },
+  { id: "sync", label: "Sync", icon: Cloud },
   { id: "branding", label: "Branding", icon: Key },
   { id: "gst", label: "GST", icon: Calculator },
   { id: "stock", label: "Stock", icon: Package },
@@ -2697,6 +2961,9 @@ export default function Settings({ user, setUser, kmsYear, onBrandingUpdate }) {
           </TabsContent>
           <TabsContent value="audit">
             <AuditLogTab user={user} />
+          </TabsContent>
+          <TabsContent value="sync">
+            <GoogleDriveSyncTab />
           </TabsContent>
           <TabsContent value="branding">
             <BrandingTab user={user} onBrandingUpdate={onBrandingUpdate} />

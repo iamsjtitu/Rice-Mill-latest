@@ -144,6 +144,10 @@ async def sync_status():
         "pending_save": False
     }
 
+@api_router.get("/gdrive/status")
+async def gdrive_status():
+    return {"connected": False, "available": False}
+
 @api_router.post("/data-refresh")
 async def data_refresh():
     return {"success": True, "message": "Web version - data is always live"}
