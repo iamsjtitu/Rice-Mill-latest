@@ -57,8 +57,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 
 ## Key Credentials
 - Login: admin / admin123
-- Google OAuth Client ID: YOUR_CLIENT_ID_HERE
-- Google OAuth Client Secret: YOUR_CLIENT_SECRET_HERE
+- Google OAuth: User enters own Client ID & Secret in Settings > Sync tab (stored locally, not in code)
 - Redirect URI: http://localhost:9876/api/gdrive/callback
 
 ## Key Files (GDrive Sync)

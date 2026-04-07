@@ -2674,7 +2674,7 @@ function GoogleDriveSyncTab() {
                   <Label className="text-[10px] text-slate-400">Client Secret</Label>
                   <Input
                     value={clientSecret} onChange={e => setClientSecret(e.target.value)}
-                    placeholder="GOCSPX-..."
+                    placeholder="Client Secret paste karein"
                     className="bg-slate-900 border-slate-600 text-white h-8 text-xs font-mono"
                     type="password"
                     data-testid="gdrive-client-secret"
