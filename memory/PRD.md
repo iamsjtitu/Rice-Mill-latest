@@ -1,9 +1,9 @@
 # Mill Entry System - Product Requirements Document
 
 ## Original Problem Statement
-A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local SQLite storage.
+A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local SQLite storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, and automated database sync between local computers.
 
-## Current Version: v88.33.0
+## Current Version: v88.38.0
 
 ## What's Been Implemented
 - Full mill entry CRUD with RST numbering
@@ -20,15 +20,17 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - Audit logging
 - Excel/PDF exports with proper date sorting
 - Desktop app auto-updater via GitHub releases
-- **Fast Auto-Sync** (v88.33.0):
-  - File lock released after every save for Google Drive desktop sync
-  - Sync window: 10s, lock release: 0.5s
-- **Bug Fix**: Mill entry cash/diesel edit now updates linked vehicle_weight entries (all 3 backends)
+- Shadow Copy sync (replaced Google Drive API)
+- Mill entry cash/diesel edit syncs with vehicle_weights
+- "Trans" renamed to "Trans Type" globally
+- Auto-backup on logout with custom backup folder selection
+- Backup list shows both default and custom directory backups
+- JSON backup file upload & restore (v88.38.0)
 
 ## Prioritized Backlog
 
 ### P1 (High)
-- [ ] Daily Summary Report (Auto)
+- [ ] Daily Summary Report (Auto) - if user requests
 
 ### P2 (Medium)
 - [ ] Python backend service layer refactoring
@@ -40,8 +42,8 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 ## Key Credentials
 - Login: admin / admin123
 
-## Sync Flow (v88.33.0)
-1. DB in Google Drive folder → app locks file while running
-2. After each save: close SQLite briefly → Google Drive detects change → uploads
-3. Every 10s: close+reopen → Google Drive can download new version
-4. External file change detected → auto-reload data
+## Architecture
+- Triple Backend: Python (web), Desktop JS (Electron), Local JS (LAN server)
+- All logic changes must be replicated across all 3 backends
+- Shadow Copy sync replaces Google Drive API (removed due to data corruption)
+- KV Store in SQLite for persisting desktop/local settings

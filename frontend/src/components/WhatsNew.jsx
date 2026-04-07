@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.37.0";
+const APP_VERSION = "88.38.0";
 
 const CHANGELOG = [
+  {
+    version: "88.38.0",
+    date: "Apr 2026",
+    title: "v88.38.0 - JSON Backup Upload Support",
+    items: [
+      { type: "feature", text: "Settings > Data mein ab JSON file bhi upload karke restore kar sakte ho (ZIP ke saath)" },
+      { type: "fix", text: "JSON restore endpoint teeno backends (Python, Desktop, Local) mein add kiya — pehle 404 error aata tha" },
+      { type: "fix", text: "Pre-restore safety backup auto banta hai JSON restore se pehle" },
+    ]
+  },
   {
     version: "88.37.0",
     date: "Apr 2026",
