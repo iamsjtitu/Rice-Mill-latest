@@ -35,19 +35,19 @@ export const OutstandingReport = ({ filters }) => {
       setLoading(true);
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
+      
       const res = await axios.get(`${API}/reports/outstanding?${p}`);
       setData(res.data);
     } catch (e) { toast.error("Outstanding report load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const exportData = async (format) => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
-    if (filters.season) p.append('season', filters.season);
+    
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/reports/outstanding/${format}?${p}`, `outstanding.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
@@ -278,7 +278,7 @@ const PartyLedger = ({ filters }) => {
       setLoading(true);
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
+      
       if (selectedParty) p.append('party_name', selectedParty);
       if (selectedType) p.append('party_type', selectedType);
       if (dateFrom) p.append('date_from', dateFrom);
@@ -287,14 +287,14 @@ const PartyLedger = ({ filters }) => {
       setData(res.data);
     } catch (e) { toast.error("Party ledger load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, selectedParty, selectedType, dateFrom, dateTo]);
+  }, [filters.kms_year, selectedParty, selectedType, dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const exportData = async (format) => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
-    if (filters.season) p.append('season', filters.season);
+    
     if (selectedParty) p.append('party_name', selectedParty);
     if (selectedType) p.append('party_type', selectedType);
     if (dateFrom) p.append('date_from', dateFrom);
@@ -316,7 +316,7 @@ const PartyLedger = ({ filters }) => {
       }
       const pdfParams = new URLSearchParams();
       if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
-      if (filters.season) pdfParams.append('season', filters.season);
+      
       if (selectedParty) pdfParams.append('party_name', selectedParty);
       if (selectedType) pdfParams.append('party_type', selectedType);
       if (dateFrom) pdfParams.append('date_from', dateFrom);
@@ -343,7 +343,7 @@ const PartyLedger = ({ filters }) => {
     setGroupText(`*Party Ledger / खाता विवरण*\nParty: *${selectedParty}*\nDebit: Rs.${(data.total_debit || 0).toLocaleString()}\nCredit: Rs.${(data.total_credit || 0).toLocaleString()}\n*${balLabel}: Rs.${Math.abs(bal).toLocaleString()}*`);
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
-    if (filters.season) p.append('season', filters.season);
+    
     if (selectedParty) p.append('party_name', selectedParty);
     if (selectedType) p.append('party_type', selectedType);
     if (dateFrom) p.append('date_from', dateFrom);
@@ -559,12 +559,12 @@ const GSTLedger = ({ filters }) => {
       setLoading(true);
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
+      
       const res = await axios.get(`${API}/gst-ledger?${p}`);
       setData(res.data);
     } catch { toast.error("GST Ledger load failed"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

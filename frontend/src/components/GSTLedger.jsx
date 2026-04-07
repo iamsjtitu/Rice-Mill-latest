@@ -24,12 +24,12 @@ const GSTLedger = ({ filters }) => {
       setLoading(true);
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
+      
       const res = await axios.get(`${API}/gst-ledger?${p}`);
       setData(res.data);
     } catch { toast.error("GST Ledger load failed"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

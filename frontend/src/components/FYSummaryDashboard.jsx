@@ -63,7 +63,7 @@ export default function FYSummaryDashboard({ filters }) {
     try {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
+      
       const res = await axios.get(`${API}/fy-summary?${p}`);
       setData(res.data);
     } catch (err) {
@@ -72,12 +72,12 @@ export default function FYSummaryDashboard({ filters }) {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [filters.kms_year, filters.season]);
+  useEffect(() => { fetchData(); }, [filters.kms_year]);
 
   const downloadPdf = () => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
-    if (filters.season) p.append('season', filters.season);
+    
     downloadFile(`${API}/fy-summary/pdf?${p}`, `fy_summary_${filters.kms_year || 'all'}.pdf`);
   };
 

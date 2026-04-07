@@ -615,7 +615,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
           try {
             const p = new URLSearchParams({ staff_id: s.id, period_from: periodFrom, period_to: periodTo });
             if (filters.kms_year) p.append("kms_year", filters.kms_year);
-            if (filters.season) p.append("season", filters.season);
+            
             const res = await axios.get(`${API}/staff/salary-calculate?${p}`);
             results.push({ ...res.data, staff_name: s.name, staff_id: s.id });
           } catch {}
@@ -625,7 +625,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
       } else {
         const p = new URLSearchParams({ staff_id: staffId, period_from: periodFrom, period_to: periodTo });
         if (filters.kms_year) p.append("kms_year", filters.kms_year);
-        if (filters.season) p.append("season", filters.season);
+        
         const res = await axios.get(`${API}/staff/salary-calculate?${p}`);
         setCalcData(res.data);
         setAllCalcData(null);
@@ -705,7 +705,7 @@ const SalaryPayment = ({ staff, filters, payments, fetchPayments }) => {
   const exportPayments = async (fmt) => {
     const p = new URLSearchParams({ fmt });
     if (filters.kms_year) p.append("kms_year", filters.kms_year);
-    if (filters.season) p.append("season", filters.season);
+    
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/staff/export/payments?${p}`, `staff_payments.${fmt === 'pdf' ? 'pdf' : 'xlsx'}`);
   };
@@ -923,21 +923,21 @@ const StaffManagement = ({ filters, user }) => {
     try {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append("kms_year", filters.kms_year);
-      if (filters.season) p.append("season", filters.season);
+      
       const res = await axios.get(`${API}/staff/advance?${p}`);
       setAdvances(res.data);
     } catch {}
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year]);
 
   const fetchPayments = useCallback(async () => {
     try {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append("kms_year", filters.kms_year);
-      if (filters.season) p.append("season", filters.season);
+      
       const res = await axios.get(`${API}/staff/payments?${p}`);
       setPayments(res.data);
     } catch {}
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year]);
 
   useEffect(() => { fetchStaff(); fetchAdvances(); fetchPayments(); }, [fetchStaff, fetchAdvances, fetchPayments]);
 

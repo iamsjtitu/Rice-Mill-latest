@@ -79,11 +79,11 @@ export default function PurchaseVouchers({ filters, user }) {
       setLoading(true);
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
+      
       if (searchText) p.append('search', searchText);
       const sp = new URLSearchParams();
       if (filters.kms_year) sp.append('kms_year', filters.kms_year);
-      if (filters.season) sp.append('season', filters.season);
+      
       const [res, bRes, sRes] = await Promise.all([
         axios.get(`${API}/purchase-book?${p}`),
         axios.get(`${API}/bank-accounts`),
@@ -94,7 +94,7 @@ export default function PurchaseVouchers({ filters, user }) {
       setStockItems(sRes.data || []);
     } catch { toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, searchText]);
+  }, [filters.kms_year, searchText]);
 
   const fetchSuggestions = useCallback(async () => {
     try {
@@ -245,7 +245,7 @@ export default function PurchaseVouchers({ filters, user }) {
   const handleExport = (type) => {
     const p = new URLSearchParams();
     if (filters.kms_year) p.append('kms_year', filters.kms_year);
-    if (filters.season) p.append('season', filters.season);
+    
     if (searchText) p.append('search', searchText);
     const qs = p.toString() ? `?${p.toString()}` : '';
     downloadFile(`/api/purchase-book/export/${type}${qs}`, `purchase_book.${type === 'pdf' ? 'pdf' : 'xlsx'}`);

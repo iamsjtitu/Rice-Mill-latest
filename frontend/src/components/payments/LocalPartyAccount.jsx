@@ -51,14 +51,14 @@ const LocalPartyAccount = ({ filters, user }) => {
       setLoading(true);
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
+      
       if (dateFrom) p.append('date_from', dateFrom);
       if (dateTo) p.append('date_to', dateTo);
       const res = await axios.get(`${API}/local-party/summary?${p}`);
       setSummary(res.data);
     } catch (e) { toast.error("Data load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, dateFrom, dateTo]);
+  }, [filters.kms_year, dateFrom, dateTo]);
 
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
@@ -68,14 +68,14 @@ const LocalPartyAccount = ({ filters, user }) => {
     try {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
+      
       if (dateFrom) p.append('date_from', dateFrom);
       if (dateTo) p.append('date_to', dateTo);
       const res = await axios.get(`${API}/local-party/report/${encodeURIComponent(partyName)}?${p}`);
       setReportData(res.data);
     } catch (e) { toast.error("Report load nahi hua"); }
     finally { setReportLoading(false); }
-  }, [filters.kms_year, filters.season, dateFrom, dateTo]);
+  }, [filters.kms_year, dateFrom, dateTo]);
 
   const handleSelectParty = (val) => {
     if (val === "__all__") {
@@ -141,7 +141,7 @@ const LocalPartyAccount = ({ filters, user }) => {
     try {
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
+      
       const { downloadFile } = await import('../../utils/download');
       downloadFile(`/api/local-party/${format}?${p}`, `local_party_account.${format === 'pdf' ? 'pdf' : 'xlsx'}`);
     } catch (e) { toast.error(`${format.toUpperCase()} export failed`); }

@@ -80,7 +80,6 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       setLoading(true);
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
-      if (filters.season) params.append('season', filters.season);
 
       const [truckRes, agentRes] = await Promise.all([
         axios.get(`${API}/truck-payments?${params.toString()}`),
@@ -95,7 +94,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
     } finally {
       setLoading(false);
     }
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year]);
 
   useEffect(() => {
     fetchPayments();
@@ -113,7 +112,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleExportTruckExcel = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    if (filters.season) params.append('season', filters.season);
+    
     if (truckSearchFilter) params.append('truck_no', truckSearchFilter);
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/export/truck-payments-excel?${params.toString()}`, 'truck_payments.xlsx');
@@ -123,7 +122,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleExportTruckPDF = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    if (filters.season) params.append('season', filters.season);
+    
     if (truckSearchFilter) params.append('truck_no', truckSearchFilter);
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/export/truck-payments-pdf?${params.toString()}`, 'truck_payments.pdf');
@@ -133,7 +132,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleExportAgentExcel = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    if (filters.season) params.append('season', filters.season);
+    
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/export/agent-payments-excel?${params.toString()}`, 'agent_payments.xlsx');
   };
@@ -141,7 +140,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleExportAgentPDF = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    if (filters.season) params.append('season', filters.season);
+    
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/export/agent-payments-pdf?${params.toString()}`, 'agent_payments.pdf');
   };
@@ -150,7 +149,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleExportTruckOwnerExcel = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    if (filters.season) params.append('season', filters.season);
+    
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/export/truck-owner-excel?${params.toString()}`, 'truck_owner.xlsx');
   };
@@ -158,7 +157,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleExportTruckOwnerPDF = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
-    if (filters.season) params.append('season', filters.season);
+    
     const { downloadFile } = await import('../utils/download');
     downloadFile(`/api/export/truck-owner-pdf?${params.toString()}`, 'truck_owner.pdf');
   };
@@ -177,7 +176,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       // Desktop pe pdf_url local path hoga - backend file.io pe upload karega
       const pdfParams = new URLSearchParams();
       if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
-      if (filters.season) pdfParams.append('season', filters.season);
+      
       pdfParams.append('truck_no', payment.truck_no);
       const pdfUrl = `${API}/export/truck-payments-pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-truck-payment`, {
@@ -207,7 +206,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
       }
       const pdfParams = new URLSearchParams();
       if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
-      if (filters.season) pdfParams.append('season', filters.season);
+      
       const pdfUrl = `${API}/export/truck-owner-pdf?${pdfParams.toString()}`;
       const res = await axios.post(`${API}/whatsapp/send-truck-owner`, {
         truck_no: truckData.truck_no,
@@ -268,7 +267,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleOwnerPay = async () => {
     if (!ownerPayAmount || !selectedOwnerTruck) return;
     try {
-      const params = `kms_year=${filters.kms_year||''}&season=${filters.season||''}&username=${user.username}&role=${user.role}`;
+      const params = `kms_year=${filters.kms_year||''}&username=${user.username}&role=${user.role}`;
       const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(selectedOwnerTruck.truck_no)}/pay?${params}`, {
         amount: parseFloat(ownerPayAmount), note: ownerPayNote, payment_mode: ownerPayMode,
         round_off: parseFloat(ownerPayRoundOff) || 0,
@@ -282,7 +281,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleOwnerMarkPaid = async (truck) => {
     if (!await showConfirm("Mark All Paid", `${truck.truck_no} ke saare trips mark paid karna chahte hain?`)) return;
     try {
-      const params = `kms_year=${filters.kms_year||''}&season=${filters.season||''}&username=${user.username}&role=${user.role}`;
+      const params = `kms_year=${filters.kms_year||''}&username=${user.username}&role=${user.role}`;
       const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(truck.truck_no)}/mark-paid?${params}`);
       toast.success(res.data.message); fetchPayments();
     } catch (e) { toast.error(e.response?.data?.detail || "Mark paid error"); }
@@ -291,7 +290,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
   const handleOwnerUndoPaid = async (truck) => {
     if (!await showConfirm("Undo All Payments", `${truck.truck_no} ke saare payments undo karna chahte hain?`)) return;
     try {
-      const params = `kms_year=${filters.kms_year||''}&season=${filters.season||''}&username=${user.username}&role=${user.role}`;
+      const params = `kms_year=${filters.kms_year||''}&username=${user.username}&role=${user.role}`;
       const res = await axios.post(`${API}/truck-owner/${encodeURIComponent(truck.truck_no)}/undo-paid?${params}`);
       toast.success(res.data.message); fetchPayments();
     } catch (e) { toast.error(e.response?.data?.detail || "Undo error"); }
@@ -299,7 +298,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
 
   const handleOwnerHistory = async (truck) => {
     try {
-      const res = await axios.get(`${API}/truck-owner/${encodeURIComponent(truck.truck_no)}/history?kms_year=${filters.kms_year||''}&season=${filters.season||''}`);
+      const res = await axios.get(`${API}/truck-owner/${encodeURIComponent(truck.truck_no)}/history?kms_year=${filters.kms_year||''}`);
       setOwnerHistory(res.data.history || []); setSelectedOwnerTruck(truck); setShowOwnerHistoryDialog(true);
     } catch (e) { toast.error("History load error"); }
   };
@@ -321,7 +320,7 @@ export const Payments = ({ filters, user, branding, initialSubTab, onSubTabConsu
         }
       } else {
         await axios.put(
-          `${API}/agent-rates/${encodeURIComponent(selectedItem.agent_name)}?kms_year=${filters.kms_year}&season=${filters.season}&username=${user.username}&role=${user.role}`,
+          `${API}/agent-rates/${encodeURIComponent(selectedItem.agent_name)}?kms_year=${filters.kms_year}&username=${user.username}&role=${user.role}`,
           { rate_per_qntl: parseFloat(newRate) }
         );
         toast.success("Rate set ho gaya!");
@@ -1742,7 +1741,7 @@ const DieselAccount = ({ filters, user }) => {
       setLoading(true);
       const p = new URLSearchParams();
       if (filters.kms_year) p.append('kms_year', filters.kms_year);
-      if (filters.season) p.append('season', filters.season);
+      
       if (selectedPump !== "all") p.append('pump_id', selectedPump);
       if (filterDateFrom) p.append('date_from', filterDateFrom);
       if (filterDateTo) p.append('date_to', filterDateTo);
@@ -1758,7 +1757,7 @@ const DieselAccount = ({ filters, user }) => {
       setTxns(tRes.data || []);
     } catch (e) { toast.error("Diesel data load nahi hua"); }
     finally { setLoading(false); }
-  }, [filters.kms_year, filters.season, selectedPump, filterDateFrom, filterDateTo, filterType, filterTruck]);
+  }, [filters.kms_year, selectedPump, filterDateFrom, filterDateTo, filterType, filterTruck]);
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleAddPump = async () => {
@@ -1934,8 +1933,8 @@ const DieselAccount = ({ filters, user }) => {
       {/* Actions */}
       <div className="flex gap-2 flex-wrap">
         <Button onClick={fetchData} variant="outline" size="sm" className="border-slate-600 text-slate-300"><RefreshCw className="w-4 h-4 mr-1" /> Refresh</Button>
-        <Button onClick={async () => { try { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/diesel-accounts/excel?${p}`, 'diesel_account.xlsx'); } catch (e) { toast.error("Excel export failed"); } }} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="diesel-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
-        <Button onClick={async () => { try { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year); if (filters.season) p.append('season', filters.season); const { downloadFile } = await import('../utils/download'); downloadFile(`/api/diesel-accounts/pdf?${p}`, 'diesel_account.pdf'); } catch (e) { toast.error("PDF export failed"); } }} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="diesel-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
+        <Button onClick={async () => { try { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year);  const { downloadFile } = await import('../utils/download'); downloadFile(`/api/diesel-accounts/excel?${p}`, 'diesel_account.xlsx'); } catch (e) { toast.error("Excel export failed"); } }} variant="outline" size="sm" className="border-slate-600 text-green-400 hover:bg-slate-700" data-testid="diesel-export-excel"><Download className="w-4 h-4 mr-1" /> Excel</Button>
+        <Button onClick={async () => { try { const p = new URLSearchParams(); if (filters.kms_year) p.append('kms_year', filters.kms_year);  const { downloadFile } = await import('../utils/download'); downloadFile(`/api/diesel-accounts/pdf?${p}`, 'diesel_account.pdf'); } catch (e) { toast.error("PDF export failed"); } }} variant="outline" size="sm" className="border-slate-600 text-red-400 hover:bg-slate-700" data-testid="diesel-export-pdf"><FileText className="w-4 h-4 mr-1" /> PDF</Button>
       </div>
 
       {/* Transactions Table */}

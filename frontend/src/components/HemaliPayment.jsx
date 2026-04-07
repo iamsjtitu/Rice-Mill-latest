@@ -138,21 +138,21 @@ const MonthlySummary = ({ filters }) => {
     try {
       const params = new URLSearchParams();
       if (filters.kms_year) params.append("kms_year", filters.kms_year);
-      if (filters.season) params.append("season", filters.season);
+      
       if (filterSardar) params.append("sardar_name", filterSardar);
       if (filterMonth) params.append("month", filterMonth);
       const res = await axios.get(`${API}/hemali/monthly-summary?${params}`);
       setData(res.data || []);
     } catch { toast.error("Monthly summary load error"); }
     setLoading(false);
-  }, [filters.kms_year, filters.season, filterSardar, filterMonth]);
+  }, [filters.kms_year, filterSardar, filterMonth]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleExport = async (format) => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
-    if (filters.season) params.append("season", filters.season);
+    
     if (filterSardar) params.append("sardar_name", filterSardar);
     if (filterMonth) params.append("month", filterMonth);
     const { downloadFile } = await import("@/utils/download");
@@ -294,7 +294,7 @@ export default function HemaliPayment({ filters, user }) {
     try {
       const params = new URLSearchParams();
       if (filters.kms_year) params.append("kms_year", filters.kms_year);
-      if (filters.season) params.append("season", filters.season);
+      
       if (dateFrom) params.append("from_date", dateFrom);
       if (dateTo) params.append("to_date", dateTo);
       if (filterSardar) params.append("sardar_name", filterSardar);
@@ -302,7 +302,7 @@ export default function HemaliPayment({ filters, user }) {
       setPayments(res.data || []);
     } catch { toast.error("Payments load error"); }
     setLoading(false);
-  }, [filters.kms_year, filters.season, dateFrom, dateTo, filterSardar]);
+  }, [filters.kms_year, dateFrom, dateTo, filterSardar]);
 
   const fetchSardars = useCallback(async () => {
     try {
@@ -318,10 +318,10 @@ export default function HemaliPayment({ filters, user }) {
   const fetchAdvance = useCallback(async (name) => {
     if (!name || name.trim().length < 2) { setAdvanceInfo({ advance: 0, sardar_name: "" }); return; }
     try {
-      const res = await axios.get(`${API}/hemali/advance?sardar_name=${encodeURIComponent(name.trim())}&kms_year=${filters.kms_year || ""}&season=${filters.season || ""}`);
+      const res = await axios.get(`${API}/hemali/advance?sardar_name=${encodeURIComponent(name.trim())}&kms_year=${filters.kms_year || ""}`);
       setAdvanceInfo(res.data);
     } catch { setAdvanceInfo({ advance: 0, sardar_name: name }); }
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year]);
 
   // Auto-fetch advance when sardar name changes in form
   useEffect(() => {
@@ -448,7 +448,7 @@ export default function HemaliPayment({ filters, user }) {
   const handleExportPDF = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
-    if (filters.season) params.append("season", filters.season);
+    
     if (dateFrom) params.append("from_date", dateFrom);
     if (dateTo) params.append("to_date", dateTo);
     if (filterSardar) params.append("sardar_name", filterSardar);
@@ -460,7 +460,7 @@ export default function HemaliPayment({ filters, user }) {
   const handleExportExcel = async () => {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append("kms_year", filters.kms_year);
-    if (filters.season) params.append("season", filters.season);
+    
     if (dateFrom) params.append("from_date", dateFrom);
     if (dateTo) params.append("to_date", dateTo);
     if (filterSardar) params.append("sardar_name", filterSardar);

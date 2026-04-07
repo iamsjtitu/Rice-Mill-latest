@@ -75,7 +75,7 @@ export default function SaleBook({ filters, user }) {
     kms_year: filters.kms_year || "", season: filters.season || "",
   });
 
-  const p = `kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`;
+  const p = `kms_year=${filters.kms_year || ''}`;
 
   const fetchData = useCallback(async () => {
     try {

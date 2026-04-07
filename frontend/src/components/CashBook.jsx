@@ -87,7 +87,6 @@ const CashBook = ({ filters, user }) => {
     try {
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
-      if (filters.season) params.append('season', filters.season);
       if (partySummaryFilter) params.append('party_type', partySummaryFilter);
       const res = await axios.get(`${API}/cash-book/party-summary?${params}`);
       const data = res.data;
@@ -107,7 +106,7 @@ const CashBook = ({ filters, user }) => {
         setPartySummary(data);
       }
     } catch (e) { toast.error("Party summary load failed"); }
-  }, [filters.kms_year, filters.season, partySummaryFilter]);
+  }, [filters.kms_year, partySummaryFilter]);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -120,11 +119,10 @@ const CashBook = ({ filters, user }) => {
     try {
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
-      if (filters.season) params.append('season', filters.season);
       const res = await axios.get(`${API}/cash-book/agent-names?${params}`);
       setAgentSuggestions(res.data);
     } catch (e) { /* ignore */ }
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year]);
 
   const fetchBankAccounts = useCallback(async () => {
     try {
@@ -143,7 +141,6 @@ const CashBook = ({ filters, user }) => {
       const p = fetchPage || page;
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
-      if (filters.season) params.append('season', filters.season);
       if (activeView === 'cash-transactions') {
         params.append('account', 'cash');
       } else {
@@ -159,7 +156,6 @@ const CashBook = ({ filters, user }) => {
       params.append('page_size', PAGE_SIZE);
       const allParams = new URLSearchParams();
       if (filters.kms_year) allParams.append('kms_year', filters.kms_year);
-      if (filters.season) allParams.append('season', filters.season);
       allParams.append('page_size', '0');
       const [txnRes, sumRes, allRes] = await Promise.all([
         axios.get(`${API}/cash-book?${params}`, { signal: ctrl.signal }),
@@ -180,7 +176,7 @@ const CashBook = ({ filters, user }) => {
       } catch {}
     } catch (e) { if (!ctrl.signal.aborted) toast.error("Cash book load nahi hua"); }
     finally { if (!ctrl.signal.aborted) setLoading(false); }
-  }, [filters.kms_year, filters.season, txnFilters, activeView, page]);
+  }, [filters.kms_year, txnFilters, activeView, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => fetchData(), 300);
@@ -256,7 +252,6 @@ const CashBook = ({ filters, user }) => {
       const { downloadFile } = await import('../utils/download');
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
-      if (filters.season) params.append('season', filters.season);
       // Pass all active filters for export
       if (activeView === 'cash-transactions') {
         params.append('account', 'cash');
@@ -299,7 +294,6 @@ const CashBook = ({ filters, user }) => {
       const totalCredit = partyTxns.filter(t => t.txn_type === 'jama').reduce((s,t) => s + (t.amount || 0), 0);
       const pdfParams = new URLSearchParams();
       if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
-      if (filters.season) pdfParams.append('season', filters.season);
       pdfParams.append('category', partyName);
       if (txnFilters.party_type) pdfParams.append('party_type', txnFilters.party_type);
       if (txnFilters.account) pdfParams.append('account', txnFilters.account);
@@ -327,7 +321,6 @@ const CashBook = ({ filters, user }) => {
     setGroupText(`*Cash Book Ledger*\nParty: *${partyName}*\nDebit: Rs.${totalDebit.toLocaleString()}\nCredit: Rs.${totalCredit.toLocaleString()}\n*${balLabel}: Rs.${Math.abs(bal).toLocaleString()}*`);
     const pdfParams = new URLSearchParams();
     if (filters.kms_year) pdfParams.append('kms_year', filters.kms_year);
-    if (filters.season) pdfParams.append('season', filters.season);
     pdfParams.append('category', partyName);
     if (txnFilters.party_type) pdfParams.append('party_type', txnFilters.party_type);
     if (txnFilters.account) pdfParams.append('account', txnFilters.account);
@@ -399,7 +392,7 @@ const CashBook = ({ filters, user }) => {
 
   const openSvPayDialog = async () => {
     try {
-      const res = await axios.get(`${API}/sale-book?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`);
+      const res = await axios.get(`${API}/sale-book?kms_year=${filters.kms_year || ''}`);
       const pending = (res.data || []).filter(v => {
         const bal = v.ledger_balance != null ? v.ledger_balance : (v.balance || 0);
         return bal > 0;
@@ -432,7 +425,7 @@ const CashBook = ({ filters, user }) => {
 
   const openPvPayDialog = async () => {
     try {
-      const res = await axios.get(`${API}/purchase-book?kms_year=${filters.kms_year || ''}&season=${filters.season || ''}`);
+      const res = await axios.get(`${API}/purchase-book?kms_year=${filters.kms_year || ''}`);
       const pending = (res.data || []).filter(v => {
         const bal = v.ledger_balance != null ? v.ledger_balance : (v.balance || 0);
         return bal > 0;
