@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.36.0";
+const APP_VERSION = "88.37.0";
 
 const CHANGELOG = [
+  {
+    version: "88.37.0",
+    date: "Apr 2026",
+    title: "v88.37.0 - Backup Fixes",
+    items: [
+      { type: "fix", text: "Logout par auto backup ab sahi kaam karega" },
+      { type: "fix", text: "Backup folder path restart ke baad bhi yaad rahega (settings persist fix)" },
+    ]
+  },
   {
     version: "88.36.0",
     date: "Apr 2026",
