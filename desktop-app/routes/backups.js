@@ -86,6 +86,36 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
     }
   }));
 
+  // JSON restore - upload raw JSON backup and restore
+  router.post('/api/backups/restore-json', safeSync(async (req, res) => {
+    const { data, filename } = req.body;
+    if (!data) return res.status(400).json({ detail: 'JSON data missing' });
+    let parsed;
+    try {
+      parsed = typeof data === 'string' ? JSON.parse(data) : data;
+    } catch (e) { return res.status(400).json({ detail: 'Invalid JSON format' }); }
+    if (typeof parsed !== 'object' || Array.isArray(parsed)) return res.status(400).json({ detail: 'JSON must be an object with collection keys' });
+
+    try {
+      createBackup(database, 'pre-json-restore');
+      let restoredCount = 0;
+      for (const [key, val] of Object.entries(parsed)) {
+        if (key.startsWith('_')) continue;
+        if (Array.isArray(val)) {
+          database.data[key] = val;
+          restoredCount++;
+        } else if (typeof val === 'object' && val !== null) {
+          database.data[key] = val;
+          restoredCount++;
+        }
+      }
+      database.save();
+      res.json({ success: true, message: `JSON Restore ho gaya! ${restoredCount} collections restored.` });
+    } catch (e) {
+      res.status(500).json({ detail: 'Restore error: ' + e.message });
+    }
+  }));
+
   // ZIP download - download all data as ZIP
   router.get('/api/backup/download', safeSync(async (req, res) => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '').substring(0, 15);

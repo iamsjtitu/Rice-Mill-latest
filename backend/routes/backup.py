@@ -149,6 +149,49 @@ async def restore_backup_zip(username: str = "", role: str = "", file: UploadFil
             "backup_date": meta.get("backup_date", "unknown"), "restored": restored, "skipped": skipped}
 
 
+@router.post("/backups/restore-json")
+async def restore_backup_json(body: dict):
+    """Restore data from a raw JSON backup file (desktop/local format)."""
+    raw = body.get("data")
+    if not raw:
+        raise HTTPException(status_code=400, detail="JSON data missing")
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON format")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="JSON must be an object with collection keys")
+
+    # Create safety backup first
+    try:
+        await _create_backup_to_folder("pre-json-restore")
+    except Exception as e:
+        logger.warning(f"Pre-restore backup failed: {e}")
+
+    restored, skipped = [], []
+    for key, val in data.items():
+        if key.startswith("_"):
+            continue
+        if not isinstance(val, list) or len(val) == 0:
+            skipped.append(key)
+            continue
+        try:
+            clean_docs = []
+            for doc in val:
+                if isinstance(doc, dict):
+                    doc.pop('_id', None)
+                    clean_docs.append(doc)
+            if clean_docs:
+                await db[key].delete_many({})
+                await db[key].insert_many(clean_docs)
+                restored.append({"name": key, "count": len(clean_docs)})
+        except Exception as e:
+            skipped.append(f"{key} (error: {str(e)})")
+
+    return {"success": True, "message": f"JSON Restore ho gaya! {len(restored)} collections restored.",
+            "restored": restored, "skipped": skipped}
+
+
 # ---- Folder-based Backups (Backup Now + Auto Daily) ----
 
 async def _create_backup_to_folder(trigger="manual"):
