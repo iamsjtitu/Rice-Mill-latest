@@ -7,6 +7,16 @@ const APP_VERSION = "88.25.0";
 
 const CHANGELOG = [
   {
+    version: "88.25.0",
+    date: "Apr 2026",
+    title: "v88.25.0 - Google Drive Sync + File Watcher",
+    items: [
+      { type: "feature", text: "File Watcher — Google Drive se data auto-detect hoga jab dusre computer se entry aaye (5 sec polling)" },
+      { type: "feature", text: "Manual Sync Button — Header mein 'Sync' button se turant data reload karo" },
+      { type: "fix", text: "VW PDF table width full page cover karega — side gap fix kiya" },
+    ]
+  },
+  {
     version: "88.23.0",
     date: "Apr 2026",
     title: "v88.23.0 - RST Sort Fix + VW PDF Redesign",

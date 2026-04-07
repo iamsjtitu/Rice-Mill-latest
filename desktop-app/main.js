@@ -1277,6 +1277,29 @@ function createApiServer(database) {
     });
   }));
 
+  // ===== MANUAL SYNC / RELOAD =====
+  apiApp.post('/api/sync/reload', safeSync((req, res) => {
+    console.log('[Sync] Manual reload triggered');
+    if (database.manualReload) {
+      const counts = database.manualReload();
+      res.json({ success: true, message: 'Data reload ho gaya!', ...counts });
+    } else if (database._reloadFromDisk) {
+      database._reloadFromDisk();
+      res.json({ success: true, message: 'Data reload ho gaya!', entries: (database.data.entries || []).length });
+    } else {
+      // JsonDatabase fallback
+      try {
+        const newData = JSON.parse(fs.readFileSync(database.dbFile, 'utf8'));
+        database.data = newData;
+        database.migrateOldEntries(database.data);
+        res.json({ success: true, message: 'Data reload ho gaya!', entries: (database.data.entries || []).length });
+      } catch (e) {
+        res.status(500).json({ success: false, message: 'Reload failed: ' + e.message });
+      }
+    }
+  }));
+
+
   // ===== STORAGE ENGINE API =====
   apiApp.get('/api/settings/storage-engine', safeSync((req, res) => {
     res.json({ engine: dbEngine });

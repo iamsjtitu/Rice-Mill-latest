@@ -1029,6 +1029,20 @@ async function startServer() {
     }
   });
 
+
+  app.post('/api/sync/reload', (req, res) => {
+    try {
+      if (database.manualReload) {
+        const counts = database.manualReload();
+        res.json({ success: true, message: 'Data reload ho gaya!', ...counts });
+      } else {
+        res.status(400).json({ success: false, message: 'Reload not supported' });
+      }
+    } catch (e) {
+      res.status(500).json({ success: false, message: 'Reload failed: ' + e.message });
+    }
+  });
+
   app.get('/api/error-log', (req, res) => {
     const logPath = path.join(DATA_DIR, 'error.log');
     try {

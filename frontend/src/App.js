@@ -1228,6 +1228,29 @@ function MainApp({ user, setUser, onLogout }) {
               </Button>
 
               <Button
+                onClick={async () => {
+                  try {
+                    const res = await axios.post(`${API}/sync/reload`);
+                    if (res.data.success) {
+                      toast.success(`Sync Done! Entries: ${res.data.entries || 0}, VW: ${res.data.vehicle_weights || 0}`);
+                      // Refresh current tab data
+                      window.location.reload();
+                    }
+                  } catch (e) {
+                    toast.error('Sync failed: ' + (e.response?.data?.message || e.message));
+                  }
+                }}
+                variant="outline"
+                size="sm"
+                className="border-cyan-600/50 text-cyan-400 hover:bg-cyan-900/30"
+                data-testid="sync-reload-btn"
+                title="Google Drive se data sync karo"
+              >
+                <RefreshCw className="w-4 h-4 mr-1" />
+                Sync
+              </Button>
+
+              <Button
                 onClick={() => setShowWhatsNew(true)}
                 variant="outline"
                 size="sm"

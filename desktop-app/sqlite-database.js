@@ -248,6 +248,7 @@ class SqliteDatabase {
   _doSave() {
     this._pendingSave = false;
     this.lastSaveTime = new Date().toISOString();
+    this._lastOwnSaveTime = Date.now();
     try {
       const transaction = this.sqlite.transaction(() => {
         // Save KV items
@@ -280,6 +281,79 @@ class SqliteDatabase {
       console.error('[SQLite] Save error:', e.message);
     }
   }
+
+  // ============ Google Drive / External Sync File Watcher ============
+  startFileWatcher() {
+    if (this._fileWatcher) return;
+    this._lastOwnSaveTime = this._lastOwnSaveTime || Date.now();
+    this._lastKnownMtime = 0;
+    try {
+      const stat = fs.statSync(this.dbFile);
+      this._lastKnownMtime = stat.mtimeMs;
+    } catch (_) {}
+
+    // Poll every 5 seconds
+    this._fileWatcher = setInterval(() => {
+      try {
+        if (!fs.existsSync(this.dbFile)) return;
+        const stat = fs.statSync(this.dbFile);
+        const fileMtime = stat.mtimeMs;
+        if (fileMtime > this._lastKnownMtime && (fileMtime - (this._lastOwnSaveTime || 0)) > 2000) {
+          console.log('[SQLite FileWatcher] External file change detected, reloading...');
+          this._lastKnownMtime = fileMtime;
+          this._reloadFromDisk();
+          console.log('[SQLite FileWatcher] Data reloaded. Entries:', (this.data.entries || []).length);
+        } else {
+          this._lastKnownMtime = fileMtime;
+        }
+      } catch (e) {
+        // Ignore transient read errors during sync
+      }
+    }, 5000);
+    console.log('[SQLite] File watcher started');
+  }
+
+  stopFileWatcher() {
+    if (this._fileWatcher) {
+      clearInterval(this._fileWatcher);
+      this._fileWatcher = null;
+      console.log('[SQLite] File watcher stopped');
+    }
+  }
+
+  _reloadFromDisk() {
+    try {
+      // Close current connection
+      this.sqlite.close();
+      // Reopen
+      const Database = require('better-sqlite3');
+      this.sqlite = new Database(this.dbFile);
+      const isCloudPath = this.dataFolder.includes('CloudStorage') || 
+                          this.dataFolder.includes('Google Drive') ||
+                          this.dataFolder.includes('GoogleDrive') ||
+                          this.dataFolder.includes('iCloud') ||
+                          this.dataFolder.includes('OneDrive');
+      if (isCloudPath) {
+        this.sqlite.pragma('journal_mode = DELETE');
+      } else {
+        this.sqlite.pragma('journal_mode = WAL');
+      }
+      this.sqlite.pragma('synchronous = NORMAL');
+      this.sqlite.pragma('cache_size = -8000');
+      // Reload data
+      this.data = this._loadAll();
+      this.migrateOldEntries(this.data);
+    } catch (e) {
+      console.error('[SQLite FileWatcher] Reload error:', e.message);
+    }
+  }
+
+  // Manual sync/reload
+  manualReload() {
+    this._reloadFromDisk();
+    return { entries: (this.data.entries || []).length, vehicle_weights: (this.data.vehicle_weights || []).length };
+  }
+
 
   // ============ EXPORT to JSON (for backup compatibility) ============
   exportToJson() {
