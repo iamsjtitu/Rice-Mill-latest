@@ -1100,3 +1100,7 @@ frontend/node_modules/.cache/default-development/25.pack
 # Environment files
 *.env
 *.env.*
+-e 
+# Environment files
+*.env
+*.env.*
