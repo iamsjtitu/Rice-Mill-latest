@@ -765,7 +765,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         </div>
         <table class="info-table">
           <tr><td class="lbl">RST No.</td><td class="val rst">#${rst}</td><td class="lbl">Date / दिनांक</td><td class="val">${fmtDate(e.date)}</td></tr>
-          <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans</td><td class="val">${e.trans_type || '-'}</td></tr>
+          <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans Type</td><td class="val">${e.trans_type || '-'}</td></tr>
           <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source/Mandi</td><td class="val">${e.farmer_name || '-'}</td></tr>
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
           ${Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
@@ -1417,7 +1417,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   <tr>
                     <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Vehicle / गाड़ी</td>
                     <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.vehicle_no}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Trans</td>
+                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Trans Type</td>
                     <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.trans_type || '-'}</td>
                   </tr>
                   <tr>
