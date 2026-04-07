@@ -2497,6 +2497,9 @@ function GoogleDriveSyncTab() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [intervalSecs, setIntervalSecs] = useState(10);
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [savingCreds, setSavingCreds] = useState(false);
 
   const fetchStatus = async () => {
     try {
@@ -2512,6 +2515,21 @@ function GoogleDriveSyncTab() {
     const iv = setInterval(fetchStatus, 4000);
     return () => clearInterval(iv);
   }, []);
+
+  const handleSaveCredentials = async () => {
+    if (!clientId.trim() || !clientSecret.trim()) return toast.error("Client ID aur Client Secret dono bharein");
+    setSavingCreds(true);
+    try {
+      await axios.put(`${API}/gdrive/credentials`, { clientId: clientId.trim(), clientSecret: clientSecret.trim() });
+      toast.success("Credentials save ho gaye!");
+      setClientId('');
+      setClientSecret('');
+      fetchStatus();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Save error");
+    }
+    setSavingCreds(false);
+  };
 
   const handleConnect = async () => {
     try {
@@ -2635,32 +2653,92 @@ function GoogleDriveSyncTab() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Status */}
-          <div className="flex items-center justify-between p-3 bg-slate-700/40 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${status.connected ? 'bg-green-500' : 'bg-red-500'} ${status.syncing ? 'animate-pulse' : ''}`} />
-              <div>
-                <p className="text-sm text-white font-medium">
-                  {status.connected ? 'Google Drive Connected' : 'Not Connected'}
-                </p>
-                {status.connected && status.lastSyncTime && (
-                  <p className="text-[10px] text-slate-400">
-                    Last sync: {formatTime(status.lastSyncTime)}
-                    {status.lastSyncDirection && ` (${status.lastSyncDirection === 'upload' ? 'Uploaded' : 'Downloaded'})`}
-                  </p>
-                )}
+          {/* Step 1: API Credentials */}
+          {!status.hasCredentials && (
+            <div className="p-3 bg-slate-700/40 rounded-lg space-y-3">
+              <p className="text-sm text-white font-medium">Step 1: Google API Credentials</p>
+              <p className="text-[10px] text-slate-400">
+                Google Cloud Console se OAuth Client ID aur Secret lao. Ye locally save hoga, code mein nahi jayega.
+              </p>
+              <div className="space-y-2">
+                <div>
+                  <Label className="text-[10px] text-slate-400">Client ID</Label>
+                  <Input
+                    value={clientId} onChange={e => setClientId(e.target.value)}
+                    placeholder="xxxxx.apps.googleusercontent.com"
+                    className="bg-slate-900 border-slate-600 text-white h-8 text-xs font-mono"
+                    data-testid="gdrive-client-id"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-slate-400">Client Secret</Label>
+                  <Input
+                    value={clientSecret} onChange={e => setClientSecret(e.target.value)}
+                    placeholder="GOCSPX-..."
+                    className="bg-slate-900 border-slate-600 text-white h-8 text-xs font-mono"
+                    type="password"
+                    data-testid="gdrive-client-secret"
+                  />
+                </div>
+                <Button onClick={handleSaveCredentials} disabled={savingCreds} size="sm" className="bg-amber-600 hover:bg-amber-700 text-white h-8 text-xs w-full" data-testid="gdrive-save-creds-btn">
+                  {savingCreds ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1" /> : <Key className="w-3.5 h-3.5 mr-1" />}
+                  Save Credentials
+                </Button>
+              </div>
+              <div className="p-2 bg-blue-900/20 border border-blue-700/50 rounded text-[10px] text-blue-300 space-y-1">
+                <p className="font-medium">Credentials kaise banayein:</p>
+                <ol className="list-decimal list-inside space-y-0.5 text-blue-200">
+                  <li>Google Cloud Console kholo (console.cloud.google.com)</li>
+                  <li>APIs & Services &gt; Credentials &gt; Create OAuth Client ID</li>
+                  <li>Application type: Desktop app</li>
+                  <li>Client ID aur Secret copy karo aur yahan paste karo</li>
+                </ol>
               </div>
             </div>
-            {!status.connected ? (
-              <Button onClick={handleConnect} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs" data-testid="gdrive-connect-btn">
-                <Cloud className="w-3.5 h-3.5 mr-1" /> Connect
-              </Button>
-            ) : (
-              <Button onClick={handleDisconnect} variant="outline" size="sm" className="border-red-600/50 text-red-400 hover:bg-red-600/20 h-8 text-xs" data-testid="gdrive-disconnect-btn">
-                <CloudOff className="w-3.5 h-3.5 mr-1" /> Disconnect
-              </Button>
-            )}
-          </div>
+          )}
+
+          {/* Step 2: Connection Status (only if credentials exist) */}
+          {status.hasCredentials && (
+            <>
+              {/* Credentials saved indicator */}
+              <div className="flex items-center justify-between p-2 bg-slate-700/30 rounded text-[10px]">
+                <span className="text-slate-400">API Credentials: <span className="text-green-400">{status.clientId || 'Saved'}</span></span>
+                <Button onClick={() => {
+                  const config = { clientId: '', clientSecret: '' };
+                  axios.put(`${API}/gdrive/credentials`, config).then(() => { toast.success("Credentials reset"); fetchStatus(); }).catch(() => {});
+                }} variant="ghost" size="sm" className="h-6 text-[10px] text-slate-500 hover:text-red-400">
+                  Change Key
+                </Button>
+              </div>
+
+              {/* Status */}
+              <div className="flex items-center justify-between p-3 bg-slate-700/40 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${status.connected ? 'bg-green-500' : 'bg-red-500'} ${status.syncing ? 'animate-pulse' : ''}`} />
+                  <div>
+                    <p className="text-sm text-white font-medium">
+                      {status.connected ? 'Google Drive Connected' : 'Not Connected'}
+                    </p>
+                    {status.connected && status.lastSyncTime && (
+                      <p className="text-[10px] text-slate-400">
+                        Last sync: {formatTime(status.lastSyncTime)}
+                        {status.lastSyncDirection && ` (${status.lastSyncDirection === 'upload' ? 'Uploaded' : 'Downloaded'})`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {!status.connected ? (
+                  <Button onClick={handleConnect} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs" data-testid="gdrive-connect-btn">
+                    <Cloud className="w-3.5 h-3.5 mr-1" /> Connect
+                  </Button>
+                ) : (
+                  <Button onClick={handleDisconnect} variant="outline" size="sm" className="border-red-600/50 text-red-400 hover:bg-red-600/20 h-8 text-xs" data-testid="gdrive-disconnect-btn">
+                    <CloudOff className="w-3.5 h-3.5 mr-1" /> Disconnect
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Error */}
           {status.lastError && (
@@ -2729,17 +2807,18 @@ function GoogleDriveSyncTab() {
           )}
 
           {/* Setup Help */}
-          {!status.connected && (
+          {status.hasCredentials && !status.connected && (
             <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg text-xs text-blue-300 space-y-2">
-              <p className="font-medium">Setup Guide:</p>
+              <p className="font-medium">Connect kaise karein:</p>
               <ol className="list-decimal list-inside space-y-1 text-blue-200">
-                <li>Connect button dabayein - Google login page khulega</li>
+                <li>"Connect" button dabayein - Google login page khulega</li>
                 <li>Apne Google account se login karein aur permission dein</li>
                 <li>Connected hone ke baad Auto Sync ON karein</li>
-                <li>Dusre computer par bhi same Google account se connect karein</li>
+                <li>Dusre computer par bhi same credentials aur Google account se connect karein</li>
               </ol>
               <p className="text-blue-400 mt-2">
-                Note: Google Cloud Console mein ye Redirect URI add karein:<br/>
+                Note: Agar "Desktop app" type ka OAuth Client banaya hai toh Redirect URI ki zarurat nahi.<br/>
+                Agar "Web application" type hai toh ye URI add karein:<br/>
                 <code className="bg-slate-800 px-1 py-0.5 rounded text-[9px]">http://localhost:9876/api/gdrive/callback</code>
               </p>
             </div>

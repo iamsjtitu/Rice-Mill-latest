@@ -1606,9 +1606,18 @@ function createApiServer(database) {
 
   apiApp.get('/api/gdrive/auth-url', safeSync((req, res) => {
     if (!gdriveSync) return res.status(400).json({ detail: 'GDrive module not available' });
+    if (!gdriveSync.hasCredentials()) return res.status(400).json({ detail: 'Client ID & Secret set karein pehle (Settings > Sync)' });
     const url = gdriveSync.getAuthUrl();
     if (!url) return res.status(500).json({ detail: 'Could not generate auth URL' });
     res.json({ url });
+  }));
+
+  apiApp.put('/api/gdrive/credentials', safeSync((req, res) => {
+    if (!gdriveSync) return res.status(400).json({ detail: 'GDrive module not available' });
+    const { clientId, clientSecret } = req.body;
+    if (!clientId || !clientSecret) return res.status(400).json({ detail: 'Client ID aur Client Secret dono zaruri hain' });
+    gdriveSync.setCredentials(clientId.trim(), clientSecret.trim());
+    res.json({ success: true, ...gdriveSync.getStatus() });
   }));
 
   apiApp.get('/api/gdrive/callback', safeAsync(async (req, res) => {

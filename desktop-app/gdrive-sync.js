@@ -1,12 +1,11 @@
 /**
  * Google Drive Direct API Sync for Mill Entry System
  * Fast sync: upload on save (3s debounce), poll for changes (10-15s)
+ * Client ID & Secret are user-configurable via Settings UI
  */
 const fs = require('fs');
 const path = require('path');
 
-const CLIENT_ID = 'YOUR_CLIENT_ID_HERE';
-const CLIENT_SECRET = 'YOUR_CLIENT_SECRET_HERE';
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 const DB_FILENAME = 'millentry-data.db';
 const DRIVE_FOLDER = 'MillEntrySync';
@@ -19,7 +18,6 @@ class GDriveSync {
     this.onReloadNeeded = opts.onReloadNeeded || (() => {});
 
     this.configFile = path.join(this.configDir, 'gdrive-tokens.json');
-    this.redirectUri = `http://localhost:${this.port}/api/gdrive/callback`;
 
     this.oauth2Client = null;
     this.drive = null;
@@ -33,6 +31,8 @@ class GDriveSync {
     this.autoSyncSecs = 10;
     this.lastError = null;
     this._driveModTime = null;
+    this.clientId = null;
+    this.clientSecret = null;
 
     this._init();
   }
@@ -41,35 +41,62 @@ class GDriveSync {
     try {
       const { google } = require('googleapis');
       this.google = google;
-      this.oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, this.redirectUri);
-
-      this.oauth2Client.on('tokens', (tokens) => {
-        const saved = this._loadConfig();
-        if (tokens.refresh_token) saved.refresh_token = tokens.refresh_token;
-        if (tokens.access_token) saved.access_token = tokens.access_token;
-        if (tokens.expiry_date) saved.expiry_date = tokens.expiry_date;
-        this._saveConfig(saved);
-      });
 
       const config = this._loadConfig();
-      if (config.refresh_token) {
-        this.oauth2Client.setCredentials({
-          refresh_token: config.refresh_token,
-          access_token: config.access_token,
-          expiry_date: config.expiry_date
-        });
-        this.drive = google.drive({ version: 'v3', auth: this.oauth2Client });
-        this.driveFileId = config.driveFileId || null;
-        this.autoSyncEnabled = config.autoSyncEnabled || false;
-        this.autoSyncSecs = config.autoSyncSecs || 10;
-        this.lastSyncTime = config.lastSyncTime || null;
-        this.lastSyncDirection = config.lastSyncDirection || null;
-        this._driveModTime = config._driveModTime || null;
-        console.log('[GDrive] Loaded credentials, connected');
+      this.clientId = config.clientId || null;
+      this.clientSecret = config.clientSecret || null;
+
+      if (this.clientId && this.clientSecret) {
+        this._setupOAuth(config);
       }
     } catch (e) {
       console.error('[GDrive] Init error:', e.message);
     }
+  }
+
+  _getRedirectUri() {
+    return `http://localhost:${this.port}/api/gdrive/callback`;
+  }
+
+  _setupOAuth(config) {
+    this.oauth2Client = new this.google.auth.OAuth2(this.clientId, this.clientSecret, this._getRedirectUri());
+
+    this.oauth2Client.on('tokens', (tokens) => {
+      const saved = this._loadConfig();
+      if (tokens.refresh_token) saved.refresh_token = tokens.refresh_token;
+      if (tokens.access_token) saved.access_token = tokens.access_token;
+      if (tokens.expiry_date) saved.expiry_date = tokens.expiry_date;
+      this._saveConfig(saved);
+    });
+
+    if (config.refresh_token) {
+      this.oauth2Client.setCredentials({
+        refresh_token: config.refresh_token,
+        access_token: config.access_token,
+        expiry_date: config.expiry_date
+      });
+      this.drive = this.google.drive({ version: 'v3', auth: this.oauth2Client });
+      this.driveFileId = config.driveFileId || null;
+      this.autoSyncEnabled = config.autoSyncEnabled || false;
+      this.autoSyncSecs = config.autoSyncSecs || 10;
+      this.lastSyncTime = config.lastSyncTime || null;
+      this.lastSyncDirection = config.lastSyncDirection || null;
+      this._driveModTime = config._driveModTime || null;
+      console.log('[GDrive] Loaded credentials, connected');
+    }
+  }
+
+  // Save Client ID & Secret from Settings UI, then re-init OAuth
+  setCredentials(clientId, clientSecret) {
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
+    this._saveConfig({ clientId, clientSecret });
+    // Reset connection with new credentials
+    this.drive = null;
+    this.driveFileId = null;
+    const config = this._loadConfig();
+    this._setupOAuth(config);
+    console.log('[GDrive] Credentials updated');
   }
 
   _loadConfig() {
@@ -81,6 +108,7 @@ class GDriveSync {
 
   _saveConfig(extra = {}) {
     try {
+      if (!fs.existsSync(this.configDir)) fs.mkdirSync(this.configDir, { recursive: true });
       const config = { ...this._loadConfig(), ...extra,
         driveFileId: this.driveFileId,
         autoSyncEnabled: this.autoSyncEnabled,
@@ -97,8 +125,12 @@ class GDriveSync {
     return !!(this.oauth2Client?.credentials?.refresh_token);
   }
 
+  hasCredentials() {
+    return !!(this.clientId && this.clientSecret);
+  }
+
   getAuthUrl() {
-    if (!this.oauth2Client) return null;
+    if (!this.oauth2Client || !this.hasCredentials()) return null;
     return this.oauth2Client.generateAuthUrl({
       access_type: 'offline', scope: SCOPES, prompt: 'consent'
     });
@@ -126,7 +158,16 @@ class GDriveSync {
     this.lastSyncTime = null;
     this.lastSyncDirection = null;
     this._driveModTime = null;
-    try { if (fs.existsSync(this.configFile)) fs.unlinkSync(this.configFile); } catch (_) {}
+    // Keep clientId/clientSecret, only remove tokens
+    const config = this._loadConfig();
+    delete config.refresh_token;
+    delete config.access_token;
+    delete config.expiry_date;
+    config.driveFileId = null;
+    config.lastSyncTime = null;
+    config.lastSyncDirection = null;
+    config._driveModTime = null;
+    try { fs.writeFileSync(this.configFile, JSON.stringify(config, null, 2)); } catch (_) {}
     console.log('[GDrive] Disconnected');
   }
 
@@ -309,13 +350,15 @@ class GDriveSync {
   getStatus() {
     return {
       connected: this.isConnected(),
+      hasCredentials: this.hasCredentials(),
       syncing: this.syncing,
       autoSyncEnabled: this.autoSyncEnabled,
       autoSyncSecs: this.autoSyncSecs,
       lastSyncTime: this.lastSyncTime,
       lastSyncDirection: this.lastSyncDirection,
       driveFileId: this.driveFileId,
-      lastError: this.lastError
+      lastError: this.lastError,
+      clientId: this.clientId ? this.clientId.substring(0, 12) + '...' : null
     };
   }
 }
