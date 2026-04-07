@@ -1091,16 +1091,34 @@ function getBackupsList() {
   const backupDir = getBackupDir();
   if (!backupDir) return [];
   try {
-    return fs.readdirSync(backupDir).filter(f => f.startsWith('backup_') && f.endsWith('.json')).map(f => {
+    const files = fs.readdirSync(backupDir).filter(f => f.startsWith('backup_') && f.endsWith('.json'));
+    const backups = files.map(f => {
       const stat = fs.statSync(path.join(backupDir, f));
-      return { filename: f, size: stat.size, created_at: stat.mtime.toISOString(), size_readable: (stat.size / 1024).toFixed(1) + ' KB' };
-    }).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      return { filename: f, size: stat.size, created_at: stat.mtime.toISOString(), size_readable: (stat.size / 1024).toFixed(1) + ' KB', source: 'default' };
+    });
+    // Also include backups from custom dir (if different from default)
+    const customDir = db?.data?.settings?.custom_backup_dir;
+    if (customDir && customDir !== backupDir && fs.existsSync(customDir)) {
+      try {
+        const customFiles = fs.readdirSync(customDir).filter(f => f.startsWith('backup_') && f.endsWith('.json'));
+        for (const f of customFiles) {
+          if (!files.includes(f)) { // Don't duplicate
+            const stat = fs.statSync(path.join(customDir, f));
+            backups.push({ filename: f, size: stat.size, created_at: stat.mtime.toISOString(), size_readable: (stat.size / 1024).toFixed(1) + ' KB', source: 'custom', custom_dir: customDir });
+          }
+        }
+      } catch (_) {}
+    }
+    return backups.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   } catch (e) { return []; }
 }
 
-function restoreBackup(database, filename) {
-  const backupDir = getBackupDir();
-  const backupPath = path.join(backupDir, filename);
+function restoreBackup(database, filename, sourceDir) {
+  // Check default dir first, then custom dir
+  let backupPath = path.join(getBackupDir(), filename);
+  if (!fs.existsSync(backupPath) && sourceDir) {
+    backupPath = path.join(sourceDir, filename);
+  }
   if (!fs.existsSync(backupPath)) return { success: false, error: 'Backup not found' };
   try {
     createBackup(database, 'pre-restore');

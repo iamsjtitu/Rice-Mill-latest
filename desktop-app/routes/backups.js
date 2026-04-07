@@ -24,7 +24,7 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
   }));
 
   router.post('/api/backups/restore', safeSync(async (req, res) => {
-    const result = restoreBackup(database, req.body.filename);
+    const result = restoreBackup(database, req.body.filename, req.body.source_dir);
     if (result.success) return res.json(result);
     res.status(400).json({ detail: result.error });
   }));

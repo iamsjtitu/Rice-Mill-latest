@@ -1352,12 +1352,12 @@ function DataTab({ user }) {
     setBackupLoading(false);
   };
 
-  const handleRestoreBackup = async (filename) => {
+  const handleRestoreBackup = async (filename, sourceDir) => {
     const ok = await showConfirm("Restore Backup", `Kya aap "${filename}" se data restore karna chahte hain? Current data replace ho jaayega.`);
     if (!ok) return;
     setBackupLoading(true);
     try {
-      const res = await axios.post(`${API}/backups/restore`, { filename });
+      const res = await axios.post(`${API}/backups/restore`, { filename, source_dir: sourceDir || null });
       toast.success(res.data.message || "Restore ho gaya!");
       window.location.reload();
     } catch (e) { toast.error("Restore mein error: " + (e.response?.data?.detail || e.message)); }
@@ -1519,10 +1519,13 @@ function DataTab({ user }) {
                 <div key={b.filename} className="flex items-center justify-between bg-slate-700/50 p-3 rounded-lg border border-slate-600" data-testid={`backup-item-${b.filename}`}>
                   <div>
                     <p className="text-white text-sm font-mono">{b.filename}</p>
-                    <p className="text-slate-400 text-xs">{new Date(b.created_at).toLocaleString('en-IN')} | {b.size_readable}</p>
+                    <p className="text-slate-400 text-xs">
+                      {new Date(b.created_at).toLocaleString('en-IN')} | {b.size_readable}
+                      {b.source === 'custom' && <span className="ml-1 text-amber-400">(Custom Drive)</span>}
+                    </p>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handleRestoreBackup(b.filename)} disabled={backupLoading} className="text-blue-400 border-blue-600 hover:bg-blue-900/30 text-xs" data-testid={`restore-btn-${b.filename}`}>Restore</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleRestoreBackup(b.filename, b.custom_dir)} disabled={backupLoading} className="text-blue-400 border-blue-600 hover:bg-blue-900/30 text-xs" data-testid={`restore-btn-${b.filename}`}>Restore</Button>
                     <Button size="sm" variant="outline" onClick={() => handleDeleteBackup(b.filename)} className="text-red-400 border-red-600 hover:bg-red-900/30 text-xs" data-testid={`delete-backup-btn-${b.filename}`}>Delete</Button>
                   </div>
                 </div>
