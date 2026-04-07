@@ -345,22 +345,28 @@ class SqliteDatabase {
 
   _reloadFromDisk() {
     try {
-      this.sqlite.close();
+      try { this.sqlite.close(); } catch(_) {}
       const Database = require('better-sqlite3');
       this.sqlite = new Database(this.dbFile);
       try { this.sqlite.pragma('wal_checkpoint(TRUNCATE)'); } catch(_) {}
       if (this._isCloudPath) {
         this.sqlite.pragma('journal_mode = DELETE');
-      } else {
-        this.sqlite.pragma('journal_mode = WAL');
       }
       this.sqlite.pragma('synchronous = NORMAL');
       this.sqlite.pragma('cache_size = -8000');
       this._cleanupWalFiles();
       this.data = this._loadAll();
       this.migrateOldEntries(this.data);
+      console.log('[SQLite] Reload complete - Entries:', (this.data.entries||[]).length);
     } catch (e) {
-      console.error('[SQLite FileWatcher] Reload error:', e.message);
+      console.error('[SQLite] Reload error:', e.message);
+      try {
+        const Database = require('better-sqlite3');
+        this.sqlite = new Database(this.dbFile);
+        this.data = this._loadAll();
+      } catch(e2) {
+        console.error('[SQLite] Recovery failed:', e2.message);
+      }
     }
   }
 

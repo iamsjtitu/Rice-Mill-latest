@@ -1030,16 +1030,32 @@ async function startServer() {
   });
 
 
-  app.post('/api/sync/reload', (req, res) => {
+  app.post('/api/sync/reload', async (req, res) => {
     try {
-      if (database.manualReload) {
+      console.log('[Sync] Manual reload triggered');
+      if (database.sqlite) {
+        try { database.sqlite.close(); } catch(_) {}
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        const Database = require('better-sqlite3');
+        database.sqlite = new Database(database.dbFile);
+        try { database.sqlite.pragma('wal_checkpoint(TRUNCATE)'); } catch(_) {}
+        if (database._isCloudPath) database.sqlite.pragma('journal_mode = DELETE');
+        database.sqlite.pragma('synchronous = NORMAL');
+        database.sqlite.pragma('cache_size = -8000');
+        if (database._cleanupWalFiles) database._cleanupWalFiles();
+        database.data = database._loadAll();
+        if (database.migrateOldEntries) database.migrateOldEntries(database.data);
+        const counts = { entries: (database.data.entries||[]).length, vehicle_weights: (database.data.vehicle_weights||[]).length };
+        console.log('[Sync] Reload complete:', counts);
+        res.json({ success: true, message: 'Sync complete!', ...counts });
+      } else if (database.manualReload) {
         const counts = database.manualReload();
         res.json({ success: true, message: 'Data reload ho gaya!', ...counts });
       } else {
         res.status(400).json({ success: false, message: 'Reload not supported' });
       }
     } catch (e) {
-      res.status(500).json({ success: false, message: 'Reload failed: ' + e.message });
+      res.status(500).json({ success: false, message: 'Sync failed: ' + e.message });
     }
   });
 

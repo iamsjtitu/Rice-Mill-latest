@@ -1278,26 +1278,53 @@ function createApiServer(database) {
   }));
 
   // ===== MANUAL SYNC / RELOAD =====
-  apiApp.post('/api/sync/reload', safeSync((req, res) => {
-    console.log('[Sync] Manual reload triggered');
-    if (database.manualReload) {
-      const counts = database.manualReload();
-      res.json({ success: true, message: 'Data reload ho gaya!', ...counts });
-    } else if (database._reloadFromDisk) {
-      database._reloadFromDisk();
-      res.json({ success: true, message: 'Data reload ho gaya!', entries: (database.data.entries || []).length });
-    } else {
-      // JsonDatabase fallback
-      try {
+  apiApp.post('/api/sync/reload', async (req, res) => {
+    try {
+      console.log('[Sync] Manual reload triggered');
+      
+      if (database.sqlite) {
+        // SQLite: Close connection to release file lock → let Google Drive sync → reopen
+        console.log('[Sync] Closing SQLite connection to release file lock...');
+        try { database.sqlite.close(); } catch(_) {}
+        
+        // Wait 1.5 seconds for Google Drive to finish any pending sync
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Reopen and reload
+        const Database = require('better-sqlite3');
+        database.sqlite = new Database(database.dbFile);
+        try { database.sqlite.pragma('wal_checkpoint(TRUNCATE)'); } catch(_) {}
+        if (database._isCloudPath) {
+          database.sqlite.pragma('journal_mode = DELETE');
+        }
+        database.sqlite.pragma('synchronous = NORMAL');
+        database.sqlite.pragma('cache_size = -8000');
+        if (database._cleanupWalFiles) database._cleanupWalFiles();
+        database.data = database._loadAll();
+        if (database.migrateOldEntries) database.migrateOldEntries(database.data);
+        
+        const counts = {
+          entries: (database.data.entries || []).length,
+          vehicle_weights: (database.data.vehicle_weights || []).length,
+          cash_transactions: (database.data.cash_transactions || []).length
+        };
+        console.log('[Sync] Reload complete:', counts);
+        res.json({ success: true, message: 'Sync complete! File lock release → reload done.', ...counts });
+      } else if (database.manualReload) {
+        const counts = database.manualReload();
+        res.json({ success: true, message: 'Data reload ho gaya!', ...counts });
+      } else {
+        // JsonDatabase fallback
         const newData = JSON.parse(fs.readFileSync(database.dbFile, 'utf8'));
         database.data = newData;
-        database.migrateOldEntries(database.data);
+        if (database.migrateOldEntries) database.migrateOldEntries(database.data);
         res.json({ success: true, message: 'Data reload ho gaya!', entries: (database.data.entries || []).length });
-      } catch (e) {
-        res.status(500).json({ success: false, message: 'Reload failed: ' + e.message });
       }
+    } catch (e) {
+      console.error('[Sync] Error:', e.message);
+      res.status(500).json({ success: false, message: 'Sync failed: ' + e.message });
     }
-  }));
+  });
 
 
   // ===== STORAGE ENGINE API =====
