@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.39.0";
+const APP_VERSION = "88.40.0";
 
 const CHANGELOG = [
+  {
+    version: "88.40.0",
+    date: "Apr 2026",
+    title: "v88.40.0 - Season vs FY Fix",
+    items: [
+      { type: "fix", text: "Kharif se Rabi switch karne par Cash Balance, Ledger, Payments ab 0 nahi hoga — poore FY ka data dikhega" },
+      { type: "feature", text: "Financial sections (Cash Book, Ledgers, Payments, Staff, Hemali, Vouchers, FY Summary) ab FY-wise hain" },
+      { type: "fix", text: "Entries, Milling, DC Tracker season-wise filter pehle jaisa kaam karega" },
+    ]
+  },
   {
     version: "88.39.0",
     date: "Apr 2026",
