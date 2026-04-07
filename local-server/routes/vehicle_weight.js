@@ -830,7 +830,7 @@ module.exports = function(database) {
       // ── Bordered Info Table (4 rows x 4 cols with cell borders) ──
       const rows = [
         ['RST No.', `#${rst}`, 'Date / \u0926\u093f\u0928\u093e\u0902\u0915', fmtDate(entry.date) || ''],
-        ['Vehicle / \u0917\u093e\u0921\u093c\u0940', entry.vehicle_no || '', 'Trans', entry.trans_type || ''],
+        ['Vehicle / \u0917\u093e\u0921\u093c\u0940', entry.vehicle_no || '', 'Trans Type', entry.trans_type || ''],
         ['Party / \u092a\u093e\u0930\u094d\u091f\u0940', entry.party_name || '', 'Source/Mandi', entry.farmer_name || ''],
         ['Product / \u092e\u093e\u0932', entry.product || '', 'Bags / \u092c\u094b\u0930\u0947', String(entry.tot_pkts || 0)],
       ];
@@ -996,7 +996,7 @@ module.exports = function(database) {
     ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
     cr++;
 
-    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans', 'Bags', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'Cash', 'Diesel'];
+    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans Type', 'Bags', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'Cash', 'Diesel'];
     const hdrRowNum = cr + 1;
     const hdrRow = ws.getRow(hdrRowNum);
     headers.forEach((h, i) => {
