@@ -33,41 +33,50 @@ class SqliteDatabase {
     this.dbFile = path.join(dataFolder, 'millentry-data.db');
     this.jsonFile = path.join(dataFolder, 'millentry-data.json');
 
-    // Detect if folder is on cloud storage
-    const isCloudPath = dataFolder.includes('CloudStorage') || 
-                        dataFolder.includes('Google Drive') ||
-                        dataFolder.includes('GoogleDrive') ||
-                        dataFolder.includes('iCloud') ||
-                        dataFolder.includes('OneDrive');
-
-    // Clean up stale WAL/SHM files before opening
-    const walFile = this.dbFile + '-wal';
-    const shmFile = this.dbFile + '-shm';
-    try {
-      if (fs.existsSync(walFile)) {
-        console.log('[SQLite] Removing stale WAL file for clean open...');
-        fs.unlinkSync(walFile);
-      }
-      if (fs.existsSync(shmFile)) {
-        console.log('[SQLite] Removing stale SHM file for clean open...');
-        fs.unlinkSync(shmFile);
-      }
-    } catch (e) {
-      console.warn('[SQLite] Could not clean WAL/SHM:', e.message);
-    }
+    // Detect if folder is on cloud storage (Google Drive, iCloud, OneDrive, Dropbox, etc.)
+    const normalizedPath = dataFolder.toLowerCase().replace(/\\/g, '/');
+    const isCloudPath = normalizedPath.includes('cloudstorage') || 
+                        normalizedPath.includes('google drive') ||
+                        normalizedPath.includes('googledrive') ||
+                        normalizedPath.includes('my drive') ||
+                        normalizedPath.includes('icloud') ||
+                        normalizedPath.includes('onedrive') ||
+                        normalizedPath.includes('dropbox') ||
+                        normalizedPath.includes('box sync');
+    this._isCloudPath = isCloudPath;
 
     // Lazy-load better-sqlite3 (native module)
     const Database = require('better-sqlite3');
     this.sqlite = new Database(this.dbFile);
 
+    // FIRST: Checkpoint any existing WAL data into main DB (prevent data loss)
+    try {
+      const currentMode = this.sqlite.pragma('journal_mode', true);
+      if (currentMode && currentMode[0] && currentMode[0].journal_mode === 'wal') {
+        console.log('[SQLite] WAL mode detected, checkpointing data into main DB...');
+        this.sqlite.pragma('wal_checkpoint(TRUNCATE)');
+        console.log('[SQLite] WAL checkpoint complete');
+      }
+    } catch (e) {
+      console.warn('[SQLite] WAL checkpoint warning:', e.message);
+    }
+
+    // ALWAYS use DELETE mode for cloud paths (no WAL/SHM = no Google Drive conflicts)
     if (isCloudPath) {
-      console.log('[SQLite] Cloud storage detected - using DELETE journal mode');
+      console.log('[SQLite] Cloud storage detected - FORCING DELETE journal mode');
       this.sqlite.pragma('journal_mode = DELETE');
     } else {
       this.sqlite.pragma('journal_mode = WAL');
     }
     this.sqlite.pragma('synchronous = NORMAL');
-    this.sqlite.pragma('cache_size = -8000'); // 8MB cache
+    this.sqlite.pragma('cache_size = -8000');
+
+    // Verify journal mode
+    const verifyMode = this.sqlite.pragma('journal_mode', true);
+    console.log('[SQLite] Active journal_mode:', verifyMode[0]?.journal_mode);
+
+    // Clean up WAL/SHM files and Google Drive conflict copies AFTER checkpoint
+    this._cleanupWalFiles();
 
     this._initTables();
     this._migrateFromJsonIfNeeded();
@@ -78,6 +87,26 @@ class SqliteDatabase {
 
     console.log(`[SQLite] Database ready: ${this.dbFile}`);
   }
+
+  _cleanupWalFiles() {
+    const walFile = this.dbFile + '-wal';
+    const shmFile = this.dbFile + '-shm';
+    try {
+      if (fs.existsSync(walFile)) { fs.unlinkSync(walFile); console.log('[SQLite] Cleaned WAL file'); }
+      if (fs.existsSync(shmFile)) { fs.unlinkSync(shmFile); console.log('[SQLite] Cleaned SHM file'); }
+      const dir = path.dirname(this.dbFile);
+      const files = fs.readdirSync(dir);
+      files.forEach(f => {
+        if (f.match(/millentry-data\s*\(\d+\)\.db-(wal|shm)$/i) || f.match(/millentry-data\.db-(wal|shm)\s*\(\d+\)$/i)) {
+          fs.unlinkSync(path.join(dir, f));
+          console.log(`[SQLite] Cleaned conflict file: ${f}`);
+        }
+      });
+    } catch (e) {
+      console.warn('[SQLite] Cleanup warning:', e.message);
+    }
+  }
+
 
   _initTables() {
     // KV store for objects (branding, users, etc.)
@@ -319,18 +348,15 @@ class SqliteDatabase {
       this.sqlite.close();
       const Database = require('better-sqlite3');
       this.sqlite = new Database(this.dbFile);
-      const isCloudPath = this.dataFolder.includes('CloudStorage') || 
-                          this.dataFolder.includes('Google Drive') ||
-                          this.dataFolder.includes('GoogleDrive') ||
-                          this.dataFolder.includes('iCloud') ||
-                          this.dataFolder.includes('OneDrive');
-      if (isCloudPath) {
+      try { this.sqlite.pragma('wal_checkpoint(TRUNCATE)'); } catch(_) {}
+      if (this._isCloudPath) {
         this.sqlite.pragma('journal_mode = DELETE');
       } else {
         this.sqlite.pragma('journal_mode = WAL');
       }
       this.sqlite.pragma('synchronous = NORMAL');
       this.sqlite.pragma('cache_size = -8000');
+      this._cleanupWalFiles();
       this.data = this._loadAll();
       this.migrateOldEntries(this.data);
     } catch (e) {
