@@ -324,6 +324,24 @@ module.exports = function(database) {
     res.json({ rst_no: rst });
   }));
 
+  // GET /api/vehicle-weight/rst-edit-setting
+  router.get('/api/vehicle-weight/rst-edit-setting', safeAsync(async (req, res) => {
+    const settings = col('app_settings');
+    const doc = settings.find(s => s.setting_id === 'manual_rst_edit');
+    res.json({ enabled: doc ? !!doc.enabled : false });
+  }));
+
+  // PUT /api/vehicle-weight/rst-edit-setting
+  router.put('/api/vehicle-weight/rst-edit-setting', safeAsync(async (req, res) => {
+    const settings = col('app_settings');
+    const idx = settings.findIndex(s => s.setting_id === 'manual_rst_edit');
+    const update = { setting_id: 'manual_rst_edit', enabled: !!req.body.enabled };
+    if (idx >= 0) Object.assign(settings[idx], update);
+    else settings.push(update);
+    database.save();
+    res.json({ success: true, enabled: update.enabled });
+  }));
+
   // GET /api/vehicle-weight/auto-notify-setting
   router.get('/api/vehicle-weight/auto-notify-setting', safeAsync(async (req, res) => {
     const settings = col('app_settings');

@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Trash2, Plus, Calculator, RefreshCw, Key, FileText,
   AlertCircle, HardDrive, ShieldCheck, Send, Package, Scale,
-  Camera, CameraOff, Eye, EyeOff, Wifi, CheckCircle, Users, History,
+  Camera, CameraOff, Eye, EyeOff, Wifi, CheckCircle, Users, History, Hash,
 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 
@@ -947,6 +947,7 @@ function MessagingTab() {
       </Card>
 
       {/* Auto Vehicle Weight Messaging */}
+      <RstEditSettingCard />
       <AutoVWMessagingCard />
     </div>
   );
@@ -1130,6 +1131,54 @@ function AutoVWMessagingCard() {
           <p>* Photos: 1st Weight Front/Side + 2nd Weight Front/Side (Telegram mai photo, WhatsApp mai text + photo URL)</p>
         </div>
       </CardContent>
+    </Card>
+  );
+}
+
+// ---- Manual RST Edit Setting Card ----
+function RstEditSettingCard() {
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get(`${API}/vehicle-weight/rst-edit-setting`)
+      .then(r => { setEnabled(r.data.enabled || false); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const toggle = async () => {
+    const newVal = !enabled;
+    setEnabled(newVal);
+    try {
+      await axios.put(`${API}/vehicle-weight/rst-edit-setting`, { enabled: newVal });
+      toast.success(newVal ? "Manual RST Edit ON — ab RST number change kar sakte ho" : "Manual RST Edit OFF — RST auto generate hoga");
+    } catch { toast.error("Setting save error"); setEnabled(!newVal); }
+  };
+
+  return (
+    <Card className="bg-slate-800 border-slate-700" data-testid="rst-edit-setting-section">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-amber-400 flex items-center gap-2">
+            <Hash className="w-5 h-5" />
+            Manual RST Number Edit
+          </CardTitle>
+          <div className="flex items-center gap-3 cursor-pointer select-none" data-testid="rst-edit-toggle">
+            <span className={`text-sm font-bold ${enabled ? 'text-amber-400' : 'text-red-400'}`}>
+              {loading ? '...' : enabled ? 'ON' : 'OFF'}
+            </span>
+            <div className="relative" onClick={toggle}>
+              <div className={`w-12 h-6 rounded-full transition-colors ${enabled ? 'bg-amber-600' : 'bg-slate-600'}`} />
+              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+            </div>
+          </div>
+        </div>
+        <p className="text-slate-400 text-sm mt-1">
+          {enabled
+            ? 'ON — Auto Vehicle Weight mein RST number manually change kar sakte ho (Edit button dikhega).'
+            : 'OFF — RST number auto generate hoga, manually change nahi kar sakte.'}
+        </p>
+      </CardHeader>
     </Card>
   );
 }

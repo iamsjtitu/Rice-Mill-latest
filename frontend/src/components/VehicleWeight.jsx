@@ -445,7 +445,15 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
   const [linkedRst, setLinkedRst] = useState(new Set());
   const [zoomImg, setZoomImg] = useState(null); // for photo zoom
+  const [rstEditAllowed, setRstEditAllowed] = useState(false); // Settings toggle
   const canManualWeight = user?.permissions?.can_manual_weight !== false && user?.role === 'admin' || user?.permissions?.can_manual_weight === true;
+
+  // Load RST edit setting
+  useEffect(() => {
+    axios.get(`${API}/vehicle-weight/rst-edit-setting`)
+      .then(r => setRstEditAllowed(r.data.enabled || false))
+      .catch(() => {});
+  }, []);
 
   // ESC key to close photo zoom
   useEffect(() => {
@@ -886,11 +894,13 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                         RST #{form.rst_no || nextRst}
                       </span>
                     )}
-                    <button onClick={() => { setRstEditable(!rstEditable); if (rstEditable && !form.rst_no) setForm(p => ({ ...p, rst_no: "" })); }}
-                      className="text-gray-400 hover:text-amber-600 transition-colors" data-testid="vw-rst-edit-btn"
-                      title={rstEditable ? "Auto RST" : "Edit RST"}>
-                      {rstEditable ? <CheckCircle className="w-3 h-3 text-green-600" /> : <span className="text-[9px] text-gray-500 hover:text-amber-600">Edit</span>}
-                    </button>
+                    {rstEditAllowed && (
+                      <button onClick={() => { setRstEditable(!rstEditable); if (rstEditable && !form.rst_no) setForm(p => ({ ...p, rst_no: "" })); }}
+                        className="text-gray-400 hover:text-amber-600 transition-colors" data-testid="vw-rst-edit-btn"
+                        title={rstEditable ? "Auto RST" : "Edit RST"}>
+                        {rstEditable ? <CheckCircle className="w-3 h-3 text-green-600" /> : <span className="text-[9px] text-gray-500 hover:text-amber-600">Edit</span>}
+                      </button>
+                    )}
                   </span>
                 )}
               </CardTitle>

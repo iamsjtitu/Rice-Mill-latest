@@ -153,6 +153,25 @@ async def get_next_rst(kms_year: str = ""):
     return {"rst_no": rst}
 
 
+@router.get("/vehicle-weight/rst-edit-setting")
+async def get_rst_edit_setting():
+    """Get manual RST edit toggle setting."""
+    doc = await db["settings"].find_one({"key": "manual_rst_edit"}, {"_id": 0})
+    return {"enabled": doc.get("enabled", False) if doc else False}
+
+
+@router.put("/vehicle-weight/rst-edit-setting")
+async def update_rst_edit_setting(data: dict):
+    """Toggle manual RST edit on/off."""
+    enabled = data.get("enabled", False)
+    await db["settings"].update_one(
+        {"key": "manual_rst_edit"},
+        {"$set": {"key": "manual_rst_edit", "enabled": enabled}},
+        upsert=True
+    )
+    return {"success": True, "enabled": enabled}
+
+
 @router.get("/vehicle-weight/auto-notify-setting")
 async def get_auto_notify_setting():
     """Get auto VW messaging setting with group config."""
