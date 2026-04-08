@@ -124,6 +124,24 @@ code {
 }
 
 
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 11px;
+  }
+  table th, table td {
+    padding: 4px 6px !important;
+    white-space: nowrap;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+
+
 /* ===== PRINT-FRIENDLY STYLES ===== */
 @media print {
   /* Hide navigation, sidebar, buttons, and non-content elements */

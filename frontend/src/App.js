@@ -1160,24 +1160,24 @@ function MainApp({ user, setUser, onLogout }) {
       
       {/* Header */}
       <header className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700 sticky top-0 z-10 no-print">
-        <div className="max-w-[1600px] mx-auto px-4 py-3">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-amber-400" data-testid="app-title">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-4 py-2 sm:py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-2xl font-bold text-amber-400 truncate" data-testid="app-title">
                 {branding.company_name}
               </h1>
-              <p className="text-slate-400 text-sm">{branding.tagline}</p>
+              <p className="text-slate-400 text-xs sm:text-sm truncate hidden sm:block">{branding.tagline}</p>
             </div>
             
             {/* User Info & Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
               {/* Global FY Selector */}
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-900/30 border border-amber-700/50 rounded-lg" data-testid="global-fy-selector">
-                <Calendar className="w-4 h-4 text-amber-400" />
+              <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-amber-900/30 border border-amber-700/50 rounded-lg" data-testid="global-fy-selector">
+                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-amber-400" />
                 <div className="flex items-center gap-1">
-                  <span className="text-amber-400/70 text-[10px] font-medium">FY</span>
+                  <span className="text-amber-400/70 text-[9px] sm:text-[10px] font-medium hidden sm:inline">FY</span>
                   <Select value={filters.kms_year} onValueChange={(v) => handleFyChange(v, undefined)}>
-                    <SelectTrigger className="bg-transparent border-0 text-amber-400 font-bold h-6 text-sm w-[100px] p-0 focus:ring-0" data-testid="global-fy-year">
+                    <SelectTrigger className="bg-transparent border-0 text-amber-400 font-bold h-5 sm:h-6 text-xs sm:text-sm w-[80px] sm:w-[100px] p-0 focus:ring-0" data-testid="global-fy-year">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-slate-600">
@@ -1185,9 +1185,9 @@ function MainApp({ user, setUser, onLogout }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <span className="text-slate-600">|</span>
+                <span className="text-slate-600 hidden sm:inline">|</span>
                 <Select value={filters.season || "all"} onValueChange={(v) => handleFyChange(undefined, v === "all" ? "" : v)}>
-                  <SelectTrigger className="bg-transparent border-0 text-slate-300 h-6 text-xs w-[70px] p-0 focus:ring-0" data-testid="global-fy-season">
+                  <SelectTrigger className="bg-transparent border-0 text-slate-300 h-5 sm:h-6 text-[10px] sm:text-xs w-[55px] sm:w-[70px] p-0 focus:ring-0" data-testid="global-fy-season">
                     <SelectValue placeholder="Season" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 border-slate-600">
@@ -1203,22 +1203,23 @@ function MainApp({ user, setUser, onLogout }) {
               {/* Quick Search Button */}
               <button
                 onClick={() => setQuickSearchOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg hover:bg-slate-700 hover:border-slate-500 transition-all group cursor-pointer"
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-700/50 border border-slate-600 rounded-lg hover:bg-slate-700 hover:border-slate-500 transition-all group cursor-pointer"
                 data-testid="quick-search-btn"
                 title="Quick Search (Ctrl+K)"
               >
                 <Search className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition-colors" />
-                <span className="text-xs text-slate-400 hidden sm:inline">Search...</span>
-                <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-slate-500 bg-slate-800 border border-slate-600 rounded ml-1">
+                <span className="text-xs text-slate-400 hidden lg:inline">Search...</span>
+                <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono text-slate-500 bg-slate-800 border border-slate-600 rounded ml-1">
                   Ctrl+K
                 </kbd>
               </button>
 
+              {/* Desktop-only buttons */}
               <Button
                 onClick={toggleTheme}
                 variant="outline"
                 size="sm"
-                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                className="border-slate-600 text-slate-300 hover:bg-slate-700 hidden sm:flex"
                 data-testid="theme-toggle-btn"
                 title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
@@ -1229,9 +1230,9 @@ function MainApp({ user, setUser, onLogout }) {
                 onClick={() => setShowShortcuts(true)}
                 variant="outline"
                 size="sm"
-                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                className="border-slate-600 text-slate-300 hover:bg-slate-700 hidden lg:flex"
                 data-testid="shortcuts-btn"
-                title="Keyboard Shortcuts (Press '?' for help)"
+                title="Keyboard Shortcuts"
               >
                 <Keyboard className="w-4 h-4" />
               </Button>
@@ -1250,33 +1251,33 @@ function MainApp({ user, setUser, onLogout }) {
                 }}
                 variant="outline"
                 size="sm"
-                className="border-cyan-600/50 text-cyan-400 hover:bg-cyan-900/30"
+                className="border-cyan-600/50 text-cyan-400 hover:bg-cyan-900/30 hidden sm:flex"
                 data-testid="sync-reload-btn"
                 title="Data sync karo"
               >
-                <RefreshCw className="w-4 h-4 mr-1" />
-                Sync
+                <RefreshCw className="w-4 h-4 sm:mr-1" />
+                <span className="hidden lg:inline">Sync</span>
               </Button>
 
               <Button
                 onClick={() => setShowWhatsNew(true)}
                 variant="outline"
                 size="sm"
-                className="border-amber-600/50 text-amber-400 hover:bg-amber-900/30"
+                className="border-amber-600/50 text-amber-400 hover:bg-amber-900/30 hidden sm:flex"
                 data-testid="whats-new-btn"
                 title="What's New"
               >
-                <Info className="w-4 h-4 mr-1" />
-                v{APP_VERSION}
+                <Info className="w-4 h-4 sm:mr-1" />
+                <span className="hidden lg:inline">v{APP_VERSION}</span>
               </Button>
 
-              {/* Admin Dropdown - Username, Password Change, Logout */}
+              {/* Admin Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors cursor-pointer" data-testid="admin-dropdown-trigger">
+                  <button className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-700 hover:bg-slate-600 rounded-full transition-colors cursor-pointer" data-testid="admin-dropdown-trigger">
                     <User className="w-4 h-4 text-amber-400" />
-                    <span className="text-white text-sm">{user.username}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded ${user.role === 'admin' ? 'bg-red-600' : 'bg-blue-600'}`}>
+                    <span className="text-white text-xs sm:text-sm hidden sm:inline">{user.username}</span>
+                    <span className={`text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded ${user.role === 'admin' ? 'bg-red-600' : 'bg-blue-600'}`}>
                       {user.role.toUpperCase()}
                     </span>
                     <ChevronDown className="w-3 h-3 text-slate-400" />
@@ -1321,7 +1322,7 @@ function MainApp({ user, setUser, onLogout }) {
 
           {/* Action Buttons - Only on Mill Entries subtab */}
           {activeTab === "entries" && entriesSubTab === "mill-entries" && (
-          <div className="flex gap-2 flex-wrap mt-3">
+          <div className="flex gap-1.5 sm:gap-2 flex-wrap mt-3">
             <Button
               onClick={() => { fetchEntries(); fetchTotals(); }}
               variant="outline"
@@ -1329,8 +1330,8 @@ function MainApp({ user, setUser, onLogout }) {
               className="border-slate-600 text-slate-300 hover:bg-slate-700"
               data-testid="refresh-btn"
             >
-              <RefreshCw className="w-4 h-4 mr-1" />
-              Refresh
+              <RefreshCw className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
             <Button
               onClick={() => setShowFilters(!showFilters)}
@@ -1339,8 +1340,8 @@ function MainApp({ user, setUser, onLogout }) {
               className={`border-slate-600 text-slate-300 hover:bg-slate-700 ${hasActiveFilters ? 'bg-amber-900/30 border-amber-600' : ''}`}
               data-testid="filter-btn"
             >
-              <Filter className="w-4 h-4 mr-1" />
-              Filter
+              <Filter className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Filter</span>
               {hasActiveFilters && <span className="ml-1 bg-amber-500 text-xs px-1 rounded">ON</span>}
             </Button>
             <Button
@@ -1350,8 +1351,8 @@ function MainApp({ user, setUser, onLogout }) {
               className="border-green-600 text-green-400 hover:bg-green-900/30"
               data-testid="export-excel-btn"
             >
-              <FileSpreadsheet className="w-4 h-4 mr-1" />
-              Excel
+              <FileSpreadsheet className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Excel</span>
             </Button>
             <Button
               onClick={handleExportPDF}
@@ -1360,8 +1361,8 @@ function MainApp({ user, setUser, onLogout }) {
               className="border-red-600 text-red-400 hover:bg-red-900/30"
               data-testid="export-pdf-btn"
             >
-              <FileText className="w-4 h-4 mr-1" />
-              PDF
+              <FileText className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">PDF</span>
             </Button>
             {wa && <Button onClick={handleEntriesWhatsApp} variant="outline" size="sm"
               className="border-green-600 text-green-400 hover:bg-green-900/30" data-testid="entries-whatsapp-btn">
@@ -1407,7 +1408,7 @@ function MainApp({ user, setUser, onLogout }) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-[1600px] mx-auto px-4 py-6 print-content">
+      <main className="max-w-[1600px] mx-auto px-2 sm:px-4 py-3 sm:py-6 print-content">
         {/* Print Header - Only visible when printing */}
         <div className="print-header">
           {branding.company_name || 'Mill Entry System'} — {branding.tagline || ''}
@@ -1443,25 +1444,25 @@ function MainApp({ user, setUser, onLogout }) {
         ) : (
           <>
             {/* Entries Sub-tabs: Mill Entries | Vehicle Weight */}
-            <div className="flex gap-2 mb-4 border-b border-slate-700 pb-2" data-testid="entries-sub-tabs">
+            <div className="flex gap-1 sm:gap-2 mb-4 border-b border-slate-700 pb-2 overflow-x-auto" data-testid="entries-sub-tabs">
               <Button
                 onClick={() => setEntriesSubTabSafe("mill-entries")}
                 variant={entriesSubTab === 'mill-entries' ? "default" : "ghost"}
                 size="sm"
-                className={entriesSubTab === 'mill-entries'
+                className={`whitespace-nowrap text-xs sm:text-sm ${entriesSubTab === 'mill-entries'
                   ? "bg-amber-500 hover:bg-amber-600 text-slate-900"
-                  : "text-slate-300 hover:bg-slate-700"}
+                  : "text-slate-300 hover:bg-slate-700"}`}
                 data-testid="subtab-mill-entries"
               >
-                <FileSpreadsheet className="w-4 h-4 mr-1" /> Mill Entries
+                <FileSpreadsheet className="w-4 h-4 sm:mr-1" /> <span className="hidden sm:inline">Mill</span> Entries
               </Button>
               <Button
                 onClick={() => setEntriesSubTabSafe("vehicle-weight")}
                 variant={entriesSubTab === 'vehicle-weight' ? "default" : "ghost"}
                 size="sm"
-                className={entriesSubTab === 'vehicle-weight'
+                className={`whitespace-nowrap text-xs sm:text-sm ${entriesSubTab === 'vehicle-weight'
                   ? "bg-amber-500 hover:bg-amber-600 text-slate-900"
-                  : "text-slate-300 hover:bg-slate-700"}
+                  : "text-slate-300 hover:bg-slate-700"}`}
                 data-testid="subtab-vehicle-weight"
               >
                 <Scale className="w-4 h-4 mr-1" /> Auto Vehicle Weight
@@ -1533,16 +1534,16 @@ function MainApp({ user, setUser, onLogout }) {
 
       {/* Footer */}
       <footer className="border-t border-slate-600/60 mt-10 no-print">
-        <div className="max-w-[1600px] mx-auto px-4 py-6 text-center space-y-2">
-          <p className="text-slate-300 text-sm font-semibold tracking-wide">
-            Mill Entry System <span className="text-slate-500 font-normal">- Data Management Software</span>
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-4 py-4 sm:py-6 text-center space-y-2">
+          <p className="text-slate-300 text-xs sm:text-sm font-semibold tracking-wide">
+            Mill Entry System <span className="text-slate-500 font-normal hidden sm:inline">- Data Management Software</span>
           </p>
-          <div className="flex items-center justify-center gap-3 text-xs text-slate-500 pt-1">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-slate-500 pt-1 flex-wrap">
             <span className="text-amber-400/70 font-mono" data-testid="footer-version">v{APP_VERSION}</span>
             <span className="text-slate-700">|</span>
             <span>Designed By: <a href="https://www.9x.design" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 transition-colors" data-testid="footer-designer">9x.design</a></span>
-            <span className="text-slate-700">|</span>
-            <span>Contact: <a href="tel:+917205930002" className="text-cyan-400 hover:text-cyan-300 transition-colors" data-testid="footer-contact">+91 72059 30002</a></span>
+            <span className="text-slate-700 hidden sm:inline">|</span>
+            <span className="hidden sm:inline">Contact: <a href="tel:+917205930002" className="text-cyan-400 hover:text-cyan-300 transition-colors" data-testid="footer-contact">+91 72059 30002</a></span>
           </div>
         </div>
       </footer>
