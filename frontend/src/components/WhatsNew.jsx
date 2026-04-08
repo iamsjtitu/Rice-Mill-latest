@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.43.0";
+const APP_VERSION = "88.44.0";
 
 const CHANGELOG = [
+  {
+    version: "88.44.0",
+    date: "Apr 2026",
+    title: "v88.44.0 - Mobile Responsive",
+    items: [
+      { type: "feature", text: "Mobile se browser mein software kholne par ab app jaisa dikhega — responsive UI" },
+      { type: "feature", text: "Mobile mein hamburger menu (3-column icon grid) se tab navigate karo" },
+      { type: "fix", text: "Header, buttons, tables, footer sab mobile friendly — desktop pe koi change nahi" },
+    ]
+  },
   {
     version: "88.43.0",
     date: "Apr 2026",
