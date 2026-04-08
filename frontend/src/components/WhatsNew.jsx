@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.42.0";
+const APP_VERSION = "88.43.0";
 
 const CHANGELOG = [
+  {
+    version: "88.43.0",
+    date: "Apr 2026",
+    title: "v88.43.0 - RST Edit Permission + Logout Close",
+    items: [
+      { type: "feature", text: "RST Edit ab user permission mein hai — Settings > Users > Permissions mein ON/OFF karo" },
+      { type: "feature", text: "Desktop app mein Logout karne par ab software band ho jayega" },
+      { type: "fix", text: "Admin ke liye RST Edit default ON, baaki roles ke liye OFF" },
+    ]
+  },
   {
     version: "88.42.0",
     date: "Apr 2026",
