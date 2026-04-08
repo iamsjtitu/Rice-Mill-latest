@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.41.0";
+const APP_VERSION = "88.42.0";
 
 const CHANGELOG = [
+  {
+    version: "88.42.0",
+    date: "Apr 2026",
+    title: "v88.42.0 - RST Edit Setting + Logout Close",
+    items: [
+      { type: "feature", text: "Settings > Messaging mein Manual RST Number Edit ka ON/OFF toggle add kiya" },
+      { type: "feature", text: "Desktop app mein Logout karne par ab software band ho jayega (login page nahi aayega)" },
+      { type: "fix", text: "JSON backup file upload restore endpoint teeno backends mein add kiya" },
+    ]
+  },
   {
     version: "88.41.0",
     date: "Apr 2026",
