@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.44.0";
+const APP_VERSION = "88.45.0";
 
 const CHANGELOG = [
+  {
+    version: "88.45.0",
+    date: "Apr 2026",
+    title: "v88.45.0 - Dark Theme Fix",
+    items: [
+      { type: "fix", text: "Dark theme mein Auto Vehicle Weight, Weight Entries, QuickSearch sab ab clearly dikhega" },
+      { type: "fix", text: "Input fields, labels, tables, buttons sab dark theme compatible ho gaye" },
+    ]
+  },
   {
     version: "88.44.0",
     date: "Apr 2026",
