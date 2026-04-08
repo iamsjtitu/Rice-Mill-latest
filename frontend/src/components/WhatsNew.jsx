@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.40.0";
+const APP_VERSION = "88.41.0";
 
 const CHANGELOG = [
+  {
+    version: "88.41.0",
+    date: "Apr 2026",
+    title: "v88.41.0 - PDF & Validation Fixes",
+    items: [
+      { type: "fix", text: "Paddy Purchase Register PDF mein ab sahi title dikhega — pehle 'Mill Entries Report' aata tha" },
+      { type: "fix", text: "Truck number ka last digit ab PDF mein nahi katega — column width badhayi" },
+      { type: "fix", text: "Blank Mill Entry ab save nahi hogi — Truck No, Agent ya Mandi mein se kuch bharna zaruri" },
+    ]
+  },
   {
     version: "88.40.0",
     date: "Apr 2026",
