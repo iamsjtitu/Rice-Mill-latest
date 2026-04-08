@@ -1,9 +1,9 @@
 # Mill Entry System - Product Requirements Document
 
 ## Original Problem Statement
-A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local SQLite storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, and automated database sync between local computers.
+A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, and automated database sync between local computers.
 
-## Current Version: v88.39.0
+## Current Version: v88.45.0
 
 ## What's Been Implemented
 - Full mill entry CRUD with RST numbering
@@ -16,17 +16,20 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - Auto vehicle weight with RTSP camera integration
 - Weighbridge serial port integration
 - Telegram & WhatsApp notifications
-- User roles & permissions
+- User roles & permissions (with can_edit_rst)
 - Audit logging
 - Excel/PDF exports with proper date sorting
 - Desktop app auto-updater via GitHub releases
 - Shadow Copy sync (replaced Google Drive API)
 - Mill entry cash/diesel edit syncs with vehicle_weights
-- "Trans" renamed to "Trans Type" globally (VehicleWeight + AutoWeightEntries)
 - Auto-backup on logout with custom backup folder selection
-- Backup list shows both default and custom directory backups
-- JSON backup file upload & restore (v88.38.0)
-- **Season vs FY separation (v88.39.0)**: Financial components (CashBook, Ledgers, Payments, Hemali, Staff, GST, FY Summary, Vouchers, SaleBook, PurchaseVouchers) now use FY-only filtering. Only operational components (Mill Entries, Milling, DC Tracker, Dashboard, Paddy Purchase) remain season-filtered.
+- JSON backup file upload & restore
+- **Season vs FY separation**: Financial components use FY-only filtering, operational components use season filtering
+- **Mobile Responsiveness**: Hamburger menu, compact cards, scrollable tables
+- **Dark Theme Fixes**: Text visibility/contrast across all components
+- **Settings Sync**: camera_config and mandi_cutting_map synced to backend DB
+- **Electron IPC**: App closes on logout via window.electronAPI.closeApp
+- **User Permissions Bug Fix (Apr 2026)**: Fixed setUser prop not passed to UsersTab, localStorage→sessionStorage fix, can_edit_rst added to ROLE_PERMISSIONS across all 3 backends
 
 ## Key Design Decision: Season vs FY
 - **Season-wise (Kharif/Rabi):** Mill Entries, Private Paddy, Milling (CMR), DC Deliveries, Dashboard
@@ -35,7 +38,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 ## Prioritized Backlog
 
 ### P1 (High)
-- None currently pending
+- [ ] Daily Summary Report (Auto) - End-of-day summary of entries, payments, and cash position
 
 ### P2 (Medium)
 - [ ] Python backend service layer refactoring
