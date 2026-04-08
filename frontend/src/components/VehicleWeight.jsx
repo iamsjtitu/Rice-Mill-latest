@@ -445,15 +445,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
   const [linkedRst, setLinkedRst] = useState(new Set());
   const [zoomImg, setZoomImg] = useState(null); // for photo zoom
-  const [rstEditAllowed, setRstEditAllowed] = useState(false); // Settings toggle
   const canManualWeight = user?.permissions?.can_manual_weight !== false && user?.role === 'admin' || user?.permissions?.can_manual_weight === true;
-
-  // Load RST edit setting
-  useEffect(() => {
-    axios.get(`${API}/vehicle-weight/rst-edit-setting`)
-      .then(r => setRstEditAllowed(r.data.enabled || false))
-      .catch(() => {});
-  }, []);
+  const rstEditAllowed = user?.permissions?.can_edit_rst === true || (user?.role === 'admin' && user?.permissions?.can_edit_rst !== false);
 
   // ESC key to close photo zoom
   useEffect(() => {

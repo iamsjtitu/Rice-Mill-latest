@@ -947,7 +947,6 @@ function MessagingTab() {
       </Card>
 
       {/* Auto Vehicle Weight Messaging */}
-      <RstEditSettingCard />
       <AutoVWMessagingCard />
     </div>
   );
@@ -1131,54 +1130,6 @@ function AutoVWMessagingCard() {
           <p>* Photos: 1st Weight Front/Side + 2nd Weight Front/Side (Telegram mai photo, WhatsApp mai text + photo URL)</p>
         </div>
       </CardContent>
-    </Card>
-  );
-}
-
-// ---- Manual RST Edit Setting Card ----
-function RstEditSettingCard() {
-  const [enabled, setEnabled] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    axios.get(`${API}/vehicle-weight/rst-edit-setting`)
-      .then(r => { setEnabled(r.data.enabled || false); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
-
-  const toggle = async () => {
-    const newVal = !enabled;
-    setEnabled(newVal);
-    try {
-      await axios.put(`${API}/vehicle-weight/rst-edit-setting`, { enabled: newVal });
-      toast.success(newVal ? "Manual RST Edit ON — ab RST number change kar sakte ho" : "Manual RST Edit OFF — RST auto generate hoga");
-    } catch { toast.error("Setting save error"); setEnabled(!newVal); }
-  };
-
-  return (
-    <Card className="bg-slate-800 border-slate-700" data-testid="rst-edit-setting-section">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-amber-400 flex items-center gap-2">
-            <Hash className="w-5 h-5" />
-            Manual RST Number Edit
-          </CardTitle>
-          <div className="flex items-center gap-3 cursor-pointer select-none" data-testid="rst-edit-toggle">
-            <span className={`text-sm font-bold ${enabled ? 'text-amber-400' : 'text-red-400'}`}>
-              {loading ? '...' : enabled ? 'ON' : 'OFF'}
-            </span>
-            <div className="relative" onClick={toggle}>
-              <div className={`w-12 h-6 rounded-full transition-colors ${enabled ? 'bg-amber-600' : 'bg-slate-600'}`} />
-              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
-            </div>
-          </div>
-        </div>
-        <p className="text-slate-400 text-sm mt-1">
-          {enabled
-            ? 'ON — Auto Vehicle Weight mein RST number manually change kar sakte ho (Edit button dikhega).'
-            : 'OFF — RST number auto generate hoga, manually change nahi kar sakte.'}
-        </p>
-      </CardHeader>
     </Card>
   );
 }
@@ -2331,13 +2282,14 @@ const PERMISSION_DEFS = [
   { key: "can_see_reports", label: "Reports Tab", desc: "Reports dekh sakta hai" },
   { key: "can_edit_settings", label: "Settings Access", desc: "Settings change kar sakta hai" },
   { key: "can_manual_weight", label: "Manual Weight", desc: "Weighbridge mein manually weight type kar sakta hai" },
+  { key: "can_edit_rst", label: "RST Edit", desc: "Auto Vehicle Weight mein RST number manually edit kar sakta hai" },
 ];
 
 const ROLE_DEFAULTS = {
-  admin: { can_edit: true, can_delete: true, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: true, can_manual_weight: true },
-  entry_operator: { can_edit: true, can_delete: false, can_export: false, can_see_payments: false, can_see_cashbook: false, can_see_reports: false, can_edit_settings: false, can_manual_weight: false },
-  accountant: { can_edit: true, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false },
-  viewer: { can_edit: false, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false },
+  admin: { can_edit: true, can_delete: true, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: true, can_manual_weight: true, can_edit_rst: true },
+  entry_operator: { can_edit: true, can_delete: false, can_export: false, can_see_payments: false, can_see_cashbook: false, can_see_reports: false, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false },
+  accountant: { can_edit: true, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false },
+  viewer: { can_edit: false, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false },
 };
 
 function UsersTab({ user }) {
