@@ -59,7 +59,7 @@ const SummaryCards = ({ summary, onNewTransaction, onExport, previewData = [] })
             <p className="text-[10px] text-slate-600 mt-1">{summary.total_transactions} transactions</p>
           </CardContent>
         </Card>
-        <Card className="bg-white border-slate-200 shadow-sm">
+        <Card className="bg-slate-800 border-slate-200 shadow-sm">
           <CardContent className="p-4 flex flex-col justify-center items-center gap-2">
             <Button onClick={onNewTransaction} className="bg-amber-500 hover:bg-amber-600 text-slate-900 w-full" size="sm" data-testid="cashbook-add-btn">
               <Plus className="w-4 h-4 mr-1" /> New Transaction

@@ -129,7 +129,7 @@ const CashBookFilters = ({
               (() => {
                 const items = getFilteredItems();
                 return items.length > 0 ? (
-                  <div ref={dropdownRef} className="absolute z-50 w-56 mt-1 max-h-48 overflow-auto bg-white border border-slate-200 rounded-md shadow-lg">
+                  <div ref={dropdownRef} className="absolute z-50 w-56 mt-1 max-h-48 overflow-auto bg-slate-800 border border-slate-200 rounded-md shadow-lg">
                     <div data-idx="0" className={`px-3 py-1.5 text-xs cursor-pointer flex justify-between items-center text-slate-500 font-medium border-b border-slate-100 ${highlightIdx === 0 ? 'bg-amber-100' : 'hover:bg-amber-50'}`}
                       onMouseDown={() => { setTxnFilters(p => ({ ...p, category: "" })); setFilterPartySearch(""); setShowFilterPartyDropdown(false); }}>
                       All Parties

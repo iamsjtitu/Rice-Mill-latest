@@ -368,7 +368,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 
   return (
     <>
-      <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-900 cursor-pointer" data-testid="camera-feed-panel"
+      <div className="relative rounded-lg overflow-hidden border border-slate-600 bg-gray-900 cursor-pointer" data-testid="camera-feed-panel"
         onClick={() => { if (active) setZoomed(true); }}>
         <div className="absolute top-1 left-1 z-10 flex items-center gap-1">
           <Badge className={`text-[8px] px-1 py-0 ${active ? 'bg-green-600' : 'bg-gray-600'}`}>
@@ -388,8 +388,8 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-900 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggle(); }}>
               <div className="text-center">
-                {(camType === "ip" || camType === "vigi") ? <Wifi className="w-5 h-5 text-blue-500 mx-auto" /> : <Camera className="w-5 h-5 text-gray-500 mx-auto" />}
-                <p className="text-gray-400 text-[8px] mt-1 font-semibold">{label || "Camera"}</p>
+                {(camType === "ip" || camType === "vigi") ? <Wifi className="w-5 h-5 text-blue-500 mx-auto" /> : <Camera className="w-5 h-5 text-slate-400 mx-auto" />}
+                <p className="text-slate-500 text-[8px] mt-1 font-semibold">{label || "Camera"}</p>
                 <p className="text-green-500 text-[9px] mt-1 font-bold">Click to Start</p>
               </div>
             </div>
@@ -408,7 +408,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
                 {camType === "ip" && <Badge className="bg-blue-700 text-[9px]">IP Camera</Badge>}
                 {camType === "vigi" && <Badge className="bg-green-700 text-[9px]">NVR</Badge>}
               </span>
-              <button onClick={() => setZoomed(false)} className="text-gray-400 hover:text-white text-xs bg-gray-800 rounded px-2 py-1">
+              <button onClick={() => setZoomed(false)} className="text-slate-500 hover:text-white text-xs bg-gray-800 rounded px-2 py-1">
                 ESC
               </button>
             </div>
@@ -849,14 +849,14 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       {/* ─── HEADER BAR ─── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
             <Scale className="w-5 h-5 text-amber-600" /> Auto Vehicle Weight
           </h2>
-          <Badge variant="outline" className={`text-[10px] h-5 ${scale.running || scale.connected ? 'border-green-500 text-green-700 bg-green-50' : 'border-gray-400 text-gray-500 bg-gray-50'}`}>
+          <Badge variant="outline" className={`text-[10px] h-5 ${scale.running || scale.connected ? 'border-green-500 text-green-700 bg-green-50' : 'border-gray-400 text-slate-400 bg-slate-700'}`}>
             <Wifi className="w-3 h-3 mr-1" />{_isElectron && window.electronAPI?.serialGetStatus ? (scale.connected ? 'COM Connected' : 'COM Disconnected') : (_isElectron && !window.electronAPI) ? (scale.connected ? 'LAN Scale' : 'LAN No Scale') : 'COM3 Demo'}
           </Badge>
         </div>
-        <Button onClick={fetchData} variant="ghost" size="sm" className="h-7 text-gray-500 hover:text-gray-800 text-xs" data-testid="vw-refresh">
+        <Button onClick={fetchData} variant="ghost" size="sm" className="h-7 text-slate-400 hover:text-slate-200 text-xs" data-testid="vw-refresh">
           <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />Refresh
         </Button>
       </div>
@@ -866,8 +866,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
 
         {/* ═══ COL 1: Entry Form ═══ */}
         <div className="col-span-12 lg:col-span-4">
-          <Card className="bg-white border-gray-200 shadow-sm">
-            <CardHeader className="pb-2 pt-3 px-4 border-b border-gray-100 bg-gray-50/50">
+          <Card className="bg-slate-800 border-slate-600 shadow-sm">
+            <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-700 bg-slate-700/50">
               <CardTitle className="text-xs text-amber-700 font-bold flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   {secondWtMode ? <Scale className="w-3.5 h-3.5 text-green-600" /> : <Plus className="w-3.5 h-3.5" />}
@@ -880,7 +880,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     {rstEditable ? (
                       <Input type="number" value={form.rst_no || ""} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setRstEditable(false); } }}
-                        placeholder={String(nextRst)} className="w-16 h-6 text-[10px] bg-white border-amber-300 text-amber-700 text-center px-1 font-mono"
+                        placeholder={String(nextRst)} className="w-16 h-6 text-[10px] bg-slate-700 border-amber-500 text-amber-700 text-center px-1 font-mono"
                         data-testid="vw-rst-input" autoFocus />
                     ) : (
                       <span className="px-2 py-0.5 rounded text-[10px] bg-amber-100 text-amber-700 font-mono font-bold" data-testid="vw-rst-badge">
@@ -889,9 +889,9 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     )}
                     {rstEditAllowed && (
                       <button onClick={() => { setRstEditable(!rstEditable); if (rstEditable && !form.rst_no) setForm(p => ({ ...p, rst_no: "" })); }}
-                        className="text-gray-400 hover:text-amber-600 transition-colors" data-testid="vw-rst-edit-btn"
+                        className="text-slate-500 hover:text-amber-600 transition-colors" data-testid="vw-rst-edit-btn"
                         title={rstEditable ? "Auto RST" : "Edit RST"}>
-                        {rstEditable ? <CheckCircle className="w-3 h-3 text-green-600" /> : <span className="text-[9px] text-gray-500 hover:text-amber-600">Edit</span>}
+                        {rstEditable ? <CheckCircle className="w-3 h-3 text-green-600" /> : <span className="text-[9px] text-slate-400 hover:text-amber-600">Edit</span>}
                       </button>
                     )}
                   </span>
@@ -902,15 +902,15 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
               <form onSubmit={handleSubmit} className="space-y-2.5">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-gray-600 text-[10px] mb-0.5 block">Date</Label>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Date</Label>
                     <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                      className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-date" />
+                      className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-date" />
                   </div>
                   <div>
                     {secondWtMode ? (
                       <>
-                        <Label className="text-gray-600 text-[10px] mb-0.5 block">Vehicle No *</Label>
-                        <Input value={form.vehicle_no} disabled className="bg-gray-100 border-gray-300 text-gray-700 h-8 text-xs font-medium" data-testid="vw-vehicle" />
+                        <Label className="text-slate-400 text-[10px] mb-0.5 block">Vehicle No *</Label>
+                        <Input value={form.vehicle_no} disabled className="bg-slate-700 border-slate-500 text-slate-200 h-8 text-xs font-medium" data-testid="vw-vehicle" />
                       </>
                     ) : (
                       <AutoSuggest
@@ -921,8 +921,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                         onSelect={(val) => setForm(p => ({ ...p, vehicle_no: val.toUpperCase() }))}
                         label="Vehicle No *"
                         testId="vw-vehicle"
-                        labelClassName="text-gray-600 text-[10px] mb-0.5 block"
-                        inputClassName="bg-white border-gray-300 text-gray-900 h-8 text-xs font-medium"
+                        labelClassName="text-slate-400 text-[10px] mb-0.5 block"
+                        inputClassName="bg-slate-700 border-slate-500 text-white h-8 text-xs font-medium"
                       />
                     )}
                   </div>
@@ -937,8 +937,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       onSelect={(val) => { setForm(p => ({ ...p, party_name: val })); fetchMandisForParty(val); }}
                       label="Party Name"
                       testId="vw-party"
-                      labelClassName="text-gray-600 text-[10px] mb-0.5 block"
-                      inputClassName="bg-white border-gray-300 text-gray-900 h-8 text-xs"
+                      labelClassName="text-slate-400 text-[10px] mb-0.5 block"
+                      inputClassName="bg-slate-700 border-slate-500 text-white h-8 text-xs"
                     />
                   </div>
                   <div>
@@ -950,14 +950,14 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       onSelect={(val) => setForm(p => ({ ...p, farmer_name: val }))}
                       label="Source"
                       testId="vw-farmer"
-                      labelClassName="text-gray-600 text-[10px] mb-0.5 block"
-                      inputClassName="bg-white border-gray-300 text-gray-900 h-8 text-xs"
+                      labelClassName="text-slate-400 text-[10px] mb-0.5 block"
+                      inputClassName="bg-slate-700 border-slate-500 text-white h-8 text-xs"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <Label className="text-gray-600 text-[10px] mb-0.5 block">Product</Label>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Product</Label>
                     <Select value={form.product} onValueChange={v => {
                       setForm(p => {
                         const updated = { ...p, product: v };
@@ -968,16 +968,16 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                         return updated;
                       });
                     }}>
-                      <SelectTrigger className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-product"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-product"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {["GOVT PADDY","PADDY","RICE","BHUSI","KANDA","OTHER"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-gray-600 text-[10px] mb-0.5 block">Trans Type</Label>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Trans Type</Label>
                     <Select value={form.trans_type} onValueChange={v => setForm(p => ({ ...p, trans_type: v }))}>
-                      <SelectTrigger className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-trans"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-trans"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Receive(Purchase)">Receive(Purchase)</SelectItem>
                         <SelectItem value="Dispatch(Sale)">Dispatch(Sale)</SelectItem>
@@ -985,26 +985,26 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-gray-600 text-[10px] mb-0.5 block">Bags</Label>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Bags</Label>
                     <Input type="number" value={form.tot_pkts} onChange={e => setForm(p => ({ ...p, tot_pkts: e.target.value }))}
-                      placeholder="0" className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-bags" />
+                      placeholder="0" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-bags" />
                   </div>
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   <div>
-                    <Label className="text-gray-600 text-[10px] mb-0.5 block">TP No.</Label>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">TP No.</Label>
                     <Input value={form.tp_no} onChange={e => setForm(p => ({ ...p, tp_no: e.target.value }))}
-                      placeholder="Optional" className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-tp-no" />
+                      placeholder="Optional" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-tp-no" />
                   </div>
                   <div>
-                    <Label className="text-gray-600 text-[10px] mb-0.5 block">Remark</Label>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Remark</Label>
                     <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))}
-                      placeholder="Optional" className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-remark" />
+                      placeholder="Optional" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-remark" />
                   </div>
                   <div>
-                    <Label className="text-gray-600 text-[10px] mb-0.5 block">G.Issued</Label>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">G.Issued</Label>
                     <Input type="number" value={form.g_issued} onChange={e => setForm(p => ({ ...p, g_issued: e.target.value }))}
-                      placeholder="0" className="bg-white border-gray-300 text-gray-900 h-8 text-xs" data-testid="vw-g-issued" />
+                      placeholder="0" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-g-issued" />
                   </div>
                   <div>
                     <Label className="text-green-700 text-[10px] mb-0.5 block font-semibold">Cash Paid</Label>
@@ -1031,7 +1031,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                         <Label className="text-green-700 text-[10px] font-bold mb-1 block">Second Wt (Tare) *</Label>
                         <div className="flex gap-1.5 items-center">
                           <Input type="number" value={secondWtValue} onChange={e => { if (canManualWeight) setSecondWtValue(e.target.value); }}
-                            placeholder="0" className={`bg-white border-green-300 text-green-800 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-green-500/30 ${!canManualWeight ? 'cursor-not-allowed opacity-70' : ''}`}
+                            placeholder="0" className={`bg-slate-700 border-green-500 text-green-800 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-green-500/30 ${!canManualWeight ? 'cursor-not-allowed opacity-70' : ''}`}
                             readOnly={!canManualWeight}
                             data-testid="vw-second-wt-input" autoFocus />
                           {scale.stable && (
@@ -1044,7 +1044,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     </div>
                     {secondWtValue && Number(secondWtValue) > 0 && (
                       <div className="bg-green-50 rounded-lg p-2 mt-2 text-center border border-green-200">
-                        <span className="text-[10px] text-gray-500">Net Weight: </span>
+                        <span className="text-[10px] text-slate-400">Net Weight: </span>
                         <span className="text-green-700 text-xl font-bold font-mono">{Math.abs(Number(form.first_wt) - Number(secondWtValue)).toLocaleString()} KG</span>
                       </div>
                     )}
@@ -1052,7 +1052,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       <Button type="button" onClick={handleSaveSecondWt} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold h-9 text-xs" data-testid="save-btn">
                         <CheckCircle className="w-3.5 h-3.5 mr-1" /> Save Second Weight
                       </Button>
-                      <Button type="button" onClick={clearSecondWtMode} variant="outline" className="border-gray-300 text-gray-600 h-9 text-xs px-3 hover:bg-gray-50">Cancel</Button>
+                      <Button type="button" onClick={clearSecondWtMode} variant="outline" className="border-slate-600 text-slate-400 h-9 text-xs px-3 hover:bg-slate-700">Cancel</Button>
                     </div>
                   </>
                 ) : (
@@ -1061,7 +1061,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       <Label className="text-amber-700 text-xs font-bold mb-1.5 block">First Weight (KG) *</Label>
                       <div className="flex gap-2 items-center">
                         <Input type="number" value={form.first_wt} onChange={e => { if (canManualWeight) setForm(p => ({ ...p, first_wt: e.target.value })); }}
-                          placeholder="0" className={`bg-white border-amber-300 text-amber-800 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-amber-500/30 ${!canManualWeight ? 'cursor-not-allowed opacity-70' : ''}`}
+                          placeholder="0" className={`bg-slate-700 border-amber-500 text-amber-800 h-10 text-xl font-mono font-bold text-center flex-1 focus-visible:ring-amber-500/30 ${!canManualWeight ? 'cursor-not-allowed opacity-70' : ''}`}
                           readOnly={!canManualWeight}
                           data-testid="vw-first-wt" />
                         {scale.stable && (
@@ -1075,7 +1075,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       <Button type="submit" className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold h-9 text-xs" data-testid="save-btn">
                         <Plus className="w-3.5 h-3.5 mr-1" /> Save First Weight
                       </Button>
-                      <Button type="button" onClick={() => setForm(blank)} variant="outline" className="border-gray-300 text-gray-600 h-9 text-xs px-3 hover:bg-gray-50">Clear</Button>
+                      <Button type="button" onClick={() => setForm(blank)} variant="outline" className="border-slate-600 text-slate-400 h-9 text-xs px-3 hover:bg-slate-700">Clear</Button>
                     </div>
                   </>
                 )}
@@ -1087,9 +1087,9 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         {/* ═══ COL 2: Live Scale + 2 Cameras ═══ */}
         <div className="col-span-12 lg:col-span-3 space-y-2">
           {/* Digital Scale Display */}
-          <Card className="bg-gradient-to-b from-gray-900 to-black border-gray-300 shadow overflow-hidden">
+          <Card className="bg-gradient-to-b from-gray-900 to-black border-slate-600 shadow overflow-hidden">
             <div className="bg-gray-800 px-3 py-1.5 flex items-center justify-between border-b border-gray-700">
-              <span className="text-gray-400 text-[10px] font-medium flex items-center gap-1"><Scale className="w-3 h-3" /> WEIGHBRIDGE</span>
+              <span className="text-slate-500 text-[10px] font-medium flex items-center gap-1"><Scale className="w-3 h-3" /> WEIGHBRIDGE</span>
               <span className="text-green-400 text-[10px] flex items-center gap-0.5 font-medium">
                 <Wifi className="w-3 h-3" /> COM3
               </span>
@@ -1098,11 +1098,11 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
               <div className={`font-mono text-5xl font-black tracking-wider transition-all duration-200 ${
                 scale.stable ? 'text-green-400 drop-shadow-[0_0_20px_rgba(74,222,128,0.4)]'
                 : scale.running ? 'text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.3)]'
-                : 'text-gray-700'
+                : 'text-slate-300'
               }`} data-testid="live-weight-display">
                 {scale.weight > 0 ? scale.weight.toLocaleString() : '00,000'}
               </div>
-              <div className="text-gray-500 text-[10px] mt-0.5 font-mono tracking-widest">KILOGRAM</div>
+              <div className="text-slate-400 text-[10px] mt-0.5 font-mono tracking-widest">KILOGRAM</div>
               {scale.stable && <Badge className="mt-2 bg-green-600/20 text-green-400 border-green-500/30 text-[9px]"><CheckCircle className="w-2.5 h-2.5 mr-1" />STABLE - LOCKED</Badge>}
               {scale.running && !scale.stable && <p className="text-amber-400 text-[9px] mt-2 animate-pulse font-mono">MEASURING...</p>}
             </div>
@@ -1117,8 +1117,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
 
         {/* ═══ COL 3: Pending Vehicle List ═══ */}
         <div className="col-span-12 lg:col-span-5">
-          <Card className="bg-white border-gray-200 shadow-sm h-full">
-            <CardHeader className="pb-2 pt-3 px-4 border-b border-gray-100 bg-yellow-50/50">
+          <Card className="bg-slate-800 border-slate-600 shadow-sm h-full">
+            <CardHeader className="pb-2 pt-3 px-4 border-b border-slate-700 bg-yellow-50/50">
               <CardTitle className="text-xs font-bold flex items-center justify-between">
                 <span className="text-yellow-700 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5" /> Pending Vehicle List
@@ -1130,12 +1130,12 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
               <div className="overflow-auto max-h-[420px]">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-gray-100 bg-gray-50">
-                      <TableHead className="text-gray-500 text-[10px] py-2 px-2 font-semibold">RST</TableHead>
-                      <TableHead className="text-gray-500 text-[10px] py-2 px-2 font-semibold">Vehicle</TableHead>
-                      <TableHead className="text-gray-500 text-[10px] py-2 px-2 font-semibold text-right">1st Wt</TableHead>
-                      <TableHead className="text-gray-500 text-[10px] py-2 px-2 font-semibold">Party</TableHead>
-                      <TableHead className="text-gray-500 text-[10px] py-2 px-2 font-semibold text-center">Actions</TableHead>
+                    <TableRow className="border-slate-700 bg-slate-700">
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-2 font-semibold">RST</TableHead>
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-2 font-semibold">Vehicle</TableHead>
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-2 font-semibold text-right">1st Wt</TableHead>
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-2 font-semibold">Party</TableHead>
+                      <TableHead className="text-slate-400 text-[10px] py-2 px-2 font-semibold text-center">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1143,17 +1143,17 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-12">
                           <Truck className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-400 text-xs">Koi pending vehicle nahi</p>
+                          <p className="text-slate-500 text-xs">Koi pending vehicle nahi</p>
                         </TableCell>
                       </TableRow>
                     ) : pending.map((p, i) => (
-                      <TableRow key={p.id} className={`border-gray-100 hover:bg-yellow-50/50 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`} data-testid={`vw-pending-row-${p.id}`}>
+                      <TableRow key={p.id} className={`border-slate-700 hover:bg-yellow-50/50 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-700/50'}`} data-testid={`vw-pending-row-${p.id}`}>
                         <TableCell className="py-2 px-2">
                           <span className="text-amber-700 font-bold text-xs bg-amber-100 px-1.5 py-0.5 rounded">#{p.rst_no}</span>
                         </TableCell>
-                        <TableCell className="text-gray-900 text-xs py-2 px-2 font-medium">{p.vehicle_no}</TableCell>
+                        <TableCell className="text-slate-100 text-xs py-2 px-2 font-medium">{p.vehicle_no}</TableCell>
                         <TableCell className="text-blue-700 text-xs py-2 px-2 text-right font-mono font-medium">{fmtWt(p.first_wt)}</TableCell>
-                        <TableCell className="text-gray-600 text-xs py-2 px-2 truncate max-w-[80px]">{p.party_name || '-'}</TableCell>
+                        <TableCell className="text-slate-400 text-xs py-2 px-2 truncate max-w-[80px]">{p.party_name || '-'}</TableCell>
                         <TableCell className="py-2 px-2 text-center">
                           <div className="flex items-center gap-1 justify-center">
                             <Button size="sm" className="h-6 px-2 text-[10px] bg-yellow-500 hover:bg-yellow-400 text-white"
@@ -1179,15 +1179,15 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       </div>
 
       {/* ─── COMPLETED ENTRIES TABLE ─── */}
-      <Card className="bg-white border-gray-200 shadow-sm">
-        <CardHeader className="pb-2 pt-3 px-4 bg-gray-50/50">
+      <Card className="bg-slate-800 border-slate-600 shadow-sm">
+        <CardHeader className="pb-2 pt-3 px-4 bg-slate-700/50">
           <CardTitle className="text-xs flex items-center justify-between">
-            <span className="text-gray-700 flex items-center gap-1.5 cursor-pointer" onClick={() => setShowCompleted(!showCompleted)}>
+            <span className="text-slate-300 flex items-center gap-1.5 cursor-pointer" onClick={() => setShowCompleted(!showCompleted)}>
               <CheckCircle className="w-3.5 h-3.5 text-green-600" /> Completed Entries
               <Badge className="bg-green-100 text-green-700 border-green-300 text-[10px] ml-1">{vwTotalCount}</Badge>
             </span>
             <div className="flex items-center gap-1.5">
-              <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-gray-600 border-gray-300" onClick={() => setShowVwFilters(!showVwFilters)} data-testid="vw-filter-toggle">
+              <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-slate-400 border-slate-600" onClick={() => setShowVwFilters(!showVwFilters)} data-testid="vw-filter-toggle">
                 <Filter className="w-3 h-3 mr-1" />{showVwFilters ? 'Hide' : 'Filters'}
               </Button>
               <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-emerald-700 border-emerald-300 hover:bg-emerald-50" data-testid="vw-export-excel"
@@ -1198,7 +1198,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 onClick={() => { const fp = new URLSearchParams({ kms_year: kms, status: "completed", ...vwFilters }); Object.keys(vwFilters).forEach(k => { if (!vwFilters[k]) fp.delete(k); }); downloadFile(`${API}/vehicle-weight/export/pdf?${fp.toString()}`, `vehicle_weight.pdf`); }}>
                 <FileText className="w-3 h-3 mr-1" />PDF
               </Button>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-gray-500 hover:text-gray-800" data-testid="vw-toggle-completed" onClick={() => setShowCompleted(!showCompleted)}>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-slate-400 hover:text-slate-200" data-testid="vw-toggle-completed" onClick={() => setShowCompleted(!showCompleted)}>
                 {showCompleted ? <><EyeOff className="w-3 h-3 mr-1" />Hide</> : <><Eye className="w-3 h-3 mr-1" />Show</>}
               </Button>
             </div>
@@ -1207,30 +1207,30 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
           {showVwFilters && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2 pb-1" data-testid="vw-filter-bar">
               <div>
-                <label className="text-[9px] text-gray-500 font-medium">Date From</label>
+                <label className="text-[9px] text-slate-400 font-medium">Date From</label>
                 <Input type="date" className="h-7 text-xs" value={vwFilters.date_from} onChange={e => { setVwFilters(p => ({ ...p, date_from: e.target.value })); setVwPage(1); }} data-testid="vw-filter-date-from" />
               </div>
               <div>
-                <label className="text-[9px] text-gray-500 font-medium">Date To</label>
+                <label className="text-[9px] text-slate-400 font-medium">Date To</label>
                 <Input type="date" className="h-7 text-xs" value={vwFilters.date_to} onChange={e => { setVwFilters(p => ({ ...p, date_to: e.target.value })); setVwPage(1); }} data-testid="vw-filter-date-to" />
               </div>
               <div>
-                <label className="text-[9px] text-gray-500 font-medium">RST No</label>
+                <label className="text-[9px] text-slate-400 font-medium">RST No</label>
                 <Input type="text" placeholder="RST..." className="h-7 text-xs" value={vwFilters.rst_no} onChange={e => { setVwFilters(p => ({ ...p, rst_no: e.target.value })); setVwPage(1); }} data-testid="vw-filter-rst" />
               </div>
               <div>
-                <label className="text-[9px] text-gray-500 font-medium">Vehicle</label>
+                <label className="text-[9px] text-slate-400 font-medium">Vehicle</label>
                 <Input type="text" placeholder="Vehicle..." className="h-7 text-xs" value={vwFilters.vehicle_no} onChange={e => { setVwFilters(p => ({ ...p, vehicle_no: e.target.value })); setVwPage(1); }} data-testid="vw-filter-vehicle" />
               </div>
               <div>
-                <label className="text-[9px] text-gray-500 font-medium">Party</label>
+                <label className="text-[9px] text-slate-400 font-medium">Party</label>
                 <Input type="text" placeholder="Party..." className="h-7 text-xs" value={vwFilters.party_name} onChange={e => { setVwFilters(p => ({ ...p, party_name: e.target.value })); setVwPage(1); }} data-testid="vw-filter-party" />
               </div>
               <div>
-                <label className="text-[9px] text-gray-500 font-medium">Mandi</label>
+                <label className="text-[9px] text-slate-400 font-medium">Mandi</label>
                 <div className="flex gap-1">
                   <Input type="text" placeholder="Mandi..." className="h-7 text-xs" value={vwFilters.farmer_name} onChange={e => { setVwFilters(p => ({ ...p, farmer_name: e.target.value })); setVwPage(1); }} data-testid="vw-filter-mandi" />
-                  <Button variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-gray-400 hover:text-red-600" data-testid="vw-filter-clear"
+                  <Button variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-slate-500 hover:text-red-600" data-testid="vw-filter-clear"
                     onClick={() => { setVwFilters({ date_from: todayStr, date_to: todayStr, vehicle_no: "", party_name: "", farmer_name: "", rst_no: "" }); setVwPage(1); }}>
                     <X className="w-3 h-3" />
                   </Button>
@@ -1240,59 +1240,59 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
           )}
         </CardHeader>
         {showCompleted && (
-          <CardContent className="p-0 border-t border-gray-100">
+          <CardContent className="p-0 border-t border-slate-700">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-gray-100 bg-gray-50">
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">RST</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Date</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Vehicle</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Source</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Bags</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
-                    <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
+                  <TableRow className="border-slate-700 bg-slate-700">
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">RST</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Date</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Vehicle</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Source</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Bags</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
-                    <TableRow><TableCell colSpan={15} className="text-center text-gray-400 py-8 text-xs" data-testid="vw-no-entries-today">
+                    <TableRow><TableCell colSpan={15} className="text-center text-slate-500 py-8 text-xs" data-testid="vw-no-entries-today">
                       {vwFilters.date_from === todayStr && vwFilters.date_to === todayStr
                         ? "Aaj ki koi Vehicle Weight entry nahi hai"
                         : "Koi entry nahi mili - Filter change karke dekhein"}
                     </TableCell></TableRow>
                   ) : entries.map((e, i) => (
-                    <TableRow key={e.id} className={`border-gray-100 hover:bg-gray-50 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'}`}>
+                    <TableRow key={e.id} className={`border-slate-700 hover:bg-slate-700 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-700/50'}`}>
                       <TableCell className="py-2 px-3"><span className="text-amber-700 font-bold text-xs">#{e.rst_no}</span></TableCell>
-                      <TableCell className="text-gray-500 text-[11px] py-2 px-3">{fmtDate(e.date)}</TableCell>
-                      <TableCell className="text-gray-900 text-xs py-2 px-3 font-medium">{e.vehicle_no}</TableCell>
-                      <TableCell className="text-gray-700 text-xs py-2 px-3">{e.party_name}</TableCell>
-                      <TableCell className="text-gray-500 text-xs py-2 px-3">{e.farmer_name || '-'}</TableCell>
-                      <TableCell className="py-2 px-3"><Badge variant="outline" className="text-[9px] border-gray-300 text-gray-600 font-normal">{e.product}</Badge></TableCell>
-                      <TableCell className="text-gray-500 text-xs py-2 px-3">{e.tot_pkts || '-'}</TableCell>
+                      <TableCell className="text-slate-400 text-[11px] py-2 px-3">{fmtDate(e.date)}</TableCell>
+                      <TableCell className="text-slate-100 text-xs py-2 px-3 font-medium">{e.vehicle_no}</TableCell>
+                      <TableCell className="text-slate-300 text-xs py-2 px-3">{e.party_name}</TableCell>
+                      <TableCell className="text-slate-400 text-xs py-2 px-3">{e.farmer_name || '-'}</TableCell>
+                      <TableCell className="py-2 px-3"><Badge variant="outline" className="text-[9px] border-slate-600 text-slate-400 font-normal">{e.product}</Badge></TableCell>
+                      <TableCell className="text-slate-400 text-xs py-2 px-3">{e.tot_pkts || '-'}</TableCell>
                       <TableCell className="text-blue-700 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.first_wt)}</TableCell>
                       <TableCell className="text-blue-700 text-xs py-2 px-3 text-right font-mono">{fmtWt(e.second_wt)}</TableCell>
                       <TableCell className="text-right py-2 px-3"><span className="text-green-700 font-bold text-sm font-mono">{fmtWt(e.net_wt)}</span></TableCell>
                       <TableCell className="text-right text-indigo-700 text-xs py-2 px-3 font-mono">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
-                      <TableCell className="text-gray-600 text-xs py-2 px-3">{e.tp_no || '-'}</TableCell>
+                      <TableCell className="text-slate-400 text-xs py-2 px-3">{e.tp_no || '-'}</TableCell>
                       <TableCell className="text-right text-green-700 text-xs py-2 px-3 font-mono">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="text-right text-orange-700 text-xs py-2 px-3 font-mono">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-cyan-600" onClick={() => openPhotos(e)} data-testid={`vw-photos-${e.id}`} title="View Photos"><Eye className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-cyan-600" onClick={() => openPhotos(e)} data-testid={`vw-photos-${e.id}`} title="View Photos"><Eye className="w-3 h-3" /></Button>
                           {!linkedRst.has(e.rst_no) && (
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`vw-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`vw-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
                           )}
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`vw-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`vw-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
                           {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-green-400 hover:text-green-600" onClick={() => handleWA(e)} data-testid={`vw-wa-${e.id}`} title="WhatsApp"><Send className="w-3 h-3" /></Button>}
                           {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-teal-400 hover:text-teal-600" onClick={() => handleGroup(e)} data-testid={`vw-group-${e.id}`} title="Group"><Users className="w-3 h-3" /></Button>}
                           {linkedRst.has(e.rst_no) ? (
@@ -1315,7 +1315,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
 
       {/* Edit Dialog */}
       <Dialog open={editDialog.open} onOpenChange={v => setEditDialog({ open: v, entry: v ? editDialog.entry : null })}>
-        <DialogContent className="bg-white border-gray-200 max-w-md" data-testid="vw-edit-dialog">
+        <DialogContent className="bg-slate-800 border-slate-600 max-w-md" data-testid="vw-edit-dialog">
           <DialogHeader>
             <DialogTitle className="text-amber-700 flex items-center gap-2">
               <Pencil className="w-4 h-4" /> Edit RST #{editDialog.entry?.rst_no}
@@ -1324,14 +1324,14 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-gray-600 text-xs mb-1 block">Vehicle No</Label>
+                <Label className="text-slate-400 text-xs mb-1 block">Vehicle No</Label>
                 <Input value={editForm.vehicle_no || ""} onChange={e => setEditForm(p => ({ ...p, vehicle_no: e.target.value.toUpperCase() }))}
-                  className="h-9 text-sm border-gray-300" data-testid="edit-vehicle" />
+                  className="h-9 text-sm border-slate-600" data-testid="edit-vehicle" />
               </div>
               <div>
-                <Label className="text-gray-600 text-xs mb-1 block">Product</Label>
+                <Label className="text-slate-400 text-xs mb-1 block">Product</Label>
                 <Select value={editForm.product || ""} onValueChange={v => setEditForm(p => ({ ...p, product: v }))}>
-                  <SelectTrigger className="h-9 text-sm border-gray-300" data-testid="edit-product"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm border-slate-600" data-testid="edit-product"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {["GOVT PADDY","PADDY","RICE","BHUSI","KANDA","OTHER"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                   </SelectContent>
@@ -1340,31 +1340,31 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-gray-600 text-xs mb-1 block">Party Name</Label>
+                <Label className="text-slate-400 text-xs mb-1 block">Party Name</Label>
                 <Input value={editForm.party_name || ""} onChange={e => setEditForm(p => ({ ...p, party_name: e.target.value }))}
-                  className="h-9 text-sm border-gray-300" data-testid="edit-party" />
+                  className="h-9 text-sm border-slate-600" data-testid="edit-party" />
               </div>
               <div>
-                <Label className="text-gray-600 text-xs mb-1 block">Source</Label>
+                <Label className="text-slate-400 text-xs mb-1 block">Source</Label>
                 <Input value={editForm.farmer_name || ""} onChange={e => setEditForm(p => ({ ...p, farmer_name: e.target.value }))}
-                  className="h-9 text-sm border-gray-300" data-testid="edit-farmer" />
+                  className="h-9 text-sm border-slate-600" data-testid="edit-farmer" />
               </div>
             </div>
             <div className="grid grid-cols-5 gap-3">
               <div>
-                <Label className="text-gray-600 text-xs mb-1 block">Bags</Label>
+                <Label className="text-slate-400 text-xs mb-1 block">Bags</Label>
                 <Input type="number" value={editForm.tot_pkts || ""} onChange={e => setEditForm(p => ({ ...p, tot_pkts: e.target.value }))}
-                  className="h-9 text-sm border-gray-300" data-testid="edit-bags" />
+                  className="h-9 text-sm border-slate-600" data-testid="edit-bags" />
               </div>
               <div>
-                <Label className="text-gray-600 text-xs mb-1 block">G.Issued</Label>
+                <Label className="text-slate-400 text-xs mb-1 block">G.Issued</Label>
                 <Input type="number" value={editForm.g_issued || ""} onChange={e => setEditForm(p => ({ ...p, g_issued: e.target.value }))}
-                  className="h-9 text-sm border-gray-300" data-testid="edit-g-issued" />
+                  className="h-9 text-sm border-slate-600" data-testid="edit-g-issued" />
               </div>
               <div>
-                <Label className="text-gray-600 text-xs mb-1 block">TP No.</Label>
+                <Label className="text-slate-400 text-xs mb-1 block">TP No.</Label>
                 <Input value={editForm.tp_no || ""} onChange={e => setEditForm(p => ({ ...p, tp_no: e.target.value }))}
-                  className="h-9 text-sm border-gray-300" data-testid="edit-tp-no" />
+                  className="h-9 text-sm border-slate-600" data-testid="edit-tp-no" />
               </div>
               <div>
                 <Label className="text-green-700 text-xs mb-1 block font-semibold">Cash Paid</Label>
@@ -1386,75 +1386,75 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
 
       {/* Photo View Dialog - Print Slip Style */}
       <Dialog open={photoDialog.open} onOpenChange={v => !v && setPhotoDialog({ open: false, data: null, loading: false })}>
-        <DialogContent className="bg-white border-gray-300 max-w-[520px] max-h-[90vh] overflow-y-auto p-0" data-testid="vw-photo-dialog"
+        <DialogContent className="bg-slate-800 border-slate-600 max-w-[520px] max-h-[90vh] overflow-y-auto p-0" data-testid="vw-photo-dialog"
           onEscapeKeyDown={(e) => {
             const zoomOpen = document.querySelector('[data-testid="photo-zoom-overlay"], [data-testid="camera-zoom-overlay"]');
             if (zoomOpen) e.preventDefault();
           }}>
           {photoDialog.loading ? (
-            <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>
+            <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-slate-500" /></div>
           ) : photoDialog.data ? (
             <>
             <div className="border-[2px] border-gray-800 rounded m-3" data-testid="vw-photo-slip">
               {/* ── Slip Header ── */}
               <div className="text-center border-b-[2px] border-gray-800 py-2 px-3 relative">
-                <div className="absolute top-1 right-2 text-[9px] text-gray-500 font-semibold tracking-wide">VIEW COPY</div>
+                <div className="absolute top-1 right-2 text-[9px] text-slate-400 font-semibold tracking-wide">VIEW COPY</div>
                 {/* Custom fields ABOVE */}
                 {(() => { const above = (photoDialog.data?._brand?.custom_fields || []).filter(f => f.placement === 'above' && f.value); return above.length > 0 ? <p className="text-[9px] text-red-800 font-semibold mb-0.5">{above.map(f => f.label ? `${f.label}: ${f.value}` : f.value).join('  |  ')}</p> : null; })()}
-                <h2 className="text-lg font-black text-gray-900 leading-tight tracking-wide" data-testid="slip-company-name">{photoDialog.data?._brand?.company || "NAVKAR AGRO"}</h2>
-                <p className="text-[10px] text-gray-500 mt-0.5">{photoDialog.data?._brand?.tagline || "JOLKO, KESINGA - Mill Entry System"}</p>
+                <h2 className="text-lg font-black text-slate-100 leading-tight tracking-wide" data-testid="slip-company-name">{photoDialog.data?._brand?.company || "NAVKAR AGRO"}</h2>
+                <p className="text-[10px] text-slate-400 mt-0.5">{photoDialog.data?._brand?.tagline || "JOLKO, KESINGA - Mill Entry System"}</p>
                 {/* Custom fields BELOW */}
-                {(() => { const below = (photoDialog.data?._brand?.custom_fields || []).filter(f => f.placement !== 'above' && f.value); return below.length > 0 ? <p className="text-[9px] text-gray-600 mt-0.5">{below.map(f => f.label ? `${f.label}: ${f.value}` : f.value).join('  |  ')}</p> : null; })()}
-                <div className="text-xs font-bold text-gray-700 mt-0.5">WEIGHT SLIP / तौल पर्ची</div>
+                {(() => { const below = (photoDialog.data?._brand?.custom_fields || []).filter(f => f.placement !== 'above' && f.value); return below.length > 0 ? <p className="text-[9px] text-slate-400 mt-0.5">{below.map(f => f.label ? `${f.label}: ${f.value}` : f.value).join('  |  ')}</p> : null; })()}
+                <div className="text-xs font-bold text-slate-300 mt-0.5">WEIGHT SLIP / तौल पर्ची</div>
               </div>
 
               {/* ── Info Table ── */}
               <table className="w-full border-collapse text-[11px]" data-testid="slip-info-table">
                 <tbody>
                   <tr>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap w-[22%]">RST No.</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900 text-xs w-[28%]">#{photoDialog.data.rst_no}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap w-[22%]">Date / दिनांक</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900 w-[28%]">{fmtDate(photoDialog.data.date) || '-'}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap w-[22%]">RST No.</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100 text-xs w-[28%]">#{photoDialog.data.rst_no}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap w-[22%]">Date / दिनांक</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100 w-[28%]">{fmtDate(photoDialog.data.date) || '-'}</td>
                   </tr>
                   <tr>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Vehicle / गाड़ी</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.vehicle_no}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Trans Type</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.trans_type || '-'}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">Vehicle / गाड़ी</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.vehicle_no}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">Trans Type</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.trans_type || '-'}</td>
                   </tr>
                   <tr>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Party / पार्टी</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.party_name || '-'}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Source/Mandi</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.farmer_name || '-'}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">Party / पार्टी</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.party_name || '-'}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">Source/Mandi</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.farmer_name || '-'}</td>
                   </tr>
                   <tr>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Product / माल</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.product || '-'}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Bags / बोरे</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tot_pkts || '-'}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">Product / माल</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.product || '-'}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">Bags / बोरे</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.tot_pkts || '-'}</td>
                   </tr>
                   {(photoDialog.data.g_issued > 0) && (
                     <tr>
-                      <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">G.Issued</td>
-                      <td className="border border-gray-300 px-2 py-1 font-extrabold text-indigo-700">{fmtWt(photoDialog.data.g_issued)}</td>
-                      <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">TP No.</td>
-                      <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tp_no || '-'}</td>
+                      <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">G.Issued</td>
+                      <td className="border border-slate-600 px-2 py-1 font-extrabold text-indigo-700">{fmtWt(photoDialog.data.g_issued)}</td>
+                      <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">TP No.</td>
+                      <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.tp_no || '-'}</td>
                     </tr>
                   )}
                   {(!photoDialog.data.g_issued || Number(photoDialog.data.g_issued) === 0) && photoDialog.data.tp_no && (
                     <tr>
-                      <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">TP No.</td>
-                      <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tp_no}</td>
-                      <td className="border border-gray-300 px-2 py-1"></td>
-                      <td className="border border-gray-300 px-2 py-1"></td>
+                      <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">TP No.</td>
+                      <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.tp_no}</td>
+                      <td className="border border-slate-600 px-2 py-1"></td>
+                      <td className="border border-slate-600 px-2 py-1"></td>
                     </tr>
                   )}
                   {photoDialog.data.remark && photoDialog.data.remark !== '-' && (
                     <tr>
-                      <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold whitespace-nowrap">Remark / टिप्पणी</td>
-                      <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900" colSpan={3}>{photoDialog.data.remark}</td>
+                      <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">Remark / टिप्पणी</td>
+                      <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100" colSpan={3}>{photoDialog.data.remark}</td>
                     </tr>
                   )}
                 </tbody>
@@ -1462,13 +1462,13 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
 
               {/* ── Weight Summary Bar ── */}
               <div className="flex border-t-[2px] border-gray-800" data-testid="slip-weight-bar">
-                <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-gray-50">
-                  <span className="block text-[8px] font-bold text-gray-500 uppercase">Gross / कुल</span>
-                  <span className="block text-sm font-black text-gray-900">{fmtWt(photoDialog.data.first_wt)} KG</span>
+                <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-slate-700">
+                  <span className="block text-[8px] font-bold text-slate-400 uppercase">Gross / कुल</span>
+                  <span className="block text-sm font-black text-slate-100">{fmtWt(photoDialog.data.first_wt)} KG</span>
                 </div>
-                <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-gray-50">
-                  <span className="block text-[8px] font-bold text-gray-500 uppercase">Tare / खाली</span>
-                  <span className="block text-sm font-black text-gray-900">{fmtWt(photoDialog.data.second_wt)} KG</span>
+                <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-slate-700">
+                  <span className="block text-[8px] font-bold text-slate-400 uppercase">Tare / खाली</span>
+                  <span className="block text-sm font-black text-slate-100">{fmtWt(photoDialog.data.second_wt)} KG</span>
                 </div>
                 <div className="flex-1 text-center py-1.5 border-r border-gray-400" style={{ background: '#e8f5e9' }}>
                   <span className="block text-[8px] font-bold text-green-800 uppercase">Net / शुद्ध</span>
@@ -1489,8 +1489,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
               </div>
 
               {/* ── Footer ── */}
-              <div className="text-center py-1 border-t border-gray-300">
-                <span className="text-[8px] text-gray-400">{photoDialog.data?._brand?.company || "NAVKAR AGRO"} | Computer Generated</span>
+              <div className="text-center py-1 border-t border-slate-600">
+                <span className="text-[8px] text-slate-500">{photoDialog.data?._brand?.company || "NAVKAR AGRO"} | Computer Generated</span>
               </div>
             </div>
 
@@ -1504,16 +1504,16 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Front View</p>
+                        <p className="text-[10px] text-slate-400 mb-0.5 font-medium">Front View</p>
                         {photoDialog.data.first_wt_front_img ? (
-                          <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`} alt="1st Wt Front" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`)} />
-                        ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`} alt="1st Wt Front" className="w-full rounded border border-slate-600 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`)} />
+                        ) : <div className="h-20 bg-slate-700 rounded flex items-center justify-center text-slate-500 text-[10px]">No Photo</div>}
                       </div>
                       <div>
-                        <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Side View</p>
+                        <p className="text-[10px] text-slate-400 mb-0.5 font-medium">Side View</p>
                         {photoDialog.data.first_wt_side_img ? (
-                          <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`} alt="1st Wt Side" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`)} />
-                        ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`} alt="1st Wt Side" className="w-full rounded border border-slate-600 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`)} />
+                        ) : <div className="h-20 bg-slate-700 rounded flex items-center justify-center text-slate-500 text-[10px]">No Photo</div>}
                       </div>
                     </div>
                   </div>
@@ -1526,16 +1526,16 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Front View</p>
+                        <p className="text-[10px] text-slate-400 mb-0.5 font-medium">Front View</p>
                         {photoDialog.data.second_wt_front_img ? (
-                          <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`} alt="2nd Wt Front" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`)} />
-                        ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`} alt="2nd Wt Front" className="w-full rounded border border-slate-600 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`)} />
+                        ) : <div className="h-20 bg-slate-700 rounded flex items-center justify-center text-slate-500 text-[10px]">No Photo</div>}
                       </div>
                       <div>
-                        <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Side View</p>
+                        <p className="text-[10px] text-slate-400 mb-0.5 font-medium">Side View</p>
                         {photoDialog.data.second_wt_side_img ? (
-                          <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`} alt="2nd Wt Side" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`)} />
-                        ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                          <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`} alt="2nd Wt Side" className="w-full rounded border border-slate-600 object-cover cursor-pointer hover:opacity-80 transition" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`)} />
+                        ) : <div className="h-20 bg-slate-700 rounded flex items-center justify-center text-slate-500 text-[10px]">No Photo</div>}
                       </div>
                     </div>
                   </div>

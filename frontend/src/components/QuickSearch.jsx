@@ -136,11 +136,11 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
   let flatIdx = 0;
 
   // Theme classes
-  const dialogBg = isDark ? "bg-slate-900 border-slate-700" : "bg-white border-gray-200 shadow-2xl";
-  const inputBorder = isDark ? "border-slate-700" : "border-gray-200";
-  const inputText = isDark ? "text-white placeholder:text-slate-500" : "text-gray-900 placeholder:text-gray-400";
-  const footerBorder = isDark ? "border-slate-700" : "border-gray-200";
-  const kbdClass = isDark ? "bg-slate-800 border-slate-700 text-slate-500" : "bg-gray-100 border-gray-300 text-gray-500";
+  const dialogBg = isDark ? "bg-slate-900 border-slate-700" : "bg-slate-800 border-slate-600 shadow-2xl";
+  const inputBorder = isDark ? "border-slate-700" : "border-slate-600";
+  const inputText = isDark ? "text-white placeholder:text-slate-500" : "text-slate-100 placeholder:text-gray-400";
+  const footerBorder = isDark ? "border-slate-700" : "border-slate-600";
+  const kbdClass = isDark ? "bg-slate-800 border-slate-700 text-slate-500" : "bg-slate-700 border-slate-600 text-slate-400";
 
   return (
     <Dialog open={open} onOpenChange={(v) => {
@@ -175,14 +175,14 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
           {!query && (
             <div className="px-6 py-10 text-center">
               <Search className={`w-10 h-10 mx-auto mb-3 ${isDark ? 'text-slate-600' : 'text-gray-300'}`} />
-              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Type to search across all data</p>
+              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>Type to search across all data</p>
               <p className={`text-xs mt-1 ${isDark ? 'text-slate-600' : 'text-gray-400'}`}>Entries, Cash Book, Vouchers, Staff, Diesel, Milling...</p>
             </div>
           )}
 
           {query && !loading && results.length === 0 && (
             <div className="px-6 py-10 text-center">
-              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Koi result nahi mila "{query}"</p>
+              <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>Koi result nahi mila "{query}"</p>
             </div>
           )}
 
@@ -203,7 +203,7 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
                   const currentIdx = flatIdx++;
                   const isSelected = currentIdx === selectedIdx;
                   const selBg = isDark ? 'bg-amber-500/10 border-amber-500/30' : 'bg-amber-50 border-amber-300';
-                  const hoverBg = isDark ? 'hover:bg-slate-800' : 'hover:bg-gray-50';
+                  const hoverBg = isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-700';
                   return (
                     <div
                       key={item.id + '-' + currentIdx}
@@ -217,7 +217,7 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className={`text-sm font-medium truncate ${isSelected ? (isDark ? 'text-amber-300' : 'text-amber-700') : (isDark ? 'text-slate-200' : 'text-gray-800')}`}>
+                          <span className={`text-sm font-medium truncate ${isSelected ? (isDark ? 'text-amber-300' : 'text-amber-700') : (isDark ? 'text-slate-200' : 'text-slate-200')}`}>
                             {item.title}
                           </span>
                           {item.date && (
@@ -226,7 +226,7 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
                             </span>
                           )}
                         </div>
-                        <p className={`text-xs truncate mt-0.5 ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{item.subtitle}</p>
+                        <p className={`text-xs truncate mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>{item.subtitle}</p>
                       </div>
                       {/* Actions — visible on selected or hover */}
                       <div className={`flex items-center gap-1 shrink-0 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
@@ -281,9 +281,9 @@ function PreviewPanel({ item, onClose, onNavigate, isDark }) {
   const data = item.data || {};
   const keys = Object.keys(data).filter(k => !HIDE_KEYS.has(k) && data[k] !== null && data[k] !== undefined && data[k] !== '');
 
-  const panelBg = isDark ? 'bg-slate-900' : 'bg-white';
-  const headerBorder = isDark ? 'border-slate-700/80' : 'border-gray-200';
-  const closeBtnStyle = isDark ? 'hover:bg-slate-700/80 text-slate-400 hover:text-white' : 'hover:bg-gray-100 text-gray-400 hover:text-gray-700';
+  const panelBg = isDark ? 'bg-slate-900' : 'bg-slate-800';
+  const headerBorder = isDark ? 'border-slate-700/80' : 'border-slate-600';
+  const closeBtnStyle = isDark ? 'hover:bg-slate-700/80 text-slate-400 hover:text-white' : 'hover:bg-slate-700 text-gray-400 hover:text-slate-300';
 
   // Accent colors per type
   const accentMap = {
@@ -312,15 +312,15 @@ function PreviewPanel({ item, onClose, onNavigate, isDark }) {
   const ac = accentMap[cfg.accent] || fallback;
 
   // Row colors for data grid
-  const rowBg = isDark ? 'bg-slate-800/50 border-slate-700/40' : 'bg-gray-50 border-gray-200';
+  const rowBg = isDark ? 'bg-slate-800/50 border-slate-700/40' : 'bg-slate-700 border-slate-600';
   const amountRowBg = isDark ? 'bg-emerald-900/15 border-emerald-500/20' : 'bg-emerald-50 border-emerald-200';
   const labelColor = isDark ? 'text-slate-500' : 'text-gray-400';
-  const valueColor = isDark ? 'text-slate-100' : 'text-gray-900';
+  const valueColor = isDark ? 'text-slate-100' : 'text-slate-100';
   const amountColor = isDark ? 'text-emerald-300' : 'text-emerald-700';
   const dateColor = isDark ? 'text-blue-300' : 'text-blue-700';
   const typeColor = isDark ? 'text-amber-300' : 'text-amber-700';
   const subtitleColor = isDark ? 'text-slate-500' : 'text-gray-400';
-  const kbdClass = isDark ? 'bg-slate-800 border-slate-700 text-slate-500' : 'bg-gray-100 border-gray-300 text-gray-500';
+  const kbdClass = isDark ? 'bg-slate-800 border-slate-700 text-slate-500' : 'bg-slate-700 border-slate-600 text-slate-400';
 
   const getValColor = (key) => {
     if (isAmountKey(key)) return amountColor;
@@ -339,7 +339,7 @@ function PreviewPanel({ item, onClose, onNavigate, isDark }) {
           </div>
           <div>
             <Badge variant="outline" className={`${ac.badge} text-[10px] mb-0.5`}>{cfg.label}</Badge>
-            <p className={`text-sm font-semibold truncate max-w-[350px] ${isDark ? 'text-white' : 'text-gray-900'}`}>{item.title}</p>
+            <p className={`text-sm font-semibold truncate max-w-[350px] ${isDark ? 'text-white' : 'text-slate-100'}`}>{item.title}</p>
           </div>
         </div>
         <button onClick={onClose} className={`p-1.5 rounded-lg transition-colors ${closeBtnStyle}`} data-testid="close-preview-btn">
@@ -375,7 +375,7 @@ function PreviewPanel({ item, onClose, onNavigate, isDark }) {
 
       {/* Footer */}
       <div className={`border-t ${headerBorder} px-5 py-3 flex items-center justify-between`}>
-        <button onClick={onClose} className={`text-xs flex items-center gap-1.5 transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}>
+        <button onClick={onClose} className={`text-xs flex items-center gap-1.5 transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-gray-400 hover:text-slate-300'}`}>
           <kbd className={`px-1.5 py-0.5 rounded border text-[9px] font-mono ${kbdClass}`}>ESC</kbd> Back
         </button>
         <button

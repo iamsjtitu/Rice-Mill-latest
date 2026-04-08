@@ -110,15 +110,15 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBl
       {showSuggestions && filteredSuggestions.length > 0 && (
         <div 
           ref={listRef}
-          className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto"
+          className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-md shadow-lg max-h-48 overflow-y-auto"
         >
           {filteredSuggestions.map((suggestion, index) => (
             <div
               key={index}
-              className={`px-3 py-2 cursor-pointer text-gray-900 text-sm transition-colors ${
+              className={`px-3 py-2 cursor-pointer text-slate-100 text-sm transition-colors ${
                 index === activeIndex 
                   ? 'bg-amber-100 text-amber-800' 
-                  : 'hover:bg-gray-100'
+                  : 'hover:bg-slate-700'
               }`}
               onClick={() => {
                 onSelect(suggestion);

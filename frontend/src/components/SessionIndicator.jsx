@@ -82,13 +82,13 @@ export default function SessionIndicator({ onDataRefresh }) {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-48 bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 p-2 shadow-lg" align="end">
+      <PopoverContent className="w-48 bg-slate-800 dark:bg-slate-800 border-slate-600 dark:border-slate-600 p-2 shadow-lg" align="end">
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Connected</span>
+            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">Connected</span>
             <button
               onClick={handleRefresh}
-              className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer"
+              className="p-0.5 rounded hover:bg-slate-700 dark:hover:bg-slate-700 text-gray-400 dark:text-slate-400 hover:text-amber-500 dark:hover:text-amber-400 transition-colors cursor-pointer"
               data-testid="session-refresh-btn"
             >
               <RefreshCw className={`w-2.5 h-2.5 ${refreshing ? "animate-spin" : ""}`} />
@@ -135,30 +135,30 @@ export default function SessionIndicator({ onDataRefresh }) {
           {/* Data Sync Status */}
           {syncInfo && (
             <>
-              <div className="border-t border-gray-200 dark:border-slate-600 my-1" />
-              <span className="text-[9px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Data Sync</span>
-              <div className="px-1.5 py-1 rounded bg-gray-50 dark:bg-slate-700/50 border border-gray-200/80 dark:border-slate-600/50 space-y-0.5">
+              <div className="border-t border-slate-600 dark:border-slate-600 my-1" />
+              <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">Data Sync</span>
+              <div className="px-1.5 py-1 rounded bg-slate-700 dark:bg-slate-700/50 border border-slate-600/80 dark:border-slate-600/50 space-y-0.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] text-gray-500 dark:text-slate-400">Entries</span>
-                  <span className="text-[9px] font-bold text-gray-700 dark:text-slate-200">{syncInfo.entries || 0}</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-400">Entries</span>
+                  <span className="text-[9px] font-bold text-slate-300 dark:text-slate-200">{syncInfo.entries || 0}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] text-gray-500 dark:text-slate-400">Vehicle Wt</span>
-                  <span className="text-[9px] font-bold text-gray-700 dark:text-slate-200">{syncInfo.vehicle_weights || 0}</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-400">Vehicle Wt</span>
+                  <span className="text-[9px] font-bold text-slate-300 dark:text-slate-200">{syncInfo.vehicle_weights || 0}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] text-gray-500 dark:text-slate-400">Cash Txns</span>
-                  <span className="text-[9px] font-bold text-gray-700 dark:text-slate-200">{syncInfo.cash_transactions || 0}</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-400">Cash Txns</span>
+                  <span className="text-[9px] font-bold text-slate-300 dark:text-slate-200">{syncInfo.cash_transactions || 0}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] text-gray-500 dark:text-slate-400">Last Save</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-400">Last Save</span>
                   <span className="text-[9px] font-bold text-green-600 dark:text-green-400">
                     {syncInfo.last_save ? new Date(syncInfo.last_save).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '-'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] text-gray-500 dark:text-slate-400">Engine</span>
-                  <span className="text-[9px] font-mono text-gray-600 dark:text-slate-300">{syncInfo.engine || '?'}</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-400">Engine</span>
+                  <span className="text-[9px] font-mono text-slate-400 dark:text-slate-300">{syncInfo.engine || '?'}</span>
                 </div>
                 {syncInfo.pending_save && (
                   <p className="text-[8px] text-amber-500 animate-pulse text-center">Saving...</p>

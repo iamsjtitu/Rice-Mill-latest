@@ -96,7 +96,7 @@ const TransactionFormDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white border-slate-200 text-slate-800 max-w-md" data-testid="cashbook-form-dialog">
+      <DialogContent className="bg-slate-800 border-slate-200 text-slate-800 max-w-md" data-testid="cashbook-form-dialog">
         <DialogHeader><DialogTitle className="text-amber-700">{editingId ? 'Edit Transaction' : 'New Transaction'}</DialogTitle></DialogHeader>
         <form ref={formRef} onSubmit={onSubmit} onKeyDown={e => { if (e.key === 'Enter' && e.target.tagName !== 'BUTTON') e.preventDefault(); }} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -164,7 +164,7 @@ const TransactionFormDialog = ({
                 (() => {
                   const filtered = categories.filter(c => !form.category || c.toLowerCase().includes(form.category.toLowerCase()));
                   return filtered.length > 0 ? (
-                    <div className="absolute z-50 w-full mt-1 max-h-40 overflow-auto bg-white border border-slate-200 rounded-md shadow-lg">
+                    <div className="absolute z-50 w-full mt-1 max-h-40 overflow-auto bg-slate-800 border border-slate-200 rounded-md shadow-lg">
                       {filtered.map((c, i) => {
                         const pt = allTxns.find(t => t.category === c && t.party_type);
                         const isHighlighted = (form._highlightIdx ?? -1) === i;

@@ -241,15 +241,15 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
 
   return (
     <>
-    <Card className="bg-white border-gray-200 shadow-sm">
-      <CardHeader className="pb-2 pt-3 px-4 bg-gray-50/50">
+    <Card className="bg-slate-800 border-slate-600 shadow-sm">
+      <CardHeader className="pb-2 pt-3 px-4 bg-slate-700/50">
         <CardTitle className="text-xs flex items-center justify-between">
-          <span className="text-gray-700 flex items-center gap-1.5">
+          <span className="text-slate-300 flex items-center gap-1.5">
             <CheckCircle className="w-3.5 h-3.5 text-blue-600" /> Auto Weight Entries (Last 7 Days)
             <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-[10px] ml-1">{totalCount}</Badge>
           </span>
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-gray-600 border-gray-300" onClick={() => setShowFilters(!showFilters)} data-testid="awe-filter-toggle">
+            <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-slate-400 border-slate-600" onClick={() => setShowFilters(!showFilters)} data-testid="awe-filter-toggle">
               <Filter className="w-3 h-3 mr-1" />{showFilters ? 'Hide' : 'Filters'}
             </Button>
             <Button variant="outline" size="sm" className="h-6 px-2 text-[10px] text-emerald-700 border-emerald-300 hover:bg-emerald-50" data-testid="awe-export-excel"
@@ -268,30 +268,30 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
         {showFilters && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mt-2 pb-1" data-testid="awe-filter-bar">
             <div>
-              <label className="text-[9px] text-gray-500 font-medium">Date From</label>
+              <label className="text-[9px] text-slate-400 font-medium">Date From</label>
               <Input type="date" className="h-7 text-xs" value={vwFilters.date_from} onChange={e => { setVwFilters(p => ({ ...p, date_from: e.target.value })); setPage(1); }} data-testid="awe-filter-date-from" />
             </div>
             <div>
-              <label className="text-[9px] text-gray-500 font-medium">Date To</label>
+              <label className="text-[9px] text-slate-400 font-medium">Date To</label>
               <Input type="date" className="h-7 text-xs" value={vwFilters.date_to} onChange={e => { setVwFilters(p => ({ ...p, date_to: e.target.value })); setPage(1); }} data-testid="awe-filter-date-to" />
             </div>
             <div>
-              <label className="text-[9px] text-gray-500 font-medium">RST No</label>
+              <label className="text-[9px] text-slate-400 font-medium">RST No</label>
               <Input type="text" placeholder="RST..." className="h-7 text-xs" value={vwFilters.rst_no} onChange={e => { setVwFilters(p => ({ ...p, rst_no: e.target.value })); setPage(1); }} data-testid="awe-filter-rst" />
             </div>
             <div>
-              <label className="text-[9px] text-gray-500 font-medium">Vehicle</label>
+              <label className="text-[9px] text-slate-400 font-medium">Vehicle</label>
               <Input type="text" placeholder="Vehicle..." className="h-7 text-xs" value={vwFilters.vehicle_no} onChange={e => { setVwFilters(p => ({ ...p, vehicle_no: e.target.value })); setPage(1); }} data-testid="awe-filter-vehicle" />
             </div>
             <div>
-              <label className="text-[9px] text-gray-500 font-medium">Party</label>
+              <label className="text-[9px] text-slate-400 font-medium">Party</label>
               <Input type="text" placeholder="Party..." className="h-7 text-xs" value={vwFilters.party_name} onChange={e => { setVwFilters(p => ({ ...p, party_name: e.target.value })); setPage(1); }} data-testid="awe-filter-party" />
             </div>
             <div>
-              <label className="text-[9px] text-gray-500 font-medium">Mandi</label>
+              <label className="text-[9px] text-slate-400 font-medium">Mandi</label>
               <div className="flex gap-1">
                 <Input type="text" placeholder="Mandi..." className="h-7 text-xs" value={vwFilters.farmer_name} onChange={e => { setVwFilters(p => ({ ...p, farmer_name: e.target.value })); setPage(1); }} data-testid="awe-filter-mandi" />
-                <Button variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-gray-400 hover:text-red-600" data-testid="awe-filter-clear"
+                <Button variant="ghost" size="sm" className="h-7 px-1.5 text-[10px] text-slate-500 hover:text-red-600" data-testid="awe-filter-clear"
                   onClick={() => { setVwFilters({ date_from: getLast7DaysDate(), date_to: todayStr, vehicle_no: "", party_name: "", farmer_name: "", rst_no: "" }); setPage(1); }}>
                   <X className="w-3 h-3" />
                 </Button>
@@ -300,62 +300,62 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
           </div>
         )}
       </CardHeader>
-      <CardContent className="p-0 border-t border-gray-100">
+      <CardContent className="p-0 border-t border-slate-700">
         {loading ? (
-          <div className="flex justify-center py-8"><RefreshCw className="w-5 h-5 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-8"><RefreshCw className="w-5 h-5 animate-spin text-slate-500" /></div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-gray-100 bg-gray-50">
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">RST</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Date</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Vehicle</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Source</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">Bags</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
-                  <TableHead className="text-gray-500 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
+                <TableRow className="border-slate-700 bg-slate-700">
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">RST</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Date</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Vehicle</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Party</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Source</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Product</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">Bags</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">1st Wt</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">2nd Wt</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
+                  <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {entries.length === 0 ? (
-                  <TableRow><TableCell colSpan={15} className="text-center text-gray-400 py-8 text-xs" data-testid="awe-no-entries">
+                  <TableRow><TableCell colSpan={15} className="text-center text-slate-500 py-8 text-xs" data-testid="awe-no-entries">
                     Koi entry nahi mili - Filter change karke dekhein
                   </TableCell></TableRow>
                 ) : entries.map((e, i) => {
                   const isLinked = linkedRst.has(e.rst_no);
                   return (
-                    <TableRow key={e.id} className={`border-gray-100 hover:bg-gray-50 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/50'} ${isLinked ? 'bg-green-50/40' : ''}`} data-testid={`awe-row-${e.rst_no}`}>
+                    <TableRow key={e.id} className={`border-slate-700 hover:bg-slate-700 transition-colors ${i % 2 === 0 ? '' : 'bg-slate-700/50'} ${isLinked ? 'bg-green-50/40' : ''}`} data-testid={`awe-row-${e.rst_no}`}>
                       <TableCell className="py-2 px-3"><span className="text-amber-700 font-bold text-xs">#{e.rst_no}</span></TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-gray-600">{fmtDate(e.date)}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs font-semibold text-gray-800">{e.vehicle_no}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-gray-700">{e.party_name}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-gray-600">{e.farmer_name || '-'}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs text-slate-400">{fmtDate(e.date)}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs font-semibold text-slate-200">{e.vehicle_no}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs text-slate-300">{e.party_name}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs text-slate-400">{e.farmer_name || '-'}</TableCell>
                       <TableCell className="py-2 px-3"><Badge variant="outline" className="text-[9px] py-0">{e.product}</Badge></TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-gray-600">{e.tot_pkts || '-'}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs text-slate-400">{e.tot_pkts || '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-semibold">{fmtWt(e.first_wt)}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-blue-700 font-semibold">{fmtWt(e.second_wt)}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-green-700 font-bold">{fmtWt(e.net_wt)}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-indigo-700 font-semibold">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-gray-600">{e.tp_no || '-'}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs text-slate-400">{e.tp_no || '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-amber-700 font-semibold">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-red-600 font-semibold">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-cyan-600" onClick={() => openPhotos(e)} data-testid={`awe-photos-${e.id}`} title="View Photos"><Eye className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-cyan-600" onClick={() => openPhotos(e)} data-testid={`awe-photos-${e.id}`} title="View Photos"><Eye className="w-3 h-3" /></Button>
                           {!isLinked && (
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`awe-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`awe-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
                           )}
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`awe-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`awe-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`awe-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`awe-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
                           {isLinked ? (
                             <span className="h-6 w-6 flex items-center justify-center text-green-500" title="Mill Entry done" data-testid={`awe-linked-${e.rst_no}`}><CheckCircle className="w-4 h-4" /></span>
                           ) : (
@@ -377,84 +377,84 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
 
     {/* Photo View Dialog - Print Slip Style */}
     <Dialog open={photoDialog.open} onOpenChange={v => !v && setPhotoDialog({ open: false, data: null, loading: false })}>
-      <DialogContent className="bg-white border-gray-300 max-w-[520px] max-h-[90vh] overflow-y-auto p-0" data-testid="awe-photo-dialog"
+      <DialogContent className="bg-slate-800 border-slate-600 max-w-[520px] max-h-[90vh] overflow-y-auto p-0" data-testid="awe-photo-dialog"
         onEscapeKeyDown={(e) => {
           const zoomOpen = document.querySelector('[data-testid="awe-photo-zoom-overlay"], [data-testid="photo-zoom-overlay"], [data-testid="camera-zoom-overlay"]');
           if (zoomOpen) e.preventDefault();
         }}>
         {photoDialog.loading ? (
-          <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-gray-400" /></div>
+          <div className="flex justify-center py-12"><RefreshCw className="w-6 h-6 animate-spin text-slate-500" /></div>
         ) : photoDialog.data ? (
           <>
           <div className="border-[2px] border-gray-800 rounded m-3" data-testid="awe-photo-slip">
             <div className="text-center border-b-[2px] border-gray-800 py-2 px-3 relative">
-              <div className="absolute top-1 right-2 text-[9px] text-gray-500 font-semibold tracking-wide">VIEW COPY</div>
+              <div className="absolute top-1 right-2 text-[9px] text-slate-400 font-semibold tracking-wide">VIEW COPY</div>
               {/* Custom fields ABOVE */}
               {(() => { const above = (photoDialog.data?._brand?.custom_fields || []).filter(f => f.placement === 'above' && f.value); return above.length > 0 ? <p className="text-[9px] text-red-800 font-semibold mb-0.5">{above.map(f => f.label ? `${f.label}: ${f.value}` : f.value).join('  |  ')}</p> : null; })()}
-              <h2 className="text-lg font-black text-gray-900 leading-tight tracking-wide">{photoDialog.data?._brand?.company || "NAVKAR AGRO"}</h2>
-              <p className="text-[10px] text-gray-500 mt-0.5">{photoDialog.data?._brand?.tagline || "JOLKO, KESINGA - Mill Entry System"}</p>
+              <h2 className="text-lg font-black text-slate-100 leading-tight tracking-wide">{photoDialog.data?._brand?.company || "NAVKAR AGRO"}</h2>
+              <p className="text-[10px] text-slate-400 mt-0.5">{photoDialog.data?._brand?.tagline || "JOLKO, KESINGA - Mill Entry System"}</p>
               {/* Custom fields BELOW */}
-              {(() => { const below = (photoDialog.data?._brand?.custom_fields || []).filter(f => f.placement !== 'above' && f.value); return below.length > 0 ? <p className="text-[9px] text-gray-600 mt-0.5">{below.map(f => f.label ? `${f.label}: ${f.value}` : f.value).join('  |  ')}</p> : null; })()}
-              <div className="text-xs font-bold text-gray-700 mt-0.5">WEIGHT SLIP / तौल पर्ची</div>
+              {(() => { const below = (photoDialog.data?._brand?.custom_fields || []).filter(f => f.placement !== 'above' && f.value); return below.length > 0 ? <p className="text-[9px] text-slate-400 mt-0.5">{below.map(f => f.label ? `${f.label}: ${f.value}` : f.value).join('  |  ')}</p> : null; })()}
+              <div className="text-xs font-bold text-slate-300 mt-0.5">WEIGHT SLIP / तौल पर्ची</div>
             </div>
             <table className="w-full border-collapse text-[11px]">
               <tbody>
                 <tr>
-                  <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold w-[22%]">RST No.</td>
-                  <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900 text-xs w-[28%]">#{photoDialog.data.rst_no}</td>
-                  <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold w-[22%]">Date / दिनांक</td>
-                  <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900 w-[28%]">{fmtDate(photoDialog.data.date) || '-'}</td>
+                  <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold w-[22%]">RST No.</td>
+                  <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100 text-xs w-[28%]">#{photoDialog.data.rst_no}</td>
+                  <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold w-[22%]">Date / दिनांक</td>
+                  <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100 w-[28%]">{fmtDate(photoDialog.data.date) || '-'}</td>
                 </tr>
                 <tr>
-                  <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Vehicle / गाड़ी</td>
-                  <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.vehicle_no}</td>
-                  <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Trans Type</td>
-                  <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.trans_type || '-'}</td>
+                  <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">Vehicle / गाड़ी</td>
+                  <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.vehicle_no}</td>
+                  <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">Trans Type</td>
+                  <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.trans_type || '-'}</td>
                 </tr>
                 <tr>
-                  <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Party / पार्टी</td>
-                  <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.party_name || '-'}</td>
-                  <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Source/Mandi</td>
-                  <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.farmer_name || '-'}</td>
+                  <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">Party / पार्टी</td>
+                  <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.party_name || '-'}</td>
+                  <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">Source/Mandi</td>
+                  <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.farmer_name || '-'}</td>
                 </tr>
                 <tr>
-                  <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Product / माल</td>
-                  <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.product || '-'}</td>
-                  <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Bags / बोरे</td>
-                  <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tot_pkts || '-'}</td>
+                  <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">Product / माल</td>
+                  <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.product || '-'}</td>
+                  <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">Bags / बोरे</td>
+                  <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.tot_pkts || '-'}</td>
                 </tr>
                 {(Number(photoDialog.data.g_issued || 0) > 0) && (
                   <tr>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">G.Issued</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-indigo-700">{fmtWt(photoDialog.data.g_issued)}</td>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">TP No.</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tp_no || '-'}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">G.Issued</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-indigo-700">{fmtWt(photoDialog.data.g_issued)}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">TP No.</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.tp_no || '-'}</td>
                   </tr>
                 )}
                 {(!photoDialog.data.g_issued || Number(photoDialog.data.g_issued) === 0) && photoDialog.data.tp_no && (
                   <tr>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">TP No.</td>
-                    <td className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.tp_no}</td>
-                    <td className="border border-gray-300 px-2 py-1"></td>
-                    <td className="border border-gray-300 px-2 py-1"></td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">TP No.</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.tp_no}</td>
+                    <td className="border border-slate-600 px-2 py-1"></td>
+                    <td className="border border-slate-600 px-2 py-1"></td>
                   </tr>
                 )}
                 {photoDialog.data.remark && (
                   <tr>
-                    <td className="border border-gray-300 px-2 py-1 text-gray-600 font-bold">Remark / टिप्पणी</td>
-                    <td colSpan="3" className="border border-gray-300 px-2 py-1 font-extrabold text-gray-900">{photoDialog.data.remark}</td>
+                    <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">Remark / टिप्पणी</td>
+                    <td colSpan="3" className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.remark}</td>
                   </tr>
                 )}
               </tbody>
             </table>
             <div className="flex border-t-[2px] border-gray-800">
-              <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-gray-50">
-                <span className="block text-[8px] font-bold text-gray-500 uppercase">Gross / कुल</span>
-                <span className="block text-sm font-black text-gray-900">{fmtWt(photoDialog.data.first_wt)} KG</span>
+              <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-slate-700">
+                <span className="block text-[8px] font-bold text-slate-400 uppercase">Gross / कुल</span>
+                <span className="block text-sm font-black text-slate-100">{fmtWt(photoDialog.data.first_wt)} KG</span>
               </div>
-              <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-gray-50">
-                <span className="block text-[8px] font-bold text-gray-500 uppercase">Tare / खाली</span>
-                <span className="block text-sm font-black text-gray-900">{fmtWt(photoDialog.data.second_wt)} KG</span>
+              <div className="flex-1 text-center py-1.5 border-r border-gray-400 bg-slate-700">
+                <span className="block text-[8px] font-bold text-slate-400 uppercase">Tare / खाली</span>
+                <span className="block text-sm font-black text-slate-100">{fmtWt(photoDialog.data.second_wt)} KG</span>
               </div>
               <div className="flex-1 text-center py-1.5 border-r border-gray-400" style={{ background: '#e8f5e9' }}>
                 <span className="block text-[8px] font-bold text-green-800 uppercase">Net / शुद्ध</span>
@@ -473,8 +473,8 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                 </div>
               )}
             </div>
-            <div className="text-center py-1 border-t border-gray-300">
-              <span className="text-[8px] text-gray-400">{photoDialog.data?._brand?.company || "NAVKAR AGRO"} | Computer Generated</span>
+            <div className="text-center py-1 border-t border-slate-600">
+              <span className="text-[8px] text-slate-500">{photoDialog.data?._brand?.company || "NAVKAR AGRO"} | Computer Generated</span>
             </div>
           </div>
           <div className="space-y-3 mx-3 mb-3">
@@ -485,16 +485,16 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Front View</p>
+                  <p className="text-[10px] text-slate-400 mb-0.5 font-medium">Front View</p>
                   {photoDialog.data.first_wt_front_img ? (
-                    <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`} alt="1st Front" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`)} />
-                  ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                    <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`} alt="1st Front" className="w-full rounded border border-slate-600 object-cover cursor-pointer hover:opacity-80" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.first_wt_front_img}`)} />
+                  ) : <div className="h-20 bg-slate-700 rounded flex items-center justify-center text-slate-500 text-[10px]">No Photo</div>}
                 </div>
                 <div>
-                  <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Side View</p>
+                  <p className="text-[10px] text-slate-400 mb-0.5 font-medium">Side View</p>
                   {photoDialog.data.first_wt_side_img ? (
-                    <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`} alt="1st Side" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`)} />
-                  ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                    <img src={`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`} alt="1st Side" className="w-full rounded border border-slate-600 object-cover cursor-pointer hover:opacity-80" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.first_wt_side_img}`)} />
+                  ) : <div className="h-20 bg-slate-700 rounded flex items-center justify-center text-slate-500 text-[10px]">No Photo</div>}
                 </div>
               </div>
             </div>
@@ -505,16 +505,16 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Front View</p>
+                  <p className="text-[10px] text-slate-400 mb-0.5 font-medium">Front View</p>
                   {photoDialog.data.second_wt_front_img ? (
-                    <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`} alt="2nd Front" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`)} />
-                  ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                    <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`} alt="2nd Front" className="w-full rounded border border-slate-600 object-cover cursor-pointer hover:opacity-80" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.second_wt_front_img}`)} />
+                  ) : <div className="h-20 bg-slate-700 rounded flex items-center justify-center text-slate-500 text-[10px]">No Photo</div>}
                 </div>
                 <div>
-                  <p className="text-[10px] text-gray-500 mb-0.5 font-medium">Side View</p>
+                  <p className="text-[10px] text-slate-400 mb-0.5 font-medium">Side View</p>
                   {photoDialog.data.second_wt_side_img ? (
-                    <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`} alt="2nd Side" className="w-full rounded border border-gray-200 object-cover cursor-pointer hover:opacity-80" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`)} />
-                  ) : <div className="h-20 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-[10px]">No Photo</div>}
+                    <img src={`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`} alt="2nd Side" className="w-full rounded border border-slate-600 object-cover cursor-pointer hover:opacity-80" style={{ maxHeight: 180 }} onClick={() => setZoomImg(`data:image/jpeg;base64,${photoDialog.data.second_wt_side_img}`)} />
+                  ) : <div className="h-20 bg-slate-700 rounded flex items-center justify-center text-slate-500 text-[10px]">No Photo</div>}
                 </div>
               </div>
             </div>
@@ -527,17 +527,17 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
     {/* Edit Dialog */}
     {editEntry && (
       <Dialog open={!!editEntry} onOpenChange={v => !v && setEditEntry(null)}>
-        <DialogContent className="bg-white max-w-md">
+        <DialogContent className="bg-slate-800 max-w-md">
           <h3 className="text-sm font-bold mb-2">Edit RST #{editEntry.rst_no}</h3>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div><label className="text-gray-500 text-[10px]">Vehicle</label><Input className="h-7 text-xs" value={editEntry.vehicle_no || ''} onChange={ev => setEditEntry(p => ({...p, vehicle_no: ev.target.value}))} /></div>
-            <div><label className="text-gray-500 text-[10px]">Party</label><Input className="h-7 text-xs" value={editEntry.party_name || ''} onChange={ev => setEditEntry(p => ({...p, party_name: ev.target.value}))} /></div>
-            <div><label className="text-gray-500 text-[10px]">Source</label><Input className="h-7 text-xs" value={editEntry.farmer_name || ''} onChange={ev => setEditEntry(p => ({...p, farmer_name: ev.target.value}))} /></div>
-            <div><label className="text-gray-500 text-[10px]">Bags</label><Input className="h-7 text-xs" type="number" value={editEntry.tot_pkts || ''} onChange={ev => setEditEntry(p => ({...p, tot_pkts: ev.target.value}))} /></div>
-            <div><label className="text-gray-500 text-[10px]">Cash</label><Input className="h-7 text-xs" type="number" value={editEntry.cash_paid || ''} onChange={ev => setEditEntry(p => ({...p, cash_paid: ev.target.value}))} /></div>
-            <div><label className="text-gray-500 text-[10px]">Diesel</label><Input className="h-7 text-xs" type="number" value={editEntry.diesel_paid || ''} onChange={ev => setEditEntry(p => ({...p, diesel_paid: ev.target.value}))} /></div>
-            <div><label className="text-gray-500 text-[10px]">G.Issued</label><Input className="h-7 text-xs" type="number" value={editEntry.g_issued || ''} onChange={ev => setEditEntry(p => ({...p, g_issued: ev.target.value}))} /></div>
-            <div><label className="text-gray-500 text-[10px]">TP No.</label><Input className="h-7 text-xs" value={editEntry.tp_no || ''} onChange={ev => setEditEntry(p => ({...p, tp_no: ev.target.value}))} /></div>
+            <div><label className="text-slate-400 text-[10px]">Vehicle</label><Input className="h-7 text-xs" value={editEntry.vehicle_no || ''} onChange={ev => setEditEntry(p => ({...p, vehicle_no: ev.target.value}))} /></div>
+            <div><label className="text-slate-400 text-[10px]">Party</label><Input className="h-7 text-xs" value={editEntry.party_name || ''} onChange={ev => setEditEntry(p => ({...p, party_name: ev.target.value}))} /></div>
+            <div><label className="text-slate-400 text-[10px]">Source</label><Input className="h-7 text-xs" value={editEntry.farmer_name || ''} onChange={ev => setEditEntry(p => ({...p, farmer_name: ev.target.value}))} /></div>
+            <div><label className="text-slate-400 text-[10px]">Bags</label><Input className="h-7 text-xs" type="number" value={editEntry.tot_pkts || ''} onChange={ev => setEditEntry(p => ({...p, tot_pkts: ev.target.value}))} /></div>
+            <div><label className="text-slate-400 text-[10px]">Cash</label><Input className="h-7 text-xs" type="number" value={editEntry.cash_paid || ''} onChange={ev => setEditEntry(p => ({...p, cash_paid: ev.target.value}))} /></div>
+            <div><label className="text-slate-400 text-[10px]">Diesel</label><Input className="h-7 text-xs" type="number" value={editEntry.diesel_paid || ''} onChange={ev => setEditEntry(p => ({...p, diesel_paid: ev.target.value}))} /></div>
+            <div><label className="text-slate-400 text-[10px]">G.Issued</label><Input className="h-7 text-xs" type="number" value={editEntry.g_issued || ''} onChange={ev => setEditEntry(p => ({...p, g_issued: ev.target.value}))} /></div>
+            <div><label className="text-slate-400 text-[10px]">TP No.</label><Input className="h-7 text-xs" value={editEntry.tp_no || ''} onChange={ev => setEditEntry(p => ({...p, tp_no: ev.target.value}))} /></div>
           </div>
           <div className="flex justify-end gap-2 mt-3">
             <Button variant="outline" size="sm" onClick={() => setEditEntry(null)}>Cancel</Button>

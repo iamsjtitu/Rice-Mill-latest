@@ -26,7 +26,7 @@ const TransactionsTable = ({
   const restBalance = totalJama - totalNikasi;
 
   return (
-    <Card className="bg-white border-slate-200 shadow-sm">
+    <Card className="bg-slate-800 border-slate-200 shadow-sm">
       <CardHeader className="pb-2 pt-3 px-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm text-amber-700 font-semibold">Transactions / लेन-देन</CardTitle>
