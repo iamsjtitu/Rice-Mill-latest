@@ -1103,6 +1103,31 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
 
 # ── Image Cleanup Settings & Scheduler ──
 
+@router.get("/settings/mandi-cutting-map")
+async def get_mandi_cutting_map():
+    """Get mandi cutting map from database."""
+    doc = await db["settings"].find_one({"key": "mandi_cutting_map"}, {"_id": 0})
+    return doc.get("value", {}) if doc else {}
+
+
+@router.put("/settings/mandi-cutting-map")
+async def save_mandi_cutting_map(data: dict):
+    """Save/update a mandi cutting entry."""
+    key = data.get("key", "")
+    value = data.get("value", 0)
+    if not key:
+        raise HTTPException(status_code=400, detail="Key missing")
+    doc = await db["settings"].find_one({"key": "mandi_cutting_map"})
+    current = doc.get("value", {}) if doc else {}
+    current[key] = value
+    await db["settings"].update_one(
+        {"key": "mandi_cutting_map"},
+        {"$set": {"key": "mandi_cutting_map", "value": current}},
+        upsert=True
+    )
+    return {"success": True}
+
+
 @router.get("/settings/camera-config")
 async def get_camera_config():
     """Get camera config from database."""

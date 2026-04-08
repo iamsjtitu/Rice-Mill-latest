@@ -1270,6 +1270,28 @@ module.exports = function(database) {
     } catch (e) { /* ignore */ }
   }, 86400000);
 
+  // Mandi cutting map - save/load from database
+  router.get('/api/settings/mandi-cutting-map', safeAsync(async (req, res) => {
+    const settings = col('app_settings');
+    const doc = settings.find(s => s.setting_id === 'mandi_cutting_map');
+    res.json(doc ? (doc.value || {}) : {});
+  }));
+
+  router.put('/api/settings/mandi-cutting-map', safeAsync(async (req, res) => {
+    const { key, value } = req.body;
+    if (!key) return res.status(400).json({ detail: 'Key missing' });
+    const settings = col('app_settings');
+    const idx = settings.findIndex(s => s.setting_id === 'mandi_cutting_map');
+    if (idx >= 0) {
+      if (!settings[idx].value) settings[idx].value = {};
+      settings[idx].value[key] = value;
+    } else {
+      settings.push({ setting_id: 'mandi_cutting_map', value: { [key]: value } });
+    }
+    database.save();
+    res.json({ success: true });
+  }));
+
   // Camera config - save/load from database
   router.get('/api/settings/camera-config', safeAsync(async (req, res) => {
     const settings = col('app_settings');

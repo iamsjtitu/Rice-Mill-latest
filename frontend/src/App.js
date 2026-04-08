@@ -375,7 +375,28 @@ function MainApp({ user, setUser, onLogout }) {
     }
   }, [formData.bag, formData.g_deposite]);
 
-  // Helper: Find cutting % from mandi targets OR localStorage (case-insensitive)
+  // Helper: Find cutting % from mandi targets OR backend/localStorage (case-insensitive)
+  const [mandiCuttingMap, setMandiCuttingMap] = useState({});
+  
+  // Load mandi cutting map from backend on mount
+  useEffect(() => {
+    const loadCuttingMap = async () => {
+      try {
+        const res = await axios.get(`${API}/settings/mandi-cutting-map`);
+        if (res.data && Object.keys(res.data).length > 0) {
+          setMandiCuttingMap(res.data);
+          localStorage.setItem('mandi_cutting_map', JSON.stringify(res.data));
+        }
+      } catch {
+        try {
+          const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
+          setMandiCuttingMap(saved);
+        } catch { /* ignore */ }
+      }
+    };
+    loadCuttingMap();
+  }, []);
+
   const findMandiCutting = useCallback((mandiName) => {
     if (!mandiName) return null;
     const searchName = mandiName.toLowerCase().trim();
@@ -388,26 +409,29 @@ function MainApp({ user, setUser, onLogout }) {
       if (target && target.cutting_percent != null && target.cutting_percent !== 0) return target;
     }
     
-    // Source 2: Check localStorage (permanent memory)
-    try {
-      const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
-      if (saved[searchName] && saved[searchName] > 0) {
-        return { mandi_name: mandiName, cutting_percent: saved[searchName] };
-      }
-    } catch(e) {}
+    // Source 2: Check synced mandi cutting map
+    if (mandiCuttingMap[searchName] && mandiCuttingMap[searchName] > 0) {
+      return { mandi_name: mandiName, cutting_percent: mandiCuttingMap[searchName] };
+    }
     
     return null;
-  }, [mandiTargets]);
+  }, [mandiTargets, mandiCuttingMap]);
 
-  // Save mandi→cutting mapping to localStorage on entry save (not on every keystroke)
+  // Save mandi→cutting mapping to backend + localStorage
   const saveCuttingToLocal = useCallback((mandiName, cuttingPercent) => {
     if (!mandiName || !cuttingPercent || parseFloat(cuttingPercent) <= 0) return;
+    const key = mandiName.toLowerCase().trim();
+    const val = parseFloat(cuttingPercent);
+    // Update local state
+    setMandiCuttingMap(prev => ({ ...prev, [key]: val }));
+    // Save to localStorage
     try {
       const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
-      const key = mandiName.toLowerCase().trim();
-      saved[key] = parseFloat(cuttingPercent);
+      saved[key] = val;
       localStorage.setItem('mandi_cutting_map', JSON.stringify(saved));
-    } catch(e) {}
+    } catch {}
+    // Save to backend
+    axios.put(`${API}/settings/mandi-cutting-map`, { key, value: val }).catch(() => {});
   }, []);
 
   // Remove external badges - run only on Electron (desktop app)
