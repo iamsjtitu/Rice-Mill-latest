@@ -1270,6 +1270,22 @@ module.exports = function(database) {
     } catch (e) { /* ignore */ }
   }, 86400000);
 
+  // Camera config - save/load from database
+  router.get('/api/settings/camera-config', safeAsync(async (req, res) => {
+    const settings = col('app_settings');
+    const doc = settings.find(s => s.setting_id === 'camera_config');
+    res.json(doc ? (doc.value || {}) : {});
+  }));
+
+  router.put('/api/settings/camera-config', safeAsync(async (req, res) => {
+    const settings = col('app_settings');
+    const idx = settings.findIndex(s => s.setting_id === 'camera_config');
+    if (idx >= 0) { settings[idx].value = req.body; }
+    else { settings.push({ setting_id: 'camera_config', value: req.body }); }
+    database.save();
+    res.json({ success: true });
+  }));
+
   router.get('/api/settings/image-cleanup', safeAsync(async (req, res) => {
     const settings = col('app_settings');
     const doc = settings.find(s => s.setting_id === 'image_cleanup');

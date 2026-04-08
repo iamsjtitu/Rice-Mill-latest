@@ -1798,10 +1798,23 @@ function CameraSetupTab() {
     setVigiDiagLoading(false);
   };
 
-  // Load saved config
+  // Load saved config - from backend first, then localStorage fallback
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('camera_config') || '{}');
+    const loadConfig = async () => {
+      let saved = {};
+      try {
+        const res = await axios.get(`${API}/settings/camera-config`);
+        if (res.data && Object.keys(res.data).length > 0) {
+          saved = res.data;
+        }
+      } catch { /* fallback to localStorage */ }
+      
+      if (!saved || Object.keys(saved).length === 0) {
+        try {
+          saved = JSON.parse(localStorage.getItem('camera_config') || '{}');
+        } catch { saved = {}; }
+      }
+      
       const type = saved.type || "ip";
       setCamType(type);
       if (type === "ip") {
@@ -1820,7 +1833,8 @@ function CameraSetupTab() {
         if (saved.frontId) setFrontId(saved.frontId);
         if (saved.sideId) setSideId(saved.sideId);
       }
-    } catch { /* ignore */ }
+    };
+    loadConfig();
     axios.get(`${API}/settings/image-cleanup`).then(r => {
       setCleanupDays(r.data.days || 0);
     }).catch(() => {});
@@ -1861,16 +1875,17 @@ function CameraSetupTab() {
   };
 
   const handleSave = async () => {
+    let configData = {};
     if (camType === "ip") {
-      localStorage.setItem('camera_config', JSON.stringify({ type: "ip", frontUrl, sideUrl }));
+      configData = { type: "ip", frontUrl, sideUrl };
     } else if (camType === "vigi") {
-      localStorage.setItem('camera_config', JSON.stringify({
+      configData = {
         type: "vigi", vigiIp, vigiUser, vigiPass,
         vigiFrontChannel: vigiFrontCh, vigiSideChannel: vigiSideCh,
         vigiFrontIp: vigiFrontIp, vigiSideIp: vigiSideIp,
         vigiOpenApiPort: vigiOpenApiPort
-      }));
-      // Also save to backend for server-side access
+      };
+      // Also save vigi config to dedicated endpoint
       try {
         await axios.post(`${API}/vigi-config`, {
           nvr_ip: vigiIp, username: vigiUser, password: vigiPass,
@@ -1880,13 +1895,19 @@ function CameraSetupTab() {
         });
       } catch { /* ignore on web */ }
     } else {
-      localStorage.setItem('camera_config', JSON.stringify({ type: "usb", frontId, sideId }));
+      configData = { type: "usb", frontId, sideId };
     }
+    // Save to localStorage (for current browser)
+    localStorage.setItem('camera_config', JSON.stringify(configData));
+    // Save to backend database (for all devices)
+    try {
+      await axios.put(`${API}/settings/camera-config`, configData);
+    } catch { /* ignore */ }
     window.dispatchEvent(new Event('camera-config-changed'));
     try {
       await axios.put(`${API}/settings/image-cleanup`, { days: cleanupDays });
     } catch { /* ignore */ }
-    toast.success("Camera config save ho gaya!");
+    toast.success("Camera config save ho gaya - sab devices pe sync hoga!");
   };
 
   const testVigiConnection = async () => {

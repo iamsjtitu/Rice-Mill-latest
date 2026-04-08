@@ -149,49 +149,51 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Load camera config — ONLY loads config, does NOT auto-start stream
-  // User must click "Start" button to begin camera feed
-  useEffect(() => {
-    try {
-      const cfg = JSON.parse(localStorage.getItem('camera_config') || '{}');
-      const type = cfg.type || "usb";
-      setCamType(type);
-      if (type === "ip") {
-        const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
-        setCamUrl(url);
-        // Do NOT auto-start: setActive stays false
-      } else if (type === "vigi") {
-        const frontIp = cfg.vigiFrontIp || '';
-        const sideIp = cfg.vigiSideIp || '';
-        const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
-        const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
-        const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
-        if (deviceIp && channel) {
-          const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '', openapi_port: cfg.vigiOpenApiPort || '' });
-          setCamUrl(`${API}/vigi-stream?${params.toString()}`);
-        }
-      }
-    } catch { /* ignore */ }
 
-    const handleConfigChange = () => {
+  const applyCameraConfig = (cfg) => {
+    const type = cfg.type || "usb";
+    setCamType(type);
+    if (type === "ip") {
+      const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
+      setCamUrl(url);
+    } else if (type === "vigi") {
+      const frontIp = cfg.vigiFrontIp || '';
+      const sideIp = cfg.vigiSideIp || '';
+      const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
+      const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
+      const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
+      if (deviceIp && channel) {
+        const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '', openapi_port: cfg.vigiOpenApiPort || '' });
+        setCamUrl(`${API}/vigi-stream?${params.toString()}`);
+      }
+    }
+  };
+
+  // Load camera config — from backend first, then localStorage fallback
+  useEffect(() => {
+    const loadCameraConfig = async () => {
+      let cfg = {};
       try {
-        const cfg = JSON.parse(localStorage.getItem('camera_config') || '{}');
-        setCamType(cfg.type || "usb");
-        if (cfg.type === "ip") {
-          const url = camKey === "front" ? (cfg.frontUrl || "") : (cfg.sideUrl || "");
-          setCamUrl(url);
-        } else if (cfg.type === "vigi") {
-          const frontIp = cfg.vigiFrontIp || '';
-          const sideIp = cfg.vigiSideIp || '';
-          const ch = camKey === "front" ? (cfg.vigiFrontChannel || "") : (cfg.vigiSideChannel || "");
-          const deviceIp = camKey === "front" ? (frontIp || cfg.vigiIp) : (sideIp || cfg.vigiIp);
-          const channel = (camKey === "front" && frontIp) ? '1' : (camKey === "side" && sideIp) ? '1' : ch;
-          if (deviceIp && channel) {
-            const params = new URLSearchParams({ channel, fps: '3', nvr_ip: deviceIp, username: cfg.vigiUser || 'admin', password: cfg.vigiPass || '', openapi_port: cfg.vigiOpenApiPort || '' });
-            setCamUrl(`${API}/vigi-stream?${params.toString()}`);
-          }
-        }
-      } catch { /* ignore */ }
+        const res = await axios.get(`${API}/settings/camera-config`);
+        if (res.data && Object.keys(res.data).length > 0) cfg = res.data;
+      } catch { /* fallback */ }
+      if (!cfg || Object.keys(cfg).length === 0) {
+        try { cfg = JSON.parse(localStorage.getItem('camera_config') || '{}'); } catch { cfg = {}; }
+      }
+      applyCameraConfig(cfg);
+    };
+    loadCameraConfig();
+
+    const handleConfigChange = async () => {
+      let cfg = {};
+      try {
+        const res = await axios.get(`${API}/settings/camera-config`);
+        if (res.data && Object.keys(res.data).length > 0) cfg = res.data;
+      } catch { /* fallback */ }
+      if (!cfg || Object.keys(cfg).length === 0) {
+        try { cfg = JSON.parse(localStorage.getItem('camera_config') || '{}'); } catch { cfg = {}; }
+      }
+      applyCameraConfig(cfg);
     };
     window.addEventListener('camera-config-changed', handleConfigChange);
     return () => window.removeEventListener('camera-config-changed', handleConfigChange);

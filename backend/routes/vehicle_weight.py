@@ -1103,6 +1103,24 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
 
 # ── Image Cleanup Settings & Scheduler ──
 
+@router.get("/settings/camera-config")
+async def get_camera_config():
+    """Get camera config from database."""
+    doc = await db["settings"].find_one({"key": "camera_config"}, {"_id": 0})
+    return doc.get("value", {}) if doc else {}
+
+
+@router.put("/settings/camera-config")
+async def save_camera_config(data: dict):
+    """Save camera config to database."""
+    await db["settings"].update_one(
+        {"key": "camera_config"},
+        {"$set": {"key": "camera_config", "value": data}},
+        upsert=True
+    )
+    return {"success": True}
+
+
 @router.get("/settings/image-cleanup")
 async def get_image_cleanup_setting():
     """Get image auto-cleanup days setting."""
