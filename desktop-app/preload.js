@@ -44,6 +44,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   dismissUpdate: () => ipcRenderer.send('dismiss-update'),
   // File download IPC - main process fetches directly from local server (no binary data over IPC)
   downloadAndSave: (url, filename) => ipcRenderer.invoke('download-and-save', url, filename),
+  // Close/Quit app
+  closeApp: () => ipcRenderer.send('close-app'),
 });
 
 // Fix typing issue: detect when keyboard stops working and force focus

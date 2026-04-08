@@ -1598,6 +1598,10 @@ function App() {
     sessionStorage.removeItem('mill_user');
     localStorage.removeItem('mill_user');
     toast.success("Logged out - Backup saved!");
+    // Electron: close app instead of showing login page
+    if (window.electronAPI?.closeApp) {
+      setTimeout(() => window.electronAPI.closeApp(), 500);
+    }
   };
 
   if (!user) {
