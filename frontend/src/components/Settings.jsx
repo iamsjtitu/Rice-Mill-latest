@@ -2313,7 +2313,7 @@ const ROLE_DEFAULTS = {
   viewer: { can_edit: false, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false },
 };
 
-function UsersTab({ user }) {
+function UsersTab({ user, setUser }) {
   const showConfirm = useConfirm();
   const [users, setUsers] = useState([]);
   const [staffList, setStaffList] = useState([]);
@@ -2368,12 +2368,8 @@ function UsersTab({ user }) {
         // If admin edited their own user, refresh permissions in App instantly
         if (editingUser.username === user.username && resp.data?.user?.permissions) {
           const updatedUser = { ...user, permissions: resp.data.user.permissions };
-          localStorage.setItem("mill_user", JSON.stringify(updatedUser));
-          if (typeof setUser === 'function') {
-            setUser(updatedUser);
-          } else {
-            window.location.reload();
-          }
+          sessionStorage.setItem("mill_user", JSON.stringify(updatedUser));
+          setUser(updatedUser);
         }
       } else {
         await axios.post(`${API}/users?username=${user.username}&role=${user.role}`, form);
@@ -2805,7 +2801,7 @@ export default function Settings({ user, setUser, kmsYear, onBrandingUpdate }) {
           </TabsList>
 
           <TabsContent value="users">
-            <UsersTab user={user} />
+            <UsersTab user={user} setUser={setUser} />
           </TabsContent>
           <TabsContent value="audit">
             <AuditLogTab user={user} />
