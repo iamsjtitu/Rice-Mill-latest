@@ -91,6 +91,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
     if (globalFilters.kms_year) params.append("kms_year", globalFilters.kms_year);
     if (globalFilters.season) params.append("season", globalFilters.season);
     Object.entries(regFilters).forEach(([k, v]) => { if (v) params.append(k, v); });
+    params.append("report_title", "Paddy Purchase Register / पैडी खरीद रजिस्टर");
     return params.toString();
   };
 

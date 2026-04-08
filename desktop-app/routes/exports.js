@@ -53,7 +53,7 @@ module.exports = function(database) {
         totalRow.eachCell(c => { c.font = { bold: true, size: 10, color: { argb: 'FF92400E' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } }; });
       }
 
-      addExcelTitle(ws, 'Mill Entries Report', 19, database); styleExcelHeader(ws); styleExcelData(ws, 5);
+      addExcelTitle(ws, req.query.report_title || 'Mill Entries Report', 19, database); styleExcelHeader(ws); styleExcelData(ws, 5);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.xlsx`);
@@ -70,9 +70,9 @@ module.exports = function(database) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe
-      addPdfHeader(doc, 'Mill Entries Report');
+      addPdfHeader(doc, req.query.report_title || 'Mill Entries Report');
       const h = ['Date','Truck','RST','TP','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss'];
-      const w = [40,40,30,28,38,72,32,26,26,30,26,28,36,24,28,24,26,36,28];
+      const w = [40,48,30,28,38,64,32,26,26,30,26,28,36,24,28,24,26,36,28];
       const rows = entries.map(e => [fmtDate(e.date),e.truck_no||'',e.rst_no||'',e.tp_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,e.g_deposite||0,((e.gbw_cut||0)/100).toFixed(2),e.plastic_bag||0,((e.p_pkt_cut||0)/100).toFixed(2),((e.mill_w||0)/100).toFixed(2),e.moisture||0,((e.moisture_cut||0)/100).toFixed(2),e.cutting_percent||0,e.disc_dust_poll||0,((e.final_w||0)/100).toFixed(2),e.g_issued||0]);
       addPdfTable(doc, h, rows, w);
 

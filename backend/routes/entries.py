@@ -872,7 +872,8 @@ async def export_excel(
     kms_year: Optional[str] = None,
     season: Optional[str] = None,
     date_from: Optional[str] = None,
-    date_to: Optional[str] = None
+    date_to: Optional[str] = None,
+    report_title: Optional[str] = None
 ):
     """Export entries to styled Excel file"""
     query = {}
@@ -914,7 +915,9 @@ async def export_excel(
     
     # Title
     company_name, tagline = await get_company_name()
-    title = f"{company_name} - Mill Entries / मिल एंट्री"
+    default_title = "Mill Entries / मिल एंट्री"
+    display_title = report_title or default_title
+    title = f"{company_name} - {display_title}"
     subtitle = f"FY: {kms_year or 'All'} | {season or 'All Seasons'} | Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
     style_excel_title(ws, title, ncols, subtitle)
     
@@ -1020,7 +1023,8 @@ async def export_pdf(
     kms_year: Optional[str] = None,
     season: Optional[str] = None,
     date_from: Optional[str] = None,
-    date_to: Optional[str] = None
+    date_to: Optional[str] = None,
+    report_title: Optional[str] = None
 ):
     """Export entries to styled PDF file (A4 Landscape)"""
     from reportlab.lib import colors
@@ -1100,7 +1104,9 @@ async def export_pdf(
     
     # Title table with themed background
     company_name, tagline = await get_company_name()
-    title_text = f"{company_name} - Mill Entries / मिल एंट्री | FY: {kms_year or 'All'} | {season or 'All Seasons'}"
+    default_title = "Mill Entries / मिल एंट्री"
+    display_title = report_title or default_title
+    title_text = f"{company_name} - {display_title} | FY: {kms_year or 'All'} | {season or 'All Seasons'}"
     title_data = [[Paragraph(f"<b>{title_text}</b>", title_style)]]
     title_table = Table(title_data, colWidths=[page_width - 16*mm])
     title_table.setStyle(TableStyle([('FONTNAME', (0,0), (-1,-1), 'FreeSans'), 
@@ -1129,7 +1135,7 @@ async def export_pdf(
     for entry in entries:
         row = [
             fmt_date(entry.get('date', '')[:10]) if entry.get('date') else '',
-            entry.get('truck_no', '')[:10] if entry.get('truck_no') else '',
+            entry.get('truck_no', '')[:14] if entry.get('truck_no') else '',
             entry.get('rst_no', '')[:8] if entry.get('rst_no') else '',
             entry.get('tp_no', '')[:8] if entry.get('tp_no') else '',
             entry.get('agent_name', '')[:10] if entry.get('agent_name') else '',
@@ -1170,7 +1176,7 @@ async def export_pdf(
     table_data.append(totals_row)
     
     # Column widths (19 columns for A4 landscape with margins)
-    col_widths = [15*mm, 15*mm, 11*mm, 11*mm, 15*mm, 30*mm, 13*mm, 9*mm, 9*mm, 11*mm, 
+    col_widths = [15*mm, 18*mm, 11*mm, 11*mm, 15*mm, 27*mm, 13*mm, 9*mm, 9*mm, 11*mm, 
                   9*mm, 11*mm, 13*mm, 9*mm, 11*mm, 9*mm, 9*mm, 13*mm, 11*mm]
     
     # Create table

@@ -912,6 +912,15 @@ function MainApp({ user, setUser, onLogout }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validation: At least truck_no or agent_name or mandi_name required
+    const hasData = formData.truck_no?.trim() || formData.agent_name?.trim() || formData.mandi_name?.trim() || 
+                    (parseFloat(formData.kg) > 0) || (parseInt(formData.bag) > 0);
+    if (!hasData) {
+      toast.error("Blank entry save nahi hogi! Kam se kam Truck No, Agent ya Mandi bharo");
+      return;
+    }
+
     try {
       const dataToSend = {
         ...formData,
