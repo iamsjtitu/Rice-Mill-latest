@@ -51,7 +51,8 @@ class SqliteDatabase {
 
     // FIRST: Checkpoint any existing WAL data into main DB (prevent data loss)
     try {
-      const currentMode = this.sqlite.pragma('journal_mode', { simple: true });
+      const modeResult = this.sqlite.pragma('journal_mode');
+      const currentMode = Array.isArray(modeResult) ? modeResult[0]?.journal_mode : modeResult;
       if (currentMode === 'wal') {
         console.log('[SQLite] WAL mode detected, checkpointing data into main DB...');
         this.sqlite.pragma('wal_checkpoint(TRUNCATE)');
@@ -72,8 +73,13 @@ class SqliteDatabase {
     this.sqlite.pragma('cache_size = -8000'); // 8MB cache
 
     // Verify journal mode
-    const verifyMode = this.sqlite.pragma('journal_mode', { simple: true });
-    console.log('[SQLite] Active journal_mode:', verifyMode);
+    try {
+      const verifyResult = this.sqlite.pragma('journal_mode');
+      const verifyMode = Array.isArray(verifyResult) ? verifyResult[0]?.journal_mode : verifyResult;
+      console.log('[SQLite] Active journal_mode:', verifyMode);
+    } catch (e) {
+      console.log('[SQLite] pragma verify skipped:', e.message);
+    }
 
     // Clean up WAL/SHM files and Google Drive conflict copies AFTER checkpoint
     this._cleanupWalFiles();

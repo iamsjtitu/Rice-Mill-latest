@@ -2,7 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { fmtDate, fmtAmt, addPdfTable, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
+const { fmtDate, fmtAmt, addPdfTable, addPdfHeader, registerFonts, F, C, safePdfPipe} = require('./pdf_helpers');
 const { calculateAdvanceBalance, createStaffAdvanceCashEntries, deleteStaffAdvanceCashEntries, createStaffPaymentCashEntry, deleteStaffPaymentCashEntry } = require('../shared/staff-service');
 
 module.exports = function(database) {
@@ -656,7 +656,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
     // PDF will be sent via safePdfPipe
 
     const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
-    _addPdfHdr(doc, 'Staff Payment Report', branding, kms_year ? `${kms_year} | ${season || ''}` : '');
+    addPdfHeader(doc, 'Staff Payment Report', branding, kms_year ? `${kms_year} | ${season || ''}` : '');
 
     const headers = ['Staff', 'Period', 'Days Worked', 'Gross Salary', 'Adv. Deducted', 'Net Payment', 'Date'];
     const rows = list.map(p => [
