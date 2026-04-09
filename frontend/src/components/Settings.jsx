@@ -1399,21 +1399,38 @@ function DataTab({ user }) {
               {healthResult.ran_at && <p className="text-slate-500 text-xs mt-2">Last run: {new Date(healthResult.ran_at).toLocaleString('en-IN')}</p>}
             </div>
           )}
-          <Button
-            onClick={async () => {
-              try {
-                setHealthLoading(true);
-                const res = await axios.post(`${API}/cash-book/auto-fix`);
-                setHealthResult({ ...res.data, ran_at: new Date().toISOString() });
-              } catch (e) { console.error(e); }
-              finally { setHealthLoading(false); }
-            }}
-            disabled={healthLoading}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-            data-testid="run-health-check-btn"
-          >
-            {healthLoading ? 'Checking...' : 'Run Health Check / हेल्थ चेक चलाएं'}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={async () => {
+                try {
+                  setHealthLoading(true);
+                  const res = await axios.post(`${API}/cash-book/auto-fix`);
+                  setHealthResult({ ...res.data, ran_at: new Date().toISOString() });
+                } catch (e) { console.error(e); }
+                finally { setHealthLoading(false); }
+              }}
+              disabled={healthLoading}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+              data-testid="run-health-check-btn"
+            >
+              {healthLoading ? 'Checking...' : 'Run Health Check'}
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  setHealthLoading(true);
+                  const res = await axios.post(`${API}/entries/recalculate-all?username=${user.username}&role=${user.role}`);
+                  toast.success(`${res.data.updated} entries recalculate kiye (Total: ${res.data.total})`);
+                } catch (e) { toast.error("Recalculate failed"); console.error(e); }
+                finally { setHealthLoading(false); }
+              }}
+              disabled={healthLoading}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+              data-testid="recalculate-entries-btn"
+            >
+              {healthLoading ? 'Recalculating...' : 'Recalculate Entries'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

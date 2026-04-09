@@ -1746,3 +1746,30 @@ async def get_date_range_totals(
     }
 
 
+
+@router.post("/entries/recalculate-all")
+async def recalculate_all_entries(username: str = "", role: str = ""):
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    entries = await db.entries.find({}, {"_id": 0}).to_list(length=None)
+    updated = 0
+    for entry in entries:
+        old_mill_w = entry.get("mill_w", 0)
+        recalced = calculate_auto_fields(dict(entry))
+        new_mill_w = recalced.get("mill_w", 0)
+        if abs(old_mill_w - new_mill_w) > 0.01:
+            db.entries.update_one(
+                {"id": entry["id"]},
+                {"$set": {
+                    "mill_w": recalced["mill_w"],
+                    "p_pkt_cut": recalced["p_pkt_cut"],
+                    "moisture_cut": recalced.get("moisture_cut", entry.get("moisture_cut", 0)),
+                    "moisture_cut_qntl": recalced.get("moisture_cut_qntl", entry.get("moisture_cut_qntl", 0)),
+                    "cutting": recalced.get("cutting", entry.get("cutting", 0)),
+                    "cutting_qntl": recalced.get("cutting_qntl", entry.get("cutting_qntl", 0)),
+                    "final_w": recalced["final_w"],
+                    "qntl": recalced.get("qntl", entry.get("qntl", 0)),
+                }}
+            )
+            updated += 1
+    return {"success": True, "total": len(entries), "updated": updated}

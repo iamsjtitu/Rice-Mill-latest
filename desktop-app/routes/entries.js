@@ -250,5 +250,23 @@ module.exports = function(database) {
     res.json(summary);
   }));
 
+  // Recalculate all entries (batch update for formula changes)
+  router.post('/api/entries/recalculate-all', safeSync(async (req, res) => {
+    const { username, role } = req.query;
+    if (role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    const entries = database.data.entries || [];
+    let updated = 0;
+    for (const entry of entries) {
+      const oldMillW = entry.mill_w || 0;
+      const recalced = database.calculateFields(entry);
+      if (Math.abs(oldMillW - recalced.mill_w) > 0.01) {
+        Object.assign(entry, recalced);
+        updated++;
+      }
+    }
+    if (updated > 0) database.save();
+    res.json({ success: true, total: entries.length, updated });
+  }));
+
   return router;
 };
