@@ -372,7 +372,7 @@ def calculate_auto_fields(data: dict) -> dict:
     moisture = data.get('moisture', 0) or 0
     p_pkt_cut = round(plastic_bag * 0.5, 2)
     data['p_pkt_cut'] = p_pkt_cut
-    mill_w_kg = kg - gbw_cut
+    mill_w_kg = kg - gbw_cut - p_pkt_cut
     mill_w_qntl = mill_w_kg / 100
     moisture_cut_percent = max(0, moisture - 17)
     moisture_cut_qntl = round((mill_w_qntl * moisture_cut_percent) / 100, 2)
@@ -388,7 +388,7 @@ def calculate_auto_fields(data: dict) -> dict:
     disc_dust_poll_qntl = disc_dust_poll / 100
     data['qntl'] = round(kg / 100, 2)
     data['mill_w'] = mill_w_kg
-    final_w_qntl = mill_w_qntl - p_pkt_cut_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl
+    final_w_qntl = mill_w_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl
     data['final_w'] = round(final_w_qntl * 100, 2)
     return data
 

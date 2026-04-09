@@ -19,7 +19,7 @@ function calculateAutoFields(data) {
   const discDustPoll = data.disc_dust_poll || 0;
   const pPktCut = +(plasticBag * 0.5).toFixed(2);
   data.p_pkt_cut = pPktCut;
-  const millWKg = kg - gbwCut;
+  const millWKg = kg - gbwCut - pPktCut;
   const millWQntl = millWKg / 100;
   const moistureCutPercent = Math.max(0, moisture - 17);
   const moistureCutQntl = +((millWQntl * moistureCutPercent) / 100).toFixed(2);
@@ -31,7 +31,7 @@ function calculateAutoFields(data) {
   data.cutting_qntl = cuttingQntl;
   data.qntl = +(kg / 100).toFixed(2);
   data.mill_w = millWKg;
-  const finalWQntl = millWQntl - (pPktCut / 100) - moistureCutQntl - cuttingQntl - (discDustPoll / 100);
+  const finalWQntl = millWQntl - moistureCutQntl - cuttingQntl - (discDustPoll / 100);
   data.final_w = +(finalWQntl * 100).toFixed(2);
   return data;
 }

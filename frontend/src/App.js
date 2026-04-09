@@ -326,8 +326,8 @@ function MainApp({ user, setUser, onLogout }) {
 
     const p_pkt_cut = plastic_bag * 0.5;
     
-    // Mill W in QNTL (base for cutting and moisture calculations)
-    const mill_w_kg = kg - gbw_cut;
+    // Mill W in QNTL = KG - GBW Cut - P.Pkt Cut (all bag deductions included)
+    const mill_w_kg = kg - gbw_cut - p_pkt_cut;
     const mill_w_qntl = mill_w_kg / 100;
     
     // Moisture cut: 17% tak no cut, uske upar (moisture - 17)% cut from Mill W QNTL
@@ -337,14 +337,14 @@ function MainApp({ user, setUser, onLogout }) {
     // Cutting from Mill W QNTL
     const cutting_qntl = (mill_w_qntl * cutting_percent) / 100;
     
-    // P.Pkt cut in QNTL
+    // P.Pkt cut in QNTL (for display reference)
     const p_pkt_cut_qntl = p_pkt_cut / 100;
     
     // Disc/Dust/Poll in QNTL
     const disc_dust_poll_qntl = disc_dust_poll / 100;
 
-    // Final W = Mill W - P.Pkt - Moisture Cut - Cutting - Disc/Dust
-    const final_w_qntl = mill_w_qntl - p_pkt_cut_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl;
+    // Final W = Mill W - Moisture Cut - Cutting - Disc/Dust (P.Pkt already subtracted in Mill W)
+    const final_w_qntl = mill_w_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl;
 
     setCalculatedFields({
       qntl: (kg / 100).toFixed(2),

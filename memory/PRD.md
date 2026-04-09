@@ -29,9 +29,10 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **Dark Theme Fixes**: Text visibility/contrast across all components
 - **Settings Sync**: camera_config and mandi_cutting_map synced to backend DB
 - **Electron IPC**: App closes on logout via window.electronAPI.closeApp
-- **User Permissions Bug Fix (Apr 2026)**: Fixed setUser prop not passed to UsersTab, localStorage→sessionStorage fix, can_edit_rst added to ROLE_PERMISSIONS across all 3 backends
+- **P.Pkt Cut in Mill W Fix (Apr 2026)**: P.Pkt Cut ab Mill W calculation mein subtract hota hai (pehle sirf Final W mein hota tha). Formula: `Mill W = KG - GBW Cut - P.Pkt Cut`. Fix applied across all 5 calculation locations: Frontend (App.js), Python backend (models.py), Desktop main.js, Desktop sqlite-database.js, Local server.js, and both import_excel.js files.
 
 ## Key Design Decision: Season vs FY
+- **User Permissions Bug Fix (Apr 2026)**: Fixed setUser prop not passed to UsersTab, localStorage→sessionStorage fix, can_edit_rst added to ROLE_PERMISSIONS across all 3 backends
 - **Season-wise (Kharif/Rabi):** Mill Entries, Private Paddy, Milling (CMR), DC Deliveries, Dashboard
 - **FY-wise (April-March):** Cash Book, Ledgers, Payments, Bank, Diesel Account, Staff, Hemali, Vouchers, FY Summary, GST Ledger, SaleBook, PurchaseVouchers
 

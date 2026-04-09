@@ -848,9 +848,9 @@ class SqliteDatabase {
     const moisture = parseFloat(data.moisture) || 0;
     const disc_dust_poll = parseFloat(data.disc_dust_poll) || 0;
     const qntl = Math.round((kg / 100) * 100) / 100;
-    const mill_w = kg - gbw_cut;
-    const mill_w_qntl = mill_w / 100;
     const p_pkt_cut = Math.round(plastic_bag * 0.5 * 100) / 100;
+    const mill_w = kg - gbw_cut - p_pkt_cut;
+    const mill_w_qntl = mill_w / 100;
     const moisture_cut_percent = Math.max(0, moisture - 17);
     const moisture_cut_qntl = Math.round((mill_w_qntl * moisture_cut_percent / 100) * 100) / 100;
     const moisture_cut = Math.round(moisture_cut_qntl * 100 * 100) / 100;
@@ -858,7 +858,7 @@ class SqliteDatabase {
     const cutting = Math.round(cutting_qntl * 100 * 100) / 100;
     const p_pkt_cut_qntl = p_pkt_cut / 100;
     const disc_dust_poll_qntl = disc_dust_poll / 100;
-    const final_w_qntl = mill_w_qntl - p_pkt_cut_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl;
+    const final_w_qntl = mill_w_qntl - moisture_cut_qntl - cutting_qntl - disc_dust_poll_qntl;
     const final_w = Math.round(final_w_qntl * 100 * 100) / 100;
     return { qntl, mill_w, p_pkt_cut, moisture_cut, moisture_cut_percent, moisture_cut_qntl, cutting, cutting_qntl, final_w };
   }
