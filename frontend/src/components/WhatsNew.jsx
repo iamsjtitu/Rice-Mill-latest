@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.49.0";
+const APP_VERSION = "88.50.0";
 
 const CHANGELOG = [
+  {
+    version: "88.50.0",
+    date: "Apr 2026",
+    title: "v88.50.0 - Keyboard Navigation Fix + Date Permission",
+    items: [
+      { type: "fix", text: "Mill Entry form mein Backspace ab poore form mein kaam karta hai — Save se Disc/Dust/Poll tak bina mouse ke navigate karein" },
+      { type: "fix", text: "Readonly/Auto fields (Mill W, Final W, Cutting etc.) ab Backspace se skip hote hain" },
+      { type: "fix", text: "Browser back nahi jayega Backspace press karne par" },
+      { type: "feature", text: "Date Change ab per-user permission hai — Settings mein Users ke Permissions mein ON/OFF karein" },
+    ]
+  },
   {
     version: "88.48.0",
     date: "Apr 2026",
