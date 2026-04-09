@@ -3,9 +3,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.47.0";
+const APP_VERSION = "88.48.0";
 
 const CHANGELOG = [
+  {
+    version: "88.48.0",
+    date: "Apr 2026",
+    title: "v88.48.0 - TP Duplicate Check + Date Lock + Bug Fixes",
+    items: [
+      { type: "feature", text: "Auto Vehicle Weight mein duplicate TP Number entry ab nahi hogi — warning dikhega 'TP No. X already RST #Y mein added hai!'" },
+      { type: "feature", text: "Settings mein Date Lock toggle — ON karne se Auto Vehicle Weight mein sirf current date dikhegi" },
+      { type: "feature", text: "Settings mein Recalculate Entries button — purani entries ka Mill W naye formula se recalculate hoga" },
+      { type: "fix", text: "Mill W mein ab P.Pkt Cut bhi minus hota hai (Formula: KG - GBW Cut - P.Pkt Cut)" },
+      { type: "fix", text: "Staff Payment PDF export crash fix (_addPdfHdr error)" },
+      { type: "fix", text: "SQLite database startup crash fix (pragma compatibility)" },
+      { type: "fix", text: "User Permissions save fix — Settings mein user edit karne par ab redirect nahi hoga" },
+    ]
+  },
   {
     version: "88.45.0",
     date: "Apr 2026",
