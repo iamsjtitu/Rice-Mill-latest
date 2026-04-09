@@ -952,53 +952,6 @@ function MessagingTab() {
   );
 }
 
-// ---- VW Date Lock Card ----
-function VWDateLockCard() {
-  const [locked, setLocked] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    axios.get(`${API}/settings/vw-date-lock`)
-      .then(r => setLocked(r.data.locked || false))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const toggle = async () => {
-    const newVal = !locked;
-    try {
-      await axios.put(`${API}/settings/vw-date-lock`, { locked: newVal });
-      setLocked(newVal);
-      toast.success(newVal ? "Date Lock ON - Sirf current date dikhega" : "Date Lock OFF - Date change kar sakte hain");
-    } catch { toast.error("Save fail"); }
-  };
-
-  if (loading) return null;
-  return (
-    <Card className="bg-slate-800 border-slate-700" data-testid="vw-date-lock-card">
-      <CardContent className="pt-5 pb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-white">Auto Vehicle Weight - Date Lock</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {locked ? "ON: Sirf aaj ki date dikhegi, change nahi hogi" : "OFF: Date change kar sakte hain"}
-            </p>
-          </div>
-          <Button
-            onClick={toggle}
-            variant={locked ? "default" : "outline"}
-            size="sm"
-            className={locked ? "bg-amber-600 hover:bg-amber-700 text-white" : "border-slate-600 text-slate-300"}
-            data-testid="vw-date-lock-toggle"
-          >
-            {locked ? "ON" : "OFF"}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ---- Auto Vehicle Weight Messaging Card ----
 function AutoVWMessagingCard() {
   const [enabled, setEnabled] = useState(false);
@@ -2368,13 +2321,14 @@ const PERMISSION_DEFS = [
   { key: "can_edit_settings", label: "Settings Access", desc: "Settings change kar sakta hai" },
   { key: "can_manual_weight", label: "Manual Weight", desc: "Weighbridge mein manually weight type kar sakta hai" },
   { key: "can_edit_rst", label: "RST Edit", desc: "Auto Vehicle Weight mein RST number manually edit kar sakta hai" },
+  { key: "can_change_date", label: "Date Change", desc: "Auto Vehicle Weight mein date change kar sakta hai" },
 ];
 
 const ROLE_DEFAULTS = {
-  admin: { can_edit: true, can_delete: true, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: true, can_manual_weight: true, can_edit_rst: true },
-  entry_operator: { can_edit: true, can_delete: false, can_export: false, can_see_payments: false, can_see_cashbook: false, can_see_reports: false, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false },
-  accountant: { can_edit: true, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false },
-  viewer: { can_edit: false, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false },
+  admin: { can_edit: true, can_delete: true, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: true, can_manual_weight: true, can_edit_rst: true, can_change_date: true },
+  entry_operator: { can_edit: true, can_delete: false, can_export: false, can_see_payments: false, can_see_cashbook: false, can_see_reports: false, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false, can_change_date: false },
+  accountant: { can_edit: true, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false, can_change_date: false },
+  viewer: { can_edit: false, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false, can_change_date: false },
 };
 
 function UsersTab({ user, setUser }) {
@@ -2886,10 +2840,7 @@ export default function Settings({ user, setUser, kmsYear, onBrandingUpdate }) {
             <CameraSetupTab />
           </TabsContent>
           <TabsContent value="weighbridge">
-            <div className="space-y-4">
-              <VWDateLockCard />
-              <WeighbridgeConfigCard />
-            </div>
+            <WeighbridgeConfigCard />
           </TabsContent>
           <TabsContent value="data">
             <DataTab user={user} />

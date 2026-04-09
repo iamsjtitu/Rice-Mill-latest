@@ -19,31 +19,31 @@ ROLE_PERMISSIONS = {
         "can_edit": True, "can_delete": True, "can_export": True,
         "can_see_payments": True, "can_see_cashbook": True,
         "can_see_reports": True, "can_edit_settings": True,
-        "can_manual_weight": True, "can_edit_rst": True
+        "can_manual_weight": True, "can_edit_rst": True, "can_change_date": True
     },
     "entry_operator": {
         "can_edit": True, "can_delete": False, "can_export": False,
         "can_see_payments": False, "can_see_cashbook": False,
         "can_see_reports": False, "can_edit_settings": False,
-        "can_manual_weight": False, "can_edit_rst": False
+        "can_manual_weight": False, "can_edit_rst": False, "can_change_date": False
     },
     "accountant": {
         "can_edit": True, "can_delete": False, "can_export": True,
         "can_see_payments": True, "can_see_cashbook": True,
         "can_see_reports": True, "can_edit_settings": False,
-        "can_manual_weight": False, "can_edit_rst": False
+        "can_manual_weight": False, "can_edit_rst": False, "can_change_date": False
     },
     "viewer": {
         "can_edit": False, "can_delete": False, "can_export": True,
         "can_see_payments": True, "can_see_cashbook": True,
         "can_see_reports": True, "can_edit_settings": False,
-        "can_manual_weight": False, "can_edit_rst": False
+        "can_manual_weight": False, "can_edit_rst": False, "can_change_date": False
     },
     "staff": {
         "can_edit": False, "can_delete": False, "can_export": False,
         "can_see_payments": False, "can_see_cashbook": False,
         "can_see_reports": False, "can_edit_settings": False,
-        "can_manual_weight": False, "can_edit_rst": False
+        "can_manual_weight": False, "can_edit_rst": False, "can_change_date": False
     },
 }
 
