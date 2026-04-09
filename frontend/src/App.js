@@ -710,7 +710,8 @@ function MainApp({ user, setUser, onLogout }) {
         const val = el.value || el.textContent || '';
         if (val === '' || el.readOnly) {
           e.preventDefault();
-          const container = el.closest('form, [role="dialog"], .space-y-4, .space-y-3, .grid');
+          // Search in dialog first, then form, then any parent container (same priority as Enter)
+          const container = el.closest('[role="dialog"]') || el.closest('form') || el.closest('.space-y-4, .space-y-3, .grid');
           if (container) {
             const fields = Array.from(container.querySelectorAll(
               'input:not([type="hidden"]):not([disabled]):not([readonly]), textarea:not([disabled]), select:not([disabled])'
