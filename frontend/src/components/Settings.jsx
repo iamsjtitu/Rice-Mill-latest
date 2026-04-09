@@ -946,9 +946,59 @@ function MessagingTab() {
         </CardContent>
       </Card>
 
+      {/* VW Date Lock Setting */}
+      <VWDateLockCard />
+
       {/* Auto Vehicle Weight Messaging */}
       <AutoVWMessagingCard />
     </div>
+  );
+}
+
+// ---- VW Date Lock Card ----
+function VWDateLockCard() {
+  const [locked, setLocked] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get(`${API}/settings/vw-date-lock`)
+      .then(r => setLocked(r.data.locked || false))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggle = async () => {
+    const newVal = !locked;
+    try {
+      await axios.put(`${API}/settings/vw-date-lock`, { locked: newVal });
+      setLocked(newVal);
+      toast.success(newVal ? "Date Lock ON - Sirf current date dikhega" : "Date Lock OFF - Date change kar sakte hain");
+    } catch { toast.error("Save fail"); }
+  };
+
+  if (loading) return null;
+  return (
+    <Card className="bg-slate-800 border-slate-700" data-testid="vw-date-lock-card">
+      <CardContent className="pt-5 pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-white">Auto Vehicle Weight - Date Lock</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {locked ? "ON: Sirf aaj ki date dikhegi, change nahi hogi" : "OFF: Date change kar sakte hain"}
+            </p>
+          </div>
+          <Button
+            onClick={toggle}
+            variant={locked ? "default" : "outline"}
+            size="sm"
+            className={locked ? "bg-amber-600 hover:bg-amber-700 text-white" : "border-slate-600 text-slate-300"}
+            data-testid="vw-date-lock-toggle"
+          >
+            {locked ? "ON" : "OFF"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

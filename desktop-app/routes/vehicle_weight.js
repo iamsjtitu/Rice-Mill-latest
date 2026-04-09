@@ -324,6 +324,24 @@ module.exports = function(database) {
     res.json({ rst_no: rst });
   }));
 
+  // GET /api/settings/vw-date-lock
+  router.get('/api/settings/vw-date-lock', safeAsync(async (req, res) => {
+    const settings = col('app_settings');
+    const doc = settings.find(s => s.setting_id === 'vw_date_lock');
+    res.json({ locked: doc ? !!doc.locked : false });
+  }));
+
+  // PUT /api/settings/vw-date-lock
+  router.put('/api/settings/vw-date-lock', safeAsync(async (req, res) => {
+    const settings = col('app_settings');
+    const idx = settings.findIndex(s => s.setting_id === 'vw_date_lock');
+    const update = { setting_id: 'vw_date_lock', locked: !!req.body.locked };
+    if (idx >= 0) Object.assign(settings[idx], update);
+    else settings.push(update);
+    database.save();
+    res.json({ success: true, locked: update.locked });
+  }));
+
   // GET /api/vehicle-weight/rst-edit-setting
   router.get('/api/vehicle-weight/rst-edit-setting', safeAsync(async (req, res) => {
     const settings = col('app_settings');

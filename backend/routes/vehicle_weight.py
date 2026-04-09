@@ -153,6 +153,23 @@ async def get_next_rst(kms_year: str = ""):
     return {"rst_no": rst}
 
 
+@router.get("/settings/vw-date-lock")
+async def get_vw_date_lock():
+    doc = await db["settings"].find_one({"key": "vw_date_lock"}, {"_id": 0})
+    return {"locked": doc.get("locked", False) if doc else False}
+
+
+@router.put("/settings/vw-date-lock")
+async def update_vw_date_lock(data: dict):
+    locked = data.get("locked", False)
+    await db["settings"].update_one(
+        {"key": "vw_date_lock"},
+        {"$set": {"key": "vw_date_lock", "locked": locked}},
+        upsert=True
+    )
+    return {"success": True, "locked": locked}
+
+
 @router.get("/vehicle-weight/rst-edit-setting")
 async def get_rst_edit_setting():
     """Get manual RST edit toggle setting."""

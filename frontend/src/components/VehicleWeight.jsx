@@ -447,6 +447,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const [photoDialog, setPhotoDialog] = useState({ open: false, data: null, loading: false });
   const [linkedRst, setLinkedRst] = useState(new Set());
   const [zoomImg, setZoomImg] = useState(null); // for photo zoom
+  const [dateLocked, setDateLocked] = useState(false);
+  const [tpWarning, setTpWarning] = useState("");
   const canManualWeight = user?.permissions?.can_manual_weight !== false && user?.role === 'admin' || user?.permissions?.can_manual_weight === true;
   const rstEditAllowed = user?.permissions?.can_edit_rst === true || (user?.role === 'admin' && user?.permissions?.can_edit_rst !== false);
 
@@ -482,12 +484,14 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       axios.get(`${API}/suggestions/mandis`, { signal: ctrl.signal }),
       axios.get(`${API}/suggestions/trucks`, { signal: ctrl.signal }),
       axios.get(`${API}/mandi-targets?kms_year=${kms}`, { signal: ctrl.signal }),
-      axios.get(`${API}/vehicle-weight/auto-notify-setting`, { signal: ctrl.signal })
-    ]).then(([agR, mnR, trR, tgR, anR]) => {
+      axios.get(`${API}/vehicle-weight/auto-notify-setting`, { signal: ctrl.signal }),
+      axios.get(`${API}/settings/vw-date-lock`, { signal: ctrl.signal }).catch(() => ({ data: { locked: false } }))
+    ]).then(([agR, mnR, trR, tgR, anR, dlR]) => {
       setPartySuggestions(agR.data.suggestions || []);
       setMandiSuggestions(mnR.data.suggestions || []);
       setTruckSuggestions(trR.data.suggestions || []);
       setAutoNotify(anR.data.enabled || false);
+      setDateLocked(dlR.data.locked || false);
       const targets = tgR.data || [];
       setMandiTargets(targets);
       if (targets.length > 0) {
@@ -599,18 +603,35 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
   };
 
+  // TP Number duplicate check
+  const checkTpDuplicate = (tpNo) => {
+    if (!tpNo || !tpNo.toString().trim()) { setTpWarning(""); return false; }
+    const tp = tpNo.toString().trim();
+    const allEntries = [...entries, ...pending];
+    const found = allEntries.find(e => e.tp_no && e.tp_no.toString().trim() === tp);
+    if (found) {
+      const msg = `TP No. ${tp} already RST #${found.rst_no} mein added hai!`;
+      setTpWarning(msg);
+      return true;
+    }
+    setTpWarning("");
+    return false;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.vehicle_no) { toast.error("Vehicle No. daalen"); return; }
     if (!form.first_wt || Number(form.first_wt) <= 0) { toast.error("First Weight daalen"); return; }
+    if (form.tp_no && checkTpDuplicate(form.tp_no)) { toast.error(tpWarning || "Duplicate TP No."); return; }
     try {
       // Capture camera photos on first weight
       const frontImg = (await frontCamRef.current?.captureFrame?.()) || "";
       const sideImg = (await sideCamRef.current?.captureFrame?.()) || "";
       const payload = { ...form, kms_year: kms, first_wt_front_img: frontImg, first_wt_side_img: sideImg };
+      if (dateLocked) payload.date = todayStr;
       if (form.rst_no && Number(form.rst_no) > 0) payload.rst_no = Number(form.rst_no);
       const r = await axios.post(`${API}/vehicle-weight`, payload);
-      if (r.data.success) { toast.success(r.data.message); setForm({ ...blank, rst_no: "" }); setRstEditable(false); fetchData(); if (onVwChange) onVwChange(); }
+      if (r.data.success) { toast.success(r.data.message); setForm({ ...blank, rst_no: "" }); setRstEditable(false); setTpWarning(""); fetchData(); if (onVwChange) onVwChange(); }
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
   };
 
@@ -904,9 +925,10 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
               <form onSubmit={handleSubmit} className="space-y-2.5">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Date</Label>
-                    <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                      className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-date" />
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Date {dateLocked && <span className="text-amber-400">(Locked)</span>}</Label>
+                    <Input type="date" value={dateLocked ? todayStr : form.date} onChange={e => { if (!dateLocked) setForm(p => ({ ...p, date: e.target.value })); }}
+                      disabled={dateLocked}
+                      className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${dateLocked ? 'opacity-70 cursor-not-allowed' : ''}`} data-testid="vw-date" />
                   </div>
                   <div>
                     {secondWtMode ? (
@@ -995,8 +1017,9 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 <div className="grid grid-cols-5 gap-2">
                   <div>
                     <Label className="text-slate-400 text-[10px] mb-0.5 block">TP No.</Label>
-                    <Input value={form.tp_no} onChange={e => setForm(p => ({ ...p, tp_no: e.target.value }))}
-                      placeholder="Optional" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-tp-no" />
+                    <Input value={form.tp_no} onChange={e => { setForm(p => ({ ...p, tp_no: e.target.value })); checkTpDuplicate(e.target.value); }}
+                      placeholder="Optional" className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${tpWarning ? 'border-red-500 ring-1 ring-red-500' : ''}`} data-testid="vw-tp-no" />
+                    {tpWarning && <p className="text-red-400 text-[9px] mt-0.5">{tpWarning}</p>}
                   </div>
                   <div>
                     <Label className="text-slate-400 text-[10px] mb-0.5 block">Remark</Label>
