@@ -692,18 +692,33 @@ function MainApp({ user, setUser, onLogout }) {
     const handleGlobalKeyDown = (e) => {
       const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
 
-      // Backspace on empty field = go to previous field
+      // Prevent browser back navigation on Backspace (when not typing in editable field)
+      if (e.key === 'Backspace' && !inInput) {
+        e.preventDefault();
+        return;
+      }
+
+      // Also prevent on readonly inputs
+      if (e.key === 'Backspace' && e.target.readOnly) {
+        e.preventDefault();
+        return;
+      }
+
+      // Backspace on empty field = go to previous EDITABLE field (skip readonly/auto fields)
       if (e.key === 'Backspace' && inInput && !e.ctrlKey && !e.altKey) {
         const el = e.target;
         const val = el.value || el.textContent || '';
-        if (val === '') {
+        if (val === '' || el.readOnly) {
           e.preventDefault();
           const container = el.closest('form, [role="dialog"], .space-y-4, .space-y-3, .grid');
           if (container) {
-            const fields = Array.from(container.querySelectorAll('input, textarea, select, [tabindex]')).filter(f => !f.disabled && f.offsetParent !== null);
+            const fields = Array.from(container.querySelectorAll(
+              'input:not([type="hidden"]):not([disabled]):not([readonly]), textarea:not([disabled]), select:not([disabled])'
+            )).filter(f => f.offsetParent !== null && f.offsetWidth > 0);
             const idx = fields.indexOf(el);
             if (idx > 0) {
               fields[idx - 1].focus();
+              if (fields[idx - 1].select) fields[idx - 1].select();
             }
           }
           return;
