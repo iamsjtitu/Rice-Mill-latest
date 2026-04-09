@@ -946,9 +946,6 @@ function MessagingTab() {
         </CardContent>
       </Card>
 
-      {/* VW Date Lock Setting */}
-      <VWDateLockCard />
-
       {/* Auto Vehicle Weight Messaging */}
       <AutoVWMessagingCard />
     </div>
@@ -2889,7 +2886,10 @@ export default function Settings({ user, setUser, kmsYear, onBrandingUpdate }) {
             <CameraSetupTab />
           </TabsContent>
           <TabsContent value="weighbridge">
-            <WeighbridgeConfigCard />
+            <div className="space-y-4">
+              <VWDateLockCard />
+              <WeighbridgeConfigCard />
+            </div>
           </TabsContent>
           <TabsContent value="data">
             <DataTab user={user} />
