@@ -30,6 +30,11 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **Settings Sync**: camera_config and mandi_cutting_map synced to backend DB
 - **Electron IPC**: App closes on logout via window.electronAPI.closeApp
 - **P.Pkt Cut in Mill W Fix (Apr 2026)**: P.Pkt Cut ab Mill W calculation mein subtract hota hai (pehle sirf Final W mein hota tha). Formula: `Mill W = KG - GBW Cut - P.Pkt Cut`. Fix applied across all 5 calculation locations: Frontend (App.js), Python backend (models.py), Desktop main.js, Desktop sqlite-database.js, Local server.js, and both import_excel.js files.
+- **TP Number Duplicate Check (Apr 2026)**: Auto Vehicle Weight mein duplicate TP number entry blocked. Same TP already used in RST → red warning shown and submit prevented.
+- **VW Date Lock Setting (Apr 2026)**: Settings mein toggle added to lock Auto Vehicle Weight date to current date only (enable/disable).
+- **Staff PDF Export Fix (Apr 2026)**: `_addPdfHdr` → `addPdfHeader` rename fix in desktop-app and local-server staff.js routes.
+- **SQLite Pragma Fix (Apr 2026)**: `better-sqlite3` pragma `{ simple: true }` compatibility fix for different versions.
+- **Batch Recalculate Endpoint (Apr 2026)**: `POST /api/entries/recalculate-all` endpoint for admin to recalculate all existing entries with updated formula.
 
 ## Key Design Decision: Season vs FY
 - **User Permissions Bug Fix (Apr 2026)**: Fixed setUser prop not passed to UsersTab, localStorage→sessionStorage fix, can_edit_rst added to ROLE_PERMISSIONS across all 3 backends
