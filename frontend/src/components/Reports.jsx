@@ -1130,7 +1130,7 @@ const AgentMandiReport = ({ filters }) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Mandi</SelectItem>
-              {data.mandis.map(m => (
+              {data.mandis.filter(m => m.mandi_name).map(m => (
                 <SelectItem key={m.mandi_name} value={m.mandi_name}>{m.mandi_name}</SelectItem>
               ))}
             </SelectContent>
