@@ -170,8 +170,8 @@ export function MillEntryForm({
             )}
           </div>
 
-          {/* RST No. & TP No. */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* RST No. & TP No. & TP Weight */}
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <Label className="text-slate-300">RST No.</Label>
               <Input
@@ -209,6 +209,18 @@ export function MillEntryForm({
                   <AlertTriangle className="w-3 h-3" /> Ye TP pehle se hai: {dupWarning.tp}
                 </p>
               )}
+            </div>
+            <div>
+              <Label className="text-slate-300">TP Weight (KG){rstFetched ? ' (Locked)' : ''}</Label>
+              <Input
+                type="number"
+                value={formData.tp_weight}
+                onChange={(e) => setFormData(prev => ({ ...prev, tp_weight: e.target.value }))}
+                placeholder="TP Weight"
+                className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'}`}
+                data-testid="input-tp-weight"
+                disabled={!!rstFetched}
+              />
             </div>
           </div>
 

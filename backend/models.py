@@ -49,6 +49,7 @@ class MillEntry(BaseModel):
     truck_no: str = ""
     rst_no: str = ""
     tp_no: str = ""
+    tp_weight: float = 0
     agent_name: str = ""
     mandi_name: str = ""
     kg: float = 0
@@ -81,6 +82,7 @@ class MillEntryCreate(BaseModel):
     truck_no: str = ""
     rst_no: str = ""
     tp_no: str = ""
+    tp_weight: float = 0
     agent_name: str = ""
     mandi_name: str = ""
     kg: float = 0
@@ -103,6 +105,7 @@ class MillEntryUpdate(BaseModel):
     truck_no: Optional[str] = None
     rst_no: Optional[str] = None
     tp_no: Optional[str] = None
+    tp_weight: Optional[float] = None
     agent_name: Optional[str] = None
     mandi_name: Optional[str] = None
     kg: Optional[float] = None

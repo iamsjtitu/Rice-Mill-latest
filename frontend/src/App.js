@@ -531,6 +531,7 @@ function MainApp({ user, setUser, onLogout }) {
             diesel_paid: vw.diesel_paid ? String(vw.diesel_paid) : prev.diesel_paid,
             g_issued: vw.g_issued ? String(vw.g_issued) : prev.g_issued,
             tp_no: vw.tp_no || prev.tp_no,
+            tp_weight: vw.tp_weight ? String(vw.tp_weight) : prev.tp_weight,
             remark: vw.remark || prev.remark,
             cutting_percent: cuttingTarget ? String(cuttingTarget.cutting_percent) : prev.cutting_percent,
           };
@@ -1050,6 +1051,7 @@ function MainApp({ user, setUser, onLogout }) {
       remark: entry.remark || "",
       rst_no: entry.rst_no || "",
       tp_no: entry.tp_no || "",
+      tp_weight: entry.tp_weight?.toString() || "",
       _v: entry._v,
     });
     setEditingId(entry.id);

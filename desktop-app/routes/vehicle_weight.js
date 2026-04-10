@@ -272,6 +272,8 @@ module.exports = function(database) {
     const gIssued = parseFloat(entry.g_issued || 0) || 0;
     if (gIssued > 0) text += `G.Issued: ${gIssued.toLocaleString()}\n`;
     if (entry.tp_no) text += `TP: ${entry.tp_no}\n`;
+    const tpWt = parseFloat(entry.tp_weight || 0) || 0;
+    if (tpWt > 0) text += `TP Weight: ${tpWt.toLocaleString()} KG\n`;
     if (entry.remark) text += `Remark: ${entry.remark}\n`;
     if (cash > 0) text += `Cash Paid: \u20b9${Number(cash).toLocaleString()}\n`;
     if (diesel > 0) text += `Diesel Paid: \u20b9${Number(diesel).toLocaleString()}\n`;
@@ -423,6 +425,7 @@ module.exports = function(database) {
       diesel_paid: entry.diesel_paid || 0,
       g_issued: entry.g_issued || 0,
       tp_no: entry.tp_no || '',
+      tp_weight: entry.tp_weight || 0,
       first_wt_front_img: loadImageB64(entry.first_wt_front_img || ''),
       first_wt_side_img: loadImageB64(entry.first_wt_side_img || ''),
       second_wt_front_img: loadImageB64(entry.second_wt_front_img || ''),
@@ -683,6 +686,7 @@ module.exports = function(database) {
       vehicle_no: (data.vehicle_no || '').trim().toUpperCase(),
       party_name: (data.party_name || '').trim(),
       tp_no: tpNoRaw,
+      tp_weight: parseFloat(data.tp_weight || 0) || 0,
       g_issued: parseFloat(data.g_issued || 0) || 0,
       farmer_name: (data.farmer_name || '').trim(),
       product: data.product || 'PADDY',
@@ -747,6 +751,7 @@ module.exports = function(database) {
       }
       entry.tp_no = newTp;
     }
+    if ('tp_weight' in req.body) entry.tp_weight = parseFloat(req.body.tp_weight || 0) || 0;
 
     database.save();
     res.json({ success: true, entry, message: `RST #${entry.rst_no} - Net Wt: ${netWt} KG` });
@@ -794,10 +799,10 @@ module.exports = function(database) {
     const entry = weights.find(w => w.id === req.params.entry_id);
     if (!entry) return res.status(404).json({ detail: 'Entry not found' });
 
-    const editable = ['vehicle_no', 'party_name', 'farmer_name', 'product', 'tot_pkts', 'cash_paid', 'diesel_paid', 'g_issued', 'tp_no', 'remark'];
+    const editable = ['vehicle_no', 'party_name', 'farmer_name', 'product', 'tot_pkts', 'cash_paid', 'diesel_paid', 'g_issued', 'tp_no', 'tp_weight', 'remark'];
     for (const f of editable) {
       if (f in req.body) {
-        if (f === 'cash_paid' || f === 'diesel_paid') {
+        if (f === 'cash_paid' || f === 'diesel_paid' || f === 'tp_weight') {
           entry[f] = parseFloat(req.body[f] || 0) || 0;
         } else if (f === 'tp_no') {
           const newTp = (req.body[f] || '').trim();
@@ -927,9 +932,11 @@ module.exports = function(database) {
       ];
       const gIssued = parseFloat(entry.g_issued || 0) || 0;
       const tpNo = entry.tp_no || '';
+      const tpWeight = parseFloat(entry.tp_weight || 0) || 0;
       const remarkText = entry.remark || '';
       if (gIssued > 0) rows.push(['G.Issued', gIssued.toLocaleString(), 'TP No.', tpNo || '-']);
       else if (tpNo) rows.push(['TP No.', tpNo, '', '']);
+      if (tpWeight > 0) rows.push(['TP Weight', `${tpWeight.toLocaleString()} KG`, '', '']);
       if (remarkText) rows.push(['Remark', remarkText, '', '']);
       const rh = 6 * mm;
       const c1w = PW * 0.18;

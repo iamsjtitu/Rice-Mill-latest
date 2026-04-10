@@ -161,6 +161,17 @@
         "width_pdf_mm": 18,
         "show_total": true,
         "total_key": "total_final_w"
+      },
+      {
+        "field": "tp_weight",
+        "header": "TP Wt",
+        "pdf_header": "TP Wt",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 14,
+        "show_total": true,
+        "total_key": "total_tp_weight"
       }
     ]
   },

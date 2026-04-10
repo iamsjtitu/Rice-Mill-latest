@@ -99,6 +99,7 @@ export function EntryTable({
                   <TableHead className="text-slate-300 whitespace-nowrap px-1">Truck</TableHead>
                   <TableHead className="text-slate-300 whitespace-nowrap px-1">RST</TableHead>
                   <TableHead className="text-slate-300 whitespace-nowrap px-1">TP</TableHead>
+                  <TableHead className="text-slate-300 text-right whitespace-nowrap px-1">TP Wt</TableHead>
                   <TableHead className="text-slate-300 whitespace-nowrap px-1">Agent</TableHead>
                   <TableHead className="text-slate-300 whitespace-nowrap px-1">Mandi</TableHead>
                   <TableHead className="text-green-400 text-right whitespace-nowrap px-1">QNTL</TableHead>
@@ -122,7 +123,7 @@ export function EntryTable({
               <TableBody>
                 {entries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={24} className="text-center text-slate-400 py-8">
+                    <TableCell colSpan={25} className="text-center text-slate-400 py-8">
                       {filters.date_from === todayStr && filters.date_to === todayStr
                         ? "Aaj ki koi Mill Entry nahi hai"
                         : "Koi entry nahi mili. Filter change karein ya \"Nayi Entry\" button click karein."}
@@ -149,6 +150,7 @@ export function EntryTable({
                       </TableCell>
                       <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.rst_no || '-'}</TableCell>
                       <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.tp_no || '-'}</TableCell>
+                      <TableCell className="text-slate-300 text-right font-mono whitespace-nowrap px-1">{Number(entry.tp_weight || 0) > 0 ? Number(entry.tp_weight).toLocaleString() : '-'}</TableCell>
                       <TableCell className="text-white whitespace-nowrap px-1">{entry.agent_name}</TableCell>
                       <TableCell className="text-white whitespace-nowrap px-1">{entry.mandi_name}</TableCell>
                       <TableCell className="text-green-400 text-right font-mono font-bold whitespace-nowrap px-1">{entry.qntl?.toFixed(2)}</TableCell>

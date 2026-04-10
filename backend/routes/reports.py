@@ -263,7 +263,7 @@ async def report_agent_mandi_wise(kms_year: Optional[str] = None, season: Option
             mandi_map[mn] = {"mandi_name": mn, "agent_name": e.get("agent_name", ""), "entries": [], "totals": {
                 "total_qntl": 0, "total_bag": 0, "total_g_deposite": 0, "total_gbw_cut": 0,
                 "total_plastic_bag": 0, "total_p_pkt_cut": 0, "total_mill_w": 0,
-                "total_moisture_cut": 0, "total_final_w": 0,
+                "total_moisture_cut": 0, "total_final_w": 0, "total_tp_weight": 0,
                 "total_g_issued": 0, "total_cash_paid": 0, "total_diesel_paid": 0,
                 "total_disc_dust_poll": 0, "entry_count": 0
             }}
@@ -277,6 +277,7 @@ async def report_agent_mandi_wise(kms_year: Optional[str] = None, season: Option
         t["total_mill_w"] += e.get("mill_w", 0)
         t["total_moisture_cut"] += e.get("moisture_cut", 0) or 0
         t["total_final_w"] += e.get("final_w", 0)
+        t["total_tp_weight"] += float(e.get("tp_weight", 0) or 0)
         t["total_g_issued"] += e.get("g_issued", 0)
         t["total_cash_paid"] += e.get("cash_paid", 0) or 0
         t["total_diesel_paid"] += e.get("diesel_paid", 0) or 0
@@ -297,6 +298,7 @@ async def report_agent_mandi_wise(kms_year: Optional[str] = None, season: Option
             "cutting_percent": round(e.get("cutting_percent", 0) or 0, 2),
             "disc_dust_poll": round(e.get("disc_dust_poll", 0) or 0, 2),
             "final_w": round(e.get("final_w", 0), 2),
+            "tp_weight": float(e.get("tp_weight", 0) or 0),
             "g_issued": e.get("g_issued", 0),
             "cash_paid": e.get("cash_paid", 0) or 0,
             "diesel_paid": e.get("diesel_paid", 0) or 0,
@@ -351,7 +353,7 @@ async def report_agent_mandi_wise(kms_year: Optional[str] = None, season: Option
     # Grand totals
     grand = {"total_qntl": 0, "total_bag": 0, "total_g_deposite": 0, "total_gbw_cut": 0,
              "total_plastic_bag": 0, "total_p_pkt_cut": 0, "total_mill_w": 0,
-             "total_moisture_cut": 0, "total_final_w": 0, "total_g_issued": 0,
+             "total_moisture_cut": 0, "total_final_w": 0, "total_tp_weight": 0, "total_g_issued": 0,
              "total_cash_paid": 0, "total_diesel_paid": 0, "total_disc_dust_poll": 0, "entry_count": 0}
     for m in result:
         for k in grand:

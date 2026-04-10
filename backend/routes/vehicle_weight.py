@@ -83,6 +83,7 @@ async def get_entry_photos(entry_id: str):
         "diesel_paid": entry.get("diesel_paid", 0),
         "g_issued": entry.get("g_issued", 0),
         "tp_no": entry.get("tp_no", ""),
+        "tp_weight": entry.get("tp_weight", 0),
         "first_wt_front_img": _load_image_b64(entry.get("first_wt_front_img", "")),
         "first_wt_side_img": _load_image_b64(entry.get("first_wt_side_img", "")),
         "second_wt_front_img": _load_image_b64(entry.get("second_wt_front_img", "")),
@@ -542,6 +543,7 @@ async def create_weight_entry(data: dict):
         "vehicle_no": (data.get("vehicle_no", "") or "").strip().upper(),
         "party_name": (data.get("party_name", "") or "").strip(),
         "tp_no": tp_no_raw,
+        "tp_weight": float(data.get("tp_weight", 0) or 0),
         "g_issued": float(data.get("g_issued", 0) or 0),
         "farmer_name": (data.get("farmer_name", "") or "").strip(),
         "product": data.get("product", "PADDY"),
@@ -616,6 +618,8 @@ async def update_second_weight(entry_id: str, data: dict):
             if tp_existing:
                 raise HTTPException(status_code=400, detail=f"TP No. {new_tp} already RST #{tp_existing['rst_no']} mein hai! Duplicate TP allowed nahi hai.")
         update_fields["tp_no"] = new_tp
+    if "tp_weight" in data:
+        update_fields["tp_weight"] = float(data.get("tp_weight", 0) or 0)
 
     await db["vehicle_weights"].update_one(
         {"id": entry_id},
@@ -666,10 +670,10 @@ async def edit_weight_entry(entry_id: str, data: dict):
         raise HTTPException(status_code=404, detail="Entry not found")
 
     update_fields = {}
-    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "cash_paid", "diesel_paid", "g_issued", "tp_no", "remark"]
+    editable = ["vehicle_no", "party_name", "farmer_name", "product", "tot_pkts", "cash_paid", "diesel_paid", "g_issued", "tp_no", "tp_weight", "remark"]
     for f in editable:
         if f in data:
-            if f in ("cash_paid", "diesel_paid"):
+            if f in ("cash_paid", "diesel_paid", "tp_weight"):
                 update_fields[f] = float(data[f] or 0)
             elif f == "tot_pkts":
                 update_fields[f] = data[f]
@@ -812,11 +816,14 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         ]
         g_issued = float(entry.get("g_issued", 0) or 0)
         tp_no = entry.get("tp_no", "") or ""
+        tp_weight = float(entry.get("tp_weight", 0) or 0)
         remark_text = entry.get("remark", "") or ""
         if g_issued > 0:
             rows.append(("G.Issued", f"{g_issued:,.0f}", "TP No.", tp_no or "-"))
         elif tp_no:
             rows.append(("TP No.", tp_no, "", ""))
+        if tp_weight > 0:
+            rows.append(("TP Weight", f"{tp_weight:,.0f} KG", "", ""))
         if remark_text:
             rows.append(("Remark", remark_text, "", ""))
         rh = 6*mm  # row height - taller for proper table cells

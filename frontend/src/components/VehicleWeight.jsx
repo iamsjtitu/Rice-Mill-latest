@@ -430,7 +430,7 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
 });
 
 export default function VehicleWeight({ filters, user, onVwChange }) {
-  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "", tp_no: "" };
+  const blank = { date: new Date().toISOString().split("T")[0], vehicle_no: "", party_name: "", farmer_name: "", product: "GOVT PADDY", trans_type: "Receive(Purchase)", j_pkts: "", p_pkts: "", tot_pkts: "", first_wt: "", remark: "", cash_paid: "", diesel_paid: "", rst_no: "", g_issued: "", tp_no: "", tp_weight: "" };
   const [form, setForm] = useState(blank);
   const [rstEditable, setRstEditable] = useState(false);
   const [entries, setEntries] = useState([]);
@@ -570,6 +570,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       first_wt: String(entry.first_wt || 0),
       remark: entry.remark || "",
       tp_no: entry.tp_no || "",
+      tp_weight: entry.tp_weight ? String(entry.tp_weight) : "",
       cash_paid: entry.cash_paid ? String(entry.cash_paid) : "",
       diesel_paid: entry.diesel_paid ? String(entry.diesel_paid) : "",
       g_issued: entry.g_issued ? String(entry.g_issued) : "",
@@ -592,6 +593,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         diesel_paid: form.diesel_paid || "0",
         g_issued: form.g_issued || "0",
         tp_no: form.tp_no || "",
+        tp_weight: form.tp_weight || "0",
         second_wt_front_img: frontImg,
         second_wt_side_img: sideImg
       });
@@ -675,6 +677,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     const gIssued = Number(e.g_issued || 0);
     if (gIssued > 0) t += `G.Issued: ${gIssued.toLocaleString()}\n`;
     if (e.tp_no) t += `TP: ${e.tp_no}\n`;
+    if (Number(e.tp_weight || 0) > 0) t += `TP Weight: ${Number(e.tp_weight).toLocaleString()} KG\n`;
     if (e.remark) t += `Remark: ${e.remark}\n`;
     if (cash > 0) t += `Cash Paid: ₹${cash.toLocaleString()}\n`;
     if (diesel > 0) t += `Diesel Paid: ₹${diesel.toLocaleString()}\n`;
@@ -722,6 +725,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
       diesel_paid: entry.diesel_paid || "",
       g_issued: entry.g_issued || "",
       tp_no: entry.tp_no || "",
+      tp_weight: entry.tp_weight ? String(entry.tp_weight) : "",
       remark: entry.remark || ""
     });
     setEditDialog({ open: true, entry });
@@ -796,7 +800,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
           <tr><td class="lbl">Vehicle / गाड़ी</td><td class="val">${e.vehicle_no}</td><td class="lbl">Trans Type</td><td class="val">${e.trans_type || '-'}</td></tr>
           <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source/Mandi</td><td class="val">${e.farmer_name || '-'}</td></tr>
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
-          ${Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
+          ${Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl">TP No.</td><td class="val">${e.tp_no || '-'}</td></tr>` : (e.tp_no ? `<tr><td class="lbl">TP No.</td><td class="val">${e.tp_no}</td><td class="lbl"></td><td class="val"></td></tr>` : '')}
+          ${Number(e.tp_weight || 0) > 0 ? `<tr><td class="lbl">TP Weight</td><td class="val">${Number(e.tp_weight).toLocaleString()} KG</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
         </table>
         <table class="wt-table">
           <tr>
@@ -1041,13 +1046,18 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       placeholder="0" className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${secondWtMode ? 'opacity-70 cursor-not-allowed' : ''}`} data-testid="vw-bags" />
                   </div>
                 </div>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-6 gap-2">
                   <div>
                     <Label className="text-slate-400 text-[10px] mb-0.5 block">TP No. {secondWtMode && <span className="text-amber-400">(Locked)</span>}</Label>
                     <Input value={form.tp_no} onChange={e => { if (!secondWtMode) { setForm(p => ({ ...p, tp_no: e.target.value })); checkTpDuplicate(e.target.value); } }}
                       disabled={!!secondWtMode}
                       placeholder="Optional" className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${secondWtMode ? 'opacity-70 cursor-not-allowed' : ''} ${tpWarning ? 'border-red-500 ring-1 ring-red-500' : ''}`} data-testid="vw-tp-no" />
                     {tpWarning && <p className="text-red-400 text-[9px] mt-0.5">{tpWarning}</p>}
+                  </div>
+                  <div>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">TP Weight</Label>
+                    <Input type="number" value={form.tp_weight} onChange={e => setForm(p => ({ ...p, tp_weight: e.target.value }))}
+                      placeholder="KG" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-tp-weight" />
                   </div>
                   <div>
                     <Label className="text-slate-400 text-[10px] mb-0.5 block">Remark</Label>
@@ -1310,6 +1320,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Net Wt</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">G.Issued</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold">TP No.</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">TP Wt</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Cash</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-right">Diesel</TableHead>
                     <TableHead className="text-slate-400 text-[10px] py-2 px-3 font-semibold text-center">Actions</TableHead>
@@ -1317,7 +1328,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 </TableHeader>
                 <TableBody>
                   {entries.length === 0 ? (
-                    <TableRow><TableCell colSpan={15} className="text-center text-slate-500 py-8 text-xs" data-testid="vw-no-entries-today">
+                    <TableRow><TableCell colSpan={16} className="text-center text-slate-500 py-8 text-xs" data-testid="vw-no-entries-today">
                       {vwFilters.date_from === todayStr && vwFilters.date_to === todayStr
                         ? "Aaj ki koi Vehicle Weight entry nahi hai"
                         : "Koi entry nahi mili - Filter change karke dekhein"}
@@ -1336,6 +1347,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       <TableCell className="text-right py-2 px-3"><span className="text-green-700 font-bold text-sm font-mono">{fmtWt(e.net_wt)}</span></TableCell>
                       <TableCell className="text-right text-indigo-700 text-xs py-2 px-3 font-mono">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
                       <TableCell className="text-slate-400 text-xs py-2 px-3">{e.tp_no || '-'}</TableCell>
+                      <TableCell className="text-right text-slate-400 text-xs py-2 px-3 font-mono">{Number(e.tp_weight || 0) > 0 ? fmtWt(e.tp_weight) : '-'}</TableCell>
                       <TableCell className="text-right text-green-700 text-xs py-2 px-3 font-mono">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="text-right text-orange-700 text-xs py-2 px-3 font-mono">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
@@ -1403,7 +1415,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   className="h-9 text-sm border-slate-600" data-testid="edit-farmer" />
               </div>
             </div>
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-6 gap-3">
               <div>
                 <Label className="text-slate-400 text-xs mb-1 block">Bags</Label>
                 <Input type="number" value={editForm.tot_pkts || ""} onChange={e => setEditForm(p => ({ ...p, tot_pkts: e.target.value }))}
@@ -1418,6 +1430,11 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 <Label className="text-slate-400 text-xs mb-1 block">TP No.</Label>
                 <Input value={editForm.tp_no || ""} onChange={e => setEditForm(p => ({ ...p, tp_no: e.target.value }))}
                   className="h-9 text-sm border-slate-600" data-testid="edit-tp-no" />
+              </div>
+              <div>
+                <Label className="text-slate-400 text-xs mb-1 block">TP Weight</Label>
+                <Input type="number" value={editForm.tp_weight || ""} onChange={e => setEditForm(p => ({ ...p, tp_weight: e.target.value }))}
+                  className="h-9 text-sm border-slate-600" data-testid="edit-tp-weight" />
               </div>
               <div>
                 <Label className="text-green-700 text-xs mb-1 block font-semibold">Cash Paid</Label>
@@ -1500,6 +1517,14 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     <tr>
                       <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">TP No.</td>
                       <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{photoDialog.data.tp_no}</td>
+                      <td className="border border-slate-600 px-2 py-1"></td>
+                      <td className="border border-slate-600 px-2 py-1"></td>
+                    </tr>
+                  )}
+                  {Number(photoDialog.data.tp_weight || 0) > 0 && (
+                    <tr>
+                      <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">TP Weight</td>
+                      <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{fmtWt(photoDialog.data.tp_weight)} KG</td>
                       <td className="border border-slate-600 px-2 py-1"></td>
                       <td className="border border-slate-600 px-2 py-1"></td>
                     </tr>

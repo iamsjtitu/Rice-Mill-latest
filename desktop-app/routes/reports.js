@@ -344,14 +344,15 @@ module.exports = function(database) {
       if (!mandiMap[mn]) mandiMap[mn] = { mandi_name: mn, agent_name: e.agent_name || '', entries: [], totals: {
         total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_gbw_cut: 0,
         total_plastic_bag: 0, total_p_pkt_cut: 0, total_mill_w: 0,
-        total_moisture_cut: 0, total_final_w: 0, total_g_issued: 0,
+        total_moisture_cut: 0, total_final_w: 0, total_tp_weight: 0, total_g_issued: 0,
         total_cash_paid: 0, total_diesel_paid: 0, total_disc_dust_poll: 0, entry_count: 0 }};
       const t = mandiMap[mn].totals;
       t.total_qntl += e.qntl || 0; t.total_bag += e.bag || 0;
       t.total_g_deposite += e.g_deposite || 0; t.total_gbw_cut += e.gbw_cut || 0;
       t.total_plastic_bag += e.plastic_bag || 0; t.total_p_pkt_cut += e.p_pkt_cut || 0;
       t.total_mill_w += e.mill_w || 0; t.total_moisture_cut += e.moisture_cut || 0;
-      t.total_final_w += e.final_w || 0; t.total_g_issued += e.g_issued || 0;
+      t.total_final_w += e.final_w || 0; t.total_tp_weight += parseFloat(e.tp_weight || 0) || 0;
+      t.total_g_issued += e.g_issued || 0;
       t.total_cash_paid += (e.cash_paid || 0); t.total_diesel_paid += (e.diesel_paid || 0);
       t.total_disc_dust_poll += e.disc_dust_poll || 0; t.entry_count += 1;
       const r = (v) => Math.round((v||0)*100)/100;
@@ -360,7 +361,8 @@ module.exports = function(database) {
         plastic_bag: e.plastic_bag||0, p_pkt_cut: r(e.p_pkt_cut), mill_w: r(e.mill_w),
         moisture_cut_percent: r(e.moisture_cut_percent), moisture_cut: r(e.moisture_cut),
         cutting_percent: r(e.cutting_percent), disc_dust_poll: r(e.disc_dust_poll),
-        final_w: r(e.final_w), g_issued: e.g_issued||0, cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0 });
+        final_w: r(e.final_w), tp_weight: parseFloat(e.tp_weight || 0) || 0,
+        g_issued: e.g_issued||0, cash_paid: e.cash_paid||0, diesel_paid: e.diesel_paid||0 });
     }
 
     const result = Object.values(mandiMap).sort((a,b) => a.mandi_name.localeCompare(b.mandi_name));
@@ -391,7 +393,7 @@ module.exports = function(database) {
 
     const grand = { total_qntl: 0, total_bag: 0, total_g_deposite: 0, total_gbw_cut: 0,
       total_plastic_bag: 0, total_p_pkt_cut: 0, total_mill_w: 0, total_moisture_cut: 0,
-      total_final_w: 0, total_g_issued: 0, total_cash_paid: 0, total_diesel_paid: 0,
+      total_final_w: 0, total_tp_weight: 0, total_g_issued: 0, total_cash_paid: 0, total_diesel_paid: 0,
       total_disc_dust_poll: 0, entry_count: 0 };
     for (const m of result) { for (const k in grand) grand[k] += m.totals[k]; }
     for (const k in grand) grand[k] = Math.round(grand[k]*100)/100;
