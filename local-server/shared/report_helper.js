@@ -22,9 +22,9 @@ function fmtDate(d) {
 
 function fmtVal(value, type) {
     if (type === 'date') return fmtDate(value);
-    if (type === 'qntl') return Math.round((value || 0) / 100 * 100) / 100;
+    if (type === 'qntl') return +(((value || 0) / 100).toFixed(2));
     if (type === 'integer') return Math.round(value || 0);
-    if (type === 'number') return value || 0;
+    if (type === 'number') return +((value || 0).toFixed(2));
     return value || '';
 }
 
@@ -33,7 +33,13 @@ function getEntryRow(entry, columns) {
 }
 
 function getTotalRow(totals, columns) {
-    return columns.map(col => col.show_total && col.total_key ? fmtVal(totals[col.total_key], col.type) : null);
+    return columns.map(col => {
+        if (col.show_total && col.total_key) {
+            const val = totals[col.total_key];
+            return fmtVal(val, col.type);
+        }
+        return '';
+    });
 }
 
 function getExcelHeaders(columns) { return columns.map(c => c.header); }

@@ -18,14 +18,14 @@ def fmt_val(value, col_type):
     elif col_type == "integer":
         return int(value or 0)
     elif col_type == "number":
-        return value or 0
+        return round(value or 0, 2)
     return value or ""
 
 def get_entry_row(entry, columns):
     return [fmt_val(entry.get(col["field"], 0), col["type"]) for col in columns]
 
 def get_total_row(totals, columns):
-    return [fmt_val(totals.get(col["total_key"], 0), col["type"]) if col.get("show_total") else None for col in columns]
+    return [fmt_val(totals.get(col["total_key"], 0), col["type"]) if col.get("show_total") else "" for col in columns]
 
 def get_excel_headers(columns):
     return [c["header"] for c in columns]

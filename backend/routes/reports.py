@@ -505,7 +505,7 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
         total_vals = get_total_row(t, cols)
         ws.cell(row=row, column=1, value="TOTAL / कुल")
         for col_idx, val in enumerate(total_vals, 1):
-            if val is not None:
+            if val is not None and val != "":
                 c = ws.cell(row=row, column=col_idx, value=val)
                 c.alignment = Alignment(horizontal='right')
         style_excel_total_row(ws, row, ncols)
@@ -516,7 +516,7 @@ async def export_agent_mandi_wise_excel(kms_year: Optional[str] = None, season: 
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
     ws.cell(row=row, column=1, value=f"GRAND TOTAL ({g['entry_count']} entries)")
     for col_idx, val in enumerate(grand_vals, 1):
-        if val is not None:
+        if val is not None and val != "" and col_idx > 2:
             c = ws.cell(row=row, column=col_idx, value=val)
             c.alignment = Alignment(horizontal='right')
     style_excel_total_row(ws, row, ncols)
