@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.79.0";
+const APP_VERSION = "88.80.0";
 
 const CHANGELOG = [
+  {
+    version: "88.80.0",
+    date: "Apr 2026",
+    title: "v88.80.0 - Bug Fixes (Desktop PDF)",
+    items: [
+      { type: "fix", text: "Agent & Mandi Report PDF/Excel crash fix - string values pe toFixed error hata diya (Desktop/Local)" },
+      { type: "fix", text: "Weight Discrepancy PDF crash fix - undefined functions (createPdfDoc, drawPdfTable) replace kiye (Desktop/Local)" },
+      { type: "fix", text: "Watermark Font Size aur Rotation Angle control add hua (20-120px, 0°-90°)" },
+    ]
+  },
   {
     version: "88.79.0",
     date: "Apr 2026",
