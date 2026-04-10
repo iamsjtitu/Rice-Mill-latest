@@ -152,11 +152,8 @@ export function EntryTable({
                       <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.tp_no || '-'}</TableCell>
                       <TableCell className="text-right font-mono whitespace-nowrap px-1">
                         {Number(entry.tp_weight || 0) > 0 ? (
-                          <span className={Number(entry.tp_weight || 0) !== Number(entry.qntl || 0) ? 'text-red-400 font-bold' : 'text-slate-300'}>
+                          <span className="text-slate-300">
                             {Number(entry.tp_weight)}
-                            {Number(entry.qntl || 0) > 0 && Number(entry.tp_weight) !== Number(entry.qntl) && (
-                              <span className="text-red-500 text-[8px] block">{(Number(entry.tp_weight) - Number(entry.qntl)).toFixed(1)}</span>
-                            )}
                           </span>
                         ) : '-'}
                       </TableCell>

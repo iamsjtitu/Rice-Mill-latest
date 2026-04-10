@@ -625,7 +625,7 @@ module.exports = function(database) {
       const qntl = parseFloat(e.qntl || 0) || 0;
       if (tpWt > 0) entriesWithTp++;
       if (tpWt > 0 && qntl > 0) {
-        const diff = +(tpWt - qntl).toFixed(2);
+        const diff = +(qntl - tpWt).toFixed(2);
         if (Math.abs(diff) > 0) {
           discrepancies.push({
             date: e.date || '', truck_no: e.truck_no || '', rst_no: e.rst_no || '',
@@ -662,7 +662,7 @@ module.exports = function(database) {
       const qntl = parseFloat(e.qntl || 0) || 0;
       if (tpWt > 0) entriesWithTp++;
       if (tpWt > 0 && qntl > 0) {
-        const diff = +(tpWt - qntl).toFixed(2);
+        const diff = +(qntl - tpWt).toFixed(2);
         if (Math.abs(diff) > 0) {
           discrepancies.push({ date: e.date, truck_no: e.truck_no, rst_no: e.rst_no, tp_no: e.tp_no, agent_name: e.agent_name, mandi_name: e.mandi_name, tp_weight: tpWt, qntl, diff_qntl: diff, diff_kg: Math.round(diff * 100) });
           totalDiff += diff;
@@ -701,7 +701,7 @@ module.exports = function(database) {
       const tpWt = parseFloat(e.tp_weight || 0) || 0;
       const qntl = parseFloat(e.qntl || 0) || 0;
       if (tpWt > 0 && qntl > 0) {
-        const diff = +(tpWt - qntl).toFixed(2);
+        const diff = +(qntl - tpWt).toFixed(2);
         if (Math.abs(diff) > 0) {
           discrepancies.push({ date: e.date, truck_no: e.truck_no, rst_no: e.rst_no, tp_no: e.tp_no, agent_name: e.agent_name, mandi_name: e.mandi_name, tp_weight: tpWt, qntl, diff_qntl: diff, diff_kg: Math.round(diff * 100) });
           totalDiff += diff;

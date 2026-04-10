@@ -217,15 +217,10 @@ export function MillEntryForm({
                 value={formData.tp_weight}
                 onChange={(e) => setFormData(prev => ({ ...prev, tp_weight: e.target.value }))}
                 placeholder="TP Weight"
-                className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'} ${Number(formData.tp_weight || 0) > 0 && Number(formData.qntl || 0) > 0 && Math.abs(Number(formData.tp_weight) - Number(formData.qntl)) > 0 ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'}`}
                 data-testid="input-tp-weight"
                 disabled={!!rstFetched}
               />
-              {Number(formData.tp_weight || 0) > 0 && Number(formData.qntl || 0) > 0 && (() => {
-                const diff = Number(formData.tp_weight) - Number(formData.qntl);
-                if (Math.abs(diff) > 0) return <p className="text-red-400 text-[9px] mt-0.5 font-mono">Farak: {diff > 0 ? '+' : ''}{diff.toFixed(2)} QNTL (Entry: {Number(formData.qntl).toFixed(2)} Q)</p>;
-                return null;
-              })()}
             </div>
           </div>
 

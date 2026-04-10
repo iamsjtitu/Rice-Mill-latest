@@ -655,7 +655,7 @@ async def weight_discrepancy_report(
         tp_wt = float(e.get("tp_weight", 0) or 0)
         qntl = float(e.get("qntl", 0) or 0)
         if tp_wt > 0 and qntl > 0:
-            diff = round(tp_wt - qntl, 2)
+            diff = round(qntl - tp_wt, 2)
             if abs(diff) > 0:
                 discrepancies.append({
                     "date": e.get("date", ""),

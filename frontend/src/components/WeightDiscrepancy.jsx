@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileSpreadsheet, FileText, AlertTriangle, Search } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
@@ -19,6 +19,13 @@ export default function WeightDiscrepancy({ filters }) {
   const [dateTo, setDateTo] = useState("");
   const [agent, setAgent] = useState("");
   const [mandi, setMandi] = useState("");
+  const [agentList, setAgentList] = useState([]);
+  const [mandiList, setMandiList] = useState([]);
+
+  useEffect(() => {
+    axios.get(`${API}/suggestions/agents`).then(r => setAgentList(r.data || [])).catch(() => {});
+    axios.get(`${API}/suggestions/mandis`).then(r => setMandiList(r.data || [])).catch(() => {});
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -65,13 +72,27 @@ export default function WeightDiscrepancy({ filters }) {
             </div>
             <div>
               <Label className="text-slate-600 text-xs mb-1 block font-medium">Agent</Label>
-              <Input value={agent} onChange={e => setAgent(e.target.value)}
-                placeholder="All Agents" className="bg-white border-slate-300 text-slate-800 h-8 text-xs placeholder:text-slate-400" data-testid="wd-agent" />
+              <Select value={agent} onValueChange={v => setAgent(v === '_all' ? '' : v)} data-testid="wd-agent">
+                <SelectTrigger className="bg-white border-slate-300 text-slate-800 h-8 text-xs">
+                  <SelectValue placeholder="All Agents" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">All Agents</SelectItem>
+                  {agentList.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label className="text-slate-600 text-xs mb-1 block font-medium">Mandi</Label>
-              <Input value={mandi} onChange={e => setMandi(e.target.value)}
-                placeholder="All Mandis" className="bg-white border-slate-300 text-slate-800 h-8 text-xs placeholder:text-slate-400" data-testid="wd-mandi" />
+              <Select value={mandi} onValueChange={v => setMandi(v === '_all' ? '' : v)} data-testid="wd-mandi">
+                <SelectTrigger className="bg-white border-slate-300 text-slate-800 h-8 text-xs">
+                  <SelectValue placeholder="All Mandis" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_all">All Mandis</SelectItem>
+                  {mandiList.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex gap-2">
               <Button onClick={fetchData} disabled={loading} className="bg-amber-600 hover:bg-amber-500 text-white h-8 text-xs flex-1" data-testid="wd-search">

@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.82.0";
+const APP_VERSION = "88.83.0";
 
 const CHANGELOG = [
+  {
+    version: "88.83.0",
+    date: "Apr 2026",
+    title: "v88.83.0 - Discrepancy Report Fix + UI Cleanup",
+    items: [
+      { type: "fix", text: "Weight Discrepancy Report - diff sign fix: TP 253, Mill 50 toh ab -203 dikhega (pehle +203 dikhata tha)" },
+      { type: "new", text: "Agent aur Mandi ab dropdown select mein hai (Weight Discrepancy Report)" },
+      { type: "fix", text: "TP Weight red indicator hataya (VW Table, Mill Entry Form, Entry Table) - koi kaam ka nahi tha" },
+    ]
+  },
   {
     version: "88.82.0",
     date: "Apr 2026",

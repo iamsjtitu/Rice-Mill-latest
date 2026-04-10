@@ -1348,11 +1348,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       <TableCell className="text-slate-400 text-xs py-2 px-3">{e.tp_no || '-'}</TableCell>
                       <TableCell className="text-right text-xs py-2 px-3 font-mono">
                         {Number(e.tp_weight || 0) > 0 ? (
-                          <span className={Number(e.tp_weight || 0) * 100 !== Number(e.net_wt || 0) && Number(e.net_wt || 0) > 0 ? 'text-red-400 font-bold' : 'text-slate-400'}>
+                          <span className="text-slate-400">
                             {Number(e.tp_weight)}
-                            {Number(e.net_wt || 0) > 0 && Number(e.tp_weight || 0) * 100 !== Number(e.net_wt || 0) && (
-                              <span className="text-red-500 text-[8px] block">{(Number(e.tp_weight) * 100 - Number(e.net_wt)).toFixed(0)}</span>
-                            )}
                           </span>
                         ) : '-'}
                       </TableCell>
@@ -1466,12 +1463,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
               <div>
                 <Label className="text-slate-400 text-xs mb-1 block">TP Weight (Q)</Label>
                 <Input type="number" value={editForm.tp_weight || ""} onChange={e => setEditForm(p => ({ ...p, tp_weight: e.target.value }))}
-                  className={`h-9 text-sm border-slate-600 ${Number(editForm.tp_weight || 0) > 0 && editDialog.entry?.net_wt > 0 && Math.abs(Number(editForm.tp_weight || 0) * 100 - editDialog.entry.net_wt) > 0 ? 'border-red-500 ring-1 ring-red-500' : ''}`} data-testid="edit-tp-weight" />
-                {Number(editForm.tp_weight || 0) > 0 && editDialog.entry?.net_wt > 0 && (() => {
-                  const diff = Number(editForm.tp_weight || 0) * 100 - editDialog.entry.net_wt;
-                  if (Math.abs(diff) > 0) return <p className="text-red-400 text-[9px] mt-0.5 font-mono">Farak: {diff > 0 ? '+' : ''}{diff.toFixed(0)} KG (Net: {editDialog.entry.net_wt.toLocaleString()} KG)</p>;
-                  return null;
-                })()}
+                  className="h-9 text-sm border-slate-600" data-testid="edit-tp-weight" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
