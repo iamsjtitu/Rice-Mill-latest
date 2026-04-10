@@ -47,11 +47,30 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Audit Log
 - Multi-user with role-based access
 
-### Recent Fixes (This Session - Apr 2026)
-- Quick Search: Click on result now opens specific entry detail dialog instead of navigating to full tab
-- WeightDiscrepancy: Fixed missing `Input` import and `mandiList.map` error (API returns `{suggestions:[...]}` not array)
-- PDF Watermark: Changed from single center text to tiled repeating pattern across full page, drawn AFTER content for visibility
-- Triple backend parity maintained for watermark changes
+### Recent Changes (This Session - Apr 2026)
+- Quick Search: Click opens specific entry detail dialog (SearchDetailDialog) instead of full tab
+- WeightDiscrepancy: Fixed missing `Input` import and `mandiList.map` error
+- PDF Watermark: Tiled repeating pattern across full page, drawn AFTER content
+- **Settings.jsx Refactored: 3091 lines → 70 lines + 11 tab files + 1 constants file**
+
+### Settings Component Breakdown
+```
+frontend/src/components/
+├── Settings.jsx (70 lines - thin shell with tab nav)
+└── settings/
+    ├── settingsConstants.js (shared API, ROLES, PERMISSION_DEFS, etc.)
+    ├── UsersTab.jsx (296 lines)
+    ├── AuditLogTab.jsx (160 lines)
+    ├── BrandingTab.jsx (243 lines)
+    ├── WatermarkTab.jsx (233 lines)
+    ├── GSTTab.jsx (131 lines)
+    ├── StockTab.jsx (108 lines)
+    ├── MessagingTab.jsx (657 lines)
+    ├── CameraSetupTab.jsx (584 lines)
+    ├── WeighbridgeTab.jsx (189 lines)
+    ├── DataTab.jsx (375 lines)
+    └── ErrorLogTab.jsx (61 lines)
+```
 
 ## Prioritized Backlog
 
@@ -64,8 +83,6 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 ### P2 (Medium)
 - Python backend service layer refactoring
 - Triple backend code deduplication
-- Settings.jsx breakdown into smaller components (currently 3000+ lines)
-- Centralize stock calculation logic
 
 ### P3 (Low)
 - Payment logic centralized service layer
