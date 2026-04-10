@@ -315,7 +315,9 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
             ))}
             {totals && entries.length > 0 && (
               <tr className="border-t-2 border-amber-500/50 bg-amber-500/10 font-semibold text-amber-300">
-                <td colSpan={7} className="p-2 text-right">TOTAL</td>
+                <td colSpan={5} className="p-2 text-right">TOTAL</td>
+                <td className="p-2 text-right">{Number(totals.total_tp_weight || 0) > 0 ? fmt(totals.total_tp_weight) : '-'}</td>
+                <td colSpan={2}></td>
                 <td className="p-2 text-right">{fmt(totals.total_qntl)}</td>
                 <td className="p-2 text-right">{totals.total_bag || "-"}</td>
                 <td className="p-2 text-right">{totals.total_g_deposite || "-"}</td>

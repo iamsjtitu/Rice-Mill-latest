@@ -15,6 +15,8 @@ const CHANGELOG = [
       { type: "fix", text: "Vehicle Weight Excel mein totals row add hua (Bags, 1st/2nd/Net Wt, TP Wt, G.Issued, Cash, Diesel)" },
       { type: "fix", text: "Vehicle Weight PDF mein TP Wt aur G.Issued totals fix kiya" },
       { type: "fix", text: "Daily Report PDF/Excel mein TP Weight column aur summary add hua" },
+      { type: "fix", text: "Eye View Dialog mein ab TP Weight (Q) dikhta hai" },
+      { type: "fix", text: "Paddy Purchase Register TOTAL row alignment fix kiya (pehle shift ho raha tha)" },
     ]
   },
   {

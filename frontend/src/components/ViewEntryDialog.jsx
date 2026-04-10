@@ -74,7 +74,7 @@ export default function ViewEntryDialog({ entry, onClose }) {
         {/* Body */}
         <div className="overflow-y-auto flex-1 p-5 space-y-4">
           {/* Identity */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div className="bg-slate-700/40 rounded-lg p-2.5 text-center">
               <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">RST No</p>
               <p className="text-white font-mono font-bold text-sm">{entry.rst_no || '-'}</p>
@@ -82,6 +82,10 @@ export default function ViewEntryDialog({ entry, onClose }) {
             <div className="bg-slate-700/40 rounded-lg p-2.5 text-center">
               <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">TP No</p>
               <p className="text-white font-mono font-bold text-sm">{entry.tp_no || '-'}</p>
+            </div>
+            <div className="bg-slate-700/40 rounded-lg p-2.5 text-center">
+              <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">TP Weight (Q)</p>
+              <p className="text-amber-400 font-mono font-bold text-sm">{Number(entry.tp_weight || 0) > 0 ? Number(entry.tp_weight).toFixed(2) : '-'}</p>
             </div>
             <div className="bg-slate-700/40 rounded-lg p-2.5 text-center">
               <p className="text-slate-500 text-[10px] uppercase tracking-wider mb-0.5">Agent</p>
