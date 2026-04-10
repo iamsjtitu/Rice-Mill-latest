@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.78.0";
+const APP_VERSION = "88.79.0";
 
 const CHANGELOG = [
+  {
+    version: "88.79.0",
+    date: "Apr 2026",
+    title: "v88.79.0 - Watermark Font & Rotation Control",
+    items: [
+      { type: "new", text: "Watermark Font Size slider (20px - 120px) - apni marzi ka size set karein" },
+      { type: "new", text: "Watermark Rotation Angle slider (0° - 90°) - tircha ya seedha watermark" },
+      { type: "fix", text: "Preview box mein font size aur rotation live update hota hai" },
+    ]
+  },
   {
     version: "88.78.0",
     date: "Apr 2026",

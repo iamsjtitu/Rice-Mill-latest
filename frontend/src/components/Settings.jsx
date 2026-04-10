@@ -2792,7 +2792,7 @@ function AuditLogTab({ user }) {
 // ======================= WATERMARK TAB =======================
 
 function WatermarkTab() {
-  const [settings, setSettings] = useState({ enabled: false, type: 'text', text: '', opacity: 0.06 });
+  const [settings, setSettings] = useState({ enabled: false, type: 'text', text: '', opacity: 0.06, font_size: 52, rotation: 45 });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef(null);
@@ -2935,14 +2935,46 @@ function WatermarkTab() {
                 <p className="text-slate-500 text-[10px] mt-1">Kam value = zyada halka watermark (bank documents jaisa)</p>
               </div>
 
+              {/* Font Size & Rotation - only for text type */}
+              {settings.type === 'text' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-slate-400 text-xs mb-1 block">Font Size: {settings.font_size || 52}px</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500 text-xs">20</span>
+                      <input
+                        type="range" min="20" max="120" value={settings.font_size || 52}
+                        onChange={e => setSettings(p => ({ ...p, font_size: parseInt(e.target.value) }))}
+                        className="flex-1 accent-amber-500"
+                        data-testid="watermark-fontsize-slider"
+                      />
+                      <span className="text-slate-500 text-xs">120</span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-slate-400 text-xs mb-1 block">Rotation Angle: {settings.rotation || 45}°</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500 text-xs">0°</span>
+                      <input
+                        type="range" min="0" max="90" value={settings.rotation || 45}
+                        onChange={e => setSettings(p => ({ ...p, rotation: parseInt(e.target.value) }))}
+                        className="flex-1 accent-amber-500"
+                        data-testid="watermark-rotation-slider"
+                      />
+                      <span className="text-slate-500 text-xs">90°</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Preview Box */}
               <div className="relative bg-white rounded-lg p-8 overflow-hidden" style={{ minHeight: 120 }}>
                 <div
                   className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                  style={{ opacity: settings.opacity || 0.06, transform: 'rotate(-45deg)' }}
+                  style={{ opacity: settings.opacity || 0.06, transform: `rotate(-${settings.rotation || 45}deg)` }}
                 >
                   {settings.type === 'text' ? (
-                    <span className="text-4xl font-bold text-gray-500 whitespace-nowrap select-none">
+                    <span style={{ fontSize: `${Math.min(settings.font_size || 52, 48)}px` }} className="font-bold text-gray-500 whitespace-nowrap select-none">
                       {settings.text || 'WATERMARK'}
                     </span>
                   ) : (

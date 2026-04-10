@@ -262,6 +262,8 @@ module.exports = function(database) {
       text: (req.body.text || '').trim(),
       image_path: (req.body.image_path || '').trim(),
       opacity: Math.max(0.02, Math.min(0.20, parseFloat(req.body.opacity || 0.06))),
+      font_size: Math.max(20, Math.min(120, parseInt(req.body.font_size || 52))),
+      rotation: Math.max(0, Math.min(90, parseInt(req.body.rotation || 45))),
       updated_at: new Date().toISOString()
     };
     const idx = database.data.app_settings.findIndex(s => s.setting_id === 'watermark');

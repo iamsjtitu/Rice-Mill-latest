@@ -52,11 +52,13 @@ function drawWatermark(doc, settings) {
   if (wType === 'text') {
     const text = settings.text || '';
     if (text) {
-      doc.fontSize(52).font(F('bold')).fillColor('#9ca3af');
+      const fontSize = parseInt(settings.font_size || 52);
+      const rotation = parseInt(settings.rotation || 45);
+      doc.fontSize(fontSize).font(F('bold')).fillColor('#9ca3af');
       const w = doc.page.width;
       const h = doc.page.height;
       doc.translate(w / 2, h / 2);
-      doc.rotate(-45, { origin: [0, 0] });
+      doc.rotate(-rotation, { origin: [0, 0] });
       const tw = doc.widthOfString(text);
       doc.text(text, -tw / 2, -15, { lineBreak: false });
     }

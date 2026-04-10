@@ -35,16 +35,18 @@ def draw_watermark_on_page(canvas, doc_template):
     if wm_type == "text":
         text = settings.get("text", "")
         if text:
+            font_size = int(settings.get("font_size", 52))
+            rotation = int(settings.get("rotation", 45))
             canvas.setFillAlpha(opacity)
             try:
-                canvas.setFont("FreeSansBold", 52)
+                canvas.setFont("FreeSansBold", font_size)
             except Exception:
-                canvas.setFont("Helvetica-Bold", 52)
+                canvas.setFont("Helvetica-Bold", font_size)
             canvas.setFillColorRGB(0.6, 0.6, 0.6)
             w = doc_template.pagesize[0] if hasattr(doc_template, 'pagesize') else 595
             h = doc_template.pagesize[1] if hasattr(doc_template, 'pagesize') else 842
             canvas.translate(w / 2, h / 2)
-            canvas.rotate(45)
+            canvas.rotate(rotation)
             canvas.drawCentredString(0, 0, text)
 
     elif wm_type == "image":

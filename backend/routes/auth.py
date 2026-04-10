@@ -364,6 +364,8 @@ async def update_watermark_settings(data: dict, username: str = "", role: str = 
         "text": str(data.get("text", "")).strip(),
         "image_path": str(data.get("image_path", "")).strip(),
         "opacity": max(0.02, min(0.20, float(data.get("opacity", 0.06)))),
+        "font_size": max(20, min(120, int(data.get("font_size", 52)))),
+        "rotation": max(0, min(90, int(data.get("rotation", 45)))),
         "updated_by": username,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
