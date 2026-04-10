@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.54.0";
+const APP_VERSION = "88.55.0";
 
 const CHANGELOG = [
+  {
+    version: "88.55.0",
+    date: "Apr 2026",
+    title: "v88.55.0 - TP Duplicate Prevention + Mill Entry RST Lock",
+    items: [
+      { type: "feature", text: "Mill Entry mein RST fetch hone par Date, Truck No., FY Year, Season, TP No., Agent Name, Mandi Name sab lock ho jayenge" },
+      { type: "fix", text: "TP No. duplicate ab server-side check hota hai — paginated data miss hone ka issue khatam" },
+      { type: "fix", text: "TP duplicate check teeno backends mein — First Weight, Second Weight, aur Edit mein" },
+    ]
+  },
   {
     version: "88.54.0",
     date: "Apr 2026",

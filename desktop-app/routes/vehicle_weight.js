@@ -666,6 +666,15 @@ module.exports = function(database) {
       if (dup2) rstNo = getNextRst(kmsYear);
     }
 
+    // TP No. duplicate check
+    const tpNoRaw = (data.tp_no || '').trim();
+    if (tpNoRaw) {
+      const tpDup = kmsYear
+        ? weights.find(w => w.tp_no === tpNoRaw && w.kms_year === kmsYear)
+        : weights.find(w => w.tp_no === tpNoRaw);
+      if (tpDup) return res.status(400).json({ detail: `TP No. ${tpNoRaw} already RST #${tpDup.rst_no} mein hai! Duplicate TP allowed nahi hai.` });
+    }
+
     const entry = {
       id: uuidv4(),
       rst_no: rstNo,
@@ -673,7 +682,7 @@ module.exports = function(database) {
       kms_year: kmsYear,
       vehicle_no: (data.vehicle_no || '').trim().toUpperCase(),
       party_name: (data.party_name || '').trim(),
-      tp_no: (data.tp_no || '').trim(),
+      tp_no: tpNoRaw,
       g_issued: parseFloat(data.g_issued || 0) || 0,
       farmer_name: (data.farmer_name || '').trim(),
       product: data.product || 'PADDY',
@@ -730,7 +739,14 @@ module.exports = function(database) {
     if ('cash_paid' in req.body) entry.cash_paid = parseFloat(req.body.cash_paid || 0) || 0;
     if ('diesel_paid' in req.body) entry.diesel_paid = parseFloat(req.body.diesel_paid || 0) || 0;
     if ('g_issued' in req.body) entry.g_issued = parseFloat(req.body.g_issued || 0) || 0;
-    if ('tp_no' in req.body) entry.tp_no = (req.body.tp_no || '').trim();
+    if ('tp_no' in req.body) {
+      const newTp = (req.body.tp_no || '').trim();
+      if (newTp) {
+        const tpDup = weights.find(w => w.tp_no === newTp && w.id !== req.params.entry_id && (!entry.kms_year || w.kms_year === entry.kms_year));
+        if (tpDup) return res.status(400).json({ detail: `TP No. ${newTp} already RST #${tpDup.rst_no} mein hai! Duplicate TP allowed nahi hai.` });
+      }
+      entry.tp_no = newTp;
+    }
 
     database.save();
     res.json({ success: true, entry, message: `RST #${entry.rst_no} - Net Wt: ${netWt} KG` });
@@ -757,6 +773,13 @@ module.exports = function(database) {
       if (f in req.body) {
         if (f === 'cash_paid' || f === 'diesel_paid') {
           entry[f] = parseFloat(req.body[f] || 0) || 0;
+        } else if (f === 'tp_no') {
+          const newTp = (req.body[f] || '').trim();
+          if (newTp) {
+            const tpDup = weights.find(w => w.tp_no === newTp && w.id !== req.params.entry_id && (!entry.kms_year || w.kms_year === entry.kms_year));
+            if (tpDup) return res.status(400).json({ detail: `TP No. ${newTp} already RST #${tpDup.rst_no} mein hai! Duplicate TP allowed nahi hai.` });
+          }
+          entry[f] = newTp;
         } else {
           entry[f] = req.body[f];
         }

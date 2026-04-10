@@ -524,6 +524,16 @@ async def create_weight_entry(data: dict):
             # Recalculate to be safe
             rst_no = await _next_rst(kms_year)
 
+    # TP No. duplicate check
+    tp_no_raw = (data.get("tp_no", "") or "").strip()
+    if tp_no_raw:
+        tp_dup_query = {"tp_no": tp_no_raw}
+        if kms_year:
+            tp_dup_query["kms_year"] = kms_year
+        tp_existing = await db["vehicle_weights"].find_one(tp_dup_query, {"_id": 0, "rst_no": 1})
+        if tp_existing:
+            raise HTTPException(status_code=400, detail=f"TP No. {tp_no_raw} already RST #{tp_existing['rst_no']} mein hai! Duplicate TP allowed nahi hai.")
+
     entry = {
         "id": str(uuid.uuid4()),
         "rst_no": rst_no,
@@ -531,7 +541,7 @@ async def create_weight_entry(data: dict):
         "kms_year": kms_year,
         "vehicle_no": (data.get("vehicle_no", "") or "").strip().upper(),
         "party_name": (data.get("party_name", "") or "").strip(),
-        "tp_no": (data.get("tp_no", "") or "").strip(),
+        "tp_no": tp_no_raw,
         "g_issued": float(data.get("g_issued", 0) or 0),
         "farmer_name": (data.get("farmer_name", "") or "").strip(),
         "product": data.get("product", "PADDY"),
@@ -596,7 +606,16 @@ async def update_second_weight(entry_id: str, data: dict):
     if "g_issued" in data:
         update_fields["g_issued"] = float(data.get("g_issued", 0) or 0)
     if "tp_no" in data:
-        update_fields["tp_no"] = str(data.get("tp_no", "")).strip()
+        new_tp = str(data.get("tp_no", "")).strip()
+        if new_tp:
+            tp_dup_query = {"tp_no": new_tp, "id": {"$ne": entry_id}}
+            entry_kms = entry.get("kms_year", "")
+            if entry_kms:
+                tp_dup_query["kms_year"] = entry_kms
+            tp_existing = await db["vehicle_weights"].find_one(tp_dup_query, {"_id": 0, "rst_no": 1})
+            if tp_existing:
+                raise HTTPException(status_code=400, detail=f"TP No. {new_tp} already RST #{tp_existing['rst_no']} mein hai! Duplicate TP allowed nahi hai.")
+        update_fields["tp_no"] = new_tp
 
     await db["vehicle_weights"].update_one(
         {"id": entry_id},
@@ -631,6 +650,17 @@ async def edit_weight_entry(entry_id: str, data: dict):
                 update_fields[f] = float(data[f] or 0)
             elif f == "tot_pkts":
                 update_fields[f] = data[f]
+            elif f == "tp_no":
+                new_tp = str(data[f] or "").strip()
+                if new_tp:
+                    tp_dup_query = {"tp_no": new_tp, "id": {"$ne": entry_id}}
+                    entry_kms = entry.get("kms_year", "")
+                    if entry_kms:
+                        tp_dup_query["kms_year"] = entry_kms
+                    tp_existing = await db["vehicle_weights"].find_one(tp_dup_query, {"_id": 0, "rst_no": 1})
+                    if tp_existing:
+                        raise HTTPException(status_code=400, detail=f"TP No. {new_tp} already RST #{tp_existing['rst_no']} mein hai! Duplicate TP allowed nahi hai.")
+                update_fields[f] = new_tp
             else:
                 update_fields[f] = data[f]
 
