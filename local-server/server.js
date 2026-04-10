@@ -1158,6 +1158,19 @@ async function startServer() {
     }
   });
 
+  // ===== SYNC STATUS API =====
+  app.get('/api/sync-status', (req, res) => {
+    const d = database.data;
+    res.json({
+      last_save: database.lastSaveTime || null,
+      entries: (d.entries || []).length,
+      vehicle_weights: (d.vehicle_weights || []).length,
+      cash_transactions: (d.cash_transactions || []).length,
+      engine: dbEngine,
+      pending_save: !!database._pendingSave
+    });
+  });
+
   // ===== STORAGE ENGINE API =====
   app.get('/api/settings/storage-engine', (req, res) => {
     res.json({ engine: dbEngine });
