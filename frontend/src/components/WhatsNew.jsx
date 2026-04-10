@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.76.0";
+const APP_VERSION = "88.77.0";
 
 const CHANGELOG = [
+  {
+    version: "88.77.0",
+    date: "Apr 2026",
+    title: "v88.77.0 - PDF Fix & UI Theme Update",
+    items: [
+      { type: "fix", text: "Agent & Mandi Report PDF mein first row header ke upar overlap hota tha - ab sahi hai (Desktop/Local)" },
+      { type: "fix", text: "Agent & Mandi Report PDF mein total rounding fix (2459.8999999 ab nahi aayega)" },
+      { type: "fix", text: "Wt Discrepancy page ab white theme mein hai - clean aur readable" },
+    ]
+  },
   {
     version: "88.76.0",
     date: "Apr 2026",
