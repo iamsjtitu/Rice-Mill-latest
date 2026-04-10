@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.65.0";
+const APP_VERSION = "88.66.0";
 
 const CHANGELOG = [
+  {
+    version: "88.66.0",
+    date: "Apr 2026",
+    title: "v88.66.0 - TP Weight Field Added",
+    items: [
+      { type: "feature", text: "Auto Vehicle Weight mein TP Weight field add hua (TP No. ke baad)" },
+      { type: "feature", text: "Mill Entry form mein TP Weight field (RST fetch hone par auto-lock)" },
+      { type: "feature", text: "Agent & Mandi Report mein Total TP Weight column (Final W ke baad)" },
+      { type: "feature", text: "VW Table, Edit Dialog, Photo Slip, Print Slip sab mein TP Weight display" },
+    ]
+  },
   {
     version: "88.65.0",
     date: "Apr 2026",
