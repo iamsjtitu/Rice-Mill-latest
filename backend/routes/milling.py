@@ -836,3 +836,77 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
         headers={"Content-Disposition": f"attachment; filename=byproduct_sales_{datetime.now().strftime('%Y%m%d')}.pdf"})
 
 
+
+
+# ============ PADDY CHALNA (CUTTING) APIs ============
+
+@router.get("/paddy-cutting")
+async def get_paddy_cutting(kms_year: Optional[str] = None, season: Optional[str] = None):
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    entries = await db.paddy_cutting.find(query, {"_id": 0}).to_list(10000)
+    entries.sort(key=lambda x: x.get("date", ""), reverse=True)
+    return {"entries": entries}
+
+
+@router.get("/paddy-cutting/summary")
+async def get_paddy_cutting_summary(kms_year: Optional[str] = None, season: Optional[str] = None):
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    mill_entries = await db.mill_entries.find(query, {"bag": 1, "plastic_bag": 1, "_id": 0}).to_list(50000)
+    total_bags_received = sum(int(e.get("bag", 0) or 0) for e in mill_entries)
+    total_plastic = sum(int(e.get("plastic_bag", 0) or 0) for e in mill_entries)
+    total_received = total_bags_received + total_plastic
+    cutting_entries = await db.paddy_cutting.find(query, {"bags_cut": 1, "_id": 0}).to_list(50000)
+    total_cut = sum(int(e.get("bags_cut", 0) or 0) for e in cutting_entries)
+    remaining = total_received - total_cut
+    return {
+        "bags_mill": total_bags_received, "bags_plastic": total_plastic,
+        "total_received": total_received, "total_cut": total_cut, "remaining": remaining
+    }
+
+
+@router.post("/paddy-cutting")
+async def create_paddy_cutting(data: dict):
+    entry = {
+        "id": str(uuid.uuid4()),
+        "date": data.get("date", datetime.now().strftime("%Y-%m-%d")),
+        "bags_cut": int(data.get("bags_cut", 0) or 0),
+        "remark": (data.get("remark", "") or "").strip(),
+        "kms_year": data.get("kms_year", ""),
+        "season": data.get("season", ""),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    if entry["bags_cut"] <= 0:
+        raise HTTPException(status_code=400, detail="Bags Cut 0 se zyada hona chahiye")
+    await db.paddy_cutting.insert_one(entry)
+    entry.pop("_id", None)
+    return {"success": True, "entry": entry}
+
+
+@router.put("/paddy-cutting/{entry_id}")
+async def update_paddy_cutting(entry_id: str, data: dict):
+    existing = await db.paddy_cutting.find_one({"id": entry_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    update = {}
+    if "date" in data: update["date"] = data["date"]
+    if "bags_cut" in data:
+        bags = int(data["bags_cut"] or 0)
+        if bags <= 0: raise HTTPException(status_code=400, detail="Bags Cut 0 se zyada hona chahiye")
+        update["bags_cut"] = bags
+    if "remark" in data: update["remark"] = (data["remark"] or "").strip()
+    if update:
+        await db.paddy_cutting.update_one({"id": entry_id}, {"$set": update})
+    updated = await db.paddy_cutting.find_one({"id": entry_id}, {"_id": 0})
+    return {"success": True, "entry": updated}
+
+
+@router.delete("/paddy-cutting/{entry_id}")
+async def delete_paddy_cutting(entry_id: str):
+    result = await db.paddy_cutting.delete_one({"id": entry_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    return {"success": True, "message": "Deleted"}

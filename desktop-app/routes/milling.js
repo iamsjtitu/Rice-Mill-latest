@@ -202,5 +202,62 @@ module.exports = function(database) {
     res.json({ rows, total_received: +rows.reduce((s, r) => s + r.received_qntl, 0).toFixed(2), total_issued: +rows.reduce((s, r) => s + r.issued_qntl, 0).toFixed(2), final_balance: +balance.toFixed(2) });
   }));
 
+  // ===== PADDY CHALNA (CUTTING) =====
+  router.get('/api/paddy-cutting', safeSync(async (req, res) => {
+    if (!database.data.paddy_cutting) database.data.paddy_cutting = [];
+    let entries = [...database.data.paddy_cutting];
+    if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
+    if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+    entries.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    res.json({ entries });
+  }));
+
+  router.get('/api/paddy-cutting/summary', safeSync(async (req, res) => {
+    const kmsYear = req.query.kms_year;
+    const season = req.query.season;
+    let millEntries = database.data.entries || [];
+    if (kmsYear) millEntries = millEntries.filter(e => e.kms_year === kmsYear);
+    if (season) millEntries = millEntries.filter(e => e.season === season);
+    const bagsMill = millEntries.reduce((s, e) => s + (parseInt(e.bag) || 0), 0);
+    const bagsPlastic = millEntries.reduce((s, e) => s + (parseInt(e.plastic_bag) || 0), 0);
+    const totalReceived = bagsMill + bagsPlastic;
+    if (!database.data.paddy_cutting) database.data.paddy_cutting = [];
+    let cutEntries = [...database.data.paddy_cutting];
+    if (kmsYear) cutEntries = cutEntries.filter(e => e.kms_year === kmsYear);
+    if (season) cutEntries = cutEntries.filter(e => e.season === season);
+    const totalCut = cutEntries.reduce((s, e) => s + (parseInt(e.bags_cut) || 0), 0);
+    res.json({ bags_mill: bagsMill, bags_plastic: bagsPlastic, total_received: totalReceived, total_cut: totalCut, remaining: totalReceived - totalCut });
+  }));
+
+  router.post('/api/paddy-cutting', safeSync(async (req, res) => {
+    if (!database.data.paddy_cutting) database.data.paddy_cutting = [];
+    const d = req.body;
+    const bagsCut = parseInt(d.bags_cut || 0) || 0;
+    if (bagsCut <= 0) return res.status(400).json({ detail: 'Bags Cut 0 se zyada hona chahiye' });
+    const entry = { id: uuidv4(), date: d.date || new Date().toISOString().split('T')[0], bags_cut: bagsCut, remark: (d.remark || '').trim(), kms_year: d.kms_year || '', season: d.season || '', created_at: new Date().toISOString() };
+    database.data.paddy_cutting.push(entry);
+    database.save();
+    res.json({ success: true, entry });
+  }));
+
+  router.put('/api/paddy-cutting/:id', safeSync(async (req, res) => {
+    if (!database.data.paddy_cutting) return res.status(404).json({ detail: 'Entry not found' });
+    const entry = database.data.paddy_cutting.find(e => e.id === req.params.id);
+    if (!entry) return res.status(404).json({ detail: 'Entry not found' });
+    if ('date' in req.body) entry.date = req.body.date;
+    if ('bags_cut' in req.body) { const b = parseInt(req.body.bags_cut || 0) || 0; if (b <= 0) return res.status(400).json({ detail: 'Bags Cut 0 se zyada hona chahiye' }); entry.bags_cut = b; }
+    if ('remark' in req.body) entry.remark = (req.body.remark || '').trim();
+    database.save();
+    res.json({ success: true, entry });
+  }));
+
+  router.delete('/api/paddy-cutting/:id', safeSync(async (req, res) => {
+    if (!database.data.paddy_cutting) return res.status(404).json({ detail: 'Entry not found' });
+    const len = database.data.paddy_cutting.length;
+    database.data.paddy_cutting = database.data.paddy_cutting.filter(e => e.id !== req.params.id);
+    if (database.data.paddy_cutting.length < len) { database.save(); return res.json({ success: true, message: 'Deleted' }); }
+    res.status(404).json({ detail: 'Entry not found' });
+  }));
+
   return router;
 };

@@ -15,7 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Trash2, Edit, Plus, RefreshCw, Filter, X, ShoppingCart, Package, Download, FileText, ClipboardList } from "lucide-react";
+import { Trash2, Edit, Plus, RefreshCw, Filter, X, ShoppingCart, Package, Download, FileText, ClipboardList, Scissors } from "lucide-react";
 import { useConfirm } from "./ConfirmProvider";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -620,6 +620,167 @@ const PaddyCustodyTab = ({ filters }) => {
 };
 
 
+// ===== Sub-tab: Paddy Chalna (Cutting) =====
+const PaddyChalnaTab = ({ filters }) => {
+  const showConfirm = useConfirm();
+  const [entries, setEntries] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], bags_cut: "", remark: "" });
+  const [editingId, setEditingId] = useState(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (filters.kms_year) params.append('kms_year', filters.kms_year);
+      if (filters.season) params.append('season', filters.season);
+      const [eRes, sRes] = await Promise.all([
+        axios.get(`${API}/paddy-cutting?${params}`),
+        axios.get(`${API}/paddy-cutting/summary?${params}`)
+      ]);
+      setEntries(eRes.data.entries || []);
+      setSummary(sRes.data);
+    } catch { /* */ }
+    setLoading(false);
+  }, [filters.kms_year, filters.season]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const resetForm = () => { setForm({ date: new Date().toISOString().split('T')[0], bags_cut: "", remark: "" }); setEditingId(null); };
+
+  const handleSave = async () => {
+    if (!form.bags_cut || Number(form.bags_cut) <= 0) { toast.error("Bags Cut daalen"); return; }
+    try {
+      const payload = { ...form, bags_cut: Number(form.bags_cut), kms_year: filters.kms_year || "", season: filters.season || "" };
+      if (editingId) {
+        await axios.put(`${API}/paddy-cutting/${editingId}`, payload);
+        toast.success("Updated");
+      } else {
+        await axios.post(`${API}/paddy-cutting`, payload);
+        toast.success("Cutting entry saved");
+      }
+      resetForm(); setIsDialogOpen(false); fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Error"); }
+  };
+
+  const handleEdit = (e) => { setForm({ date: e.date, bags_cut: e.bags_cut, remark: e.remark || "" }); setEditingId(e.id); setIsDialogOpen(true); };
+
+  const handleDelete = async (id) => {
+    if (!await showConfirm("Delete", "Kya aap ye cutting entry delete karna chahte hain?")) return;
+    try { await axios.delete(`${API}/paddy-cutting/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); }
+  };
+
+  const s = summary || {};
+
+  return (
+    <div className="space-y-4" data-testid="paddy-chalna-tab">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="bg-gradient-to-br from-blue-900/40 to-slate-800 border-blue-800/50">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-slate-400 mb-1">Bag Received (Mill)</p>
+            <p className="text-2xl font-bold text-blue-400" data-testid="bags-mill">{(s.bags_mill || 0).toLocaleString()}</p>
+            <p className="text-[10px] text-slate-500">From truck entries</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-purple-900/40 to-slate-800 border-purple-800/50">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-slate-400 mb-1">P.Pkt (Plastic)</p>
+            <p className="text-2xl font-bold text-purple-400" data-testid="bags-plastic">{(s.bags_plastic || 0).toLocaleString()}</p>
+            <p className="text-[10px] text-slate-500">From truck entries</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-amber-900/40 to-slate-800 border-amber-800/50">
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-slate-400 mb-1">Total Cut</p>
+            <p className="text-2xl font-bold text-amber-400" data-testid="total-cut">{(s.total_cut || 0).toLocaleString()}</p>
+            <p className="text-[10px] text-slate-500">Chalna / Cutting done</p>
+          </CardContent>
+        </Card>
+        <Card className={`bg-gradient-to-br ${(s.remaining || 0) > 0 ? 'from-green-900/40 to-slate-800 border-green-800/50' : 'from-red-900/40 to-slate-800 border-red-800/50'}`}>
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-slate-400 mb-1">Remaining</p>
+            <p className={`text-2xl font-bold ${(s.remaining || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`} data-testid="bags-remaining">{(s.remaining || 0).toLocaleString()}</p>
+            <p className="text-[10px] text-slate-500">Received - Cut</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Add Entry Button + Table */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardHeader className="pb-2 pt-3 px-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-sm text-amber-400 flex items-center gap-2"><Scissors className="w-4 h-4" /> Paddy Chalna Log</CardTitle>
+          <Button size="sm" onClick={() => { resetForm(); setIsDialogOpen(true); }} className="bg-amber-600 hover:bg-amber-700 text-white" data-testid="add-cutting-btn">
+            <Plus className="w-4 h-4 mr-1" /> Nayi Cutting
+          </Button>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          {loading ? <p className="text-slate-500 text-sm text-center py-4">Loading...</p> : entries.length === 0 ? (
+            <p className="text-slate-500 text-sm text-center py-6">Koi cutting entry nahi hai. "Nayi Cutting" se add karein.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-700">
+                    <TableHead className="text-slate-400 text-xs">#</TableHead>
+                    <TableHead className="text-slate-400 text-xs">Date</TableHead>
+                    <TableHead className="text-slate-400 text-xs text-right">Bags Cut</TableHead>
+                    <TableHead className="text-slate-400 text-xs">Remark</TableHead>
+                    <TableHead className="text-slate-400 text-xs text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {entries.map((e, i) => (
+                    <TableRow key={e.id} className="border-slate-700/50 hover:bg-slate-700/30" data-testid={`cutting-row-${i}`}>
+                      <TableCell className="py-2 text-xs text-slate-500">{i + 1}</TableCell>
+                      <TableCell className="py-2 text-sm text-slate-200">{fmtDate(e.date)}</TableCell>
+                      <TableCell className="py-2 text-sm text-amber-400 font-semibold text-right">{(e.bags_cut || 0).toLocaleString()}</TableCell>
+                      <TableCell className="py-2 text-xs text-slate-400">{e.remark || '-'}</TableCell>
+                      <TableCell className="py-2 text-center">
+                        <div className="flex gap-1 justify-center">
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-400 hover:text-amber-400" onClick={() => handleEdit(e)} data-testid={`cutting-edit-${i}`}><Edit className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-400 hover:text-red-400" onClick={() => handleDelete(e.id)} data-testid={`cutting-del-${i}`}><Trash2 className="w-3 h-3" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={v => { if (!v) resetForm(); setIsDialogOpen(v); }}>
+        <DialogContent className="bg-slate-800 border-slate-600 max-w-sm" data-testid="cutting-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2"><Scissors className="w-4 h-4" /> {editingId ? "Edit Cutting" : "Nayi Cutting Entry"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-slate-300 text-xs">Date</Label>
+              <Input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))} className="bg-slate-700 border-slate-600 text-white" data-testid="cutting-date" />
+            </div>
+            <div>
+              <Label className="text-slate-300 text-xs">Bags Cut</Label>
+              <Input type="number" value={form.bags_cut} onChange={e => setForm(p => ({ ...p, bags_cut: e.target.value }))} placeholder="Kitne bags cut kiye" className="bg-slate-700 border-slate-600 text-white" data-testid="cutting-bags" />
+            </div>
+            <div>
+              <Label className="text-slate-300 text-xs">Remark</Label>
+              <Input value={form.remark} onChange={e => setForm(p => ({ ...p, remark: e.target.value }))} placeholder="Optional note" className="bg-slate-700 border-slate-600 text-white" data-testid="cutting-remark" />
+            </div>
+            <Button onClick={handleSave} className="w-full bg-amber-600 hover:bg-amber-700" data-testid="cutting-save-btn">{editingId ? "Update" : "Save"}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+
 // ===== Main MillingTracker Component =====
 const MillingTracker = ({ filters, user }) => {
   const [subTab, setSubTab] = useState("milling");
@@ -641,6 +802,7 @@ const MillingTracker = ({ filters, user }) => {
 
   const tabs = [
     { id: "milling", label: "Milling Entries" },
+    { id: "chalna", label: "Paddy Chalna" },
     { id: "custody", label: "Paddy Custody Register" },
   ];
 
@@ -652,11 +814,13 @@ const MillingTracker = ({ filters, user }) => {
             className={subTab === t.id ? "bg-amber-500 hover:bg-amber-600 text-slate-900" : "text-slate-300 hover:bg-slate-700"}
             data-testid={`subtab-${t.id}`}>
             {t.id === 'custody' && <ClipboardList className="w-4 h-4 mr-1" />}
+            {t.id === 'chalna' && <Scissors className="w-4 h-4 mr-1" />}
             {t.label}
           </Button>
         ))}
       </div>
       {subTab === "milling" && <MillingEntriesTab filters={filters} user={user} paddyStock={paddyStock} frkStock={frkStock} onRefresh={fetchStocks} />}
+      {subTab === "chalna" && <PaddyChalnaTab filters={filters} />}
       {subTab === "custody" && <PaddyCustodyTab filters={filters} />}
     </div>
   );

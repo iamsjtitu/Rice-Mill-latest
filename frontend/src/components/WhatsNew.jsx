@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.57.0";
+const APP_VERSION = "88.58.0";
 
 const CHANGELOG = [
+  {
+    version: "88.58.0",
+    date: "Apr 2026",
+    title: "v88.58.0 - Paddy Chalna (Cutting) Tracker",
+    items: [
+      { type: "feature", text: "Milling (CMR) tab mein naya sub-tab: Paddy Chalna — daily cutting log rakhein" },
+      { type: "feature", text: "Summary cards: Bag Received (Mill + Plastic) se kitna cut hua aur kitna bacha — ek nazar mein" },
+      { type: "feature", text: "Date + Bags Cut + Remark entry form — Edit/Delete bhi available" },
+    ]
+  },
   {
     version: "88.57.0",
     date: "Apr 2026",
