@@ -921,7 +921,9 @@ async def delete_paddy_cutting(entry_id: str):
 @router.get("/paddy-cutting/excel")
 async def export_paddy_cutting_excel(kms_year: Optional[str] = None, season: Optional[str] = None,
                                      date_from: Optional[str] = None, date_to: Optional[str] = None):
-    from utils.export_helpers import style_excel_title, style_excel_header_row, style_excel_data_rows
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_THIN)
+    from openpyxl.styles import Font, Alignment, PatternFill
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -933,33 +935,89 @@ async def export_paddy_cutting_excel(kms_year: Optional[str] = None, season: Opt
     entries = await db.paddy_cutting.find(query, {"_id": 0}).to_list(50000)
     entries.sort(key=lambda x: x.get("date", ""))
 
-    # Summary
     mill_q = {}
     if kms_year: mill_q["kms_year"] = kms_year
     if season: mill_q["season"] = season
     mill_entries = await db.mill_entries.find(mill_q, {"bag": 1, "plastic_bag": 1, "_id": 0}).to_list(50000)
-    total_received = sum(int(e.get("bag", 0) or 0) for e in mill_entries) + sum(int(e.get("plastic_bag", 0) or 0) for e in mill_entries)
+    bags_mill = sum(int(e.get("bag", 0) or 0) for e in mill_entries)
+    bags_plastic = sum(int(e.get("plastic_bag", 0) or 0) for e in mill_entries)
+    total_received = bags_mill + bags_plastic
     total_cut = sum(int(e.get("bags_cut", 0) or 0) for e in entries)
+    remaining = total_received - total_cut
 
+    ncols = 6
     wb = Workbook()
     ws = wb.active
     ws.title = "Paddy Chalna"
-    style_excel_title(ws, "Paddy Chalna (Cutting) Report", 4)
-    ws.append(["Total Paddy Bags", total_received, "Total Cut", total_cut])
-    ws.append(["Remaining", total_received - total_cut])
-    ws.append([])
-    headers = ["#", "Date", "Bags Cut", "Remark"]
-    ws.append(headers)
-    style_excel_header_row(ws, ws.max_row, len(headers))
+
+    # Title
+    title = "Paddy Chalna (Cutting) Report / पैडी छलना रिपोर्ट"
+    subtitle_parts = []
+    if kms_year: subtitle_parts.append(f"FY: {kms_year}")
+    if season: subtitle_parts.append(f"Season: {season}")
+    if date_from: subtitle_parts.append(f"From: {fmt_date(date_from)}")
+    if date_to: subtitle_parts.append(f"To: {fmt_date(date_to)}")
+    subtitle = " | ".join(subtitle_parts) if subtitle_parts else ""
+    style_excel_title(ws, title, ncols, subtitle)
+
+    # Summary Section
+    row = 4
+    summary_fill = PatternFill(start_color='EFF6FF', end_color='EFF6FF', fill_type='solid')
+    summary_items = [
+        ("Mill Bags", bags_mill), ("Plastic Bags", bags_plastic), ("Total Paddy Bags", total_received),
+        ("Total Cut", total_cut), ("Remaining Paddy Bags", remaining),
+    ]
+    for label, val in summary_items:
+        ws.cell(row=row, column=1, value=label).font = Font(bold=True, size=10, color=COLORS['title_text'])
+        ws.cell(row=row, column=1).fill = summary_fill
+        ws.cell(row=row, column=1).border = BORDER_THIN
+        ws.cell(row=row, column=2, value=val).font = Font(bold=True, size=11, color='16A34A' if val >= 0 or label != "Remaining Paddy Bags" else 'DC2626')
+        ws.cell(row=row, column=2).fill = summary_fill
+        ws.cell(row=row, column=2).border = BORDER_THIN
+        ws.cell(row=row, column=2).alignment = Alignment(horizontal='right')
+        row += 1
+    row += 1
+
+    # Table Headers
+    headers = ["#", "Date", "Bags Cut", "Running Total", "Remaining", "Remark"]
+    for col, h in enumerate(headers, 1):
+        ws.cell(row=row, column=col, value=h)
+    style_excel_header_row(ws, row, ncols)
+    row += 1
+
+    # Data Rows with running total
+    data_start = row
+    running = 0
     for i, e in enumerate(entries, 1):
-        ws.append([i, fmt_date(e.get("date", "")), e.get("bags_cut", 0), e.get("remark", "")])
-    ws.append([])
-    ws.append(["", "TOTAL", total_cut, ""])
-    style_excel_data_rows(ws, 7, ws.max_row, len(headers))
-    ws.column_dimensions["A"].width = 6
-    ws.column_dimensions["B"].width = 14
-    ws.column_dimensions["C"].width = 14
-    ws.column_dimensions["D"].width = 30
+        bags = int(e.get("bags_cut", 0) or 0)
+        running += bags
+        entry_remaining = total_received - running
+        vals = [i, fmt_date(e.get("date", "")), bags, running, entry_remaining, e.get("remark", "") or ""]
+        for col, v in enumerate(vals, 1):
+            ws.cell(row=row, column=col, value=v)
+            if col >= 3:
+                ws.cell(row=row, column=col).alignment = Alignment(horizontal='right')
+        row += 1
+
+    if entries:
+        style_excel_data_rows(ws, data_start, row - 1, ncols, headers)
+
+    # Total Row
+    ws.cell(row=row, column=1, value="")
+    ws.cell(row=row, column=2, value="TOTAL")
+    ws.cell(row=row, column=3, value=total_cut)
+    ws.cell(row=row, column=4, value="")
+    ws.cell(row=row, column=5, value=remaining)
+    ws.cell(row=row, column=6, value=f"{len(entries)} entries")
+    style_excel_total_row(ws, row, ncols)
+
+    # Column widths
+    widths = [6, 14, 14, 16, 16, 35]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.page_setup.orientation = 'landscape'
+    ws.page_setup.fitToWidth = 1
+
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -971,8 +1029,12 @@ async def export_paddy_cutting_excel(kms_year: Optional[str] = None, season: Opt
 async def export_paddy_cutting_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
                                    date_from: Optional[str] = None, date_to: Optional[str] = None):
     from reportlab.lib.pagesizes import A4
-    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, Paragraph, Spacer
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors
     from utils.export_helpers import get_pdf_styles, get_pdf_table_style
+    from utils.branding_helper import get_pdf_company_header_from_db
+
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
@@ -988,22 +1050,78 @@ async def export_paddy_cutting_pdf(kms_year: Optional[str] = None, season: Optio
     if kms_year: mill_q["kms_year"] = kms_year
     if season: mill_q["season"] = season
     mill_entries = await db.mill_entries.find(mill_q, {"bag": 1, "plastic_bag": 1, "_id": 0}).to_list(50000)
-    total_received = sum(int(e.get("bag", 0) or 0) for e in mill_entries) + sum(int(e.get("plastic_bag", 0) or 0) for e in mill_entries)
+    bags_mill = sum(int(e.get("bag", 0) or 0) for e in mill_entries)
+    bags_plastic = sum(int(e.get("plastic_bag", 0) or 0) for e in mill_entries)
+    total_received = bags_mill + bags_plastic
     total_cut = sum(int(e.get("bags_cut", 0) or 0) for e in entries)
+    remaining = total_received - total_cut
 
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=30, bottomMargin=30)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
     styles = get_pdf_styles()
-    elements = [Paragraph("Paddy Chalna (Cutting) Report", styles["Title"]), Spacer(1, 10)]
-    elements.append(Paragraph(f"Total Paddy Bags: {total_received} | Total Cut: {total_cut} | Remaining: {total_received - total_cut}", styles["Normal"]))
+    elements = []
+
+    # Company Header
+    elements.extend(await get_pdf_company_header_from_db())
+
+    # Title
+    title = "Paddy Chalna (Cutting) Report / पैडी छलना रिपोर्ट"
+    elements.append(Paragraph(title, styles['Title']))
+
+    # Subtitle with filters
+    subtitle_parts = []
+    if kms_year: subtitle_parts.append(f"FY: {kms_year}")
+    if season: subtitle_parts.append(f"Season: {season}")
+    if date_from: subtitle_parts.append(f"From: {fmt_date(date_from)}")
+    if date_to: subtitle_parts.append(f"To: {fmt_date(date_to)}")
+    if subtitle_parts:
+        sub_style = ParagraphStyle('SubFilter', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#6B7280'), alignment=1)
+        elements.append(Paragraph(" | ".join(subtitle_parts), sub_style))
     elements.append(Spacer(1, 10))
-    data = [["#", "Date", "Bags Cut", "Remark"]]
+
+    # Summary Table
+    summary_data = [
+        ['Mill Bags', str(bags_mill), 'Plastic Bags', str(bags_plastic)],
+        ['Total Paddy Bags', str(total_received), 'Total Cut', str(total_cut)],
+        ['Remaining Paddy Bags', str(remaining), 'Total Entries', str(len(entries))],
+    ]
+    st = RLTable(summary_data, colWidths=[120, 80, 120, 80])
+    st.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#EFF6FF')),
+        ('BACKGROUND', (2, 0), (2, -1), colors.HexColor('#EFF6FF')),
+        ('FONTNAME', (0, 0), (-1, -1), 'FreeSans'),
+        ('FONTNAME', (0, 0), (0, -1), 'FreeSansBold'),
+        ('FONTNAME', (2, 0), (2, -1), 'FreeSansBold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTSIZE', (1, 0), (1, -1), 10), ('FONTSIZE', (3, 0), (3, -1), 10),
+        ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1B4F72')),
+        ('TEXTCOLOR', (3, 0), (3, -1), colors.HexColor('#1B4F72')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D0D5DD')),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'), ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5), ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(st)
+    elements.append(Spacer(1, 12))
+
+    # Main Data Table with Running Total
+    headers = ["#", "Date", "Bags Cut", "Running Total", "Remaining", "Remark"]
+    data = [headers]
+    running = 0
     for i, e in enumerate(entries, 1):
-        data.append([str(i), fmt_date(e.get("date", "")), str(e.get("bags_cut", 0)), e.get("remark", "")])
-    data.append(["", "TOTAL", str(total_cut), ""])
-    t = RLTable(data, colWidths=[30, 80, 80, 200])
-    t.setStyle(get_pdf_table_style(len(data)))
+        bags = int(e.get("bags_cut", 0) or 0)
+        running += bags
+        entry_remaining = total_received - running
+        data.append([str(i), fmt_date(e.get("date", "")), str(bags), str(running), str(entry_remaining), e.get("remark", "") or "-"])
+    data.append(["", "TOTAL", str(total_cut), "", str(remaining), f"{len(entries)} entries"])
+
+    col_widths = [25, 70, 65, 75, 75, 200]
+    t = RLTable(data, colWidths=col_widths, repeatRows=1)
+    style_cmds = get_pdf_table_style(len(data))
+    style_cmds.append(('ALIGN', (2, 0), (4, -1), 'RIGHT'))
+    t.setStyle(TableStyle(style_cmds))
     elements.append(t)
+
     doc.build(elements)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=paddy_chalna_{datetime.now().strftime('%Y%m%d')}.pdf"})

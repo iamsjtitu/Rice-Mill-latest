@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.60.0";
+const APP_VERSION = "88.61.0";
 
 const CHANGELOG = [
+  {
+    version: "88.61.0",
+    date: "Apr 2026",
+    title: "v88.61.0 - Paddy Chalna Export Sundar",
+    items: [
+      { type: "feature", text: "PDF/Excel exports mein company header, FY/Season/Date filter info, summary cards (Mill Bags, Plastic Bags, Total, Cut, Remaining)" },
+      { type: "feature", text: "Running Total + Remaining column add kiya — har entry ke baad kitna bacha dikhega" },
+      { type: "feature", text: "Styled summary section, total row, aur proper column widths" },
+    ]
+  },
   {
     version: "88.60.0",
     date: "Apr 2026",
