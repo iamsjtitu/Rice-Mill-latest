@@ -1140,7 +1140,7 @@ function MainApp({ user, setUser, onLogout }) {
   const handleEntriesWhatsApp = async () => {
     try {
       const params = _entryFilterParams();
-      const pdfUrl = `http://localhost:8001/api/export/pdf?${params.toString()}`;
+      const pdfUrl = `${API}/export/pdf?${params.toString()}`;
       const text = `*Paddy Entries Report*\nFilter: ${_entryFilterLabel()}\nTotal Entries: ${entries.length}`;
       const res = await axios.post(`${API}/whatsapp/send-daily-report`, {
         report_text: text, pdf_url: pdfUrl, send_to_numbers: true, send_to_group: false

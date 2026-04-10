@@ -1,0 +1,51 @@
+{
+  "summary": "TP Weight feature testing complete - All backend APIs and frontend UI components verified working correctly",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_tp_weight_feature.py",
+    "/app/test_reports/pytest/pytest_tp_weight.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_tp_weight_feature.py"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 tests passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "test_credentials": "Username: admin, Password: admin123",
+  "seed_data_creation": "None - used unique IDs for test data",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "TP Weight feature fully implemented and tested. All endpoints accept tp_weight field. UI shows TP Weight in VW form, Mill Entry form, and both tables.",
+  "features_tested": {
+    "backend_apis": [
+      "POST /api/vehicle-weight - accepts tp_weight field (PASS)",
+      "PUT /api/vehicle-weight/{id}/second-weight - accepts tp_weight (PASS)",
+      "PUT /api/vehicle-weight/{id}/edit - accepts tp_weight (PASS)",
+      "GET /api/vehicle-weight/{id}/photos - returns tp_weight (PASS)",
+      "POST /api/entries - accepts tp_weight field (PASS)",
+      "PUT /api/entries/{id} - accepts tp_weight field (PASS)",
+      "GET /api/reports/agent-mandi-wise - returns tp_weight in entries and total_tp_weight in totals (PASS)"
+    ],
+    "frontend_ui": [
+      "VW Form: TP Weight field visible after TP No. (data-testid='vw-tp-weight') - PASS",
+      "VW Form: TP No. field visible (data-testid='vw-tp-no') - PASS",
+      "VW Table: TP Wt column visible in Completed Entries table - PASS",
+      "Mill Entry Form: TP Weight field visible after TP No. (data-testid='input-tp-weight') - PASS",
+      "Mill Entry Form: TP Weight locked when rstFetched=true (code verified) - PASS",
+      "Mill Entries Table: TP Wt column visible - PASS",
+      "VW Edit Dialog: TP Weight field present (data-testid='edit-tp-weight') - PASS (code verified)",
+      "Report Config: tp_weight column configured in agent_mandi_report - PASS"
+    ]
+  }
+}
