@@ -3,18 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.66.0";
+const APP_VERSION = "88.67.0";
 
 const CHANGELOG = [
   {
-    version: "88.66.0",
+    version: "88.67.0",
     date: "Apr 2026",
-    title: "v88.66.0 - TP Weight Field Added",
+    title: "v88.67.0 - TP Weight QNTL Fix + Bug Fixes",
     items: [
-      { type: "feature", text: "Auto Vehicle Weight mein TP Weight field add hua (TP No. ke baad)" },
-      { type: "feature", text: "Mill Entry form mein TP Weight field (RST fetch hone par auto-lock)" },
-      { type: "feature", text: "Agent & Mandi Report mein Total TP Weight column (Final W ke baad)" },
-      { type: "feature", text: "VW Table, Edit Dialog, Photo Slip, Print Slip sab mein TP Weight display" },
+      { type: "fix", text: "TP Weight ab QNTL mein display hota hai (pehle KG tha)" },
+      { type: "feature", text: "Agent & Mandi Report summary card mein TP Wt column add hua (Final Wt ke baad)" },
+      { type: "feature", text: "Grand Summary cards mein TP Weight card add hua" },
+      { type: "fix", text: "Auto Weight Entries, Paddy Purchase Register, Agent & Mandi Report mein TP Weight column add hua" },
+      { type: "fix", text: "Daily Report crash fix - kmsYear undefined error resolved" },
+      { type: "fix", text: "Agent & Mandi Report empty mandi name crash fix" },
     ]
   },
   {
