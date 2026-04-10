@@ -3,9 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.80.0";
+const APP_VERSION = "88.81.0";
 
 const CHANGELOG = [
+  {
+    version: "88.81.0",
+    date: "Apr 2026",
+    title: "v88.81.0 - Critical Fixes",
+    items: [
+      { type: "fix", text: "Login aur Users list crash fix - watermark upload dir create fail hone par ab error handle hota hai" },
+      { type: "fix", text: "Users data null hone par getUser() crash nahi karega (safety check)" },
+      { type: "fix", text: "Paddy Cutting data ab SQLite mein properly save hoga (ARRAY_COLLECTIONS mein add hua)" },
+      { type: "fix", text: "Agent & Mandi Report - string values pe toFixed crash fix (fmtVal)" },
+      { type: "fix", text: "Weight Discrepancy PDF - undefined createPdfDoc function replace hua" },
+    ]
+  },
   {
     version: "88.80.0",
     date: "Apr 2026",

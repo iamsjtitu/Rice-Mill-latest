@@ -461,6 +461,7 @@ class SqliteDatabase {
 
   // Users
   getUser(username) {
+    if (!Array.isArray(this.data.users)) return undefined;
     return this.data.users.find(u => u.username === username);
   }
 

@@ -276,8 +276,14 @@ module.exports = function(database) {
   const multer = require('multer');
   const path = require('path');
   const fs = require('fs');
-  const wmUploadDir = path.join(__dirname, '..', 'uploads', 'watermark');
-  if (!fs.existsSync(wmUploadDir)) fs.mkdirSync(wmUploadDir, { recursive: true });
+  let wmUploadDir;
+  try {
+    wmUploadDir = path.join(__dirname, '..', 'uploads', 'watermark');
+    if (!fs.existsSync(wmUploadDir)) fs.mkdirSync(wmUploadDir, { recursive: true });
+  } catch (e) {
+    wmUploadDir = require('os').tmpdir();
+    console.error('Watermark upload dir create failed, using temp:', e.message);
+  }
   const wmStorage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, wmUploadDir),
     filename: (req, file, cb) => cb(null, 'watermark' + path.extname(file.originalname))
