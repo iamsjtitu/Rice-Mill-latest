@@ -964,7 +964,7 @@ async def export_paddy_cutting_excel(kms_year: Optional[str] = None, season: Opt
     row = 4
     summary_fill = PatternFill(start_color='EFF6FF', end_color='EFF6FF', fill_type='solid')
     summary_items = [
-        ("Mill Bags", bags_mill), ("Plastic Bags", bags_plastic), ("Total Paddy Bags", total_received),
+        ("Total Paddy Bags", total_received),
         ("Total Cut", total_cut), ("Remaining Paddy Bags", remaining),
     ]
     for label, val in summary_items:
@@ -1081,7 +1081,6 @@ async def export_paddy_cutting_pdf(kms_year: Optional[str] = None, season: Optio
 
     # Summary Table
     summary_data = [
-        ['Mill Bags', str(bags_mill), 'Plastic Bags', str(bags_plastic)],
         ['Total Paddy Bags', str(total_received), 'Total Cut', str(total_cut)],
         ['Remaining Paddy Bags', str(remaining), 'Total Entries', str(len(entries))],
     ]

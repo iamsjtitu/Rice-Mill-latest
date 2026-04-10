@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.61.0";
+const APP_VERSION = "88.62.0";
 
 const CHANGELOG = [
+  {
+    version: "88.62.0",
+    date: "Apr 2026",
+    title: "v88.62.0 - Paddy Chalna Export Fix",
+    items: [
+      { type: "fix", text: "PDF/Excel mein Mill Bags aur Plastic Bags alag-alag hata diya — sirf Total Paddy Bags, Total Cut, Remaining dikhega" },
+    ]
+  },
   {
     version: "88.61.0",
     date: "Apr 2026",
