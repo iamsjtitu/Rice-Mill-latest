@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.67.0";
+const APP_VERSION = "88.68.0";
 
 const CHANGELOG = [
+  {
+    version: "88.68.0",
+    date: "Apr 2026",
+    title: "v88.68.0 - Bug Fixes",
+    items: [
+      { type: "fix", text: "Vehicle Weight create crash fix (weights not defined)" },
+      { type: "fix", text: "Daily Report crash fix (kmsYear not defined)" },
+    ]
+  },
   {
     version: "88.67.0",
     date: "Apr 2026",
