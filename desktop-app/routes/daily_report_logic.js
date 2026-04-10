@@ -38,12 +38,12 @@ function getDailyReportData(database, query) {
   const hemaliUnpaid = hemaliPayments.filter(h => h.status !== 'paid');
   const hemaliTotalPaid = hemaliPaid.reduce((s, h) => s + (h.amount_paid || 0), 0);
   const hemaliTotalWork = hemaliPaid.reduce((s, h) => s + (h.total || 0), 0);
-  const paddyCutting = col('paddy_cutting').filter(c => c.date === date && (!kmsYear || c.kms_year === kmsYear) && (!season || c.season === season));
+  const paddyCutting = col('paddy_cutting').filter(c => c.date === date && (!kms_year || c.kms_year === kms_year) && (!season || c.season === season));
   const cuttingBags = paddyCutting.reduce((s, c) => s + (parseInt(c.bags_cut) || 0), 0);
   // Cumulative totals
-  const allCutting = col('paddy_cutting').filter(c => (!kmsYear || c.kms_year === kmsYear) && (!season || c.season === season));
+  const allCutting = col('paddy_cutting').filter(c => (!kms_year || c.kms_year === kms_year) && (!season || c.season === season));
   const cumTotalCut = allCutting.reduce((s, c) => s + (parseInt(c.bags_cut) || 0), 0);
-  const cumMillEntries = col('entries').filter(e => (!kmsYear || e.kms_year === kmsYear) && (!season || e.season === season));
+  const cumMillEntries = col('entries').filter(e => (!kms_year || e.kms_year === kms_year) && (!season || e.season === season));
   const cumTotalReceived = cumMillEntries.reduce((s, e) => s + (parseInt(e.bag) || 0) + (parseInt(e.plastic_bag) || 0), 0);
   const cumRemaining = cumTotalReceived - cumTotalCut;
   const dieselTxns = filterFy(col('diesel_accounts'));
