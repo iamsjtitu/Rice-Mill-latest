@@ -3,9 +3,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.74.0";
+const APP_VERSION = "88.75.0";
 
 const CHANGELOG = [
+  {
+    version: "88.75.0",
+    date: "Apr 2026",
+    title: "v88.75.0 - Export & Report Fixes",
+    items: [
+      { type: "fix", text: "Agent & Mandi Report PDF/Excel mein TP Wt column aur total add hua" },
+      { type: "fix", text: "Daily Report Detail table mein TP Wt column add hua, Diesel overflow fix" },
+      { type: "fix", text: "Daily Report PDF/Excel mein Paddy Chalna / छलना section add hua (Desktop)" },
+      { type: "fix", text: "PPR TOTAL row alignment fix + TP Wt total dikhta hai" },
+      { type: "fix", text: "Eye View Dialog mein TP Weight (Q) dikhta hai" },
+      { type: "fix", text: "Desktop getTotals() mein total_tp_weight add hua" },
+    ]
+  },
   {
     version: "88.74.0",
     date: "Apr 2026",
