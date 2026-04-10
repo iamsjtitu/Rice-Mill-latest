@@ -489,6 +489,24 @@ function generateDailyReportPdf(doc, data, query) {
     );
   }
 
+  // ===== 6.5 PADDY CHALNA / CUTTING =====
+  const pc = data.paddy_cutting;
+  if (pc && pc.count > 0) {
+    sectionTitle('', `Paddy Chalna / Cutting - Aaj: ${pc.total_bags_cut} Bags`);
+    drawSummaryBox(
+      ['Total Paddy Bags', 'Total Cut (All)', 'Remaining', 'Aaj Cut'],
+      [pc.cum_total_received, pc.cum_total_cut, pc.cum_remaining, pc.total_bags_cut],
+      [130, 130, 130, 100], C.yellowBg || '#fef3c7'
+    );
+    if (isDetail && pc.details && pc.details.length) {
+      drawTable(
+        ['Bags Cut', 'Remark'],
+        pc.details.map(d => [d.bags_cut || 0, d.remark || '-']),
+        [100, 400]
+      );
+    }
+  }
+
   // ===== 7. CASH TRANSACTIONS =====
   const ctxn = data.cash_transactions;
   if (ctxn && ctxn.count > 0) {

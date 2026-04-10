@@ -120,6 +120,19 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   }
   row++;
 
+  // Paddy Chalna / Cutting
+  const pc = data.paddy_cutting;
+  if (pc && pc.count > 0) {
+    writeSection(`Paddy Chalna / Cutting - Aaj: ${pc.total_bags_cut} Bags`);
+    writeHeaders(['Total Paddy Bags', 'Total Cut (All)', 'Remaining', 'Aaj Cut']);
+    writeRow([pc.cum_total_received, pc.cum_total_cut, pc.cum_remaining, pc.total_bags_cut]);
+    if (isDetail && pc.details && pc.details.length) {
+      writeHeaders(['Bags Cut', 'Remark']);
+      pc.details.forEach(d => writeRow([d.bags_cut || 0, d.remark || '-']));
+    }
+    row++;
+  }
+
   // 6.5. Cash Transactions
   const ctxn = data.cash_transactions;
   if (ctxn && ctxn.count > 0) {
