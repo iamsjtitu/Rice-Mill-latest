@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.63.0";
+const APP_VERSION = "88.64.0";
 
 const CHANGELOG = [
+  {
+    version: "88.64.0",
+    date: "Apr 2026",
+    title: "v88.64.0 - Paddy Chalna in Daily Report",
+    items: [
+      { type: "feature", text: "Daily Report mein Paddy Chalna section — Aaj Cut, Total Paddy Bags, Total Cut (All), Remaining dikhega" },
+      { type: "feature", text: "Normal mode mein summary cards + Detail mode mein individual cutting entries (Bags Cut, Remark)" },
+      { type: "feature", text: "Daily Report PDF aur Excel mein bhi Paddy Chalna section with cumulative totals" },
+    ]
+  },
   {
     version: "88.63.0",
     date: "Apr 2026",

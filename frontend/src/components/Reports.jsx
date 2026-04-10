@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel, Send, AlertTriangle } from "lucide-react";
+import { RefreshCw, Download, FileText, TrendingUp, TrendingDown, BarChart3, Scale, CalendarDays, Truck, Wheat, IndianRupee, Package, Users, Fuel, Send, AlertTriangle, Scissors } from "lucide-react";
 import { SendToGroupDialog } from "./SendToGroupDialog";
 import { useMessagingEnabled } from "../hooks/useMessagingEnabled";
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
@@ -844,6 +844,36 @@ const DailyReport = ({ filters }) => {
                         {d.status === 'paid' ? 'PAID' : 'UNPAID'}
                       </span>
                     </td>
+                  </>))}
+                />
+              )}
+            </Section>
+          )}
+
+          {/* Paddy Chalna / Cutting */}
+          {data.paddy_cutting && data.paddy_cutting.count > 0 && (
+            <Section title="Paddy Chalna / छलना" icon={Scissors} color="text-amber-400" count={data.paddy_cutting.count}>
+              <div className="grid grid-cols-4 gap-2 mb-2">
+                {[
+                  ["Aaj Cut", data.paddy_cutting.total_bags_cut || 0, "text-amber-400 bg-amber-900/20"],
+                  ["Total Paddy Bags", data.paddy_cutting.cum_total_received || 0, "text-blue-400 bg-blue-900/20"],
+                  ["Total Cut (All)", data.paddy_cutting.cum_total_cut || 0, "text-orange-400 bg-orange-900/20"],
+                  ["Remaining", data.paddy_cutting.cum_remaining || 0, `${(data.paddy_cutting.cum_remaining || 0) >= 0 ? 'text-green-400 bg-green-900/20' : 'text-red-400 bg-red-900/20'}`],
+                ].map(([l,v,c]) => (
+                  <div key={l} className={`text-center p-2 rounded ${c.split(' ').slice(1).join(' ')}`}>
+                    <p className="text-[10px] text-slate-400">{l}</p>
+                    <p className={`text-lg font-bold ${c.split(' ')[0]}`}>{v.toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+              {isDetail && data.paddy_cutting.details && data.paddy_cutting.details.length > 0 && (
+                <DetailTable
+                  headers={[
+                    {key:'bags',label:'Bags Cut',align:'right'}, {key:'remark',label:'Remark',align:'left'},
+                  ]}
+                  rows={data.paddy_cutting.details.map((d,i) => (<>
+                    <td className="py-1 px-2 text-right text-amber-400 font-semibold">{(d.bags_cut || 0).toLocaleString()}</td>
+                    <td className="py-1 px-2 text-slate-300">{d.remark || '-'}</td>
                   </>))}
                 />
               )}

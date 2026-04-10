@@ -103,12 +103,24 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
         hemali_q["season"] = season
     hemali_payments = await db.hemali_payments.find(hemali_q, {"_id": 0}).to_list(500)
 
-    # Paddy Cutting (Chalna)
+    # Paddy Cutting (Chalna) - today's entries + cumulative totals
     cutting_q = {"date": date}
     if kms_year: cutting_q["kms_year"] = kms_year
     if season: cutting_q["season"] = season
     paddy_cutting = await db.paddy_cutting.find(cutting_q, {"_id": 0}).to_list(500)
     cutting_bags = sum(int(c.get("bags_cut", 0) or 0) for c in paddy_cutting)
+    # Cumulative: all cutting till date + total bags from entries
+    cum_cut_q = {}
+    if kms_year: cum_cut_q["kms_year"] = kms_year
+    if season: cum_cut_q["season"] = season
+    all_cutting = await db.paddy_cutting.find(cum_cut_q, {"_id": 0, "bags_cut": 1}).to_list(50000)
+    cum_total_cut = sum(int(c.get("bags_cut", 0) or 0) for c in all_cutting)
+    cum_mill_q = {}
+    if kms_year: cum_mill_q["kms_year"] = kms_year
+    if season: cum_mill_q["season"] = season
+    cum_mill_entries = await db.mill_entries.find(cum_mill_q, {"_id": 0, "bag": 1, "plastic_bag": 1}).to_list(50000)
+    cum_total_received = sum(int(e.get("bag", 0) or 0) for e in cum_mill_entries) + sum(int(e.get("plastic_bag", 0) or 0) for e in cum_mill_entries)
+    cum_remaining = cum_total_received - cum_total_cut
     hemali_paid = [h for h in hemali_payments if h.get("status") == "paid"]
     hemali_unpaid = [h for h in hemali_payments if h.get("status") != "paid"]
     hemali_total_paid = sum(h.get("amount_paid", 0) for h in hemali_paid)
@@ -306,6 +318,7 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
         },
         "paddy_cutting": {
             "count": len(paddy_cutting), "total_bags_cut": cutting_bags,
+            "cum_total_received": cum_total_received, "cum_total_cut": cum_total_cut, "cum_remaining": cum_remaining,
             "details": [{"bags_cut": c.get("bags_cut", 0), "remark": c.get("remark", "")} for c in paddy_cutting]
         },
         "cash_transactions": {
@@ -737,7 +750,23 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     pc = data.get("paddy_cutting", {})
     if pc.get("count", 0):
         elements.append(Spacer(1, 4))
-        elements.append(Paragraph(f"Paddy Chalna / Cutting ({pc['count']}) - Total Bags Cut: {pc['total_bags_cut']}", section_style))
+        today_cut = pc.get("total_bags_cut", 0)
+        elements.append(Paragraph(f"Paddy Chalna / Cutting - Aaj: {today_cut} Bags", section_style))
+        # Summary table
+        pc_summary = [
+            ['Total Paddy Bags', 'Total Cut (All)', 'Remaining', 'Aaj Cut'],
+            [str(pc.get("cum_total_received", 0)), str(pc.get("cum_total_cut", 0)),
+             str(pc.get("cum_remaining", 0)), str(today_cut)]
+        ]
+        pct = RTable(pc_summary, colWidths=[130, 130, 130, 100])
+        pct.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#fef3c7')),
+            ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTNAME', (0, 1), (-1, 1), 'FreeSans'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7), ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D0D5DD')),
+            ('ALIGN', (0, 1), (-1, 1), 'RIGHT'),
+            ('TOPPADDING', (0, 0), (-1, -1), 3), ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        elements.append(pct)
         if is_detail and pc.get("details"):
             elements.append(make_table(
                 ['Bags Cut', 'Remark'],
@@ -1025,8 +1054,9 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     pc = data.get("paddy_cutting", {})
     if pc.get("count", 0):
         row += 1
-        write_section(f"Paddy Chalna / Cutting ({pc['count']})")
-        write_sub(f"Total Bags Cut: {pc['total_bags_cut']}")
+        write_section(f"Paddy Chalna / Cutting - Aaj: {pc.get('total_bags_cut', 0)} Bags")
+        write_headers(['Total Paddy Bags', 'Total Cut (All)', 'Remaining', 'Aaj Cut'])
+        write_row([pc.get('cum_total_received', 0), pc.get('cum_total_cut', 0), pc.get('cum_remaining', 0), pc.get('total_bags_cut', 0)])
         if is_detail and pc.get("details"):
             write_headers(['Bags Cut', 'Remark'])
             for d in pc["details"]:
