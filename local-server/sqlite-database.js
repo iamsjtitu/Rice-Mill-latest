@@ -825,10 +825,11 @@ class SqliteDatabase {
       total_final_w: acc.total_final_w + (e.final_w || 0),
       total_g_issued: acc.total_g_issued + (e.g_issued || 0),
       total_cash_paid: acc.total_cash_paid + (e.cash_paid || 0),
-      total_diesel_paid: acc.total_diesel_paid + (e.diesel_paid || 0)
+      total_diesel_paid: acc.total_diesel_paid + (e.diesel_paid || 0),
+      total_tp_weight: acc.total_tp_weight + (parseFloat(e.tp_weight || 0) || 0)
     }), { total_kg: 0, total_qntl: 0, total_bag: 0, total_g_deposite: 0,
       total_gbw_cut: 0, total_mill_w: 0, total_p_pkt_cut: 0, total_cutting: 0,
-      total_disc_dust_poll: 0, total_final_w: 0, total_g_issued: 0, total_cash_paid: 0, total_diesel_paid: 0 });
+      total_disc_dust_poll: 0, total_final_w: 0, total_g_issued: 0, total_cash_paid: 0, total_diesel_paid: 0, total_tp_weight: 0 });
   }
 
   getSuggestions(field) {
