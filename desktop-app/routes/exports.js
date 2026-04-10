@@ -22,6 +22,7 @@ module.exports = function(database) {
       ws.columns = [
         { header: 'Date', key: 'date', width: 12 }, { header: 'Truck No', key: 'truck_no', width: 14 },
         { header: 'RST No', key: 'rst_no', width: 10 }, { header: 'TP No', key: 'tp_no', width: 10 },
+        { header: 'TP Wt (Q)', key: 'tp_weight', width: 10 },
         { header: 'Agent', key: 'agent_name', width: 14 }, { header: 'Mandi', key: 'mandi_name', width: 22 },
         { header: 'QNTL', key: 'qntl', width: 10 }, { header: 'BAG', key: 'bag', width: 8 },
         { header: 'G.Dep', key: 'g_deposite', width: 8 }, { header: 'GBW Cut', key: 'gbw_cut', width: 10 },
@@ -31,12 +32,14 @@ module.exports = function(database) {
         { header: 'D/D/P', key: 'disc_dust_poll', width: 8 }, { header: 'Final W', key: 'final_w', width: 12 },
         { header: 'G.Issued', key: 'g_issued', width: 10 }
       ];
-      entries.forEach(e => ws.addRow({ date: fmtDate(e.date), truck_no: e.truck_no, rst_no: e.rst_no || '', tp_no: e.tp_no || '', agent_name: e.agent_name, mandi_name: e.mandi_name, qntl: +(e.qntl||0).toFixed(2), bag: e.bag||0, g_deposite: e.g_deposite||0, gbw_cut: +((e.gbw_cut||0)/100).toFixed(2), plastic_bag: e.plastic_bag||0, p_pkt_cut: +((e.p_pkt_cut||0)/100).toFixed(2), mill_w: +((e.mill_w||0)/100).toFixed(2), moisture: e.moisture||0, moisture_cut: +((e.moisture_cut||0)/100).toFixed(2), cutting_percent: e.cutting_percent||0, disc_dust_poll: e.disc_dust_poll||0, final_w: +((e.final_w||0)/100).toFixed(2), g_issued: e.g_issued||0 }));
+      entries.forEach(e => ws.addRow({ date: fmtDate(e.date), truck_no: e.truck_no, rst_no: e.rst_no || '', tp_no: e.tp_no || '', tp_weight: parseFloat(e.tp_weight || 0) || 0, agent_name: e.agent_name, mandi_name: e.mandi_name, qntl: +(e.qntl||0).toFixed(2), bag: e.bag||0, g_deposite: e.g_deposite||0, gbw_cut: +((e.gbw_cut||0)/100).toFixed(2), plastic_bag: e.plastic_bag||0, p_pkt_cut: +((e.p_pkt_cut||0)/100).toFixed(2), mill_w: +((e.mill_w||0)/100).toFixed(2), moisture: e.moisture||0, moisture_cut: +((e.moisture_cut||0)/100).toFixed(2), cutting_percent: e.cutting_percent||0, disc_dust_poll: e.disc_dust_poll||0, final_w: +((e.final_w||0)/100).toFixed(2), g_issued: e.g_issued||0 }));
 
       // Add totals row
       if (entries.length > 0) {
         const totals = {
-          date: 'TOTAL', truck_no: '', rst_no: '', tp_no: '', agent_name: '', mandi_name: `${entries.length} entries`,
+          date: 'TOTAL', truck_no: '', rst_no: '', tp_no: '',
+          tp_weight: +entries.reduce((s,e) => s+(parseFloat(e.tp_weight||0)||0), 0).toFixed(2),
+          agent_name: '', mandi_name: `${entries.length} entries`,
           qntl: +entries.reduce((s,e) => s+(e.qntl||0), 0).toFixed(2),
           bag: entries.reduce((s,e) => s+(e.bag||0), 0),
           g_deposite: entries.reduce((s,e) => s+(e.g_deposite||0), 0),
@@ -53,7 +56,7 @@ module.exports = function(database) {
         totalRow.eachCell(c => { c.font = { bold: true, size: 10, color: { argb: 'FF92400E' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } }; });
       }
 
-      addExcelTitle(ws, req.query.report_title || 'Mill Entries Report', 19, database); styleExcelHeader(ws); styleExcelData(ws, 5);
+      addExcelTitle(ws, req.query.report_title || 'Mill Entries Report', 20, database); styleExcelHeader(ws); styleExcelData(ws, 5);
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.xlsx`);
@@ -71,9 +74,9 @@ module.exports = function(database) {
     res.setHeader('Content-Disposition', `attachment; filename=mill_entries_${Date.now()}.pdf`);
       // PDF will be sent via safePdfPipe
       addPdfHeader(doc, req.query.report_title || 'Mill Entries Report');
-      const h = ['Date','Truck','RST','TP','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss'];
-      const w = [40,48,30,28,38,64,32,26,26,30,26,28,36,24,28,24,26,36,28];
-      const rows = entries.map(e => [fmtDate(e.date),e.truck_no||'',e.rst_no||'',e.tp_no||'',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,e.g_deposite||0,((e.gbw_cut||0)/100).toFixed(2),e.plastic_bag||0,((e.p_pkt_cut||0)/100).toFixed(2),((e.mill_w||0)/100).toFixed(2),e.moisture||0,((e.moisture_cut||0)/100).toFixed(2),e.cutting_percent||0,e.disc_dust_poll||0,((e.final_w||0)/100).toFixed(2),e.g_issued||0]);
+      const h = ['Date','Truck','RST','TP','TP Wt','Agent','Mandi','QNTL','BAG','G.Dep','GBW','P.Pkt','P.Cut','Mill W','M%','M.Cut','C%','D/D/P','Final W','G.Iss'];
+      const w = [40,46,28,26,28,36,60,32,26,26,28,26,28,34,24,28,24,26,34,28];
+      const rows = entries.map(e => [fmtDate(e.date),e.truck_no||'',e.rst_no||'',e.tp_no||'',parseFloat(e.tp_weight||0)||0?(parseFloat(e.tp_weight||0)).toFixed(1):'-',e.agent_name||'',e.mandi_name||'',(e.qntl||0).toFixed(2),e.bag||0,e.g_deposite||0,((e.gbw_cut||0)/100).toFixed(2),e.plastic_bag||0,((e.p_pkt_cut||0)/100).toFixed(2),((e.mill_w||0)/100).toFixed(2),e.moisture||0,((e.moisture_cut||0)/100).toFixed(2),e.cutting_percent||0,e.disc_dust_poll||0,((e.final_w||0)/100).toFixed(2),e.g_issued||0]);
       addPdfTable(doc, h, rows, w);
 
       // Totals row
@@ -88,7 +91,8 @@ module.exports = function(database) {
         const tMCut = entries.reduce((s,e) => s+((e.moisture_cut||0)/100), 0);
         const tFinalW = entries.reduce((s,e) => s+((e.final_w||0)/100), 0);
         const tGIss = entries.reduce((s,e) => s+(e.g_issued||0), 0);
-        addTotalsRow(doc, ['TOTAL','','','','',`${entries.length} entries`,tQntl.toFixed(2),tBag,tGDep,tGbw.toFixed(2),tPPkt,tPCut.toFixed(2),tMillW.toFixed(2),'',tMCut.toFixed(2),'','',tFinalW.toFixed(2),tGIss], w);
+        const tTpWt = entries.reduce((s,e) => s+(parseFloat(e.tp_weight||0)||0), 0);
+        addTotalsRow(doc, ['TOTAL','','','',tTpWt > 0 ? tTpWt.toFixed(2) : '-','',`${entries.length} entries`,tQntl.toFixed(2),tBag,tGDep,tGbw.toFixed(2),tPPkt,tPCut.toFixed(2),tMillW.toFixed(2),'',tMCut.toFixed(2),'','',tFinalW.toFixed(2),tGIss], w);
       }
 
       await safePdfPipe(doc, res);

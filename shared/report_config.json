@@ -909,6 +909,15 @@
         "width_pdf_mm": 24
       },
       {
+        "field": "tp_weight",
+        "header": "TP Wt",
+        "pdf_header": "TP Wt",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 20
+      },
+      {
         "field": "cash_paid",
         "header": "Cash",
         "pdf_header": "Cash",
@@ -1080,6 +1089,15 @@
         "align": "right",
         "width_excel": 10,
         "width_pdf_mm": 14
+      },
+      {
+        "field": "tp_weight",
+        "header": "TP Wt",
+        "pdf_header": "TPWt",
+        "type": "number",
+        "align": "right",
+        "width_excel": 9,
+        "width_pdf_mm": 13
       },
       {
         "field": "g_issued",

@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.73.0";
+const APP_VERSION = "88.74.0";
 
 const CHANGELOG = [
+  {
+    version: "88.74.0",
+    date: "Apr 2026",
+    title: "v88.74.0 - Export Totals Fix",
+    items: [
+      { type: "fix", text: "Mill Entries PDF/Excel mein TP Weight ka total ab dikhta hai" },
+      { type: "fix", text: "Vehicle Weight Excel mein totals row add hua (Bags, 1st/2nd/Net Wt, TP Wt, G.Issued, Cash, Diesel)" },
+      { type: "fix", text: "Vehicle Weight PDF mein TP Wt aur G.Issued totals fix kiya" },
+      { type: "fix", text: "Daily Report PDF/Excel mein TP Weight column aur summary add hua" },
+    ]
+  },
   {
     version: "88.73.0",
     date: "Apr 2026",

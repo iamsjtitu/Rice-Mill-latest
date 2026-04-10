@@ -70,7 +70,7 @@ router.get('/api/reports/daily/excel', safeAsync(async (req, res) => {
   // 1. Paddy Entries
   const p = data.paddy_entries;
   writeSection(`1. Paddy Entries (${p.count})`);
-  writeSummary(`Total Mill W(Q): ${(p.total_mill_w/100).toFixed(2)} | Bags: ${p.total_bags} | Final W(Q): ${(p.total_final_w/100).toFixed(2)}`);
+  writeSummary(`Total Mill W(Q): ${(p.total_mill_w/100).toFixed(2)} | Bags: ${p.total_bags} | Final W(Q): ${(p.total_final_w/100).toFixed(2)} | TP Wt(Q): ${(p.total_tp_weight||0).toFixed(2)}`);
   writeSummary(`Bag Dep: ${p.total_g_deposite} | Bag Issued: ${p.total_g_issued} | Cash: Rs.${fmtAmt(p.total_cash_paid)} | Diesel: Rs.${fmtAmt(p.total_diesel_paid)}`);
 
   if (p.details.length) {

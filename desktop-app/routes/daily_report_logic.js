@@ -89,7 +89,7 @@ function getDailyReportData(database, query) {
 
   const entryDetails = entries.map(e => ({
     truck_no: e.truck_no||'', agent: e.agent_name||'', mandi: e.mandi_name||'',
-    rst_no: e.rst_no||'', tp_no: e.tp_no||'', season: e.season||'',
+    rst_no: e.rst_no||'', tp_no: e.tp_no||'', tp_weight: parseFloat(e.tp_weight||0)||0, season: e.season||'',
     kg: e.kg||0, qntl: e.qntl||0, bags: e.bag||0,
     g_deposite: e.g_deposite||0, gbw_cut: e.gbw_cut||0,
     mill_w: e.mill_w||0, moisture: e.moisture||0, moisture_cut: e.moisture_cut||0,
@@ -105,6 +105,7 @@ function getDailyReportData(database, query) {
       total_mill_w: +(totalMillW).toFixed(2),
       total_bags: entries.reduce((s, e) => s + (e.bag || 0), 0),
       total_final_w: +(totalFinalW).toFixed(2),
+      total_tp_weight: +entries.reduce((s, e) => s + (parseFloat(e.tp_weight || 0) || 0), 0).toFixed(2),
       total_kg: entries.reduce((s, e) => s + (e.kg || 0), 0),
       total_g_deposite: entries.reduce((s, e) => s + (e.g_deposite || 0), 0),
       total_g_issued: entries.reduce((s, e) => s + (e.g_issued || 0), 0),
@@ -357,9 +358,9 @@ function generateDailyReportPdf(doc, data, query) {
   const p = data.paddy_entries;
   sectionTitle(1, `Paddy Entries (${p.count})`);
   drawSummaryBox(
-    ['Total Mill W (QNTL)', 'Total BAG', 'Final W QNTL (Auto)', 'Bag Deposite', 'Bag Issued'],
-    [(p.total_mill_w/100).toFixed(2), p.total_bags, (p.total_final_w/100).toFixed(2), p.total_g_deposite||0, p.total_g_issued||0],
-    [100, 90, 100, 80, 80], C.blueBg
+    ['Total Mill W (QNTL)', 'Total BAG', 'Final W QNTL (Auto)', 'TP Wt (Q)', 'Bag Deposite', 'Bag Issued'],
+    [(p.total_mill_w/100).toFixed(2), p.total_bags, (p.total_final_w/100).toFixed(2), (p.total_tp_weight||0).toFixed(2), p.total_g_deposite||0, p.total_g_issued||0],
+    [90, 70, 90, 70, 70, 70], C.blueBg
   );
   drawSummaryBox(
     ['Total Cash Paid', 'Total Diesel Paid'],

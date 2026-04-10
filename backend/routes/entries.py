@@ -791,7 +791,8 @@ async def get_totals(
             "total_final_w": {"$sum": "$final_w"},
             "total_g_issued": {"$sum": "$g_issued"},
             "total_cash_paid": {"$sum": "$cash_paid"},
-            "total_diesel_paid": {"$sum": "$diesel_paid"}
+            "total_diesel_paid": {"$sum": "$diesel_paid"},
+            "total_tp_weight": {"$sum": {"$ifNull": ["$tp_weight", 0]}}
         }
     })
     
@@ -973,7 +974,9 @@ async def export_excel(
     # Totals row
     totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season, date_from, date_to)
     totals_data = [
-        "TOTAL", "", "", "", "", "",
+        "TOTAL", "", "", "",
+        round(totals.total_tp_weight, 2),
+        "",
         "",
         round(totals.total_qntl, 2),
         totals.total_bag,
@@ -1161,7 +1164,9 @@ async def export_pdf(
     
     # Totals row
     totals_row = [
-        "TOTAL", "", "", "", "", "", "",
+        "TOTAL", "", "", "",
+        f"{totals.total_tp_weight:.2f}" if totals.total_tp_weight > 0 else "-",
+        "", "",
         f"{totals.total_qntl:.2f}",
         str(totals.total_bag),
         str(int(totals.total_g_deposite)),

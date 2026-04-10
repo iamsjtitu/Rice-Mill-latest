@@ -1135,6 +1135,28 @@ module.exports = function(database) {
       });
     });
 
+    // Totals row
+    if (items.length > 0) {
+      const totRow = ws.getRow(hdrRowNum + 1 + items.length);
+      const totBags = items.reduce((s, e) => s + (Number(e.tot_pkts) || 0), 0);
+      const tot1st = items.reduce((s, e) => s + (Number(e.first_wt) || 0), 0);
+      const tot2nd = items.reduce((s, e) => s + (Number(e.second_wt) || 0), 0);
+      const totNet = items.reduce((s, e) => s + (Number(e.net_wt) || 0), 0);
+      const totTp = items.reduce((s, e) => s + (parseFloat(e.tp_weight) || 0), 0);
+      const totGIss = items.reduce((s, e) => s + (Number(e.g_issued) || 0), 0);
+      const totCash = items.reduce((s, e) => s + (Number(e.cash_paid) || 0), 0);
+      const totDiesel = items.reduce((s, e) => s + (Number(e.diesel_paid) || 0), 0);
+      const totVals = ['', '', '', '', '', '', 'TOTAL:', totBags, tot1st, tot2nd, totNet, totTp, totGIss, totCash, totDiesel];
+      totVals.forEach((v, i) => {
+        const cell = totRow.getCell(i + 1);
+        cell.value = v;
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1a1a2e' } };
+        cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+        if (i >= 7) cell.alignment = { horizontal: 'right' };
+      });
+    }
+
     ws.columns.forEach((c, i) => { c.width = i === 4 ? 22 : 15; }); // Mandi column (index 4) wider
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=vehicle_weight.xlsx`);
@@ -1238,7 +1260,7 @@ module.exports = function(database) {
     y = drawTableHeader(y);
 
     // Totals accumulators
-    let totBags = 0, tot1st = 0, tot2nd = 0, totNet = 0, totCash = 0, totDiesel = 0;
+    let totBags = 0, tot1st = 0, tot2nd = 0, totNet = 0, totTp = 0, totGiss = 0, totCash = 0, totDiesel = 0;
     let lastDate = '';
 
     // Data rows
@@ -1276,7 +1298,7 @@ module.exports = function(database) {
       const cash = Number(e.cash_paid || 0);
       const diesel = Number(e.diesel_paid || 0);
 
-      totBags += bags; tot1st += first; tot2nd += second; totNet += net; totCash += cash; totDiesel += diesel;
+      totBags += bags; tot1st += first; tot2nd += second; totNet += net; totTp += tpWt; totGiss += gIss; totCash += cash; totDiesel += diesel;
 
       x = LM + 2;
       const vals = [
@@ -1315,7 +1337,8 @@ module.exports = function(database) {
     doc.fontSize(8).font(efb).fillColor('#1b5e20');
     x = LM + 2;
     const totVals = ['', '', '', '', '', '', 'TOTAL:', totBags.toLocaleString(),
-      tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(), '', '',
+      tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(),
+      totTp > 0 ? totTp.toFixed(1) : '-', totGiss > 0 ? totGiss.toLocaleString() : '-',
       totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-'];
     totVals.forEach((v, i) => {
       doc.text(String(v), x, y + 4, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === 6 ? 'right' : 'left') });

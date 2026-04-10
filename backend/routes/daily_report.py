@@ -429,11 +429,12 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
     p = data["paddy_entries"]
     elements.append(Paragraph(f"1. Paddy Entries ({p['count']})", section_style))
     summary_data = [
-        ['Total Mill W (QNTL)', 'Total BAG', 'Final W. QNTL (Auto)', 'Bag Deposite', 'Bag Issued'],
+        ['Total Mill W (QNTL)', 'Total BAG', 'Final W. QNTL (Auto)', 'TP Wt (Q)', 'Bag Deposite', 'Bag Issued'],
         [f"{p.get('total_mill_w', 0)/100:.2f}", str(p['total_bags']), f"{p['total_final_w']/100:.2f}",
+         f"{p.get('total_tp_weight', 0):.2f}",
          str(p.get('total_g_deposite', 0)), str(p.get('total_g_issued', 0))]
     ]
-    st = RTable(summary_data, colWidths=[100, 90, 100, 80, 80])
+    st = RTable(summary_data, colWidths=[100, 80, 100, 80, 80, 80])
     st.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0f2fe')),
         ('FONTNAME', (0, 0), (-1, 0), 'FreeSansBold'), ('FONTSIZE', (0, 0), (-1, -1), 7),
@@ -886,7 +887,7 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
     # Paddy Entries
     p = data["paddy_entries"]
     write_section(f"1. Paddy Entries ({p['count']})")
-    write_sub(f"Total Mill W(Q): {p.get('total_mill_w',0)/100:.2f} | Bags: {p['total_bags']} | Final W(Q): {p['total_final_w']/100:.2f}")
+    write_sub(f"Total Mill W(Q): {p.get('total_mill_w',0)/100:.2f} | Bags: {p['total_bags']} | Final W(Q): {p['total_final_w']/100:.2f} | TP Wt(Q): {p.get('total_tp_weight',0):.2f}")
     write_sub(f"Bag Dep: {p.get('total_g_deposite',0)} | Bag Issued: {p.get('total_g_issued',0)} | Cash: Rs.{p.get('total_cash_paid',0):,.0f} | Diesel: Rs.{p.get('total_diesel_paid',0):,.0f}")
     if p["details"]:
         col_key = "detail_mode_columns" if is_detail else "summary_mode_columns"

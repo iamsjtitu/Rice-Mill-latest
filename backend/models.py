@@ -137,6 +137,7 @@ class TotalsResponse(BaseModel):
     total_g_issued: float = 0
     total_cash_paid: float = 0
     total_diesel_paid: float = 0
+    total_tp_weight: float = 0
 
 
 # ===== Mandi Target Models =====
