@@ -2835,18 +2835,18 @@ function WatermarkTab() {
 
   return (
     <div className="space-y-4" data-testid="watermark-settings">
-      <Card className="bg-slate-800/60 border-slate-700">
+      <Card className="bg-white border-slate-200 shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm text-slate-200 flex items-center gap-2">
-            <Droplets className="w-4 h-4 text-amber-400" /> PDF Watermark Settings
+          <CardTitle className="text-sm text-slate-700 flex items-center gap-2">
+            <Droplets className="w-4 h-4 text-amber-500" /> PDF Watermark Settings
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Enable/Disable */}
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-slate-300 text-sm font-medium">Watermark Enable karein</Label>
-              <p className="text-slate-500 text-xs mt-0.5">ON karne par sabhi PDF exports mein watermark aayega</p>
+              <Label className="text-slate-700 text-sm font-medium">Watermark Enable karein</Label>
+              <p className="text-slate-400 text-xs mt-0.5">ON karne par sabhi PDF exports mein watermark aayega</p>
             </div>
             <Switch
               checked={settings.enabled}
@@ -2859,12 +2859,12 @@ function WatermarkTab() {
             <>
               {/* Type Selection */}
               <div>
-                <Label className="text-slate-400 text-xs mb-2 block">Watermark Type</Label>
+                <Label className="text-slate-500 text-xs mb-2 block font-medium">Watermark Type</Label>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     variant={settings.type === 'text' ? 'default' : 'outline'}
-                    className={settings.type === 'text' ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'border-slate-600 text-slate-300'}
+                    className={settings.type === 'text' ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}
                     onClick={() => setSettings(p => ({ ...p, type: 'text' }))}
                     data-testid="watermark-type-text"
                   >
@@ -2873,7 +2873,7 @@ function WatermarkTab() {
                   <Button
                     size="sm"
                     variant={settings.type === 'image' ? 'default' : 'outline'}
-                    className={settings.type === 'image' ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'border-slate-600 text-slate-300'}
+                    className={settings.type === 'image' ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}
                     onClick={() => setSettings(p => ({ ...p, type: 'image' }))}
                     data-testid="watermark-type-image"
                   >
@@ -2885,12 +2885,12 @@ function WatermarkTab() {
               {/* Text Input */}
               {settings.type === 'text' && (
                 <div>
-                  <Label className="text-slate-400 text-xs mb-1 block">Watermark Text (Company Name / Custom Text)</Label>
+                  <Label className="text-slate-500 text-xs mb-1 block font-medium">Watermark Text (Company Name / Custom Text)</Label>
                   <Input
                     value={settings.text || ''}
                     onChange={e => setSettings(p => ({ ...p, text: e.target.value }))}
                     placeholder="e.g. NAVKAR AGRO"
-                    className="bg-slate-700 border-slate-600 text-white"
+                    className="bg-white border-slate-300 text-slate-800"
                     data-testid="watermark-text-input"
                   />
                 </div>
@@ -2899,11 +2899,11 @@ function WatermarkTab() {
               {/* Image Upload */}
               {settings.type === 'image' && (
                 <div>
-                  <Label className="text-slate-400 text-xs mb-1 block">Watermark Image (Logo)</Label>
+                  <Label className="text-slate-500 text-xs mb-1 block font-medium">Watermark Image (Logo)</Label>
                   <div className="flex items-center gap-3">
                     <Button
                       size="sm" variant="outline"
-                      className="border-slate-600 text-slate-300"
+                      className="border-slate-300 text-slate-600 hover:bg-slate-50"
                       onClick={() => fileRef.current?.click()}
                       data-testid="watermark-upload-btn"
                     >
@@ -2911,7 +2911,7 @@ function WatermarkTab() {
                     </Button>
                     <input ref={fileRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
                     {settings.image_path && (
-                      <span className="text-green-400 text-xs flex items-center gap-1">
+                      <span className="text-green-600 text-xs flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" /> Image uploaded
                       </span>
                     )}
@@ -2921,73 +2921,74 @@ function WatermarkTab() {
 
               {/* Opacity Slider */}
               <div>
-                <Label className="text-slate-400 text-xs mb-1 block">Opacity (Halkapan): {opacityPercent}%</Label>
+                <Label className="text-slate-500 text-xs mb-1 block font-medium">Opacity (Halkapan): {opacityPercent}%</Label>
                 <div className="flex items-center gap-3">
-                  <span className="text-slate-500 text-xs">2%</span>
+                  <span className="text-slate-400 text-xs">2%</span>
                   <input
                     type="range" min="2" max="20" value={opacityPercent}
                     onChange={e => setSettings(p => ({ ...p, opacity: parseInt(e.target.value) / 100 }))}
                     className="flex-1 accent-amber-500"
                     data-testid="watermark-opacity-slider"
                   />
-                  <span className="text-slate-500 text-xs">20%</span>
+                  <span className="text-slate-400 text-xs">20%</span>
                 </div>
-                <p className="text-slate-500 text-[10px] mt-1">Kam value = zyada halka watermark (bank documents jaisa)</p>
+                <p className="text-slate-400 text-[10px] mt-1">Kam value = zyada halka watermark (bank documents jaisa)</p>
               </div>
 
               {/* Font Size & Rotation - only for text type */}
               {settings.type === 'text' && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-slate-400 text-xs mb-1 block">Font Size: {settings.font_size || 52}px</Label>
+                    <Label className="text-slate-500 text-xs mb-1 block font-medium">Font Size: {settings.font_size || 52}px</Label>
                     <div className="flex items-center gap-2">
-                      <span className="text-slate-500 text-xs">20</span>
+                      <span className="text-slate-400 text-xs">20</span>
                       <input
                         type="range" min="20" max="120" value={settings.font_size || 52}
                         onChange={e => setSettings(p => ({ ...p, font_size: parseInt(e.target.value) }))}
                         className="flex-1 accent-amber-500"
                         data-testid="watermark-fontsize-slider"
                       />
-                      <span className="text-slate-500 text-xs">120</span>
+                      <span className="text-slate-400 text-xs">120</span>
                     </div>
                   </div>
                   <div>
-                    <Label className="text-slate-400 text-xs mb-1 block">Rotation Angle: {settings.rotation || 45}°</Label>
+                    <Label className="text-slate-500 text-xs mb-1 block font-medium">Rotation Angle: {settings.rotation || 45}°</Label>
                     <div className="flex items-center gap-2">
-                      <span className="text-slate-500 text-xs">0°</span>
+                      <span className="text-slate-400 text-xs">0°</span>
                       <input
                         type="range" min="0" max="90" value={settings.rotation || 45}
                         onChange={e => setSettings(p => ({ ...p, rotation: parseInt(e.target.value) }))}
                         className="flex-1 accent-amber-500"
                         data-testid="watermark-rotation-slider"
                       />
-                      <span className="text-slate-500 text-xs">90°</span>
+                      <span className="text-slate-400 text-xs">90°</span>
                     </div>
                   </div>
                 </div>
               )}
 
               {/* Preview Box */}
-              <div className="relative bg-white rounded-lg p-8 overflow-hidden" style={{ minHeight: 120 }}>
+              <div className="relative bg-slate-50 border border-slate-200 rounded-lg p-8 overflow-hidden" style={{ minHeight: 140 }}>
                 <div
                   className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                  style={{ opacity: settings.opacity || 0.06, transform: `rotate(-${settings.rotation || 45}deg)` }}
+                  style={{ opacity: Math.max((settings.opacity || 0.06) * 3, 0.15), transform: `rotate(-${settings.rotation || 45}deg)` }}
                 >
                   {settings.type === 'text' ? (
-                    <span style={{ fontSize: `${Math.min(settings.font_size || 52, 48)}px` }} className="font-bold text-gray-500 whitespace-nowrap select-none">
+                    <span style={{ fontSize: `${Math.min(settings.font_size || 52, 48)}px` }} className="font-bold text-slate-400 whitespace-nowrap select-none">
                       {settings.text || 'WATERMARK'}
                     </span>
                   ) : (
                     settings.image_path ? (
-                      <Droplets className="w-24 h-24 text-gray-500" />
+                      <Droplets className="w-24 h-24 text-slate-400" />
                     ) : (
-                      <span className="text-2xl font-bold text-gray-400">IMAGE</span>
+                      <span className="text-2xl font-bold text-slate-300">IMAGE</span>
                     )
                   )}
                 </div>
                 <div className="relative z-10 text-center">
-                  <p className="text-gray-800 text-sm font-bold">PDF Preview</p>
-                  <p className="text-gray-500 text-xs">Yeh dikhata hai watermark kaise dikhega</p>
+                  <p className="text-slate-700 text-sm font-bold">PDF Preview</p>
+                  <p className="text-slate-400 text-xs">Yeh dikhata hai watermark kaise dikhega</p>
+                  <p className="text-amber-500 text-[10px] mt-1">(Preview mein thoda zyada dikhai deta hai, actual PDF mein halka hoga)</p>
                 </div>
               </div>
             </>
