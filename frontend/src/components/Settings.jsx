@@ -2328,13 +2328,14 @@ const PERMISSION_DEFS = [
   { key: "can_manual_weight", label: "Manual Weight", desc: "Weighbridge mein manually weight type kar sakta hai" },
   { key: "can_edit_rst", label: "RST Edit", desc: "Auto Vehicle Weight mein RST number manually edit kar sakta hai" },
   { key: "can_change_date", label: "Date Change", desc: "Auto Vehicle Weight mein date change kar sakta hai" },
+  { key: "can_edit_vw_linked", label: "VW Linked Edit", desc: "Mill Entry mein use hui VW entry ko edit/delete kar sakta hai" },
 ];
 
 const ROLE_DEFAULTS = {
-  admin: { can_edit: true, can_delete: true, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: true, can_manual_weight: true, can_edit_rst: true, can_change_date: true },
-  entry_operator: { can_edit: true, can_delete: false, can_export: false, can_see_payments: false, can_see_cashbook: false, can_see_reports: false, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false, can_change_date: false },
-  accountant: { can_edit: true, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false, can_change_date: false },
-  viewer: { can_edit: false, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false, can_change_date: false },
+  admin: { can_edit: true, can_delete: true, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: true, can_manual_weight: true, can_edit_rst: true, can_change_date: true, can_edit_vw_linked: true },
+  entry_operator: { can_edit: true, can_delete: false, can_export: false, can_see_payments: false, can_see_cashbook: false, can_see_reports: false, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false, can_change_date: false, can_edit_vw_linked: false },
+  accountant: { can_edit: true, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false, can_change_date: false, can_edit_vw_linked: false },
+  viewer: { can_edit: false, can_delete: false, can_export: true, can_see_payments: true, can_see_cashbook: true, can_see_reports: true, can_edit_settings: false, can_manual_weight: false, can_edit_rst: false, can_change_date: false, can_edit_vw_linked: false },
 };
 
 function UsersTab({ user, setUser }) {

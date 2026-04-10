@@ -454,6 +454,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const canManualWeight = user?.permissions?.can_manual_weight !== false && user?.role === 'admin' || user?.permissions?.can_manual_weight === true;
   const rstEditAllowed = user?.permissions?.can_edit_rst === true || (user?.role === 'admin' && user?.permissions?.can_edit_rst !== false);
   const canChangeDate = user?.permissions?.can_change_date === true || (user?.role === 'admin' && user?.permissions?.can_change_date !== false);
+  const canEditVwLinked = user?.permissions?.can_edit_vw_linked === true || (user?.role === 'admin' && user?.permissions?.can_edit_vw_linked !== false);
 
   // ESC key to close photo zoom
   useEffect(() => {
@@ -1340,14 +1341,14 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       <TableCell className="py-2 px-3">
                         <div className="flex items-center gap-0.5 justify-center">
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-cyan-600" onClick={() => openPhotos(e)} data-testid={`vw-photos-${e.id}`} title="View Photos"><Eye className="w-3 h-3" /></Button>
-                          {!linkedRst.has(e.rst_no) && (
+                          {(!linkedRst.has(e.rst_no) || canEditVwLinked) && (
                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-amber-600" onClick={() => openEdit(e)} data-testid={`vw-edit-${e.id}`} title="Edit"><Pencil className="w-3 h-3" /></Button>
                           )}
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-purple-600" onClick={() => handlePrint(e)} data-testid={`vw-print-${e.id}`} title="Print"><Printer className="w-3 h-3" /></Button>
                           <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-blue-600" onClick={() => handlePdf(e)} data-testid={`vw-pdf-${e.id}`} title="Download"><Download className="w-3 h-3" /></Button>
                           {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-green-400 hover:text-green-600" onClick={() => handleWA(e)} data-testid={`vw-wa-${e.id}`} title="WhatsApp"><Send className="w-3 h-3" /></Button>}
                           {wa && <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-teal-400 hover:text-teal-600" onClick={() => handleGroup(e)} data-testid={`vw-group-${e.id}`} title="Group"><Users className="w-3 h-3" /></Button>}
-                          {linkedRst.has(e.rst_no) ? (
+                          {linkedRst.has(e.rst_no) && !canEditVwLinked ? (
                             <span className="h-6 w-6 flex items-center justify-center text-green-500" title="Mill Entry done" data-testid={`vw-linked-${e.id}`}><CheckCircle className="w-4 h-4" /></span>
                           ) : (
                             <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 hover:text-red-600" onClick={() => handleDelete(e.id)} data-testid={`vw-del-${e.id}`} title="Delete"><Trash2 className="w-3 h-3" /></Button>
