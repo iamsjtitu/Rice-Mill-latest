@@ -351,11 +351,12 @@ const DailyReport = ({ filters }) => {
         <div className="space-y-3">
           {/* Paddy Entries */}
           <Section title="Paddy Entries / धान" icon={Truck} color="text-blue-400" count={data.paddy_entries.count}>
-            <div className="grid grid-cols-4 gap-3 mb-2">
+            <div className="grid grid-cols-5 gap-3 mb-2">
               {[
                 ["Total Mill W (QNTL)", ((data.paddy_entries.total_mill_w || 0) / 100).toFixed(2), "text-white"],
                 ["Total BAG", data.paddy_entries.total_bags, "text-amber-400"],
                 ["Final W. QNTL (Auto)", (data.paddy_entries.total_final_w / 100).toFixed(2), "text-green-400"],
+                ["Total TP Weight", data.paddy_entries.total_tp_weight || 0, "text-orange-400"],
                 ["Total Bag Deposite", data.paddy_entries.total_g_deposite || 0, "text-cyan-400"],
               ].map(([l,v,c]) => (
                 <div key={l} className="text-center p-2 bg-slate-900/50 rounded">
@@ -408,6 +409,7 @@ const DailyReport = ({ filters }) => {
                     <td className="py-1 px-1.5 text-right text-purple-400">{d.cutting_percent}%</td>
                     <td className="py-1 px-1.5 text-right text-slate-400">{d.disc_dust_poll || 0}</td>
                     <td className="py-1 px-1.5 text-right text-amber-400 font-semibold">{(d.final_w / 100).toFixed(2)}</td>
+                    <td className="py-1 px-1.5 text-right text-orange-400">{Number(d.tp_weight || 0) > 0 ? d.tp_weight : '-'}</td>
                     <td className="py-1 px-1.5 text-right text-cyan-400">{d.g_issued}</td>
                     <td className="py-1 px-1.5 text-right text-green-300">{d.cash_paid || 0}</td>
                     <td className="py-1 px-1.5 text-right text-orange-400">{d.diesel_paid || 0}</td>

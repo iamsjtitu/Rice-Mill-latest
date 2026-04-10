@@ -1103,6 +1103,26 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
             cell.border = border
             if c >= 9: cell.alignment = Alignment(horizontal='right')
 
+    # Totals row
+    tot_row = hdr_row + 1 + len(items)
+    tot_bags = sum(int(e.get("tot_pkts", 0) or 0) for e in items)
+    tot_1st = sum(float(e.get("first_wt", 0) or 0) for e in items)
+    tot_2nd = sum(float(e.get("second_wt", 0) or 0) for e in items)
+    tot_net = sum(float(e.get("net_wt", 0) or 0) for e in items)
+    tot_tp = sum(float(e.get("tp_weight", 0) or 0) for e in items)
+    tot_giss = sum(float(e.get("g_issued", 0) or 0) for e in items)
+    tot_cash = sum(float(e.get("cash_paid", 0) or 0) for e in items)
+    tot_diesel = sum(float(e.get("diesel_paid", 0) or 0) for e in items)
+    tot_fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
+    tot_font = Font(bold=True, color="FFFFFF", size=10)
+    tot_vals = ["", "", "", "", "", "", "TOTAL:", tot_bags, tot_1st, tot_2nd, tot_net, tot_tp, tot_giss, tot_cash, tot_diesel]
+    for c, v in enumerate(tot_vals, 1):
+        cell = ws.cell(row=tot_row, column=c, value=v)
+        cell.font = tot_font
+        cell.fill = tot_fill
+        cell.border = border
+        if c >= 7: cell.alignment = Alignment(horizontal='right')
+
     # Auto width
     from openpyxl.cell.cell import MergedCell
     for col in ws.columns:
@@ -1161,6 +1181,20 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
             f"{e.get('diesel_paid',0):,.0f}" if e.get('diesel_paid') else "-"
         ])
 
+    # Add totals row
+    tot_bags = sum(int(e.get("tot_pkts", 0) or 0) for e in items)
+    tot_1st = sum(float(e.get("first_wt", 0) or 0) for e in items)
+    tot_2nd = sum(float(e.get("second_wt", 0) or 0) for e in items)
+    tot_net = sum(float(e.get("net_wt", 0) or 0) for e in items)
+    tot_tp = sum(float(e.get("tp_weight", 0) or 0) for e in items)
+    tot_giss = sum(float(e.get("g_issued", 0) or 0) for e in items)
+    tot_cash = sum(float(e.get("cash_paid", 0) or 0) for e in items)
+    tot_diesel = sum(float(e.get("diesel_paid", 0) or 0) for e in items)
+    data.append(["", "", "", "", "", "", "TOTAL:", str(tot_bags),
+                 f"{tot_1st:,.0f}", f"{tot_2nd:,.0f}", f"{tot_net:,.0f}",
+                 f"{tot_tp}" if tot_tp > 0 else "-", f"{tot_giss:,.0f}",
+                 f"{tot_cash:,.0f}" if tot_cash else "-", f"{tot_diesel:,.0f}" if tot_diesel else "-"])
+
     col_widths = [35, 58, 65, 70, 65, 55, 52, 30, 50, 50, 50, 38, 38, 42, 42]
     t = Table(data, colWidths=col_widths, repeatRows=1)
     
@@ -1172,8 +1206,8 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     style_cmds = [
         # Header colors by column group
         ('BACKGROUND', (0, 0), (7, 0), navy),      # Info columns: RST to Bags
-        ('BACKGROUND', (8, 0), (11, 0), teal),      # Weight columns: 1st-Net-GIssued
-        ('BACKGROUND', (12, 0), (13, 0), amber),    # Money columns: Cash-Diesel
+        ('BACKGROUND', (8, 0), (11, 0), teal),      # Weight columns: 1st-Net-TP Wt
+        ('BACKGROUND', (12, 0), (14, 0), amber),    # Money columns: G.Iss-Cash-Diesel
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTSIZE', (0, 0), (-1, 0), 8),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -1210,6 +1244,13 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
         if data[row_idx][13] != "-":
             style_cmds.append(('TEXTCOLOR', (13, row_idx), (13, row_idx), colors.HexColor('#e65100')))
             style_cmds.append(('FONTNAME', (13, row_idx), (13, row_idx), 'Helvetica-Bold'))
+
+    # Totals row styling
+    last_row = len(data) - 1
+    style_cmds.append(('BACKGROUND', (0, last_row), (-1, last_row), colors.HexColor('#1a1a2e')))
+    style_cmds.append(('TEXTCOLOR', (0, last_row), (-1, last_row), colors.white))
+    style_cmds.append(('FONTNAME', (0, last_row), (-1, last_row), 'Helvetica-Bold'))
+    style_cmds.append(('FONTSIZE', (0, last_row), (-1, last_row), 8))
     
     t.setStyle(TableStyle(style_cmds))
     elements.append(t)

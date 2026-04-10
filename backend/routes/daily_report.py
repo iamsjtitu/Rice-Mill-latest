@@ -151,6 +151,7 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
         "paddy_entries": {
             "count": len(entries), "total_kg": round(total_paddy_kg, 2),
             "total_bags": total_paddy_bags, "total_final_w": round(total_final_w, 2),
+            "total_tp_weight": round(sum(float(e.get("tp_weight", 0) or 0) for e in entries), 2),
             "total_mill_w": round(sum(e.get("mill_w", 0) for e in entries), 2),
             "total_g_deposite": sum(e.get("g_deposite", 0) for e in entries),
             "total_g_issued": sum(e.get("g_issued", 0) for e in entries),
@@ -158,7 +159,8 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
             "total_diesel_paid": round(sum(e.get("diesel_paid", 0) for e in entries), 2),
             "details": [{"truck_no": e.get("truck_no", ""), "agent": e.get("agent_name", ""),
                 "mandi": e.get("mandi_name", ""), "rst_no": e.get("rst_no", ""),
-                "tp_no": e.get("tp_no", ""), "season": e.get("season", ""),
+                "tp_no": e.get("tp_no", ""), "tp_weight": float(e.get("tp_weight", 0) or 0),
+                "season": e.get("season", ""),
                 "kg": e.get("kg", 0), "qntl": e.get("qntl", 0), "bags": e.get("bag", 0),
                 "g_deposite": e.get("g_deposite", 0), "gbw_cut": e.get("gbw_cut", 0),
                 "mill_w": e.get("mill_w", 0),
