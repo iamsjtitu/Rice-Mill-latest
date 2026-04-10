@@ -22,9 +22,9 @@ function fmtDate(d) {
 
 function fmtVal(value, type) {
     if (type === 'date') return fmtDate(value);
-    if (type === 'qntl') return +(((value || 0) / 100).toFixed(2));
-    if (type === 'integer') return Math.round(value || 0);
-    if (type === 'number') return +((value || 0).toFixed(2));
+    if (type === 'qntl') return +(((parseFloat(value) || 0) / 100).toFixed(2));
+    if (type === 'integer') return Math.round(parseFloat(value) || 0);
+    if (type === 'number') return +((parseFloat(value) || 0).toFixed(2));
     return value || '';
 }
 

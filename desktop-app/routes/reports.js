@@ -4,7 +4,7 @@ const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
+const { addPdfHeader: _addPdfHeader, addPdfTable, addSectionTitle, addTotalsRow, fmtAmt, fmtDate, C, registerFonts, F , safePdfPipe} = require('./pdf_helpers');
 const rptHelper = require('../shared/report_helper');
 
 module.exports = function(database) {
@@ -710,17 +710,16 @@ module.exports = function(database) {
     });
     const data = { discrepancies, total_count: discrepancies.length, total_diff_qntl: +totalDiff.toFixed(2), total_diff_kg: Math.round(totalDiff * 100) };
 
-    const doc = createPdfDoc('landscape');
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
     res.setHeader('Content-Disposition', 'attachment; filename=weight_discrepancy.pdf');
-    res.setHeader('Content-Type', 'application/pdf');
-    doc.pipe(res);
-    addPdfTitle(doc, 'Weight Discrepancy Report / वजन फर्क', `Discrepancies: ${data.total_count} | Total Diff: ${data.total_diff_qntl} Q (${data.total_diff_kg} KG)`, database);
+    addPdfHeader(doc, 'Weight Discrepancy Report', `Discrepancies: ${data.total_count} | Total Diff: ${data.total_diff_qntl} Q (${data.total_diff_kg} KG)`);
     const h = ['Date','Truck','RST','TP','Agent','Mandi','TP Wt(Q)','QNTL','Diff(Q)','Diff(KG)'];
-    const w = [38,40,24,24,40,60,30,30,30,30];
-    const rows = data.discrepancies.map(d => [d.date, d.truck_no, d.rst_no, d.tp_no, d.agent_name, d.mandi_name, d.tp_weight.toFixed(2), d.qntl.toFixed(2), d.diff_qntl.toFixed(2), d.diff_kg]);
-    drawPdfTable(doc, h, rows, w);
-    addTotalsRow(doc, ['TOTAL','','','','',`${data.total_count} entries`,'','',data.total_diff_qntl.toFixed(2), data.total_diff_kg], w);
-    doc.end();
+    const w = [55,55,35,35,60,80,45,45,45,45];
+    const rows = data.discrepancies.map(d => [d.date, d.truck_no, d.rst_no, d.tp_no, d.agent_name, d.mandi_name, d.tp_weight.toFixed(2), d.qntl.toFixed(2), d.diff_qntl.toFixed(2), String(d.diff_kg)]);
+    addPdfTable(doc, h, rows, w);
+    addTotalsRow(doc, ['TOTAL','','','','',`${data.total_count} entries`,'','',data.total_diff_qntl.toFixed(2), String(data.total_diff_kg)], w);
+    await safePdfPipe(doc, res);
   }));
 
   return router;
