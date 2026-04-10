@@ -677,19 +677,12 @@ const PaddyChalnaTab = ({ filters }) => {
   return (
     <div className="space-y-4" data-testid="paddy-chalna-tab">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <Card className="bg-gradient-to-br from-blue-900/40 to-slate-800 border-blue-800/50">
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-slate-400 mb-1">Bag Received (Mill)</p>
-            <p className="text-2xl font-bold text-blue-400" data-testid="bags-mill">{(s.bags_mill || 0).toLocaleString()}</p>
-            <p className="text-[10px] text-slate-500">From truck entries</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-purple-900/40 to-slate-800 border-purple-800/50">
-          <CardContent className="p-4 text-center">
-            <p className="text-xs text-slate-400 mb-1">P.Pkt (Plastic)</p>
-            <p className="text-2xl font-bold text-purple-400" data-testid="bags-plastic">{(s.bags_plastic || 0).toLocaleString()}</p>
-            <p className="text-[10px] text-slate-500">From truck entries</p>
+            <p className="text-xs text-slate-400 mb-1">Total Paddy Bags</p>
+            <p className="text-2xl font-bold text-blue-400" data-testid="bags-total">{(s.total_received || 0).toLocaleString()}</p>
+            <p className="text-[10px] text-slate-500">Mill + Plastic (From truck entries)</p>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-amber-900/40 to-slate-800 border-amber-800/50">
@@ -699,11 +692,11 @@ const PaddyChalnaTab = ({ filters }) => {
             <p className="text-[10px] text-slate-500">Chalna / Cutting done</p>
           </CardContent>
         </Card>
-        <Card className={`bg-gradient-to-br ${(s.remaining || 0) > 0 ? 'from-green-900/40 to-slate-800 border-green-800/50' : 'from-red-900/40 to-slate-800 border-red-800/50'}`}>
+        <Card className={`bg-gradient-to-br ${(s.remaining || 0) >= 0 ? 'from-green-900/40 to-slate-800 border-green-800/50' : 'from-red-900/40 to-slate-800 border-red-800/50'}`}>
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-slate-400 mb-1">Remaining</p>
+            <p className="text-xs text-slate-400 mb-1">Remaining Paddy Bags</p>
             <p className={`text-2xl font-bold ${(s.remaining || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`} data-testid="bags-remaining">{(s.remaining || 0).toLocaleString()}</p>
-            <p className="text-[10px] text-slate-500">Received - Cut</p>
+            <p className="text-[10px] text-slate-500">Total - Cut</p>
           </CardContent>
         </Card>
       </div>
