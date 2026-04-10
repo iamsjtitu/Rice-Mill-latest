@@ -91,16 +91,24 @@ async def get_entry_photos(entry_id: str):
 
 
 async def _next_rst(kms_year: str = ""):
-    """Auto-increment RST number for current KMS year."""
+    """Auto-increment RST number for current KMS year with duplicate prevention."""
     query = {}
     if kms_year:
         query["kms_year"] = kms_year
     cursor = db["vehicle_weights"].find(query, {"_id": 0, "rst_no": 1})
-    docs = await cursor.to_list(length=10000)
+    docs = await cursor.to_list(length=50000)
     if not docs:
         return 1
-    max_rst = max(int(d.get("rst_no", 0) or 0) for d in docs)
-    return max_rst + 1
+    # Collect all used RST numbers
+    used_rsts = set()
+    for d in docs:
+        try:
+            used_rsts.add(int(d.get("rst_no", 0) or 0))
+        except (ValueError, TypeError):
+            pass
+    max_rst = max(used_rsts) if used_rsts else 0
+    next_rst = max_rst + 1
+    return next_rst
 
 
 @router.get("/vehicle-weight")
@@ -131,7 +139,7 @@ async def list_weights(kms_year: str = "", status: str = "", page: int = 1, page
     if page_size < 1: page_size = 200
     if page < 1: page = 1
     skip = (page - 1) * page_size
-    items = await db["vehicle_weights"].find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(page_size).to_list(page_size)
+    items = await db["vehicle_weights"].find(query, {"_id": 0}).sort([("date", -1), ("rst_no", -1)]).skip(skip).limit(page_size).to_list(page_size)
     return {"entries": items, "count": len(items), "total": total_count, "page": page, "page_size": page_size, "total_pages": max(1, (total_count + page_size - 1) // page_size)}
 
 
@@ -141,7 +149,7 @@ async def pending_vehicles(kms_year: str = ""):
     query = {"status": "pending"}
     if kms_year:
         query["kms_year"] = kms_year
-    cursor = db["vehicle_weights"].find(query, {"_id": 0}).sort("created_at", -1)
+    cursor = db["vehicle_weights"].find(query, {"_id": 0}).sort([("date", -1), ("rst_no", -1)])
     items = await cursor.to_list(length=100)
     return {"pending": items, "count": len(items)}
 
@@ -508,6 +516,13 @@ async def create_weight_entry(data: dict):
             raise HTTPException(status_code=400, detail=f"RST #{rst_no} already exists! Duplicate RST number.")
     else:
         rst_no = await _next_rst(kms_year)
+        # Double-check no duplicate exists (race condition guard)
+        dup_check = {"rst_no": rst_no}
+        if kms_year:
+            dup_check["kms_year"] = kms_year
+        if await db["vehicle_weights"].find_one(dup_check):
+            # Recalculate to be safe
+            rst_no = await _next_rst(kms_year)
 
     entry = {
         "id": str(uuid.uuid4()),

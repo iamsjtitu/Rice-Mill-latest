@@ -296,7 +296,7 @@ module.exports = function(database) {
       if (party_name) items = items.filter(w => (w.party_name || '').toLowerCase().includes(party_name.toLowerCase()));
       if (farmer_name) items = items.filter(w => (w.farmer_name || '').toLowerCase().includes(farmer_name.toLowerCase()));
       if (rst_no) items = items.filter(w => String(w.rst_no) === String(rst_no));
-      items = [...items].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+      items = [...items].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (Number(b.rst_no) || 0) - (Number(a.rst_no) || 0));
       const total = items.length;
       const pageSize = parseInt(req.query.page_size) || 200;
       const page = parseInt(req.query.page) || 1;
@@ -314,7 +314,7 @@ module.exports = function(database) {
     const { kms_year } = req.query;
     let items = col('vehicle_weights').filter(w => w.status === 'pending');
     if (kms_year) items = items.filter(w => w.kms_year === kms_year);
-    items = [...items].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    items = [...items].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (Number(b.rst_no) || 0) - (Number(a.rst_no) || 0));
     res.json({ pending: items, count: items.length });
   }));
 
@@ -658,6 +658,12 @@ module.exports = function(database) {
       if (dup) return res.status(400).json({ detail: `RST #${rstNo} already exists! Duplicate RST number.` });
     } else {
       rstNo = getNextRst(kmsYear);
+      // Double-check no duplicate (race condition guard)
+      const weights2 = col('vehicle_weights');
+      const dup2 = kmsYear
+        ? weights2.find(w => w.rst_no === rstNo && w.kms_year === kmsYear)
+        : weights2.find(w => w.rst_no === rstNo);
+      if (dup2) rstNo = getNextRst(kmsYear);
     }
 
     const entry = {
@@ -984,7 +990,7 @@ module.exports = function(database) {
     if (query.party_name) items = items.filter(w => (w.party_name || '').toLowerCase().includes(query.party_name.toLowerCase()));
     if (query.farmer_name) items = items.filter(w => (w.farmer_name || '').toLowerCase().includes(query.farmer_name.toLowerCase()));
     if (query.rst_no) items = items.filter(w => String(w.rst_no) === String(query.rst_no));
-    return [...items].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    return [...items].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (Number(b.rst_no) || 0) - (Number(a.rst_no) || 0));
   }
 
   router.get('/api/vehicle-weight/export/excel', safeAsync(async (req, res) => {

@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.50.0";
+const APP_VERSION = "88.51.0";
 
 const CHANGELOG = [
+  {
+    version: "88.51.0",
+    date: "Apr 2026",
+    title: "v88.51.0 - RST Duplicate Fix + Date Sorting",
+    items: [
+      { type: "fix", text: "Auto Vehicle Weight mein RST number ab duplicate nahi hoga — race condition guard added" },
+      { type: "fix", text: "Auto Vehicle Weight entries ab date ke hisaab se sort hote hain (pehle creation time se hota tha)" },
+      { type: "fix", text: "Date sorting export/PDF mein bhi fix kiya" },
+    ]
+  },
   {
     version: "88.50.0",
     date: "Apr 2026",
