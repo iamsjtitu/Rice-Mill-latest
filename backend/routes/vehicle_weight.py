@@ -825,7 +825,7 @@ async def weight_slip_pdf(entry_id: str, party_only: int = 0):
         elif tp_no:
             rows.append(("TP No.", tp_no, "", ""))
         if tp_weight > 0:
-            rows.append(("TP Weight", f"{tp_weight/100:.2f} Q", "", ""))
+            rows.append(("TP Weight", f"{tp_weight} Q", "", ""))
         if remark_text:
             rows.append(("Remark", remark_text, "", ""))
         rh = 6*mm  # row height - taller for proper table cells

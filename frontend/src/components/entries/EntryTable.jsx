@@ -150,7 +150,7 @@ export function EntryTable({
                       </TableCell>
                       <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.rst_no || '-'}</TableCell>
                       <TableCell className="text-slate-300 whitespace-nowrap px-1">{entry.tp_no || '-'}</TableCell>
-                      <TableCell className="text-slate-300 text-right font-mono whitespace-nowrap px-1">{Number(entry.tp_weight || 0) > 0 ? (Number(entry.tp_weight)/100).toFixed(2) : '-'}</TableCell>
+                      <TableCell className="text-slate-300 text-right font-mono whitespace-nowrap px-1">{Number(entry.tp_weight || 0) > 0 ? Number(entry.tp_weight) : '-'}</TableCell>
                       <TableCell className="text-white whitespace-nowrap px-1">{entry.agent_name}</TableCell>
                       <TableCell className="text-white whitespace-nowrap px-1">{entry.mandi_name}</TableCell>
                       <TableCell className="text-green-400 text-right font-mono font-bold whitespace-nowrap px-1">{entry.qntl?.toFixed(2)}</TableCell>

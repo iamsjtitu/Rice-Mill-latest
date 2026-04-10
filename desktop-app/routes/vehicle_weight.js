@@ -273,7 +273,7 @@ module.exports = function(database) {
     if (gIssued > 0) text += `G.Issued: ${gIssued.toLocaleString()}\n`;
     if (entry.tp_no) text += `TP: ${entry.tp_no}\n`;
     const tpWt = parseFloat(entry.tp_weight || 0) || 0;
-    if (tpWt > 0) text += `TP Weight: ${(tpWt/100).toFixed(2)} Q\n`;
+    if (tpWt > 0) text += `TP Weight: ${tpWt} Q\n`;
     if (entry.remark) text += `Remark: ${entry.remark}\n`;
     if (cash > 0) text += `Cash Paid: \u20b9${Number(cash).toLocaleString()}\n`;
     if (diesel > 0) text += `Diesel Paid: \u20b9${Number(diesel).toLocaleString()}\n`;
@@ -937,7 +937,7 @@ module.exports = function(database) {
       const remarkText = entry.remark || '';
       if (gIssued > 0) rows.push(['G.Issued', gIssued.toLocaleString(), 'TP No.', tpNo || '-']);
       else if (tpNo) rows.push(['TP No.', tpNo, '', '']);
-      if (tpWeight > 0) rows.push(['TP Weight', `${(tpWeight/100).toFixed(2)} Q`, '', '']);
+      if (tpWeight > 0) rows.push(['TP Weight', `${tpWeight} Q`, '', '']);
       if (remarkText) rows.push(['Remark', remarkText, '', '']);
       const rh = 6 * mm;
       const c1w = PW * 0.18;

@@ -347,7 +347,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                       <TableCell className="py-2 px-3 text-xs text-right text-green-700 font-bold">{fmtWt(e.net_wt)}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-indigo-700 font-semibold">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-slate-400">{e.tp_no || '-'}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs text-right text-slate-400 font-mono">{Number(e.tp_weight || 0) > 0 ? (Number(e.tp_weight)/100).toFixed(2) : '-'}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs text-right text-slate-400 font-mono">{Number(e.tp_weight || 0) > 0 ? Number(e.tp_weight) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-amber-700 font-semibold">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3 text-xs text-right text-red-600 font-semibold">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
@@ -444,7 +444,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
                 {Number(photoDialog.data.tp_weight || 0) > 0 && (
                   <tr>
                     <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold">TP Weight</td>
-                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{(Number(photoDialog.data.tp_weight)/100).toFixed(2)} Q</td>
+                    <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{Number(photoDialog.data.tp_weight)} Q</td>
                     <td className="border border-slate-600 px-2 py-1"></td>
                     <td className="border border-slate-600 px-2 py-1"></td>
                   </tr>

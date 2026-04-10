@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.69.0";
+const APP_VERSION = "88.70.0";
 
 const CHANGELOG = [
+  {
+    version: "88.70.0",
+    date: "Apr 2026",
+    title: "v88.70.0 - TP Weight & Edit Dialog Fixes",
+    items: [
+      { type: "fix", text: "TP Weight ab sahi value show karta hai (÷100 hata diya, QNTL mein hi store hota hai)" },
+      { type: "fix", text: "Print Slip CUSTOMER COPY mein TP No. / TP Weight nahi dikhega" },
+      { type: "fix", text: "Edit Dialog layout fix - Diesel Paid ab sahi row mein dikhta hai (4+2 grid)" },
+      { type: "feature", text: "Edit Dialog mein Vehicle No, Party Name, Source mein auto-suggestion" },
+    ]
+  },
   {
     version: "88.69.0",
     date: "Apr 2026",

@@ -290,7 +290,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
                 <td className="p-2 whitespace-nowrap font-mono text-xs">{e.truck_no}</td>
                 <td className="p-2 whitespace-nowrap">{e.rst_no}</td>
                 <td className="p-2 whitespace-nowrap">{e.tp_no}</td>
-                <td className="p-2 text-right font-mono">{Number(e.tp_weight || 0) > 0 ? (Number(e.tp_weight)/100).toFixed(2) : '-'}</td>
+                <td className="p-2 text-right font-mono">{Number(e.tp_weight || 0) > 0 ? Number(e.tp_weight) : '-'}</td>
                 <td className="p-2 whitespace-nowrap">{e.agent_name}</td>
                 <td className="p-2 whitespace-nowrap">{e.mandi_name}</td>
                 <td className="p-2 text-right">{fmt(e.qntl)}</td>

@@ -1179,7 +1179,7 @@ const AgentMandiReport = ({ filters }) => {
             ["Gunny Deposit", totals.total_g_deposite || totals.g_deposite || 0, "", "text-cyan-400"],
             ["Gunny Issued", totals.total_g_issued || totals.g_issued || 0, "", "text-purple-400"],
             ["Final Weight", ((totals.total_final_w || 0) / 100).toFixed(2), "Q", "text-emerald-400"],
-            ["TP Weight", ((totals.total_tp_weight || 0) / 100).toFixed(2), "Q", "text-orange-400"],
+            ["TP Weight", (totals.total_tp_weight || 0), "Q", "text-orange-400"],
           ].map(([label, val, unit, color]) => (
             <Card key={label} className="bg-slate-800 border-slate-700">
               <CardContent className="p-3 text-center">
@@ -1223,7 +1223,7 @@ const AgentMandiReport = ({ filters }) => {
                   <div className="text-center"><p className="text-[10px] text-slate-500">G.Deposit</p><p className="text-cyan-400 font-bold">{fmtNum(mandi.totals.total_g_deposite)}</p></div>
                   <div className="text-center"><p className="text-[10px] text-slate-500">G.Issued</p><p className="text-purple-400 font-bold">{fmtNum(mandi.totals.total_g_issued)}</p></div>
                   <div className="text-center"><p className="text-[10px] text-slate-500">Final Wt</p><p className="text-emerald-400 font-bold">{fmtNum(mandi.totals.total_final_w/100)}</p></div>
-                  <div className="text-center"><p className="text-[10px] text-slate-500">TP Wt</p><p className="text-orange-400 font-bold">{fmtNum((mandi.totals.total_tp_weight || 0)/100)}</p></div>
+                  <div className="text-center"><p className="text-[10px] text-slate-500">TP Wt</p><p className="text-orange-400 font-bold">{fmtNum(mandi.totals.total_tp_weight || 0)}</p></div>
                   {mandi.extra_qntl > 0 && (
                     <Button size="sm" onClick={(e) => { e.stopPropagation(); setPvtDialog({ open: true, mandi }); setPvtRate(""); }}
                       className={mandi.pvt_moved ? "bg-slate-600 text-slate-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700 text-white"}
@@ -1276,7 +1276,7 @@ const AgentMandiReport = ({ filters }) => {
                           <td className="px-2 py-1.5 text-right text-red-400">{entry.cutting_percent}</td>
                           <td className="px-2 py-1.5 text-right text-slate-300">{fmtNum(entry.disc_dust_poll/100)}</td>
                           <td className="px-2 py-1.5 text-right text-emerald-400 font-semibold">{fmtNum(entry.final_w/100)}</td>
-                          <td className="px-2 py-1.5 text-right text-slate-300">{Number(entry.tp_weight || 0) > 0 ? fmtNum(entry.tp_weight/100) : '-'}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-300">{Number(entry.tp_weight || 0) > 0 ? fmtNum(entry.tp_weight) : '-'}</td>
                         </tr>
                       ))}
                       {/* Totals row */}
@@ -1295,7 +1295,7 @@ const AgentMandiReport = ({ filters }) => {
                         <td className="px-2 py-2"></td>
                         <td className="px-2 py-2 text-right text-slate-300 font-bold">{fmtNum(mandi.totals.total_disc_dust_poll/100)}</td>
                         <td className="px-2 py-2 text-right text-emerald-400 font-bold">{fmtNum(mandi.totals.total_final_w/100)}</td>
-                        <td className="px-2 py-2 text-right text-slate-300 font-bold">{fmtNum((mandi.totals.total_tp_weight || 0)/100)}</td>
+                        <td className="px-2 py-2 text-right text-slate-300 font-bold">{fmtNum(mandi.totals.total_tp_weight || 0)}</td>
                       </tr>
                     </tbody>
                   </table>
