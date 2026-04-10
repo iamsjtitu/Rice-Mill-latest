@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, and automated database sync between local computers.
 
-## Current Version: v88.45.0
+## Current Version: v88.54.0
 
 ## What's Been Implemented
 - Full mill entry CRUD with RST numbering
@@ -28,6 +28,9 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **Mobile Responsiveness**: Hamburger menu, compact cards, scrollable tables
 - **Dark Theme Fixes**: Text visibility/contrast across all components
 - **Settings Sync**: camera_config and mandi_cutting_map synced to backend DB
+- **Sync Status Remote Access (Apr 2026)**: Local Server mein `/api/sync-status` endpoint added — Cloudflare Tunnel se bhi DATA SYNC panel dikhega
+- **Mill Entry RST Field Lock (Apr 2026)**: RST fetch hone par Date, Truck No., FY Year, Season, TP No., Agent Name, Mandi Name sab lock (readonly) ho jaate hain
+- **AutoSuggest disabled prop (Apr 2026)**: AutoSuggest component ab `disabled` prop support karta hai for field locking
 - **Electron IPC**: App closes on logout via window.electronAPI.closeApp
 - **P.Pkt Cut in Mill W Fix (Apr 2026)**: P.Pkt Cut ab Mill W calculation mein subtract hota hai (pehle sirf Final W mein hota tha). Formula: `Mill W = KG - GBW Cut - P.Pkt Cut`. Fix applied across all 5 calculation locations: Frontend (App.js), Python backend (models.py), Desktop main.js, Desktop sqlite-database.js, Local server.js, and both import_excel.js files.
 - **TP Number Duplicate Check (Apr 2026)**: Auto Vehicle Weight mein duplicate TP number entry blocked. Same TP already used in RST → red warning shown and submit prevented.
@@ -44,7 +47,7 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 ## Prioritized Backlog
 
 ### P1 (High)
-- [ ] Daily Summary Report (Auto) - End-of-day summary of entries, payments, and cash position
+- None currently
 
 ### P2 (Medium)
 - [ ] Python backend service layer refactoring

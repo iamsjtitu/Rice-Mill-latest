@@ -9,8 +9,9 @@ const CHANGELOG = [
   {
     version: "88.54.0",
     date: "Apr 2026",
-    title: "v88.54.0 - Sync Status Remote Access Fix",
+    title: "v88.54.0 - Sync Status + Mill Entry RST Lock",
     items: [
+      { type: "feature", text: "Mill Entry mein RST fetch hone par Date, Truck No., FY Year, Season, TP No., Agent Name, Mandi Name sab lock ho jayenge — sirf RST se aaya data dikhega" },
       { type: "fix", text: "Bahar browser/mobile se open karne pe ab DATA SYNC panel dikhega — Entries, Vehicle Wt, Cash Txns count + Last Save time + Engine info" },
       { type: "fix", text: "Local Server mein /api/sync-status endpoint add kiya — Cloudflare Tunnel se bhi sync info accessible" },
     ]

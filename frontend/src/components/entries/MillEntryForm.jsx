@@ -104,12 +104,13 @@ export function MillEntryForm({
           {/* FY Year & Season */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <Label className="text-slate-300">FY Year</Label>
+              <Label className="text-slate-300">FY Year{rstFetched ? ' (Locked)' : ''}</Label>
               <Select
                 value={formData.kms_year}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, kms_year: value }))}
+                disabled={!!rstFetched}
               >
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white" data-testid="select-kms-year">
+                <SelectTrigger className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'}`} data-testid="select-kms-year">
                   <SelectValue placeholder="Select Year" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600">
@@ -122,12 +123,13 @@ export function MillEntryForm({
               </Select>
             </div>
             <div>
-              <Label className="text-slate-300">Season</Label>
+              <Label className="text-slate-300">Season{rstFetched ? ' (Locked)' : ''}</Label>
               <Select
                 value={formData.season}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, season: value }))}
+                disabled={!!rstFetched}
               >
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-white" data-testid="select-season">
+                <SelectTrigger className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'}`} data-testid="select-season">
                   <SelectValue placeholder="Select Season" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600">
@@ -140,14 +142,15 @@ export function MillEntryForm({
               </Select>
             </div>
             <div>
-              <Label className="text-slate-300">Date</Label>
+              <Label className="text-slate-300">Date{rstFetched ? ' (Locked)' : ''}</Label>
               <Input
                 type="date"
                 name="date"
                 value={formData.date}
                 onChange={handleInputChange}
-                className="bg-slate-700 border-slate-600 text-white"
+                className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'}`}
                 data-testid="input-date"
+                disabled={!!rstFetched}
               />
             </div>
             <AutoSuggest
@@ -156,8 +159,9 @@ export function MillEntryForm({
               suggestions={truckSuggestions}
               placeholder="OD00XX0000"
               onSelect={(val) => setFormData(prev => ({ ...prev, truck_no: val }))}
-              label="Truck No."
+              label={`Truck No.${rstFetched ? ' (Locked)' : ''}`}
               testId="input-truck-no"
+              disabled={!!rstFetched}
             />
             {leasedTruckNos.has((formData.truck_no || '').toUpperCase()) && (
               <div className="mt-1 flex items-center gap-1 text-xs text-violet-400 bg-violet-500/10 border border-violet-500/30 rounded px-2 py-1" data-testid="leased-truck-indicator">
@@ -191,13 +195,14 @@ export function MillEntryForm({
               )}
             </div>
             <div>
-              <Label className="text-slate-300">TP No.</Label>
+              <Label className="text-slate-300">TP No.{rstFetched ? ' (Locked)' : ''}</Label>
               <Input
                 value={formData.tp_no}
                 onChange={(e) => setFormData(prev => ({ ...prev, tp_no: e.target.value }))}
                 placeholder="TP Number"
-                className={`bg-slate-700 border-slate-600 text-white ${dupWarning.tp ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+                className={`${rstFetched ? 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-white'} ${dupWarning.tp ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                 data-testid="input-tp-no"
+                disabled={!!rstFetched}
               />
               {dupWarning.tp && (
                 <p className="text-red-400 text-xs mt-1 flex items-center gap-1">
@@ -215,8 +220,9 @@ export function MillEntryForm({
               suggestions={agentSuggestions}
               placeholder="Agent name"
               onSelect={handleAgentSelect}
-              label="Agent Name"
+              label={`Agent Name${rstFetched ? ' (Locked)' : ''}`}
               testId="input-agent-name"
+              disabled={!!rstFetched}
             />
             <AutoSuggest
               value={formData.mandi_name}
@@ -246,8 +252,9 @@ export function MillEntryForm({
                   setFormData(prev => ({ ...prev, mandi_name: target.mandi_name, cutting_percent: String(target.cutting_percent) }));
                 }
               }}
-              label="Mandi Name"
+              label={`Mandi Name${rstFetched ? ' (Locked)' : ''}`}
               testId="input-mandi-name"
+              disabled={!!rstFetched}
             />
           </div>
 

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
  * AutoSuggest - Dropdown Component with Keyboard Support
  * Features: Arrow keys navigation, Enter to select, Escape to close
  */
-const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBlur, label, testId, labelClassName, inputClassName }) => {
+const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBlur, label, testId, labelClassName, inputClassName, disabled }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState([]);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -95,17 +95,20 @@ const AutoSuggest = ({ value, onChange, suggestions, placeholder, onSelect, onBl
       <Input
         value={value}
         onChange={(e) => {
+          if (disabled) return;
           onChange(e);
           setShowSuggestions(true);
         }}
-        onFocus={() => setShowSuggestions(true)}
+        onFocus={() => { if (!disabled) setShowSuggestions(true); }}
         onBlur={(e) => {
           if (onBlur) onBlur(e);
         }}
-        onKeyDown={handleKeyDown}
+        onKeyDown={disabled ? undefined : handleKeyDown}
         placeholder={placeholder}
-        className={inputClassName || "bg-slate-700 border-slate-600 text-white"}
+        className={disabled ? "bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed" : (inputClassName || "bg-slate-700 border-slate-600 text-white")}
         data-testid={testId}
+        readOnly={disabled}
+        tabIndex={disabled ? -1 : undefined}
       />
       {showSuggestions && filteredSuggestions.length > 0 && (
         <div 
