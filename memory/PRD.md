@@ -1,53 +1,34 @@
 # Rice Mill Management System - PRD
 
 ## Original Problem Statement
-A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, and robust data entry validation. Maintain perfect parity between the web version (Python/MongoDB) and desktop version (Node.js/Local JSON).
+A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, and offline-first desktop capabilities. Must maintain perfect parity between web (Python/MongoDB) and desktop (Node.js/Local JSON) versions.
 
 ## Architecture
-- **Frontend**: React (CRA) with Shadcn/UI + TailwindCSS
+- **Frontend**: React (Vite) with Shadcn UI
 - **Web Backend**: Python FastAPI + MongoDB
 - **Desktop Backend**: Electron + Express + Local JSON
-- **Local Network Backend**: Express + Local JSON (for LAN access)
-- **Triple Parity Rule**: All logic changes must be replicated across all 3 backends
-
-## Current Version: v88.66.0
-
-## What's Been Implemented (Latest)
-- **v88.66.0** (Apr 2026): TP Weight field added end-to-end
-  - VehicleWeight form, table, edit dialog, photo slip, print slip
-  - MillEntryForm (locked on RST fetch)
-  - EntryTable column
-  - Python + Desktop JS + Local JS backends (create, second-weight, edit endpoints)
-  - Agent & Mandi Report (tp_weight per entry, total_tp_weight in totals)
-  - report_config.json updated for Excel/PDF exports
-  - Fixed hardcoded localhost URL in WhatsApp report feature
-
-- **v88.65.0**: VW Cascade Delete + Daily Report Paddy Chalna
-- **v88.64.0**: Paddy Chalna in Daily Report
-- **v88.63.0**: PDF Header GST Fix
-- **v88.62.0**: Paddy Chalna Export Fix
-- **v88.61.0**: Paddy Chalna (Cutting) module
-- Earlier: VW Linked Edit toggle, TP duplicate validation, sync-status endpoint, etc.
+- **Local Server**: Express + Local JSON (LAN access)
+- **Triple Parity**: All logic changes in Python must be mirrored in desktop-app and local-server JS routes
 
 ## Key DB Schema
-- `vehicle_weights`: {id, rst_no, date, kms_year, vehicle_no, party_name, tp_no, **tp_weight**, g_issued, first_wt, second_wt, net_wt, cash_paid, diesel_paid, ...}
-- `mill_entries`: {id, date, rst_no, tp_no, **tp_weight**, agent_name, mandi_name, qntl, bag, mill_w, final_w, ...}
-- `cash_transactions`, `private_paddy`, `private_payments`
+- `vehicle_weights`: {id, date, rst_no, vehicle_no, party_name, farmer_name, product, trans_type, tot_pkts, first_wt, second_wt, net_wt, tp_no, tp_weight, g_issued, cash_paid, diesel_paid}
+- `mill_entries`: {id, date, kms_year, season, truck_no, rst_no, tp_no, tp_weight, agent_name, mandi_name, kg, qntl, bag, g_deposite, gbw_cut, mill_w, plastic_bag, p_pkt_cut, moisture, moisture_cut, cutting_percent, disc_dust_poll, final_w, g_issued, cash_paid, diesel_paid}
 
-## Key API Endpoints
-- POST/GET/PUT/DELETE `/api/vehicle-weight`
-- POST/GET/PUT/DELETE `/api/entries`
-- GET `/api/reports/agent-mandi-wise`
-- POST `/api/cash-book/auto-fix`
+## Current Version: v88.74.0
 
-## Prioritized Backlog
-### P1 - Upcoming
-- Export Preview feature (preview data before Excel/PDF export)
+## Completed Features (Latest First)
+- v88.74.0: Export Totals Fix - TP Weight totals in Mill Entries, VW, and Daily Report PDF/Excel exports
+- v88.73.0: TP Wt Export + Cascade Edit - VW/Mill Entries PDF/Excel TP Wt columns, VW cascade edit to Mill Entry
+- v88.72.0: Error Message Fix - Proper error messages for TP duplicate warnings
+- v88.71.0: VW Create Fix - weights2 scope error in TP duplicate check
+- v88.70.0: TP Weight & Edit Dialog Fixes - QNTL storage, customer copy exclusion, diesel layout fix
 
-### P2 - Technical Debt
-- Python backend service layer refactoring
-- Centralize stock calculation logic
-- Triple backend code deduplication
+## Upcoming Tasks
+- P1: Export Preview feature (preview data before exporting)
+- P2: Python backend service layer refactoring
+- P2: Centralize stock calculation logic
+- P3: Triple backend code deduplication
 
-### P3 - Future
-- OTA auto-updater verification (GitHub Actions .exe build)
+## Testing
+- Test reports: /app/test_reports/iteration_179.json (21/21 pass - Export TP Weight)
+- Credentials: admin / admin123
