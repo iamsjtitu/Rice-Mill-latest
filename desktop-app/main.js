@@ -1160,7 +1160,7 @@ function createApiServer(database) {
 
   // ===== LAN + BROWSER CLIENT TRACKING =====
   const lanClients = new Map();
-  const browserClients = new Map();
+  let browserSession = { active: false, lastSeen: 0 };
   apiApp.use((req, res, next) => {
     const rawIp = req.ip || req.connection?.remoteAddress || '';
     const ip = rawIp.replace('::ffff:', '');
@@ -1169,11 +1169,8 @@ function createApiServer(database) {
     const isLocalhost = !ip || ip === '127.0.0.1' || ip === '::1';
 
     if (isLocalhost && !isElectron) {
-      // Browser on same PC
-      const key = ua.slice(0, 80) || 'browser';
-      browserClients.set(key, { lastSeen: Date.now(), ua: ua.slice(0, 100) });
+      browserSession = { active: true, lastSeen: Date.now() };
     } else if (!isLocalhost) {
-      // LAN client (other device)
       lanClients.set(ip, { ip, lastSeen: Date.now() });
     }
     next();
@@ -1189,14 +1186,11 @@ function createApiServer(database) {
         lanClients.delete(ip);
       }
     }
-    // Browser sessions on same PC
     const browsers = [];
-    for (const [key, client] of browserClients.entries()) {
-      if (client.lastSeen > fiveMinAgo) {
-        browsers.push({ label: 'Browser', minutes_ago: Math.round((Date.now() - client.lastSeen) / 60000) });
-      } else {
-        browserClients.delete(key);
-      }
+    if (browserSession.active && browserSession.lastSeen > fiveMinAgo) {
+      browsers.push({ label: 'Browser', minutes_ago: Math.round((Date.now() - browserSession.lastSeen) / 60000) });
+    } else {
+      browserSession.active = false;
     }
     res.json({ host_computer: true, lan_clients: active, browser_clients: browsers, total_connected: active.length + browsers.length + 1 });
   }));

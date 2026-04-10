@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.83.0";
+const APP_VERSION = "88.84.0";
 
 const CHANGELOG = [
+  {
+    version: "88.84.0",
+    date: "Apr 2026",
+    title: "v88.84.0 - Desktop Critical Fixes",
+    items: [
+      { type: "fix", text: "EPERM crash fix - watermark upload folder ab User Home mein banega, Program Files mein nahi (Windows permission issue)" },
+      { type: "fix", text: "Connected Sessions - ab sirf 1 Browser dikhega (pehle 2 dikha raha tha duplicate tracking ki wajah se)" },
+    ]
+  },
   {
     version: "88.83.0",
     date: "Apr 2026",
