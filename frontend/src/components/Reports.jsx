@@ -1253,6 +1253,7 @@ const AgentMandiReport = ({ filters }) => {
                         <th className="px-2 py-2 text-slate-400 font-medium text-right w-[45px]">C%</th>
                         <th className="px-2 py-2 text-slate-400 font-medium text-right w-[60px]">D/D/P</th>
                         <th className="px-2 py-2 text-slate-400 font-medium text-right w-[70px]">Final W</th>
+                        <th className="px-2 py-2 text-slate-400 font-medium text-right w-[60px]">TP Wt</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1273,6 +1274,7 @@ const AgentMandiReport = ({ filters }) => {
                           <td className="px-2 py-1.5 text-right text-red-400">{entry.cutting_percent}</td>
                           <td className="px-2 py-1.5 text-right text-slate-300">{fmtNum(entry.disc_dust_poll/100)}</td>
                           <td className="px-2 py-1.5 text-right text-emerald-400 font-semibold">{fmtNum(entry.final_w/100)}</td>
+                          <td className="px-2 py-1.5 text-right text-slate-300">{Number(entry.tp_weight || 0) > 0 ? fmtNum(entry.tp_weight) : '-'}</td>
                         </tr>
                       ))}
                       {/* Totals row */}
@@ -1291,6 +1293,7 @@ const AgentMandiReport = ({ filters }) => {
                         <td className="px-2 py-2"></td>
                         <td className="px-2 py-2 text-right text-slate-300 font-bold">{fmtNum(mandi.totals.total_disc_dust_poll/100)}</td>
                         <td className="px-2 py-2 text-right text-emerald-400 font-bold">{fmtNum(mandi.totals.total_final_w/100)}</td>
+                        <td className="px-2 py-2 text-right text-slate-300 font-bold">{fmtNum(mandi.totals.total_tp_weight || 0)}</td>
                       </tr>
                     </tbody>
                   </table>

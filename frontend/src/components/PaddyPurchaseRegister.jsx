@@ -257,6 +257,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
               <th className="p-2 text-left whitespace-nowrap">Truck No</th>
               <th className="p-2 text-left whitespace-nowrap">RST</th>
               <th className="p-2 text-left whitespace-nowrap">TP</th>
+              <th className="p-2 text-right whitespace-nowrap">TP Wt</th>
               <th className="p-2 text-left whitespace-nowrap">Agent</th>
               <th className="p-2 text-left whitespace-nowrap">Mandi</th>
               <th className="p-2 text-right whitespace-nowrap">QNTL</th>
@@ -275,11 +276,11 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
           </thead>
           <tbody className="text-slate-200">
             {loading ? (
-              <tr><td colSpan={19} className="p-8 text-center text-slate-400">
+              <tr><td colSpan={20} className="p-8 text-center text-slate-400">
                 <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" /> Loading...
               </td></tr>
             ) : entries.length === 0 ? (
-              <tr><td colSpan={19} className="p-8 text-center text-slate-500">Koi entry nahi mili</td></tr>
+              <tr><td colSpan={20} className="p-8 text-center text-slate-500">Koi entry nahi mili</td></tr>
             ) : entries.map((e, i) => (
               <tr key={e.id || i} className={`border-t border-slate-700/50 ${i % 2 === 0 ? 'bg-slate-800/30' : 'bg-slate-800/10'} hover:bg-slate-700/30 cursor-pointer`}
                 onClick={() => setViewEntry(e)}
@@ -289,6 +290,7 @@ export default function PaddyPurchaseRegister({ filters: globalFilters }) {
                 <td className="p-2 whitespace-nowrap font-mono text-xs">{e.truck_no}</td>
                 <td className="p-2 whitespace-nowrap">{e.rst_no}</td>
                 <td className="p-2 whitespace-nowrap">{e.tp_no}</td>
+                <td className="p-2 text-right font-mono">{Number(e.tp_weight || 0) > 0 ? Number(e.tp_weight).toLocaleString() : '-'}</td>
                 <td className="p-2 whitespace-nowrap">{e.agent_name}</td>
                 <td className="p-2 whitespace-nowrap">{e.mandi_name}</td>
                 <td className="p-2 text-right">{fmt(e.qntl)}</td>
