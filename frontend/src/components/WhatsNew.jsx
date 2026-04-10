@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.64.0";
+const APP_VERSION = "88.65.0";
 
 const CHANGELOG = [
+  {
+    version: "88.65.0",
+    date: "Apr 2026",
+    title: "v88.65.0 - VW Cascade Delete + Daily Report Paddy Chalna",
+    items: [
+      { type: "feature", text: "VW entry delete karne par linked Mill Entry + Cash/Diesel/Gunny transactions automatic delete ho jayenge" },
+      { type: "feature", text: "Daily Report UI mein Paddy Chalna section — Aaj Cut, Total Paddy Bags, Total Cut, Remaining dikhega" },
+      { type: "fix", text: "Daily Report PDF/Excel mein bhi Paddy Chalna summary + detail (jab cutting ho uss din)" },
+    ]
+  },
   {
     version: "88.64.0",
     date: "Apr 2026",

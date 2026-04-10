@@ -628,11 +628,34 @@ async def update_second_weight(entry_id: str, data: dict):
 
 @router.delete("/vehicle-weight/{entry_id}")
 async def delete_weight_entry(entry_id: str):
-    """Delete a weight entry."""
-    result = await db["vehicle_weights"].delete_one({"id": entry_id})
-    if result.deleted_count == 0:
+    """Delete a weight entry + cascade delete linked mill entry & transactions."""
+    vw = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
+    if not vw:
         raise HTTPException(status_code=404, detail="Entry not found")
-    return {"success": True, "message": "Entry deleted"}
+    rst_no = vw.get("rst_no")
+    kms_year = vw.get("kms_year", "")
+
+    # Cascade: find and delete linked mill entry
+    cascade_deleted = []
+    if rst_no is not None:
+        # rst_no can be int in VW but str in mill_entries - check both types
+        mill_q = {"$or": [{"rst_no": rst_no}, {"rst_no": str(rst_no)}, {"rst_no": int(rst_no) if str(rst_no).isdigit() else rst_no}]}
+        if kms_year:
+            mill_q = {"$and": [mill_q, {"kms_year": kms_year}]}
+        linked_entries = await db.mill_entries.find(mill_q, {"_id": 0}).to_list(10)
+        for linked_entry in linked_entries:
+            eid = linked_entry["id"]
+            await db.mill_entries.delete_one({"id": eid})
+            await db.cash_transactions.delete_many({"linked_entry_id": eid})
+            await db.diesel_accounts.delete_many({"linked_entry_id": eid})
+            await db.gunny_bags.delete_many({"linked_entry_id": eid})
+            cascade_deleted.append(f"Mill Entry RST #{rst_no}")
+
+    await db["vehicle_weights"].delete_one({"id": entry_id})
+    msg = "Entry deleted"
+    if cascade_deleted:
+        msg += f" + {', '.join(cascade_deleted)} bhi delete kiya"
+    return {"success": True, "message": msg}
 
 
 @router.put("/vehicle-weight/{entry_id}/edit")

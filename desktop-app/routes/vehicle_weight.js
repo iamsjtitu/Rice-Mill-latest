@@ -757,9 +757,35 @@ module.exports = function(database) {
     const weights = col('vehicle_weights');
     const idx = weights.findIndex(w => w.id === req.params.entry_id);
     if (idx === -1) return res.status(404).json({ detail: 'Entry not found' });
+    const vw = weights[idx];
+    const rstNo = vw.rst_no;
+    const kmsYear = vw.kms_year || '';
+
+    // Cascade: delete linked mill entry + transactions
+    const cascaded = [];
+    if (rstNo !== undefined && rstNo !== null) {
+      const entries = col('entries');
+      // rst_no can be int or string - check both
+      const meIdx = entries.findIndex(e => (String(e.rst_no) === String(rstNo)) && (!kmsYear || e.kms_year === kmsYear));
+      if (meIdx !== -1) {
+        const me = entries[meIdx];
+        const eid = me.id;
+        entries.splice(meIdx, 1);
+        const ct = col('cash_transactions');
+        for (let i = ct.length - 1; i >= 0; i--) { if (ct[i].linked_entry_id === eid) ct.splice(i, 1); }
+        const da = col('diesel_accounts');
+        for (let i = da.length - 1; i >= 0; i--) { if (da[i].linked_entry_id === eid) da.splice(i, 1); }
+        const gb = col('gunny_bags');
+        for (let i = gb.length - 1; i >= 0; i--) { if (gb[i].linked_entry_id === eid) gb.splice(i, 1); }
+        cascaded.push(`Mill Entry RST #${rstNo}`);
+      }
+    }
+
     weights.splice(idx, 1);
     database.save();
-    res.json({ success: true, message: 'Entry deleted' });
+    let msg = 'Entry deleted';
+    if (cascaded.length) msg += ` + ${cascaded.join(', ')} bhi delete kiya`;
+    res.json({ success: true, message: msg });
   }));
 
   // PUT /api/vehicle-weight/:entry_id/edit

@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with a React frontend, Python FastAPI web backend, and an Electron/Express desktop app using local JSON storage. Requires highly accurate double-entry accounting ledgers, advanced reporting, offline-first desktop capabilities, and automated database sync between local computers.
 
-## Current Version: v88.58.0
+## Current Version: v88.65.0
 
 ## What's Been Implemented
 - Full mill entry CRUD with RST numbering
@@ -34,6 +34,8 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - **TP No. Duplicate Server-side Check (Apr 2026)**: Backend (Python + Desktop JS + Local JS) mein TP duplicate validation — First Weight, Second Weight, aur Edit teeno endpoints mein. Paginated data miss hone ka issue khatam.
 - **VW Linked Edit/Delete Permission (Apr 2026)**: Settings mein naya toggle — Enable karo toh Mill Entry mein use hui VW entry ko bhi edit/delete kar sakte ho
 - **Paddy Chalna (Cutting) Tracker (Apr 2026)**: Milling tab mein naya sub-tab — Bag Received (Mill+Plastic), Total Cut, Remaining summary + daily cutting log with CRUD
+- **VW Cascade Delete (Apr 2026)**: VW delete karne par linked Mill Entry + Cash/Diesel/Gunny transactions automatic delete — type-safe rst_no matching (int/str)
+- **Daily Report Paddy Chalna (Apr 2026)**: Daily Report UI, PDF, Excel mein Paddy Chalna section — cumulative totals (Total Paddy Bags, Total Cut, Remaining) + today's cut details
 - **Electron IPC**: App closes on logout via window.electronAPI.closeApp
 - **P.Pkt Cut in Mill W Fix (Apr 2026)**: P.Pkt Cut ab Mill W calculation mein subtract hota hai (pehle sirf Final W mein hota tha). Formula: `Mill W = KG - GBW Cut - P.Pkt Cut`. Fix applied across all 5 calculation locations: Frontend (App.js), Python backend (models.py), Desktop main.js, Desktop sqlite-database.js, Local server.js, and both import_excel.js files.
 - **TP Number Duplicate Check (Apr 2026)**: Auto Vehicle Weight mein duplicate TP number entry blocked. Same TP already used in RST → red warning shown and submit prevented.

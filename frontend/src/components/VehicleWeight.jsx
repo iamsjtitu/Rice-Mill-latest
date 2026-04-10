@@ -639,7 +639,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
   };
 
-  const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye transaction delete karna chahte hain?")) return; try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch { toast.error("Error"); } };
+  const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye VW entry delete karna chahte hain?\n\nNote: Isse linked Mill Entry + Cash/Diesel transactions bhi delete ho jayenge!")) return; try { const res = await axios.delete(`${API}/vehicle-weight/${id}`); toast.success(res.data?.message || "Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch { toast.error("Error"); } };
 
   // Auto-notify: images already saved with entry, just trigger notify
   const sendAutoNotify = async (entryId) => {
