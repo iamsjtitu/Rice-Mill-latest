@@ -1819,16 +1819,22 @@ function CameraSetupTab() {
   useEffect(() => {
     const loadConfig = async () => {
       let saved = {};
+      let fromBackend = false;
       try {
         const res = await axios.get(`${API}/settings/camera-config`);
         if (res.data && Object.keys(res.data).length > 0) {
           saved = res.data;
+          fromBackend = true;
         }
       } catch { /* fallback to localStorage */ }
       
-      if (!saved || Object.keys(saved).length === 0) {
+      if (!fromBackend) {
         try {
           saved = JSON.parse(localStorage.getItem('camera_config') || '{}');
+          // Auto-migrate localStorage to backend
+          if (saved && Object.keys(saved).length > 0) {
+            axios.put(`${API}/settings/camera-config`, saved).catch(() => {});
+          }
         } catch { saved = {}; }
       }
       

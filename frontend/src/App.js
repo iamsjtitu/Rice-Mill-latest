@@ -386,11 +386,27 @@ function MainApp({ user, setUser, onLogout }) {
         if (res.data && Object.keys(res.data).length > 0) {
           setMandiCuttingMap(res.data);
           localStorage.setItem('mandi_cutting_map', JSON.stringify(res.data));
+        } else {
+          // Backend empty - migrate from localStorage
+          const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
+          if (Object.keys(saved).length > 0) {
+            setMandiCuttingMap(saved);
+            // Sync each entry to backend
+            for (const [key, value] of Object.entries(saved)) {
+              axios.put(`${API}/settings/mandi-cutting-map`, { key, value }).catch(() => {});
+            }
+          }
         }
       } catch {
         try {
           const saved = JSON.parse(localStorage.getItem('mandi_cutting_map') || '{}');
           setMandiCuttingMap(saved);
+          // Try to migrate on next opportunity
+          if (Object.keys(saved).length > 0) {
+            for (const [key, value] of Object.entries(saved)) {
+              axios.put(`${API}/settings/mandi-cutting-map`, { key, value }).catch(() => {});
+            }
+          }
         } catch { /* ignore */ }
       }
     };

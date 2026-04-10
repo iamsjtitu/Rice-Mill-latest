@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.52.0";
+const APP_VERSION = "88.53.0";
 
 const CHANGELOG = [
+  {
+    version: "88.53.0",
+    date: "Apr 2026",
+    title: "v88.53.0 - Settings Cross-Device Sync Fix",
+    items: [
+      { type: "fix", text: "Camera Config ab har device pe sync hoga — mill computer pe save karo, bahar browser/mobile pe bhi wohi settings aayengi" },
+      { type: "fix", text: "Mandi Cutting Map bhi auto-migrate hota hai — purana localStorage data backend pe sync hoga" },
+      { type: "fix", text: "Auto-migration: agar settings sirf localStorage mein hain toh automatically backend database mein save ho jayengi" },
+    ]
+  },
   {
     version: "88.52.0",
     date: "Apr 2026",

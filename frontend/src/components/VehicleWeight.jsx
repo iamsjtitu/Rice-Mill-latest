@@ -173,12 +173,15 @@ const CameraFeed = forwardRef(function CameraFeed({ label, camKey, compact }, re
   useEffect(() => {
     const loadCameraConfig = async () => {
       let cfg = {};
+      let fromBackend = false;
       try {
         const res = await axios.get(`${API}/settings/camera-config`);
-        if (res.data && Object.keys(res.data).length > 0) cfg = res.data;
+        if (res.data && Object.keys(res.data).length > 0) { cfg = res.data; fromBackend = true; }
       } catch { /* fallback */ }
-      if (!cfg || Object.keys(cfg).length === 0) {
+      if (!fromBackend) {
         try { cfg = JSON.parse(localStorage.getItem('camera_config') || '{}'); } catch { cfg = {}; }
+        // Auto-migrate to backend
+        if (cfg && Object.keys(cfg).length > 0) { axios.put(`${API}/settings/camera-config`, cfg).catch(() => {}); }
       }
       applyCameraConfig(cfg);
     };
