@@ -161,6 +161,17 @@
         "width_pdf_mm": 18,
         "show_total": true,
         "total_key": "total_final_w"
+      },
+      {
+        "field": "tp_weight",
+        "header": "TP Wt",
+        "pdf_header": "TP Wt",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 14,
+        "show_total": true,
+        "total_key": "total_tp_weight"
       }
     ]
   },
@@ -358,8 +369,8 @@
         "pdf_header": "Mandi",
         "type": "text",
         "align": "left",
-        "width_excel": 20,
-        "width_pdf_mm": 35
+        "width_excel": 18,
+        "width_pdf_mm": 28
       },
       {
         "field": "agent_name",
@@ -588,8 +599,8 @@
         "pdf_header": "Mandi",
         "type": "text",
         "align": "left",
-        "width_excel": 20,
-        "width_pdf_mm": 35
+        "width_excel": 18,
+        "width_pdf_mm": 28
       },
       {
         "field": "agent_name",
@@ -898,6 +909,15 @@
         "width_pdf_mm": 24
       },
       {
+        "field": "tp_weight",
+        "header": "TP Wt",
+        "pdf_header": "TP Wt",
+        "type": "number",
+        "align": "right",
+        "width_excel": 10,
+        "width_pdf_mm": 20
+      },
+      {
         "field": "cash_paid",
         "header": "Cash",
         "pdf_header": "Cash",
@@ -941,8 +961,8 @@
         "pdf_header": "Mandi",
         "type": "text",
         "align": "left",
-        "width_excel": 12,
-        "width_pdf_mm": 18
+        "width_excel": 14,
+        "width_pdf_mm": 22
       },
       {
         "field": "rst_no",
@@ -1069,6 +1089,15 @@
         "align": "right",
         "width_excel": 10,
         "width_pdf_mm": 14
+      },
+      {
+        "field": "tp_weight",
+        "header": "TP Wt",
+        "pdf_header": "TPWt",
+        "type": "number",
+        "align": "right",
+        "width_excel": 9,
+        "width_pdf_mm": 13
       },
       {
         "field": "g_issued",
