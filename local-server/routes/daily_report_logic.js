@@ -38,6 +38,8 @@ function getDailyReportData(database, query) {
   const hemaliUnpaid = hemaliPayments.filter(h => h.status !== 'paid');
   const hemaliTotalPaid = hemaliPaid.reduce((s, h) => s + (h.amount_paid || 0), 0);
   const hemaliTotalWork = hemaliPaid.reduce((s, h) => s + (h.total || 0), 0);
+  const paddyCutting = col('paddy_cutting').filter(c => c.date === date && (!kmsYear || c.kms_year === kmsYear) && (!season || c.season === season));
+  const cuttingBags = paddyCutting.reduce((s, c) => s + (parseInt(c.bags_cut) || 0), 0);
   const dieselTxns = filterFy(col('diesel_accounts'));
   const saleVouchers = (col('sale_vouchers') || []).filter(sv => sv.date === date);
   const purchaseVouchers = (col('purchase_vouchers') || []).filter(pv => pv.date === date);
@@ -199,6 +201,10 @@ function getDailyReportData(database, query) {
         total: h.total || 0, advance_deducted: h.advance_deducted || 0,
         amount_paid: h.amount_paid || 0, new_advance: h.new_advance || 0, status: h.status || '',
       }))
+    },
+    paddy_cutting: {
+      count: paddyCutting.length, total_bags_cut: cuttingBags,
+      details: paddyCutting.map(c => ({ bags_cut: c.bags_cut || 0, remark: c.remark || '' }))
     },
     sale_vouchers: {
       count: saleVouchers.length,

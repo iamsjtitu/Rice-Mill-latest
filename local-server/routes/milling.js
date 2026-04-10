@@ -207,6 +207,8 @@ module.exports = function(database) {
     let entries = [...database.data.paddy_cutting];
     if (req.query.kms_year) entries = entries.filter(e => e.kms_year === req.query.kms_year);
     if (req.query.season) entries = entries.filter(e => e.season === req.query.season);
+    if (req.query.date_from) entries = entries.filter(e => (e.date || '') >= req.query.date_from);
+    if (req.query.date_to) entries = entries.filter(e => (e.date || '') <= req.query.date_to);
     entries.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     res.json({ entries });
   }));

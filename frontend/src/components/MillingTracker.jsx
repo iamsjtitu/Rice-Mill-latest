@@ -629,6 +629,8 @@ const PaddyChalnaTab = ({ filters }) => {
   const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], bags_cut: "", remark: "" });
   const [editingId, setEditingId] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const fetchData = useCallback(async () => {
     try {
@@ -636,15 +638,20 @@ const PaddyChalnaTab = ({ filters }) => {
       const params = new URLSearchParams();
       if (filters.kms_year) params.append('kms_year', filters.kms_year);
       if (filters.season) params.append('season', filters.season);
+      if (dateFrom) params.append('date_from', dateFrom);
+      if (dateTo) params.append('date_to', dateTo);
+      const sumParams = new URLSearchParams();
+      if (filters.kms_year) sumParams.append('kms_year', filters.kms_year);
+      if (filters.season) sumParams.append('season', filters.season);
       const [eRes, sRes] = await Promise.all([
         axios.get(`${API}/paddy-cutting?${params}`),
-        axios.get(`${API}/paddy-cutting/summary?${params}`)
+        axios.get(`${API}/paddy-cutting/summary?${sumParams}`)
       ]);
       setEntries(eRes.data.entries || []);
       setSummary(sRes.data);
     } catch { /* */ }
     setLoading(false);
-  }, [filters.kms_year, filters.season]);
+  }, [filters.kms_year, filters.season, dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -670,6 +677,21 @@ const PaddyChalnaTab = ({ filters }) => {
   const handleDelete = async (id) => {
     if (!await showConfirm("Delete", "Kya aap ye cutting entry delete karna chahte hain?")) return;
     try { await axios.delete(`${API}/paddy-cutting/${id}`); toast.success("Deleted"); fetchData(); } catch { toast.error("Error"); }
+  };
+
+  const handleExport = async (type) => {
+    const params = new URLSearchParams();
+    if (filters.kms_year) params.append('kms_year', filters.kms_year);
+    if (filters.season) params.append('season', filters.season);
+    if (dateFrom) params.append('date_from', dateFrom);
+    if (dateTo) params.append('date_to', dateTo);
+    try {
+      const res = await axios.get(`${API}/paddy-cutting/${type}?${params}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a'); a.href = url;
+      a.download = `paddy_chalna.${type === 'excel' ? 'xlsx' : 'pdf'}`;
+      a.click(); window.URL.revokeObjectURL(url);
+    } catch { toast.error("Export failed"); }
   };
 
   const s = summary || {};
@@ -699,6 +721,31 @@ const PaddyChalnaTab = ({ filters }) => {
             <p className="text-[10px] text-slate-500">Total - Cut</p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Date Filter + Export */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <Label className="text-slate-400 text-xs">From Date</Label>
+          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="bg-slate-700 border-slate-600 text-white w-40" data-testid="cutting-date-from" />
+        </div>
+        <div>
+          <Label className="text-slate-400 text-xs">To Date</Label>
+          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="bg-slate-700 border-slate-600 text-white w-40" data-testid="cutting-date-to" />
+        </div>
+        {(dateFrom || dateTo) && (
+          <Button variant="ghost" size="sm" onClick={() => { setDateFrom(""); setDateTo(""); }} className="text-slate-400 hover:text-white h-9" data-testid="cutting-clear-dates">
+            <X className="w-4 h-4 mr-1" /> Clear
+          </Button>
+        )}
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleExport('excel')} className="border-green-700 text-green-400 hover:bg-green-900/30" data-testid="cutting-export-excel">
+            <Download className="w-4 h-4 mr-1" /> Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} className="border-red-700 text-red-400 hover:bg-red-900/30" data-testid="cutting-export-pdf">
+            <FileText className="w-4 h-4 mr-1" /> PDF
+          </Button>
+        </div>
       </div>
 
       {/* Add Entry Button + Table */}

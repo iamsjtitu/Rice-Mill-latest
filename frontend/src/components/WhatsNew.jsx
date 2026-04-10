@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.59.0";
+const APP_VERSION = "88.60.0";
 
 const CHANGELOG = [
+  {
+    version: "88.60.0",
+    date: "Apr 2026",
+    title: "v88.60.0 - Paddy Chalna: Date Filter + Export + Daily Report",
+    items: [
+      { type: "feature", text: "Paddy Chalna mein Date Filter (From/To) aur Excel/PDF export add kiya" },
+      { type: "feature", text: "Daily Report (Normal + Detail) mein Paddy Cutting section add hua — kitne bags cut hue aaj dikhega" },
+      { type: "fix", text: "Summary cards: Total Paddy Bags (Mill+Plastic combined), Total Cut, Remaining Paddy Bags" },
+    ]
+  },
   {
     version: "88.59.0",
     date: "Apr 2026",

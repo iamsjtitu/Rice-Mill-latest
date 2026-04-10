@@ -102,6 +102,13 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
     if season:
         hemali_q["season"] = season
     hemali_payments = await db.hemali_payments.find(hemali_q, {"_id": 0}).to_list(500)
+
+    # Paddy Cutting (Chalna)
+    cutting_q = {"date": date}
+    if kms_year: cutting_q["kms_year"] = kms_year
+    if season: cutting_q["season"] = season
+    paddy_cutting = await db.paddy_cutting.find(cutting_q, {"_id": 0}).to_list(500)
+    cutting_bags = sum(int(c.get("bags_cut", 0) or 0) for c in paddy_cutting)
     hemali_paid = [h for h in hemali_payments if h.get("status") == "paid"]
     hemali_unpaid = [h for h in hemali_payments if h.get("status") != "paid"]
     hemali_total_paid = sum(h.get("amount_paid", 0) for h in hemali_paid)
@@ -296,6 +303,10 @@ async def get_daily_report(date: str, kms_year: Optional[str] = None, season: Op
                 "amount": t.get("amount", 0), "truck_no": t.get("truck_no", ""),
                 "mandi": t.get("mandi_name", "") or _entry_mandi_map.get(t.get("linked_entry_id", ""), "") or (t.get("description", "").split("Mandi ")[-1] if "Mandi " in t.get("description", "") else ""),
                 "desc": t.get("description", "")} for t in diesel_txns]
+        },
+        "paddy_cutting": {
+            "count": len(paddy_cutting), "total_bags_cut": cutting_bags,
+            "details": [{"bags_cut": c.get("bags_cut", 0), "remark": c.get("remark", "")} for c in paddy_cutting]
         },
         "cash_transactions": {
             "count": len([t for t in cash_txns if t.get("account") == "cash"]),
@@ -722,6 +733,18 @@ async def export_daily_pdf(date: str, kms_year: Optional[str] = None, season: Op
                 [70, 130, 65, 65, 65, 60, 45], font_size=6
             ))
 
+    # ===== PADDY CUTTING (CHALNA) =====
+    pc = data.get("paddy_cutting", {})
+    if pc.get("count", 0):
+        elements.append(Spacer(1, 4))
+        elements.append(Paragraph(f"Paddy Chalna / Cutting ({pc['count']}) - Total Bags Cut: {pc['total_bags_cut']}", section_style))
+        if is_detail and pc.get("details"):
+            elements.append(make_table(
+                ['Bags Cut', 'Remark'],
+                [[str(d.get("bags_cut", 0)), d.get("remark", "") or "-"] for d in pc["details"]],
+                [100, 400]
+            ))
+
     # ===== CASH TRANSACTIONS =====
     ct = data.get("cash_transactions", {})
     if ct.get("count", 0) > 0:
@@ -997,6 +1020,17 @@ async def export_daily_excel(date: str, kms_year: Optional[str] = None, season: 
             for d in hp["details"]:
                 write_row([d.get("sardar",""), d.get("items",""), d.get("total",0),
                     d.get("advance_deducted",0), d.get("amount_paid",0), d.get("new_advance",0), d.get("status","").upper()])
+
+    # Paddy Cutting (Chalna)
+    pc = data.get("paddy_cutting", {})
+    if pc.get("count", 0):
+        row += 1
+        write_section(f"Paddy Chalna / Cutting ({pc['count']})")
+        write_sub(f"Total Bags Cut: {pc['total_bags_cut']}")
+        if is_detail and pc.get("details"):
+            write_headers(['Bags Cut', 'Remark'])
+            for d in pc["details"]:
+                write_row([d.get("bags_cut", 0), d.get("remark", "") or "-"])
 
     # Cash Transactions
     ct = data.get("cash_transactions", {})

@@ -841,10 +841,16 @@ async def export_byproduct_sales_pdf(kms_year: Optional[str] = None, season: Opt
 # ============ PADDY CHALNA (CUTTING) APIs ============
 
 @router.get("/paddy-cutting")
-async def get_paddy_cutting(kms_year: Optional[str] = None, season: Optional[str] = None):
+async def get_paddy_cutting(kms_year: Optional[str] = None, season: Optional[str] = None,
+                            date_from: Optional[str] = None, date_to: Optional[str] = None):
     query = {}
     if kms_year: query["kms_year"] = kms_year
     if season: query["season"] = season
+    if date_from or date_to:
+        dq = {}
+        if date_from: dq["$gte"] = date_from
+        if date_to: dq["$lte"] = date_to
+        query["date"] = dq
     entries = await db.paddy_cutting.find(query, {"_id": 0}).to_list(10000)
     entries.sort(key=lambda x: x.get("date", ""), reverse=True)
     return {"entries": entries}
@@ -910,3 +916,94 @@ async def delete_paddy_cutting(entry_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Entry not found")
     return {"success": True, "message": "Deleted"}
+
+
+@router.get("/paddy-cutting/excel")
+async def export_paddy_cutting_excel(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                     date_from: Optional[str] = None, date_to: Optional[str] = None):
+    from utils.export_helpers import style_excel_title, style_excel_header_row, style_excel_data_rows
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    if date_from or date_to:
+        dq = {}
+        if date_from: dq["$gte"] = date_from
+        if date_to: dq["$lte"] = date_to
+        query["date"] = dq
+    entries = await db.paddy_cutting.find(query, {"_id": 0}).to_list(50000)
+    entries.sort(key=lambda x: x.get("date", ""))
+
+    # Summary
+    mill_q = {}
+    if kms_year: mill_q["kms_year"] = kms_year
+    if season: mill_q["season"] = season
+    mill_entries = await db.mill_entries.find(mill_q, {"bag": 1, "plastic_bag": 1, "_id": 0}).to_list(50000)
+    total_received = sum(int(e.get("bag", 0) or 0) for e in mill_entries) + sum(int(e.get("plastic_bag", 0) or 0) for e in mill_entries)
+    total_cut = sum(int(e.get("bags_cut", 0) or 0) for e in entries)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Paddy Chalna"
+    style_excel_title(ws, "Paddy Chalna (Cutting) Report", 4)
+    ws.append(["Total Paddy Bags", total_received, "Total Cut", total_cut])
+    ws.append(["Remaining", total_received - total_cut])
+    ws.append([])
+    headers = ["#", "Date", "Bags Cut", "Remark"]
+    ws.append(headers)
+    style_excel_header_row(ws, ws.max_row, len(headers))
+    for i, e in enumerate(entries, 1):
+        ws.append([i, fmt_date(e.get("date", "")), e.get("bags_cut", 0), e.get("remark", "")])
+    ws.append([])
+    ws.append(["", "TOTAL", total_cut, ""])
+    style_excel_data_rows(ws, 7, ws.max_row, len(headers))
+    ws.column_dimensions["A"].width = 6
+    ws.column_dimensions["B"].width = 14
+    ws.column_dimensions["C"].width = 14
+    ws.column_dimensions["D"].width = 30
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=paddy_chalna_{datetime.now().strftime('%Y%m%d')}.xlsx"})
+
+
+@router.get("/paddy-cutting/pdf")
+async def export_paddy_cutting_pdf(kms_year: Optional[str] = None, season: Optional[str] = None,
+                                   date_from: Optional[str] = None, date_to: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Table as RLTable, Paragraph, Spacer
+    from utils.export_helpers import get_pdf_styles, get_pdf_table_style
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    if date_from or date_to:
+        dq = {}
+        if date_from: dq["$gte"] = date_from
+        if date_to: dq["$lte"] = date_to
+        query["date"] = dq
+    entries = await db.paddy_cutting.find(query, {"_id": 0}).to_list(50000)
+    entries.sort(key=lambda x: x.get("date", ""))
+
+    mill_q = {}
+    if kms_year: mill_q["kms_year"] = kms_year
+    if season: mill_q["season"] = season
+    mill_entries = await db.mill_entries.find(mill_q, {"bag": 1, "plastic_bag": 1, "_id": 0}).to_list(50000)
+    total_received = sum(int(e.get("bag", 0) or 0) for e in mill_entries) + sum(int(e.get("plastic_bag", 0) or 0) for e in mill_entries)
+    total_cut = sum(int(e.get("bags_cut", 0) or 0) for e in entries)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=30, bottomMargin=30)
+    styles = get_pdf_styles()
+    elements = [Paragraph("Paddy Chalna (Cutting) Report", styles["Title"]), Spacer(1, 10)]
+    elements.append(Paragraph(f"Total Paddy Bags: {total_received} | Total Cut: {total_cut} | Remaining: {total_received - total_cut}", styles["Normal"]))
+    elements.append(Spacer(1, 10))
+    data = [["#", "Date", "Bags Cut", "Remark"]]
+    for i, e in enumerate(entries, 1):
+        data.append([str(i), fmt_date(e.get("date", "")), str(e.get("bags_cut", 0)), e.get("remark", "")])
+    data.append(["", "TOTAL", str(total_cut), ""])
+    t = RLTable(data, colWidths=[30, 80, 80, 200])
+    t.setStyle(get_pdf_table_style(len(data)))
+    elements.append(t)
+    doc.build(elements)
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=paddy_chalna_{datetime.now().strftime('%Y%m%d')}.pdf"})
