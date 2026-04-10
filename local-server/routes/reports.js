@@ -562,9 +562,10 @@ module.exports = function(database) {
 
     for (const md of mandis) {
       if (doc.y > 450) doc.addPage();
-      doc.rect(startX, doc.y, colW.reduce((a,b)=>a+b,0), 18).fill('#D97706');
-      doc.fillColor('white').fontSize(9).text(`${md.mandi_name} - Agent: ${md.agent_name} (${md.totals.entry_count} entries)`, startX + 5, doc.y - 14, { width: 500 });
-      doc.moveDown(0.3);
+      const titleY = doc.y;
+      doc.rect(startX, titleY, colW.reduce((a,b)=>a+b,0), 18).fill('#D97706');
+      doc.fillColor('white').fontSize(9).text(`${md.mandi_name} - Agent: ${md.agent_name} (${md.totals.entry_count} entries)`, startX + 5, titleY + 4, { width: 500 });
+      doc.y = titleY + 20;
 
       let y = doc.y;
       let x = startX;

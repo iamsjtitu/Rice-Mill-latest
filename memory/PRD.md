@@ -17,19 +17,19 @@ A comprehensive full-stack rice mill management system with a React frontend, Py
 - v88.75.0: Agent & Mandi Report TP Wt fix, Daily Report Chalna section, PPR total alignment
 - v88.74.0: Export Totals Fix (Mill Entries, VW, Daily Report PDF/Excel with TP Weight)
 
-## New Features in v88.76.0
-- **P1: TP Weight Auto-Validation**: Red border + difference text on VW Edit Dialog, Mill Entry Form, VW Table, Mill Entries Table when TP Wt differs from Net Wt/QNTL
-- **P2: Weight Discrepancy Report**: New report tab (Reports > Wt Discrepancy) with filters (date range, agent, mandi), summary cards, data table, PDF/Excel export. Backend endpoint: `/api/reports/weight-discrepancy`
+## Bug Fixes (This Session)
+- Fixed Agent & Mandi PDF row overlap in JS backends (desktop-app & local-server). Root cause: pdfkit `doc.rect().fill()` does not advance `doc.y`, causing mandi title bar text to position incorrectly and subsequent header/data rows to start inside the orange title rect. Fix: Save `titleY`, position text at `titleY+4`, explicitly set `doc.y = titleY + 20` after title bar.
+- Fixed floating-point rounding bugs (`2459.8999999`) in `fmtVal` helper across Python and JS backends.
 
 ## Key Files Modified
-- `/app/frontend/src/components/VehicleWeight.jsx` - P1: Red indicator on TP Wt in edit dialog + table
-- `/app/frontend/src/components/entries/MillEntryForm.jsx` - P1: Red indicator on TP Wt input
-- `/app/frontend/src/components/entries/EntryTable.jsx` - P1: Red indicator on TP Wt in table
-- `/app/frontend/src/components/WeightDiscrepancy.jsx` - P2: New report component
-- `/app/frontend/src/components/Reports.jsx` - P2: Added Wt Discrepancy tab
-- `/app/backend/routes/reports.py` - P2: 3 new endpoints (data, excel, pdf)
-- `/app/desktop-app/routes/reports.js` - P2: 3 new endpoints mirrored
-- `/app/local-server/routes/reports.js` - P2: 3 new endpoints mirrored
+- `/app/frontend/src/components/VehicleWeight.jsx` - Red indicator on TP Wt in edit dialog + table
+- `/app/frontend/src/components/entries/MillEntryForm.jsx` - Red indicator on TP Wt input
+- `/app/frontend/src/components/entries/EntryTable.jsx` - Red indicator on TP Wt in table
+- `/app/frontend/src/components/WeightDiscrepancy.jsx` - New report component
+- `/app/frontend/src/components/Reports.jsx` - Added Wt Discrepancy tab
+- `/app/backend/routes/reports.py` - 3 new endpoints (data, excel, pdf)
+- `/app/desktop-app/routes/reports.js` - 3 new endpoints mirrored + PDF row overlap fix
+- `/app/local-server/routes/reports.js` - 3 new endpoints mirrored + PDF row overlap fix
 
 ## Upcoming Tasks
 - P1: Export Preview feature
