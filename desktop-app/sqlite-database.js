@@ -21,7 +21,7 @@ const ARRAY_COLLECTIONS = [
   'msp_payments', 'staff_payments', 'staff_advances', 'staff_attendance',
   'vehicle_weights', 'hemali_entries', 'hemali_payments',
   'private_payments', 'app_settings', 'party_ledger',
-  'audit_log'
+  'audit_log', 'paddy_cutting'
 ];
 
 // KV items (non-array objects)
