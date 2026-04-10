@@ -129,7 +129,7 @@ export default function QuickSearch({ open, onOpenChange, onNavigate }) {
     el?.scrollIntoView({ block: "nearest" });
   }, [selectedIdx]);
 
-  const handleNavigate = (item) => { onNavigate(item.tab, item.id, item.subtab); onOpenChange(false); };
+  const handleNavigate = (item) => { onNavigate(item.tab, item.id, item.subtab, item); onOpenChange(false); };
 
   const grouped = {};
   results.forEach(r => { if (!grouped[r.type]) grouped[r.type] = []; grouped[r.type].push(r); });

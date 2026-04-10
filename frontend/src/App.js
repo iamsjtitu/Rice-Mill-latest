@@ -71,6 +71,7 @@ import { TabNavigation } from "@/components/entries/TabNavigation";
 import { FilterPanel } from "@/components/entries/FilterPanel";
 import { ShortcutsDialog, BackupReminderDialog, PasswordChangeDialog } from "@/components/entries/HeaderDialogs";
 import QuickSearch from "@/components/QuickSearch";
+import SearchDetailDialog from "@/components/SearchDetailDialog";
 
 const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
 const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
@@ -154,6 +155,7 @@ function MainApp({ user, setUser, onLogout }) {
   const [viewEntryData, setViewEntryData] = useState(null);
   const [savedFiltersBeforeView, setSavedFiltersBeforeView] = useState(null);
   const [quickSearchOpen, setQuickSearchOpen] = useState(false);
+  const [searchDetailItem, setSearchDetailItem] = useState(null);
   const { wa, tg } = useMessagingEnabled();
   const [entryGroupDialogOpen, setEntryGroupDialogOpen] = useState(false);
   const [entryGroupText, setEntryGroupText] = useState("");
@@ -1373,7 +1375,21 @@ function MainApp({ user, setUser, onLogout }) {
           <QuickSearch
             open={quickSearchOpen}
             onOpenChange={setQuickSearchOpen}
-            onNavigate={(tab, id, subtab) => { setActiveTabSafe(tab); if (subtab) setPaymentsInitSubTab(subtab); }}
+            onNavigate={(tab, id, subtab, item) => {
+              if (item?.type === 'entry' && id) {
+                navigateToMillEntry(id);
+              } else if (item) {
+                setSearchDetailItem(item);
+              } else {
+                setActiveTabSafe(tab);
+                if (subtab) setPaymentsInitSubTab(subtab);
+              }
+            }}
+          />
+          <SearchDetailDialog
+            item={searchDetailItem}
+            onClose={() => setSearchDetailItem(null)}
+            onGoToTab={(item) => { setActiveTabSafe(item.tab); if (item.subtab) setPaymentsInitSubTab(item.subtab); }}
           />
 
           <TabNavigation activeTab={activeTab} setActiveTabSafe={setActiveTabSafe} user={user} />
