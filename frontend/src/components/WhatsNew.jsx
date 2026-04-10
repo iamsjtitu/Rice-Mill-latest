@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.77.0";
+const APP_VERSION = "88.78.0";
 
 const CHANGELOG = [
+  {
+    version: "88.78.0",
+    date: "Apr 2026",
+    title: "v88.78.0 - Global PDF Watermark",
+    items: [
+      { type: "new", text: "PDF Watermark Feature - Settings mein ON/OFF toggle se sabhi PDF exports mein watermark aayega" },
+      { type: "new", text: "Text ya Image dono type ka watermark set kar sakte hain" },
+      { type: "new", text: "Opacity slider se watermark ka halkapan set karein (2% se 20%)" },
+      { type: "new", text: "Live preview dikhta hai Settings > Watermark tab mein" },
+    ]
+  },
   {
     version: "88.77.0",
     date: "Apr 2026",
