@@ -752,6 +752,7 @@ module.exports = function(database) {
       entry.tp_no = newTp;
     }
     if ('tp_weight' in req.body) entry.tp_weight = parseFloat(req.body.tp_weight || 0) || 0;
+    if ('tot_pkts' in req.body) entry.tot_pkts = parseInt(req.body.tot_pkts || 0) || 0;
 
     database.save();
     res.json({ success: true, entry, message: `RST #${entry.rst_no} - Net Wt: ${netWt} KG` });

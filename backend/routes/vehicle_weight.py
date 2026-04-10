@@ -620,6 +620,8 @@ async def update_second_weight(entry_id: str, data: dict):
         update_fields["tp_no"] = new_tp
     if "tp_weight" in data:
         update_fields["tp_weight"] = float(data.get("tp_weight", 0) or 0)
+    if "tot_pkts" in data:
+        update_fields["tot_pkts"] = int(data.get("tot_pkts", 0) or 0)
 
     await db["vehicle_weights"].update_one(
         {"id": entry_id},

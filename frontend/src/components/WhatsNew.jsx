@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.68.0";
+const APP_VERSION = "88.69.0";
 
 const CHANGELOG = [
+  {
+    version: "88.69.0",
+    date: "Apr 2026",
+    title: "v88.69.0 - Second Weight Unlock Fix",
+    items: [
+      { type: "fix", text: "Auto VW: Bags aur TP No. ab second weight mode mein editable hain (pehle locked the)" },
+    ]
+  },
   {
     version: "88.68.0",
     date: "Apr 2026",

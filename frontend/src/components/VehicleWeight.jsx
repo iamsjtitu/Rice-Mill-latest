@@ -594,6 +594,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
         g_issued: form.g_issued || "0",
         tp_no: form.tp_no || "",
         tp_weight: form.tp_weight || "0",
+        tot_pkts: form.tot_pkts || "0",
         second_wt_front_img: frontImg,
         second_wt_side_img: sideImg
       });
@@ -1040,18 +1041,16 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                     )}
                   </div>
                   <div>
-                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Bags {secondWtMode && <span className="text-amber-400">(Locked)</span>}</Label>
-                    <Input type="number" value={form.tot_pkts} onChange={e => { if (!secondWtMode) setForm(p => ({ ...p, tot_pkts: e.target.value })); }}
-                      disabled={!!secondWtMode}
-                      placeholder="0" className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${secondWtMode ? 'opacity-70 cursor-not-allowed' : ''}`} data-testid="vw-bags" />
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Bags</Label>
+                    <Input type="number" value={form.tot_pkts} onChange={e => setForm(p => ({ ...p, tot_pkts: e.target.value }))}
+                      placeholder="0" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-bags" />
                   </div>
                 </div>
                 <div className="grid grid-cols-6 gap-2">
                   <div>
-                    <Label className="text-slate-400 text-[10px] mb-0.5 block">TP No. {secondWtMode && <span className="text-amber-400">(Locked)</span>}</Label>
-                    <Input value={form.tp_no} onChange={e => { if (!secondWtMode) { setForm(p => ({ ...p, tp_no: e.target.value })); checkTpDuplicate(e.target.value); } }}
-                      disabled={!!secondWtMode}
-                      placeholder="Optional" className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${secondWtMode ? 'opacity-70 cursor-not-allowed' : ''} ${tpWarning ? 'border-red-500 ring-1 ring-red-500' : ''}`} data-testid="vw-tp-no" />
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">TP No.</Label>
+                    <Input value={form.tp_no} onChange={e => { setForm(p => ({ ...p, tp_no: e.target.value })); checkTpDuplicate(e.target.value); }}
+                      placeholder="Optional" className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${tpWarning ? 'border-red-500 ring-1 ring-red-500' : ''}`} data-testid="vw-tp-no" />
                     {tpWarning && <p className="text-red-400 text-[9px] mt-0.5">{tpWarning}</p>}
                   </div>
                   <div>
