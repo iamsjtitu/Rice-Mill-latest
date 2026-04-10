@@ -166,7 +166,7 @@
         "field": "tp_weight",
         "header": "TP Wt",
         "pdf_header": "TP Wt",
-        "type": "number",
+        "type": "qntl",
         "align": "right",
         "width_excel": 10,
         "width_pdf_mm": 14,

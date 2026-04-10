@@ -211,7 +211,7 @@ export function MillEntryForm({
               )}
             </div>
             <div>
-              <Label className="text-slate-300">TP Weight (KG){rstFetched ? ' (Locked)' : ''}</Label>
+              <Label className="text-slate-300">TP Weight (QNTL){rstFetched ? ' (Locked)' : ''}</Label>
               <Input
                 type="number"
                 value={formData.tp_weight}

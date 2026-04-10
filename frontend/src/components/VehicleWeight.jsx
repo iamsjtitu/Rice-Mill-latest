@@ -677,7 +677,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     const gIssued = Number(e.g_issued || 0);
     if (gIssued > 0) t += `G.Issued: ${gIssued.toLocaleString()}\n`;
     if (e.tp_no) t += `TP: ${e.tp_no}\n`;
-    if (Number(e.tp_weight || 0) > 0) t += `TP Weight: ${Number(e.tp_weight).toLocaleString()} KG\n`;
+    if (Number(e.tp_weight || 0) > 0) t += `TP Weight: ${(Number(e.tp_weight)/100).toFixed(2)} Q\n`;
     if (e.remark) t += `Remark: ${e.remark}\n`;
     if (cash > 0) t += `Cash Paid: ₹${cash.toLocaleString()}\n`;
     if (diesel > 0) t += `Diesel Paid: ₹${diesel.toLocaleString()}\n`;
@@ -801,7 +801,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
           <tr><td class="lbl">Party / पार्टी</td><td class="val">${e.party_name || '-'}</td><td class="lbl">Source/Mandi</td><td class="val">${e.farmer_name || '-'}</td></tr>
           <tr><td class="lbl">Product / माल</td><td class="val">${e.product || '-'}</td><td class="lbl">Bags / बोरे</td><td class="val">${e.tot_pkts || '-'}</td></tr>
           ${Number(e.g_issued || 0) > 0 ? `<tr><td class="lbl">G.Issued</td><td class="val" style="color:#4338ca;font-weight:900">${Number(e.g_issued).toLocaleString()}</td><td class="lbl">TP No.</td><td class="val">${e.tp_no || '-'}</td></tr>` : (e.tp_no ? `<tr><td class="lbl">TP No.</td><td class="val">${e.tp_no}</td><td class="lbl"></td><td class="val"></td></tr>` : '')}
-          ${Number(e.tp_weight || 0) > 0 ? `<tr><td class="lbl">TP Weight</td><td class="val">${Number(e.tp_weight).toLocaleString()} KG</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
+          ${Number(e.tp_weight || 0) > 0 ? `<tr><td class="lbl">TP Weight</td><td class="val">${(Number(e.tp_weight)/100).toFixed(2)} Q</td><td class="lbl"></td><td class="val"></td></tr>` : ''}
         </table>
         <table class="wt-table">
           <tr>
@@ -1057,7 +1057,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   <div>
                     <Label className="text-slate-400 text-[10px] mb-0.5 block">TP Weight</Label>
                     <Input type="number" value={form.tp_weight} onChange={e => setForm(p => ({ ...p, tp_weight: e.target.value }))}
-                      placeholder="KG" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-tp-weight" />
+                      placeholder="QNTL" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-tp-weight" />
                   </div>
                   <div>
                     <Label className="text-slate-400 text-[10px] mb-0.5 block">Remark</Label>
@@ -1347,7 +1347,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                       <TableCell className="text-right py-2 px-3"><span className="text-green-700 font-bold text-sm font-mono">{fmtWt(e.net_wt)}</span></TableCell>
                       <TableCell className="text-right text-indigo-700 text-xs py-2 px-3 font-mono">{e.g_issued ? fmtWt(e.g_issued) : '-'}</TableCell>
                       <TableCell className="text-slate-400 text-xs py-2 px-3">{e.tp_no || '-'}</TableCell>
-                      <TableCell className="text-right text-slate-400 text-xs py-2 px-3 font-mono">{Number(e.tp_weight || 0) > 0 ? fmtWt(e.tp_weight) : '-'}</TableCell>
+                      <TableCell className="text-right text-slate-400 text-xs py-2 px-3 font-mono">{Number(e.tp_weight || 0) > 0 ? (Number(e.tp_weight)/100).toFixed(2) : '-'}</TableCell>
                       <TableCell className="text-right text-green-700 text-xs py-2 px-3 font-mono">{e.cash_paid ? fmtWt(e.cash_paid) : '-'}</TableCell>
                       <TableCell className="text-right text-orange-700 text-xs py-2 px-3 font-mono">{e.diesel_paid ? fmtWt(e.diesel_paid) : '-'}</TableCell>
                       <TableCell className="py-2 px-3">
@@ -1524,7 +1524,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                   {Number(photoDialog.data.tp_weight || 0) > 0 && (
                     <tr>
                       <td className="border border-slate-600 px-2 py-1 text-slate-400 font-bold whitespace-nowrap">TP Weight</td>
-                      <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{fmtWt(photoDialog.data.tp_weight)} KG</td>
+                      <td className="border border-slate-600 px-2 py-1 font-extrabold text-slate-100">{(Number(photoDialog.data.tp_weight)/100).toFixed(2)} Q</td>
                       <td className="border border-slate-600 px-2 py-1"></td>
                       <td className="border border-slate-600 px-2 py-1"></td>
                     </tr>
