@@ -1356,6 +1356,8 @@ const AgentMandiReport = ({ filters }) => {
   );
 };
 
+import WeightDiscrepancy from "./WeightDiscrepancy";
+
 // ===== MAIN REPORTS COMPONENT =====
 const Reports = ({ filters, user }) => {
   const [activeReport, setActiveReport] = useState("cmr-dc");
@@ -1367,6 +1369,7 @@ const Reports = ({ filters, user }) => {
           { id: "pnl", label: "Season P&L", icon: BarChart3 },
           { id: "daily", label: "Daily Report", icon: CalendarDays },
           { id: "agent-mandi", label: "Agent & Mandi", icon: Users },
+          { id: "wt-discrepancy", label: "Wt Discrepancy", icon: AlertTriangle },
         ].map(({ id, label, icon: Icon }) => (
           <Button key={id} onClick={() => setActiveReport(id)} variant={activeReport === id ? "default" : "ghost"} size="sm"
             className={activeReport === id ? "bg-amber-500 text-slate-900" : "text-slate-400 hover:text-white hover:bg-slate-700"}
@@ -1379,6 +1382,7 @@ const Reports = ({ filters, user }) => {
       {activeReport === "pnl" && <SeasonPnL filters={filters} />}
       {activeReport === "daily" && <DailyReport filters={filters} />}
       {activeReport === "agent-mandi" && <AgentMandiReport filters={filters} />}
+      {activeReport === "wt-discrepancy" && <WeightDiscrepancy filters={filters} />}
     </div>
   );
 };

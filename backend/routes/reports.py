@@ -627,3 +627,165 @@ async def export_agent_mandi_wise_pdf(kms_year: Optional[str] = None, season: Op
     doc.build(elements); buffer.seek(0)
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=agent_mandi_report_{datetime.now().strftime('%Y%m%d')}.pdf"})
+
+
+# ============ WEIGHT DISCREPANCY REPORT ============
+
+@router.get("/reports/weight-discrepancy")
+async def weight_discrepancy_report(
+    kms_year: Optional[str] = None, season: Optional[str] = None,
+    date_from: Optional[str] = None, date_to: Optional[str] = None,
+    agent: Optional[str] = None, mandi: Optional[str] = None
+):
+    query = {}
+    if kms_year: query["kms_year"] = kms_year
+    if season: query["season"] = season
+    if agent: query["agent_name"] = agent
+    if mandi: query["mandi_name"] = mandi
+    if date_from or date_to:
+        dq = {}
+        if date_from: dq["$gte"] = date_from
+        if date_to: dq["$lte"] = date_to
+        if dq: query["date"] = dq
+
+    entries = await db.entries.find(query, {"_id": 0}).sort("date", -1).to_list(10000)
+    discrepancies = []
+    total_diff_qntl = 0
+    for e in entries:
+        tp_wt = float(e.get("tp_weight", 0) or 0)
+        qntl = float(e.get("qntl", 0) or 0)
+        if tp_wt > 0 and qntl > 0:
+            diff = round(tp_wt - qntl, 2)
+            if abs(diff) > 0:
+                discrepancies.append({
+                    "date": e.get("date", ""),
+                    "truck_no": e.get("truck_no", ""),
+                    "rst_no": e.get("rst_no", ""),
+                    "tp_no": e.get("tp_no", ""),
+                    "agent_name": e.get("agent_name", ""),
+                    "mandi_name": e.get("mandi_name", ""),
+                    "tp_weight": tp_wt,
+                    "qntl": qntl,
+                    "diff_qntl": diff,
+                    "diff_kg": round(diff * 100, 0),
+                })
+                total_diff_qntl += diff
+
+    return {
+        "discrepancies": discrepancies,
+        "total_count": len(discrepancies),
+        "total_entries_with_tp": sum(1 for e in entries if float(e.get("tp_weight", 0) or 0) > 0),
+        "total_diff_qntl": round(total_diff_qntl, 2),
+        "total_diff_kg": round(total_diff_qntl * 100, 0),
+    }
+
+
+@router.get("/reports/weight-discrepancy/excel")
+async def weight_discrepancy_excel(
+    kms_year: Optional[str] = None, season: Optional[str] = None,
+    date_from: Optional[str] = None, date_to: Optional[str] = None,
+    agent: Optional[str] = None, mandi: Optional[str] = None
+):
+    data = await weight_discrepancy_report(kms_year, season, date_from, date_to, agent, mandi)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Weight Discrepancy"
+    headers = ["Date", "Truck No", "RST", "TP No", "Agent", "Mandi", "TP Wt (Q)", "Entry QNTL", "Diff (Q)", "Diff (KG)"]
+    # Title
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+    title_cell = ws.cell(row=1, column=1, value="Weight Discrepancy Report / वजन फर्क रिपोर्ट")
+    title_cell.font = Font(bold=True, size=14, color="FFFFFF")
+    title_cell.fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
+    title_cell.alignment = Alignment(horizontal="center")
+    # Summary
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(headers))
+    ws.cell(row=2, column=1, value=f"Total Discrepancies: {data['total_count']} | Total Diff: {data['total_diff_qntl']} Q ({data['total_diff_kg']} KG)")
+    # Headers
+    hdr_fill = PatternFill(start_color="0f3460", end_color="0f3460", fill_type="solid")
+    for i, h in enumerate(headers, 1):
+        c = ws.cell(row=3, column=i, value=h)
+        c.font = Font(bold=True, color="FFFFFF", size=10)
+        c.fill = hdr_fill
+        c.alignment = Alignment(horizontal="center")
+    # Data
+    red_font = Font(color="FF0000", bold=True)
+    for idx, d in enumerate(data["discrepancies"], 4):
+        vals = [d["date"], d["truck_no"], d["rst_no"], d["tp_no"], d["agent_name"], d["mandi_name"], d["tp_weight"], d["qntl"], d["diff_qntl"], d["diff_kg"]]
+        for i, v in enumerate(vals, 1):
+            cell = ws.cell(row=idx, column=i, value=v)
+            if i >= 9:
+                cell.font = red_font
+            cell.border = Border(bottom=Side(style="thin", color="DDDDDD"))
+    # Totals
+    tot_row = 4 + len(data["discrepancies"])
+    ws.cell(row=tot_row, column=1, value="TOTAL").font = Font(bold=True, size=11)
+    ws.cell(row=tot_row, column=9, value=data["total_diff_qntl"]).font = Font(bold=True, color="FF0000", size=11)
+    ws.cell(row=tot_row, column=10, value=data["total_diff_kg"]).font = Font(bold=True, color="FF0000", size=11)
+    # Widths
+    widths = [12, 14, 8, 8, 16, 22, 10, 10, 10, 10]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf); buf.seek(0)
+    fn = f"weight_discrepancy_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={fn}"})
+
+
+@router.get("/reports/weight-discrepancy/pdf")
+async def weight_discrepancy_pdf(
+    kms_year: Optional[str] = None, season: Optional[str] = None,
+    date_from: Optional[str] = None, date_to: Optional[str] = None,
+    agent: Optional[str] = None, mandi: Optional[str] = None
+):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table as RTable, TableStyle, Paragraph, Spacer
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from utils.branding_helper import get_pdf_header_elements_from_db
+
+    data = await weight_discrepancy_report(kms_year, season, date_from, date_to, agent, mandi)
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=15*mm)
+    elements = []
+    styles = getSampleStyleSheet()
+
+    sub = f"Discrepancies: {data['total_count']} | Total Diff: {data['total_diff_qntl']} Q ({data['total_diff_kg']} KG)"
+    elements.extend(await get_pdf_header_elements_from_db("Weight Discrepancy Report / वजन फर्क", sub))
+    elements.append(Spacer(1, 4*mm))
+
+    headers = ["Date", "Truck", "RST", "TP", "Agent", "Mandi", "TP Wt(Q)", "QNTL", "Diff(Q)", "Diff(KG)"]
+    col_widths = [28*mm, 30*mm, 18*mm, 18*mm, 30*mm, 45*mm, 22*mm, 22*mm, 22*mm, 22*mm]
+    table_data = [headers]
+    for d in data["discrepancies"]:
+        table_data.append([d["date"], d["truck_no"], d["rst_no"], d["tp_no"], d["agent_name"], d["mandi_name"],
+            f"{d['tp_weight']:.2f}", f"{d['qntl']:.2f}", f"{d['diff_qntl']:.2f}", f"{d['diff_kg']:.0f}"])
+    # Totals row
+    table_data.append(["TOTAL", "", "", "", "", f"{data['total_count']} entries", "", "",
+        f"{data['total_diff_qntl']:.2f}", f"{data['total_diff_kg']:.0f}"])
+
+    t = RTable(table_data, colWidths=col_widths, repeatRows=1)
+    style_cmds = [
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0f3460')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, 0), 7),
+        ('FONTSIZE', (0, 1), (-1, -1), 6.5),
+        ('ALIGN', (6, 0), (-1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#cccccc')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8f8f8')]),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#1a1a2e')),
+        ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
+        ('FONTSIZE', (0, -1), (-1, -1), 7),
+    ]
+    # Highlight diff columns in red
+    for i in range(1, len(table_data) - 1):
+        style_cmds.append(('TEXTCOLOR', (8, i), (9, i), colors.HexColor('#dc2626')))
+    t.setStyle(TableStyle(style_cmds))
+    elements.append(t)
+
+    doc.build(elements); buffer.seek(0)
+    fn = f"weight_discrepancy_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={fn}"})

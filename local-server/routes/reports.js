@@ -606,5 +606,120 @@ module.exports = function(database) {
     await safePdfPipe(doc, res);
   }));
 
+  // ===== WEIGHT DISCREPANCY REPORT =====
+  router.get('/api/reports/weight-discrepancy', safeSync(async (req, res) => {
+    const { kms_year, season, date_from, date_to, agent, mandi } = req.query;
+    let entries = database.getEntries({ kms_year, season });
+    if (date_from) entries = entries.filter(e => e.date >= date_from);
+    if (date_to) entries = entries.filter(e => e.date <= date_to);
+    if (agent) entries = entries.filter(e => e.agent_name === agent);
+    if (mandi) entries = entries.filter(e => e.mandi_name === mandi);
+
+    const discrepancies = [];
+    let totalDiff = 0;
+    let entriesWithTp = 0;
+    entries.forEach(e => {
+      const tpWt = parseFloat(e.tp_weight || 0) || 0;
+      const qntl = parseFloat(e.qntl || 0) || 0;
+      if (tpWt > 0) entriesWithTp++;
+      if (tpWt > 0 && qntl > 0) {
+        const diff = +(tpWt - qntl).toFixed(2);
+        if (Math.abs(diff) > 0) {
+          discrepancies.push({
+            date: e.date || '', truck_no: e.truck_no || '', rst_no: e.rst_no || '',
+            tp_no: e.tp_no || '', agent_name: e.agent_name || '', mandi_name: e.mandi_name || '',
+            tp_weight: tpWt, qntl, diff_qntl: diff, diff_kg: Math.round(diff * 100)
+          });
+          totalDiff += diff;
+        }
+      }
+    });
+    res.json({
+      discrepancies, total_count: discrepancies.length,
+      total_entries_with_tp: entriesWithTp,
+      total_diff_qntl: +totalDiff.toFixed(2), total_diff_kg: Math.round(totalDiff * 100)
+    });
+  }));
+
+  router.get('/api/reports/weight-discrepancy/excel', safeAsync(async (req, res) => {
+    const dataRes = await new Promise((resolve) => {
+      const mockReq = { query: req.query };
+      const mockRes = { json: (d) => resolve(d) };
+      router.handle({ ...req, method: 'GET', url: '/api/reports/weight-discrepancy', query: req.query }, mockRes, () => {});
+    }).catch(() => null);
+    // Fallback: recompute
+    const { kms_year, season, date_from, date_to, agent, mandi } = req.query;
+    let entries = database.getEntries({ kms_year, season });
+    if (date_from) entries = entries.filter(e => e.date >= date_from);
+    if (date_to) entries = entries.filter(e => e.date <= date_to);
+    if (agent) entries = entries.filter(e => e.agent_name === agent);
+    if (mandi) entries = entries.filter(e => e.mandi_name === mandi);
+    const discrepancies = []; let totalDiff = 0; let entriesWithTp = 0;
+    entries.forEach(e => {
+      const tpWt = parseFloat(e.tp_weight || 0) || 0;
+      const qntl = parseFloat(e.qntl || 0) || 0;
+      if (tpWt > 0) entriesWithTp++;
+      if (tpWt > 0 && qntl > 0) {
+        const diff = +(tpWt - qntl).toFixed(2);
+        if (Math.abs(diff) > 0) {
+          discrepancies.push({ date: e.date, truck_no: e.truck_no, rst_no: e.rst_no, tp_no: e.tp_no, agent_name: e.agent_name, mandi_name: e.mandi_name, tp_weight: tpWt, qntl, diff_qntl: diff, diff_kg: Math.round(diff * 100) });
+          totalDiff += diff;
+        }
+      }
+    });
+    const data = { discrepancies, total_count: discrepancies.length, total_entries_with_tp: entriesWithTp, total_diff_qntl: +totalDiff.toFixed(2), total_diff_kg: Math.round(totalDiff * 100) };
+
+    const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Weight Discrepancy');
+    ws.columns = [
+      { header: 'Date', key: 'date', width: 12 }, { header: 'Truck No', key: 'truck_no', width: 14 },
+      { header: 'RST', key: 'rst_no', width: 8 }, { header: 'TP No', key: 'tp_no', width: 8 },
+      { header: 'Agent', key: 'agent_name', width: 16 }, { header: 'Mandi', key: 'mandi_name', width: 22 },
+      { header: 'TP Wt (Q)', key: 'tp_weight', width: 10 }, { header: 'Entry QNTL', key: 'qntl', width: 10 },
+      { header: 'Diff (Q)', key: 'diff_qntl', width: 10 }, { header: 'Diff (KG)', key: 'diff_kg', width: 10 }
+    ];
+    data.discrepancies.forEach(d => ws.addRow(d));
+    ws.addRow({ date: 'TOTAL', diff_qntl: data.total_diff_qntl, diff_kg: data.total_diff_kg });
+    addExcelTitle(ws, 'Weight Discrepancy Report', 10, database);
+    styleExcelHeader(ws); styleExcelData(ws, 5);
+
+    res.setHeader('Content-Disposition', 'attachment; filename=weight_discrepancy.xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const buf = await wb.xlsx.writeBuffer(); res.send(Buffer.from(buf));
+  }));
+
+  router.get('/api/reports/weight-discrepancy/pdf', safeSync(async (req, res) => {
+    const { kms_year, season, date_from, date_to, agent, mandi } = req.query;
+    let entries = database.getEntries({ kms_year, season });
+    if (date_from) entries = entries.filter(e => e.date >= date_from);
+    if (date_to) entries = entries.filter(e => e.date <= date_to);
+    if (agent) entries = entries.filter(e => e.agent_name === agent);
+    if (mandi) entries = entries.filter(e => e.mandi_name === mandi);
+    const discrepancies = []; let totalDiff = 0;
+    entries.forEach(e => {
+      const tpWt = parseFloat(e.tp_weight || 0) || 0;
+      const qntl = parseFloat(e.qntl || 0) || 0;
+      if (tpWt > 0 && qntl > 0) {
+        const diff = +(tpWt - qntl).toFixed(2);
+        if (Math.abs(diff) > 0) {
+          discrepancies.push({ date: e.date, truck_no: e.truck_no, rst_no: e.rst_no, tp_no: e.tp_no, agent_name: e.agent_name, mandi_name: e.mandi_name, tp_weight: tpWt, qntl, diff_qntl: diff, diff_kg: Math.round(diff * 100) });
+          totalDiff += diff;
+        }
+      }
+    });
+    const data = { discrepancies, total_count: discrepancies.length, total_diff_qntl: +totalDiff.toFixed(2), total_diff_kg: Math.round(totalDiff * 100) };
+
+    const doc = createPdfDoc('landscape');
+    res.setHeader('Content-Disposition', 'attachment; filename=weight_discrepancy.pdf');
+    res.setHeader('Content-Type', 'application/pdf');
+    doc.pipe(res);
+    addPdfTitle(doc, 'Weight Discrepancy Report / वजन फर्क', `Discrepancies: ${data.total_count} | Total Diff: ${data.total_diff_qntl} Q (${data.total_diff_kg} KG)`, database);
+    const h = ['Date','Truck','RST','TP','Agent','Mandi','TP Wt(Q)','QNTL','Diff(Q)','Diff(KG)'];
+    const w = [38,40,24,24,40,60,30,30,30,30];
+    const rows = data.discrepancies.map(d => [d.date, d.truck_no, d.rst_no, d.tp_no, d.agent_name, d.mandi_name, d.tp_weight.toFixed(2), d.qntl.toFixed(2), d.diff_qntl.toFixed(2), d.diff_kg]);
+    drawPdfTable(doc, h, rows, w);
+    addTotalsRow(doc, ['TOTAL','','','','',`${data.total_count} entries`,'','',data.total_diff_qntl.toFixed(2), data.total_diff_kg], w);
+    doc.end();
+  }));
+
   return router;
 };

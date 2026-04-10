@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.75.0";
+const APP_VERSION = "88.76.0";
 
 const CHANGELOG = [
+  {
+    version: "88.76.0",
+    date: "Apr 2026",
+    title: "v88.76.0 - TP Weight Validation & Discrepancy Report",
+    items: [
+      { type: "new", text: "TP Weight vs QNTL/Net Wt auto-validation - farak hone par red indicator dikhta hai (VW, Mill Entry, Table)" },
+      { type: "new", text: "Weight Discrepancy Report - naya report tab (Reports > Wt Discrepancy)" },
+      { type: "new", text: "Discrepancy Report mein date, agent, mandi filter + Excel/PDF export" },
+      { type: "fix", text: "Agent & Mandi Report mein TP Wt column aur total add hua (Desktop fix)" },
+    ]
+  },
   {
     version: "88.75.0",
     date: "Apr 2026",
