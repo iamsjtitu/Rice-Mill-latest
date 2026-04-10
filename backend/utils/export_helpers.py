@@ -322,8 +322,10 @@ def _build_custom_fields_row(branding, placement_filter="below"):
     tbl.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (-1, -1), 'FreeSans'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ('LINEBELOW', (0, 0), (-1, -1), 0.5, rl_colors.HexColor('#D0D5DD')),
     ]))
     return [tbl]
