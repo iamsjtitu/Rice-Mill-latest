@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.56.0";
+const APP_VERSION = "88.57.0";
 
 const CHANGELOG = [
+  {
+    version: "88.57.0",
+    date: "Apr 2026",
+    title: "v88.57.0 - VW Linked Edit/Delete Permission",
+    items: [
+      { type: "feature", text: "Settings mein naya permission: VW Linked Edit — Enable karo toh Mill Entry mein use hui VW entry ko bhi edit/delete kar sakte ho" },
+      { type: "feature", text: "Admin ke liye default ON, baaki roles ke liye OFF — full control aapke haath mein" },
+    ]
+  },
   {
     version: "88.55.0",
     date: "Apr 2026",
