@@ -91,7 +91,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
   // ── Action handlers ──
   const handleDelete = async (id) => {
     if (!await showConfirm("Delete", "Kya aap ye entry delete karna chahte hain?")) return;
-    try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch { toast.error("Error"); }
+    try { await axios.delete(`${API}/vehicle-weight/${id}`); toast.success("Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch (err) { toast.error(err?.response?.data?.detail || "Error"); }
   };
   const handlePdf = (e) => { const u = `${API}/vehicle-weight/${e.id}/slip-pdf?party_only=1`; _isElectron ? downloadFile(u, `Slip_${e.rst_no}.pdf`) : window.open(u, "_blank"); };
 
@@ -236,7 +236,7 @@ export default function AutoWeightEntries({ filters, onVwChange }) {
       toast.success("Updated");
       setEditEntry(null);
       fetchData();
-    } catch { toast.error("Update error"); }
+    } catch (err) { toast.error(err?.response?.data?.detail || "Update error"); }
   };
 
   return (

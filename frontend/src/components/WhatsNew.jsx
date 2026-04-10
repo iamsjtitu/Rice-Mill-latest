@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.71.0";
+const APP_VERSION = "88.72.0";
 
 const CHANGELOG = [
+  {
+    version: "88.72.0",
+    date: "Apr 2026",
+    title: "v88.72.0 - Error Message Fix",
+    items: [
+      { type: "fix", text: "Edit/Delete mein ab proper error message dikhta hai (e.g. TP duplicate warning)" },
+    ]
+  },
   {
     version: "88.71.0",
     date: "Apr 2026",

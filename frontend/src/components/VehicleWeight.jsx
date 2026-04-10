@@ -642,7 +642,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     } catch (e) { toast.error(e.response?.data?.detail || "Save error"); }
   };
 
-  const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye VW entry delete karna chahte hain?\n\nNote: Isse linked Mill Entry + Cash/Diesel transactions bhi delete ho jayenge!")) return; try { const res = await axios.delete(`${API}/vehicle-weight/${id}`); toast.success(res.data?.message || "Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch { toast.error("Error"); } };
+  const handleDelete = async (id) => { if (!await showConfirm("Delete", "Kya aap ye VW entry delete karna chahte hain?\n\nNote: Isse linked Mill Entry + Cash/Diesel transactions bhi delete ho jayenge!")) return; try { const res = await axios.delete(`${API}/vehicle-weight/${id}`); toast.success(res.data?.message || "Deleted"); fetchData(); if (onVwChange) onVwChange(); } catch (err) { toast.error(err?.response?.data?.detail || "Error"); } };
 
   // Auto-notify: images already saved with entry, just trigger notify
   const sendAutoNotify = async (entryId) => {
@@ -751,7 +751,7 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
     try {
       const r = await axios.put(`${API}/vehicle-weight/${editDialog.entry.id}/edit`, editForm);
       if (r.data.success) { toast.success("Updated!"); setEditDialog({ open: false, entry: null }); fetchData(); }
-    } catch { toast.error("Update error"); }
+    } catch (err) { toast.error(err?.response?.data?.detail || "Update error"); }
   };
 
   // ── Print A5 with 2 copies (Party Copy + Customer Copy) ──
