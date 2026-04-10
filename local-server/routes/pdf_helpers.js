@@ -49,18 +49,28 @@ function drawWatermark(doc, settings) {
   doc.opacity(opacity);
 
   const wType = settings.type || 'text';
+  const w = doc.page.width;
+  const h = doc.page.height;
+
   if (wType === 'text') {
     const text = settings.text || '';
     if (text) {
       const fontSize = parseInt(settings.font_size || 52);
       const rotation = parseInt(settings.rotation || 45);
       doc.fontSize(fontSize).font(F('bold')).fillColor('#9ca3af');
-      const w = doc.page.width;
-      const h = doc.page.height;
-      doc.translate(w / 2, h / 2);
-      doc.rotate(-rotation, { origin: [0, 0] });
       const tw = doc.widthOfString(text);
-      doc.text(text, -tw / 2, -15, { lineBreak: false });
+      const stepX = Math.max(tw * 1.1, 200);
+      const stepY = Math.max(fontSize * 2.5, 150);
+      // Tile watermark across full page
+      for (let y = -h * 0.3; y < h * 1.3; y += stepY) {
+        for (let x = -w * 0.3; x < w * 1.3; x += stepX) {
+          doc.save();
+          doc.translate(x, y);
+          doc.rotate(-rotation, { origin: [0, 0] });
+          doc.text(text, -tw / 2, -fontSize / 2, { lineBreak: false });
+          doc.restore();
+        }
+      }
     }
   } else if (wType === 'image') {
     const imgPath = settings.image_path || '';
@@ -68,10 +78,12 @@ function drawWatermark(doc, settings) {
       try {
         const fs = require('fs');
         if (fs.existsSync(imgPath)) {
-          const imgW = 200, imgH = 200;
-          const x = (doc.page.width - imgW) / 2;
-          const y = (doc.page.height - imgH) / 2;
-          doc.image(imgPath, x, y, { width: imgW, height: imgH });
+          const imgW = 150, imgH = 150;
+          for (let y = 0; y < h; y += 250) {
+            for (let x = 0; x < w; x += 250) {
+              doc.image(imgPath, x, y, { width: imgW, height: imgH });
+            }
+          }
         }
       } catch (e) { /* skip if image not found */ }
     }

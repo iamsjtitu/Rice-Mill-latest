@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,8 +24,8 @@ export default function WeightDiscrepancy({ filters }) {
   const [mandiList, setMandiList] = useState([]);
 
   useEffect(() => {
-    axios.get(`${API}/suggestions/agents`).then(r => setAgentList(r.data || [])).catch(() => {});
-    axios.get(`${API}/suggestions/mandis`).then(r => setMandiList(r.data || [])).catch(() => {});
+    axios.get(`${API}/suggestions/agents`).then(r => setAgentList(Array.isArray(r.data) ? r.data : r.data?.suggestions || [])).catch(() => {});
+    axios.get(`${API}/suggestions/mandis`).then(r => setMandiList(Array.isArray(r.data) ? r.data : r.data?.suggestions || [])).catch(() => {});
   }, []);
 
   const fetchData = async () => {

@@ -23,7 +23,7 @@ def get_cached_watermark():
 
 
 def draw_watermark_on_page(canvas, doc_template):
-    """Draw watermark on a single reportlab page (called via onPage)."""
+    """Draw tiled watermark across entire page (called via onPage)."""
     settings = get_cached_watermark()
     if not settings or not settings.get("enabled"):
         return
@@ -31,6 +31,8 @@ def draw_watermark_on_page(canvas, doc_template):
     canvas.saveState()
     opacity = float(settings.get("opacity", 0.06))
     wm_type = settings.get("type", "text")
+    w = doc_template.pagesize[0] if hasattr(doc_template, 'pagesize') else 595
+    h = doc_template.pagesize[1] if hasattr(doc_template, 'pagesize') else 842
 
     if wm_type == "text":
         text = settings.get("text", "")
@@ -43,28 +45,33 @@ def draw_watermark_on_page(canvas, doc_template):
             except Exception:
                 canvas.setFont("Helvetica-Bold", font_size)
             canvas.setFillColorRGB(0.6, 0.6, 0.6)
-            w = doc_template.pagesize[0] if hasattr(doc_template, 'pagesize') else 595
-            h = doc_template.pagesize[1] if hasattr(doc_template, 'pagesize') else 842
-            canvas.translate(w / 2, h / 2)
-            canvas.rotate(rotation)
-            canvas.drawCentredString(0, 0, text)
+            # Tile watermark across the full page
+            import math
+            step_x = max(font_size * len(text) * 0.45, 200)
+            step_y = max(font_size * 2.5, 150)
+            for y in range(int(-h * 0.5), int(h * 1.5), int(step_y)):
+                for x in range(int(-w * 0.5), int(w * 1.5), int(step_x)):
+                    canvas.saveState()
+                    canvas.translate(x, y)
+                    canvas.rotate(rotation)
+                    canvas.drawCentredString(0, 0, text)
+                    canvas.restoreState()
 
     elif wm_type == "image":
         img_path = settings.get("image_path", "")
         if img_path and os.path.exists(img_path):
             canvas.setFillAlpha(opacity)
-            w = doc_template.pagesize[0] if hasattr(doc_template, 'pagesize') else 595
-            h = doc_template.pagesize[1] if hasattr(doc_template, 'pagesize') else 842
-            img_w, img_h = 200, 200
-            try:
-                canvas.drawImage(
-                    img_path,
-                    (w - img_w) / 2, (h - img_h) / 2,
-                    img_w, img_h,
-                    preserveAspectRatio=True, mask='auto'
-                )
-            except Exception:
-                pass
+            img_w, img_h = 150, 150
+            step_x, step_y = 250, 250
+            for y in range(0, int(h), step_y):
+                for x in range(0, int(w), step_x):
+                    try:
+                        canvas.drawImage(
+                            img_path, x, y, img_w, img_h,
+                            preserveAspectRatio=True, mask='auto'
+                        )
+                    except Exception:
+                        pass
 
     canvas.restoreState()
 
@@ -87,14 +94,14 @@ def patch_simpledoctemplate():
             orig_later = onLaterPages
 
             def wm_first(canvas, doc):
-                draw_watermark_on_page(canvas, doc)
                 if orig_first:
                     orig_first(canvas, doc)
+                draw_watermark_on_page(canvas, doc)
 
             def wm_later(canvas, doc):
-                draw_watermark_on_page(canvas, doc)
                 if orig_later:
                     orig_later(canvas, doc)
+                draw_watermark_on_page(canvas, doc)
 
             _original_build(self, flowables, onFirstPage=wm_first, onLaterPages=wm_later, **build_kwargs)
         else:

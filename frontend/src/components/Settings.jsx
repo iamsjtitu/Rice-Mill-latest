@@ -2967,27 +2967,36 @@ function WatermarkTab() {
                 </div>
               )}
 
-              {/* Preview Box */}
-              <div className="relative bg-slate-50 border border-slate-200 rounded-lg p-8 overflow-hidden" style={{ minHeight: 140 }}>
-                <div
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                  style={{ opacity: Math.max((settings.opacity || 0.06) * 3, 0.15), transform: `rotate(-${settings.rotation || 45}deg)` }}
-                >
+              {/* Preview Box - Tiled Watermark */}
+              <div className="relative bg-white border border-slate-200 rounded-lg p-8 overflow-hidden" style={{ minHeight: 160 }}>
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
                   {settings.type === 'text' ? (
-                    <span style={{ fontSize: `${Math.min(settings.font_size || 52, 48)}px` }} className="font-bold text-slate-400 whitespace-nowrap select-none">
-                      {settings.text || 'WATERMARK'}
-                    </span>
+                    <div className="absolute inset-0" style={{ opacity: Math.max((settings.opacity || 0.06) * 3, 0.15) }}>
+                      {[0, 1, 2, 3, 4].map(row => (
+                        <div key={row} className="flex gap-8 whitespace-nowrap" style={{ transform: `rotate(-${settings.rotation || 45}deg) translateY(${row * 50 - 60}px) translateX(-40px)` }}>
+                          {[0, 1, 2, 3].map(col => (
+                            <span key={col} style={{ fontSize: `${Math.min(settings.font_size || 52, 36)}px` }} className="font-bold text-slate-400 select-none">
+                              {settings.text || 'WATERMARK'}
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     settings.image_path ? (
-                      <Droplets className="w-24 h-24 text-slate-400" />
+                      <div className="absolute inset-0 flex flex-wrap gap-4 items-center justify-center" style={{ opacity: Math.max((settings.opacity || 0.06) * 3, 0.15) }}>
+                        {[0, 1, 2, 3].map(i => <Droplets key={i} className="w-16 h-16 text-slate-400" />)}
+                      </div>
                     ) : (
-                      <span className="text-2xl font-bold text-slate-300">IMAGE</span>
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ opacity: 0.15 }}>
+                        <span className="text-2xl font-bold text-slate-300">IMAGE</span>
+                      </div>
                     )
                   )}
                 </div>
                 <div className="relative z-10 text-center">
                   <p className="text-slate-700 text-sm font-bold">PDF Preview</p>
-                  <p className="text-slate-400 text-xs">Yeh dikhata hai watermark kaise dikhega</p>
+                  <p className="text-slate-400 text-xs">Yeh dikhata hai watermark kaise dikhega - puri page par repeat hota hai</p>
                   <p className="text-amber-500 text-[10px] mt-1">(Preview mein thoda zyada dikhai deta hai, actual PDF mein halka hoga)</p>
                 </div>
               </div>
