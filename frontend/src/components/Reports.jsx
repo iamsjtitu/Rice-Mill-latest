@@ -1170,7 +1170,7 @@ const AgentMandiReport = ({ filters }) => {
           if (m && m.totals) totals = m.totals;
         }
         return (
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
           {[
             ["Total Entries", totals.entry_count, "", "text-white"],
             ["Total Final W", ((totals.total_final_w || 0) / 100).toFixed(2), "Q", "text-amber-400"],
@@ -1179,6 +1179,7 @@ const AgentMandiReport = ({ filters }) => {
             ["Gunny Deposit", totals.total_g_deposite || totals.g_deposite || 0, "", "text-cyan-400"],
             ["Gunny Issued", totals.total_g_issued || totals.g_issued || 0, "", "text-purple-400"],
             ["Final Weight", ((totals.total_final_w || 0) / 100).toFixed(2), "Q", "text-emerald-400"],
+            ["TP Weight", ((totals.total_tp_weight || 0) / 100).toFixed(2), "Q", "text-orange-400"],
           ].map(([label, val, unit, color]) => (
             <Card key={label} className="bg-slate-800 border-slate-700">
               <CardContent className="p-3 text-center">
@@ -1222,6 +1223,7 @@ const AgentMandiReport = ({ filters }) => {
                   <div className="text-center"><p className="text-[10px] text-slate-500">G.Deposit</p><p className="text-cyan-400 font-bold">{fmtNum(mandi.totals.total_g_deposite)}</p></div>
                   <div className="text-center"><p className="text-[10px] text-slate-500">G.Issued</p><p className="text-purple-400 font-bold">{fmtNum(mandi.totals.total_g_issued)}</p></div>
                   <div className="text-center"><p className="text-[10px] text-slate-500">Final Wt</p><p className="text-emerald-400 font-bold">{fmtNum(mandi.totals.total_final_w/100)}</p></div>
+                  <div className="text-center"><p className="text-[10px] text-slate-500">TP Wt</p><p className="text-orange-400 font-bold">{fmtNum((mandi.totals.total_tp_weight || 0)/100)}</p></div>
                   {mandi.extra_qntl > 0 && (
                     <Button size="sm" onClick={(e) => { e.stopPropagation(); setPvtDialog({ open: true, mandi }); setPvtRate(""); }}
                       className={mandi.pvt_moved ? "bg-slate-600 text-slate-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700 text-white"}
