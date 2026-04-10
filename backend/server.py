@@ -266,6 +266,17 @@ async def startup_date_format_check():
         logger.error(f"Date format startup check error: {e}")
 
 @app.on_event("startup")
+async def startup_watermark():
+    """Load watermark settings and patch SimpleDocTemplate for auto-watermark."""
+    try:
+        from utils.watermark_helper import load_watermark_settings, patch_simpledoctemplate
+        await load_watermark_settings()
+        patch_simpledoctemplate()
+        logger.info("Watermark system initialized")
+    except Exception as e:
+        logger.error(f"Watermark startup error: {e}")
+
+@app.on_event("startup")
 async def fix_empty_descriptions():
     """One-time migration: fill empty descriptions in cash_transactions"""
     try:

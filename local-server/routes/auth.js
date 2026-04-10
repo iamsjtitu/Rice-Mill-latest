@@ -246,6 +246,59 @@ module.exports = function(database) {
     res.json({ success: true, message: 'Branding update ho gaya', branding });
   }));
 
+  // ===== WATERMARK SETTINGS =====
+  router.get('/api/settings/watermark', safeSync(async (req, res) => {
+    if (!database.data.app_settings) database.data.app_settings = [];
+    const wm = database.data.app_settings.find(s => s.setting_id === 'watermark');
+    res.json(wm || { setting_id: 'watermark', enabled: false, type: 'text', text: '', image_path: '', opacity: 0.06 });
+  }));
+
+  router.put('/api/settings/watermark', safeSync(async (req, res) => {
+    if (!database.data.app_settings) database.data.app_settings = [];
+    const settings = {
+      setting_id: 'watermark',
+      enabled: !!req.body.enabled,
+      type: req.body.type || 'text',
+      text: (req.body.text || '').trim(),
+      image_path: (req.body.image_path || '').trim(),
+      opacity: Math.max(0.02, Math.min(0.20, parseFloat(req.body.opacity || 0.06))),
+      updated_at: new Date().toISOString()
+    };
+    const idx = database.data.app_settings.findIndex(s => s.setting_id === 'watermark');
+    if (idx >= 0) database.data.app_settings[idx] = settings;
+    else database.data.app_settings.push(settings);
+    database.save();
+    res.json({ success: true, message: 'Watermark settings update ho gaya', settings });
+  }));
+
+  const multer = require('multer');
+  const path = require('path');
+  const fs = require('fs');
+  const wmUploadDir = path.join(__dirname, '..', 'uploads', 'watermark');
+  if (!fs.existsSync(wmUploadDir)) fs.mkdirSync(wmUploadDir, { recursive: true });
+  const wmStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, wmUploadDir),
+    filename: (req, file, cb) => cb(null, 'watermark' + path.extname(file.originalname))
+  });
+  const wmUpload = multer({ storage: wmStorage, fileFilter: (req, file, cb) => {
+    cb(null, file.mimetype.startsWith('image/'));
+  }});
+
+  router.post('/api/settings/watermark/upload', wmUpload.single('file'), safeSync(async (req, res) => {
+    if (!req.file) return res.status(400).json({ detail: 'Sirf image file upload karein' });
+    const savePath = req.file.path;
+    if (!database.data.app_settings) database.data.app_settings = [];
+    const idx = database.data.app_settings.findIndex(s => s.setting_id === 'watermark');
+    if (idx >= 0) {
+      database.data.app_settings[idx].image_path = savePath;
+      database.data.app_settings[idx].type = 'image';
+    } else {
+      database.data.app_settings.push({ setting_id: 'watermark', enabled: false, type: 'image', text: '', image_path: savePath, opacity: 0.06 });
+    }
+    database.save();
+    res.json({ success: true, image_path: savePath });
+  }));
+
   // ===== OPENING STOCK =====
   const STOCK_ITEMS = ['paddy', 'rice_usna', 'rice_raw', 'bran', 'kunda', 'broken', 'kanki', 'husk', 'frk'];
 

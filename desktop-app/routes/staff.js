@@ -656,6 +656,7 @@ router.get('/api/staff/export/payments', safeAsync(async (req, res) => {
     // PDF will be sent via safePdfPipe
 
     const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
+    branding._watermark = ((database.data || {}).app_settings || []).find(s => s.setting_id === 'watermark');
     addPdfHeader(doc, 'Staff Payment Report', branding, kms_year ? `${kms_year} | ${season || ''}` : '');
 
     const headers = ['Staff', 'Period', 'Days Worked', 'Gross Salary', 'Adv. Deducted', 'Net Payment', 'Date'];

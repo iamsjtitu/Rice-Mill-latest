@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from fastapi.responses import StreamingResponse, Response
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 from database import db, USERS, print_pages
 from models import *
-import uuid, io, csv
+import uuid, io, csv, os
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -340,6 +340,72 @@ async def update_branding(data: dict, username: str = "", role: str = ""):
     await db.settings.update_one({"key": "branding"}, {"$set": sync_data}, upsert=True)
 
     return {"success": True, "message": "Branding update ho gaya", "branding": branding_data}
+
+
+# ===== WATERMARK SETTINGS =====
+
+@router.get("/settings/watermark")
+async def get_watermark_settings():
+    """Get PDF watermark settings"""
+    doc = await db.app_settings.find_one({"setting_id": "watermark"}, {"_id": 0})
+    return doc or {"setting_id": "watermark", "enabled": False, "type": "text", "text": "", "image_path": "", "opacity": 0.06}
+
+
+@router.put("/settings/watermark")
+async def update_watermark_settings(data: dict, username: str = "", role: str = ""):
+    """Update PDF watermark settings (Admin only)"""
+    if role and role != "admin":
+        raise HTTPException(status_code=403, detail="Sirf Admin watermark settings update kar sakta hai")
+
+    settings = {
+        "setting_id": "watermark",
+        "enabled": bool(data.get("enabled", False)),
+        "type": data.get("type", "text"),
+        "text": str(data.get("text", "")).strip(),
+        "image_path": str(data.get("image_path", "")).strip(),
+        "opacity": max(0.02, min(0.20, float(data.get("opacity", 0.06)))),
+        "updated_by": username,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    await db.app_settings.update_one(
+        {"setting_id": "watermark"}, {"$set": settings}, upsert=True
+    )
+
+    # Refresh cache
+    from utils.watermark_helper import load_watermark_settings
+    await load_watermark_settings()
+
+    return {"success": True, "message": "Watermark settings update ho gaya", "settings": settings}
+
+
+@router.post("/settings/watermark/upload")
+async def upload_watermark_image(file: UploadFile = File(...)):
+    """Upload watermark image"""
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Sirf image file upload karein")
+
+    upload_dir = "/app/backend/uploads/watermark"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    ext = os.path.splitext(file.filename)[1] or ".png"
+    save_path = os.path.join(upload_dir, f"watermark{ext}")
+
+    content = await file.read()
+    with open(save_path, "wb") as f:
+        f.write(content)
+
+    # Update settings with image path
+    await db.app_settings.update_one(
+        {"setting_id": "watermark"},
+        {"$set": {"image_path": save_path, "type": "image"}},
+        upsert=True
+    )
+
+    from utils.watermark_helper import load_watermark_settings
+    await load_watermark_settings()
+
+    return {"success": True, "image_path": save_path}
 
 
 # Helper function to get branding for exports

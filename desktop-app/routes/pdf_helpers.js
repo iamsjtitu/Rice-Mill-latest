@@ -36,6 +36,50 @@ function F(weight) {
   return weight === 'bold' ? 'AppFontBold' : (weight === 'oblique' ? 'AppFontOblique' : 'AppFont');
 }
 
+/**
+ * Draw watermark on the current page of a pdfkit document.
+ * Called from addPdfHeader (first page) and via pageAdded event (subsequent pages).
+ */
+function drawWatermark(doc, settings) {
+  if (!settings || !settings.enabled) return;
+  const savedY = doc.y;
+  const savedX = doc.x;
+  doc.save();
+  const opacity = Math.max(0.02, Math.min(0.20, parseFloat(settings.opacity || 0.06)));
+  doc.opacity(opacity);
+
+  const wType = settings.type || 'text';
+  if (wType === 'text') {
+    const text = settings.text || '';
+    if (text) {
+      doc.fontSize(52).font(F('bold')).fillColor('#9ca3af');
+      const w = doc.page.width;
+      const h = doc.page.height;
+      doc.translate(w / 2, h / 2);
+      doc.rotate(-45, { origin: [0, 0] });
+      const tw = doc.widthOfString(text);
+      doc.text(text, -tw / 2, -15, { lineBreak: false });
+    }
+  } else if (wType === 'image') {
+    const imgPath = settings.image_path || '';
+    if (imgPath) {
+      try {
+        const fs = require('fs');
+        if (fs.existsSync(imgPath)) {
+          const imgW = 200, imgH = 200;
+          const x = (doc.page.width - imgW) / 2;
+          const y = (doc.page.height - imgH) / 2;
+          doc.image(imgPath, x, y, { width: imgW, height: imgH });
+        }
+      } catch (e) { /* skip if image not found */ }
+    }
+  }
+
+  doc.restore();
+  doc.y = savedY;
+  doc.x = savedX;
+}
+
 function addPdfHeader(doc, title, branding, subtitle) {
   registerFonts(doc);
   branding = branding || {};
@@ -104,6 +148,13 @@ function addPdfHeader(doc, title, branding, subtitle) {
   doc.fontSize(7).font(F('normal')).fillColor('#9ca3af')
     .text(`Generated: ${new Date().toLocaleDateString('en-IN')} | ${new Date().toLocaleTimeString('en-IN')}`, { align: 'center' });
   doc.moveDown(0.4);
+
+  // Setup watermark: draw on first page + auto-draw on subsequent pages
+  const wm = branding._watermark;
+  if (wm && wm.enabled) {
+    drawWatermark(doc, wm);
+    doc.on('pageAdded', () => drawWatermark(doc, wm));
+  }
 }
 
 function addPdfTable(doc, headers, rows, colWidths, opts) {
@@ -294,4 +345,4 @@ function safePdfPipe(doc, res, filename) {
   });
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe };
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark };

@@ -11,6 +11,7 @@ module.exports = function(database) {
 
   function addPdfHeader(doc, title, subtitle) {
     const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
+    branding._watermark = ((database.data || {}).app_settings || []).find(s => s.setting_id === 'watermark');
     _addPdfHeader(doc, title, branding, subtitle);
   }
 

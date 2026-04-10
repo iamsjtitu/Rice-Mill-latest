@@ -329,7 +329,7 @@ module.exports = (database) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=hemali_monthly_summary.pdf`);
     // PDF will be sent via safePdfPipe
-    addPdfHeader(doc, 'Hemali Monthly Summary');
+    addPdfHeader(doc, 'Hemali Monthly Summary', { ...(database.getBranding ? database.getBranding() : {}), _watermark: ((database.data || {}).app_settings || []).find(s => s.setting_id === 'watermark') });
 
     for (const sn of Object.keys(sardars).sort()) {
       const s = sardars[sn];
@@ -417,7 +417,7 @@ module.exports = (database) => {
     res.setHeader('Content-Disposition', `attachment; filename=hemali_payments.pdf`);
     // PDF will be sent via safePdfPipe
 
-    addPdfHeader(doc, 'Hemali Payment Report');
+    addPdfHeader(doc, 'Hemali Payment Report', { ...(database.getBranding ? database.getBranding() : {}), _watermark: ((database.data || {}).app_settings || []).find(s => s.setting_id === 'watermark') });
     const meta = [];
     if (kms_year) meta.push(`FY: ${kms_year}`);
     if (from_date || to_date) meta.push(`${from_date || ''} to ${to_date || ''}`);

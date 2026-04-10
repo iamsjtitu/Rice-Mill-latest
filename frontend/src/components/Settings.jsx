@@ -14,6 +14,7 @@ import {
   Trash2, Plus, Calculator, RefreshCw, Key, FileText,
   AlertCircle, HardDrive, ShieldCheck, Send, Package, Scale,
   Camera, CameraOff, Eye, EyeOff, Wifi, CheckCircle, Users, History, Hash,
+  Droplets, Upload, Type, Image,
 } from "lucide-react";
 import { useConfirm } from "@/components/ConfirmProvider";
 
@@ -2788,12 +2789,195 @@ function AuditLogTab({ user }) {
 }
 
 
+// ======================= WATERMARK TAB =======================
+
+function WatermarkTab() {
+  const [settings, setSettings] = useState({ enabled: false, type: 'text', text: '', opacity: 0.06 });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef(null);
+
+  useEffect(() => { loadSettings(); }, []);
+
+  const loadSettings = async () => {
+    setLoading(true);
+    try {
+      const { data } = await axios.get(`${API}/settings/watermark`);
+      setSettings(data);
+    } catch { /* first time - use defaults */ }
+    setLoading(false);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await axios.put(`${API}/settings/watermark`, settings);
+      toast.success('Watermark settings save ho gaya');
+    } catch (e) { toast.error('Save failed'); }
+    setSaving(false);
+  };
+
+  const uploadImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const { data } = await axios.post(`${API}/settings/watermark/upload`, fd);
+      setSettings(prev => ({ ...prev, type: 'image', image_path: data.image_path }));
+      toast.success('Image upload ho gayi');
+    } catch { toast.error('Upload failed'); }
+  };
+
+  const opacityPercent = Math.round((settings.opacity || 0.06) * 100);
+
+  if (loading) return <div className="text-center py-8 text-slate-400">Loading...</div>;
+
+  return (
+    <div className="space-y-4" data-testid="watermark-settings">
+      <Card className="bg-slate-800/60 border-slate-700">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm text-slate-200 flex items-center gap-2">
+            <Droplets className="w-4 h-4 text-amber-400" /> PDF Watermark Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Enable/Disable */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-slate-300 text-sm font-medium">Watermark Enable karein</Label>
+              <p className="text-slate-500 text-xs mt-0.5">ON karne par sabhi PDF exports mein watermark aayega</p>
+            </div>
+            <Switch
+              checked={settings.enabled}
+              onCheckedChange={v => setSettings(p => ({ ...p, enabled: v }))}
+              data-testid="watermark-toggle"
+            />
+          </div>
+
+          {settings.enabled && (
+            <>
+              {/* Type Selection */}
+              <div>
+                <Label className="text-slate-400 text-xs mb-2 block">Watermark Type</Label>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={settings.type === 'text' ? 'default' : 'outline'}
+                    className={settings.type === 'text' ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'border-slate-600 text-slate-300'}
+                    onClick={() => setSettings(p => ({ ...p, type: 'text' }))}
+                    data-testid="watermark-type-text"
+                  >
+                    <Type className="w-3.5 h-3.5 mr-1.5" /> Text
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={settings.type === 'image' ? 'default' : 'outline'}
+                    className={settings.type === 'image' ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'border-slate-600 text-slate-300'}
+                    onClick={() => setSettings(p => ({ ...p, type: 'image' }))}
+                    data-testid="watermark-type-image"
+                  >
+                    <Image className="w-3.5 h-3.5 mr-1.5" /> Image
+                  </Button>
+                </div>
+              </div>
+
+              {/* Text Input */}
+              {settings.type === 'text' && (
+                <div>
+                  <Label className="text-slate-400 text-xs mb-1 block">Watermark Text (Company Name / Custom Text)</Label>
+                  <Input
+                    value={settings.text || ''}
+                    onChange={e => setSettings(p => ({ ...p, text: e.target.value }))}
+                    placeholder="e.g. NAVKAR AGRO"
+                    className="bg-slate-700 border-slate-600 text-white"
+                    data-testid="watermark-text-input"
+                  />
+                </div>
+              )}
+
+              {/* Image Upload */}
+              {settings.type === 'image' && (
+                <div>
+                  <Label className="text-slate-400 text-xs mb-1 block">Watermark Image (Logo)</Label>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      size="sm" variant="outline"
+                      className="border-slate-600 text-slate-300"
+                      onClick={() => fileRef.current?.click()}
+                      data-testid="watermark-upload-btn"
+                    >
+                      <Upload className="w-3.5 h-3.5 mr-1.5" /> Upload Image
+                    </Button>
+                    <input ref={fileRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
+                    {settings.image_path && (
+                      <span className="text-green-400 text-xs flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Image uploaded
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Opacity Slider */}
+              <div>
+                <Label className="text-slate-400 text-xs mb-1 block">Opacity (Halkapan): {opacityPercent}%</Label>
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-500 text-xs">2%</span>
+                  <input
+                    type="range" min="2" max="20" value={opacityPercent}
+                    onChange={e => setSettings(p => ({ ...p, opacity: parseInt(e.target.value) / 100 }))}
+                    className="flex-1 accent-amber-500"
+                    data-testid="watermark-opacity-slider"
+                  />
+                  <span className="text-slate-500 text-xs">20%</span>
+                </div>
+                <p className="text-slate-500 text-[10px] mt-1">Kam value = zyada halka watermark (bank documents jaisa)</p>
+              </div>
+
+              {/* Preview Box */}
+              <div className="relative bg-white rounded-lg p-8 overflow-hidden" style={{ minHeight: 120 }}>
+                <div
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  style={{ opacity: settings.opacity || 0.06, transform: 'rotate(-45deg)' }}
+                >
+                  {settings.type === 'text' ? (
+                    <span className="text-4xl font-bold text-gray-500 whitespace-nowrap select-none">
+                      {settings.text || 'WATERMARK'}
+                    </span>
+                  ) : (
+                    settings.image_path ? (
+                      <Droplets className="w-24 h-24 text-gray-500" />
+                    ) : (
+                      <span className="text-2xl font-bold text-gray-400">IMAGE</span>
+                    )
+                  )}
+                </div>
+                <div className="relative z-10 text-center">
+                  <p className="text-gray-800 text-sm font-bold">PDF Preview</p>
+                  <p className="text-gray-500 text-xs">Yeh dikhata hai watermark kaise dikhega</p>
+                </div>
+              </div>
+            </>
+          )}
+
+          <Button onClick={save} disabled={saving} className="bg-amber-600 hover:bg-amber-500 text-white w-full" data-testid="watermark-save-btn">
+            {saving ? 'Saving...' : 'Save Watermark Settings'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
 // ======================= MAIN SETTINGS COMPONENT =======================
 
 const SUB_TABS = [
   { id: "users", label: "Users", icon: Users },
   { id: "audit", label: "Audit Log", icon: History },
   { id: "branding", label: "Branding", icon: Key },
+  { id: "watermark", label: "Watermark", icon: Droplets },
   { id: "gst", label: "GST", icon: Calculator },
   { id: "stock", label: "Stock", icon: Package },
   { id: "messaging", label: "Messaging", icon: Send },
@@ -2833,6 +3017,9 @@ export default function Settings({ user, setUser, kmsYear, onBrandingUpdate }) {
           </TabsContent>
           <TabsContent value="branding">
             <BrandingTab user={user} onBrandingUpdate={onBrandingUpdate} />
+          </TabsContent>
+          <TabsContent value="watermark">
+            <WatermarkTab />
           </TabsContent>
           <TabsContent value="gst">
             <GSTTab />
