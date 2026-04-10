@@ -619,6 +619,8 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.vehicle_no) { toast.error("Vehicle No. daalen"); return; }
+    if (!form.party_name?.trim()) { toast.error("Party Name daalen"); return; }
+    if (!form.farmer_name?.trim()) { toast.error("Source / Mandi daalen"); return; }
     if (!form.first_wt || Number(form.first_wt) <= 0) { toast.error("First Weight daalen"); return; }
     if (form.tp_no && checkTpDuplicate(form.tp_no)) { toast.error(tpWarning || "Duplicate TP No."); return; }
     try {
@@ -923,10 +925,10 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
               <form onSubmit={handleSubmit} className="space-y-2.5">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Date {!canChangeDate && <span className="text-amber-400">(Locked)</span>}</Label>
-                    <Input type="date" value={!canChangeDate ? todayStr : form.date} onChange={e => { if (canChangeDate) setForm(p => ({ ...p, date: e.target.value })); }}
-                      disabled={!canChangeDate}
-                      className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${!canChangeDate ? 'opacity-70 cursor-not-allowed' : ''}`} data-testid="vw-date" />
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Date {(!canChangeDate || secondWtMode) && <span className="text-amber-400">(Locked)</span>}</Label>
+                    <Input type="date" value={(!canChangeDate || secondWtMode) ? form.date : form.date} onChange={e => { if (canChangeDate && !secondWtMode) setForm(p => ({ ...p, date: e.target.value })); }}
+                      disabled={!canChangeDate || !!secondWtMode}
+                      className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${(!canChangeDate || secondWtMode) ? 'opacity-70 cursor-not-allowed' : ''}`} data-testid="vw-date" />
                   </div>
                   <div>
                     {secondWtMode ? (
@@ -951,35 +953,52 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
+                    {secondWtMode ? (
+                      <>
+                        <Label className="text-slate-400 text-[10px] mb-0.5 block">Party Name * <span className="text-amber-400">(Locked)</span></Label>
+                        <Input value={form.party_name} disabled className="bg-slate-700 border-slate-500 text-slate-200 h-8 text-xs opacity-70 cursor-not-allowed" data-testid="vw-party" />
+                      </>
+                    ) : (
                     <AutoSuggest
                       value={form.party_name}
                       onChange={e => setForm(p => ({ ...p, party_name: e.target.value }))}
                       suggestions={partySuggestions}
                       placeholder="Party name"
                       onSelect={(val) => { setForm(p => ({ ...p, party_name: val })); fetchMandisForParty(val); }}
-                      label="Party Name"
+                      label="Party Name *"
                       testId="vw-party"
                       labelClassName="text-slate-400 text-[10px] mb-0.5 block"
                       inputClassName="bg-slate-700 border-slate-500 text-white h-8 text-xs"
                     />
+                    )}
                   </div>
                   <div>
+                    {secondWtMode ? (
+                      <>
+                        <Label className="text-slate-400 text-[10px] mb-0.5 block">Source * <span className="text-amber-400">(Locked)</span></Label>
+                        <Input value={form.farmer_name} disabled className="bg-slate-700 border-slate-500 text-slate-200 h-8 text-xs opacity-70 cursor-not-allowed" data-testid="vw-farmer" />
+                      </>
+                    ) : (
                     <AutoSuggest
                       value={form.farmer_name}
                       onChange={e => setForm(p => ({ ...p, farmer_name: e.target.value }))}
                       suggestions={mandiSuggestions}
                       placeholder="Source"
                       onSelect={(val) => setForm(p => ({ ...p, farmer_name: val }))}
-                      label="Source"
+                      label="Source *"
                       testId="vw-farmer"
                       labelClassName="text-slate-400 text-[10px] mb-0.5 block"
                       inputClassName="bg-slate-700 border-slate-500 text-white h-8 text-xs"
                     />
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Product</Label>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Product {secondWtMode && <span className="text-amber-400">(Locked)</span>}</Label>
+                    {secondWtMode ? (
+                      <Input value={form.product} disabled className="bg-slate-700 border-slate-500 text-slate-200 h-8 text-xs opacity-70 cursor-not-allowed" />
+                    ) : (
                     <Select value={form.product} onValueChange={v => {
                       setForm(p => {
                         const updated = { ...p, product: v };
@@ -995,9 +1014,13 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                         {["GOVT PADDY","PADDY","RICE","BHUSI","KANDA","OTHER"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Trans Type</Label>
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Trans Type {secondWtMode && <span className="text-amber-400">(Locked)</span>}</Label>
+                    {secondWtMode ? (
+                      <Input value={form.trans_type} disabled className="bg-slate-700 border-slate-500 text-slate-200 h-8 text-xs opacity-70 cursor-not-allowed" />
+                    ) : (
                     <Select value={form.trans_type} onValueChange={v => setForm(p => ({ ...p, trans_type: v }))}>
                       <SelectTrigger className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-trans"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -1005,18 +1028,21 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
                         <SelectItem value="Dispatch(Sale)">Dispatch(Sale)</SelectItem>
                       </SelectContent>
                     </Select>
+                    )}
                   </div>
                   <div>
-                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Bags</Label>
-                    <Input type="number" value={form.tot_pkts} onChange={e => setForm(p => ({ ...p, tot_pkts: e.target.value }))}
-                      placeholder="0" className="bg-slate-700 border-slate-500 text-white h-8 text-xs" data-testid="vw-bags" />
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">Bags {secondWtMode && <span className="text-amber-400">(Locked)</span>}</Label>
+                    <Input type="number" value={form.tot_pkts} onChange={e => { if (!secondWtMode) setForm(p => ({ ...p, tot_pkts: e.target.value })); }}
+                      disabled={!!secondWtMode}
+                      placeholder="0" className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${secondWtMode ? 'opacity-70 cursor-not-allowed' : ''}`} data-testid="vw-bags" />
                   </div>
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   <div>
-                    <Label className="text-slate-400 text-[10px] mb-0.5 block">TP No.</Label>
-                    <Input value={form.tp_no} onChange={e => { setForm(p => ({ ...p, tp_no: e.target.value })); checkTpDuplicate(e.target.value); }}
-                      placeholder="Optional" className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${tpWarning ? 'border-red-500 ring-1 ring-red-500' : ''}`} data-testid="vw-tp-no" />
+                    <Label className="text-slate-400 text-[10px] mb-0.5 block">TP No. {secondWtMode && <span className="text-amber-400">(Locked)</span>}</Label>
+                    <Input value={form.tp_no} onChange={e => { if (!secondWtMode) { setForm(p => ({ ...p, tp_no: e.target.value })); checkTpDuplicate(e.target.value); } }}
+                      disabled={!!secondWtMode}
+                      placeholder="Optional" className={`bg-slate-700 border-slate-500 text-white h-8 text-xs ${secondWtMode ? 'opacity-70 cursor-not-allowed' : ''} ${tpWarning ? 'border-red-500 ring-1 ring-red-500' : ''}`} data-testid="vw-tp-no" />
                     {tpWarning && <p className="text-red-400 text-[9px] mt-0.5">{tpWarning}</p>}
                   </div>
                   <div>

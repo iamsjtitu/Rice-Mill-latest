@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.51.0";
+const APP_VERSION = "88.52.0";
 
 const CHANGELOG = [
+  {
+    version: "88.52.0",
+    date: "Apr 2026",
+    title: "v88.52.0 - VW Mandatory Fields + RST Lock",
+    items: [
+      { type: "feature", text: "Auto Vehicle Weight mein Party Name aur Source ab mandatory hai — bina bhare entry nahi hogi" },
+      { type: "feature", text: "Second Weight mode mein sabhi fields locked — RST fetch hone ke baad Vehicle, Party, Source, Product, Trans Type, Bags, TP No, Date change nahi kar sakte" },
+    ]
+  },
   {
     version: "88.51.0",
     date: "Apr 2026",
