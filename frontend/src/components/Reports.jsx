@@ -389,6 +389,7 @@ const DailyReport = ({ filters }) => {
                     {key:'mill_w',label:'Mill W',align:'right'},{key:'moist',label:'M%',align:'right'},
                     {key:'mcut',label:'M.Cut',align:'right'},{key:'cut',label:'C%',align:'right'},
                     {key:'ddp',label:'D/D/P',align:'right'},{key:'final',label:'Final W',align:'right'},
+                    {key:'tpwt',label:'TP Wt',align:'right'},
                     {key:'gissued',label:'G.Iss',align:'right'},{key:'cash',label:'Cash',align:'right'},{key:'diesel',label:'Diesel',align:'right'}
                   ]}
                   rows={data.paddy_entries.details.map((d,i) => (<>
