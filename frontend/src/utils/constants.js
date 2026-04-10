@@ -31,6 +31,7 @@ export const initialFormState = {
   truck_no: "",
   rst_no: "",
   tp_no: "",
+  tp_weight: "",
   agent_name: "",
   mandi_name: "",
   kg: "",
