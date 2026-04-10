@@ -672,9 +672,10 @@ module.exports = function(database) {
     // TP No. duplicate check
     const tpNoRaw = (data.tp_no || '').trim();
     if (tpNoRaw) {
+      const allWeights = col('vehicle_weights');
       const tpDup = kmsYear
-        ? weights2.find(w => w.tp_no === tpNoRaw && w.kms_year === kmsYear)
-        : weights2.find(w => w.tp_no === tpNoRaw);
+        ? allWeights.find(w => w.tp_no === tpNoRaw && w.kms_year === kmsYear)
+        : allWeights.find(w => w.tp_no === tpNoRaw);
       if (tpDup) return res.status(400).json({ detail: `TP No. ${tpNoRaw} already RST #${tpDup.rst_no} mein hai! Duplicate TP allowed nahi hai.` });
     }
 
