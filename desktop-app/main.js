@@ -1158,12 +1158,22 @@ function createApiServer(database) {
   apiApp.use(cors());
   apiApp.use(express.json({ limit: '50mb' }));
 
-  // ===== LAN CLIENT TRACKING =====
+  // ===== LAN + BROWSER CLIENT TRACKING =====
   const lanClients = new Map();
+  const browserClients = new Map();
   apiApp.use((req, res, next) => {
     const rawIp = req.ip || req.connection?.remoteAddress || '';
     const ip = rawIp.replace('::ffff:', '');
-    if (ip && ip !== '127.0.0.1' && ip !== '::1') {
+    const ua = req.headers['user-agent'] || '';
+    const isElectron = ua.includes('Electron');
+    const isLocalhost = !ip || ip === '127.0.0.1' || ip === '::1';
+
+    if (isLocalhost && !isElectron) {
+      // Browser on same PC
+      const key = ua.slice(0, 80) || 'browser';
+      browserClients.set(key, { lastSeen: Date.now(), ua: ua.slice(0, 100) });
+    } else if (!isLocalhost) {
+      // LAN client (other device)
       lanClients.set(ip, { ip, lastSeen: Date.now() });
     }
     next();
@@ -1179,7 +1189,16 @@ function createApiServer(database) {
         lanClients.delete(ip);
       }
     }
-    res.json({ host_computer: true, lan_clients: active, total_connected: active.length + 1 });
+    // Browser sessions on same PC
+    const browsers = [];
+    for (const [key, client] of browserClients.entries()) {
+      if (client.lastSeen > fiveMinAgo) {
+        browsers.push({ label: 'Browser', minutes_ago: Math.round((Date.now() - client.lastSeen) / 60000) });
+      } else {
+        browserClients.delete(key);
+      }
+    }
+    res.json({ host_computer: true, lan_clients: active, browser_clients: browsers, total_connected: active.length + browsers.length + 1 });
   }));
 
   // ===== LOAD ALL MODULAR ROUTE MODULES (each isolated so one failure doesn't kill all) =====

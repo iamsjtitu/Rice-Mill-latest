@@ -56,8 +56,9 @@ export default function SessionIndicator({ onDataRefresh }) {
   const activeOthers = status ? (status.others || []).filter(o => o.active) : [];
   const selfName = status?.self?.computer_name || "This PC";
   const lanClients = lanInfo?.lan_clients || [];
-  const hasOthers = activeOthers.length > 0 || lanClients.length > 0;
-  const totalCount = 1 + activeOthers.length + lanClients.length;
+  const browserSessions = lanInfo?.browser_clients || [];
+  const hasOthers = activeOthers.length > 0 || lanClients.length > 0 || browserSessions.length > 0;
+  const totalCount = 1 + activeOthers.length + lanClients.length + browserSessions.length;
 
   return (
     <Popover>
@@ -119,6 +120,17 @@ export default function SessionIndicator({ onDataRefresh }) {
               <Wifi className="w-2.5 h-2.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
               <p className="text-[10px] text-cyan-700 dark:text-cyan-300 font-bold truncate flex-1">{client.ip}</p>
               <span className="text-[8px] text-cyan-500/70 shrink-0">LAN</span>
+            </div>
+          ))}
+
+          {/* Browser sessions on same PC */}
+          {browserSessions.map((b, i) => (
+            <div key={`br-${i}`} className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-purple-50 dark:bg-purple-900/20 border border-purple-200/80 dark:border-purple-700/30">
+              <Monitor className="w-2.5 h-2.5 text-purple-600 dark:text-purple-400 shrink-0" />
+              <p className="text-[10px] text-purple-700 dark:text-purple-300 font-bold truncate flex-1">Browser</p>
+              <span className="text-[8px] text-purple-500/70 dark:text-purple-400/60 shrink-0">
+                {b.minutes_ago < 1 ? "now" : `${Math.round(b.minutes_ago)}m`}
+              </span>
             </div>
           ))}
 

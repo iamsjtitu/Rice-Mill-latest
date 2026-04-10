@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.81.0";
+const APP_VERSION = "88.82.0";
 
 const CHANGELOG = [
+  {
+    version: "88.82.0",
+    date: "Apr 2026",
+    title: "v88.82.0 - Browser Session Tracking + Fixes",
+    items: [
+      { type: "fix", text: "Browser session ab Connected panel mein dikhega - same PC pe browser se open karne par bhi track hoga" },
+      { type: "fix", text: "Login crash fix - watermark upload dir error handle + getUser() null safety" },
+      { type: "fix", text: "Paddy Cutting data ab properly SQLite mein save hoga" },
+      { type: "fix", text: "fmtVal string toFixed crash + Weight Discrepancy PDF undefined function fix" },
+    ]
+  },
   {
     version: "88.81.0",
     date: "Apr 2026",
