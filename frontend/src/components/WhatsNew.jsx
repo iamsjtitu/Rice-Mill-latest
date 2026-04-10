@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.72.0";
+const APP_VERSION = "88.73.0";
 
 const CHANGELOG = [
+  {
+    version: "88.73.0",
+    date: "Apr 2026",
+    title: "v88.73.0 - TP Wt Export + Cascade Edit",
+    items: [
+      { type: "feature", text: "Vehicle Weight PDF/Excel mein TP Wt column add hua" },
+      { type: "feature", text: "Mill Entries PDF/Excel mein TP Wt column add hua" },
+      { type: "feature", text: "VW Edit se linked Mill Entry bhi auto-update hota hai (Party, Vehicle, Source, Bags, TP No., TP Wt)" },
+    ]
+  },
   {
     version: "88.72.0",
     date: "Apr 2026",

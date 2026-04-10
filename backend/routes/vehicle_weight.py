@@ -696,6 +696,28 @@ async def edit_weight_entry(entry_id: str, data: dict):
     if update_fields:
         await db["vehicle_weights"].update_one({"id": entry_id}, {"$set": update_fields})
 
+    # Cascade edit to linked Mill Entry
+    rst_no = entry.get("rst_no")
+    kms_year = entry.get("kms_year", "")
+    if rst_no is not None:
+        mill_update = {}
+        field_map = {
+            "vehicle_no": "truck_no",
+            "party_name": "party_name",
+            "farmer_name": "mandi_name",
+            "tp_no": "tp_no",
+            "tp_weight": "tp_weight",
+            "tot_pkts": "bag",
+        }
+        for vw_f, mill_f in field_map.items():
+            if vw_f in update_fields:
+                mill_update[mill_f] = update_fields[vw_f]
+        if mill_update:
+            mill_q = {"$or": [{"rst_no": rst_no}, {"rst_no": str(rst_no)}, {"rst_no": int(rst_no) if str(rst_no).isdigit() else rst_no}]}
+            if kms_year:
+                mill_q = {"$and": [mill_q, {"kms_year": kms_year}]}
+            await db.mill_entries.update_many(mill_q, {"$set": mill_update})
+
     updated = await db["vehicle_weights"].find_one({"id": entry_id}, {"_id": 0})
     return {"success": True, "entry": updated}
 
@@ -1021,14 +1043,14 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
             if val:
                 above_parts.append(f"{lbl}: {val}" if lbl else val)
     if above_parts:
-        ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=13)
+        ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=15)
         cell = ws.cell(row=cur_row, column=1, value="  |  ".join(above_parts))
         cell.font = Font(bold=True, size=10, color="8B0000")
         cell.alignment = Alignment(horizontal='center')
         cur_row += 1
 
     # Company Title
-    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=13)
+    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=15)
     title_cell = ws.cell(row=cur_row, column=1, value=f"{company_name} - Vehicle Weight / तौल पर्ची")
     title_cell.font = Font(bold=True, size=14, color="1a1a2e")
     title_cell.alignment = Alignment(horizontal='center')
@@ -1044,13 +1066,13 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     sub_text = tagline
     if below_parts:
         sub_text += "  |  " + "  |  ".join(below_parts) if sub_text else "  |  ".join(below_parts)
-    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=13)
+    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=15)
     ws.cell(row=cur_row, column=1, value=sub_text).font = Font(size=9, color="666666")
     ws.cell(row=cur_row, column=1).alignment = Alignment(horizontal='center')
     cur_row += 1
 
     # Date/count row
-    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=13)
+    ws.merge_cells(start_row=cur_row, start_column=1, end_row=cur_row, end_column=15)
     sub = f"Date: {date_from or 'All'} to {date_to or 'All'} | Total: {len(items)} entries"
     ws.cell(row=cur_row, column=1, value=sub).font = Font(size=9, color="666666")
     ws.cell(row=cur_row, column=1).alignment = Alignment(horizontal='center')
@@ -1060,7 +1082,7 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
     hdr_row = cur_row + 1
 
     headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans Type", "Bags",
-               "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "G.Issued", "Cash", "Diesel"]
+               "1st Wt (KG)", "2nd Wt (KG)", "Net Wt (KG)", "TP Wt (Q)", "G.Issued", "Cash", "Diesel"]
     hdr_fill = PatternFill(start_color="1a1a2e", end_color="1a1a2e", fill_type="solid")
     hdr_font = Font(bold=True, color="FFFFFF", size=10)
     for c, h in enumerate(headers, 1):
@@ -1074,6 +1096,7 @@ async def export_vw_excel(kms_year: str = "", status: str = "completed",
         vals = [e.get("rst_no",""), fmt_date(e.get("date","")), e.get("vehicle_no",""), e.get("party_name",""),
                 e.get("farmer_name",""), e.get("product",""), e.get("trans_type",""), e.get("tot_pkts",""),
                 e.get("first_wt",0), e.get("second_wt",0), e.get("net_wt",0),
+                float(e.get("tp_weight",0) or 0),
                 e.get("g_issued",0), e.get("cash_paid",0), e.get("diesel_paid",0)]
         for c, v in enumerate(vals, 1):
             cell = ws.cell(row=i, column=c, value=v)
@@ -1124,7 +1147,7 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
     elements.append(Spacer(1, 3*mm))
 
     # Table
-    headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans Type", "Bags", "1st Wt", "2nd Wt", "Net Wt", "G.Issued", "Cash", "Diesel"]
+    headers = ["RST", "Date", "Vehicle", "Party", "Source/Mandi", "Product", "Trans Type", "Bags", "1st Wt", "2nd Wt", "Net Wt", "TP Wt", "G.Iss", "Cash", "Diesel"]
     data = [headers]
     for e in items:
         data.append([
@@ -1132,12 +1155,13 @@ async def export_vw_pdf(kms_year: str = "", status: str = "completed",
             e.get("party_name",""), e.get("farmer_name",""), e.get("product",""),
             e.get("trans_type",""), e.get("tot_pkts",""),
             f"{e.get('first_wt',0):,.0f}", f"{e.get('second_wt',0):,.0f}", f"{e.get('net_wt',0):,.0f}",
+            f"{float(e.get('tp_weight',0) or 0)}" if float(e.get('tp_weight',0) or 0) > 0 else "-",
             f"{e.get('g_issued',0):,.0f}" if e.get('g_issued') else "-",
             f"{e.get('cash_paid',0):,.0f}" if e.get('cash_paid') else "-",
             f"{e.get('diesel_paid',0):,.0f}" if e.get('diesel_paid') else "-"
         ])
 
-    col_widths = [38, 62, 70, 76, 72, 66, 58, 35, 58, 58, 58, 46, 46, 46]
+    col_widths = [35, 58, 65, 70, 65, 55, 52, 30, 50, 50, 50, 38, 38, 42, 42]
     t = Table(data, colWidths=col_widths, repeatRows=1)
     
     # Color-coded column header: Navy(info), Teal(weights), Orange(money)

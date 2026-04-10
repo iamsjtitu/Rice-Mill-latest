@@ -909,7 +909,7 @@ async def export_excel(
     ws = wb.active
     ws.title = "Mill Entries"
     
-    ncols = 19
+    ncols = 20
     center_align = Alignment(horizontal='center', vertical='center')
     right_align = Alignment(horizontal='right', vertical='center')
     
@@ -923,7 +923,7 @@ async def export_excel(
     
     # Headers
     headers = [
-        "Date", "Truck No", "RST No", "TP No", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
+        "Date", "Truck No", "RST No", "TP No", "TP Wt (Q)", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
         "GBW Cut", "P.Pkt", "P.Pkt Cut", "Mill W", "Moist%", "M.Cut", "Cut%", 
         "D/D/P", "Final W", "G.Issued"
     ]
@@ -942,6 +942,7 @@ async def export_excel(
             entry.get('truck_no', ''),
             entry.get('rst_no', ''),
             entry.get('tp_no', ''),
+            float(entry.get('tp_weight', 0) or 0),
             entry.get('agent_name', ''),
             entry.get('mandi_name', ''),
             round(entry.get('qntl', 0), 2),
@@ -973,6 +974,7 @@ async def export_excel(
     totals = await get_totals(truck_no, agent_name, mandi_name, kms_year, season, date_from, date_to)
     totals_data = [
         "TOTAL", "", "", "", "", "",
+        "",
         round(totals.total_qntl, 2),
         totals.total_bag,
         totals.total_g_deposite,
@@ -995,7 +997,7 @@ async def export_excel(
     style_excel_total_row(ws, row_num, ncols)
     
     # Column widths - A4 optimized (19 cols)
-    col_widths = [10, 12, 9, 9, 10, 16, 9, 6, 6, 7, 6, 7, 8, 6, 7, 6, 6, 9, 7]
+    col_widths = [10, 12, 9, 9, 8, 10, 16, 9, 6, 6, 7, 6, 7, 8, 6, 7, 6, 6, 9, 7]
     for i, width in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
     
@@ -1124,7 +1126,7 @@ async def export_pdf(
     
     # Table headers
     headers = [
-        "Date", "Truck", "RST", "TP", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
+        "Date", "Truck", "RST", "TP", "TP Wt", "Agent", "Mandi", "QNTL", "BAG", "G.Dep",
         "GBW", "P.Pkt", "P.Cut", "Mill W", "M%", "M.Cut", "C%", 
         "D/D/P", "Final W", "G.Iss"
     ]
@@ -1138,6 +1140,7 @@ async def export_pdf(
             entry.get('truck_no', '')[:14] if entry.get('truck_no') else '',
             entry.get('rst_no', '')[:8] if entry.get('rst_no') else '',
             entry.get('tp_no', '')[:8] if entry.get('tp_no') else '',
+            f"{float(entry.get('tp_weight', 0) or 0)}" if float(entry.get('tp_weight', 0) or 0) > 0 else "-",
             entry.get('agent_name', '')[:10] if entry.get('agent_name') else '',
             entry.get('mandi_name', '')[:16] if entry.get('mandi_name') else '',
             f"{entry.get('qntl', 0):.2f}",
@@ -1158,7 +1161,7 @@ async def export_pdf(
     
     # Totals row
     totals_row = [
-        "TOTAL", "", "", "", "", "",
+        "TOTAL", "", "", "", "", "", "",
         f"{totals.total_qntl:.2f}",
         str(totals.total_bag),
         str(int(totals.total_g_deposite)),
@@ -1176,8 +1179,8 @@ async def export_pdf(
     table_data.append(totals_row)
     
     # Column widths (19 columns for A4 landscape with margins)
-    col_widths = [15*mm, 18*mm, 11*mm, 11*mm, 15*mm, 27*mm, 13*mm, 9*mm, 9*mm, 11*mm, 
-                  9*mm, 11*mm, 13*mm, 9*mm, 11*mm, 9*mm, 9*mm, 13*mm, 11*mm]
+    col_widths = [15*mm, 17*mm, 10*mm, 10*mm, 10*mm, 14*mm, 24*mm, 12*mm, 8*mm, 8*mm, 10*mm, 
+                  8*mm, 10*mm, 12*mm, 8*mm, 10*mm, 8*mm, 8*mm, 12*mm, 10*mm]
     
     # Create table
     main_table = Table(table_data, colWidths=col_widths, repeatRows=1)

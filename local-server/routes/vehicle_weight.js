@@ -818,6 +818,23 @@ module.exports = function(database) {
         }
       }
     }
+
+    // Cascade edit to linked Mill Entry
+    const rstNo = entry.rst_no;
+    if (rstNo != null) {
+      const entries = col('entries');
+      const fieldMap = { vehicle_no: 'truck_no', party_name: 'party_name', farmer_name: 'mandi_name', tp_no: 'tp_no', tp_weight: 'tp_weight', tot_pkts: 'bag' };
+      const editedFields = Object.keys(req.body).filter(f => f in fieldMap);
+      if (editedFields.length > 0) {
+        const linked = entries.filter(e => String(e.rst_no) === String(rstNo) && (!entry.kms_year || e.kms_year === entry.kms_year));
+        for (const mill of linked) {
+          for (const vwF of editedFields) {
+            mill[fieldMap[vwF]] = entry[vwF];
+          }
+        }
+      }
+    }
+
     database.save();
     res.json({ success: true, entry });
   }));
@@ -1071,32 +1088,32 @@ module.exports = function(database) {
     const ws = wb.addWorksheet('Vehicle Weight');
     let cr = 1;
     if (abParts.length > 0) {
-      ws.mergeCells(`A${cr}:M${cr}`);
+      ws.mergeCells(`A${cr}:O${cr}`);
       ws.getCell(`A${cr}`).value = abParts.join('  |  ');
       ws.getCell(`A${cr}`).font = { bold: true, size: 10, color: { argb: '8B0000' } };
       ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
       cr++;
     }
-    ws.mergeCells(`A${cr}:M${cr}`);
+    ws.mergeCells(`A${cr}:O${cr}`);
     ws.getCell(`A${cr}`).value = `${company} - Vehicle Weight / तौल पर्ची`;
     ws.getCell(`A${cr}`).font = { bold: true, size: 14, color: { argb: '1a1a2e' } };
     ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
     cr++;
     const belowAll = [tagline, ...blParts].filter(Boolean);
     if (belowAll.length > 0) {
-      ws.mergeCells(`A${cr}:M${cr}`);
+      ws.mergeCells(`A${cr}:O${cr}`);
       ws.getCell(`A${cr}`).value = belowAll.join('  |  ');
       ws.getCell(`A${cr}`).font = { size: 9, italic: true, color: { argb: '555555' } };
       ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
       cr++;
     }
-    ws.mergeCells(`A${cr}:M${cr}`);
+    ws.mergeCells(`A${cr}:O${cr}`);
     ws.getCell(`A${cr}`).value = `Date: ${fmtDate(req.query.date_from) || 'All'} to ${fmtDate(req.query.date_to) || 'All'} | Total: ${items.length}`;
     ws.getCell(`A${cr}`).font = { size: 9, color: { argb: '666666' } };
     ws.getCell(`A${cr}`).alignment = { horizontal: 'center' };
     cr++;
 
-    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans Type', 'Bags', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'Cash', 'Diesel'];
+    const headers = ['RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Trans Type', 'Bags', '1st Wt (KG)', '2nd Wt (KG)', 'Net Wt (KG)', 'TP Wt (Q)', 'G.Issued', 'Cash', 'Diesel'];
     const hdrRowNum = cr + 1;
     const hdrRow = ws.getRow(hdrRowNum);
     headers.forEach((h, i) => {
@@ -1110,7 +1127,7 @@ module.exports = function(database) {
 
     items.forEach((e, idx) => {
       const row = ws.getRow(hdrRowNum + 1 + idx);
-      [e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts, e.first_wt || 0, e.second_wt || 0, e.net_wt || 0, e.cash_paid || 0, e.diesel_paid || 0].forEach((v, i) => {
+      [e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, e.trans_type, e.tot_pkts, e.first_wt || 0, e.second_wt || 0, e.net_wt || 0, parseFloat(e.tp_weight || 0) || 0, e.g_issued || 0, e.cash_paid || 0, e.diesel_paid || 0].forEach((v, i) => {
         const cell = row.getCell(i + 1);
         cell.value = v;
         cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
@@ -1193,20 +1210,20 @@ module.exports = function(database) {
     let y = subY + 24;
 
     // ── Table ──
-    const headers = ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'Cash', 'Diesel'];
-    const colW = [24, 40, 60, 70, 76, 72, 68, 38, 62, 62, 62, 54, 54];
-    const rightAlign = [false, true, false, false, false, false, false, true, true, true, true, true, true];
+    const headers = ['#', 'RST', 'Date', 'Vehicle', 'Party', 'Mandi', 'Product', 'Bags', '1st Wt', '2nd Wt', 'Net Wt', 'TP Wt', 'G.Iss', 'Cash', 'Diesel'];
+    const colW = [22, 36, 55, 62, 68, 64, 55, 32, 52, 52, 52, 36, 36, 46, 46];
+    const rightAlign = [false, true, false, false, false, false, false, true, true, true, true, true, true, true, true];
 
     // Column group colors for header: Info=navy, Weight=teal, Money=dark green
     const drawTableHeader = (yPos) => {
       // Info columns (#, RST, Date, Vehicle, Party, Mandi, Product, Bags) - Navy
       let infoW = colW.slice(0, 8).reduce((s,w) => s+w, 0);
       doc.rect(LM, yPos, infoW, 15).fill('#1a237e');
-      // Weight columns (1st, 2nd, Net) - Teal
-      let wtW = colW.slice(8, 11).reduce((s,w) => s+w, 0);
+      // Weight columns (1st, 2nd, Net, TP Wt) - Teal
+      let wtW = colW.slice(8, 12).reduce((s,w) => s+w, 0);
       doc.rect(LM + infoW, yPos, wtW, 15).fill('#004d40');
-      // Money columns (Cash, Diesel) - Dark amber
-      let monW = colW.slice(11, 13).reduce((s,w) => s+w, 0);
+      // Money columns (G.Iss, Cash, Diesel) - Dark amber
+      let monW = colW.slice(12, 15).reduce((s,w) => s+w, 0);
       doc.rect(LM + infoW + wtW, yPos, monW, 15).fill('#e65100');
 
       doc.fontSize(7).font(efb).fillColor('#ffffff');
@@ -1254,6 +1271,8 @@ module.exports = function(database) {
       const first = Number(e.first_wt || 0);
       const second = Number(e.second_wt || 0);
       const net = Number(e.net_wt || 0);
+      const tpWt = parseFloat(e.tp_weight || 0) || 0;
+      const gIss = Number(e.g_issued || 0);
       const cash = Number(e.cash_paid || 0);
       const diesel = Number(e.diesel_paid || 0);
 
@@ -1263,7 +1282,8 @@ module.exports = function(database) {
       const vals = [
         idx + 1, e.rst_no, fmtDate(e.date), e.vehicle_no, e.party_name, e.farmer_name, e.product, bags || '-',
         first ? first.toLocaleString() : '-', second ? second.toLocaleString() : '-',
-        net ? net.toLocaleString() : '-', cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-'
+        net ? net.toLocaleString() : '-', tpWt > 0 ? tpWt : '-', gIss > 0 ? gIss.toLocaleString() : '-',
+        cash ? cash.toLocaleString() : '-', diesel ? diesel.toLocaleString() : '-'
       ];
 
       vals.forEach((v, i) => {
@@ -1295,7 +1315,7 @@ module.exports = function(database) {
     doc.fontSize(8).font(efb).fillColor('#1b5e20');
     x = LM + 2;
     const totVals = ['', '', '', '', '', '', 'TOTAL:', totBags.toLocaleString(),
-      tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(),
+      tot1st.toLocaleString(), tot2nd.toLocaleString(), totNet.toLocaleString(), '', '',
       totCash ? totCash.toLocaleString() : '-', totDiesel ? totDiesel.toLocaleString() : '-'];
     totVals.forEach((v, i) => {
       doc.text(String(v), x, y + 4, { width: colW[i] - 4, align: rightAlign[i] ? 'right' : (i === 6 ? 'right' : 'left') });
