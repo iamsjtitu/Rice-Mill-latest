@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.88.0";
+const APP_VERSION = "88.89.0";
 
 const CHANGELOG = [
+  {
+    version: "88.89.0",
+    date: "Apr 2026",
+    title: "v88.89.0 - Mandi Custody FY Filter Fix",
+    items: [
+      { type: "fix", text: "Mandi Custody Register - FY year filter ab sahi pass hoga (pehle 'All' dikha raha tha). PDF aur Excel mein bhi correct FY dikhega" },
+    ]
+  },
   {
     version: "88.88.0",
     date: "Apr 2026",

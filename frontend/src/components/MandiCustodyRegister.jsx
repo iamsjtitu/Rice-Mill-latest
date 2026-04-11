@@ -17,7 +17,7 @@ export default function MandiCustodyRegister({ filters }) {
     setLoading(true);
     try {
       const params = {};
-      if (filters?.kmsYear) params.kms_year = filters.kmsYear;
+      if (filters?.kms_year) params.kms_year = filters.kms_year;
       if (filters?.season) params.season = filters.season;
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
@@ -29,11 +29,11 @@ export default function MandiCustodyRegister({ filters }) {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [filters?.kmsYear, filters?.season]);
+  useEffect(() => { fetchData(); }, [filters?.kms_year, filters?.season]);
 
   const exportPdf = () => {
     const params = new URLSearchParams();
-    if (filters?.kmsYear) params.set("kms_year", filters.kmsYear);
+    if (filters?.kms_year) params.set("kms_year", filters.kms_year);
     if (filters?.season) params.set("season", filters.season);
     if (dateFrom) params.set("date_from", dateFrom);
     if (dateTo) params.set("date_to", dateTo);
@@ -42,7 +42,7 @@ export default function MandiCustodyRegister({ filters }) {
 
   const exportExcel = () => {
     const params = new URLSearchParams();
-    if (filters?.kmsYear) params.set("kms_year", filters.kmsYear);
+    if (filters?.kms_year) params.set("kms_year", filters.kms_year);
     if (filters?.season) params.set("season", filters.season);
     if (dateFrom) params.set("date_from", dateFrom);
     if (dateTo) params.set("date_to", dateTo);
