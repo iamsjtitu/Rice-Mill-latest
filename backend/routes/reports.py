@@ -959,49 +959,124 @@ async def mandi_custody_register_excel(kms_year: Optional[str] = None, season: O
     mandis = data["mandis"]
     rows = data["rows"]
 
+    branding_doc = await db.branding.find_one({}, {"_id": 0})
+    company_name = (branding_doc or {}).get("company_name", "Mill Entry System")
+    tagline = (branding_doc or {}).get("tagline", "")
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Mandi Custody Register"
 
+    headers = ["Date"] + mandis + ["TOTAL", "PROG. TOTAL"]
+    n_cols = len(headers)
+
+    # Row 1: Company Name
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_cols)
+    c1 = ws.cell(row=1, column=1, value=company_name.upper())
+    c1.font = Font(bold=True, size=14, color="1a365d")
+    c1.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Row 2: Tagline
+    if tagline:
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n_cols)
+        c2 = ws.cell(row=2, column=1, value=tagline)
+        c2.font = Font(size=9, color="64748b")
+        c2.alignment = Alignment(horizontal="center")
+
+    # Row 3: Title
+    title_row = 3
+    ws.merge_cells(start_row=title_row, start_column=1, end_row=title_row, end_column=n_cols)
+    c3 = ws.cell(row=title_row, column=1, value="MANDI WISE CUSTODY REGISTER")
+    c3.font = Font(bold=True, size=12, color="334155")
+    c3.alignment = Alignment(horizontal="center")
+
+    # Row 4: FY / Season
+    info_row = 4
+    ws.merge_cells(start_row=info_row, start_column=1, end_row=info_row, end_column=n_cols)
+    sub = f"FY: {kms_year or 'All'} | Season: {season or 'All'}"
+    if date_from or date_to:
+        sub += f" | Period: {date_from or 'Start'} to {date_to or 'End'}"
+    c4 = ws.cell(row=info_row, column=1, value=sub)
+    c4.font = Font(size=9, color="64748b")
+    c4.alignment = Alignment(horizontal="center")
+
+    # Row 5: Empty spacer
+    data_start = 6
+
+    # Column headers
     hdr_font = Font(bold=True, color="FFFFFF", size=9)
     hdr_fill = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
     total_fill = PatternFill(start_color="fef3c7", end_color="fef3c7", fill_type="solid")
     prog_fill = PatternFill(start_color="dbeafe", end_color="dbeafe", fill_type="solid")
+    grand_fill = PatternFill(start_color="334155", end_color="334155", fill_type="solid")
     thin_border = Border(
         left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
         top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
 
-    headers = ["Date"] + mandis + ["TOTAL", "PROG. TOTAL"]
     for ci, h in enumerate(headers, 1):
-        c = ws.cell(row=1, column=ci, value=h)
+        c = ws.cell(row=data_start, column=ci, value=h)
         c.font = hdr_font
         c.fill = hdr_fill
         c.alignment = Alignment(horizontal="center")
         c.border = thin_border
 
-    for ri, r in enumerate(rows, 2):
-        ws.cell(row=ri, column=1, value=r["date"]).border = thin_border
+    for ri, r in enumerate(rows, data_start + 1):
+        # Date as DD/MM/YYYY
+        d = r["date"]
+        parts = d.split("-")
+        date_str = f"{parts[2]}/{parts[1]}/{parts[0]}" if len(parts) == 3 else d
+        dc = ws.cell(row=ri, column=1, value=date_str)
+        dc.border = thin_border
         for mi, m in enumerate(mandis, 2):
             v = r["mandis"].get(m, 0)
             c = ws.cell(row=ri, column=mi, value=round(v, 2) if v else None)
             c.border = thin_border
             c.alignment = Alignment(horizontal="center")
-            c.number_format = '0.00'
+            c.number_format = '#,##0.00'
         tc = ws.cell(row=ri, column=len(mandis) + 2, value=r["total"])
         tc.fill = total_fill
         tc.border = thin_border
         tc.alignment = Alignment(horizontal="center")
-        tc.number_format = '0.00'
+        tc.number_format = '#,##0.00'
+        tc.font = Font(bold=True)
         pc = ws.cell(row=ri, column=len(mandis) + 3, value=r["prog_total"])
         pc.fill = prog_fill
         pc.border = thin_border
         pc.alignment = Alignment(horizontal="center")
-        pc.number_format = '0.00'
+        pc.number_format = '#,##0.00'
+        pc.font = Font(bold=True)
+
+    # Grand Total row
+    grand_row = data_start + 1 + len(rows)
+    gc = ws.cell(row=grand_row, column=1, value="GRAND TOTAL")
+    gc.font = Font(bold=True, color="FFFFFF", size=9)
+    gc.fill = grand_fill
+    gc.border = thin_border
+    for mi, m in enumerate(mandis, 2):
+        m_total = sum(r["mandis"].get(m, 0) for r in rows)
+        c = ws.cell(row=grand_row, column=mi, value=round(m_total, 2) if m_total else None)
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = grand_fill
+        c.border = thin_border
+        c.alignment = Alignment(horizontal="center")
+        c.number_format = '#,##0.00'
+    gtc = ws.cell(row=grand_row, column=len(mandis) + 2, value=data["grand_total"])
+    gtc.font = Font(bold=True, color="fbbf24")
+    gtc.fill = grand_fill
+    gtc.border = thin_border
+    gtc.alignment = Alignment(horizontal="center")
+    gtc.number_format = '#,##0.00'
+    gpc = ws.cell(row=grand_row, column=len(mandis) + 3, value=data["grand_total"])
+    gpc.font = Font(bold=True, color="60a5fa")
+    gpc.fill = grand_fill
+    gpc.border = thin_border
+    gpc.alignment = Alignment(horizontal="center")
+    gpc.number_format = '#,##0.00'
 
     # Auto-width
-    ws.column_dimensions[get_column_letter(1)].width = 12
-    for ci in range(2, len(headers) + 1):
-        ws.column_dimensions[get_column_letter(ci)].width = 14
+    ws.column_dimensions[get_column_letter(1)].width = 14
+    for ci in range(2, n_cols + 1):
+        ws.column_dimensions[get_column_letter(ci)].width = 16
 
     buf = io.BytesIO()
     wb.save(buf)
