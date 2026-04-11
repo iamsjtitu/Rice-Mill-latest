@@ -583,6 +583,12 @@ export default function VehicleWeight({ filters, user, onVwChange }) {
 
   const handleSaveSecondWt = async () => {
     if (!secondWtValue || Number(secondWtValue) <= 0) { toast.error("Second Weight daalen"); return; }
+    const firstWtNum = Number(secondWtMode?.first_wt || 0);
+    const secondWtNum = Number(secondWtValue);
+    if (secondWtNum > firstWtNum) {
+      toast.error(`2nd Weight (${secondWtNum} KG) pehle weight (${firstWtNum} KG) se zyada hai! Negative weight allowed nahi hai.`);
+      return;
+    }
     try {
       // Capture camera photos on second weight
       const frontImg = (await frontCamRef.current?.captureFrame?.()) || "";

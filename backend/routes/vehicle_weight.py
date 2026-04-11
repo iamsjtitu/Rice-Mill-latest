@@ -581,6 +581,11 @@ async def update_second_weight(entry_id: str, data: dict):
 
     second_wt = float(data.get("second_wt", 0) or 0)
     first_wt = entry["first_wt"]
+
+    # Validation: 2nd weight should not be greater than 1st weight (negative net not allowed)
+    if second_wt > first_wt:
+        raise HTTPException(status_code=400, detail=f"2nd Weight ({int(second_wt)} KG) pehle weight ({int(first_wt)} KG) se zyada hai! Negative weight entry allowed nahi hai.")
+
     net_wt = abs(first_wt - second_wt)
     gross_wt = max(first_wt, second_wt)
     tare_wt = min(first_wt, second_wt)

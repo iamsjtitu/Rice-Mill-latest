@@ -724,6 +724,12 @@ module.exports = function(database) {
 
     const secondWt = parseFloat(req.body.second_wt || 0) || 0;
     const firstWt = entry.first_wt;
+
+    // Validation: 2nd weight should not be greater than 1st weight
+    if (secondWt > firstWt) {
+      return res.status(400).json({ detail: `2nd Weight (${Math.round(secondWt)} KG) pehle weight (${Math.round(firstWt)} KG) se zyada hai! Negative weight entry allowed nahi hai.` });
+    }
+
     const netWt = Math.abs(firstWt - secondWt);
     const grossWt = Math.max(firstWt, secondWt);
     const tareWt = Math.min(firstWt, secondWt);
