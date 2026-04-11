@@ -2,7 +2,7 @@ const express = require('express');
 const { safeAsync, safeSync, roundAmount } = require('./safe_handler');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { safePdfPipe, addPdfTable, registerFonts, fmtDate } = require('./pdf_helpers');
+const { safePdfPipe, addPdfTable, registerFonts, fmtDate, createPdfDoc } = require('./pdf_helpers');
 
 module.exports = function(database) {
 
@@ -484,8 +484,7 @@ router.get('/api/mill-parts/store-room-report/pdf', safeAsync(async (req, res) =
   for (const g of Object.values(roomGroups)) g.parts.sort((a, b) => a.part_name.localeCompare(b.part_name));
   const report = Object.values(roomGroups).sort((a, b) => a.store_room_name.localeCompare(b.store_room_name));
 
-  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
-      registerFonts(doc);
+  const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 30 }, database);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=store_room_report.pdf`);
   // PDF will be sent via safePdfPipe
@@ -563,10 +562,8 @@ router.get('/api/mill-parts/summary/excel', safeAsync(async (req, res) => {
 
 // ============ STOCK EXPORT (PDF) ============
 router.get('/api/mill-parts/summary/pdf', safeSync(async (req, res) => {
-  const PDFDocument = require('pdfkit');
   const summary = getStockSummary(req.query);
-  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
-      registerFonts(doc);
+  const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 25 }, database);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=mill_parts_stock.pdf`);
   // PDF will be sent via safePdfPipe
@@ -681,8 +678,7 @@ router.get('/api/mill-parts-stock/export/pdf', safeSync(async (req, res) => {
   if (req.query.date_to) items = items.filter(t => (t.date||'') <= req.query.date_to);
   items.sort((a,b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)) || (a.created_at||'').localeCompare(b.created_at||''));
 
-  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
-      registerFonts(doc);
+  const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 25 }, database);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=mill_parts_transactions.pdf`);
   // PDF will be sent via safePdfPipe
@@ -854,8 +850,8 @@ router.get('/api/mill-parts/part-summary/pdf', safeSync(async (req, res) => {
   });
   const PDFDocument = require('pdfkit');
   const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
-  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
-      registerFonts(doc);
+  branding._watermark = ((database.data || {}).app_settings || []).find(s => s.setting_id === 'watermark');
+  const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 30 }, database);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=${part_name.replace(/ /g, '_')}_summary.pdf`);
   // PDF will be sent via safePdfPipe

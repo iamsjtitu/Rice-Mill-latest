@@ -9,7 +9,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { safeAsync } = require('./safe_handler');
-const { fmtDate } = require('./pdf_helpers');
+const { fmtDate, createPdfDoc } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -1182,7 +1182,7 @@ module.exports = function(database) {
 
     const fontDir2 = path.join(__dirname, '..', 'fonts');
     const hasFS2 = fs.existsSync(path.join(fontDir2, 'FreeSans.ttf'));
-    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+    const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 25 }, database);
     if (hasFS2) {
       doc.registerFont('ExFont', path.join(fontDir2, 'FreeSans.ttf'));
       doc.registerFont('ExFontBold', path.join(fontDir2, 'FreeSansBold.ttf'));

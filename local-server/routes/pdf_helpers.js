@@ -359,4 +359,28 @@ function safePdfPipe(doc, res, filename) {
   });
 }
 
-module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark };
+/**
+ * Create a PDFDocument with watermark auto-attached.
+ * Use this instead of `new PDFDocument(...)` in routes that don't use addPdfHeader.
+ * @param {object} opts - PDFDocument options (size, layout, margin, etc.)
+ * @param {object} database - database object with data.app_settings (optional)
+ * @returns {PDFDocument}
+ */
+function createPdfDoc(opts = {}, database = null) {
+  const PDFDocument = require('pdfkit');
+  const doc = new PDFDocument(opts);
+  registerFonts(doc);
+  let wm = null;
+  if (database && database.data) {
+    wm = (database.data.app_settings || []).find(s => s.setting_id === 'watermark');
+  } else if (database && database._watermark) {
+    wm = database._watermark;
+  }
+  if (wm && wm.enabled) {
+    drawWatermark(doc, wm);
+    doc.on('pageAdded', () => drawWatermark(doc, wm));
+  }
+  return doc;
+}
+
+module.exports = { addPdfHeader, addPdfTable, addSummaryBox, addTotalsRow, addSectionTitle, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe, drawWatermark, createPdfDoc };

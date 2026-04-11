@@ -1,5 +1,5 @@
 const express = require('express');
-const { safePdfPipe, fmtDate } = require('./pdf_helpers');
+const { safePdfPipe, fmtDate, createPdfDoc } = require('./pdf_helpers');
 const router = express.Router();
 
 module.exports = function(database) {
@@ -196,8 +196,7 @@ router.get('/api/reports/outstanding/excel', async (req, res) => {
 
 router.get('/api/reports/outstanding/pdf', async (req, res) => {
   try {
-    const PDFDocument = require('pdfkit');
-    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+    const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 30 }, database);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=outstanding_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe
@@ -245,7 +244,7 @@ router.get('/api/reports/party-ledger/pdf', async (req, res) => {
     const ledger = [];
     if (!party_type || party_type === 'agent') entries.forEach(e => { const a = e.agent_name||''; if (!a||(party_name && a.toLowerCase()!==party_name.toLowerCase())) return; ledger.push({ date: e.date, party_name: a, party_type: 'Agent', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100 }); });
     if (!party_type || party_type === 'truck') entries.forEach(e => { const t = e.truck_no||''; if (!t||(party_name && t.toLowerCase()!==party_name.toLowerCase())) return; ledger.push({ date: e.date, party_name: t, party_type: 'Truck', description: `Paddy: ${Math.round((e.mill_w||0)/100*100)/100}Q`, debit: 0, credit: Math.round(((e.cash_paid||0)+(e.diesel_paid||0))*100)/100 }); });
-    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+    const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 30 }, database);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=party_ledger_${Date.now()}.pdf`);
     // PDF will be sent via safePdfPipe

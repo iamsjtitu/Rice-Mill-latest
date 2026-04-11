@@ -3,7 +3,7 @@ const { safeAsync, safeSync } = require('./safe_handler');
 const router = express.Router();
 const { getColumns, fmtVal, getPdfHeaders, getPdfWidthsMm, getExcelHeaders, getEntryRow } = require('../shared/report_helper');
 const { getDailyReportData, generateDailyReportPdf } = require('./daily_report_logic');
-const { safePdfPipe } = require('./pdf_helpers');
+const { safePdfPipe, createPdfDoc } = require('./pdf_helpers');
 
 function fmtAmt(val) { return val === 0 ? '0' : val.toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
 function fmtDate(d) { if (!d) return ''; const s = String(d).split('T')[0]; const p = s.split('-'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : s; }
@@ -21,9 +21,8 @@ router.get('/api/reports/daily', safeSync(async (req, res) => {
 
 // ============ DAILY REPORT PDF ============
 router.get('/api/reports/daily/pdf', safeSync(async (req, res) => {
-  const PDFDocument = require('pdfkit');
   const data = getDailyReportData(database, req.query);
-  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+  const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 25 }, database);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=daily_report_${data.mode}_${data.date}.pdf`);
   // PDF will be sent via safePdfPipe

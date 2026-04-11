@@ -110,13 +110,13 @@ function telegramSendDocument(botToken, chatId, caption, pdfBuffer, filename) {
 
 // Generate PDF buffer using pdfkit (reuses daily_report logic)
 function generateDetailReportPDF(query) {
-  const PDFDocument = require('pdfkit');
+  const { createPdfDoc } = require('./pdf_helpers');
   const { getDailyReportData, generateDailyReportPdf } = require('./daily_report_logic');
 
   return new Promise((resolve, reject) => {
     try {
       const data = getDailyReportData(database, query);
-      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+      const doc = createPdfDoc({ size: 'A4', layout: 'landscape', margin: 25 }, database);
       const buffers = [];
       doc.on('data', (chunk) => buffers.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
