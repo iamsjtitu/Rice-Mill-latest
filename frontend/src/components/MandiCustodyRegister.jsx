@@ -23,8 +23,10 @@ export default function MandiCustodyRegister({ filters }) {
       if (dateTo) params.date_to = dateTo;
       const { data: d } = await axios.get(`${API}/reports/mandi-custody-register`, { params });
       setData(d);
-    } catch {
-      toast.error("Data load nahi hua");
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err?.response?.data?.error_message || err?.message || "Unknown error";
+      toast.error(`Data load nahi hua: ${msg}`);
+      console.error("MandiCustodyRegister fetch error:", err);
     }
     setLoading(false);
   };
