@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Triple backend architecture with MongoDB (web) and SQLite/JSON (desktop/local). Requires double-entry accounting, advanced reporting, offline-first desktop, and cross-device sync.
 
-## Current Version: v88.94.0
+## Current Version: v88.95.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -48,7 +48,8 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Multi-user with role-based access
 
 ### Recent Changes (Apr 2026)
-- **v88.94.0**: Fixed Mandi Custody Register Desktop - was querying wrong collection `milling_entries` instead of `entries` (22nd parity fix!)
+- **v88.95.0**: Fixed browser CORS issue - MandiCustodyRegister & MillEntryForm were using build-time API URL instead of runtime Electron-aware pattern
+- **v88.94.0**: Fixed Mandi Custody Register Desktop - was querying wrong collection `milling_entries` instead of `entries`
 - **v88.93.0**: Triple Backend Parity System - `check-parity.py` (route comparison) + `sync-js-routes.sh` (Desktop→Local sync)
 - **v88.92.0**: Negative weight validation - 2nd Weight > 1st Weight hone par entry reject (Triple backend + Frontend)
 - **v88.91.0**: Added Paddy Chalna Excel+PDF export routes to Desktop/Local JS backends (were missing - Triple parity fix)
@@ -77,7 +78,10 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Auth: Session-cookie based, no JWT
 - Watermark: Python uses reportlab monkey-patch, JS uses drawWatermark in addPdfHeader + createPdfDoc helper
 
-## PERMANENT RULES (NEVER FORGET)
+## Deployment Notes
+- **Desktop App (.exe)**: GitHub Actions auto-builds on push to main. User creates release on GitHub.
+- **Web Server (mill.9x.design)**: User deploys Python FastAPI backend manually. After "Save to GitHub", user pulls latest code on server and restarts.
+- **IMPORTANT**: After every code change, user must deploy to BOTH desktop (new .exe build) AND web server (git pull + restart) for full coverage.
 1. **Version Bump + WhatsNew**: Har fix/feature ke baad version bump (3 package.json) + WhatsNew.jsx update MANDATORY
 2. **Parity Check**: Har fix/feature ke baad `python3 /app/scripts/check-parity.py` run karna MANDATORY. Agar issues aaye toh fix karo pehle
 3. **Route Sync**: JS routes change karne ke baad `bash /app/scripts/sync-js-routes.sh` run karna MANDATORY

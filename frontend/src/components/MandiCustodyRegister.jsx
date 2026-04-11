@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileSpreadsheet, FileText, Search, Loader2 } from "lucide-react";
 
-const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
+const API = `${BACKEND_URL}/api`;
 
 export default function MandiCustodyRegister({ filters }) {
   const [data, setData] = useState({ mandis: [], rows: [], grand_total: 0 });

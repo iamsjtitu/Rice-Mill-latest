@@ -23,7 +23,9 @@ import { FY_YEARS, SEASONS } from "@/utils/constants";
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
-const API = process.env.REACT_APP_BACKEND_URL + "/api";
+const _isElectron = typeof window !== 'undefined' && (window.electronAPI || window.ELECTRON_API_URL);
+const BACKEND_URL = _isElectron ? '' : (process.env.REACT_APP_BACKEND_URL || '');
+const API = `${BACKEND_URL}/api`;
 
 export function MillEntryForm({
   isDialogOpen,
