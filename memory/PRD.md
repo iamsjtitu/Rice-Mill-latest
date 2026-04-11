@@ -76,3 +76,10 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Desktop paths: Use `os.homedir()` not `Program Files` for dynamic files
 - Auth: Session-cookie based, no JWT
 - Watermark: Python uses reportlab monkey-patch, JS uses drawWatermark in addPdfHeader + createPdfDoc helper
+
+## PERMANENT RULES (NEVER FORGET)
+1. **Version Bump + WhatsNew**: Har fix/feature ke baad version bump (3 package.json) + WhatsNew.jsx update MANDATORY
+2. **Parity Check**: Har fix/feature ke baad `python3 /app/scripts/check-parity.py` run karna MANDATORY. Agar issues aaye toh fix karo pehle
+3. **Route Sync**: JS routes change karne ke baad `bash /app/scripts/sync-js-routes.sh` run karna MANDATORY
+4. **Collection Name Mapping**: MongoDB `mill_entries` = JS `entries` (NOT `milling_entries`). `milling_entries` = milling process data
+5. **Hindi/Hinglish**: User se SIRF Hindi/Hinglish mein baat karo
