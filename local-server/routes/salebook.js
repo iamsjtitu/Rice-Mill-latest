@@ -14,7 +14,7 @@ module.exports = function(database) {
     const { kms_year, season, search } = req.query;
     if (kms_year) vouchers = vouchers.filter(v => v.kms_year === kms_year);
     if (season) vouchers = vouchers.filter(v => v.season === season);
-    if (search) { const s = search.toLowerCase(); vouchers = vouchers.filter(v => (v.party_name || '').toLowerCase().includes(s) || (v.voucher_no || '').toLowerCase().includes(s)); }
+    if (search) { const s = search.toLowerCase(); vouchers = vouchers.filter(v => (v.party_name || '').toLowerCase().includes(s) || (v.voucher_no || '').toLowerCase().includes(s) || (v.invoice_no || '').toLowerCase().includes(s) || (v.destination || '').toLowerCase().includes(s) || (v.bill_book || '').toLowerCase().includes(s)); }
     vouchers.sort((a, b) => (b.date || '').slice(0,10).localeCompare((a.date || '').slice(0,10)));
     res.json(vouchers);
   }));
@@ -253,7 +253,7 @@ module.exports = function(database) {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Sale Invoice</title>
     <style>body{font-family:Arial;margin:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #333;padding:6px 10px}th{background:#1a365d;color:#fff}.header{text-align:center}.r{text-align:right}.b{font-weight:bold}.info{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.info div{flex:1;min-width:130px;background:#f7f7f7;padding:5px 8px;border-radius:4px}.info label{font-size:10px;color:#666;display:block}.info span{font-size:13px;font-weight:bold}@media print{button{display:none}}</style></head><body>
     <div class="header"><h2>${mill}</h2><p>${addr} - Sale Invoice</p></div>
-    <div class="info"><div><label>Invoice No</label><span>${v.invoice_no || ''}</span></div><div><label>Date</label><span>${fmtDate(v.date) || ''}</span></div><div><label>Party</label><span>${v.party_name || ''}</span></div><div><label>Voucher</label><span>#${v.voucher_no || ''}</span></div><div><label>Truck</label><span>${v.truck_no || ''}</span></div><div><label>RST</label><span>${v.rst_no || ''}</span></div><div><label>E-Way Bill</label><span>${v.eway_bill_no || ''}</span></div></div>
+    <div class="info"><div><label>Bill No</label><span>${v.invoice_no || ''}</span></div><div><label>Date</label><span>${fmtDate(v.date) || ''}</span></div><div><label>Party</label><span>${v.party_name || ''}</span></div><div><label>Destination</label><span>${v.destination || ''}</span></div><div><label>Voucher</label><span>#${v.voucher_no || ''}</span></div><div><label>Truck</label><span>${v.truck_no || ''}</span></div><div><label>RST</label><span>${v.rst_no || ''}</span></div><div><label>E-Way Bill</label><span>${v.eway_bill_no || ''}</span></div><div><label>Bill Book</label><span>${v.bill_book || ''}</span></div></div>
     <table><tr><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amount</th></tr>${items}
     <tr><td colspan="3" class="b">Subtotal</td><td class="r b">Rs.${(v.subtotal || 0).toLocaleString()}</td></tr>
     <tr><td colspan="3">CGST (${v.cgst_percent || 0}%)</td><td class="r">Rs.${(v.cgst_amount || 0).toLocaleString()}</td></tr>

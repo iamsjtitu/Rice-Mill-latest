@@ -65,10 +65,10 @@ export default function SaleBook({ filters, user }) {
     fetchHistory(party);
   };
 
-  const emptyItem = { item_name: "", quantity: "", rate: "", unit: "Qntl", hsn_code: "", gst_percent: 5 };
+  const emptyItem = { item_name: "", quantity: "", rate: "", unit: "KG", hsn_code: "", gst_percent: 5, oil_percent: "" };
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
-    party_name: "", invoice_no: "", buyer_gstin: "", buyer_address: "",
+    party_name: "", invoice_no: "", bill_book: "", destination: "", buyer_gstin: "", buyer_address: "",
     items: [{ ...emptyItem }],
     gst_type: "none",
     truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
@@ -98,7 +98,7 @@ export default function SaleBook({ filters, user }) {
   const openNewForm = () => {
     setEditingId(null);
     setForm({
-      date: new Date().toISOString().split('T')[0], party_name: "", invoice_no: "",
+      date: new Date().toISOString().split('T')[0], party_name: "", invoice_no: "", bill_book: "", destination: "",
       buyer_gstin: "", buyer_address: "",
       items: [{ ...emptyItem }], gst_type: "none",
       truck_no: "", rst_no: "", remark: "", cash_paid: "", diesel_paid: "", advance: "", eway_bill_no: "",
@@ -111,8 +111,9 @@ export default function SaleBook({ filters, user }) {
     setEditingId(v.id);
     setForm({
       date: v.date || "", party_name: v.party_name || "", invoice_no: v.invoice_no || "",
+      bill_book: v.bill_book || "", destination: v.destination || "",
       buyer_gstin: v.buyer_gstin || "", buyer_address: v.buyer_address || "",
-      items: (v.items || []).map(i => ({ item_name: i.item_name, quantity: String(i.quantity || ""), rate: String(i.rate || ""), unit: i.unit || "Qntl", hsn_code: i.hsn_code || "", gst_percent: i.gst_percent ?? 5 })),
+      items: (v.items || []).map(i => ({ item_name: i.item_name, quantity: String(i.quantity || ""), rate: String(i.rate || ""), unit: i.unit || "KG", hsn_code: i.hsn_code || "", gst_percent: i.gst_percent ?? 5, oil_percent: i.oil_percent ? String(i.oil_percent) : "" })),
       gst_type: v.gst_type || "none",
       truck_no: v.truck_no || "", rst_no: v.rst_no || "", remark: v.remark || "", eway_bill_no: v.eway_bill_no || "",
       cash_paid: v.cash_paid ? String(v.cash_paid) : "", diesel_paid: v.diesel_paid ? String(v.diesel_paid) : "",
@@ -379,8 +380,9 @@ export default function SaleBook({ filters, user }) {
                 </TableHead>
                 <TableHead className="text-slate-400 text-xs">No.</TableHead>
                 <TableHead className="text-slate-400 text-xs">Date</TableHead>
-                <TableHead className="text-slate-400 text-xs">Inv No.</TableHead>
+                <TableHead className="text-slate-400 text-xs">Bill No.</TableHead>
                 <TableHead className="text-slate-400 text-xs">Party</TableHead>
+                <TableHead className="text-slate-400 text-xs">Destination</TableHead>
                 <TableHead className="text-slate-400 text-xs">Items</TableHead>
                 <TableHead className="text-slate-400 text-xs text-right">Total</TableHead>
                 <TableHead className="text-slate-400 text-xs text-right">Advance</TableHead>
@@ -392,7 +394,7 @@ export default function SaleBook({ filters, user }) {
             </TableHeader>
             <TableBody>
               {vouchers.length === 0 && (
-                <TableRow><TableCell colSpan={12} className="text-center text-slate-500 py-8">
+                <TableRow><TableCell colSpan={13} className="text-center text-slate-500 py-8">
                   {searchQuery ? "Koi result nahi mila." : "Koi sale voucher nahi hai."}
                 </TableCell></TableRow>
               )}
@@ -406,7 +408,8 @@ export default function SaleBook({ filters, user }) {
                   <TableCell className="text-white text-xs">{fmtDate(v.date)}</TableCell>
                   <TableCell className="text-slate-300 text-xs">{v.invoice_no || '-'}</TableCell>
                   <TableCell className="text-white text-sm font-medium">{v.party_name}</TableCell>
-                  <TableCell className="text-slate-300 text-xs max-w-[180px] truncate">{(v.items || []).map(i => `${i.item_name}(${i.quantity}Q)`).join(', ')}</TableCell>
+                  <TableCell className="text-slate-300 text-xs">{v.destination || '-'}</TableCell>
+                  <TableCell className="text-slate-300 text-xs max-w-[180px] truncate">{(v.items || []).map(i => `${i.item_name}(${i.quantity}KG)`).join(', ')}</TableCell>
                   <TableCell className="text-emerald-400 font-bold text-xs text-right">Rs.{v.total?.toLocaleString('en-IN')}</TableCell>
                   <TableCell className="text-blue-400 text-xs text-right">{v.advance ? `Rs.${v.advance.toLocaleString('en-IN')}` : '-'}</TableCell>
                   <TableCell className="text-white text-xs text-right">{v.cash_paid ? `Rs.${v.cash_paid.toLocaleString('en-IN')}` : '-'}</TableCell>
@@ -474,12 +477,12 @@ export default function SaleBook({ filters, user }) {
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Row 1: Invoice No, Date */}
+            {/* Row 1: Bill No, Date, Party, RST, Bill Book */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <div>
-                <Label className="text-xs text-slate-400">Invoice No.</Label>
+                <Label className="text-xs text-slate-400">Bill No.</Label>
                 <Input value={form.invoice_no} onChange={e => setForm(p => ({ ...p, invoice_no: e.target.value }))}
-                  placeholder="INV-001" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-invoice" />
+                  placeholder="Bill No." className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-invoice" />
               </div>
               <div>
                 <Label className="text-xs text-slate-400">Date</Label>
@@ -496,8 +499,18 @@ export default function SaleBook({ filters, user }) {
                 <Input value={form.rst_no} onChange={e => setForm(p => ({ ...p, rst_no: e.target.value }))}
                   placeholder="RST Number" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-rst" />
               </div>
+              <div>
+                <Label className="text-xs text-slate-400">Bill Book</Label>
+                <Input value={form.bill_book} onChange={e => setForm(p => ({ ...p, bill_book: e.target.value }))}
+                  placeholder="Kaha se bill hua" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-billbook" />
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-xs text-slate-400">Destination</Label>
+                <Input value={form.destination} onChange={e => setForm(p => ({ ...p, destination: e.target.value }))}
+                  placeholder="Maal kaha jayega" className="bg-slate-700 border-slate-600 text-white h-8 text-sm" data-testid="sv-form-destination" />
+              </div>
               <div>
                 <Label className="text-xs text-slate-400">E-Way Bill No</Label>
                 <Input value={form.eway_bill_no} onChange={e => setForm(p => ({ ...p, eway_bill_no: e.target.value }))}
@@ -523,8 +536,9 @@ export default function SaleBook({ filters, user }) {
                   <TableRow className="border-slate-600">
                     <TableHead className="text-slate-400 text-[10px] w-[25%]">Item</TableHead>
                     <TableHead className="text-slate-400 text-[10px] w-[10%]">Stock</TableHead>
-                    <TableHead className="text-slate-400 text-[10px] w-[12%]">Qty</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[10%]">Qty (KG)</TableHead>
                     <TableHead className="text-slate-400 text-[10px] w-[10%]">Rate</TableHead>
+                    <TableHead className="text-slate-400 text-[10px] w-[10%]">Oil %</TableHead>
                     <TableHead className="text-slate-400 text-[10px] w-[13%]">HSN</TableHead>
                     {isGst && <TableHead className="text-slate-400 text-[10px] w-[10%]">GST%</TableHead>}
                     <TableHead className="text-slate-400 text-[10px] w-[12%] text-right">Amount</TableHead>
@@ -557,6 +571,12 @@ export default function SaleBook({ filters, user }) {
                         <TableCell className="p-1">
                           <Input type="number" step="0.01" value={item.rate} onChange={e => updateItem(idx, 'rate', e.target.value)}
                             className="bg-slate-700 border-slate-600 text-white h-8 text-xs" placeholder="0" data-testid={`sv-item-rate-${idx}`} />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          {(item.item_name === "Bran" || item.item_name === "Kunda") ? (
+                            <Input type="number" step="0.1" value={item.oil_percent || ""} onChange={e => updateItem(idx, 'oil_percent', e.target.value)}
+                              className="bg-slate-700 border-slate-600 text-white h-8 text-xs" placeholder="Oil %" data-testid={`sv-item-oil-${idx}`} />
+                          ) : <span className="text-slate-500 text-xs px-2">-</span>}
                         </TableCell>
                         <TableCell className="p-1">
                           <Input value={item.hsn_code} onChange={e => updateItem(idx, 'hsn_code', e.target.value)}
@@ -710,7 +730,7 @@ export default function SaleBook({ filters, user }) {
             <div className="space-y-3">
               <div className="bg-slate-900 p-3 rounded border border-slate-700 text-xs space-y-1">
                 <p><span className="text-slate-400">Party:</span> <span className="text-white font-medium">{payDialog.party_name}</span></p>
-                <p><span className="text-slate-400">Invoice:</span> <span className="text-white">{payDialog.invoice_no || '-'}</span></p>
+                <p><span className="text-slate-400">Bill No.:</span> <span className="text-white">{payDialog.invoice_no || '-'}</span></p>
                 <p><span className="text-slate-400">Total:</span> <span className="text-emerald-400 font-bold">Rs.{payDialog.total?.toLocaleString('en-IN')}</span></p>
                 <p><span className="text-slate-400">Balance Due:</span> <span className="text-red-400 font-bold">Rs.{(payDialog.ledger_balance != null ? payDialog.ledger_balance : payDialog.balance)?.toLocaleString('en-IN')}</span></p>
               </div>

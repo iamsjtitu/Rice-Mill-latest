@@ -36,14 +36,17 @@ class SaleItemCreate(BaseModel):
     item_name: str
     quantity: float = 0
     rate: float = 0
-    unit: str = "Qntl"
+    unit: str = "KG"
     hsn_code: str = ""
     gst_percent: float = 0
+    oil_percent: float = 0
 
 class SaleVoucherCreate(BaseModel):
     date: str
     party_name: str
     invoice_no: str = ""
+    bill_book: str = ""
+    destination: str = ""
     buyer_gstin: str = ""
     buyer_address: str = ""
     items: list[SaleItemCreate] = []
@@ -66,6 +69,8 @@ class SaleVoucher(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     voucher_no: int = 0
     invoice_no: str = ""
+    bill_book: str = ""
+    destination: str = ""
     date: str = ""
     party_name: str = ""
     buyer_gstin: str = ""
