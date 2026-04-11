@@ -3,9 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.86.0";
+const APP_VERSION = "88.87.0";
 
 const CHANGELOG = [
+  {
+    version: "88.87.0",
+    date: "Apr 2026",
+    title: "v88.87.0 - Mandi Wise Custody Register + Watermark Global",
+    items: [
+      { type: "new", text: "Mandi Wise Custody Register - Milling (CMR) > Paddy Custody Register ke andar, date-wise mandi procurement with TOTAL & PROG.TOTAL" },
+      { type: "new", text: "PDF/Excel export with professional layout - company header, color-coded columns, grand total footer" },
+      { type: "fix", text: "Watermark ab HAR PDF mein aayega - Mill Parts, Daily Report, Vehicle Weight, Telegram sab mein" },
+      { type: "fix", text: "Date format fix - ab DD/MM/YYYY dikhega (pehle year missing tha)" },
+      { type: "new", text: "Settings.jsx 11 files mein break - faster loading aur easy maintenance" },
+    ]
+  },
   {
     version: "88.85.0",
     date: "Apr 2026",
@@ -14,7 +26,6 @@ const CHANGELOG = [
       { type: "new", text: "Quick Search - ab entry click karne par sirf uss entry ka detail dialog khulega, pura tab nahi" },
       { type: "fix", text: "PDF Watermark - ab puri page par tiled/repeat hoga (pehle sirf center mein tha)" },
       { type: "fix", text: "Weight Discrepancy page crash fix (Input + Mandi dropdown error)" },
-      { type: "new", text: "Settings.jsx refactored - 3091 lines se 11 files mein tod diya (faster loading)" },
     ]
   },
   {
