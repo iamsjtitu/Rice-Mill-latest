@@ -726,7 +726,7 @@ module.exports = function(database) {
 
   router.get('/api/reports/mandi-custody-register', safeSync(async (req, res) => {
     const { kms_year, season, date_from, date_to } = req.query;
-    let entries = database.data.mill_entries || [];
+    let entries = database.data.milling_entries || [];
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
     if (season) entries = entries.filter(e => e.season === season);
     if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
@@ -767,7 +767,7 @@ module.exports = function(database) {
 
   router.get('/api/reports/mandi-custody-register/pdf', safeSync(async (req, res) => {
     const { kms_year, season, date_from, date_to } = req.query;
-    let entries = database.data.mill_entries || [];
+    let entries = database.data.milling_entries || [];
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
     if (season) entries = entries.filter(e => e.season === season);
     if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
@@ -835,7 +835,7 @@ module.exports = function(database) {
 
   router.get('/api/reports/mandi-custody-register/excel', safeSync(async (req, res) => {
     const { kms_year, season, date_from, date_to } = req.query;
-    let entries = database.data.mill_entries || [];
+    let entries = database.data.milling_entries || [];
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
     if (season) entries = entries.filter(e => e.season === season);
     if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);

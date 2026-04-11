@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.89.0";
+const APP_VERSION = "88.90.0";
 
 const CHANGELOG = [
+  {
+    version: "88.90.0",
+    date: "Apr 2026",
+    title: "v88.90.0 - Desktop Mandi Custody Register Fix",
+    items: [
+      { type: "fix", text: "Desktop App - Mandi Wise Custody Register ab data dikhayega (pehle blank aa raha tha - galat collection name tha JS backend mein)" },
+      { type: "fix", text: "Local Server - Same fix applied for LAN/network mode" },
+    ]
+  },
   {
     version: "88.89.0",
     date: "Apr 2026",
