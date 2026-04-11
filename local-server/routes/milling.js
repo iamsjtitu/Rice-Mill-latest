@@ -196,7 +196,7 @@ module.exports = function(database) {
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
     const millingEntries = database.getMillingEntries(filters);
     const rows = [];
-    entries.forEach(e => rows.push({ date: e.date || '', type: 'received', description: `Truck: ${e.truck_no || ''} | Agent: ${e.agent_name || ''} | Mandi: ${e.mandi_name || ''}`, received_qntl: +((e.qntl || 0) - (e.bag || 0) / 100).toFixed(2), issued_qntl: 0, source_id: e.id || '' }));
+    entries.forEach(e => rows.push({ date: e.date || '', type: 'received', description: `Truck: ${e.truck_no || ''} | Agent: ${e.agent_name || ''} | Mandi: ${e.mandi_name || ''}`, received_qntl: +((e.final_w || 0) / 100).toFixed(2), issued_qntl: 0, source_id: e.id || '' }));
     millingEntries.forEach(e => rows.push({ date: e.date || '', type: 'issued', description: `Milling (${(e.rice_type || 'parboiled').charAt(0).toUpperCase() + (e.rice_type || '').slice(1)}) | Rice: ${e.rice_qntl || 0}Q`, received_qntl: 0, issued_qntl: e.paddy_input_qntl || 0, source_id: e.id || '' }));
     rows.sort((a, b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     let balance = 0;

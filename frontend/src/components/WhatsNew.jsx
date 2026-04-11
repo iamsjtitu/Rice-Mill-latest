@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.95.0";
+const APP_VERSION = "88.96.0";
 
 const CHANGELOG = [
+  {
+    version: "88.96.0",
+    date: "Apr 2026",
+    title: "v88.96.0 - Final W in Custody Registers",
+    items: [
+      { type: "fix", text: "Paddy Custody Register aur Mandi Wise Custody Register ab Final W (mill_w ki jagah) use karta hai - moisture/cutting cuts ke baad ka sahi weight" },
+    ]
+  },
   {
     version: "88.95.0",
     date: "Apr 2026",
