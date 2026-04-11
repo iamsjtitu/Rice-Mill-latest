@@ -740,7 +740,7 @@ module.exports = function(database) {
     entries.forEach(e => {
       const d = (e.date || '').slice(0, 10);
       const m = (e.mandi_name || '').trim();
-      const qntl = parseFloat(e.final_w || e.qntl || 0);
+      const qntl = Math.round(parseFloat(e.final_w || 0) / 100 * 100) / 100;
       if (d && m) {
         if (!dateMap[d]) dateMap[d] = {};
         dateMap[d][m] = Math.round(((dateMap[d][m] || 0) + qntl) * 100) / 100;
@@ -781,7 +781,7 @@ module.exports = function(database) {
     entries.forEach(e => {
       const d = (e.date || '').slice(0, 10);
       const m = (e.mandi_name || '').trim();
-      const qntl = parseFloat(e.final_w || e.qntl || 0);
+      const qntl = Math.round(parseFloat(e.final_w || 0) / 100 * 100) / 100;
       if (d && m) {
         if (!dateMap[d]) dateMap[d] = {};
         dateMap[d][m] = Math.round(((dateMap[d][m] || 0) + qntl) * 100) / 100;
@@ -849,7 +849,7 @@ module.exports = function(database) {
     entries.forEach(e => {
       const d = (e.date || '').slice(0, 10);
       const m = (e.mandi_name || '').trim();
-      const qntl = parseFloat(e.final_w || e.qntl || 0);
+      const qntl = Math.round(parseFloat(e.final_w || 0) / 100 * 100) / 100;
       if (d && m) {
         if (!dateMap[d]) dateMap[d] = {};
         dateMap[d][m] = Math.round(((dateMap[d][m] || 0) + qntl) * 100) / 100;

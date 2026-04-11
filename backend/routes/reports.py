@@ -816,7 +816,7 @@ async def mandi_custody_register(kms_year: Optional[str] = None, season: Optiona
     for e in entries:
         d = (e.get("date") or "")[:10]
         m = (e.get("mandi_name") or "").strip()
-        qntl = float(e.get("final_w") or e.get("qntl") or 0)
+        qntl = round(float(e.get("final_w") or 0) / 100, 2)
         if d and m:
             date_map[d][m] += round(qntl, 2)
 
