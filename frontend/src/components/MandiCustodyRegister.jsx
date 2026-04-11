@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileSpreadsheet, FileText, Download, Loader2 } from "lucide-react";
+import { FileSpreadsheet, FileText, Search, Loader2 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ""}/api`;
 
@@ -61,91 +60,92 @@ export default function MandiCustodyRegister({ filters }) {
   return (
     <div data-testid="mandi-custody-register">
       {/* Filters */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
+      <div className="flex items-center gap-3 mb-4 flex-wrap bg-white border border-slate-200 rounded-lg px-4 py-3">
+        <span className="text-slate-500 text-xs font-medium">Date Range:</span>
         <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-          className="w-36 bg-slate-800 border-slate-600 text-white text-xs" data-testid="custody-date-from" />
+          className="w-36 bg-white border-slate-300 text-slate-800 text-xs" data-testid="custody-date-from" />
         <span className="text-slate-400 text-xs">to</span>
         <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-          className="w-36 bg-slate-800 border-slate-600 text-white text-xs" data-testid="custody-date-to" />
-        <Button size="sm" onClick={fetchData} className="bg-amber-600 hover:bg-amber-500 text-white text-xs" data-testid="custody-search-btn">
-          Search
+          className="w-36 bg-white border-slate-300 text-slate-800 text-xs" data-testid="custody-date-to" />
+        <Button size="sm" onClick={fetchData} className="bg-blue-600 hover:bg-blue-700 text-white text-xs" data-testid="custody-search-btn">
+          <Search className="w-3.5 h-3.5 mr-1" /> Search
         </Button>
         <div className="ml-auto flex gap-2">
-          <Button size="sm" variant="outline" onClick={exportPdf} className="border-slate-600 text-slate-300 hover:bg-slate-700 text-xs" data-testid="custody-pdf-btn">
+          <Button size="sm" variant="outline" onClick={exportPdf} className="border-red-300 text-red-600 hover:bg-red-50 text-xs" data-testid="custody-pdf-btn">
             <FileText className="w-3.5 h-3.5 mr-1" /> PDF
           </Button>
-          <Button size="sm" variant="outline" onClick={exportExcel} className="border-slate-600 text-slate-300 hover:bg-slate-700 text-xs" data-testid="custody-excel-btn">
+          <Button size="sm" variant="outline" onClick={exportExcel} className="border-green-300 text-green-600 hover:bg-green-50 text-xs" data-testid="custody-excel-btn">
             <FileSpreadsheet className="w-3.5 h-3.5 mr-1" /> Excel
           </Button>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-amber-500" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>
       ) : rows.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">Koi data nahi mila. Entries add karein ya filter change karein.</div>
+        <div className="text-center py-16 text-slate-400 bg-white border border-slate-200 rounded-lg">
+          Koi data nahi mila. Entries add karein ya filter change karein.
+        </div>
       ) : (
-        <Card className="bg-slate-900 border-slate-700 overflow-hidden">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs" data-testid="custody-table">
-                <thead>
-                  <tr className="bg-[#1a365d]">
-                    <th className="text-left text-white font-semibold px-3 py-2 sticky left-0 bg-[#1a365d] z-10 whitespace-nowrap">Date</th>
-                    {mandis.map(m => (
-                      <th key={m} className="text-center text-white font-semibold px-2 py-2 whitespace-nowrap min-w-[80px]">{m}</th>
-                    ))}
-                    <th className="text-center text-amber-200 font-bold px-3 py-2 whitespace-nowrap bg-[#1a365d] border-l border-slate-500">TOTAL</th>
-                    <th className="text-center text-blue-200 font-bold px-3 py-2 whitespace-nowrap bg-[#1a365d] border-l border-slate-500">PROG. TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, ri) => (
-                    <tr key={r.date} className={ri % 2 === 0 ? "bg-slate-900" : "bg-slate-800/50"}>
-                      <td className="px-3 py-1.5 font-medium text-slate-200 sticky left-0 z-10 whitespace-nowrap"
-                        style={{ backgroundColor: ri % 2 === 0 ? '#0f172a' : '#1e293b' }}>
-                        {fmtDate(r.date)}
-                      </td>
-                      {mandis.map(m => {
-                        const v = r.mandis[m] || 0;
-                        return (
-                          <td key={m} className={`text-center px-2 py-1.5 tabular-nums ${v > 0 ? 'text-slate-100' : 'text-slate-600'}`}>
-                            {v > 0 ? v.toFixed(2) : "-"}
-                          </td>
-                        );
-                      })}
-                      <td className="text-center px-3 py-1.5 font-semibold text-amber-300 bg-amber-900/20 border-l border-slate-700 tabular-nums">
-                        {r.total.toFixed(2)}
-                      </td>
-                      <td className="text-center px-3 py-1.5 font-semibold text-blue-300 bg-blue-900/20 border-l border-slate-700 tabular-nums">
-                        {r.prog_total.toFixed(2)}
-                      </td>
-                    </tr>
+        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs" data-testid="custody-table">
+              <thead>
+                <tr className="bg-slate-100 border-b border-slate-200">
+                  <th className="text-left text-slate-600 font-semibold px-3 py-2.5 sticky left-0 bg-slate-100 z-10 whitespace-nowrap border-r border-slate-200">Date</th>
+                  {mandis.map(m => (
+                    <th key={m} className="text-center text-slate-600 font-semibold px-2 py-2.5 whitespace-nowrap min-w-[90px] border-r border-slate-100">{m}</th>
                   ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-[#1a365d]">
-                    <td className="px-3 py-2 font-bold text-white sticky left-0 bg-[#1a365d] z-10">Grand Total</td>
+                  <th className="text-center text-amber-700 font-bold px-3 py-2.5 whitespace-nowrap bg-amber-50 border-l border-amber-200">TOTAL</th>
+                  <th className="text-center text-blue-700 font-bold px-3 py-2.5 whitespace-nowrap bg-blue-50 border-l border-blue-200">PROG. TOTAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, ri) => (
+                  <tr key={r.date} className={`border-b border-slate-100 ${ri % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-blue-50/30 transition-colors`}>
+                    <td className="px-3 py-2 font-medium text-slate-700 sticky left-0 z-10 whitespace-nowrap border-r border-slate-200"
+                      style={{ backgroundColor: ri % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                      {fmtDate(r.date)}
+                    </td>
                     {mandis.map(m => {
-                      const mTotal = rows.reduce((s, r) => s + (r.mandis[m] || 0), 0);
+                      const v = r.mandis[m] || 0;
                       return (
-                        <td key={m} className="text-center px-2 py-2 font-semibold text-amber-200 tabular-nums">
-                          {mTotal > 0 ? mTotal.toFixed(2) : "-"}
+                        <td key={m} className={`text-center px-2 py-2 tabular-nums border-r border-slate-50 ${v > 0 ? 'text-slate-800 font-medium' : 'text-slate-300'}`}>
+                          {v > 0 ? v.toFixed(2) : "-"}
                         </td>
                       );
                     })}
-                    <td className="text-center px-3 py-2 font-bold text-amber-200 border-l border-slate-500 tabular-nums">
-                      {grand_total.toFixed(2)}
+                    <td className="text-center px-3 py-2 font-semibold text-amber-700 bg-amber-50/60 border-l border-amber-100 tabular-nums">
+                      {r.total.toFixed(2)}
                     </td>
-                    <td className="text-center px-3 py-2 font-bold text-blue-200 border-l border-slate-500 tabular-nums">
-                      {grand_total.toFixed(2)}
+                    <td className="text-center px-3 py-2 font-semibold text-blue-700 bg-blue-50/60 border-l border-blue-100 tabular-nums">
+                      {r.prog_total.toFixed(2)}
                     </td>
                   </tr>
-                </tfoot>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-700">
+                  <td className="px-3 py-2.5 font-bold text-white sticky left-0 bg-slate-700 z-10 border-r border-slate-600">Grand Total</td>
+                  {mandis.map(m => {
+                    const mTotal = rows.reduce((s, r) => s + (r.mandis[m] || 0), 0);
+                    return (
+                      <td key={m} className="text-center px-2 py-2.5 font-semibold text-slate-200 tabular-nums border-r border-slate-600">
+                        {mTotal > 0 ? mTotal.toFixed(2) : "-"}
+                      </td>
+                    );
+                  })}
+                  <td className="text-center px-3 py-2.5 font-bold text-amber-300 border-l border-slate-500 tabular-nums">
+                    {grand_total.toFixed(2)}
+                  </td>
+                  <td className="text-center px-3 py-2.5 font-bold text-blue-300 border-l border-slate-500 tabular-nums">
+                    {grand_total.toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );

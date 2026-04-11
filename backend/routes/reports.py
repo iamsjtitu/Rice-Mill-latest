@@ -850,64 +850,101 @@ async def mandi_custody_register_pdf(kms_year: Optional[str] = None, season: Opt
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
 
+    # Get branding for company name
+    branding_doc = await db.branding.find_one({}, {"_id": 0})
+    company_name = (branding_doc or {}).get("company_name", "Mill Entry System")
+    tagline = (branding_doc or {}).get("tagline", "")
+
     data = await mandi_custody_register(kms_year, season, date_from, date_to)
     mandis = data["mandis"]
     rows = data["rows"]
 
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=10*mm)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=10*mm)
     styles = getSampleStyleSheet()
     elements = []
 
+    # Company Header
+    company_style = ParagraphStyle("company", fontSize=14, fontName="Helvetica-Bold", alignment=1, spaceAfter=1, textColor=colors.HexColor('#1a365d'))
+    elements.append(Paragraph(company_name.upper(), company_style))
+    if tagline:
+        elements.append(Paragraph(tagline, ParagraphStyle("tagline", fontSize=7, alignment=1, spaceAfter=2, textColor=colors.HexColor('#64748b'))))
+
     # Title
-    title_style = ParagraphStyle("CustodyTitle", parent=styles["Heading1"], fontSize=14, alignment=1, spaceAfter=4)
-    elements.append(Paragraph("Mandi Wise Custody Register", title_style))
+    elements.append(Paragraph("MANDI WISE CUSTODY REGISTER", ParagraphStyle("title", fontSize=11, fontName="Helvetica-Bold", alignment=1, spaceAfter=2, textColor=colors.HexColor('#334155'))))
     sub = f"FY: {kms_year or 'All'} | Season: {season or 'All'}"
     if date_from or date_to:
-        sub += f" | {date_from or ''} to {date_to or ''}"
-    elements.append(Paragraph(sub, ParagraphStyle("sub", parent=styles["Normal"], fontSize=8, alignment=1, spaceAfter=8)))
+        sub += f" | Period: {date_from or 'Start'} to {date_to or 'End'}"
+    elements.append(Paragraph(sub, ParagraphStyle("sub", fontSize=7, alignment=1, spaceAfter=6, textColor=colors.HexColor('#64748b'))))
 
-    # Table headers
+    # Table
     headers = ["Date"] + mandis + ["TOTAL", "PROG. TOTAL"]
-    n_cols = len(headers)
-    cell_style = ParagraphStyle("cell", fontSize=6, leading=7)
-    hdr_style = ParagraphStyle("hdr", fontSize=6, leading=7, alignment=1)
+    hdr_style = ParagraphStyle("hdr", fontSize=7, leading=9, alignment=1, fontName="Helvetica-Bold", textColor=colors.white)
+    cell_style = ParagraphStyle("cell", fontSize=7, leading=9, alignment=1)
+    cell_left = ParagraphStyle("cellL", fontSize=7, leading=9)
+    cell_bold = ParagraphStyle("cellB", fontSize=7, leading=9, alignment=1, fontName="Helvetica-Bold")
 
     table_data = [[Paragraph(h, hdr_style) for h in headers]]
+
     for r in rows:
-        row = [Paragraph(r["date"], cell_style)]
+        # Format date as DD/MM/YYYY
+        d = r["date"]
+        parts = d.split("-")
+        date_str = f"{parts[2]}/{parts[1]}/{parts[0]}" if len(parts) == 3 else d
+        row = [Paragraph(date_str, cell_left)]
         for m in mandis:
             v = r["mandis"].get(m, 0)
-            row.append(Paragraph(f"{v:.2f}" if v else "-", cell_style))
-        row.append(Paragraph(f"{r['total']:.2f}", cell_style))
-        row.append(Paragraph(f"{r['prog_total']:.2f}", cell_style))
+            row.append(Paragraph(f"{v:,.2f}" if v else "-", cell_style))
+        row.append(Paragraph(f"{r['total']:,.2f}", cell_bold))
+        row.append(Paragraph(f"{r['prog_total']:,.2f}", cell_bold))
         table_data.append(row)
 
+    # Grand Total row
+    grand_row = [Paragraph("GRAND TOTAL", ParagraphStyle("gt", fontSize=7, leading=9, fontName="Helvetica-Bold", textColor=colors.white))]
+    for m in mandis:
+        m_total = sum(r["mandis"].get(m, 0) for r in rows)
+        grand_row.append(Paragraph(f"{m_total:,.2f}" if m_total else "-", ParagraphStyle("gtc", fontSize=7, leading=9, alignment=1, fontName="Helvetica-Bold", textColor=colors.white)))
+    grand_row.append(Paragraph(f"{data['grand_total']:,.2f}", ParagraphStyle("gtt", fontSize=7, leading=9, alignment=1, fontName="Helvetica-Bold", textColor=colors.HexColor('#fbbf24'))))
+    grand_row.append(Paragraph(f"{data['grand_total']:,.2f}", ParagraphStyle("gtp", fontSize=7, leading=9, alignment=1, fontName="Helvetica-Bold", textColor=colors.HexColor('#60a5fa'))))
+    table_data.append(grand_row)
+
     # Column widths
-    avail = landscape(A4)[0] - 30*mm
-    date_w = 22*mm
-    total_w = 20*mm
-    prog_w = 22*mm
-    mandi_w = max((avail - date_w - total_w - prog_w) / max(len(mandis), 1), 18*mm)
+    avail = landscape(A4)[0] - 24*mm
+    date_w = 24*mm
+    total_w = 22*mm
+    prog_w = 24*mm
+    mandi_w = max((avail - date_w - total_w - prog_w) / max(len(mandis), 1), 20*mm)
     col_widths = [date_w] + [mandi_w]*len(mandis) + [total_w, prog_w]
 
+    last_row = len(table_data) - 1
     t = Table(table_data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
+        # Header
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a5f')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTSIZE', (0, 0), (-1, -1), 6),
+        # Grand total row
+        ('BACKGROUND', (0, last_row), (-1, last_row), colors.HexColor('#334155')),
+        ('TEXTCOLOR', (0, last_row), (-1, last_row), colors.white),
+        # General
+        ('FONTSIZE', (0, 0), (-1, -1), 7),
         ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
-        ('BACKGROUND', (-2, 1), (-2, -1), colors.HexColor('#fef3c7')),
-        ('BACKGROUND', (-1, 1), (-1, -1), colors.HexColor('#dbeafe')),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#e2e8f0')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, last_row - 1), [colors.white, colors.HexColor('#f8fafc')]),
+        # TOTAL column highlight
+        ('BACKGROUND', (-2, 1), (-2, last_row - 1), colors.HexColor('#fef9c3')),
+        # PROG.TOTAL column highlight
+        ('BACKGROUND', (-1, 1), (-1, last_row - 1), colors.HexColor('#dbeafe')),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        # Header border
+        ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor('#1e3a5f')),
+        # Grand total top border
+        ('LINEABOVE', (0, last_row), (-1, last_row), 1.5, colors.HexColor('#334155')),
     ]))
     elements.append(t)
-    elements.append(Spacer(1, 5*mm))
-    elements.append(Paragraph(f"Grand Procurement Total: {data['grand_total']:.2f} Qntl", ParagraphStyle("grand", fontSize=10, alignment=2, textColor=colors.HexColor('#1a365d'))))
 
     doc.build(elements)
     buffer.seek(0)
