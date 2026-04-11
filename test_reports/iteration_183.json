@@ -1,0 +1,70 @@
+{
+  "summary": "Mandi Custody Register feature fully tested - all backend APIs and frontend UI working correctly",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_mandi_custody_register.py",
+    "/app/test_reports/pytest/pytest_results_iteration183.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_mandi_custody_register.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": "Username: admin, Password: admin123",
+  "seed_data_creation": "None - used existing test data",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Mandi Custody Register feature tested and working. Sub-tab at Entries > Mandi Custody Register (data-testid='subtab-mandi-custody'). Table shows date-wise paddy procurement from different mandis with TOTAL (amber) and PROG.TOTAL (blue) columns. PDF and Excel exports work. Date filters work correctly.",
+  "features_tested": {
+    "mandi_custody_register_api": {
+      "status": "PASS",
+      "tests": [
+        "GET /api/reports/mandi-custody-register?kms_year=2025-2026 returns JSON with mandis, rows, grand_total - PASS",
+        "Row structure has date, mandis dict, total, prog_total - PASS",
+        "PROG.TOTAL is correctly cumulative (running sum) - PASS",
+        "TOTAL equals sum of all mandi values for that day - PASS",
+        "grand_total equals last row's prog_total - PASS",
+        "PDF export returns 200 with valid PDF - PASS",
+        "Excel export returns 200 with valid Excel - PASS",
+        "Date filters (date_from, date_to) work correctly - PASS",
+        "Endpoint works without kms_year filter - PASS"
+      ]
+    },
+    "mandi_custody_register_ui": {
+      "status": "PASS",
+      "tests": [
+        "Sub-tab 'Mandi Custody Register' visible at Entries tab - PASS",
+        "Component loads with data-testid='mandi-custody-register' - PASS",
+        "Date From input found (data-testid='custody-date-from') - PASS",
+        "Date To input found (data-testid='custody-date-to') - PASS",
+        "Search button found (data-testid='custody-search-btn') - PASS",
+        "PDF export button found (data-testid='custody-pdf-btn') - PASS",
+        "Excel export button found (data-testid='custody-excel-btn') - PASS",
+        "Table found (data-testid='custody-table') - PASS",
+        "TOTAL column header found (amber color) - PASS",
+        "PROG. TOTAL column header found (blue color) - PASS",
+        "Grand Total footer row found - PASS",
+        "Dynamic mandi columns displayed - PASS",
+        "Search button filters data correctly - PASS",
+        "Excel download works - PASS"
+      ]
+    }
+  },
+  "api_endpoints_tested": [
+    "GET /api/reports/mandi-custody-register - JSON data",
+    "GET /api/reports/mandi-custody-register/pdf - PDF export",
+    "GET /api/reports/mandi-custody-register/excel - Excel export"
+  ]
+}

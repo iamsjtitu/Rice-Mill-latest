@@ -722,5 +722,171 @@ module.exports = function(database) {
     await safePdfPipe(doc, res);
   }));
 
+  // ============ MANDI WISE CUSTODY REGISTER ============
+
+  router.get('/api/reports/mandi-custody-register', safeSync(async (req, res) => {
+    const { kms_year, season, date_from, date_to } = req.query;
+    let entries = database.data.mill_entries || [];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
+    if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+
+    const mandiSet = new Set();
+    entries.forEach(e => { const m = (e.mandi_name || '').trim(); if (m) mandiSet.add(m); });
+    const mandis = [...mandiSet].sort();
+
+    const dateMap = {};
+    entries.forEach(e => {
+      const d = (e.date || '').slice(0, 10);
+      const m = (e.mandi_name || '').trim();
+      const qntl = parseFloat(e.mill_w || e.qntl || 0);
+      if (d && m) {
+        if (!dateMap[d]) dateMap[d] = {};
+        dateMap[d][m] = Math.round(((dateMap[d][m] || 0) + qntl) * 100) / 100;
+      }
+    });
+
+    const dates = Object.keys(dateMap).sort();
+    let progTotal = 0;
+    const rows = dates.map(d => {
+      const mandiVals = {};
+      let dayTotal = 0;
+      mandis.forEach(m => {
+        const v = Math.round((dateMap[d][m] || 0) * 100) / 100;
+        mandiVals[m] = v;
+        dayTotal += v;
+      });
+      dayTotal = Math.round(dayTotal * 100) / 100;
+      progTotal = Math.round((progTotal + dayTotal) * 100) / 100;
+      return { date: d, mandis: mandiVals, total: dayTotal, prog_total: progTotal };
+    });
+
+    res.json({ mandis, rows, grand_total: progTotal });
+  }));
+
+  router.get('/api/reports/mandi-custody-register/pdf', safeSync(async (req, res) => {
+    const { kms_year, season, date_from, date_to } = req.query;
+    let entries = database.data.mill_entries || [];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
+    if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+
+    const mandiSet = new Set();
+    entries.forEach(e => { const m = (e.mandi_name || '').trim(); if (m) mandiSet.add(m); });
+    const mandis = [...mandiSet].sort();
+
+    const dateMap = {};
+    entries.forEach(e => {
+      const d = (e.date || '').slice(0, 10);
+      const m = (e.mandi_name || '').trim();
+      const qntl = parseFloat(e.mill_w || e.qntl || 0);
+      if (d && m) {
+        if (!dateMap[d]) dateMap[d] = {};
+        dateMap[d][m] = Math.round(((dateMap[d][m] || 0) + qntl) * 100) / 100;
+      }
+    });
+
+    const dates = Object.keys(dateMap).sort();
+    let progTotal = 0;
+    const rows = dates.map(d => {
+      const mandiVals = {};
+      let dayTotal = 0;
+      mandis.forEach(m => {
+        const v = Math.round((dateMap[d][m] || 0) * 100) / 100;
+        mandiVals[m] = v;
+        dayTotal += v;
+      });
+      dayTotal = Math.round(dayTotal * 100) / 100;
+      progTotal = Math.round((progTotal + dayTotal) * 100) / 100;
+      return { date: d, mandis: mandiVals, total: dayTotal, prog_total: progTotal };
+    });
+
+    const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
+    branding._watermark = ((database.data || {}).app_settings || []).find(s => s.setting_id === 'watermark');
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 25 });
+    registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=mandi_custody_register.pdf`);
+    _addPdfHeader(doc, 'Mandi Wise Custody Register', branding, `FY: ${kms_year || 'All'} | Season: ${season || 'All'}`);
+
+    const headers = ['Date', ...mandis, 'TOTAL', 'PROG.TOTAL'];
+    const nCols = headers.length;
+    const avail = doc.page.width - 50;
+    const dateW = 50;
+    const totalW = 55;
+    const progW = 55;
+    const mandiW = Math.max((avail - dateW - totalW - progW) / Math.max(mandis.length, 1), 50);
+    const colW = [dateW, ...mandis.map(() => mandiW), totalW, progW];
+
+    const tableRows = rows.map(r => [
+      fmtDate(r.date),
+      ...mandis.map(m => r.mandis[m] ? r.mandis[m].toFixed(2) : '-'),
+      r.total.toFixed(2),
+      r.prog_total.toFixed(2)
+    ]);
+
+    addPdfTable(doc, headers, tableRows, colW);
+    doc.moveDown(0.5);
+    doc.fontSize(10).font(F('bold')).fillColor('#1a365d').text(`Grand Procurement Total: ${progTotal.toFixed(2)} Qntl`, { align: 'right' });
+    await safePdfPipe(doc, res);
+  }));
+
+  router.get('/api/reports/mandi-custody-register/excel', safeSync(async (req, res) => {
+    const { kms_year, season, date_from, date_to } = req.query;
+    let entries = database.data.mill_entries || [];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
+    if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+
+    const mandiSet = new Set();
+    entries.forEach(e => { const m = (e.mandi_name || '').trim(); if (m) mandiSet.add(m); });
+    const mandis = [...mandiSet].sort();
+
+    const dateMap = {};
+    entries.forEach(e => {
+      const d = (e.date || '').slice(0, 10);
+      const m = (e.mandi_name || '').trim();
+      const qntl = parseFloat(e.mill_w || e.qntl || 0);
+      if (d && m) {
+        if (!dateMap[d]) dateMap[d] = {};
+        dateMap[d][m] = Math.round(((dateMap[d][m] || 0) + qntl) * 100) / 100;
+      }
+    });
+
+    const dates = Object.keys(dateMap).sort();
+    let progTotal = 0;
+    const rows = dates.map(d => {
+      const mandiVals = {};
+      let dayTotal = 0;
+      mandis.forEach(m => {
+        const v = Math.round((dateMap[d][m] || 0) * 100) / 100;
+        mandiVals[m] = v;
+        dayTotal += v;
+      });
+      dayTotal = Math.round(dayTotal * 100) / 100;
+      progTotal = Math.round((progTotal + dayTotal) * 100) / 100;
+      return { date: d, mandis: mandiVals, total: dayTotal, prog_total: progTotal };
+    });
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Mandi Custody Register');
+    const headers = ['Date', ...mandis, 'TOTAL', 'PROG. TOTAL'];
+    const hdrRow = ws.addRow(headers);
+    hdrRow.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }; c.alignment = { horizontal: 'center' }; });
+    rows.forEach(r => {
+      const row = ws.addRow([fmtDate(r.date), ...mandis.map(m => r.mandis[m] || null), r.total, r.prog_total]);
+      row.eachCell((c, i) => { if (i > 1) c.numFmt = '0.00'; c.alignment = { horizontal: 'center' }; });
+    });
+    ws.columns.forEach(c => { c.width = 14; });
+    ws.getColumn(1).width = 12;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=mandi_custody_register.xlsx');
+    await wb.xlsx.write(res);
+  }));
+
   return router;
 };

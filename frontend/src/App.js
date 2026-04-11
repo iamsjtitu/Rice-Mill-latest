@@ -65,6 +65,7 @@ import Settings from "@/components/Settings";
 import VehicleWeight from "@/components/VehicleWeight";
 import AutoWeightEntries from "@/components/AutoWeightEntries";
 import PaddyPurchaseRegister from "@/components/PaddyPurchaseRegister";
+import MandiCustodyRegister from "@/components/MandiCustodyRegister";
 import { MillEntryForm } from "@/components/entries/MillEntryForm";
 import { EntryTable } from "@/components/entries/EntryTable";
 import { TabNavigation } from "@/components/entries/TabNavigation";
@@ -1564,6 +1565,17 @@ function MainApp({ user, setUser, onLogout }) {
               >
                 <ClipboardList className="w-4 h-4 mr-1" /> Paddy Purchase Register
               </Button>
+              <Button
+                onClick={() => setEntriesSubTabSafe("mandi-custody")}
+                variant={entriesSubTab === 'mandi-custody' ? "default" : "ghost"}
+                size="sm"
+                className={entriesSubTab === 'mandi-custody'
+                  ? "bg-amber-500 hover:bg-amber-600 text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700"}
+                data-testid="subtab-mandi-custody"
+              >
+                <ClipboardList className="w-4 h-4 mr-1" /> Mandi Custody Register
+              </Button>
             </div>
 
             {entriesSubTab === "vehicle-weight" ? (
@@ -1572,6 +1584,8 @@ function MainApp({ user, setUser, onLogout }) {
               <AutoWeightEntries filters={filters} onVwChange={fetchPendingVwCount} />
             ) : entriesSubTab === "purchase-register" ? (
               <PaddyPurchaseRegister filters={filters} onNavigateToEntry={navigateToMillEntry} />
+            ) : entriesSubTab === "mandi-custody" ? (
+              <MandiCustodyRegister filters={filters} />
             ) : (
             <>
             <EntryTable

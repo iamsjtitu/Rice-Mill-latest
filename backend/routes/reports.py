@@ -789,3 +789,187 @@ async def weight_discrepancy_pdf(
     fn = f"weight_discrepancy_{datetime.now().strftime('%Y%m%d')}.pdf"
     return Response(content=buffer.getvalue(), media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={fn}"})
+
+
+# ============ MANDI WISE CUSTODY REGISTER ============
+
+@router.get("/reports/mandi-custody-register")
+async def mandi_custody_register(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
+    """Date-wise mandi procurement register: each row = date, columns = mandis, total, prog.total"""
+    q = {}
+    if kms_year:
+        q["kms_year"] = kms_year
+    if season:
+        q["season"] = season
+    entries = await db.mill_entries.find(q, {"_id": 0, "date": 1, "mandi_name": 1, "mill_w": 1, "qntl": 1}).to_list(100000)
+    if date_from:
+        entries = [e for e in entries if (e.get("date") or "") >= date_from]
+    if date_to:
+        entries = [e for e in entries if (e.get("date") or "") <= date_to]
+
+    # Collect unique mandis
+    all_mandis = sorted(set(e.get("mandi_name", "").strip() for e in entries if e.get("mandi_name", "").strip()))
+
+    # Group by date
+    from collections import defaultdict
+    date_map = defaultdict(lambda: defaultdict(float))
+    for e in entries:
+        d = (e.get("date") or "")[:10]
+        m = (e.get("mandi_name") or "").strip()
+        qntl = float(e.get("mill_w") or e.get("qntl") or 0)
+        if d and m:
+            date_map[d][m] += round(qntl, 2)
+
+    dates = sorted(date_map.keys())
+    rows = []
+    prog_total = 0.0
+    for d in dates:
+        mandi_vals = {}
+        day_total = 0.0
+        for m in all_mandis:
+            val = round(date_map[d].get(m, 0), 2)
+            mandi_vals[m] = val
+            day_total += val
+        day_total = round(day_total, 2)
+        prog_total = round(prog_total + day_total, 2)
+        rows.append({
+            "date": d,
+            "mandis": mandi_vals,
+            "total": day_total,
+            "prog_total": prog_total,
+        })
+
+    return {"mandis": all_mandis, "rows": rows, "grand_total": prog_total}
+
+
+@router.get("/reports/mandi-custody-register/pdf")
+async def mandi_custody_register_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+
+    data = await mandi_custody_register(kms_year, season, date_from, date_to)
+    mandis = data["mandis"]
+    rows = data["rows"]
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=15*mm, rightMargin=15*mm, topMargin=15*mm, bottomMargin=10*mm)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Title
+    title_style = ParagraphStyle("CustodyTitle", parent=styles["Heading1"], fontSize=14, alignment=1, spaceAfter=4)
+    elements.append(Paragraph("Mandi Wise Custody Register", title_style))
+    sub = f"FY: {kms_year or 'All'} | Season: {season or 'All'}"
+    if date_from or date_to:
+        sub += f" | {date_from or ''} to {date_to or ''}"
+    elements.append(Paragraph(sub, ParagraphStyle("sub", parent=styles["Normal"], fontSize=8, alignment=1, spaceAfter=8)))
+
+    # Table headers
+    headers = ["Date"] + mandis + ["TOTAL", "PROG. TOTAL"]
+    n_cols = len(headers)
+    cell_style = ParagraphStyle("cell", fontSize=6, leading=7)
+    hdr_style = ParagraphStyle("hdr", fontSize=6, leading=7, alignment=1)
+
+    table_data = [[Paragraph(h, hdr_style) for h in headers]]
+    for r in rows:
+        row = [Paragraph(r["date"], cell_style)]
+        for m in mandis:
+            v = r["mandis"].get(m, 0)
+            row.append(Paragraph(f"{v:.2f}" if v else "-", cell_style))
+        row.append(Paragraph(f"{r['total']:.2f}", cell_style))
+        row.append(Paragraph(f"{r['prog_total']:.2f}", cell_style))
+        table_data.append(row)
+
+    # Column widths
+    avail = landscape(A4)[0] - 30*mm
+    date_w = 22*mm
+    total_w = 20*mm
+    prog_w = 22*mm
+    mandi_w = max((avail - date_w - total_w - prog_w) / max(len(mandis), 1), 18*mm)
+    col_widths = [date_w] + [mandi_w]*len(mandis) + [total_w, prog_w]
+
+    t = Table(table_data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1a365d')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTSIZE', (0, 0), (-1, -1), 6),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#cbd5e1')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ('BACKGROUND', (-2, 1), (-2, -1), colors.HexColor('#fef3c7')),
+        ('BACKGROUND', (-1, 1), (-1, -1), colors.HexColor('#dbeafe')),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 5*mm))
+    elements.append(Paragraph(f"Grand Procurement Total: {data['grand_total']:.2f} Qntl", ParagraphStyle("grand", fontSize=10, alignment=2, textColor=colors.HexColor('#1a365d'))))
+
+    doc.build(elements)
+    buffer.seek(0)
+    fn = f"mandi_custody_register_{datetime.now().strftime('%Y%m%d')}.pdf"
+    return Response(content=buffer.getvalue(), media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={fn}"})
+
+
+@router.get("/reports/mandi-custody-register/excel")
+async def mandi_custody_register_excel(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
+    data = await mandi_custody_register(kms_year, season, date_from, date_to)
+    mandis = data["mandis"]
+    rows = data["rows"]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Mandi Custody Register"
+
+    hdr_font = Font(bold=True, color="FFFFFF", size=9)
+    hdr_fill = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
+    total_fill = PatternFill(start_color="fef3c7", end_color="fef3c7", fill_type="solid")
+    prog_fill = PatternFill(start_color="dbeafe", end_color="dbeafe", fill_type="solid")
+    thin_border = Border(
+        left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
+        top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
+
+    headers = ["Date"] + mandis + ["TOTAL", "PROG. TOTAL"]
+    for ci, h in enumerate(headers, 1):
+        c = ws.cell(row=1, column=ci, value=h)
+        c.font = hdr_font
+        c.fill = hdr_fill
+        c.alignment = Alignment(horizontal="center")
+        c.border = thin_border
+
+    for ri, r in enumerate(rows, 2):
+        ws.cell(row=ri, column=1, value=r["date"]).border = thin_border
+        for mi, m in enumerate(mandis, 2):
+            v = r["mandis"].get(m, 0)
+            c = ws.cell(row=ri, column=mi, value=round(v, 2) if v else None)
+            c.border = thin_border
+            c.alignment = Alignment(horizontal="center")
+            c.number_format = '0.00'
+        tc = ws.cell(row=ri, column=len(mandis) + 2, value=r["total"])
+        tc.fill = total_fill
+        tc.border = thin_border
+        tc.alignment = Alignment(horizontal="center")
+        tc.number_format = '0.00'
+        pc = ws.cell(row=ri, column=len(mandis) + 3, value=r["prog_total"])
+        pc.fill = prog_fill
+        pc.border = thin_border
+        pc.alignment = Alignment(horizontal="center")
+        pc.number_format = '0.00'
+
+    # Auto-width
+    ws.column_dimensions[get_column_letter(1)].width = 12
+    for ci in range(2, len(headers) + 1):
+        ws.column_dimensions[get_column_letter(ci)].width = 14
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fn = f"mandi_custody_register_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    return Response(content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={fn}"})
