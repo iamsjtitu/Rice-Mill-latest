@@ -52,7 +52,7 @@ export default function MandiCustodyRegister({ filters }) {
   const fmtDate = (d) => {
     if (!d) return "-";
     const parts = d.split("-");
-    return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
+    return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
   };
 
   const { mandis, rows, grand_total } = data;
