@@ -955,128 +955,97 @@ async def mandi_custody_register_pdf(kms_year: Optional[str] = None, season: Opt
 
 @router.get("/reports/mandi-custody-register/excel")
 async def mandi_custody_register_excel(kms_year: Optional[str] = None, season: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
+    from utils.export_helpers import (style_excel_title, style_excel_header_row,
+        style_excel_data_rows, style_excel_total_row, COLORS, BORDER_HAIR)
+
     data = await mandi_custody_register(kms_year, season, date_from, date_to)
     mandis = data["mandis"]
     rows = data["rows"]
 
     branding_doc = await db.branding.find_one({}, {"_id": 0})
-    company_name = (branding_doc or {}).get("company_name", "Mill Entry System")
-    tagline = (branding_doc or {}).get("tagline", "")
+    branding = branding_doc or {}
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Mandi Custody Register"
 
-    headers = ["Date"] + mandis + ["TOTAL", "PROG. TOTAL"]
+    headers = ["Date"] + mandis + ["TOTAL (Q)", "PROG. TOTAL (Q)"]
     n_cols = len(headers)
 
-    # Row 1: Company Name
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_cols)
-    c1 = ws.cell(row=1, column=1, value=company_name.upper())
-    c1.font = Font(bold=True, size=14, color="1a365d")
-    c1.alignment = Alignment(horizontal="center", vertical="center")
+    # Subtitle
+    sub_parts = []
+    if kms_year: sub_parts.append(f"FY: {kms_year}")
+    if season: sub_parts.append(season)
+    if date_from or date_to: sub_parts.append(f"Period: {date_from or 'Start'} to {date_to or 'End'}")
+    subtitle = " | ".join(sub_parts) if sub_parts else ""
 
-    # Row 2: Tagline
-    if tagline:
-        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n_cols)
-        c2 = ws.cell(row=2, column=1, value=tagline)
-        c2.font = Font(size=9, color="64748b")
-        c2.alignment = Alignment(horizontal="center")
+    # Row 1-3: Professional Header (Company + Tagline + Title)
+    style_excel_title(ws, "MANDI WISE CUSTODY REGISTER", n_cols, subtitle=subtitle, branding=branding)
 
-    # Row 3: Title
-    title_row = 3
-    ws.merge_cells(start_row=title_row, start_column=1, end_row=title_row, end_column=n_cols)
-    c3 = ws.cell(row=title_row, column=1, value="MANDI WISE CUSTODY REGISTER")
-    c3.font = Font(bold=True, size=12, color="334155")
-    c3.alignment = Alignment(horizontal="center")
+    # Row 4: Empty spacer
+    data_start = 5
 
-    # Row 4: FY / Season
-    info_row = 4
-    ws.merge_cells(start_row=info_row, start_column=1, end_row=info_row, end_column=n_cols)
-    sub = f"FY: {kms_year or 'All'} | Season: {season or 'All'}"
-    if date_from or date_to:
-        sub += f" | Period: {date_from or 'Start'} to {date_to or 'End'}"
-    c4 = ws.cell(row=info_row, column=1, value=sub)
-    c4.font = Font(size=9, color="64748b")
-    c4.alignment = Alignment(horizontal="center")
+    # Column Headers (Row 5)
+    for ci, h in enumerate(headers, 1):
+        ws.cell(row=data_start, column=ci, value=h)
+    style_excel_header_row(ws, data_start, n_cols)
 
-    # Row 5: Empty spacer
-    data_start = 6
-
-    # Column headers
-    hdr_font = Font(bold=True, color="FFFFFF", size=9)
-    hdr_fill = PatternFill(start_color="1a365d", end_color="1a365d", fill_type="solid")
+    # Data Rows
     total_fill = PatternFill(start_color="fef3c7", end_color="fef3c7", fill_type="solid")
     prog_fill = PatternFill(start_color="dbeafe", end_color="dbeafe", fill_type="solid")
-    grand_fill = PatternFill(start_color="334155", end_color="334155", fill_type="solid")
-    thin_border = Border(
-        left=Side(style='thin', color='cbd5e1'), right=Side(style='thin', color='cbd5e1'),
-        top=Side(style='thin', color='cbd5e1'), bottom=Side(style='thin', color='cbd5e1'))
 
-    for ci, h in enumerate(headers, 1):
-        c = ws.cell(row=data_start, column=ci, value=h)
-        c.font = hdr_font
-        c.fill = hdr_fill
-        c.alignment = Alignment(horizontal="center")
-        c.border = thin_border
-
-    for ri, r in enumerate(rows, data_start + 1):
-        # Date as DD/MM/YYYY
+    for ri, r in enumerate(rows):
+        row_num = data_start + 1 + ri
         d = r["date"]
         parts = d.split("-")
         date_str = f"{parts[2]}/{parts[1]}/{parts[0]}" if len(parts) == 3 else d
-        dc = ws.cell(row=ri, column=1, value=date_str)
-        dc.border = thin_border
+        ws.cell(row=row_num, column=1, value=date_str)
         for mi, m in enumerate(mandis, 2):
             v = r["mandis"].get(m, 0)
-            c = ws.cell(row=ri, column=mi, value=round(v, 2) if v else None)
-            c.border = thin_border
-            c.alignment = Alignment(horizontal="center")
+            c = ws.cell(row=row_num, column=mi, value=round(v, 2) if v else None)
             c.number_format = '#,##0.00'
-        tc = ws.cell(row=ri, column=len(mandis) + 2, value=r["total"])
+        tc = ws.cell(row=row_num, column=len(mandis) + 2, value=round(r["total"], 2))
         tc.fill = total_fill
-        tc.border = thin_border
-        tc.alignment = Alignment(horizontal="center")
-        tc.number_format = '#,##0.00'
         tc.font = Font(bold=True)
-        pc = ws.cell(row=ri, column=len(mandis) + 3, value=r["prog_total"])
+        tc.number_format = '#,##0.00'
+        pc = ws.cell(row=row_num, column=len(mandis) + 3, value=round(r["prog_total"], 2))
         pc.fill = prog_fill
-        pc.border = thin_border
-        pc.alignment = Alignment(horizontal="center")
-        pc.number_format = '#,##0.00'
         pc.font = Font(bold=True)
+        pc.number_format = '#,##0.00'
 
-    # Grand Total row
-    grand_row = data_start + 1 + len(rows)
-    gc = ws.cell(row=grand_row, column=1, value="GRAND TOTAL")
-    gc.font = Font(bold=True, color="FFFFFF", size=9)
-    gc.fill = grand_fill
-    gc.border = thin_border
+    data_end = data_start + len(rows)
+    if rows:
+        style_excel_data_rows(ws, data_start + 1, data_end, n_cols, headers=headers)
+        # Restore TOTAL/PROG fills on top of styled data rows
+        for ri, r in enumerate(rows):
+            row_num = data_start + 1 + ri
+            tc = ws.cell(row=row_num, column=len(mandis) + 2)
+            tc.fill = total_fill
+            tc.font = Font(bold=True, size=10)
+            tc.number_format = '#,##0.00'
+            pc = ws.cell(row=row_num, column=len(mandis) + 3)
+            pc.fill = prog_fill
+            pc.font = Font(bold=True, size=10)
+            pc.number_format = '#,##0.00'
+
+    # Grand Total Row
+    grand_row = data_end + 1
+    ws.cell(row=grand_row, column=1, value="GRAND TOTAL")
     for mi, m in enumerate(mandis, 2):
         m_total = sum(r["mandis"].get(m, 0) for r in rows)
         c = ws.cell(row=grand_row, column=mi, value=round(m_total, 2) if m_total else None)
-        c.font = Font(bold=True, color="FFFFFF")
-        c.fill = grand_fill
-        c.border = thin_border
-        c.alignment = Alignment(horizontal="center")
         c.number_format = '#,##0.00'
-    gtc = ws.cell(row=grand_row, column=len(mandis) + 2, value=data["grand_total"])
-    gtc.font = Font(bold=True, color="fbbf24")
-    gtc.fill = grand_fill
-    gtc.border = thin_border
-    gtc.alignment = Alignment(horizontal="center")
-    gtc.number_format = '#,##0.00'
-    gpc = ws.cell(row=grand_row, column=len(mandis) + 3, value=data["grand_total"])
-    gpc.font = Font(bold=True, color="60a5fa")
-    gpc.fill = grand_fill
-    gpc.border = thin_border
-    gpc.alignment = Alignment(horizontal="center")
-    gpc.number_format = '#,##0.00'
+    ws.cell(row=grand_row, column=len(mandis) + 2, value=round(data["grand_total"], 2)).number_format = '#,##0.00'
+    ws.cell(row=grand_row, column=len(mandis) + 3, value=round(data["grand_total"], 2)).number_format = '#,##0.00'
+    style_excel_total_row(ws, grand_row, n_cols)
 
-    # Auto-width
+    # Column widths
     ws.column_dimensions[get_column_letter(1)].width = 14
     for ci in range(2, n_cols + 1):
         ws.column_dimensions[get_column_letter(ci)].width = 16
+
+    # Freeze panes (header stays visible on scroll)
+    ws.freeze_panes = f"A{data_start + 1}"
 
     buf = io.BytesIO()
     wb.save(buf)

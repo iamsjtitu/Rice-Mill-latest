@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Triple backend architecture with MongoDB (web) and SQLite/JSON (desktop/local). Requires double-entry accounting, advanced reporting, offline-first desktop, and cross-device sync.
 
-## Current Version: v88.97.0
+## Current Version: v88.98.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind

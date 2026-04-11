@@ -833,7 +833,8 @@ module.exports = function(database) {
     await safePdfPipe(doc, res);
   }));
 
-  router.get('/api/reports/mandi-custody-register/excel', safeSync(async (req, res) => {
+  router.get('/api/reports/mandi-custody-register/excel', safeAsync(async (req, res) => {
+    const { addExcelTitle, styleExcelHeader, styleExcelData, COLORS } = require('./excel_helpers');
     const { kms_year, season, date_from, date_to } = req.query;
     let entries = database.data.entries || [];
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
@@ -873,15 +874,108 @@ module.exports = function(database) {
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Mandi Custody Register');
-    const headers = ['Date', ...mandis, 'TOTAL', 'PROG. TOTAL'];
-    const hdrRow = ws.addRow(headers);
-    hdrRow.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 9 }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }; c.alignment = { horizontal: 'center' }; });
-    rows.forEach(r => {
-      const row = ws.addRow([fmtDate(r.date), ...mandis.map(m => r.mandis[m] || null), r.total, r.prog_total]);
-      row.eachCell((c, i) => { if (i > 1) c.numFmt = '0.00'; c.alignment = { horizontal: 'center' }; });
+    const headers = ['Date', ...mandis, 'TOTAL (Q)', 'PROG. TOTAL (Q)'];
+    const nCols = headers.length;
+
+    // Professional Title Header (Company + Tagline + Report Title)
+    const subParts = [];
+    if (kms_year) subParts.push(`FY: ${kms_year}`);
+    if (season) subParts.push(season);
+    if (date_from) subParts.push(`From: ${fmtDate(date_from)}`);
+    if (date_to) subParts.push(`To: ${fmtDate(date_to)}`);
+    addExcelTitle(ws, 'MANDI WISE CUSTODY REGISTER' + (subParts.length ? ' | ' + subParts.join(' | ') : ''), nCols, database);
+
+    // Row 4: Empty spacer
+    const hdrRowNum = 5;
+
+    // Column Headers (Row 5)
+    const hdrRow = ws.getRow(hdrRowNum);
+    headers.forEach((h, i) => {
+      const c = ws.getCell(hdrRowNum, i + 1);
+      c.value = h;
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.header } };
+      c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      c.border = { bottom: { style: 'medium', color: { argb: COLORS.header } } };
     });
-    ws.columns.forEach(c => { c.width = 14; });
-    ws.getColumn(1).width = 12;
+    ws.getRow(hdrRowNum).height = 30;
+
+    // Data Rows
+    const totalFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+    const progFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+    const altFill1 = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.alt1 } };
+    const altFill2 = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.alt2 } };
+    const hairBorder = { top: { style: 'hair', color: { argb: 'FFcbd5e1' } }, bottom: { style: 'hair', color: { argb: 'FFcbd5e1' } }, left: { style: 'hair', color: { argb: 'FFcbd5e1' } }, right: { style: 'hair', color: { argb: 'FFcbd5e1' } } };
+
+    rows.forEach((r, ri) => {
+      const rowNum = hdrRowNum + 1 + ri;
+      const baseFill = ri % 2 === 0 ? altFill1 : altFill2;
+      const d = r.date;
+      const parts = d.split('-');
+      const dateStr = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+      ws.getCell(rowNum, 1).value = dateStr;
+      ws.getCell(rowNum, 1).fill = baseFill;
+      ws.getCell(rowNum, 1).border = hairBorder;
+      ws.getCell(rowNum, 1).alignment = { horizontal: 'center' };
+      ws.getCell(rowNum, 1).font = { size: 10 };
+      mandis.forEach((m, mi) => {
+        const c = ws.getCell(rowNum, mi + 2);
+        c.value = r.mandis[m] || null;
+        c.numFmt = '#,##0.00';
+        c.fill = baseFill;
+        c.border = hairBorder;
+        c.alignment = { horizontal: 'center' };
+        c.font = { size: 10 };
+      });
+      const tc = ws.getCell(rowNum, nCols - 1);
+      tc.value = r.total;
+      tc.numFmt = '#,##0.00';
+      tc.fill = totalFill;
+      tc.font = { bold: true, size: 10 };
+      tc.border = hairBorder;
+      tc.alignment = { horizontal: 'center' };
+      const pc = ws.getCell(rowNum, nCols);
+      pc.value = r.prog_total;
+      pc.numFmt = '#,##0.00';
+      pc.fill = progFill;
+      pc.font = { bold: true, size: 10 };
+      pc.border = hairBorder;
+      pc.alignment = { horizontal: 'center' };
+      ws.getRow(rowNum).height = 22;
+    });
+
+    // Grand Total Row
+    const grandRow = hdrRowNum + 1 + rows.length;
+    const grandFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+    const grandBorder = { top: { style: 'medium', color: { argb: 'FF334155' } }, bottom: { style: 'medium', color: { argb: 'FF334155' } } };
+    ws.getCell(grandRow, 1).value = 'GRAND TOTAL';
+    for (let ci = 1; ci <= nCols; ci++) {
+      const c = ws.getCell(grandRow, ci);
+      c.fill = grandFill;
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+      c.border = grandBorder;
+      c.alignment = { horizontal: 'center' };
+    }
+    mandis.forEach((m, mi) => {
+      const mTotal = rows.reduce((s, r) => s + (r.mandis[m] || 0), 0);
+      const c = ws.getCell(grandRow, mi + 2);
+      c.value = mTotal ? Math.round(mTotal * 100) / 100 : null;
+      c.numFmt = '#,##0.00';
+    });
+    ws.getCell(grandRow, nCols - 1).value = Math.round(progTotal * 100) / 100;
+    ws.getCell(grandRow, nCols - 1).numFmt = '#,##0.00';
+    ws.getCell(grandRow, nCols - 1).font = { bold: true, color: { argb: 'FFfbbf24' }, size: 11 };
+    ws.getCell(grandRow, nCols).value = Math.round(progTotal * 100) / 100;
+    ws.getCell(grandRow, nCols).numFmt = '#,##0.00';
+    ws.getCell(grandRow, nCols).font = { bold: true, color: { argb: 'FF60a5fa' }, size: 11 };
+    ws.getRow(grandRow).height = 26;
+
+    // Column widths
+    ws.getColumn(1).width = 14;
+    for (let ci = 2; ci <= nCols; ci++) ws.getColumn(ci).width = 16;
+
+    // Freeze header
+    ws.views = [{ state: 'frozen', ySplit: hdrRowNum }];
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=mandi_custody_register.xlsx');

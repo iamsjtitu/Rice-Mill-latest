@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.97.0";
+const APP_VERSION = "88.98.0";
 
 const CHANGELOG = [
+  {
+    version: "88.98.0",
+    date: "Apr 2026",
+    title: "v88.98.0 - Professional Mandi Custody Excel",
+    items: [
+      { type: "new", text: "Mandi Wise Custody Register Excel - Professional header (Company Name + Tagline), TOTAL (Q) aur PROG. TOTAL (Q) columns, Grand Total row, alternating row colors, frozen header" },
+    ]
+  },
   {
     version: "88.97.0",
     date: "Apr 2026",
