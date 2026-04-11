@@ -3,9 +3,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.92.0";
+const APP_VERSION = "88.93.0";
 
 const CHANGELOG = [
+  {
+    version: "88.93.0",
+    date: "Apr 2026",
+    title: "v88.93.0 - Triple Backend Parity System",
+    items: [
+      { type: "new", text: "Parity Checker Script - Ab ek command se pata chalega ki Python aur JS mein kaunse routes missing hain" },
+      { type: "new", text: "Route Sync Script - Desktop → Local Server routes ek click mein sync" },
+      { type: "fix", text: "Desktop ↔ Local Server routes 100% sync kiye (milling, reports, vehicle_weight)" },
+    ]
+  },
   {
     version: "88.92.0",
     date: "Apr 2026",

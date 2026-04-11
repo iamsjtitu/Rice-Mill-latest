@@ -24,7 +24,7 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
   }));
 
   router.post('/api/backups/restore', safeSync(async (req, res) => {
-    const result = restoreBackup(database, req.body.filename);
+    const result = restoreBackup(database, req.body.filename, req.body.source_dir);
     if (result.success) return res.json(result);
     res.status(400).json({ detail: result.error });
   }));
@@ -48,6 +48,7 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
     const now = new Date();
     const label = 'logout_' + now.toTimeString().substring(0,8).replace(/:/g, '');
     const result = createBackup(database, label);
+    // Also copy to custom backup dir if set
     const customDir = database.data?.settings?.custom_backup_dir;
     if (customDir && result.success) {
       try {
@@ -66,6 +67,23 @@ module.exports = function(database, { getBackupsList, createBackup, restoreBacku
     database.data.settings.custom_backup_dir = dir || null;
     database.save();
     res.json({ success: true, custom_backup_dir: dir || null });
+  }));
+
+  // Browse for custom backup folder (opens native dialog)
+  router.post('/api/backups/browse-folder', safeAsync(async (req, res) => {
+    try {
+      const { dialog } = require('electron');
+      const { BrowserWindow } = require('electron');
+      const win = BrowserWindow.getFocusedWindow();
+      const result = await dialog.showOpenDialog(win, {
+        title: 'Backup Folder Select Karein',
+        properties: ['openDirectory', 'createDirectory']
+      });
+      if (result.canceled || !result.filePaths[0]) return res.json({ success: false, canceled: true });
+      res.json({ success: true, dir: result.filePaths[0] });
+    } catch (e) {
+      res.status(500).json({ detail: e.message });
+    }
   }));
 
   // JSON restore - upload raw JSON backup and restore

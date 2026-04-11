@@ -66,6 +66,7 @@ module.exports = function(database) {
     if (filters.kms_year) dcDeliveries = dcDeliveries.filter(d => d.kms_year === filters.kms_year);
     if (filters.season) dcDeliveries = dcDeliveries.filter(d => d.season === filters.season);
     const govtDelivered = +dcDeliveries.reduce((s, d) => s + (d.quantity_qntl || 0), 0).toFixed(2);
+    // Get rice_type from parent DC for each delivery
     const dcEntries = database.data.dc_entries || [];
     const dcTypeMap = {};
     dcEntries.forEach(dc => { dcTypeMap[dc.id] = dc.rice_type || 'parboiled'; });

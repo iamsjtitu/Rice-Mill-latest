@@ -812,6 +812,7 @@ module.exports = function(database) {
     _addPdfHeader(doc, 'Mandi Wise Custody Register', branding, `FY: ${kms_year || 'All'} | Season: ${season || 'All'}`);
 
     const headers = ['Date', ...mandis, 'TOTAL', 'PROG.TOTAL'];
+    const nCols = headers.length;
     const avail = doc.page.width - 50;
     const dateW = 50;
     const totalW = 55;
