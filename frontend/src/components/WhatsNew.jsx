@@ -3,9 +3,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.84.0";
+const APP_VERSION = "88.85.0";
 
 const CHANGELOG = [
+  {
+    version: "88.85.0",
+    date: "Apr 2026",
+    title: "v88.85.0 - Quick Search + Watermark + Refactoring",
+    items: [
+      { type: "new", text: "Quick Search - ab entry click karne par sirf uss entry ka detail dialog khulega, pura tab nahi" },
+      { type: "fix", text: "PDF Watermark - ab puri page par tiled/repeat hoga (pehle sirf center mein tha)" },
+      { type: "fix", text: "Weight Discrepancy page crash fix (Input + Mandi dropdown error)" },
+      { type: "new", text: "Settings.jsx refactored - 3091 lines se 11 files mein tod diya (faster loading)" },
+    ]
+  },
   {
     version: "88.84.0",
     date: "Apr 2026",
