@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.90.0";
+const APP_VERSION = "88.91.0";
 
 const CHANGELOG = [
+  {
+    version: "88.91.0",
+    date: "Apr 2026",
+    title: "v88.91.0 - Paddy Chalna Export Fix (Desktop)",
+    items: [
+      { type: "fix", text: "Desktop App - Paddy Chalna (Cutting) ka Excel aur PDF export ab kaam karega (pehle routes missing the JS backend mein)" },
+      { type: "fix", text: "Local Server - Same export routes added for LAN mode" },
+    ]
+  },
   {
     version: "88.90.0",
     date: "Apr 2026",

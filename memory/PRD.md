@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Triple backend architecture with MongoDB (web) and SQLite/JSON (desktop/local). Requires double-entry accounting, advanced reporting, offline-first desktop, and cross-device sync.
 
-## Current Version: v88.90.0
+## Current Version: v88.91.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -48,6 +48,7 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Multi-user with role-based access
 
 ### Recent Changes (Apr 2026)
+- **v88.91.0**: Added Paddy Chalna Excel+PDF export routes to Desktop/Local JS backends (were missing - Triple parity fix)
 - **v88.90.0**: Fixed Desktop/Local Server Mandi Custody Register - was querying `mill_entries` instead of `milling_entries` (Triple parity fix)
 - Quick Search: Click opens specific entry detail dialog
 - WeightDiscrepancy: Fixed missing `Input` import and `mandiList.map` error

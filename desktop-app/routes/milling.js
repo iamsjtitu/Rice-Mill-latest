@@ -1,6 +1,8 @@
 const express = require('express');
-const { safeSync, roundAmount } = require('./safe_handler');
-const { fmtDate } = require('./pdf_helpers');
+const { safeSync, safeAsync, roundAmount } = require('./safe_handler');
+const { addPdfHeader: _addPdfHeader, addPdfTable, fmtAmt, fmtDate, C, registerFonts, F, safePdfPipe } = require('./pdf_helpers');
+const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 
@@ -229,6 +231,143 @@ module.exports = function(database) {
     if (season) cutEntries = cutEntries.filter(e => e.season === season);
     const totalCut = cutEntries.reduce((s, e) => s + (parseInt(e.bags_cut) || 0), 0);
     res.json({ bags_mill: bagsMill, bags_plastic: bagsPlastic, total_received: totalReceived, total_cut: totalCut, remaining: totalReceived - totalCut });
+  }));
+
+  // ===== PADDY CHALNA EXCEL EXPORT =====
+  router.get('/api/paddy-cutting/excel', safeAsync(async (req, res) => {
+    const { kms_year, season, date_from, date_to } = req.query;
+    if (!database.data.paddy_cutting) database.data.paddy_cutting = [];
+    let entries = [...database.data.paddy_cutting];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
+    if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+    entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    let millEntries = database.data.entries || [];
+    if (kms_year) millEntries = millEntries.filter(e => e.kms_year === kms_year);
+    if (season) millEntries = millEntries.filter(e => e.season === season);
+    const bagsMill = millEntries.reduce((s, e) => s + (parseInt(e.bag) || 0), 0);
+    const bagsPlastic = millEntries.reduce((s, e) => s + (parseInt(e.plastic_bag) || 0), 0);
+    const totalReceived = bagsMill + bagsPlastic;
+    const totalCut = entries.reduce((s, e) => s + (parseInt(e.bags_cut) || 0), 0);
+    const remaining = totalReceived - totalCut;
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Paddy Chalna');
+    const hdrStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1a365d' } }, alignment: { horizontal: 'center' } };
+    const summaryFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
+
+    // Title
+    let title = 'Paddy Chalna (Cutting) Report';
+    const subtitleParts = [];
+    if (kms_year) subtitleParts.push(`FY: ${kms_year}`);
+    if (season) subtitleParts.push(`Season: ${season}`);
+    if (date_from) subtitleParts.push(`From: ${fmtDate(date_from)}`);
+    if (date_to) subtitleParts.push(`To: ${fmtDate(date_to)}`);
+    ws.mergeCells('A1:F1');
+    ws.getCell('A1').value = title;
+    ws.getCell('A1').font = { bold: true, size: 14 };
+    ws.getCell('A1').alignment = { horizontal: 'center' };
+    if (subtitleParts.length) {
+      ws.mergeCells('A2:F2');
+      ws.getCell('A2').value = subtitleParts.join(' | ');
+      ws.getCell('A2').font = { size: 9, color: { argb: 'FF6B7280' } };
+      ws.getCell('A2').alignment = { horizontal: 'center' };
+    }
+
+    // Summary
+    let row = 4;
+    const summaryItems = [['Total Paddy Bags', totalReceived], ['Total Cut', totalCut], ['Remaining Paddy Bags', remaining]];
+    summaryItems.forEach(([label, val]) => {
+      ws.getCell(row, 1).value = label; ws.getCell(row, 1).font = { bold: true, size: 10 }; ws.getCell(row, 1).fill = summaryFill;
+      ws.getCell(row, 2).value = val; ws.getCell(row, 2).font = { bold: true, size: 11 }; ws.getCell(row, 2).alignment = { horizontal: 'right' }; ws.getCell(row, 2).fill = summaryFill;
+      row++;
+    });
+    row++;
+
+    // Headers
+    const headers = ['#', 'Date', 'Bags Cut', 'Running Total', 'Remaining', 'Remark'];
+    headers.forEach((h, i) => { const c = ws.getCell(row, i + 1); c.value = h; Object.assign(c, hdrStyle); });
+    row++;
+
+    // Data with running total
+    let running = 0;
+    entries.forEach((e, i) => {
+      const bags = parseInt(e.bags_cut) || 0;
+      running += bags;
+      const entryRemaining = totalReceived - running;
+      [i + 1, fmtDate(e.date || ''), bags, running, entryRemaining, e.remark || ''].forEach((v, j) => { ws.getCell(row, j + 1).value = v; });
+      row++;
+    });
+
+    // Total row
+    ws.getCell(row, 2).value = 'TOTAL'; ws.getCell(row, 2).font = { bold: true };
+    ws.getCell(row, 3).value = totalCut; ws.getCell(row, 3).font = { bold: true };
+    ws.getCell(row, 5).value = remaining; ws.getCell(row, 5).font = { bold: true };
+    ws.getCell(row, 6).value = `${entries.length} entries`; ws.getCell(row, 6).font = { bold: true };
+
+    [6, 14, 14, 16, 16, 35].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    const buf = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=paddy_chalna.xlsx');
+    res.send(Buffer.from(buf));
+  }));
+
+  // ===== PADDY CHALNA PDF EXPORT =====
+  router.get('/api/paddy-cutting/pdf', safeSync(async (req, res) => {
+    const { kms_year, season, date_from, date_to } = req.query;
+    if (!database.data.paddy_cutting) database.data.paddy_cutting = [];
+    let entries = [...database.data.paddy_cutting];
+    if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
+    if (season) entries = entries.filter(e => e.season === season);
+    if (date_from) entries = entries.filter(e => (e.date || '') >= date_from);
+    if (date_to) entries = entries.filter(e => (e.date || '') <= date_to);
+    entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+    let millEntries = database.data.entries || [];
+    if (kms_year) millEntries = millEntries.filter(e => e.kms_year === kms_year);
+    if (season) millEntries = millEntries.filter(e => e.season === season);
+    const bagsMill = millEntries.reduce((s, e) => s + (parseInt(e.bag) || 0), 0);
+    const bagsPlastic = millEntries.reduce((s, e) => s + (parseInt(e.plastic_bag) || 0), 0);
+    const totalReceived = bagsMill + bagsPlastic;
+    const totalCut = entries.reduce((s, e) => s + (parseInt(e.bags_cut) || 0), 0);
+    const remaining = totalReceived - totalCut;
+
+    const branding = database.getBranding ? database.getBranding() : { company_name: 'Mill Entry System', tagline: '' };
+    branding._watermark = ((database.data || {}).app_settings || []).find(s => s.setting_id === 'watermark');
+    const doc = new PDFDocument({ size: 'A4', margin: 30 });
+    registerFonts(doc);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=paddy_chalna.pdf');
+
+    const subtitleParts = [];
+    if (kms_year) subtitleParts.push(`FY: ${kms_year}`);
+    if (season) subtitleParts.push(season);
+    if (date_from) subtitleParts.push(`From: ${fmtDate(date_from)}`);
+    if (date_to) subtitleParts.push(`To: ${fmtDate(date_to)}`);
+    _addPdfHeader(doc, 'Paddy Chalna (Cutting) Report', branding, subtitleParts.join(' | '));
+
+    // Summary
+    doc.fontSize(9).font(F('bold'));
+    doc.fillColor('#1a365d').text(`Total Paddy Bags: ${totalReceived}   |   Total Cut: ${totalCut}   |   Remaining: ${remaining}`, { align: 'center' });
+    doc.moveDown(0.5);
+
+    // Table
+    const headers = ['#', 'Date', 'Bags Cut', 'Running Total', 'Remaining', 'Remark'];
+    const colW = [25, 65, 60, 70, 70, 220];
+    const tableRows = [];
+    let running = 0;
+    entries.forEach((e, i) => {
+      const bags = parseInt(e.bags_cut) || 0;
+      running += bags;
+      const entryRemaining = totalReceived - running;
+      tableRows.push([String(i + 1), fmtDate(e.date || ''), String(bags), String(running), String(entryRemaining), e.remark || '-']);
+    });
+    tableRows.push(['', 'TOTAL', String(totalCut), '', String(remaining), `${entries.length} entries`]);
+    addPdfTable(doc, headers, tableRows, colW);
+
+    await safePdfPipe(doc, res);
   }));
 
   router.post('/api/paddy-cutting', safeSync(async (req, res) => {
