@@ -3,9 +3,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.87.0";
+const APP_VERSION = "88.88.0";
 
 const CHANGELOG = [
+  {
+    version: "88.88.0",
+    date: "Apr 2026",
+    title: "v88.88.0 - Mandi Custody Excel Header Fix",
+    items: [
+      { type: "fix", text: "Mandi Wise Custody Register Excel - Company Name header, title, FY info, Grand Total row aur DD/MM/YYYY date format add kiya" },
+      { type: "fix", text: "Mandi Custody Register UI date format fix - ab DD/MM/YYYY dikhega" },
+    ]
+  },
   {
     version: "88.87.0",
     date: "Apr 2026",
