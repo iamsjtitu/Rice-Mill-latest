@@ -191,6 +191,7 @@ module.exports = function(database) {
   // ===== PADDY CUSTODY REGISTER =====
   router.get('/api/paddy-custody-register', safeSync(async (req, res) => {
     const filters = req.query;
+    const groupBy = filters.group_by || 'daily';
     let entries = [...database.data.entries];
     if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
     if (filters.season) entries = entries.filter(e => e.season === filters.season);
@@ -201,7 +202,39 @@ module.exports = function(database) {
     rows.sort((a, b) => (a.date||'').slice(0,10).localeCompare((b.date||'').slice(0,10)));
     let balance = 0;
     rows.forEach(r => { balance += r.received_qntl - r.issued_qntl; r.balance_qntl = +balance.toFixed(2); });
-    res.json({ rows, total_received: +rows.reduce((s, r) => s + r.received_qntl, 0).toFixed(2), total_issued: +rows.reduce((s, r) => s + r.issued_qntl, 0).toFixed(2), final_balance: +balance.toFixed(2) });
+    const totalReceived = +rows.reduce((s, r) => s + r.received_qntl, 0).toFixed(2);
+    const totalIssued = +rows.reduce((s, r) => s + r.issued_qntl, 0).toFixed(2);
+
+    // Weekly grouping
+    if (groupBy === 'weekly' && rows.length > 0) {
+      const weeklyRows = [];
+      let weekData = null;
+      for (const r of rows) {
+        let weekKey;
+        try {
+          const dt = new Date(r.date);
+          const day = dt.getDay();
+          const diff = dt.getDate() - day + (day === 0 ? -6 : 1); // Monday
+          const weekStart = new Date(dt.setDate(diff));
+          weekKey = weekStart.toISOString().split('T')[0];
+        } catch { weekKey = r.date; }
+        if (!weekData || weekData._wk !== weekKey) {
+          if (weekData) weeklyRows.push(weekData);
+          const ws = new Date(weekKey);
+          const we = new Date(ws); we.setDate(we.getDate() + 6);
+          const fmtD = (d) => { const dd = String(d.getDate()).padStart(2, '0'); const mm = String(d.getMonth() + 1).padStart(2, '0'); return `${dd}-${mm}-${d.getFullYear()}`; };
+          weekData = { _wk: weekKey, date: `${fmtD(ws)} to ${fmtD(we)}`, type: 'summary', description: `Week: ${fmtD(ws)} - ${fmtD(we)}`, received_qntl: 0, issued_qntl: 0, balance_qntl: 0 };
+        }
+        weekData.received_qntl = +(weekData.received_qntl + r.received_qntl).toFixed(2);
+        weekData.issued_qntl = +(weekData.issued_qntl + r.issued_qntl).toFixed(2);
+        weekData.balance_qntl = r.balance_qntl;
+      }
+      if (weekData) weeklyRows.push(weekData);
+      weeklyRows.forEach(wr => delete wr._wk);
+      return res.json({ rows: weeklyRows, total_received: totalReceived, total_issued: totalIssued, final_balance: +balance.toFixed(2) });
+    }
+
+    res.json({ rows, total_received: totalReceived, total_issued: totalIssued, final_balance: +balance.toFixed(2) });
   }));
 
   // ===== PADDY CHALNA (CUTTING) =====

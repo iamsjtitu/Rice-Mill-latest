@@ -489,26 +489,54 @@ module.exports = function(database) {
   router.get('/api/paddy-custody-register/excel', safeAsync(async (req, res) => {
     try {
       const filters = req.query;
+      const groupBy = filters.group_by || 'daily';
+
+      // Reuse the API endpoint logic to get properly grouped data
       let entries = [...database.data.entries];
       if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
       if (filters.season) entries = entries.filter(e => e.season === filters.season);
       const millingEntries = database.getMillingEntries(filters);
-      const rows = [];
-      entries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
-      millingEntries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
-      rows.sort((a,b) => (a._rawDate).localeCompare(b._rawDate));
+      const allRows = [];
+      entries.forEach(e => allRows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.final_w||0)/100).toFixed(2), released_qntl: 0 }));
+      millingEntries.forEach(e => allRows.push({ date: e.date||'', type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
+      allRows.sort((a,b) => (a.date).localeCompare(b.date));
       let balance = 0;
-      rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
+      allRows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
+
+      let rows = allRows;
+      if (groupBy === 'weekly' && allRows.length > 0) {
+        const weeklyRows = [];
+        let wd = null;
+        for (const r of allRows) {
+          let wk;
+          try { const dt = new Date(r.date); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); const ws = new Date(dt.setDate(diff)); wk = ws.toISOString().split('T')[0]; } catch { wk = r.date; }
+          if (!wd || wd._wk !== wk) {
+            if (wd) weeklyRows.push(wd);
+            const ws = new Date(wk); const we = new Date(ws); we.setDate(we.getDate() + 6);
+            const fD = (d) => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+            wd = { _wk: wk, date: `${fD(ws)} to ${fD(we)}`, description: `Week: ${fD(ws)} - ${fD(we)}`, received_qntl: 0, released_qntl: 0, balance_qntl: 0 };
+          }
+          wd.received_qntl = +(wd.received_qntl + r.received_qntl).toFixed(2);
+          wd.released_qntl = +(wd.released_qntl + r.released_qntl).toFixed(2);
+          wd.balance_qntl = r.balance_qntl;
+        }
+        if (wd) weeklyRows.push(wd);
+        weeklyRows.forEach(wr => delete wr._wk);
+        rows = weeklyRows;
+      } else {
+        rows.forEach(r => r.date = fmtDate(r.date));
+      }
+
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Paddy Custody Register');
       ws.columns = [
-        { header: 'Date', key: 'date', width: 12 }, { header: 'Description', key: 'description', width: 40 },
+        { header: 'Date', key: 'date', width: groupBy === 'weekly' ? 28 : 12 }, { header: 'Description', key: 'description', width: 40 },
         { header: 'Received (QNTL)', key: 'received', width: 16 }, { header: 'Released (QNTL)', key: 'released', width: 16 },
         { header: 'Balance (QNTL)', key: 'balance', width: 16 }
       ];
       rows.forEach(r => ws.addRow({ date: r.date, description: r.description, received: r.received_qntl > 0 ? r.received_qntl : '', released: r.released_qntl > 0 ? r.released_qntl : '', balance: r.balance_qntl }));
-      const totalRow = ws.addRow({ date: 'TOTAL', description: '', received: +rows.reduce((s,r)=>s+r.received_qntl,0).toFixed(2), released: +rows.reduce((s,r)=>s+r.released_qntl,0).toFixed(2), balance: +balance.toFixed(2) });
+      const totalRow = ws.addRow({ date: 'TOTAL', description: '', received: +allRows.reduce((s,r)=>s+r.received_qntl,0).toFixed(2), released: +allRows.reduce((s,r)=>s+r.released_qntl,0).toFixed(2), balance: +balance.toFixed(2) });
       totalRow.font = { bold: true };
-      addExcelTitle(ws, 'Paddy Custody Register', 5, database); styleExcelHeader(ws); styleExcelData(ws, 5);
+      addExcelTitle(ws, `Paddy Custody Register${groupBy === 'weekly' ? ' (Weekly)' : ''}`, 5, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.xlsx`);
       await wb.xlsx.write(res); res.end();
@@ -518,26 +546,52 @@ module.exports = function(database) {
   router.get('/api/paddy-custody-register/pdf', safeSync(async (req, res) => {
     try {
       const filters = req.query;
+      const groupBy = filters.group_by || 'daily';
+
       let entries = [...database.data.entries];
       if (filters.kms_year) entries = entries.filter(e => e.kms_year === filters.kms_year);
       if (filters.season) entries = entries.filter(e => e.season === filters.season);
       const millingEntries = database.getMillingEntries(filters);
-      const rows = [];
-      entries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.qntl||0)-(e.bag||0)/100).toFixed(2), released_qntl: 0 }));
-      millingEntries.forEach(e => rows.push({ _rawDate: e.date||'', date: fmtDate(e.date), type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
-      rows.sort((a,b) => (a._rawDate).localeCompare(b._rawDate));
+      const allRows = [];
+      entries.forEach(e => allRows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.final_w||0)/100).toFixed(2), released_qntl: 0 }));
+      millingEntries.forEach(e => allRows.push({ date: e.date||'', type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
+      allRows.sort((a,b) => (a.date).localeCompare(b.date));
       let balance = 0;
-      rows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
+      allRows.forEach(r => { balance += r.received_qntl - r.released_qntl; r.balance_qntl = +balance.toFixed(2); });
+
+      let rows = allRows;
+      if (groupBy === 'weekly' && allRows.length > 0) {
+        const weeklyRows = [];
+        let wd = null;
+        for (const r of allRows) {
+          let wk;
+          try { const dt = new Date(r.date); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); const ws = new Date(dt.setDate(diff)); wk = ws.toISOString().split('T')[0]; } catch { wk = r.date; }
+          if (!wd || wd._wk !== wk) {
+            if (wd) weeklyRows.push(wd);
+            const ws = new Date(wk); const we = new Date(ws); we.setDate(we.getDate() + 6);
+            const fD = (d) => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+            wd = { _wk: wk, date: `${fD(ws)} to ${fD(we)}`, description: `Week: ${fD(ws)} - ${fD(we)}`, received_qntl: 0, released_qntl: 0, balance_qntl: 0 };
+          }
+          wd.received_qntl = +(wd.received_qntl + r.received_qntl).toFixed(2);
+          wd.released_qntl = +(wd.released_qntl + r.released_qntl).toFixed(2);
+          wd.balance_qntl = r.balance_qntl;
+        }
+        if (wd) weeklyRows.push(wd);
+        weeklyRows.forEach(wr => delete wr._wk);
+        rows = weeklyRows;
+      } else {
+        rows.forEach(r => r.date = fmtDate(r.date));
+      }
+
       const doc = new PDFDocument({ size: 'A4', margin: 30 });
       registerFonts(doc);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=paddy_custody_${Date.now()}.pdf`);
-      // PDF will be sent via safePdfPipe
-      addPdfHeader(doc, 'Paddy Custody Register');
+      addPdfHeader(doc, `Paddy Custody Register${groupBy === 'weekly' ? ' (Weekly)' : ''}`);
       const headers = ['Date','Description','Received(Q)','Released(Q)','Balance(Q)'];
-      const pdfRows = rows.map(r => [r.date, r.description.substring(0,35), r.received_qntl > 0 ? r.received_qntl : '-', r.released_qntl > 0 ? r.released_qntl : '-', r.balance_qntl]);
-      pdfRows.push(['TOTAL', '', +rows.reduce((s,r)=>s+r.received_qntl,0).toFixed(2), +rows.reduce((s,r)=>s+r.released_qntl,0).toFixed(2), +balance.toFixed(2)]);
-      addPdfTable(doc, headers, pdfRows, [50, 180, 60, 60, 60]);
+      const pdfRows = rows.map(r => [r.date, (r.description||'').substring(0,35), r.received_qntl > 0 ? r.received_qntl : '-', r.released_qntl > 0 ? r.released_qntl : '-', r.balance_qntl]);
+      pdfRows.push(['TOTAL', '', +allRows.reduce((s,r)=>s+r.received_qntl,0).toFixed(2), +allRows.reduce((s,r)=>s+r.released_qntl,0).toFixed(2), +balance.toFixed(2)]);
+      addPdfTable(doc, headers, pdfRows, [groupBy === 'weekly' ? 90 : 50, 180, 60, 60, 60]);
       await safePdfPipe(doc, res);
     } catch (err) { res.status(500).json({ detail: 'PDF failed: ' + err.message }); }
   }));
