@@ -3,7 +3,7 @@
 ## Original Problem Statement
 A comprehensive full-stack rice mill management system with React frontend, Python FastAPI web backend, and Electron/Express desktop app. Triple backend architecture with MongoDB (web) and SQLite/JSON (desktop/local). Requires double-entry accounting, advanced reporting, offline-first desktop, and cross-device sync.
 
-## Current Version: v89.2.0
+## Current Version: v89.3.0
 
 ## Architecture
 - **Frontend**: React + Shadcn UI + Tailwind
@@ -36,14 +36,17 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 - Mandi Wise Custody Register (QNTL, professional Excel)
 - Paddy Custody Register (Final W)
 
-### Government Registers (NEW v89.1.0, Updated v89.2.0)
+### Government Registers (NEW v89.1.0, Updated v89.3.0)
 - **Paddy Custody Register** - Moved from Milling Tracker (includes Mandi Wise Custody Register toggle)
+- **Transit Pass Register** - Auto-generated from Mill Entries where TP No. exists (view-only)
+- **CMR Delivery Tracker** - OSCSC/RRC delivery tracking with OTR auto-calculation (CRUD)
 - **Form A** - Paddy Stock Register (OSCSC paddy, linked from Mill Entries, daily running balance)
 - **Form B** - CMR Register (Custom Milled Rice produced & delivered, linked from Milling + Sale Book)
 - **Form E** - Miller's Own Paddy (Private paddy purchases, linked from Private Trading)
 - **Form F** - Miller's Own Rice Sale (linked from Sale Book)
 - **FRK Blending Register** - Fortified Rice Kernel batch tracking (CRUD with opening/closing balance)
 - **Gunny Bag Stock Register** - Bag type wise stock management (New/Old/Plastic, CRUD)
+- **Security Deposit Management** - Bank Guarantee tracking (SD ratio 1:1/1:3/1:6, auto-expiry, CRUD)
 - All registers have government-format Excel export
 - Odisha OSCSC KMS 2025-26 compliance ready
 
@@ -69,13 +72,8 @@ A comprehensive full-stack rice mill management system with React frontend, Pyth
 ### P3 (Low)
 - Payment logic centralized service layer
 
-### Future - Government Registers Phase 2
-- Transit Pass Tracking
-- CMR Delivery Tracker with OTR (Outturn Ratio)
+### Future - Government Registers
 - Monthly Return Auto-generation (Collector ko 15th tak)
-
-### Future - Government Registers Phase 3
-- Security Deposit Management (Bank Guarantee)
 - Quality Test Report Register
 
 ## Key Technical Notes
