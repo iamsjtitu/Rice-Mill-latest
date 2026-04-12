@@ -137,7 +137,7 @@ module.exports = function(database) {
       const targets = database.getMandiTargets(req.query); const entries = database.getEntries(req.query);
       const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Agent Payments');
       ws.columns = [{header:'Mandi',key:'mandi',width:22},{header:'Agent',key:'agent',width:14},{header:'Target',key:'target',width:12},{header:'Cutting',key:'cutting',width:12},{header:'B.Rate',key:'br',width:10},{header:'C.Rate',key:'cr',width:10},{header:'Total',key:'total',width:12},{header:'TP Wt',key:'tpw',width:12},{header:'Achieved',key:'ach',width:12},{header:'Excess',key:'excess',width:12},{header:'Paid',key:'paid',width:10},{header:'Balance',key:'bal',width:12},{header:'Status',key:'status',width:10}];
-      targets.forEach(t => { const me=entries.filter(e=>e.mandi_name.toLowerCase()===t.mandi_name.toLowerCase()); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const tpw=me.reduce((s,e)=>s+parseFloat(e.tp_weight||0),0); const cq=tpw*t.cutting_percent/100; const excess=+(ach-(t.target_qntl+t.target_qntl*t.cutting_percent/100)).toFixed(2); const tot=(tpw*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const tot=(t.target_qntl*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); ws.addRow({mandi:t.mandi_name,agent:ae?ae.agent_name:'',target:t.target_qntl,cutting:+cq.toFixed(2),br:t.base_rate??10,cr:t.cutting_rate??5,total:+tot.toFixed(2),tpw:+tpw.toFixed(2),ach:+ach.toFixed(2),excess:excess,paid:p.paid_amount,bal:+bal.toFixed(2),status:bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
+      targets.forEach(t => { const me=entries.filter(e=>e.mandi_name.toLowerCase()===t.mandi_name.toLowerCase()); const ach=me.reduce((s,e)=>s+(e.final_w||0)/100,0); const tpw=me.reduce((s,e)=>s+parseFloat(e.tp_weight||0),0); const cq=tpw*t.cutting_percent/100; const excess=+(ach-(t.target_qntl+t.target_qntl*t.cutting_percent/100)).toFixed(2); const tot=(tpw*(t.base_rate??10))+(cq*(t.cutting_rate??5)); const p=database.getAgentPayment(t.mandi_name,t.kms_year,t.season); const bal=Math.max(0,tot-p.paid_amount); const ae=me.find(e=>e.agent_name); ws.addRow({mandi:t.mandi_name,agent:ae?ae.agent_name:'',target:t.target_qntl,cutting:+cq.toFixed(2),br:t.base_rate??10,cr:t.cutting_rate??5,total:+tot.toFixed(2),tpw:+tpw.toFixed(2),ach:+ach.toFixed(2),excess:excess,paid:p.paid_amount,bal:+bal.toFixed(2),status:bal<0.01?'Paid':(p.paid_amount>0?'Partial':'Pending')}); });
       addExcelTitle(ws, 'Agent Payments', 13, database); styleExcelHeader(ws); styleExcelData(ws, 5);
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=agent_payments_${Date.now()}.xlsx`);
@@ -497,7 +497,7 @@ module.exports = function(database) {
       if (filters.season) entries = entries.filter(e => e.season === filters.season);
       const millingEntries = database.getMillingEntries(filters);
       const allRows = [];
-      entries.forEach(e => allRows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.final_w||0)/100).toFixed(2), released_qntl: 0 }));
+      entries.forEach(e => allRows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +(parseFloat(e.tp_weight||0)).toFixed(2), released_qntl: 0 }));
       millingEntries.forEach(e => allRows.push({ date: e.date||'', type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
       allRows.sort((a,b) => (a.date).localeCompare(b.date));
       let balance = 0;
@@ -553,7 +553,7 @@ module.exports = function(database) {
       if (filters.season) entries = entries.filter(e => e.season === filters.season);
       const millingEntries = database.getMillingEntries(filters);
       const allRows = [];
-      entries.forEach(e => allRows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +((e.final_w||0)/100).toFixed(2), released_qntl: 0 }));
+      entries.forEach(e => allRows.push({ date: e.date||'', type: 'received', description: `Truck: ${e.truck_no||''} | Agent: ${e.agent_name||''} | Mandi: ${e.mandi_name||''}`, received_qntl: +(parseFloat(e.tp_weight||0)).toFixed(2), released_qntl: 0 }));
       millingEntries.forEach(e => allRows.push({ date: e.date||'', type: 'released', description: `Milling (${(e.rice_type||'').charAt(0).toUpperCase()+(e.rice_type||'').slice(1)}) | Rice: ${e.rice_qntl||0}Q`, received_qntl: 0, released_qntl: e.paddy_input_qntl||0 }));
       allRows.sort((a,b) => (a.date).localeCompare(b.date));
       let balance = 0;

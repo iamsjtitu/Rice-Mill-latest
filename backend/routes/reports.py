@@ -801,7 +801,7 @@ async def mandi_custody_register(kms_year: Optional[str] = None, season: Optiona
         q["kms_year"] = kms_year
     if season:
         q["season"] = season
-    entries = await db.mill_entries.find(q, {"_id": 0, "date": 1, "mandi_name": 1, "final_w": 1, "qntl": 1}).to_list(100000)
+    entries = await db.mill_entries.find(q, {"_id": 0, "date": 1, "mandi_name": 1, "tp_weight": 1}).to_list(100000)
     if date_from:
         entries = [e for e in entries if (e.get("date") or "") >= date_from]
     if date_to:
@@ -816,7 +816,7 @@ async def mandi_custody_register(kms_year: Optional[str] = None, season: Optiona
     for e in entries:
         d = (e.get("date") or "")[:10]
         m = (e.get("mandi_name") or "").strip()
-        qntl = round(float(e.get("final_w") or 0) / 100, 2)
+        qntl = round(float(e.get("tp_weight") or 0), 2)  # tp_weight already QNTL
         if d and m:
             date_map[d][m] += round(qntl, 2)
 

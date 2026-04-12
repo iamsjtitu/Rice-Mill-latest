@@ -397,7 +397,7 @@ async def get_paddy_custody_register(kms_year: Optional[str] = None, season: Opt
             "date": e.get('date', ''),
             "type": "received",
             "description": f"Truck: {e.get('truck_no', '')} | Agent: {e.get('agent_name', '')} | Mandi: {e.get('mandi_name', '')}",
-            "received_qntl": round(e.get('final_w', 0) / 100, 2),
+            "received_qntl": round(float(e.get('tp_weight', 0) or 0), 2),
             "issued_qntl": 0,
             "source_id": e.get('id', '')
         })
