@@ -9,7 +9,8 @@ module.exports = function(database) {
 
   // ============ FORM A: Paddy Received from OSCSC ============
   router.get('/api/govt-registers/form-a', safeSync(async (req, res) => {
-    const { kms_year, season, date_from, date_to } = req.query;
+    const { kms_year, season, date_from, date_to, group_by } = req.query;
+    const groupBy = group_by || 'daily';
     // entries in JS = mill_entries in Python
     let entries = [...(database.data.entries || [])];
     if (kms_year) entries = entries.filter(e => e.kms_year === kms_year);
@@ -63,17 +64,41 @@ module.exports = function(database) {
       openingBalance = closingBalance;
     }
 
+    // Weekly grouping
+    let finalRows = rows;
+    if (groupBy === 'weekly' && rows.length > 0) {
+      const weeklyRows = [];
+      let wd = null;
+      for (const r of rows) {
+        let wk;
+        try { const dt = new Date(r.date); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); const ws = new Date(dt.setDate(diff)); wk = ws.toISOString().split('T')[0]; } catch { wk = r.date; }
+        if (!wd || wd._wk !== wk) {
+          if (wd) weeklyRows.push(wd);
+          const ws = new Date(wk); const we = new Date(ws); we.setDate(we.getDate() + 6);
+          const fD = (d) => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+          wd = { _wk: wk, date: `${fD(ws)} to ${fD(we)}`, opening_balance: r.opening_balance, received_qntl: 0, bags: 0, entries_count: 0, total_paddy: 0, milled_qntl: 0, closing_balance: 0 };
+        }
+        wd.received_qntl = Math.round((wd.received_qntl + r.received_qntl) * 100) / 100;
+        wd.bags += r.bags;
+        wd.entries_count += r.entries_count;
+        wd.milled_qntl = Math.round((wd.milled_qntl + r.milled_qntl) * 100) / 100;
+        wd.total_paddy = Math.round((wd.opening_balance + wd.received_qntl) * 100) / 100;
+        wd.closing_balance = Math.round((wd.total_paddy - wd.milled_qntl) * 100) / 100;
+      }
+      if (wd) weeklyRows.push(wd);
+      weeklyRows.forEach(wr => delete wr._wk);
+      finalRows = weeklyRows;
+    }
+
     res.json({
-      rows,
-      summary: { total_received: Math.round(totalReceived * 100) / 100, total_milled: Math.round(totalMilled * 100) / 100, final_balance: Math.round(openingBalance * 100) / 100, total_days: rows.length }
+      rows: finalRows,
+      summary: { total_received: Math.round(totalReceived * 100) / 100, total_milled: Math.round(totalMilled * 100) / 100, final_balance: Math.round(openingBalance * 100) / 100, total_days: finalRows.length }
     });
   }));
 
   router.get('/api/govt-registers/form-a/excel', safeAsync(async (req, res) => {
-    const { kms_year, season, date_from, date_to } = req.query;
-    // Re-use the logic from GET
-    const dataRes = { json: (d) => d };
-    req.query = { kms_year, season, date_from, date_to };
+    const { kms_year, season, date_from, date_to, group_by } = req.query;
+    const groupBy = group_by || 'daily';
 
     // Inline the data fetching
     let entries = [...(database.data.entries || [])];
@@ -105,7 +130,7 @@ module.exports = function(database) {
     }
 
     const allDates = [...new Set([...Object.keys(dailyReceived), ...Object.keys(dailyMilled)])].sort();
-    const rows = [];
+    const dailyRows = [];
     let ob = 0, tr = 0, tm = 0;
     for (const d of allDates) {
       const recv = Math.round((dailyReceived[d]?.received_qntl || 0) * 100) / 100;
@@ -114,10 +139,35 @@ module.exports = function(database) {
       const tot = Math.round((ob + recv) * 100) / 100;
       const cb = Math.round((tot - mil) * 100) / 100;
       tr += recv; tm += mil;
-      rows.push([fmtDate(d), Math.round(ob * 100) / 100, recv, bags, tot, mil, cb]);
+      dailyRows.push({ date: d, ob: Math.round(ob * 100) / 100, recv, bags, tot, mil, cb });
       ob = cb;
     }
-    rows.push(['TOTAL', '', Math.round(tr * 100) / 100, '', '', Math.round(tm * 100) / 100, Math.round(ob * 100) / 100]);
+
+    let excelRows;
+    if (groupBy === 'weekly' && dailyRows.length > 0) {
+      const weeklyRows = [];
+      let wd = null;
+      for (const r of dailyRows) {
+        let wk;
+        try { const dt = new Date(r.date); const day = dt.getDay(); const diff = dt.getDate() - day + (day === 0 ? -6 : 1); const ws = new Date(dt.setDate(diff)); wk = ws.toISOString().split('T')[0]; } catch { wk = r.date; }
+        if (!wd || wd._wk !== wk) {
+          if (wd) weeklyRows.push(wd);
+          const ws = new Date(wk); const we = new Date(ws); we.setDate(we.getDate() + 6);
+          const fD = (d) => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+          wd = { _wk: wk, date: `${fD(ws)} to ${fD(we)}`, ob: r.ob, recv: 0, bags: 0, tot: 0, mil: 0, cb: 0 };
+        }
+        wd.recv = Math.round((wd.recv + r.recv) * 100) / 100;
+        wd.bags += r.bags;
+        wd.mil = Math.round((wd.mil + r.mil) * 100) / 100;
+        wd.tot = Math.round((wd.ob + wd.recv) * 100) / 100;
+        wd.cb = Math.round((wd.tot - wd.mil) * 100) / 100;
+      }
+      if (wd) weeklyRows.push(wd);
+      excelRows = weeklyRows.map(r => [r.date, r.ob, r.recv, r.bags, r.tot, r.mil, r.cb]);
+    } else {
+      excelRows = dailyRows.map(r => [fmtDate(r.date), r.ob, r.recv, r.bags, r.tot, r.mil, r.cb]);
+    }
+    excelRows.push(['TOTAL', '', Math.round(tr * 100) / 100, '', '', Math.round(tm * 100) / 100, Math.round(ob * 100) / 100]);
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Form A');
@@ -134,8 +184,8 @@ module.exports = function(database) {
     const headers = ['Date', 'Opening Bal (Qtl)', 'Paddy Received (Qtl)', 'Bags', 'Total Paddy (Qtl)', 'Paddy Milled (Qtl)', 'Closing Bal (Qtl)'];
     const headerRow = ws.addRow(headers);
     headerRow.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E79' } }; c.alignment = { horizontal: 'center' }; });
-    rows.forEach(r => ws.addRow(r));
-    [14, 18, 20, 10, 18, 20, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+    excelRows.forEach(r => ws.addRow(r));
+    [groupBy === 'weekly' ? 28 : 14, 18, 20, 10, 18, 20, 18].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=Form_A_Paddy_Register_${kms_year || 'all'}.xlsx`);
