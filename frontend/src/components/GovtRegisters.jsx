@@ -909,9 +909,10 @@ function TransitPassRegister({ filters }) {
       </div>
       {loading ? <div className="text-center py-8"><Loader2 className="w-6 h-6 animate-spin mx-auto text-amber-400" /></div> : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <SummaryCard label="Total Entries" value={data.summary?.total_entries || 0} color="purple" />
             <SummaryCard label="Total Qty" value={`${data.summary?.total_qty || 0} Qtl`} color="green" />
+            <SummaryCard label="Total TP Qty" value={`${data.summary?.total_tp_weight || 0} Qtl`} color="amber" />
             <SummaryCard label="Total Bags" value={data.summary?.total_bags || 0} color="blue" />
           </div>
           <div className="overflow-x-auto rounded-lg border border-slate-700">

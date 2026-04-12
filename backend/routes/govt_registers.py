@@ -841,6 +841,7 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
     rows = []
     total_qty = 0
     total_bags = 0
+    total_tp_weight = 0
     for e in entries:
         tp_no = str(e.get("tp_no", "")).strip()
         if not tp_no:
@@ -849,8 +850,10 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
         if final_w == 0:
             final_w = float(e.get("kg", 0) or 0) / 100
         bags = int(e.get("bag", 0) or 0)
+        tp_wt = round(float(e.get("tp_weight", 0) or 0), 2)
         total_qty += final_w
         total_bags += bags
+        total_tp_weight += tp_wt
         rows.append({
             "date": e.get("date", ""),
             "tp_no": tp_no,
@@ -859,7 +862,7 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
             "agent_name": e.get("agent_name", ""),
             "mandi_name": e.get("mandi_name", ""),
             "qty_qntl": round(final_w, 2),
-            "tp_weight": round(float(e.get("tp_weight", 0) or 0), 2),
+            "tp_weight": tp_wt,
             "bags": bags,
             "status": "Accepted",
             "remark": e.get("remark", ""),
@@ -870,6 +873,7 @@ async def get_transit_pass_register(kms_year: Optional[str] = None, season: Opti
         "summary": {
             "total_entries": len(rows),
             "total_qty": round(total_qty, 2),
+            "total_tp_weight": round(total_tp_weight, 2),
             "total_bags": total_bags,
         }
     }

@@ -566,15 +566,16 @@ module.exports = function(database) {
     entries.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
     const rows = [];
-    let totalQty = 0, totalBags = 0;
+    let totalQty = 0, totalBags = 0, totalTpWeight = 0;
     for (const e of entries) {
       let finalW = parseFloat(e.final_w || 0) / 100; // KG to QNTL
       if (finalW === 0) finalW = parseFloat(e.kg || 0) / 100;
       const bags = parseInt(e.bag || 0);
-      totalQty += finalW; totalBags += bags;
-      rows.push({ date: e.date || '', tp_no: String(e.tp_no), rst_no: String(e.rst_no || ''), truck_no: e.truck_no || '', agent_name: e.agent_name || '', mandi_name: e.mandi_name || '', qty_qntl: Math.round(finalW * 100) / 100, tp_weight: Math.round(parseFloat(e.tp_weight || 0) * 100) / 100, bags, status: 'Accepted', remark: e.remark || '' });
+      const tpWt = Math.round(parseFloat(e.tp_weight || 0) * 100) / 100;
+      totalQty += finalW; totalBags += bags; totalTpWeight += tpWt;
+      rows.push({ date: e.date || '', tp_no: String(e.tp_no), rst_no: String(e.rst_no || ''), truck_no: e.truck_no || '', agent_name: e.agent_name || '', mandi_name: e.mandi_name || '', qty_qntl: Math.round(finalW * 100) / 100, tp_weight: tpWt, bags, status: 'Accepted', remark: e.remark || '' });
     }
-    res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_bags: totalBags } });
+    res.json({ rows, summary: { total_entries: rows.length, total_qty: Math.round(totalQty * 100) / 100, total_tp_weight: Math.round(totalTpWeight * 100) / 100, total_bags: totalBags } });
   }));
 
   router.get('/api/govt-registers/transit-pass/excel', safeAsync(async (req, res) => {
