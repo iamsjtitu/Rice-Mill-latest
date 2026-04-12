@@ -147,16 +147,15 @@ def calculate_milling_fields(data: dict, categories=None) -> dict:
 
 
 @router.post("/milling-entries")
-async def create_milling_entry(input: MillingEntryCreate, username: str = "", role: str = ""):
-    entry_dict = input.model_dump()
+async def create_milling_entry(data: dict, username: str = "", role: str = ""):
     cats = await get_byproduct_categories_list()
-    entry_dict = calculate_milling_fields(entry_dict, cats)
-    entry_dict['created_by'] = username
-    entry_obj = MillingEntry(**entry_dict)
-    doc = entry_obj.model_dump()
-    await db.milling_entries.insert_one(doc)
-    doc.pop('_id', None)
-    return doc
+    data = calculate_milling_fields(data, cats)
+    data['created_by'] = username
+    data['id'] = data.get('id') or str(__import__('uuid').uuid4())
+    data['created_at'] = data.get('created_at') or datetime.now(timezone.utc).isoformat()
+    await db.milling_entries.insert_one(data)
+    data.pop('_id', None)
+    return data
 
 
 @router.get("/milling-entries")
@@ -184,13 +183,15 @@ async def get_milling_entry(entry_id: str):
 
 
 @router.put("/milling-entries/{entry_id}")
-async def update_milling_entry(entry_id: str, input: MillingEntryCreate, username: str = "", role: str = ""):
+async def update_milling_entry(entry_id: str, data: dict, username: str = "", role: str = ""):
     existing = await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
     if not existing: raise HTTPException(status_code=404, detail="Milling entry not found")
-    update_dict = input.model_dump()
-    update_dict = calculate_milling_fields(update_dict)
-    update_dict['updated_at'] = datetime.now(timezone.utc).isoformat()
-    await db.milling_entries.update_one({"id": entry_id}, {"$set": update_dict})
+    cats = await get_byproduct_categories_list()
+    data = calculate_milling_fields(data, cats)
+    data['updated_at'] = datetime.now(timezone.utc).isoformat()
+    data.pop('id', None)
+    data.pop('_id', None)
+    await db.milling_entries.update_one({"id": entry_id}, {"$set": data})
     return await db.milling_entries.find_one({"id": entry_id}, {"_id": 0})
 
 

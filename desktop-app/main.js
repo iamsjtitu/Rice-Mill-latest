@@ -908,25 +908,36 @@ class JsonDatabase {
 
   // ---- Milling Entries ----
   calculateMillingFields(data) {
-    const paddy = data.paddy_input_qntl || 0;
-    const ricePct = data.rice_percent || 0;
-    const branPct = data.bran_percent || 0;
-    const kundaPct = data.kunda_percent || 0;
-    const brokenPct = data.broken_percent || 0;
-    const kankiPct = data.kanki_percent || 0;
-    const usedPct = ricePct + branPct + kundaPct + brokenPct + kankiPct;
-    const huskPct = Math.max(0, +(100 - usedPct).toFixed(2));
-    const frkUsed = data.frk_used_qntl || 0;
+    const paddy = parseFloat(data.paddy_input_qntl || 0);
+    const ricePct = parseFloat(data.rice_percent || 0);
+    const frkUsed = parseFloat(data.frk_used_qntl || 0);
     const riceQntl = +(paddy * ricePct / 100).toFixed(2);
-    return {
-      ...data, husk_percent: huskPct,
-      rice_qntl: riceQntl,
-      bran_qntl: +(paddy * branPct / 100).toFixed(2), kunda_qntl: +(paddy * kundaPct / 100).toFixed(2),
-      broken_qntl: +(paddy * brokenPct / 100).toFixed(2), kanki_qntl: +(paddy * kankiPct / 100).toFixed(2),
-      husk_qntl: +(paddy * huskPct / 100).toFixed(2),
-      cmr_delivery_qntl: +(riceQntl + frkUsed).toFixed(2),
-      outturn_ratio: paddy > 0 ? +((riceQntl + frkUsed) / paddy * 100).toFixed(2) : 0
-    };
+    
+    // Dynamic by-product categories
+    const cats = this.data.byproduct_categories && this.data.byproduct_categories.length > 0
+      ? [...this.data.byproduct_categories].sort((a,b) => (a.order||0)-(b.order||0))
+      : [{id:'bran',is_auto:false},{id:'kunda',is_auto:false},{id:'broken',is_auto:false},{id:'kanki',is_auto:false},{id:'husk',is_auto:true}];
+    
+    let usedPct = ricePct;
+    let autoCatId = null;
+    const result = { ...data };
+    
+    for (const cat of cats) {
+      if (cat.is_auto) { autoCatId = cat.id; continue; }
+      const pct = parseFloat(data[`${cat.id}_percent`] || 0);
+      usedPct += pct;
+      result[`${cat.id}_qntl`] = +(paddy * pct / 100).toFixed(2);
+    }
+    if (autoCatId) {
+      const autoPct = Math.max(0, +(100 - usedPct).toFixed(2));
+      result[`${autoCatId}_percent`] = autoPct;
+      result[`${autoCatId}_qntl`] = +(paddy * autoPct / 100).toFixed(2);
+    }
+    
+    result.rice_qntl = riceQntl;
+    result.cmr_delivery_qntl = +(riceQntl + frkUsed).toFixed(2);
+    result.outturn_ratio = paddy > 0 ? +((riceQntl + frkUsed) / paddy * 100).toFixed(2) : 0;
+    return result;
   }
 
   getMillingEntries(filters = {}) {
@@ -944,20 +955,10 @@ class JsonDatabase {
     if (!this.data.milling_entries) this.data.milling_entries = [];
     const calculated = this.calculateMillingFields(data);
     const entry = {
-      id: uuidv4(), date: calculated.date || new Date().toISOString().split('T')[0],
-      rice_type: calculated.rice_type || 'parboiled', paddy_input_qntl: calculated.paddy_input_qntl || 0,
-      rice_percent: calculated.rice_percent || 0,
-      bran_percent: calculated.bran_percent || 0, kunda_percent: calculated.kunda_percent || 0,
-      broken_percent: calculated.broken_percent || 0, kanki_percent: calculated.kanki_percent || 0,
-      husk_percent: calculated.husk_percent, rice_qntl: calculated.rice_qntl,
-      bran_qntl: calculated.bran_qntl,
-      kunda_qntl: calculated.kunda_qntl, broken_qntl: calculated.broken_qntl,
-      kanki_qntl: calculated.kanki_qntl, husk_qntl: calculated.husk_qntl,
-      frk_used_qntl: calculated.frk_used_qntl || 0,
-      cmr_delivery_qntl: calculated.cmr_delivery_qntl, outturn_ratio: calculated.outturn_ratio,
-      kms_year: calculated.kms_year || '', season: calculated.season || '',
-      note: calculated.note || '', created_by: calculated.created_by || '',
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+      ...calculated,
+      id: uuidv4(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
     this.data.milling_entries.push(entry);
     this.save();
@@ -987,13 +988,15 @@ class JsonDatabase {
     const totalPaddy = entries.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0);
     const totalRice = entries.reduce((s, e) => s + (e.rice_qntl || 0), 0);
     const totalFrk = entries.reduce((s, e) => s + (e.frk_used_qntl || 0), 0);
-    const totalBran = entries.reduce((s, e) => s + (e.bran_qntl || 0), 0);
-    const totalKunda = entries.reduce((s, e) => s + (e.kunda_qntl || 0), 0);
-    const totalBroken = entries.reduce((s, e) => s + (e.broken_qntl || 0), 0);
-    const totalKanki = entries.reduce((s, e) => s + (e.kanki_qntl || 0), 0);
-    const totalHusk = entries.reduce((s, e) => s + (e.husk_qntl || 0), 0);
     const totalCmr = entries.reduce((s, e) => s + (e.cmr_delivery_qntl || 0), 0);
     const avgOutturn = totalPaddy > 0 ? +(totalCmr / totalPaddy * 100).toFixed(2) : 0;
+    
+    // Dynamic by-product totals
+    const cats = this.data.byproduct_categories && this.data.byproduct_categories.length > 0
+      ? this.data.byproduct_categories : [{id:'bran'},{id:'kunda'},{id:'broken'},{id:'kanki'},{id:'husk'}];
+    const bpTotals = {};
+    cats.forEach(c => { bpTotals[`total_${c.id}_qntl`] = +entries.reduce((s, e) => s + (e[`${c.id}_qntl`] || 0), 0).toFixed(2); });
+    
     const typeSummary = (list) => {
       const tp = list.reduce((s, e) => s + (e.paddy_input_qntl || 0), 0);
       const tr = list.reduce((s, e) => s + (e.rice_qntl || 0), 0);
@@ -1006,9 +1009,7 @@ class JsonDatabase {
     return {
       total_entries: entries.length, total_paddy_qntl: +totalPaddy.toFixed(2),
       total_rice_qntl: +totalRice.toFixed(2), total_frk_qntl: +totalFrk.toFixed(2),
-      total_bran_qntl: +totalBran.toFixed(2), total_kunda_qntl: +totalKunda.toFixed(2),
-      total_broken_qntl: +totalBroken.toFixed(2), total_kanki_qntl: +totalKanki.toFixed(2),
-      total_husk_qntl: +totalHusk.toFixed(2), total_cmr_qntl: +totalCmr.toFixed(2),
+      ...bpTotals, total_cmr_qntl: +totalCmr.toFixed(2),
       avg_outturn_ratio: avgOutturn,
       parboiled: typeSummary(entries.filter(e => e.rice_type === 'parboiled')),
       raw: typeSummary(entries.filter(e => e.rice_type === 'raw'))
