@@ -1014,6 +1014,9 @@ async function startServer() {
     const quickSearchRoutes = require('./routes/quick_search')(database);
     app.use(quickSearchRoutes);
 
+    const govtRegistersRoutes = require('./routes/govt_registers')(database);
+    app.use(govtRegistersRoutes);
+
     console.log('  [Routes] All modular routes loaded successfully');
 
     // ===== DATE FORMAT VALIDATOR - Startup Health Check =====

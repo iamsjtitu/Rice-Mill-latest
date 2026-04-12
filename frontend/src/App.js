@@ -62,6 +62,7 @@ import SessionIndicator from "@/components/SessionIndicator";
 import { SendToGroupDialog } from "@/components/SendToGroupDialog";
 import { useMessagingEnabled } from "./hooks/useMessagingEnabled";
 import Settings from "@/components/Settings";
+import GovtRegisters from "@/components/GovtRegisters";
 import VehicleWeight from "@/components/VehicleWeight";
 import AutoWeightEntries from "@/components/AutoWeightEntries";
 import PaddyPurchaseRegister from "@/components/PaddyPurchaseRegister";
@@ -1518,6 +1519,8 @@ function MainApp({ user, setUser, onLogout }) {
           <StaffManagement filters={filters} user={user} />
         ) : activeTab === "hemali" ? (
           <HemaliPayment filters={filters} user={user} />
+        ) : activeTab === "govt-registers" ? (
+          <GovtRegisters filters={filters} user={user} />
         ) : activeTab === "fy-summary" ? (
           <FYSummaryWithTabs filters={filters} user={user} />
         ) : activeTab === "settings" ? (

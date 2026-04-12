@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
   FileSpreadsheet, FileText, BarChart3, TrendingUp, Truck,
   Users, IndianRupee, Key, Wheat, Wallet, Package, UserCheck,
-  Menu, X
+  Menu, X, Landmark
 } from "lucide-react";
 
 export function TabNavigation({ activeTab, setActiveTabSafe, user }) {
@@ -23,6 +23,7 @@ export function TabNavigation({ activeTab, setActiveTabSafe, user }) {
     { id: "mill-parts", label: "Mill Parts", icon: Package },
     { id: "staff", label: "Staff", icon: UserCheck },
     { id: "hemali", label: "Hemali", icon: Users },
+    { id: "govt-registers", label: "Govt Registers", icon: Landmark },
     { id: "fy-summary", label: "FY Summary", icon: TrendingUp },
   ].filter(t => !t.perm || isAdmin || perms[t.perm]);
 

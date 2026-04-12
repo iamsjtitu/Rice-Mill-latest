@@ -3,9 +3,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "89.0.0";
+const APP_VERSION = "89.1.0";
 
 const CHANGELOG = [
+  {
+    version: "89.1.0",
+    date: "Apr 2026",
+    title: "v89.1.0 - Government Registers (OSCSC Compliance)",
+    items: [
+      { type: "new", text: "Government Registers - Naya section add hua! Odisha OSCSC KMS 2025-26 compliance ke liye" },
+      { type: "new", text: "Form A - Paddy Stock Register (OSCSC se aaya paddy ka daily record, Mill Entries se auto linked)" },
+      { type: "new", text: "Form B - CMR Register (Custom Milled Rice produced & delivered, Milling + Sale Book se linked)" },
+      { type: "new", text: "Form E - Miller's Own Paddy (Private paddy purchases ka record)" },
+      { type: "new", text: "Form F - Miller's Own Rice Sale (Sale Book se linked rice sales)" },
+      { type: "new", text: "FRK Blending Register - Fortified Rice Kernel batch tracking (OSCSC 1:100 ratio)" },
+      { type: "new", text: "Gunny Bag Stock Register - Bag type wise stock management (New/Old/Plastic)" },
+      { type: "new", text: "Sabhi registers ka Excel export government format mein" },
+    ]
+  },
   {
     version: "89.0.0",
     date: "Apr 2026",

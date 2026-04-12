@@ -79,6 +79,7 @@ from routes.whatsapp import router as whatsapp_router
 from routes.vehicle_weight import router as vehicle_weight_router
 from routes.camera_proxy import router as camera_proxy_router
 from routes.quick_search import router as quick_search_router
+from routes.govt_registers import router as govt_registers_router
 
 api_router.include_router(auth_router)
 api_router.include_router(entries_router)
@@ -108,6 +109,7 @@ api_router.include_router(whatsapp_router)
 api_router.include_router(vehicle_weight_router)
 api_router.include_router(camera_proxy_router)
 api_router.include_router(quick_search_router)
+api_router.include_router(govt_registers_router)
 
 @api_router.post("/delete-all-data")
 async def delete_all_data():
