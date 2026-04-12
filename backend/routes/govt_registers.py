@@ -220,11 +220,12 @@ async def export_form_a_excel(kms_year: Optional[str] = None, season: Optional[s
     ws.title = "Form A"
 
     headers = ["Date", "Opening Bal (Qtl)", "Paddy Received (Qtl)", "Bags", "Total Paddy (Qtl)", "Paddy Milled (Qtl)", "Closing Bal (Qtl)"]
-    col_widths = [14, 18, 20, 10, 18, 20, 18]
+    col_widths = [28 if group_by == "weekly" else 14, 18, 20, 10, 18, 20, 18]
     data_rows = []
     for r in data["rows"]:
+        date_val = r["date"] if group_by == "weekly" else fmt_date(r["date"])
         data_rows.append([
-            fmt_date(r["date"]), r["opening_balance"], r["received_qntl"],
+            date_val, r["opening_balance"], r["received_qntl"],
             r["bags"], r["total_paddy"], r["milled_qntl"], r["closing_balance"]
         ])
 

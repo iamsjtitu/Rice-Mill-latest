@@ -60,6 +60,7 @@ function PaddyCustodyRegister({ filters }) {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
+    params.append('group_by', viewMode);
     window.open(`${API}/paddy-custody-register/excel?${params}`, "_blank");
   };
 
@@ -67,6 +68,7 @@ function PaddyCustodyRegister({ filters }) {
     const params = new URLSearchParams();
     if (filters.kms_year) params.append('kms_year', filters.kms_year);
     if (filters.season) params.append('season', filters.season);
+    params.append('group_by', viewMode);
     window.open(`${API}/paddy-custody-register/pdf?${params}`, "_blank");
   };
 

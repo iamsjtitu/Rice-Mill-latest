@@ -566,10 +566,10 @@ async def export_milling_report_pdf(kms_year: Optional[str] = None, season: Opti
 
 
 @router.get("/paddy-custody-register/excel")
-async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Optional[str] = None):
+async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Optional[str] = None, group_by: Optional[str] = "daily"):
     from io import BytesIO
     
-    register = await get_paddy_custody_register(kms_year=kms_year, season=season)
+    register = await get_paddy_custody_register(kms_year=kms_year, season=season, group_by=group_by)
     rows = register['rows']
     
     wb = Workbook()
@@ -594,7 +594,8 @@ async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Opt
     data_start = 5
     for idx, r in enumerate(rows):
         row_num = idx + data_start
-        vals = [fmt_date(r['date']), r['description'], r['received_qntl'] if r['received_qntl'] > 0 else '',
+        date_val = r['date'] if group_by == "weekly" else fmt_date(r['date'])
+        vals = [date_val, r['description'], r['received_qntl'] if r['received_qntl'] > 0 else '',
             r['issued_qntl'] if r['issued_qntl'] > 0 else '', r['balance_qntl']]
         for col, v in enumerate(vals, 1):
             cell = ws.cell(row=row_num, column=col, value=v)
@@ -622,14 +623,14 @@ async def export_paddy_custody_excel(kms_year: Optional[str] = None, season: Opt
 
 
 @router.get("/paddy-custody-register/pdf")
-async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optional[str] = None):
+async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optional[str] = None, group_by: Optional[str] = "daily"):
     from reportlab.lib.pagesizes import A4, landscape
     from reportlab.platypus import SimpleDocTemplate, Table as RLTable, TableStyle, Paragraph, Spacer
     from utils.export_helpers import get_pdf_styles
     from reportlab.lib import colors
     from io import BytesIO
     
-    register = await get_paddy_custody_register(kms_year=kms_year, season=season)
+    register = await get_paddy_custody_register(kms_year=kms_year, season=season, group_by=group_by)
     rows = register['rows']
     
     buffer = BytesIO()
@@ -649,7 +650,8 @@ async def export_paddy_custody_pdf(kms_year: Optional[str] = None, season: Optio
     
     data = [['Date', 'Description', 'Received (Q)', 'Released (Q)', 'Balance (Q)']]
     for r in rows:
-        data.append([fmt_date(r['date']), r['description'][:60], r['received_qntl'] if r['received_qntl'] > 0 else '-',
+        date_val = r['date'] if group_by == "weekly" else fmt_date(r['date'])
+        data.append([date_val, r['description'][:60], r['received_qntl'] if r['received_qntl'] > 0 else '-',
             r['issued_qntl'] if r['issued_qntl'] > 0 else '-', r['balance_qntl']])
     data.append(['TOTAL', '', register['total_received'], register['total_issued'], register['final_balance']])
     
