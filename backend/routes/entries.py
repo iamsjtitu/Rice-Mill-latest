@@ -47,6 +47,11 @@ async def create_entry(input: MillEntryCreate, username: str = "", role: str = "
         if existing_tp:
             raise HTTPException(status_code=400, detail=f"TP No. {tp} pehle se entry hai")
     
+    # Bags mandatory validation
+    total_bags = int(float(entry_dict.get("bag", 0) or 0)) + int(float(entry_dict.get("plastic_bag", 0) or 0))
+    if total_bags <= 0:
+        raise HTTPException(status_code=400, detail="Bags khali nahi ho sakta! Gunny Bags ya Plastic Bags daalna zaroori hai")
+
     entry_dict = calculate_auto_fields(entry_dict)
     entry_dict['created_by'] = username
     

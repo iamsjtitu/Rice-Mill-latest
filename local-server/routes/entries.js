@@ -77,6 +77,9 @@ module.exports = function(database) {
       const existingTp = (database.data.entries || []).find(e => String(e.tp_no || '') === tp && e.kms_year === kms);
       if (existingTp) return res.status(400).json({ detail: `TP No. ${tp} pehle se entry hai` });
     }
+    // Bags mandatory validation
+    const totalBags = (parseInt(req.body.bag) || 0) + (parseInt(req.body.plastic_bag) || 0);
+    if (totalBags <= 0) return res.status(400).json({ detail: 'Bags khali nahi ho sakta! Gunny Bags ya Plastic Bags daalna zaroori hai' });
     const entry = database.addEntry({ ...req.body, created_by: req.query.username || 'admin' });
     logAudit('mill_entries', entry.id, 'create', req.query.username || 'admin', null, entry);
     res.json(entry);

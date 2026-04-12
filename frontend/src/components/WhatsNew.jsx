@@ -3,9 +3,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Sparkles, Gift, ArrowRight, Check } from "lucide-react";
 
-const APP_VERSION = "88.99.0";
+const APP_VERSION = "89.0.0";
 
 const CHANGELOG = [
+  {
+    version: "89.0.0",
+    date: "Apr 2026",
+    title: "v89.0.0 - Bags Mandatory Validation",
+    items: [
+      { type: "new", text: "Mill Entry - Bags field mandatory! Gunny Bags ya Plastic Bags mein se ek toh hona chahiye, warna entry nahi hogi" },
+    ]
+  },
   {
     version: "88.99.0",
     date: "Apr 2026",

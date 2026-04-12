@@ -980,6 +980,13 @@ function MainApp({ user, setUser, onLogout }) {
       return;
     }
 
+    // Validation: Bags mandatory (Gunny + Plastic)
+    const totalBags = (parseInt(formData.bag) || 0) + (parseInt(formData.plastic_bag) || 0);
+    if (totalBags <= 0) {
+      toast.error("Bags khali nahi ho sakta! Gunny Bags ya Plastic Bags daalna zaroori hai");
+      return;
+    }
+
     try {
       const dataToSend = {
         ...formData,
